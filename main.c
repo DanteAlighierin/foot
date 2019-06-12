@@ -31,6 +31,23 @@ struct context {
 };
 
 static void
+resize(struct context *c, int width, int height)
+{
+    LOG_DBG("resize: %dx%d", width, height);
+
+    struct buffer *buf = shm_get_buffer(c->wl.shm, width, height);
+
+    cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
+    cairo_set_source_rgba(buf->cairo, 1.0, 0.0, 0.0, 1.0);
+    cairo_rectangle(buf->cairo, 0, 0, buf->width, buf->height);
+    cairo_fill(buf->cairo);
+
+    wl_surface_attach(c->wl.surface, buf->wl_buf, 0, 0);
+    wl_surface_damage(c->wl.surface, 0, 0, buf->width, buf->height);
+    wl_surface_commit(c->wl.surface);
+}
+
+static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
 }
@@ -128,6 +145,10 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 {
     //struct context *c = data;
     LOG_DBG("xdg-toplevel: configure: %dx%d", width, height);
+    if (width <= 0 || height <= 0)
+        return;
+
+    resize(data, width, height);
 }
 
 static void
@@ -227,18 +248,7 @@ main(int argc, const char *const *argv)
     /* TODO: use font metrics to calculate initial size from ROWS x COLS */
     const int default_width = 300;
     const int default_height = 300;
-    struct buffer *buf = shm_get_buffer(c.wl.shm, default_width, default_height);
-
-    cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
-    cairo_set_source_rgba(buf->cairo, 1.0, 0.0, 0.0, 1.0);
-    cairo_rectangle(buf->cairo, 0, 0, buf->width, buf->height);
-    cairo_fill(buf->cairo);
-
-    wl_surface_attach(c.wl.surface, buf->wl_buf, 0, 0);
-    wl_surface_damage(c.wl.surface, 0, 0, buf->width, buf->height);
-
-
-    wl_surface_commit(c.wl.surface);
+    resize(&c, default_width, default_height);
 
     wl_display_dispatch_pending(c.wl.display);
 
@@ -247,10 +257,8 @@ main(int argc, const char *const *argv)
             {.fd = wl_display_get_fd(c.wl.display), .events = POLLIN},
         };
 
-        LOG_DBG("polling...");
         wl_display_flush(c.wl.display);
         poll(fds, 1, -1);
-        LOG_DBG("lsdjfldsf");
 
         if (fds[0].revents & POLLHUP) {
             LOG_WARN("disconnected from wayland");
