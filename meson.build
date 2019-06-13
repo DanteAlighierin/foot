@@ -56,6 +56,7 @@ executable(
   'log.c', 'log.h',
   'main.c',
   'shm.c', 'shm.h',
+  'slave.c', 'slave.h',
   'tllist.h',
   wl_proto_src + wl_proto_headers,
   dependencies: [cairo, cairo_ft, fontconfig, wayland_client, wayland_cursor, xkb],

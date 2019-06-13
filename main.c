@@ -2,7 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <assert.h>
+#include <fcntl.h>
 
 #include <poll.h>
 
@@ -12,7 +14,9 @@
 #define LOG_MODULE "main"
 #define LOG_ENABLE_DBG 1
 #include "log.h"
+
 #include "shm.h"
+#include "slave.h"
 
 struct wayland {
     struct wl_display *display;
@@ -27,6 +31,7 @@ struct wayland {
 
 struct context {
     bool quit;
+    int ptmx;
     struct wayland wl;
 };
 
@@ -71,7 +76,7 @@ static void
 handle_global(void *data, struct wl_registry *registry,
               uint32_t name, const char *interface, uint32_t version)
 {
-    LOG_DBG("global: %s", interface);
+    //LOG_DBG("global: %s", interface);
     struct context *c = data;
 
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
@@ -144,7 +149,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
                        int32_t width, int32_t height, struct wl_array *states)
 {
     //struct context *c = data;
-    LOG_DBG("xdg-toplevel: configure: %dx%d", width, height);
+    //LOG_DBG("xdg-toplevel: configure: %dx%d", width, height);
     if (width <= 0 || height <= 0)
         return;
 
@@ -169,7 +174,7 @@ static void
 xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
                       uint32_t serial)
 {
-    LOG_DBG("xdg-surface: configure");
+    //LOG_DBG("xdg-surface: configure");
     xdg_surface_ack_configure(xdg_surface, serial);
 }
 
@@ -196,8 +201,14 @@ main(int argc, const char *const *argv)
 
     struct context c = {
         .quit = false,
+        .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
         .wl = {0},
     };
+
+    if (c.ptmx == -1) {
+        LOG_ERRNO("failed to open pseudo terminal");
+        goto out;
+    }
 
     c.wl.display = wl_display_connect(NULL);
     if (c.wl.display == NULL) {
@@ -252,23 +263,57 @@ main(int argc, const char *const *argv)
 
     wl_display_dispatch_pending(c.wl.display);
 
+    pid_t pid = fork();
+    switch (pid) {
+    case -1:
+        LOG_ERRNO("failed to fork");
+        goto out;
+
+    case 0:
+        /* Child */
+        slave_spawn(c.ptmx);
+        assert(false);
+        break;
+
+    default:
+        LOG_DBG("slave has PID %d", pid);
+        break;
+    }
+
     while (!c.quit) {
         struct pollfd fds[] = {
             {.fd = wl_display_get_fd(c.wl.display), .events = POLLIN},
+            {.fd = c.ptmx, .events = POLLIN},
         };
 
         wl_display_flush(c.wl.display);
-        poll(fds, 1, -1);
+        poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
+
+        if (fds[0].revents & POLLIN) {
+            wl_display_dispatch(c.wl.display);
+        }
 
         if (fds[0].revents & POLLHUP) {
             LOG_WARN("disconnected from wayland");
             break;
         }
 
-        wl_display_dispatch(c.wl.display);
-    }
+        if (fds[1].revents & POLLIN) {
+            char data[1024];
+            ssize_t count = read(c.ptmx, data, sizeof(data));
+            if (count < 0) {
+                LOG_ERRNO("failed to read from pseudo terminal");
+                break;
+            }
 
-    ret = EXIT_SUCCESS;
+            LOG_DBG("%.*s", (int)count, data);
+        }
+
+        if (fds[1].revents & POLLHUP) {
+            ret = EXIT_SUCCESS;
+            break;
+        }
+    }
 
 out:
     shm_fini();
@@ -288,6 +333,9 @@ out:
         wl_registry_destroy(c.wl.registry);
     if (c.wl.display != NULL)
         wl_display_disconnect(c.wl.display);
+
+    if (c.ptmx != -1)
+        close(c.ptmx);
 
     cairo_debug_reset_static_data();
     return ret;
