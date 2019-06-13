@@ -57,6 +57,9 @@ slave_spawn(int ptmx)
     const char *s = "hello\tbla\nfoobar\thaa";
     write(STDOUT_FILENO, s, strlen(s));
 
+    sleep(1);
+    write(STDOUT_FILENO, "yeehaa", 6);
+
     sleep(1000);
 
 err:

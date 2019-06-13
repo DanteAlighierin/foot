@@ -41,6 +41,7 @@ struct grid {
     int cell_width;
     int cell_height;
     struct cell *cells;
+    bool dirty;
 };
 
 struct context {
@@ -55,12 +56,22 @@ struct context {
 
     struct wayland wl;
     struct grid grid;
+
+    bool frame_is_scheduled;
 };
 
+
+static void frame_callback(
+    void *data, struct wl_callback *wl_callback, uint32_t callback_data);
+
+static const struct wl_callback_listener frame_listener = {
+    .done = &frame_callback,
+};
 
 static void
 grid_render(struct context *c)
 {
+    assert(c->grid.dirty);
     assert(c->width > 0);
     assert(c->height > 0);
 
@@ -105,9 +116,28 @@ grid_render(struct context *c)
         }
     }
 
+    c->grid.dirty = false;
+
     wl_surface_attach(c->wl.surface, buf->wl_buf, 0, 0);
     wl_surface_damage(c->wl.surface, 0, 0, buf->width, buf->height);
+
+    struct wl_callback *cb = wl_surface_frame(c->wl.surface);
+    wl_callback_add_listener(cb, &frame_listener, c);
+    c->frame_is_scheduled = true;
+
     wl_surface_commit(c->wl.surface);
+}
+
+static void
+frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
+{
+    struct context *c = data;
+
+    c->frame_is_scheduled = false;
+    wl_callback_destroy(wl_callback);
+
+    if (c->grid.dirty)
+        grid_render(c);
 }
 
 static void
@@ -137,7 +167,9 @@ resize(struct context *c, int width, int height)
     LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d",
             c->width, c->height, c->grid.cols, c->grid.rows);
 
-    grid_render(c);
+    c->grid.dirty = true;
+    if (!c->frame_is_scheduled)
+        grid_render(c);
 }
 
 static void
@@ -426,7 +458,9 @@ main(int argc, const char *const *argv)
                     break;
                 }
             }
-            grid_render(&c);
+            c.grid.dirty = true;
+            if (!c.frame_is_scheduled)
+                grid_render(&c);
         }
 
         if (fds[1].revents & POLLHUP) {
