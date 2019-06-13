@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <fcntl.h>
-
+#include <locale.h>
 #include <poll.h>
 
 #include <wayland-client.h>
@@ -31,7 +31,7 @@ struct wayland {
 };
 
 struct cell {
-    char c;
+    char c[5];
     bool dirty;
 };
 
@@ -122,8 +122,8 @@ grid_render(struct context *c)
             int num_glyphs = 0;
 
             cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-                c->font, x_ofs, y_ofs, &cell->c, 1, &glyphs, &num_glyphs,
-                NULL, NULL, NULL);
+                c->font, x_ofs, y_ofs, cell->c, strlen(cell->c),
+                &glyphs, &num_glyphs, NULL, NULL, NULL);
 
             //assert(status == CAIRO_STATUS_SUCCESS);
             if (status != CAIRO_STATUS_SUCCESS) {
@@ -349,6 +349,8 @@ main(int argc, const char *const *argv)
 {
     int ret = EXIT_FAILURE;
 
+    setlocale(LC_ALL, "");
+
     struct context c = {
         .quit = false,
         .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
@@ -471,38 +473,48 @@ main(int argc, const char *const *argv)
             //LOG_DBG("%.*s", (int)count, data);
 
             int cursor = c.grid.cursor;
-            for (int i = 0; i < count; i++) {
+            for (int i = 0; i < count;) {
                 switch (data[i]) {
                 case '\r':
                     c.grid.cells[cursor].dirty = true;
                     cursor = cursor / c.grid.cols * c.grid.cols;
                     c.grid.cells[cursor].dirty = true;
-                    c.grid.dirty = true;
+                    i++;
                     break;
 
                 case '\n':
                     c.grid.cells[cursor].dirty = true;
                     cursor += c.grid.cols;
                     c.grid.cells[cursor].dirty = true;
-                    c.grid.dirty = true;
+                    i++;
                     break;
 
                 case '\t':
                     c.grid.cells[cursor].dirty = true;
                     cursor = (cursor + 8) / 8 * 8;
                     c.grid.cells[cursor].dirty = true;
-                    c.grid.dirty = true;
+                    i++;
                     break;
 
-                default:
+                default: {
+                    /* TODO: mbrlen() + error handling */
+                    int clen = mblen(&data[i], count - i);
+                    assert(clen >= 0);
+                    assert(i + clen <= count);
+
                     c.grid.cells[cursor].dirty = true;
-                    c.grid.cells[cursor++].c = data[i];
+                    memcpy(c.grid.cells[cursor].c, &data[i], clen);
+                    c.grid.cells[cursor].c[clen] = '\0';
+
+                    cursor++;
                     c.grid.cells[cursor].dirty = true;
-                    c.grid.dirty = true;
+                    i += clen;
                     break;
+                }
                 }
             }
 
+            c.grid.dirty = true;
             c.grid.cursor = cursor;
 
             if (!c.frame_is_scheduled)

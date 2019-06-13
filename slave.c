@@ -61,7 +61,7 @@ slave_spawn(int ptmx)
     write(STDOUT_FILENO, "yeehaa", 6);
 
     sleep(1);
-    write(STDOUT_FILENO, "\rXXX", 4);
+    write(STDOUT_FILENO, "\råäö", strlen("\råäö"));
 
     sleep(1000);
 
