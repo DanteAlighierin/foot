@@ -60,6 +60,9 @@ slave_spawn(int ptmx)
     sleep(1);
     write(STDOUT_FILENO, "yeehaa", 6);
 
+    sleep(1);
+    write(STDOUT_FILENO, "\rXXX", 4);
+
     sleep(1000);
 
 err:

@@ -32,6 +32,7 @@ struct wayland {
 
 struct cell {
     char c;
+    bool dirty;
 };
 
 struct grid {
@@ -41,7 +42,9 @@ struct grid {
     int cell_width;
     int cell_height;
     struct cell *cells;
+
     bool dirty;
+    bool all_dirty;
 };
 
 struct context {
@@ -77,25 +80,43 @@ grid_render(struct context *c)
 
     struct buffer *buf = shm_get_buffer(c->wl.shm, c->width, c->height);
 
-    /* Background */
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
-    cairo_set_source_rgba(buf->cairo, 0.0, 0.0, 0.0, 1.0);
-    cairo_rectangle(buf->cairo, 0, 0, buf->width, buf->height);
-    cairo_fill(buf->cairo);
-
-    /* Grid */
-    cairo_set_source_rgba(buf->cairo, 1.0, 1.0, 1.0, 1.0);
     cairo_set_scaled_font(buf->cairo, c->font);
+
+    if (c->grid.all_dirty) {
+        cairo_set_source_rgba(buf->cairo, 0.0, 0.0, 0.0, 1.0);
+        cairo_rectangle(buf->cairo, 0, 0, buf->width, buf->height);
+        cairo_fill(buf->cairo);
+    }
+
 
     for (int row = 0; row < c->grid.rows; row++) {
         for (int col = 0; col < c->grid.cols; col++) {
             int cell_idx = row * c->grid.cols + col;
-            const struct cell *cell = &c->grid.cells[cell_idx];
+            struct cell *cell = &c->grid.cells[cell_idx];
+
+            if (!cell->dirty && !c->grid.all_dirty)
+                continue;
+
+            bool has_cursor = c->grid.cursor == cell_idx;
 
             int y_ofs = row * c->grid.cell_height + c->fextents.ascent;
             int x_ofs = col * c->grid.cell_width;
 
-            //LOG_DBG("cell %dx%d: c=0x%02x (%c)", col, row, cell->c, cell->c);
+            int damage_x = x_ofs;
+            int damage_y = y_ofs - c->fextents.ascent;
+
+            //LOG_DBG("cell %dx%d dirty: c=0x%02x (%c)", col, row, cell->c, cell->c);
+
+            if (has_cursor)
+                cairo_set_source_rgba(buf->cairo, 1.0, 1.0, 1.0, 1.0);
+            else
+                cairo_set_source_rgba(buf->cairo, 0.0, 0.0, 0.0, 1.0);
+
+            cairo_rectangle(
+                buf->cairo, damage_x, damage_y,
+                c->grid.cell_width, c->grid.cell_height);
+            cairo_fill(buf->cairo);
 
             cairo_glyph_t *glyphs = NULL;
             int num_glyphs = 0;
@@ -111,21 +132,29 @@ grid_render(struct context *c)
                 continue;
             }
 
+            if (has_cursor)
+                cairo_set_source_rgba(buf->cairo, 0.0, 0.0, 0.0, 1.0);
+            else
+                cairo_set_source_rgba(buf->cairo, 1.0, 1.0, 1.0, 1.0);
             cairo_show_glyphs(buf->cairo, glyphs, num_glyphs);
             cairo_glyph_free(glyphs);
+
+            wl_surface_damage_buffer(
+                c->wl.surface, damage_x, damage_y,
+                c->grid.cell_width, c->grid.cell_height);
+
+            cell->dirty = false;
         }
     }
 
-    c->grid.dirty = false;
-
     wl_surface_attach(c->wl.surface, buf->wl_buf, 0, 0);
-    wl_surface_damage(c->wl.surface, 0, 0, buf->width, buf->height);
 
     struct wl_callback *cb = wl_surface_frame(c->wl.surface);
     wl_callback_add_listener(cb, &frame_listener, c);
     c->frame_is_scheduled = true;
 
     wl_surface_commit(c->wl.surface);
+    c->grid.dirty = c->grid.all_dirty = false;
 }
 
 static void
@@ -167,7 +196,8 @@ resize(struct context *c, int width, int height)
     LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d",
             c->width, c->height, c->grid.cols, c->grid.rows);
 
-    c->grid.dirty = true;
+    c->grid.dirty = c->grid.all_dirty = true;
+
     if (!c->frame_is_scheduled)
         grid_render(c);
 }
@@ -325,14 +355,14 @@ main(int argc, const char *const *argv)
         .wl = {0},
     };
 
-    const char *font_name = "Dina:size=9";
+    const char *font_name = "Dina:pixelsize=12";
     c.font = font_from_name(font_name);
     if (c.font == NULL)
         goto out;
 
     cairo_scaled_font_extents(c.font,  &c.fextents);
 
-    LOG_DBG("height: %.2f, x-advance: %.2f",
+    LOG_DBG("font: height: %.2f, x-advance: %.2f",
             c.fextents.height, c.fextents.max_x_advance);
     assert(c.fextents.max_y_advance == 0);
 
@@ -390,6 +420,7 @@ main(int argc, const char *const *argv)
     /* TODO: use font metrics to calculate initial size from ROWS x COLS */
     const int default_width = 300;
     const int default_height = 300;
+    c.grid.dirty = c.grid.all_dirty = true;
     resize(&c, default_width, default_height);
 
     wl_display_dispatch_pending(c.wl.display);
@@ -439,26 +470,41 @@ main(int argc, const char *const *argv)
 
             //LOG_DBG("%.*s", (int)count, data);
 
+            int cursor = c.grid.cursor;
             for (int i = 0; i < count; i++) {
                 switch (data[i]) {
                 case '\r':
-                    c.grid.cursor = c.grid.cursor / c.grid.cols * c.grid.cols;
+                    c.grid.cells[cursor].dirty = true;
+                    cursor = cursor / c.grid.cols * c.grid.cols;
+                    c.grid.cells[cursor].dirty = true;
+                    c.grid.dirty = true;
                     break;
 
                 case '\n':
-                    c.grid.cursor += c.grid.cols;
+                    c.grid.cells[cursor].dirty = true;
+                    cursor += c.grid.cols;
+                    c.grid.cells[cursor].dirty = true;
+                    c.grid.dirty = true;
                     break;
 
                 case '\t':
-                    c.grid.cursor = (c.grid.cursor + 8) / 8 * 8;
+                    c.grid.cells[cursor].dirty = true;
+                    cursor = (cursor + 8) / 8 * 8;
+                    c.grid.cells[cursor].dirty = true;
+                    c.grid.dirty = true;
                     break;
 
                 default:
-                    c.grid.cells[c.grid.cursor++].c = data[i];
+                    c.grid.cells[cursor].dirty = true;
+                    c.grid.cells[cursor++].c = data[i];
+                    c.grid.cells[cursor].dirty = true;
+                    c.grid.dirty = true;
                     break;
                 }
             }
-            c.grid.dirty = true;
+
+            c.grid.cursor = cursor;
+
             if (!c.frame_is_scheduled)
                 grid_render(&c);
         }
