@@ -412,7 +412,7 @@ main(int argc, const char *const *argv)
     xdg_toplevel_add_listener(c.wl.xdg_toplevel, &xdg_toplevel_listener, &c);
 
     xdg_toplevel_set_app_id(c.wl.xdg_toplevel, "f00ter");
-    xdg_toplevel_set_title(c.wl.xdg_toplevel, "hello world");
+    xdg_toplevel_set_title(c.wl.xdg_toplevel, "f00ter");
 
     wl_surface_commit(c.wl.surface);
     wl_display_roundtrip(c.wl.display);
