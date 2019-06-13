@@ -53,7 +53,8 @@ slave_spawn(int ptmx)
     pts = -1;
 
     /* TODO: exec() */
-    const char *s = "hello world\n";
+    sleep(1);
+    const char *s = "hello\tbla\nfoobar\thaa";
     write(STDOUT_FILENO, s, strlen(s));
 
     sleep(1000);

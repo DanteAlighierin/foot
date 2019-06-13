@@ -15,6 +15,7 @@
 #define LOG_ENABLE_DBG 1
 #include "log.h"
 
+#include "font.h"
 #include "shm.h"
 #include "slave.h"
 
@@ -29,27 +30,114 @@ struct wayland {
     struct xdg_toplevel *xdg_toplevel;
 };
 
+struct cell {
+    char c;
+};
+
+struct grid {
+    int cols;
+    int rows;
+    int cursor;
+    int cell_width;
+    int cell_height;
+    struct cell *cells;
+};
+
 struct context {
     bool quit;
     int ptmx;
+
+    cairo_scaled_font_t *font;
+    cairo_font_extents_t fextents;
+
+    int width;
+    int height;
+
     struct wayland wl;
+    struct grid grid;
 };
 
+
 static void
-resize(struct context *c, int width, int height)
+grid_render(struct context *c)
 {
-    LOG_DBG("resize: %dx%d", width, height);
+    assert(c->width > 0);
+    assert(c->height > 0);
 
-    struct buffer *buf = shm_get_buffer(c->wl.shm, width, height);
+    struct buffer *buf = shm_get_buffer(c->wl.shm, c->width, c->height);
 
+    /* Background */
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
-    cairo_set_source_rgba(buf->cairo, 1.0, 0.0, 0.0, 1.0);
+    cairo_set_source_rgba(buf->cairo, 0.0, 0.0, 0.0, 1.0);
     cairo_rectangle(buf->cairo, 0, 0, buf->width, buf->height);
     cairo_fill(buf->cairo);
+
+    /* Grid */
+    cairo_set_source_rgba(buf->cairo, 1.0, 1.0, 1.0, 1.0);
+    cairo_set_scaled_font(buf->cairo, c->font);
+
+    for (int row = 0; row < c->grid.rows; row++) {
+        for (int col = 0; col < c->grid.cols; col++) {
+            int cell_idx = row * c->grid.cols + col;
+            const struct cell *cell = &c->grid.cells[cell_idx];
+
+            int y_ofs = row * c->grid.cell_height + c->fextents.ascent;
+            int x_ofs = col * c->grid.cell_width;
+
+            //LOG_DBG("cell %dx%d: c=0x%02x (%c)", col, row, cell->c, cell->c);
+
+            cairo_glyph_t *glyphs = NULL;
+            int num_glyphs = 0;
+
+            cairo_status_t status = cairo_scaled_font_text_to_glyphs(
+                c->font, x_ofs, y_ofs, &cell->c, 1, &glyphs, &num_glyphs,
+                NULL, NULL, NULL);
+
+            //assert(status == CAIRO_STATUS_SUCCESS);
+            if (status != CAIRO_STATUS_SUCCESS) {
+                if (glyphs != NULL)
+                    cairo_glyph_free(glyphs);
+                continue;
+            }
+
+            cairo_show_glyphs(buf->cairo, glyphs, num_glyphs);
+            cairo_glyph_free(glyphs);
+        }
+    }
 
     wl_surface_attach(c->wl.surface, buf->wl_buf, 0, 0);
     wl_surface_damage(c->wl.surface, 0, 0, buf->width, buf->height);
     wl_surface_commit(c->wl.surface);
+}
+
+static void
+resize(struct context *c, int width, int height)
+{
+    if (width == c->width && height == c->height)
+        return;
+
+    c->width = width;
+    c->height = height;
+
+    size_t old_cells_len = c->grid.cols * c->grid.rows;
+
+    c->grid.cell_width = (int)ceil(c->fextents.max_x_advance);
+    c->grid.cell_height = (int)ceil(c->fextents.height);
+    c->grid.cols = c->width / c->grid.cell_width;
+    c->grid.rows = c->height / c->grid.cell_height;
+    c->grid.cells = realloc(c->grid.cells,
+        c->grid.cols * c->grid.rows * sizeof(c->grid.cells[0]));
+
+    size_t new_cells_len = c->grid.cols * c->grid.rows;
+    if (new_cells_len > old_cells_len) {
+        memset(&c->grid.cells[old_cells_len], 0,
+               (new_cells_len - old_cells_len) * sizeof(c->grid.cells[0]));
+    }
+
+    LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d",
+            c->width, c->height, c->grid.cols, c->grid.rows);
+
+    grid_render(c);
 }
 
 static void
@@ -205,6 +293,17 @@ main(int argc, const char *const *argv)
         .wl = {0},
     };
 
+    const char *font_name = "Dina:size=9";
+    c.font = font_from_name(font_name);
+    if (c.font == NULL)
+        goto out;
+
+    cairo_scaled_font_extents(c.font,  &c.fextents);
+
+    LOG_DBG("height: %.2f, x-advance: %.2f",
+            c.fextents.height, c.fextents.max_x_advance);
+    assert(c.fextents.max_y_advance == 0);
+
     if (c.ptmx == -1) {
         LOG_ERRNO("failed to open pseudo terminal");
         goto out;
@@ -306,7 +405,28 @@ main(int argc, const char *const *argv)
                 break;
             }
 
-            LOG_DBG("%.*s", (int)count, data);
+            //LOG_DBG("%.*s", (int)count, data);
+
+            for (int i = 0; i < count; i++) {
+                switch (data[i]) {
+                case '\r':
+                    c.grid.cursor = c.grid.cursor / c.grid.cols * c.grid.cols;
+                    break;
+
+                case '\n':
+                    c.grid.cursor += c.grid.cols;
+                    break;
+
+                case '\t':
+                    c.grid.cursor = (c.grid.cursor + 8) / 8 * 8;
+                    break;
+
+                default:
+                    c.grid.cells[c.grid.cursor++].c = data[i];
+                    break;
+                }
+            }
+            grid_render(&c);
         }
 
         if (fds[1].revents & POLLHUP) {
@@ -333,6 +453,11 @@ out:
         wl_registry_destroy(c.wl.registry);
     if (c.wl.display != NULL)
         wl_display_disconnect(c.wl.display);
+
+    free(c.grid.cells);
+
+    if (c.font != NULL)
+        cairo_scaled_font_destroy(c.font);
 
     if (c.ptmx != -1)
         close(c.ptmx);

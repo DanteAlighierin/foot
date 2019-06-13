@@ -16,6 +16,10 @@ add_project_arguments(
   (is_debug_build ? ['-D_DEBUG'] : []),
   language: 'c',
 )
+
+cc = meson.get_compiler('c')
+math = cc.find_library('m')
+
 fontconfig = dependency('fontconfig')
 cairo = dependency('cairo')
 cairo_ft = dependency('cairo-ft')
@@ -53,11 +57,12 @@ endforeach
 
 executable(
   'f00ter',
+  'font.c', 'font.h',
   'log.c', 'log.h',
   'main.c',
   'shm.c', 'shm.h',
   'slave.c', 'slave.h',
   'tllist.h',
   wl_proto_src + wl_proto_headers,
-  dependencies: [cairo, cairo_ft, fontconfig, wayland_client, wayland_cursor, xkb],
+  dependencies: [math, cairo, cairo_ft, fontconfig, wayland_client, wayland_cursor, xkb],
   install: true)
