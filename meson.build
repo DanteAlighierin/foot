@@ -57,12 +57,16 @@ endforeach
 
 executable(
   'f00ter',
+  'csi.c', 'csi.h',
   'font.c', 'font.h',
   'log.c', 'log.h',
   'main.c',
+  'osc.c', 'osc.h',
   'shm.c', 'shm.h',
   'slave.c', 'slave.h',
+  'terminal.h',
   'tllist.h',
+  'vt.c', 'vt.h',
   wl_proto_src + wl_proto_headers,
   dependencies: [math, cairo, cairo_ft, fontconfig, wayland_client, wayland_cursor, xkb],
   install: true)

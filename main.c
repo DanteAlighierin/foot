@@ -8,6 +8,9 @@
 #include <locale.h>
 #include <poll.h>
 
+#include <sys/ioctl.h>
+//#include <termios.h>
+
 #include <wayland-client.h>
 #include <xdg-shell.h>
 
@@ -18,6 +21,8 @@
 #include "font.h"
 #include "shm.h"
 #include "slave.h"
+#include "terminal.h"
+#include "vt.h"
 
 static const uint32_t default_foreground = 0xffffffff;
 static const uint32_t default_background = 0x000000ff;
@@ -33,29 +38,6 @@ struct wayland {
     struct xdg_toplevel *xdg_toplevel;
 };
 
-struct cell {
-    char c[5];
-    uint32_t foreground;
-    uint32_t background;
-    bool dirty;
-};
-
-struct grid {
-    int cols;
-    int rows;
-    int cell_width;
-    int cell_height;
-
-    int cursor;
-    struct cell *cells;
-
-    uint32_t foreground;
-    uint32_t background;
-
-    bool dirty;
-    bool all_dirty;
-};
-
 struct context {
     bool quit;
     int ptmx;
@@ -67,7 +49,8 @@ struct context {
     int height;
 
     struct wayland wl;
-    struct grid grid;
+    //struct grid grid;
+    struct terminal term;
 
     bool frame_is_scheduled;
 };
@@ -83,7 +66,7 @@ static const struct wl_callback_listener frame_listener = {
 static void
 grid_render(struct context *c)
 {
-    assert(c->grid.dirty);
+    assert(c->term.grid.dirty);
     assert(c->width > 0);
     assert(c->height > 0);
 
@@ -95,7 +78,7 @@ grid_render(struct context *c)
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
     cairo_set_scaled_font(buf->cairo, c->font);
 
-    if (c->grid.all_dirty) {
+    if (c->term.grid.all_dirty) {
         br = (double)((default_background >> 24) & 0xff) / 255.0;
         bg = (double)((default_background >> 16) & 0xff) / 255.0;
         bb = (double)((default_background >>  8) & 0xff) / 255.0;
@@ -105,20 +88,20 @@ grid_render(struct context *c)
     }
 
 
-    for (int row = 0; row < c->grid.rows; row++) {
-        for (int col = 0; col < c->grid.cols; col++) {
-            int cell_idx = row * c->grid.cols + col;
-            struct cell *cell = &c->grid.cells[cell_idx];
+    for (int row = 0; row < c->term.grid.rows; row++) {
+        for (int col = 0; col < c->term.grid.cols; col++) {
+            int cell_idx = row * c->term.grid.cols + col;
+            struct cell *cell = &c->term.grid.cells[cell_idx];
 
-            if (!cell->dirty && !c->grid.all_dirty)
+            if (!cell->dirty && !c->term.grid.all_dirty)
                 continue;
 
             cell->dirty = false;
 
-            bool has_cursor = c->grid.cursor == cell_idx;
+            bool has_cursor = c->term.grid.cursor == cell_idx;
 
-            int y_ofs = row * c->grid.cell_height + c->fextents.ascent;
-            int x_ofs = col * c->grid.cell_width;
+            int y_ofs = row * c->term.grid.cell_height + c->fextents.ascent;
+            int x_ofs = col * c->term.grid.cell_width;
 
             int damage_x = x_ofs;
             int damage_y = y_ofs - c->fextents.ascent;
@@ -141,7 +124,7 @@ grid_render(struct context *c)
 
             cairo_rectangle(
                 buf->cairo, damage_x, damage_y,
-                c->grid.cell_width, c->grid.cell_height);
+                c->term.grid.cell_width, c->term.grid.cell_height);
             cairo_fill(buf->cairo);
 
             cairo_glyph_t *glyphs = NULL;
@@ -167,7 +150,7 @@ grid_render(struct context *c)
 
             wl_surface_damage_buffer(
                 c->wl.surface, damage_x, damage_y,
-                c->grid.cell_width, c->grid.cell_height);
+                c->term.grid.cell_width, c->term.grid.cell_height);
         }
     }
 
@@ -178,7 +161,7 @@ grid_render(struct context *c)
     c->frame_is_scheduled = true;
 
     wl_surface_commit(c->wl.surface);
-    c->grid.dirty = c->grid.all_dirty = false;
+    c->term.grid.dirty = c->term.grid.all_dirty = false;
 }
 
 static void
@@ -189,7 +172,7 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     c->frame_is_scheduled = false;
     wl_callback_destroy(wl_callback);
 
-    if (c->grid.dirty)
+    if (c->term.grid.dirty)
         grid_render(c);
 }
 
@@ -202,25 +185,40 @@ resize(struct context *c, int width, int height)
     c->width = width;
     c->height = height;
 
-    size_t old_cells_len = c->grid.cols * c->grid.rows;
+    size_t old_cells_len = c->term.grid.cols * c->term.grid.rows;
 
-    c->grid.cell_width = (int)ceil(c->fextents.max_x_advance);
-    c->grid.cell_height = (int)ceil(c->fextents.height);
-    c->grid.cols = c->width / c->grid.cell_width;
-    c->grid.rows = c->height / c->grid.cell_height;
-    c->grid.cells = realloc(c->grid.cells,
-        c->grid.cols * c->grid.rows * sizeof(c->grid.cells[0]));
+    c->term.grid.cell_width = (int)ceil(c->fextents.max_x_advance);
+    c->term.grid.cell_height = (int)ceil(c->fextents.height);
+    c->term.grid.cols = c->width / c->term.grid.cell_width;
+    c->term.grid.rows = c->height / c->term.grid.cell_height;
+    c->term.grid.cells = realloc(c->term.grid.cells,
+        c->term.grid.cols * c->term.grid.rows * sizeof(c->term.grid.cells[0]));
 
-    size_t new_cells_len = c->grid.cols * c->grid.rows;
+    size_t new_cells_len = c->term.grid.cols * c->term.grid.rows;
     for (size_t i = old_cells_len; i < new_cells_len; i++) {
-        c->grid.cells[i] = (struct cell){.foreground = default_foreground,
+        c->term.grid.cells[i] = (struct cell){.foreground = default_foreground,
                                          .background = default_background};
     }
 
     LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d",
-            c->width, c->height, c->grid.cols, c->grid.rows);
+            c->width, c->height, c->term.grid.cols, c->term.grid.rows);
 
-    c->grid.dirty = c->grid.all_dirty = true;
+    /* Update environment variables */
+    char cols_s[12], rows_s[12];
+    sprintf(cols_s, "%u", c->term.grid.cols);
+    sprintf(rows_s, "%u", c->term.grid.rows);
+    setenv("COLUMNS", cols_s, 1);
+    setenv("LINES", rows_s, 1);
+
+    /* SIignal TIOCSWINSZ */
+    if (ioctl(c->ptmx, TIOCSWINSZ,
+              &(struct winsize){.ws_row = c->term.grid.rows,
+                                .ws_col = c->term.grid.cols}) == -1)
+    {
+        LOG_ERRNO("TIOCSWINSZ");
+    }
+
+    c->term.grid.dirty = c->term.grid.all_dirty = true;
 
     if (!c->frame_is_scheduled)
         grid_render(c);
@@ -378,8 +376,13 @@ main(int argc, const char *const *argv)
     struct context c = {
         .quit = false,
         .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
-        .grid = {.foreground = default_foreground,
-                 .background = default_background},
+        .term = {
+            .vt = {
+                .state = 1,
+            },
+            .grid = {.foreground = default_foreground,
+                     .background = default_background},
+        },
     };
 
     const char *font_name = "Dina:pixelsize=12";
@@ -447,7 +450,7 @@ main(int argc, const char *const *argv)
     /* TODO: use font metrics to calculate initial size from ROWS x COLS */
     const int default_width = 300;
     const int default_height = 300;
-    c.grid.dirty = c.grid.all_dirty = true;
+    c.term.grid.dirty = c.term.grid.all_dirty = true;
     resize(&c, default_width, default_height);
 
     wl_display_dispatch_pending(c.wl.display);
@@ -492,7 +495,7 @@ main(int argc, const char *const *argv)
         }
 
         if (fds[1].revents & POLLIN) {
-            char data[1024];
+            uint8_t data[1024];
             ssize_t count = read(c.ptmx, data, sizeof(data));
             if (count < 0) {
                 LOG_ERRNO("failed to read from pseudo terminal");
@@ -501,55 +504,8 @@ main(int argc, const char *const *argv)
 
             //LOG_DBG("%.*s", (int)count, data);
 
-            int new_cursor = c.grid.cursor;
-            for (int i = 0; i < count;) {
-                switch (data[i]) {
-                case '\r':
-                    new_cursor = new_cursor / c.grid.cols * c.grid.cols;
-                    i++;
-                    break;
-
-                case '\n':
-                    new_cursor += c.grid.cols;
-                    i++;
-                    break;
-
-                case '\t':
-                    new_cursor = (new_cursor + 8) / 8 * 8;
-                    i++;
-                    break;
-
-                default: {
-                    /* TODO: mbrlen() + error handling */
-                    int clen = mblen(&data[i], count - i);
-                    assert(clen >= 0);
-                    assert(i + clen <= count);
-
-                    struct cell *cell = &c.grid.cells[new_cursor];
-
-                    cell->dirty = true;
-                    cell->foreground = c.grid.foreground;
-                    cell->background = c.grid.background;
-
-                    memcpy(cell->c, &data[i], clen);
-                    cell->c[clen] = '\0';
-
-                    new_cursor++;
-                    i += clen;
-                    break;
-                }
-                }
-            }
-
-            c.grid.dirty = true;
-
-            if (new_cursor != c.grid.cursor) {
-                c.grid.cells[c.grid.cursor].dirty = true;
-                c.grid.cells[new_cursor].dirty = true;
-                c.grid.cursor = new_cursor;
-            }
-
-            if (!c.frame_is_scheduled)
+            vt_from_slave(&c.term, data, count);
+            if (c.term.grid.dirty && !c.frame_is_scheduled)
                 grid_render(&c);
         }
 
@@ -578,7 +534,7 @@ out:
     if (c.wl.display != NULL)
         wl_display_disconnect(c.wl.display);
 
-    free(c.grid.cells);
+    free(c.term.grid.cells);
 
     if (c.font != NULL)
         cairo_scaled_font_destroy(c.font);
