@@ -214,8 +214,11 @@ resize(struct context *c, int width, int height)
 
     /* SIignal TIOCSWINSZ */
     if (ioctl(c->ptmx, TIOCSWINSZ,
-              &(struct winsize){.ws_row = c->term.grid.rows,
-                                .ws_col = c->term.grid.cols}) == -1)
+              &(struct winsize){
+                  .ws_row = c->term.grid.rows,
+                  .ws_col = c->term.grid.cols,
+                  .ws_xpixel = c->width,
+                  .ws_ypixel = c->height}) == -1)
     {
         LOG_ERRNO("TIOCSWINSZ");
     }
