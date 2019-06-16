@@ -186,8 +186,7 @@ action(struct terminal *term, enum action action, uint8_t c)
             cell->c[1] = '\0';
         }
 
-        cell->foreground = term->vt.foreground;
-        cell->background = term->vt.background;
+        cell->attrs = term->vt.attrs;
 
         term->grid.cells[++term->grid.cursor].dirty = true;
         term->grid.dirty = true;

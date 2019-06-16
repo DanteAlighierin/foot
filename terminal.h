@@ -4,11 +4,22 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-struct cell {
-    char c[5];
+struct attributes {
+    bool bold;
+    bool italic;
+    bool underline;
+    bool strikethrough;
+    bool blink;
+    bool conceal;
+    bool reverse;
     uint32_t foreground;
     uint32_t background;
+};
+
+struct cell {
     bool dirty;
+    char c[5];
+    struct attributes attrs;
 };
 
 struct grid {
@@ -52,16 +63,8 @@ struct vt {
         size_t idx;
         size_t left;
     } utf8;
-    bool bold;
+    struct attributes attrs;
     bool dim;
-    bool italic;
-    bool underline;
-    bool strikethrough;
-    bool blink;
-    bool conceal;
-    bool reverse;
-    uint32_t foreground;
-    uint32_t background;
 };
 
 struct terminal {

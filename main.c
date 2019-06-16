@@ -109,13 +109,13 @@ grid_render(struct context *c)
             //LOG_DBG("cell %dx%d dirty: c=0x%02x (%c)",
             //        row, col, cell->c[0], cell->c[0]);
 
-            br = (double)((cell->background >> 24) & 0xff) / 255.0;
-            bg = (double)((cell->background >> 16) & 0xff) / 255.0;
-            bb = (double)((cell->background >>  8) & 0xff) / 255.0;
+            br = (double)((cell->attrs.background >> 24) & 0xff) / 255.0;
+            bg = (double)((cell->attrs.background >> 16) & 0xff) / 255.0;
+            bb = (double)((cell->attrs.background >>  8) & 0xff) / 255.0;
 
-            fr = (double)((cell->foreground >> 24) & 0xff) / 255.0;
-            fg = (double)((cell->foreground >> 16) & 0xff) / 255.0;
-            fb = (double)((cell->foreground >>  8) & 0xff) / 255.0;
+            fr = (double)((cell->attrs.foreground >> 24) & 0xff) / 255.0;
+            fg = (double)((cell->attrs.foreground >> 16) & 0xff) / 255.0;
+            fb = (double)((cell->attrs.foreground >>  8) & 0xff) / 255.0;
 
             if (has_cursor)
                 cairo_set_source_rgba(buf->cairo, fr, fg, fb, 1.0);
@@ -196,8 +196,10 @@ resize(struct context *c, int width, int height)
 
     size_t new_cells_len = c->term.grid.cols * c->term.grid.rows;
     for (size_t i = old_cells_len; i < new_cells_len; i++) {
-        c->term.grid.cells[i] = (struct cell){.foreground = default_foreground,
-                                         .background = default_background};
+        c->term.grid.cells[i] = (struct cell){
+            .attrs = {.foreground = default_foreground,
+                      .background = default_background},
+        };
     }
 
     LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d",
