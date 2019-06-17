@@ -158,13 +158,11 @@ action(struct terminal *term, enum action action, uint8_t c)
         LOG_DBG("execute: 0x%02x", c);
         switch (c) {
         case '\r':
-            grid_cursor_to(
-                &term->grid,
-                term->grid.cursor / term->grid.cols * term->grid.cols);
+            grid_cursor_left(&term->grid, term->grid.cursor.col);
             break;
 
         case '\b':
-            grid_cursor_move(&term->grid, -1);
+            grid_cursor_left(&term->grid, 1);
             break;
         }
 
@@ -179,9 +177,9 @@ action(struct terminal *term, enum action action, uint8_t c)
 
     case ACTION_PRINT: {
         if (term->grid.print_needs_wrap)
-            grid_cursor_move(&term->grid, 1);
+            grid_cursor_to(&term->grid, term->grid.cursor.row + 1, 0);
 
-        struct cell *cell = &term->grid.cells[term->grid.cursor];
+        struct cell *cell = &term->grid.cells[term->grid.linear_cursor];
 
         cell->dirty = true;
 
@@ -197,8 +195,8 @@ action(struct terminal *term, enum action action, uint8_t c)
 
         cell->attrs = term->vt.attrs;
 
-        if ((term->grid.cursor + 1) % term->grid.cols)
-            grid_cursor_move(&term->grid, 1);
+        if (term->grid.cursor.col < term->grid.cols - 1)
+            grid_cursor_right(&term->grid, 1);
         else
             term->grid.print_needs_wrap = true;
 

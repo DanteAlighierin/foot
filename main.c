@@ -97,7 +97,7 @@ grid_render(struct context *c)
 
             cell->dirty = false;
 
-            bool has_cursor = c->term.grid.cursor == cell_idx;
+            bool has_cursor = c->term.grid.linear_cursor == cell_idx;
 
             int y_ofs = row * c->term.grid.cell_height + c->fextents.ascent;
             int x_ofs = col * c->term.grid.cell_width;

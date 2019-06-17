@@ -28,8 +28,13 @@ struct grid {
     int cell_width;
     int cell_height;
 
-    int cursor;
+    int linear_cursor;
+    struct {
+        int row;
+        int col;
+    } cursor;
     bool print_needs_wrap;
+
     struct cell *cells;
 
     uint32_t foreground;

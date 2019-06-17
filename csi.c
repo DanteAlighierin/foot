@@ -96,7 +96,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'J': {
             assert(term->vt.params.idx == 0);
-            int start = term->grid.cursor / term->grid.cols * term->grid.cols;
+            int start = grid_cursor_linear(&term->grid, term->grid.cursor.row, 0);
             int end = term->grid.cols * term->grid.rows;
             grid_erase(&term->grid, start, end);
             return true;
@@ -104,10 +104,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'K': {
             assert(term->vt.params.idx == 0);
-            int start = term->grid.cursor;
-            int end = (start + term->grid.cols - 1) / term->grid.cols * term->grid.cols - 1;
-            assert(start <= end);
-            assert((end + 1) % term->grid.cols == 0);
+            int start = term->grid.linear_cursor;
+            int end = grid_cursor_linear(
+                &term->grid, term->grid.cursor.row, term->grid.cols - 1);
+            LOG_DBG("K: %d -> %d", start, end);
 
             grid_erase(&term->grid, start, end);
             return true;
@@ -115,13 +115,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'C': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            grid_cursor_move(&term->grid, count);
+            grid_cursor_right(&term->grid, count);
             return true;
         }
 
         case 'D': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            grid_cursor_move(&term->grid, -count);
+            grid_cursor_left(&term->grid, count);
             return true;
         }
 
