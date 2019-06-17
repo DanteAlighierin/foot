@@ -68,6 +68,7 @@ struct vt {
 };
 
 struct terminal {
+    int ptmx;
     struct vt vt;
     struct grid grid;
 };

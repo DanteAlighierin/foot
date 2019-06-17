@@ -40,7 +40,6 @@ struct wayland {
 
 struct context {
     bool quit;
-    int ptmx;
 
     cairo_scaled_font_t *font;
     cairo_font_extents_t fextents;
@@ -213,7 +212,7 @@ resize(struct context *c, int width, int height)
     setenv("LINES", rows_s, 1);
 
     /* SIignal TIOCSWINSZ */
-    if (ioctl(c->ptmx, TIOCSWINSZ,
+    if (ioctl(c->term.ptmx, TIOCSWINSZ,
               &(struct winsize){
                   .ws_row = c->term.grid.rows,
                   .ws_col = c->term.grid.cols,
@@ -380,8 +379,8 @@ main(int argc, const char *const *argv)
 
     struct context c = {
         .quit = false,
-        .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
         .term = {
+            .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
             .vt = {
                 .state = 1,
             },
@@ -401,7 +400,7 @@ main(int argc, const char *const *argv)
             c.fextents.height, c.fextents.max_x_advance);
     assert(c.fextents.max_y_advance == 0);
 
-    if (c.ptmx == -1) {
+    if (c.term.ptmx == -1) {
         LOG_ERRNO("failed to open pseudo terminal");
         goto out;
     }
@@ -468,7 +467,7 @@ main(int argc, const char *const *argv)
 
     case 0:
         /* Child */
-        slave_spawn(c.ptmx);
+        slave_spawn(c.term.ptmx);
         assert(false);
         break;
 
@@ -480,7 +479,7 @@ main(int argc, const char *const *argv)
     while (true) {
         struct pollfd fds[] = {
             {.fd = wl_display_get_fd(c.wl.display), .events = POLLIN},
-            {.fd = c.ptmx, .events = POLLIN},
+            {.fd = c.term.ptmx, .events = POLLIN},
         };
 
         wl_display_flush(c.wl.display);
@@ -501,7 +500,7 @@ main(int argc, const char *const *argv)
 
         if (fds[1].revents & POLLIN) {
             uint8_t data[1024];
-            ssize_t count = read(c.ptmx, data, sizeof(data));
+            ssize_t count = read(c.term.ptmx, data, sizeof(data));
             if (count < 0) {
                 LOG_ERRNO("failed to read from pseudo terminal");
                 break;
@@ -544,8 +543,8 @@ out:
     if (c.font != NULL)
         cairo_scaled_font_destroy(c.font);
 
-    if (c.ptmx != -1)
-        close(c.ptmx);
+    if (c.term.ptmx != -1)
+        close(c.term.ptmx);
 
     cairo_debug_reset_static_data();
     return ret;

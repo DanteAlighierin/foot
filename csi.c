@@ -1,5 +1,10 @@
 #include "csi.h"
 
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <assert.h>
+
 #define LOG_MODULE "csi"
 #define LOG_ENABLE_DBG 1
 #include "log.h"
@@ -69,6 +74,21 @@ csi_sgr(struct terminal *term)
     return true;
 }
 
+static bool
+erase(struct terminal *term, int start, int end)
+{
+    for (int i = start; i < end; i++) {
+        struct cell *cell = &term->grid.cells[i];
+        memset(cell, 0, sizeof(*cell));
+        cell->attrs.foreground = term->grid.foreground;
+        cell->attrs.background = term->grid.background;
+        cell->dirty = true;
+        term->grid.dirty = true;
+    }
+
+    return true;
+}
+
 bool
 csi_dispatch(struct terminal *term, uint8_t final)
 {
@@ -79,9 +99,63 @@ csi_dispatch(struct terminal *term, uint8_t final)
             LOG_DBG("    #%zu: %u", j, term->vt.params.v[i].sub.value[j]);
     }
 
-    if (final == 'm' && term->vt.intermediates.idx == 0) {
-        return csi_sgr(term);
+    if (term->vt.intermediates.idx == 0) {
+        switch (final) {
+        case 'c':
+            write(term->ptmx, "\033[?6c", 5);
+            return true;
+
+        case 'm':
+            return csi_sgr(term);
+
+        case 'J': {
+            assert(term->vt.params.idx == 0);
+            int start = term->grid.cursor / term->grid.cols * term->grid.cols;
+            int end = term->grid.cols * term->grid.rows;
+            return erase(term, start, end);
+        }
+
+        case 'K': {
+            assert(term->vt.params.idx == 0);
+            int start = term->grid.cursor;
+            int end = (start + term->grid.cols - 1) / term->grid.cols * term->grid.cols - 1;
+            assert(start <= end);
+            assert((end + 1) % term->grid.cols == 0);
+
+            return erase(term, start, end);
+        }
+
+        case 'C': {
+            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            int new_cursor = term->grid.cursor + count;
+            term->grid.cells[term->grid.cursor].dirty = true;
+            term->grid.cells[new_cursor].dirty = true;
+            term->grid.cursor = new_cursor;
+            term->grid.dirty = true;
+            return true;
+        }
+
+        case 'D': {
+            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            int new_cursor = term->grid.cursor - count;
+            term->grid.cells[term->grid.cursor].dirty = true;
+            term->grid.cells[new_cursor].dirty = true;
+            term->grid.cursor = new_cursor;
+            term->grid.dirty = true;
+            return true;
+        }
+
+        default:
+            LOG_ERR("CSI: unimplemented final: %c", final);
+            abort();
+        }
+    } else {
+        LOG_ERR("CSI: unimplemented: intermediates: %.*s",
+                (int)term->vt.intermediates.idx,
+                term->vt.intermediates.data);
+        //abort();
+        return true;
     }
 
-    return true;
+    return false;
 }

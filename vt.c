@@ -160,8 +160,17 @@ action(struct terminal *term, enum action action, uint8_t c)
             term->grid.cells[term->grid.cursor].dirty = true;
             term->grid.cursor = term->grid.cursor / term->grid.cols * term->grid.cols;
             term->grid.cells[term->grid.cursor].dirty = true;
+            term->grid.dirty = true;
+            break;
+
+        case '\b':
+            term->grid.cells[term->grid.cursor].dirty = true;
+            term->grid.cursor--;
+            term->grid.cells[term->grid.cursor].dirty = true;
+            term->grid.dirty = true;
             break;
         }
+
         return true;
 
     case ACTION_CLEAR:
@@ -301,8 +310,10 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
             abort();
 
         if (transition->state != STATE_SAME) {
-            LOG_DBG("transition: %s -> %s", state_names[current_state],
-                    state_names[transition->state]);
+            /*
+             * LOG_DBG("transition: %s -> %s", state_names[current_state],
+             *         state_names[transition->state]);
+             */
             term->vt.state = transition->state;
 
             enum action entry_action = entry_actions[transition->state];
