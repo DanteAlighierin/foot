@@ -8,6 +8,7 @@
 #define LOG_MODULE "csi"
 #define LOG_ENABLE_DBG 1
 #include "log.h"
+#include "grid.h"
 
 static bool
 csi_sgr(struct terminal *term)
@@ -74,21 +75,6 @@ csi_sgr(struct terminal *term)
     return true;
 }
 
-static bool
-erase(struct terminal *term, int start, int end)
-{
-    for (int i = start; i < end; i++) {
-        struct cell *cell = &term->grid.cells[i];
-        memset(cell, 0, sizeof(*cell));
-        cell->attrs.foreground = term->grid.foreground;
-        cell->attrs.background = term->grid.background;
-        cell->dirty = true;
-        term->grid.dirty = true;
-    }
-
-    return true;
-}
-
 bool
 csi_dispatch(struct terminal *term, uint8_t final)
 {
@@ -112,7 +98,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
             assert(term->vt.params.idx == 0);
             int start = term->grid.cursor / term->grid.cols * term->grid.cols;
             int end = term->grid.cols * term->grid.rows;
-            return erase(term, start, end);
+            grid_erase(&term->grid, start, end);
+            return true;
         }
 
         case 'K': {
@@ -122,26 +109,19 @@ csi_dispatch(struct terminal *term, uint8_t final)
             assert(start <= end);
             assert((end + 1) % term->grid.cols == 0);
 
-            return erase(term, start, end);
+            grid_erase(&term->grid, start, end);
+            return true;
         }
 
         case 'C': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            int new_cursor = term->grid.cursor + count;
-            term->grid.cells[term->grid.cursor].dirty = true;
-            term->grid.cells[new_cursor].dirty = true;
-            term->grid.cursor = new_cursor;
-            term->grid.dirty = true;
+            grid_cursor_move(&term->grid, count);
             return true;
         }
 
         case 'D': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            int new_cursor = term->grid.cursor - count;
-            term->grid.cells[term->grid.cursor].dirty = true;
-            term->grid.cells[new_cursor].dirty = true;
-            term->grid.cursor = new_cursor;
-            term->grid.dirty = true;
+            grid_cursor_move(&term->grid, -count);
             return true;
         }
 

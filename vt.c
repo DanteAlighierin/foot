@@ -9,6 +9,7 @@
 #include "log.h"
 #include "csi.h"
 #include "osc.h"
+#include "grid.h"
 
 /* https://vt100.net/emu/dec_ansi_parser */
 
@@ -157,17 +158,13 @@ action(struct terminal *term, enum action action, uint8_t c)
         LOG_DBG("execute: 0x%02x", c);
         switch (c) {
         case '\r':
-            term->grid.cells[term->grid.cursor].dirty = true;
-            term->grid.cursor = term->grid.cursor / term->grid.cols * term->grid.cols;
-            term->grid.cells[term->grid.cursor].dirty = true;
-            term->grid.dirty = true;
+            grid_cursor_to(
+                &term->grid,
+                term->grid.cursor / term->grid.cols * term->grid.cols);
             break;
 
         case '\b':
-            term->grid.cells[term->grid.cursor].dirty = true;
-            term->grid.cursor--;
-            term->grid.cells[term->grid.cursor].dirty = true;
-            term->grid.dirty = true;
+            grid_cursor_move(&term->grid, -1);
             break;
         }
 
@@ -197,7 +194,7 @@ action(struct terminal *term, enum action action, uint8_t c)
 
         cell->attrs = term->vt.attrs;
 
-        term->grid.cells[++term->grid.cursor].dirty = true;
+        grid_cursor_move(&term->grid, 1);
         term->grid.dirty = true;
         break;
     }

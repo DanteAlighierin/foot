@@ -59,6 +59,7 @@ executable(
   'f00ter',
   'csi.c', 'csi.h',
   'font.c', 'font.h',
+  'grid.c', 'grid.h',
   'log.c', 'log.h',
   'main.c',
   'osc.c', 'osc.h',
