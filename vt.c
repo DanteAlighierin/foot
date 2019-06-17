@@ -177,7 +177,10 @@ action(struct terminal *term, enum action action, uint8_t c)
         memset(&term->vt.utf8, 0, sizeof(term->vt.utf8));
         break;
 
-    case ACTION_PRINT:{
+    case ACTION_PRINT: {
+        if (term->grid.print_needs_wrap)
+            grid_cursor_move(&term->grid, 1);
+
         struct cell *cell = &term->grid.cells[term->grid.cursor];
 
         cell->dirty = true;
@@ -194,7 +197,11 @@ action(struct terminal *term, enum action action, uint8_t c)
 
         cell->attrs = term->vt.attrs;
 
-        grid_cursor_move(&term->grid, 1);
+        if ((term->grid.cursor + 1) % term->grid.cols)
+            grid_cursor_move(&term->grid, 1);
+        else
+            term->grid.print_needs_wrap = true;
+
         term->grid.dirty = true;
         break;
     }

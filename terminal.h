@@ -29,6 +29,7 @@ struct grid {
     int cell_height;
 
     int cursor;
+    bool print_needs_wrap;
     struct cell *cells;
 
     uint32_t foreground;

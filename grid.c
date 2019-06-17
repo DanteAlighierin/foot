@@ -25,6 +25,7 @@ grid_cursor_move(struct grid *grid, int cols)
     grid->cells[new_cursor].dirty = true;
     grid->cursor = new_cursor;
     grid->dirty = true;
+    grid->print_needs_wrap = false;
 }
 
 void
