@@ -184,11 +184,11 @@ action(struct terminal *term, enum action action, uint8_t c)
         cell->dirty = true;
 
         if (term->vt.utf8.idx > 0) {
-            LOG_DBG("print: UTF8: %.*s", (int)term->vt.utf8.idx, term->vt.utf8.data);
+            //LOG_DBG("print: UTF8: %.*s", (int)term->vt.utf8.idx, term->vt.utf8.data);
             memcpy(cell->c, term->vt.utf8.data, term->vt.utf8.idx);
             cell->c[term->vt.utf8.idx] = '\0';
         } else {
-            LOG_DBG("print: ASCII: %c", c);
+            //LOG_DBG("print: ASCII: %c", c);
             cell->c[0] = c;
             cell->c[1] = '\0';
         }
@@ -254,6 +254,7 @@ action(struct terminal *term, enum action action, uint8_t c)
             term->vt.utf8.left = 3;
         else
             term->vt.utf8.left = 4;
+        //LOG_DBG("begin UTF-8 (%zu chars)", term->vt.utf8.left);
         term->vt.utf8.data[term->vt.utf8.idx++] = c;
         term->vt.utf8.left--;
         break;
@@ -265,7 +266,7 @@ action(struct terminal *term, enum action action, uint8_t c)
 static bool
 process_utf8(struct terminal *term, uint8_t c)
 {
-    LOG_DBG("UTF-8: 0x%02x", c);
+    //LOG_DBG("UTF-8: 0x%02x", c);
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
     term->vt.utf8.left--;
 
