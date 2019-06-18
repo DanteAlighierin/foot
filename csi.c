@@ -5,6 +5,10 @@
 #include <unistd.h>
 #include <assert.h>
 
+#if defined(_DEBUG)
+ #include <stdio.h>
+#endif
+
 #define LOG_MODULE "csi"
 #define LOG_ENABLE_DBG 1
 #include "log.h"
@@ -78,12 +82,27 @@ csi_sgr(struct terminal *term)
 bool
 csi_dispatch(struct terminal *term, uint8_t final)
 {
-    LOG_DBG("CSI: %zu paramaters, final = %c", term->vt.params.idx, final);
-    for (size_t i = 0; i < term->vt.params.idx; i++) {
-        LOG_DBG("  #%zu: %u", i, term->vt.params.v[i].value);
-        for (size_t j = 0; j < term->vt.params.v[i].sub.idx; j++)
-            LOG_DBG("    #%zu: %u", j, term->vt.params.v[i].sub.value[j]);
+#if defined(_DEBUG)
+    char log[1024];
+    int c = snprintf(log, sizeof(log), "CSI: ");
+
+    for (size_t i = 0; i < term->vt.params.idx; i++){
+        c += snprintf(&log[c], sizeof(log) - c, "%d",
+                      term->vt.params.v[i].value);
+
+        for (size_t j = 0; i < term->vt.params.v[i].sub.idx; j++) {
+            c += snprintf(&log[c], sizeof(log) - c, ":%d",
+                          term->vt.params.v[i].sub.value[j]);
+        }
+
+        c += snprintf(&log[c], sizeof(log) - c, "%s",
+                      i == term->vt.params.idx - 1 ? "" : ";");
     }
+
+    c += snprintf(&log[c], sizeof(log) - c, "%c (%zu parameters)",
+                  final, term->vt.params.idx);
+    LOG_DBG("%s", log);
+#endif
 
     if (term->vt.intermediates.idx == 0) {
         switch (final) {
