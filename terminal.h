@@ -4,6 +4,11 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include <threads.h>
+
+#include <xkbcommon/xkbcommon.h>
+#include <xkbcommon/xkbcommon-keysyms.h>
+
 struct attributes {
     bool bold;
     bool italic;
@@ -73,8 +78,29 @@ struct vt {
     bool dim;
 };
 
+struct kbd {
+    struct xkb_context *xkb;
+    struct xkb_keymap *xkb_keymap;
+    struct xkb_state *xkb_state;
+    struct {
+        mtx_t mutex;
+        cnd_t cond;
+        int trigger;
+        int pipe_read_fd;
+        int pipe_write_fd;
+        enum {REPEAT_STOP, REPEAT_START, REPEAT_EXIT} cmd;
+
+        bool dont_re_repeat;
+        int32_t delay;
+        int32_t rate;
+        uint32_t key;
+    } repeat;
+};
+
 struct terminal {
+    pid_t slave;
     int ptmx;
     struct vt vt;
     struct grid grid;
+    struct kbd kbd;
 };

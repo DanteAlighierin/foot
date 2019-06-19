@@ -20,6 +20,7 @@ add_project_arguments(
 cc = meson.get_compiler('c')
 math = cc.find_library('m')
 
+threads = dependency('threads')
 fontconfig = dependency('fontconfig')
 cairo = dependency('cairo')
 cairo_ft = dependency('cairo-ft')
@@ -60,6 +61,7 @@ executable(
   'csi.c', 'csi.h',
   'font.c', 'font.h',
   'grid.c', 'grid.h',
+  'input.c', 'input.h',
   'log.c', 'log.h',
   'main.c',
   'osc.c', 'osc.h',
@@ -69,5 +71,5 @@ executable(
   'tllist.h',
   'vt.c', 'vt.h',
   wl_proto_src + wl_proto_headers,
-  dependencies: [math, cairo, cairo_ft, fontconfig, wayland_client, wayland_cursor, xkb],
+  dependencies: [threads, math, cairo, cairo_ft, fontconfig, wayland_client, wayland_cursor, xkb],
   install: true)

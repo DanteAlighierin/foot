@@ -107,51 +107,124 @@ csi_dispatch(struct terminal *term, uint8_t final)
     if (term->vt.intermediates.idx == 0) {
         switch (final) {
         case 'c':
-            write(term->ptmx, "\033[?6c", 5);
-            return true;
+            return write(term->ptmx, "\033[?6c", 5) == 5;
 
         case 'm':
             return csi_sgr(term);
 
         case 'J': {
-            assert(term->vt.params.idx == 0);
-            int start = grid_cursor_linear(&term->grid, term->grid.cursor.row, 0);
-            int end = term->grid.cols * term->grid.rows;
+            /* Erase screen */
+
+            int param = 0;
+            if (term->vt.params.idx >= 1)
+                param = term->vt.params.v[0].value;
+
+            int start = -1;
+            int end = -1;
+            switch (param) {
+            case 0:
+                /* From cursor to end of screen */
+                start = term->grid.linear_cursor;
+                end = term->grid.cols * term->grid.rows;
+                break;
+
+            case 1:
+                /* From start of screen to cursor */
+                start = 0;
+                end = term->grid.linear_cursor;
+                break;
+
+            case 2:
+                /* Erase entire screen */
+                start = 0;
+                end = term->grid.cols * term->grid.rows;
+                break;
+
+            default:
+                LOG_ERR("CSI: J: invalid argument: %d", param);
+                return false;
+            }
+
             grid_erase(&term->grid, start, end);
-            return true;
+            break;
         }
 
         case 'K': {
-            assert(term->vt.params.idx == 0);
-            int start = term->grid.linear_cursor;
-            int end = grid_cursor_linear(
-                &term->grid, term->grid.cursor.row, term->grid.cols - 1);
-            LOG_DBG("K: %d -> %d", start, end);
+            /* Erase line */
+
+            int param = 0;
+            if (term->vt.params.idx >= 0)
+                param = term->vt.params.v[0].value;
+
+            int start = -1;
+            int end = -1;
+            switch (param) {
+            case 0:
+                /* From cursor to end of line */
+                start = term->grid.linear_cursor;
+                end = grid_cursor_linear(
+                    &term->grid, term->grid.cursor.row, term->grid.cols - 1);
+                break;
+
+            case 1:
+                /* From start of line to cursor */
+                start = grid_cursor_linear(
+                    &term->grid, term->grid.cursor.row, 0);
+                end = term->grid.linear_cursor;
+                break;
+
+            case 2:
+                /* Entire line */
+                start = grid_cursor_linear(
+                    &term->grid, term->grid.cursor.row, 0);
+                end = grid_cursor_linear(
+                    &term->grid, term->grid.cursor.row, term->grid.cols - 1);
+                break;
+
+            default:
+                LOG_ERR("CSI: K: invalid argument: %d", param);
+                return false;
+            }
 
             grid_erase(&term->grid, start, end);
-            return true;
+            break;
+        }
+
+        case 'A': {
+            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            grid_cursor_up(&term->grid, count);
+            break;
+        }
+
+        case 'B': {
+            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            grid_cursor_up(&term->grid, count);
+            break;
         }
 
         case 'C': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             grid_cursor_right(&term->grid, count);
-            return true;
+            break;
         }
 
         case 'D': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             grid_cursor_left(&term->grid, count);
-            return true;
+            break;
         }
 
         default:
             LOG_ERR("CSI: unimplemented final: %c", final);
             abort();
         }
+
+        return true;
     } else {
         LOG_ERR("CSI: unimplemented: intermediates: %.*s",
                 (int)term->vt.intermediates.idx,
                 term->vt.intermediates.data);
+
         //abort();
         return true;
     }

@@ -23,6 +23,7 @@
 #include "slave.h"
 #include "terminal.h"
 #include "vt.h"
+#include "input.h"
 
 static const uint32_t default_foreground = 0xffffffff;
 static const uint32_t default_background = 0x000000ff;
@@ -33,6 +34,8 @@ struct wayland {
     struct wl_compositor *compositor;
     struct wl_surface *surface;
     struct wl_shm *shm;
+    struct wl_seat *seat;
+    struct wl_keyboard *keyboard;
     struct xdg_wm_base *shell;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
@@ -249,6 +252,32 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener = {
 };
 
 static void
+seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
+                         enum wl_seat_capability caps)
+{
+    struct context *c = data;
+
+    if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD))
+        return;
+
+    if (c->wl.keyboard != NULL)
+        wl_keyboard_release(c->wl.keyboard);
+
+    c->wl.keyboard = wl_seat_get_keyboard(wl_seat);
+    wl_keyboard_add_listener(c->wl.keyboard, &keyboard_listener, &c->term);
+}
+
+static void
+seat_handle_name(void *data, struct wl_seat *wl_seat, const char *name)
+{
+}
+
+static const struct wl_seat_listener seat_listener = {
+    .capabilities = seat_handle_capabilities,
+    .name = seat_handle_name,
+};
+
+static void
 handle_global(void *data, struct wl_registry *registry,
               uint32_t name, const char *interface, uint32_t version)
 {
@@ -270,6 +299,12 @@ handle_global(void *data, struct wl_registry *registry,
         c->wl.shell = wl_registry_bind(
             c->wl.registry, name, &xdg_wm_base_interface, 1);
         xdg_wm_base_add_listener(c->wl.shell, &xdg_wm_base_listener, c);
+    }
+
+    else if (strcmp(interface, wl_seat_interface.name) == 0) {
+        c->wl.seat = wl_registry_bind(c->wl.registry, name, &wl_seat_interface, 4);
+        wl_seat_add_listener(c->wl.seat, &seat_listener, c);
+        wl_display_roundtrip(c->wl.display);
     }
 
 #if 0
@@ -370,12 +405,89 @@ static const struct wl_registry_listener registry_listener = {
     .global_remove = &handle_global_remove,
 };
 
+static int
+keyboard_repeater(void *arg)
+{
+    struct terminal *term = arg;
+
+    while (true) {
+        LOG_DBG("repeater: waiting for start");
+
+        mtx_lock(&term->kbd.repeat.mutex);
+        while (term->kbd.repeat.cmd == REPEAT_STOP)
+            cnd_wait(&term->kbd.repeat.cond, &term->kbd.repeat.mutex);
+
+        if (term->kbd.repeat.cmd == REPEAT_EXIT) {
+            mtx_unlock(&term->kbd.repeat.mutex);
+            return 0;
+        }
+
+    restart:
+
+        LOG_DBG("repeater: started");
+        assert(term->kbd.repeat.cmd == REPEAT_START);
+
+        const long rate_delay = 1000000000 / term->kbd.repeat.rate;
+        long delay = term->kbd.repeat.delay * 1000000;
+
+        while (true) {
+            assert(term->kbd.repeat.rate > 0);
+
+            struct timespec timeout;
+            clock_gettime(CLOCK_REALTIME, &timeout);
+
+            timeout.tv_nsec += delay;
+            if (timeout.tv_nsec >= 1000000000) {
+                timeout.tv_sec += timeout.tv_nsec / 1000000000;
+                timeout.tv_nsec %= 1000000000;
+            }
+
+            int ret = cnd_timedwait(&term->kbd.repeat.cond, &term->kbd.repeat.mutex, &timeout);
+            if (ret == thrd_success) {
+                if (term->kbd.repeat.cmd == REPEAT_START)
+                    goto restart;
+                else if (term->kbd.repeat.cmd == REPEAT_STOP) {
+                    mtx_unlock(&term->kbd.repeat.mutex);
+                    break;
+                } else if (term->kbd.repeat.cmd == REPEAT_EXIT) {
+                    mtx_unlock(&term->kbd.repeat.mutex);
+                    return 0;
+                }
+            }
+
+            assert(ret == thrd_timedout);
+            assert(term->kbd.repeat.cmd == REPEAT_START);
+            LOG_DBG("repeater: repeat: %u", term->kbd.repeat.key);
+
+            if (write(term->kbd.repeat.pipe_write_fd, &term->kbd.repeat.key,
+                      sizeof(term->kbd.repeat.key)) != sizeof(term->kbd.repeat.key))
+            {
+                LOG_ERRNO("faile to write repeat key to repeat pipe");
+                mtx_unlock(&term->kbd.repeat.mutex);
+                return 0;
+            }
+
+            delay = rate_delay;
+        }
+
+    }
+
+    assert(false);
+    return 1;
+}
+
 int
 main(int argc, const char *const *argv)
 {
     int ret = EXIT_FAILURE;
 
     setlocale(LC_ALL, "");
+
+    int repeat_pipe_fds[2] = {-1, -1};
+    if (pipe2(repeat_pipe_fds, O_CLOEXEC) == -1) {
+        LOG_ERRNO("failed to create pipe for repeater thread");
+        return ret;
+    }
 
     struct context c = {
         .quit = false,
@@ -386,8 +498,21 @@ main(int argc, const char *const *argv)
             },
             .grid = {.foreground = default_foreground,
                      .background = default_background},
+            .kbd = {
+                .repeat = {
+                    .pipe_read_fd = repeat_pipe_fds[0],
+                    .pipe_write_fd = repeat_pipe_fds[1],
+                    .cmd = REPEAT_STOP,
+                },
+            },
         },
     };
+
+    mtx_init(&c.term.kbd.repeat.mutex, mtx_plain);
+    cnd_init(&c.term.kbd.repeat.cond);
+
+    thrd_t keyboard_repeater_id;
+    thrd_create(&keyboard_repeater_id, &keyboard_repeater, &c.term);
 
     const char *font_name = "Dina:pixelsize=12";
     c.font = font_from_name(font_name);
@@ -459,8 +584,8 @@ main(int argc, const char *const *argv)
 
     wl_display_dispatch_pending(c.wl.display);
 
-    pid_t pid = fork();
-    switch (pid) {
+    c.term.slave = fork();
+    switch (c.term.slave) {
     case -1:
         LOG_ERRNO("failed to fork");
         goto out;
@@ -472,7 +597,7 @@ main(int argc, const char *const *argv)
         break;
 
     default:
-        LOG_DBG("slave has PID %d", pid);
+        LOG_DBG("slave has PID %d", c.term.slave);
         break;
     }
 
@@ -480,6 +605,7 @@ main(int argc, const char *const *argv)
         struct pollfd fds[] = {
             {.fd = wl_display_get_fd(c.wl.display), .events = POLLIN},
             {.fd = c.term.ptmx, .events = POLLIN},
+            {.fd = c.term.kbd.repeat.pipe_read_fd, .events = POLLIN},
         };
 
         wl_display_flush(c.wl.display);
@@ -517,9 +643,29 @@ main(int argc, const char *const *argv)
             ret = EXIT_SUCCESS;
             break;
         }
+
+        if (fds[2].revents & POLLIN) {
+            uint32_t key;
+            if (read(c.term.kbd.repeat.pipe_read_fd, &key, sizeof(key)) != sizeof(key)) {
+                LOG_ERRNO("failed to read repeat key from repeat pipe");
+                break;
+            }
+
+            c.term.kbd.repeat.dont_re_repeat = true;
+            input_repeat(&c.term, key);
+            c.term.kbd.repeat.dont_re_repeat = false;
+        }
+
+        if (fds[2].revents & POLLHUP)
+            LOG_ERR("keyboard repeat handling thread died");
     }
 
 out:
+    mtx_lock(&c.term.kbd.repeat.mutex);
+    c.term.kbd.repeat.cmd = REPEAT_EXIT;
+    cnd_signal(&c.term.kbd.repeat.cond);
+    mtx_unlock(&c.term.kbd.repeat.mutex);
+
     shm_fini();
     if (c.wl.xdg_toplevel != NULL)
         xdg_toplevel_destroy(c.wl.xdg_toplevel);
@@ -545,6 +691,12 @@ out:
 
     if (c.term.ptmx != -1)
         close(c.term.ptmx);
+
+    thrd_join(keyboard_repeater_id, NULL);
+    cnd_destroy(&c.term.kbd.repeat.cond);
+    mtx_destroy(&c.term.kbd.repeat.mutex);
+    close(c.term.kbd.repeat.pipe_read_fd);
+    close(c.term.kbd.repeat.pipe_write_fd);
 
     cairo_debug_reset_static_data();
     return ret;

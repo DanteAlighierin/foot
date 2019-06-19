@@ -157,6 +157,10 @@ action(struct terminal *term, enum action action, uint8_t c)
     case ACTION_EXECUTE:
         LOG_DBG("execute: 0x%02x", c);
         switch (c) {
+        case '\n':
+            grid_cursor_down(&term->grid, 1);
+            break;
+
         case '\r':
             grid_cursor_left(&term->grid, term->grid.cursor.col);
             break;
@@ -164,6 +168,14 @@ action(struct terminal *term, enum action action, uint8_t c)
         case '\b':
             grid_cursor_left(&term->grid, 1);
             break;
+
+        case '\x07':
+            LOG_WARN("BELL");
+            break;
+
+        default:
+            LOG_ERR("execute: unimplemented: %c", c);
+            return false;
         }
 
         return true;
@@ -189,7 +201,7 @@ action(struct terminal *term, enum action action, uint8_t c)
             cell->c[term->vt.utf8.idx] = '\0';
             memset(&term->vt.utf8, 0, sizeof(term->vt.utf8));
         } else {
-            //LOG_DBG("print: ASCII: %c", c);
+            LOG_DBG("print: ASCII: %c", c);
             cell->c[0] = c;
             cell->c[1] = '\0';
         }

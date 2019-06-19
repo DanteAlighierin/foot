@@ -53,42 +53,26 @@ void
 grid_cursor_left(struct grid *grid, int count)
 {
     int move_amount = min(grid->cursor.col, count);
-    int new_linear = grid->linear_cursor - move_amount;
-    int new_col = grid->cursor.col - move_amount;
-
-    assert(new_linear >= 0);
-    assert(new_linear < grid->rows * grid->cols);
-    assert(new_col >= 0);
-    assert(new_col < grid->cols);
-
-    grid->cells[grid->linear_cursor].dirty = true;
-    grid->cells[new_linear].dirty = true;
-
-    grid->linear_cursor = new_linear;
-    grid->cursor.col = new_col;
-
-    grid->dirty = true;
-    grid->print_needs_wrap = false;
+    grid_cursor_to(grid, grid->cursor.row, grid->cursor.col - move_amount);
 }
 
 void
 grid_cursor_right(struct grid *grid, int count)
 {
     int move_amount = min(grid->cols - grid->cursor.col - 1, count);
-    int new_linear = grid->linear_cursor + move_amount;
-    int new_col = grid->cursor.col + move_amount;
+    grid_cursor_to(grid, grid->cursor.row, grid->cursor.col + move_amount);
+}
 
-    assert(new_linear >= 0);
-    assert(new_linear < grid->rows * grid->cols);
-    assert(new_col >= 0);
-    assert(new_col < grid->cols);
+void
+grid_cursor_up(struct grid *grid, int count)
+{
+    int move_amount = min(grid->cursor.row, count);
+    grid_cursor_to(grid, grid->cursor.row - move_amount, grid->cursor.col);
+}
 
-    grid->cells[grid->linear_cursor].dirty = true;
-    grid->cells[new_linear].dirty = true;
-
-    grid->linear_cursor = new_linear;
-    grid->cursor.col = new_col;
-
-    grid->dirty = true;
-    grid->print_needs_wrap = false;
+void
+grid_cursor_down(struct grid *grid, int count)
+{
+    int move_amount = min(grid->rows - grid->cursor.row - 1, count);
+    grid_cursor_to(grid, grid->cursor.row + move_amount, grid->cursor.col);
 }
