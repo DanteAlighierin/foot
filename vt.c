@@ -200,8 +200,7 @@ action(struct terminal *term, enum action action, uint8_t c)
         }
 
         struct cell *cell = &term->grid.cells[term->grid.linear_cursor];
-
-        cell->dirty = true;
+        grid_damage_update(&term->grid, term->grid.linear_cursor, 1);
 
         if (term->vt.utf8.idx > 0) {
             //LOG_DBG("print: UTF8: %.*s", (int)term->vt.utf8.idx, term->vt.utf8.data);
@@ -209,7 +208,7 @@ action(struct terminal *term, enum action action, uint8_t c)
             cell->c[term->vt.utf8.idx] = '\0';
             memset(&term->vt.utf8, 0, sizeof(term->vt.utf8));
         } else {
-            LOG_DBG("print: ASCII: %c", c);
+            //LOG_DBG("print: ASCII: %c", c);
             cell->c[0] = c;
             cell->c[1] = '\0';
         }
@@ -221,7 +220,6 @@ action(struct terminal *term, enum action action, uint8_t c)
         else
             term->grid.print_needs_wrap = true;
 
-        term->grid.dirty = true;
         break;
     }
 

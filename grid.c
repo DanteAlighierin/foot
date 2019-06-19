@@ -10,6 +10,81 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+static bool
+damage_merge_range(struct grid *grid, const struct damage *dmg)
+{
+    if (tll_length(grid->damage) == 0)
+        return false;;
+
+    struct damage *old = &tll_back(grid->damage);
+    if (old->type != dmg->type)
+        return false;
+
+    const int start = dmg->range.start;
+    const int end = start + dmg->range.length;
+
+    const int prev_start = old->range.start;
+    const int prev_end = prev_start + old->range.length;
+
+    if ((start >= prev_start && start <= prev_end) ||
+        (end >= prev_start && end <= prev_end) ||
+        (start <= prev_start && end >= prev_end))
+    {
+        /* The two damage ranges intersect */
+        int new_start = min(start, prev_start);
+        int new_end = max(end, prev_end);
+
+        old->range.start = new_start;
+        old->range.length = new_end - new_start;
+
+        assert(old->range.start >= 0);
+        assert(old->range.start < grid->rows * grid->cols);
+        assert(old->range.length >= 0);
+        assert(old->range.start + old->range.length <= grid->rows * grid->cols);
+        return true;
+    }
+
+    return false;
+}
+
+void
+grid_damage_update(struct grid *grid, int start, int length)
+{
+    struct damage dmg = {
+        .type = DAMAGE_UPDATE,
+        .range = {.start = start, .length = length},
+    };
+
+    assert(dmg.range.start >= 0);
+    assert(dmg.range.start < grid->rows * grid->cols);
+    assert(dmg.range.length >= 0);
+    assert(dmg.range.start + dmg.range.length <= grid->rows * grid->cols);
+
+    if (damage_merge_range(grid, &dmg))
+        return;
+
+    tll_push_back(grid->damage, dmg);
+}
+
+void
+grid_damage_erase(struct grid *grid, int start, int length)
+{
+    struct damage dmg = {
+        .type = DAMAGE_ERASE,
+        .range = {.start = start, .length = length},
+    };
+
+    assert(dmg.range.start >= 0);
+    assert(dmg.range.start < grid->rows * grid->cols);
+    assert(dmg.range.length >= 0);
+    assert(dmg.range.start + dmg.range.length <= grid->rows * grid->cols);
+
+    if (damage_merge_range(grid, &dmg))
+        return;
+
+    tll_push_back(grid->damage, dmg);
+}
+
 void
 grid_erase(struct grid *grid, int start, int end)
 {
@@ -21,11 +96,9 @@ grid_erase(struct grid *grid, int start, int end)
 
         cell->attrs.foreground = grid->foreground;
         cell->attrs.background = grid->background;
-
-        cell->dirty = true;
     }
 
-    grid->dirty = true;
+    grid_damage_erase(grid, start, end - start);
 }
 
 int
@@ -46,9 +119,8 @@ grid_cursor_to(struct grid *grid, int row, int col)
     assert(new_linear >= 0);
     assert(new_linear < grid->rows * grid->cols);
 
-    grid->cells[grid->linear_cursor].dirty = true;
-    grid->cells[new_linear].dirty = true;
-    grid->dirty = true;
+    grid_damage_update(grid, grid->linear_cursor, 1);
+    grid_damage_update(grid, new_linear, 1);
     grid->print_needs_wrap = false;
 
     grid->linear_cursor = new_linear;
@@ -98,7 +170,12 @@ grid_scroll(struct grid *grid, int rows)
     int count = cell_end - cell_start;
     LOG_DBG("moving %d cells from %d", count, cell_start);
 
-    memmove(&grid->cells[0], &grid->cells[cell_start], count * sizeof(grid->cells[0]));
+    memmove(
+        &grid->cells[0], &grid->cells[cell_start],
+        count * sizeof(grid->cells[0]));
+
+    tll_free(grid->damage);
+
+    grid_damage_update(grid, 0, count);
     grid_erase(grid, cell_end - rows * grid->cols, grid->rows * grid->cols);
-    grid->all_dirty = true;
 }

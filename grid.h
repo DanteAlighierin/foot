@@ -2,6 +2,9 @@
 
 #include "terminal.h"
 
+void grid_damage_update(struct grid *grid, int start, int length);
+void grid_damage_erase(struct grid *grid, int start, int length);
+
 void grid_erase(struct grid *grid, int start, int end);
 
 void grid_cursor_to(struct grid *grid, int row, int col);

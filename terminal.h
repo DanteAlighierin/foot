@@ -9,6 +9,8 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
+#include "tllist.h"
+
 struct attributes {
     bool bold;
     bool italic;
@@ -22,9 +24,20 @@ struct attributes {
 };
 
 struct cell {
-    bool dirty;
     char c[5];
     struct attributes attrs;
+};
+
+enum damage_type {DAMAGE_UPDATE, DAMAGE_ERASE, DAMAGE_SCROLL};
+struct damage {
+    enum damage_type type;
+    union {
+        struct {
+            int start;
+            int length;
+        } range;    /* DAMAGE_UPDATE, DAMAGE_ERASE */
+        int lines;  /* DAMAGE_SCROLL */
+    };
 };
 
 struct grid {
@@ -45,8 +58,7 @@ struct grid {
     uint32_t foreground;
     uint32_t background;
 
-    bool dirty;
-    bool all_dirty;
+    tll(struct damage) damage;
 };
 
 struct vt {
