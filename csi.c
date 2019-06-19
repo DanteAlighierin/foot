@@ -50,6 +50,7 @@ csi_sgr(struct terminal *term)
         case 28: term->vt.attrs.conceal = false; break;
         case 29: term->vt.attrs.strikethrough = false; break;
 
+        /* Regular foreground colors */
         case 30: term->vt.attrs.foreground = 0x000000ff; break;
         case 31: term->vt.attrs.foreground = 0xff0000ff; break;
         case 32: term->vt.attrs.foreground = 0x00ff00ff; break;
@@ -60,6 +61,7 @@ csi_sgr(struct terminal *term)
         case 37: term->vt.attrs.foreground = 0xffffffff; break;
         case 39: term->vt.attrs.foreground = term->grid.foreground; break;
 
+        /* Regular background colors */
         case 40: term->vt.attrs.background = 0x000000ff; break;
         case 41: term->vt.attrs.background = 0xff0000ff; break;
         case 42: term->vt.attrs.background = 0x00ff00ff; break;
@@ -69,6 +71,28 @@ csi_sgr(struct terminal *term)
         case 46: term->vt.attrs.background = 0x00f0f0ff; break;
         case 47: term->vt.attrs.background = 0xffffffff; break;
         case 49: term->vt.attrs.background = term->grid.background; break;
+
+        /* Bright foreground colors */
+        /*  TODO: using regular colors for now */
+        case 90: term->vt.attrs.foreground = 0x000000ff; break;
+        case 91: term->vt.attrs.foreground = 0xff0000ff; break;
+        case 92: term->vt.attrs.foreground = 0x00ff00ff; break;
+        case 93: term->vt.attrs.foreground = 0xf0f000ff; break;
+        case 94: term->vt.attrs.foreground = 0x0000ffff; break;
+        case 95: term->vt.attrs.foreground = 0xf000f0ff; break;
+        case 96: term->vt.attrs.foreground = 0x00f0f0ff; break;
+        case 97: term->vt.attrs.foreground = 0xffffffff; break;
+
+        /* Regular background colors */
+        /* TODO: using regular colors for now */
+        case 100: term->vt.attrs.background = 0x000000ff; break;
+        case 101: term->vt.attrs.background = 0xff0000ff; break;
+        case 102: term->vt.attrs.background = 0x00ff00ff; break;
+        case 103: term->vt.attrs.background = 0xf0f000ff; break;
+        case 104: term->vt.attrs.background = 0x0000ffff; break;
+        case 105: term->vt.attrs.background = 0xf000f0ff; break;
+        case 106: term->vt.attrs.background = 0x00f0f0ff; break;
+        case 107: term->vt.attrs.background = 0xffffffff; break;
 
         default:
             LOG_ERR("unimplemented: CSI: SGR: %u", term->vt.params.v[i].value);
