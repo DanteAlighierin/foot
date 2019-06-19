@@ -69,6 +69,158 @@ static const struct wl_callback_listener frame_listener = {
 };
 
 static void
+grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dmg)
+{
+    LOG_DBG("damage: ERASE: %d -> %d",
+            dmg->range.start, dmg->range.start + dmg->range.length);
+
+    double br = (double)((default_background >> 24) & 0xff) / 255.0;
+    double bg = (double)((default_background >> 16) & 0xff) / 255.0;
+    double bb = (double)((default_background >>  8) & 0xff) / 255.0;
+    cairo_set_source_rgba(buf->cairo, br, bg, bb, 1.0);
+
+    const int cols = c->term.grid.cols;
+
+    int start = dmg->range.start;
+    int left = dmg->range.length;
+
+    int row = start / cols;
+    int col = start % cols;
+
+    /* Partial initial line */
+    if (col != 0) {
+        int cell_count = min(left, cols - col);
+
+        int x = col * c->term.grid.cell_width;
+        int y = row * c->term.grid.cell_height;
+        int width = cell_count * c->term.grid.cell_width;
+        int height = c->term.grid.cell_height;
+
+        cairo_rectangle(buf->cairo, x, y, width, height);
+        cairo_fill(buf->cairo);
+        wl_surface_damage_buffer(c->wl.surface, x, y, width, height);
+
+        start += cell_count;
+        left -= cell_count;
+
+        row = start / cols;
+        col = start % cols;
+    }
+
+    assert(left == 0 || col == 0);
+
+    /* One or more full lines left */
+    if (left >= cols) {
+        int line_count = left / cols;
+
+        int x = 0;
+        int y = row * c->term.grid.cell_height;
+        int width = buf->width;
+        int height = line_count * c->term.grid.cell_height;
+
+        cairo_rectangle(buf->cairo, x, y, width, height);
+        cairo_fill(buf->cairo);
+        wl_surface_damage_buffer(c->wl.surface, x, y, width, height);
+
+        start += line_count * cols;
+        left -= line_count * cols;
+
+        row += line_count;
+        col = 0;
+    }
+
+    assert(left == 0 || col == 0);
+    assert(left < cols);
+
+    /* Partial last line */
+    if (left > 0) {
+        int x = 0;
+        int y = row * c->term.grid.cell_height;
+        int width = left * c->term.grid.cell_width;
+        int height = c->term.grid.cell_height;
+
+        cairo_rectangle(buf->cairo, x, y, width, height);
+        cairo_fill(buf->cairo);
+        wl_surface_damage_buffer(c->wl.surface, x, y, width, height);
+    }
+}
+
+static void
+grid_render_update(struct context *c, struct buffer *buf, const struct damage *dmg)
+{
+    LOG_DBG("damage: UPDATE: %d -> %d",
+            dmg->range.start, dmg->range.start + dmg->range.length);
+
+    const int cols = c->term.grid.cols;
+
+    for (int linear_cursor = dmg->range.start,
+             row = dmg->range.start / cols,
+             col = dmg->range.start % cols;
+         linear_cursor < dmg->range.start + dmg->range.length;
+         linear_cursor++,
+             col = (col + 1) % cols,
+             row += col == 0 ? 1 : 0)
+    {
+        //LOG_DBG("UPDATE: %d (%dx%d)", linear_cursor, row, col);
+
+        const struct cell *cell = &c->term.grid.cells[linear_cursor];
+        bool has_cursor = c->term.grid.linear_cursor == linear_cursor;
+
+        int x = col * c->term.grid.cell_width;
+        int y = row * c->term.grid.cell_height;
+        int width = c->term.grid.cell_width;
+        int height = c->term.grid.cell_height;
+
+
+        //LOG_DBG("cell %dx%d dirty: c=0x%02x (%c)",
+        //        row, col, cell->c[0], cell->c[0]);
+
+        double br = (double)((cell->attrs.background >> 24) & 0xff) / 255.0;
+        double bg = (double)((cell->attrs.background >> 16) & 0xff) / 255.0;
+        double bb = (double)((cell->attrs.background >>  8) & 0xff) / 255.0;
+
+        double fr = (double)((cell->attrs.foreground >> 24) & 0xff) / 255.0;
+        double fg = (double)((cell->attrs.foreground >> 16) & 0xff) / 255.0;
+        double fb = (double)((cell->attrs.foreground >>  8) & 0xff) / 255.0;
+
+        if (has_cursor)
+            cairo_set_source_rgba(buf->cairo, fr, fg, fb, 1.0);
+        else
+            cairo_set_source_rgba(buf->cairo, br, bg, bb, 1.0);
+
+        /* Background */
+        cairo_rectangle(buf->cairo, x, y, width, height);
+        cairo_fill(buf->cairo);
+
+        cairo_glyph_t *glyphs = NULL;
+        int num_glyphs = 0;
+
+        cairo_status_t status = cairo_scaled_font_text_to_glyphs(
+            c->font, x, y + c->fextents.ascent,
+            cell->c, strlen(cell->c), &glyphs, &num_glyphs,
+            NULL, NULL, NULL);
+
+        if (status != CAIRO_STATUS_SUCCESS) {
+            if (glyphs != NULL)
+                cairo_glyph_free(glyphs);
+            continue;
+        }
+
+        if (has_cursor)
+            cairo_set_source_rgba(buf->cairo, br, bg, bb, 1.0);
+        else
+            cairo_set_source_rgba(buf->cairo, fr, fg, fb, 1.0);
+        cairo_show_glyphs(buf->cairo, glyphs, num_glyphs);
+        cairo_glyph_free(glyphs);
+    }
+
+    wl_surface_damage_buffer(
+        c->wl.surface,
+        0, (dmg->range.start / cols) * c->term.grid.cell_height,
+        buf->width, (dmg->range.length + cols - 1) / cols * c->term.grid.cell_height);
+}
+
+static void
 grid_render(struct context *c)
 {
     if (tll_length(c->term.grid.damage) == 0)
@@ -79,165 +231,18 @@ grid_render(struct context *c)
 
     struct buffer *buf = shm_get_buffer(c->wl.shm, c->width, c->height);
 
-    double br, bg, bb;  /* Background */
-    double fr, fg, fb;  /* Foreground */
-
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
     cairo_set_scaled_font(buf->cairo, c->font);
 
     tll_foreach(c->term.grid.damage, it) {
         switch (it->item.type) {
-        case DAMAGE_ERASE: {
-            LOG_DBG("damage: ERASE: %d -> %d",
-                    it->item.range.start, it->item.range.start + it->item.range.length);
-
-            br = (double)((default_background >> 24) & 0xff) / 255.0;
-            bg = (double)((default_background >> 16) & 0xff) / 255.0;
-            bb = (double)((default_background >>  8) & 0xff) / 255.0;
-            cairo_set_source_rgba(buf->cairo, br, bg, bb, 1.0);
-
-            const int cols = c->term.grid.cols;
-
-            int start = it->item.range.start;
-            int left = it->item.range.length;
-
-            int row = start / cols;
-            int col = start % cols;
-
-            /* Partial initial line */
-            if (col != 0) {
-                int cell_count = min(left, cols - col);
-
-                int x = col * c->term.grid.cell_width;
-                int y = row * c->term.grid.cell_height;
-                int width = cell_count * c->term.grid.cell_width;
-                int height = c->term.grid.cell_height;
-
-                cairo_rectangle(buf->cairo, x, y, width, height);
-                cairo_fill(buf->cairo);
-                wl_surface_damage_buffer(c->wl.surface, x, y, width, height);
-
-                start += cell_count;
-                left -= cell_count;
-
-                row = start / cols;
-                col = start % cols;
-            }
-
-            assert(left == 0 || col == 0);
-
-            /* One or more full lines left */
-            if (left >= cols) {
-                int line_count = left / cols;
-
-                int x = 0;
-                int y = row * c->term.grid.cell_height;
-                int width = buf->width;
-                int height = line_count * c->term.grid.cell_height;
-
-                cairo_rectangle(buf->cairo, x, y, width, height);
-                cairo_fill(buf->cairo);
-                wl_surface_damage_buffer(c->wl.surface, x, y, width, height);
-
-                start += line_count * cols;
-                left -= line_count * cols;
-
-                row += line_count;
-                col = 0;
-            }
-
-            assert(left == 0 || col == 0);
-            assert(left < cols);
-
-            /* Partial last line */
-            if (left > 0) {
-                int x = 0;
-                int y = row * c->term.grid.cell_height;
-                int width = left * c->term.grid.cell_width;
-                int height = c->term.grid.cell_height;
-
-                cairo_rectangle(buf->cairo, x, y, width, height);
-                cairo_fill(buf->cairo);
-                wl_surface_damage_buffer(c->wl.surface, x, y, width, height);
-            }
-
+        case DAMAGE_ERASE:
+            grid_render_erase(c, buf, &it->item);
             break;
-        }
 
-        case DAMAGE_UPDATE: {
-            LOG_DBG("damage: UPDATE: %d -> %d",
-                    it->item.range.start, it->item.range.start + it->item.range.length);
-
-            const int cols = c->term.grid.cols;
-
-            for (int linear_cursor = it->item.range.start,
-                     row = it->item.range.start / cols,
-                     col = it->item.range.start % cols;
-                 linear_cursor < it->item.range.start + it->item.range.length;
-                 linear_cursor++,
-                     col = (col + 1) % cols,
-                     row += col == 0 ? 1 : 0)
-            {
-                //LOG_DBG("UPDATE: %d (%dx%d)", linear_cursor, row, col);
-
-                const struct cell *cell = &c->term.grid.cells[linear_cursor];
-                bool has_cursor = c->term.grid.linear_cursor == linear_cursor;
-
-                int x = col * c->term.grid.cell_width;
-                int y = row * c->term.grid.cell_height;
-                int width = c->term.grid.cell_width;
-                int height = c->term.grid.cell_height;
-
-
-                //LOG_DBG("cell %dx%d dirty: c=0x%02x (%c)",
-                //        row, col, cell->c[0], cell->c[0]);
-
-                br = (double)((cell->attrs.background >> 24) & 0xff) / 255.0;
-                bg = (double)((cell->attrs.background >> 16) & 0xff) / 255.0;
-                bb = (double)((cell->attrs.background >>  8) & 0xff) / 255.0;
-
-                fr = (double)((cell->attrs.foreground >> 24) & 0xff) / 255.0;
-                fg = (double)((cell->attrs.foreground >> 16) & 0xff) / 255.0;
-                fb = (double)((cell->attrs.foreground >>  8) & 0xff) / 255.0;
-
-                if (has_cursor)
-                    cairo_set_source_rgba(buf->cairo, fr, fg, fb, 1.0);
-                else
-                    cairo_set_source_rgba(buf->cairo, br, bg, bb, 1.0);
-
-                /* Background */
-                cairo_rectangle(buf->cairo, x, y, width, height);
-                cairo_fill(buf->cairo);
-
-                cairo_glyph_t *glyphs = NULL;
-                int num_glyphs = 0;
-
-                cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-                    c->font, x, y + c->fextents.ascent,
-                    cell->c, strlen(cell->c), &glyphs, &num_glyphs,
-                    NULL, NULL, NULL);
-
-                if (status != CAIRO_STATUS_SUCCESS) {
-                    if (glyphs != NULL)
-                        cairo_glyph_free(glyphs);
-                    continue;
-                }
-
-                if (has_cursor)
-                    cairo_set_source_rgba(buf->cairo, br, bg, bb, 1.0);
-                else
-                    cairo_set_source_rgba(buf->cairo, fr, fg, fb, 1.0);
-                cairo_show_glyphs(buf->cairo, glyphs, num_glyphs);
-                cairo_glyph_free(glyphs);
-
-                //wl_surface_damage_buffer(c->wl.surface, x, y, width, height);
-            }
-            wl_surface_damage_buffer(
-                c->wl.surface,
-                0, (it->item.range.start / cols) * c->term.grid.cell_height,
-                buf->width, (it->item.range.length + cols - 1) / cols * c->term.grid.cell_height);
+        case DAMAGE_UPDATE:
+            grid_render_update(c, buf, &it->item);
             break;
-        }
 
         case DAMAGE_SCROLL:
             assert(false);

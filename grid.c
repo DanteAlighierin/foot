@@ -170,9 +170,10 @@ grid_scroll(struct grid *grid, int rows)
     int count = cell_end - cell_start;
     LOG_DBG("moving %d cells from %d", count, cell_start);
 
+    const size_t bytes = count * sizeof(grid->cells[0]);
     memmove(
         &grid->cells[0], &grid->cells[cell_start],
-        count * sizeof(grid->cells[0]));
+        bytes);
 
     tll_free(grid->damage);
 
