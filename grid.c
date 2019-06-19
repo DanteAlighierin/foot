@@ -3,6 +3,10 @@
 #include <string.h>
 #include <assert.h>
 
+#define LOG_MODULE "grid"
+#define LOG_ENABLE_DBG 1
+#include "log.h"
+
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
@@ -11,6 +15,7 @@ grid_erase(struct grid *grid, int start, int end)
 {
     for (int i = start; i < end; i++) {
         struct cell *cell = &grid->cells[i];
+        /* TODO: memset entire range */
         memset(cell, 0, sizeof(*cell));
 
         cell->attrs.foreground = grid->foreground;
@@ -75,4 +80,23 @@ grid_cursor_down(struct grid *grid, int count)
 {
     int move_amount = min(grid->rows - grid->cursor.row - 1, count);
     grid_cursor_to(grid, grid->cursor.row + move_amount, grid->cursor.col);
+}
+
+void
+grid_scroll(struct grid *grid, int rows)
+{
+    if (rows >= grid->rows) {
+        grid_erase(grid, 0, grid->rows * grid->cols);
+        return;
+    }
+
+    int first_row = rows;
+    int cell_start = first_row * grid->cols;
+    int cell_end = grid->rows * grid->cols;
+    int count = cell_end - cell_start;
+    LOG_DBG("moving %d cells from %d", count, cell_start);
+
+    memmove(&grid->cells[0], &grid->cells[cell_start], count * sizeof(grid->cells[0]));
+    grid_erase(grid, cell_end - rows * grid->cols, grid->rows * grid->cols);
+    grid->all_dirty = true;
 }
