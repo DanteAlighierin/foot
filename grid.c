@@ -13,17 +13,19 @@
 void
 grid_erase(struct grid *grid, int start, int end)
 {
+    assert(end >= start);
+    memset(&grid->cells[start], 0, (end - start) * sizeof(grid->cells[0]));
+
     for (int i = start; i < end; i++) {
         struct cell *cell = &grid->cells[i];
-        /* TODO: memset entire range */
-        memset(cell, 0, sizeof(*cell));
 
         cell->attrs.foreground = grid->foreground;
         cell->attrs.background = grid->background;
 
         cell->dirty = true;
-        grid->dirty = true;
     }
+
+    grid->dirty = true;
 }
 
 int

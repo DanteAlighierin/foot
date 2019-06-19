@@ -158,10 +158,9 @@ action(struct terminal *term, enum action action, uint8_t c)
         LOG_DBG("execute: 0x%02x", c);
         switch (c) {
         case '\n':
-            LOG_DBG("NEWLINE: %d %d", term->grid.cursor.row, term->grid.rows);
-            if (term->grid.cursor.row == term->grid.rows - 1) {
+            if (term->grid.cursor.row == term->grid.rows - 1)
                 grid_scroll(&term->grid, 1);
-            } else
+            else
                 grid_cursor_down(&term->grid, 1);
             break;
 
@@ -194,11 +193,10 @@ action(struct terminal *term, enum action action, uint8_t c)
     case ACTION_PRINT: {
         if (term->grid.print_needs_wrap) {
             if (term->grid.cursor.row == term->grid.rows - 1) {
-                assert(false);
                 grid_scroll(&term->grid, 1);
-            }
-
-            grid_cursor_to(&term->grid, term->grid.cursor.row + 1, 0);
+                grid_cursor_to(&term->grid, term->grid.cursor.row, 0);
+            } else
+                grid_cursor_to(&term->grid, term->grid.cursor.row + 1, 0);
         }
 
         struct cell *cell = &term->grid.cells[term->grid.linear_cursor];
