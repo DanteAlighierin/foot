@@ -4,6 +4,8 @@
 
 void grid_damage_update(struct grid *grid, int start, int length);
 void grid_damage_erase(struct grid *grid, int start, int length);
+void grid_damage_scroll(
+    struct grid *grid, int top_margin, int bottom_margin, int lines);
 
 void grid_erase(struct grid *grid, int start, int end);
 

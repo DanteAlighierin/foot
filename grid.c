@@ -85,6 +85,72 @@ grid_damage_erase(struct grid *grid, int start, int length)
     tll_push_back(grid->damage, dmg);
 }
 
+static void
+damage_adjust_after_scroll(struct grid *grid, int top_margin,
+                           int bottom_margin, int lines)
+{
+    const int adjustment = lines * grid->cols;
+    tll_foreach(grid->damage, it) {
+        if (it->item.type == DAMAGE_SCROLL)
+            continue;
+
+        assert(top_margin == 0 && "must check if item is in the non-scrolling region");
+
+        it->item.range.start -= adjustment;
+
+        if (it->item.range.start < 0) {
+            int new_length = it->item.range.length + it->item.range.start;
+            assert(new_length < it->item.range.length);
+
+            if (new_length <= 0)
+                tll_remove(grid->damage, it);
+            else {
+                it->item.range.length = new_length;
+                it->item.range.start = 0;
+            }
+        }
+    }
+}
+
+void
+grid_damage_scroll(struct grid *grid, int top_margin, int bottom_margin,
+                   int lines)
+{
+    if (tll_length(grid->damage) > 0 &&
+        tll_front(grid->damage).type == DAMAGE_SCROLL)
+    {
+        /* Merge with existing scroll damage */
+
+        struct damage *dmg = &tll_front(grid->damage);
+
+        assert(dmg->scroll.top_margin == top_margin);
+        assert(dmg->scroll.bottom_margin == bottom_margin);
+
+        dmg->scroll.lines += lines;
+
+        /* If we've scrolled away the entire screen, replace with an erase */
+        if (dmg->scroll.lines >= (grid->rows - (dmg->scroll.top_margin +
+                                                dmg->scroll.bottom_margin))) {
+            dmg->type = DAMAGE_ERASE;
+            dmg->range.start = dmg->scroll.top_margin * grid->cols;
+            dmg->range.length = dmg->scroll.lines * grid->cols;
+        }
+    } else {
+        /* TODO: yield a DAMAGE_ERASE if lines > screen */
+        struct damage dmg = {
+            .type = DAMAGE_SCROLL,
+            .scroll = {
+                .top_margin = top_margin,
+                .bottom_margin = bottom_margin,
+                .lines = lines
+            },
+        };
+        tll_push_front(grid->damage, dmg);
+    }
+
+    damage_adjust_after_scroll(grid, top_margin, bottom_margin, lines);
+}
+
 void
 grid_erase(struct grid *grid, int start, int end)
 {
@@ -159,24 +225,27 @@ grid_cursor_down(struct grid *grid, int count)
 void
 grid_scroll(struct grid *grid, int rows)
 {
-    if (rows >= grid->rows) {
+    const int top_margin = 0;
+    const int bottom_margin = 0;
+    const int grid_rows = grid->rows - top_margin - bottom_margin;
+
+    if (rows >= grid_rows) {
+        assert(false && "need to take margins into account");
         grid_erase(grid, 0, grid->rows * grid->cols);
         return;
     }
 
-    int first_row = rows;
-    int cell_start = first_row * grid->cols;
-    int cell_end = grid->rows * grid->cols;
-    int count = cell_end - cell_start;
-    LOG_DBG("moving %d cells from %d", count, cell_start);
+    int cell_dst = top_margin * grid->cols;
+    int cell_src = (top_margin + rows) * grid->cols;
+    int cell_end = (grid->rows - bottom_margin) * grid->cols;
+    int count = cell_end - cell_src;
+    LOG_DBG("moving %d cells from %d", count, cell_src);
 
     const size_t bytes = count * sizeof(grid->cells[0]);
     memmove(
-        &grid->cells[0], &grid->cells[cell_start],
+        &grid->cells[cell_dst], &grid->cells[cell_src],
         bytes);
 
-    tll_free(grid->damage);
-
-    grid_damage_update(grid, 0, count);
+    grid_damage_scroll(grid, top_margin, bottom_margin, rows);
     grid_erase(grid, cell_end - rows * grid->cols, grid->rows * grid->cols);
 }

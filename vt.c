@@ -158,9 +158,10 @@ action(struct terminal *term, enum action action, uint8_t c)
         LOG_DBG("execute: 0x%02x", c);
         switch (c) {
         case '\n':
-            if (term->grid.cursor.row == term->grid.rows - 1)
+            if (term->grid.cursor.row == term->grid.rows - 1) {
                 grid_scroll(&term->grid, 1);
-            else
+                /* TODO: simulate \r? */
+            } else
                 grid_cursor_down(&term->grid, 1);
             break;
 

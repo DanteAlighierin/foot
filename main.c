@@ -221,6 +221,51 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
 }
 
 static void
+grid_render_scroll(struct context *c, struct buffer *buf,
+                   const struct damage *dmg)
+{
+    //int x = 0;
+    int dst_y = (dmg->scroll.top_margin + 0) * c->term.grid.cell_height;
+    int src_y = (dmg->scroll.top_margin + dmg->scroll.lines) * c->term.grid.cell_height;
+    int width = buf->width;
+    int height = (c->term.grid.rows -
+                  dmg->scroll.top_margin -
+                  dmg->scroll.bottom_margin -
+                  dmg->scroll.lines) * c->term.grid.cell_height;
+
+    const uint32_t stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
+
+    LOG_DBG("damage: SCROLL: %d-%d by %d lines (dst-y: %d, src-y: %d, height: %d, stride: %d, mmap-size: %zu)",
+            dmg->scroll.top_margin,
+            c->term.grid.rows - dmg->scroll.bottom_margin,
+            dmg->scroll.lines,
+            dst_y, src_y, height, stride,
+            buf->size);
+
+    cairo_surface_flush(buf->cairo_surface);
+    uint8_t *raw = cairo_image_surface_get_data(buf->cairo_surface);
+
+    memmove(raw + dst_y * stride, raw + src_y * stride, height * stride);
+    cairo_surface_mark_dirty(buf->cairo_surface);
+
+    wl_surface_damage_buffer(c->wl.surface, 0, dst_y, width, height);
+
+#if 1
+    const int cols = c->term.grid.cols;
+    struct damage erase = {
+        .type = DAMAGE_ERASE,
+        .range = {
+            .start = (c->term.grid.rows -
+                      dmg->scroll.bottom_margin -
+                      dmg->scroll.lines) * cols,
+            .length = dmg->scroll.lines * cols
+        },
+    };
+    grid_render_erase(c, buf, &erase);
+#endif
+}
+
+static void
 grid_render(struct context *c)
 {
     if (tll_length(c->term.grid.damage) == 0)
@@ -234,6 +279,7 @@ grid_render(struct context *c)
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
     cairo_set_scaled_font(buf->cairo, c->font);
 
+    //bool scroll = false;
     tll_foreach(c->term.grid.damage, it) {
         switch (it->item.type) {
         case DAMAGE_ERASE:
@@ -245,13 +291,15 @@ grid_render(struct context *c)
             break;
 
         case DAMAGE_SCROLL:
-            assert(false);
+            //scroll = true;
+            grid_render_scroll(c, buf, &it->item);
             break;
         }
 
         tll_remove(c->term.grid.damage, it);
     }
 
+    //cairo_surface_flush(buf->cairo_surface);
     wl_surface_attach(c->wl.surface, buf->wl_buf, 0, 0);
 
     struct wl_callback *cb = wl_surface_frame(c->wl.surface);

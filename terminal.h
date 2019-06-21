@@ -32,11 +32,18 @@ enum damage_type {DAMAGE_UPDATE, DAMAGE_ERASE, DAMAGE_SCROLL};
 struct damage {
     enum damage_type type;
     union {
+        /* DAMAGE_UPDATE, DAMAGE_ERASE */
         struct {
             int start;
             int length;
-        } range;    /* DAMAGE_UPDATE, DAMAGE_ERASE */
-        int lines;  /* DAMAGE_SCROLL */
+        } range;
+
+        /* DAMAGE_SCROLL */
+        struct {
+            int top_margin;
+            int bottom_margin;
+            int lines;
+        } scroll;
     };
 };
 
