@@ -225,7 +225,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'B': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            grid_cursor_up(&term->grid, count);
+            grid_cursor_down(&term->grid, count);
+            //LOG_DBG("CSI: B: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
             break;
         }
 
