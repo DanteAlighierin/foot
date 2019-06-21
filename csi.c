@@ -187,7 +187,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 /* From cursor to end of line */
                 start = term->grid.linear_cursor;
                 end = grid_cursor_linear(
-                    &term->grid, term->grid.cursor.row, term->grid.cols - 1);
+                    &term->grid, term->grid.cursor.row, term->grid.cols);
+                //LOG_WARN("CSI: K: linear = %d, row = %d, col = %d, end = %d",
+                //         start, term->grid.cursor.row, term->grid.cursor.col, end);
                 break;
 
             case 1:
@@ -202,7 +204,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 start = grid_cursor_linear(
                     &term->grid, term->grid.cursor.row, 0);
                 end = grid_cursor_linear(
-                    &term->grid, term->grid.cursor.row, term->grid.cols - 1);
+                    &term->grid, term->grid.cursor.row, term->grid.cols);
                 break;
 
             default:
@@ -217,6 +219,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'A': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             grid_cursor_up(&term->grid, count);
+            //LOG_DBG("CSI: A: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
             break;
         }
 
@@ -229,12 +232,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'C': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             grid_cursor_right(&term->grid, count);
+            //LOG_DBG("CSI: C: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
             break;
         }
 
         case 'D': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             grid_cursor_left(&term->grid, count);
+            //LOG_DBG("CSI: D: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
             break;
         }
 
