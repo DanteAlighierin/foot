@@ -52,10 +52,14 @@ static void
 keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface)
 {
-#if 0
     struct terminal *term = data;
-    term->status = EXIT;
-#endif
+
+    mtx_lock(&term->kbd.repeat.mutex);
+    if (term->kbd.repeat.cmd != REPEAT_EXIT) {
+        term->kbd.repeat.cmd = REPEAT_STOP;
+        cnd_signal(&term->kbd.repeat.cond);
+    }
+    mtx_unlock(&term->kbd.repeat.mutex);
 }
 
 static void
