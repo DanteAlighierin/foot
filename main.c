@@ -101,24 +101,35 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         int width = c->term.grid.cell_width;
         int height = c->term.grid.cell_height;
 
+        uint32_t foreground = cell->attrs.foreground;
+        uint32_t background = cell->attrs.background;
+
+        if (has_cursor) {
+            uint32_t swap = foreground;
+            foreground = background;
+            background = swap;
+        }
+
+        if (cell->attrs.reverse) {
+            uint32_t swap = foreground;
+            foreground = background;
+            background = swap;
+        }
 
         //LOG_DBG("cell %dx%d dirty: c=0x%02x (%c)",
         //        row, col, cell->c[0], cell->c[0]);
 
-        double br = (double)((cell->attrs.background >> 24) & 0xff) / 255.0;
-        double bg = (double)((cell->attrs.background >> 16) & 0xff) / 255.0;
-        double bb = (double)((cell->attrs.background >>  8) & 0xff) / 255.0;
+        double br = (double)((background >> 24) & 0xff) / 255.0;
+        double bg = (double)((background >> 16) & 0xff) / 255.0;
+        double bb = (double)((background >>  8) & 0xff) / 255.0;
 
-        double fr = (double)((cell->attrs.foreground >> 24) & 0xff) / 255.0;
-        double fg = (double)((cell->attrs.foreground >> 16) & 0xff) / 255.0;
-        double fb = (double)((cell->attrs.foreground >>  8) & 0xff) / 255.0;
+        double fr = (double)((foreground >> 24) & 0xff) / 255.0;
+        double fg = (double)((foreground >> 16) & 0xff) / 255.0;
+        double fb = (double)((foreground >>  8) & 0xff) / 255.0;
 
         cairo_scaled_font_t *font = attrs_to_font(c, &cell->attrs);
         cairo_set_scaled_font(buf->cairo, font);
-        if (has_cursor)
-            cairo_set_source_rgba(buf->cairo, fr, fg, fb, 1.0);
-        else
-            cairo_set_source_rgba(buf->cairo, br, bg, bb, 1.0);
+        cairo_set_source_rgba(buf->cairo, br, bg, bb, 1.0);
 
         /* Background */
         cairo_rectangle(buf->cairo, x, y, width, height);
@@ -141,10 +152,7 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
             continue;
         }
 
-        if (has_cursor)
-            cairo_set_source_rgba(buf->cairo, br, bg, bb, 1.0);
-        else
-            cairo_set_source_rgba(buf->cairo, fr, fg, fb, 1.0);
+        cairo_set_source_rgba(buf->cairo, fr, fg, fb, 1.0);
         cairo_show_glyphs(buf->cairo, glyphs, num_glyphs);
         cairo_glyph_free(glyphs);
     }
