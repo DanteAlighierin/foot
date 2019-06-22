@@ -152,28 +152,24 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'A': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             grid_cursor_up(&term->grid, count);
-            //LOG_DBG("CSI: A: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
             break;
         }
 
         case 'B': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             grid_cursor_down(&term->grid, count);
-            //LOG_DBG("CSI: B: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
             break;
         }
 
         case 'C': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             grid_cursor_right(&term->grid, count);
-            //LOG_DBG("CSI: C: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
             break;
         }
 
         case 'D': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             grid_cursor_left(&term->grid, count);
-            //LOG_DBG("CSI: D: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
             break;
         }
 
@@ -217,10 +213,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'K': {
             /* Erase line */
 
-            int param = 0;
-            if (term->vt.params.idx > 0)
-                param = term->vt.params.v[0].value;
-
+            int param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 0;
             int start = -1;
             int end = -1;
             switch (param) {
@@ -229,8 +222,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 start = term->grid.linear_cursor;
                 end = grid_cursor_linear(
                     &term->grid, term->grid.cursor.row, term->grid.cols);
-                //LOG_WARN("CSI: K: linear = %d, row = %d, col = %d, end = %d",
-                //         start, term->grid.cursor.row, term->grid.cursor.col, end);
                 break;
 
             case 1:
@@ -259,9 +250,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'P': {
             /* DCH: Delete character */
-            int param = 1;
-            if (term->vt.params.idx > 0)
-                param = term->vt.params.v[0].value;
+            int param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
 
             /* Only delete up to the right margin */
             const int max_end = grid_cursor_linear(
