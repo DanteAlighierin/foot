@@ -271,19 +271,101 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 't':
+            /*
+             * TODO: xterm's terminfo specifies *both* \e[?1049h *and*
+             * \e[22;0;0t in smcup, but only one is necessary. We
+             * should provide our own terminfo with *only* \e[?1049h
+             * (and \e[?1049l for rmcup)
+             */
+            LOG_WARN("ignoring CSI with final 't'");
+            break;
+
+        case '=':
+            /*
+             * TODO: xterm's terminfo specifies *both* \e[?1h *and*
+             * \e= in smkx, but only one is necessary. We should
+             * provide our own terminfo with *only* \e[?1h (and \e[?1l
+             * for rmkx)
+             */
+            LOG_WARN("ignoring CSI with final '='");
+            break;
+
         default:
             LOG_ERR("CSI: unimplemented final: %c", final);
             abort();
         }
 
         return true;
-    } else {
+    }
+
+    else if (term->vt.intermediates.idx == 1 &&
+               term->vt.intermediates.data[0] == '?') {
+
+        switch (final) {
+        case 'h': {
+            for (size_t i = 0; i < term->vt.params.idx; i++) {
+                switch (term->vt.params.v[i].value) {
+                case 1:
+                    LOG_WARN("unimplemented: smkx");
+                    break;
+
+                case 1049:
+                    LOG_WARN("unimplemented: smcup");
+                    break;
+
+                case 2004:
+                    term->bracketed_paste = true;
+                    break;
+
+                default:
+                    LOG_ERR("CSI: 'h' (set mode): unimplemented param: %d",
+                            term->vt.params.v[i].value);
+                    abort();
+                    break;
+                }
+            }
+            break;
+        }
+
+        case 'l': {
+            for (size_t i = 0; i < term->vt.params.idx; i++) {
+                switch (term->vt.params.v[i].value) {
+                case 1:
+                    LOG_WARN("unimplemented: rmkx");
+                    break;
+
+                case 1049:
+                    LOG_WARN("unimplemented: rmcup");
+                    break;
+
+                case 2004:
+                    term->bracketed_paste = false;
+                    break;
+
+                default:
+                    LOG_ERR("CSI: 'h' (unset mode): unimplemented param: %d",
+                            term->vt.params.v[i].value);
+                    abort();
+                    break;
+                }
+            }
+            break;
+        }
+
+        default:
+            LOG_ERR("CSI: intermediate '?': unimplemented final: %c", final);
+            abort();
+        }
+
+        return true;
+    }
+
+    else {
         LOG_ERR("CSI: unimplemented: intermediates: %.*s",
                 (int)term->vt.intermediates.idx,
                 term->vt.intermediates.data);
-
-        //abort();
-        return true;
+        abort();
     }
 
     return false;

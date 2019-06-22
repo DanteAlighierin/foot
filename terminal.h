@@ -119,6 +119,7 @@ struct kbd {
 struct terminal {
     pid_t slave;
     int ptmx;
+    bool bracketed_paste;
     struct vt vt;
     struct grid grid;
     struct kbd kbd;
