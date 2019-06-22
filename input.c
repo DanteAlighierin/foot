@@ -62,6 +62,86 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     mtx_unlock(&term->kbd.repeat.mutex);
 }
 
+struct keymap {
+    const char *normal;
+    const char *shift;
+    const char *alt;
+    const char *shift_alt;
+    const char *ctrl;
+    const char *shift_ctrl;
+    const char *alt_ctrl;
+    const char *shift_alt_ctrl;
+};
+
+static const struct keymap key_map[][2] = {
+    [XKB_KEY_Up] = {
+        {"[A", "[1;2A", "[1;3A", "[1;4A", "[1;5A", "[1;6A", "[1;7A", "[1;8A"},
+        {}},
+    [XKB_KEY_Down] = {
+        {"[B", "[1;2B", "[1;3B", "[1;4B", "[1;5B", "[1;6B", "[1;7B", "[1;8B"},
+        {}},
+    [XKB_KEY_Right] = {
+        {"[C", "[1;2C", "[1;3C", "[1;4C", "[1;5C", "[1;6C", "[1;7C", "[1;8C"},
+        {}},
+    [XKB_KEY_Left] = {
+        {"[D", "[1;2D", "[1;3D", "[1;4D", "[1;5D", "[1;6D", "[1;7D", "[1;8D"},
+        {}},
+    [XKB_KEY_Home] = {
+        {"[H", "[1;2H", "[1;3H", "[1;4H", "[1;5H", "[1;6H", "[1;7H", "[1;8H"},
+        {}},
+    [XKB_KEY_End] = {
+        {"[F", "[1;2F", "[1;3F", "[1;4F", "[1;5F", "[1;6F", "[1;7F", "[1;8F"},
+        {}},
+    [XKB_KEY_Insert] = {
+        {"[2~", "[2;2~", "[2;3~", "[2;4~", "[2;5~", "[2;6~", "[2;7~", "[2;8~"},
+        {}},
+    [XKB_KEY_Delete] =  {
+        {"[3~", "[3;2~", "[3;3~", "[3;4~", "[3;5~", "[3;6~", "[3;7~", "[3;8~"},
+        {}},
+    [XKB_KEY_Page_Up] = {
+        {"[5~", "[5;2~", "[5;3~", "[5;4~", "[5;5~", "[5;6~", "[5;7~", "[5;8~"},
+        {}},
+    [XKB_KEY_Page_Down] = {
+        {"[6~", "[6;2~", "[6;3~", "[6;4~", "[6;5~", "[6;6~", "[6;7~", "[6;8~"},
+        {}},
+    [XKB_KEY_F1] = {
+        {"OP", "[1;2P", "[1;3P", "[1;4P", "[1;5P", "[1;6P", "[1;7P", "[1;8P"},
+        {}},
+    [XKB_KEY_F2] = {
+        {"OQ", "[1;2Q", "[1;3Q", "[1;4Q", "[1;5Q", "[1;6Q", "[1;7Q", "[1;8Q"},
+        {}},
+    [XKB_KEY_F3] = {
+        {"OR", "[1;2R", "[1;3R", "[1;4R", "[1;5R", "[1;6R", "[1;7R", "[1;8R"},
+        {}},
+    [XKB_KEY_F4] = {
+        {"OS", "[1;2S", "[1;3S", "[1;4S", "[1;5S", "[1;6S", "[1;7S", "[1;8S"},
+        {}},
+    [XKB_KEY_F5] = {
+        {"[15~", "[15;2~", "[15;3~", "[15;4~", "[15;5~", "[15;6~", "[15;7~", "[15;8~"},
+        {}},
+    [XKB_KEY_F6] = {
+        {"[17~", "[17;2~", "[17;3~", "[17;4~", "[17;5~", "[17;6~", "[17;7~", "[17;8~"},
+        {}},
+    [XKB_KEY_F7] = {
+        {"[18~", "[18;2~", "[18;3~", "[18;4~", "[18;5~", "[18;6~", "[18;7~", "[18;8~"},
+        {}},
+    [XKB_KEY_F8] = {
+        {"[19~", "[19;2~", "[19;3~", "[19;4~", "[19;5~", "[19;6~", "[19;7~", "[19;8~"},
+        {}},
+    [XKB_KEY_F9] = {
+        {"[20~", "[20;2~", "[20;3~", "[20;4~", "[20;5~", "[20;6~", "[20;7~", "[20;8~"},
+        {}},
+    [XKB_KEY_F10] = {
+        {"[21~", "[21;2~", "[21;3~", "[21;4~", "[21;5~", "[21;6~", "[21;7~", "[21;8~"},
+        {}},
+    [XKB_KEY_F11] = {
+        {"[23~", "[23;2~", "[23;3~", "[23;4~", "[23;5~", "[23;6~", "[23;7~", "[23;8~"},
+        {}},
+    [XKB_KEY_F12] = {
+        {"[24~", "[24;2~", "[24;3~", "[24;4~", "[24;5~", "[24;6~", "[24;7~", "[24;8~"},
+        {}},
+    };
+
 static void
 keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
              uint32_t time, uint32_t key, uint32_t state)
@@ -69,7 +149,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     static bool mod_masks_initialized = false;
     static xkb_mod_mask_t ctrl = -1;
     static xkb_mod_mask_t alt = -1;
-    //static xkb_mod_mask_t shift = -1;
+    static xkb_mod_mask_t shift = -1;
 
     struct terminal *term = data;
 
@@ -77,7 +157,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         mod_masks_initialized = true;
         ctrl = 1 << xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Control");
         alt = 1 << xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Mod1");
-        //shift = 1 << xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Shift");
+        shift = 1 << xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Shift");
     }
 
     if (state == XKB_KEY_UP) {
@@ -96,9 +176,10 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     xkb_keysym_t sym = xkb_state_key_get_one_sym(term->kbd.xkb_state, key);
 
     xkb_mod_mask_t mods = xkb_state_serialize_mods(
-        term->kbd.xkb_state, XKB_STATE_MODS_EFFECTIVE);
-    xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(term->kbd.xkb_state, key);
-    xkb_mod_mask_t significant = ctrl | alt /*| shift*/;
+        term->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
+    //xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(term->kbd.xkb_state, key);
+    xkb_mod_mask_t consumed = 0x0;
+    xkb_mod_mask_t significant = ctrl | alt | shift;
     xkb_mod_mask_t effective_mods = mods & ~consumed & significant;
 
 #if 0
@@ -113,17 +194,47 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             "effective=0x%08x",
             sym, mods, consumed, significant, effective_mods);
 
-    if (sym == XKB_KEY_c && effective_mods == ctrl) {
-        kill(term->slave, SIGINT);
+    const int mode = 0; /* ~App */
+    if (sym < sizeof(key_map) / sizeof(key_map[0]) &&
+        key_map[sym][mode].normal != NULL)
+    {
+        const struct keymap *key = &key_map[sym][mode];
+        const char *esc = NULL;
 
-    } else if (effective_mods == 0) {
+        if (effective_mods == 0)
+            esc = key->normal;
+        else if (effective_mods == shift)
+            esc = key->shift;
+        else if (effective_mods == alt)
+            esc = key->alt;
+        else if (effective_mods == (shift | alt))
+            esc = key->shift_alt;
+        else if (effective_mods == ctrl)
+            esc = key->ctrl;
+        else if (effective_mods == (shift | ctrl))
+            esc = key->shift_ctrl;
+        else if (effective_mods == (alt | ctrl))
+            esc = key->alt_ctrl;
+        else if (effective_mods == (shift | alt | ctrl))
+            esc = key->shift_alt_ctrl;
+        else
+            assert(false);
+
+        write(term->ptmx, "\x1b", 1);
+        write(term->ptmx, esc, strlen(esc));
+    } else if (sym == XKB_KEY_Escape){
+        write(term->ptmx, "\x1b", 1);
+    } else {
         char buf[128] = {0};
-        int count = xkb_state_key_get_utf8(term->kbd.xkb_state, key, buf, sizeof(buf));
+        int count = xkb_state_key_get_utf8(
+            term->kbd.xkb_state, key, buf, sizeof(buf));
 
-        if (count == 0)
-            return;
+        if (count > 0) {
+            if (effective_mods & alt)
+                write(term->ptmx, "\x1b", 1);
 
-        write(term->ptmx, buf, count);
+            write(term->ptmx, buf, count);
+        }
     }
 
     mtx_lock(&term->kbd.repeat.mutex);
