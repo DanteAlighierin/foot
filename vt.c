@@ -89,6 +89,7 @@ static const struct state_transition state_ground[256] = {
 };
 
 static const struct state_transition state_escape[256] = {
+    [0x30 ... 0x4f] = {.action = ACTION_CSIDISPATCH, .state = STATE_GROUND},
     [0x5b] = {.state = STATE_CSIENTRY},
     [0x5d] = {.state = STATE_OSCSTRING},
 };
