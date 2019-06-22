@@ -14,6 +14,8 @@
 #include "log.h"
 #include "grid.h"
 
+#define min(x, y) ((x) < (y) ? (x) : (y))
+
 static bool
 csi_sgr(struct terminal *term)
 {
@@ -136,11 +138,39 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'm':
             return csi_sgr(term);
 
+        case 'A': {
+            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            grid_cursor_up(&term->grid, count);
+            //LOG_DBG("CSI: A: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
+            break;
+        }
+
+        case 'B': {
+            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            grid_cursor_down(&term->grid, count);
+            //LOG_DBG("CSI: B: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
+            break;
+        }
+
+        case 'C': {
+            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            grid_cursor_right(&term->grid, count);
+            //LOG_DBG("CSI: C: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
+            break;
+        }
+
+        case 'D': {
+            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            grid_cursor_left(&term->grid, count);
+            //LOG_DBG("CSI: D: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
+            break;
+        }
+
         case 'J': {
             /* Erase screen */
 
             int param = 0;
-            if (term->vt.params.idx >= 1)
+            if (term->vt.params.idx > 0)
                 param = term->vt.params.v[0].value;
 
             int start = -1;
@@ -177,7 +207,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             /* Erase line */
 
             int param = 0;
-            if (term->vt.params.idx >= 0)
+            if (term->vt.params.idx > 0)
                 param = term->vt.params.v[0].value;
 
             int start = -1;
@@ -216,31 +246,28 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        case 'A': {
-            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            grid_cursor_up(&term->grid, count);
-            //LOG_DBG("CSI: A: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
-            break;
-        }
+        case 'P': {
+            /* DCH: Delete character */
+            int param = 1;
+            if (term->vt.params.idx > 0)
+                param = term->vt.params.v[0].value;
 
-        case 'B': {
-            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            grid_cursor_down(&term->grid, count);
-            //LOG_DBG("CSI: B: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
-            break;
-        }
+            /* Only delete up to the right margin */
+            const int max_end = grid_cursor_linear(
+                &term->grid, term->grid.cursor.row, term->grid.cols);
 
-        case 'C': {
-            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            grid_cursor_right(&term->grid, count);
-            //LOG_DBG("CSI: C: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
-            break;
-        }
+            int start = term->grid.linear_cursor;
+            int end = min(start + param, max_end);
 
-        case 'D': {
-            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            grid_cursor_left(&term->grid, count);
-            //LOG_DBG("CSI: D: row = %d, col = %d", term->grid.cursor.row, term->grid.cursor.col);
+            /* Erase the requested number of characters */
+            grid_erase(&term->grid, start, end);
+
+            /* Move remaining (up til the right margin) characters */
+            int count = max_end - end;
+            memmove(&term->grid.cells[start],
+                    &term->grid.cells[end],
+                    count * sizeof(term->grid.cells[0]));
+            grid_damage_update(&term->grid, term->grid.linear_cursor, count);
             break;
         }
 
