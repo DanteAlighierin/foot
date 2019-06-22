@@ -47,7 +47,7 @@ struct wayland {
 struct context {
     bool quit;
 
-    cairo_scaled_font_t *font;
+    cairo_scaled_font_t *fonts[8];
     cairo_font_extents_t fextents;
 
     int width;
@@ -67,6 +67,13 @@ static void frame_callback(
 static const struct wl_callback_listener frame_listener = {
     .done = &frame_callback,
 };
+
+static cairo_scaled_font_t *
+attrs_to_font(struct context *c, const struct attributes *attrs)
+{
+    int idx = attrs->italic << 1 | attrs->bold;
+    return c->fonts[idx];
+}
 
 static void
 grid_render_update(struct context *c, struct buffer *buf, const struct damage *dmg)
@@ -106,6 +113,8 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         double fg = (double)((cell->attrs.foreground >> 16) & 0xff) / 255.0;
         double fb = (double)((cell->attrs.foreground >>  8) & 0xff) / 255.0;
 
+        cairo_scaled_font_t *font = attrs_to_font(c, &cell->attrs);
+        cairo_set_scaled_font(buf->cairo, font);
         if (has_cursor)
             cairo_set_source_rgba(buf->cairo, fr, fg, fb, 1.0);
         else
@@ -119,7 +128,7 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         int num_glyphs = 0;
 
         cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-            c->font, x, y + c->fextents.ascent,
+            font, x, y + c->fextents.ascent,
             cell->c, strlen(cell->c), &glyphs, &num_glyphs,
             NULL, NULL, NULL);
 
@@ -288,7 +297,6 @@ grid_render(struct context *c)
     struct buffer *buf = shm_get_buffer(c->wl.shm, c->width, c->height);
 
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
-    cairo_set_scaled_font(buf->cairo, c->font);
 
     //bool scroll = false;
     tll_foreach(c->term.grid.damage, it) {
@@ -670,11 +678,25 @@ main(int argc, const char *const *argv)
     thrd_create(&keyboard_repeater_id, &keyboard_repeater, &c.term);
 
     const char *font_name = "Dina:pixelsize=12";
-    c.font = font_from_name(font_name);
-    if (c.font == NULL)
+    c.fonts[0] = font_from_name(font_name);
+    if (c.fonts[0] == NULL)
         goto out;
 
-    cairo_scaled_font_extents(c.font,  &c.fextents);
+    {
+        char fname[1024];
+        snprintf(fname, sizeof(fname), "%s:style=bold", font_name);
+        c.fonts[1] = font_from_name(fname);
+
+        snprintf(fname, sizeof(fname), "%s:style=italic", font_name);
+        c.fonts[2] = font_from_name(fname);
+
+        snprintf(fname, sizeof(fname), "%s:style=bold italic", font_name);
+        c.fonts[3] = font_from_name(fname);
+
+        /* TODO; underline */
+    }
+
+    cairo_scaled_font_extents(c.fonts[0],  &c.fextents);
 
     LOG_DBG("font: height: %.2f, x-advance: %.2f",
             c.fextents.height, c.fextents.max_x_advance);
@@ -840,8 +862,10 @@ out:
 
     free(c.term.grid.cells);
 
-    if (c.font != NULL)
-        cairo_scaled_font_destroy(c.font);
+    for (size_t i = 0; i < sizeof(c.fonts) / sizeof(c.fonts[0]); i++) {
+        if (c.fonts[i] != NULL)
+            cairo_scaled_font_destroy(c.fonts[i]);
+    }
 
     if (c.term.ptmx != -1)
         close(c.term.ptmx);
