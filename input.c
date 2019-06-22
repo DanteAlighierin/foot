@@ -225,7 +225,9 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     } else if (sym == XKB_KEY_Escape){
         write(term->ptmx, "\x1b", 1);
     } else {
-        char buf[128] = {0};
+        /* TODO: composing */
+
+        char buf[64] = {0};
         int count = xkb_state_key_get_utf8(
             term->kbd.xkb_state, key, buf, sizeof(buf));
 
