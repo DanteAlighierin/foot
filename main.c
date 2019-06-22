@@ -124,6 +124,9 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         cairo_rectangle(buf->cairo, x, y, width, height);
         cairo_fill(buf->cairo);
 
+        if (cell->attrs.conceal)
+            continue;
+
         cairo_glyph_t *glyphs = NULL;
         int num_glyphs = 0;
 
