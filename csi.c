@@ -16,22 +16,33 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
+static void
+sgr_reset(struct terminal *term)
+{
+    term->vt.attrs.bold = false;
+    term->vt.dim = false;
+    term->vt.attrs.italic = false;
+    term->vt.attrs.underline = false;
+    term->vt.attrs.strikethrough = false;
+    term->vt.attrs.blink = false;
+    term->vt.attrs.conceal = false;
+    term->vt.attrs.reverse = false;
+    term->vt.attrs.foreground = term->grid.foreground;
+    term->vt.attrs.background = term->grid.background;
+}
+
 static bool
 csi_sgr(struct terminal *term)
 {
+    if (term->vt.params.idx == 0) {
+        sgr_reset(term);
+        return true;
+    }
+
     for (size_t i = 0; i < term->vt.params.idx; i++) {
         switch (term->vt.params.v[i].value) {
         case 0:
-            term->vt.attrs.bold = false;
-            term->vt.dim = false;
-            term->vt.attrs.italic = false;
-            term->vt.attrs.underline = false;
-            term->vt.attrs.strikethrough = false;
-            term->vt.attrs.blink = false;
-            term->vt.attrs.conceal = false;
-            term->vt.attrs.reverse = false;
-            term->vt.attrs.foreground = term->grid.foreground;
-            term->vt.attrs.background = term->grid.background;
+            sgr_reset(term);
             break;
 
         case 1: term->vt.attrs.bold = true; break;
