@@ -355,7 +355,8 @@ resize(struct context *c, int width, int height)
     if (width == c->width && height == c->height)
         return;
 
-    bool alt_screen_active = c->term.grid.cells == c->term.grid.alt_grid;
+    bool alt_screen_active
+        = c->term.grid.cells != NULL && c->term.grid.cells == c->term.grid.alt_grid;
 
     c->width = width;
     c->height = height;
