@@ -68,16 +68,20 @@ struct grid {
     tll(struct damage) damage;
 };
 
+struct vt_subparams {
+    unsigned value[16];
+    size_t idx;
+};
+
+struct vt_param {
+    unsigned value;
+    struct vt_subparams sub;
+};
+
 struct vt {
     int state;  /* enum state */
     struct {
-        struct {
-            unsigned value;
-            struct {
-                unsigned value[16];
-                size_t idx;
-            } sub;
-        } v[16];
+        struct vt_param v[16];
         size_t idx;
     } params;
     struct {
@@ -116,9 +120,14 @@ struct kbd {
     } repeat;
 };
 
+enum decckm { DECCKM_CSI, DECCKM_SS3 };
+enum keypad_mode { KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
+
 struct terminal {
     pid_t slave;
     int ptmx;
+    enum decckm decckm;
+    enum keypad_mode keypad_mode;
     bool bracketed_paste;
     struct vt vt;
     struct grid grid;

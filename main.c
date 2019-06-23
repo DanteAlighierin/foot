@@ -666,6 +666,8 @@ main(int argc, const char *const *argv)
         .quit = false,
         .term = {
             .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
+            .decckm = DECCKM_CSI,
+            .keypad_mode = KEYPAD_NUMERICAL,  /* TODO: verify */
             .vt = {
                 .state = 1,  /* STATE_GROUND */
             },

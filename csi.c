@@ -319,7 +319,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             for (size_t i = 0; i < term->vt.params.idx; i++) {
                 switch (term->vt.params.v[i].value) {
                 case 1:
-                    LOG_WARN("unimplemented: smkx");
+                    term->decckm = DECCKM_SS3;
                     break;
 
                 case 1049:
@@ -344,7 +344,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             for (size_t i = 0; i < term->vt.params.idx; i++) {
                 switch (term->vt.params.v[i].value) {
                 case 1:
-                    LOG_WARN("unimplemented: rmkx");
+                    term->decckm = DECCKM_CSI;
                     break;
 
                 case 1049:
