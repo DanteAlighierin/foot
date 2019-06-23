@@ -251,24 +251,32 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'A': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            if (count == 0)
+                count = 1;
             grid_cursor_up(&term->grid, count);
             break;
         }
 
         case 'B': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            if (count == 0)
+                count = 1;
             grid_cursor_down(&term->grid, count);
             break;
         }
 
         case 'C': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            if (count == 0)
+                count = 1;
             grid_cursor_right(&term->grid, count);
             break;
         }
 
         case 'D': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            if (count == 0)
+                count = 1;
             grid_cursor_left(&term->grid, count);
             break;
         }
@@ -278,6 +286,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             int row = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             int col = term->vt.params.idx > 1 ? term->vt.params.v[1].value : 1;
 
+            if (row == 0)
+                row = 1;
+            if (col == 0)
+                col = 1;
+
             grid_cursor_to(&term->grid, row - 1, col - 1);
             break;
         }
@@ -285,10 +298,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'J': {
             /* Erase screen */
 
-            int param = 0;
-            if (term->vt.params.idx > 0)
-                param = term->vt.params.v[0].value;
-
+            int param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 0;
             int start = -1;
             int end = -1;
             switch (param) {
@@ -357,9 +367,48 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'L': {
+            if (term->grid.cursor.row < term->grid.scrolling_region.start ||
+                term->grid.cursor.row >= term->grid.scrolling_region.end)
+                break;
+
+            int count = min(
+                term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1,
+                term->grid.scrolling_region.end - term->grid.cursor.row);
+
+            LOG_DBG("reverse partial: %d, %d rows",
+                    term->grid.cursor.row - term->grid.scrolling_region.start,
+                    count);
+
+            grid_scroll_reverse_partial(
+                &term->grid,
+                term->grid.cursor.row - term->grid.scrolling_region.start,
+                count);
+            grid_cursor_to(&term->grid, term->grid.cursor.row, 0);
+            break;
+        }
+
+        case 'M': {
+            if (term->grid.cursor.row < term->grid.scrolling_region.start ||
+                term->grid.cursor.row >= term->grid.scrolling_region.end)
+                break;
+
+            int count = min(
+                term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1,
+                term->grid.scrolling_region.end - term->grid.cursor.row);
+
+            grid_scroll_partial(
+                &term->grid,
+                term->grid.cursor.row - term->grid.scrolling_region.start,
+                count);
+            break;
+        }
+
         case 'P': {
             /* DCH: Delete character */
             int param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            if (param == 0)
+                param = 1;
 
             /* Only delete up to the right margin */
             const int max_end = grid_cursor_linear(
@@ -385,9 +434,18 @@ csi_dispatch(struct terminal *term, uint8_t final)
             int end = term->vt.params.idx > 1
                 ? term->vt.params.v[1].value : term->grid.rows;
 
+            if (start == 0)
+                start = 1;
+            if (end == 0)
+                end = term->grid.rows;
+
             /* 1-based */
             term->grid.scrolling_region.start = start - 1;
             term->grid.scrolling_region.end = end - 1;
+
+            LOG_INFO("scrolling region: %d-%d",
+                     term->grid.scrolling_region.start,
+                     term->grid.scrolling_region.end);
 
             tll_free(term->grid.damage);
             grid_damage_update(&term->grid, 0, term->grid.rows * term->grid.cols);
@@ -520,6 +578,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         term->grid.cursor.col = term->grid.alt_saved_cursor.col;
                         term->grid.linear_cursor = grid_cursor_linear(
                             &term->grid, term->grid.cursor.row, term->grid.cursor.col);
+
+                        /* Should these be restored from saved values? */
+                        term->grid.scrolling_region.start = 0;
+                        term->grid.scrolling_region.end = term->grid.rows;
 
                         tll_free(term->grid.damage);
                         grid_damage_update(

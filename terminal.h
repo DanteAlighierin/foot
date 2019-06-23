@@ -28,7 +28,9 @@ struct cell {
     struct attributes attrs;
 };
 
-enum damage_type {DAMAGE_UPDATE, DAMAGE_ERASE, DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
+enum damage_type {DAMAGE_UPDATE, DAMAGE_UPDATE_NO_SCROLL,
+                  DAMAGE_ERASE, DAMAGE_ERASE_NO_SCROLL,
+                  DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
 struct damage {
     enum damage_type type;
     union {
@@ -40,6 +42,7 @@ struct damage {
 
         /* DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE */
         struct {
+            int offset;
             int lines;
         } scroll;
     };
