@@ -405,6 +405,35 @@ csi_dispatch(struct terminal *term, uint8_t final)
             LOG_WARN("ignoring CSI with final 't'");
             break;
 
+        case 'n': {
+            if (term->vt.params.idx > 0) {
+                int param = term->vt.params.v[0].value;
+                switch (param) {
+                case 6: {
+                    /* u7 - cursor position query */
+                    /* TODO: we use 0-based position, while the xterm
+                     * terminfo says the receiver of the reply should
+                     * decrement, hence we must add 2 */
+                    char reply[64];
+                    snprintf(reply, sizeof(reply), "\x1b[%d;%dR",
+                             term->grid.cursor.row + 2, term->grid.cursor.col + 2);
+                    write(term->ptmx, reply, strlen(reply));
+                    break;
+                }
+
+                default:
+                    LOG_ERR("CSI: unimplemented parameter for 'n': %d", param);
+                    return false;
+                }
+
+                return true;
+            } else {
+                LOG_ERR("CSI: missing parameter for 'n'");
+                return false;
+            }
+            break;
+        }
+
         case '=':
             /*
              * TODO: xterm's terminfo specifies *both* \e[?1h *and*
