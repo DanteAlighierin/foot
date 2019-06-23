@@ -423,7 +423,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     if (term->grid.cells != term->grid.alt_grid) {
                         term->grid.cells = term->grid.alt_grid;
 
-                        /* TODO: save cursor position */
+                        term->grid.alt_saved_cursor.row = term->grid.cursor.row;
+                        term->grid.alt_saved_cursor.col = term->grid.cursor.col;
 
                         tll_free(term->grid.damage);
                         grid_erase(&term->grid, 0, term->grid.cols * term->grid.rows);
@@ -455,7 +456,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     if (term->grid.cells == term->grid.alt_grid) {
                         term->grid.cells = term->grid.normal_grid;
 
-                        /* TODO: restore cursor position */
+                        term->grid.cursor.row = term->grid.alt_saved_cursor.row;
+                        term->grid.cursor.col = term->grid.alt_saved_cursor.col;
+                        term->grid.linear_cursor = grid_cursor_linear(
+                            &term->grid, term->grid.cursor.row, term->grid.cursor.col);
 
                         tll_free(term->grid.damage);
                         grid_damage_update(

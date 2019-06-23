@@ -63,6 +63,10 @@ struct grid {
     struct cell *cells;
     struct cell *normal_grid;
     struct cell *alt_grid;
+    struct {
+        int row;
+        int col;
+    } alt_saved_cursor;
 
     uint32_t foreground;
     uint32_t background;
