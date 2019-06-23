@@ -567,6 +567,11 @@ esc_dispatch(struct terminal *term, uint8_t final)
 #endif
 
     switch (final) {
+    case 'M':
+        /* ri - reverse index (scroll reverse) */
+        grid_scroll_reverse(&term->grid, 1);
+        break;
+
     case '=':
         /* Other half of xterm's smkx */
         LOG_WARN("ignoring ESC with final %c", final);

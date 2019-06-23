@@ -28,7 +28,7 @@ struct cell {
     struct attributes attrs;
 };
 
-enum damage_type {DAMAGE_UPDATE, DAMAGE_ERASE, DAMAGE_SCROLL};
+enum damage_type {DAMAGE_UPDATE, DAMAGE_ERASE, DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
 struct damage {
     enum damage_type type;
     union {
@@ -38,7 +38,7 @@ struct damage {
             int length;
         } range;
 
-        /* DAMAGE_SCROLL */
+        /* DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE */
         struct {
             int top_margin;
             int bottom_margin;
