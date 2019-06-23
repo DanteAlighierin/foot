@@ -176,6 +176,15 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'H': {
+            /* Move cursor */
+            int row = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            int col = term->vt.params.idx > 1 ? term->vt.params.v[1].value : 1;
+
+            grid_cursor_to(&term->grid, row - 1, col - 1);
+            break;
+        }
+
         case 'J': {
             /* Erase screen */
 
