@@ -553,6 +553,39 @@ static const enum action exit_actions[] = {
 };
 
 static bool
+esc_dispatch(struct terminal *term, uint8_t final)
+{
+#if defined(_DEBUG)
+    char log[1024];
+    int c = snprintf(log, sizeof(log), "ESC: ");
+
+    for (size_t i = 0; i < term->vt.intermediates.idx; i++)
+        c += snprintf(&log[c], sizeof(log) - c, "%d", term->vt.intermediates.data[i]);
+
+    c += snprintf(&log[c], sizeof(log) - c, "%c", final);
+    LOG_DBG("%s", log);
+#endif
+
+    switch (final) {
+    case '=':
+        /* Other half of xterm's smkx */
+        LOG_WARN("ignoring ESC with final %c", final);
+        break;
+
+    case '>':
+        /* Other half of xterm's rmkx */
+        LOG_WARN("ignoring ESC with final %c", final);
+        break;
+
+    default:
+        LOG_ERR("ESC: unimplemented final: %c", final);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
 action(struct terminal *term, enum action action, uint8_t c)
 {
     switch (action) {
@@ -663,6 +696,10 @@ action(struct terminal *term, enum action action, uint8_t c)
         LOG_ERR("unimplemented: action ESC dispatch");
         return false;
 
+    case ACTION_ESC_DISPATCH:
+        return esc_dispatch(term, c);
+        break;
+
     case ACTION_CSI_DISPATCH:
         return csi_dispatch(term, c);
 
@@ -677,7 +714,6 @@ action(struct terminal *term, enum action action, uint8_t c)
     case ACTION_OSC_END:
         return osc_dispatch(term);
 
-    case ACTION_ESC_DISPATCH:
     case ACTION_HOOK:
     case ACTION_UNHOOK:
     case ACTION_PUT:
