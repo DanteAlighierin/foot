@@ -40,8 +40,6 @@ struct damage {
 
         /* DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE */
         struct {
-            int top_margin;
-            int bottom_margin;
             int lines;
         } scroll;
     };
@@ -52,6 +50,13 @@ struct grid {
     int rows;
     int cell_width;
     int cell_height;
+
+    /* Scrolling region - counted as lines excluded from scrolling,
+     * from top and from bottom */
+    struct {
+        int start;
+        int end;
+    } scrolling_region;
 
     int linear_cursor;
     struct {

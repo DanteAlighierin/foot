@@ -380,6 +380,21 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'r': {
+            int start = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            int end = term->vt.params.idx > 1
+                ? term->vt.params.v[1].value : term->grid.rows;
+
+            /* 1-based */
+            term->grid.scrolling_region.start = start - 1;
+            term->grid.scrolling_region.end = end - 1;
+
+            tll_free(term->grid.damage);
+            grid_damage_update(&term->grid, 0, term->grid.rows * term->grid.cols);
+            grid_cursor_to(&term->grid, 0, 0);
+            break;
+        }
+
         case 't':
             /*
              * TODO: xterm's terminfo specifies *both* \e[?1049h *and*

@@ -574,12 +574,12 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     case '=':
         /* Other half of xterm's smkx */
-        LOG_WARN("ignoring ESC with final %c", final);
+        LOG_WARN("unimplemented: keypad mode change");
         break;
 
     case '>':
         /* Other half of xterm's rmkx */
-        LOG_WARN("ignoring ESC with final %c", final);
+        LOG_WARN("unimplemented: keypad mode change");
         break;
 
     default:
