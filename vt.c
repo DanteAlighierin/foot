@@ -560,7 +560,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
     int c = snprintf(log, sizeof(log), "ESC: ");
 
     for (size_t i = 0; i < term->vt.intermediates.idx; i++)
-        c += snprintf(&log[c], sizeof(log) - c, "%d", term->vt.intermediates.data[i]);
+        c += snprintf(&log[c], sizeof(log) - c, "%c", term->vt.intermediates.data[i]);
 
     c += snprintf(&log[c], sizeof(log) - c, "%c", final);
     LOG_DBG("%s", log);
