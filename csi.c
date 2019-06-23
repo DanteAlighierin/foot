@@ -123,6 +123,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
     char log[1024];
     int c = snprintf(log, sizeof(log), "CSI: ");
 
+    for (size_t i = 0; i < term->vt.intermediates.idx; i++)
+        c += snprintf(&log[c], sizeof(log) - c, "%d", term->vt.intermediates.data[i]);
+
     for (size_t i = 0; i < term->vt.params.idx; i++){
         c += snprintf(&log[c], sizeof(log) - c, "%d",
                       term->vt.params.v[i].value);
