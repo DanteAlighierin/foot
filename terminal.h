@@ -61,6 +61,8 @@ struct grid {
     bool print_needs_wrap;
 
     struct cell *cells;
+    struct cell *normal_grid;
+    struct cell *alt_grid;
 
     uint32_t foreground;
     uint32_t background;

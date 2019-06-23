@@ -355,6 +355,8 @@ resize(struct context *c, int width, int height)
     if (width == c->width && height == c->height)
         return;
 
+    bool alt_screen_active = c->term.grid.cells == c->term.grid.alt_grid;
+
     c->width = width;
     c->height = height;
 
@@ -364,16 +366,28 @@ resize(struct context *c, int width, int height)
     c->term.grid.cell_height = (int)ceil(c->fextents.height);
     c->term.grid.cols = c->width / c->term.grid.cell_width;
     c->term.grid.rows = c->height / c->term.grid.cell_height;
-    c->term.grid.cells = realloc(c->term.grid.cells,
-                                 c->term.grid.cols * c->term.grid.rows * sizeof(c->term.grid.cells[0]));
+
+    c->term.grid.normal_grid = realloc(
+        c->term.grid.normal_grid,
+        c->term.grid.cols * c->term.grid.rows * sizeof(c->term.grid.cells[0]));
+    c->term.grid.alt_grid = realloc(
+        c->term.grid.alt_grid,
+        c->term.grid.cols * c->term.grid.rows * sizeof(c->term.grid.cells[0]));
 
     size_t new_cells_len = c->term.grid.cols * c->term.grid.rows;
     for (size_t i = old_cells_len; i < new_cells_len; i++) {
-        c->term.grid.cells[i] = (struct cell){
+        c->term.grid.normal_grid[i] = (struct cell){
+            .attrs = {.foreground = default_foreground,
+                      .background = default_background},
+        };
+        c->term.grid.alt_grid[i] = (struct cell){
             .attrs = {.foreground = default_foreground,
                       .background = default_background},
         };
     }
+
+    c->term.grid.cells = alt_screen_active
+        ? c->term.grid.alt_grid : c->term.grid.normal_grid;
 
     LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d",
             c->width, c->height, c->term.grid.cols, c->term.grid.rows);
@@ -873,7 +887,8 @@ out:
     if (c.wl.display != NULL)
         wl_display_disconnect(c.wl.display);
 
-    free(c.term.grid.cells);
+    free(c.term.grid.normal_grid);
+    free(c.term.grid.alt_grid);
 
     for (size_t i = 0; i < sizeof(c.fonts) / sizeof(c.fonts[0]); i++) {
         if (c.fonts[i] != NULL)

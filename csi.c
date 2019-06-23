@@ -16,6 +16,51 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
+static const uint32_t colors_regular[] = {
+    0x000000ff,
+    0xcc9393ff,
+    0x7f9f7fff,
+    0xd0bf8fff,
+    0x6ca0a3ff,
+    0xdc8cc3ff,
+    0x93e0e3ff,
+    0xdcdcccff,
+};
+
+static const uint32_t colors_bright[] = {
+    0x000000ff,
+    0xdca3a3ff,
+    0xbfebbfff,
+    0xf0dfafff,
+    0x8cd0d3ff,
+    0xdc8cc3ff,
+    0x93e0e3ff,
+    0xffffffff,
+};
+
+static uint32_t colors256[256];
+
+static void __attribute__((constructor))
+initialize_colors256(void)
+{
+    for (size_t i = 0; i < 8; i++)
+        colors256[i] = colors_regular[i];
+    for (size_t i = 0; i < 8; i++)
+        colors256[8 + i] = colors_bright[i];
+
+    for (size_t r = 0; r < 6; r++) {
+        for (size_t g = 0; g < 6; g++) {
+            for (size_t b = 0; b < 6; b++) {
+                colors256[16 + r * 6 * 6 + g * 6 + b] =
+                    (51 * r) << 24 | (51 * g) << 16 | (51 * b) << 8 | 0xff;
+            }
+        }
+    }
+
+    for (size_t i = 0; i < 24; i++)
+        colors256[232 + i] = (11 * i) << 24 | (11 * i) << 16 | (11 * i) << 8 | 0xff;
+}
+
 static void
 sgr_reset(struct terminal *term)
 {
@@ -40,7 +85,9 @@ csi_sgr(struct terminal *term)
     }
 
     for (size_t i = 0; i < term->vt.params.idx; i++) {
-        switch (term->vt.params.v[i].value) {
+        const int param = term->vt.params.v[i].value;
+
+        switch (param) {
         case 0:
             sgr_reset(term);
             break;
@@ -64,48 +111,98 @@ csi_sgr(struct terminal *term)
         case 29: term->vt.attrs.strikethrough = false; break;
 
         /* Regular foreground colors */
-        case 30: term->vt.attrs.foreground = 0x000000ff; break;
-        case 31: term->vt.attrs.foreground = 0xff0000ff; break;
-        case 32: term->vt.attrs.foreground = 0x00ff00ff; break;
-        case 33: term->vt.attrs.foreground = 0xf0f000ff; break;
-        case 34: term->vt.attrs.foreground = 0x0000ffff; break;
-        case 35: term->vt.attrs.foreground = 0xf000f0ff; break;
-        case 36: term->vt.attrs.foreground = 0x00f0f0ff; break;
-        case 37: term->vt.attrs.foreground = 0xffffffff; break;
+        case 30:
+        case 31:
+        case 32:
+        case 33:
+        case 34:
+        case 35:
+        case 36:
+        case 37:
+            term->vt.attrs.foreground = colors_regular[param - 30];
+            break;
+
+        case 38: {
+            if (term->vt.params.idx - i - 1 == 2 &&
+                term->vt.params.v[i + 1].value == 5)
+            {
+                size_t idx = term->vt.params.v[i + 2].value;
+                term->vt.attrs.foreground = colors256[idx];
+                i += 2;
+            } else if (term->vt.params.idx - i - 1 == 4 &&
+                       term->vt.params.v[i + 1].value == 2)
+            {
+                uint32_t r = term->vt.params.v[i + 2].value;
+                uint32_t g = term->vt.params.v[i + 3].value;
+                uint32_t b = term->vt.params.v[i + 4].value;
+                term->vt.attrs.foreground = r << 24 | g << 16 | b << 8 | 0xff;
+                i += 4;
+            } else {
+                LOG_ERR("invalid CSI SGR sequence");
+                return false;
+            }
+            break;
+        }
         case 39: term->vt.attrs.foreground = term->grid.foreground; break;
 
         /* Regular background colors */
-        case 40: term->vt.attrs.background = 0x000000ff; break;
-        case 41: term->vt.attrs.background = 0xff0000ff; break;
-        case 42: term->vt.attrs.background = 0x00ff00ff; break;
-        case 43: term->vt.attrs.background = 0xf0f000ff; break;
-        case 44: term->vt.attrs.background = 0x0000ffff; break;
-        case 45: term->vt.attrs.background = 0xf000f0ff; break;
-        case 46: term->vt.attrs.background = 0x00f0f0ff; break;
-        case 47: term->vt.attrs.background = 0xffffffff; break;
+        case 40:
+        case 41:
+        case 42:
+        case 43:
+        case 44:
+        case 45:
+        case 46:
+        case 47:
+            term->vt.attrs.background = colors_regular[param - 40];
+            break;
+
+        case 48: {
+            if (term->vt.params.idx - i - 1 == 2 &&
+                term->vt.params.v[i + 1].value == 5)
+            {
+                size_t idx = term->vt.params.v[i + 2].value;
+                term->vt.attrs.background = colors256[idx];
+                i += 2;
+            } else if (term->vt.params.idx - i - 1 == 4 &&
+                       term->vt.params.v[i + 1].value == 2)
+            {
+                uint32_t r = term->vt.params.v[i + 2].value;
+                uint32_t g = term->vt.params.v[i + 3].value;
+                uint32_t b = term->vt.params.v[i + 4].value;
+                term->vt.attrs.background = r << 24 | g << 16 | b << 8 | 0xff;
+                i += 4;
+            } else {
+                LOG_ERR("invalid CSI SGR sequence");
+                return false;
+            }
+            break;
+        }
         case 49: term->vt.attrs.background = term->grid.background; break;
 
         /* Bright foreground colors */
-        /*  TODO: using regular colors for now */
-        case 90: term->vt.attrs.foreground = 0x000000ff; break;
-        case 91: term->vt.attrs.foreground = 0xff0000ff; break;
-        case 92: term->vt.attrs.foreground = 0x00ff00ff; break;
-        case 93: term->vt.attrs.foreground = 0xf0f000ff; break;
-        case 94: term->vt.attrs.foreground = 0x0000ffff; break;
-        case 95: term->vt.attrs.foreground = 0xf000f0ff; break;
-        case 96: term->vt.attrs.foreground = 0x00f0f0ff; break;
-        case 97: term->vt.attrs.foreground = 0xffffffff; break;
+        case 90:
+        case 91:
+        case 92:
+        case 93:
+        case 94:
+        case 95:
+        case 96:
+        case 97:
+            term->vt.attrs.foreground = colors_bright[param - 90];
+            break;
 
         /* Regular background colors */
-        /* TODO: using regular colors for now */
-        case 100: term->vt.attrs.background = 0x000000ff; break;
-        case 101: term->vt.attrs.background = 0xff0000ff; break;
-        case 102: term->vt.attrs.background = 0x00ff00ff; break;
-        case 103: term->vt.attrs.background = 0xf0f000ff; break;
-        case 104: term->vt.attrs.background = 0x0000ffff; break;
-        case 105: term->vt.attrs.background = 0xf000f0ff; break;
-        case 106: term->vt.attrs.background = 0x00f0f0ff; break;
-        case 107: term->vt.attrs.background = 0xffffffff; break;
+        case 100:
+        case 101:
+        case 102:
+        case 103:
+        case 104:
+        case 105:
+        case 106:
+        case 107:
+            term->vt.attrs.background = colors_bright[param - 100];
+            break;
 
         default:
             LOG_ERR("unimplemented: CSI: SGR: %u", term->vt.params.v[i].value);
@@ -323,7 +420,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 1049:
-                    LOG_WARN("unimplemented: smcup");
+                    if (term->grid.cells != term->grid.alt_grid) {
+                        term->grid.cells = term->grid.alt_grid;
+
+                        /* TODO: save cursor position */
+
+                        tll_free(term->grid.damage);
+                        grid_erase(&term->grid, 0, term->grid.cols * term->grid.rows);
+                    }
                     break;
 
                 case 2004:
@@ -348,7 +452,15 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 1049:
-                    LOG_WARN("unimplemented: rmcup");
+                    if (term->grid.cells == term->grid.alt_grid) {
+                        term->grid.cells = term->grid.normal_grid;
+
+                        /* TODO: restore cursor position */
+
+                        tll_free(term->grid.damage);
+                        grid_damage_update(
+                            &term->grid, 0, term->grid.cols * term->grid.rows);
+                    }
                     break;
 
                 case 2004:
