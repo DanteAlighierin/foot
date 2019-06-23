@@ -667,7 +667,7 @@ main(int argc, const char *const *argv)
         .term = {
             .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
             .vt = {
-                .state = 1,
+                .state = 1,  /* STATE_GROUND */
             },
             .grid = {.foreground = default_foreground,
                      .background = default_background,

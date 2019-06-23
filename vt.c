@@ -16,14 +16,26 @@
 enum state {
     STATE_SAME,       /* For state_transition */
 
-    STATE_ANYWHERE,
-    STATE_ESCAPE,
     STATE_GROUND,
-    STATE_CSIENTRY,
-    STATE_CSIPARAM,
-    STATE_OSCSTRING,
+    STATE_ESCAPE,
+    STATE_ESCAPE_INTERMEDIATE,
 
-    STATE_UTF8,
+    STATE_CSI_ENTRY,
+    STATE_CSI_PARAM,
+    STATE_CSI_INTERMEDIATE,
+    STATE_CSI_IGNORE,
+
+    STATE_OSC_STRING,
+
+    STATE_DCS_ENTRY,
+    STATE_DCS_PARAM,
+    STATE_DCS_INTERMEDIATE,
+    STATE_DCS_IGNORE,
+    STATE_DCS_PASSTHROUGH,
+
+    STATE_SOS_PM_APC_STRING,
+
+    STATE_UTF8_COLLECT,
 };
 
 enum action {
@@ -35,24 +47,47 @@ enum action {
     ACTION_PRINT,
     ACTION_PARAM,
     ACTION_COLLECT,
-    ACTION_CSIDISPATCH,
-    ACTION_OSCSTART,
-    ACTION_OSCEND,
-    ACTION_OSCPUT,
 
-    ACTION_UTF8,
+    ACTION_ESC_DISPATCH,
+    ACTION_CSI_DISPATCH,
+
+    ACTION_OSC_START,
+    ACTION_OSC_END,
+    ACTION_OSC_PUT,
+
+    ACTION_HOOK,
+    ACTION_UNHOOK,
+    ACTION_PUT,
+
+    ACTION_UTF8_2_ENTRY,
+    ACTION_UTF8_3_ENTRY,
+    ACTION_UTF8_4_ENTRY,
+    ACTION_UTF8_COLLECT,
 };
 
 static const char *const state_names[] = {
     [STATE_SAME] = "no change",
-    [STATE_ANYWHERE] = "anywhere",
-    [STATE_ESCAPE] = "escape",
     [STATE_GROUND] = "ground",
-    [STATE_CSIENTRY] = "CSI entry",
-    [STATE_CSIPARAM] = "CSI param",
-    [STATE_OSCSTRING] = "OSC string",
 
-    [STATE_UTF8] = "UTF-8",
+    [STATE_ESCAPE] = "escape",
+    [STATE_ESCAPE_INTERMEDIATE] = "escape intermediate",
+
+    [STATE_CSI_ENTRY] = "CSI entry",
+    [STATE_CSI_PARAM] = "CSI param",
+    [STATE_CSI_INTERMEDIATE] = "CSI intermediate",
+    [STATE_CSI_IGNORE] = "CSI ignore",
+
+    [STATE_OSC_STRING] = "OSC string",
+
+    [STATE_DCS_ENTRY] = "DCS entry",
+    [STATE_DCS_PARAM] = "DCS param",
+    [STATE_DCS_INTERMEDIATE] = "DCS intermediate",
+    [STATE_DCS_IGNORE] = "DCS ignore",
+    [STATE_DCS_PASSTHROUGH] = "DCS passthrough",
+
+    [STATE_SOS_PM_APC_STRING] = "sos/pm/apc string",
+
+    [STATE_UTF8_COLLECT] = "UTF-8",
 };
 
 static const char *const action_names[] __attribute__((unused)) = {
@@ -63,12 +98,19 @@ static const char *const action_names[] __attribute__((unused)) = {
     [ACTION_PRINT] = "print",
     [ACTION_PARAM] = "param",
     [ACTION_COLLECT] = "collect",
-    [ACTION_CSIDISPATCH] = "CSI dispatch",
-    [ACTION_OSCSTART] = "OSC start",
-    [ACTION_OSCEND] = "OSC end",
-    [ACTION_OSCPUT] = "OSC put",
+    [ACTION_ESC_DISPATCH] = "ESC dispatch",
+    [ACTION_CSI_DISPATCH] = "CSI dispatch",
+    [ACTION_OSC_START] = "OSC start",
+    [ACTION_OSC_END] = "OSC end",
+    [ACTION_OSC_PUT] = "OSC put",
+    [ACTION_HOOK] = "hook",
+    [ACTION_UNHOOK] = "unhook",
+    [ACTION_PUT] = "put",
 
-    [ACTION_UTF8] = "begin UTF-8",
+    [ACTION_UTF8_2_ENTRY] = "UTF-8 (2 chars) begin",
+    [ACTION_UTF8_3_ENTRY] = "UTF-8 (3 chars) begin",
+    [ACTION_UTF8_4_ENTRY] = "UTF-8 (4 chars) begin",
+    [ACTION_UTF8_COLLECT] = "UTF-8 collect",
 };
 
 struct state_transition {
@@ -76,73 +118,438 @@ struct state_transition {
     enum state state;
 };
 
+#if 0
 static const struct state_transition state_anywhere[256] = {
-    [0x1b] = {.state = STATE_ESCAPE},
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
+#endif
 
 static const struct state_transition state_ground[256] = {
     [0x00 ... 0x17] = {.action = ACTION_EXECUTE},
+    [0x19]          = {.action = ACTION_EXECUTE},
+    [0x1c ... 0x1f] = {.action = ACTION_EXECUTE},
     [0x20 ... 0x7f] = {.action = ACTION_PRINT},
-    [0xc2 ... 0xdf] = {.action = ACTION_UTF8, .state = STATE_UTF8}, /* 2 chars */
-    [0xe0 ... 0xef] = {.action = ACTION_UTF8, .state = STATE_UTF8}, /* 3 chars */
-    [0xf0 ... 0xf4] = {.action = ACTION_UTF8, .state = STATE_UTF8}, /* 4 chars */
+
+    [0xc0 ... 0xdf] = {.action = ACTION_UTF8_2_ENTRY, .state = STATE_UTF8_COLLECT},
+    [0xe0 ... 0xef] = {.action = ACTION_UTF8_3_ENTRY, .state = STATE_UTF8_COLLECT},
+    [0xf0 ... 0xf7] = {.action = ACTION_UTF8_4_ENTRY, .state = STATE_UTF8_COLLECT},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
 
 static const struct state_transition state_escape[256] = {
-    [0x30 ... 0x4f] = {.action = ACTION_CSIDISPATCH, .state = STATE_GROUND},
-    [0x5b] = {.state = STATE_CSIENTRY},
-    [0x5d] = {.state = STATE_OSCSTRING},
+    [0x00 ... 0x17] = {.action = ACTION_EXECUTE},
+    [0x19]          = {.action = ACTION_EXECUTE},
+    [0x1c ... 0x1f] = {.action = ACTION_EXECUTE},
+    [0x20 ... 0x2f] = {.action = ACTION_COLLECT,      .state = STATE_ESCAPE_INTERMEDIATE},
+    [0x30 ... 0x4f] = {.action = ACTION_ESC_DISPATCH, .state = STATE_GROUND},
+    [0x50]          = {                               .state = STATE_DCS_ENTRY},
+    [0x51 ... 0x57] = {.action = ACTION_ESC_DISPATCH, .state = STATE_GROUND},
+    [0x58]          = {                               .state = STATE_SOS_PM_APC_STRING},
+    [0x59]          = {.action = ACTION_ESC_DISPATCH, .state = STATE_GROUND},
+    [0x5a]          = {.action = ACTION_ESC_DISPATCH, .state = STATE_GROUND},
+    [0x5b]          = {                               .state = STATE_CSI_ENTRY},
+    [0x5c]          = {.action = ACTION_ESC_DISPATCH, .state = STATE_GROUND},
+    [0x5d]          = {                               .state = STATE_OSC_STRING},
+    [0x5e ... 0x5f] = {                               .state = STATE_SOS_PM_APC_STRING},
+    [0x60 ... 0x7e] = {.action = ACTION_ESC_DISPATCH, .state = STATE_GROUND},
+    [0x7f]          = {.action = ACTION_IGNORE},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
 
-static const struct state_transition state_csientry[256] = {
-    [0x30 ... 0x39] = {.action = ACTION_PARAM, .state = STATE_CSIPARAM},
-    [0x3b] = {.action = ACTION_PARAM, .state = STATE_CSIPARAM},
-    [0x3c ... 0x3f] = {.action = ACTION_COLLECT, .state = STATE_CSIPARAM},
-    [0x40 ... 0x7e] = {.action = ACTION_CSIDISPATCH, .state = STATE_GROUND},
-    [0x6d] = {.action = ACTION_CSIDISPATCH, .state = STATE_GROUND},
+static const struct state_transition state_escape_intermediate[256] = {
+    [0x00 ... 0x17] = {.action = ACTION_EXECUTE},
+    [0x19]          = {.action = ACTION_EXECUTE},
+    [0x1c ... 0x1f] = {.action = ACTION_EXECUTE},
+    [0x20 ... 0x2f] = {.action = ACTION_COLLECT},
+    [0x30 ... 0x7e] = {.action = ACTION_ESC_DISPATCH, .state = STATE_GROUND},
+    [0x7f]          = {.action = ACTION_IGNORE},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
 
-static const struct state_transition state_csiparam[256] = {
+static const struct state_transition state_csi_entry[256] = {
+    [0x00 ... 0x17] = {.action = ACTION_EXECUTE},
+    [0x19]          = {.action = ACTION_EXECUTE},
+    [0x1c ... 0x1f] = {.action = ACTION_EXECUTE},
+    [0x20 ... 0x2f] = {.action = ACTION_COLLECT,      .state = STATE_CSI_INTERMEDIATE},
+    [0x30 ... 0x39] = {.action = ACTION_PARAM,        .state = STATE_CSI_PARAM},
+    [0x3a]          = {                               .state = STATE_CSI_IGNORE},
+    [0x3b]          = {.action = ACTION_PARAM,        .state = STATE_CSI_PARAM},
+    [0x3c ... 0x3f] = {.action = ACTION_COLLECT,      .state = STATE_CSI_PARAM},
+    [0x40 ... 0x7e] = {.action = ACTION_CSI_DISPATCH, .state = STATE_GROUND},
+    [0x7f]          = {.action = ACTION_IGNORE},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
+};
+
+static const struct state_transition state_csi_param[256] = {
+    [0x00 ... 0x17] = {.action = ACTION_EXECUTE},
+    [0x19]          = {.action = ACTION_EXECUTE},
+    [0x1c ... 0x1f] = {.action = ACTION_EXECUTE},
+    [0x20 ... 0x2f] = {.action = ACTION_COLLECT,      .state = STATE_CSI_INTERMEDIATE},
     [0x30 ... 0x39] = {.action = ACTION_PARAM},
-    [0x3b] = {.action = ACTION_PARAM},
-    [0x40 ... 0x7e] = {.action = ACTION_CSIDISPATCH, .state = STATE_GROUND},
-    [0x6d] = {.action = ACTION_CSIDISPATCH, .state = STATE_GROUND},
+    [0x3a]          = {                               .state = STATE_CSI_IGNORE},
+    [0x3b]          = {.action = ACTION_PARAM},
+    [0x3c ... 0x3f] = {                               .state = STATE_CSI_IGNORE},
+    [0x40 ... 0x7e] = {.action = ACTION_CSI_DISPATCH, .state = STATE_GROUND},
+    [0x7f]          = {.action = ACTION_IGNORE},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
 
-static const struct state_transition state_ocsstring[256] = {
-    [0x07] = {.state = STATE_GROUND},  /* Not in diagram */
-    [0x20 ... 0x7f] = {.action = ACTION_OSCPUT},
+static const struct state_transition state_csi_intermediate[256] = {
+    [0x00 ... 0x17] = {.action = ACTION_EXECUTE},
+    [0x19]          = {.action = ACTION_EXECUTE},
+    [0x1c ... 0x1f] = {.action = ACTION_EXECUTE},
+    [0x20 ... 0x2f] = {.action = ACTION_COLLECT},
+    [0x30 ... 0x3f] = {                               .state = STATE_CSI_IGNORE},
+    [0x40 ... 0x7e] = {.action = ACTION_CSI_DISPATCH, .state = STATE_GROUND},
+    [0x7f]          = {.action = ACTION_IGNORE},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
+};
+
+static const struct state_transition state_csi_ignore[256] = {
+    [0x00 ... 0x17] = {.action = ACTION_EXECUTE},
+    [0x19]          = {.action = ACTION_EXECUTE},
+    [0x1c ... 0x1f] = {.action = ACTION_EXECUTE},
+    [0x20 ... 0x3f] = {.action = ACTION_IGNORE},
+    [0x40 ... 0x7e] = {                          .state = STATE_GROUND},
+    [0x7f]          = {.action = ACTION_IGNORE},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
+};
+
+static const struct state_transition state_ocs_string[256] = {
+    [0x00 ... 0x06] = {.action = ACTION_IGNORE},
+    [0x07]          = {                           .state = STATE_GROUND},
+    [0x08 ... 0x17] = {.action = ACTION_IGNORE},
+    [0x19]          = {.action = ACTION_IGNORE},
+    [0x1c ... 0x1f] = {.action = ACTION_IGNORE},
+    [0x20 ... 0x7f] = {.action = ACTION_OSC_PUT},
+    [0x9c]          = {                           .state = STATE_GROUND},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
+};
+
+static const struct state_transition state_dcs_entry[256] = {
+    [0x00 ... 0x17] = {.action = ACTION_IGNORE},
+    [0x19]          = {.action = ACTION_IGNORE},
+    [0x1c ... 0x1f] = {.action = ACTION_IGNORE},
+    [0x20 ... 0x2f] = {.action = ACTION_COLLECT, .state = STATE_DCS_INTERMEDIATE},
+    [0x30 ... 0x39] = {.action = ACTION_PARAM,   .state = STATE_DCS_PARAM},
+    [0x3a]          = {                          .state = STATE_DCS_IGNORE},
+    [0x3b]          = {.action = ACTION_PARAM,   .state = STATE_DCS_PARAM},
+    [0x3c ... 0x3f] = {.action = ACTION_COLLECT, .state = STATE_DCS_PARAM},
+    [0x40 ... 0x7e] = {                          .state = STATE_DCS_PASSTHROUGH},
+    [0x7f]          = {.action = ACTION_IGNORE},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
+};
+
+static const struct state_transition state_dcs_param[256] = {
+    [0x00 ... 0x17] = {.action = ACTION_IGNORE},
+    [0x19]          = {.action = ACTION_IGNORE},
+    [0x1c ... 0x1f] = {.action = ACTION_IGNORE},
+    [0x20 ... 0x2f] = {.action = ACTION_COLLECT, .state = STATE_DCS_INTERMEDIATE},
+    [0x30 ... 0x39] = {.action = ACTION_PARAM},
+    [0x3a]          = {                          .state = STATE_DCS_IGNORE},
+    [0x3b]          = {.action = ACTION_PARAM},
+    [0x3c ... 0x3f] = {                          .state = STATE_DCS_IGNORE},
+    [0x40 ... 0x7e] = {                          .state = STATE_DCS_PASSTHROUGH},
+    [0x7f]          = {.action = ACTION_IGNORE},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
+};
+
+static const struct state_transition state_dcs_intermediate[256] = {
+    [0x00 ... 0x17] = {.action = ACTION_IGNORE},
+    [0x19]          = {.action = ACTION_IGNORE},
+    [0x1c ... 0x1f] = {.action = ACTION_IGNORE},
+    [0x20 ... 0x2f] = {.action = ACTION_COLLECT},
+    [0x30 ... 0x3f] = {                          .state = STATE_DCS_IGNORE},
+    [0x40 ... 0x7e] = {                          .state = STATE_DCS_PASSTHROUGH},
+    [0x7f]          = {.action = ACTION_IGNORE},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
+};
+
+static const struct state_transition state_dcs_ignore[256] = {
+    [0x00 ... 0x17] = {.action = ACTION_IGNORE},
+    [0x19]          = {.action = ACTION_IGNORE},
+    [0x1c ... 0x1f] = {.action = ACTION_IGNORE},
+    [0x20 ... 0x7f] = {.action = ACTION_IGNORE},
+    [0x9c]          = {                         .state = STATE_GROUND},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
+};
+
+static const struct state_transition state_dcs_passthrough[256] = {
+    [0x00 ... 0x17] = {.action = ACTION_PUT},
+    [0x19]          = {.action = ACTION_PUT},
+    [0x1c ... 0x7e] = {.action = ACTION_PUT},
+    [0x7f]          = {.action = ACTION_IGNORE},
+    [0x9c]          = {                         .state = STATE_GROUND},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
+};
+
+static const struct state_transition state_sos_pm_apc_string[256] = {
+    [0x00 ... 0x17] = {.action = ACTION_IGNORE},
+    [0x19]          = {.action = ACTION_IGNORE},
+    [0x1c ... 0x7f] = {.action = ACTION_IGNORE},
+    [0x9c]          = {                         .state = STATE_GROUND},
+
+    /* Anywhere */
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
+    [0x80 ... 0x8f] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x90]          = {                          .state = STATE_DCS_ENTRY},
+    [0x91 ... 0x97] = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x98]          = {                          .state = STATE_SOS_PM_APC_STRING},
+    [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x9b]          = {                          .state = STATE_CSI_ENTRY},
+    [0x9c]          = {                          .state = STATE_GROUND},
+    [0x9d]          = {                          .state = STATE_OSC_STRING},
+    [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
 
 static const struct state_transition* states[] = {
-    [STATE_ANYWHERE] = state_anywhere,
-    [STATE_ESCAPE] = state_escape,
     [STATE_GROUND] = state_ground,
-    [STATE_CSIENTRY] = state_csientry,
-    [STATE_CSIPARAM] = state_csiparam,
-    [STATE_OSCSTRING] = state_ocsstring,
+    [STATE_ESCAPE] = state_escape,
+    [STATE_ESCAPE_INTERMEDIATE] = state_escape_intermediate,
+    [STATE_CSI_ENTRY] = state_csi_entry,
+    [STATE_CSI_PARAM] = state_csi_param,
+    [STATE_CSI_INTERMEDIATE] = state_csi_intermediate,
+    [STATE_CSI_IGNORE] = state_csi_ignore,
+    [STATE_OSC_STRING] = state_ocs_string,
+    [STATE_DCS_ENTRY] = state_dcs_entry,
+    [STATE_DCS_PARAM] = state_dcs_param,
+    [STATE_DCS_INTERMEDIATE] = state_dcs_intermediate,
+    [STATE_DCS_IGNORE] = state_dcs_ignore,
+    [STATE_DCS_PASSTHROUGH] = state_dcs_passthrough,
+    [STATE_SOS_PM_APC_STRING] = state_sos_pm_apc_string,
 };
 
 static const enum action entry_actions[] = {
     [STATE_SAME] = ACTION_NONE,
-    [STATE_ANYWHERE] = ACTION_NONE,
-    [STATE_ESCAPE] = ACTION_CLEAR,
     [STATE_GROUND] = ACTION_NONE,
-    [STATE_CSIENTRY] = ACTION_CLEAR,
-    [STATE_CSIPARAM] = ACTION_NONE,
-    [STATE_OSCSTRING] = ACTION_OSCSTART,
-    [STATE_UTF8] = ACTION_NONE,
+    [STATE_ESCAPE] = ACTION_CLEAR,
+    [STATE_CSI_ENTRY] = ACTION_CLEAR,
+    [STATE_CSI_PARAM] = ACTION_NONE,
+    [STATE_CSI_INTERMEDIATE] = ACTION_NONE,
+    [STATE_CSI_IGNORE] = ACTION_NONE,
+    [STATE_OSC_STRING] = ACTION_OSC_START,
+    [STATE_UTF8_COLLECT] = ACTION_NONE,
+    [STATE_DCS_ENTRY] = ACTION_CLEAR,
+    [STATE_DCS_PARAM] = ACTION_NONE,
+    [STATE_DCS_INTERMEDIATE] = ACTION_NONE,
+    [STATE_DCS_IGNORE] = ACTION_NONE,
+    [STATE_DCS_PASSTHROUGH] = ACTION_HOOK,
+    [STATE_SOS_PM_APC_STRING] = ACTION_NONE,
 };
 
 static const enum action exit_actions[] = {
     [STATE_SAME] = ACTION_NONE,
-    [STATE_ANYWHERE] = ACTION_NONE,
-    [STATE_ESCAPE] = ACTION_NONE,
     [STATE_GROUND] = ACTION_NONE,
-    [STATE_CSIENTRY] = ACTION_NONE,
-    [STATE_CSIPARAM] = ACTION_NONE,
-    [STATE_OSCSTRING] = ACTION_OSCEND,
-    [STATE_UTF8] = ACTION_NONE,
+    [STATE_ESCAPE] = ACTION_NONE,
+    [STATE_CSI_ENTRY] = ACTION_NONE,
+    [STATE_CSI_PARAM] = ACTION_NONE,
+    [STATE_CSI_INTERMEDIATE] = ACTION_NONE,
+    [STATE_CSI_IGNORE] = ACTION_NONE,
+    [STATE_OSC_STRING] = ACTION_OSC_END,
+    [STATE_UTF8_COLLECT] = ACTION_NONE,
+    [STATE_DCS_ENTRY] = ACTION_NONE,
+    [STATE_DCS_PARAM] = ACTION_NONE,
+    [STATE_DCS_INTERMEDIATE] = ACTION_NONE,
+    [STATE_DCS_IGNORE] = ACTION_NONE,
+    [STATE_DCS_PASSTHROUGH] = ACTION_UNHOOK,
+    [STATE_SOS_PM_APC_STRING] = ACTION_NONE,
 };
 
 static bool
@@ -253,46 +660,58 @@ action(struct terminal *term, enum action action, uint8_t c)
         term->vt.intermediates.data[term->vt.intermediates.idx++] = c;
         break;
 
-    case ACTION_CSIDISPATCH:
+        LOG_ERR("unimplemented: action ESC dispatch");
+        return false;
+
+    case ACTION_CSI_DISPATCH:
         return csi_dispatch(term, c);
 
-    case ACTION_OSCSTART:
+    case ACTION_OSC_START:
         term->vt.osc.idx = 0;
         break;
 
-    case ACTION_OSCPUT:
+    case ACTION_OSC_PUT:
         term->vt.osc.data[term->vt.osc.idx++] = c;
         break;
 
-    case ACTION_OSCEND:
+    case ACTION_OSC_END:
         return osc_dispatch(term);
 
-    case ACTION_UTF8:
+    case ACTION_ESC_DISPATCH:
+    case ACTION_HOOK:
+    case ACTION_UNHOOK:
+    case ACTION_PUT:
+        LOG_ERR("unimplemented: action %s", action_names[action]);
+        return false;
+
+    case ACTION_UTF8_2_ENTRY:
         term->vt.utf8.idx = 0;
-        if (c >= 0x2c && c <= 0xdf)
-            term->vt.utf8.left = 2;
-        else if (c >= 0xe0 && c <= 0xef)
-            term->vt.utf8.left = 3;
-        else
-            term->vt.utf8.left = 4;
-        //LOG_DBG("begin UTF-8 (%zu chars)", term->vt.utf8.left);
+        term->vt.utf8.left = 2;
         term->vt.utf8.data[term->vt.utf8.idx++] = c;
         term->vt.utf8.left--;
         break;
+
+    case ACTION_UTF8_3_ENTRY:
+        term->vt.utf8.idx = 0;
+        term->vt.utf8.left = 3;
+        term->vt.utf8.data[term->vt.utf8.idx++] = c;
+        term->vt.utf8.left--;
+        break;
+
+    case ACTION_UTF8_4_ENTRY:
+        term->vt.utf8.idx = 0;
+        term->vt.utf8.left = 4;
+        term->vt.utf8.data[term->vt.utf8.idx++] = c;
+        term->vt.utf8.left--;
+        break;
+
+    case ACTION_UTF8_COLLECT:
+        term->vt.utf8.data[term->vt.utf8.idx++] = c;
+        if (--term->vt.utf8.left == 0)
+            term->vt.state = STATE_GROUND;
+        break;
     }
 
-    return true;
-}
-
-static bool
-process_utf8(struct terminal *term, uint8_t c)
-{
-    //LOG_DBG("UTF-8: 0x%02x", c);
-    term->vt.utf8.data[term->vt.utf8.idx++] = c;
-    term->vt.utf8.left--;
-
-    if (term->vt.utf8.left == 0)
-        term->vt.state = STATE_GROUND;
     return true;
 }
 
@@ -304,28 +723,25 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
         //LOG_DBG("input: 0x%02x", data[i]);
         enum state current_state = term->vt.state;
 
-        const struct state_transition *transition = &state_anywhere[data[i]];
-        if (transition->action == ACTION_NONE && transition->state == STATE_SAME) {
-            if (current_state == STATE_UTF8) {
-                if (!process_utf8(term, data[i]))
-                    abort();
-
-                current_state = term->vt.state;
-                if (current_state == STATE_UTF8)
-                    continue;
-
-                if (!action(term, ACTION_PRINT, 0))
-                    abort();
-
-                continue;
-            }
-
-            transition = &states[current_state][data[i]];
-            if (transition->action == ACTION_NONE && transition->state == STATE_SAME) {
-                LOG_ERR("unimplemented transition from %s: 0x%02x",
-                        state_names[current_state], data[i]);
+        if (current_state == STATE_UTF8_COLLECT) {
+            if (!action(term, ACTION_UTF8_COLLECT, data[i]))
                 abort();
-            }
+
+            current_state = term->vt.state;
+            if (current_state == STATE_UTF8_COLLECT)
+                continue;
+
+            if (!action(term, ACTION_PRINT, 0))
+                abort();
+
+            continue;
+        }
+
+        const struct state_transition *transition = &states[current_state][data[i]];
+        if (transition->action == ACTION_NONE && transition->state == STATE_SAME) {
+            LOG_ERR("unimplemented transition from %s: 0x%02x",
+                    state_names[current_state], data[i]);
+            abort();
         }
 
         if (transition->state != STATE_SAME) {
