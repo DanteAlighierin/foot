@@ -463,6 +463,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->decckm = DECCKM_SS3;
                     break;
 
+                case 12:
+                    LOG_WARN("unimplemented: cursor blinking");
+                    break;
+
+                case 25:
+                    LOG_WARN("unimplemented: civis");
+                    break;
+
                 case 1049:
                     if (term->grid.cells != term->grid.alt_grid) {
                         term->grid.cells = term->grid.alt_grid;
@@ -494,6 +502,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 switch (term->vt.params.v[i].value) {
                 case 1:
                     term->decckm = DECCKM_CSI;
+                    break;
+
+                case 12:
+                    LOG_WARN("unimplemented: cursor blinking");
+                    break;
+
+                case 25:
+                    LOG_WARN("unimplemented: civis");
                     break;
 
                 case 1049:
