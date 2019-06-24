@@ -290,7 +290,8 @@ grid_scroll_partial(struct grid *grid, int offset, int rows)
     int cell_src = (top_margin + offset + rows) * grid->cols;
     int cell_count = (grid_rows - offset - rows) * grid->cols;
 
-    LOG_DBG("moving %d cells from %d", cell_count, cell_src);
+    LOG_DBG("moving %d lines from row %d to row %d", cell_count / grid->cols,
+            cell_src / grid->cols, (top_margin + offset) / grid->cols);
 
     const size_t bytes = cell_count * sizeof(grid->cells[0]);
     memmove(
@@ -300,8 +301,8 @@ grid_scroll_partial(struct grid *grid, int offset, int rows)
     grid_damage_scroll(grid, DAMAGE_SCROLL, offset, rows);
     grid_erase(
         grid,
-        (grid_rows - rows) * grid->cols,
-        grid_rows * grid->cols);
+        (grid->scrolling_region.end - rows) * grid->cols,
+        grid->scrolling_region.end * grid->cols);
 }
 
 void
