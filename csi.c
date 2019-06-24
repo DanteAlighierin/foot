@@ -657,6 +657,27 @@ csi_dispatch(struct terminal *term, uint8_t final)
         return true;
     }
 
+    else if (term->vt.intermediates.idx == 1 &&
+               term->vt.intermediates.data[0] == '>') {
+        switch (final) {
+            case 'c': {
+                int param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 0;
+                if (param != 0) {
+                    LOG_ERR(
+                        "unimplemented: send device attributes with param = %d",
+                        param);
+                    return false;
+                }
+
+                return write(term->ptmx, "\033[?6c", 5) == 5;
+            }
+
+        default:
+            LOG_ERR("CSI: intermediate '>': unimplemented final: %c", final);
+            abort();
+        }
+    }
+
     else {
         LOG_ERR("CSI: unimplemented: intermediates: %.*s",
                 (int)term->vt.intermediates.idx,
