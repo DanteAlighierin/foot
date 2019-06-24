@@ -270,6 +270,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'e':
         case 'B': {
             int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             if (count == 0)
