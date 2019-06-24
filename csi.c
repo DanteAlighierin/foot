@@ -61,6 +61,17 @@ initialize_colors256(void)
         colors256[232 + i] = (11 * i) << 24 | (11 * i) << 16 | (11 * i) << 8 | 0xff;
 }
 
+static int
+param_get(const struct terminal *term, size_t idx, int default_value)
+{
+    if (term->vt.params.idx > idx) {
+        int value = term->vt.params.v[idx].value;
+        return value != 0 ? value : default_value;
+    }
+
+    return default_value;
+}
+
 static void
 sgr_reset(struct terminal *term)
 {
@@ -248,9 +259,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'd': {
             /* VPA - vertical line position absolute */
-            int row = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            if (row == 0)
-                row = 1;
+            int row = param_get(term, 0, 1);
 
             if (row > term->grid.rows)
                 row = term->grid.rows;
@@ -262,44 +271,26 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'm':
             return csi_sgr(term);
 
-        case 'A': {
-            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            if (count == 0)
-                count = 1;
-            grid_cursor_up(&term->grid, count);
+        case 'A':
+            grid_cursor_up(&term->grid, param_get(term, 0, 1));
             break;
-        }
 
         case 'e':
-        case 'B': {
-            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            if (count == 0)
-                count = 1;
-            grid_cursor_down(&term->grid, count);
+        case 'B':
+            grid_cursor_down(&term->grid, param_get(term, 0, 1));
             break;
-        }
 
-        case 'C': {
-            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            if (count == 0)
-                count = 1;
-            grid_cursor_right(&term->grid, count);
+        case 'C':
+            grid_cursor_right(&term->grid, param_get(term, 0, 1));
             break;
-        }
 
-        case 'D': {
-            int count = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            if (count == 0)
-                count = 1;
-            grid_cursor_left(&term->grid, count);
+        case 'D':
+            grid_cursor_left(&term->grid, param_get(term, 0, 1));
             break;
-        }
 
         case 'G': {
             /* Cursor horizontal absolute */
-            int col = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            if (col == 0)
-                col = 1;
+            int col = param_get(term, 0, 1);
 
             if (col > term->grid.cols)
                 col = term->grid.cols;
@@ -310,13 +301,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'H': {
             /* Move cursor */
-            int row = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            int col = term->vt.params.idx > 1 ? term->vt.params.v[1].value : 1;
-
-            if (row == 0)
-                row = 1;
-            if (col == 0)
-                col = 1;
+            int row = param_get(term, 0, 1);
+            int col = param_get(term, 1, 1);
 
             if (row > term->grid.rows)
                 row = term->grid.rows;
@@ -330,7 +316,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'J': {
             /* Erase screen */
 
-            int param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 0;
+            int param = param_get(term, 0, 0);
             int start = -1;
             int end = -1;
             switch (param) {
@@ -364,7 +350,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'K': {
             /* Erase line */
 
-            int param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 0;
+            int param = param_get(term, 0, 0);
             int start = -1;
             int end = -1;
             switch (param) {
@@ -405,7 +391,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
 
             int count = min(
-                term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1,
+                param_get(term, 0, 1),
                 term->grid.scrolling_region.end - term->grid.cursor.row);
 
             LOG_DBG("reverse partial: %d, %d rows",
@@ -425,7 +411,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
 
             int count = min(
-                term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1,
+                param_get(term, 0, 1),
                 term->grid.scrolling_region.end - term->grid.cursor.row);
 
             grid_scroll_partial(
@@ -437,38 +423,30 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'P': {
             /* DCH: Delete character */
-            int param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            if (param == 0)
-                param = 1;
+            int count = param_get(term, 0, 1);
 
             /* Only delete up to the right margin */
             const int max_end = grid_cursor_linear(
                 &term->grid, term->grid.cursor.row, term->grid.cols);
 
             int start = term->grid.linear_cursor;
-            int end = min(start + param, max_end);
+            int end = min(start + count, max_end);
 
             /* Erase the requested number of characters */
             grid_erase(&term->grid, start, end);
 
             /* Move remaining (up til the right margin) characters */
-            int count = max_end - end;
+            int remaining = max_end - end;
             memmove(&term->grid.cells[start],
                     &term->grid.cells[end],
-                    count * sizeof(term->grid.cells[0]));
-            grid_damage_update(&term->grid, term->grid.linear_cursor, count);
+                    remaining * sizeof(term->grid.cells[0]));
+            grid_damage_update(&term->grid, term->grid.linear_cursor, remaining);
             break;
         }
 
         case 'r': {
-            int start = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
-            int end = term->vt.params.idx > 1
-                ? term->vt.params.v[1].value : term->grid.rows;
-
-            if (start == 0)
-                start = 1;
-            if (end == 0)
-                end = term->grid.rows;
+            int start = param_get(term, 0, 1);
+            int end = param_get(term, 1, term->grid.rows);
 
             /* 1-based */
             term->grid.scrolling_region.start = start - 1;
@@ -496,7 +474,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'n': {
             if (term->vt.params.idx > 0) {
-                int param = term->vt.params.v[0].value;
+                int param = param_get(term, 0, 0);
                 switch (param) {
                 case 6: {
                     /* u7 - cursor position query */
@@ -679,7 +657,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                term->vt.intermediates.data[0] == '>') {
         switch (final) {
             case 'c': {
-                int param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 0;
+                int param = param_get(term, 0, 0);
                 if (param != 0) {
                     LOG_ERR(
                         "unimplemented: send device attributes with param = %d",
