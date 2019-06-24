@@ -295,6 +295,19 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'G': {
+            /* Cursor horizontal absolute */
+            int col = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            if (col == 0)
+                col = 1;
+
+            if (col > term->grid.cols)
+                col = term->grid.cols;
+
+            grid_cursor_to(&term->grid, term->grid.cursor.row, col);
+            break;
+        }
+
         case 'H': {
             /* Move cursor */
             int row = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
