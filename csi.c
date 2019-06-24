@@ -246,6 +246,15 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'c':
             return write(term->ptmx, "\033[?6c", 5) == 5;
 
+        case 'd': {
+            int row = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
+            if (row == 0)
+                row = 1;
+
+            grid_cursor_to(&term->grid, row - 1, term->grid.cursor.col);
+            break;
+        }
+
         case 'm':
             return csi_sgr(term);
 
