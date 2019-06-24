@@ -471,10 +471,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     /* u7 - cursor position query */
                     /* TODO: we use 0-based position, while the xterm
                      * terminfo says the receiver of the reply should
-                     * decrement, hence we must add 2 */
+                     * decrement, hence we must add 1 */
                     char reply[64];
                     snprintf(reply, sizeof(reply), "\x1b[%d;%dR",
-                             term->grid.cursor.row + 2, term->grid.cursor.col + 2);
+                             term->grid.cursor.row + 1,
+                             term->grid.cursor.col + 1);
                     write(term->ptmx, reply, strlen(reply));
                     break;
                 }
