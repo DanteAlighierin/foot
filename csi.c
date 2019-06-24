@@ -291,6 +291,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             if (col == 0)
                 col = 1;
 
+            if (row > term->grid.rows)
+                row = term->grid.rows;
+            if (col > term->grid.cols)
+                col = term->grid.cols;
+
             grid_cursor_to(&term->grid, row - 1, col - 1);
             break;
         }
@@ -384,7 +389,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 &term->grid,
                 term->grid.cursor.row - term->grid.scrolling_region.start,
                 count);
-            grid_cursor_to(&term->grid, term->grid.cursor.row, 0);
             break;
         }
 
