@@ -450,7 +450,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             /* 1-based */
             term->grid.scrolling_region.start = start - 1;
-            term->grid.scrolling_region.end = end - 1;
+            term->grid.scrolling_region.end = end;
 
             LOG_INFO("scrolling region: %d-%d",
                      term->grid.scrolling_region.start,
