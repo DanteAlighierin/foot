@@ -247,9 +247,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
             return write(term->ptmx, "\033[?6c", 5) == 5;
 
         case 'd': {
+            /* VPA - vertical line position absolute */
             int row = term->vt.params.idx > 0 ? term->vt.params.v[0].value : 1;
             if (row == 0)
                 row = 1;
+
+            if (row > term->grid.rows)
+                row = term->grid.rows;
 
             grid_cursor_to(&term->grid, row - 1, term->grid.cursor.col);
             break;
