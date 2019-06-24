@@ -535,12 +535,28 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->decckm = DECCKM_SS3;
                     break;
 
+                case 5:
+                    LOG_WARN("unimplemented: flash");
+                    break;
+
                 case 12:
                     LOG_WARN("unimplemented: cursor blinking");
                     break;
 
                 case 25:
                     LOG_WARN("unimplemented: civis");
+                    break;
+
+                case 1000:
+                    LOG_WARN("unimplemented: report mouse clicks");
+                    break;
+
+                case 1002:
+                    LOG_WARN("unimplemented: report cell mouse motion");
+                    break;
+
+                case 1006:
+                    LOG_WARN("unimplemented: SGR mouse");
                     break;
 
                 case 1049:
@@ -576,12 +592,28 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->decckm = DECCKM_CSI;
                     break;
 
+                case 5:
+                    LOG_WARN("unimplemented: flash");
+                    break;
+
                 case 12:
                     LOG_WARN("unimplemented: cursor blinking");
                     break;
 
                 case 25:
                     LOG_WARN("unimplemented: civis");
+                    break;
+
+                case 1000:
+                    LOG_WARN("unimplemented: report mouse clicks");
+                    break;
+
+                case 1002:
+                    LOG_WARN("unimplemented: report cell mouse motion");
+                    break;
+
+                case 1006:
+                    LOG_WARN("unimplemented: SGR mouse");
                     break;
 
                 case 1049:
