@@ -316,7 +316,6 @@ grid_scroll_reverse_partial(struct grid *grid, int offset, int rows)
 {
     const int grid_rows = grid->scrolling_region.end - grid->scrolling_region.start;
     const int top_margin = grid->scrolling_region.start;
-    const int bottom_margin = grid->rows - grid->scrolling_region.end;
 
     if (rows >= grid_rows - offset) {
         assert(false && "todo");
@@ -325,9 +324,10 @@ grid_scroll_reverse_partial(struct grid *grid, int offset, int rows)
 
     int cell_dst = (top_margin + offset + rows) * grid->cols;
     int cell_src = (top_margin + offset) * grid->cols;
-    int cell_count = (grid_rows - bottom_margin - top_margin - offset - rows) * grid->cols;
+    int cell_count = (grid_rows - offset - rows) * grid->cols;
 
-    LOG_DBG("moving %d cells from %d", cell_count, cell_src);
+    LOG_DBG("moving %d lines from row %d to row %d", cell_count / grid->cols,
+            cell_src / grid->cols, (top_margin + offset) / grid->cols);
 
     const size_t bytes = cell_count * sizeof(grid->cells[0]);
     memmove(
