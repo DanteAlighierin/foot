@@ -447,13 +447,13 @@ resize(struct context *c, int width, int height)
     setenv("COLUMNS", cols_s, 1);
     setenv("LINES", rows_s, 1);
 
-    /* SIignal TIOCSWINSZ */
+    /* Signal TIOCSWINSZ */
     if (ioctl(c->term.ptmx, TIOCSWINSZ,
               &(struct winsize){
                   .ws_row = c->term.grid.rows,
-                      .ws_col = c->term.grid.cols,
-                      .ws_xpixel = c->width,
-                      .ws_ypixel = c->height}) == -1)
+                  .ws_col = c->term.grid.cols,
+                  .ws_xpixel = c->width,
+                  .ws_ypixel = c->height}) == -1)
     {
         LOG_ERRNO("TIOCSWINSZ");
     }
