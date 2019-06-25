@@ -386,37 +386,37 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 'L': {
-            if (term->grid.cursor.row < term->grid.scrolling_region.start ||
-                term->grid.cursor.row >= term->grid.scrolling_region.end)
+            if (term->grid.cursor.row < term->grid.scroll_region.start ||
+                term->grid.cursor.row >= term->grid.scroll_region.end)
                 break;
 
             int count = min(
                 param_get(term, 0, 1),
-                term->grid.scrolling_region.end - term->grid.cursor.row);
-
-            LOG_DBG("reverse partial: %d, %d rows",
-                    term->grid.cursor.row - term->grid.scrolling_region.start,
-                    count);
+                term->grid.scroll_region.end - term->grid.cursor.row);
 
             grid_scroll_reverse_partial(
                 &term->grid,
-                term->grid.cursor.row - term->grid.scrolling_region.start,
+                (struct scroll_region){
+                    .start = term->grid.cursor.row,
+                    .end = term->grid.scroll_region.end},
                 count);
             break;
         }
 
         case 'M': {
-            if (term->grid.cursor.row < term->grid.scrolling_region.start ||
-                term->grid.cursor.row >= term->grid.scrolling_region.end)
+            if (term->grid.cursor.row < term->grid.scroll_region.start ||
+                term->grid.cursor.row >= term->grid.scroll_region.end)
                 break;
 
             int count = min(
                 param_get(term, 0, 1),
-                term->grid.scrolling_region.end - term->grid.cursor.row);
+                term->grid.scroll_region.end - term->grid.cursor.row);
 
             grid_scroll_partial(
                 &term->grid,
-                term->grid.cursor.row - term->grid.scrolling_region.start,
+                (struct scroll_region){
+                    .start = term->grid.cursor.row,
+                    .end = term->grid.scroll_region.end},
                 count);
             break;
         }
@@ -449,16 +449,12 @@ csi_dispatch(struct terminal *term, uint8_t final)
             int end = param_get(term, 1, term->grid.rows);
 
             /* 1-based */
-            term->grid.scrolling_region.start = start - 1;
-            term->grid.scrolling_region.end = end;
+            term->grid.scroll_region.start = start - 1;
+            term->grid.scroll_region.end = end;
 
-            LOG_INFO("scrolling region: %d-%d",
-                     term->grid.scrolling_region.start,
-                     term->grid.scrolling_region.end);
-
-            tll_free(term->grid.damage);
-            grid_damage_update(&term->grid, 0, term->grid.rows * term->grid.cols);
-            grid_cursor_to(&term->grid, 0, 0);
+            LOG_INFO("scroll region: %d-%d",
+                     term->grid.scroll_region.start,
+                     term->grid.scroll_region.end);
             break;
         }
 
@@ -562,8 +558,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         term->grid.alt_saved_cursor.row = term->grid.cursor.row;
                         term->grid.alt_saved_cursor.col = term->grid.cursor.col;
 
-                        tll_free(term->grid.damage);
-                        grid_erase(&term->grid, 0, term->grid.cols * term->grid.rows);
+                        grid_damage_all(&term->grid);
                     }
                     break;
 
@@ -622,12 +617,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                             &term->grid, term->grid.cursor.row, term->grid.cursor.col);
 
                         /* Should these be restored from saved values? */
-                        term->grid.scrolling_region.start = 0;
-                        term->grid.scrolling_region.end = term->grid.rows;
+                        term->grid.scroll_region.start = 0;
+                        term->grid.scroll_region.end = term->grid.rows;
 
-                        tll_free(term->grid.damage);
-                        grid_damage_update(
-                            &term->grid, 0, term->grid.cols * term->grid.rows);
+                        grid_damage_all(&term->grid);
                     }
                     break;
 

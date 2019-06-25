@@ -28,9 +28,12 @@ struct cell {
     struct attributes attrs;
 };
 
-enum damage_type {DAMAGE_UPDATE, DAMAGE_UPDATE_NO_SCROLL,
-                  DAMAGE_ERASE, DAMAGE_ERASE_NO_SCROLL,
-                  DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
+struct scroll_region {
+    int start;
+    int end;
+};
+
+enum damage_type {DAMAGE_UPDATE, DAMAGE_ERASE, DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
 struct damage {
     enum damage_type type;
     union {
@@ -42,7 +45,7 @@ struct damage {
 
         /* DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE */
         struct {
-            int offset;
+            struct scroll_region region;
             int lines;
         } scroll;
     };
@@ -54,12 +57,7 @@ struct grid {
     int cell_width;
     int cell_height;
 
-    /* Scrolling region - counted as lines excluded from scrolling,
-     * from top and from bottom */
-    struct {
-        int start;
-        int end;
-    } scrolling_region;
+    struct scroll_region scroll_region;
 
     int linear_cursor;
     struct {
@@ -80,6 +78,7 @@ struct grid {
     uint32_t background;
 
     tll(struct damage) damage;
+    tll(struct damage) scroll_damage;
 };
 
 struct vt_subparams {

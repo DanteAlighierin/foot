@@ -604,7 +604,7 @@ action(struct terminal *term, enum action action, uint8_t c)
         LOG_DBG("execute: 0x%02x", c);
         switch (c) {
         case '\n':
-            if (term->grid.cursor.row == term->grid.scrolling_region.end - 1) {
+            if (term->grid.cursor.row == term->grid.scroll_region.end - 1) {
                 grid_scroll(&term->grid, 1);
             } else
                 grid_cursor_down(&term->grid, 1);
@@ -638,7 +638,7 @@ action(struct terminal *term, enum action action, uint8_t c)
 
     case ACTION_PRINT: {
         if (term->grid.print_needs_wrap) {
-            if (term->grid.cursor.row == term->grid.scrolling_region.end - 1) {
+            if (term->grid.cursor.row == term->grid.scroll_region.end - 1) {
                 grid_scroll(&term->grid, 1);
                 grid_cursor_to(&term->grid, term->grid.cursor.row, 0);
             } else

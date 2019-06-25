@@ -51,48 +51,6 @@ static void
 grid_damage_update_or_erase(struct grid *grid, enum damage_type damage_type,
                             int start, int length)
 {
-    const int cols = grid->cols;
-
-    if (length == 0)
-        return;
-
-    if (start < grid->scrolling_region.start * cols) {
-        int len = min(length, grid->scrolling_region.start * cols);
-
-        struct damage dmg = {
-            .type = damage_type + 1,
-            .range = {.start = start, .length = len},
-        };
-
-        tll_push_back(grid->damage, dmg);
-        start += len;
-        length -= len;
-    }
-
-    assert(start >= grid->scrolling_region.start * cols);
-
-    if (length == 0)
-        return;
-
-    if (start + length > (grid->scrolling_region.end * cols)) {
-        int partial_start = max(start, grid->scrolling_region.end * cols);
-        int len = start + length - partial_start;
-
-        struct damage dmg = {
-            .type = damage_type + 1,
-            .range = {.start = partial_start, .length = len},
-        };
-
-        tll_push_back(grid->damage, dmg);
-        length -= len;
-    }
-
-    if (length == 0)
-        return;
-
-    assert(start < grid->scrolling_region.end * cols);
-    assert(start + length <= grid->scrolling_region.end * cols);
-
     struct damage dmg = {
         .type = damage_type,
         .range = {.start = start, .length = length},
@@ -121,86 +79,111 @@ grid_damage_erase(struct grid *grid, int start, int length)
     grid_damage_update_or_erase(grid, DAMAGE_ERASE, start, length);
 }
 
+void
+grid_damage_all(struct grid *grid)
+{
+    tll_free(grid->damage);
+    tll_free(grid->scroll_damage);
+    grid_damage_update(grid, 0, grid->rows * grid->cols);
+}
+
 static void
 damage_adjust_after_scroll(struct grid *grid, enum damage_type damage_type,
-                           int lines)
+                           struct scroll_region region, int lines)
 {
-    int top_margin = grid->scrolling_region.start;
-    int bottom_margin = grid->rows - grid->scrolling_region.end;
-
     const int adjustment
         = lines * grid->cols * (damage_type == DAMAGE_SCROLL_REVERSE ? -1 : 1);
-    top_margin *= grid->cols;
-    bottom_margin *= grid->cols;
+
+    const int scroll_start = region.start * grid->cols;
+    const int scroll_end = region.end * grid->cols;
 
     tll_foreach(grid->damage, it) {
-        if (!(it->item.type == DAMAGE_UPDATE || it->item.type == DAMAGE_ERASE))
-            continue;
+        int start = it->item.range.start;
+        int length = it->item.range.length;
+        int end = start + length;
 
-        assert(it->item.range.start >= grid->scrolling_region.start * grid->cols);
-        assert(it->item.range.start + it->item.range.length <=
-               grid->scrolling_region.end * grid->cols);
+        if (start < scroll_start && end > scroll_start) {
+            /* Start outside, end either inside or on the other side */
+            struct damage outside = {
+                .type = it->item.type,
+                .range = {.start = start, .length = scroll_start - start},
+            };
 
-        it->item.range.start -= adjustment;
-        int end = it->item.range.start + it->item.range.length;
+            tll_push_back(grid->damage, outside);
+            start = scroll_start;
+            length = end - start;
 
-        if (damage_type == DAMAGE_SCROLL && it->item.range.start < top_margin) {
-            /* Scrolled of screen (partially, or completely) */
-            int new_length = it->item.range.length - (top_margin - it->item.range.start);
-            assert(new_length < it->item.range.length);
-
-            if (new_length <= 0)
-                tll_remove(grid->damage, it);
-            else {
-                it->item.range.length = new_length;
-                it->item.range.start = 0;
-            }
         }
 
-        else if (damage_type == DAMAGE_SCROLL_REVERSE &&
-                 end >= (grid->rows * grid->cols - bottom_margin))
-        {
-            /* Scrolled of screen (partially, or completely) */
-            if (it->item.range.start >= (grid->rows * grid->cols - bottom_margin))
-                tll_remove(grid->damage, it);
-            else
-                it->item.range.length =
-                    (grid->rows * grid->cols - bottom_margin) - it->item.range.start;
+        if (start < scroll_end && end > scroll_end) {
+            /* End outside, start either inside or on the other side */
+            struct damage outside = {
+                .type = it->item.type,
+                .range = {.start = scroll_end, .length = length - scroll_end},
+            };
+
+            tll_push_back(grid->damage, outside);
+            end = scroll_end;
+            length = end - start;
+        }
+
+        if (start >= scroll_start && end <= scroll_end) {
+            /* Completely inside scroll region */
+            start -= adjustment;
+            it->item.range.start = start;
+
+            if (start < scroll_start) {
+                /* Scrolled up outside scroll region */
+                int new_length = length - (scroll_start - start);
+                assert(new_length < length);
+
+                if (new_length <= 0)
+                    tll_remove(grid->damage, it);
+                else {
+                    it->item.range.start = scroll_start;
+                    it->item.range.length = new_length;
+                }
+            }
+
+            if (start + length > scroll_end) {
+                /* Scrolled down outside scroll region */
+                if (start >= scroll_end)
+                    tll_remove(grid->damage, it);
+                else {
+                    it->item.range.start = start;
+                    it->item.range.length = scroll_end - start;
+                }
+            }
         }
     }
 }
 
 void
 grid_damage_scroll(struct grid *grid, enum damage_type damage_type,
-                   int offset, int lines)
+                   struct scroll_region region, int lines)
 {
-    if (tll_length(grid->damage) > 0 &&
-        tll_front(grid->damage).type == damage_type &&
-        tll_front(grid->damage).scroll.offset == offset)
+    damage_adjust_after_scroll(grid, damage_type, region, lines);
+
+    if (tll_length(grid->scroll_damage) > 0 &&
+        tll_back(grid->scroll_damage).type == damage_type &&
+        tll_back(grid->scroll_damage).scroll.region.start == region.start &&
+        tll_back(grid->scroll_damage).scroll.region.end == region.end)
     {
         /* Merge with existing scroll damage */
 
-        struct damage *dmg = &tll_front(grid->damage);
+        struct damage *dmg = &tll_back(grid->scroll_damage);
         dmg->scroll.lines += lines;
 
-        const int scrolling_region =
-            grid->scrolling_region.end - grid->scrolling_region.start;
-
-        /* If we've scrolled away the entire screen, replace with an erase */
-        if (dmg->scroll.lines >= scrolling_region - offset) {
-            dmg->type = DAMAGE_ERASE;
-            dmg->range.start = (grid->scrolling_region.start + offset) * grid->cols;
-            dmg->range.length = (scrolling_region - offset) * grid->cols;
-        }
+        /* If we've scrolled away the entire screen, remove it all together */
+        if (dmg->scroll.lines >= region.end - region.start)
+            tll_pop_back(grid->scroll_damage);
     } else {
         struct damage dmg = {
             .type = damage_type,
-            .scroll = {.offset = offset, .lines = lines},
+            .scroll = {.region = region, .lines = lines},
         };
-        tll_push_front(grid->damage, dmg);
+        tll_push_back(grid->scroll_damage, dmg);
     }
-
-    damage_adjust_after_scroll(grid, damage_type, lines);
 }
 
 void
@@ -275,74 +258,68 @@ grid_cursor_down(struct grid *grid, int count)
 }
 
 void
-grid_scroll_partial(struct grid *grid, int offset, int rows)
+grid_scroll_partial(struct grid *grid, struct scroll_region region, int rows)
 {
-    const int grid_rows = grid->scrolling_region.end - grid->scrolling_region.start;
-    const int top_margin = grid->scrolling_region.start;
-    //const int bottom_margin = grid->rows - grid->scrolling_region.end;
-
-    if (rows >= grid_rows - offset) {
+    if (rows >= region.end - region.start) {
         assert(false && "untested");
         return;
     }
 
-    int cell_dst = (top_margin + offset) * grid->cols;
-    int cell_src = (top_margin + offset + rows) * grid->cols;
-    int cell_count = (grid_rows - offset - rows) * grid->cols;
+    int cell_dst = (region.start + 0) * grid->cols;
+    int cell_src = (region.start + rows) * grid->cols;
+    int cell_count = (region.end - region.start - rows) * grid->cols;
 
     LOG_DBG("moving %d lines from row %d to row %d", cell_count / grid->cols,
-            cell_src / grid->cols, (top_margin + offset) / grid->cols);
+            cell_src / grid->cols, cell_dst / grid->cols);
 
     const size_t bytes = cell_count * sizeof(grid->cells[0]);
     memmove(
         &grid->cells[cell_dst], &grid->cells[cell_src],
         bytes);
 
-    grid_damage_scroll(grid, DAMAGE_SCROLL, offset, rows);
+    grid_damage_scroll(grid, DAMAGE_SCROLL, region, rows);
     grid_erase(
         grid,
-        (grid->scrolling_region.end - rows) * grid->cols,
-        grid->scrolling_region.end * grid->cols);
+        (region.end - rows) * grid->cols,
+        region.end * grid->cols);
 }
 
 void
 grid_scroll(struct grid *grid, int rows)
 {
-    grid_scroll_partial(grid, 0, rows);
+    grid_scroll_partial(grid, grid->scroll_region, rows);
 }
 
 void
-grid_scroll_reverse_partial(struct grid *grid, int offset, int rows)
+grid_scroll_reverse_partial(struct grid *grid,
+                            struct scroll_region region, int rows)
 {
-    const int grid_rows = grid->scrolling_region.end - grid->scrolling_region.start;
-    const int top_margin = grid->scrolling_region.start;
-
-    if (rows >= grid_rows - offset) {
+    if (rows >= region.end - region.start) {
         assert(false && "todo");
         return;
     }
 
-    int cell_dst = (top_margin + offset + rows) * grid->cols;
-    int cell_src = (top_margin + offset) * grid->cols;
-    int cell_count = (grid_rows - offset - rows) * grid->cols;
+    int cell_dst = (region.start + rows) * grid->cols;
+    int cell_src = (region.start + 0) * grid->cols;
+    int cell_count = (region.end - region.start - rows) * grid->cols;
 
     LOG_DBG("moving %d lines from row %d to row %d", cell_count / grid->cols,
-            cell_src / grid->cols, (top_margin + offset) / grid->cols);
+            cell_src / grid->cols, cell_dst / grid->cols);
 
     const size_t bytes = cell_count * sizeof(grid->cells[0]);
     memmove(
         &grid->cells[cell_dst], &grid->cells[cell_src],
         bytes);
 
-    grid_damage_scroll(grid, DAMAGE_SCROLL_REVERSE, offset, rows);
+    grid_damage_scroll(grid, DAMAGE_SCROLL_REVERSE, region, rows);
     grid_erase(
         grid,
-        (top_margin + offset) * grid->cols,
-        (top_margin + offset + rows) * grid->cols);
+        region.start * grid->cols,
+        (region.start + rows) * grid->cols);
 }
 
 void
 grid_scroll_reverse(struct grid *grid, int rows)
 {
-    grid_scroll_reverse_partial(grid, 0, rows);
+    grid_scroll_reverse_partial(grid, grid->scroll_region, rows);
 }

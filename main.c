@@ -255,20 +255,16 @@ static void
 grid_render_scroll(struct context *c, struct buffer *buf,
                    const struct damage *dmg)
 {
-    //int x = 0;
-    const int scrolling_region
-        = c->term.grid.scrolling_region.end - c->term.grid.scrolling_region.start;
-
-    int dst_y = (c->term.grid.scrolling_region.start + dmg->scroll.offset + 0) * c->term.grid.cell_height;
-    int src_y = (c->term.grid.scrolling_region.start + dmg->scroll.offset + dmg->scroll.lines) * c->term.grid.cell_height;
+    int dst_y = (dmg->scroll.region.start + 0) * c->term.grid.cell_height;
+    int src_y = (dmg->scroll.region.start + dmg->scroll.lines) * c->term.grid.cell_height;
     int width = buf->width;
-    int height = (scrolling_region - dmg->scroll.offset - dmg->scroll.lines) * c->term.grid.cell_height;
+    int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * c->term.grid.cell_height;
 
     const uint32_t stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
 
     LOG_DBG("damage: SCROLL: %d-%d by %d lines (dst-y: %d, src-y: %d, "
             "height: %d, stride: %d, mmap-size: %zu)",
-            c->term.grid.scrolling_region.start, c->term.grid.scrolling_region.end,
+            dmg->scroll.region.start, dmg->scroll.region.end,
             dmg->scroll.lines,
             dst_y, src_y, height, stride,
             buf->size);
@@ -281,38 +277,33 @@ grid_render_scroll(struct context *c, struct buffer *buf,
 
     wl_surface_damage_buffer(c->wl.surface, 0, dst_y, width, height);
 
-    assert(dmg->scroll.offset == 0 && "todo");
-
+#if 0
     const int cols = c->term.grid.cols;
     struct damage erase = {
         .type = DAMAGE_ERASE,
         .range = {
-            .start = (c->term.grid.scrolling_region.end -
-                      dmg->scroll.lines) * cols,
+            .start = (dmg->scroll.region.end - dmg->scroll.lines) * cols,
             .length = dmg->scroll.lines * cols
         },
     };
     grid_render_erase(c, buf, &erase);
+#endif
 }
 
 static void
 grid_render_scroll_reverse(struct context *c, struct buffer *buf,
                            const struct damage *dmg)
 {
-    //int x = 0;
-    const int scrolling_region =
-        c->term.grid.scrolling_region.end - c->term.grid.scrolling_region.start;
-
-    int src_y = (c->term.grid.scrolling_region.start + dmg->scroll.offset + 0) * c->term.grid.cell_height;
-    int dst_y = (c->term.grid.scrolling_region.start + dmg->scroll.offset + dmg->scroll.lines) * c->term.grid.cell_height;
+    int src_y = (dmg->scroll.region.start + 0) * c->term.grid.cell_height;
+    int dst_y = (dmg->scroll.region.start + dmg->scroll.lines) * c->term.grid.cell_height;
     int width = buf->width;
-    int height = (scrolling_region - dmg->scroll.offset - dmg->scroll.lines) * c->term.grid.cell_height;
+    int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * c->term.grid.cell_height;
 
     const uint32_t stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
 
     LOG_DBG("damage: SCROLL REVERSE: %d-%d by %d lines (dst-y: %d, src-y: %d, "
             "height: %d, stride: %d, mmap-size: %zu)",
-            c->term.grid.scrolling_region.start, c->term.grid.scrolling_region.end,
+            dmg->scroll.region.start, dmg->scroll.region.end,
             dmg->scroll.lines,
             dst_y, src_y, height, stride,
             buf->size);
@@ -324,16 +315,6 @@ grid_render_scroll_reverse(struct context *c, struct buffer *buf,
     cairo_surface_mark_dirty(buf->cairo_surface);
 
     wl_surface_damage_buffer(c->wl.surface, 0, dst_y, width, height);
-
-    const int cols = c->term.grid.cols;
-    struct damage erase = {
-        .type = DAMAGE_ERASE,
-        .range = {
-            .start = (c->term.grid.scrolling_region.start + dmg->scroll.offset) * cols,
-            .length = dmg->scroll.lines * cols
-        },
-    };
-    grid_render_erase(c, buf, &erase);
 }
 
 static void
@@ -349,25 +330,33 @@ grid_render(struct context *c)
 
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
 
-    //bool scroll = false;
-    tll_foreach(c->term.grid.damage, it) {
+    tll_foreach(c->term.grid.scroll_damage, it) {
         switch (it->item.type) {
-        case DAMAGE_ERASE:
-        case DAMAGE_ERASE_NO_SCROLL:
-            grid_render_erase(c, buf, &it->item);
-            break;
-
-        case DAMAGE_UPDATE:
-        case DAMAGE_UPDATE_NO_SCROLL:
-            grid_render_update(c, buf, &it->item);
-            break;
-
         case DAMAGE_SCROLL:
             grid_render_scroll(c, buf, &it->item);
             break;
 
         case DAMAGE_SCROLL_REVERSE:
             grid_render_scroll_reverse(c, buf, &it->item);
+            break;
+
+        case DAMAGE_UPDATE:
+        case DAMAGE_ERASE:
+            assert(false);
+            break;
+        }
+
+        tll_remove(c->term.grid.scroll_damage, it);
+    }
+
+    tll_foreach(c->term.grid.damage, it) {
+        switch (it->item.type) {
+        case DAMAGE_ERASE:  grid_render_erase(c, buf, &it->item); break;
+        case DAMAGE_UPDATE: grid_render_update(c, buf, &it->item); break;
+
+        case DAMAGE_SCROLL:
+        case DAMAGE_SCROLL_REVERSE:
+            assert(false);
             break;
         }
 
@@ -458,12 +447,10 @@ resize(struct context *c, int width, int height)
         LOG_ERRNO("TIOCSWINSZ");
     }
 
-    if (c->term.grid.scrolling_region.end == old_rows)
-        c->term.grid.scrolling_region.end = c->term.grid.rows;
+    if (c->term.grid.scroll_region.end == old_rows)
+        c->term.grid.scroll_region.end = c->term.grid.rows;
 
-    tll_free(c->term.grid.damage);
-    assert(tll_length(c->term.grid.damage) == 0);
-    grid_damage_update(&c->term.grid, 0, c->term.grid.rows * c->term.grid.cols);
+    grid_damage_all(&c->term.grid);
 
     if (!c->frame_is_scheduled)
         grid_render(c);
