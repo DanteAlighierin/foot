@@ -89,7 +89,8 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
              col = dmg->range.start % cols;
          linear_cursor < dmg->range.start + dmg->range.length;
          linear_cursor++,
-             col = (col + 1) % cols,
+             //col = (col + 1) % cols,
+             col = col + 1 >= c->term.grid.cols ? 0 : col + 1,
              row += col == 0 ? 1 : 0)
     {
         //LOG_DBG("UPDATE: %d (%dx%d)", linear_cursor, row, col);
