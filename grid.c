@@ -164,26 +164,22 @@ grid_damage_scroll(struct grid *grid, enum damage_type damage_type,
 {
     damage_adjust_after_scroll(grid, damage_type, region, lines);
 
-    if (tll_length(grid->scroll_damage) > 0 &&
-        tll_back(grid->scroll_damage).type == damage_type &&
-        tll_back(grid->scroll_damage).scroll.region.start == region.start &&
-        tll_back(grid->scroll_damage).scroll.region.end == region.end)
-    {
-        /* Merge with existing scroll damage */
-
+    if (tll_length(grid->scroll_damage) > 0) {
         struct damage *dmg = &tll_back(grid->scroll_damage);
-        dmg->scroll.lines += lines;
 
-        /* If we've scrolled away the entire screen, remove it all together */
-        if (dmg->scroll.lines >= region.end - region.start)
-            tll_pop_back(grid->scroll_damage);
-    } else {
-        struct damage dmg = {
-            .type = damage_type,
-            .scroll = {.region = region, .lines = lines},
-        };
-        tll_push_back(grid->scroll_damage, dmg);
+        if (dmg->type == damage_type &&
+            dmg->scroll.region.start == region.start &&
+            dmg->scroll.region.end == region.end)
+        {
+            dmg->scroll.lines += lines;
+            return;
+        }
     }
+    struct damage dmg = {
+        .type = damage_type,
+        .scroll = {.region = region, .lines = lines},
+    };
+    tll_push_back(grid->scroll_damage, dmg);
 }
 
 void
@@ -277,11 +273,10 @@ grid_scroll_partial(struct grid *grid, struct scroll_region region, int rows)
         &grid->cells[cell_dst], &grid->cells[cell_src],
         bytes);
 
+    memset(&grid->cells[(region.end - rows) * grid->cols], 0,
+           rows * grid->cols * sizeof(grid->cells[0]));
+
     grid_damage_scroll(grid, DAMAGE_SCROLL, region, rows);
-    grid_erase(
-        grid,
-        (region.end - rows) * grid->cols,
-        region.end * grid->cols);
 }
 
 void
@@ -311,11 +306,10 @@ grid_scroll_reverse_partial(struct grid *grid,
         &grid->cells[cell_dst], &grid->cells[cell_src],
         bytes);
 
+    memset(&grid->cells[cell_src], 0,
+           rows * grid->cols * sizeof(grid->cells[0]));
+
     grid_damage_scroll(grid, DAMAGE_SCROLL_REVERSE, region, rows);
-    grid_erase(
-        grid,
-        region.start * grid->cols,
-        (region.start + rows) * grid->cols);
 }
 
 void

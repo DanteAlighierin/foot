@@ -27,6 +27,7 @@
 #include "grid.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
+#define max(x, y) ((x) > (y) ? (x) : (y))
 
 static const uint32_t default_foreground = 0xffffffff;
 static const uint32_t default_background = 0x000000ff;
@@ -269,25 +270,28 @@ grid_render_scroll(struct context *c, struct buffer *buf,
             dst_y, src_y, height, stride,
             buf->size);
 
-    cairo_surface_flush(buf->cairo_surface);
-    uint8_t *raw = cairo_image_surface_get_data(buf->cairo_surface);
+    if (height > 0) {
+        cairo_surface_flush(buf->cairo_surface);
+        uint8_t *raw = cairo_image_surface_get_data(buf->cairo_surface);
 
-    memmove(raw + dst_y * stride, raw + src_y * stride, height * stride);
-    cairo_surface_mark_dirty(buf->cairo_surface);
+        memmove(raw + dst_y * stride, raw + src_y * stride, height * stride);
+        cairo_surface_mark_dirty(buf->cairo_surface);
 
-    wl_surface_damage_buffer(c->wl.surface, 0, dst_y, width, height);
+        wl_surface_damage_buffer(c->wl.surface, 0, dst_y, width, height);
+    }
 
-#if 0
     const int cols = c->term.grid.cols;
+
     struct damage erase = {
         .type = DAMAGE_ERASE,
         .range = {
-            .start = (dmg->scroll.region.end - dmg->scroll.lines) * cols,
-            .length = dmg->scroll.lines * cols
+            .start = max(dmg->scroll.region.end - dmg->scroll.lines,
+                         dmg->scroll.region.start) * cols,
+            .length = min(dmg->scroll.region.end - dmg->scroll.region.start,
+                          dmg->scroll.lines) * cols,
         },
     };
     grid_render_erase(c, buf, &erase);
-#endif
 }
 
 static void
@@ -308,13 +312,27 @@ grid_render_scroll_reverse(struct context *c, struct buffer *buf,
             dst_y, src_y, height, stride,
             buf->size);
 
-    cairo_surface_flush(buf->cairo_surface);
-    uint8_t *raw = cairo_image_surface_get_data(buf->cairo_surface);
+    if (height > 0) {
+        cairo_surface_flush(buf->cairo_surface);
+        uint8_t *raw = cairo_image_surface_get_data(buf->cairo_surface);
 
-    memmove(raw + dst_y * stride, raw + src_y * stride, height * stride);
-    cairo_surface_mark_dirty(buf->cairo_surface);
+        memmove(raw + dst_y * stride, raw + src_y * stride, height * stride);
+        cairo_surface_mark_dirty(buf->cairo_surface);
 
-    wl_surface_damage_buffer(c->wl.surface, 0, dst_y, width, height);
+        wl_surface_damage_buffer(c->wl.surface, 0, dst_y, width, height);
+    }
+
+    const int cols = c->term.grid.cols;
+
+    struct damage erase = {
+        .type = DAMAGE_ERASE,
+        .range = {
+            .start = dmg->scroll.region.start * cols,
+            .length = min(dmg->scroll.region.end - dmg->scroll.region.start,
+                          dmg->scroll.lines) * cols,
+        },
+    };
+    grid_render_erase(c, buf, &erase);
 }
 
 static void
