@@ -16,29 +16,29 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
-static const uint32_t colors_regular[] = {
-    0x000000ff,
-    0xcc9393ff,
-    0x7f9f7fff,
-    0xd0bf8fff,
-    0x6ca0a3ff,
-    0xdc8cc3ff,
-    0x93e0e3ff,
-    0xdcdcccff,
+static const struct rgba colors_regular[] = {
+    {0.000000, 0.000000, 0.000000, 1.000000},  /* 0x000000ff */
+    {0.800000, 0.576471, 0.576471, 1.000000},  /* 0xcc9393ff */
+    {0.498039, 0.623529, 0.498039, 1.000000},  /* 0x7f9f7fff */
+    {0.815686, 0.749020, 0.560784, 1.000000},  /* 0xd0bf8fff */
+    {0.423529, 0.627451, 0.639216, 1.000000},  /* 0x6ca0a3ff */
+    {0.862745, 0.549020, 0.764706, 1.000000},  /* 0xdc8cc3ff */
+    {0.576471, 0.878431, 0.890196, 1.000000},  /* 0x93e0e3ff */
+    {0.862745, 0.862745, 0.800000, 1.000000},  /* 0xdcdcccff */
 };
 
-static const uint32_t colors_bright[] = {
-    0x000000ff,
-    0xdca3a3ff,
-    0xbfebbfff,
-    0xf0dfafff,
-    0x8cd0d3ff,
-    0xdc8cc3ff,
-    0x93e0e3ff,
-    0xffffffff,
+static const struct rgba colors_bright[] = {
+    {0.000000, 0.000000, 0.000000, 1.000000},  /* 0x000000ff */
+    {0.862745, 0.639216, 0.639216, 1.000000},  /* 0xdca3a3ff */
+    {0.749020, 0.921569, 0.749020, 1.000000},  /* 0xbfebbfff */
+    {0.941176, 0.874510, 0.686275, 1.000000},  /* 0xf0dfafff */
+    {0.549020, 0.815686, 0.827451, 1.000000},  /* 0x8cd0d3ff */
+    {0.862745, 0.549020, 0.764706, 1.000000},  /* 0xdc8cc3ff */
+    {0.576471, 0.878431, 0.890196, 1.000000},  /* 0x93e0e3ff */
+    {1.000000, 1.000000, 1.000000, 1.000000},  /* 0xffffffff */
 };
 
-static uint32_t colors256[256];
+static struct rgba colors256[256];
 
 static void __attribute__((constructor))
 initialize_colors256(void)
@@ -51,14 +51,29 @@ initialize_colors256(void)
     for (size_t r = 0; r < 6; r++) {
         for (size_t g = 0; g < 6; g++) {
             for (size_t b = 0; b < 6; b++) {
+                colors256[16 + r * 6 * 6 + g * 6 + b] = (struct rgba) {
+                    r * 51 / 255.0,
+                    g * 51 / 255.0,
+                    b * 51 / 255.0,
+                    1.0,
+                };
+#if 0
                 colors256[16 + r * 6 * 6 + g * 6 + b] =
                     (51 * r) << 24 | (51 * g) << 16 | (51 * b) << 8 | 0xff;
+#endif
             }
         }
     }
 
-    for (size_t i = 0; i < 24; i++)
-        colors256[232 + i] = (11 * i) << 24 | (11 * i) << 16 | (11 * i) << 8 | 0xff;
+    for (size_t i = 0; i < 24; i++){
+        colors256[232 + i] = (struct rgba) {
+            i * 11 / 255.0,
+            i * 11 / 255.0,
+            i * 11 / 255.0,
+            1.0
+        };
+            //(11 * i) << 24 | (11 * i) << 16 | (11 * i) << 8 | 0xff;
+    }
 }
 
 static int
@@ -139,10 +154,15 @@ csi_sgr(struct terminal *term)
             } else if (term->vt.params.idx - i - 1 == 4 &&
                        term->vt.params.v[i + 1].value == 2)
             {
-                uint32_t r = term->vt.params.v[i + 2].value;
-                uint32_t g = term->vt.params.v[i + 3].value;
-                uint32_t b = term->vt.params.v[i + 4].value;
-                term->vt.attrs.foreground = r << 24 | g << 16 | b << 8 | 0xff;
+                uint8_t r = term->vt.params.v[i + 2].value;
+                uint8_t g = term->vt.params.v[i + 3].value;
+                uint8_t b = term->vt.params.v[i + 4].value;
+                term->vt.attrs.foreground = (struct rgba) {
+                    r / 255.0,
+                    g / 255.0,
+                    b / 255.0,
+                    1.0,
+                };
                 term->vt.attrs.have_foreground = true;
                 i += 4;
             } else {
@@ -180,10 +200,15 @@ csi_sgr(struct terminal *term)
             } else if (term->vt.params.idx - i - 1 == 4 &&
                        term->vt.params.v[i + 1].value == 2)
             {
-                uint32_t r = term->vt.params.v[i + 2].value;
-                uint32_t g = term->vt.params.v[i + 3].value;
-                uint32_t b = term->vt.params.v[i + 4].value;
-                term->vt.attrs.background = r << 24 | g << 16 | b << 8 | 0xff;
+                uint8_t r = term->vt.params.v[i + 2].value;
+                uint8_t g = term->vt.params.v[i + 3].value;
+                uint8_t b = term->vt.params.v[i + 4].value;
+                term->vt.attrs.background = (struct rgba) {
+                    r / 255.0,
+                    g / 255.0,
+                    b / 255.0,
+                    1.0
+                };
                 term->vt.attrs.have_background = true;
                 i += 4;
             } else {

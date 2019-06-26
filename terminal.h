@@ -11,6 +11,8 @@
 
 #include "tllist.h"
 
+struct rgba { double r, g, b, a; };
+
 struct attributes {
     bool bold;
     bool italic;
@@ -21,8 +23,8 @@ struct attributes {
     bool reverse;
     bool have_foreground;
     bool have_background;
-    uint32_t foreground;  /* Only valid when have_foreground == true */
-    uint32_t background;  /* Only valid when have_background == true */
+    struct rgba foreground; /* Only valid when have_foreground == true */
+    struct rgba background; /* Only valid when have_background == true */
 };
 
 struct cell {
@@ -76,8 +78,8 @@ struct grid {
         int col;
     } alt_saved_cursor;
 
-    uint32_t foreground;
-    uint32_t background;
+    struct rgba foreground;
+    struct rgba background;
 
     tll(struct damage) damage;
     tll(struct damage) scroll_damage;

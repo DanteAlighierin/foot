@@ -29,8 +29,8 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-static const uint32_t default_foreground = 0xffffffff;
-static const uint32_t default_background = 0x000000ff;
+static const struct rgba default_foreground = {1.0, 1.0, 1.0, 1.0};
+static const struct rgba default_background = {0.0, 0.0, 0.0, 1.0};
 
 struct wayland {
     struct wl_display *display;
@@ -103,19 +103,19 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         int width = c->term.grid.cell_width;
         int height = c->term.grid.cell_height;
 
-        uint32_t foreground = cell->attrs.have_foreground
+        struct rgba foreground = cell->attrs.have_foreground
             ? cell->attrs.foreground : c->term.grid.foreground;
-        uint32_t background = cell->attrs.have_background
+        struct rgba background = cell->attrs.have_background
             ? cell->attrs.background : c->term.grid.background;
 
         if (has_cursor) {
-            uint32_t swap = foreground;
+            struct rgba swap = foreground;
             foreground = background;
             background = swap;
         }
 
         if (cell->attrs.reverse) {
-            uint32_t swap = foreground;
+            struct rgba swap = foreground;
             foreground = background;
             background = swap;
         }
@@ -123,19 +123,10 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         //LOG_DBG("cell %dx%d dirty: c=0x%02x (%c)",
         //        row, col, cell->c[0], cell->c[0]);
 
-        double br = (double)((background >> 24) & 0xff) / 255.0;
-        double bg = (double)((background >> 16) & 0xff) / 255.0;
-        double bb = (double)((background >>  8) & 0xff) / 255.0;
-        double ba = (double)((background >>  0) & 0xff) / 255.0;
-
-        double fr = (double)((foreground >> 24) & 0xff) / 255.0;
-        double fg = (double)((foreground >> 16) & 0xff) / 255.0;
-        double fb = (double)((foreground >>  8) & 0xff) / 255.0;
-        double fa = (double)((foreground >>  0) & 0xff) / 255.0;
-
         cairo_scaled_font_t *font = attrs_to_font(c, &cell->attrs);
         cairo_set_scaled_font(buf->cairo, font);
-        cairo_set_source_rgba(buf->cairo, br, bg, bb, ba);
+        cairo_set_source_rgba(
+            buf->cairo, background.r, background.g, background.b, background.a);
 
         /* Background */
         cairo_rectangle(buf->cairo, x, y, width, height);
@@ -158,7 +149,8 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
             continue;
         }
 
-        cairo_set_source_rgba(buf->cairo, fr, fg, fb, fa);
+        cairo_set_source_rgba(
+            buf->cairo, foreground.r, foreground.g, foreground.b, foreground.a);
         cairo_show_glyphs(buf->cairo, glyphs, num_glyphs);
         cairo_glyph_free(glyphs);
     }
@@ -175,10 +167,9 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
     LOG_DBG("damage: ERASE: %d -> %d",
             dmg->range.start, dmg->range.start + dmg->range.length);
 
-    double br = (double)((default_background >> 24) & 0xff) / 255.0;
-    double bg = (double)((default_background >> 16) & 0xff) / 255.0;
-    double bb = (double)((default_background >>  8) & 0xff) / 255.0;
-    cairo_set_source_rgba(buf->cairo, br, bg, bb, 1.0);
+    cairo_set_source_rgba(
+        buf->cairo, default_background.r, default_background.g,
+        default_background.b, default_background.a);
 
     const int cols = c->term.grid.cols;
 
