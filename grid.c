@@ -187,14 +187,6 @@ grid_erase(struct grid *grid, int start, int end)
 {
     assert(end >= start);
     memset(&grid->cells[start], 0, (end - start) * sizeof(grid->cells[0]));
-
-    for (int i = start; i < end; i++) {
-        struct cell *cell = &grid->cells[i];
-
-        cell->attrs.foreground = grid->foreground;
-        cell->attrs.background = grid->background;
-    }
-
     grid_damage_erase(grid, start, end - start);
 }
 

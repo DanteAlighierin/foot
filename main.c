@@ -102,8 +102,10 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         int width = c->term.grid.cell_width;
         int height = c->term.grid.cell_height;
 
-        uint32_t foreground = cell->attrs.foreground;
-        uint32_t background = cell->attrs.background;
+        uint32_t foreground = cell->attrs.have_foreground
+            ? cell->attrs.foreground : c->term.grid.foreground;
+        uint32_t background = cell->attrs.have_background
+            ? cell->attrs.background : c->term.grid.background;
 
         if (has_cursor) {
             uint32_t swap = foreground;

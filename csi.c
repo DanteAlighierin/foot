@@ -75,14 +75,8 @@ param_get(const struct terminal *term, size_t idx, int default_value)
 static void
 sgr_reset(struct terminal *term)
 {
-    term->vt.attrs.bold = false;
+    memset(&term->vt.attrs, 0, sizeof(term->vt.attrs));
     term->vt.dim = false;
-    term->vt.attrs.italic = false;
-    term->vt.attrs.underline = false;
-    term->vt.attrs.strikethrough = false;
-    term->vt.attrs.blink = false;
-    term->vt.attrs.conceal = false;
-    term->vt.attrs.reverse = false;
     term->vt.attrs.foreground = term->grid.foreground;
     term->vt.attrs.background = term->grid.background;
 }
@@ -130,6 +124,7 @@ csi_sgr(struct terminal *term)
         case 35:
         case 36:
         case 37:
+            term->vt.attrs.have_foreground = true;
             term->vt.attrs.foreground = colors_regular[param - 30];
             break;
 
@@ -139,6 +134,7 @@ csi_sgr(struct terminal *term)
             {
                 size_t idx = term->vt.params.v[i + 2].value;
                 term->vt.attrs.foreground = colors256[idx];
+                term->vt.attrs.have_foreground = true;
                 i += 2;
             } else if (term->vt.params.idx - i - 1 == 4 &&
                        term->vt.params.v[i + 1].value == 2)
@@ -147,6 +143,7 @@ csi_sgr(struct terminal *term)
                 uint32_t g = term->vt.params.v[i + 3].value;
                 uint32_t b = term->vt.params.v[i + 4].value;
                 term->vt.attrs.foreground = r << 24 | g << 16 | b << 8 | 0xff;
+                term->vt.attrs.have_foreground = true;
                 i += 4;
             } else {
                 LOG_ERR("invalid CSI SGR sequence");
@@ -154,7 +151,10 @@ csi_sgr(struct terminal *term)
             }
             break;
         }
-        case 39: term->vt.attrs.foreground = term->grid.foreground; break;
+        case 39:
+            term->vt.attrs.foreground = term->grid.foreground;
+            term->vt.attrs.have_foreground = false;
+            break;
 
         /* Regular background colors */
         case 40:
@@ -166,6 +166,7 @@ csi_sgr(struct terminal *term)
         case 46:
         case 47:
             term->vt.attrs.background = colors_regular[param - 40];
+            term->vt.attrs.have_background = true;
             break;
 
         case 48: {
@@ -174,6 +175,7 @@ csi_sgr(struct terminal *term)
             {
                 size_t idx = term->vt.params.v[i + 2].value;
                 term->vt.attrs.background = colors256[idx];
+                term->vt.attrs.have_background = true;
                 i += 2;
             } else if (term->vt.params.idx - i - 1 == 4 &&
                        term->vt.params.v[i + 1].value == 2)
@@ -182,6 +184,7 @@ csi_sgr(struct terminal *term)
                 uint32_t g = term->vt.params.v[i + 3].value;
                 uint32_t b = term->vt.params.v[i + 4].value;
                 term->vt.attrs.background = r << 24 | g << 16 | b << 8 | 0xff;
+                term->vt.attrs.have_background = true;
                 i += 4;
             } else {
                 LOG_ERR("invalid CSI SGR sequence");
@@ -189,7 +192,10 @@ csi_sgr(struct terminal *term)
             }
             break;
         }
-        case 49: term->vt.attrs.background = term->grid.background; break;
+        case 49:
+            term->vt.attrs.background = term->grid.background;
+            term->vt.attrs.have_background = false;
+            break;
 
         /* Bright foreground colors */
         case 90:
@@ -201,6 +207,7 @@ csi_sgr(struct terminal *term)
         case 96:
         case 97:
             term->vt.attrs.foreground = colors_bright[param - 90];
+            term->vt.attrs.have_foreground = true;
             break;
 
         /* Regular background colors */
@@ -213,6 +220,7 @@ csi_sgr(struct terminal *term)
         case 106:
         case 107:
             term->vt.attrs.background = colors_bright[param - 100];
+            term->vt.attrs.have_background = true;
             break;
 
         default:

@@ -19,8 +19,10 @@ struct attributes {
     bool blink;
     bool conceal;
     bool reverse;
-    uint32_t foreground;
-    uint32_t background;
+    bool have_foreground;
+    bool have_background;
+    uint32_t foreground;  /* Only valid when have_foreground == true */
+    uint32_t background;  /* Only valid when have_background == true */
 };
 
 struct cell {
