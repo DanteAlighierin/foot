@@ -604,6 +604,7 @@ action(struct terminal *term, enum action action, uint8_t c)
         LOG_DBG("execute: 0x%02x", c);
         switch (c) {
         case '\n':
+            /* LF - line feed */
             if (term->grid.cursor.row == term->grid.scroll_region.end - 1) {
                 grid_scroll(&term->grid, 1);
             } else
@@ -611,19 +612,30 @@ action(struct terminal *term, enum action action, uint8_t c)
             break;
 
         case '\r':
+            /* FF - form feed */
             grid_cursor_left(&term->grid, term->grid.cursor.col);
             break;
 
         case '\b':
+            /* backspace */
             grid_cursor_left(&term->grid, 1);
             break;
 
         case '\x07':
+            /* BEL */
             LOG_WARN("BELL");
             break;
 
+        case '\x09': {
+            /* HT - horizontal tab */
+            int col = term->grid.cursor.col;
+            col = (col + 8) / 8 * 8;
+            grid_cursor_right(&term->grid, col - term->grid.cursor.col);
+            break;
+        }
+
         default:
-            LOG_ERR("execute: unimplemented: %c", c);
+            LOG_ERR("execute: unimplemented: %c (0x%02x)", c, c);
             return false;
         }
 
