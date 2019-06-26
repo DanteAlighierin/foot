@@ -126,14 +126,16 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         double br = (double)((background >> 24) & 0xff) / 255.0;
         double bg = (double)((background >> 16) & 0xff) / 255.0;
         double bb = (double)((background >>  8) & 0xff) / 255.0;
+        double ba = (double)((background >>  0) & 0xff) / 255.0;
 
         double fr = (double)((foreground >> 24) & 0xff) / 255.0;
         double fg = (double)((foreground >> 16) & 0xff) / 255.0;
         double fb = (double)((foreground >>  8) & 0xff) / 255.0;
+        double fa = (double)((foreground >>  0) & 0xff) / 255.0;
 
         cairo_scaled_font_t *font = attrs_to_font(c, &cell->attrs);
         cairo_set_scaled_font(buf->cairo, font);
-        cairo_set_source_rgba(buf->cairo, br, bg, bb, 1.0);
+        cairo_set_source_rgba(buf->cairo, br, bg, bb, ba);
 
         /* Background */
         cairo_rectangle(buf->cairo, x, y, width, height);
@@ -156,7 +158,7 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
             continue;
         }
 
-        cairo_set_source_rgba(buf->cairo, fr, fg, fb, 1.0);
+        cairo_set_source_rgba(buf->cairo, fr, fg, fb, fa);
         cairo_show_glyphs(buf->cairo, glyphs, num_glyphs);
         cairo_glyph_free(glyphs);
     }
