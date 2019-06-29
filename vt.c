@@ -670,7 +670,7 @@ action(struct terminal *term, enum action action, uint8_t c)
         break;
 
     case ACTION_PRINT: {
-        if (term->grid.print_needs_wrap) {
+        if (term->print_needs_wrap) {
             if (term->cursor.row == term->scroll_region.end - 1) {
                 term_scroll(term, 1);
                 term_cursor_to(term, term->cursor.row, 0);
@@ -697,7 +697,7 @@ action(struct terminal *term, enum action action, uint8_t c)
         if (term->cursor.col < term->cols - 1)
             term_cursor_right(term, 1);
         else
-            term->grid.print_needs_wrap = true;
+            term->print_needs_wrap = true;
 
         break;
     }

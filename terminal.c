@@ -210,7 +210,7 @@ term_cursor_to(struct terminal *term, int row, int col)
 
     term_damage_update(term, term->cursor.linear, 1);
     term_damage_update(term, new_linear, 1);
-    term->grid.print_needs_wrap = false;
+    term->print_needs_wrap = false;
 
     term->cursor.linear = new_linear;
     term->cursor.col = col;

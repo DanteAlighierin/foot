@@ -62,8 +62,6 @@ struct damage {
 };
 
 struct grid {
-    bool print_needs_wrap;
-
     struct cell *cells;
     struct cell *normal_grid;
     struct cell *alt_grid;
@@ -144,6 +142,7 @@ struct terminal {
     int cell_width;
     int cell_height;
 
+    bool print_needs_wrap;
     struct scroll_region scroll_region;
 
     struct rgba foreground;
