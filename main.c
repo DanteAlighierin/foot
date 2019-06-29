@@ -82,7 +82,7 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
     LOG_DBG("damage: UPDATE: %d -> %d",
             dmg->range.start, dmg->range.start + dmg->range.length);
 
-    const int cols = c->term.grid.cols;
+    const int cols = c->term.cols;
 
     for (int linear_cursor = dmg->range.start,
              row = dmg->range.start / cols,
@@ -90,7 +90,7 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
          linear_cursor < dmg->range.start + dmg->range.length;
          linear_cursor++,
              //col = (col + 1) % cols,
-             col = col + 1 >= c->term.grid.cols ? 0 : col + 1,
+             col = col + 1 >= c->term.cols ? 0 : col + 1,
              row += col == 0 ? 1 : 0)
     {
         //LOG_DBG("UPDATE: %d (%dx%d)", linear_cursor, row, col);
@@ -98,10 +98,10 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         const struct cell *cell = &c->term.grid.cells[linear_cursor];
         bool has_cursor = c->term.grid.linear_cursor == linear_cursor;
 
-        int x = col * c->term.grid.cell_width;
-        int y = row * c->term.grid.cell_height;
-        int width = c->term.grid.cell_width;
-        int height = c->term.grid.cell_height;
+        int x = col * c->term.cell_width;
+        int y = row * c->term.cell_height;
+        int width = c->term.cell_width;
+        int height = c->term.cell_height;
 
         struct rgba foreground = cell->attrs.have_foreground
             ? cell->attrs.foreground : c->term.grid.foreground;
@@ -160,8 +160,8 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
 
     wl_surface_damage_buffer(
         c->wl.surface,
-        0, (dmg->range.start / cols) * c->term.grid.cell_height,
-        buf->width, (dmg->range.length + cols - 1) / cols * c->term.grid.cell_height);
+        0, (dmg->range.start / cols) * c->term.cell_height,
+        buf->width, (dmg->range.length + cols - 1) / cols * c->term.cell_height);
 }
 
 static void
@@ -174,7 +174,7 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
         buf->cairo, default_background.r, default_background.g,
         default_background.b, default_background.a);
 
-    const int cols = c->term.grid.cols;
+    const int cols = c->term.cols;
 
     int start = dmg->range.start;
     int left = dmg->range.length;
@@ -186,10 +186,10 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
     if (col != 0) {
         int cell_count = min(left, cols - col);
 
-        int x = col * c->term.grid.cell_width;
-        int y = row * c->term.grid.cell_height;
-        int width = cell_count * c->term.grid.cell_width;
-        int height = c->term.grid.cell_height;
+        int x = col * c->term.cell_width;
+        int y = row * c->term.cell_height;
+        int width = cell_count * c->term.cell_width;
+        int height = c->term.cell_height;
 
         cairo_rectangle(buf->cairo, x, y, width, height);
         cairo_fill(buf->cairo);
@@ -209,9 +209,9 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
         int line_count = left / cols;
 
         int x = 0;
-        int y = row * c->term.grid.cell_height;
+        int y = row * c->term.cell_height;
         int width = buf->width;
-        int height = line_count * c->term.grid.cell_height;
+        int height = line_count * c->term.cell_height;
 
         cairo_rectangle(buf->cairo, x, y, width, height);
         cairo_fill(buf->cairo);
@@ -230,9 +230,9 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
     /* Partial last line */
     if (left > 0) {
         int x = 0;
-        int y = row * c->term.grid.cell_height;
-        int width = left * c->term.grid.cell_width;
-        int height = c->term.grid.cell_height;
+        int y = row * c->term.cell_height;
+        int width = left * c->term.cell_width;
+        int height = c->term.cell_height;
 
         cairo_rectangle(buf->cairo, x, y, width, height);
         cairo_fill(buf->cairo);
@@ -255,10 +255,10 @@ static void
 grid_render_scroll(struct context *c, struct buffer *buf,
                    const struct damage *dmg)
 {
-    int dst_y = (dmg->scroll.region.start + 0) * c->term.grid.cell_height;
-    int src_y = (dmg->scroll.region.start + dmg->scroll.lines) * c->term.grid.cell_height;
+    int dst_y = (dmg->scroll.region.start + 0) * c->term.cell_height;
+    int src_y = (dmg->scroll.region.start + dmg->scroll.lines) * c->term.cell_height;
     int width = buf->width;
-    int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * c->term.grid.cell_height;
+    int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * c->term.cell_height;
 
     const uint32_t stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
 
@@ -279,7 +279,7 @@ grid_render_scroll(struct context *c, struct buffer *buf,
         wl_surface_damage_buffer(c->wl.surface, 0, dst_y, width, height);
     }
 
-    const int cols = c->term.grid.cols;
+    const int cols = c->term.cols;
 
     struct damage erase = {
         .type = DAMAGE_ERASE,
@@ -297,10 +297,10 @@ static void
 grid_render_scroll_reverse(struct context *c, struct buffer *buf,
                            const struct damage *dmg)
 {
-    int src_y = (dmg->scroll.region.start + 0) * c->term.grid.cell_height;
-    int dst_y = (dmg->scroll.region.start + dmg->scroll.lines) * c->term.grid.cell_height;
+    int src_y = (dmg->scroll.region.start + 0) * c->term.cell_height;
+    int dst_y = (dmg->scroll.region.start + dmg->scroll.lines) * c->term.cell_height;
     int width = buf->width;
-    int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * c->term.grid.cell_height;
+    int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * c->term.cell_height;
 
     const uint32_t stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
 
@@ -321,7 +321,7 @@ grid_render_scroll_reverse(struct context *c, struct buffer *buf,
         wl_surface_damage_buffer(c->wl.surface, 0, dst_y, width, height);
     }
 
-    const int cols = c->term.grid.cols;
+    const int cols = c->term.cols;
 
     struct damage erase = {
         .type = DAMAGE_ERASE,
@@ -415,23 +415,23 @@ resize(struct context *c, int width, int height)
     c->width = width;
     c->height = height;
 
-    const size_t old_rows = c->term.grid.rows;
-    const size_t old_cols = c->term.grid.cols;
+    const size_t old_rows = c->term.rows;
+    const size_t old_cols = c->term.cols;
     const size_t old_cells_len = old_rows * old_cols;
 
-    c->term.grid.cell_width = (int)ceil(c->fextents.max_x_advance);
-    c->term.grid.cell_height = (int)ceil(c->fextents.height);
-    c->term.grid.cols = c->width / c->term.grid.cell_width;
-    c->term.grid.rows = c->height / c->term.grid.cell_height;
+    c->term.cell_width = (int)ceil(c->fextents.max_x_advance);
+    c->term.cell_height = (int)ceil(c->fextents.height);
+    c->term.cols = c->width / c->term.cell_width;
+    c->term.rows = c->height / c->term.cell_height;
 
     c->term.grid.normal_grid = realloc(
         c->term.grid.normal_grid,
-        c->term.grid.cols * c->term.grid.rows * sizeof(c->term.grid.cells[0]));
+        c->term.cols * c->term.rows * sizeof(c->term.grid.cells[0]));
     c->term.grid.alt_grid = realloc(
         c->term.grid.alt_grid,
-        c->term.grid.cols * c->term.grid.rows * sizeof(c->term.grid.cells[0]));
+        c->term.cols * c->term.rows * sizeof(c->term.grid.cells[0]));
 
-    size_t new_cells_len = c->term.grid.cols * c->term.grid.rows;
+    size_t new_cells_len = c->term.cols * c->term.rows;
     for (size_t i = old_cells_len; i < new_cells_len; i++) {
         c->term.grid.normal_grid[i] = (struct cell){
             .attrs = {.foreground = default_foreground,
@@ -447,28 +447,28 @@ resize(struct context *c, int width, int height)
         ? c->term.grid.alt_grid : c->term.grid.normal_grid;
 
     LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d",
-            c->width, c->height, c->term.grid.cols, c->term.grid.rows);
+            c->width, c->height, c->term.cols, c->term.rows);
 
     /* Update environment variables */
     char cols_s[12], rows_s[12];
-    sprintf(cols_s, "%u", c->term.grid.cols);
-    sprintf(rows_s, "%u", c->term.grid.rows);
+    sprintf(cols_s, "%u", c->term.cols);
+    sprintf(rows_s, "%u", c->term.rows);
     setenv("COLUMNS", cols_s, 1);
     setenv("LINES", rows_s, 1);
 
     /* Signal TIOCSWINSZ */
     if (ioctl(c->term.ptmx, TIOCSWINSZ,
               &(struct winsize){
-                  .ws_row = c->term.grid.rows,
-                  .ws_col = c->term.grid.cols,
+                  .ws_row = c->term.rows,
+                  .ws_col = c->term.cols,
                   .ws_xpixel = c->width,
                   .ws_ypixel = c->height}) == -1)
     {
         LOG_ERRNO("TIOCSWINSZ");
     }
 
-    if (c->term.grid.scroll_region.end == old_rows)
-        c->term.grid.scroll_region.end = c->term.grid.rows;
+    if (c->term.scroll_region.end == old_rows)
+        c->term.scroll_region.end = c->term.rows;
 
     term_damage_all(&c->term);
 

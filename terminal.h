@@ -56,13 +56,6 @@ struct damage {
 };
 
 struct grid {
-    int cols;
-    int rows;
-    int cell_width;
-    int cell_height;
-
-    struct scroll_region scroll_region;
-
     int linear_cursor;
     struct {
         int row;
@@ -151,6 +144,14 @@ struct terminal {
     struct vt vt;
     struct grid grid;
     struct kbd kbd;
+
+    int cols;
+    int rows;
+    int cell_width;
+    int cell_height;
+
+    struct scroll_region scroll_region;
+
 };
 
 void term_damage_all(struct terminal *term);

@@ -626,7 +626,7 @@ action(struct terminal *term, enum action action, uint8_t c)
         switch (c) {
         case '\n':
             /* LF - line feed */
-            if (term->grid.cursor.row == term->grid.scroll_region.end - 1) {
+            if (term->grid.cursor.row == term->scroll_region.end - 1) {
                 term_scroll(term, 1);
             } else
                 term_cursor_down(term, 1);
@@ -671,7 +671,7 @@ action(struct terminal *term, enum action action, uint8_t c)
 
     case ACTION_PRINT: {
         if (term->grid.print_needs_wrap) {
-            if (term->grid.cursor.row == term->grid.scroll_region.end - 1) {
+            if (term->grid.cursor.row == term->scroll_region.end - 1) {
                 term_scroll(term, 1);
                 term_cursor_to(term, term->grid.cursor.row, 0);
             } else
@@ -694,7 +694,7 @@ action(struct terminal *term, enum action action, uint8_t c)
 
         cell->attrs = term->vt.attrs;
 
-        if (term->grid.cursor.col < term->grid.cols - 1)
+        if (term->grid.cursor.col < term->cols - 1)
             term_cursor_right(term, 1);
         else
             term->grid.print_needs_wrap = true;
