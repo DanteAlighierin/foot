@@ -862,8 +862,8 @@ main(int argc, const char *const *argv)
     while (true) {
         struct pollfd fds[] = {
             {.fd = wl_display_get_fd(c.wl.display), .events = POLLIN},
-            {.fd = c.term.ptmx, .events = POLLIN},
-            {.fd = c.term.kbd.repeat.pipe_read_fd, .events = POLLIN},
+            {.fd = c.term.ptmx,                     .events = POLLIN},
+            {.fd = c.term.kbd.repeat.pipe_read_fd,  .events = POLLIN},
         };
 
         wl_display_flush(c.wl.display);
