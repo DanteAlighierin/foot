@@ -567,6 +567,27 @@ esc_dispatch(struct terminal *term, uint8_t final)
 #endif
 
     switch (final) {
+    case 'B': {
+        char param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : '(';
+
+        switch (param) {
+        case '(':
+            /* This is the default charset */
+            break;
+
+        case ')':
+        case '*':
+        case '+':
+            LOG_ERR("unimplemented: character charset: %c", param);
+            return false;
+
+        default:
+            LOG_ERR("ESC <id> B: invalid charset identifier: %c", param);
+            return false;
+        }
+        break;
+    }
+
     case 'M':
         /* ri - reverse index (scroll reverse) */
         grid_scroll_reverse(&term->grid, 1);
