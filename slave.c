@@ -54,22 +54,6 @@ slave_spawn(int ptmx)
 
     execl("/usr/bin/zsh", "/usr/bin/zsh", NULL);
 
-#if 0
-
-    /* TODO: exec() */
-    sleep(1);
-    const char *s = "hello\tbla\nfoobar\thaa";
-    write(STDOUT_FILENO, s, strlen(s));
-
-    sleep(1);
-    write(STDOUT_FILENO, "yeehaa", 6);
-
-    sleep(1);
-    write(STDOUT_FILENO, "\råäö", strlen("\råäö"));
-
-    sleep(1000);
-#endif
-
 err:
     if (pts != -1)
         close(pts);
