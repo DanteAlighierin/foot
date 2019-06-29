@@ -132,6 +132,9 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         cairo_rectangle(buf->cairo, x, y, width, height);
         cairo_fill(buf->cairo);
 
+        if (cell->c[0] == '\0' || cell->c[0] == ' ')
+            continue;
+
         if (cell->attrs.conceal)
             continue;
 
