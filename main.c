@@ -883,7 +883,7 @@ main(int argc, const char *const *argv)
         }
 
         if (fds[1].revents & POLLIN) {
-            uint8_t data[1024];
+            uint8_t data[8192];
             ssize_t count = read(c.term.ptmx, data, sizeof(data));
             if (count < 0) {
                 LOG_ERRNO("failed to read from pseudo terminal");
