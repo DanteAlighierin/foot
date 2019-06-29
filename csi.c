@@ -297,7 +297,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             if (row > term->rows)
                 row = term->rows;
 
-            term_cursor_to(term, row - 1, term->grid.cursor.col);
+            term_cursor_to(term, row - 1, term->cursor.col);
             break;
         }
 
@@ -328,7 +328,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             if (col > term->cols)
                 col = term->cols;
 
-            term_cursor_to(term, term->grid.cursor.row, col);
+            term_cursor_to(term, term->cursor.row, col);
             break;
         }
 
@@ -355,14 +355,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
             switch (param) {
             case 0:
                 /* From cursor to end of screen */
-                start = term->grid.linear_cursor;
+                start = term->cursor.linear;
                 end = term->cols * term->rows;
                 break;
 
             case 1:
                 /* From start of screen to cursor */
                 start = 0;
-                end = term->grid.linear_cursor;
+                end = term->cursor.linear;
                 break;
 
             case 2:
@@ -389,20 +389,20 @@ csi_dispatch(struct terminal *term, uint8_t final)
             switch (param) {
             case 0:
                 /* From cursor to end of line */
-                start = term->grid.linear_cursor;
-                end = term_cursor_linear(term, term->grid.cursor.row, term->cols);
+                start = term->cursor.linear;
+                end = term_cursor_linear(term, term->cursor.row, term->cols);
                 break;
 
             case 1:
                 /* From start of line to cursor */
-                start = term_cursor_linear(term, term->grid.cursor.row, 0);
-                end = term->grid.linear_cursor;
+                start = term_cursor_linear(term, term->cursor.row, 0);
+                end = term->cursor.linear;
                 break;
 
             case 2:
                 /* Entire line */
-                start = term_cursor_linear(term, term->grid.cursor.row, 0);
-                end = term_cursor_linear(term, term->grid.cursor.row, term->cols);
+                start = term_cursor_linear(term, term->cursor.row, 0);
+                end = term_cursor_linear(term, term->cursor.row, term->cols);
                 break;
 
             default:
@@ -415,36 +415,36 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 'L': {
-            if (term->grid.cursor.row < term->scroll_region.start ||
-                term->grid.cursor.row >= term->scroll_region.end)
+            if (term->cursor.row < term->scroll_region.start ||
+                term->cursor.row >= term->scroll_region.end)
                 break;
 
             int count = min(
                 param_get(term, 0, 1),
-                term->scroll_region.end - term->grid.cursor.row);
+                term->scroll_region.end - term->cursor.row);
 
             term_scroll_reverse_partial(
                 term,
                 (struct scroll_region){
-                    .start = term->grid.cursor.row,
+                    .start = term->cursor.row,
                     .end = term->scroll_region.end},
                 count);
             break;
         }
 
         case 'M': {
-            if (term->grid.cursor.row < term->scroll_region.start ||
-                term->grid.cursor.row >= term->scroll_region.end)
+            if (term->cursor.row < term->scroll_region.start ||
+                term->cursor.row >= term->scroll_region.end)
                 break;
 
             int count = min(
                 param_get(term, 0, 1),
-                term->scroll_region.end - term->grid.cursor.row);
+                term->scroll_region.end - term->cursor.row);
 
             term_scroll_partial(
                 term,
                 (struct scroll_region){
-                    .start = term->grid.cursor.row,
+                    .start = term->cursor.row,
                     .end = term->scroll_region.end},
                 count);
             break;
@@ -456,9 +456,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             /* Only delete up to the right margin */
             const int max_end = term_cursor_linear(
-                term, term->grid.cursor.row, term->cols);
+                term, term->cursor.row, term->cols);
 
-            int start = term->grid.linear_cursor;
+            int start = term->cursor.linear;
             int end = min(start + count, max_end);
 
             /* Erase the requested number of characters */
@@ -469,7 +469,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             memmove(&term->grid.cells[start],
                     &term->grid.cells[end],
                     remaining * sizeof(term->grid.cells[0]));
-            term_damage_update(term, term->grid.linear_cursor, remaining);
+            term_damage_update(term, term->cursor.linear, remaining);
             break;
         }
 
@@ -508,8 +508,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                      * decrement, hence we must add 1 */
                     char reply[64];
                     snprintf(reply, sizeof(reply), "\x1b[%d;%dR",
-                             term->grid.cursor.row + 1,
-                             term->grid.cursor.col + 1);
+                             term->cursor.row + 1,
+                             term->cursor.col + 1);
                     write(term->ptmx, reply, strlen(reply));
                     break;
                 }
@@ -583,10 +583,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 case 1049:
                     if (term->grid.cells != term->grid.alt_grid) {
                         term->grid.cells = term->grid.alt_grid;
-
-                        term->grid.alt_saved_cursor.row = term->grid.cursor.row;
-                        term->grid.alt_saved_cursor.col = term->grid.cursor.col;
-
+                        term->saved_cursor = term->cursor;
                         term_damage_all(term);
                     }
                     break;
@@ -640,10 +637,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     if (term->grid.cells == term->grid.alt_grid) {
                         term->grid.cells = term->grid.normal_grid;
 
-                        term->grid.cursor.row = term->grid.alt_saved_cursor.row;
-                        term->grid.cursor.col = term->grid.alt_saved_cursor.col;
-                        term->grid.linear_cursor = term_cursor_linear(
-                            term, term->grid.cursor.row, term->grid.cursor.col);
+                        term->cursor = term->saved_cursor;
 
                         /* Should these be restored from saved values? */
                         term->scroll_region.start = 0;

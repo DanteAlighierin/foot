@@ -208,41 +208,41 @@ term_cursor_to(struct terminal *term, int row, int col)
     assert(new_linear >= 0);
     assert(new_linear < term->rows * term->cols);
 
-    term_damage_update(term, term->grid.linear_cursor, 1);
+    term_damage_update(term, term->cursor.linear, 1);
     term_damage_update(term, new_linear, 1);
     term->grid.print_needs_wrap = false;
 
-    term->grid.linear_cursor = new_linear;
-    term->grid.cursor.col = col;
-    term->grid.cursor.row = row;
+    term->cursor.linear = new_linear;
+    term->cursor.col = col;
+    term->cursor.row = row;
 }
 
 void
 term_cursor_left(struct terminal *term, int count)
 {
-    int move_amount = min(term->grid.cursor.col, count);
-    term_cursor_to(term, term->grid.cursor.row, term->grid.cursor.col - move_amount);
+    int move_amount = min(term->cursor.col, count);
+    term_cursor_to(term, term->cursor.row, term->cursor.col - move_amount);
 }
 
 void
 term_cursor_right(struct terminal *term, int count)
 {
-    int move_amount = min(term->cols - term->grid.cursor.col - 1, count);
-    term_cursor_to(term, term->grid.cursor.row, term->grid.cursor.col + move_amount);
+    int move_amount = min(term->cols - term->cursor.col - 1, count);
+    term_cursor_to(term, term->cursor.row, term->cursor.col + move_amount);
 }
 
 void
 term_cursor_up(struct terminal *term, int count)
 {
-    int move_amount = min(term->grid.cursor.row, count);
-    term_cursor_to(term, term->grid.cursor.row - move_amount, term->grid.cursor.col);
+    int move_amount = min(term->cursor.row, count);
+    term_cursor_to(term, term->cursor.row - move_amount, term->cursor.col);
 }
 
 void
 term_cursor_down(struct terminal *term, int count)
 {
-    int move_amount = min(term->rows - term->grid.cursor.row - 1, count);
-    term_cursor_to(term, term->grid.cursor.row + move_amount, term->grid.cursor.col);
+    int move_amount = min(term->rows - term->cursor.row - 1, count);
+    term_cursor_to(term, term->cursor.row + move_amount, term->cursor.col);
 }
 
 void

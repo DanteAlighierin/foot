@@ -96,7 +96,7 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         //LOG_DBG("UPDATE: %d (%dx%d)", linear_cursor, row, col);
 
         const struct cell *cell = &c->term.grid.cells[linear_cursor];
-        bool has_cursor = c->term.grid.linear_cursor == linear_cursor;
+        bool has_cursor = c->term.cursor.linear == linear_cursor;
 
         int x = col * c->term.cell_width;
         int y = row * c->term.cell_height;
@@ -240,14 +240,14 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
     }
 
     /* Redraw cursor, if it's inside the erased range */
-    if (c->term.grid.linear_cursor >= dmg->range.start &&
-        c->term.grid.linear_cursor < dmg->range.start + dmg->range.length)
+    if (c->term.cursor.linear >= dmg->range.start &&
+        c->term.cursor.linear < dmg->range.start + dmg->range.length)
     {
         grid_render_update(
             c, buf,
             &(struct damage){
                 .type = DAMAGE_UPDATE,
-                .range = {.start = c->term.grid.linear_cursor, .length = 1}});
+                .range = {.start = c->term.cursor.linear, .length = 1}});
     }
 }
 

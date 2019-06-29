@@ -37,6 +37,12 @@ struct scroll_region {
     int end;
 };
 
+struct cursor {
+    int row;
+    int col;
+    int linear;
+};
+
 enum damage_type {DAMAGE_UPDATE, DAMAGE_ERASE, DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
 struct damage {
     enum damage_type type;
@@ -56,20 +62,11 @@ struct damage {
 };
 
 struct grid {
-    int linear_cursor;
-    struct {
-        int row;
-        int col;
-    } cursor;
     bool print_needs_wrap;
 
     struct cell *cells;
     struct cell *normal_grid;
     struct cell *alt_grid;
-    struct {
-        int row;
-        int col;
-    } alt_saved_cursor;
 
     tll(struct damage) damage;
     tll(struct damage) scroll_damage;
@@ -151,6 +148,10 @@ struct terminal {
 
     struct rgba foreground;
     struct rgba background;
+
+    struct cursor cursor;
+    struct cursor saved_cursor;
+    struct cursor alt_saved_cursor;
 };
 
 void term_damage_all(struct terminal *term);
