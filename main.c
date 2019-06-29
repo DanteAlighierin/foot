@@ -104,9 +104,9 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         int height = c->term.cell_height;
 
         struct rgba foreground = cell->attrs.have_foreground
-            ? cell->attrs.foreground : c->term.grid.foreground;
+            ? cell->attrs.foreground : c->term.foreground;
         struct rgba background = cell->attrs.have_background
-            ? cell->attrs.background : c->term.grid.background;
+            ? cell->attrs.background : c->term.background;
 
         if (has_cursor) {
             struct rgba swap = foreground;
@@ -743,9 +743,7 @@ main(int argc, const char *const *argv)
             .vt = {
                 .state = 1,  /* STATE_GROUND */
             },
-            .grid = {.foreground = default_foreground,
-                     .background = default_background,
-                     .damage = tll_init()},
+            .grid = {.damage = tll_init()},
             .kbd = {
                 .repeat = {
                     .pipe_read_fd = repeat_pipe_fds[0],
@@ -753,6 +751,8 @@ main(int argc, const char *const *argv)
                     .cmd = REPEAT_STOP,
                 },
             },
+            .foreground = default_foreground,
+            .background = default_background,
         },
     };
 

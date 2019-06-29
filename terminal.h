@@ -71,9 +71,6 @@ struct grid {
         int col;
     } alt_saved_cursor;
 
-    struct rgba foreground;
-    struct rgba background;
-
     tll(struct damage) damage;
     tll(struct damage) scroll_damage;
 };
@@ -152,6 +149,8 @@ struct terminal {
 
     struct scroll_region scroll_region;
 
+    struct rgba foreground;
+    struct rgba background;
 };
 
 void term_damage_all(struct terminal *term);

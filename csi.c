@@ -92,8 +92,8 @@ sgr_reset(struct terminal *term)
 {
     memset(&term->vt.attrs, 0, sizeof(term->vt.attrs));
     term->vt.dim = false;
-    term->vt.attrs.foreground = term->grid.foreground;
-    term->vt.attrs.background = term->grid.background;
+    term->vt.attrs.foreground = term->foreground;
+    term->vt.attrs.background = term->background;
 }
 
 static bool
@@ -172,7 +172,7 @@ csi_sgr(struct terminal *term)
             break;
         }
         case 39:
-            term->vt.attrs.foreground = term->grid.foreground;
+            term->vt.attrs.foreground = term->foreground;
             term->vt.attrs.have_foreground = false;
             break;
 
@@ -218,7 +218,7 @@ csi_sgr(struct terminal *term)
             break;
         }
         case 49:
-            term->vt.attrs.background = term->grid.background;
+            term->vt.attrs.background = term->background;
             term->vt.attrs.have_background = false;
             break;
 
