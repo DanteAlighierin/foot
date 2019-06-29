@@ -590,7 +590,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     case 'M':
         /* ri - reverse index (scroll reverse) */
-        grid_scroll_reverse(&term->grid, 1);
+        term_scroll_reverse(term, 1);
         break;
 
     case '=':
@@ -627,19 +627,19 @@ action(struct terminal *term, enum action action, uint8_t c)
         case '\n':
             /* LF - line feed */
             if (term->grid.cursor.row == term->grid.scroll_region.end - 1) {
-                grid_scroll(&term->grid, 1);
+                term_scroll(term, 1);
             } else
-                grid_cursor_down(&term->grid, 1);
+                term_cursor_down(term, 1);
             break;
 
         case '\r':
             /* FF - form feed */
-            grid_cursor_left(&term->grid, term->grid.cursor.col);
+            term_cursor_left(term, term->grid.cursor.col);
             break;
 
         case '\b':
             /* backspace */
-            grid_cursor_left(&term->grid, 1);
+            term_cursor_left(term, 1);
             break;
 
         case '\x07':
@@ -651,7 +651,7 @@ action(struct terminal *term, enum action action, uint8_t c)
             /* HT - horizontal tab */
             int col = term->grid.cursor.col;
             col = (col + 8) / 8 * 8;
-            grid_cursor_right(&term->grid, col - term->grid.cursor.col);
+            term_cursor_right(term, col - term->grid.cursor.col);
             break;
         }
 
@@ -672,14 +672,14 @@ action(struct terminal *term, enum action action, uint8_t c)
     case ACTION_PRINT: {
         if (term->grid.print_needs_wrap) {
             if (term->grid.cursor.row == term->grid.scroll_region.end - 1) {
-                grid_scroll(&term->grid, 1);
-                grid_cursor_to(&term->grid, term->grid.cursor.row, 0);
+                term_scroll(term, 1);
+                term_cursor_to(term, term->grid.cursor.row, 0);
             } else
-                grid_cursor_to(&term->grid, term->grid.cursor.row + 1, 0);
+                term_cursor_to(term, term->grid.cursor.row + 1, 0);
         }
 
         struct cell *cell = &term->grid.cells[term->grid.linear_cursor];
-        grid_damage_update(&term->grid, term->grid.linear_cursor, 1);
+        term_damage_update(term, term->grid.linear_cursor, 1);
 
         if (term->vt.utf8.idx > 0) {
             //LOG_DBG("print: UTF8: %.*s", (int)term->vt.utf8.idx, term->vt.utf8.data);
@@ -695,7 +695,7 @@ action(struct terminal *term, enum action action, uint8_t c)
         cell->attrs = term->vt.attrs;
 
         if (term->grid.cursor.col < term->grid.cols - 1)
-            grid_cursor_right(&term->grid, 1);
+            term_cursor_right(term, 1);
         else
             term->grid.print_needs_wrap = true;
 

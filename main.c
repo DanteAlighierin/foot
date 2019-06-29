@@ -470,7 +470,7 @@ resize(struct context *c, int width, int height)
     if (c->term.grid.scroll_region.end == old_rows)
         c->term.grid.scroll_region.end = c->term.grid.rows;
 
-    grid_damage_all(&c->term.grid);
+    term_damage_all(&c->term);
 
     if (!c->frame_is_scheduled)
         grid_render(c);

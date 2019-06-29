@@ -143,10 +143,37 @@ enum keypad_mode { KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
 struct terminal {
     pid_t slave;
     int ptmx;
+
     enum decckm decckm;
     enum keypad_mode keypad_mode;
     bool bracketed_paste;
+
     struct vt vt;
     struct grid grid;
     struct kbd kbd;
 };
+
+void term_damage_all(struct terminal *term);
+void term_damage_update(struct terminal *term, int start, int length);
+void term_damage_erase(struct terminal *term, int start, int length);
+void term_damage_scroll(
+    struct terminal *term, enum damage_type damage_type,
+    struct scroll_region region, int lines);
+
+void term_erase(struct terminal *term, int start, int end);
+
+void term_cursor_to(struct terminal *term, int row, int col);
+void term_cursor_left(struct terminal *term, int count);
+void term_cursor_right(struct terminal *term, int count);
+void term_cursor_up(struct terminal *term, int count);
+void term_cursor_down(struct terminal *term, int count);
+
+void term_scroll(struct terminal *term, int rows);
+void term_scroll_reverse(struct terminal *term, int rows);
+
+void term_scroll_partial(
+    struct terminal *term, struct scroll_region region, int rows);
+void term_scroll_reverse_partial(
+    struct terminal *term, struct scroll_region region, int rows);
+
+int term_cursor_linear(const struct terminal *term, int row, int col);

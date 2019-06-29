@@ -67,7 +67,7 @@ executable(
   'osc.c', 'osc.h',
   'shm.c', 'shm.h',
   'slave.c', 'slave.h',
-  'terminal.h',
+  'terminal.c', 'terminal.h',
   'tllist.h',
   'vt.c', 'vt.h',
   wl_proto_src + wl_proto_headers,
