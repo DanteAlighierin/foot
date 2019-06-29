@@ -334,8 +334,11 @@ grid_render_scroll_reverse(struct context *c, struct buffer *buf,
 static void
 grid_render(struct context *c)
 {
-    if (tll_length(c->term.grid.damage) == 0)
+    if (tll_length(c->term.grid.damage) == 0 &&
+        tll_length(c->term.grid.scroll_damage) == 0)
+    {
         return;
+    }
 
     assert(c->width > 0);
     assert(c->height > 0);
