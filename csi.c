@@ -466,9 +466,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             /* Move remaining (up til the right margin) characters */
             int remaining = max_end - end;
-            memmove(&term->grid.cells[start],
-                    &term->grid.cells[end],
-                    remaining * sizeof(term->grid.cells[0]));
+            memmove(&term->grid->cells[start],
+                    &term->grid->cells[end],
+                    remaining * sizeof(term->grid->cells[0]));
             term_damage_update(term, term->cursor.linear, remaining);
             break;
         }
@@ -581,8 +581,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 1049:
-                    if (term->grid.cells != term->grid.alt_grid) {
-                        term->grid.cells = term->grid.alt_grid;
+                    if (term->grid != &term->alt) {
+                        term->grid = &term->alt;
                         term->saved_cursor = term->cursor;
                         term_damage_all(term);
                     }
@@ -634,8 +634,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 1049:
-                    if (term->grid.cells == term->grid.alt_grid) {
-                        term->grid.cells = term->grid.normal_grid;
+                    if (term->grid == &term->alt) {
+                        term->grid = &term->normal;
 
                         term->cursor = term->saved_cursor;
 

@@ -95,7 +95,7 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
     {
         //LOG_DBG("UPDATE: %d (%dx%d)", linear_cursor, row, col);
 
-        const struct cell *cell = &c->term.grid.cells[linear_cursor];
+        const struct cell *cell = &c->term.grid->cells[linear_cursor];
         bool has_cursor = c->term.cursor.linear == linear_cursor;
 
         int x = col * c->term.cell_width;
@@ -337,8 +337,8 @@ grid_render_scroll_reverse(struct context *c, struct buffer *buf,
 static void
 grid_render(struct context *c)
 {
-    if (tll_length(c->term.grid.damage) == 0 &&
-        tll_length(c->term.grid.scroll_damage) == 0)
+    if (tll_length(c->term.grid->damage) == 0 &&
+        tll_length(c->term.grid->scroll_damage) == 0)
     {
         return;
     }
@@ -350,7 +350,7 @@ grid_render(struct context *c)
 
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
 
-    tll_foreach(c->term.grid.scroll_damage, it) {
+    tll_foreach(c->term.grid->scroll_damage, it) {
         switch (it->item.type) {
         case DAMAGE_SCROLL:
             grid_render_scroll(c, buf, &it->item);
@@ -366,10 +366,10 @@ grid_render(struct context *c)
             break;
         }
 
-        tll_remove(c->term.grid.scroll_damage, it);
+        tll_remove(c->term.grid->scroll_damage, it);
     }
 
-    tll_foreach(c->term.grid.damage, it) {
+    tll_foreach(c->term.grid->damage, it) {
         switch (it->item.type) {
         case DAMAGE_ERASE:  grid_render_erase(c, buf, &it->item); break;
         case DAMAGE_UPDATE: grid_render_update(c, buf, &it->item); break;
@@ -380,7 +380,7 @@ grid_render(struct context *c)
             break;
         }
 
-        tll_remove(c->term.grid.damage, it);
+        tll_remove(c->term.grid->damage, it);
     }
 
     //cairo_surface_flush(buf->cairo_surface);
@@ -409,42 +409,41 @@ resize(struct context *c, int width, int height)
     if (width == c->width && height == c->height)
         return;
 
-    bool alt_screen_active
-        = c->term.grid.cells != NULL && c->term.grid.cells == c->term.grid.alt_grid;
-
     c->width = width;
     c->height = height;
 
     const size_t old_rows = c->term.rows;
-    const size_t old_cols = c->term.cols;
-    const size_t old_cells_len = old_rows * old_cols;
+    const size_t normal_old_size = c->term.normal.size;
+    const size_t alt_old_size = c->term.alt.size;
 
     c->term.cell_width = (int)ceil(c->fextents.max_x_advance);
     c->term.cell_height = (int)ceil(c->fextents.height);
     c->term.cols = c->width / c->term.cell_width;
     c->term.rows = c->height / c->term.cell_height;
 
-    c->term.grid.normal_grid = realloc(
-        c->term.grid.normal_grid,
-        c->term.cols * c->term.rows * sizeof(c->term.grid.cells[0]));
-    c->term.grid.alt_grid = realloc(
-        c->term.grid.alt_grid,
-        c->term.cols * c->term.rows * sizeof(c->term.grid.cells[0]));
+    c->term.normal.size = c->term.cols * c->term.rows;
+    c->term.alt.size = c->term.cols * c->term.rows;
 
-    size_t new_cells_len = c->term.cols * c->term.rows;
-    for (size_t i = old_cells_len; i < new_cells_len; i++) {
-        c->term.grid.normal_grid[i] = (struct cell){
-            .attrs = {.foreground = default_foreground,
-                      .background = default_background},
-        };
-        c->term.grid.alt_grid[i] = (struct cell){
+    c->term.normal.cells = realloc(
+        c->term.normal.cells,
+        c->term.cols * c->term.rows * sizeof(c->term.normal.cells[0]));
+    c->term.alt.cells = realloc(
+        c->term.alt.cells,
+        c->term.cols * c->term.rows * sizeof(c->term.alt.cells[0]));
+
+    for (size_t i = normal_old_size; i < c->term.normal.size; i++) {
+        c->term.normal.cells[i] = (struct cell){
             .attrs = {.foreground = default_foreground,
                       .background = default_background},
         };
     }
 
-    c->term.grid.cells = alt_screen_active
-        ? c->term.grid.alt_grid : c->term.grid.normal_grid;
+    for (size_t i = alt_old_size; i < c->term.alt.size; i++) {
+        c->term.alt.cells[i] = (struct cell){
+            .attrs = {.foreground = default_foreground,
+                      .background = default_background},
+        };
+    }
 
     LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d",
             c->width, c->height, c->term.cols, c->term.rows);
@@ -743,7 +742,6 @@ main(int argc, const char *const *argv)
             .vt = {
                 .state = 1,  /* STATE_GROUND */
             },
-            .grid = {.damage = tll_init()},
             .kbd = {
                 .repeat = {
                     .pipe_read_fd = repeat_pipe_fds[0],
@@ -753,6 +751,10 @@ main(int argc, const char *const *argv)
             },
             .foreground = default_foreground,
             .background = default_background,
+
+            .normal = {.damage = tll_init(), .scroll_damage = tll_init()},
+            .alt = {.damage = tll_init(), .scroll_damage = tll_init()},
+            .grid = &c.term.normal,
         },
     };
 
@@ -945,8 +947,8 @@ out:
     if (c.wl.display != NULL)
         wl_display_disconnect(c.wl.display);
 
-    free(c.term.grid.normal_grid);
-    free(c.term.grid.alt_grid);
+    free(c.term.normal.cells);
+    free(c.term.alt.cells);
 
     for (size_t i = 0; i < sizeof(c.fonts) / sizeof(c.fonts[0]); i++) {
         if (c.fonts[i] != NULL)

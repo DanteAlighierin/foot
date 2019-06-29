@@ -62,9 +62,10 @@ struct damage {
 };
 
 struct grid {
+    size_t size;
+    size_t offset;
+
     struct cell *cells;
-    struct cell *normal_grid;
-    struct cell *alt_grid;
 
     tll(struct damage) damage;
     tll(struct damage) scroll_damage;
@@ -134,7 +135,6 @@ struct terminal {
     bool bracketed_paste;
 
     struct vt vt;
-    struct grid grid;
     struct kbd kbd;
 
     int cols;
@@ -151,6 +151,10 @@ struct terminal {
     struct cursor cursor;
     struct cursor saved_cursor;
     struct cursor alt_saved_cursor;
+
+    struct grid normal;
+    struct grid alt;
+    struct grid *grid;
 };
 
 void term_damage_all(struct terminal *term);

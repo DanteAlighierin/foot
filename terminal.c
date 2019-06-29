@@ -13,10 +13,10 @@
 static bool
 damage_merge_range(struct terminal *term, const struct damage *dmg)
 {
-    if (tll_length(term->grid.damage) == 0)
+    if (tll_length(term->grid->damage) == 0)
         return false;
 
-    struct damage *old = &tll_back(term->grid.damage);
+    struct damage *old = &tll_back(term->grid->damage);
     if (old->type != dmg->type)
         return false;
 
@@ -64,7 +64,7 @@ term_damage_update_or_erase(struct terminal *term, enum damage_type damage_type,
     if (damage_merge_range(term, &dmg))
         return;
 
-    tll_push_back(term->grid.damage, dmg);
+    tll_push_back(term->grid->damage, dmg);
 }
 
 void
@@ -82,8 +82,8 @@ term_damage_erase(struct terminal *term, int start, int length)
 void
 term_damage_all(struct terminal *term)
 {
-    tll_free(term->grid.damage);
-    tll_free(term->grid.scroll_damage);
+    tll_free(term->grid->damage);
+    tll_free(term->grid->scroll_damage);
     term_damage_update(term, 0, term->rows * term->cols);
 }
 
@@ -97,7 +97,7 @@ damage_adjust_after_scroll(struct terminal *term, enum damage_type damage_type,
     const int scroll_start = region.start * term->cols;
     const int scroll_end = region.end * term->cols;
 
-    tll_foreach(term->grid.damage, it) {
+    tll_foreach(term->grid->damage, it) {
         int start = it->item.range.start;
         int length = it->item.range.length;
         int end = start + length;
@@ -109,7 +109,7 @@ damage_adjust_after_scroll(struct terminal *term, enum damage_type damage_type,
                 .range = {.start = start, .length = scroll_start - start},
             };
 
-            tll_push_back(term->grid.damage, outside);
+            tll_push_back(term->grid->damage, outside);
             start = scroll_start;
             length = end - start;
 
@@ -122,7 +122,7 @@ damage_adjust_after_scroll(struct terminal *term, enum damage_type damage_type,
                 .range = {.start = scroll_end, .length = length - scroll_end},
             };
 
-            tll_push_back(term->grid.damage, outside);
+            tll_push_back(term->grid->damage, outside);
             end = scroll_end;
             length = end - start;
         }
@@ -138,7 +138,7 @@ damage_adjust_after_scroll(struct terminal *term, enum damage_type damage_type,
                 assert(new_length < length);
 
                 if (new_length <= 0)
-                    tll_remove(term->grid.damage, it);
+                    tll_remove(term->grid->damage, it);
                 else {
                     it->item.range.start = scroll_start;
                     it->item.range.length = new_length;
@@ -148,7 +148,7 @@ damage_adjust_after_scroll(struct terminal *term, enum damage_type damage_type,
             if (start + length > scroll_end) {
                 /* Scrolled down outside scroll region */
                 if (start >= scroll_end)
-                    tll_remove(term->grid.damage, it);
+                    tll_remove(term->grid->damage, it);
                 else {
                     it->item.range.start = start;
                     it->item.range.length = scroll_end - start;
@@ -164,8 +164,8 @@ term_damage_scroll(struct terminal *term, enum damage_type damage_type,
 {
     damage_adjust_after_scroll(term, damage_type, region, lines);
 
-    if (tll_length(term->grid.scroll_damage) > 0) {
-        struct damage *dmg = &tll_back(term->grid.scroll_damage);
+    if (tll_length(term->grid->scroll_damage) > 0) {
+        struct damage *dmg = &tll_back(term->grid->scroll_damage);
 
         if (dmg->type == damage_type &&
             dmg->scroll.region.start == region.start &&
@@ -179,14 +179,14 @@ term_damage_scroll(struct terminal *term, enum damage_type damage_type,
         .type = damage_type,
         .scroll = {.region = region, .lines = lines},
     };
-    tll_push_back(term->grid.scroll_damage, dmg);
+    tll_push_back(term->grid->scroll_damage, dmg);
 }
 
 void
 term_erase(struct terminal *term, int start, int end)
 {
     assert(end >= start);
-    memset(&term->grid.cells[start], 0, (end - start) * sizeof(term->grid.cells[0]));
+    memset(&term->grid->cells[start], 0, (end - start) * sizeof(term->grid->cells[0]));
     term_damage_erase(term, start, end - start);
 }
 
@@ -260,13 +260,13 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     LOG_DBG("moving %d lines from row %d to row %d", cell_count / term->cols,
             cell_src / term->cols, cell_dst / term->cols);
 
-    const size_t bytes = cell_count * sizeof(term->grid.cells[0]);
+    const size_t bytes = cell_count * sizeof(term->grid->cells[0]);
     memmove(
-        &term->grid.cells[cell_dst], &term->grid.cells[cell_src],
+        &term->grid->cells[cell_dst], &term->grid->cells[cell_src],
         bytes);
 
-    memset(&term->grid.cells[(region.end - rows) * term->cols], 0,
-           rows * term->cols * sizeof(term->grid.cells[0]));
+    memset(&term->grid->cells[(region.end - rows) * term->cols], 0,
+           rows * term->cols * sizeof(term->grid->cells[0]));
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
 }
@@ -293,13 +293,13 @@ term_scroll_reverse_partial(struct terminal *term,
     LOG_DBG("moving %d lines from row %d to row %d", cell_count / term->cols,
             cell_src / term->cols, cell_dst / term->cols);
 
-    const size_t bytes = cell_count * sizeof(term->grid.cells[0]);
+    const size_t bytes = cell_count * sizeof(term->grid->cells[0]);
     memmove(
-        &term->grid.cells[cell_dst], &term->grid.cells[cell_src],
+        &term->grid->cells[cell_dst], &term->grid->cells[cell_src],
         bytes);
 
-    memset(&term->grid.cells[cell_src], 0,
-           rows * term->cols * sizeof(term->grid.cells[0]));
+    memset(&term->grid->cells[cell_src], 0,
+           rows * term->cols * sizeof(term->grid->cells[0]));
 
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
 }
