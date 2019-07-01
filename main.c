@@ -260,21 +260,20 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
         cairo_fill(buf->cairo);
         wl_surface_damage_buffer(c->wl.surface, x, y, width, height);
     }
-#if 0
+
     /* Redraw cursor, if it's inside the erased range */
-    if (c->term.grid->offset + c->term.cursor.linear >= dmg->range.start &&
-        c->term.grid->offset + c->term.cursor.linear < dmg->range.start + dmg->range.length)
+    if (c->term.cursor.linear >= dmg->range.start - c->term.grid->offset &&
+        c->term.cursor.linear < dmg->range.start - c->term.grid->offset + dmg->range.length)
     {
         grid_render_update(
             c, buf,
             &(struct damage){
                 .type = DAMAGE_UPDATE,
                 .range = {
-                    .start = (c->term.grid->offset + c->term.cursor.linear) % c->term.grid->size,
+                    .start = c->term.grid->offset + c->term.cursor.linear,
                     .length = 1}
             });
     }
-    #endif
 }
 
 static void
