@@ -40,3 +40,36 @@ grid_memset(struct grid *grid, size_t start, int c, size_t length)
         start += count;
     }
 }
+
+void
+grid_memmove(struct grid *grid, size_t dst, size_t src, size_t length)
+{
+    size_t left = length;
+    size_t copy_idx = 0;
+    struct cell copy[left];
+
+    while (left > 0) {
+        size_t count = left;
+        struct cell *src_cells = grid_get_range(grid, src, &count);
+
+        memcpy(&copy[copy_idx], src_cells, count * sizeof(copy[0]));
+
+        left -= count;
+        src += count;
+        copy_idx += count;
+    }
+
+    left = length;
+    copy_idx = 0;
+
+    while (left > 0) {
+        size_t count = left;
+        struct cell *dst_cells = grid_get_range(grid, dst, &count);
+
+        memcpy(dst_cells, &copy[copy_idx], count * sizeof(copy[0]));
+
+        left -= count;
+        dst += count;
+        copy_idx += count;
+    }
+}
