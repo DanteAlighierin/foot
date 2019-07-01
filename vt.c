@@ -689,7 +689,6 @@ action(struct terminal *term, enum action action, uint8_t c)
             //LOG_DBG("print: UTF8: %.*s", (int)term->vt.utf8.idx, term->vt.utf8.data);
             memcpy(cell->c, term->vt.utf8.data, term->vt.utf8.idx);
             cell->c[term->vt.utf8.idx] = '\0';
-            memset(&term->vt.utf8, 0, sizeof(term->vt.utf8));
         } else {
             //LOG_DBG("print: ASCII: %c", c);
             cell->c[0] = c;
