@@ -586,6 +586,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     if (term->grid != &term->alt) {
                         term->grid = &term->alt;
                         term->saved_cursor = term->cursor;
+
+                        tll_free(term->alt.damage);
+                        tll_free(term->alt.scroll_damage);
                         term_erase(term, 0, term->rows * term->cols);
                     }
                     break;
@@ -644,6 +647,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         /* Should these be restored from saved values? */
                         term->scroll_region.start = 0;
                         term->scroll_region.end = term->rows;
+
+                        tll_free(term->alt.damage);
+                        tll_free(term->alt.scroll_damage);
 
                         term_damage_all(term);
                     }
