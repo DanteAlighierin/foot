@@ -453,10 +453,10 @@ resize(struct context *c, int width, int height)
 
     c->term.normal.cells = realloc(
         c->term.normal.cells,
-        c->term.cols * c->term.rows * sizeof(c->term.normal.cells[0]));
+        c->term.normal.size * sizeof(c->term.normal.cells[0]));
     c->term.alt.cells = realloc(
         c->term.alt.cells,
-        c->term.cols * c->term.rows * sizeof(c->term.alt.cells[0]));
+        c->term.alt.size * sizeof(c->term.alt.cells[0]));
 
     for (size_t i = normal_old_size; i < c->term.normal.size; i++) {
         c->term.normal.cells[i] = (struct cell){
