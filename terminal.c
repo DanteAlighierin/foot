@@ -204,7 +204,7 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
 
         tll_foreach(term->grid->damage, it) {
             int start = it->item.range.start - term->grid->offset;
-            int end = start + it->item.range.length;
+            int end __attribute__((unused))  = start + it->item.range.length;
 
             if (start < region.start) {
                 assert(end <= region.start);
