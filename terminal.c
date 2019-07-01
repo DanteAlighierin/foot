@@ -86,6 +86,7 @@ damage_adjust_after_scroll(struct terminal *term, enum damage_type damage_type,
                            struct scroll_region region, int lines)
 {
     tll_foreach(term->grid->damage, it) {
+#if 0
         if (it->item.range.start < term->grid->offset) {
             int end = it->item.range.start + it->item.range.length;
             if (end >= term->grid->offset) {
@@ -95,6 +96,12 @@ damage_adjust_after_scroll(struct terminal *term, enum damage_type damage_type,
                 tll_remove(term->grid->damage, it);
             }
         }
+#endif
+
+        int start = it->item.range.start;
+        int end = start + it->item.range.length;
+
+        if (start - 
     }
 }
 #endif
@@ -190,37 +197,52 @@ void
 term_scroll_partial(struct terminal *term, struct scroll_region region, int rows)
 {
     LOG_DBG("scroll: %d rows", rows);
-    if (rows >= region.end - region.start) {
-        assert(false && "untested");
-        return;
+
+    if (region.start > 0) {
+        /* TODO: check if it's worth memoving the scroll area instead,
+         * under certain circumstances */
+
+        grid_memmove(term->grid, rows * term->cols, 0, region.start * term->cols);
+
+        tll_foreach(term->grid->damage, it) {
+            int start = it->item.range.start - term->grid->offset;
+            int end = start + it->item.range.length;
+
+            if (start < region.start) {
+                assert(end <= region.start);
+                it->item.range.start += rows * term->cols;
+            }
+        }
     }
 
-#if 0
-    int cell_dst = (region.start + 0) * term->cols;
-    int cell_src = (region.start + rows) * term->cols;
-    int cell_count = (region.end - region.start - rows) * term->cols;
+    if (region.end < term->rows) {
+        /* Copy scrolled-up bottom region to new bottom region */
+        grid_memmove(
+            term->grid,
+            (region.end + rows) * term->cols,
+            region.end * term->cols,
+            (term->rows - region.end) * term->cols);
 
-    LOG_DBG("moving %d lines from row %d to row %d", cell_count / term->cols,
-            cell_src / term->cols, cell_dst / term->cols);
+        tll_foreach(term->grid->damage, it) {
+            int start = it->item.range.start - term->grid->offset;
+            int end = start + it->item.range.length;
 
-    const int bytes = cell_count * sizeof(term->grid->cells[0]);
-    memmove(
-        &term->grid->cells[cell_dst], &term->grid->cells[cell_src],
-        bytes);
+            if (end > region.end) {
+                assert(start >= region.end);
+                it->item.range.start += rows * term->cols;
+            }
+        }
+    }
 
-    memset(&term->grid->cells[(region.end - rows) * term->cols], 0,
-           rows * term->cols * sizeof(term->grid->cells[0]));
-
-    term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
-#else
-    /* TODO */
-    assert(region.start == 0 && region.end == term->rows);
-    assert(rows < term->rows);
-
+    /* Offset grid origin */
     term->grid->offset += rows * term->cols;
-    grid_memset(term->grid, (region.end - rows) * term->cols, 0, rows * term->cols);
+
+    /* Clear scrolled-in lines */
+    grid_memset(
+        term->grid,
+        max(0, region.end - rows) * term->cols, 0, rows * term->cols);
+
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
-#endif
 }
 
 void
