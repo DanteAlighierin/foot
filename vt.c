@@ -555,7 +555,7 @@ static const enum action exit_actions[] = {
 static bool
 esc_dispatch(struct terminal *term, uint8_t final)
 {
-#if defined(_DEBUG)
+#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLED_DBG
     char log[1024];
     int c = snprintf(log, sizeof(log), "ESC: ");
 

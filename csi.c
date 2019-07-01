@@ -260,7 +260,7 @@ csi_sgr(struct terminal *term)
 bool
 csi_dispatch(struct terminal *term, uint8_t final)
 {
-#if defined(_DEBUG)
+#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char log[1024];
     int c = snprintf(log, sizeof(log), "CSI: ");
 
