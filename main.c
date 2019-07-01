@@ -79,24 +79,42 @@ attrs_to_font(struct context *c, const struct attributes *attrs)
 static void
 grid_render_update(struct context *c, struct buffer *buf, const struct damage *dmg)
 {
-    LOG_DBG("damage: UPDATE: %d -> %d",
-            dmg->range.start, dmg->range.start + dmg->range.length);
+    LOG_DBG("damage: UPDATE: %d -> %d (offset = %d)",
+            (dmg->range.start - c->term.grid->offset) % c->term.grid->size,
+            (dmg->range.start - c->term.grid->offset) % c->term.grid->size + dmg->range.length,
+        c->term.grid->offset);
+
+    int start = dmg->range.start;
+    int length = dmg->range.length;
+
+    if (start < c->term.grid->offset) {
+        int end = start + length;
+        if (end >= c->term.grid->offset) {
+            start = c->term.grid->offset;
+            length = end - start;
+        } else
+            return;
+    }
 
     const int cols = c->term.cols;
 
-    for (int linear_cursor = dmg->range.start,
-             row = dmg->range.start / cols,
-             col = dmg->range.start % cols;
-         linear_cursor < dmg->range.start + dmg->range.length;
+    for (int linear_cursor = start,
+             row = ((start - c->term.grid->offset) % c->term.grid->size) / cols,
+             col = ((start - c->term.grid->offset) % c->term.grid->size) % cols;
+         linear_cursor < start + length;
          linear_cursor++,
              //col = (col + 1) % cols,
              col = col + 1 >= c->term.cols ? 0 : col + 1,
              row += col == 0 ? 1 : 0)
     {
+
         //LOG_DBG("UPDATE: %d (%dx%d)", linear_cursor, row, col);
 
-        const struct cell *cell = &c->term.grid->cells[linear_cursor];
-        bool has_cursor = c->term.cursor.linear == linear_cursor;
+        //assert(linear_cursor < c->term.grid->size);
+        const struct cell *cell = &c->term.grid->cells[linear_cursor % c->term.grid->size];
+
+        bool has_cursor = c->term.cursor.linear == linear_cursor - c->term.grid->offset;
+        //bool has_cursor = false;
 
         int x = col * c->term.cell_width;
         int y = row * c->term.cell_height;
@@ -160,15 +178,19 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
 
     wl_surface_damage_buffer(
         c->wl.surface,
-        0, (dmg->range.start / cols) * c->term.cell_height,
+        0, ((dmg->range.start - c->term.grid->offset) / cols) * c->term.cell_height,
         buf->width, (dmg->range.length + cols - 1) / cols * c->term.cell_height);
 }
 
 static void
 grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dmg)
 {
-    LOG_DBG("damage: ERASE: %d -> %d",
-            dmg->range.start, dmg->range.start + dmg->range.length);
+    LOG_DBG("damage: ERASE: %d -> %d (offset = %d)",
+            (dmg->range.start - c->term.grid->offset) % c->term.grid->size,
+            (dmg->range.start - c->term.grid->offset) % c->term.grid->size + dmg->range.length,
+            c->term.grid->offset);
+
+    assert(dmg->range.start >= c->term.grid->offset);
 
     cairo_set_source_rgba(
         buf->cairo, default_background.r, default_background.g,
@@ -176,7 +198,7 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
 
     const int cols = c->term.cols;
 
-    int start = dmg->range.start;
+    int start = (dmg->range.start - c->term.grid->offset) % c->term.grid->size;
     int left = dmg->range.length;
 
     int row = start / cols;
@@ -238,17 +260,21 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
         cairo_fill(buf->cairo);
         wl_surface_damage_buffer(c->wl.surface, x, y, width, height);
     }
-
+#if 0
     /* Redraw cursor, if it's inside the erased range */
-    if (c->term.cursor.linear >= dmg->range.start &&
-        c->term.cursor.linear < dmg->range.start + dmg->range.length)
+    if (c->term.grid->offset + c->term.cursor.linear >= dmg->range.start &&
+        c->term.grid->offset + c->term.cursor.linear < dmg->range.start + dmg->range.length)
     {
         grid_render_update(
             c, buf,
             &(struct damage){
                 .type = DAMAGE_UPDATE,
-                .range = {.start = c->term.cursor.linear, .length = 1}});
+                .range = {
+                    .start = (c->term.grid->offset + c->term.cursor.linear) % c->term.grid->size,
+                    .length = 1}
+            });
     }
+    #endif
 }
 
 static void
@@ -284,7 +310,7 @@ grid_render_scroll(struct context *c, struct buffer *buf,
     struct damage erase = {
         .type = DAMAGE_ERASE,
         .range = {
-            .start = max(dmg->scroll.region.end - dmg->scroll.lines,
+            .start = c->term.grid->offset + max(dmg->scroll.region.end - dmg->scroll.lines,
                          dmg->scroll.region.start) * cols,
             .length = min(dmg->scroll.region.end - dmg->scroll.region.start,
                           dmg->scroll.lines) * cols,
@@ -383,6 +409,8 @@ grid_render(struct context *c)
         tll_remove(c->term.grid->damage, it);
     }
 
+    c->term.grid->offset %= c->term.grid->size;
+
     //cairo_surface_flush(buf->cairo_surface);
     wl_surface_attach(c->wl.surface, buf->wl_buf, 0, 0);
 
@@ -450,8 +478,8 @@ resize(struct context *c, int width, int height)
 
     /* Update environment variables */
     char cols_s[12], rows_s[12];
-    sprintf(cols_s, "%u", c->term.cols);
-    sprintf(rows_s, "%u", c->term.rows);
+    sprintf(cols_s, "%d", c->term.cols);
+    sprintf(rows_s, "%d", c->term.rows);
     setenv("COLUMNS", cols_s, 1);
     setenv("LINES", rows_s, 1);
 

@@ -62,8 +62,8 @@ struct damage {
 };
 
 struct grid {
-    size_t size;
-    size_t offset;
+    int size;
+    int offset;
 
     struct cell *cells;
 
@@ -73,7 +73,7 @@ struct grid {
 
 struct vt_subparams {
     unsigned value[16];
-    size_t idx;
+    int idx;
 };
 
 struct vt_param {
@@ -85,20 +85,20 @@ struct vt {
     int state;  /* enum state */
     struct {
         struct vt_param v[16];
-        size_t idx;
+        int idx;
     } params;
     struct {
         uint8_t data[2];
-        size_t idx;
+        int idx;
     } intermediates;
     struct {
         uint8_t data[1024];
-        size_t idx;
+        int idx;
     } osc;
     struct {
         uint8_t data[4];
-        size_t idx;
-        size_t left;
+        int idx;
+        int left;
     } utf8;
     struct attributes attrs;
     bool dim;

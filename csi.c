@@ -280,7 +280,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                       i == term->vt.params.idx - 1 ? "" : ";");
     }
 
-    c += snprintf(&log[c], sizeof(log) - c, "%c (%zu parameters)",
+    c += snprintf(&log[c], sizeof(log) - c, "%c (%d parameters)",
                   final, term->vt.params.idx);
     LOG_DBG("%s", log);
 #endif
