@@ -260,20 +260,6 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
         cairo_fill(buf->cairo);
         wl_surface_damage_buffer(c->wl.surface, x, y, width, height);
     }
-
-    /* Redraw cursor, if it's inside the erased range */
-    if (c->term.cursor.linear >= dmg->range.start - c->term.grid->offset &&
-        c->term.cursor.linear < dmg->range.start - c->term.grid->offset + dmg->range.length)
-    {
-        grid_render_update(
-            c, buf,
-            &(struct damage){
-                .type = DAMAGE_UPDATE,
-                .range = {
-                    .start = c->term.grid->offset + c->term.cursor.linear,
-                    .length = 1}
-            });
-    }
 }
 
 static void
@@ -362,18 +348,19 @@ grid_render_scroll_reverse(struct context *c, struct buffer *buf,
 static void
 grid_render(struct context *c)
 {
+    struct buffer *buf = shm_get_buffer(c->wl.shm, c->width, c->height);
+    cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
+
     if (tll_length(c->term.grid->damage) == 0 &&
         tll_length(c->term.grid->scroll_damage) == 0)
     {
-        return;
+        goto render_cursor;
     }
 
     assert(c->width > 0);
     assert(c->height > 0);
 
-    struct buffer *buf = shm_get_buffer(c->wl.shm, c->width, c->height);
 
-    cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
 
     tll_foreach(c->term.grid->scroll_damage, it) {
         switch (it->item.type) {
@@ -407,6 +394,29 @@ grid_render(struct context *c)
 
         tll_remove(c->term.grid->damage, it);
     }
+
+render_cursor:
+    ;
+
+    /* TODO: break out to function */
+    /* Re-render last cursor cell and current cursor cell */
+    static struct cursor last_cursor = {.linear = 0, .col = 0, .row = 0};
+
+    if (last_cursor.linear != c->term.cursor.linear) {
+        struct damage prev_cursor = {
+            .type = DAMAGE_UPDATE,
+            .range = {.start = c->term.grid->offset + last_cursor.linear,
+                      .length = 1},
+        };
+        grid_render_update(c, buf, &prev_cursor);
+    }
+
+    struct damage cursor = {
+        .type = DAMAGE_UPDATE,
+        .range = {.start = c->term.grid->offset + c->term.cursor.linear, .length = 1},
+    };
+    grid_render_update(c, buf, &cursor);
+    last_cursor = c->term.cursor;
 
     c->term.grid->offset %= c->term.grid->size;
 

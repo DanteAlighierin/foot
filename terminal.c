@@ -156,8 +156,6 @@ term_cursor_to(struct terminal *term, int row, int col)
     int new_linear = row * term->cols + col;
     assert(new_linear < term->rows * term->cols);
 
-    term_damage_update(term, term->cursor.linear, 1);
-    term_damage_update(term, new_linear, 1);
     term->print_needs_wrap = false;
 
     term->cursor.linear = new_linear;
