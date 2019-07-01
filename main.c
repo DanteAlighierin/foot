@@ -482,8 +482,8 @@ resize(struct context *c, int width, int height)
         };
     }
 
-    LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d",
-            c->width, c->height, c->term.cols, c->term.rows);
+    LOG_INFO("resize: %dx%d, grid: cols=%d, rows=%d",
+             c->width, c->height, c->term.cols, c->term.rows);
 
     /* Update environment variables */
     char cols_s[12], rows_s[12];
