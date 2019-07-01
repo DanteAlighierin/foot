@@ -586,7 +586,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     if (term->grid != &term->alt) {
                         term->grid = &term->alt;
                         term->saved_cursor = term->cursor;
-                        term_damage_all(term);
+                        term_erase(term, 0, term->rows * term->cols);
                     }
                     break;
 
