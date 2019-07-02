@@ -386,11 +386,11 @@ grid_render_scroll_reverse(struct context *c, struct buffer *buf,
 static void
 grid_render(struct context *c)
 {
-    static struct cursor last_cursor = {.linear = 0, .col = 0, .row = 0};
+    static int last_cursor;
 
     if (tll_length(c->term.grid->damage) == 0 &&
         tll_length(c->term.grid->scroll_damage) == 0 &&
-        last_cursor.linear == c->term.cursor.linear)
+        last_cursor == c->term.cursor.linear)
     {
         return;
     }
@@ -444,12 +444,11 @@ grid_render(struct context *c)
 
     /* TODO: break out to function */
     /* Re-render last cursor cell and current cursor cell */
-
-    if (last_cursor.linear != c->term.cursor.linear) {
+    /* Make sure previous cursor is refreshed (to avoid "ghost" cursors) */
+    if (last_cursor != c->term.cursor.linear) {
         struct damage prev_cursor = {
             .type = DAMAGE_UPDATE,
-            .range = {.start = c->term.grid->offset + last_cursor.linear,
-                      .length = 1},
+            .range = {.start = last_cursor, .length = 1},
         };
         grid_render_update(c, buf, &prev_cursor);
     }
@@ -459,7 +458,7 @@ grid_render(struct context *c)
         .range = {.start = c->term.grid->offset + c->term.cursor.linear, .length = 1},
     };
     grid_render_update(c, buf, &cursor);
-    last_cursor = c->term.cursor;
+    last_cursor = c->term.grid->offset + c->term.cursor.linear;
 
     c->term.grid->offset %= c->term.grid->size;
 
