@@ -546,6 +546,11 @@ resize(struct context *c, int width, int height)
     if (c->term.scroll_region.end == old_rows)
         c->term.scroll_region.end = c->term.rows;
 
+    term_cursor_to(
+        &c->term,
+        min(c->term.cursor.row, c->term.rows),
+        min(c->term.cursor.col, c->term.cols));
+
     term_damage_all(&c->term);
 
     if (!c->frame_is_scheduled)
