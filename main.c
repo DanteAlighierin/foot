@@ -171,6 +171,7 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
             cairo_pattern_set_matrix(pat, &matrix);
             cairo_mask(buf->cairo, pat);
 #else  /* TODO: blit image instead - but doesn't (yet) handle colors */
+            cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
             cairo_set_source(buf->cairo, pat);
             cairo_rectangle(buf->cairo, x, y, width, height);
             cairo_fill(buf->cairo);
