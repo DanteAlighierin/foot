@@ -45,10 +45,16 @@ struct wayland {
     struct xdg_toplevel *xdg_toplevel;
 };
 
+struct glyph_cache {
+    cairo_scaled_font_t *font;
+    cairo_surface_t *surf[256];
+    cairo_pattern_t *cache[256];
+};
+
 struct context {
     bool quit;
 
-    cairo_scaled_font_t *fonts[8];
+    struct glyph_cache fonts[4];
     cairo_font_extents_t fextents;
 
     int width;
@@ -61,7 +67,6 @@ struct context {
     bool frame_is_scheduled;
 };
 
-
 static void frame_callback(
     void *data, struct wl_callback *wl_callback, uint32_t callback_data);
 
@@ -69,11 +74,11 @@ static const struct wl_callback_listener frame_listener = {
     .done = &frame_callback,
 };
 
-static cairo_scaled_font_t *
+static struct glyph_cache *
 attrs_to_font(struct context *c, const struct attributes *attrs)
 {
     int idx = attrs->italic << 1 | attrs->bold;
-    return c->fonts[idx];
+    return &c->fonts[idx];
 }
 
 static void
@@ -138,15 +143,9 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
             background = swap;
         }
 
-        //LOG_DBG("cell %dx%d dirty: c=0x%02x (%c)",
-        //        row, col, cell->c[0], cell->c[0]);
-
-        cairo_scaled_font_t *font = attrs_to_font(c, &cell->attrs);
-        cairo_set_scaled_font(buf->cairo, font);
+        /* Background */
         cairo_set_source_rgba(
             buf->cairo, background.r, background.g, background.b, background.a);
-
-        /* Background */
         cairo_rectangle(buf->cairo, x, y, width, height);
         cairo_fill(buf->cairo);
 
@@ -156,24 +155,45 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         if (cell->attrs.conceal)
             continue;
 
-        cairo_glyph_t *glyphs = NULL;
-        int num_glyphs = 0;
-
-        cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-            font, x, y + c->fextents.ascent,
-            cell->c, strlen(cell->c), &glyphs, &num_glyphs,
-            NULL, NULL, NULL);
-
-        if (status != CAIRO_STATUS_SUCCESS) {
-            if (glyphs != NULL)
-                cairo_glyph_free(glyphs);
-            continue;
-        }
+        struct glyph_cache *cache = attrs_to_font(c, &cell->attrs);
 
         cairo_set_source_rgba(
             buf->cairo, foreground.r, foreground.g, foreground.b, foreground.a);
-        cairo_show_glyphs(buf->cairo, glyphs, num_glyphs);
-        cairo_glyph_free(glyphs);
+
+        if (strlen(cell->c) == 1 && cache->cache[(int)cell->c[0]] != NULL) {
+            cairo_matrix_t matrix;
+            cairo_matrix_init_translate(&matrix, -x, -y);
+
+            cairo_pattern_t *pat = cache->cache[(int)cell->c[0]];
+            cairo_pattern_set_matrix(pat, &matrix);
+
+#if 1
+            cairo_pattern_set_matrix(pat, &matrix);
+            cairo_mask(buf->cairo, pat);
+#else  /* TODO: blit image instead - but doesn't (yet) handle colors */
+            cairo_set_source(buf->cairo, pat);
+            cairo_rectangle(buf->cairo, x, y, width, height);
+            cairo_fill(buf->cairo);
+#endif
+        } else {
+            cairo_glyph_t *glyphs = NULL;
+            int num_glyphs = 0;
+
+            cairo_status_t status = cairo_scaled_font_text_to_glyphs(
+                cache->font, x, y + c->fextents.ascent,
+                cell->c, strlen(cell->c), &glyphs, &num_glyphs,
+                NULL, NULL, NULL);
+
+            if (status != CAIRO_STATUS_SUCCESS) {
+                if (glyphs != NULL)
+                    cairo_glyph_free(glyphs);
+                continue;
+            }
+
+            cairo_set_scaled_font(buf->cairo, cache->font);
+            cairo_show_glyphs(buf->cairo, glyphs, num_glyphs);
+            cairo_glyph_free(glyphs);
+        }
     }
 
     wl_surface_damage_buffer(
@@ -453,8 +473,6 @@ resize(struct context *c, int width, int height)
     const size_t normal_old_size = c->term.normal.size;
     const size_t alt_old_size = c->term.alt.size;
 
-    c->term.cell_width = (int)ceil(c->fextents.max_x_advance);
-    c->term.cell_height = (int)ceil(c->fextents.height);
     c->term.cols = c->width / c->term.cell_width;
     c->term.rows = c->height / c->term.cell_height;
 
@@ -802,29 +820,69 @@ main(int argc, const char *const *argv)
     thrd_create(&keyboard_repeater_id, &keyboard_repeater, &c.term);
 
     const char *font_name = "Dina:pixelsize=12";
-    c.fonts[0] = font_from_name(font_name);
-    if (c.fonts[0] == NULL)
+    c.fonts[0].font = font_from_name(font_name);
+    if (c.fonts[0].font == NULL)
         goto out;
 
     {
         char fname[1024];
         snprintf(fname, sizeof(fname), "%s:style=bold", font_name);
-        c.fonts[1] = font_from_name(fname);
+        c.fonts[1].font = font_from_name(fname);
 
         snprintf(fname, sizeof(fname), "%s:style=italic", font_name);
-        c.fonts[2] = font_from_name(fname);
+        c.fonts[2].font = font_from_name(fname);
 
         snprintf(fname, sizeof(fname), "%s:style=bold italic", font_name);
-        c.fonts[3] = font_from_name(fname);
-
-        /* TODO; underline */
+        c.fonts[3].font = font_from_name(fname);
     }
 
-    cairo_scaled_font_extents(c.fonts[0],  &c.fextents);
+    cairo_scaled_font_extents(c.fonts[0].font,  &c.fextents);
+    c.term.cell_width = (int)ceil(c.fextents.max_x_advance);
+    c.term.cell_height = (int)ceil(c.fextents.height);
 
     LOG_DBG("font: height: %.2f, x-advance: %.2f",
             c.fextents.height, c.fextents.max_x_advance);
     assert(c.fextents.max_y_advance == 0);
+
+    for (size_t i; i < sizeof(c.fonts) / sizeof(c.fonts[0]); i++) {
+        cairo_scaled_font_t *font = c.fonts[i].font;
+
+        for (size_t j = 0; j < 256; j++) {
+            const char text[2] = {(char)j, '\0'};
+
+            cairo_glyph_t *glyphs = NULL;
+            int num_glyphs = 0;
+
+            cairo_status_t status = cairo_scaled_font_text_to_glyphs(
+                font, 0, 0 + c.fextents.ascent,
+                text, 1, &glyphs, &num_glyphs, NULL, NULL, NULL);
+
+            if (status != CAIRO_STATUS_SUCCESS || num_glyphs != 1) {
+                if (glyphs != NULL)
+                    cairo_glyph_free(glyphs);
+                continue;
+            }
+
+            cairo_surface_t *surf = cairo_image_surface_create(
+                CAIRO_FORMAT_ARGB32, c.term.cell_width, c.term.cell_height);
+            cairo_t *ca = cairo_create(surf);
+
+            cairo_set_scaled_font(ca, font);
+            cairo_set_source_rgba(ca, 1.0, 1.0, 1.0, 1.0);
+            cairo_show_glyphs(ca, glyphs, num_glyphs);
+
+            cairo_glyph_free(glyphs);
+            cairo_destroy(ca);
+
+            assert(surf != NULL);
+            assert(cairo_surface_status(surf) == CAIRO_STATUS_SUCCESS);
+            c.fonts[i].surf[j] = surf;
+
+            cairo_pattern_t *pat = cairo_pattern_create_for_surface(surf);
+            assert(cairo_pattern_status(pat) == CAIRO_STATUS_SUCCESS);
+            c.fonts[i].cache[j] = pat;
+        }
+    }
 
     if (c.term.ptmx == -1) {
         LOG_ERRNO("failed to open pseudo terminal");
@@ -988,8 +1046,14 @@ out:
     free(c.term.alt.cells);
 
     for (size_t i = 0; i < sizeof(c.fonts) / sizeof(c.fonts[0]); i++) {
-        if (c.fonts[i] != NULL)
-            cairo_scaled_font_destroy(c.fonts[i]);
+        struct glyph_cache *fcache = &c.fonts[i];
+        if (fcache->font != NULL)
+            cairo_scaled_font_destroy(fcache->font);
+
+        for (size_t i = 0; i < sizeof(fcache->cache) / sizeof(fcache->cache[0]); i++) {
+            if (fcache->cache[i] != NULL)
+                cairo_pattern_destroy(fcache->cache[i]);
+        }
     }
 
     if (c.term.ptmx != -1)
