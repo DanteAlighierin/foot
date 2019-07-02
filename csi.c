@@ -452,24 +452,24 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'P': {
             /* DCH: Delete character */
-            int count = param_get(term, 0, 1);
 
-            /* Only delete up to the right margin */
-            const int max_end = term_cursor_linear(
-                term, term->cursor.row, term->cols);
+            /* Number of characters to delete */
+            int count = min(
+                param_get(term, 0, 1), term->cols - term->cursor.col);
 
-            int start = term->cursor.linear;
-            int end = min(start + count, max_end);
+            /* Number of characters left after deletion (on current line) */
+            int remaining = term->cols - (term->cursor.col + count);
 
-            /* Erase the requested number of characters */
-            term_erase(term, start, end);
-
-            /* Move remaining (up til the right margin) characters */
-            int remaining = max_end - end;
-            memmove(&term->grid->cells[start],
-                    &term->grid->cells[end],
-                    remaining * sizeof(term->grid->cells[0]));
+            /* 'Delete' characters by moving the remaining ones */
+            memmove(&term->grid->cur_line[term->cursor.col],
+                    &term->grid->cur_line[term->cursor.col + count],
+                    remaining * sizeof(term->grid->cur_line[0]));
             term_damage_update(term, term->cursor.linear, remaining);
+
+            /* Erase the remainder of the line */
+            term_erase(
+                term, term->cursor.linear + remaining,
+                term->cursor.linear + remaining + count);
             break;
         }
 
