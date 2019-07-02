@@ -48,10 +48,18 @@ static void
 term_damage_update_or_erase(struct terminal *term, enum damage_type damage_type,
                             int start, int length)
 {
+#if 1
+    if (tll_length(term->grid->damage) > 1024) {
+        term_damage_all(term);
+        return;
+    }
+#endif
+
     struct damage dmg = {
         .type = damage_type,
         .range = {.start = term->grid->offset + start, .length = length},
     };
+
     if (damage_merge_range(term, &dmg))
         return;
 
