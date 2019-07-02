@@ -175,14 +175,18 @@ void
 term_cursor_left(struct terminal *term, int count)
 {
     int move_amount = min(term->cursor.col, count);
-    term_cursor_to(term, term->cursor.row, term->cursor.col - move_amount);
+    term->cursor.linear -= move_amount;
+    term->cursor.col -= move_amount;
+    term->print_needs_wrap = false;
 }
 
 void
 term_cursor_right(struct terminal *term, int count)
 {
     int move_amount = min(term->cols - term->cursor.col - 1, count);
-    term_cursor_to(term, term->cursor.row, term->cursor.col + move_amount);
+    term->cursor.linear += move_amount;
+    term->cursor.col += move_amount;
+    term->print_needs_wrap = false;
 }
 
 void
