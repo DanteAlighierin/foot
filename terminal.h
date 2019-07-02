@@ -66,6 +66,7 @@ struct grid {
     int offset;
 
     struct cell *cells;
+    struct cell *cur_line;
 
     tll(struct damage) damage;
     tll(struct damage) scroll_damage;

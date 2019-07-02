@@ -169,6 +169,12 @@ term_cursor_to(struct terminal *term, int row, int col)
     term->cursor.linear = new_linear;
     term->cursor.col = col;
     term->cursor.row = row;
+
+    size_t len = term->cols;
+    term->grid->cur_line = grid_get_range(
+        term->grid, term->cursor.linear - col, &len);
+
+    assert(len == (size_t)term->cols);
 }
 
 void
@@ -253,6 +259,12 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
         max(0, region.end - rows) * term->cols, 0, rows * term->cols);
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
+
+    size_t len = term->cols;
+    term->grid->cur_line = grid_get_range(
+        term->grid, term->cursor.linear - term->cursor.col, &len);
+
+    assert(len == (size_t)term->cols);
 }
 
 void

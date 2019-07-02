@@ -678,11 +678,7 @@ action(struct terminal *term, enum action action, uint8_t c)
                 term_cursor_to(term, term->cursor.row + 1, 0);
         }
 
-        size_t cell_count = 1;
-        struct cell *cell = grid_get_range(
-            term->grid, term->cursor.linear, &cell_count);
-        assert(cell_count == 1);
-
+        struct cell *cell = &term->grid->cur_line[term->cursor.col];
         term_damage_update(term, term->cursor.linear, 1);
 
         if (term->vt.utf8.idx > 0) {
