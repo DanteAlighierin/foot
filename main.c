@@ -369,18 +369,27 @@ grid_render_scroll_reverse(struct context *c, struct buffer *buf,
 static void
 grid_render(struct context *c)
 {
-    struct buffer *buf = shm_get_buffer(c->wl.shm, c->width, c->height);
-    cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
+    static struct cursor last_cursor = {.linear = 0, .col = 0, .row = 0};
 
     if (tll_length(c->term.grid->damage) == 0 &&
-        tll_length(c->term.grid->scroll_damage) == 0)
+        tll_length(c->term.grid->scroll_damage) == 0 &&
+        last_cursor.linear == c->term.cursor.linear)
     {
-        goto render_cursor;
+        return;
     }
 
     assert(c->width > 0);
     assert(c->height > 0);
 
+    struct buffer *buf = shm_get_buffer(c->wl.shm, c->width, c->height);
+    cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
+
+    static struct buffer *last_buf = NULL;
+    if (last_buf != buf) {
+        if (last_buf != NULL)
+            LOG_WARN("new buffer");
+        last_buf = buf;
+    }
 
 
     tll_foreach(c->term.grid->scroll_damage, it) {
@@ -416,12 +425,8 @@ grid_render(struct context *c)
         tll_remove(c->term.grid->damage, it);
     }
 
-render_cursor:
-    ;
-
     /* TODO: break out to function */
     /* Re-render last cursor cell and current cursor cell */
-    static struct cursor last_cursor = {.linear = 0, .col = 0, .row = 0};
 
     if (last_cursor.linear != c->term.cursor.linear) {
         struct damage prev_cursor = {
