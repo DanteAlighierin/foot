@@ -664,9 +664,9 @@ action(struct terminal *term, enum action action, uint8_t c)
 
     case ACTION_CLEAR:
         memset(&term->vt.params, 0, sizeof(term->vt.params));
-        memset(&term->vt.intermediates, 0, sizeof(term->vt.intermediates));
-        memset(&term->vt.osc, 0, sizeof(term->vt.osc));
-        memset(&term->vt.utf8, 0, sizeof(term->vt.utf8));
+        term->vt.intermediates.idx = 0;
+        term->vt.osc.idx = 0;
+        term->vt.utf8.idx = 0;
         break;
 
     case ACTION_PRINT: {
