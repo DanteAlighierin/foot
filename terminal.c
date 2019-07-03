@@ -119,6 +119,23 @@ term_damage_scroll(struct terminal *term, enum damage_type damage_type,
                    struct scroll_region region, int lines)
 {
     //damage_adjust_after_scroll(term, damage_type, region, lines);
+    if (damage_type == DAMAGE_SCROLL) {
+        tll_foreach(term->grid->damage, it) {
+            int start = it->item.range.start;
+            int length = it->item.range.length;
+
+            if (start < term->grid->offset) {
+                int end = start + length;
+                if (end >= term->grid->offset) {
+                    it->item.range.start = term->grid->offset;
+                    it->item.range.length = end - it->item.range.start;
+                } else
+                    tll_remove(term->grid->damage, it);
+            } else
+                break;
+        }
+    } else
+        assert(false);
 
     if (tll_length(term->grid->scroll_damage) > 0) {
         struct damage *dmg = &tll_back(term->grid->scroll_damage);
