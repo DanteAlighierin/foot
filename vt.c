@@ -568,6 +568,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     switch (final) {
     case 'B': {
+        /* Configure G0-G3 to use ASCII */
         char param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : '(';
 
         switch (param) {
@@ -578,11 +579,11 @@ esc_dispatch(struct terminal *term, uint8_t final)
         case ')':
         case '*':
         case '+':
-            LOG_ERR("unimplemented: character charset: %c", param);
+            LOG_WARN("unimplemented: charset %c uses ASCII", param);
             return false;
 
         default:
-            LOG_ERR("ESC <id> B: invalid charset identifier: %c", param);
+            LOG_ERR("<ESC>%cB: invalid charset identifier", param);
             return false;
         }
         break;
