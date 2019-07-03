@@ -473,6 +473,17 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'X': {
+            /* Erase chars */
+            int count = min(
+                param_get(term, 0, 1), term->cols - term->cursor.col);
+
+            memset(&term->grid->cur_line[term->cursor.col],
+                   0, count * sizeof(term->grid->cur_line[0]));
+            term_damage_erase(term, term->cursor.linear, count);
+            break;
+        }
+
         case 'l': {
             /* Horizontal index */
             assert(false && "untested");
