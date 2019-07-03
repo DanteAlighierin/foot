@@ -314,12 +314,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'G': {
             /* Cursor horizontal absolute */
-            int col = param_get(term, 0, 1);
-
-            if (col > term->cols)
-                col = term->cols;
-
-            term_cursor_to(term, term->cursor.row, col);
+            int col = min(param_get(term, 0, 1), term->cols);
+            term_cursor_to(term, term->cursor.row, col - 1);
             break;
         }
 
