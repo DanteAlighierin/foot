@@ -604,8 +604,16 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     LOG_WARN("unimplemented: report cell mouse motion");
                     break;
 
+                case 1005:
+                    LOG_WARN("unimplemented: UTF-8 mouse");
+                    break;
+
                 case 1006:
                     LOG_WARN("unimplemented: SGR mouse");
+                    break;
+
+                case 1015:
+                    LOG_WARN("unimplemented: URXVT mosue");
                     break;
 
                 case 1049:
@@ -666,8 +674,16 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     LOG_WARN("unimplemented: report cell mouse motion");
                     break;
 
+                case 1005:
+                    LOG_WARN("unimplemented: UTF-8 mouse");
+                    break;
+
                 case 1006:
                     LOG_WARN("unimplemented: SGR mouse");
+                    break;
+
+                case 1015:
+                    LOG_WARN("unimplemented: URXVT mosue");
                     break;
 
                 case 1049:
