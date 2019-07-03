@@ -714,6 +714,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 's':
+        case 'r':
+            /* ??? */
+            /* Seen with ncmpcpp */
+            LOG_WARN("unimplemented: CSI ?%c", final);
+            break;
+
         default:
             LOG_ERR("CSI: intermediate '?': unimplemented final: %c", final);
             abort();
