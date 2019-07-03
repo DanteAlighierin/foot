@@ -589,6 +589,25 @@ esc_dispatch(struct terminal *term, uint8_t final)
         break;
     }
 
+    case '0': {
+        /* Configure G0-G3 to use special chars + line drawing */
+        char param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : '(';
+
+        switch (param) {
+        case '(':
+        case ')':
+        case '*':
+        case '+':
+            LOG_WARN("unimplemented: charset %c uses special characters and line drawings", param);
+            break;
+
+        default:
+            LOG_ERR("<ESC>%c0: invalid charset identifier", param);
+            return false;
+        }
+        break;
+    }
+
     case 'M':
         /* ri - reverse index (scroll reverse) */
         term_scroll_reverse(term, 1);
