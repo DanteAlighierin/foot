@@ -483,9 +483,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             term_cursor_to(term, (start - 1) * term->cols, 0);
 
-            LOG_INFO("scroll region: %d-%d",
-                     term->scroll_region.start,
-                     term->scroll_region.end);
+            LOG_DBG("scroll region: %d-%d",
+                    term->scroll_region.start,
+                    term->scroll_region.end);
             break;
         }
 
