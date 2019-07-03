@@ -1,7 +1,7 @@
 #include "osc.h"
 
 #define LOG_MODULE "osc"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 
 bool

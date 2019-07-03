@@ -6,7 +6,9 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <locale.h>
+#include <getopt.h>
 #include <poll.h>
+#include <errno.h>
 
 #include <sys/ioctl.h>
 //#include <termios.h>
@@ -15,7 +17,7 @@
 #include <xdg-shell.h>
 
 #define LOG_MODULE "main"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 
 #include "font.h"
@@ -48,7 +50,7 @@ struct wayland {
 struct context {
     bool quit;
 
-    cairo_scaled_font_t *fonts[8];
+    cairo_scaled_font_t *fonts[4];
     cairo_font_extents_t fextents;
 
     int width;
@@ -60,7 +62,6 @@ struct context {
 
     bool frame_is_scheduled;
 };
-
 
 static void frame_callback(
     void *data, struct wl_callback *wl_callback, uint32_t callback_data);
@@ -76,27 +77,66 @@ attrs_to_font(struct context *c, const struct attributes *attrs)
     return c->fonts[idx];
 }
 
+struct glyph_sequence {
+    cairo_glyph_t glyphs[10000];
+    cairo_glyph_t *g;
+    int count;
+
+    struct attributes attrs;
+    struct rgba foreground;
+};
+
 static void
 grid_render_update(struct context *c, struct buffer *buf, const struct damage *dmg)
 {
-    LOG_DBG("damage: UPDATE: %d -> %d",
-            dmg->range.start, dmg->range.start + dmg->range.length);
+    LOG_DBG("damage: UPDATE: %d -> %d (offset = %d)",
+            (dmg->range.start - c->term.grid->offset) % c->term.grid->size,
+            (dmg->range.start - c->term.grid->offset) % c->term.grid->size + dmg->range.length,
+        c->term.grid->offset);
+
+    int start = dmg->range.start;
+    int length = dmg->range.length;
+
+    if (start < c->term.grid->offset) {
+        int end = start + length;
+        if (end >= c->term.grid->offset) {
+            start = c->term.grid->offset;
+            length = end - start;
+        } else
+            return;
+    }
 
     const int cols = c->term.cols;
 
-    for (int linear_cursor = dmg->range.start,
-             row = dmg->range.start / cols,
-             col = dmg->range.start % cols;
-         linear_cursor < dmg->range.start + dmg->range.length;
+    struct glyph_sequence gseq = {.g = gseq.glyphs};
+
+    for (int linear_cursor = start,
+             row = ((start - c->term.grid->offset) % c->term.grid->size) / cols,
+             col = ((start - c->term.grid->offset) % c->term.grid->size) % cols;
+         linear_cursor < start + length;
          linear_cursor++,
-             //col = (col + 1) % cols,
              col = col + 1 >= c->term.cols ? 0 : col + 1,
              row += col == 0 ? 1 : 0)
     {
-        //LOG_DBG("UPDATE: %d (%dx%d)", linear_cursor, row, col);
 
-        const struct cell *cell = &c->term.grid->cells[linear_cursor];
-        bool has_cursor = c->term.cursor.linear == linear_cursor;
+        assert(row >= 0);
+        assert(row < c->term.rows);
+        assert(col >= 0);
+        assert(col < c->term.cols);
+
+        int cell_idx = linear_cursor % c->term.grid->size;
+        if (cell_idx < 0)
+            cell_idx += c->term.grid->size;
+
+        assert(cell_idx >= 0);
+        assert(cell_idx < c->term.rows * c->term.cols);
+
+        const struct cell *cell = &c->term.grid->cells[cell_idx];
+
+        /* Cursor here? */
+        bool has_cursor
+            = (!c->term.hide_cursor &&
+               (c->term.cursor.linear == linear_cursor - c->term.grid->offset));
 
         int x = col * c->term.cell_width;
         int y = row * c->term.cell_height;
@@ -120,15 +160,9 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
             background = swap;
         }
 
-        //LOG_DBG("cell %dx%d dirty: c=0x%02x (%c)",
-        //        row, col, cell->c[0], cell->c[0]);
-
-        cairo_scaled_font_t *font = attrs_to_font(c, &cell->attrs);
-        cairo_set_scaled_font(buf->cairo, font);
+        /* Background */
         cairo_set_source_rgba(
             buf->cairo, background.r, background.g, background.b, background.a);
-
-        /* Background */
         cairo_rectangle(buf->cairo, x, y, width, height);
         cairo_fill(buf->cairo);
 
@@ -138,37 +172,75 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
         if (cell->attrs.conceal)
             continue;
 
-        cairo_glyph_t *glyphs = NULL;
-        int num_glyphs = 0;
+        /*
+         * cairo_show_glyphs() apparently works *much* faster when
+         * called once with a large array of glyphs, compared to
+         * multiple calls with a single glyph.
+         *
+         * So, collect glyphs until cell attributes change, then we
+         * 'flush' (render) the glyphs.
+         */
 
-        cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-            font, x, y + c->fextents.ascent,
-            cell->c, strlen(cell->c), &glyphs, &num_glyphs,
-            NULL, NULL, NULL);
+        if (memcmp(&cell->attrs, &gseq.attrs, sizeof(cell->attrs)) != 0 ||
+            gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10 ||
+            memcmp(&gseq.foreground, &foreground, sizeof(foreground)) != 0)
+        {
+            if (gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10)
+                LOG_WARN("hit glyph limit");
+            cairo_set_scaled_font(buf->cairo, attrs_to_font(c, &gseq.attrs));
+            cairo_set_source_rgba(
+                buf->cairo, gseq.foreground.r, gseq.foreground.g,
+                gseq.foreground.b, gseq.foreground.a);
 
-        if (status != CAIRO_STATUS_SUCCESS) {
-            if (glyphs != NULL)
-                cairo_glyph_free(glyphs);
-            continue;
+            cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
+            cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
+
+            gseq.g = gseq.glyphs;
+            gseq.count = 0;
+            gseq.attrs = cell->attrs;
+            gseq.foreground = foreground;
         }
 
+        int new_glyphs
+            = sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - gseq.count;
+
+        cairo_status_t status = cairo_scaled_font_text_to_glyphs(
+            attrs_to_font(c, &cell->attrs), x, y + c->fextents.ascent,
+            cell->c, strlen(cell->c), &gseq.g, &new_glyphs,
+            NULL, NULL, NULL);
+
+        if (status != CAIRO_STATUS_SUCCESS)
+            continue;
+
+        gseq.g += new_glyphs;
+        gseq.count += new_glyphs;
+        assert(gseq.count <= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]));
+    }
+
+    if (gseq.count > 0) {
+        cairo_set_scaled_font(buf->cairo, attrs_to_font(c, &gseq.attrs));
         cairo_set_source_rgba(
-            buf->cairo, foreground.r, foreground.g, foreground.b, foreground.a);
-        cairo_show_glyphs(buf->cairo, glyphs, num_glyphs);
-        cairo_glyph_free(glyphs);
+            buf->cairo, gseq.foreground.r, gseq.foreground.g,
+            gseq.foreground.b, gseq.foreground.a);
+        cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
+        cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
     }
 
     wl_surface_damage_buffer(
         c->wl.surface,
-        0, (dmg->range.start / cols) * c->term.cell_height,
+        0, ((dmg->range.start - c->term.grid->offset) / cols) * c->term.cell_height,
         buf->width, (dmg->range.length + cols - 1) / cols * c->term.cell_height);
 }
 
 static void
 grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dmg)
 {
-    LOG_DBG("damage: ERASE: %d -> %d",
-            dmg->range.start, dmg->range.start + dmg->range.length);
+    LOG_DBG("damage: ERASE: %d -> %d (offset = %d)",
+            (dmg->range.start - c->term.grid->offset) % c->term.grid->size,
+            (dmg->range.start - c->term.grid->offset) % c->term.grid->size + dmg->range.length,
+            c->term.grid->offset);
+
+    assert(dmg->range.start >= c->term.grid->offset);
 
     cairo_set_source_rgba(
         buf->cairo, default_background.r, default_background.g,
@@ -176,7 +248,7 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
 
     const int cols = c->term.cols;
 
-    int start = dmg->range.start;
+    int start = (dmg->range.start - c->term.grid->offset) % c->term.grid->size;
     int left = dmg->range.length;
 
     int row = start / cols;
@@ -238,17 +310,6 @@ grid_render_erase(struct context *c, struct buffer *buf, const struct damage *dm
         cairo_fill(buf->cairo);
         wl_surface_damage_buffer(c->wl.surface, x, y, width, height);
     }
-
-    /* Redraw cursor, if it's inside the erased range */
-    if (c->term.cursor.linear >= dmg->range.start &&
-        c->term.cursor.linear < dmg->range.start + dmg->range.length)
-    {
-        grid_render_update(
-            c, buf,
-            &(struct damage){
-                .type = DAMAGE_UPDATE,
-                .range = {.start = c->term.cursor.linear, .length = 1}});
-    }
 }
 
 static void
@@ -284,7 +345,7 @@ grid_render_scroll(struct context *c, struct buffer *buf,
     struct damage erase = {
         .type = DAMAGE_ERASE,
         .range = {
-            .start = max(dmg->scroll.region.end - dmg->scroll.lines,
+            .start = c->term.grid->offset + max(dmg->scroll.region.end - dmg->scroll.lines,
                          dmg->scroll.region.start) * cols,
             .length = min(dmg->scroll.region.end - dmg->scroll.region.start,
                           dmg->scroll.lines) * cols,
@@ -326,7 +387,7 @@ grid_render_scroll_reverse(struct context *c, struct buffer *buf,
     struct damage erase = {
         .type = DAMAGE_ERASE,
         .range = {
-            .start = dmg->scroll.region.start * cols,
+            .start = c->term.grid->offset + dmg->scroll.region.start * cols,
             .length = min(dmg->scroll.region.end - dmg->scroll.region.start,
                           dmg->scroll.lines) * cols,
         },
@@ -337,8 +398,11 @@ grid_render_scroll_reverse(struct context *c, struct buffer *buf,
 static void
 grid_render(struct context *c)
 {
+    static int last_cursor;
+
     if (tll_length(c->term.grid->damage) == 0 &&
-        tll_length(c->term.grid->scroll_damage) == 0)
+        tll_length(c->term.grid->scroll_damage) == 0 &&
+        last_cursor == c->term.grid->offset + c->term.cursor.linear)
     {
         return;
     }
@@ -347,8 +411,14 @@ grid_render(struct context *c)
     assert(c->height > 0);
 
     struct buffer *buf = shm_get_buffer(c->wl.shm, c->width, c->height);
-
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
+
+    static struct buffer *last_buf = NULL;
+    if (last_buf != buf) {
+        if (last_buf != NULL)
+            LOG_WARN("new buffer");
+        last_buf = buf;
+    }
 
     tll_foreach(c->term.grid->scroll_damage, it) {
         switch (it->item.type) {
@@ -383,6 +453,28 @@ grid_render(struct context *c)
         tll_remove(c->term.grid->damage, it);
     }
 
+    /* TODO: break out to function */
+    /* Re-render last cursor cell and current cursor cell */
+    /* Make sure previous cursor is refreshed (to avoid "ghost" cursors) */
+    if (last_cursor != c->term.cursor.linear) {
+        struct damage prev_cursor = {
+            .type = DAMAGE_UPDATE,
+            .range = {.start = last_cursor, .length = 1},
+        };
+        grid_render_update(c, buf, &prev_cursor);
+    }
+
+    struct damage cursor = {
+        .type = DAMAGE_UPDATE,
+        .range = {.start = c->term.grid->offset + c->term.cursor.linear, .length = 1},
+    };
+    grid_render_update(c, buf, &cursor);
+    last_cursor = c->term.grid->offset + c->term.cursor.linear;
+
+    c->term.grid->offset %= c->term.grid->size;
+    if (c->term.grid->offset < 0)
+        c->term.grid->offset += c->term.grid->size;
+
     //cairo_surface_flush(buf->cairo_surface);
     wl_surface_attach(c->wl.surface, buf->wl_buf, 0, 0);
 
@@ -416,8 +508,6 @@ resize(struct context *c, int width, int height)
     const size_t normal_old_size = c->term.normal.size;
     const size_t alt_old_size = c->term.alt.size;
 
-    c->term.cell_width = (int)ceil(c->fextents.max_x_advance);
-    c->term.cell_height = (int)ceil(c->fextents.height);
     c->term.cols = c->width / c->term.cell_width;
     c->term.rows = c->height / c->term.cell_height;
 
@@ -426,10 +516,10 @@ resize(struct context *c, int width, int height)
 
     c->term.normal.cells = realloc(
         c->term.normal.cells,
-        c->term.cols * c->term.rows * sizeof(c->term.normal.cells[0]));
+        c->term.normal.size * sizeof(c->term.normal.cells[0]));
     c->term.alt.cells = realloc(
         c->term.alt.cells,
-        c->term.cols * c->term.rows * sizeof(c->term.alt.cells[0]));
+        c->term.alt.size * sizeof(c->term.alt.cells[0]));
 
     for (size_t i = normal_old_size; i < c->term.normal.size; i++) {
         c->term.normal.cells[i] = (struct cell){
@@ -445,13 +535,13 @@ resize(struct context *c, int width, int height)
         };
     }
 
-    LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d",
-            c->width, c->height, c->term.cols, c->term.rows);
+    LOG_INFO("resize: %dx%d, grid: cols=%d, rows=%d",
+             c->width, c->height, c->term.cols, c->term.rows);
 
     /* Update environment variables */
     char cols_s[12], rows_s[12];
-    sprintf(cols_s, "%u", c->term.cols);
-    sprintf(rows_s, "%u", c->term.rows);
+    sprintf(cols_s, "%d", c->term.cols);
+    sprintf(rows_s, "%d", c->term.rows);
     setenv("COLUMNS", cols_s, 1);
     setenv("LINES", rows_s, 1);
 
@@ -468,6 +558,11 @@ resize(struct context *c, int width, int height)
 
     if (c->term.scroll_region.end == old_rows)
         c->term.scroll_region.end = c->term.rows;
+
+    term_cursor_to(
+        &c->term,
+        min(c->term.cursor.row, c->term.rows),
+        min(c->term.cursor.col, c->term.cols));
 
     term_damage_all(&c->term);
 
@@ -721,9 +816,39 @@ keyboard_repeater(void *arg)
 }
 
 int
-main(int argc, const char *const *argv)
+main(int argc, char *const *argv)
 {
     int ret = EXIT_FAILURE;
+
+    static const struct option longopts[] =  {
+        {"font", required_argument, 0, 'f'},
+        {NULL,   no_argument,       0,   0},
+    };
+
+    const char *font_name = "Dina:pixelsize=12";
+
+    while (true) {
+        int c = getopt_long(argc, argv, ":f:h", longopts, NULL);
+        if (c == -1)
+            break;
+
+        switch (c) {
+        case 'f':
+            font_name = optarg;
+            break;
+
+        case 'h':
+            break;
+
+        case ':':
+            fprintf(stderr, "error: -%c: missing required argument\n", optopt);
+            return EXIT_FAILURE;
+
+        case '?':
+            fprintf(stderr, "error: -%c: invalid option\n", optopt);
+            return EXIT_FAILURE;
+        }
+    }
 
     setlocale(LC_ALL, "");
 
@@ -739,6 +864,7 @@ main(int argc, const char *const *argv)
             .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
             .decckm = DECCKM_CSI,
             .keypad_mode = KEYPAD_NUMERICAL,  /* TODO: verify */
+            .auto_margin = true,
             .vt = {
                 .state = 1,  /* STATE_GROUND */
             },
@@ -764,7 +890,6 @@ main(int argc, const char *const *argv)
     thrd_t keyboard_repeater_id;
     thrd_create(&keyboard_repeater_id, &keyboard_repeater, &c.term);
 
-    const char *font_name = "Dina:pixelsize=12";
     c.fonts[0] = font_from_name(font_name);
     if (c.fonts[0] == NULL)
         goto out;
@@ -779,11 +904,11 @@ main(int argc, const char *const *argv)
 
         snprintf(fname, sizeof(fname), "%s:style=bold italic", font_name);
         c.fonts[3] = font_from_name(fname);
-
-        /* TODO; underline */
     }
 
     cairo_scaled_font_extents(c.fonts[0],  &c.fextents);
+    c.term.cell_width = (int)ceil(c.fextents.max_x_advance);
+    c.term.cell_height = (int)ceil(c.fextents.height);
 
     LOG_DBG("font: height: %.2f, x-advance: %.2f",
             c.fextents.height, c.fextents.max_x_advance);
@@ -864,6 +989,20 @@ main(int argc, const char *const *argv)
         break;
     }
 
+    /* Read logic requires non-blocking mode */
+    {
+        int fd_flags = fcntl(c.term.ptmx, F_GETFL);
+        if (fd_flags == -1) {
+            LOG_ERRNO("failed to set non blocking mode on PTY master");
+            goto out;
+        }
+
+        if (fcntl(c.term.ptmx, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
+            LOG_ERRNO("failed to set non blocking mode on PTY master");
+            goto out;
+        }
+    }
+
     while (true) {
         struct pollfd fds[] = {
             {.fd = wl_display_get_fd(c.wl.display), .events = POLLIN},
@@ -888,16 +1027,18 @@ main(int argc, const char *const *argv)
         }
 
         if (fds[1].revents & POLLIN) {
-            uint8_t data[8192];
-            ssize_t count = read(c.term.ptmx, data, sizeof(data));
-            if (count < 0) {
-                LOG_ERRNO("failed to read from pseudo terminal");
-                break;
+            for (size_t i = 0; i < 3; i++) {
+                uint8_t data[8192];
+                ssize_t count = read(c.term.ptmx, data, sizeof(data));
+                if (count < 0) {
+                    if (errno != EAGAIN)
+                        LOG_ERRNO("failed to read from pseudo terminal");
+                    break;
+                }
+
+                vt_from_slave(&c.term, data, count);
             }
 
-            //LOG_DBG("%.*s", (int)count, data);
-
-            vt_from_slave(&c.term, data, count);
             if (!c.frame_is_scheduled)
                 grid_render(&c);
         }

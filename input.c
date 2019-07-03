@@ -10,7 +10,7 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #define LOG_MODULE "input"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "terminal.h"
 

@@ -5,7 +5,7 @@
 #include <assert.h>
 
 #define LOG_MODULE "vt"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "csi.h"
 #include "osc.h"
@@ -555,7 +555,7 @@ static const enum action exit_actions[] = {
 static bool
 esc_dispatch(struct terminal *term, uint8_t final)
 {
-#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLED_DBG
+#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char log[1024];
     int c = snprintf(log, sizeof(log), "ESC: ");
 
@@ -568,6 +568,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     switch (final) {
     case 'B': {
+        /* Configure G0-G3 to use ASCII */
         char param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : '(';
 
         switch (param) {
@@ -578,11 +579,30 @@ esc_dispatch(struct terminal *term, uint8_t final)
         case ')':
         case '*':
         case '+':
-            LOG_ERR("unimplemented: character charset: %c", param);
+            LOG_WARN("unimplemented: charset %c uses ASCII", param);
             return false;
 
         default:
-            LOG_ERR("ESC <id> B: invalid charset identifier: %c", param);
+            LOG_ERR("<ESC>%cB: invalid charset identifier", param);
+            return false;
+        }
+        break;
+    }
+
+    case '0': {
+        /* Configure G0-G3 to use special chars + line drawing */
+        char param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : '(';
+
+        switch (param) {
+        case '(':
+        case ')':
+        case '*':
+        case '+':
+            LOG_WARN("unimplemented: charset %c uses special characters and line drawings", param);
+            break;
+
+        default:
+            LOG_ERR("<ESC>%c0: invalid charset identifier", param);
             return false;
         }
         break;
@@ -664,13 +684,13 @@ action(struct terminal *term, enum action action, uint8_t c)
 
     case ACTION_CLEAR:
         memset(&term->vt.params, 0, sizeof(term->vt.params));
-        memset(&term->vt.intermediates, 0, sizeof(term->vt.intermediates));
-        memset(&term->vt.osc, 0, sizeof(term->vt.osc));
-        memset(&term->vt.utf8, 0, sizeof(term->vt.utf8));
+        term->vt.intermediates.idx = 0;
+        term->vt.osc.idx = 0;
+        term->vt.utf8.idx = 0;
         break;
 
     case ACTION_PRINT: {
-        if (term->print_needs_wrap) {
+        if (term->auto_margin && term->print_needs_wrap) {
             if (term->cursor.row == term->scroll_region.end - 1) {
                 term_scroll(term, 1);
                 term_cursor_to(term, term->cursor.row, 0);
@@ -678,14 +698,22 @@ action(struct terminal *term, enum action action, uint8_t c)
                 term_cursor_to(term, term->cursor.row + 1, 0);
         }
 
-        struct cell *cell = &term->grid->cells[term->cursor.linear];
+        struct cell *cell = &term->grid->cur_line[term->cursor.col];
         term_damage_update(term, term->cursor.linear, 1);
+
+        if (term->insert_mode) {
+            assert(false && "untested");
+            grid_memmove(
+                term->grid, term->cursor.linear + 1, term->cursor.linear,
+                term->cols - term->cursor.col - 1);
+            term_damage_update(
+                term, term->cursor.linear + 1, term->cols - term->cursor.col - 1);
+        }
 
         if (term->vt.utf8.idx > 0) {
             //LOG_DBG("print: UTF8: %.*s", (int)term->vt.utf8.idx, term->vt.utf8.data);
             memcpy(cell->c, term->vt.utf8.data, term->vt.utf8.idx);
             cell->c[term->vt.utf8.idx] = '\0';
-            memset(&term->vt.utf8, 0, sizeof(term->vt.utf8));
         } else {
             //LOG_DBG("print: ASCII: %c", c);
             cell->c[0] = c;

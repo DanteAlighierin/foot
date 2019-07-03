@@ -10,7 +10,7 @@
 #endif
 
 #define LOG_MODULE "csi"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "grid.h"
 
@@ -57,10 +57,6 @@ initialize_colors256(void)
                     b * 51 / 255.0,
                     1.0,
                 };
-#if 0
-                colors256[16 + r * 6 * 6 + g * 6 + b] =
-                    (51 * r) << 24 | (51 * g) << 16 | (51 * b) << 8 | 0xff;
-#endif
             }
         }
     }
@@ -72,7 +68,6 @@ initialize_colors256(void)
             i * 11 / 255.0,
             1.0
         };
-            //(11 * i) << 24 | (11 * i) << 16 | (11 * i) << 8 | 0xff;
     }
 }
 
@@ -280,7 +275,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                       i == term->vt.params.idx - 1 ? "" : ";");
     }
 
-    c += snprintf(&log[c], sizeof(log) - c, "%c (%zu parameters)",
+    c += snprintf(&log[c], sizeof(log) - c, "%c (%d parameters)",
                   final, term->vt.params.idx);
     LOG_DBG("%s", log);
 #endif
@@ -292,11 +287,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'd': {
             /* VPA - vertical line position absolute */
-            int row = param_get(term, 0, 1);
-
-            if (row > term->rows)
-                row = term->rows;
-
+            int row = min(param_get(term, 0, 1), term->rows);
             term_cursor_to(term, row - 1, term->cursor.col);
             break;
         }
@@ -323,25 +314,15 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'G': {
             /* Cursor horizontal absolute */
-            int col = param_get(term, 0, 1);
-
-            if (col > term->cols)
-                col = term->cols;
-
-            term_cursor_to(term, term->cursor.row, col);
+            int col = min(param_get(term, 0, 1), term->cols);
+            term_cursor_to(term, term->cursor.row, col - 1);
             break;
         }
 
         case 'H': {
             /* Move cursor */
-            int row = param_get(term, 0, 1);
-            int col = param_get(term, 1, 1);
-
-            if (row > term->rows)
-                row = term->rows;
-            if (col > term->cols)
-                col = term->cols;
-
+            int row = min(param_get(term, 0, 1), term->rows);
+            int col = min(param_get(term, 1, 1), term->cols);
             term_cursor_to(term, row - 1, col - 1);
             break;
         }
@@ -452,26 +433,48 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'P': {
             /* DCH: Delete character */
-            int count = param_get(term, 0, 1);
 
-            /* Only delete up to the right margin */
-            const int max_end = term_cursor_linear(
-                term, term->cursor.row, term->cols);
+            /* Number of characters to delete */
+            int count = min(
+                param_get(term, 0, 1), term->cols - term->cursor.col);
 
-            int start = term->cursor.linear;
-            int end = min(start + count, max_end);
+            /* Number of characters left after deletion (on current line) */
+            int remaining = term->cols - (term->cursor.col + count);
 
-            /* Erase the requested number of characters */
-            term_erase(term, start, end);
-
-            /* Move remaining (up til the right margin) characters */
-            int remaining = max_end - end;
-            memmove(&term->grid->cells[start],
-                    &term->grid->cells[end],
-                    remaining * sizeof(term->grid->cells[0]));
+            /* 'Delete' characters by moving the remaining ones */
+            memmove(&term->grid->cur_line[term->cursor.col],
+                    &term->grid->cur_line[term->cursor.col + count],
+                    remaining * sizeof(term->grid->cur_line[0]));
             term_damage_update(term, term->cursor.linear, remaining);
+
+            /* Erase the remainder of the line */
+            term_erase(
+                term, term->cursor.linear + remaining,
+                term->cursor.linear + remaining + count);
             break;
         }
+
+        case 'X': {
+            /* Erase chars */
+            int count = min(
+                param_get(term, 0, 1), term->cols - term->cursor.col);
+
+            memset(&term->grid->cur_line[term->cursor.col],
+                   0, count * sizeof(term->grid->cur_line[0]));
+            term_damage_erase(term, term->cursor.linear, count);
+            break;
+        }
+
+        case 'h':
+            /* smir - insert mode enable */
+            assert(false && "untested");
+            term->insert_mode = true;
+            break;
+
+        case 'l':
+            /* rmir - insert mode disable */
+            term->insert_mode = false;
+            break;
 
         case 'r': {
             int start = param_get(term, 0, 1);
@@ -481,9 +484,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             term->scroll_region.start = start - 1;
             term->scroll_region.end = end;
 
-            LOG_INFO("scroll region: %d-%d",
-                     term->scroll_region.start,
-                     term->scroll_region.end);
+            term_cursor_to(term, start - 1, 0);
+
+            LOG_DBG("scroll region: %d-%d",
+                    term->scroll_region.start,
+                    term->scroll_region.end);
             break;
         }
 
@@ -560,12 +565,16 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     LOG_WARN("unimplemented: flash");
                     break;
 
+                case 7:
+                    term->auto_margin = true;
+                    break;
+
                 case 12:
                     LOG_WARN("unimplemented: cursor blinking");
                     break;
 
                 case 25:
-                    LOG_WARN("unimplemented: civis");
+                    term->hide_cursor = false;
                     break;
 
                 case 1000:
@@ -576,15 +585,28 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     LOG_WARN("unimplemented: report cell mouse motion");
                     break;
 
+                case 1005:
+                    LOG_WARN("unimplemented: UTF-8 mouse");
+                    break;
+
                 case 1006:
                     LOG_WARN("unimplemented: SGR mouse");
+                    break;
+
+                case 1015:
+                    LOG_WARN("unimplemented: URXVT mosue");
                     break;
 
                 case 1049:
                     if (term->grid != &term->alt) {
                         term->grid = &term->alt;
                         term->saved_cursor = term->cursor;
-                        term_damage_all(term);
+
+                        term_cursor_to(term, term->cursor.row, term->cursor.col);
+
+                        tll_free(term->alt.damage);
+                        tll_free(term->alt.scroll_damage);
+                        term_erase(term, 0, term->rows * term->cols);
                     }
                     break;
 
@@ -613,12 +635,16 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     LOG_WARN("unimplemented: flash");
                     break;
 
+                case 7:
+                    term->auto_margin = false;
+                    break;
+
                 case 12:
                     LOG_WARN("unimplemented: cursor blinking");
                     break;
 
                 case 25:
-                    LOG_WARN("unimplemented: civis");
+                    term->hide_cursor = true;
                     break;
 
                 case 1000:
@@ -629,8 +655,16 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     LOG_WARN("unimplemented: report cell mouse motion");
                     break;
 
+                case 1005:
+                    LOG_WARN("unimplemented: UTF-8 mouse");
+                    break;
+
                 case 1006:
                     LOG_WARN("unimplemented: SGR mouse");
+                    break;
+
+                case 1015:
+                    LOG_WARN("unimplemented: URXVT mosue");
                     break;
 
                 case 1049:
@@ -638,10 +672,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         term->grid = &term->normal;
 
                         term->cursor = term->saved_cursor;
+                        term_cursor_to(term, term->cursor.row, term->cursor.col);
 
-                        /* Should these be restored from saved values? */
-                        term->scroll_region.start = 0;
-                        term->scroll_region.end = term->rows;
+                        tll_free(term->alt.damage);
+                        tll_free(term->alt.scroll_damage);
 
                         term_damage_all(term);
                     }
@@ -661,8 +695,40 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 's':
+            for (size_t i = 0; i < term->vt.params.idx; i++) {
+                switch (term->vt.params.v[i].value) {
+                case 1001:  /* save old highlight mouse tracking mode? */
+                    LOG_WARN(
+                        "unimplemented: CSI ?1001s "
+                        "(save 'highlight mouse tracking' mode)");
+                    break;
+
+                default:
+                    LOG_ERR("unimplemented: CSI ?%ds", term->vt.params.v[i].value);
+                    abort();
+                }
+            }
+            break;
+
+        case 'r':
+            for (size_t i = 0; i < term->vt.params.idx; i++) {
+                switch (term->vt.params.v[i].value) {
+                case 1001:  /* restore old highlight mouse tracking mode? */
+                    LOG_WARN(
+                        "unimplemented: CSI ?1001r "
+                        "(restore 'highlight mouse tracking' mode)");
+                    break;
+
+                default:
+                    LOG_ERR("unimplemented: CSI ?%dr", term->vt.params.v[i].value);
+                    abort();
+                }
+            }
+            break;
+
         default:
-            LOG_ERR("CSI: intermediate '?': unimplemented final: %c", final);
+            LOG_ERR("unimplemented: CSI: ?%c", final);
             abort();
         }
 
