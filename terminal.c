@@ -295,8 +295,44 @@ void
 term_scroll_reverse_partial(struct terminal *term,
                             struct scroll_region region, int rows)
 {
-    assert(region.start == 0);
-    assert(region.end == term->rows);
+    if (region.end < term->rows) {
+        grid_memmove(
+            term->grid,
+            (region.end - rows) * term->cols,
+            region.end * term->cols,
+            (term->rows - region.end) * term->cols);
+
+        tll_foreach(term->grid->damage, it) {
+            int start = it->item.range.start - term->grid->offset;
+            int end = start + it->item.range.length;
+
+            if (end > region.end * term->cols) {
+                assert(start >= region.end * term->cols);
+                it->item.range.start -= rows * term->cols;
+            }
+        }
+
+    }
+
+    if (region.start > 0) {
+        grid_memmove(
+            term->grid, -rows * term->cols, 0, region.start * term->cols);
+
+        tll_foreach(term->grid->damage, it) {
+            int start = it->item.range.start - term->grid->offset;
+            int end __attribute__((unused))  = start + it->item.range.length;
+
+            if (start < region.start * term->cols) {
+                if (end > region.start * term->cols) {
+                    LOG_ERR("region.start = %d, rows = %d, damage.start = %d, damage.end = %d (%s)",
+                            region.start, rows, start, end, it->item.type == DAMAGE_UPDATE ? "UPDATE" : "ERASE");
+                    abort();
+                }
+                assert(end <= region.start * term->cols);
+                it->item.range.start -= rows * term->cols;
+            }
+        }
+    }
 
     term->grid->offset -= rows * term->cols;
 
