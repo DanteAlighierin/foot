@@ -645,12 +645,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         term->grid = &term->normal;
 
                         term->cursor = term->saved_cursor;
-
                         term_cursor_to(term, term->cursor.row, term->cursor.col);
-
-                        /* Should these be restored from saved values? */
-                        term->scroll_region.start = 0;
-                        term->scroll_region.end = term->rows;
 
                         tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);
