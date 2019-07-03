@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <locale.h>
+#include <getopt.h>
 #include <poll.h>
 
 #include <sys/ioctl.h>
@@ -408,7 +409,6 @@ grid_render(struct context *c)
         last_buf = buf;
     }
 
-
     tll_foreach(c->term.grid->scroll_damage, it) {
         switch (it->item.type) {
         case DAMAGE_SCROLL:
@@ -803,9 +803,39 @@ keyboard_repeater(void *arg)
 }
 
 int
-main(int argc, const char *const *argv)
+main(int argc, char *const *argv)
 {
     int ret = EXIT_FAILURE;
+
+    static const struct option longopts[] =  {
+        {"font", required_argument, 0, 'f'},
+        {NULL,   no_argument,       0,   0},
+    };
+
+    const char *font_name = "Dina:pixelsize=12";
+
+    while (true) {
+        int c = getopt_long(argc, argv, ":f:h", longopts, NULL);
+        if (c == -1)
+            break;
+
+        switch (c) {
+        case 'f':
+            font_name = optarg;
+            break;
+
+        case 'h':
+            break;
+
+        case ':':
+            fprintf(stderr, "error: -%c: missing required argument\n", optopt);
+            return EXIT_FAILURE;
+
+        case '?':
+            fprintf(stderr, "error: -%c: invalid option\n", optopt);
+            return EXIT_FAILURE;
+        }
+    }
 
     setlocale(LC_ALL, "");
 
@@ -846,7 +876,6 @@ main(int argc, const char *const *argv)
     thrd_t keyboard_repeater_id;
     thrd_create(&keyboard_repeater_id, &keyboard_repeater, &c.term);
 
-    const char *font_name = "Dina:pixelsize=12";
     c.fonts[0] = font_from_name(font_name);
     if (c.fonts[0] == NULL)
         goto out;
