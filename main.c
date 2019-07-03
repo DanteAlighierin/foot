@@ -391,7 +391,7 @@ grid_render(struct context *c)
 
     if (tll_length(c->term.grid->damage) == 0 &&
         tll_length(c->term.grid->scroll_damage) == 0 &&
-        last_cursor == c->term.cursor.linear)
+        last_cursor == c->term.grid->offset + c->term.cursor.linear)
     {
         return;
     }
