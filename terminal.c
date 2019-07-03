@@ -4,7 +4,7 @@
 #include <assert.h>
 
 #define LOG_MODULE "terminal"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "grid.h"
 

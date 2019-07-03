@@ -10,7 +10,7 @@
 #endif
 
 #define LOG_MODULE "csi"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "grid.h"
 

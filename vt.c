@@ -5,7 +5,7 @@
 #include <assert.h>
 
 #define LOG_MODULE "vt"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "csi.h"
 #include "osc.h"
