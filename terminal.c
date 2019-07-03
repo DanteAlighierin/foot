@@ -272,7 +272,9 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     /* Clear scrolled-in lines */
     grid_memset(
         term->grid,
-        max(0, region.end - rows) * term->cols, 0, rows * term->cols);
+        max(0, region.end - rows) * term->cols,
+        0,
+        min(rows, term->rows) * term->cols);
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
 
