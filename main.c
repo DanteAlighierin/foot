@@ -8,6 +8,7 @@
 #include <locale.h>
 #include <getopt.h>
 #include <poll.h>
+#include <errno.h>
 
 #include <sys/ioctl.h>
 //#include <termios.h>
@@ -987,6 +988,20 @@ main(int argc, char *const *argv)
         break;
     }
 
+    /* Read logic requires non-blocking mode */
+    {
+        int fd_flags = fcntl(c.term.ptmx, F_GETFL);
+        if (fd_flags == -1) {
+            LOG_ERRNO("failed to set non blocking mode on PTY master");
+            goto out;
+        }
+
+        if (fcntl(c.term.ptmx, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
+            LOG_ERRNO("failed to set non blocking mode on PTY master");
+            goto out;
+        }
+    }
+
     while (true) {
         struct pollfd fds[] = {
             {.fd = wl_display_get_fd(c.wl.display), .events = POLLIN},
@@ -1011,16 +1026,18 @@ main(int argc, char *const *argv)
         }
 
         if (fds[1].revents & POLLIN) {
-            uint8_t data[8192];
-            ssize_t count = read(c.term.ptmx, data, sizeof(data));
-            if (count < 0) {
-                LOG_ERRNO("failed to read from pseudo terminal");
-                break;
+            for (size_t i = 0; i < 3; i++) {
+                uint8_t data[8192];
+                ssize_t count = read(c.term.ptmx, data, sizeof(data));
+                if (count < 0) {
+                    if (errno != EAGAIN)
+                        LOG_ERRNO("failed to read from pseudo terminal");
+                    break;
+                }
+
+                vt_from_slave(&c.term, data, count);
             }
 
-            //LOG_DBG("%.*s", (int)count, data);
-
-            vt_from_slave(&c.term, data, count);
             if (!c.frame_is_scheduled)
                 grid_render(&c);
         }
