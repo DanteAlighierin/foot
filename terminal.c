@@ -134,8 +134,7 @@ term_damage_scroll(struct terminal *term, enum damage_type damage_type,
             } else
                 break;
         }
-    } else
-        assert(false);
+    }
 
     if (tll_length(term->grid->scroll_damage) > 0) {
         struct damage *dmg = &tll_back(term->grid->scroll_damage);
@@ -187,11 +186,11 @@ term_cursor_to(struct terminal *term, int row, int col)
     term->cursor.col = col;
     term->cursor.row = row;
 
-    size_t len = term->cols;
+    int len = term->cols;
     term->grid->cur_line = grid_get_range(
         term->grid, term->cursor.linear - col, &len);
 
-    assert(len == (size_t)term->cols);
+    assert(len == term->cols);
 }
 
 void
@@ -277,11 +276,11 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
 
-    size_t len = term->cols;
+    int len = term->cols;
     term->grid->cur_line = grid_get_range(
         term->grid, term->cursor.linear - term->cursor.col, &len);
 
-    assert(len == (size_t)term->cols);
+    assert(len == term->cols);
 }
 
 void
@@ -294,37 +293,20 @@ void
 term_scroll_reverse_partial(struct terminal *term,
                             struct scroll_region region, int rows)
 {
-    if (rows >= region.end - region.start) {
-        assert(false && "todo");
-        return;
-    }
-
-#if 0
-    int cell_dst = (region.start + rows) * term->cols;
-    int cell_src = (region.start + 0) * term->cols;
-    int cell_count = (region.end - region.start - rows) * term->cols;
-
-    LOG_DBG("moving %d lines from row %d to row %d", cell_count / term->cols,
-            cell_src / term->cols, cell_dst / term->cols);
-
-    const int bytes = cell_count * sizeof(term->grid->cells[0]);
-    memmove(
-        &term->grid->cells[cell_dst], &term->grid->cells[cell_src],
-        bytes);
-
-    memset(&term->grid->cells[cell_src], 0,
-           rows * term->cols * sizeof(term->grid->cells[0]));
-
-    term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
-#else
-    /* TODO */
-    assert(false);
-    assert(region.start == 0 && region.end == 0);
-    assert(rows < term->rows);
+    assert(region.start == 0);
+    assert(region.end == term->rows);
 
     term->grid->offset -= rows * term->cols;
+
+    grid_memset(term->grid, region.start * term->cols, 0, rows * term->cols);
+
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
-#endif
+
+    int len = term->cols;
+    term->grid->cur_line = grid_get_range(
+        term->grid, term->cursor.linear - term->cursor.col, &len);
+
+    assert(len == term->cols);
 }
 
 void

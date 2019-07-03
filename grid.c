@@ -8,12 +8,15 @@
 #include "log.h"
 
 struct cell *
-grid_get_range(struct grid *grid, size_t start, size_t *length)
+grid_get_range(struct grid *grid, int start, int *length)
 {
 #define min(x, y) ((x) < (y) ? (x) : (y))
     assert(*length <= grid->size);
 
-    size_t real_start = (grid->offset + start) % grid->size;
+    int real_start = (grid->offset + start) % grid->size;
+    if (real_start < 0)
+        real_start += grid->size;
+    assert(real_start >= 0);
     assert(real_start < grid->size);
 
     *length = min(*length, grid->size - real_start);
@@ -24,11 +27,11 @@ grid_get_range(struct grid *grid, size_t start, size_t *length)
 }
 
 void
-grid_memset(struct grid *grid, size_t start, int c, size_t length)
+grid_memset(struct grid *grid, int start, int c, int length)
 {
-    size_t left = length;
+    int left = length;
     while (left > 0) {
-        size_t count = left;
+        int count = left;
         struct cell *cells = grid_get_range(grid, start, &count);
 
         assert(count > 0);
@@ -42,14 +45,14 @@ grid_memset(struct grid *grid, size_t start, int c, size_t length)
 }
 
 void
-grid_memmove(struct grid *grid, size_t dst, size_t src, size_t length)
+grid_memmove(struct grid *grid, int dst, int src, int length)
 {
-    size_t left = length;
-    size_t copy_idx = 0;
+    int left = length;
+    int copy_idx = 0;
     struct cell copy[left];
 
     while (left > 0) {
-        size_t count = left;
+        int count = left;
         struct cell *src_cells = grid_get_range(grid, src, &count);
 
         memcpy(&copy[copy_idx], src_cells, count * sizeof(copy[0]));
@@ -63,7 +66,7 @@ grid_memmove(struct grid *grid, size_t dst, size_t src, size_t length)
     copy_idx = 0;
 
     while (left > 0) {
-        size_t count = left;
+        int count = left;
         struct cell *dst_cells = grid_get_range(grid, dst, &count);
 
         memcpy(dst_cells, &copy[copy_idx], count * sizeof(copy[0]));

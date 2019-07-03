@@ -118,10 +118,19 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
              row += col == 0 ? 1 : 0)
     {
 
-        //LOG_DBG("UPDATE: %d (%dx%d)", linear_cursor, row, col);
+        assert(row >= 0);
+        assert(row < c->term.rows);
+        assert(col >= 0);
+        assert(col < c->term.cols);
 
-        const struct cell *cell
-            = &c->term.grid->cells[linear_cursor % c->term.grid->size];
+        int cell_idx = linear_cursor % c->term.grid->size;
+        if (cell_idx < 0)
+            cell_idx += c->term.grid->size;
+
+        assert(cell_idx >= 0);
+        assert(cell_idx < c->term.rows * c->term.cols);
+
+        const struct cell *cell = &c->term.grid->cells[cell_idx];
 
         /* Cursor here? */
         bool has_cursor
@@ -376,7 +385,7 @@ grid_render_scroll_reverse(struct context *c, struct buffer *buf,
     struct damage erase = {
         .type = DAMAGE_ERASE,
         .range = {
-            .start = dmg->scroll.region.start * cols,
+            .start = c->term.grid->offset + dmg->scroll.region.start * cols,
             .length = min(dmg->scroll.region.end - dmg->scroll.region.start,
                           dmg->scroll.lines) * cols,
         },
@@ -461,6 +470,8 @@ grid_render(struct context *c)
     last_cursor = c->term.grid->offset + c->term.cursor.linear;
 
     c->term.grid->offset %= c->term.grid->size;
+    if (c->term.grid->offset < 0)
+        c->term.grid->offset += c->term.grid->size;
 
     //cairo_surface_flush(buf->cairo_surface);
     wl_surface_attach(c->wl.surface, buf->wl_buf, 0, 0);
