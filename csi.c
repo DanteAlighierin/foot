@@ -573,6 +573,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     LOG_WARN("unimplemented: flash");
                     break;
 
+                case 7:
+                    LOG_WARN("unimplemented: smam (automatic margins)");
+                    break;
+
                 case 12:
                     LOG_WARN("unimplemented: cursor blinking");
                     break;
@@ -629,6 +633,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 5:
                     LOG_WARN("unimplemented: flash");
+                    break;
+
+                case 7:
+                    LOG_WARN("unimplemented: smam (automatic margins)");
                     break;
 
                 case 12:
