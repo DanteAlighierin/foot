@@ -57,10 +57,6 @@ initialize_colors256(void)
                     b * 51 / 255.0,
                     1.0,
                 };
-#if 0
-                colors256[16 + r * 6 * 6 + g * 6 + b] =
-                    (51 * r) << 24 | (51 * g) << 16 | (51 * b) << 8 | 0xff;
-#endif
             }
         }
     }
@@ -72,7 +68,6 @@ initialize_colors256(void)
             i * 11 / 255.0,
             1.0
         };
-            //(11 * i) << 24 | (11 * i) << 16 | (11 * i) << 8 | 0xff;
     }
 }
 
@@ -292,11 +287,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'd': {
             /* VPA - vertical line position absolute */
-            int row = param_get(term, 0, 1);
-
-            if (row > term->rows)
-                row = term->rows;
-
+            int row = min(param_get(term, 0, 1), term->rows);
             term_cursor_to(term, row - 1, term->cursor.col);
             break;
         }
@@ -334,14 +325,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'H': {
             /* Move cursor */
-            int row = param_get(term, 0, 1);
-            int col = param_get(term, 1, 1);
-
-            if (row > term->rows)
-                row = term->rows;
-            if (col > term->cols)
-                col = term->cols;
-
+            int row = min(param_get(term, 0, 1), term->rows);
+            int col = min(param_get(term, 1, 1), term->cols);
             term_cursor_to(term, row - 1, col - 1);
             break;
         }
