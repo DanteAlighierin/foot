@@ -715,14 +715,39 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 's':
+            for (size_t i = 0; i < term->vt.params.idx; i++) {
+                switch (term->vt.params.v[i].value) {
+                case 1001:  /* save old highlight mouse tracking mode? */
+                    LOG_WARN(
+                        "unimplemented: CSI ?1001s "
+                        "(save 'highlight mouse tracking' mode)");
+                    break;
+
+                default:
+                    LOG_ERR("unimplemented: CSI ?%ds", term->vt.params.v[i].value);
+                    abort();
+                }
+            }
+            break;
+
         case 'r':
-            /* ??? */
-            /* Seen with ncmpcpp */
-            LOG_WARN("unimplemented: CSI ?%c", final);
+            for (size_t i = 0; i < term->vt.params.idx; i++) {
+                switch (term->vt.params.v[i].value) {
+                case 1001:  /* restore old highlight mouse tracking mode? */
+                    LOG_WARN(
+                        "unimplemented: CSI ?1001r "
+                        "(restore 'highlight mouse tracking' mode)");
+                    break;
+
+                default:
+                    LOG_ERR("unimplemented: CSI ?%dr", term->vt.params.v[i].value);
+                    abort();
+                }
+            }
             break;
 
         default:
-            LOG_ERR("CSI: intermediate '?': unimplemented final: %c", final);
+            LOG_ERR("unimplemented: CSI: ?%c", final);
             abort();
         }
 
