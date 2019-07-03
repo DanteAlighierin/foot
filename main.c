@@ -864,6 +864,7 @@ main(int argc, char *const *argv)
             .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
             .decckm = DECCKM_CSI,
             .keypad_mode = KEYPAD_NUMERICAL,  /* TODO: verify */
+            .auto_margin = true,
             .vt = {
                 .state = 1,  /* STATE_GROUND */
             },

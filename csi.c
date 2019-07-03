@@ -585,7 +585,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 7:
-                    LOG_WARN("unimplemented: smam (automatic margins)");
+                    term->auto_margin = true;
                     break;
 
                 case 12:
@@ -655,7 +655,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 7:
-                    LOG_WARN("unimplemented: smam (automatic margins)");
+                    term->auto_margin = false;
                     break;
 
                 case 12:
