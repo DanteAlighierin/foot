@@ -131,9 +131,11 @@ struct terminal {
     pid_t slave;
     int ptmx;
 
-    bool hide_cursor;
     enum decckm decckm;
     enum keypad_mode keypad_mode;
+    bool hide_cursor;
+    bool auto_margin;
+    bool insert_mode;
     bool bracketed_paste;
 
     struct vt vt;

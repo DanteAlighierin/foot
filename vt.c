@@ -701,6 +701,15 @@ action(struct terminal *term, enum action action, uint8_t c)
         struct cell *cell = &term->grid->cur_line[term->cursor.col];
         term_damage_update(term, term->cursor.linear, 1);
 
+        if (term->insert_mode) {
+            assert(false && "untested");
+            grid_memmove(
+                term->grid, term->cursor.linear + 1, term->cursor.linear,
+                term->cols - term->cursor.col - 1);
+            term_damage_update(
+                term, term->cursor.linear + 1, term->cols - term->cursor.col - 1);
+        }
+
         if (term->vt.utf8.idx > 0) {
             //LOG_DBG("print: UTF8: %.*s", (int)term->vt.utf8.idx, term->vt.utf8.data);
             memcpy(cell->c, term->vt.utf8.data, term->vt.utf8.idx);

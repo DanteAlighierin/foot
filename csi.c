@@ -484,16 +484,16 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        case 'l': {
-            /* Horizontal index */
+        case 'h':
+            /* smir - insert mode enable */
             assert(false && "untested");
-            int param = param_get(term, 0, 1);
-            int col = term->cursor.col;
-
-            col = (col + param * 8) / 8 * 8;
-            term_cursor_right(term, col - term->cursor.col);
+            term->insert_mode = true;
             break;
-        }
+
+        case 'l':
+            /* rmir - insert mode disable */
+            term->insert_mode = false;
+            break;
 
         case 'r': {
             int start = param_get(term, 0, 1);
