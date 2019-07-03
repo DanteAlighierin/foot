@@ -567,7 +567,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 25:
-                    LOG_WARN("unimplemented: civis");
+                    term->hide_cursor = false;
                     break;
 
                 case 1000:
@@ -625,7 +625,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 25:
-                    LOG_WARN("unimplemented: civis");
+                    term->hide_cursor = true;
                     break;
 
                 case 1000:

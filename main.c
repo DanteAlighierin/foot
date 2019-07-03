@@ -134,7 +134,8 @@ grid_render_update(struct context *c, struct buffer *buf, const struct damage *d
 
         /* Cursor here? */
         bool has_cursor
-            = c->term.cursor.linear == linear_cursor - c->term.grid->offset;
+            = (!c->term.hide_cursor &&
+               (c->term.cursor.linear == linear_cursor - c->term.grid->offset));
 
         int x = col * c->term.cell_width;
         int y = row * c->term.cell_height;
