@@ -240,8 +240,8 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
             int start = it->item.range.start - term->grid->offset;
             int end __attribute__((unused))  = start + it->item.range.length;
 
-            if (start < region.start) {
-                assert(end <= region.start);
+            if (start < region.start * term->cols) {
+                assert(end <= region.start * term->cols);
                 it->item.range.start += rows * term->cols;
             }
         }
@@ -259,8 +259,8 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
             int start = it->item.range.start - term->grid->offset;
             int end = start + it->item.range.length;
 
-            if (end > region.end) {
-                assert(start >= region.end);
+            if (end > region.end * term->cols) {
+                assert(start >= region.end * term->cols);
                 it->item.range.start += rows * term->cols;
             }
         }
