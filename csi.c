@@ -473,6 +473,17 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'l': {
+            /* Horizontal index */
+            assert(false && "untested");
+            int param = param_get(term, 0, 1);
+            int col = term->cursor.col;
+
+            col = (col + param * 8) / 8 * 8;
+            term_cursor_right(term, col - term->cursor.col);
+            break;
+        }
+
         case 'r': {
             int start = param_get(term, 0, 1);
             int end = param_get(term, 1, term->rows);
