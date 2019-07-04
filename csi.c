@@ -252,33 +252,37 @@ csi_sgr(struct terminal *term)
     return true;
 }
 
-bool
-csi_dispatch(struct terminal *term, uint8_t final)
+static const char *
+csi_as_string(struct terminal *term, uint8_t final)
 {
-#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
-    char log[1024];
-    int c = snprintf(log, sizeof(log), "CSI: ");
+    static char msg[1024];
+    int c = snprintf(msg, sizeof(msg), "CSI: ");
 
     for (size_t i = 0; i < term->vt.intermediates.idx; i++)
-        c += snprintf(&log[c], sizeof(log) - c, "%c", term->vt.intermediates.data[i]);
+        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.intermediates.data[i]);
 
     for (size_t i = 0; i < term->vt.params.idx; i++){
-        c += snprintf(&log[c], sizeof(log) - c, "%d",
+        c += snprintf(&msg[c], sizeof(msg) - c, "%d",
                       term->vt.params.v[i].value);
 
         for (size_t j = 0; i < term->vt.params.v[i].sub.idx; j++) {
-            c += snprintf(&log[c], sizeof(log) - c, ":%d",
+            c += snprintf(&msg[c], sizeof(msg) - c, ":%d",
                           term->vt.params.v[i].sub.value[j]);
         }
 
-        c += snprintf(&log[c], sizeof(log) - c, "%s",
+        c += snprintf(&msg[c], sizeof(msg) - c, "%s",
                       i == term->vt.params.idx - 1 ? "" : ";");
     }
 
-    c += snprintf(&log[c], sizeof(log) - c, "%c (%d parameters)",
+    c += snprintf(&msg[c], sizeof(msg) - c, "%c (%d parameters)",
                   final, term->vt.params.idx);
-    LOG_DBG("%s", log);
-#endif
+    return msg;
+}
+
+bool
+csi_dispatch(struct terminal *term, uint8_t final)
+{
+    LOG_DBG("CSI: %s", csi_as_string(term, final));
 
     if (term->vt.intermediates.idx == 0) {
         switch (final) {
@@ -353,7 +357,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
 
             default:
-                LOG_ERR("CSI: J: invalid argument: %d", param);
+                LOG_ERR("CSI: %s: invalid argument: %d",
+                        csi_as_string(term, final), param);
                 return false;
             }
 
@@ -387,7 +392,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
 
             default:
-                LOG_ERR("CSI: K: invalid argument: %d", param);
+                LOG_ERR("CSI: %s: invalid argument: %d",
+                        csi_as_string(term, final), param);
                 return false;
             }
 
@@ -520,13 +526,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 }
 
                 default:
-                    LOG_ERR("CSI: unimplemented parameter for 'n': %d", param);
+                    LOG_ERR("unimplemented: CSI: %s, parameter = %d",
+                            csi_as_string(term, final), param);
                     return false;
                 }
 
                 return true;
             } else {
-                LOG_ERR("CSI: missing parameter for 'n'");
+                LOG_ERR("CSI: %s: missing parameter", csi_as_string(term, final));
                 return false;
             }
             break;
@@ -543,7 +550,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
 
         default:
-            LOG_ERR("CSI: unimplemented final: %c", final);
+            LOG_ERR("unimplemented: CSI: %s", csi_as_string(term, final));
             abort();
         }
 
@@ -615,7 +622,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_ERR("CSI: 'h' (set mode): unimplemented param: %d",
+                    LOG_ERR("CSI: %s: unimplemented param: %d",
+                            csi_as_string(term, final),
                             term->vt.params.v[i].value);
                     abort();
                     break;
@@ -686,7 +694,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_ERR("CSI: 'h' (unset mode): unimplemented param: %d",
+                    LOG_ERR("CSI: %s: unimplemented param: %d",
+                            csi_as_string(term, final),
                             term->vt.params.v[i].value);
                     abort();
                     break;
@@ -705,7 +714,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_ERR("unimplemented: CSI ?%ds", term->vt.params.v[i].value);
+                    LOG_ERR("unimplemented: CSI %s", csi_as_string(term, final));
                     abort();
                 }
             }
@@ -721,14 +730,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_ERR("unimplemented: CSI ?%dr", term->vt.params.v[i].value);
+                    LOG_ERR("unimplemented: CSI %s", csi_as_string(term, final));
                     abort();
                 }
             }
             break;
 
         default:
-            LOG_ERR("unimplemented: CSI: ?%c", final);
+            LOG_ERR("unimplemented: CSI: %s", csi_as_string(term, final));
             abort();
         }
 
@@ -751,15 +760,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
             }
 
         default:
-            LOG_ERR("CSI: intermediate '>': unimplemented final: %c", final);
+            LOG_ERR("unimplemented: CSI: %s", csi_as_string(term, final));
             abort();
         }
     }
 
     else {
-        LOG_ERR("CSI: unimplemented: intermediates: %.*s",
-                (int)term->vt.intermediates.idx,
-                term->vt.intermediates.data);
+        LOG_ERR("unimplemented: CSI: %s", csi_as_string(term, final));
         abort();
     }
 

@@ -552,19 +552,24 @@ static const enum action exit_actions[] = {
     [STATE_SOS_PM_APC_STRING] = ACTION_NONE,
 };
 
+static const char *
+esc_as_string(struct terminal *term, uint8_t final)
+{
+    static char msg[1024];
+    int c = snprintf(msg, sizeof(msg), "\E");
+
+    for (size_t i = 0; i < term->vt.intermediates.idx; i++)
+        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.intermediates.data[i]);
+
+    c += snprintf(&msg[c], sizeof(msg) - c, "%c", final);
+    return msg;
+
+}
+
 static bool
 esc_dispatch(struct terminal *term, uint8_t final)
 {
-#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
-    char log[1024];
-    int c = snprintf(log, sizeof(log), "ESC: ");
-
-    for (size_t i = 0; i < term->vt.intermediates.idx; i++)
-        c += snprintf(&log[c], sizeof(log) - c, "%c", term->vt.intermediates.data[i]);
-
-    c += snprintf(&log[c], sizeof(log) - c, "%c", final);
-    LOG_DBG("%s", log);
-#endif
+    LOG_DBG("ESC: %s", esc_as_string(term, final));
 
     switch (final) {
     case '7':
@@ -588,7 +593,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
         case '+': term->charset[3] = CHARSET_ASCII; break;
 
         default:
-            LOG_ERR("<ESC>%cB: invalid charset identifier", param);
+            LOG_ERR("%s: invalid charset identifier", esc_as_string(term, final));
             return false;
         }
         break;
@@ -605,7 +610,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
         case '+': term->charset[3] = CHARSET_GRAPHIC; break;
 
         default:
-            LOG_ERR("<ESC>%c0: invalid charset identifier", param);
+            LOG_ERR("%s: invalid charset identifier", esc_as_string(term, final));
             return false;
         }
         break;
@@ -627,7 +632,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
         break;
 
     default:
-        LOG_ERR("ESC: unimplemented final: %c", final);
+        LOG_ERR("unimplemented: ESC: %s", esc_as_string(term, final));
         return false;
     }
 
