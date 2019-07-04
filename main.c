@@ -1016,6 +1016,9 @@ main(int argc, char *const *argv)
         int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), timeout_ms);
 
         if (ret == -1) {
+            if (errno == EINTR)
+                continue;
+
             LOG_ERRNO("failed to poll file descriptors");
             break;
         }
