@@ -31,8 +31,8 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-static const struct rgba default_foreground = {1.0, 1.0, 1.0, 1.0};
-static const struct rgba default_background = {0.0, 0.0, 0.0, 1.0};
+static const struct rgba default_foreground = {0.86, 0.86, 0.86, 1.0};
+static const struct rgba default_background = {0.067, 0.067, 0.067, 1.0};
 
 struct wayland {
     struct wl_display *display;
