@@ -709,9 +709,26 @@ action(struct terminal *term, enum action action, uint8_t c)
             cell->c[term->vt.utf8.idx] = '\0';
             term->vt.utf8.idx = 0;
         } else {
-            //LOG_DBG("print: ASCII: %c", c);
-            cell->c[0] = c;
-            cell->c[1] = '\0';
+            static const char *const vt100_0[62] = { /* 0x41 - 0x7e */
+                "↑", "↓", "→", "←", "█", "▚", "☃", /* A - G */
+                0, 0, 0, 0, 0, 0, 0, 0, /* H - O */
+                0, 0, 0, 0, 0, 0, 0, 0, /* P - W */
+                0, 0, 0, 0, 0, 0, 0, " ", /* X - _ */
+                "◆", "▒", "␉", "␌", "␍", "␊", "°", "±", /* ` - g */
+                "␤", "␋", "┘", "┐", "┌", "└", "┼", "⎺", /* h - o */
+                "⎻", "─", "⎼", "⎽", "├", "┤", "┴", "┬", /* p - w */
+                "│", "≤", "≥", "π", "≠", "£", "·", /* x - ~ */
+            };
+
+            if (term->charset[term->selected_charset] == CHARSET_GRAPHIC &&
+                c >= 0x41 && c <= 0x7e)
+            {
+                strcpy(cell->c, vt100_0[c - 0x41]);
+            } else {
+                //LOG_DBG("print: ASCII: %c", c);
+                cell->c[0] = c;
+                cell->c[1] = '\0';
+            }
         }
 
         cell->attrs = term->vt.attrs;
