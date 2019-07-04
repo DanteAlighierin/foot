@@ -521,6 +521,12 @@ resize(struct context *c, int width, int height)
         c->term.alt.cells,
         c->term.alt.size * sizeof(c->term.alt.cells[0]));
 
+    c->term.normal.offset
+        = (c->term.normal.offset + c->term.cols - 1) / c->term.cols * c->term.cols;
+    c->term.alt.offset
+        = (c->term.alt.offset + c->term.cols - 1) / c->term.cols * c->term.cols;
+
+    /* TODO: memset */
     for (size_t i = normal_old_size; i < c->term.normal.size; i++) {
         c->term.normal.cells[i] = (struct cell){
             .attrs = {.foreground = default_foreground,
@@ -528,6 +534,7 @@ resize(struct context *c, int width, int height)
         };
     }
 
+    /* TODO: memset */
     for (size_t i = alt_old_size; i < c->term.alt.size; i++) {
         c->term.alt.cells[i] = (struct cell){
             .attrs = {.foreground = default_foreground,
