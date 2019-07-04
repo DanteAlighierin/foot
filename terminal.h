@@ -126,6 +126,7 @@ struct kbd {
 
 enum decckm { DECCKM_CSI, DECCKM_SS3 };
 enum keypad_mode { KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
+enum charset { CHARSET_ASCII, CHARSET_GRAPHIC };
 
 struct terminal {
     pid_t slave;
@@ -137,6 +138,9 @@ struct terminal {
     bool auto_margin;
     bool insert_mode;
     bool bracketed_paste;
+
+    int selected_charset;
+    enum charset charset[4]; /* G0-G3 */
 
     struct vt vt;
     struct kbd kbd;

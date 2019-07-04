@@ -572,15 +572,10 @@ esc_dispatch(struct terminal *term, uint8_t final)
         char param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : '(';
 
         switch (param) {
-        case '(':
-            /* This is the default charset */
-            break;
-
-        case ')':
-        case '*':
-        case '+':
-            LOG_WARN("unimplemented: charset %c uses ASCII", param);
-            return false;
+        case '(': term->charset[0] = CHARSET_ASCII; break;
+        case ')': term->charset[1] = CHARSET_ASCII; break;
+        case '*': term->charset[2] = CHARSET_ASCII; break;
+        case '+': term->charset[3] = CHARSET_ASCII; break;
 
         default:
             LOG_ERR("<ESC>%cB: invalid charset identifier", param);
@@ -594,12 +589,10 @@ esc_dispatch(struct terminal *term, uint8_t final)
         char param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : '(';
 
         switch (param) {
-        case '(':
-        case ')':
-        case '*':
-        case '+':
-            LOG_WARN("unimplemented: charset %c uses special characters and line drawings", param);
-            break;
+        case '(': term->charset[0] = CHARSET_GRAPHIC; break;
+        case ')': term->charset[1] = CHARSET_GRAPHIC; break;
+        case '*': term->charset[2] = CHARSET_GRAPHIC; break;
+        case '+': term->charset[3] = CHARSET_GRAPHIC; break;
 
         default:
             LOG_ERR("<ESC>%c0: invalid charset identifier", param);
