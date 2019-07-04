@@ -460,6 +460,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'S':
+            term_scroll(term, param_get(term, 0, 1));
+            break;
+
+        case 'T':
+            term_scroll_reverse(term, param_get(term, 0, 1));
+            break;
+
         case 'X': {
             /* Erase chars */
             int count = min(
