@@ -102,6 +102,7 @@ struct vt {
         int left;
     } utf8;
     struct attributes attrs;
+    struct attributes saved_attrs;
     bool dim;
 };
 

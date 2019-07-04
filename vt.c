@@ -567,6 +567,16 @@ esc_dispatch(struct terminal *term, uint8_t final)
 #endif
 
     switch (final) {
+    case '7':
+        term->saved_cursor = term->cursor;
+        term->vt.saved_attrs = term->vt.attrs;
+        break;
+
+    case '8':
+        term->cursor = term->saved_cursor;
+        term->vt.attrs = term->vt.saved_attrs;
+        break;
+
     case 'B': {
         /* Configure G0-G3 to use ASCII */
         char param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : '(';
