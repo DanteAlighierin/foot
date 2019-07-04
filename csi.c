@@ -570,7 +570,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 12:
-                    LOG_WARN("unimplemented: cursor blinking");
+                    /* Ignored */
                     break;
 
                 case 25:
@@ -640,7 +640,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 12:
-                    LOG_WARN("unimplemented: cursor blinking");
+                    /* Ignored */
                     break;
 
                 case 25:
