@@ -568,8 +568,8 @@ resize(struct context *c, int width, int height)
 
     term_cursor_to(
         &c->term,
-        min(c->term.cursor.row, c->term.rows),
-        min(c->term.cursor.col, c->term.cols));
+        min(c->term.cursor.row, c->term.rows - 1),
+        min(c->term.cursor.col, c->term.cols - 1));
 
     term_damage_all(&c->term);
 
