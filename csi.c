@@ -139,14 +139,14 @@ csi_sgr(struct terminal *term)
             break;
 
         case 38: {
-            if (term->vt.params.idx - i - 1 == 2 &&
+            if (term->vt.params.idx - i - 1 >= 2 &&
                 term->vt.params.v[i + 1].value == 5)
             {
                 size_t idx = term->vt.params.v[i + 2].value;
                 term->vt.attrs.foreground = colors256[idx];
                 term->vt.attrs.have_foreground = true;
                 i += 2;
-            } else if (term->vt.params.idx - i - 1 == 4 &&
+            } else if (term->vt.params.idx - i - 1 >= 4 &&
                        term->vt.params.v[i + 1].value == 2)
             {
                 uint8_t r = term->vt.params.v[i + 2].value;
@@ -185,14 +185,14 @@ csi_sgr(struct terminal *term)
             break;
 
         case 48: {
-            if (term->vt.params.idx - i - 1 == 2 &&
+            if (term->vt.params.idx - i - 1 >= 2 &&
                 term->vt.params.v[i + 1].value == 5)
             {
                 size_t idx = term->vt.params.v[i + 2].value;
                 term->vt.attrs.background = colors256[idx];
                 term->vt.attrs.have_background = true;
                 i += 2;
-            } else if (term->vt.params.idx - i - 1 == 4 &&
+            } else if (term->vt.params.idx - i - 1 >= 4 &&
                        term->vt.params.v[i + 1].value == 2)
             {
                 uint8_t r = term->vt.params.v[i + 2].value;
