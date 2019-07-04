@@ -1003,6 +1003,8 @@ main(int argc, char *const *argv)
         }
     }
 
+    int timeout_ms = -1;
+
     while (true) {
         struct pollfd fds[] = {
             {.fd = wl_display_get_fd(c.wl.display), .events = POLLIN},
@@ -1011,7 +1013,21 @@ main(int argc, char *const *argv)
         };
 
         wl_display_flush(c.wl.display);
-        poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
+        int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), timeout_ms);
+
+        if (ret == -1) {
+            LOG_ERRNO("failed to poll file descriptors");
+            break;
+        }
+
+        if (ret == 0 || !(timeout_ms != -1 && fds[1].revents & POLLIN)) {
+            /* Delayed rendering */
+            if (!c.frame_is_scheduled)
+                grid_render(&c);
+        }
+
+        /* Reset poll timeout to infinity */
+        timeout_ms = -1;
 
         if (fds[0].revents & POLLIN) {
             wl_display_dispatch(c.wl.display);
@@ -1027,20 +1043,43 @@ main(int argc, char *const *argv)
         }
 
         if (fds[1].revents & POLLIN) {
-            for (size_t i = 0; i < 3; i++) {
-                uint8_t data[8192];
-                ssize_t count = read(c.term.ptmx, data, sizeof(data));
-                if (count < 0) {
-                    if (errno != EAGAIN)
-                        LOG_ERRNO("failed to read from pseudo terminal");
-                    break;
-                }
-
-                vt_from_slave(&c.term, data, count);
+            uint8_t data[8192];
+            ssize_t count = read(c.term.ptmx, data, sizeof(data));
+            if (count < 0) {
+                if (errno != EAGAIN)
+                    LOG_ERRNO("failed to read from pseudo terminal");
+                break;
             }
 
-            if (!c.frame_is_scheduled)
-                grid_render(&c);
+            vt_from_slave(&c.term, data, count);
+
+            /*
+             * We likely need to re-render. But, we don't want to do
+             * it immediately. Often, a single client operation is
+             * done through multiple writes. Many times, we're so fast
+             * that we render mid-operation frames.
+             *
+             * For example, we might end up rendering a frame where
+             * the client just erased a line, while in the next frame,
+             * the client wrote to the same line. This causes screen
+             * "flashes".
+             *
+             * Mitigate by always incuring a small delay before
+             * rendering the next frame. This gives the client some
+             * time to finish the operation (and thus gives us time to
+             * receive the last writes before doing any actual
+             * rendering).
+             *
+             * Note that when the client is producing data at a very
+             * high pace, we're rate limited by the wayland compositor
+             * anyway. The delay we introduce here only has any effect
+             * when the renderer is idle.
+             *
+             * TODO: this adds input latency. Can we somehow hint
+             * ourselves we just received keyboard input, and in this
+             * case *not* delay rendering?
+             */
+            timeout_ms = 1;
         }
 
         if (fds[1].revents & POLLHUP) {
