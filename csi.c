@@ -597,28 +597,26 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 1002:
-                    LOG_WARN("unimplemented: report button and mouse motion");
-                    /* term->mouse_tracking = MOUSE_DRAG; */
+                    term->mouse_tracking = MOUSE_DRAG;
                     break;
 
                 case 1003:
-                    LOG_WARN("unimplemented: report all mouse events");
-                    /* term->mouse_tracking = MOUSE_MOTION; */
+                    term->mouse_tracking = MOUSE_MOTION;
                     break;
 
                 case 1005:
                     LOG_WARN("unimplemented: UTF-8 mouse");
-                    /* term->mouse_reporting = MOUSE_UTF8 */
+                    /* term->mouse_reporting = MOUSE_UTF8; */
                     break;
 
                 case 1006:
                     LOG_WARN("unimplemented: SGR mouse");
-                    /* term->mouse_reporting = MOUSE_SGR */
+                    term->mouse_reporting = MOUSE_SGR;
                     break;
 
                 case 1015:
                     LOG_WARN("unimplemented: URXVT mosue");
-                    /* term->mouse_reporting = MOUSE_URXVT */
+                    /* term->mouse_reporting = MOUSE_URXVT; */
                     break;
 
                 case 1049:

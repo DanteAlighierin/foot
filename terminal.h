@@ -145,6 +145,15 @@ struct kbd {
         int32_t rate;
         uint32_t key;
     } repeat;
+
+    xkb_mod_index_t mod_shift;
+    xkb_mod_index_t mod_alt;
+    xkb_mod_index_t mod_ctrl;
+
+    /* Enabled modifiers */
+    bool shift;
+    bool alt;
+    bool ctrl;
 };
 
 enum decckm { DECCKM_CSI, DECCKM_SS3 };
@@ -202,8 +211,9 @@ struct terminal {
     struct rgba background;
 
     struct {
-        int x;
-        int y;
+        int row;
+        int col;
+        int button;
     } mouse;
 
     struct cursor cursor;
@@ -250,3 +260,5 @@ void term_mouse_down(struct terminal *term, int button, int row, int col,
                      bool shift, bool alt, bool ctrl);
 void term_mouse_up(struct terminal *term, int button, int row, int col,
                    bool shift, bool alt, bool ctrl);
+void term_mouse_motion(struct terminal *term, int button, int row, int col,
+                       bool shift, bool alt, bool ctrl);

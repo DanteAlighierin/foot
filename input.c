@@ -33,6 +33,10 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     /* TODO: initialize in enter? */
     term->kbd.xkb_state = xkb_state_new(term->kbd.xkb_keymap);
 
+    term->kbd.mod_shift = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Shift");
+    term->kbd.mod_alt = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Mod1") ;
+    term->kbd.mod_ctrl = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Control");
+
     munmap(map_str, size);
     close(fd);
 }
@@ -147,19 +151,11 @@ static void
 keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
              uint32_t time, uint32_t key, uint32_t state)
 {
-    static bool mod_masks_initialized = false;
-    static xkb_mod_mask_t ctrl = -1;
-    static xkb_mod_mask_t alt = -1;
-    static xkb_mod_mask_t shift = -1;
-
     struct terminal *term = data;
 
-    if (!mod_masks_initialized) {
-        mod_masks_initialized = true;
-        ctrl = 1 << xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Control");
-        alt = 1 << xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Mod1");
-        shift = 1 << xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Shift");
-    }
+    const xkb_mod_mask_t ctrl = 1 << term->kbd.mod_ctrl;
+    const xkb_mod_mask_t alt = 1 << term->kbd.mod_alt;
+    const xkb_mod_mask_t shift = 1 << term->kbd.mod_shift;
 
     if (state == XKB_KEY_UP) {
         mtx_lock(&term->kbd.repeat.mutex);
@@ -262,6 +258,14 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
     xkb_state_update_mask(
         term->kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
+
+    /* Update state of modifiers we're interrested in for e.g mouse events */
+    term->kbd.shift = xkb_state_mod_index_is_active(
+        term->kbd.xkb_state, term->kbd.mod_shift, XKB_STATE_MODS_DEPRESSED);
+    term->kbd.alt = xkb_state_mod_index_is_active(
+        term->kbd.xkb_state, term->kbd.mod_alt, XKB_STATE_MODS_DEPRESSED);
+    term->kbd.ctrl = xkb_state_mod_index_is_active(
+        term->kbd.xkb_state, term->kbd.mod_ctrl, XKB_STATE_MODS_DEPRESSED);
 }
 
 static void
@@ -295,8 +299,12 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
                  wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
     struct terminal *term = data;
-    term->mouse.x = wl_fixed_to_int(surface_x);
-    term->mouse.y = wl_fixed_to_int(surface_y);
+
+    int x = wl_fixed_to_int(surface_x) * 1; //scale
+    int y = wl_fixed_to_int(surface_y) * 1; //scale
+
+    term->mouse.col = x / term->cell_width;
+    term->mouse.row = y / term->cell_height;
 
     render_update_cursor_surface(term);
 }
@@ -312,8 +320,22 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
                   uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
     struct terminal *term = data;
-    term->mouse.x = wl_fixed_to_int(surface_x) * 1;//backend->monitor->scale;
-    term->mouse.y = wl_fixed_to_int(surface_y) * 1;//backend->monitor->scale;
+
+    int x = wl_fixed_to_int(surface_x) * 1;//backend->monitor->scale;
+    int y = wl_fixed_to_int(surface_y) * 1;//backend->monitor->scale;
+
+    int col = x / term->cell_width;
+    int row = y / term->cell_width;
+
+    if (col == term->mouse.col && row == term->mouse.row)
+        return;
+
+    term->mouse.col = x / term->cell_width;
+    term->mouse.row = y / term->cell_height;
+
+    term_mouse_motion(
+        term, term->mouse.button, term->mouse.row, term->mouse.col,
+        term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
 }
 
 static void
@@ -324,35 +346,17 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     struct terminal *term = data;
 
-    static bool mods_initialized = false;
-    static xkb_mod_index_t shift, alt, ctrl;
-
-    if (!mods_initialized) {
-        struct xkb_keymap *map = term->kbd.xkb_keymap;
-        shift = xkb_keymap_mod_get_index(map, "Shift");
-        alt = xkb_keymap_mod_get_index(map, "Mod1") ;
-        ctrl = xkb_keymap_mod_get_index(map, "Control");
-        mods_initialized = true;
-    }
-
-    int col = term->mouse.x / term->cell_width;
-    int row = term->mouse.y / term->cell_height;
-
-    struct xkb_state *xkb = term->kbd.xkb_state;
-    bool shift_active = xkb_state_mod_index_is_active(
-        xkb, shift, XKB_STATE_MODS_DEPRESSED);
-    bool alt_active = xkb_state_mod_index_is_active(
-        xkb, alt, XKB_STATE_MODS_DEPRESSED);
-    bool ctrl_active = xkb_state_mod_index_is_active(
-        xkb, ctrl, XKB_STATE_MODS_DEPRESSED);
-
     switch (state) {
     case WL_POINTER_BUTTON_STATE_PRESSED:
-        term_mouse_down(term, button, row, col, shift_active, alt_active, ctrl_active);
+        term->mouse.button = button; /* For motion events */
+        term_mouse_down(term, button, term->mouse.row, term->mouse.col,
+                        term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
         break;
 
     case WL_POINTER_BUTTON_STATE_RELEASED:
-        term_mouse_up(term, button, row, col, shift_active, alt_active, ctrl_active);
+        term->mouse.button = 0; /* For motion events */
+        term_mouse_up(term, button, term->mouse.row, term->mouse.col,
+                      term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
         break;
     }
 }

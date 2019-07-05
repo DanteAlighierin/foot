@@ -423,35 +423,36 @@ encode_xbutton(int xbutton)
 }
 
 static void
-report_mouse_click(struct terminal *term, int button, int row, int col,
-                   bool release, bool shift, bool alt, bool ctrl)
+report_mouse_click(struct terminal *term, int encoded_button, int row, int col,
+                   bool release)
 {
-    /* Map libevent button event code to X button number */
-    int xbutton = linux_mouse_button_to_x(button);
-    if (xbutton == -1)
-        return;
-
-    if (release && (xbutton == 4 || xbutton == 5)) {
-        /* No button release events for scroll buttons */
-        return;
-    }
-
-    int encoded = release ? 3 : encode_xbutton(xbutton);
-    if (encoded == -1)
-        return;
-
-    encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
-
     char response[16];
     snprintf(response, sizeof(response), "\033[M%c%c%c",
-             32 + encoded, 32 + col + 1, 32 + row + 1);
+             32 + encoded_button, 32 + col + 1, 32 + row + 1);
     write(term->ptmx, response, strlen(response));
+}
+
+static void
+report_mouse_motion(struct terminal *term, int encoded_button, int row, int col)
+{
+    report_mouse_click(term, encoded_button, row, col, false);
 }
 
 void
 term_mouse_down(struct terminal *term, int button, int row, int col,
                 bool shift, bool alt, bool ctrl)
 {
+    /* Map libevent button event code to X button number */
+    int xbutton = linux_mouse_button_to_x(button);
+    if (xbutton == -1)
+        return;
+
+    int encoded = encode_xbutton(xbutton);
+    if (encoded == -1)
+        return;
+
+    encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
+
     switch (term->mouse_tracking) {
     case MOUSE_NONE:
         break;
@@ -460,7 +461,7 @@ term_mouse_down(struct terminal *term, int button, int row, int col,
     case MOUSE_CLICK:
     case MOUSE_DRAG:
     case MOUSE_MOTION:
-        report_mouse_click(term, button, row, col, false, shift, alt, ctrl);
+        report_mouse_click(term, encoded, row, col, false);
         break;
     }
 }
@@ -469,6 +470,19 @@ void
 term_mouse_up(struct terminal *term, int button, int row, int col,
               bool shift, bool alt, bool ctrl)
 {
+    /* Map libevent button event code to X button number */
+    int xbutton = linux_mouse_button_to_x(button);
+    if (xbutton == -1)
+        return;
+
+    if (xbutton == 4 || xbutton == 5) {
+        /* No release events for scroll buttons */
+        return;
+    }
+
+    int encoded = 3;
+    encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
+
     switch (term->mouse_tracking) {
     case MOUSE_NONE:
         break;
@@ -477,7 +491,45 @@ term_mouse_up(struct terminal *term, int button, int row, int col,
     case MOUSE_CLICK:
     case MOUSE_DRAG:
     case MOUSE_MOTION:
-        report_mouse_click(term, button, row, col, true, shift, alt, ctrl);
+        report_mouse_click(term, encoded, row, col, true);
+        break;
+    }
+}
+
+void
+term_mouse_motion(struct terminal *term, int button, int row, int col,
+                  bool shift, bool alt, bool ctrl)
+{
+    int encoded = 0;
+
+    if (button != 0) {
+        /* Map libevent button event code to X button number */
+        int xbutton = linux_mouse_button_to_x(button);
+        if (xbutton == -1)
+            return;
+
+        encoded = encode_xbutton(xbutton);
+        if (encoded == -1)
+            return;
+    } else
+        encoded = 3;  /* "released" */
+
+    encoded += 32; /* Motion event */
+    encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
+
+    switch (term->mouse_tracking) {
+    case MOUSE_NONE:
+    case MOUSE_X10:
+    case MOUSE_CLICK:
+        return;
+
+    case MOUSE_DRAG:
+        if (button == 0)
+            return;
+        /* FALLTHROUGH */
+
+    case MOUSE_MOTION:
+        report_mouse_motion(term, encoded, row, col);
         break;
     }
 }
