@@ -13,6 +13,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "terminal.h"
+#include "render.h"
 
 static void
 keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
@@ -287,3 +288,82 @@ input_repeat(struct terminal *term, uint32_t key)
 {
     keyboard_key(term, NULL, 0, 0, key, XKB_KEY_DOWN);
 }
+
+static void
+wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
+                 uint32_t serial, struct wl_surface *surface,
+                 wl_fixed_t surface_x, wl_fixed_t surface_y)
+{
+    struct terminal *term = data;
+    term->mouse.x = wl_fixed_to_int(surface_x);
+    term->mouse.y = wl_fixed_to_int(surface_y);
+
+    render_update_cursor_surface(term);
+}
+
+static void
+wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
+                 uint32_t serial, struct wl_surface *surface)
+{
+}
+
+static void
+wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
+                  uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y)
+{
+    struct terminal *term = data;
+    term->mouse.x = wl_fixed_to_int(surface_x) * 1;//backend->monitor->scale;
+    term->mouse.y = wl_fixed_to_int(surface_y) * 1;//backend->monitor->scale;
+}
+
+static void
+wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
+                  uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
+{
+    if (state != WL_POINTER_BUTTON_STATE_PRESSED)
+        return;
+
+    //struct terminal *term = data;
+}
+
+static void
+wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
+                uint32_t time, uint32_t axis, wl_fixed_t value)
+{
+}
+
+static void
+wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
+{
+}
+
+static void
+wl_pointer_axis_source(void *data, struct wl_pointer *wl_pointer,
+                       uint32_t axis_source)
+{
+}
+
+static void
+wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
+                     uint32_t time, uint32_t axis)
+{
+}
+
+static void
+wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
+                         uint32_t axis, int32_t discrete)
+{
+}
+
+const struct wl_pointer_listener pointer_listener = {
+    .enter = wl_pointer_enter,
+    .leave = wl_pointer_leave,
+    .motion = wl_pointer_motion,
+    .button = wl_pointer_button,
+    .axis = wl_pointer_axis,
+    .frame = wl_pointer_frame,
+    .axis_source = wl_pointer_axis_source,
+    .axis_stop = wl_pointer_axis_stop,
+    .axis_discrete = wl_pointer_axis_discrete,
+};
+

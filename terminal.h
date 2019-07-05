@@ -182,6 +182,11 @@ struct terminal {
     struct rgba foreground;
     struct rgba background;
 
+    struct {
+        int x;
+        int y;
+    } mouse;
+
     struct cursor cursor;
     struct cursor saved_cursor;
     struct cursor alt_saved_cursor;

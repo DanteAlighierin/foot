@@ -61,14 +61,25 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
 {
     struct terminal *term = data;
 
-    if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD))
-        return;
-
-    if (term->wl.keyboard != NULL)
+    if (term->wl.keyboard != NULL) {
         wl_keyboard_release(term->wl.keyboard);
+        term->wl.keyboard = NULL;
+    }
 
-    term->wl.keyboard = wl_seat_get_keyboard(wl_seat);
-    wl_keyboard_add_listener(term->wl.keyboard, &keyboard_listener, term);
+    if (term->wl.pointer.pointer != NULL) {
+        wl_pointer_release(term->wl.pointer.pointer);
+        term->wl.pointer.pointer = NULL;
+    }
+
+    if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
+        term->wl.keyboard = wl_seat_get_keyboard(wl_seat);
+        wl_keyboard_add_listener(term->wl.keyboard, &keyboard_listener, term);
+    }
+
+    if (caps & WL_SEAT_CAPABILITY_POINTER) {
+        term->wl.pointer.pointer = wl_seat_get_pointer(wl_seat);
+        wl_pointer_add_listener(term->wl.pointer.pointer, &pointer_listener, term);
+    }
 }
 
 static void
