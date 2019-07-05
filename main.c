@@ -549,13 +549,6 @@ resize(struct context *c, int width, int height)
     LOG_INFO("resize: %dx%d, grid: cols=%d, rows=%d",
              c->width, c->height, c->term.cols, c->term.rows);
 
-    /* Update environment variables */
-    char cols_s[12], rows_s[12];
-    sprintf(cols_s, "%d", c->term.cols);
-    sprintf(rows_s, "%d", c->term.rows);
-    setenv("COLUMNS", cols_s, 1);
-    setenv("LINES", rows_s, 1);
-
     /* Signal TIOCSWINSZ */
     if (ioctl(c->term.ptmx, TIOCSWINSZ,
               &(struct winsize){
