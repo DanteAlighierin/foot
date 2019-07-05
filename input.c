@@ -325,13 +325,13 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     int y = wl_fixed_to_int(surface_y) * 1;//backend->monitor->scale;
 
     int col = x / term->cell_width;
-    int row = y / term->cell_width;
+    int row = y / term->cell_height;
 
     if (col == term->mouse.col && row == term->mouse.row)
         return;
 
-    term->mouse.col = x / term->cell_width;
-    term->mouse.row = y / term->cell_height;
+    term->mouse.col = col;
+    term->mouse.row = row;
 
     term_mouse_motion(
         term, term->mouse.button, term->mouse.row, term->mouse.col,
