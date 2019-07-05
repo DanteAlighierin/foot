@@ -40,6 +40,10 @@ osc_dispatch(struct terminal *term)
     case 1: break;                                             /* icon */
     case 2: render_set_title(term, string); break;  /* title */
 
+    case 104: /* Reset Color Number 'c' */
+    case 105: /* Reset Special Color Number 'c' */
+        break;
+
     default:
         LOG_ERR("unimplemented: OSC: %.*s",
                 (int)term->vt.osc.idx, term->vt.osc.data);
