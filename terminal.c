@@ -1,6 +1,7 @@
 #include "terminal.h"
 
 #include <string.h>
+#include <unistd.h>
 #include <assert.h>
 
 #define LOG_MODULE "terminal"
@@ -373,4 +374,110 @@ void
 term_scroll_reverse(struct terminal *term, int rows)
 {
     term_scroll_reverse_partial(term, term->scroll_region, rows);
+}
+
+#include <linux/input-event-codes.h>
+
+static int
+linux_mouse_button_to_x(int button)
+{
+    switch (button) {
+    case BTN_LEFT:    return 1;
+    case BTN_RIGHT:   return 3;
+    case BTN_MIDDLE:  return 2;
+    case BTN_SIDE:    return 8;
+    case BTN_EXTRA:   return 9;
+    case BTN_FORWARD: return 4;
+    case BTN_BACK:    return 5;
+    case BTN_TASK:    return -1;  /* TODO: ??? */
+
+    default:
+        LOG_WARN("unrecognized mouse button: %d (0x%x)", button, button);
+        return -1;
+    }
+}
+
+static int
+encode_xbutton(int xbutton)
+{
+    switch (xbutton) {
+    case 1: case 2: case 3:
+        return xbutton - 1;
+
+    case 4: case 5:
+        /* Like button 1 and 2, but with 64 added */
+        return xbutton - 4 + 64;
+
+    case 6: case 7:
+        /* Same as 4 and 5. Note: the offset should be something else? */
+        return xbutton - 6 + 64;
+
+    case 8: case 9: case 10: case 11:
+        /* Similar to 4 and 5, but adding 128 instead of 64 */
+        return xbutton - 8 + 128;
+
+    default:
+        LOG_ERR("cannot encode X mouse button: %d", xbutton);
+        return -1;
+    }
+}
+
+static void
+report_mouse_click(struct terminal *term, int button, int row, int col,
+                   bool release, bool shift, bool alt, bool ctrl)
+{
+    /* Map libevent button event code to X button number */
+    int xbutton = linux_mouse_button_to_x(button);
+    if (xbutton == -1)
+        return;
+
+    if (release && (xbutton == 4 || xbutton == 5)) {
+        /* No button release events for scroll buttons */
+        return;
+    }
+
+    int encoded = release ? 3 : encode_xbutton(xbutton);
+    if (encoded == -1)
+        return;
+
+    encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
+
+    char response[16];
+    snprintf(response, sizeof(response), "\033[M%c%c%c",
+             32 + encoded, 32 + col + 1, 32 + row + 1);
+    write(term->ptmx, response, strlen(response));
+}
+
+void
+term_mouse_down(struct terminal *term, int button, int row, int col,
+                bool shift, bool alt, bool ctrl)
+{
+    switch (term->mouse_tracking) {
+    case MOUSE_NONE:
+        break;
+
+    case MOUSE_X10:
+    case MOUSE_CLICK:
+    case MOUSE_DRAG:
+    case MOUSE_MOTION:
+        report_mouse_click(term, button, row, col, false, shift, alt, ctrl);
+        break;
+    }
+}
+
+void
+term_mouse_up(struct terminal *term, int button, int row, int col,
+              bool shift, bool alt, bool ctrl)
+{
+    switch (term->mouse_tracking) {
+    case MOUSE_NONE:
+        break;
+
+    case MOUSE_X10:
+    case MOUSE_CLICK:
+    case MOUSE_DRAG:
+    case MOUSE_MOTION:
+        report_mouse_click(term, button, row, col, true, shift, alt, ctrl);
+        break;
+    }
 }

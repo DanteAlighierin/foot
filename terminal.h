@@ -151,6 +151,23 @@ enum decckm { DECCKM_CSI, DECCKM_SS3 };
 enum keypad_mode { KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
 enum charset { CHARSET_ASCII, CHARSET_GRAPHIC };
 
+/* *What* to report */
+enum mouse_tracking {
+    MOUSE_NONE,
+    MOUSE_X10,           /* ?9h */
+    MOUSE_CLICK,         /* ?1000h - report mouse clicks*/
+    MOUSE_DRAG,          /* ?1002h - report clicks and drag motions */
+    MOUSE_MOTION,        /* ?1003h - report clicks and motion*/
+};
+
+/* *How* to report */
+enum mouse_reporting {
+    MOUSE_NORMAL,
+    MOUSE_UTF8,          /* ?1005h */
+    MOUSE_SGR,           /* ?1006h */
+    MOUSE_URXVT,         /* ?1015h */
+};
+
 struct terminal {
     pid_t slave;
     int ptmx;
@@ -162,6 +179,8 @@ struct terminal {
     bool auto_margin;
     bool insert_mode;
     bool bracketed_paste;
+    enum mouse_tracking mouse_tracking;
+    enum mouse_reporting mouse_reporting;
 
     int selected_charset;
     enum charset charset[4]; /* G0-G3 */
@@ -226,3 +245,8 @@ void term_scroll_reverse_partial(
     struct terminal *term, struct scroll_region region, int rows);
 
 int term_cursor_linear(const struct terminal *term, int row, int col);
+
+void term_mouse_down(struct terminal *term, int button, int row, int col,
+                     bool shift, bool alt, bool ctrl);
+void term_mouse_up(struct terminal *term, int button, int row, int col,
+                   bool shift, bool alt, bool ctrl);

@@ -593,23 +593,32 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 1000:
-                    LOG_WARN("unimplemented: report mouse clicks");
+                    term->mouse_tracking = MOUSE_CLICK;
                     break;
 
                 case 1002:
-                    LOG_WARN("unimplemented: report cell mouse motion");
+                    LOG_WARN("unimplemented: report button and mouse motion");
+                    /* term->mouse_tracking = MOUSE_DRAG; */
+                    break;
+
+                case 1003:
+                    LOG_WARN("unimplemented: report all mouse events");
+                    /* term->mouse_tracking = MOUSE_MOTION; */
                     break;
 
                 case 1005:
                     LOG_WARN("unimplemented: UTF-8 mouse");
+                    /* term->mouse_reporting = MOUSE_UTF8 */
                     break;
 
                 case 1006:
                     LOG_WARN("unimplemented: SGR mouse");
+                    /* term->mouse_reporting = MOUSE_SGR */
                     break;
 
                 case 1015:
                     LOG_WARN("unimplemented: URXVT mosue");
+                    /* term->mouse_reporting = MOUSE_URXVT */
                     break;
 
                 case 1049:
@@ -665,24 +674,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->hide_cursor = true;
                     break;
 
-                case 1000:
-                    LOG_WARN("unimplemented: report mouse clicks");
-                    break;
-
-                case 1002:
-                    LOG_WARN("unimplemented: report cell mouse motion");
-                    break;
-
-                case 1005:
-                    LOG_WARN("unimplemented: UTF-8 mouse");
-                    break;
-
-                case 1006:
-                    LOG_WARN("unimplemented: SGR mouse");
-                    break;
-
-                case 1015:
-                    LOG_WARN("unimplemented: URXVT mosue");
+                case 1000:  /* MOUSE_NORMAL */
+                case 1002:  /* MOUSE_BUTTON_EVENT */
+                case 1003:  /* MOUSE_ANY_EVENT */
+                case 1005:  /* MOUSE_UTF8 */
+                case 1006:  /* MOUSE_SGR */
+                case 1015:  /* MOUSE_URXVT */
+                    term->mouse_tracking = MOUSE_NONE;
                     break;
 
                 case 1049:

@@ -320,10 +320,41 @@ static void
 wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                   uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
 {
-    if (state != WL_POINTER_BUTTON_STATE_PRESSED)
-        return;
+    LOG_DBG("BUTTON: button=%x, state=%u", button, state);
 
-    //struct terminal *term = data;
+    struct terminal *term = data;
+
+    static bool mods_initialized = false;
+    static xkb_mod_index_t shift, alt, ctrl;
+
+    if (!mods_initialized) {
+        struct xkb_keymap *map = term->kbd.xkb_keymap;
+        shift = xkb_keymap_mod_get_index(map, "Shift");
+        alt = xkb_keymap_mod_get_index(map, "Mod1") ;
+        ctrl = xkb_keymap_mod_get_index(map, "Control");
+        mods_initialized = true;
+    }
+
+    int col = term->mouse.x / term->cell_width;
+    int row = term->mouse.y / term->cell_height;
+
+    struct xkb_state *xkb = term->kbd.xkb_state;
+    bool shift_active = xkb_state_mod_index_is_active(
+        xkb, shift, XKB_STATE_MODS_DEPRESSED);
+    bool alt_active = xkb_state_mod_index_is_active(
+        xkb, alt, XKB_STATE_MODS_DEPRESSED);
+    bool ctrl_active = xkb_state_mod_index_is_active(
+        xkb, ctrl, XKB_STATE_MODS_DEPRESSED);
+
+    switch (state) {
+    case WL_POINTER_BUTTON_STATE_PRESSED:
+        term_mouse_down(term, button, row, col, shift_active, alt_active, ctrl_active);
+        break;
+
+    case WL_POINTER_BUTTON_STATE_RELEASED:
+        term_mouse_up(term, button, row, col, shift_active, alt_active, ctrl_active);
+        break;
+    }
 }
 
 static void
@@ -366,4 +397,3 @@ const struct wl_pointer_listener pointer_listener = {
     .axis_stop = wl_pointer_axis_stop,
     .axis_discrete = wl_pointer_axis_discrete,
 };
-
