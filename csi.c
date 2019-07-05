@@ -610,7 +610,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 1006:
-                    LOG_WARN("unimplemented: SGR mouse");
                     term->mouse_reporting = MOUSE_SGR;
                     break;
 
