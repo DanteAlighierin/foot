@@ -878,6 +878,10 @@ main(int argc, char *const *argv)
             .auto_margin = true,
             .vt = {
                 .state = 1,  /* STATE_GROUND */
+                .attrs = {
+                    .foreground = default_foreground,
+                    .background = default_background,
+                },
             },
             .kbd = {
                 .repeat = {
