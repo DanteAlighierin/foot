@@ -74,7 +74,7 @@ struct grid {
 
 struct vt_subparams {
     unsigned value[16];
-    int idx;
+    size_t idx;
 };
 
 struct vt_param {
@@ -86,20 +86,20 @@ struct vt {
     int state;  /* enum state */
     struct {
         struct vt_param v[16];
-        int idx;
+        size_t idx;
     } params;
     struct {
         uint8_t data[2];
-        int idx;
+        size_t idx;
     } intermediates;
     struct {
         uint8_t data[1024];
-        int idx;
+        size_t idx;
     } osc;
     struct {
         uint8_t data[4];
-        int idx;
-        int left;
+        size_t idx;
+        size_t left;
     } utf8;
     struct attributes attrs;
     struct attributes saved_attrs;
@@ -125,6 +125,10 @@ struct kbd {
     } repeat;
 };
 
+struct renderer {
+    struct xdg_toplevel *xdg_toplevel; /* TODO: this doesn't belong here */
+};
+
 enum decckm { DECCKM_CSI, DECCKM_SS3 };
 enum keypad_mode { KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
 enum charset { CHARSET_ASCII, CHARSET_GRAPHIC };
@@ -145,6 +149,7 @@ struct terminal {
 
     struct vt vt;
     struct kbd kbd;
+    struct renderer renderer;
 
     int cols;
     int rows;

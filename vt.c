@@ -799,10 +799,13 @@ action(struct terminal *term, enum action action, uint8_t c)
         break;
 
     case ACTION_OSC_PUT:
-        term->vt.osc.data[term->vt.osc.idx++] = c;
+        if (term->vt.osc.idx < (int)sizeof(term->vt.osc.data) - 1)
+            term->vt.osc.data[term->vt.osc.idx++] = c;
         break;
 
     case ACTION_OSC_END:
+        assert(term->vt.osc.idx < sizeof(term->vt.osc.data));
+        term->vt.osc.data[term->vt.osc.idx] = '\0';
         return osc_dispatch(term);
 
     case ACTION_HOOK:

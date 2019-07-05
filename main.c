@@ -819,6 +819,13 @@ keyboard_repeater(void *arg)
     return 1;
 }
 
+/* TODO: move to a render API? */
+void
+render_set_title(struct renderer *renderer, const char *title)
+{
+    xdg_toplevel_set_title(renderer->xdg_toplevel, title);
+}
+
 int
 main(int argc, char *const *argv)
 {
@@ -965,10 +972,11 @@ main(int argc, char *const *argv)
     xdg_surface_add_listener(c.wl.xdg_surface, &xdg_surface_listener, &c);
 
     c.wl.xdg_toplevel = xdg_surface_get_toplevel(c.wl.xdg_surface);
+    c.term.renderer.xdg_toplevel = c.wl.xdg_toplevel; /* TODO */
     xdg_toplevel_add_listener(c.wl.xdg_toplevel, &xdg_toplevel_listener, &c);
 
     xdg_toplevel_set_app_id(c.wl.xdg_toplevel, "f00ter");
-    xdg_toplevel_set_title(c.wl.xdg_toplevel, "f00ter");
+    render_set_title(&c.term.renderer, "f00ter");
 
     wl_surface_commit(c.wl.surface);
     wl_display_roundtrip(c.wl.display);
