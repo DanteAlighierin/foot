@@ -369,7 +369,26 @@ grid_render(struct terminal *term)
         if (last_buf != NULL) {
             LOG_WARN("new buffer");
 
-            /* Force a full refresh */
+            /* Fill area outside the cell grid with the default background color */
+            int rmargin = term->cols * term->cell_width;
+            int bmargin = term->rows * term->cell_height;
+            int rmargin_width = term->width - rmargin;
+            int bmargin_height = term->height - bmargin;
+
+            cairo_set_source_rgba(
+                buf->cairo, term->background.r, term->background.g,
+                term->background.b, term->background.a);
+
+            cairo_rectangle(buf->cairo, rmargin, 0, rmargin_width, term->height);
+            cairo_rectangle(buf->cairo, 0, bmargin, term->width, bmargin_height);
+            cairo_fill(buf->cairo);
+
+            wl_surface_damage_buffer(
+                term->wl.surface, rmargin, 0, rmargin_width, term->height);
+            wl_surface_damage_buffer(
+                term->wl.surface, 0, bmargin, term->width, bmargin_height);
+
+            /* Force a full grid refresh */
             term_damage_all(term);
         }
         last_buf = buf;
@@ -552,7 +571,6 @@ render_update_cursor_surface(struct terminal *term)
         term->wl.pointer.pointer, term->wl.pointer.serial,
         term->wl.pointer.surface,
         image->hotspot_x / scale, image->hotspot_y / scale);
-
 
     wl_surface_damage_buffer(
         term->wl.pointer.surface, 0, 0, INT32_MAX, INT32_MAX);
