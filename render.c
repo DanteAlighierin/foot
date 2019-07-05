@@ -92,6 +92,12 @@ grid_render_update(struct terminal *term, struct buffer *buf, const struct damag
         struct rgba background = cell->attrs.have_background
             ? cell->attrs.background : term->background;
 
+        if (term->reverse) {
+            struct rgba swap = foreground;
+            foreground = background;
+            background = swap;
+        }
+
         if (has_cursor) {
             struct rgba swap = foreground;
             foreground = background;
@@ -186,9 +192,10 @@ grid_render_erase(struct terminal *term, struct buffer *buf, const struct damage
 
     assert(dmg->range.start >= term->grid->offset);
 
-    cairo_set_source_rgba(
-        buf->cairo, term->background.r, term->background.g,
-        term->background.b, term->background.a);
+    const struct rgba *bg = !term->reverse ?
+        &term->background : &term->foreground;
+
+    cairo_set_source_rgba(buf->cairo, bg->r, bg->g, bg->b, bg->a);
 
     const int cols = term->cols;
 
@@ -375,9 +382,9 @@ grid_render(struct terminal *term)
             int rmargin_width = term->width - rmargin;
             int bmargin_height = term->height - bmargin;
 
-            cairo_set_source_rgba(
-                buf->cairo, term->background.r, term->background.g,
-                term->background.b, term->background.a);
+            const struct rgba *bg = !term->reverse ?
+                &term->background : &term->foreground;
+            cairo_set_source_rgba(buf->cairo, bg->r, bg->g, bg->b, bg->a);
 
             cairo_rectangle(buf->cairo, rmargin, 0, rmargin_width, term->height);
             cairo_rectangle(buf->cairo, 0, bmargin, term->width, bmargin_height);

@@ -184,6 +184,7 @@ struct terminal {
 
     enum decckm decckm;
     enum keypad_mode keypad_mode;
+    bool reverse;
     bool hide_cursor;
     bool auto_margin;
     bool insert_mode;

@@ -577,7 +577,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 5:
-                    LOG_WARN("unimplemented: flash");
+                    term->reverse = true;
+                    term_damage_all(term);
                     break;
 
                 case 7:
@@ -655,7 +656,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 5:
-                    LOG_WARN("unimplemented: flash");
+                    term->reverse = false;
+                    term_damage_all(term);
                     break;
 
                 case 7:
