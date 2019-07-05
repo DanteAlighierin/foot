@@ -621,7 +621,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                         tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);
-                        term_erase(term, 0, term->rows * term->cols);
+
+                        grid_memset(term->grid, 0, 0, term->rows * term->cols);
+                        term_damage_erase(term, 0, term->rows * term->cols);
                     }
                     break;
 
