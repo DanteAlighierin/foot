@@ -13,6 +13,7 @@
 //#include <termios.h>
 
 #include <wayland-client.h>
+#include <wayland-cursor.h>
 #include <xdg-shell.h>
 
 #define LOG_MODULE "main"
@@ -367,6 +368,40 @@ main(int argc, char *const *argv)
         goto out;
     }
 
+    /* Cursor */
+    term.wl.pointer.surface = wl_compositor_create_surface(term.wl.compositor);
+    if (term.wl.pointer.surface == NULL) {
+        LOG_ERR("failed to create cursor surface");
+        goto out;
+    }
+
+    unsigned cursor_size = 24;
+    const char *cursor_theme = getenv("XCURSOR_THEME");
+
+    {
+        const char *env_cursor_size = getenv("XCURSOR_SIZE");
+        if (env_cursor_size != NULL) {
+            unsigned size;
+            if (sscanf(env_cursor_size, "%u", &size) == 1)
+                cursor_size = size;
+        }
+    }
+
+    LOG_INFO("cursor theme: %s, size: %u", cursor_theme, cursor_size);
+
+    term.wl.pointer.theme = wl_cursor_theme_load(
+        cursor_theme, cursor_size * 1 /* backend->monitor->scale */,
+        term.wl.shm);
+    if (term.wl.pointer.theme == NULL) {
+        LOG_ERR("failed to load cursor theme");
+        return false;
+    }
+
+    term.wl.pointer.cursor = wl_cursor_theme_get_cursor(
+        term.wl.pointer.theme, "left_ptr");
+    assert(term.wl.pointer.cursor != NULL);
+    render_update_cursor_surface(&term);
+
     term.wl.surface = wl_compositor_create_surface(term.wl.compositor);
     if (term.wl.surface == NULL) {
         LOG_ERR("failed to create wayland surface");
@@ -537,6 +572,12 @@ out:
         xdg_toplevel_destroy(term.wl.xdg_toplevel);
     if (term.wl.xdg_surface != NULL)
         xdg_surface_destroy(term.wl.xdg_surface);
+    if (term.wl.pointer.theme != NULL)
+        wl_cursor_theme_destroy(term.wl.pointer.theme);
+    if (term.wl.pointer.pointer != NULL)
+        wl_pointer_destroy(term.wl.pointer.pointer);
+    if (term.wl.pointer.surface != NULL)
+        wl_surface_destroy(term.wl.pointer.surface);
     if (term.wl.surface != NULL)
         wl_surface_destroy(term.wl.surface);
     if (term.wl.shell != NULL)

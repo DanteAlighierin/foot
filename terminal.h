@@ -20,6 +20,14 @@ struct wayland {
     struct wl_shm *shm;
     struct wl_seat *seat;
     struct wl_keyboard *keyboard;
+    struct {
+        struct wl_pointer *pointer;
+        uint32_t serial;
+
+        struct wl_surface *surface;
+        struct wl_cursor_theme *theme;
+        struct wl_cursor *cursor;
+    } pointer;
     struct xdg_wm_base *shell;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
