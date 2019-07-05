@@ -614,8 +614,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 1015:
-                    LOG_WARN("unimplemented: URXVT mosue");
-                    /* term->mouse_reporting = MOUSE_URXVT; */
+                    term->mouse_reporting = MOUSE_URXVT;
                     break;
 
                 case 1049:

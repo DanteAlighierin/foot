@@ -426,28 +426,30 @@ static void
 report_mouse_click(struct terminal *term, int encoded_button, int row, int col,
                    bool release)
 {
+    char response[128];
+
     switch (term->mouse_reporting) {
-    case MOUSE_NORMAL: {
-        char response[16];
+    case MOUSE_NORMAL:
         snprintf(response, sizeof(response), "\033[M%c%c%c",
                  32 + (release ? 3 : encoded_button), 32 + col + 1, 32 + row + 1);
-        write(term->ptmx, response, strlen(response));
         break;
-    }
 
-    case MOUSE_SGR: {
-        char response[128];
+    case MOUSE_SGR:
         snprintf(response, sizeof(response), "\033[<%d;%d;%d%c",
                  encoded_button, col + 1, row + 1, release ? 'm' : 'M');
-        write(term->ptmx, response, strlen(response));
         break;
-    }
+
+    case MOUSE_URXVT:
+        snprintf(response, sizeof(response), "\033[%d;%d;%dM",
+                 32 + (release ? 3 : encoded_button), col + 1, row + 1);
+        break;
 
     case MOUSE_UTF8:
-    case MOUSE_URXVT:
         /* Unimplemented */
-        break;
+        return;
     }
+
+    write(term->ptmx, response, strlen(response));
 }
 
 static void
