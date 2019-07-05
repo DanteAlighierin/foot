@@ -27,6 +27,7 @@ osc_dispatch(struct terminal *term)
             return false;
         }
 
+        param *= 10;
         param += c - '0';
     }
     LOG_DBG("OCS: %.*s (param = %d)",
