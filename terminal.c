@@ -161,8 +161,30 @@ term_erase(struct terminal *term, int start, int end)
     assert(end >= start);
     assert(end <= term->rows * term->cols);
 
-    grid_memset(term->grid, start, 0, end - start);
-    term_damage_erase(term, start, end - start);
+    if (term->vt.attrs.have_background) {
+        int erase_start = start;
+        int left = end - erase_start;
+
+        while (left > 0) {
+            int len = left;
+            struct cell *cells = grid_get_range(term->grid, erase_start, &len);
+
+            memset(cells, 0, len * sizeof(cells[0]));
+
+            for (int i = 0; i < len; i++) {
+                cells[i].attrs.background = term->vt.attrs.background;
+                cells[i].attrs.have_background = true;
+            }
+
+            erase_start += len;
+            left -= len;
+        }
+
+        term_damage_update(term, start, end - start);
+    } else {
+        grid_memset(term->grid, start, 0, end - start);
+        term_damage_erase(term, start, end - start);
+    }
 }
 
 int
