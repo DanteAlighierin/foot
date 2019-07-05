@@ -415,8 +415,12 @@ grid_render(struct context *c)
 
     static struct buffer *last_buf = NULL;
     if (last_buf != buf) {
-        if (last_buf != NULL)
+        if (last_buf != NULL) {
             LOG_WARN("new buffer");
+
+            /* Force a full refresh */
+            term_damage_all(&c->term);
+        }
         last_buf = buf;
     }
 
