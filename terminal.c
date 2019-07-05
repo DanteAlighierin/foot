@@ -426,10 +426,28 @@ static void
 report_mouse_click(struct terminal *term, int encoded_button, int row, int col,
                    bool release)
 {
-    char response[16];
-    snprintf(response, sizeof(response), "\033[M%c%c%c",
-             32 + encoded_button, 32 + col + 1, 32 + row + 1);
-    write(term->ptmx, response, strlen(response));
+    switch (term->mouse_reporting) {
+    case MOUSE_NORMAL: {
+        char response[16];
+        snprintf(response, sizeof(response), "\033[M%c%c%c",
+                 32 + (release ? 3 : encoded_button), 32 + col + 1, 32 + row + 1);
+        write(term->ptmx, response, strlen(response));
+        break;
+    }
+
+    case MOUSE_SGR: {
+        char response[128];
+        snprintf(response, sizeof(response), "\033[<%d;%d;%d%c",
+                 encoded_button, col + 1, row + 1, release ? 'm' : 'M');
+        write(term->ptmx, response, strlen(response));
+        break;
+    }
+
+    case MOUSE_UTF8:
+    case MOUSE_URXVT:
+        /* Unimplemented */
+        break;
+    }
 }
 
 static void
@@ -480,7 +498,10 @@ term_mouse_up(struct terminal *term, int button, int row, int col,
         return;
     }
 
-    int encoded = 3;
+    int encoded = encode_xbutton(xbutton);
+    if (encoded == -1)
+        return;
+
     encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
 
     switch (term->mouse_tracking) {
