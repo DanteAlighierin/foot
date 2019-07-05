@@ -88,15 +88,11 @@ grid_render_update(struct terminal *term, struct buffer *buf, const struct damag
         int height = term->cell_height;
 
         struct rgba foreground = cell->attrs.have_foreground
-            ? cell->attrs.foreground : term->foreground;
+            ? cell->attrs.foreground
+            : !term->reverse ? term->foreground : term->background;
         struct rgba background = cell->attrs.have_background
-            ? cell->attrs.background : term->background;
-
-        if (term->reverse) {
-            struct rgba swap = foreground;
-            foreground = background;
-            background = swap;
-        }
+            ? cell->attrs.background
+            : !term->reverse ? term->background : term->foreground;
 
         if (has_cursor) {
             struct rgba swap = foreground;
