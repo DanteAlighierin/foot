@@ -78,7 +78,7 @@ attrs_to_font(struct context *c, const struct attributes *attrs)
 }
 
 struct glyph_sequence {
-    cairo_glyph_t glyphs[10000];
+    cairo_glyph_t glyphs[100000];
     cairo_glyph_t *g;
     int count;
 
