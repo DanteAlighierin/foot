@@ -65,6 +65,7 @@ executable(
   'log.c', 'log.h',
   'main.c',
   'osc.c', 'osc.h',
+  'render.c', 'render.h',
   'shm.c', 'shm.h',
   'slave.c', 'slave.h',
   'terminal.c', 'terminal.h',

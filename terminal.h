@@ -6,10 +6,24 @@
 
 #include <threads.h>
 
+#include <cairo.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
 #include "tllist.h"
+
+struct wayland {
+    struct wl_display *display;
+    struct wl_registry *registry;
+    struct wl_compositor *compositor;
+    struct wl_surface *surface;
+    struct wl_shm *shm;
+    struct wl_seat *seat;
+    struct wl_keyboard *keyboard;
+    struct xdg_wm_base *shell;
+    struct xdg_surface *xdg_surface;
+    struct xdg_toplevel *xdg_toplevel;
+};
 
 struct rgba { double r, g, b, a; };
 
@@ -125,10 +139,6 @@ struct kbd {
     } repeat;
 };
 
-struct renderer {
-    struct xdg_toplevel *xdg_toplevel; /* TODO: this doesn't belong here */
-};
-
 enum decckm { DECCKM_CSI, DECCKM_SS3 };
 enum keypad_mode { KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
 enum charset { CHARSET_ASCII, CHARSET_GRAPHIC };
@@ -136,6 +146,7 @@ enum charset { CHARSET_ASCII, CHARSET_GRAPHIC };
 struct terminal {
     pid_t slave;
     int ptmx;
+    bool quit;
 
     enum decckm decckm;
     enum keypad_mode keypad_mode;
@@ -149,12 +160,13 @@ struct terminal {
 
     struct vt vt;
     struct kbd kbd;
-    struct renderer renderer;
 
-    int cols;
-    int rows;
-    int cell_width;
-    int cell_height;
+    int width;  /* pixels */
+    int height; /* pixels */
+    int cols;   /* number of columns */
+    int rows;   /* number of rows */
+    int cell_width;  /* pixels per cell, x-wise */
+    int cell_height; /* pixels per cell, y-wise */
 
     bool print_needs_wrap;
     struct scroll_region scroll_region;
@@ -169,6 +181,12 @@ struct terminal {
     struct grid normal;
     struct grid alt;
     struct grid *grid;
+
+    cairo_scaled_font_t *fonts[4];
+    cairo_font_extents_t fextents;
+
+    struct wayland wl;
+    bool frame_is_scheduled;
 };
 
 void term_damage_all(struct terminal *term);

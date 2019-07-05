@@ -5,9 +5,7 @@
 #define LOG_MODULE "osc"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-
-/* TODO */
-void render_set_title(struct renderer *renderer, const char *title);
+#include "render.h"
 
 bool
 osc_dispatch(struct terminal *term)
@@ -37,9 +35,9 @@ osc_dispatch(struct terminal *term)
     const char *string = (const char *)&term->vt.osc.data[data_ofs];
 
     switch (param) {
-    case 0: render_set_title(&term->renderer, string); break;  /* icon + title */
+    case 0: render_set_title(term, string); break;  /* icon + title */
     case 1: break;                                             /* icon */
-    case 2: render_set_title(&term->renderer, string); break;  /* title */
+    case 2: render_set_title(term, string); break;  /* title */
 
     default:
         LOG_ERR("unimplemented: OSC: %.*s",
