@@ -698,7 +698,7 @@ action(struct terminal *term, enum action action, uint8_t c)
         break;
 
     case ACTION_PRINT: {
-        if (term->auto_margin && term->print_needs_wrap) {
+        if (unlikely(term->print_needs_wrap) && term->auto_margin) {
             if (term->cursor.row == term->scroll_region.end - 1) {
                 term_scroll(term, 1);
                 term_cursor_to(term, term->cursor.row, 0);
@@ -709,7 +709,7 @@ action(struct terminal *term, enum action action, uint8_t c)
         struct cell *cell = &term->grid->cur_line[term->cursor.col];
         term_damage_update(term, term->cursor.linear, 1);
 
-        if (term->insert_mode) {
+        if (unlikely(term->insert_mode)) {
             assert(false && "untested");
             grid_memmove(
                 term->grid, term->cursor.linear + 1, term->cursor.linear,
@@ -735,7 +735,7 @@ action(struct terminal *term, enum action action, uint8_t c)
                 "│", "≤", "≥", "π", "≠", "£", "·", /* x - ~ */
             };
 
-            if (term->charset[term->selected_charset] == CHARSET_GRAPHIC &&
+            if (unlikely(term->charset[term->selected_charset] == CHARSET_GRAPHIC) &&
                 c >= 0x41 && c <= 0x7e)
             {
                 strcpy(cell->c, vt100_0[c - 0x41]);

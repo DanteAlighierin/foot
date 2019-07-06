@@ -12,6 +12,9 @@
 
 #include "tllist.h"
 
+#define likely(c) __builtin_expect(!!(c), 1)
+#define unlikely(c) __builtin_expect(!!(c), 0)
+
 struct wayland {
     struct wl_display *display;
     struct wl_registry *registry;
