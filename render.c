@@ -30,6 +30,8 @@ struct glyph_sequence {
     struct rgba foreground;
 };
 
+static struct glyph_sequence gseq;
+
 static void
 grid_render_update(struct terminal *term, struct buffer *buf, const struct damage *dmg)
 {
@@ -52,7 +54,8 @@ grid_render_update(struct terminal *term, struct buffer *buf, const struct damag
 
     const int cols = term->cols;
 
-    struct glyph_sequence gseq = {.g = gseq.glyphs};
+    gseq.g = gseq.glyphs;
+    gseq.count = 0;
 
     for (int linear_cursor = start,
              row = ((start - term->grid->offset) % term->grid->size) / cols,
