@@ -27,7 +27,7 @@ grid_get_range(struct grid *grid, int start, int *length)
 }
 
 void
-grid_memset(struct grid *grid, int start, int c, int length)
+grid_memclear(struct grid *grid, int start, int length)
 {
     int left = length;
     while (left > 0) {
@@ -37,7 +37,7 @@ grid_memset(struct grid *grid, int start, int c, int length)
         assert(count > 0);
         assert(count <= left);
 
-        memset(cells, c, count * sizeof(cells[0]));
+        memset(cells, 0, count * sizeof(cells[0]));
 
         left -= count;
         start += count;
