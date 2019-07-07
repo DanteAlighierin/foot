@@ -497,7 +497,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'r': {
             int start = param_get(term, 0, 1);
-            int end = param_get(term, 1, term->rows);
+            int end = min(param_get(term, 1, term->rows), term->rows);
 
             /* 1-based */
             term->scroll_region.start = start - 1;
