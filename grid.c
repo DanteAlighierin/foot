@@ -47,6 +47,19 @@ grid_memclear(struct grid *grid, int start, int length)
 void
 grid_memmove(struct grid *grid, int dst, int src, int length)
 {
+    /* Fast path, we can move everything in one swoop */
+    {
+        int count = length;
+        struct cell *dst_cells = grid_get_range(grid, dst, &count);
+        if (count == length) {
+            struct cell *src_cells = grid_get_range(grid, src, &count);
+            if (count == length) {
+                memmove(dst_cells, src_cells, length * sizeof(dst_cells[0]));
+                return;
+            }
+        }
+    }
+
     int left = length;
     int copy_idx = 0;
     struct cell copy[left];
