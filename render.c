@@ -54,9 +54,6 @@ grid_render_update(struct terminal *term, struct buffer *buf, const struct damag
 
     const int cols = term->cols;
 
-    gseq.g = gseq.glyphs;
-    gseq.count = 0;
-
     for (int linear_cursor = start,
              row = ((start - term->grid->offset) % term->grid->size) / cols,
              col = ((start - term->grid->offset) % term->grid->size) % cols;
@@ -164,15 +161,6 @@ grid_render_update(struct terminal *term, struct buffer *buf, const struct damag
         gseq.g += new_glyphs;
         gseq.count += new_glyphs;
         assert(gseq.count <= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]));
-    }
-
-    if (gseq.count > 0) {
-        cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
-        cairo_set_source_rgba(
-            buf->cairo, gseq.foreground.r, gseq.foreground.g,
-            gseq.foreground.b, gseq.foreground.a);
-        cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
-        cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
     }
 
     wl_surface_damage_buffer(
@@ -419,6 +407,9 @@ grid_render(struct terminal *term)
         tll_remove(term->grid->scroll_damage, it);
     }
 
+    gseq.g = gseq.glyphs;
+    gseq.count = 0;
+
     tll_foreach(term->grid->damage, it) {
         switch (it->item.type) {
         case DAMAGE_ERASE:  grid_render_erase(term, buf, &it->item); break;
@@ -450,6 +441,15 @@ grid_render(struct terminal *term)
     };
     grid_render_update(term, buf, &cursor);
     last_cursor = term->grid->offset + term->cursor.linear;
+
+    if (gseq.count > 0) {
+        cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
+        cairo_set_source_rgba(
+            buf->cairo, gseq.foreground.r, gseq.foreground.g,
+            gseq.foreground.b, gseq.foreground.a);
+        cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
+        cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
+    }
 
     term->grid->offset %= term->grid->size;
     if (term->grid->offset < 0)
