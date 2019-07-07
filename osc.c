@@ -7,7 +7,7 @@
 #include "log.h"
 #include "render.h"
 
-bool
+void
 osc_dispatch(struct terminal *term)
 {
     int param = 0;
@@ -24,7 +24,7 @@ osc_dispatch(struct terminal *term)
         if (!isdigit(c)) {
             LOG_ERR("OSC: invalid parameter: %.*s",
                     (int)term->vt.osc.idx, term->vt.osc.data);
-            return false;
+            abort();
         }
 
         param *= 10;
@@ -47,8 +47,7 @@ osc_dispatch(struct terminal *term)
     default:
         LOG_ERR("unimplemented: OSC: %.*s",
                 (int)term->vt.osc.idx, term->vt.osc.data);
-        return false;
+        abort();
+        break;
     }
-
-    return true;
 }

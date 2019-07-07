@@ -91,12 +91,12 @@ sgr_reset(struct terminal *term)
     term->vt.attrs.background = term->background;
 }
 
-static bool
+static void
 csi_sgr(struct terminal *term)
 {
     if (term->vt.params.idx == 0) {
         sgr_reset(term);
-        return true;
+        return;
     }
 
     for (size_t i = 0; i < term->vt.params.idx; i++) {
@@ -162,7 +162,8 @@ csi_sgr(struct terminal *term)
                 i += 4;
             } else {
                 LOG_ERR("invalid CSI SGR sequence");
-                return false;
+                abort();
+                break;
             }
             break;
         }
@@ -208,7 +209,8 @@ csi_sgr(struct terminal *term)
                 i += 4;
             } else {
                 LOG_ERR("invalid CSI SGR sequence");
-                return false;
+                abort();
+                break;
             }
             break;
         }
@@ -245,11 +247,10 @@ csi_sgr(struct terminal *term)
 
         default:
             LOG_ERR("unimplemented: CSI: SGR: %u", term->vt.params.v[i].value);
-            return false;
+            abort();
+            break;
         }
     }
-
-    return true;
 }
 
 static const char *
@@ -279,7 +280,7 @@ csi_as_string(struct terminal *term, uint8_t final)
     return msg;
 }
 
-bool
+void
 csi_dispatch(struct terminal *term, uint8_t final)
 {
     LOG_DBG("CSI: %s", csi_as_string(term, final));
@@ -287,7 +288,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
     if (term->vt.intermediates.idx == 0) {
         switch (final) {
         case 'c':
-            return write(term->ptmx, "\033[?6c", 5) == 5;
+            write(term->ptmx, "\033[?6c", 5);
+            break;
 
         case 'd': {
             /* VPA - vertical line position absolute */
@@ -297,7 +299,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 'm':
-            return csi_sgr(term);
+            csi_sgr(term);
+            break;
 
         case 'A':
             term_cursor_up(term, param_get(term, 0, 1));
@@ -359,7 +362,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
             default:
                 LOG_ERR("CSI: %s: invalid argument: %d",
                         csi_as_string(term, final), param);
-                return false;
+                abort();
+                break;
             }
 
             term_erase(term, start, end);
@@ -394,7 +398,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
             default:
                 LOG_ERR("CSI: %s: invalid argument: %d",
                         csi_as_string(term, final), param);
-                return false;
+                abort();
+                break;
             }
 
             term_erase(term, start, end);
@@ -513,7 +518,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
              * should provide our own terminfo with *only* \e[?1049h
              * (and \e[?1049l for rmcup)
              */
-            LOG_WARN("ignoring CSI with final 't'");
+            LOG_WARN("ignoring CSI: %s", csi_as_string(term, final));
             break;
 
         case 'n': {
@@ -536,13 +541,12 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 default:
                     LOG_ERR("unimplemented: CSI: %s, parameter = %d",
                             csi_as_string(term, final), param);
-                    return false;
+                    abort();
+                    break;
                 }
-
-                return true;
             } else {
                 LOG_ERR("CSI: %s: missing parameter", csi_as_string(term, final));
-                return false;
+                abort();
             }
             break;
         }
@@ -561,8 +565,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
             LOG_ERR("unimplemented: CSI: %s", csi_as_string(term, final));
             abort();
         }
-
-        return true;
     }
 
     else if (term->vt.intermediates.idx == 1 &&
@@ -746,8 +748,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
             LOG_ERR("unimplemented: CSI: %s", csi_as_string(term, final));
             abort();
         }
-
-        return true;
     }
 
     else if (term->vt.intermediates.idx == 1 &&
@@ -759,10 +759,12 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     LOG_ERR(
                         "unimplemented: send device attributes with param = %d",
                         param);
-                    return false;
+                    abort();
+                    break;
                 }
 
-                return write(term->ptmx, "\033[?6c", 5) == 5;
+                write(term->ptmx, "\033[?6c", 5);
+                break;
             }
 
         default:
@@ -775,6 +777,4 @@ csi_dispatch(struct terminal *term, uint8_t final)
         LOG_ERR("unimplemented: CSI: %s", csi_as_string(term, final));
         abort();
     }
-
-    return false;
 }

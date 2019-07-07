@@ -63,8 +63,10 @@ enum action {
     ACTION_UTF8_3_ENTRY,
     ACTION_UTF8_4_ENTRY,
     ACTION_UTF8_COLLECT,
+    ACTION_UTF8_PRINT,
 };
 
+#if 0
 static const char *const state_names[] = {
     [STATE_SAME] = "no change",
     [STATE_GROUND] = "ground",
@@ -89,7 +91,7 @@ static const char *const state_names[] = {
 
     [STATE_UTF8_COLLECT] = "UTF-8",
 };
-
+#endif
 static const char *const action_names[] __attribute__((unused)) = {
     [ACTION_NONE] = "no action",
     [ACTION_IGNORE] = "ignore",
@@ -111,6 +113,7 @@ static const char *const action_names[] __attribute__((unused)) = {
     [ACTION_UTF8_3_ENTRY] = "UTF-8 (3 chars) begin",
     [ACTION_UTF8_4_ENTRY] = "UTF-8 (4 chars) begin",
     [ACTION_UTF8_COLLECT] = "UTF-8 collect",
+    [ACTION_UTF8_PRINT] = "UTF-8 print",
 };
 
 struct state_transition {
@@ -566,7 +569,7 @@ esc_as_string(struct terminal *term, uint8_t final)
 
 }
 
-static bool
+static void
 esc_dispatch(struct terminal *term, uint8_t final)
 {
     LOG_DBG("ESC: %s", esc_as_string(term, final));
@@ -594,7 +597,8 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
         default:
             LOG_ERR("%s: invalid charset identifier", esc_as_string(term, final));
-            return false;
+            abort();
+            break;
         }
         break;
     }
@@ -611,7 +615,8 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
         default:
             LOG_ERR("%s: invalid charset identifier", esc_as_string(term, final));
-            return false;
+            abort();
+            break;
         }
         break;
     }
@@ -633,16 +638,104 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     default:
         LOG_ERR("unimplemented: ESC: %s", esc_as_string(term, final));
-        return false;
+        abort();
+        break;
     }
-
-    return true;
 }
 
-static bool
-action(struct terminal *term, enum action action, uint8_t c)
+static inline void
+pre_print(struct terminal *term)
 {
-    switch (action) {
+    if (unlikely(term->print_needs_wrap) && term->auto_margin) {
+        if (term->cursor.row == term->scroll_region.end - 1) {
+            term_scroll(term, 1);
+            term_cursor_to(term, term->cursor.row, 0);
+        } else
+            term_cursor_to(term, term->cursor.row + 1, 0);
+    }
+}
+
+static inline void
+post_print(struct terminal *term)
+{
+    if (term->cursor.col < term->cols - 1)
+        term_cursor_right(term, 1);
+    else
+        term->print_needs_wrap = true;
+}
+
+static inline void
+print_insert(struct terminal *term)
+{
+   if (unlikely(term->insert_mode)) {
+        assert(false && "untested");
+        grid_memmove(
+            term->grid, term->cursor.linear + 1, term->cursor.linear,
+            term->cols - term->cursor.col - 1);
+        term_damage_update(
+            term, term->cursor.linear + 1, term->cols - term->cursor.col - 1);
+    }
+}
+
+static void
+action_print_utf8(struct terminal *term)
+{
+    pre_print(term);
+
+    struct cell *cell = &term->grid->cur_line[term->cursor.col];
+    term_damage_update(term, term->cursor.linear, 1);
+
+    print_insert(term);
+
+    //LOG_DBG("print: UTF8: %.*s", (int)term->vt.utf8.idx, term->vt.utf8.data);
+    memcpy(cell->c, term->vt.utf8.data, term->vt.utf8.idx);
+    cell->c[term->vt.utf8.idx] = '\0';
+    term->vt.utf8.idx = 0;
+
+    cell->attrs = term->vt.attrs;
+    post_print(term);
+}
+
+static void
+action_print(struct terminal *term, uint8_t c)
+{
+    pre_print(term);
+
+    struct cell *cell = &term->grid->cur_line[term->cursor.col];
+    term_damage_update(term, term->cursor.linear, 1);
+
+    print_insert(term);
+
+    static const char *const vt100_0[62] = { /* 0x41 - 0x7e */
+        "↑", "↓", "→", "←", "█", "▚", "☃", /* A - G */
+        0, 0, 0, 0, 0, 0, 0, 0, /* H - O */
+        0, 0, 0, 0, 0, 0, 0, 0, /* P - W */
+        0, 0, 0, 0, 0, 0, 0, " ", /* X - _ */
+        "◆", "▒", "␉", "␌", "␍", "␊", "°", "±", /* ` - g */
+        "␤", "␋", "┘", "┐", "┌", "└", "┼", "⎺", /* h - o */
+        "⎻", "─", "⎼", "⎽", "├", "┤", "┴", "┬", /* p - w */
+        "│", "≤", "≥", "π", "≠", "£", "·", /* x - ~ */
+    };
+
+    if (unlikely(term->charset[term->selected_charset] == CHARSET_GRAPHIC) &&
+        c >= 0x41 && c <= 0x7e)
+    {
+        strcpy(cell->c, vt100_0[c - 0x41]);
+    } else {
+        //LOG_DBG("print: ASCII: %c", c);
+        cell->c[0] = c;
+        cell->c[1] = '\0';
+    }
+
+    cell->attrs = term->vt.attrs;
+
+    post_print(term);
+}
+
+static void
+action(struct terminal *term, enum action _action, uint8_t c)
+{
+    switch (_action) {
     case ACTION_NONE:
         break;
 
@@ -685,10 +778,11 @@ action(struct terminal *term, enum action action, uint8_t c)
 
         default:
             LOG_ERR("execute: unimplemented: %c (0x%02x)", c, c);
-            return false;
+            abort();
+            break;
         }
 
-        return true;
+        break;
 
     case ACTION_CLEAR:
         memset(&term->vt.params, 0, sizeof(term->vt.params));
@@ -697,64 +791,13 @@ action(struct terminal *term, enum action action, uint8_t c)
         term->vt.utf8.idx = 0;
         break;
 
-    case ACTION_PRINT: {
-        if (unlikely(term->print_needs_wrap) && term->auto_margin) {
-            if (term->cursor.row == term->scroll_region.end - 1) {
-                term_scroll(term, 1);
-                term_cursor_to(term, term->cursor.row, 0);
-            } else
-                term_cursor_to(term, term->cursor.row + 1, 0);
-        }
-
-        struct cell *cell = &term->grid->cur_line[term->cursor.col];
-        term_damage_update(term, term->cursor.linear, 1);
-
-        if (unlikely(term->insert_mode)) {
-            assert(false && "untested");
-            grid_memmove(
-                term->grid, term->cursor.linear + 1, term->cursor.linear,
-                term->cols - term->cursor.col - 1);
-            term_damage_update(
-                term, term->cursor.linear + 1, term->cols - term->cursor.col - 1);
-        }
-
-        if (term->vt.utf8.idx > 0) {
-            //LOG_DBG("print: UTF8: %.*s", (int)term->vt.utf8.idx, term->vt.utf8.data);
-            memcpy(cell->c, term->vt.utf8.data, term->vt.utf8.idx);
-            cell->c[term->vt.utf8.idx] = '\0';
-            term->vt.utf8.idx = 0;
-        } else {
-            static const char *const vt100_0[62] = { /* 0x41 - 0x7e */
-                "↑", "↓", "→", "←", "█", "▚", "☃", /* A - G */
-                0, 0, 0, 0, 0, 0, 0, 0, /* H - O */
-                0, 0, 0, 0, 0, 0, 0, 0, /* P - W */
-                0, 0, 0, 0, 0, 0, 0, " ", /* X - _ */
-                "◆", "▒", "␉", "␌", "␍", "␊", "°", "±", /* ` - g */
-                "␤", "␋", "┘", "┐", "┌", "└", "┼", "⎺", /* h - o */
-                "⎻", "─", "⎼", "⎽", "├", "┤", "┴", "┬", /* p - w */
-                "│", "≤", "≥", "π", "≠", "£", "·", /* x - ~ */
-            };
-
-            if (unlikely(term->charset[term->selected_charset] == CHARSET_GRAPHIC) &&
-                c >= 0x41 && c <= 0x7e)
-            {
-                strcpy(cell->c, vt100_0[c - 0x41]);
-            } else {
-                //LOG_DBG("print: ASCII: %c", c);
-                cell->c[0] = c;
-                cell->c[1] = '\0';
-            }
-        }
-
-        cell->attrs = term->vt.attrs;
-
-        if (term->cursor.col < term->cols - 1)
-            term_cursor_right(term, 1);
-        else
-            term->print_needs_wrap = true;
-
+    case ACTION_PRINT:
+        action_print(term, c);
         break;
-    }
+
+    case ACTION_UTF8_PRINT:
+        action_print_utf8(term);
+        break;
 
     case ACTION_PARAM:{
         if (term->vt.params.idx == 0)
@@ -785,14 +828,16 @@ action(struct terminal *term, enum action action, uint8_t c)
         break;
 
         LOG_ERR("unimplemented: action ESC dispatch");
-        return false;
+        abort();
+        break;
 
     case ACTION_ESC_DISPATCH:
-        return esc_dispatch(term, c);
+        esc_dispatch(term, c);
         break;
 
     case ACTION_CSI_DISPATCH:
-        return csi_dispatch(term, c);
+        csi_dispatch(term, c);
+        break;
 
     case ACTION_OSC_START:
         term->vt.osc.idx = 0;
@@ -806,13 +851,14 @@ action(struct terminal *term, enum action action, uint8_t c)
     case ACTION_OSC_END:
         assert(term->vt.osc.idx < sizeof(term->vt.osc.data));
         term->vt.osc.data[term->vt.osc.idx] = '\0';
-        return osc_dispatch(term);
+        osc_dispatch(term);
+        break;
 
     case ACTION_HOOK:
     case ACTION_UNHOOK:
     case ACTION_PUT:
-        LOG_ERR("unimplemented: action %s", action_names[action]);
-        return false;
+        LOG_ERR("unimplemented: action %s", action_names[_action]);
+        abort();
 
     case ACTION_UTF8_2_ENTRY:
         term->vt.utf8.idx = 0;
@@ -837,51 +883,38 @@ action(struct terminal *term, enum action action, uint8_t c)
 
     case ACTION_UTF8_COLLECT:
         term->vt.utf8.data[term->vt.utf8.idx++] = c;
-        if (--term->vt.utf8.left == 0)
+        if (--term->vt.utf8.left == 0) {
             term->vt.state = STATE_GROUND;
+            action_print_utf8(term);
+        }
         break;
     }
-
-    return true;
 }
 
 void
 vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
 {
-    //int cursor = term->grid.cursor;
+    //LOG_DBG("input: 0x%02x", data[i]);
+    enum state current_state = term->vt.state;
+
     for (size_t i = 0; i < len; i++) {
-        //LOG_DBG("input: 0x%02x", data[i]);
-        enum state current_state = term->vt.state;
 
         if (current_state == STATE_UTF8_COLLECT) {
-            if (!action(term, ACTION_UTF8_COLLECT, data[i]))
-                abort();
+            action(term, ACTION_UTF8_COLLECT, data[i]);
 
             current_state = term->vt.state;
-            if (current_state == STATE_UTF8_COLLECT)
-                continue;
-
-            if (!action(term, ACTION_PRINT, 0))
-                abort();
-
             continue;
         }
 
         const struct state_transition *transition = &states[current_state][data[i]];
-        if (transition->action == ACTION_NONE && transition->state == STATE_SAME) {
-            LOG_ERR("unimplemented transition from %s: 0x%02x",
-                    state_names[current_state], data[i]);
-            abort();
-        }
+        assert(transition->action != ACTION_NONE || transition->state != STATE_SAME);
 
         if (transition->state != STATE_SAME) {
             enum action exit_action = exit_actions[current_state];
-            if (exit_action != ACTION_NONE && !action(term, exit_action, data[i]))
-                abort();
+            action(term, exit_action, data[i]);
         }
 
-        if (!action(term, transition->action, data[i]))
-            abort();
+        action(term, transition->action, data[i]);
 
         if (transition->state != STATE_SAME) {
             /*
@@ -889,10 +922,10 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
              *         state_names[transition->state]);
              */
             term->vt.state = transition->state;
+            current_state = transition->state;
 
             enum action entry_action = entry_actions[transition->state];
-            if (entry_action != ACTION_NONE && !action(term, entry_action, data[i]))
-                abort();
+            action(term, entry_action, data[i]);
         }
     }
 }

@@ -3,4 +3,4 @@
 #include <stdbool.h>
 #include "terminal.h"
 
-bool osc_dispatch(struct terminal *term);
+void osc_dispatch(struct terminal *term);
