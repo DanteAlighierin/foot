@@ -36,9 +36,10 @@ struct wayland {
     struct xdg_toplevel *xdg_toplevel;
 };
 
-struct rgba { double r, g, b, a; };
+struct rgba { double r, g, b, a; } __attribute__((packed));
 
 struct attributes {
+#if 0
     bool bold;
     bool italic;
     bool underline;
@@ -48,14 +49,25 @@ struct attributes {
     bool reverse;
     bool have_foreground;
     bool have_background;
+#else
+    uint8_t bold:1;
+    uint8_t italic:1;
+    uint8_t underline:1;
+    uint8_t strikethrough:1;
+    uint8_t blink:1;
+    uint8_t conceal:1;
+    uint8_t reverse:1;
+    uint8_t have_foreground:1;
+    uint8_t have_background:1;
+#endif
     struct rgba foreground; /* Only valid when have_foreground == true */
     struct rgba background; /* Only valid when have_background == true */
-};
+} __attribute__((packed));
 
 struct cell {
-    char c[5];
     struct attributes attrs;
-};
+    char c[5];
+} __attribute__((packed));
 
 struct scroll_region {
     int start;
