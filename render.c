@@ -99,7 +99,6 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
             buf->cairo, gseq.foreground.r, gseq.foreground.g,
             gseq.foreground.b, gseq.foreground.a);
 
-        cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
         cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
 
         gseq.g = gseq.glyphs;
@@ -603,7 +602,6 @@ grid_render(struct terminal *term)
         cairo_set_source_rgba(
             buf->cairo, gseq.foreground.r, gseq.foreground.g,
             gseq.foreground.b, gseq.foreground.a);
-        cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
         cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
     }
 
