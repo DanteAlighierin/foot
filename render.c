@@ -47,28 +47,28 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     int x = col * width;
     int y = row * height;
 
-    struct rgba foreground = cell->attrs.have_foreground
-        ? cell->attrs.foreground
-        : !term->reverse ? term->foreground : term->background;
-    struct rgba background = cell->attrs.have_background
-        ? cell->attrs.background
-        : !term->reverse ? term->background : term->foreground;
+    const struct rgba *foreground = cell->attrs.have_foreground
+        ? &cell->attrs.foreground
+        : !term->reverse ? &term->foreground : &term->background;
+    const struct rgba *background = cell->attrs.have_background
+        ? &cell->attrs.background
+        : !term->reverse ? &term->background : &term->foreground;
 
     if (has_cursor) {
-        struct rgba swap = foreground;
+        const struct rgba *swap = foreground;
         foreground = background;
         background = swap;
     }
 
     if (cell->attrs.reverse) {
-        struct rgba swap = foreground;
+        const struct rgba *swap = foreground;
         foreground = background;
         background = swap;
     }
 
     /* Background */
     cairo_set_source_rgba(
-        buf->cairo, background.r, background.g, background.b, background.a);
+        buf->cairo, background->r, background->g, background->b, background->a);
     cairo_rectangle(buf->cairo, x, y, width, height);
     cairo_fill(buf->cairo);
 
@@ -89,10 +89,11 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
 
     if (memcmp(&cell->attrs, &gseq.attrs, sizeof(cell->attrs)) != 0 ||
         gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10 ||
-        memcmp(&gseq.foreground, &foreground, sizeof(foreground)) != 0)
+        memcmp(&gseq.foreground, foreground, sizeof(*foreground)) != 0)
     {
         if (gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10)
             LOG_WARN("hit glyph limit");
+
         cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
         cairo_set_source_rgba(
             buf->cairo, gseq.foreground.r, gseq.foreground.g,
@@ -104,7 +105,7 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         gseq.g = gseq.glyphs;
         gseq.count = 0;
         gseq.attrs = cell->attrs;
-        gseq.foreground = foreground;
+        gseq.foreground = *foreground;
     }
 
     int new_glyphs
@@ -606,6 +607,7 @@ grid_render(struct terminal *term)
         cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
     }
 
+    assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
 #if 0
     term->grid->offset %= term->grid->size;
     if (term->grid->offset < 0)
