@@ -38,6 +38,9 @@ static const struct rgb default_background = {0.067, 0.067, 0.067};
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
+    struct terminal *term = data;
+    if (format == WL_SHM_FORMAT_ARGB8888)
+        term->wl.have_argb8888 = true;
 }
 
 static const struct wl_shm_listener shm_listener = {
@@ -107,7 +110,7 @@ handle_global(void *data, struct wl_registry *registry,
     else if (strcmp(interface, wl_shm_interface.name) == 0) {
         term->wl.shm = wl_registry_bind(
             term->wl.registry, name, &wl_shm_interface, 1);
-        wl_shm_add_listener(term->wl.shm, &shm_listener, NULL);
+        wl_shm_add_listener(term->wl.shm, &shm_listener, term);
         wl_display_roundtrip(term->wl.display);
     }
 
@@ -376,6 +379,10 @@ main(int argc, char *const *argv)
     }
     if (term.wl.shell == NULL) {
         LOG_ERR("no XDG shell interface");
+        goto out;
+    }
+    if (!term.wl.have_argb8888) {
+        LOG_ERR("compositor does not support ARGB surfaces");
         goto out;
     }
 

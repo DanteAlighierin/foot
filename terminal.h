@@ -34,6 +34,7 @@ struct wayland {
     struct xdg_wm_base *shell;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
+    bool have_argb8888;
 };
 
 struct rgb { double r, g, b; } __attribute__((packed));
