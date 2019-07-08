@@ -42,10 +42,10 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         = (!term->hide_cursor &&
            (term->cursor.col == col && term->cursor.row == row));
 
-    int width = term->cell_width;
-    int height = term->cell_height;
-    int x = col * width;
-    int y = row * height;
+    double width = term->cell_width;
+    double height = term->cell_height;
+    double x = col * width;
+    double y = row * height;
 
     const struct rgba *foreground = cell->attrs.have_foreground
         ? &cell->attrs.foreground
