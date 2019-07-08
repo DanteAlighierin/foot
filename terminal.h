@@ -74,10 +74,9 @@ struct scroll_region {
     int end;
 };
 
-struct cursor {
-    int row;
+struct coord {
     int col;
-    int linear;
+    int row;
 };
 
 enum damage_type {DAMAGE_UPDATE, DAMAGE_ERASE, DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
@@ -85,10 +84,12 @@ struct damage {
     enum damage_type type;
     union {
         /* DAMAGE_UPDATE, DAMAGE_ERASE */
+#if 0
         struct {
             int start;
             int length;
         } range;
+#endif
 
         /* DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE */
         struct {
@@ -98,12 +99,19 @@ struct damage {
     };
 };
 
+struct row {
+    struct cell *cells;
+    bool dirty;
+};
+
 struct grid {
-    int size;
+    int num_rows;
     int offset;
 
-    struct cell *cells;
-    struct cell *cur_line;
+    //struct cell *cells;
+    //struct cell *cur_line;
+    struct row **rows;
+    struct row *cur_row;
 
     tll(struct damage) damage;
     tll(struct damage) scroll_damage;
@@ -227,14 +235,14 @@ struct terminal {
     struct rgba background;
 
     struct {
-        int row;
         int col;
+        int row;
         int button;
     } mouse;
 
-    struct cursor cursor;
-    struct cursor saved_cursor;
-    struct cursor alt_saved_cursor;
+    struct coord cursor;
+    struct coord saved_cursor;
+    struct coord alt_saved_cursor;
 
     struct grid normal;
     struct grid alt;
@@ -254,7 +262,9 @@ void term_damage_scroll(
     struct terminal *term, enum damage_type damage_type,
     struct scroll_region region, int lines);
 
-void term_erase(struct terminal *term, int start, int end);
+//void term_erase(struct terminal *term, int start, int end);
+void term_erase(
+    struct terminal *term, const struct coord *start, const struct coord *end);
 
 void term_cursor_to(struct terminal *term, int row, int col);
 void term_cursor_left(struct terminal *term, int count);
@@ -269,8 +279,6 @@ void term_scroll_partial(
     struct terminal *term, struct scroll_region region, int rows);
 void term_scroll_reverse_partial(
     struct terminal *term, struct scroll_region region, int rows);
-
-int term_cursor_linear(const struct terminal *term, int row, int col);
 
 void term_mouse_down(struct terminal *term, int button, int row, int col,
                      bool shift, bool alt, bool ctrl);

@@ -10,6 +10,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "shm.h"
+#include "grid.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -32,6 +33,97 @@ struct glyph_sequence {
 
 static struct glyph_sequence gseq;
 
+static void
+render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
+            int col, int row)
+{
+    /* Cursor here? */
+    bool has_cursor
+        = (!term->hide_cursor &&
+           (term->cursor.col == col && term->cursor.row == row));
+
+    int width = term->cell_width;
+    int height = term->cell_height;
+    int x = col * width;
+    int y = row * height;
+
+    struct rgba foreground = cell->attrs.have_foreground
+        ? cell->attrs.foreground
+        : !term->reverse ? term->foreground : term->background;
+    struct rgba background = cell->attrs.have_background
+        ? cell->attrs.background
+        : !term->reverse ? term->background : term->foreground;
+
+    if (has_cursor) {
+        struct rgba swap = foreground;
+        foreground = background;
+        background = swap;
+    }
+
+    if (cell->attrs.reverse) {
+        struct rgba swap = foreground;
+        foreground = background;
+        background = swap;
+    }
+
+    /* Background */
+    cairo_set_source_rgba(
+        buf->cairo, background.r, background.g, background.b, background.a);
+    cairo_rectangle(buf->cairo, x, y, width, height);
+    cairo_fill(buf->cairo);
+
+    if (cell->c[0] == '\0' || cell->c[0] == ' ')
+        return;
+
+    if (cell->attrs.conceal)
+        return;
+
+    /*
+     * cairo_show_glyphs() apparently works *much* faster when
+     * called once with a large array of glyphs, compared to
+     * multiple calls with a single glyph.
+     *
+     * So, collect glyphs until cell attributes change, then we
+     * 'flush' (render) the glyphs.
+     */
+
+    if (memcmp(&cell->attrs, &gseq.attrs, sizeof(cell->attrs)) != 0 ||
+        gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10 ||
+        memcmp(&gseq.foreground, &foreground, sizeof(foreground)) != 0)
+    {
+        if (gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10)
+            LOG_WARN("hit glyph limit");
+        cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
+        cairo_set_source_rgba(
+            buf->cairo, gseq.foreground.r, gseq.foreground.g,
+            gseq.foreground.b, gseq.foreground.a);
+
+        cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
+        cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
+
+        gseq.g = gseq.glyphs;
+        gseq.count = 0;
+        gseq.attrs = cell->attrs;
+        gseq.foreground = foreground;
+    }
+
+    int new_glyphs
+        = sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - gseq.count;
+
+    cairo_status_t status = cairo_scaled_font_text_to_glyphs(
+        attrs_to_font(term, &cell->attrs), x, y + term->fextents.ascent,
+        cell->c, strlen(cell->c), &gseq.g, &new_glyphs,
+        NULL, NULL, NULL);
+
+    if (status != CAIRO_STATUS_SUCCESS)
+        return;
+
+    gseq.g += new_glyphs;
+    gseq.count += new_glyphs;
+    assert(gseq.count <= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]));
+}
+
+#if 0
 static void
 grid_render_update(struct terminal *term, struct buffer *buf, const struct damage *dmg)
 {
@@ -249,6 +341,7 @@ grid_render_erase(struct terminal *term, struct buffer *buf, const struct damage
         wl_surface_damage_buffer(term->wl.surface, x, y, width, height);
     }
 }
+#endif
 
 static void
 grid_render_scroll(struct terminal *term, struct buffer *buf,
@@ -278,6 +371,7 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
         wl_surface_damage_buffer(term->wl.surface, 0, dst_y, width, height);
     }
 
+#if 0
     const int cols = term->cols;
 
     struct damage erase = {
@@ -290,6 +384,7 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
         },
     };
     grid_render_erase(term, buf, &erase);
+#endif
 }
 
 static void
@@ -320,6 +415,7 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
         wl_surface_damage_buffer(term->wl.surface, 0, dst_y, width, height);
     }
 
+#if 0
     const int cols = term->cols;
 
     struct damage erase = {
@@ -331,6 +427,7 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
         },
     };
     grid_render_erase(term, buf, &erase);
+#endif
 }
 
 static void frame_callback(
@@ -345,15 +442,18 @@ grid_render(struct terminal *term)
 {
     static int last_cursor;
 
+#if 0
     if (tll_length(term->grid->damage) == 0 &&
         tll_length(term->grid->scroll_damage) == 0 &&
         last_cursor == term->grid->offset + term->cursor.linear)
     {
         return;
     }
-
+#endif
     assert(term->width > 0);
     assert(term->height > 0);
+
+    //LOG_WARN("RENDER");
 
     struct buffer *buf = shm_get_buffer(term->wl.shm, term->width, term->height);
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
@@ -388,6 +488,8 @@ grid_render(struct terminal *term)
         last_buf = buf;
     }
 
+    bool all_clean = tll_length(term->grid->scroll_damage) == 0;
+
     tll_foreach(term->grid->scroll_damage, it) {
         switch (it->item.type) {
         case DAMAGE_SCROLL:
@@ -409,7 +511,7 @@ grid_render(struct terminal *term)
 
     gseq.g = gseq.glyphs;
     gseq.count = 0;
-
+#if 0
     tll_foreach(term->grid->damage, it) {
         switch (it->item.type) {
         case DAMAGE_ERASE:  grid_render_erase(term, buf, &it->item); break;
@@ -423,24 +525,77 @@ grid_render(struct terminal *term)
 
         tll_remove(term->grid->damage, it);
     }
+#endif
+
+    for (int r = 0; r < term->rows; r++) {
+        struct row *row = grid_row(term->grid, r);
+
+        if (!row->dirty)
+            continue;
+
+        //LOG_WARN("rendering line: %d", r);
+
+        for (int col = 0; col < term->cols; col++)
+            render_cell(term, buf, &row->cells[col], col, r);
+
+        row->dirty = false;
+        all_clean = false;
+
+        wl_surface_damage_buffer(term->wl.surface, 0, r * term->cell_height, term->width, term->cell_height);
+    }
 
     /* TODO: break out to function */
     /* Re-render last cursor cell and current cursor cell */
     /* Make sure previous cursor is refreshed (to avoid "ghost" cursors) */
-    if (last_cursor != term->cursor.linear) {
+    int cursor_as_linear
+        = (term->grid->offset + term->cursor.row) * term->cols + term->cursor.col;
+
+    if (last_cursor != cursor_as_linear) {
+#if 0
         struct damage prev_cursor = {
             .type = DAMAGE_UPDATE,
             .range = {.start = last_cursor, .length = 1},
         };
         grid_render_update(term, buf, &prev_cursor);
+#endif
+#if 1
+        int row = last_cursor / term->cols - term->grid->offset;
+        int col = last_cursor % term->cols;
+        if (row >= 0 && row < term->rows) {
+            render_cell(term, buf, &grid_row(term->grid, row)->cells[col], col, row);
+            all_clean = false;
+
+            wl_surface_damage_buffer(
+                term->wl.surface, col * term->cell_width, row * term->cell_height,
+                term->cell_width, term->cell_height);
+        }
+        last_cursor = cursor_as_linear;
+#endif
     }
 
+    if (all_clean) {
+        buf->busy = false;
+        return;
+    }
+
+#if 0
     struct damage cursor = {
         .type = DAMAGE_UPDATE,
         .range = {.start = term->grid->offset + term->cursor.linear, .length = 1},
     };
     grid_render_update(term, buf, &cursor);
-    last_cursor = term->grid->offset + term->cursor.linear;
+#endif
+
+    render_cell(
+        term, buf,
+        &grid_row(term->grid, term->cursor.row)->cells[term->cursor.col],
+        term->cursor.col, term->cursor.row);
+
+    wl_surface_damage_buffer(
+        term->wl.surface,
+        term->cursor.col * term->cell_width,
+        term->cursor.row * term->cell_height,
+        term->cell_width, term->cell_height);
 
     if (gseq.count > 0) {
         cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
@@ -451,9 +606,11 @@ grid_render(struct terminal *term)
         cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
     }
 
+#if 0
     term->grid->offset %= term->grid->size;
     if (term->grid->offset < 0)
         term->grid->offset += term->grid->size;
+#endif
 
     //cairo_surface_flush(buf->cairo_surface);
     wl_surface_attach(term->wl.surface, buf->wl_buf, 0, 0);
@@ -485,6 +642,7 @@ render_resize(struct terminal *term, int width, int height)
     term->width = width;
     term->height = height;
 
+#if 0
     const size_t old_rows = term->rows;
     const size_t normal_old_size = term->normal.size;
     const size_t alt_old_size = term->alt.size;
@@ -522,6 +680,49 @@ render_resize(struct terminal *term, int width, int height)
                       .background = term->background},
         };
     }
+#endif
+    //const int old_cols = term->cols;
+    const int old_rows = term->rows;
+    const int new_cols = term->width / term->cell_width;
+    const int new_rows = term->height / term->cell_height;
+
+    for (int r = 0; r < term->normal.num_rows; r++) {
+        free(term->normal.rows[r]->cells);
+        free(term->normal.rows[r]);
+    }
+    free(term->normal.rows);
+
+    for (int r = 0; r < term->alt.num_rows; r++) {
+        free(term->alt.rows[r]->cells);
+        free(term->alt.rows[r]);
+    }
+    free(term->alt.rows);
+
+    /* TODO: reflow old content */
+    term->normal.num_rows = new_rows;
+    term->normal.offset = 0;
+    term->alt.num_rows = new_rows;
+    term->alt.offset = 0;
+
+    term->normal.rows = malloc(
+        term->normal.num_rows * sizeof(term->normal.rows[0]));
+    for (int r = 0; r < term->normal.num_rows; r++) {
+        struct row *row = malloc(sizeof(*row));
+        row->cells = calloc(new_cols,  sizeof(row->cells[0]));
+        row->dirty = true;
+        term->normal.rows[r] = row;
+    }
+
+    term->alt.rows = malloc(term->alt.num_rows * sizeof(term->alt.rows[0]));
+    for (int r = 0; r < term->alt.num_rows; r++) {
+        struct row *row = malloc(sizeof(*row));
+        row->cells = calloc(new_cols, sizeof(row->cells[0]));
+        row->dirty = true;
+        term->alt.rows[r] = row;
+    }
+
+    term->cols = new_cols;
+    term->rows = new_rows;
 
     LOG_INFO("resize: %dx%d, grid: cols=%d, rows=%d",
              term->width, term->height, term->cols, term->rows);
@@ -540,10 +741,14 @@ render_resize(struct terminal *term, int width, int height)
     if (term->scroll_region.end == old_rows)
         term->scroll_region.end = term->rows;
 
+#if 0
     term_cursor_to(
         term,
         min(term->cursor.row, term->rows - 1),
         min(term->cursor.col, term->cols - 1));
+#endif
+    term->cursor.row = term->cursor.col = 0;
+    term->grid->cur_row = grid_row(term->grid, 0);
 
     term_damage_all(term);
 

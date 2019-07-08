@@ -338,25 +338,26 @@ csi_dispatch(struct terminal *term, uint8_t final)
             /* Erase screen */
 
             int param = param_get(term, 0, 0);
-            int start = -1;
-            int end = -1;
             switch (param) {
             case 0:
                 /* From cursor to end of screen */
-                start = term->cursor.linear;
-                end = term->cols * term->rows;
+                term_erase(
+                    term,
+                    &term->cursor,
+                    &(struct coord){term->cols - 1, term->rows - 1});
                 break;
 
             case 1:
                 /* From start of screen to cursor */
-                start = 0;
-                end = term->cursor.linear;
+                term_erase(term, &(struct coord){0, 0}, &term->cursor);
                 break;
 
             case 2:
                 /* Erase entire screen */
-                start = 0;
-                end = term->cols * term->rows;
+                term_erase(
+                    term,
+                    &(struct coord){0, 0},
+                    &(struct coord){term->cols - 1, term->rows - 1});
                 break;
 
             default:
@@ -365,8 +366,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 abort();
                 break;
             }
-
-            term_erase(term, start, end);
             break;
         }
 
@@ -374,25 +373,27 @@ csi_dispatch(struct terminal *term, uint8_t final)
             /* Erase line */
 
             int param = param_get(term, 0, 0);
-            int start = -1;
-            int end = -1;
             switch (param) {
             case 0:
                 /* From cursor to end of line */
-                start = term->cursor.linear;
-                end = term_cursor_linear(term, term->cursor.row, term->cols);
+                term_erase(
+                    term,
+                    &term->cursor,
+                    &(struct coord){term->cols - 1, term->cursor.row});
                 break;
 
             case 1:
                 /* From start of line to cursor */
-                start = term_cursor_linear(term, term->cursor.row, 0);
-                end = term->cursor.linear;
+                term_erase(
+                    term, &(struct coord){0, term->cursor.row}, &term->cursor);
                 break;
 
             case 2:
                 /* Entire line */
-                start = term_cursor_linear(term, term->cursor.row, 0);
-                end = term_cursor_linear(term, term->cursor.row, term->cols);
+                term_erase(
+                    term,
+                    &(struct coord){0, term->cursor.row},
+                    &(struct coord){term->cols - 1, term->cursor.row});
                 break;
 
             default:
@@ -402,7 +403,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
             }
 
-            term_erase(term, start, end);
             break;
         }
 
@@ -453,15 +453,25 @@ csi_dispatch(struct terminal *term, uint8_t final)
             int remaining = term->cols - (term->cursor.col + count);
 
             /* 'Delete' characters by moving the remaining ones */
-            memmove(&term->grid->cur_line[term->cursor.col],
-                    &term->grid->cur_line[term->cursor.col + count],
-                    remaining * sizeof(term->grid->cur_line[0]));
+            memmove(&term->grid->cur_row->cells[term->cursor.col],
+                    &term->grid->cur_row->cells[term->cursor.col + count],
+                    remaining * sizeof(term->grid->cur_row->cells[0]));
+#if 0
             term_damage_update(term, term->cursor.linear, remaining);
+#else
+            term->grid->cur_row->dirty = true;
+#endif
 
             /* Erase the remainder of the line */
             term_erase(
+                term,
+                &(struct coord){term->cursor.col + remaining, term->cursor.row},
+                &(struct coord){term->cols - 1, term->cursor.row});
+#if 0
+            term_erase(
                 term, term->cursor.linear + remaining,
                 term->cursor.linear + remaining + count);
+#endif
             break;
         }
 
@@ -478,9 +488,16 @@ csi_dispatch(struct terminal *term, uint8_t final)
             int count = min(
                 param_get(term, 0, 1), term->cols - term->cursor.col);
 
+            term_erase(
+                term,
+                &term->cursor,
+                &(struct coord){term->cursor.col + count, term->cursor.row});
+
+#if 0
             memset(&term->grid->cur_line[term->cursor.col],
                    0, count * sizeof(term->grid->cur_line[0]));
             term_damage_erase(term, term->cursor.linear, count);
+#endif
             break;
         }
 
@@ -630,8 +647,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);
 
-                        grid_memclear(term->grid, 0, term->rows * term->cols);
-                        term_damage_erase(term, 0, term->rows * term->cols);
+                        //grid_memclear(term->grid, 0, term->rows * term->cols);
+                        //term_damage_erase(term, 0, term->rows * term->cols);
                     }
                     break;
 

@@ -589,6 +589,10 @@ out:
         wl_pointer_destroy(term.wl.pointer.pointer);
     if (term.wl.pointer.surface != NULL)
         wl_surface_destroy(term.wl.pointer.surface);
+    if (term.wl.keyboard != NULL)
+        wl_keyboard_destroy(term.wl.keyboard);
+    if (term.wl.seat != NULL)
+        wl_seat_destroy(term.wl.seat);
     if (term.wl.surface != NULL)
         wl_surface_destroy(term.wl.surface);
     if (term.wl.shell != NULL)
@@ -601,9 +605,23 @@ out:
         wl_registry_destroy(term.wl.registry);
     if (term.wl.display != NULL)
         wl_display_disconnect(term.wl.display);
+    if (term.kbd.xkb_keymap != NULL)
+        xkb_keymap_unref(term.kbd.xkb_keymap);
+    if (term.kbd.xkb_state != NULL)
+        xkb_state_unref(term.kbd.xkb_state);
+    if (term.kbd.xkb != NULL)
+        xkb_context_unref(term.kbd.xkb);
 
-    free(term.normal.cells);
-    free(term.alt.cells);
+    for (int row = 0; row < term.normal.num_rows; row++) {
+        free(term.normal.rows[row]->cells);
+        free(term.normal.rows[row]);
+    }
+    free(term.normal.rows);
+    for (int row = 0; row < term.alt.num_rows; row++) {
+        free(term.alt.rows[row]->cells);
+        free(term.alt.rows[row]);
+    }
+    free(term.alt.rows);
 
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
         if (term.fonts[i] != NULL)

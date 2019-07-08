@@ -6,7 +6,7 @@
 #define LOG_MODULE "grid"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-
+#if 0
 struct cell *
 grid_get_range(struct grid *grid, int start, int *length)
 {
@@ -89,3 +89,4 @@ grid_memmove(struct grid *grid, int dst, int src, int length)
         copy_idx += count;
     }
 }
+#endif

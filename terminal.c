@@ -12,6 +12,7 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+#if 0
 static bool
 damage_merge_range(struct terminal *term, const struct damage *dmg)
 {
@@ -66,27 +67,36 @@ term_damage_update_or_erase(struct terminal *term, enum damage_type damage_type,
 
     tll_push_back(term->grid->damage, dmg);
 }
-
+#endif
 void
 term_damage_update(struct terminal *term, int start, int length)
 {
+#if 0
     assert(start + length <= term->rows * term->cols);
     term_damage_update_or_erase(term, DAMAGE_UPDATE, start, length);
+#endif
 }
 
 void
 term_damage_erase(struct terminal *term, int start, int length)
 {
+#if 0
     assert(start + length <= term->rows * term->cols);
     term_damage_update_or_erase(term, DAMAGE_ERASE, start, length);
+#endif
 }
 
 void
 term_damage_all(struct terminal *term)
 {
+#if 0
     tll_free(term->grid->damage);
     tll_free(term->grid->scroll_damage);
     term_damage_update(term, 0, term->rows * term->cols);
+#else
+    for (int i = 0; i < term->rows; i++)
+        grid_row(term->grid, i)->dirty = true;
+#endif
 }
 
 #if 0
@@ -119,6 +129,7 @@ void
 term_damage_scroll(struct terminal *term, enum damage_type damage_type,
                    struct scroll_region region, int lines)
 {
+#if 0
     //damage_adjust_after_scroll(term, damage_type, region, lines);
     if (damage_type == DAMAGE_SCROLL) {
         tll_foreach(term->grid->damage, it) {
@@ -136,7 +147,7 @@ term_damage_scroll(struct terminal *term, enum damage_type damage_type,
                 break;
         }
     }
-
+#endif
     if (tll_length(term->grid->scroll_damage) > 0) {
         struct damage *dmg = &tll_back(term->grid->scroll_damage);
 
@@ -155,6 +166,7 @@ term_damage_scroll(struct terminal *term, enum damage_type damage_type,
     tll_push_back(term->grid->scroll_damage, dmg);
 }
 
+#if 0
 void
 term_erase(struct terminal *term, int start, int end)
 {
@@ -187,12 +199,54 @@ term_erase(struct terminal *term, int start, int end)
         term_damage_erase(term, start, end - start);
     }
 }
-
-int
-term_cursor_linear(const struct terminal *term, int row, int col)
+#else
+static inline void
+erase_cell_range(struct terminal *term, struct row *row, int start, int end)
 {
-    return row * term->cols + col;
+    assert(start < term->cols);
+    assert(end < term->cols);
+
+    if (unlikely(term->vt.attrs.have_background)) {
+        for (int col = start; col <= end; col++) {
+            row->cells[col].c[0] = '\0';
+            row->cells[col].attrs.have_background = true;
+            row->cells[col].attrs.background = term->vt.attrs.background;
+        }
+    } else {
+        memset(&row->cells[start], 0, (end - start + 1) * sizeof(row->cells[0]));
+    }
+    row->dirty = true;
 }
+
+static inline void
+erase_line(struct terminal *term, struct row *row)
+{
+    erase_cell_range(term, row, 0, term->cols - 1);
+}
+
+void
+term_erase(struct terminal *term, const struct coord *start, const struct coord *end)
+{
+    assert(start->row <= end->row);
+    assert(start->col <= end->col || start->row < end->row);
+
+    if (start->row == end->row) {
+        struct row *row = grid_row(term->grid, start->row);
+        erase_cell_range(term, row, start->col, end->col);
+        return;
+    }
+
+    assert(end->row > start->row);
+
+    erase_cell_range(
+        term, grid_row(term->grid, start->row), start->col, term->cols - 1);
+
+    for (int r = start->row + 1; r < end->row; r++)
+        erase_line(term, grid_row(term->grid, r));
+
+    erase_cell_range(term, grid_row(term->grid, end->row), 0, end->col);
+}
+#endif
 
 void
 term_cursor_to(struct terminal *term, int row, int col)
@@ -200,28 +254,20 @@ term_cursor_to(struct terminal *term, int row, int col)
     assert(row < term->rows);
     assert(col < term->cols);
 
-    int new_linear = row * term->cols + col;
-    assert(new_linear < term->rows * term->cols);
-
     term->print_needs_wrap = false;
 
-    term->cursor.linear = new_linear;
     term->cursor.col = col;
     term->cursor.row = row;
 
-    int len = term->cols;
-    term->grid->cur_line = grid_get_range(
-        term->grid, term->cursor.linear - col, &len);
-
-    assert(len == term->cols);
+    term->grid->cur_row = grid_row(term->grid, row);
 }
 
 void
 term_cursor_left(struct terminal *term, int count)
 {
     int move_amount = min(term->cursor.col, count);
-    term->cursor.linear -= move_amount;
     term->cursor.col -= move_amount;
+    assert(term->cursor.col >= 0);
     term->print_needs_wrap = false;
 }
 
@@ -229,8 +275,8 @@ void
 term_cursor_right(struct terminal *term, int count)
 {
     int move_amount = min(term->cols - term->cursor.col - 1, count);
-    term->cursor.linear += move_amount;
     term->cursor.col += move_amount;
+    assert(term->cursor.col < term->cols);
     term->print_needs_wrap = false;
 }
 
@@ -253,12 +299,13 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
 {
     LOG_DBG("scroll: %d rows", rows);
 
+    assert(rows < term->rows && "unimplemented");
+
+    for (int i = region.start - 1; i >= 0; i--)
+        grid_swap_row(term->grid, i, i + rows);
+
     if (region.start > 0) {
-        /* TODO: check if it's worth memoving the scroll area instead,
-         * under certain circumstances */
-
-        grid_memmove(term->grid, rows * term->cols, 0, region.start * term->cols);
-
+#if 0
         tll_foreach(term->grid->damage, it) {
             int start = it->item.range.start - term->grid->offset;
             int end __attribute__((unused))  = start + it->item.range.length;
@@ -268,16 +315,22 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
                 it->item.range.start += rows * term->cols;
             }
         }
+#endif
     }
 
+    for (int i = term->rows - 1; i >= region.end; i--)
+        grid_swap_row(term->grid, i, i + rows);
+
     if (region.end < term->rows) {
-        /* Copy scrolled-up bottom region to new bottom region */
+#if 0
         grid_memmove(
             term->grid,
             (region.end + rows) * term->cols,
             region.end * term->cols,
             (term->rows - region.end) * term->cols);
+#endif
 
+#if 0
         tll_foreach(term->grid->damage, it) {
             int start = it->item.range.start - term->grid->offset;
             int end = start + it->item.range.length;
@@ -287,24 +340,33 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
                 it->item.range.start += rows * term->cols;
             }
         }
+#endif
     }
 
     /* Offset grid origin */
-    term->grid->offset += rows * term->cols;
+    term->grid->offset += rows;
+    term->grid->offset %= term->grid->num_rows;
 
-    /* Clear scrolled-in lines */
-    grid_memclear(
-        term->grid,
-        max(0, region.end - rows) * term->cols,
-        min(rows, term->rows) * term->cols);
+#if 0
+    term_erase(
+        term,
+        &(struct coord){0, max(region.end - rows, 0)},
+        &(struct coord){term->cols - 1, region.end - 1});
+#else
+    for (int r = max(region.end - rows, 0); r < region.end; r++)
+        erase_line(term, grid_row(term->grid, r));
+#endif
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
 
+    term->grid->cur_row = grid_row(term->grid, term->cursor.row);
+#if 0
     int len = term->cols;
     term->grid->cur_line = grid_get_range(
         term->grid, term->cursor.linear - term->cursor.col, &len);
 
     assert(len == term->cols);
+#endif
 }
 
 void
@@ -317,7 +379,11 @@ void
 term_scroll_reverse_partial(struct terminal *term,
                             struct scroll_region region, int rows)
 {
+    assert(rows < term->rows && "unimplemented");
+
     if (region.end < term->rows) {
+        //assert(false);
+#if 0
         grid_memmove(
             term->grid,
             (region.end - rows) * term->cols,
@@ -333,10 +399,12 @@ term_scroll_reverse_partial(struct terminal *term,
                 it->item.range.start -= rows * term->cols;
             }
         }
-
+#endif
     }
 
     if (region.start > 0) {
+        //assert(false);
+#if 0
         grid_memmove(
             term->grid, -rows * term->cols, 0, region.start * term->cols);
 
@@ -354,19 +422,31 @@ term_scroll_reverse_partial(struct terminal *term,
                 it->item.range.start -= rows * term->cols;
             }
         }
+#endif
     }
 
-    term->grid->offset -= rows * term->cols;
+    term->grid->offset += term->grid->num_rows - rows;
+    term->grid->offset %= term->grid->num_rows;
 
-    grid_memclear(term->grid, region.start * term->cols, rows * term->cols);
+    for (int i = region.end + rows; i < term->rows + rows; i++)
+        grid_swap_row(term->grid, i, i - rows);
+    for (int i = 0 + rows; i < region.start + rows; i++)
+        grid_swap_row(term->grid, i, i - rows);
+
+    term_erase(
+        term,
+        &(struct coord){0, region.start},
+        &(struct coord){term->cols - 1, min(region.start + rows, region.end) - 1});
 
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
-
+    term->grid->cur_row = grid_row(term->grid, term->cursor.row);
+#if 0
     int len = term->cols;
     term->grid->cur_line = grid_get_range(
         term->grid, term->cursor.linear - term->cursor.col, &len);
 
     assert(len == term->cols);
+#endif
 }
 
 void
