@@ -16,29 +16,29 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
-static const struct rgba colors_regular[] = {
-    {0.000000, 0.000000, 0.000000, 1.000000},  /* 0x000000ff */
-    {0.800000, 0.576471, 0.576471, 1.000000},  /* 0xcc9393ff */
-    {0.498039, 0.623529, 0.498039, 1.000000},  /* 0x7f9f7fff */
-    {0.815686, 0.749020, 0.560784, 1.000000},  /* 0xd0bf8fff */
-    {0.423529, 0.627451, 0.639216, 1.000000},  /* 0x6ca0a3ff */
-    {0.862745, 0.549020, 0.764706, 1.000000},  /* 0xdc8cc3ff */
-    {0.576471, 0.878431, 0.890196, 1.000000},  /* 0x93e0e3ff */
-    {0.862745, 0.862745, 0.800000, 1.000000},  /* 0xdcdcccff */
+static const struct rgb colors_regular[] = {
+    {0.000000, 0.000000, 0.000000},  /* 0x000000 */
+    {0.800000, 0.576471, 0.576471},  /* 0xcc9393 */
+    {0.498039, 0.623529, 0.498039},  /* 0x7f9f7f */
+    {0.815686, 0.749020, 0.560784},  /* 0xd0bf8f */
+    {0.423529, 0.627451, 0.639216},  /* 0x6ca0a3 */
+    {0.862745, 0.549020, 0.764706},  /* 0xdc8cc3 */
+    {0.576471, 0.878431, 0.890196},  /* 0x93e0e3 */
+    {0.862745, 0.862745, 0.800000},  /* 0xdcdccc */
 };
 
-static const struct rgba colors_bright[] = {
-    {0.000000, 0.000000, 0.000000, 1.000000},  /* 0x000000ff */
-    {0.862745, 0.639216, 0.639216, 1.000000},  /* 0xdca3a3ff */
-    {0.749020, 0.921569, 0.749020, 1.000000},  /* 0xbfebbfff */
-    {0.941176, 0.874510, 0.686275, 1.000000},  /* 0xf0dfafff */
-    {0.549020, 0.815686, 0.827451, 1.000000},  /* 0x8cd0d3ff */
-    {0.862745, 0.549020, 0.764706, 1.000000},  /* 0xdc8cc3ff */
-    {0.576471, 0.878431, 0.890196, 1.000000},  /* 0x93e0e3ff */
-    {1.000000, 1.000000, 1.000000, 1.000000},  /* 0xffffffff */
+static const struct rgb colors_bright[] = {
+    {0.000000, 0.000000, 0.000000},  /* 0x000000 */
+    {0.862745, 0.639216, 0.639216},  /* 0xdca3a3 */
+    {0.749020, 0.921569, 0.749020},  /* 0xbfebbf */
+    {0.941176, 0.874510, 0.686275},  /* 0xf0dfaf */
+    {0.549020, 0.815686, 0.827451},  /* 0x8cd0d3 */
+    {0.862745, 0.549020, 0.764706},  /* 0xdc8cc3 */
+    {0.576471, 0.878431, 0.890196},  /* 0x93e0e3 */
+    {1.000000, 1.000000, 1.000000},  /* 0xffffff */
 };
 
-static struct rgba colors256[256];
+static struct rgb colors256[256];
 
 static void __attribute__((constructor))
 initialize_colors256(void)
@@ -51,22 +51,20 @@ initialize_colors256(void)
     for (size_t r = 0; r < 6; r++) {
         for (size_t g = 0; g < 6; g++) {
             for (size_t b = 0; b < 6; b++) {
-                colors256[16 + r * 6 * 6 + g * 6 + b] = (struct rgba) {
+                colors256[16 + r * 6 * 6 + g * 6 + b] = (struct rgb) {
                     r * 51 / 255.0,
                     g * 51 / 255.0,
                     b * 51 / 255.0,
-                    1.0,
                 };
             }
         }
     }
 
     for (size_t i = 0; i < 24; i++){
-        colors256[232 + i] = (struct rgba) {
+        colors256[232 + i] = (struct rgb) {
             i * 11 / 255.0,
             i * 11 / 255.0,
             i * 11 / 255.0,
-            1.0
         };
     }
 }
@@ -152,11 +150,10 @@ csi_sgr(struct terminal *term)
                 uint8_t r = term->vt.params.v[i + 2].value;
                 uint8_t g = term->vt.params.v[i + 3].value;
                 uint8_t b = term->vt.params.v[i + 4].value;
-                term->vt.attrs.foreground = (struct rgba) {
+                term->vt.attrs.foreground = (struct rgb) {
                     r / 255.0,
                     g / 255.0,
                     b / 255.0,
-                    1.0,
                 };
                 term->vt.attrs.have_foreground = true;
                 i += 4;
@@ -199,11 +196,10 @@ csi_sgr(struct terminal *term)
                 uint8_t r = term->vt.params.v[i + 2].value;
                 uint8_t g = term->vt.params.v[i + 3].value;
                 uint8_t b = term->vt.params.v[i + 4].value;
-                term->vt.attrs.background = (struct rgba) {
+                term->vt.attrs.background = (struct rgb) {
                     r / 255.0,
                     g / 255.0,
                     b / 255.0,
-                    1.0
                 };
                 term->vt.attrs.have_background = true;
                 i += 4;

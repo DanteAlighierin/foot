@@ -36,7 +36,7 @@ struct wayland {
     struct xdg_toplevel *xdg_toplevel;
 };
 
-struct rgba { double r, g, b, a; } __attribute__((packed));
+struct rgb { double r, g, b; } __attribute__((packed));
 
 struct attributes {
 #if 0
@@ -60,8 +60,8 @@ struct attributes {
     uint8_t have_foreground:1;
     uint8_t have_background:1;
 #endif
-    struct rgba foreground; /* Only valid when have_foreground == true */
-    struct rgba background; /* Only valid when have_background == true */
+    struct rgb foreground; /* Only valid when have_foreground == true */
+    struct rgb background; /* Only valid when have_background == true */
 } __attribute__((packed));
 
 struct cell {
@@ -231,8 +231,8 @@ struct terminal {
     bool print_needs_wrap;
     struct scroll_region scroll_region;
 
-    struct rgba foreground;
-    struct rgba background;
+    struct rgb foreground;
+    struct rgb background;
 
     struct {
         int col;

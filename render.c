@@ -28,7 +28,7 @@ struct glyph_sequence {
     int count;
 
     struct attributes attrs;
-    struct rgba foreground;
+    struct rgb foreground;
 };
 
 static struct glyph_sequence gseq;
@@ -47,28 +47,22 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     double x = col * width;
     double y = row * height;
 
-    const struct rgba *foreground = cell->attrs.have_foreground
+    const struct rgb *foreground = cell->attrs.have_foreground
         ? &cell->attrs.foreground
         : !term->reverse ? &term->foreground : &term->background;
-    const struct rgba *background = cell->attrs.have_background
+    const struct rgb *background = cell->attrs.have_background
         ? &cell->attrs.background
         : !term->reverse ? &term->background : &term->foreground;
 
-    if (has_cursor) {
-        const struct rgba *swap = foreground;
-        foreground = background;
-        background = swap;
-    }
-
-    if (cell->attrs.reverse) {
-        const struct rgba *swap = foreground;
+    /* If *one* is set, we reverse */
+    if (has_cursor != cell->attrs.reverse) {
+        const struct rgb *swap = foreground;
         foreground = background;
         background = swap;
     }
 
     /* Background */
-    cairo_set_source_rgba(
-        buf->cairo, background->r, background->g, background->b, background->a);
+    cairo_set_source_rgb(buf->cairo, background->r, background->g, background->b);
     cairo_rectangle(buf->cairo, x, y, width, height);
     cairo_fill(buf->cairo);
 
@@ -95,9 +89,9 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
             LOG_WARN("hit glyph limit");
 
         cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
-        cairo_set_source_rgba(
+        cairo_set_source_rgb(
             buf->cairo, gseq.foreground.r, gseq.foreground.g,
-            gseq.foreground.b, gseq.foreground.a);
+            gseq.foreground.b);
 
         cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
 
@@ -469,9 +463,9 @@ grid_render(struct terminal *term)
             int rmargin_width = term->width - rmargin;
             int bmargin_height = term->height - bmargin;
 
-            const struct rgba *bg = !term->reverse ?
+            const struct rgb *bg = !term->reverse ?
                 &term->background : &term->foreground;
-            cairo_set_source_rgba(buf->cairo, bg->r, bg->g, bg->b, bg->a);
+            cairo_set_source_rgb(buf->cairo, bg->r, bg->g, bg->b);
 
             cairo_rectangle(buf->cairo, rmargin, 0, rmargin_width, term->height);
             cairo_rectangle(buf->cairo, 0, bmargin, term->width, bmargin_height);
@@ -599,9 +593,9 @@ grid_render(struct terminal *term)
 
     if (gseq.count > 0) {
         cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
-        cairo_set_source_rgba(
+        cairo_set_source_rgb(
             buf->cairo, gseq.foreground.r, gseq.foreground.g,
-            gseq.foreground.b, gseq.foreground.a);
+            gseq.foreground.b);
         cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
     }
 

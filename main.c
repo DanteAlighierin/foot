@@ -32,8 +32,8 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-static const struct rgba default_foreground = {0.86, 0.86, 0.86, 1.0};
-static const struct rgba default_background = {0.067, 0.067, 0.067, 1.0};
+static const struct rgb default_foreground = {0.86, 0.86, 0.86};
+static const struct rgb default_background = {0.067, 0.067, 0.067};
 
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
