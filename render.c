@@ -55,7 +55,7 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         : !term->reverse ? &term->background : &term->foreground;
 
     /* If *one* is set, we reverse */
-    if (has_cursor != cell->attrs.reverse) {
+    if (has_cursor ^ cell->attrs.reverse) {
         const struct rgb *swap = foreground;
         foreground = background;
         background = swap;
