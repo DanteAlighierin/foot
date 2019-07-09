@@ -328,14 +328,20 @@ static const struct state_transition state_csi_ignore[256] = {
     [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
 
-static const struct state_transition state_ocs_string[256] = {
+static const struct state_transition state_osc_string[256] = {
     [0x00 ... 0x06] = {.action = ACTION_IGNORE},
     [0x07]          = {                           .state = STATE_GROUND},
     [0x08 ... 0x17] = {.action = ACTION_IGNORE},
     [0x19]          = {.action = ACTION_IGNORE},
     [0x1c ... 0x1f] = {.action = ACTION_IGNORE},
+    [0x20 ... 0xff] = {.action = ACTION_OSC_PUT},
+#if 0
     [0x20 ... 0x7f] = {.action = ACTION_OSC_PUT},
     [0x9c]          = {                           .state = STATE_GROUND},
+
+    [0xc0 ... 0xdf] = {.action = ACTION_OSC_PUT},
+    [0xe0 ... 0xef] = {.action = ACTION_OSC_PUT},
+    [0xf0 ... 0xf7] = {.action = ACTION_OSC_PUT},
 
     /* Anywhere */
     [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
@@ -351,6 +357,7 @@ static const struct state_transition state_ocs_string[256] = {
     [0x9c]          = {                          .state = STATE_GROUND},
     [0x9d]          = {                          .state = STATE_OSC_STRING},
     [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
+#endif
 };
 
 static const struct state_transition state_dcs_entry[256] = {
@@ -510,7 +517,7 @@ static const struct state_transition* states[] = {
     [STATE_CSI_PARAM] = state_csi_param,
     [STATE_CSI_INTERMEDIATE] = state_csi_intermediate,
     [STATE_CSI_IGNORE] = state_csi_ignore,
-    [STATE_OSC_STRING] = state_ocs_string,
+    [STATE_OSC_STRING] = state_osc_string,
     [STATE_DCS_ENTRY] = state_dcs_entry,
     [STATE_DCS_PARAM] = state_dcs_param,
     [STATE_DCS_INTERMEDIATE] = state_dcs_intermediate,
