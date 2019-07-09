@@ -7,6 +7,7 @@
 #include <threads.h>
 
 #include <cairo.h>
+#include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -34,9 +35,10 @@ struct wayland {
     struct xdg_wm_base *shell;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
+    bool have_argb8888;
 };
 
-struct rgba { double r, g, b, a; } __attribute__((packed));
+struct rgb { double r, g, b; } __attribute__((packed));
 
 struct attributes {
 #if 0
@@ -60,8 +62,8 @@ struct attributes {
     uint8_t have_foreground:1;
     uint8_t have_background:1;
 #endif
-    struct rgba foreground; /* Only valid when have_foreground == true */
-    struct rgba background; /* Only valid when have_background == true */
+    struct rgb foreground; /* Only valid when have_foreground == true */
+    struct rgb background; /* Only valid when have_background == true */
 } __attribute__((packed));
 
 struct cell {
@@ -74,36 +76,32 @@ struct scroll_region {
     int end;
 };
 
-struct cursor {
-    int row;
+struct coord {
     int col;
-    int linear;
+    int row;
 };
 
-enum damage_type {DAMAGE_UPDATE, DAMAGE_ERASE, DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
+enum damage_type {DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
 struct damage {
     enum damage_type type;
-    union {
-        /* DAMAGE_UPDATE, DAMAGE_ERASE */
-        struct {
-            int start;
-            int length;
-        } range;
+    /* DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE */
+    struct {
+        struct scroll_region region;
+        int lines;
+    } scroll;
+};
 
-        /* DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE */
-        struct {
-            struct scroll_region region;
-            int lines;
-        } scroll;
-    };
+struct row {
+    struct cell *cells;
+    bool dirty;
 };
 
 struct grid {
-    int size;
+    int num_rows;
     int offset;
 
-    struct cell *cells;
-    struct cell *cur_line;
+    struct row **rows;
+    struct row *cur_row;
 
     tll(struct damage) damage;
     tll(struct damage) scroll_damage;
@@ -223,18 +221,18 @@ struct terminal {
     bool print_needs_wrap;
     struct scroll_region scroll_region;
 
-    struct rgba foreground;
-    struct rgba background;
+    struct rgb foreground;
+    struct rgb background;
 
     struct {
-        int row;
         int col;
+        int row;
         int button;
     } mouse;
 
-    struct cursor cursor;
-    struct cursor saved_cursor;
-    struct cursor alt_saved_cursor;
+    struct coord cursor;
+    struct coord saved_cursor;
+    struct coord alt_saved_cursor;
 
     struct grid normal;
     struct grid alt;
@@ -244,17 +242,16 @@ struct terminal {
     cairo_font_extents_t fextents;
 
     struct wayland wl;
-    bool frame_is_scheduled;
+    struct wl_callback *frame_callback;
 };
 
 void term_damage_all(struct terminal *term);
-void term_damage_update(struct terminal *term, int start, int length);
-void term_damage_erase(struct terminal *term, int start, int length);
 void term_damage_scroll(
     struct terminal *term, enum damage_type damage_type,
     struct scroll_region region, int lines);
 
-void term_erase(struct terminal *term, int start, int end);
+void term_erase(
+    struct terminal *term, const struct coord *start, const struct coord *end);
 
 void term_cursor_to(struct terminal *term, int row, int col);
 void term_cursor_left(struct terminal *term, int count);
@@ -269,8 +266,6 @@ void term_scroll_partial(
     struct terminal *term, struct scroll_region region, int rows);
 void term_scroll_reverse_partial(
     struct terminal *term, struct scroll_region region, int rows);
-
-int term_cursor_linear(const struct terminal *term, int row, int col);
 
 void term_mouse_down(struct terminal *term, int button, int row, int col,
                      bool shift, bool alt, bool ctrl);

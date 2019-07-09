@@ -658,6 +658,7 @@ pre_print(struct terminal *term)
 static inline void
 post_print(struct terminal *term)
 {
+    term->grid->cur_row->dirty = true;
     if (term->cursor.col < term->cols - 1)
         term_cursor_right(term, 1);
     else
@@ -669,11 +670,19 @@ print_insert(struct terminal *term)
 {
    if (unlikely(term->insert_mode)) {
         assert(false && "untested");
-        grid_memmove(
-            term->grid, term->cursor.linear + 1, term->cursor.linear,
+
+        struct row *row = term->grid->cur_row;
+        memmove(
+            &row[term->cursor.col + 1],
+            &row[term->cursor.col],
             term->cols - term->cursor.col - 1);
+
+#if 0
         term_damage_update(
             term, term->cursor.linear + 1, term->cols - term->cursor.col - 1);
+#else
+        row->dirty = true;
+#endif
     }
 }
 
@@ -682,8 +691,13 @@ action_print_utf8(struct terminal *term)
 {
     pre_print(term);
 
-    struct cell *cell = &term->grid->cur_line[term->cursor.col];
+    struct row *row = term->grid->cur_row;
+    struct cell *cell = &row->cells[term->cursor.col];
+#if 0
     term_damage_update(term, term->cursor.linear, 1);
+#else
+    row->dirty = true;
+#endif
 
     print_insert(term);
 
@@ -701,8 +715,13 @@ action_print(struct terminal *term, uint8_t c)
 {
     pre_print(term);
 
-    struct cell *cell = &term->grid->cur_line[term->cursor.col];
+    struct row *row = term->grid->cur_row;
+    struct cell *cell = &row->cells[term->cursor.col];
+#if 0
     term_damage_update(term, term->cursor.linear, 1);
+#else
+    row->dirty = true;
+#endif
 
     print_insert(term);
 

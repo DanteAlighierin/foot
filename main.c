@@ -10,8 +10,6 @@
 #include <poll.h>
 #include <errno.h>
 
-//#include <termios.h>
-
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
@@ -32,12 +30,15 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-static const struct rgba default_foreground = {0.86, 0.86, 0.86, 1.0};
-static const struct rgba default_background = {0.067, 0.067, 0.067, 1.0};
+static const struct rgb default_foreground = {0.86, 0.86, 0.86};
+static const struct rgb default_background = {0.067, 0.067, 0.067};
 
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
+    struct terminal *term = data;
+    if (format == WL_SHM_FORMAT_ARGB8888)
+        term->wl.have_argb8888 = true;
 }
 
 static const struct wl_shm_listener shm_listener = {
@@ -107,7 +108,7 @@ handle_global(void *data, struct wl_registry *registry,
     else if (strcmp(interface, wl_shm_interface.name) == 0) {
         term->wl.shm = wl_registry_bind(
             term->wl.registry, name, &wl_shm_interface, 1);
-        wl_shm_add_listener(term->wl.shm, &shm_listener, NULL);
+        wl_shm_add_listener(term->wl.shm, &shm_listener, term);
         wl_display_roundtrip(term->wl.display);
     }
 
@@ -378,6 +379,10 @@ main(int argc, char *const *argv)
         LOG_ERR("no XDG shell interface");
         goto out;
     }
+    if (!term.wl.have_argb8888) {
+        LOG_ERR("compositor does not support ARGB surfaces");
+        goto out;
+    }
 
     /* Cursor */
     term.wl.pointer.surface = wl_compositor_create_surface(term.wl.compositor);
@@ -491,7 +496,7 @@ main(int argc, char *const *argv)
 
         if (ret == 0 || !(timeout_ms != -1 && fds[1].revents & POLLIN)) {
             /* Delayed rendering */
-            if (!term.frame_is_scheduled)
+            if (term.frame_callback == NULL)
                 grid_render(&term);
         }
 
@@ -579,6 +584,8 @@ out:
     mtx_unlock(&term.kbd.repeat.mutex);
 
     shm_fini();
+    if (term.frame_callback != NULL)
+        wl_callback_destroy(term.frame_callback);
     if (term.wl.xdg_toplevel != NULL)
         xdg_toplevel_destroy(term.wl.xdg_toplevel);
     if (term.wl.xdg_surface != NULL)
@@ -589,6 +596,10 @@ out:
         wl_pointer_destroy(term.wl.pointer.pointer);
     if (term.wl.pointer.surface != NULL)
         wl_surface_destroy(term.wl.pointer.surface);
+    if (term.wl.keyboard != NULL)
+        wl_keyboard_destroy(term.wl.keyboard);
+    if (term.wl.seat != NULL)
+        wl_seat_destroy(term.wl.seat);
     if (term.wl.surface != NULL)
         wl_surface_destroy(term.wl.surface);
     if (term.wl.shell != NULL)
@@ -601,9 +612,23 @@ out:
         wl_registry_destroy(term.wl.registry);
     if (term.wl.display != NULL)
         wl_display_disconnect(term.wl.display);
+    if (term.kbd.xkb_keymap != NULL)
+        xkb_keymap_unref(term.kbd.xkb_keymap);
+    if (term.kbd.xkb_state != NULL)
+        xkb_state_unref(term.kbd.xkb_state);
+    if (term.kbd.xkb != NULL)
+        xkb_context_unref(term.kbd.xkb);
 
-    free(term.normal.cells);
-    free(term.alt.cells);
+    for (int row = 0; row < term.normal.num_rows; row++) {
+        free(term.normal.rows[row]->cells);
+        free(term.normal.rows[row]);
+    }
+    free(term.normal.rows);
+    for (int row = 0; row < term.alt.num_rows; row++) {
+        free(term.alt.rows[row]->cells);
+        free(term.alt.rows[row]);
+    }
+    free(term.alt.rows);
 
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
         if (term.fonts[i] != NULL)
