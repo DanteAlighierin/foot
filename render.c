@@ -308,9 +308,9 @@ grid_render(struct terminal *term)
     cairo_surface_flush(buf->cairo_surface);
     wl_surface_attach(term->wl.surface, buf->wl_buf, 0, 0);
 
-    struct wl_callback *cb = wl_surface_frame(term->wl.surface);
-    wl_callback_add_listener(cb, &frame_listener, term);
-    term->frame_is_scheduled = true;
+    assert(term->frame_callback == NULL);
+    term->frame_callback = wl_surface_frame(term->wl.surface);
+    wl_callback_add_listener(term->frame_callback, &frame_listener, term);
 
     wl_surface_commit(term->wl.surface);
 }
@@ -320,8 +320,9 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 {
     struct terminal *term = data;
 
-    term->frame_is_scheduled = false;
+    assert(term->frame_callback == wl_callback);
     wl_callback_destroy(wl_callback);
+    term->frame_callback = NULL;
     grid_render(term);
 }
 
@@ -435,7 +436,7 @@ render_resize(struct terminal *term, int width, int height)
         min(term->cursor.col, term->cols - 1));
     term_damage_all(term);
 
-    if (!term->frame_is_scheduled)
+    if (term->frame_callback == NULL)
         grid_render(term);
 }
 

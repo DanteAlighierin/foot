@@ -7,6 +7,7 @@
 #include <threads.h>
 
 #include <cairo.h>
+#include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
@@ -241,7 +242,7 @@ struct terminal {
     cairo_font_extents_t fextents;
 
     struct wayland wl;
-    bool frame_is_scheduled;
+    struct wl_callback *frame_callback;
 };
 
 void term_damage_all(struct terminal *term);

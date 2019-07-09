@@ -496,7 +496,7 @@ main(int argc, char *const *argv)
 
         if (ret == 0 || !(timeout_ms != -1 && fds[1].revents & POLLIN)) {
             /* Delayed rendering */
-            if (!term.frame_is_scheduled)
+            if (term.frame_callback == NULL)
                 grid_render(&term);
         }
 
@@ -584,6 +584,8 @@ out:
     mtx_unlock(&term.kbd.repeat.mutex);
 
     shm_fini();
+    if (term.frame_callback != NULL)
+        wl_callback_destroy(term.frame_callback);
     if (term.wl.xdg_toplevel != NULL)
         xdg_toplevel_destroy(term.wl.xdg_toplevel);
     if (term.wl.xdg_surface != NULL)
