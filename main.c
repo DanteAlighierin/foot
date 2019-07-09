@@ -10,8 +10,6 @@
 #include <poll.h>
 #include <errno.h>
 
-//#include <termios.h>
-
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xdg-shell.h>

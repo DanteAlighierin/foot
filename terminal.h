@@ -80,24 +80,14 @@ struct coord {
     int row;
 };
 
-enum damage_type {DAMAGE_UPDATE, DAMAGE_ERASE, DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
+enum damage_type {DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
 struct damage {
     enum damage_type type;
-    union {
-        /* DAMAGE_UPDATE, DAMAGE_ERASE */
-#if 0
-        struct {
-            int start;
-            int length;
-        } range;
-#endif
-
-        /* DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE */
-        struct {
-            struct scroll_region region;
-            int lines;
-        } scroll;
-    };
+    /* DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE */
+    struct {
+        struct scroll_region region;
+        int lines;
+    } scroll;
 };
 
 struct row {
@@ -109,8 +99,6 @@ struct grid {
     int num_rows;
     int offset;
 
-    //struct cell *cells;
-    //struct cell *cur_line;
     struct row **rows;
     struct row *cur_row;
 
@@ -257,13 +245,10 @@ struct terminal {
 };
 
 void term_damage_all(struct terminal *term);
-void term_damage_update(struct terminal *term, int start, int length);
-void term_damage_erase(struct terminal *term, int start, int length);
 void term_damage_scroll(
     struct terminal *term, enum damage_type damage_type,
     struct scroll_region region, int lines);
 
-//void term_erase(struct terminal *term, int start, int end);
 void term_erase(
     struct terminal *term, const struct coord *start, const struct coord *end);
 
