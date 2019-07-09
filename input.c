@@ -140,25 +140,28 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     keymap_mods |= term->kbd.alt ? MOD_ALT : MOD_NONE;
     keymap_mods |= term->kbd.ctrl ? MOD_CTRL : MOD_NONE;
 
-    for (size_t i = 0; i < sizeof(key_map) / sizeof(key_map[0]); i++) {
+    for (size_t i = 0; i < sizeof(key_map) / sizeof(key_map[0]) && !found_map; i++) {
         const struct key_map *k = &key_map[i];
         if (k->sym != sym)
             continue;
 
-        if (k->modifiers != MOD_ANY && k->modifiers != keymap_mods)
-            continue;
+        for (size_t j = 0; j < k->count; j++) {
+            const struct key_data *info = &k->data[j];
+            if (info->modifiers != MOD_ANY && info->modifiers != keymap_mods)
+                continue;
 
-        if (k->cursor_keys_mode != CURSOR_KEYS_DONTCARE &&
-            k->cursor_keys_mode != term->cursor_keys_mode)
-            continue;
+            if (info->cursor_keys_mode != CURSOR_KEYS_DONTCARE &&
+                info->cursor_keys_mode != term->cursor_keys_mode)
+                continue;
 
-        if (k->keypad_keys_mode != KEYPAD_DONTCARE &&
-            k->keypad_keys_mode != term->keypad_keys_mode)
-            continue;
+            if (info->keypad_keys_mode != KEYPAD_DONTCARE &&
+                info->keypad_keys_mode != term->keypad_keys_mode)
+                continue;
 
-        write(term->ptmx, k->seq, strlen(k->seq));
-        found_map = true;
-        break;
+            write(term->ptmx, info->seq, strlen(info->seq));
+            found_map = true;
+            break;
+        }
     }
 
     if (!found_map) {
