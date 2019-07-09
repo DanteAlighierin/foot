@@ -145,6 +145,8 @@ struct kbd {
     struct xkb_context *xkb;
     struct xkb_keymap *xkb_keymap;
     struct xkb_state *xkb_state;
+    struct xkb_compose_table *xkb_compose_table;
+    struct xkb_compose_state *xkb_compose_state;
     struct {
         mtx_t mutex;
         cnd_t cond;

@@ -13,6 +13,7 @@
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
+#include <xkbcommon/xkbcommon-compose.h>
 
 #define LOG_MODULE "main"
 #define LOG_ENABLE_DBG 0
@@ -612,6 +613,10 @@ out:
         wl_registry_destroy(term.wl.registry);
     if (term.wl.display != NULL)
         wl_display_disconnect(term.wl.display);
+    if (term.kbd.xkb_compose_state != NULL)
+        xkb_compose_state_unref(term.kbd.xkb_compose_state);
+    if (term.kbd.xkb_compose_table != NULL)
+        xkb_compose_table_unref(term.kbd.xkb_compose_table);
     if (term.kbd.xkb_keymap != NULL)
         xkb_keymap_unref(term.kbd.xkb_keymap);
     if (term.kbd.xkb_state != NULL)

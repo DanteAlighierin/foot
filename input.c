@@ -4,10 +4,12 @@
 #include <unistd.h>
 #include <signal.h>
 #include <threads.h>
+#include <locale.h>
 #include <sys/mman.h>
 
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
+#include <xkbcommon/xkbcommon-compose.h>
 
 #define LOG_MODULE "input"
 #define LOG_ENABLE_DBG 0
@@ -36,6 +38,12 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     term->kbd.mod_shift = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Shift");
     term->kbd.mod_alt = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Mod1") ;
     term->kbd.mod_ctrl = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Control");
+
+    /* Compose (dead keys) */
+    term->kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
+        term->kbd.xkb, setlocale(LC_CTYPE, NULL), XKB_COMPOSE_COMPILE_NO_FLAGS);
+    term->kbd.xkb_compose_state = xkb_compose_state_new(
+        term->kbd.xkb_compose_table, XKB_COMPOSE_STATE_NO_FLAGS);
 
     munmap(map_str, size);
     close(fd);
@@ -172,6 +180,13 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     key += 8;
     xkb_keysym_t sym = xkb_state_key_get_one_sym(term->kbd.xkb_state, key);
 
+    xkb_compose_state_feed(term->kbd.xkb_compose_state, sym);
+    enum xkb_compose_status compose_status = xkb_compose_state_get_status(
+        term->kbd.xkb_compose_state);
+
+    if (compose_status == XKB_COMPOSE_COMPOSING)
+        return;
+
     xkb_mod_mask_t mods = xkb_state_serialize_mods(
         term->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
     //xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(term->kbd.xkb_state, key);
@@ -221,11 +236,18 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     } else if (sym == XKB_KEY_Escape){
         write(term->ptmx, "\x1b", 1);
     } else {
-        /* TODO: composing */
 
         char buf[64] = {0};
-        int count = xkb_state_key_get_utf8(
-            term->kbd.xkb_state, key, buf, sizeof(buf));
+        int count = 0;
+
+        if (compose_status == XKB_COMPOSE_COMPOSED) {
+            count = xkb_compose_state_get_utf8(
+                term->kbd.xkb_compose_state, buf, sizeof(buf));
+            xkb_compose_state_reset(term->kbd.xkb_compose_state);
+        } else {
+            count = xkb_state_key_get_utf8(
+                term->kbd.xkb_state, key, buf, sizeof(buf));
+        }
 
         if (count > 0) {
             if (effective_mods & alt)
