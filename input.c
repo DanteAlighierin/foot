@@ -207,9 +207,9 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             sym, mods, consumed, significant, effective_mods);
 
     if (sym < sizeof(key_map) / sizeof(key_map[0]) &&
-        key_map[sym][term->decckm].normal != NULL)
+        key_map[sym][term->cursor_keys_mode - 1].normal != NULL)
     {
-        const struct keymap *key = &key_map[sym][term->decckm];
+        const struct keymap *key = &key_map[sym][term->cursor_keys_mode - 1];
         const char *esc = NULL;
 
         if (effective_mods == 0)

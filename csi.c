@@ -588,7 +588,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             for (size_t i = 0; i < term->vt.params.idx; i++) {
                 switch (term->vt.params.v[i].value) {
                 case 1:
-                    term->decckm = DECCKM_SS3;
+                    term->cursor_keys_mode = CURSOR_KEYS_APPLICATION;
                     break;
 
                 case 5:
@@ -667,7 +667,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             for (size_t i = 0; i < term->vt.params.idx; i++) {
                 switch (term->vt.params.v[i].value) {
                 case 1:
-                    term->decckm = DECCKM_CSI;
+                    term->cursor_keys_mode = CURSOR_KEYS_NORMAL;
                     break;
 
                 case 5:

@@ -294,8 +294,8 @@ main(int argc, char *const *argv)
     struct terminal term = {
         .quit = false,
         .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
-        .decckm = DECCKM_CSI,
-        .keypad_mode = KEYPAD_NUMERICAL,  /* TODO: verify */
+        .cursor_keys_mode = CURSOR_KEYS_NORMAL,
+        .keypad_keys_mode = KEYPAD_NUMERICAL,
         .auto_margin = true,
         .vt = {
             .state = 1,  /* STATE_GROUND */

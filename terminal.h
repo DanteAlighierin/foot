@@ -171,8 +171,8 @@ struct kbd {
     bool ctrl;
 };
 
-enum decckm { DECCKM_CSI, DECCKM_SS3 };
-enum keypad_mode { KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
+enum cursor_keys { CURSOR_KEYS_DONTCARE, CURSOR_KEYS_NORMAL, CURSOR_KEYS_APPLICATION};
+enum keypad_keys { KEYPAD_DONTCARE, KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
 enum charset { CHARSET_ASCII, CHARSET_GRAPHIC };
 
 /* *What* to report */
@@ -197,8 +197,8 @@ struct terminal {
     int ptmx;
     bool quit;
 
-    enum decckm decckm;
-    enum keypad_mode keypad_mode;
+    enum cursor_keys cursor_keys_mode;
+    enum keypad_keys keypad_keys_mode;
     bool reverse;
     bool hide_cursor;
     bool auto_margin;
