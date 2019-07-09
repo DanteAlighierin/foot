@@ -334,7 +334,12 @@ static const struct state_transition state_osc_string[256] = {
     [0x08 ... 0x17] = {.action = ACTION_IGNORE},
     [0x19]          = {.action = ACTION_IGNORE},
     [0x1c ... 0x1f] = {.action = ACTION_IGNORE},
+
     [0x20 ... 0xff] = {.action = ACTION_OSC_PUT},
+
+    [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
+    [0x1b]          = {                          .state = STATE_ESCAPE},
 #if 0
     [0x20 ... 0x7f] = {.action = ACTION_OSC_PUT},
     [0x9c]          = {                           .state = STATE_GROUND},
