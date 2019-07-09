@@ -639,13 +639,11 @@ esc_dispatch(struct terminal *term, uint8_t final)
         break;
 
     case '=':
-        /* Other half of xterm's smkx */
-        LOG_WARN("unimplemented: keypad mode change");
+        term->keypad_keys_mode = KEYPAD_APPLICATION;
         break;
 
     case '>':
-        /* Other half of xterm's rmkx */
-        LOG_WARN("unimplemented: keypad mode change");
+        term->keypad_keys_mode = KEYPAD_NUMERICAL;
         break;
 
     default:
