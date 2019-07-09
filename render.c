@@ -243,7 +243,7 @@ grid_render(struct terminal *term)
     gseq.count = 0;
 
     for (int r = 0; r < term->rows; r++) {
-        struct row *row = grid_row(term->grid, r);
+        struct row *row = grid_row_in_view(term->grid, r);
 
         if (!row->dirty)
             continue;
@@ -266,10 +266,10 @@ grid_render(struct terminal *term)
         = (term->grid->offset + term->cursor.row) * term->cols + term->cursor.col;
 
     if (last_cursor != cursor_as_linear) {
-        int row = last_cursor / term->cols - term->grid->offset;
+        int row = last_cursor / term->cols - term->grid->view;
         int col = last_cursor % term->cols;
         if (row >= 0 && row < term->rows) {
-            render_cell(term, buf, &grid_row(term->grid, row)->cells[col], col, row);
+            render_cell(term, buf, &grid_row_in_view(term->grid, row)->cells[col], col, row);
             all_clean = false;
 
             wl_surface_damage_buffer(
@@ -286,7 +286,7 @@ grid_render(struct terminal *term)
 
     render_cell(
         term, buf,
-        &grid_row(term->grid, term->cursor.row)->cells[term->cursor.col],
+        &grid_row_in_view(term->grid, term->cursor.row)->cells[term->cursor.col],
         term->cursor.col, term->cursor.row);
 
     wl_surface_damage_buffer(
@@ -304,6 +304,7 @@ grid_render(struct terminal *term)
     }
 
     assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
+    assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
 
     cairo_surface_flush(buf->cairo_surface);
     wl_surface_attach(term->wl.surface, buf->wl_buf, 0, 0);
@@ -338,12 +339,18 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
         struct cell *new_cells = new_grid[r]->cells;
         const struct cell *old_cells = old_grid[r]->cells;
 
+        new_grid[r]->initialized = old_grid[r]->initialized;
+        new_grid[r]->dirty = old_grid[r]->dirty;
+
         memcpy(new_cells, old_cells, copy_cols * sizeof(new_cells[0]));
         memset(&new_cells[copy_cols], 0, clear_cols * sizeof(new_cells[0]));
     }
 
-    for (int r = min(new_rows, old_rows); r < new_rows; r++)
+    for (int r = min(new_rows, old_rows); r < new_rows; r++) {
+        new_grid[r]->initialized = false;
+        new_grid[r]->dirty = false;
         memset(new_grid[r]->cells, 0, new_cols * sizeof(new_grid[r]->cells[0]));
+    }
 }
 
 /* Move to terminal.c? */
@@ -356,6 +363,8 @@ render_resize(struct terminal *term, int width, int height)
     term->width = width;
     term->height = height;
 
+    const int scrollback_lines = 10000;
+
     const int old_cols = term->cols;
     const int old_rows = term->rows;
     const int old_normal_grid_rows = term->normal.num_rows;
@@ -363,7 +372,7 @@ render_resize(struct terminal *term, int width, int height)
 
     const int new_cols = term->width / term->cell_width;
     const int new_rows = term->height / term->cell_height;
-    const int new_normal_grid_rows = new_rows;
+    const int new_normal_grid_rows = new_rows + scrollback_lines;
     const int new_alt_grid_rows = new_rows;
 
     /* Allocate new 'normal' grid */
@@ -387,6 +396,11 @@ render_resize(struct terminal *term, int width, int height)
            term->normal.rows, old_cols, old_normal_grid_rows);
     reflow(alt, new_cols, new_alt_grid_rows,
            term->alt.rows, old_cols, old_alt_grid_rows);
+
+    for (int r = 0; r < new_rows; r++) {
+        normal[r]->initialized = true;
+        alt[r]->initialized = true;
+    }
 
     /* Free old 'normal' grid */
     for (int r = 0; r < term->normal.num_rows; r++) {
@@ -430,10 +444,18 @@ render_resize(struct terminal *term, int width, int height)
     if (term->scroll_region.end >= old_rows)
         term->scroll_region.end = term->rows;
 
+    term->normal.offset %= term->normal.num_rows;
+    term->normal.view %= term->alt.num_rows;
+
+    term->alt.offset %= term->alt.num_rows;
+    term->alt.view %= term->alt.num_rows;
+
     term_cursor_to(
         term,
         min(term->cursor.row, term->rows - 1),
         min(term->cursor.col, term->cols - 1));
+
+    /* TODO: damage view */
     term_damage_all(term);
 
     if (term->frame_callback == NULL)

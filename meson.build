@@ -58,6 +58,7 @@ endforeach
 
 executable(
   'f00ter',
+  'commands.c', 'commands.h',
   'csi.c', 'csi.h',
   'font.c', 'font.h',
   'grid.c', 'grid.h',

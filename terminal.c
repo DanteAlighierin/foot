@@ -152,11 +152,18 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
         grid_swap_row(term->grid, i, i + rows);
 
     /* Offset grid origin */
+    bool view_follows = term->grid->view == term->grid->offset;
     term->grid->offset += rows;
     term->grid->offset %= term->grid->num_rows;
 
-    for (int r = max(region.end - rows, 0); r < region.end; r++)
-        erase_line(term, grid_row(term->grid, r));
+    if (view_follows)
+        term->grid->view = term->grid->offset;
+
+    for (int r = max(region.end - rows, 0); r < region.end; r++) {
+        struct row *row = grid_row(term->grid, r);
+        erase_line(term, row);
+        row->initialized = true;
+    }
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->cursor.row);
@@ -174,8 +181,13 @@ term_scroll_reverse_partial(struct terminal *term,
 {
     assert(rows < term->rows && "unimplemented");
 
+    bool view_follows = term->grid->view == term->grid->offset;
+
     term->grid->offset += term->grid->num_rows - rows;
     term->grid->offset %= term->grid->num_rows;
+
+    if (view_follows)
+        term->grid->view = term->grid->offset;
 
     /* Bottom non-scrolling region */
     for (int i = region.end + rows; i < term->rows + rows; i++)

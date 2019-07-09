@@ -17,6 +17,7 @@
 #include "terminal.h"
 #include "render.h"
 #include "keymap.h"
+#include "commands.h"
 
 static void
 keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
@@ -140,6 +141,18 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     keymap_mods |= term->kbd.alt ? MOD_ALT : MOD_NONE;
     keymap_mods |= term->kbd.ctrl ? MOD_CTRL : MOD_NONE;
 
+    if (effective_mods == shift) {
+        if (sym == XKB_KEY_Page_Up) {
+            cmd_scrollback_up(term);
+            found_map = true;
+        }
+
+        else if (sym == XKB_KEY_Page_Down) {
+            cmd_scrollback_down(term);
+            found_map = true;
+        }
+    }
+
     for (size_t i = 0; i < sizeof(key_map) / sizeof(key_map[0]) && !found_map; i++) {
         const struct key_map *k = &key_map[i];
         if (k->sym != sym)
@@ -160,6 +173,13 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
             write(term->ptmx, info->seq, strlen(info->seq));
             found_map = true;
+
+            if (term->grid->view != term->grid->offset) {
+                term->grid->view = term->grid->offset;
+                /* TODO: damage view */
+                term_damage_all(term);
+            }
+
             break;
         }
     }
@@ -182,6 +202,13 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                 write(term->ptmx, "\x1b", 1);
 
             write(term->ptmx, buf, count);
+
+            if (term->grid->view != term->grid->offset) {
+                term->grid->view = term->grid->offset;
+                /* TODO: damage view */
+                term_damage_all(term);
+            }
+
         }
     }
 
