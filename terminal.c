@@ -22,6 +22,13 @@ term_damage_all(struct terminal *term)
 }
 
 void
+term_damage_view(struct terminal *term)
+{
+    for (int i = 0; i < term->rows; i++)
+        grid_row_in_view(term->grid, i)->dirty = true;
+}
+
+void
 term_damage_scroll(struct terminal *term, enum damage_type damage_type,
                    struct scroll_region region, int lines)
 {
