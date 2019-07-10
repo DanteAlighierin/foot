@@ -20,6 +20,7 @@ grid_row(struct grid *grid, int row_no)
         grid->rows[real_row] = row;
     }
 
+    __builtin_prefetch(row->cells, 1, 3);
     return row;
 }
 

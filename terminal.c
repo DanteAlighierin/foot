@@ -164,8 +164,8 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
      *   2) prefetch the cells - this makes life easier for erase_line() below
      */
     for (int r = max(region.end - rows, 0); r < term->rows; r++) {
-        struct row *row  = grid_row(term->grid, r);
-        __builtin_prefetch(row->cells, 1, 3);
+        struct row *row __attribute__((unused)) = grid_row(term->grid, r);
+        //__builtin_prefetch(row->cells, 1, 3);
     }
 
     /* Top non-scrolling region. */
@@ -207,8 +207,8 @@ term_scroll_reverse_partial(struct terminal *term,
         term->grid->view = term->grid->offset;
 
     for (int r = 0; r < min(region.start + rows, region.end); r++) {
-        struct row *row = grid_row(term->grid, r);
-        __builtin_prefetch(row->cells, 1, 3);
+        struct row *row __attribute__((unused)) = grid_row(term->grid, r);
+        //__builtin_prefetch(row->cells, 1, 3);
     }
 
     /* Bottom non-scrolling region */
