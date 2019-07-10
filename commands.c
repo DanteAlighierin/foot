@@ -29,6 +29,16 @@ cmd_scrollback_up(struct terminal *term, int rows)
     while (!term->grid->rows[new_view]->initialized)
         new_view = (new_view + 1) % term->grid->num_rows;
 
+    if (new_view == term->grid->view) {
+        /*
+         *  This happens when scrolling up in a newly opened terminal;
+         *  every single line (except those already visible) are
+         *  uninitalized, and the loop above will bring us back to
+         *  where we started.
+         */
+        return;
+    }
+
     /* Don't scroll past scrollback history */
     int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
     if (end >= term->grid->offset) {
