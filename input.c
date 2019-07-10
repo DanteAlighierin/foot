@@ -7,6 +7,8 @@
 #include <locale.h>
 #include <sys/mman.h>
 
+#include <linux/input-event-codes.h>
+
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon-compose.h>
@@ -350,10 +352,20 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
         return;
 
     int amount = wl_fixed_to_int(value);
-    if (amount < 0)
+
+    if (amount < 0) {
+        for (int i = 0; i < -amount; i++) {
+            term_mouse_down(term, BTN_BACK, term->mouse.row, term->mouse.col,
+                            term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
+        }
         cmd_scrollback_up(term, -amount);
-    else
+    } else {
+        for (int i = 0; i < amount; i++) {
+            term_mouse_down(term, BTN_FORWARD, term->mouse.row, term->mouse.col,
+                            term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
+        }
         cmd_scrollback_down(term, amount);
+    }
 }
 
 static void
