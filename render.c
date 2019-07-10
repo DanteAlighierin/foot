@@ -35,13 +35,8 @@ static struct glyph_sequence gseq;
 
 static void
 render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
-            int col, int row)
+            int col, int row, bool has_cursor)
 {
-    /* Cursor here? */
-    bool has_cursor
-        = (!term->hide_cursor &&
-           (term->cursor.col == col && term->cursor.row == row));
-
     double width = term->cell_width;
     double height = term->cell_height;
     double x = col * width;
@@ -251,7 +246,7 @@ grid_render(struct terminal *term)
         //LOG_WARN("rendering line: %d", r);
 
         for (int col = 0; col < term->cols; col++)
-            render_cell(term, buf, &row->cells[col], col, r);
+            render_cell(term, buf, &row->cells[col], col, r, false);
 
         row->dirty = false;
         all_clean = false;
@@ -266,10 +261,10 @@ grid_render(struct terminal *term)
         = (term->grid->offset + term->cursor.row) * term->cols + term->cursor.col;
 
     if (last_cursor != cursor_as_linear) {
-        int row = last_cursor / term->cols - term->grid->view;
+        int row = last_cursor / term->cols - term->grid->offset;
         int col = last_cursor % term->cols;
         if (row >= 0 && row < term->rows) {
-            render_cell(term, buf, &grid_row_in_view(term->grid, row)->cells[col], col, row);
+            render_cell(term, buf, &grid_row_in_view(term->grid, row)->cells[col], col, row, false);
             all_clean = false;
 
             wl_surface_damage_buffer(
@@ -284,16 +279,31 @@ grid_render(struct terminal *term)
         return;
     }
 
-    render_cell(
-        term, buf,
-        &grid_row_in_view(term->grid, term->cursor.row)->cells[term->cursor.col],
-        term->cursor.col, term->cursor.row);
+    bool cursor_is_visible = false;
+    int view_end = (term->grid->view + term->rows - 1) % term->grid->num_rows;
+    int cursor_row = (term->grid->offset + term->cursor.row) % term->grid->num_rows;
+    if (view_end >= term->grid->view) {
+        /* Not wrapped */
+        if (cursor_row >= term->grid->view && cursor_row <= view_end)
+            cursor_is_visible = true;
+    } else {
+        /* Wrapped */
+        if (cursor_row >= term->grid->view || cursor_row <= view_end)
+            cursor_is_visible = true;
+    }
 
-    wl_surface_damage_buffer(
-        term->wl.surface,
-        term->cursor.col * term->cell_width,
-        term->cursor.row * term->cell_height,
-        term->cell_width, term->cell_height);
+    if (cursor_is_visible) {
+        render_cell(
+            term, buf,
+            &grid_row_in_view(term->grid, term->cursor.row)->cells[term->cursor.col],
+            term->cursor.col, term->cursor.row, true);
+
+        wl_surface_damage_buffer(
+            term->wl.surface,
+            term->cursor.col * term->cell_width,
+            term->cursor.row * term->cell_height,
+            term->cell_width, term->cell_height);
+    }
 
     if (gseq.count > 0) {
         cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
