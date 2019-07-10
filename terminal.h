@@ -269,6 +269,9 @@ void term_scroll_partial(
 void term_scroll_reverse_partial(
     struct terminal *term, struct scroll_region region, int rows);
 
+void term_linefeed(struct terminal *term);
+void term_reverse_index(struct terminal *term);
+
 void term_mouse_down(struct terminal *term, int button, int row, int col,
                      bool shift, bool alt, bool ctrl);
 void term_mouse_up(struct terminal *term, int button, int row, int col,

@@ -219,6 +219,24 @@ term_scroll_reverse(struct terminal *term, int rows)
     term_scroll_reverse_partial(term, term->scroll_region, rows);
 }
 
+void
+term_linefeed(struct terminal *term)
+{
+    if (term->cursor.row == term->scroll_region.end - 1)
+        term_scroll(term, 1);
+    else
+        term_cursor_down(term, 1);
+}
+
+void
+term_reverse_index(struct terminal *term)
+{
+    if (term->cursor.row == term->scroll_region.start)
+        term_scroll_reverse(term, 1);
+    else
+        term_cursor_up(term, 1);
+}
+
 static int
 linux_mouse_button_to_x(int button)
 {
