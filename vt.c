@@ -573,8 +573,8 @@ esc_as_string(struct terminal *term, uint8_t final)
     static char msg[1024];
     int c = snprintf(msg, sizeof(msg), "\E");
 
-    for (size_t i = 0; i < term->vt.intermediates.idx; i++)
-        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.intermediates.data[i]);
+    if (term->vt.private != 0)
+        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private);
 
     c += snprintf(&msg[c], sizeof(msg) - c, "%c", final);
     return msg;
@@ -815,7 +815,7 @@ action(struct terminal *term, enum action _action, uint8_t c)
 
     case ACTION_CLEAR:
         memset(&term->vt.params, 0, sizeof(term->vt.params));
-        term->vt.intermediates.idx = 0;
+        term->vt.private = 0;
         term->vt.osc.idx = 0;
         term->vt.utf8.idx = 0;
         break;
@@ -853,11 +853,11 @@ action(struct terminal *term, enum action _action, uint8_t c)
 
     case ACTION_COLLECT:
         LOG_DBG("collect");
-        term->vt.intermediates.data[term->vt.intermediates.idx++] = c;
-        break;
-
-        LOG_ERR("unimplemented: action ESC dispatch");
-        abort();
+        if (term->vt.private != 0) {
+            LOG_ERR("only one private/intermediate characters supported");
+            abort();
+        }
+        term->vt.private = c;
         break;
 
     case ACTION_ESC_DISPATCH:

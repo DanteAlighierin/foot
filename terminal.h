@@ -125,10 +125,7 @@ struct vt {
         struct vt_param v[16];
         size_t idx;
     } params;
-    struct {
-        uint8_t data[2];
-        size_t idx;
-    } intermediates;
+    char private;
     struct {
         uint8_t data[1024];
         size_t idx;

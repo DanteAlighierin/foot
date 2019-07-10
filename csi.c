@@ -255,8 +255,8 @@ csi_as_string(struct terminal *term, uint8_t final)
     static char msg[1024];
     int c = snprintf(msg, sizeof(msg), "CSI: ");
 
-    for (size_t i = 0; i < term->vt.intermediates.idx; i++)
-        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.intermediates.data[i]);
+    if (term->vt.private != 0)
+        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private);
 
     for (size_t i = 0; i < term->vt.params.idx; i++){
         c += snprintf(&msg[c], sizeof(msg) - c, "%d",
@@ -281,7 +281,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
 {
     LOG_DBG("%s", csi_as_string(term, final));
 
-    if (term->vt.intermediates.idx == 0) {
+    switch (term->vt.private) {
+    case 0: {
         switch (final) {
         case 'c':
             write(term->ptmx, "\033[?6c", 5);
@@ -577,12 +578,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
         default:
             LOG_ERR("unimplemented: %s", csi_as_string(term, final));
             abort();
+            break;
         }
+
+        break;  /* private == 0 */
     }
 
-    else if (term->vt.intermediates.idx == 1 &&
-               term->vt.intermediates.data[0] == '?') {
-
+    case '?': {
         switch (final) {
         case 'h': {
             for (size_t i = 0; i < term->vt.params.idx; i++) {
@@ -761,10 +763,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             LOG_ERR("unimplemented: %s", csi_as_string(term, final));
             abort();
         }
+
+        break; /* private == '?' */
     }
 
-    else if (term->vt.intermediates.idx == 1 &&
-               term->vt.intermediates.data[0] == '>') {
+    case '>': {
         switch (final) {
             case 'c': {
                 int param = param_get(term, 0, 0);
@@ -784,10 +787,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
             LOG_ERR("unimplemented: %s", csi_as_string(term, final));
             abort();
         }
+
+        break; /* private == '>' */
     }
 
-    else {
+    default:
         LOG_ERR("unimplemented: %s", csi_as_string(term, final));
         abort();
+        break;
     }
 }
