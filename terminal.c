@@ -146,7 +146,8 @@ term_cursor_down(struct terminal *term, int count)
 void
 term_scroll_partial(struct terminal *term, struct scroll_region region, int rows)
 {
-    LOG_DBG("scroll: %d rows", rows);
+    LOG_DBG("scroll: rows=%d, region.start=%d, region.end=%d",
+            rows, region.start, region.end);
 
     assert(rows < term->rows && "unimplemented");
 
@@ -185,6 +186,9 @@ void
 term_scroll_reverse_partial(struct terminal *term,
                             struct scroll_region region, int rows)
 {
+    LOG_DBG("scroll reverse: rows=%d, region.start=%d, region.end=%d",
+            rows, region.start, region.end);
+
     assert(rows < term->rows && "unimplemented");
 
     bool view_follows = term->grid->view == term->grid->offset;
