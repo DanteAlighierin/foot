@@ -30,13 +30,13 @@ cmd_scrollback_up(struct terminal *term, int rows)
         new_view = (new_view + 1) % term->grid->num_rows;
 
     /* Don't scroll past scrollback history */
-    int end = (term->grid->offset + term->rows) % term->grid->num_rows;
+    int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
     if (end >= term->grid->offset) {
         /* Not wrapped */
-        if (new_view >= term->grid->offset && new_view < end)
+        if (new_view >= term->grid->offset && new_view <= end)
             new_view = end;
     } else {
-        if (new_view >= term->grid->offset || new_view < end)
+        if (new_view >= term->grid->offset || new_view <= end)
             new_view = end;
     }
 
@@ -85,13 +85,13 @@ cmd_scrollback_down(struct terminal *term, int rows)
     } while (!all_initialized);
 
     /* Don't scroll past scrollback history */
-    int end = (term->grid->offset + term->rows) % term->grid->num_rows;
+    int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
     if (end >= term->grid->offset) {
         /* Not wrapped */
-        if (new_view >= term->grid->offset && new_view < end)
+        if (new_view >= term->grid->offset && new_view <= end)
             new_view = term->grid->offset;
     } else {
-        if (new_view >= term->grid->offset || new_view < end)
+        if (new_view >= term->grid->offset || new_view <= end)
             new_view = term->grid->offset;
     }
 
