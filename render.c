@@ -379,7 +379,7 @@ render_resize(struct terminal *term, int width, int height)
     term->width = width;
     term->height = height;
 
-    const int scrollback_lines = 10000;
+    const int scrollback_lines = 1000;
 
     const int old_cols = term->cols;
     const int old_rows = term->rows;
