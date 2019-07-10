@@ -44,14 +44,14 @@ cmd_scrollback_up(struct terminal *term, int rows)
     if (end >= term->grid->offset) {
         /* Not wrapped */
         if (new_view >= term->grid->offset && new_view <= end)
-            new_view = end;
+            new_view = end + 1;
     } else {
         if (new_view >= term->grid->offset || new_view <= end)
-            new_view = end;
+            new_view = end + 1;
     }
 
-    LOG_DBG("scrollback UP: %d -> %d (offset = %d, rows = %d)",
-            term->grid->view, new_view, term->grid->offset, term->grid->num_rows);
+    LOG_DBG("scrollback UP: %d -> %d (offset = %d, end = %d, rows = %d)",
+            term->grid->view, new_view, term->grid->offset, end, term->grid->num_rows);
 
     if (new_view == term->grid->view)
         return;
@@ -69,6 +69,9 @@ void
 cmd_scrollback_down(struct terminal *term, int rows)
 {
     if (term->grid == &term->alt)
+        return;
+
+    if (term->grid->view == term->grid->offset)
         return;
 
     rows = min(rows, term->grid->num_rows - term->rows);
@@ -106,8 +109,8 @@ cmd_scrollback_down(struct terminal *term, int rows)
     }
 
 
-    LOG_DBG("scrollback DOWN: %d -> %d (offset = %d, rows = %d)",
-            term->grid->view, new_view, term->grid->offset, term->grid->num_rows);
+    LOG_DBG("scrollback DOWN: %d -> %d (offset = %d, end = %d, rows = %d)",
+            term->grid->view, new_view, term->grid->offset, end, term->grid->num_rows);
 
     if (new_view == term->grid->view)
         return;
