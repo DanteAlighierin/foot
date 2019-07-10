@@ -50,6 +50,11 @@ cmd_scrollback_up(struct terminal *term, int rows)
             new_view = end + 1;
     }
 
+#if defined(_DEBUG)
+    for (int r = 0; r < term->rows; r++)
+        assert(term->grid->rows[new_view + r] != NULL);
+#endif
+
     LOG_DBG("scrollback UP: %d -> %d (offset = %d, end = %d, rows = %d)",
             term->grid->view, new_view, term->grid->offset, end, term->grid->num_rows);
 
@@ -106,6 +111,10 @@ cmd_scrollback_down(struct terminal *term, int rows)
             new_view = term->grid->offset;
     }
 
+#if defined(_DEBUG)
+    for (int r = 0; r < term->rows; r++)
+        assert(term->grid->rows[new_view + r] != NULL);
+#endif
 
     LOG_DBG("scrollback DOWN: %d -> %d (offset = %d, end = %d, rows = %d)",
             term->grid->view, new_view, term->grid->offset, end, term->grid->num_rows);
