@@ -143,12 +143,12 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
     if (effective_mods == shift) {
         if (sym == XKB_KEY_Page_Up) {
-            cmd_scrollback_up(term);
+            cmd_scrollback_up(term, term->rows);
             found_map = true;
         }
 
         else if (sym == XKB_KEY_Page_Down) {
-            cmd_scrollback_down(term);
+            cmd_scrollback_down(term, term->rows);
             found_map = true;
         }
     }
@@ -342,6 +342,18 @@ static void
 wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
                 uint32_t time, uint32_t axis, wl_fixed_t value)
 {
+    struct terminal *term = data;
+
+    /* TODO: generate button event for BTN_FORWARD/BTN_BACK? */
+
+    if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
+        return;
+
+    int amount = wl_fixed_to_int(value);
+    if (amount < 0)
+        cmd_scrollback_up(term, -amount);
+    else
+        cmd_scrollback_down(term, amount);
 }
 
 static void
