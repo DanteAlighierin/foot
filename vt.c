@@ -599,7 +599,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     case 'B': {
         /* Configure G0-G3 to use ASCII */
-        char param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : '(';
+        char param = vt_param_get(term, 0, '(');
 
         switch (param) {
         case '(': term->charset[0] = CHARSET_ASCII; break;

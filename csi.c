@@ -13,6 +13,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "grid.h"
+#include "vt.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
@@ -67,17 +68,6 @@ initialize_colors256(void)
             i * 11 / 255.0,
         };
     }
-}
-
-static int
-param_get(const struct terminal *term, size_t idx, int default_value)
-{
-    if (term->vt.params.idx > idx) {
-        int value = term->vt.params.v[idx].value;
-        return value != 0 ? value : default_value;
-    }
-
-    return default_value;
 }
 
 static void
@@ -290,7 +280,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'd': {
             /* VPA - vertical line position absolute */
-            int row = min(param_get(term, 0, 1), term->rows);
+            int row = min(vt_param_get(term, 0, 1), term->rows);
             term_cursor_to(term, row - 1, term->cursor.col);
             break;
         }
@@ -300,33 +290,33 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 'A':
-            term_cursor_up(term, param_get(term, 0, 1));
+            term_cursor_up(term, vt_param_get(term, 0, 1));
             break;
 
         case 'e':
         case 'B':
-            term_cursor_down(term, param_get(term, 0, 1));
+            term_cursor_down(term, vt_param_get(term, 0, 1));
             break;
 
         case 'C':
-            term_cursor_right(term, param_get(term, 0, 1));
+            term_cursor_right(term, vt_param_get(term, 0, 1));
             break;
 
         case 'D':
-            term_cursor_left(term, param_get(term, 0, 1));
+            term_cursor_left(term, vt_param_get(term, 0, 1));
             break;
 
         case 'G': {
             /* Cursor horizontal absolute */
-            int col = min(param_get(term, 0, 1), term->cols);
+            int col = min(vt_param_get(term, 0, 1), term->cols);
             term_cursor_to(term, term->cursor.row, col - 1);
             break;
         }
 
         case 'H': {
             /* Move cursor */
-            int row = min(param_get(term, 0, 1), term->rows);
-            int col = min(param_get(term, 1, 1), term->cols);
+            int row = min(vt_param_get(term, 0, 1), term->rows);
+            int col = min(vt_param_get(term, 1, 1), term->cols);
             term_cursor_to(term, row - 1, col - 1);
             break;
         }
@@ -334,7 +324,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'J': {
             /* Erase screen */
 
-            int param = param_get(term, 0, 0);
+            int param = vt_param_get(term, 0, 0);
             switch (param) {
             case 0:
                 /* From cursor to end of screen */
@@ -369,7 +359,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'K': {
             /* Erase line */
 
-            int param = param_get(term, 0, 0);
+            int param = vt_param_get(term, 0, 0);
             switch (param) {
             case 0:
                 /* From cursor to end of line */
@@ -409,7 +399,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
 
             int count = min(
-                param_get(term, 0, 1),
+                vt_param_get(term, 0, 1),
                 term->scroll_region.end - term->cursor.row);
 
             term_scroll_reverse_partial(
@@ -427,7 +417,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
 
             int count = min(
-                param_get(term, 0, 1),
+                vt_param_get(term, 0, 1),
                 term->scroll_region.end - term->cursor.row);
 
             term_scroll_partial(
@@ -444,7 +434,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             /* Number of characters to delete */
             int count = min(
-                param_get(term, 0, 1), term->cols - term->cursor.col);
+                vt_param_get(term, 0, 1), term->cols - term->cursor.col);
 
             /* Number of characters left after deletion (on current line) */
             int remaining = term->cols - (term->cursor.col + count);
@@ -473,17 +463,17 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 'S':
-            term_scroll(term, param_get(term, 0, 1));
+            term_scroll(term, vt_param_get(term, 0, 1));
             break;
 
         case 'T':
-            term_scroll_reverse(term, param_get(term, 0, 1));
+            term_scroll_reverse(term, vt_param_get(term, 0, 1));
             break;
 
         case 'X': {
             /* Erase chars */
             int count = min(
-                param_get(term, 0, 1), term->cols - term->cursor.col);
+                vt_param_get(term, 0, 1), term->cols - term->cursor.col);
 
             term_erase(
                 term,
@@ -510,8 +500,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 'r': {
-            int start = param_get(term, 0, 1);
-            int end = min(param_get(term, 1, term->rows), term->rows);
+            int start = vt_param_get(term, 0, 1);
+            int end = min(vt_param_get(term, 1, term->rows), term->rows);
 
             /* 1-based */
             term->scroll_region.start = start - 1;
@@ -537,7 +527,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'n': {
             if (term->vt.params.idx > 0) {
-                int param = param_get(term, 0, 0);
+                int param = vt_param_get(term, 0, 0);
                 switch (param) {
                 case 6: {
                     /* u7 - cursor position query */
@@ -770,7 +760,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
     case '>': {
         switch (final) {
             case 'c': {
-                int param = param_get(term, 0, 0);
+                int param = vt_param_get(term, 0, 0);
                 if (param != 0) {
                     LOG_ERR(
                         "unimplemented: send device attributes with param = %d",
