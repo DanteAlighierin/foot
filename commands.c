@@ -42,6 +42,10 @@ cmd_scrollback_up(struct terminal *term, int rows)
 
     LOG_DBG("scrollback UP: %d -> %d (offset = %d, rows = %d)",
             term->grid->view, new_view, term->grid->offset, term->grid->num_rows);
+
+    if (new_view == term->grid->view)
+        return;
+
     term->grid->view = new_view;
 
     for (int i = 0; i < term->rows; i++)
@@ -94,6 +98,10 @@ cmd_scrollback_down(struct terminal *term, int rows)
 
     LOG_DBG("scrollback DOWN: %d -> %d (offset = %d, rows = %d)",
             term->grid->view, new_view, term->grid->offset, term->grid->num_rows);
+
+    if (new_view == term->grid->view)
+        return;
+
     term->grid->view = new_view;
 
     for (int i = 0; i < term->rows; i++)
