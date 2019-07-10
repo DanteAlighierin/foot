@@ -56,7 +56,7 @@ struct attributes {
     uint8_t italic:1;
     uint8_t underline:1;
     uint8_t strikethrough:1;
-    uint8_t blink:1;
+    //uint8_t blink:1;  /* Not supported yet, and removing it means all other attributes fit in a single uint8_t */
     uint8_t conceal:1;
     uint8_t reverse:1;
     uint8_t have_foreground:1;

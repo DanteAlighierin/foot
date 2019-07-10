@@ -79,6 +79,33 @@ sgr_reset(struct terminal *term)
     term->vt.attrs.background = term->background;
 }
 
+static const char *
+csi_as_string(struct terminal *term, uint8_t final)
+{
+    static char msg[1024];
+    int c = snprintf(msg, sizeof(msg), "CSI: ");
+
+    if (term->vt.private != 0)
+        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private);
+
+    for (size_t i = 0; i < term->vt.params.idx; i++){
+        c += snprintf(&msg[c], sizeof(msg) - c, "%d",
+                      term->vt.params.v[i].value);
+
+        for (size_t j = 0; i < term->vt.params.v[i].sub.idx; j++) {
+            c += snprintf(&msg[c], sizeof(msg) - c, ":%d",
+                          term->vt.params.v[i].sub.value[j]);
+        }
+
+        c += snprintf(&msg[c], sizeof(msg) - c, "%s",
+                      i == term->vt.params.idx - 1 ? "" : ";");
+    }
+
+    c += snprintf(&msg[c], sizeof(msg) - c, "%c (%zu parameters)",
+                  final, term->vt.params.idx);
+    return msg;
+}
+
 static void
 csi_sgr(struct terminal *term)
 {
@@ -99,8 +126,8 @@ csi_sgr(struct terminal *term)
         case 2: term->vt.dim = true; break;
         case 3: term->vt.attrs.italic = true; break;
         case 4: term->vt.attrs.underline = true; break;
-        case 5: term->vt.attrs.blink = true; break;
-        case 6: term->vt.attrs.blink = true; break;
+        case 5: LOG_WARN("unimplemented: %s (blink)", csi_as_string(term, 'm')); /*term->vt.attrs.blink = true; */break;
+        case 6: break; /* rapid blink, ignored */
         case 7: term->vt.attrs.reverse = true; break;
         case 8: term->vt.attrs.conceal = true; break;
         case 9: term->vt.attrs.strikethrough = true; break;
@@ -108,7 +135,8 @@ csi_sgr(struct terminal *term)
         case 22: term->vt.attrs.bold = term->vt.dim = false; break;
         case 23: term->vt.attrs.italic = false; break;
         case 24: term->vt.attrs.underline = false; break;
-        case 25: term->vt.attrs.blink = false; break;
+        case 25: /*term->vt.attrs.blink = false; */break;
+        case 26: break;  /* rapid blink, ignored */
         case 27: term->vt.attrs.reverse = false; break;
         case 28: term->vt.attrs.conceal = false; break;
         case 29: term->vt.attrs.strikethrough = false; break;
@@ -237,33 +265,6 @@ csi_sgr(struct terminal *term)
             break;
         }
     }
-}
-
-static const char *
-csi_as_string(struct terminal *term, uint8_t final)
-{
-    static char msg[1024];
-    int c = snprintf(msg, sizeof(msg), "CSI: ");
-
-    if (term->vt.private != 0)
-        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private);
-
-    for (size_t i = 0; i < term->vt.params.idx; i++){
-        c += snprintf(&msg[c], sizeof(msg) - c, "%d",
-                      term->vt.params.v[i].value);
-
-        for (size_t j = 0; i < term->vt.params.v[i].sub.idx; j++) {
-            c += snprintf(&msg[c], sizeof(msg) - c, ":%d",
-                          term->vt.params.v[i].sub.value[j]);
-        }
-
-        c += snprintf(&msg[c], sizeof(msg) - c, "%s",
-                      i == term->vt.params.idx - 1 ? "" : ";");
-    }
-
-    c += snprintf(&msg[c], sizeof(msg) - c, "%c (%zu parameters)",
-                  final, term->vt.params.idx);
-    return msg;
 }
 
 void
