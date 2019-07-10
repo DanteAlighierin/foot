@@ -776,10 +776,7 @@ action(struct terminal *term, enum action _action, uint8_t c)
         switch (c) {
         case '\n':
             /* LF - line feed */
-            if (term->cursor.row == term->scroll_region.end - 1) {
-                term_scroll(term, 1);
-            } else
-                term_cursor_down(term, 1);
+            term_linefeed(term);
             break;
 
         case '\r':
