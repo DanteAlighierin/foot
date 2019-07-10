@@ -28,7 +28,7 @@ grid_row_in_view(struct grid *grid, int row_no)
 {
     assert(grid->view >= 0);
 
-    int real_row = (grid->offset + row_no + grid->num_rows) % grid->num_rows;
+    int real_row = (grid->view + row_no + grid->num_rows) % grid->num_rows;
     struct row *row = grid->rows[real_row];
 
     assert(row != NULL);
