@@ -465,8 +465,8 @@ render_resize(struct terminal *term, int width, int height)
         min(term->cursor.row, term->rows - 1),
         min(term->cursor.col, term->cols - 1));
 
-    /* TODO: damage view */
     term_damage_all(term);
+    term_damage_view(term);
 
     if (term->frame_callback == NULL)
         grid_render(term);
