@@ -346,21 +346,27 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
         size_t copy_cols = min(new_cols, old_cols);
         size_t clear_cols = new_cols - copy_cols;
 
+        if (old_grid[r] == NULL)
+            continue;
+
+        if (new_grid[r] == NULL)
+            new_grid[r] = grid_row_alloc(new_cols);
+
         struct cell *new_cells = new_grid[r]->cells;
         const struct cell *old_cells = old_grid[r]->cells;
 
-        new_grid[r]->initialized = old_grid[r]->initialized;
         new_grid[r]->dirty = old_grid[r]->dirty;
-
         memcpy(new_cells, old_cells, copy_cols * sizeof(new_cells[0]));
         memset(&new_cells[copy_cols], 0, clear_cols * sizeof(new_cells[0]));
     }
 
+#if 0
     for (int r = min(new_rows, old_rows); r < new_rows; r++) {
         new_grid[r]->initialized = false;
         new_grid[r]->dirty = false;
         memset(new_grid[r]->cells, 0, new_cols * sizeof(new_grid[r]->cells[0]));
     }
+#endif
 }
 
 /* Move to terminal.c? */
@@ -386,20 +392,14 @@ render_resize(struct terminal *term, int width, int height)
     const int new_alt_grid_rows = new_rows;
 
     /* Allocate new 'normal' grid */
-    struct row **normal = malloc(new_normal_grid_rows * sizeof(normal[0]));
-    for (int r = 0; r < new_normal_grid_rows; r++) {
-        struct row *row = malloc(sizeof(*row));
-        row->cells = malloc(new_cols * sizeof(row->cells[0]));
-        normal[r] = row;
-    }
+    struct row **normal = calloc(new_normal_grid_rows, sizeof(normal[0]));
+    for (int r = 0; r < new_rows; r++)
+        normal[r] = grid_row_alloc(new_cols);
 
     /* Allocate new 'alt' grid */
-    struct row **alt = malloc(new_alt_grid_rows * sizeof(alt[0]));
-    for (int r = 0; r < new_alt_grid_rows; r++) {
-        struct row *row = malloc(sizeof(*row));
-        row->cells = malloc(new_cols * sizeof(row->cells[0]));
-        alt[r] = row;
-    }
+    struct row **alt = calloc(new_alt_grid_rows, sizeof(alt[0]));
+    for (int r = 0; r < new_rows; r++)
+        alt[r] = grid_row_alloc(new_cols);
 
     /* Reflow content */
     reflow(normal, new_cols, new_normal_grid_rows,
@@ -407,23 +407,14 @@ render_resize(struct terminal *term, int width, int height)
     reflow(alt, new_cols, new_alt_grid_rows,
            term->alt.rows, old_cols, old_alt_grid_rows);
 
-    for (int r = 0; r < new_rows; r++) {
-        normal[r]->initialized = true;
-        alt[r]->initialized = true;
-    }
-
     /* Free old 'normal' grid */
-    for (int r = 0; r < term->normal.num_rows; r++) {
-        free(term->normal.rows[r]->cells);
-        free(term->normal.rows[r]);
-    }
+    for (int r = 0; r < term->normal.num_rows; r++)
+        grid_row_free(term->normal.rows[r]);
     free(term->normal.rows);
 
     /* Free old 'alt' grid */
-    for (int r = 0; r < term->alt.num_rows; r++) {
-        free(term->alt.rows[r]->cells);
-        free(term->alt.rows[r]);
-    }
+    for (int r = 0; r < term->alt.num_rows; r++)
+        grid_row_free(term->alt.rows[r]);
     free(term->alt.rows);
 
     term->cols = new_cols;
@@ -431,8 +422,10 @@ render_resize(struct terminal *term, int width, int height)
 
     term->normal.rows = normal;
     term->normal.num_rows = new_normal_grid_rows;
+    term->normal.num_cols = new_cols;
     term->alt.rows = alt;
     term->alt.num_rows = new_alt_grid_rows;
+    term->alt.num_cols = new_cols;
 
     LOG_INFO("resize: %dx%d, grid: cols=%d, rows=%d",
              term->width, term->height, term->cols, term->rows);

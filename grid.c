@@ -25,3 +25,22 @@ grid_swap_row(struct grid *grid, int row_a, int row_b)
     grid->rows[real_a]->dirty = true;
     grid->rows[real_b]->dirty = true;
 }
+
+struct row *
+grid_row_alloc(int cols)
+{
+    struct row *row = malloc(sizeof(*row));
+    row->cells = calloc(cols, sizeof(row->cells[0]));
+    row->dirty = false;  /* TODO: parameter? */
+    return row;
+}
+
+void
+grid_row_free(struct row *row)
+{
+    if (row == NULL)
+        return;
+
+    free(row->cells);
+    free(row);
+}

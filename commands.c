@@ -26,7 +26,7 @@ cmd_scrollback_up(struct terminal *term, int rows)
     assert(new_view < term->grid->num_rows);
 
     /* Avoid scrolling in uninitialized rows */
-    while (!term->grid->rows[new_view]->initialized)
+    while (term->grid->rows[new_view] == NULL)
         new_view = (new_view + 1) % term->grid->num_rows;
 
     if (new_view == term->grid->view) {
@@ -87,7 +87,7 @@ cmd_scrollback_down(struct terminal *term, int rows)
 
         for (int i = 0; i < term->rows; i++) {
             int row_no = (new_view + i) % term->grid->num_rows;
-            if (!term->grid->rows[row_no]->initialized) {
+            if (term->grid->rows[row_no] == NULL) {
                 all_initialized = false;
                 new_view--;
                 break;

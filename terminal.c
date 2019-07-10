@@ -169,7 +169,6 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     for (int r = max(region.end - rows, 0); r < region.end; r++) {
         struct row *row = grid_row(term->grid, r);
         erase_line(term, row);
-        row->initialized = true;
     }
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);

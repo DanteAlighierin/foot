@@ -94,11 +94,11 @@ struct damage {
 struct row {
     struct cell *cells;
     bool dirty;
-    bool initialized;
 };
 
 struct grid {
     int num_rows;
+    int num_cols;
     int offset;
     int view;
 

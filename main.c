@@ -624,15 +624,11 @@ out:
     if (term.kbd.xkb != NULL)
         xkb_context_unref(term.kbd.xkb);
 
-    for (int row = 0; row < term.normal.num_rows; row++) {
-        free(term.normal.rows[row]->cells);
-        free(term.normal.rows[row]);
-    }
+    for (int row = 0; row < term.normal.num_rows; row++)
+        grid_row_free(term.normal.rows[row]);
     free(term.normal.rows);
-    for (int row = 0; row < term.alt.num_rows; row++) {
-        free(term.alt.rows[row]->cells);
-        free(term.alt.rows[row]);
-    }
+    for (int row = 0; row < term.alt.num_rows; row++)
+        grid_row_free(term.alt.rows[row]);
     free(term.alt.rows);
 
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
