@@ -615,8 +615,17 @@ esc_dispatch(struct terminal *term, uint8_t final)
         break;
     }
 
+    case 'D':
+        term_linefeed(term);
+        break;
+
     case 'M':
         term_reverse_index(term);
+        break;
+
+    case 'E':
+        term_linefeed(term);
+        term_cursor_left(term, term->cursor.col);
         break;
 
     case '0': {
