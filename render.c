@@ -455,7 +455,7 @@ render_resize(struct terminal *term, int width, int height)
         term->scroll_region.end = term->rows;
 
     term->normal.offset %= term->normal.num_rows;
-    term->normal.view %= term->alt.num_rows;
+    term->normal.view %= term->normal.num_rows;
 
     term->alt.offset %= term->alt.num_rows;
     term->alt.view %= term->alt.num_rows;
