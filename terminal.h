@@ -228,6 +228,11 @@ struct terminal {
     struct coord saved_cursor;
     struct coord alt_saved_cursor;
 
+    struct {
+        struct coord start;
+        struct coord end;
+    } selection;
+
     struct grid normal;
     struct grid alt;
     struct grid *grid;

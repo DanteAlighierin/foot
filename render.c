@@ -42,6 +42,32 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     double x = col * width;
     double y = row * height;
 
+    bool is_selected = false;
+    if (term->selection.start.col != -1 && term->selection.end.col != -1) {
+        const struct coord *start = &term->selection.start;
+        const struct coord *end = &term->selection.end;
+
+        if (end->row < start->row || (end->row == start->row && end->col < start->col)) {
+            const struct coord *tmp = start;
+            start = end;
+            end = tmp;
+        }
+
+        assert(start->row <= end->row);
+
+        if (start->row == end->row) {
+            is_selected
+                = term->grid->view + row == start->row && col >= start->col && col <= end->col;
+        } else {
+            if (term->grid->view + row == start->row)
+                is_selected = col >= start->col;
+            else if (term->grid->view + row == end->row)
+                is_selected = col <= end->col;
+            else
+                is_selected = term->grid->view + row >= start->row && term->grid->view + row <= end->row;
+        }
+    }
+
     const struct rgb *foreground = cell->attrs.have_foreground
         ? &cell->attrs.foreground
         : !term->reverse ? &term->foreground : &term->background;
@@ -50,7 +76,7 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         : !term->reverse ? &term->background : &term->foreground;
 
     /* If *one* is set, we reverse */
-    if (has_cursor ^ cell->attrs.reverse) {
+    if (has_cursor ^ cell->attrs.reverse ^ is_selected) {
         const struct rgb *swap = foreground;
         foreground = background;
         background = swap;

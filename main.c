@@ -313,6 +313,10 @@ main(int argc, char *const *argv)
         },
         .foreground = default_foreground,
         .background = default_background,
+        .selection = {
+            .start = {-1, -1},
+            .end = {-1, -1},
+        },
         .normal = {.damage = tll_init(), .scroll_damage = tll_init()},
         .alt = {.damage = tll_init(), .scroll_damage = tll_init()},
         .grid = &term.normal,
