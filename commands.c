@@ -58,9 +58,7 @@ cmd_scrollback_up(struct terminal *term, int rows)
 
     term->grid->view = new_view;
 
-    for (int i = 0; i < term->rows; i++)
-        grid_row_in_view(term->grid, i)->dirty = true;
-
+    term_damage_view(term);
     if (term->frame_callback == NULL)
         grid_render(term);
 }
@@ -117,9 +115,7 @@ cmd_scrollback_down(struct terminal *term, int rows)
 
     term->grid->view = new_view;
 
-    for (int i = 0; i < term->rows; i++)
-        grid_row_in_view(term->grid, i)->dirty = true;
-
+    term_damage_view(term);
     if (term->frame_callback == NULL)
         grid_render(term);
 }
