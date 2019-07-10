@@ -495,7 +495,7 @@ main(int argc, char *const *argv)
             break;
         }
 
-        if (ret == 0 || !(timeout_ms != -1 && fds[1].revents & POLLIN)) {
+        if (ret == 0 || (timeout_ms != -1 && !(fds[1].revents & POLLIN))) {
             /* Delayed rendering */
             if (term.frame_callback == NULL)
                 grid_render(&term);

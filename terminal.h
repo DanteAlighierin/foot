@@ -94,11 +94,13 @@ struct damage {
 struct row {
     struct cell *cells;
     bool dirty;
+    bool initialized;
 };
 
 struct grid {
     int num_rows;
     int offset;
+    int view;
 
     struct row **rows;
     struct row *cur_row;
@@ -248,6 +250,7 @@ struct terminal {
 };
 
 void term_damage_all(struct terminal *term);
+void term_damage_view(struct terminal *term);
 void term_damage_scroll(
     struct terminal *term, enum damage_type damage_type,
     struct scroll_region region, int lines);
