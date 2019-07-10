@@ -571,7 +571,7 @@ static const char *
 esc_as_string(struct terminal *term, uint8_t final)
 {
     static char msg[1024];
-    int c = snprintf(msg, sizeof(msg), "\E");
+    int c = snprintf(msg, sizeof(msg), "\\E");
 
     if (term->vt.private != 0)
         c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private);
