@@ -101,7 +101,7 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
 
     cairo_status_t status = cairo_scaled_font_text_to_glyphs(
         attrs_to_font(term, &cell->attrs), x, y + term->fextents.ascent,
-        cell->c, strlen(cell->c), &gseq.g, &new_glyphs,
+        cell->c, strnlen(cell->c, 4), &gseq.g, &new_glyphs,
         NULL, NULL, NULL);
 
     if (status != CAIRO_STATUS_SUCCESS)

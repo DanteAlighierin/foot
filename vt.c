@@ -757,7 +757,7 @@ action_print(struct terminal *term, uint8_t c)
     if (unlikely(term->charset[term->selected_charset] == CHARSET_GRAPHIC) &&
         c >= 0x41 && c <= 0x7e)
     {
-        strcpy(cell->c, vt100_0[c - 0x41]);
+        strncpy(cell->c, vt100_0[c - 0x41], sizeof(cell->c));
     } else {
         //LOG_DBG("print: ASCII: %c", c);
         cell->c[0] = c;

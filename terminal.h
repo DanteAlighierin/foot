@@ -68,7 +68,7 @@ struct attributes {
 
 struct cell {
     struct attributes attrs;
-    char c[5];
+    char c[4];
 } __attribute__((packed));
 
 struct scroll_region {
