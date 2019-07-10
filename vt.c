@@ -615,6 +615,10 @@ esc_dispatch(struct terminal *term, uint8_t final)
         break;
     }
 
+    case 'M':
+        term_reverse_index(term);
+        break;
+
     case '0': {
         /* Configure G0-G3 to use special chars + line drawing */
         char param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : '(';
@@ -632,11 +636,6 @@ esc_dispatch(struct terminal *term, uint8_t final)
         }
         break;
     }
-
-    case 'M':
-        /* ri - reverse index (scroll reverse) */
-        term_scroll_reverse(term, 1);
-        break;
 
     case '=':
         term->keypad_keys_mode = KEYPAD_APPLICATION;
