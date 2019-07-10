@@ -38,37 +38,30 @@ struct wayland {
     bool have_argb8888;
 };
 
-struct rgb { double r, g, b; } __attribute__((packed));
+struct rgb { float r, g, b; } __attribute__((packed));
 
+/*
+ *  Note: we want the cells to be as small as possible. Larger cells
+ *  means fewer scrollback lines (or performance drops due to cache
+ *  misses) */
 struct attributes {
-#if 0
-    bool bold;
-    bool italic;
-    bool underline;
-    bool strikethrough;
-    bool blink;
-    bool conceal;
-    bool reverse;
-    bool have_foreground;
-    bool have_background;
-#else
     uint8_t bold:1;
     uint8_t italic:1;
     uint8_t underline:1;
     uint8_t strikethrough:1;
-    uint8_t blink:1;
+    //uint8_t blink:1;  /* Not supported yet, and removing it means all other attributes fit in a single uint8_t */
     uint8_t conceal:1;
     uint8_t reverse:1;
     uint8_t have_foreground:1;
     uint8_t have_background:1;
-#endif
+
     struct rgb foreground; /* Only valid when have_foreground == true */
     struct rgb background; /* Only valid when have_background == true */
 } __attribute__((packed));
 
 struct cell {
     struct attributes attrs;
-    char c[5];
+    char c[4];
 } __attribute__((packed));
 
 struct scroll_region {

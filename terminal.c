@@ -146,19 +146,11 @@ term_cursor_down(struct terminal *term, int count)
 void
 term_scroll_partial(struct terminal *term, struct scroll_region region, int rows)
 {
-    LOG_DBG("scroll: %d rows", rows);
+    LOG_DBG("scroll: rows=%d, region.start=%d, region.end=%d",
+            rows, region.start, region.end);
 
     assert(rows < term->rows && "unimplemented");
 
-    /* Top non-scrolling region */
-    for (int i = region.start - 1; i >= 0; i--)
-        grid_swap_row(term->grid, i, i + rows);
-
-    /* Bottom non-scrolling region */
-    for (int i = term->rows - 1; i >= region.end; i--)
-        grid_swap_row(term->grid, i, i + rows);
-
-    /* Offset grid origin */
     bool view_follows = term->grid->view == term->grid->offset;
     term->grid->offset += rows;
     term->grid->offset %= term->grid->num_rows;
@@ -166,10 +158,27 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     if (view_follows)
         term->grid->view = term->grid->offset;
 
-    for (int r = max(region.end - rows, 0); r < region.end; r++) {
-        struct row *row = grid_row(term->grid, r);
-        erase_line(term, row);
+    /*
+     * This loop serves two purposes:
+     *   1) ensure all visible lines are *allocated*
+     *   2) prefetch the cells - this makes life easier for erase_line() below
+     */
+    for (int r = max(region.end - rows, 0); r < term->rows; r++) {
+        struct row *row  = grid_row(term->grid, r);
+        __builtin_prefetch(row->cells, 1, 3);
     }
+
+    /* Top non-scrolling region. */
+    for (int i = region.start - 1; i >= 0; i--)
+        grid_swap_row(term->grid, i - rows, i);
+
+    /* Bottom non-scrolling region */
+    for (int i = term->rows - 1; i >= region.end; i--)
+        grid_swap_row(term->grid, i - rows, i);
+
+    /* Erase scrolled in lines */
+    for (int r = max(region.end - rows, 0); r < region.end; r++)
+        erase_line(term, grid_row(term->grid, r));
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->cursor.row);
@@ -185,15 +194,22 @@ void
 term_scroll_reverse_partial(struct terminal *term,
                             struct scroll_region region, int rows)
 {
+    LOG_DBG("scroll reverse: rows=%d, region.start=%d, region.end=%d",
+            rows, region.start, region.end);
+
     assert(rows < term->rows && "unimplemented");
 
     bool view_follows = term->grid->view == term->grid->offset;
-
     term->grid->offset += term->grid->num_rows - rows;
     term->grid->offset %= term->grid->num_rows;
 
     if (view_follows)
         term->grid->view = term->grid->offset;
+
+    for (int r = 0; r < min(region.start + rows, region.end); r++) {
+        struct row *row = grid_row(term->grid, r);
+        __builtin_prefetch(row->cells, 1, 3);
+    }
 
     /* Bottom non-scrolling region */
     for (int i = region.end + rows; i < term->rows + rows; i++)
@@ -203,10 +219,9 @@ term_scroll_reverse_partial(struct terminal *term,
     for (int i = 0 + rows; i < region.start + rows; i++)
         grid_swap_row(term->grid, i, i - rows);
 
-    term_erase(
-        term,
-        &(struct coord){0, region.start},
-        &(struct coord){term->cols - 1, min(region.start + rows, region.end) - 1});
+    /* Erase scrolled in lines */
+    for (int r = region.start; r < min(region.start + rows, region.end); r++)
+        erase_line(term, grid_row(term->grid, r));
 
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->cursor.row);
