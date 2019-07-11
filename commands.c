@@ -52,7 +52,7 @@ cmd_scrollback_up(struct terminal *term, int rows)
 
 #if defined(_DEBUG)
     for (int r = 0; r < term->rows; r++)
-        assert(term->grid->rows[new_view + r] != NULL);
+        assert(term->grid->rows[(new_view + r) % term->grid->num_rows] != NULL);
 #endif
 
     LOG_DBG("scrollback UP: %d -> %d (offset = %d, end = %d, rows = %d)",
@@ -113,7 +113,7 @@ cmd_scrollback_down(struct terminal *term, int rows)
 
 #if defined(_DEBUG)
     for (int r = 0; r < term->rows; r++)
-        assert(term->grid->rows[new_view + r] != NULL);
+        assert(term->grid->rows[(new_view + r) % term->grid->num_rows] != NULL);
 #endif
 
     LOG_DBG("scrollback DOWN: %d -> %d (offset = %d, end = %d, rows = %d)",
