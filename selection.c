@@ -289,22 +289,33 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
     int read_fd = fds[0];
     int write_fd = fds[1];
 
-    wl_data_offer_receive(clipboard->data_offer, "text/plain;charset=utf-8", write_fd);
+    wl_data_offer_receive(
+        clipboard->data_offer, "text/plain;charset=utf-8", write_fd);
     wl_display_roundtrip(term->wl.display);
 
-    char text[4096];
-    ssize_t amount = read(read_fd, text, sizeof(text));
-
-    close(read_fd);
     close(write_fd);
 
     if (term->bracketed_paste)
         write(term->ptmx, "\033[200~", 6);
 
-    write(term->ptmx, text, amount);
+    /* Read until EOF */
+    while (true) {
+        char text[256];
+        ssize_t amount = read(read_fd, text, sizeof(text));
+
+        if (amount == -1) {
+            LOG_ERRNO("failed to read clipboard data: %d", errno);
+            break;
+        } else if (amount == 0)
+            break;
+
+        write(term->ptmx, text, amount);
+    }
 
     if (term->bracketed_paste)
         write(term->ptmx, "\033[201~", 6);
+
+    close(read_fd);
 }
 
 static void
