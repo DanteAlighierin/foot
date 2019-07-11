@@ -8,9 +8,18 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+static bool
+selection_enabled(const struct terminal *term)
+{
+    return term->mouse_tracking == MOUSE_NONE;
+}
+
 void
 selection_start(struct terminal *term, int col, int row)
 {
+    if (!selection_enabled(term))
+        return;
+
     selection_cancel(term);
 
     LOG_DBG("selection started at %d,%d", row, col);
@@ -21,6 +30,9 @@ selection_start(struct terminal *term, int col, int row)
 void
 selection_update(struct terminal *term, int col, int row)
 {
+    if (!selection_enabled(term))
+        return;
+
     LOG_DBG("selection updated: start = %d,%d, end = %d,%d -> %d, %d",
             term->selection.start.row, term->selection.start.col,
             term->selection.end.row, term->selection.end.col,
@@ -41,6 +53,9 @@ selection_update(struct terminal *term, int col, int row)
 void
 selection_finalizie(struct terminal *term)
 {
+    if (!selection_enabled(term))
+        return;
+
     assert(term->selection.start.row != -1);
     assert(term->selection.end.row != -1);
 }
@@ -48,6 +63,9 @@ selection_finalizie(struct terminal *term)
 void
 selection_cancel(struct terminal *term)
 {
+    if (!selection_enabled(term))
+        return;
+
     LOG_DBG("selection cancelled: start = %d,%d end = %d,%d",
             term->selection.start.row, term->selection.start.col,
             term->selection.end.row, term->selection.end.col);
