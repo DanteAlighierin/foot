@@ -61,7 +61,7 @@ selection_update(struct terminal *term, int col, int row)
 }
 
 void
-selection_finalizie(struct terminal *term)
+selection_finalize(struct terminal *term)
 {
     if (!selection_enabled(term))
         return;
