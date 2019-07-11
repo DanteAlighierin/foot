@@ -38,13 +38,23 @@ selection_update(struct terminal *term, int col, int row)
             term->selection.end.row, term->selection.end.col,
             row, col);
 
+    int start_row = term->selection.start.row;
+    int old_end_row = term->selection.end.row;
+    int new_end_row = term->grid->view + row;
+
+    assert(start_row != -1);
+    assert(new_end_row != -1);
+
+    if (old_end_row == -1)
+        old_end_row = new_end_row;
+
+    int from = min(start_row, min(old_end_row, new_end_row));
+    int to = max(start_row, max(old_end_row, new_end_row));
+
     term->selection.end = (struct coord){col, term->grid->view + row};
 
     assert(term->selection.start.row != -1 && term->selection.end.row != -1);
-    term_damage_rows_in_view(
-        term,
-        min(term->selection.start.row, term->selection.end.row) - term->grid->view,
-        max(term->selection.start.row, term->selection.end.row) - term->grid->view);
+    term_damage_rows_in_view(term, from - term->grid->view, to - term->grid->view);
 
     if (term->frame_callback == NULL)
         grid_render(term);
