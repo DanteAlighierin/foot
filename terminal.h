@@ -244,8 +244,12 @@ struct terminal {
     struct wl_callback *frame_callback;
 };
 
+void term_damage_rows(struct terminal *term, int start, int end);
+void term_damage_rows_in_view(struct terminal *term, int start, int end);
+
 void term_damage_all(struct terminal *term);
 void term_damage_view(struct terminal *term);
+
 void term_damage_scroll(
     struct terminal *term, enum damage_type damage_type,
     struct scroll_region region, int lines);

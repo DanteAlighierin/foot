@@ -15,10 +15,25 @@
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
 void
+term_damage_rows(struct terminal *term, int start, int end)
+{
+    assert(start <= end);
+    for (int r = start; r <= end; r++)
+        grid_row(term->grid, r)->dirty = true;
+}
+
+void
+term_damage_rows_in_view(struct terminal *term, int start, int end)
+{
+    assert(start <= end);
+    for (int r = start; r <= end; r++)
+        grid_row_in_view(term->grid, r)->dirty = true;
+}
+
+void
 term_damage_all(struct terminal *term)
 {
-    for (int i = 0; i < term->rows; i++)
-        grid_row(term->grid, i)->dirty = true;
+    term_damage_rows(term, 0, term->rows);
 }
 
 void
