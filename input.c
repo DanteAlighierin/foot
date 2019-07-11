@@ -307,6 +307,9 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     int col = x / term->cell_width;
     int row = y / term->cell_height;
 
+    if (col < 0 || row < 0 || col >= term->cols || row >= term->rows)
+        return;
+
     bool update_selection = term->mouse.button == BTN_LEFT;
     bool update_selection_early = term->selection.end.row == -1;
 
