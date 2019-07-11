@@ -34,8 +34,17 @@ extract_selection(const struct terminal *term)
 
     assert(start->row <= end->row);
 
-    /* TODO: calculate length required */
-    char buf[4096];
+    size_t max_cells = 0;
+    if (start->row == end->row) {
+        assert(start->col <= end->col);
+        max_cells = end->col - start->col + 1;
+    } else {
+        max_cells = term->cols - start->col;
+        max_cells += term->cols * (end->row - start->row - 1);
+        max_cells += end->col + 1;
+    }
+
+    char *buf = malloc(max_cells * 4 + 1);
     int idx = 0;
 
     int start_col = start->col;
@@ -75,7 +84,7 @@ extract_selection(const struct terminal *term)
     }
 
     buf[idx] = '\0';
-    return strdup(buf);
+    return buf;
 }
 
 void
