@@ -189,7 +189,8 @@ static void
 send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
      int32_t fd)
 {
-    const struct clipboard *clipboard = wl_data_source_get_user_data(wl_data_source);
+    const struct clipboard *clipboard
+        = wl_data_source_get_user_data(wl_data_source);
 
     assert(clipboard != NULL);
     assert(clipboard->text != NULL);
@@ -199,6 +200,7 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
 
     while (left > 0) {
         ssize_t ret = write(fd, &clipboard->text[idx], left);
+
         if (ret == -1 && errno != EINTR) {
             LOG_ERRNO("failed to write to clipboard");
             break;
@@ -267,17 +269,24 @@ selection_to_clipboard(struct terminal *term, uint32_t serial)
 
     struct clipboard *clipboard = &term->selection.clipboard;
 
+    /* Get selection as a string */
     clipboard->text = extract_selection(term);
 
     clipboard->data_source
         = wl_data_device_manager_create_data_source(term->wl.data_device_manager);
 
-    assert(clipboard->data_source != NULL);
+    if (clipboard->data_source == NULL) {
+        LOG_ERR("failed to create clipboard data source");
+        return;
+    }
 
+    /* Configure source */
     wl_data_source_offer(clipboard->data_source, "text/plain;charset=utf-8");
     wl_data_source_add_listener(clipboard->data_source, &data_source_listener, term);
     wl_data_device_set_selection(term->wl.data_device, clipboard->data_source, serial);
     wl_data_source_set_user_data(clipboard->data_source, clipboard);
+
+    /* Needed when sending the selection to other client */
     clipboard->serial = serial;
 }
 
@@ -288,8 +297,8 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
     if (clipboard->data_offer == NULL)
         return;
 
+    /* Prepare a pipe the other client can write its selection to us */
     int fds[2];
-
     if (pipe2(fds, O_CLOEXEC) == -1) {
         LOG_ERRNO("failed to create pipe");
         return;
@@ -298,10 +307,12 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
     int read_fd = fds[0];
     int write_fd = fds[1];
 
+    /* Give write-end of pipe to other client */
     wl_data_offer_receive(
         clipboard->data_offer, "text/plain;charset=utf-8", write_fd);
     wl_display_roundtrip(term->wl.display);
 
+    /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
 
     if (term->bracketed_paste)
@@ -330,7 +341,6 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
 static void
 offer(void *data, struct wl_data_offer *wl_data_offer, const char *mime_type)
 {
-    LOG_ERR("OFFER: %s", mime_type);
 }
 
 static void
@@ -383,6 +393,8 @@ static void
 selection(void *data, struct wl_data_device *wl_data_device,
           struct wl_data_offer *id)
 {
+    /* Selection offer from other client */
+
     struct terminal *term = data;
     struct clipboard *clipboard = &term->selection.clipboard;
 
