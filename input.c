@@ -312,7 +312,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     term->mouse.col = col;
     term->mouse.row = row;
 
-    if (term->mouse.button != 0) {
+    if (term->mouse.button == BTN_LEFT) {
         /* Update selection */
         term->selection.end = (struct coord){col, term->grid->view + row};
         term_damage_view(term);
@@ -335,10 +335,18 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     switch (state) {
     case WL_POINTER_BUTTON_STATE_PRESSED:
-        /* Start selection */
-        term->selection.start = (struct coord){
-            term->mouse.col, term->grid->view + term->mouse.row};
-        term->selection.end = (struct coord){-1, -1};
+        if (button == BTN_LEFT) {
+            /* Start selection */
+            term->selection.start = (struct coord){
+                term->mouse.col, term->grid->view + term->mouse.row};
+            term->selection.end = (struct coord){-1, -1};
+        } else {
+            term->selection.start = (struct coord){-1, -1};
+            term->selection.end = (struct coord){-1, -1};
+            term_damage_view(term);
+            if (term->frame_callback == NULL)
+                grid_render(term);
+        }
 
         term->mouse.button = button; /* For motion events */
         term_mouse_down(term, button, term->mouse.row, term->mouse.col,
@@ -346,7 +354,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case WL_POINTER_BUTTON_STATE_RELEASED:
-        if (term->selection.end.col == -1) {
+        if (button == BTN_LEFT && term->selection.end.col == -1) {
             /* No selection made - cancel  */
             term->selection.start = (struct coord){-1, -1};
             term_damage_view(term);
