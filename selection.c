@@ -342,6 +342,49 @@ void
 selection_from_primary(struct terminal *term)
 {
     LOG_WARN("selection from PRIMARY");
+    struct primary *primary = &term->selection.primary;
+    if (primary->data_offer == NULL)
+        return;
+
+    /* Prepare a pipe the other client can write its selection to us */
+    int fds[2];
+    if (pipe2(fds, O_CLOEXEC) == -1) {
+        LOG_ERRNO("failed to create pipe");
+        return;
+    }
+
+    int read_fd = fds[0];
+    int write_fd = fds[1];
+
+    /* Give write-end of pipe to other client */
+    zwp_primary_selection_offer_v1_receive(
+        primary->data_offer, "text/plain;charset=utf-8", write_fd);
+    wl_display_roundtrip(term->wl.display);
+
+    /* Don't keep our copy of the write-end open (or we'll never get EOF) */
+    close(write_fd);
+
+    if (term->bracketed_paste)
+        write(term->ptmx, "\033[200~", 6);
+
+    /* Read until EOF */
+    while (true) {
+        char text[256];
+        ssize_t amount = read(read_fd, text, sizeof(text));
+
+        if (amount == -1) {
+            LOG_ERRNO("failed to read clipboard data: %d", errno);
+            break;
+        } else if (amount == 0)
+            break;
+
+        write(term->ptmx, text, amount);
+    }
+
+    if (term->bracketed_paste)
+        write(term->ptmx, "\033[201~", 6);
+
+    close(read_fd);
 }
 
 static void
@@ -419,4 +462,47 @@ const struct wl_data_device_listener data_device_listener = {
     .motion = &motion,
     .drop = &drop,
     .selection = &selection,
+};
+
+static void
+primary_offer(void *data,
+              struct zwp_primary_selection_offer_v1 *zwp_primary_selection_offer,
+              const char *mime_type)
+{
+}
+
+static const struct zwp_primary_selection_offer_v1_listener primary_selection_offer_listener = {
+    .offer = &primary_offer,
+};
+
+static void
+primary_data_offer(void *data,
+                   struct zwp_primary_selection_device_v1 *zwp_primary_selection_device,
+                   struct zwp_primary_selection_offer_v1 *offer)
+{
+}
+
+static void
+primary_selection(void *data,
+                  struct zwp_primary_selection_device_v1 *zwp_primary_selection_device,
+                  struct zwp_primary_selection_offer_v1 *id)
+{
+    /* Selection offer from other client, for primary */
+
+    struct terminal *term = data;
+    struct primary *primary = &term->selection.primary;
+
+    if (primary->data_offer != NULL)
+        zwp_primary_selection_offer_v1_destroy(primary->data_offer);
+
+    primary->data_offer = id;
+    if (id != NULL) {
+        zwp_primary_selection_offer_v1_add_listener(
+            id, &primary_selection_offer_listener, term);
+    }
+}
+
+const struct zwp_primary_selection_device_v1_listener primary_selection_device_listener = {
+    .data_offer = &primary_data_offer,
+    .selection = &primary_selection,
 };

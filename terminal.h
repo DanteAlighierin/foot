@@ -8,8 +8,10 @@
 
 #include <cairo.h>
 #include <wayland-client.h>
+#include <primary-selection-unstable-v1.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
+
 
 #include "tllist.h"
 
@@ -25,6 +27,8 @@ struct wayland {
     struct wl_seat *seat;
     struct wl_data_device_manager *data_device_manager;
     struct wl_data_device *data_device;
+    struct zwp_primary_selection_device_manager_v1 *primary_selection_device_manager;
+    struct zwp_primary_selection_device_v1 *primary_selection_device;
     struct wl_keyboard *keyboard;
     struct {
         struct wl_pointer *pointer;
@@ -193,6 +197,13 @@ struct clipboard {
     uint32_t serial;
 };
 
+struct primary {
+    struct zwp_primary_selection_source_v1 *data_source;
+    struct zwp_primary_selection_offer_v1 *data_offer;
+    char *text;
+    uint32_t serial;
+};
+
 struct terminal {
     pid_t slave;
     int ptmx;
@@ -240,8 +251,8 @@ struct terminal {
     struct {
         struct coord start;
         struct coord end;
-        struct clipboard primary;
         struct clipboard clipboard;
+        struct primary primary;
     } selection;
 
     struct grid normal;
