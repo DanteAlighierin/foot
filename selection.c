@@ -470,6 +470,7 @@ selection_from_primary(struct terminal *term)
     close(read_fd);
 }
 
+#if 0
 static void
 offer(void *data, struct wl_data_offer *wl_data_offer, const char *mime_type)
 {
@@ -491,6 +492,7 @@ static const struct wl_data_offer_listener data_offer_listener = {
     .source_actions = &source_actions,
     .action = &offer_action,
 };
+#endif
 
 static void
 data_offer(void *data, struct wl_data_device *wl_data_device,
@@ -534,8 +536,10 @@ selection(void *data, struct wl_data_device *wl_data_device,
         wl_data_offer_destroy(clipboard->data_offer);
 
     clipboard->data_offer = id;
+#if 0
     if (id != NULL)
         wl_data_offer_add_listener(id, &data_offer_listener, term);
+#endif
 }
 
 const struct wl_data_device_listener data_device_listener = {
@@ -547,6 +551,7 @@ const struct wl_data_device_listener data_device_listener = {
     .selection = &selection,
 };
 
+#if 0
 static void
 primary_offer(void *data,
               struct zwp_primary_selection_offer_v1 *zwp_primary_selection_offer,
@@ -557,6 +562,7 @@ primary_offer(void *data,
 static const struct zwp_primary_selection_offer_v1_listener primary_selection_offer_listener = {
     .offer = &primary_offer,
 };
+#endif
 
 static void
 primary_data_offer(void *data,
@@ -579,10 +585,12 @@ primary_selection(void *data,
         zwp_primary_selection_offer_v1_destroy(primary->data_offer);
 
     primary->data_offer = id;
+#if 0
     if (id != NULL) {
         zwp_primary_selection_offer_v1_add_listener(
             id, &primary_selection_offer_listener, term);
     }
+#endif
 }
 
 const struct zwp_primary_selection_device_v1_listener primary_selection_device_listener = {
