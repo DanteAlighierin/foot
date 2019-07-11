@@ -13,3 +13,4 @@ void selection_cancel(struct terminal *term);
 
 void selection_to_clipboard(struct terminal *term, uint32_t serial);
 void selection_from_clipboard(struct terminal *term, uint32_t serial);
+void selection_from_primary(struct terminal *term);

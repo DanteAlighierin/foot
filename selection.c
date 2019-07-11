@@ -338,6 +338,12 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
     close(read_fd);
 }
 
+void
+selection_from_primary(struct terminal *term)
+{
+    LOG_WARN("selection from PRIMARY");
+}
+
 static void
 offer(void *data, struct wl_data_offer *wl_data_offer, const char *mime_type)
 {

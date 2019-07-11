@@ -354,8 +354,11 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     case WL_POINTER_BUTTON_STATE_PRESSED:
         if (button == BTN_LEFT)
             selection_start(term, term->mouse.col, term->mouse.row);
-        else
+        else {
+            if (button == BTN_MIDDLE)
+                selection_from_primary(term);
             selection_cancel(term);
+        }
 
         term->mouse.button = button; /* For motion events */
         term_mouse_down(term, button, term->mouse.row, term->mouse.col,
