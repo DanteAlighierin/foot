@@ -66,6 +66,9 @@ selection_finalize(struct terminal *term)
     if (!selection_enabled(term))
         return;
 
+    if (term->selection.start.row == -1 || term->selection.end.row == -1)
+        return;
+
     assert(term->selection.start.row != -1);
     assert(term->selection.end.row != -1);
 }
