@@ -16,10 +16,8 @@ cmd_scrollback_up(struct terminal *term, int rows)
     if (term->grid == &term->alt)
         return;
 
-    rows = min(rows, term->grid->num_rows - term->rows);
-
+    rows = min(rows, term->rows);
     assert(term->grid->offset >= 0);
-    assert(rows <= term->rows);
 
     int new_view = (term->grid->view + term->grid->num_rows - rows) % term->grid->num_rows;
     assert(new_view >= 0);
@@ -77,8 +75,7 @@ cmd_scrollback_down(struct terminal *term, int rows)
     if (term->grid->view == term->grid->offset)
         return;
 
-    rows = min(rows, term->grid->num_rows - term->rows);
-
+    rows = min(rows, term->rows);
     assert(term->grid->offset >= 0);
 
     int new_view = (term->grid->view + rows) % term->grid->num_rows;
