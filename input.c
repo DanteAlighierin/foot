@@ -366,7 +366,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case WL_POINTER_BUTTON_STATE_RELEASED:
-        if (button == BTN_LEFT && term->selection.end.col == -1)
+        if (button != BTN_LEFT || term->selection.end.col == -1)
             selection_cancel(term);
         else
             selection_finalize(term, serial);
