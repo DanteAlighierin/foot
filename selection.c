@@ -279,9 +279,6 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
     if (clipboard->data_offer == NULL)
         return;
 
-    wl_data_offer_accept(clipboard->data_offer, serial, "text/plain");
-    wl_data_offer_accept(clipboard->data_offer, serial, "text/plain;charset=utf-8");
-
     int fds[2];
 
     if (pipe2(fds, O_CLOEXEC) == -1) {
