@@ -1,4 +1,4 @@
-project('f00ter', 'c',
+project('foot', 'c',
         version: '0.9.0',
         license: 'MIT',
         default_options: [
@@ -58,7 +58,7 @@ foreach prot : [
 endforeach
 
 executable(
-  'f00ter',
+  'foot',
   'commands.c', 'commands.h',
   'csi.c', 'csi.h',
   'font.c', 'font.h',

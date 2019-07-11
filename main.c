@@ -470,8 +470,8 @@ main(int argc, char *const *argv)
     term.wl.xdg_toplevel = xdg_surface_get_toplevel(term.wl.xdg_surface);
     xdg_toplevel_add_listener(term.wl.xdg_toplevel, &xdg_toplevel_listener, &term);
 
-    xdg_toplevel_set_app_id(term.wl.xdg_toplevel, "f00ter");
-    render_set_title(&term, "f00ter");
+    xdg_toplevel_set_app_id(term.wl.xdg_toplevel, "foot");
+    render_set_title(&term, "foot");
 
     wl_surface_commit(term.wl.surface);
     wl_display_roundtrip(term.wl.display);
