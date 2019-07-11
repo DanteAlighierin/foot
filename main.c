@@ -27,6 +27,7 @@
 #include "slave.h"
 #include "terminal.h"
 #include "vt.h"
+#include "selection.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -124,6 +125,11 @@ handle_global(void *data, struct wl_registry *registry,
             term->wl.registry, name, &wl_seat_interface, 4);
         wl_seat_add_listener(term->wl.seat, &seat_listener, term);
         wl_display_roundtrip(term->wl.display);
+    }
+
+    else if (strcmp(interface, wl_data_device_manager_interface.name) == 0) {
+        term->wl.data_device_manager = wl_registry_bind(
+            term->wl.registry, name, &wl_data_device_manager_interface, 1);
     }
 }
 
@@ -388,6 +394,20 @@ main(int argc, char *const *argv)
         LOG_ERR("compositor does not support ARGB surfaces");
         goto out;
     }
+    if (term.wl.seat == NULL) {
+        LOG_ERR("no seat available");
+        goto out;
+    }
+    if (term.wl.data_device_manager == NULL) {
+        LOG_ERR("no clipboard available "
+                "(wl_data_device_manager not implemented by server)");
+        goto out;
+    }
+
+    /* Clipboard */
+    term.wl.data_device = wl_data_device_manager_get_data_device(
+        term.wl.data_device_manager, term.wl.seat);
+    wl_data_device_add_listener(term.wl.data_device, &data_device_listener, &term);
 
     /* Cursor */
     term.wl.pointer.surface = wl_compositor_create_surface(term.wl.compositor);
@@ -603,6 +623,20 @@ out:
         wl_surface_destroy(term.wl.pointer.surface);
     if (term.wl.keyboard != NULL)
         wl_keyboard_destroy(term.wl.keyboard);
+    if (term.selection.primary.data_source != NULL)
+        wl_data_source_destroy(term.selection.primary.data_source);
+    if (term.selection.primary.data_offer != NULL)
+        wl_data_offer_destroy(term.selection.primary.data_offer);
+    free(term.selection.primary.text);
+    if (term.selection.clipboard.data_source != NULL)
+        wl_data_source_destroy(term.selection.clipboard.data_source);
+    if (term.selection.clipboard.data_offer != NULL)
+        wl_data_offer_destroy(term.selection.clipboard.data_offer);
+    free(term.selection.clipboard.text);
+    if (term.wl.data_device != NULL)
+        wl_data_device_destroy(term.wl.data_device);
+    if (term.wl.data_device_manager != NULL)
+        wl_data_device_manager_destroy(term.wl.data_device_manager);
     if (term.wl.seat != NULL)
         wl_seat_destroy(term.wl.seat);
     if (term.wl.surface != NULL)

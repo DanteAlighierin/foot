@@ -1,9 +1,13 @@
 #include "selection.h"
 
+#include <string.h>
+#include <unistd.h>
+
 #define LOG_MODULE "selection"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "render.h"
+#include "grid.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -12,6 +16,63 @@ static bool
 selection_enabled(const struct terminal *term)
 {
     return term->mouse_tracking == MOUSE_NONE;
+}
+
+static char *
+extract_selection(const struct terminal *term)
+{
+    const struct coord *start = &term->selection.start;
+    const struct coord *end = &term->selection.end;
+
+    if (start->row > end->row || (start->row == end->row && start->col > end->col)) {
+        const struct coord *tmp = start;
+        start = end;
+        end = tmp;
+    }
+
+    assert(start->row <= end->row);
+
+    /* TODO: calculate length required */
+    char buf[4096];
+    int idx = 0;
+
+    int start_col = start->col;
+    for (int r = start->row; r < end->row; r++) {
+        const struct row *row = grid_row_in_view(term->grid, r - term->grid->view);
+        if (row == NULL)
+            continue;
+
+        for (int col = start_col; col < term->cols; col++) {
+            const struct cell *cell = &row->cells[col];
+            if (cell->c[0] == '\0')
+                continue;
+
+            size_t len = strnlen(cell->c, 4);
+            memcpy(&buf[idx], cell->c, len);
+            idx += len;
+        }
+
+        if (r != end->row - 1)
+            buf[idx++] = '\n';
+
+        start_col = 0;
+    }
+
+    {
+        const struct row *row = grid_row_in_view(term->grid, end->row - term->grid->view);
+        for (int col = start_col; row != NULL && col <= end->col; col++) {
+            const struct cell *cell = &row->cells[col];
+            if (cell->c[0] == '\0')
+                continue;
+
+            size_t len = strnlen(cell->c, 4);
+            memcpy(&buf[idx], cell->c, len);
+            idx += len;
+        }
+    }
+
+    buf[idx] = '\0';
+    return strdup(buf);
 }
 
 void
@@ -71,6 +132,12 @@ selection_finalize(struct terminal *term)
 
     assert(term->selection.start.row != -1);
     assert(term->selection.end.row != -1);
+
+    /* Kill old primary selection */
+    free(term->selection.primary.text);
+
+    /* TODO: primary data source */
+    term->selection.primary.text = extract_selection(term);
 }
 
 void
@@ -99,3 +166,168 @@ selection_cancel(struct terminal *term)
             grid_render(term);
     }
 }
+
+static void
+target(void *data, struct wl_data_source *wl_data_source, const char *mime_type)
+{
+    LOG_WARN("TARGET: mime-type=%s", mime_type);
+}
+
+static void
+send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
+     int32_t fd)
+{
+    const struct clipboard *clipboard = wl_data_source_get_user_data(wl_data_source);
+
+    LOG_WARN("SENDING CLIPBOARD!");
+    assert(clipboard != NULL);
+    assert(clipboard->text != NULL);
+
+    write(fd, clipboard->text, strlen(clipboard->text));
+    close(fd);
+}
+
+static void
+cancelled(void *data, struct wl_data_source *wl_data_source)
+{
+    struct clipboard *clipboard = wl_data_source_get_user_data(wl_data_source);
+    assert(clipboard->data_source == wl_data_source);
+
+    wl_data_source_destroy(clipboard->data_source);
+    clipboard->data_source = NULL;
+    clipboard->serial = 0;
+
+    free(clipboard->text);
+    clipboard->text = NULL;
+}
+
+static void
+dnd_drop_performed(void *data, struct wl_data_source *wl_data_source)
+{
+}
+
+static void
+dnd_finished(void *data, struct wl_data_source *wl_data_source)
+{
+}
+
+static void
+action(void *data, struct wl_data_source *wl_data_source, uint32_t dnd_action)
+{
+}
+
+static const struct wl_data_source_listener data_source_listener = {
+    .target = &target,
+    .send = &send,
+    .cancelled = &cancelled,
+    .dnd_drop_performed = &dnd_drop_performed,
+    .dnd_finished = &dnd_finished,
+    .action = &action,
+};
+
+void
+selection_to_clipboard(struct terminal *term, uint32_t serial)
+{
+    if (term->selection.clipboard.data_source != NULL) {
+        /* Kill previous data source */
+        struct clipboard *clipboard = &term->selection.clipboard;
+
+        assert(clipboard->serial != 0);
+        wl_data_device_set_selection(term->wl.data_device, NULL, clipboard->serial);
+        wl_data_source_destroy(clipboard->data_source);
+        free(clipboard->text);
+
+        clipboard->data_source = NULL;
+        clipboard->serial = 0;
+    }
+
+    struct clipboard *clipboard = &term->selection.clipboard;
+
+    clipboard->text = extract_selection(term);
+
+    clipboard->data_source
+        = wl_data_device_manager_create_data_source(term->wl.data_device_manager);
+
+    assert(clipboard->data_source != NULL);
+
+    wl_data_source_offer(clipboard->data_source, "text/plain;charset=utf-8");
+    wl_data_source_add_listener(clipboard->data_source, &data_source_listener, term);
+    wl_data_device_set_selection(term->wl.data_device, clipboard->data_source, serial);
+    wl_data_source_set_user_data(clipboard->data_source, clipboard);
+    clipboard->serial = serial;
+}
+
+static void
+offer(void *data, struct wl_data_offer *wl_data_offer, const char *mime_type)
+{
+    LOG_ERR("OFFER: %s", mime_type);
+}
+
+static void
+source_actions(void *data, struct wl_data_offer *wl_data_offer,
+                uint32_t source_actions)
+{
+}
+
+static void
+offer_action(void *data, struct wl_data_offer *wl_data_offer, uint32_t dnd_action)
+{
+}
+
+static const struct wl_data_offer_listener data_offer_listener = {
+    .offer = &offer,
+    .source_actions = &source_actions,
+    .action = &offer_action,
+};
+
+static void
+data_offer(void *data, struct wl_data_device *wl_data_device,
+           struct wl_data_offer *id)
+{
+}
+
+static void
+enter(void *data, struct wl_data_device *wl_data_device, uint32_t serial,
+      struct wl_surface *surface, wl_fixed_t x, wl_fixed_t y,
+      struct wl_data_offer *id)
+{
+}
+
+static void
+leave(void *data, struct wl_data_device *wl_data_device)
+{
+}
+
+static void
+motion(void *data, struct wl_data_device *wl_data_device, uint32_t time,
+       wl_fixed_t x, wl_fixed_t y)
+{
+}
+
+static void
+drop(void *data, struct wl_data_device *wl_data_device)
+{
+}
+
+static void
+selection(void *data, struct wl_data_device *wl_data_device,
+          struct wl_data_offer *id)
+{
+    struct terminal *term = data;
+    struct clipboard *clipboard = &term->selection.clipboard;
+
+    if (clipboard->data_offer != NULL)
+        wl_data_offer_destroy(clipboard->data_offer);
+
+    clipboard->data_offer = id;
+    wl_data_offer_add_listener(id, &data_offer_listener, term);
+}
+
+const struct wl_data_device_listener data_device_listener = {
+    .data_offer = &data_offer,
+    .enter = &enter,
+    .leave = &leave,
+    .motion = &motion,
+    .drop = &drop,
+    .selection = &selection,
+};

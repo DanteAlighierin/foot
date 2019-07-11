@@ -156,6 +156,13 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         }
     }
 
+    else if (effective_mods == (shift | ctrl)) {
+        if (sym == XKB_KEY_C) {
+            selection_to_clipboard(term, serial);
+            found_map = true;
+        }
+    }
+
     for (size_t i = 0; i < sizeof(key_map) / sizeof(key_map[0]) && !found_map; i++) {
         const struct key_map *k = &key_map[i];
         if (k->sym != sym)

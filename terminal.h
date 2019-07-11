@@ -23,6 +23,8 @@ struct wayland {
     struct wl_surface *surface;
     struct wl_shm *shm;
     struct wl_seat *seat;
+    struct wl_data_device_manager *data_device_manager;
+    struct wl_data_device *data_device;
     struct wl_keyboard *keyboard;
     struct {
         struct wl_pointer *pointer;
@@ -184,6 +186,13 @@ enum mouse_reporting {
     MOUSE_URXVT,         /* ?1015h */
 };
 
+struct clipboard {
+    struct wl_data_source *data_source;
+    struct wl_data_offer *data_offer;
+    char *text;
+    uint32_t serial;
+};
+
 struct terminal {
     pid_t slave;
     int ptmx;
@@ -231,6 +240,8 @@ struct terminal {
     struct {
         struct coord start;
         struct coord end;
+        struct clipboard primary;
+        struct clipboard clipboard;
     } selection;
 
     struct grid normal;
