@@ -1,7 +1,7 @@
 #include "selection.h"
 
 #define LOG_MODULE "selection"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "render.h"
 
