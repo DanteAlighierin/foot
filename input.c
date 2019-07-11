@@ -353,6 +353,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     case WL_POINTER_BUTTON_STATE_RELEASED:
         if (button == BTN_LEFT && term->selection.end.col == -1)
             selection_cancel(term);
+        else
+            selection_finalize(term);
 
         term->mouse.button = 0; /* For motion events */
         term_mouse_up(term, button, term->mouse.row, term->mouse.col,
