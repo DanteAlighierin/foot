@@ -133,8 +133,10 @@ selection_update(struct terminal *term, int col, int row)
         grid_render(term);
 }
 
+static const struct zwp_primary_selection_source_v1_listener primary_selection_source_listener;
+
 void
-selection_finalize(struct terminal *term)
+selection_finalize(struct terminal *term, uint32_t serial)
 {
     if (!selection_enabled(term))
         return;
@@ -145,11 +147,43 @@ selection_finalize(struct terminal *term)
     assert(term->selection.start.row != -1);
     assert(term->selection.end.row != -1);
 
-    /* Kill old primary selection */
-    free(term->selection.primary.text);
+    /* TODO: somehow share code with the clipboard equivalent */
+    if (term->selection.primary.data_source != NULL) {
+        /* Kill previous data source */
+        struct primary *primary = &term->selection.primary;
 
-    /* TODO: primary data source */
-    term->selection.primary.text = extract_selection(term);
+        assert(primary->serial != 0);
+        zwp_primary_selection_device_v1_set_selection(
+            term->wl.primary_selection_device, NULL, primary->serial);
+        zwp_primary_selection_source_v1_destroy(primary->data_source);
+        free(primary->text);
+
+        primary->data_source = NULL;
+        primary->serial = 0;
+    }
+
+    struct primary *primary = &term->selection.primary;
+
+    primary->data_source
+        = zwp_primary_selection_device_manager_v1_create_source(
+            term->wl.primary_selection_device_manager);
+
+    if (primary->data_source == NULL) {
+        LOG_ERR("failed to create clipboard data source");
+        return;
+    }
+
+    /* Get selection as a string */
+    primary->text = extract_selection(term);
+
+    /* Configure source */
+    zwp_primary_selection_source_v1_offer(primary->data_source, "text/plain;charset=utf-8");
+    zwp_primary_selection_source_v1_add_listener(primary->data_source, &primary_selection_source_listener, term);
+    zwp_primary_selection_device_v1_set_selection(term->wl.primary_selection_device, primary->data_source, serial);
+    zwp_primary_selection_source_v1_set_user_data(primary->data_source, primary);
+
+    /* Needed when sending the selection to other client */
+    primary->serial = serial;
 }
 
 void
@@ -251,6 +285,56 @@ static const struct wl_data_source_listener data_source_listener = {
     .action = &action,
 };
 
+static void
+primary_send(void *data,
+             struct zwp_primary_selection_source_v1 *zwp_primary_selection_source_v1,
+             const char *mime_type, int32_t fd)
+{
+    const struct primary *primary
+        = zwp_primary_selection_source_v1_get_user_data(zwp_primary_selection_source_v1);
+
+    assert(primary != NULL);
+    assert(primary->text != NULL);
+
+    size_t left = strlen(primary->text);
+    size_t idx = 0;
+
+    while (left > 0) {
+        ssize_t ret = write(fd, &primary->text[idx], left);
+
+        if (ret == -1 && errno != EINTR) {
+            LOG_ERRNO("failed to write to clipboard");
+            break;
+        }
+
+        left -= ret;
+        idx += ret;
+    }
+
+    close(fd);
+}
+
+static void
+primary_cancelled(void *data,
+                  struct zwp_primary_selection_source_v1 *zwp_primary_selection_source_v1)
+{
+    struct primary *primary = zwp_primary_selection_source_v1_get_user_data(
+        zwp_primary_selection_source_v1);
+    //assert(primary->data_source == zwp_primary_selection_source_v1);
+
+    zwp_primary_selection_source_v1_destroy(primary->data_source);
+    primary->data_source = NULL;
+    primary->serial = 0;
+
+    free(primary->text);
+    primary->text = NULL;
+}
+
+static const struct zwp_primary_selection_source_v1_listener primary_selection_source_listener = {
+    .send = &primary_send,
+    .cancelled = &primary_cancelled,
+};
+
 void
 selection_to_clipboard(struct terminal *term, uint32_t serial)
 {
@@ -341,7 +425,6 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
 void
 selection_from_primary(struct terminal *term)
 {
-    LOG_WARN("selection from PRIMARY");
     struct primary *primary = &term->selection.primary;
     if (primary->data_offer == NULL)
         return;
