@@ -161,6 +161,11 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             selection_to_clipboard(term, serial);
             found_map = true;
         }
+
+        else if (sym == XKB_KEY_V) {
+            selection_from_clipboard(term, serial);
+            found_map = true;
+        }
     }
 
     for (size_t i = 0; i < sizeof(key_map) / sizeof(key_map[0]) && !found_map; i++) {

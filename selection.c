@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #define LOG_MODULE "selection"
 #define LOG_ENABLE_DBG 0
@@ -257,6 +258,44 @@ selection_to_clipboard(struct terminal *term, uint32_t serial)
     clipboard->serial = serial;
 }
 
+void
+selection_from_clipboard(struct terminal *term, uint32_t serial)
+{
+    struct clipboard *clipboard = &term->selection.clipboard;
+    if (clipboard->data_offer == NULL)
+        return;
+
+    wl_data_offer_accept(clipboard->data_offer, serial, "text/plain");
+    wl_data_offer_accept(clipboard->data_offer, serial, "text/plain;charset=utf-8");
+
+    int fds[2];
+
+    if (pipe2(fds, O_CLOEXEC) == -1) {
+        LOG_ERRNO("failed to create pipe");
+        return;
+    }
+
+    int read_fd = fds[0];
+    int write_fd = fds[1];
+
+    wl_data_offer_receive(clipboard->data_offer, "text/plain;charset=utf-8", write_fd);
+    wl_display_roundtrip(term->wl.display);
+
+    char text[4096];
+    ssize_t amount = read(read_fd, text, sizeof(text));
+
+    close(read_fd);
+    close(write_fd);
+
+    if (term->bracketed_paste)
+        write(term->ptmx, "\033[200~", 6);
+
+    write(term->ptmx, text, amount);
+
+    if (term->bracketed_paste)
+        write(term->ptmx, "\033[201~", 6);
+}
+
 static void
 offer(void *data, struct wl_data_offer *wl_data_offer, const char *mime_type)
 {
@@ -320,7 +359,8 @@ selection(void *data, struct wl_data_device *wl_data_device,
         wl_data_offer_destroy(clipboard->data_offer);
 
     clipboard->data_offer = id;
-    wl_data_offer_add_listener(id, &data_offer_listener, term);
+    if (id != NULL)
+        wl_data_offer_add_listener(id, &data_offer_listener, term);
 }
 
 const struct wl_data_device_listener data_device_listener = {
