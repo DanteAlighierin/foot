@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 
 #define LOG_MODULE "selection"
 #define LOG_ENABLE_DBG 0
@@ -43,6 +44,7 @@ extract_selection(const struct terminal *term)
         if (row == NULL)
             continue;
 
+        /* TODO: replace '\0' with spaces, then trim lines */
         for (int col = start_col; col < term->cols; col++) {
             const struct cell *cell = &row->cells[col];
             if (cell->c[0] == '\0')
@@ -180,11 +182,23 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
 {
     const struct clipboard *clipboard = wl_data_source_get_user_data(wl_data_source);
 
-    LOG_WARN("SENDING CLIPBOARD!");
     assert(clipboard != NULL);
     assert(clipboard->text != NULL);
 
-    write(fd, clipboard->text, strlen(clipboard->text));
+    size_t left = strlen(clipboard->text);
+    size_t idx = 0;
+
+    while (left > 0) {
+        ssize_t ret = write(fd, &clipboard->text[idx], left);
+        if (ret == -1 && errno != EINTR) {
+            LOG_ERRNO("failed to write to clipboard");
+            break;
+        }
+
+        left -= ret;
+        idx += ret;
+    }
+
     close(fd);
 }
 
