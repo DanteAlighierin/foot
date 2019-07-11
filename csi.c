@@ -14,6 +14,7 @@
 #include "log.h"
 #include "grid.h"
 #include "vt.h"
+#include "selection.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
@@ -635,6 +636,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                         tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);
+                        selection_cancel(term);
 
                         //grid_memclear(term->grid, 0, term->rows * term->cols);
                         //term_damage_erase(term, 0, term->rows * term->cols);
@@ -699,6 +701,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);
 
+                        selection_cancel(term);
                         term_damage_all(term);
                     }
                     break;
