@@ -318,7 +318,7 @@ grid_render(struct terminal *term)
             cursor_is_visible = true;
     }
 
-    if (cursor_is_visible) {
+    if (cursor_is_visible && !term->hide_cursor) {
         render_cell(
             term, buf,
             &grid_row_in_view(term->grid, term->cursor.row)->cells[term->cursor.col],
