@@ -77,3 +77,5 @@ executable(
   wl_proto_src + wl_proto_headers,
   dependencies: [threads, math, cairo, cairo_ft, fontconfig, wayland_client, wayland_cursor, xkb],
   install: true)
+
+install_data('foot.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
