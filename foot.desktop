@@ -1,0 +1,18 @@
+[Desktop Entry]
+Type=Application
+Exec=foot
+Icon=terminal
+Terminal=false
+Categories=System;TerminalEmulator;
+
+Name=Foot
+GenericName=Terminal
+Comment=A wayland native terminal emulator
+StartupWMClass=foot
+Actions=New;
+
+X-Desktop-File-Install-Version=0.24
+
+[Desktop Action New]
+Name=New Terminal
+Exec=foot
