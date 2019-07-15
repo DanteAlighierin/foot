@@ -574,6 +574,8 @@ esc_as_string(struct terminal *term, uint8_t final)
     if (term->vt.private != 0)
         c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private);
 
+    assert(term->vt.params.idx == 0);
+
     c += snprintf(&msg[c], sizeof(msg) - c, "%c", final);
     return msg;
 
@@ -597,7 +599,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     case 'B': {
         /* Configure G0-G3 to use ASCII */
-        char param = vt_param_get(term, 0, '(');
+        char param = term->vt.private != 0 ? term->vt.private : '(';
 
         switch (param) {
         case '(': term->charset[0] = CHARSET_ASCII; break;
@@ -628,7 +630,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     case '0': {
         /* Configure G0-G3 to use special chars + line drawing */
-        char param = term->vt.params.idx > 0 ? term->vt.params.v[0].value : '(';
+        char param = term->vt.private != 0 ? term->vt.private : '(';
 
         switch (param) {
         case '(': term->charset[0] = CHARSET_GRAPHIC; break;
