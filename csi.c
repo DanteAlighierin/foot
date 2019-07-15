@@ -203,9 +203,6 @@ csi_sgr(struct terminal *term)
                     LOG_ERR("invalid CSI SGR sequence");
                     abort();
                 }
-
-                for (size_t i = 0; i < param->sub.idx; i++)
-                    LOG_ERR("#%zu: %u", i, param->sub.value[i]);
             }
 
             else {
@@ -281,9 +278,6 @@ csi_sgr(struct terminal *term)
                     LOG_ERR("invalid CSI SGR sequence");
                     abort();
                 }
-
-                for (size_t i = 0; i < param->sub.idx; i++)
-                    LOG_ERR("#%zu: %u", i, param->sub.value[i]);
             }
 
             else {
