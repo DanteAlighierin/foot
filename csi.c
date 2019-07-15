@@ -544,7 +544,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             term_erase(
                 term,
                 &term->cursor,
-                &(struct coord){term->cursor.col + count, term->cursor.row});
+                &(struct coord){term->cursor.col + count - 1, term->cursor.row});
 
 #if 0
             memset(&term->grid->cur_line[term->cursor.col],
