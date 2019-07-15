@@ -295,6 +295,7 @@ main(int argc, char *const *argv)
     }
 
     setlocale(LC_ALL, "");
+    setenv("TERM", "xterm-direct", 1); /* TODO: configurable */
 
     int repeat_pipe_fds[2] = {-1, -1};
     if (pipe2(repeat_pipe_fds, O_CLOEXEC) == -1) {
