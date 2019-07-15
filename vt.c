@@ -810,6 +810,16 @@ action(struct terminal *term, enum action _action, uint8_t c)
             break;
         }
 
+        case '\016':
+            /* SO - shift out */
+            term->selected_charset = 1; /* G1 */
+            break;
+
+        case '\017':
+            /* SI - shift in */
+            term->selected_charset = 0; /* G0 */
+            break;
+
         default:
             LOG_ERR("execute: unimplemented: %c (0x%02x)", c, c);
             abort();
