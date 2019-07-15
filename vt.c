@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <assert.h>
 
 #define LOG_MODULE "vt"
@@ -972,4 +973,24 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
             action(term, entry_action, data[i]);
         }
     }
+}
+
+bool
+vt_to_slave(struct terminal *term, const void *_data, size_t len)
+{
+    const uint8_t *data = _data;
+    size_t left = len;
+
+    while (left > 0) {
+        ssize_t ret = write(term->ptmx, data, left);
+        if (ret < 0) {
+            LOG_ERRNO("failed to write to client");
+            return false;
+        }
+
+        data += ret;
+        left -= ret;
+    }
+
+    return true;
 }
