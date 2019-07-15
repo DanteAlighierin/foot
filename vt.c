@@ -229,8 +229,7 @@ static const struct state_transition state_csi_entry[256] = {
     [0x1c ... 0x1f] = {.action = ACTION_EXECUTE},
     [0x20 ... 0x2f] = {.action = ACTION_COLLECT,      .state = STATE_CSI_INTERMEDIATE},
     [0x30 ... 0x39] = {.action = ACTION_PARAM,        .state = STATE_CSI_PARAM},
-    [0x3a]          = {                               .state = STATE_CSI_IGNORE},
-    [0x3b]          = {.action = ACTION_PARAM,        .state = STATE_CSI_PARAM},
+    [0x3a ... 0x3b] = {                               .state = STATE_CSI_PARAM},
     [0x3c ... 0x3f] = {.action = ACTION_COLLECT,      .state = STATE_CSI_PARAM},
     [0x40 ... 0x7e] = {.action = ACTION_CSI_DISPATCH, .state = STATE_GROUND},
     [0x7f]          = {.action = ACTION_IGNORE},
@@ -257,8 +256,7 @@ static const struct state_transition state_csi_param[256] = {
     [0x1c ... 0x1f] = {.action = ACTION_EXECUTE},
     [0x20 ... 0x2f] = {.action = ACTION_COLLECT,      .state = STATE_CSI_INTERMEDIATE},
     [0x30 ... 0x39] = {.action = ACTION_PARAM},
-    [0x3a]          = {                               .state = STATE_CSI_IGNORE},
-    [0x3b]          = {.action = ACTION_PARAM},
+    [0x3a ... 0x3b] = {.action = ACTION_PARAM},
     [0x3c ... 0x3f] = {                               .state = STATE_CSI_IGNORE},
     [0x40 ... 0x7e] = {.action = ACTION_CSI_DISPATCH, .state = STATE_GROUND},
     [0x7f]          = {.action = ACTION_IGNORE},
@@ -843,28 +841,26 @@ action(struct terminal *term, enum action _action, uint8_t c)
         action_print_utf8(term);
         break;
 
-    case ACTION_PARAM:{
+    case ACTION_PARAM:
         if (term->vt.params.idx == 0)
             term->vt.params.idx = 1;
 
         if (c == ';') {
             term->vt.params.idx++;
         } else if (c == ':') {
-            if (term->vt.params.v[term->vt.params.idx - 1].sub.idx == 0)
-                term->vt.params.v[term->vt.params.idx - 1].sub.idx = 1;
+            term->vt.params.v[term->vt.params.idx - 1].sub.idx++;
         } else {
-            if (term->vt.params.v[term->vt.params.idx - 1].sub.idx > 0)
-                term->vt.params.v[term->vt.params.idx - 1].sub.value[term->vt.params.v[term->vt.params.idx - 1].sub.idx] *= 10;
-            else
-                term->vt.params.v[term->vt.params.idx - 1].value *= 10;
+            assert(term->vt.params.idx >= 0);
+            struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
 
-            if (term->vt.params.v[term->vt.params.idx - 1].sub.idx > 0)
-                term->vt.params.v[term->vt.params.idx - 1].sub.value[term->vt.params.v[term->vt.params.idx - 1].sub.idx] += c - '0';
-            else
-                term->vt.params.v[term->vt.params.idx - 1].value += c - '0';
+            unsigned *value = param->sub.idx > 0
+                ? &param->sub.value[param->sub.idx - 1]
+                : &param->value;
+
+            *value *= 10;
+            *value += c - '0';
         }
         break;
-                }
 
     case ACTION_COLLECT:
         LOG_DBG("collect");
