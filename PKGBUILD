@@ -1,0 +1,28 @@
+pkgname=foot
+pkgver=0.0.r2.g7379198
+pkgrel=1
+pkgdesc="A wayland native terminal emulator"
+arch=('x86_64')
+url=https://gitlab.com/dnkl/foot
+license=(mit)
+makedepends=('meson' 'ninja' 'scdoc')
+depends=(
+  'libxkbcommon'
+  'wayland'
+  'freetype2' 'fontconfig' 'cairo')
+source=()
+
+pkgver() {
+  [ -d ../.git ] && git describe --tags --long | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+  [ ! -d ../.git ] && head -3 ../meson.build | grep version | cut -d "'" -f 2
+}
+
+build() {
+  meson --prefix=/usr --buildtype=release -Db_lto=true ..
+  ninja
+}
+
+package() {
+  DESTDIR="${pkgdir}/" ninja install
+}
+
