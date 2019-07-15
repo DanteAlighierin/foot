@@ -163,8 +163,11 @@ csi_sgr(struct terminal *term)
                 term->vt.attrs.foreground = colors256[idx];
                 term->vt.attrs.have_foreground = true;
                 i += 2;
-            } else if (term->vt.params.idx - i - 1 >= 4 &&
-                       term->vt.params.v[i + 1].value == 2)
+
+            }
+
+            else if (term->vt.params.idx - i - 1 >= 4 &&
+                     term->vt.params.v[i + 1].value == 2)
             {
                 uint8_t r = term->vt.params.v[i + 2].value;
                 uint8_t g = term->vt.params.v[i + 3].value;
@@ -176,13 +179,42 @@ csi_sgr(struct terminal *term)
                 };
                 term->vt.attrs.have_foreground = true;
                 i += 4;
-            } else {
+            }
+
+            else if (term->vt.params.v[i].sub.idx > 0) {
+                const struct vt_param *param = &term->vt.params.v[i];
+
+                if (param->sub.value[0] == 2 && param->sub.idx >= 5) {
+                    int color_space_id __attribute__((unused)) = param->sub.value[1];
+                    uint8_t r = param->sub.value[2];
+                    uint8_t g = param->sub.value[3];
+                    uint8_t b = param->sub.value[4];
+                    /* 5 - unused */
+                    /* 6 - CS tolerance */
+                    /* 7 - color space associated with tolerance */
+
+                    term->vt.attrs.foreground = (struct rgb) {
+                        r / 255.0,
+                        g / 255.0,
+                        b / 255.0,
+                    };
+                    term->vt.attrs.have_foreground = true;
+                } else {
+                    LOG_ERR("invalid CSI SGR sequence");
+                    abort();
+                }
+
+                for (size_t i = 0; i < param->sub.idx; i++)
+                    LOG_ERR("#%zu: %u", i, param->sub.value[i]);
+            }
+
+            else {
                 LOG_ERR("invalid CSI SGR sequence");
                 abort();
-                break;
             }
             break;
         }
+
         case 39:
             term->vt.attrs.foreground = term->foreground;
             term->vt.attrs.have_foreground = false;
@@ -209,7 +241,9 @@ csi_sgr(struct terminal *term)
                 term->vt.attrs.background = colors256[idx];
                 term->vt.attrs.have_background = true;
                 i += 2;
-            } else if (term->vt.params.idx - i - 1 >= 4 &&
+            }
+
+            else if (term->vt.params.idx - i - 1 >= 4 &&
                        term->vt.params.v[i + 1].value == 2)
             {
                 uint8_t r = term->vt.params.v[i + 2].value;
@@ -222,7 +256,37 @@ csi_sgr(struct terminal *term)
                 };
                 term->vt.attrs.have_background = true;
                 i += 4;
-            } else {
+
+            }
+
+            else if (term->vt.params.v[i].sub.idx > 0) {
+                const struct vt_param *param = &term->vt.params.v[i];
+
+                if (param->sub.value[0] == 2 && param->sub.idx >= 5) {
+                    int color_space_id __attribute__((unused)) = param->sub.value[1];
+                    uint8_t r = param->sub.value[2];
+                    uint8_t g = param->sub.value[3];
+                    uint8_t b = param->sub.value[4];
+                    /* 5 - unused */
+                    /* 6 - CS tolerance */
+                    /* 7 - color space associated with tolerance */
+
+                    term->vt.attrs.background = (struct rgb) {
+                        r / 255.0,
+                        g / 255.0,
+                        b / 255.0,
+                    };
+                    term->vt.attrs.have_background = true;
+                } else {
+                    LOG_ERR("invalid CSI SGR sequence");
+                    abort();
+                }
+
+                for (size_t i = 0; i < param->sub.idx; i++)
+                    LOG_ERR("#%zu: %u", i, param->sub.value[i]);
+            }
+
+            else {
                 LOG_ERR("invalid CSI SGR sequence");
                 abort();
                 break;
