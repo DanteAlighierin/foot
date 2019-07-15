@@ -10,6 +10,7 @@
 #include "log.h"
 #include "render.h"
 #include "grid.h"
+#include "vt.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -400,7 +401,7 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
     close(write_fd);
 
     if (term->bracketed_paste)
-        write(term->ptmx, "\033[200~", 6);
+        vt_to_slave(term, "\033[200~", 6);
 
     /* Read until EOF */
     while (true) {
@@ -413,11 +414,11 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
         } else if (amount == 0)
             break;
 
-        write(term->ptmx, text, amount);
+        vt_to_slave(term, text, amount);
     }
 
     if (term->bracketed_paste)
-        write(term->ptmx, "\033[201~", 6);
+        vt_to_slave(term, "\033[201~", 6);
 
     close(read_fd);
 }
@@ -448,7 +449,7 @@ selection_from_primary(struct terminal *term)
     close(write_fd);
 
     if (term->bracketed_paste)
-        write(term->ptmx, "\033[200~", 6);
+        vt_to_slave(term, "\033[200~", 6);
 
     /* Read until EOF */
     while (true) {
@@ -461,11 +462,11 @@ selection_from_primary(struct terminal *term)
         } else if (amount == 0)
             break;
 
-        write(term->ptmx, text, amount);
+        vt_to_slave(term, text, amount);
     }
 
     if (term->bracketed_paste)
-        write(term->ptmx, "\033[201~", 6);
+        vt_to_slave(term, "\033[201~", 6);
 
     close(read_fd);
 }

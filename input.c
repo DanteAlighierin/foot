@@ -21,6 +21,7 @@
 #include "keymap.h"
 #include "commands.h"
 #include "selection.h"
+#include "vt.h"
 
 static void
 keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
@@ -186,7 +187,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                 info->keypad_keys_mode != term->keypad_keys_mode)
                 continue;
 
-            write(term->ptmx, info->seq, strlen(info->seq));
+            vt_to_slave(term, info->seq, strlen(info->seq));
             found_map = true;
 
             if (term->grid->view != term->grid->offset) {
@@ -214,9 +215,9 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
         if (count > 0) {
             if (effective_mods & alt)
-                write(term->ptmx, "\x1b", 1);
+                vt_to_slave(term, "\x1b", 1);
 
-            write(term->ptmx, buf, count);
+            vt_to_slave(term, buf, count);
 
             if (term->grid->view != term->grid->offset) {
                 term->grid->view = term->grid->offset;

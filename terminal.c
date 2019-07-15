@@ -10,6 +10,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "grid.h"
+#include "vt.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -337,7 +338,7 @@ report_mouse_click(struct terminal *term, int encoded_button, int row, int col,
         return;
     }
 
-    write(term->ptmx, response, strlen(response));
+    vt_to_slave(term, response, strlen(response));
 }
 
 static void

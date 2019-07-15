@@ -335,7 +335,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
     case 0: {
         switch (final) {
         case 'c':
-            write(term->ptmx, "\033[?6c", 5);
+            vt_to_slave(term, "\033[?6c", 5);
             break;
 
         case 'd': {
@@ -598,7 +598,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     snprintf(reply, sizeof(reply), "\x1b[%d;%dR",
                              term->cursor.row + 1,
                              term->cursor.col + 1);
-                    write(term->ptmx, reply, strlen(reply));
+                    vt_to_slave(term, reply, strlen(reply));
                     break;
                 }
 
@@ -833,7 +833,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
                 }
 
-                write(term->ptmx, "\033[?6c", 5);
+                vt_to_slave(term, "\033[?6c", 5);
                 break;
             }
 
