@@ -10,6 +10,7 @@
 #include <poll.h>
 #include <errno.h>
 
+#include <freetype/tttables.h>
 #include <cairo-ft.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
@@ -376,11 +377,16 @@ main(int argc, char *const *argv)
         FT_Face ft_face = cairo_ft_scaled_font_lock_face(f->font);
 
         double x_scale = ft_face->size->metrics.x_scale / 65526.;
+        double height = ft_face->size->metrics.height / 64;
+        double descent = ft_face->size->metrics.descender / 64;
+
+        LOG_DBG("ft: x-scale: %f, height: %f, descent: %f",
+                x_scale, height, descent);
+
         f->underline.position = ft_face->underline_position * x_scale / 64.;
         f->underline.thickness = ft_face->underline_thickness * x_scale / 64.;
 
         if (f->underline.position == 0.) {
-            double descent = ft_face->size->metrics.descender / 64;
             f->underline.position =  descent / 2.;
             f->underline.thickness =  fabs(round(descent / 5.));
         }
@@ -388,7 +394,24 @@ main(int argc, char *const *argv)
         LOG_DBG("underline: pos=%f, thick=%f",
                 f->underline.position, f->underline.thickness);
 
+        TT_OS2 *os2 = FT_Get_Sfnt_Table(ft_face, ft_sfnt_os2);
+        if (os2 != NULL) {
+            f->strikeout.position = os2->yStrikeoutPosition * x_scale / 64.;
+            f->strikeout.thickness = os2->yStrikeoutSize * x_scale / 64.;
+        }
+
+        if (f->strikeout.position == 0.) {
+            assert(false);
+            /* TODO: fixme */
+            f->strikeout.position = height / 2. + descent;
+            f->strikeout.thickness = f->underline.thickness;
+        }
+
+        LOG_DBG("strikeout: pos=%f, thick=%f",
+                f->strikeout.position, f->strikeout.thickness);
+
         cairo_ft_scaled_font_unlock_face(f->font);
+
     }
 
     cairo_scaled_font_extents(term.fonts[0].font,  &term.fextents);

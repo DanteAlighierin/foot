@@ -134,13 +134,27 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     /* Underline */
     if (cell->attrs.underline) {
         const struct font *font = attrs_to_font(term, &cell->attrs);
+        double baseline = y + term->fextents.height - term->fextents.descent;
         double width = font->underline.thickness;
-        double y_under = y + term->cell_height + font->underline.position + width / 2.;
+        double y_under = baseline - font->underline.position - width / 2.;
 
         cairo_set_source_rgb(buf->cairo, foreground.r, foreground.g, foreground.b);
         cairo_set_line_width(buf->cairo, width);
-        cairo_move_to(buf->cairo, x, y_under);
-        cairo_line_to(buf->cairo, x + term->cell_width, y_under);
+        cairo_move_to(buf->cairo, x, round(y_under) + 0.5);
+        cairo_line_to(buf->cairo, x + term->cell_width, round(y_under) + 0.5);
+        cairo_stroke(buf->cairo);
+    }
+
+    if (cell->attrs.strikethrough) {
+        const struct font *font = attrs_to_font(term, &cell->attrs);
+        double baseline = y + term->fextents.height - term->fextents.descent;
+        double width = font->strikeout.thickness;
+        double y_strike = baseline - font->strikeout.position - width / 2.;
+
+        cairo_set_source_rgb(buf->cairo, foreground.r, foreground.g, foreground.b);
+        cairo_set_line_width(buf->cairo, width);
+        cairo_move_to(buf->cairo, x, round(y_strike) + 0.5);
+        cairo_line_to(buf->cairo, x + term->cell_width, round(y_strike) + 0.5);
         cairo_stroke(buf->cairo);
     }
 

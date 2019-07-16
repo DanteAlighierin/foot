@@ -208,6 +208,10 @@ struct font {
         double position;
         double thickness;
     } underline;
+    struct {
+        double position;
+        double thickness;
+    } strikeout;
 };
 
 struct terminal {
