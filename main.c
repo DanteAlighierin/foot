@@ -10,6 +10,7 @@
 #include <poll.h>
 #include <errno.h>
 
+#include <cairo-ft.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
@@ -349,23 +350,48 @@ main(int argc, char *const *argv)
     thrd_t keyboard_repeater_id;
     thrd_create(&keyboard_repeater_id, &keyboard_repeater, &term);
 
-    term.fonts[0] = font_from_name(conf.font);
-    if (term.fonts[0] == NULL)
+    term.fonts[0].font = font_from_name(conf.font);
+    if (term.fonts[0].font == NULL)
         goto out;
 
     {
         char fname[1024];
         snprintf(fname, sizeof(fname), "%s:style=bold", conf.font);
-        term.fonts[1] = font_from_name(fname);
+        term.fonts[1].font = font_from_name(fname);
 
         snprintf(fname, sizeof(fname), "%s:style=italic", conf.font);
-        term.fonts[2] = font_from_name(fname);
+        term.fonts[2].font = font_from_name(fname);
 
         snprintf(fname, sizeof(fname), "%s:style=bold italic", conf.font);
-        term.fonts[3] = font_from_name(fname);
+        term.fonts[3].font = font_from_name(fname);
     }
 
-    cairo_scaled_font_extents(term.fonts[0],  &term.fextents);
+    /* Underline position and size */
+    for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
+        struct font *f = &term.fonts[i];
+
+        if (f->font == NULL)
+            continue;
+
+        FT_Face ft_face = cairo_ft_scaled_font_lock_face(f->font);
+
+        double x_scale = ft_face->size->metrics.x_scale / 65526.;
+        f->underline.position = ft_face->underline_position * x_scale / 64.;
+        f->underline.thickness = ft_face->underline_thickness * x_scale / 64.;
+
+        if (f->underline.position == 0.) {
+            double descent = ft_face->size->metrics.descender / 64;
+            f->underline.position =  descent / 2.;
+            f->underline.thickness =  fabs(round(descent / 5.));
+        }
+
+        LOG_DBG("underline: pos=%f, thick=%f",
+                f->underline.position, f->underline.thickness);
+
+        cairo_ft_scaled_font_unlock_face(f->font);
+    }
+
+    cairo_scaled_font_extents(term.fonts[0].font,  &term.fextents);
     term.cell_width = (int)ceil(term.fextents.max_x_advance);
     term.cell_height = (int)ceil(term.fextents.height);
 
@@ -699,8 +725,8 @@ out:
     free(term.alt.rows);
 
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
-        if (term.fonts[i] != NULL)
-            cairo_scaled_font_destroy(term.fonts[i]);
+        if (term.fonts[i].font != NULL)
+            cairo_scaled_font_destroy(term.fonts[i].font);
     }
 
     if (term.ptmx != -1)

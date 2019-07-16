@@ -15,11 +15,11 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-cairo_scaled_font_t *
+const struct font *
 attrs_to_font(struct terminal *term, const struct attributes *attrs)
 {
     int idx = attrs->italic << 1 | attrs->bold;
-    return term->fonts[idx];
+    return &term->fonts[idx];
 }
 
 struct glyph_sequence {
@@ -28,11 +28,7 @@ struct glyph_sequence {
     int count;
 
     struct attributes attrs;
-#if 0
-    struct rgb foreground;
-#else
     uint32_t foreground;
-#endif
 };
 
 static struct glyph_sequence gseq;
@@ -41,18 +37,18 @@ static void
 gseq_flush(struct terminal *term, struct buffer *buf)
 {
     struct rgb fg = {
-        ((gseq.foreground >> 16) & 0xff) / 255.0,
-        ((gseq.foreground >>  8) & 0xff) / 255.0,
-        ((gseq.foreground >>  0) & 0xff) / 255.0,
+        ((gseq.foreground >> 16) & 0xff) / 255.,
+        ((gseq.foreground >>  8) & 0xff) / 255.,
+        ((gseq.foreground >>  0) & 0xff) / 255.,
     };
 
     if (gseq.attrs.dim) {
-        fg.r /= 2.0;
-        fg.g /= 2.0;
-        fg.b /= 2.0;
+        fg.r /= 2.;
+        fg.g /= 2.;
+        fg.b /= 2.;
     }
 
-    cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
+    cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs)->font);
     cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
     cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
 
@@ -109,22 +105,44 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         _background = swap;
     }
 
-    struct rgb background = {
-        ((_background >> 16) & 0xff) / 255.0,
-        ((_background >>  8) & 0xff) / 255.0,
-        ((_background >>  0) & 0xff) / 255.0,
+    struct rgb foreground = {
+        ((_foreground >> 16) & 0xff) / 255.,
+        ((_foreground >>  8) & 0xff) / 255.,
+        ((_foreground >>  0) & 0xff) / 255.,
     };
+
+    struct rgb background = {
+        ((_background >> 16) & 0xff) / 255.,
+        ((_background >>  8) & 0xff) / 255.,
+        ((_background >>  0) & 0xff) / 255.,
+    };
+
+    if (cell->attrs.dim) {
+        foreground.r /= 2.;
+        foreground.g /= 2.;
+        foreground.b /= 2.;
+    }
 
     /* Background */
     cairo_set_source_rgb(buf->cairo, background.r, background.g, background.b);
     cairo_rectangle(buf->cairo, x, y, width, height);
     cairo_fill(buf->cairo);
 
-    if (cell->c[0] == '\0' || cell->c[0] == ' ')
+    if (cell->c[0] == '\0' || cell->attrs.conceal)
         return;
 
-    if (cell->attrs.conceal)
-        return;
+    /* Underline */
+    if (cell->attrs.underline) {
+        const struct font *font = attrs_to_font(term, &cell->attrs);
+        double width = font->underline.thickness;
+        double y_under = y + term->cell_height + font->underline.position + width / 2.;
+
+        cairo_set_source_rgb(buf->cairo, foreground.r, foreground.g, foreground.b);
+        cairo_set_line_width(buf->cairo, width);
+        cairo_move_to(buf->cairo, x, y_under);
+        cairo_line_to(buf->cairo, x + term->cell_width, y_under);
+        cairo_stroke(buf->cairo);
+    }
 
     /*
      * cairo_show_glyphs() apparently works *much* faster when
@@ -151,7 +169,7 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         = sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - gseq.count;
 
     cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-        attrs_to_font(term, &cell->attrs), x, y + term->fextents.ascent,
+        attrs_to_font(term, &cell->attrs)->font, x, y + term->fextents.ascent,
         cell->c, strnlen(cell->c, 4), &gseq.g, &new_glyphs,
         NULL, NULL, NULL);
 
@@ -256,9 +274,9 @@ grid_render(struct terminal *term)
 #else
             uint32_t _bg = !term->reverse ? term->background : term->foreground;
             struct rgb bg = {
-                ((_bg >> 16) & 0xff) / 255.0,
-                ((_bg >>  8) & 0xff) / 255.0,
-                ((_bg >>  0) & 0xff) / 255.0,
+                ((_bg >> 16) & 0xff) / 255.,
+                ((_bg >>  8) & 0xff) / 255.,
+                ((_bg >>  0) & 0xff) / 255.,
             };
 #endif
             cairo_set_source_rgb(buf->cairo, bg.r, bg.g, bg.b);

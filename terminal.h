@@ -202,6 +202,14 @@ struct primary {
     uint32_t serial;
 };
 
+struct font {
+    cairo_scaled_font_t *font;
+    struct {
+        double position;
+        double thickness;
+    } underline;
+};
+
 struct terminal {
     pid_t slave;
     int ptmx;
@@ -258,7 +266,7 @@ struct terminal {
     struct grid alt;
     struct grid *grid;
 
-    cairo_scaled_font_t *fonts[4];
+    struct font fonts[4];
     cairo_font_extents_t fextents;
 
     struct wayland wl;

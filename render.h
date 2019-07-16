@@ -2,7 +2,7 @@
 
 #include "terminal.h"
 
-cairo_scaled_font_t *attrs_to_font(
+const struct font *attrs_to_font(
     struct terminal *term, const struct attributes *attrs);
 
 void grid_render(struct terminal *term);
