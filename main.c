@@ -19,15 +19,16 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
+#include "config.h"
 #include "font.h"
 #include "grid.h"
 #include "input.h"
 #include "render.h"
+#include "selection.h"
 #include "shm.h"
 #include "slave.h"
 #include "terminal.h"
 #include "vt.h"
-#include "selection.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -264,12 +265,14 @@ main(int argc, char *const *argv)
 {
     int ret = EXIT_FAILURE;
 
+    struct config conf = config_load();
+
     static const struct option longopts[] =  {
         {"font", required_argument, 0, 'f'},
         {NULL,   no_argument,       0,   0},
     };
 
-    const char *font_name = "monospace";
+    //const char *font_name = "monospace";
 
     while (true) {
         int c = getopt_long(argc, argv, ":f:h", longopts, NULL);
@@ -278,7 +281,8 @@ main(int argc, char *const *argv)
 
         switch (c) {
         case 'f':
-            font_name = optarg;
+            free(conf.font);
+            conf.font = strdup(optarg);
             break;
 
         case 'h':
@@ -340,19 +344,19 @@ main(int argc, char *const *argv)
     thrd_t keyboard_repeater_id;
     thrd_create(&keyboard_repeater_id, &keyboard_repeater, &term);
 
-    term.fonts[0] = font_from_name(font_name);
+    term.fonts[0] = font_from_name(conf.font);
     if (term.fonts[0] == NULL)
         goto out;
 
     {
         char fname[1024];
-        snprintf(fname, sizeof(fname), "%s:style=bold", font_name);
+        snprintf(fname, sizeof(fname), "%s:style=bold", conf.font);
         term.fonts[1] = font_from_name(fname);
 
-        snprintf(fname, sizeof(fname), "%s:style=italic", font_name);
+        snprintf(fname, sizeof(fname), "%s:style=italic", conf.font);
         term.fonts[2] = font_from_name(fname);
 
-        snprintf(fname, sizeof(fname), "%s:style=bold italic", font_name);
+        snprintf(fname, sizeof(fname), "%s:style=bold italic", conf.font);
         term.fonts[3] = font_from_name(fname);
     }
 
@@ -702,6 +706,8 @@ out:
     mtx_destroy(&term.kbd.repeat.mutex);
     close(term.kbd.repeat.pipe_read_fd);
     close(term.kbd.repeat.pipe_write_fd);
+
+    config_free(conf);
 
     cairo_debug_reset_static_data();
     return ret;
