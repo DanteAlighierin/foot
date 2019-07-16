@@ -840,6 +840,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         default:
             LOG_ERR("unimplemented: %s", csi_as_string(term, final));
             abort();
+            break;
         }
 
         break; /* private == '>' */
