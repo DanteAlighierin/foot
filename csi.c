@@ -163,7 +163,7 @@ csi_sgr(struct terminal *term)
         case 2: term->vt.dim = true; break;
         case 3: term->vt.attrs.italic = true; break;
         case 4: term->vt.attrs.underline = true; break;
-        case 5: LOG_WARN("unimplemented: %s (blink)", csi_as_string(term, 'm')); /*term->vt.attrs.blink = true; */break;
+        case 5: term->vt.attrs.blink = true; break;
         case 6: break; /* rapid blink, ignored */
         case 7: term->vt.attrs.reverse = true; break;
         case 8: term->vt.attrs.conceal = true; break;
@@ -173,7 +173,7 @@ csi_sgr(struct terminal *term)
         case 22: term->vt.attrs.bold = term->vt.dim = false; break;
         case 23: term->vt.attrs.italic = false; break;
         case 24: term->vt.attrs.underline = false; break;
-        case 25: /*term->vt.attrs.blink = false; */break;
+        case 25: term->vt.attrs.blink = false; break;
         case 26: break;  /* rapid blink, ignored */
         case 27: term->vt.attrs.reverse = false; break;
         case 28: term->vt.attrs.conceal = false; break;

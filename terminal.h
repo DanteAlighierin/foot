@@ -44,7 +44,7 @@ struct wayland {
     bool have_argb8888;
 };
 
-struct rgb { float r, g, b; } __attribute__((packed));
+struct rgb { float r, g, b; };
 
 /*
  *  Note: we want the cells to be as small as possible. Larger cells
