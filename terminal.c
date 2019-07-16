@@ -267,6 +267,22 @@ term_reverse_index(struct terminal *term)
         term_cursor_up(term, 1);
 }
 
+void
+term_focus_in(struct terminal *term)
+{
+    if (!term->focus_events)
+        return;
+    vt_to_slave(term, "\033[I", 3);
+}
+
+void
+term_focus_out(struct terminal *term)
+{
+    if (!term->focus_events)
+        return;
+    vt_to_slave(term, "\033[O", 3);
+}
+
 static int
 linux_mouse_button_to_x(int button)
 {

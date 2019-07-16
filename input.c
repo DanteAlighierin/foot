@@ -65,6 +65,7 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wl_array_for_each(key, keys)
         xkb_state_update_key(xkb_state, *key, 1);
 #endif
+    term_focus_in((struct terminal *)data);
 }
 
 static void
@@ -72,6 +73,7 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface)
 {
     struct terminal *term = data;
+    term_focus_out(term);
 
     mtx_lock(&term->kbd.repeat.mutex);
     if (term->kbd.repeat.cmd != REPEAT_EXIT) {

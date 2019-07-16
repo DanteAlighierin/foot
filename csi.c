@@ -672,6 +672,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->mouse_tracking = MOUSE_MOTION;
                     break;
 
+                case 1004:
+                    term->focus_events = true;
+                    break;
+
                 case 1005:
                     LOG_WARN("unimplemented: UTF-8 mouse");
                     /* term->mouse_reporting = MOUSE_UTF8; */
@@ -749,6 +753,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 case 1006:  /* MOUSE_SGR */
                 case 1015:  /* MOUSE_URXVT */
                     term->mouse_tracking = MOUSE_NONE;
+                    break;
+
+                case 1004:
+                    term->focus_events = false;
                     break;
 
                 case 1049:
