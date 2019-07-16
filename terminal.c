@@ -72,10 +72,9 @@ erase_cell_range(struct terminal *term, struct row *row, int start, int end)
     assert(start < term->cols);
     assert(end < term->cols);
 
-    if (unlikely(term->vt.attrs.have_background)) {
+    if (unlikely(term->vt.attrs.background >> 31)) {
         for (int col = start; col <= end; col++) {
             row->cells[col].c[0] = '\0';
-            row->cells[col].attrs.have_background = true;
             row->cells[col].attrs.background = term->vt.attrs.background;
         }
     } else {

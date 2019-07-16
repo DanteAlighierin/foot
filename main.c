@@ -33,8 +33,13 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+#if 0
 static const struct rgb default_foreground = {0.86, 0.86, 0.86};
 static const struct rgb default_background = {0.067, 0.067, 0.067};
+#else
+static const uint32_t default_foreground = 0xdcdccc;
+static const uint32_t default_background = 0x111111;
+#endif
 
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
