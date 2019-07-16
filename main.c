@@ -269,7 +269,7 @@ main(int argc, char *const *argv)
         {NULL,   no_argument,       0,   0},
     };
 
-    const char *font_name = "Dina:pixelsize=12";
+    const char *font_name = "monospace";
 
     while (true) {
         int c = getopt_long(argc, argv, ":f:h", longopts, NULL);
