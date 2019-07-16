@@ -133,6 +133,7 @@ csi_sgr(struct terminal *term)
         case 8: term->vt.attrs.conceal = true; break;
         case 9: term->vt.attrs.strikethrough = true; break;
 
+        case 21: term->vt.attrs.bold = false; break;
         case 22: term->vt.attrs.bold = term->vt.dim = false; break;
         case 23: term->vt.attrs.italic = false; break;
         case 24: term->vt.attrs.underline = false; break;
