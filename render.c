@@ -38,6 +38,29 @@ struct glyph_sequence {
 static struct glyph_sequence gseq;
 
 static void
+gseq_flush(struct terminal *term, struct buffer *buf)
+{
+    struct rgb fg = {
+        ((gseq.foreground >> 16) & 0xff) / 255.0,
+        ((gseq.foreground >>  8) & 0xff) / 255.0,
+        ((gseq.foreground >>  0) & 0xff) / 255.0,
+    };
+
+    if (gseq.attrs.dim) {
+        fg.r /= 2.0;
+        fg.g /= 2.0;
+        fg.b /= 2.0;
+    }
+
+    cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
+    cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
+    cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
+
+    gseq.g = gseq.glyphs;
+    gseq.count = 0;
+}
+
+static void
 render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
             int col, int row, bool has_cursor)
 {
@@ -72,40 +95,20 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         }
     }
 
-#if 0
-    const struct rgb *foreground = cell->attrs.have_foreground
-        ? &cell->attrs.foreground
-        : !term->reverse ? &term->foreground : &term->background;
-    const struct rgb *background = cell->attrs.have_background
-        ? &cell->attrs.background
-        : !term->reverse ? &term->background : &term->foreground;
-#else
     uint32_t _foreground = cell->attrs.foreground >> 31
         ? cell->attrs.foreground
         : !term->reverse ? term->foreground : term->background;
     uint32_t _background = cell->attrs.background >> 31
         ? cell->attrs.background
         : !term->reverse ? term->background : term->foreground;
-#endif
 
     /* If *one* is set, we reverse */
     if (has_cursor ^ cell->attrs.reverse ^ is_selected) {
-#if 0
-        const struct rgb *swap = foreground;
-#else
         uint32_t swap = _foreground;
-#endif
         _foreground = _background;
         _background = swap;
     }
 
-#if 0
-    struct rgb foreground = {
-        ((_foreground >> 16) & 0xff) / 255.0,
-        ((_foreground >>  8) & 0xff) / 255.0,
-        ((_foreground >>  0) & 0xff) / 255.0,
-    };
-#endif
     struct rgb background = {
         ((_background >> 16) & 0xff) / 255.0,
         ((_background >>  8) & 0xff) / 255.0,
@@ -134,28 +137,12 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
 
     if (memcmp(&cell->attrs, &gseq.attrs, sizeof(cell->attrs)) != 0 ||
         gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10 ||
-#if 0
-        memcmp(&gseq.foreground, foreground, sizeof(*foreground)) != 0
-#else
-        gseq.foreground != _foreground
-#endif
-        )
+        gseq.foreground != _foreground)
     {
         if (gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10)
             LOG_WARN("hit glyph limit");
 
-        struct rgb fg = {
-            ((gseq.foreground >> 16) & 0xff) / 255.0,
-            ((gseq.foreground >>  8) & 0xff) / 255.0,
-            ((gseq.foreground >>  0) & 0xff) / 255.0,
-        };
-
-        cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
-        cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
-        cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
-
-        gseq.g = gseq.glyphs;
-        gseq.count = 0;
+        gseq_flush(term, buf);
         gseq.attrs = cell->attrs;
         gseq.foreground = _foreground;
     }
@@ -378,17 +365,8 @@ grid_render(struct terminal *term)
             term->cell_width, term->cell_height);
     }
 
-    if (gseq.count > 0) {
-        struct rgb fg = {
-            ((gseq.foreground >> 16) & 0xff) / 255.0,
-            ((gseq.foreground >>  8) & 0xff) / 255.0,
-            ((gseq.foreground >>  0) & 0xff) / 255.0,
-        };
-
-        cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs));
-        cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
-        cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
-    }
+    if (gseq.count > 0)
+        gseq_flush(term, buf);
 
     assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
     assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
