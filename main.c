@@ -401,8 +401,6 @@ main(int argc, char *const *argv)
         }
 
         if (f->strikeout.position == 0.) {
-            assert(false);
-            /* TODO: fixme */
             f->strikeout.position = height / 2. + descent;
             f->strikeout.thickness = f->underline.thickness;
         }
