@@ -42,6 +42,7 @@ osc_dispatch(struct terminal *term)
 
     case 104: /* Reset Color Number 'c' */
     case 105: /* Reset Special Color Number 'c' */
+    case 112: /* Reset text cursor color */
         break;
 
     default:
