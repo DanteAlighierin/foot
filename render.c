@@ -141,7 +141,7 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
         cairo_set_line_width(buf->cairo, width);
         cairo_move_to(buf->cairo, x, round(y_under) + 0.5);
-        cairo_line_to(buf->cairo, x + term->cell_width, round(y_under) + 0.5);
+        cairo_rel_line_to(buf->cairo, term->cell_width, 0);
         cairo_stroke(buf->cairo);
     }
 
@@ -154,7 +154,7 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
         cairo_set_line_width(buf->cairo, width);
         cairo_move_to(buf->cairo, x, round(y_strike) + 0.5);
-        cairo_line_to(buf->cairo, x + term->cell_width, round(y_strike) + 0.5);
+        cairo_rel_line_to(buf->cairo, term->cell_width, 0);
         cairo_stroke(buf->cairo);
     }
 
