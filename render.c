@@ -91,40 +91,40 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         }
     }
 
-    uint32_t _foreground = cell->attrs.foreground >> 31
+    uint32_t _fg = cell->attrs.foreground >> 31
         ? cell->attrs.foreground
         : !term->reverse ? term->foreground : term->background;
-    uint32_t _background = cell->attrs.background >> 31
+    uint32_t _bg = cell->attrs.background >> 31
         ? cell->attrs.background
         : !term->reverse ? term->background : term->foreground;
 
     /* If *one* is set, we reverse */
     if (has_cursor ^ cell->attrs.reverse ^ is_selected) {
-        uint32_t swap = _foreground;
-        _foreground = _background;
-        _background = swap;
+        uint32_t swap = _fg;
+        _fg = _bg;
+        _bg = swap;
     }
 
-    struct rgb foreground = {
-        ((_foreground >> 16) & 0xff) / 255.,
-        ((_foreground >>  8) & 0xff) / 255.,
-        ((_foreground >>  0) & 0xff) / 255.,
+    struct rgb fg = {
+        ((_fg >> 16) & 0xff) / 255.,
+        ((_fg >>  8) & 0xff) / 255.,
+        ((_fg >>  0) & 0xff) / 255.,
     };
 
-    struct rgb background = {
-        ((_background >> 16) & 0xff) / 255.,
-        ((_background >>  8) & 0xff) / 255.,
-        ((_background >>  0) & 0xff) / 255.,
+    struct rgb bg = {
+        ((_bg >> 16) & 0xff) / 255.,
+        ((_bg >>  8) & 0xff) / 255.,
+        ((_bg >>  0) & 0xff) / 255.,
     };
 
     if (cell->attrs.dim) {
-        foreground.r /= 2.;
-        foreground.g /= 2.;
-        foreground.b /= 2.;
+        fg.r /= 2.;
+        fg.g /= 2.;
+        fg.b /= 2.;
     }
 
     /* Background */
-    cairo_set_source_rgb(buf->cairo, background.r, background.g, background.b);
+    cairo_set_source_rgb(buf->cairo, bg.r, bg.g, bg.b);
     cairo_rectangle(buf->cairo, x, y, width, height);
     cairo_fill(buf->cairo);
 
@@ -138,7 +138,7 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         double width = font->underline.thickness;
         double y_under = baseline - font->underline.position - width / 2.;
 
-        cairo_set_source_rgb(buf->cairo, foreground.r, foreground.g, foreground.b);
+        cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
         cairo_set_line_width(buf->cairo, width);
         cairo_move_to(buf->cairo, x, round(y_under) + 0.5);
         cairo_line_to(buf->cairo, x + term->cell_width, round(y_under) + 0.5);
@@ -151,7 +151,7 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         double width = font->strikeout.thickness;
         double y_strike = baseline - font->strikeout.position - width / 2.;
 
-        cairo_set_source_rgb(buf->cairo, foreground.r, foreground.g, foreground.b);
+        cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
         cairo_set_line_width(buf->cairo, width);
         cairo_move_to(buf->cairo, x, round(y_strike) + 0.5);
         cairo_line_to(buf->cairo, x + term->cell_width, round(y_strike) + 0.5);
@@ -169,14 +169,14 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
 
     if (memcmp(&cell->attrs, &gseq.attrs, sizeof(cell->attrs)) != 0 ||
         gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10 ||
-        gseq.foreground != _foreground)
+        gseq.foreground != _fg)
     {
         if (gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10)
             LOG_WARN("hit glyph limit");
 
         gseq_flush(term, buf);
         gseq.attrs = cell->attrs;
-        gseq.foreground = _foreground;
+        gseq.foreground = _fg;
     }
 
     int new_glyphs
