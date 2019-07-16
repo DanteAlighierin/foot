@@ -846,6 +846,38 @@ csi_dispatch(struct terminal *term, uint8_t final)
         break; /* private == '>' */
     }
 
+    case ' ': {
+        switch (final) {
+        case 'q': {
+            int param = vt_param_get(term, 0, 0);
+            switch (param) {
+            case 2: /* steady block */
+                break;
+
+            case 0:
+            case 1: /* blinking block */
+            case 3: /* blinking underline */
+            case 4: /* steady underline */
+            case 5: /* blinking bar */
+            case 6: /* steady bar */
+                LOG_WARN("unimplemented: cursor style: %s",
+                         param == 0 || param == 1 ? "blinking block" :
+                         param == 3 ? "blinking underline" :
+                         param == 4 ? "steady underline" :
+                         param == 5 ? "blinking bar" : "steady bar");
+                break;
+            }
+            break;
+        }
+
+        default:
+            LOG_ERR("unimplemented: %s", csi_as_string(term, final));
+            abort();
+            break;
+        }
+        break; /* private == ' ' */
+    }
+
     default:
         LOG_ERR("unimplemented: %s", csi_as_string(term, final));
         abort();
