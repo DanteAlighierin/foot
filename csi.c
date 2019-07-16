@@ -111,7 +111,6 @@ static void
 sgr_reset(struct terminal *term)
 {
     memset(&term->vt.attrs, 0, sizeof(term->vt.attrs));
-    term->vt.dim = false;
     term->vt.attrs.foreground = term->foreground;
     term->vt.attrs.background = term->background;
 }
@@ -160,7 +159,7 @@ csi_sgr(struct terminal *term)
             break;
 
         case 1: term->vt.attrs.bold = true; break;
-        case 2: term->vt.dim = true; break;
+        case 2: term->vt.attrs.dim = true; break;
         case 3: term->vt.attrs.italic = true; break;
         case 4: term->vt.attrs.underline = true; break;
         case 5: term->vt.attrs.blink = true; break;
@@ -170,7 +169,7 @@ csi_sgr(struct terminal *term)
         case 9: term->vt.attrs.strikethrough = true; break;
 
         case 21: term->vt.attrs.bold = false; break;
-        case 22: term->vt.attrs.bold = term->vt.dim = false; break;
+        case 22: term->vt.attrs.bold = term->vt.attrs.dim = false; break;
         case 23: term->vt.attrs.italic = false; break;
         case 24: term->vt.attrs.underline = false; break;
         case 25: term->vt.attrs.blink = false; break;

@@ -52,6 +52,7 @@ struct rgb { float r, g, b; };
  *  misses) */
 struct attributes {
     uint8_t bold:1;
+    uint8_t dim:1;
     uint8_t italic:1;
     uint8_t underline:1;
     uint8_t strikethrough:1;
@@ -134,7 +135,6 @@ struct vt {
     } utf8;
     struct attributes attrs;
     struct attributes saved_attrs;
-    bool dim;
 };
 
 struct kbd {
