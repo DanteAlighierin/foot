@@ -548,7 +548,7 @@ main(int argc, char *const *argv)
 
     case 0:
         /* Child */
-        slave_spawn(term.ptmx);
+        slave_spawn(term.ptmx, conf.shell);
         assert(false);
         break;
 
