@@ -97,7 +97,7 @@ selection_start(struct terminal *term, int col, int row)
     selection_cancel(term);
 
     LOG_DBG("selection started at %d,%d", row, col);
-    term->selection.start = (struct coord){col, row};
+    term->selection.start = (struct coord){col, term->grid->view + row};
     term->selection.end = (struct coord){-1, -1};
 }
 
