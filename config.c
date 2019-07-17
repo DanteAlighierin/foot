@@ -93,6 +93,11 @@ parse_section_main(char *line, struct config *conf, const char *path, unsigned l
         conf->font = strdup(value);
     }
 
+    else if (strcmp(key, "shell") == 0) {
+        free(conf->shell);
+        conf->shell = strdup(value);
+    }
+
     else {
         LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
         return false;
