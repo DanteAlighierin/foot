@@ -1,6 +1,7 @@
 #pragma once
 
 struct config {
+    char *shell;
     char *font;
 };
 

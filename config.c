@@ -16,6 +16,21 @@
 #include "log.h"
 
 static char *
+get_shell(void)
+{
+    struct passwd *passwd = getpwuid(getuid());
+    if (passwd == NULL) {
+        LOG_ERRNO("failed to lookup user");
+        return NULL;
+    }
+
+    const char *shell = passwd->pw_shell;
+    LOG_DBG("user's shell: %s", shell);
+
+    return strdup(shell);
+}
+
+static char *
 get_config_path_user_config(void)
 {
     struct passwd *passwd = getpwuid(getuid());
@@ -145,6 +160,7 @@ struct config
 config_load(void)
 {
     struct config conf = {
+        .shell = get_shell(),
         .font = strdup("monospace"),
     };
 
@@ -174,5 +190,6 @@ out:
 void
 config_free(struct config conf)
 {
+    free(conf.shell);
     free(conf.font);
 }
