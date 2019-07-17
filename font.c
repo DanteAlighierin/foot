@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #include <fontconfig/fontconfig.h>
 #include <cairo-ft.h>
@@ -35,6 +36,12 @@ font_from_name(const char *name)
         return NULL;
     }
 
+    cairo_font_options_t *options = cairo_font_options_create();
+    cairo_font_options_set_hint_style(options, CAIRO_HINT_STYLE_DEFAULT);
+    cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_DEFAULT);
+    cairo_font_options_set_subpixel_order(options, CAIRO_SUBPIXEL_ORDER_DEFAULT);
+    cairo_ft_font_options_substitute(options, pattern);
+
     FcDefaultSubstitute(pattern);
 
     FcResult result;
@@ -45,6 +52,23 @@ font_from_name(const char *name)
         LOG_ERR("%s: failed to match font", name);
         return NULL;
     }
+
+    FcBool fc_hinting, fc_antialias;
+    if (FcPatternGetBool(final_pattern, FC_HINTING,0,  &fc_hinting) != FcResultMatch) {
+        LOG_WARN("failed to get fontconfig hinting style");
+        fc_hinting = FcTrue;
+    }
+
+    if (FcPatternGetBool(final_pattern, FC_ANTIALIAS, 0, &fc_antialias) != FcResultMatch) {
+        LOG_WARN("failed to get fontconfig antialias");
+        fc_antialias = FcTrue;
+    }
+
+    cairo_font_options_set_hint_style(
+        options, fc_hinting ? CAIRO_HINT_STYLE_DEFAULT : CAIRO_HINT_STYLE_NONE);
+    cairo_font_options_set_antialias(
+        options, fc_antialias ? CAIRO_ANTIALIAS_DEFAULT : CAIRO_ANTIALIAS_NONE);
+    assert(cairo_font_options_get_antialias(options) == CAIRO_ANTIALIAS_NONE);
 
     double size;
     if (FcPatternGetDouble(final_pattern, FC_PIXEL_SIZE, 0, &size)) {
@@ -68,7 +92,6 @@ font_from_name(const char *name)
     cairo_matrix_init_identity(&ctm);
     cairo_matrix_init_scale(&matrix, size, size);
 
-    cairo_font_options_t *options = cairo_font_options_create();
     cairo_scaled_font_t *scaled_font = cairo_scaled_font_create(
         face, &matrix, &ctm, options);
 
