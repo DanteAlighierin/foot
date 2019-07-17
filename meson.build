@@ -73,6 +73,7 @@ executable(
   'shm.c', 'shm.h',
   'slave.c', 'slave.h',
   'terminal.c', 'terminal.h',
+  'tokenize.c', 'tokenize.h',
   'tllist.h',
   'vt.c', 'vt.h',
   wl_proto_src + wl_proto_headers,
