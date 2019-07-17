@@ -273,7 +273,9 @@ main(int argc, char *const *argv)
 {
     int ret = EXIT_FAILURE;
 
-    struct config conf = config_load();
+    struct config conf = {NULL};
+    if (!config_load(&conf))
+        return ret;
 
     static const struct option longopts[] =  {
         {"font", required_argument, 0, 'f'},

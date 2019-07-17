@@ -1,9 +1,11 @@
 #pragma once
 
+#include <stdbool.h>
+
 struct config {
     char *shell;
     char *font;
 };
 
-struct config config_load(void);
+bool config_load(struct config *conf);
 void config_free(struct config conf);

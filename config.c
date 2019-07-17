@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -81,13 +82,9 @@ get_config_path(void)
 }
 
 static bool
-parse_section_main(char *line, struct config *conf, const char *path, unsigned lineno)
+parse_section_main(const char *key, const char *value, struct config *conf,
+                   const char *path, unsigned lineno)
 {
-    const char *key = strtok(line, "=");
-    const char *value = strtok(NULL, "\n");
-
-    LOG_DBG("%s:%u: key = %s, value=%s", path, lineno, key, value);
-
     if (strcmp(key, "font") == 0) {
         free(conf->font);
         conf->font = strdup(value);
@@ -99,7 +96,7 @@ parse_section_main(char *line, struct config *conf, const char *path, unsigned l
     }
 
     else {
-        LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+        LOG_WARN("%s:%u: invalid key: %s", path, lineno, key);
         return false;
     }
 
@@ -115,12 +112,19 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 
     /* Function pointer, called for each key/value line */
     typedef bool (*parser_fun_t)(
-        char *line, struct config *conf, const char *path, unsigned lineno);
+        const char *key, const char *value, struct config *conf,
+        const char *path, unsigned lineno);
 
     /* Maps sections to line parser functions */
     static const parser_fun_t section_parser_map[] = {
         [SECTION_MAIN] = &parse_section_main,
     };
+
+#if defined(_DEBUG)
+    static const char *const section_names[] = {
+        [SECTION_MAIN] = "main",
+    };
+#endif
 
     unsigned lineno = 0;
 
@@ -147,10 +151,50 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
             return false;
         }
 
+        char *key = strtok(line, "=");
+        char *value = strtok(NULL, "\n");
+
+        {
+            while (isspace(*key))
+                key++;
+            char *end = key + strlen(key) - 1;
+            while (isspace(*end))
+                end--;
+            *(end + 1) = '\0';
+        }
+
+        if (value == NULL) {
+            if (key != NULL && strlen(key) > 0 && key[0] != '#') {
+                LOG_ERR("%s:%d: syntax error: %s", path, lineno, line);
+                free(line);
+                return false;
+            }
+
+            free(line);
+            continue;
+        }
+
+        {
+            while (isspace(*value))
+                value++;
+            char *end = value + strlen(value) - 1;
+            while (isspace(*end))
+                end--;
+            *(end + 1) = '\0';
+        }
+
+        if (key[0] == '#') {
+            free(line);
+            continue;
+        }
+
+        LOG_DBG("section=%s, key='%s', value='%s'",
+                section_names[section], key, value);
+
         parser_fun_t section_parser = section_parser_map[section];
         assert(section_parser != NULL);
 
-        if (!section_parser(line, conf, path, lineno)) {
+        if (!section_parser(key, value, conf, path, lineno)) {
             free(line);
             return false;
         }
@@ -161,10 +205,12 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
     return true;
 }
 
-struct config
-config_load(void)
+bool
+config_load(struct config *conf)
 {
-    struct config conf = {
+    bool ret = false;
+
+    *conf = (struct config) {
         .shell = get_shell(),
         .font = strdup("monospace"),
     };
@@ -184,12 +230,12 @@ config_load(void)
         goto out;
     }
 
-    parse_config_file(f, &conf, path);
+    ret = parse_config_file(f, conf, path);
     fclose(f);
 
 out:
     free(path);
-    return conf;
+    return ret;
 }
 
 void
