@@ -11,17 +11,12 @@
 #define LOG_MODULE "slave"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "tokenize.h"
 
 void
-slave_spawn(int ptmx, char *cmd, int err_fd)
+slave_spawn(int ptmx, char *const argv[], int err_fd)
 {
     int pts = -1;
     const char *pts_name = ptsname(ptmx);
-
-    char **argv = NULL;
-    if (!tokenize_cmdline(cmd, &argv))
-        goto err;
 
     if (grantpt(ptmx) == -1) {
         LOG_ERRNO("failed to grantpt()");
@@ -61,8 +56,6 @@ slave_spawn(int ptmx, char *cmd, int err_fd)
 
 err:
     (void)!write(err_fd, &errno, sizeof(errno));
-    if (argv)
-        free(argv);
     if (pts != -1)
         close(pts);
     if (ptmx != -1)

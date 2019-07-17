@@ -30,6 +30,7 @@
 #include "shm.h"
 #include "slave.h"
 #include "terminal.h"
+#include "tokenize.h"
 #include "vt.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
@@ -305,6 +306,9 @@ main(int argc, char *const *argv)
         }
     }
 
+    argc -= optind;
+    argv += optind;
+
     setlocale(LC_ALL, "");
     setenv("TERM", "xterm-direct", 1); /* TODO: configurable */
 
@@ -558,7 +562,19 @@ main(int argc, char *const *argv)
         case 0:
             /* Child */
             close(fork_pipe[0]);  /* Close read end */
-            slave_spawn(term.ptmx, conf.shell, fork_pipe[1]);
+
+            char **_shell_argv = NULL;
+            char *const *shell_argv = argv;
+
+            if (argc == 0) {
+                if (!tokenize_cmdline(conf.shell, &_shell_argv)) {
+                    (void)!write(fork_pipe[1], &errno, sizeof(errno));
+                    _exit(0);
+                }
+                shell_argv = _shell_argv;
+            }
+
+            slave_spawn(term.ptmx, shell_argv, fork_pipe[1]);
             assert(false);
             break;
 
@@ -576,7 +592,8 @@ main(int argc, char *const *argv)
                 LOG_ERRNO("failed to read from pipe");
                 goto out;
             } else if (ret == sizeof(_errno)) {
-                LOG_ERRNO("%s: failed to execute", conf.shell);
+                LOG_ERRNO(
+                    "%s: failed to execute", argc == 0 ? conf.shell : argv[0]);
                 goto out;
             } else
                 LOG_DBG("%s: successfully started", conf.shell);
