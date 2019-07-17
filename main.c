@@ -507,7 +507,7 @@ main(int argc, char *const *argv)
         term.wl.shm);
     if (term.wl.pointer.theme == NULL) {
         LOG_ERR("failed to load cursor theme");
-        return false;
+        goto out;
     }
 
     term.wl.pointer.cursor = wl_cursor_theme_get_cursor(
