@@ -36,9 +36,9 @@ static const struct key_data key_return[] = {
 };
 
 static const struct key_data key_backspace[] = {
-    {MOD_ALT, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\177"},
-    {MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\177"},
-    {MOD_ANY, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\177"},
+    {MOD_ALT, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x7f"},
+    {MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x7f"},
+    {MOD_ANY, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\x7f"},
 };
 
 static const struct key_data key_up[] = {
