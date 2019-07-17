@@ -92,7 +92,7 @@ err:
 }
 
 void
-slave_spawn(int ptmx, char *cmd)
+slave_spawn(int ptmx, char *cmd, int err_fd)
 {
     int pts = -1;
     const char *pts_name = ptsname(ptmx);
@@ -138,6 +138,7 @@ slave_spawn(int ptmx, char *cmd)
     execvp(argv[0], argv);
 
 err:
+    (void)!write(err_fd, &errno, sizeof(errno));
     if (argv)
         free(argv);
     if (pts != -1)

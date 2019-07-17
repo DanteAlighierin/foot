@@ -540,21 +540,49 @@ main(int argc, char *const *argv)
 
     wl_display_dispatch_pending(term.wl.display);
 
-    term.slave = fork();
-    switch (term.slave) {
-    case -1:
-        LOG_ERRNO("failed to fork");
-        goto out;
+    {
+        int fork_pipe[2];
+        if (pipe2(fork_pipe, O_CLOEXEC) < 0) {
+            LOG_ERRNO("failed to create pipe");
+            goto out;
+        }
 
-    case 0:
-        /* Child */
-        slave_spawn(term.ptmx, conf.shell);
-        assert(false);
-        break;
+        term.slave = fork();
+        switch (term.slave) {
+        case -1:
+            LOG_ERRNO("failed to fork");
+            close(fork_pipe[0]);
+            close(fork_pipe[1]);
+            goto out;
 
-    default:
-        LOG_DBG("slave has PID %d", term.slave);
-        break;
+        case 0:
+            /* Child */
+            close(fork_pipe[0]);  /* Close read end */
+            slave_spawn(term.ptmx, conf.shell, fork_pipe[1]);
+            assert(false);
+            break;
+
+        default: {
+            close(fork_pipe[1]); /* Close write end */
+            LOG_DBG("slave has PID %d", term.slave);
+
+            int _errno;
+            static_assert(sizeof(errno) == sizeof(_errno), "errno size mismatch");
+
+            ssize_t ret = read(fork_pipe[0], &_errno, sizeof(_errno));
+            close(fork_pipe[0]);
+
+            if (ret < 0) {
+                LOG_ERRNO("failed to read from pipe");
+                goto out;
+            } else if (ret == sizeof(_errno)) {
+                LOG_ERRNO("%s: failed to execute", conf.shell);
+                goto out;
+            } else
+                LOG_DBG("%s: successfully started", conf.shell);
+            break;
+        }
+        }
     }
 
     /* Read logic requires non-blocking mode */
