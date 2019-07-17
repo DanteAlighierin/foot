@@ -120,7 +120,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         [SECTION_MAIN] = &parse_section_main,
     };
 
-#if defined(_DEBUG)
+#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     static const char *const section_names[] = {
         [SECTION_MAIN] = "main",
     };
