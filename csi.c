@@ -740,6 +740,16 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->cursor_keys_mode = CURSOR_KEYS_NORMAL;
                     break;
 
+                case 3:
+                    LOG_WARN("unimplemented: 132 column mode (DECCOLM, %s)",
+                             csi_as_string(term, final));
+                    break;
+
+                case 4:
+                    LOG_WARN("unimplemented: Smooth (Slow) Scroll (DECSCLM, %s)",
+                             csi_as_string(term, final));
+                    break;
+
                 case 5:
                     term->reverse = false;
                     term_damage_all(term);
@@ -895,6 +905,20 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
         break; /* private == ' ' */
+    }
+
+    case '!': {
+        switch (final) {
+        case 'p':
+            LOG_WARN("unimplemented: soft reset");
+            break;
+
+        default:
+            LOG_ERR("unimplemented: %s", csi_as_string(term, final));
+            abort();
+            break;
+        }
+        break; /* private == '!' */
     }
 
     default:

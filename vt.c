@@ -598,6 +598,10 @@ esc_dispatch(struct terminal *term, uint8_t final)
         term->vt.attrs = term->vt.saved_attrs;
         break;
 
+    case 'c':
+        LOG_WARN("unimplemented: reset to initial state");
+        break;
+
     case 'B': {
         /* Configure G0-G3 to use ASCII */
         char param = term->vt.private != 0 ? term->vt.private : '(';
