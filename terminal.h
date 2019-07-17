@@ -253,6 +253,9 @@ struct terminal {
         int col;
         int row;
         int button;
+
+        int last_button;
+        struct timeval last_time;
     } mouse;
 
     struct coord cursor;

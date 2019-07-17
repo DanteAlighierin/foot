@@ -1,5 +1,6 @@
 #include "selection.h"
 
+#include <ctype.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -212,6 +213,74 @@ selection_cancel(struct terminal *term)
         if (term->frame_callback == NULL)
             grid_render(term);
     }
+}
+
+void
+selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
+{
+    if (!selection_enabled(term))
+        return;
+
+    selection_cancel(term);
+
+    struct coord start = {col, row};
+    struct coord end = {col, row};
+
+    const struct row *r = grid_row_in_view(term->grid, start.row);
+    unsigned char c = r->cells[start.col].c[0];
+
+    if (!(c == '\0' || isspace(c))) {
+        while (true) {
+            int next_col = start.col - 1;
+            int next_row = start.row;
+
+            /* Linewrap */
+            if (next_col < 0) {
+                next_col = term->cols - 1;
+                if (--next_row < 0)
+                    break;
+            }
+
+            const struct row *row = grid_row_in_view(term->grid, next_row);
+
+            unsigned char c = row->cells[next_col].c[0];
+            if (c == '\0' || isspace(c))
+                break;
+
+            start.col = next_col;
+            start.row = next_row;
+        }
+    }
+
+    r = grid_row_in_view(term->grid, end.row);
+    c = r->cells[end.col].c[0];
+
+    if (!(c == '\0' || isspace(c))) {
+        while (true) {
+            int next_col = end.col + 1;
+            int next_row = end.row;
+
+            /* Linewrap */
+            if (next_col >= term->cols) {
+                next_col = 0;
+                if (++next_row >= term->rows)
+                    break;
+            }
+
+            const struct row *row = grid_row_in_view(term->grid, next_row);
+
+            unsigned char c = row->cells[next_col].c[0];
+            if (c == '\0' || isspace(c))
+                break;
+
+            end.col = next_col;
+            end.row = next_row;
+        }
+    }
+
+    selection_start(term, start.col, start.row);
+    selection_update(term, end.col, end.row);
+    selection_finalize(term, serial);
 }
 
 static void

@@ -6,6 +6,7 @@
 #include <threads.h>
 #include <locale.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 
 #include <linux/input-event-codes.h>
 
@@ -354,19 +355,38 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     struct terminal *term = data;
 
     switch (state) {
-    case WL_POINTER_BUTTON_STATE_PRESSED:
-        if (button == BTN_LEFT)
-            selection_start(term, term->mouse.col, term->mouse.row);
-        else {
+    case WL_POINTER_BUTTON_STATE_PRESSED: {
+        bool double_click = false;
+
+        struct timeval now;
+        gettimeofday(&now, NULL);
+
+        struct timeval since_last;
+        timersub(&now, &term->mouse.last_time, &since_last);
+        if (button == term->mouse.last_button &&
+            since_last.tv_sec == 0 && since_last.tv_usec <= 300 * 1000)
+        {
+            double_click = true;
+        }
+
+        if (button == BTN_LEFT) {
+            if (double_click)
+                selection_mark_word(term, term->mouse.col, term->mouse.row, serial);
+            else
+                selection_start(term, term->mouse.col, term->mouse.row);
+        } else {
             if (button == BTN_MIDDLE)
                 selection_from_primary(term);
             selection_cancel(term);
         }
 
         term->mouse.button = button; /* For motion events */
+        term->mouse.last_button = button;
+        term->mouse.last_time = now;
         term_mouse_down(term, button, term->mouse.row, term->mouse.col,
                         term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
         break;
+    }
 
     case WL_POINTER_BUTTON_STATE_RELEASED:
         if (button != BTN_LEFT || term->selection.end.col == -1)

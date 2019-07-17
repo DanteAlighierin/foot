@@ -11,6 +11,7 @@ void selection_start(struct terminal *term, int col, int row);
 void selection_update(struct terminal *term, int col, int row);
 void selection_finalize(struct terminal *term, uint32_t serial);
 void selection_cancel(struct terminal *term);
+void selection_mark_word(struct terminal *term, int col, int row, uint32_t serial);
 
 void selection_to_clipboard(struct terminal *term, uint32_t serial);
 void selection_from_clipboard(struct terminal *term, uint32_t serial);
