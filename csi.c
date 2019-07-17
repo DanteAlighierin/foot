@@ -590,6 +590,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
              * should provide our own terminfo with *only* \e[?1049h
              * (and \e[?1049l for rmcup)
              */
+
+            /* 22 - save window title */
+            /* 23 - restore window title */
             LOG_WARN("ignoring %s", csi_as_string(term, final));
             break;
 
