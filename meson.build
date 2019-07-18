@@ -80,4 +80,12 @@ executable(
   dependencies: [threads, math, cairo, cairo_ft, fontconfig, wayland_client, wayland_cursor, xkb],
   install: true)
 
+custom_target(
+  'terminfo',
+  output: 'f',
+  input: 'foot.info',
+  command: ['tic', '-o', '@OUTDIR@', '-e', 'foot,foot-direct', '@INPUT@'],
+  install: true,
+  install_dir: join_paths(get_option('datadir'), 'terminfo'))
+
 install_data('foot.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
