@@ -383,6 +383,8 @@ grid_render(struct terminal *term)
     if (last_cursor != cursor_as_linear) {
         int row = last_cursor / term->cols - term->grid->offset;
         int col = last_cursor % term->cols;
+
+        /* Last cursor cell may have scrolled off screen */
         if (row >= 0 && row < term->rows) {
             render_cell(term, buf, &grid_row_in_view(term->grid, row)->cells[col], col, row, false);
             all_clean = false;
@@ -399,6 +401,7 @@ grid_render(struct terminal *term)
         return;
     }
 
+    /* Current cursor cell - may be invisible if we've scrolled back */
     bool cursor_is_visible = false;
     int view_end = (term->grid->view + term->rows - 1) % term->grid->num_rows;
     int cursor_row = (term->grid->offset + term->cursor.row) % term->grid->num_rows;
