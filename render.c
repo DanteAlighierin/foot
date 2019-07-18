@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
@@ -263,6 +264,9 @@ static const struct wl_callback_listener frame_listener = {
 void
 grid_render(struct terminal *term)
 {
+    struct timeval start_time;
+    gettimeofday(&start_time, NULL);
+
     static int last_cursor;
 
     assert(term->width > 0);
@@ -411,6 +415,14 @@ grid_render(struct terminal *term)
     wl_callback_add_listener(term->frame_callback, &frame_listener, term);
 
     wl_surface_commit(term->wl.surface);
+
+    struct timeval end_time;
+    gettimeofday(&end_time, NULL);
+
+    struct timeval render_time;
+    timersub(&end_time, &start_time, &render_time);
+    LOG_INFO("frame rendered in %lds %ldms",
+             render_time.tv_sec, render_time.tv_usec / 1000);
 }
 
 static void
