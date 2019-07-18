@@ -795,6 +795,8 @@ out:
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
         if (term.fonts[i].font != NULL)
             cairo_scaled_font_destroy(term.fonts[i].font);
+        for (size_t j = 0; j < 256; j++)
+            free(term.fonts[i].glyph_cache[j].glyphs);
     }
 
     if (term.ptmx != -1)

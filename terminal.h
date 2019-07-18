@@ -202,6 +202,11 @@ struct primary {
     uint32_t serial;
 };
 
+struct glyph_cache {
+    cairo_glyph_t *glyphs;
+    int count;
+};
+
 struct font {
     cairo_scaled_font_t *font;
     struct {
@@ -212,6 +217,8 @@ struct font {
         double position;
         double thickness;
     } strikeout;
+
+    struct glyph_cache glyph_cache[256];
 };
 
 struct terminal {

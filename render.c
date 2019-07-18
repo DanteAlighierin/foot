@@ -16,7 +16,7 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-const struct font *
+struct font *
 attrs_to_font(struct terminal *term, const struct attributes *attrs)
 {
     int idx = attrs->italic << 1 | attrs->bold;
@@ -182,13 +182,43 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     int new_glyphs
         = sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - gseq.count;
 
-    cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-        attrs_to_font(term, &cell->attrs)->font, x, y + term->fextents.ascent,
-        cell->c, strnlen(cell->c, 4), &gseq.g, &new_glyphs,
-        NULL, NULL, NULL);
+    struct font *font = attrs_to_font(term, &cell->attrs);
 
-    if (status != CAIRO_STATUS_SUCCESS)
-        return;
+    struct glyph_cache *entry = cell->c[1] == '\0'
+        ? &font->glyph_cache[(unsigned char)cell->c[0]]
+        : NULL;
+
+    if (likely(entry != NULL && entry->glyphs != NULL)) {
+        /* Copy cached glyph(s) and upate position */
+        for (size_t i = 0; i < entry->count; i++) {
+            gseq.g[i] = entry->glyphs[i];
+            gseq.g[i].x += x;
+            gseq.g[i].y += y;
+        }
+
+        new_glyphs = entry->count;
+    } else {
+        /* Must generate new glyph(s) */
+        cairo_status_t status = cairo_scaled_font_text_to_glyphs(
+            font->font, x, y + term->fextents.ascent,
+            cell->c, strnlen(cell->c, 4), &gseq.g, &new_glyphs,
+            NULL, NULL, NULL);
+
+        if (status != CAIRO_STATUS_SUCCESS)
+            return;
+
+        if (entry != NULL) {
+            assert(entry->glyphs == NULL);
+            entry->glyphs = malloc(new_glyphs * sizeof(entry->glyphs[0]));
+            entry->count = new_glyphs;
+
+            for (size_t i = 0; i < new_glyphs; i++) {
+                entry->glyphs[i] = gseq.g[i];
+                entry->glyphs[i].x -= x;
+                entry->glyphs[i].y -= y;
+            }
+        }
+    }
 
     gseq.g += new_glyphs;
     gseq.count += new_glyphs;
