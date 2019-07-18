@@ -871,7 +871,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
                 }
 
-                vt_to_slave(term, "\033[?6c", 5);
+                vt_to_slave(term, "\033[>41;347;0c", 12);
                 break;
             }
 
