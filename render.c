@@ -293,8 +293,12 @@ static const struct wl_callback_listener frame_listener = {
 void
 grid_render(struct terminal *term)
 {
+#define TIME_FRAME_RENDERING 0
+
+#if TIME_FRAME_RENDERING
     struct timeval start_time;
     gettimeofday(&start_time, NULL);
+#endif
 
     static int last_cursor;
 
@@ -436,6 +440,7 @@ grid_render(struct terminal *term)
 
     wl_surface_commit(term->wl.surface);
 
+#if TIME_FRAME_RENDERING
     struct timeval end_time;
     gettimeofday(&end_time, NULL);
 
@@ -443,6 +448,7 @@ grid_render(struct terminal *term)
     timersub(&end_time, &start_time, &render_time);
     LOG_INFO("frame rendered in %lds %ldms",
              render_time.tv_sec, render_time.tv_usec / 1000);
+#endif
 }
 
 static void
