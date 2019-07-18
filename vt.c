@@ -831,8 +831,7 @@ action(struct terminal *term, enum action _action, uint8_t c)
             break;
 
         default:
-            LOG_ERR("execute: unimplemented: %c (0x%02x)", c, c);
-            abort();
+            LOG_WARN("execute: ignoring: %c (0x%02x)", c, c);
             break;
         }
 
