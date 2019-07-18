@@ -68,7 +68,6 @@ font_from_name(const char *name)
         options, fc_hinting ? CAIRO_HINT_STYLE_DEFAULT : CAIRO_HINT_STYLE_NONE);
     cairo_font_options_set_antialias(
         options, fc_antialias ? CAIRO_ANTIALIAS_DEFAULT : CAIRO_ANTIALIAS_NONE);
-    assert(cairo_font_options_get_antialias(options) == CAIRO_ANTIALIAS_NONE);
 
     double size;
     if (FcPatternGetDouble(final_pattern, FC_PIXEL_SIZE, 0, &size)) {
