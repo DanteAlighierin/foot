@@ -54,15 +54,11 @@ font_from_name(const char *name)
     }
 
     FcBool fc_hinting, fc_antialias;
-    if (FcPatternGetBool(final_pattern, FC_HINTING,0,  &fc_hinting) != FcResultMatch) {
-        LOG_WARN("failed to get fontconfig hinting style");
+    if (FcPatternGetBool(final_pattern, FC_HINTING,0,  &fc_hinting) != FcResultMatch)
         fc_hinting = FcTrue;
-    }
 
-    if (FcPatternGetBool(final_pattern, FC_ANTIALIAS, 0, &fc_antialias) != FcResultMatch) {
-        LOG_WARN("failed to get fontconfig antialias");
+    if (FcPatternGetBool(final_pattern, FC_ANTIALIAS, 0, &fc_antialias) != FcResultMatch)
         fc_antialias = FcTrue;
-    }
 
     cairo_font_options_set_hint_style(
         options, fc_hinting ? CAIRO_HINT_STYLE_DEFAULT : CAIRO_HINT_STYLE_NONE);
