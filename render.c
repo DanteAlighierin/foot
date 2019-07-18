@@ -34,20 +34,31 @@ struct glyph_sequence {
 
 static struct glyph_sequence gseq;
 
+static inline struct rgb
+color_hex_to_rgb(uint32_t color)
+{
+    return (struct rgb){
+        ((color >> 16) & 0xff) / 255.,
+        ((color >>  8) & 0xff) / 255.,
+        ((color >>  0) & 0xff) / 255.,
+    };
+}
+
+static inline void
+color_dim(struct rgb *rgb)
+{
+    rgb->r /= 2.;
+    rgb->g /= 2.;
+    rgb->b /= 2.;
+}
+
 static void
 gseq_flush(struct terminal *term, struct buffer *buf)
 {
-    struct rgb fg = {
-        ((gseq.foreground >> 16) & 0xff) / 255.,
-        ((gseq.foreground >>  8) & 0xff) / 255.,
-        ((gseq.foreground >>  0) & 0xff) / 255.,
-    };
+    struct rgb fg = color_hex_to_rgb(gseq.foreground);
 
-    if (gseq.attrs.dim) {
-        fg.r /= 2.;
-        fg.g /= 2.;
-        fg.b /= 2.;
-    }
+    if (gseq.attrs.dim)
+        color_dim(&fg);
 
     cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs)->font);
     cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
@@ -106,23 +117,11 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         _bg = swap;
     }
 
-    struct rgb fg = {
-        ((_fg >> 16) & 0xff) / 255.,
-        ((_fg >>  8) & 0xff) / 255.,
-        ((_fg >>  0) & 0xff) / 255.,
-    };
+    struct rgb fg = color_hex_to_rgb(_fg);
+    struct rgb bg = color_hex_to_rgb(_bg);
 
-    struct rgb bg = {
-        ((_bg >> 16) & 0xff) / 255.,
-        ((_bg >>  8) & 0xff) / 255.,
-        ((_bg >>  0) & 0xff) / 255.,
-    };
-
-    if (cell->attrs.dim) {
-        fg.r /= 2.;
-        fg.g /= 2.;
-        fg.b /= 2.;
-    }
+    if (cell->attrs.dim)
+        color_dim(&fg);
 
     /* Background */
     cairo_set_source_rgb(buf->cairo, bg.r, bg.g, bg.b);
@@ -286,17 +285,8 @@ grid_render(struct terminal *term)
             int rmargin_width = term->width - rmargin;
             int bmargin_height = term->height - bmargin;
 
-#if 0
-            const struct rgb *bg = !term->reverse ?
-                &term->background : &term->foreground;
-#else
             uint32_t _bg = !term->reverse ? term->background : term->foreground;
-            struct rgb bg = {
-                ((_bg >> 16) & 0xff) / 255.,
-                ((_bg >>  8) & 0xff) / 255.,
-                ((_bg >>  0) & 0xff) / 255.,
-            };
-#endif
+            struct rgb bg = color_hex_to_rgb(_bg);
             cairo_set_source_rgb(buf->cairo, bg.r, bg.g, bg.b);
 
             cairo_rectangle(buf->cairo, rmargin, 0, rmargin_width, term->height);
