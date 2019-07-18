@@ -190,8 +190,8 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
 
     if (likely(entry != NULL && entry->glyphs != NULL)) {
         /* Copy cached glyph(s) and upate position */
+        memcpy(gseq.g, entry->glyphs, entry->count * sizeof(gseq.g[0]));
         for (size_t i = 0; i < entry->count; i++) {
-            gseq.g[i] = entry->glyphs[i];
             gseq.g[i].x += x;
             gseq.g[i].y += y;
         }
@@ -206,18 +206,6 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
 
         if (status != CAIRO_STATUS_SUCCESS)
             return;
-
-        if (entry != NULL) {
-            assert(entry->glyphs == NULL);
-            entry->glyphs = malloc(new_glyphs * sizeof(entry->glyphs[0]));
-            entry->count = new_glyphs;
-
-            for (size_t i = 0; i < new_glyphs; i++) {
-                entry->glyphs[i] = gseq.g[i];
-                entry->glyphs[i].x -= x;
-                entry->glyphs[i].y -= y;
-            }
-        }
     }
 
     gseq.g += new_glyphs;

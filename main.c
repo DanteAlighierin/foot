@@ -351,6 +351,11 @@ main(int argc, char *const *argv)
         .grid = &term.normal,
     };
 
+    if (term.ptmx == -1) {
+        LOG_ERRNO("failed to open pseudo terminal");
+        goto out;
+    }
+
     mtx_init(&term.kbd.repeat.mutex, mtx_plain);
     cnd_init(&term.kbd.repeat.cond);
 
@@ -415,7 +420,6 @@ main(int argc, char *const *argv)
                 f->strikeout.position, f->strikeout.thickness);
 
         cairo_ft_scaled_font_unlock_face(f->font);
-
     }
 
     cairo_scaled_font_extents(term.fonts[0].font,  &term.fextents);
@@ -426,9 +430,32 @@ main(int argc, char *const *argv)
             term.fextents.height, term.fextents.max_x_advance);
     assert(term.fextents.max_y_advance == 0);
 
-    if (term.ptmx == -1) {
-        LOG_ERRNO("failed to open pseudo terminal");
-        goto out;
+    /* Glyph cache */
+    for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
+        struct font *f = &term.fonts[i];
+
+        for (int j = 0; j < 256; j++) {
+            cairo_glyph_t *glyphs = NULL;
+            int count = 0;
+
+            char c = j;
+            cairo_status_t status = cairo_scaled_font_text_to_glyphs(
+                f->font, 0, 0 + term.fextents.ascent,
+                &c, 1, &glyphs, &count,
+                NULL, NULL, NULL);
+
+            if (status != CAIRO_STATUS_SUCCESS)
+                continue;
+
+            if (count == 0)
+                continue;
+
+            assert(glyphs != NULL);
+            assert(count == 1);
+
+            f->glyph_cache[j].glyphs = glyphs;
+            f->glyph_cache[j].count = count;
+        }
     }
 
     term.wl.display = wl_display_connect(NULL);
@@ -793,10 +820,13 @@ out:
     free(term.alt.rows);
 
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
-        if (term.fonts[i].font != NULL)
-            cairo_scaled_font_destroy(term.fonts[i].font);
+        struct font *f = &term.fonts[i];
+
+        if (f->font != NULL)
+            cairo_scaled_font_destroy(f->font);
+
         for (size_t j = 0; j < 256; j++)
-            free(term.fonts[i].glyph_cache[j].glyphs);
+            cairo_glyph_free(f->glyph_cache[j].glyphs);
     }
 
     if (term.ptmx != -1)
