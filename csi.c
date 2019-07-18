@@ -195,7 +195,8 @@ csi_sgr(struct terminal *term)
                 term->vt.params.v[i + 1].value == 5)
             {
                 size_t idx = term->vt.params.v[i + 2].value;
-                term->vt.attrs.foreground = 1 << 31 | colors256[idx];
+                if (idx < 5)
+                    term->vt.attrs.foreground = 1 << 31 | colors256[idx];
                 i += 2;
 
             }
@@ -257,7 +258,8 @@ csi_sgr(struct terminal *term)
                 term->vt.params.v[i + 1].value == 5)
             {
                 size_t idx = term->vt.params.v[i + 2].value;
-                term->vt.attrs.background = 1 << 31 | colors256[idx];
+                if (idx < 256)
+                    term->vt.attrs.background = 1 << 31 | colors256[idx];
                 i += 2;
             }
 
