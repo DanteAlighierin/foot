@@ -128,7 +128,7 @@ csi_as_string(struct terminal *term, uint8_t final)
         c += snprintf(&msg[c], sizeof(msg) - c, "%d",
                       term->vt.params.v[i].value);
 
-        for (size_t j = 0; i < term->vt.params.v[i].sub.idx; j++) {
+        for (size_t j = 0; j < term->vt.params.v[i].sub.idx; j++) {
             c += snprintf(&msg[c], sizeof(msg) - c, ":%d",
                           term->vt.params.v[i].sub.value[j]);
         }
