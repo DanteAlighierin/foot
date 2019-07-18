@@ -85,14 +85,19 @@ static bool
 parse_section_main(const char *key, const char *value, struct config *conf,
                    const char *path, unsigned lineno)
 {
-    if (strcmp(key, "font") == 0) {
-        free(conf->font);
-        conf->font = strdup(value);
+    if (strcmp(key, "term") == 0) {
+        free(conf->term);
+        conf->term = strdup(value);
     }
 
     else if (strcmp(key, "shell") == 0) {
         free(conf->shell);
         conf->shell = strdup(value);
+    }
+
+    else if (strcmp(key, "font") == 0) {
+        free(conf->font);
+        conf->font = strdup(value);
     }
 
     else {
@@ -211,6 +216,7 @@ config_load(struct config *conf)
     bool ret = false;
 
     *conf = (struct config) {
+        .term = strdup("foot"),
         .shell = get_shell(),
         .font = strdup("monospace"),
     };

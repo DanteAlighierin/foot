@@ -312,7 +312,7 @@ main(int argc, char *const *argv)
     argv += optind;
 
     setlocale(LC_ALL, "");
-    setenv("TERM", "foot", 1); /* TODO: configurable */
+    setenv("TERM", conf.term, 1);
 
     int repeat_pipe_fds[2] = {-1, -1};
     if (pipe2(repeat_pipe_fds, O_CLOEXEC) == -1) {

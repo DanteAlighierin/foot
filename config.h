@@ -3,6 +3,7 @@
 #include <stdbool.h>
 
 struct config {
+    char *term;
     char *shell;
     char *font;
 };
