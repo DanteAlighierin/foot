@@ -35,6 +35,15 @@ static const struct key_data key_return[] = {
     {MOD_ANY,   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\r"},
 };
 
+static const struct key_data key_tab[] = {
+    {MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;5;9~"},  /* TODO: this is my own hack... */
+    {MOD_ANY,  CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\t"},
+};
+
+static const struct key_data key_backtab[] = {
+    {MOD_ANY, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[Z"},
+};
+
 static const struct key_data key_backspace[] = {
     {MOD_ALT, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x7f"},
     {MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x7f"},
@@ -558,6 +567,8 @@ static const struct key_data key_kp_9[] = {
 static const struct key_map key_map[] = {
     {XKB_KEY_Escape,    ALEN(key_escape),    key_escape},
     {XKB_KEY_Return,    ALEN(key_return),    key_return},
+    {XKB_KEY_Tab,       ALEN(key_tab),       key_tab},
+    {XKB_KEY_ISO_Left_Tab, ALEN(key_backtab),   key_backtab},
     {XKB_KEY_BackSpace, ALEN(key_backspace), key_backspace},
     {XKB_KEY_Up,        ALEN(key_up),        key_up},
     {XKB_KEY_Down,      ALEN(key_down),      key_down},
