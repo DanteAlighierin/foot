@@ -278,6 +278,7 @@ main(int argc, char *const *argv)
         return ret;
 
     static const struct option longopts[] =  {
+        {"term", required_argument, 0, 't'},
         {"font", required_argument, 0, 'f'},
         {NULL,   no_argument,       0,   0},
     };
@@ -285,11 +286,16 @@ main(int argc, char *const *argv)
     //const char *font_name = "monospace";
 
     while (true) {
-        int c = getopt_long(argc, argv, ":f:h", longopts, NULL);
+        int c = getopt_long(argc, argv, ":t:f:h", longopts, NULL);
         if (c == -1)
             break;
 
         switch (c) {
+        case 't':
+            free(conf.term);
+            conf.term = strdup(optarg);
+            break;
+
         case 'f':
             free(conf.font);
             conf.font = strdup(optarg);
