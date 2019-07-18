@@ -18,7 +18,7 @@ osc_query(struct terminal *term, unsigned param)
     case 11: {
         char reply[16];
         snprintf(
-            reply, sizeof(reply), "\033]%u;%06x\x07",
+            reply, sizeof(reply), "\033]%u;%06x\033\\",
             param,
             (param == 10 ? term->foreground : term->background) & 0xffffff);
         vt_to_slave(term, reply, strlen(reply));
