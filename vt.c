@@ -624,13 +624,27 @@ esc_dispatch(struct terminal *term, uint8_t final)
         term_linefeed(term);
         break;
 
+    case 'E':
+        term_linefeed(term);
+        term_cursor_left(term, term->cursor.col);
+        break;
+
     case 'M':
         term_reverse_index(term);
         break;
 
-    case 'E':
-        term_linefeed(term);
-        term_cursor_left(term, term->cursor.col);
+    case 'N':
+        /* SS2 - Single Shift 2 */
+        term->selected_charset = 2; /* G2 */
+        break;
+
+    case 'O':
+        /* SS3 - Single Shift 3 */
+        term->selected_charset = 3; /* G3 */
+        break;
+
+    case '\\':
+        /* ST - String Terminator */
         break;
 
     case '0': {
