@@ -789,6 +789,9 @@ action(struct terminal *term, enum action _action, uint8_t c)
     case ACTION_EXECUTE:
         LOG_DBG("execute: 0x%02x", c);
         switch (c) {
+        case '\0':
+            break;
+
         case '\n':
             /* LF - line feed */
             term_linefeed(term);
