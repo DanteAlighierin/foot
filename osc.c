@@ -1,20 +1,46 @@
 #include "osc.h"
+
+#include <string.h>
 #include <ctype.h>
-#include "terminal.h"
 
 #define LOG_MODULE "osc"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "render.h"
+#include "terminal.h"
+#include "vt.h"
+
+static void
+osc_query(struct terminal *term, unsigned param)
+{
+    switch (param) {
+    case 10:
+    case 11: {
+        char reply[16];
+        snprintf(
+            reply, sizeof(reply), "\033]%u;%06x\x07",
+            param,
+            (param == 10 ? term->foreground : term->background) & 0xffffff);
+        vt_to_slave(term, reply, strlen(reply));
+        break;
+    }
+
+    default:
+        LOG_ERR("unimplemented: OSC query: %.*s",
+                (int)term->vt.osc.idx, term->vt.osc.data);
+        abort();
+        break;
+    }
+}
 
 void
 osc_dispatch(struct terminal *term)
 {
-    int param = 0;
+    unsigned param = 0;
     int data_ofs = 0;
 
     for (size_t i = 0; i < term->vt.osc.idx; i++) {
-        int c = term->vt.osc.data[i];
+        char c = term->vt.osc.data[i];
 
         if (c == ';') {
             data_ofs = i + 1;
@@ -34,6 +60,11 @@ osc_dispatch(struct terminal *term)
             (int)term->vt.osc.idx, term->vt.osc.data, param);
 
     const char *string = (const char *)&term->vt.osc.data[data_ofs];
+
+    if (strlen(string) == 1 && string[0] == '?') {
+        osc_query(term, param);
+        return;
+    }
 
     switch (param) {
     case 0: render_set_title(term, string); break;  /* icon + title */
