@@ -875,6 +875,29 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
             }
 
+        case 'm':
+            if (term->vt.params.idx == 0) {
+                /* Reset all */
+            } else {
+                int resource = vt_param_get(term, 0, 0);
+                int value __attribute__((unused)) = vt_param_get(term, 1, 0);
+
+                switch (resource) {
+                case 0: /* modifyKeyboard */
+                case 1: /* modifyCursorKeys */
+                case 2: /* modifyFunctionKeys */
+                case 4: /* modifyOtherKeys */
+                    /* Ignored, we always report modifiers */
+                    break;
+
+                default:
+                    LOG_WARN("invalid resource %d in %s",
+                             resource, csi_as_string(term, final));
+                    break;
+                }
+            }
+            break; /* final == 'm' */
+
         default:
             LOG_ERR("unimplemented: %s", csi_as_string(term, final));
             abort();
