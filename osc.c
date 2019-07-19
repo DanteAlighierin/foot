@@ -16,11 +16,20 @@ osc_query(struct terminal *term, unsigned param)
     switch (param) {
     case 10:
     case 11: {
-        char reply[16];
+        uint32_t color = param == 10 ? term->foreground : term->background;
+        uint8_t r = (color >> 16) & 0xff;
+        uint8_t g = (color >>  8) & 0xff;
+        uint8_t b = (color >>  0) & 0xff;
+
+        /*
+         * Reply in XParseColor format
+         * E.g. for color 0xdcdccc we reply "\e]10;rgb:dc/dc/cc\e\\"
+         */
+        char reply[32];
         snprintf(
-            reply, sizeof(reply), "\033]%u;%06x\033\\",
-            param,
-            (param == 10 ? term->foreground : term->background) & 0xffffff);
+            reply, sizeof(reply), "\033]%u;rgb:%02x/%02x/%02x\033\\",
+            param, r, g, b);
+
         vt_to_slave(term, reply, strlen(reply));
         break;
     }
