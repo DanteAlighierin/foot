@@ -573,8 +573,11 @@ esc_as_string(struct terminal *term, uint8_t final)
     static char msg[1024];
     int c = snprintf(msg, sizeof(msg), "\\E");
 
-    if (term->vt.private != 0)
-        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private);
+    for (size_t i = 0; i < sizeof(term->vt.private) / sizeof(term->vt.private[0]); i++) {
+        if (term->vt.private[i] == 0)
+            break;
+        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private[i]);
+    }
 
     assert(term->vt.params.idx == 0);
 
@@ -605,7 +608,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     case 'B': {
         /* Configure G0-G3 to use ASCII */
-        char param = term->vt.private != 0 ? term->vt.private : '(';
+        char param = term->vt.private[0] != 0 ? term->vt.private[0] : '(';
 
         switch (param) {
         case '(': term->charset[0] = CHARSET_ASCII; break;
@@ -650,7 +653,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     case '0': {
         /* Configure G0-G3 to use special chars + line drawing */
-        char param = term->vt.private != 0 ? term->vt.private : '(';
+        char param = term->vt.private[0] != 0 ? term->vt.private[0] : '(';
 
         switch (param) {
         case '(': term->charset[0] = CHARSET_GRAPHIC; break;
@@ -854,7 +857,8 @@ action(struct terminal *term, enum action _action, uint8_t c)
 
     case ACTION_CLEAR:
         memset(&term->vt.params, 0, sizeof(term->vt.params));
-        term->vt.private = 0;
+        term->vt.private[0] = 0;
+        term->vt.private[1] = 0;
         term->vt.osc.idx = 0;
         term->vt.utf8.idx = 0;
         break;
@@ -890,11 +894,14 @@ action(struct terminal *term, enum action _action, uint8_t c)
 
     case ACTION_COLLECT:
         LOG_DBG("collect");
-        if (term->vt.private != 0) {
-            LOG_ERR("only one private/intermediate characters supported");
+        if (term->vt.private[0] == 0)
+            term->vt.private[0] = c;
+        else if (term->vt.private[1] == 0)
+            term->vt.private[1] = c;
+        else {
+            LOG_ERR("only two private/intermediate characters supported");
             abort();
         }
-        term->vt.private = c;
         break;
 
     case ACTION_ESC_DISPATCH:

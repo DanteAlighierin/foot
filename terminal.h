@@ -123,7 +123,7 @@ struct vt {
         struct vt_param v[16];
         size_t idx;
     } params;
-    char private;
+    char private[2];
     struct {
         uint8_t *data;
         size_t size;

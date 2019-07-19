@@ -121,8 +121,11 @@ csi_as_string(struct terminal *term, uint8_t final)
     static char msg[1024];
     int c = snprintf(msg, sizeof(msg), "CSI: ");
 
-    if (term->vt.private != 0)
-        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private);
+    for (size_t i = 0; i < sizeof(term->vt.private) / sizeof(term->vt.private[0]); i++) {
+        if (term->vt.private[i] == 0)
+            break;
+        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private[i]);
+    }
 
     for (size_t i = 0; i < term->vt.params.idx; i++){
         c += snprintf(&msg[c], sizeof(msg) - c, "%d",
@@ -339,7 +342,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 {
     LOG_DBG("%s", csi_as_string(term, final));
 
-    switch (term->vt.private) {
+    switch (term->vt.private[0]) {
     case 0: {
         switch (final) {
         case 'c':
@@ -845,8 +848,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_ERR("unimplemented: CSI %s", csi_as_string(term, final));
+                    LOG_ERR("unimplemented: %s", csi_as_string(term, final));
                     abort();
+                    break;
                 }
             }
             break;
