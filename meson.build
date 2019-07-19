@@ -59,6 +59,7 @@ endforeach
 
 executable(
   'foot',
+  'base64.c', 'base64.h',
   'config.c', 'config.h',
   'commands.c', 'commands.h',
   'csi.c', 'csi.h',
