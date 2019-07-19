@@ -832,8 +832,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_ERR("unimplemented: CSI %s", csi_as_string(term, final));
+                    LOG_ERR("unimplemented: %s", csi_as_string(term, final));
                     abort();
+                    break;
                 }
             }
             break;
@@ -848,9 +849,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_ERR("unimplemented: %s", csi_as_string(term, final));
+                    LOG_ERR("unimplemented: CSI %s", csi_as_string(term, final));
                     abort();
-                    break;
                 }
             }
             break;
