@@ -454,7 +454,9 @@ selection_to_clipboard(struct terminal *term, uint32_t serial)
 }
 
 void
-selection_from_clipboard(struct terminal *term, uint32_t serial)
+text_from_clipboard(struct terminal *term, uint32_t serial,
+                    void (*cb)(const char *data, size_t size, void *user),
+                    void *user)
 {
     struct clipboard *clipboard = &term->selection.clipboard;
     if (clipboard->data_offer == NULL)
@@ -478,9 +480,6 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
 
-    if (term->bracketed_paste)
-        vt_to_slave(term, "\033[200~", 6);
-
     /* Read until EOF */
     while (true) {
         char text[256];
@@ -492,13 +491,33 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
         } else if (amount == 0)
             break;
 
-        vt_to_slave(term, text, amount);
+        cb(text, amount, user);
     }
+
+    close(read_fd);
+}
+
+static void
+from_clipboard_cb(const char *data, size_t size, void *user)
+{
+    struct terminal *term = user;
+    vt_to_slave(term, data, size);
+}
+
+void
+selection_from_clipboard(struct terminal *term, uint32_t serial)
+{
+    struct clipboard *clipboard = &term->selection.clipboard;
+    if (clipboard->data_offer == NULL)
+        return;
+
+    if (term->bracketed_paste)
+        vt_to_slave(term, "\033[200~", 6);
+
+    text_from_clipboard(term, serial, &from_clipboard_cb, term);
 
     if (term->bracketed_paste)
         vt_to_slave(term, "\033[201~", 6);
-
-    close(read_fd);
 }
 
 void
