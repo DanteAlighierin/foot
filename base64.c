@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <assert.h>
 
 #define LOG_MODULE "base64"
 #define LOG_ENABLE_DBG 0
@@ -26,7 +27,6 @@ static const uint8_t reverse_lookup[256] = {
     ['+'] = 62, ['/'] = 63,
 };
 
-#if 0
 static const char lookup[64] = {
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
     'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
@@ -35,7 +35,6 @@ static const char lookup[64] = {
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
     '+', '/',
 };
-#endif
 
 static inline bool
 is_valid(char c)
@@ -85,4 +84,71 @@ base64_decode(const char *s)
 
     ret[len / 4 * 3] = '\0';
     return ret;
+}
+
+char *
+base64_encode(const uint8_t *data, size_t size)
+{
+    assert(size % 3 == 0);
+    if (size %3 != 0)
+        return NULL;
+
+    char *ret = malloc(size / 3 * 4 + 1);
+
+    for (size_t i = 0, o = 0; i < size; i += 3, o += 4) {
+        int x = data[i + 0];
+        int y = data[i + 1];
+        int z = data[i + 2];
+
+        uint32_t v = x << 16 | y << 8 | z << 0;
+
+        unsigned a = (v >> 18) & 0x3f;
+        unsigned b = (v >> 12) & 0x3f;
+        unsigned c = (v >>  6) & 0x3f;
+        unsigned d = (v >>  0) & 0x3f;
+
+        char c0 = lookup[a];
+        char c1 = lookup[b];
+        char c2 = lookup[c];
+        char c3 = lookup[d];
+
+        ret[o + 0] = c0;
+        ret[o + 1] = c1;
+        ret[o + 2] = c2;
+        ret[o + 3] = c3;
+
+        LOG_DBG("base64: encode: %c%c%c%c", c0, c1, c2, c3);
+    }
+
+    ret[size / 3 * 4] = '\0';
+    return ret;
+}
+
+void
+base64_encode_final(const uint8_t *data, size_t size, char result[4])
+{
+    assert(size > 0);
+    assert(size < 3);
+
+    uint32_t v = 0;
+    if (size >= 1)
+        v |= data[0] << 16;
+    if (size >= 2)
+        v |= data[1] << 8;
+
+    unsigned a = (v >> 18) & 0x3f;
+    unsigned b = (v >> 12) & 0x3f;
+    unsigned c = (v >>  6) & 0x3f;
+
+    char c0 = lookup[a];
+    char c1 = lookup[b];
+    char c2 = size == 2 ? lookup[c] : '=';
+    char c3 = '=';
+
+    result[0] = c0;
+    result[1] = c1;
+    result[2] = c2;
+    result[3] = c3;
+
+    LOG_DBG("base64: encode: %c%c%c%c", c0, c1, c2, c3);
 }
