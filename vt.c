@@ -68,7 +68,7 @@ enum action {
     ACTION_UTF8_PRINT,
 };
 
-#if 0
+#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
 static const char *const state_names[] = {
     [STATE_SAME] = "no change",
     [STATE_GROUND] = "ground",
