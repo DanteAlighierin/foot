@@ -170,7 +170,6 @@ osc_from_clipboard(struct terminal *term, const char *source)
     }
 
     vt_to_slave(term, "\033\\", 2);
-
 }
 
 static void
