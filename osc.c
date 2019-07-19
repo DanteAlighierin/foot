@@ -143,6 +143,8 @@ osc_from_clipboard(struct terminal *term, const char *source)
     if (src == 0)
         return;
 
+    /* TODO: does emacs require us to send the entire string all at once? */
+
     vt_to_slave(term, "\033]52;", 5);
     vt_to_slave(term, &src, 1);
     vt_to_slave(term, ";", 1);
