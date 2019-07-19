@@ -45,64 +45,158 @@ osc_query(struct terminal *term, unsigned param)
 }
 
 static void
-osc_selection(struct terminal *term, const char *string)
+osc_to_clipboard(struct terminal *term, const char *target,
+                 const char *base64_data)
 {
-    const char *p = string;
+    char *decoded = base64_decode(base64_data);
+    LOG_DBG("decoded: %s", decoded);
+
+    if (decoded == NULL) {
+        LOG_WARN("OSC: invalid clipboard data: %s", base64_data);
+        /* TODO: clear selection */
+        abort();
+        return;
+    }
+
+    for (const char *t = target; *t != '\0'; t++) {
+        switch (*t) {
+        case 'c': {
+            char *copy = strdup(decoded);
+            if (!text_to_clipboard(term, copy, term->input_serial))
+                free(copy);
+            break;
+        }
+
+        default:
+            LOG_WARN("unimplemented: clipboard target '%c'", *t);
+            break;
+        }
+    }
+
+    free(decoded);
+}
+
+struct clip_context {
+    struct terminal *term;
+    uint8_t buf[3];
+    int idx;
+};
+
+static void
+from_clipboard_cb(const char *text, size_t size, void *user)
+{
+    struct clip_context *ctx = user;
+    struct terminal *term = ctx->term;
+
+    assert(ctx->idx >= 0 && ctx->idx <= 2);
+
+    const char *t = text;
+    size_t left = size;
+
+    if (ctx->idx > 0) {
+        for (size_t i = ctx->idx; i < 3 && left > 0; i++, t++, left--)
+            ctx->buf[ctx->idx++] = *t;
+
+        assert(ctx->idx <= 3);
+        if (ctx->idx == 3) {
+            char *chunk = base64_encode(ctx->buf, 3);
+            assert(chunk != NULL);
+            assert(strlen(chunk) == 4);
+
+            vt_to_slave(term, chunk, 4);
+            free(chunk);
+
+            ctx->idx = 0;
+        }
+    }
+
+    if (left == 0)
+        return;
+
+    int remaining = left % 3;
+    for (int i = remaining; i > 0; i--)
+        ctx->buf[0] = text[size - i];
+    ctx->idx = remaining;
+
+    char *chunk = base64_encode((const uint8_t *)t, left / 3 * 3);
+    assert(chunk != NULL);
+    assert(strlen(chunk) % 4 == 0);
+    vt_to_slave(term, chunk, strlen(chunk));
+    free(chunk);
+}
+
+static void
+osc_from_clipboard(struct terminal *term, const char *source)
+{
+    char src = 0;
+
+    for (const char *s = source; *s != '\0'; s++) {
+        if (*s == 'c') {
+            src = 'c';
+            break;
+        } else if (*s == 'p') {
+            src = 'p';
+            break;
+        }
+    }
+
+    if (src == 0)
+        return;
+
+    vt_to_slave(term, "\033]52;", 5);
+    vt_to_slave(term, &src, 1);
+    vt_to_slave(term, ";", 1);
+
+    struct clip_context ctx = {
+        .term = term,
+    };
+
+    switch (src) {
+    case 'c':
+        text_from_clipboard(term, term->input_serial, &from_clipboard_cb, &ctx);
+        break;
+
+    case 'p':
+        LOG_ERR("unimplemented: osc from primary");
+        abort();
+        // text_from_primary(term, term->input_serial, &from_clipboard_cb, &ctx);
+        break;
+    }
+
+    if (ctx.idx > 0) {
+        char res[4];
+        base64_encode_final(ctx.buf, ctx.idx, res);
+        vt_to_slave(term, res, 4);
+    }
+
+    vt_to_slave(term, "\033\\", 2);
+
+}
+
+static void
+osc_selection(struct terminal *term, char *string)
+{
+    char *p = string;
     bool clipboard_done = false;
 
-    bool use_clipboard = false;
-    bool use_primary = false;
-
+    /* The first parameter is a string of clipbard sources/targets */
     while (*p != '\0' && !clipboard_done) {
         switch (*p) {
         case ';':
             clipboard_done = true;
-            break;
-
-        case 'c':
-            LOG_DBG("CLIPBOARD");
-            use_clipboard = true;
-            break;
-
-        case 'p':
-            LOG_DBG("PRIMARY");
-            use_primary = true;
+            *p = '\0';
             break;
         }
 
         p++;
     }
 
-    LOG_DBG("clipboard data: %s", p);
+    LOG_DBG("clipboard: target = %s data = %s", string, p);
 
-    if (strlen(p) == 1 && p[0] == '?') {
-        LOG_ERR("unimplemented: report clipboard data");
-        abort();
-        return;
-    }
-
-    char *decoded = base64_decode(p);
-    LOG_DBG("decoded: %s", decoded);
-
-    if (decoded == NULL) {
-        LOG_WARN("OSC: invalid clipboard data: %s", p);
-        /* TODO: clear selection */
-        abort();
-        return;
-    }
-
-    if (use_clipboard) {
-        char *copy = strdup(decoded);
-        if (!text_to_clipboard(term, copy, term->input_serial))
-            free(copy);
-    }
-
-    if (use_primary) {
-        LOG_ERR("unimplemented: text to primary");
-        abort();
-    }
-
-    free(decoded);
+    if (strlen(p) == 1 && p[0] == '?')
+        osc_from_clipboard(term, string);
+    else
+        osc_to_clipboard(term, string, p);
 }
 
 void
@@ -131,7 +225,7 @@ osc_dispatch(struct terminal *term)
     LOG_DBG("OCS: %.*s (param = %d)",
             (int)term->vt.osc.idx, term->vt.osc.data, param);
 
-    const char *string = (const char *)&term->vt.osc.data[data_ofs];
+    char *string = (char *)&term->vt.osc.data[data_ofs];
 
     if (strlen(string) == 1 && string[0] == '?') {
         osc_query(term, param);
