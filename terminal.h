@@ -275,6 +275,7 @@ struct terminal {
     struct coord saved_cursor;
     struct coord alt_saved_cursor;
 
+    uint32_t input_serial;
     struct {
         struct coord start;
         struct coord end;

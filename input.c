@@ -66,7 +66,9 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wl_array_for_each(key, keys)
         xkb_state_update_key(xkb_state, *key, 1);
 #endif
-    term_focus_in((struct terminal *)data);
+    struct terminal *term = data;
+    term->input_serial = serial;
+    term_focus_in(term);
 }
 
 static void
@@ -74,6 +76,7 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface)
 {
     struct terminal *term = data;
+    term->input_serial = serial;
     term_focus_out(term);
 
     mtx_lock(&term->kbd.repeat.mutex);
@@ -89,6 +92,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
              uint32_t time, uint32_t key, uint32_t state)
 {
     struct terminal *term = data;
+    term->input_serial = serial;
 
     const xkb_mod_mask_t ctrl = 1 << term->kbd.mod_ctrl;
     const xkb_mod_mask_t alt = 1 << term->kbd.mod_alt;
@@ -248,6 +252,7 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                    uint32_t mods_locked, uint32_t group)
 {
     struct terminal *term = data;
+    term->input_serial = serial;
 
     LOG_DBG("modifiers: depressed=0x%x, latched=0x%x, locked=0x%x, group=%u",
             mods_depressed, mods_latched, mods_locked, group);
@@ -295,6 +300,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
                  wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
     struct terminal *term = data;
+    term->input_serial = serial;
 
     int x = wl_fixed_to_int(surface_x) * 1; //scale
     int y = wl_fixed_to_int(surface_y) * 1; //scale
@@ -309,6 +315,8 @@ static void
 wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
                  uint32_t serial, struct wl_surface *surface)
 {
+    struct terminal *term = data;
+    term->input_serial = serial;
 }
 
 static void
@@ -353,6 +361,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     LOG_DBG("BUTTON: button=%x, state=%u", button, state);
 
     struct terminal *term = data;
+    term->input_serial = serial;
 
     switch (state) {
     case WL_POINTER_BUTTON_STATE_PRESSED: {
