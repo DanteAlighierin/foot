@@ -405,8 +405,8 @@ static const struct zwp_primary_selection_source_v1_listener primary_selection_s
     .cancelled = &primary_cancelled,
 };
 
-void
-selection_to_clipboard(struct terminal *term, uint32_t serial)
+bool
+text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
 {
     if (term->selection.clipboard.data_source != NULL) {
         /* Kill previous data source */
@@ -423,16 +423,15 @@ selection_to_clipboard(struct terminal *term, uint32_t serial)
 
     struct clipboard *clipboard = &term->selection.clipboard;
 
-    /* Get selection as a string */
-    clipboard->text = extract_selection(term);
-
     clipboard->data_source
         = wl_data_device_manager_create_data_source(term->wl.data_device_manager);
 
     if (clipboard->data_source == NULL) {
         LOG_ERR("failed to create clipboard data source");
-        return;
+        return false;
     }
+
+    clipboard->text = text;
 
     /* Configure source */
     wl_data_source_offer(clipboard->data_source, "text/plain;charset=utf-8");
@@ -442,6 +441,16 @@ selection_to_clipboard(struct terminal *term, uint32_t serial)
 
     /* Needed when sending the selection to other client */
     clipboard->serial = serial;
+    return true;
+}
+
+void
+selection_to_clipboard(struct terminal *term, uint32_t serial)
+{
+    /* Get selection as a string */
+    char *text = extract_selection(term);
+    if (!text_to_clipboard(term, text, serial))
+        free(text);
 }
 
 void

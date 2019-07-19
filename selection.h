@@ -16,3 +16,5 @@ void selection_mark_word(struct terminal *term, int col, int row, uint32_t seria
 void selection_to_clipboard(struct terminal *term, uint32_t serial);
 void selection_from_clipboard(struct terminal *term, uint32_t serial);
 void selection_from_primary(struct terminal *term);
+
+bool text_to_clipboard(struct terminal *term, char *text, uint32_t serial);
