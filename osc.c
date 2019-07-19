@@ -6,7 +6,9 @@
 #define LOG_MODULE "osc"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "base64.h"
 #include "render.h"
+#include "selection.h"
 #include "terminal.h"
 #include "vt.h"
 
@@ -40,6 +42,67 @@ osc_query(struct terminal *term, unsigned param)
         abort();
         break;
     }
+}
+
+static void
+osc_selection(struct terminal *term, const char *string)
+{
+    const char *p = string;
+    bool clipboard_done = false;
+
+    bool use_clipboard = false;
+    bool use_primary = false;
+
+    while (*p != '\0' && !clipboard_done) {
+        switch (*p) {
+        case ';':
+            clipboard_done = true;
+            break;
+
+        case 'c':
+            LOG_DBG("CLIPBOARD");
+            use_clipboard = true;
+            break;
+
+        case 'p':
+            LOG_DBG("PRIMARY");
+            use_primary = true;
+            break;
+        }
+
+        p++;
+    }
+
+    LOG_DBG("clipboard data: %s", p);
+
+    if (strlen(p) == 1 && p[0] == '?') {
+        LOG_ERR("unimplemented: report clipboard data");
+        abort();
+        return;
+    }
+
+    char *decoded = base64_decode(p);
+    LOG_DBG("decoded: %s", decoded);
+
+    if (decoded == NULL) {
+        LOG_WARN("OSC: invalid clipboard data: %s", p);
+        /* TODO: clear selection */
+        abort();
+        return;
+    }
+
+    if (use_clipboard) {
+        char *copy = strdup(decoded);
+        if (!text_to_clipboard(term, copy, term->input_serial))
+            free(copy);
+    }
+
+    if (use_primary) {
+        LOG_ERR("unimplemented: text to primary");
+        abort();
+    }
+
+    free(decoded);
 }
 
 void
@@ -79,6 +142,7 @@ osc_dispatch(struct terminal *term)
     case 0: render_set_title(term, string); break;  /* icon + title */
     case 1: break;                                             /* icon */
     case 2: render_set_title(term, string); break;  /* title */
+    case 52: osc_selection(term, string); break;
 
     case 104: /* Reset Color Number 'c' */
     case 105: /* Reset Special Color Number 'c' */
