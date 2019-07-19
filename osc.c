@@ -83,3 +83,23 @@ osc_dispatch(struct terminal *term)
         break;
     }
 }
+
+bool
+osc_ensure_size(struct terminal *term, size_t required_size)
+{
+    if (required_size <= term->vt.osc.size)
+        return true;
+
+    size_t new_size = (required_size + 127) / 128 * 128;
+    assert(new_size > 0);
+
+    uint8_t *new_data = realloc(term->vt.osc.data, new_size);
+    if (new_data == NULL) {
+        LOG_ERRNO("failed to increase size of OSC buffer");
+        return false;
+    }
+
+    term->vt.osc.data = new_data;
+    term->vt.osc.size = new_size;
+    return true;
+}

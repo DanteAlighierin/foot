@@ -818,6 +818,7 @@ out:
     if (term.kbd.xkb != NULL)
         xkb_context_unref(term.kbd.xkb);
 
+    free(term.vt.osc.data);
     for (int row = 0; row < term.normal.num_rows; row++)
         grid_row_free(term.normal.rows[row]);
     free(term.normal.rows);

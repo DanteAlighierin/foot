@@ -909,12 +909,15 @@ action(struct terminal *term, enum action _action, uint8_t c)
         break;
 
     case ACTION_OSC_PUT:
-        if (term->vt.osc.idx < (int)sizeof(term->vt.osc.data) - 1)
-            term->vt.osc.data[term->vt.osc.idx++] = c;
+        if (!osc_ensure_size(term, term->vt.osc.idx + 1))
+            break;
+
+        term->vt.osc.data[term->vt.osc.idx++] = c;
         break;
 
     case ACTION_OSC_END:
-        assert(term->vt.osc.idx < sizeof(term->vt.osc.data));
+        if (!osc_ensure_size(term, term->vt.osc.idx + 1))
+            break;
         term->vt.osc.data[term->vt.osc.idx] = '\0';
         osc_dispatch(term);
         break;

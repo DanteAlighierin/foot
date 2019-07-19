@@ -125,7 +125,8 @@ struct vt {
     } params;
     char private;
     struct {
-        uint8_t data[1024];
+        uint8_t *data;
+        size_t size;
         size_t idx;
     } osc;
     struct {
