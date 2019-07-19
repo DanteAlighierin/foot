@@ -822,6 +822,29 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'p': {
+            if (term->vt.private[1] != '$') {
+                LOG_ERR("unimplemented: %s", csi_as_string(term, final));
+                abort();
+            }
+
+            unsigned param = vt_param_get(term, 0, 0);
+
+            /*
+             * Request DEC private mode (DECRQM)
+             * Reply:
+             *   0 - not recognized
+             *   1 - set
+             *   2 - reset
+             *   3 - permanently set
+             *   4 - permantently reset
+             */
+            char reply[32];
+            snprintf(reply, sizeof(reply), "\033[?%u;2$y", param);
+            vt_to_slave(term, reply, strlen(reply));
+            break;
+        }
+
         case 's':
             for (size_t i = 0; i < term->vt.params.idx; i++) {
                 switch (term->vt.params.v[i].value) {
