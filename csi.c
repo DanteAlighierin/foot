@@ -610,16 +610,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        case '=':
-            /*
-             * TODO: xterm's terminfo specifies *both* \e[?1h *and*
-             * \e= in smkx, but only one is necessary. We should
-             * provide our own terminfo with *only* \e[?1h (and \e[?1l
-             * for rmkx)
-             */
-            LOG_WARN("ignoring CSI with final '='");
-            break;
-
         default:
             LOG_ERR("unimplemented: %s", csi_as_string(term, final));
             abort();
@@ -639,6 +629,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 5:
+                    LOG_INFO("REVERSE");
                     term->reverse = true;
                     term_damage_all(term);
                     break;
@@ -735,6 +726,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 5:
+                    LOG_INFO("REVERSE BACK");
                     term->reverse = false;
                     term_damage_all(term);
                     break;
