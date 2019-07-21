@@ -23,10 +23,12 @@ static uint32_t colors256[256];
 static void __attribute__((constructor))
 initialize_colors256(void)
 {
+#if 0 /* pick colors from term struct instead, since they can be changed runtime */
     for (size_t i = 0; i < 8; i++)
         colors256[i] = colors_regular[i];
     for (size_t i = 0; i < 8; i++)
         colors256[8 + i] = colors_bright[i];
+#endif
 
     for (size_t r = 0; r < 6; r++) {
         for (size_t g = 0; g < 6; g++) {
@@ -132,7 +134,14 @@ csi_sgr(struct terminal *term)
                 term->vt.params.v[i + 1].value == 5)
             {
                 uint8_t idx = term->vt.params.v[i + 2].value;
-                term->vt.attrs.foreground = 1 << 31 | colors256[idx];
+                uint32_t color;
+                if (idx < 8)
+                    color = term->colors.regular[idx];
+                else if (idx < 16)
+                    color = term->colors.bright[idx - 8];
+                else
+                    color = colors256[idx];
+                term->vt.attrs.foreground = 1 << 31 | color;
                 i += 2;
 
             }
@@ -194,7 +203,15 @@ csi_sgr(struct terminal *term)
                 term->vt.params.v[i + 1].value == 5)
             {
                 uint8_t idx = term->vt.params.v[i + 2].value;
-                term->vt.attrs.background = 1 << 31 | colors256[idx];
+                uint32_t color;
+
+                if (idx < 8)
+                    color = term->colors.regular[idx];
+                else if (idx < 16)
+                    color = term->colors.bright[idx - 8];
+                else
+                    color = colors256[idx];
+                term->vt.attrs.background = 1 << 31 | color;
                 i += 2;
             }
 
