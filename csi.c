@@ -18,28 +18,6 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
-static const uint32_t colors_regular[] = {
-    0x000000,
-    0xcc9393,
-    0x7f9f7f,
-    0xd0bf8f,
-    0x6ca0a3,
-    0xdc8cc3,
-    0x93e0e3,
-    0xdcdccc,
-};
-
-static const uint32_t colors_bright[] = {
-    0x000000,
-    0xdca3a3,
-    0xbfebbf,
-    0xf0dfaf,
-    0x8cd0d3,
-    0xdc8cc3,
-    0x93e0e3,
-    0xffffff,
-};
-
 static uint32_t colors256[256];
 
 static void __attribute__((constructor))
@@ -146,7 +124,7 @@ csi_sgr(struct terminal *term)
         case 35:
         case 36:
         case 37:
-            term->vt.attrs.foreground = 1 << 31 | colors_regular[param - 30];
+            term->vt.attrs.foreground = 1 << 31 | term->colors.regular[param - 30];
             break;
 
         case 38: {
@@ -208,7 +186,7 @@ csi_sgr(struct terminal *term)
         case 45:
         case 46:
         case 47:
-            term->vt.attrs.background = 1 << 31 | colors_regular[param - 40];
+            term->vt.attrs.background = 1 << 31 | term->colors.regular[param - 40];
             break;
 
         case 48: {
@@ -270,7 +248,7 @@ csi_sgr(struct terminal *term)
         case 95:
         case 96:
         case 97:
-            term->vt.attrs.foreground = 1 << 31 | colors_bright[param - 90];
+            term->vt.attrs.foreground = 1 << 31 | term->colors.bright[param - 90];
             break;
 
         /* Regular background colors */
@@ -282,7 +260,7 @@ csi_sgr(struct terminal *term)
         case 105:
         case 106:
         case 107:
-            term->vt.attrs.background = 1 << 31 | colors_bright[param - 100];
+            term->vt.attrs.background = 1 << 31 | term->colors.bright[param - 100];
             break;
 
         default:
