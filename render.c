@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
+#include <sys/timerfd.h>
 
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
@@ -117,6 +118,9 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         _bg = swap;
     }
 
+    if (cell->attrs.blink && term->blink_mode == BLINK_OFF)
+        _fg = _bg;
+
     struct rgb fg = color_hex_to_rgb(_fg);
     struct rgb bg = color_hex_to_rgb(_bg);
 
@@ -127,6 +131,20 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     cairo_set_source_rgb(buf->cairo, bg.r, bg.g, bg.b);
     cairo_rectangle(buf->cairo, x, y, width, height);
     cairo_fill(buf->cairo);
+
+    if (cell->attrs.blink && !term->is_blinking) {
+        /* First cell we see that has blink set - arm blink timer */
+        LOG_DBG("arming blink timer");
+        struct itimerspec alarm = {
+            .it_value = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
+            .it_interval = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
+        };
+
+        if (timerfd_settime(term->blink_timer_fd, 0, &alarm, NULL) < 0)
+            LOG_ERRNO("failed to arm blink timer");
+        else
+            term->is_blinking = true;
+    }
 
     if (cell->c[0] == '\0' || cell->attrs.conceal)
         return;
@@ -365,7 +383,39 @@ grid_render(struct terminal *term)
         row->dirty = false;
         all_clean = false;
 
-        wl_surface_damage_buffer(term->wl.surface, 0, r * term->cell_height, term->width, term->cell_height);
+        wl_surface_damage_buffer(
+            term->wl.surface,
+            0, r * term->cell_height,
+            term->width, term->cell_height);
+    }
+
+    if (term->is_blinking) {
+        /* Check if there are still any visible blinking cells */
+        bool none_is_blinking = true;
+        for (int r = 0; r < term->rows; r++) {
+            struct row *row = grid_row_in_view(term->grid, r);
+            for (int col = 0; col < term->cols; col++) {
+                if (row->cells[col].attrs.blink) {
+                    none_is_blinking = false;
+                    break;
+                }
+            }
+        }
+
+        /* No, disarm the blink timer */
+        if (none_is_blinking) {
+            LOG_DBG("disarming blink timer");
+
+            term->is_blinking = false;
+            term->blink_mode = BLINK_ON;
+
+            if (timerfd_settime(
+                    term->blink_timer_fd, 0,
+                    &(struct itimerspec){0}, NULL)  < 0)
+            {
+                LOG_ERRNO("failed to disarm blink timer");
+            }
+        }
     }
 
     /* TODO: break out to function */

@@ -328,6 +328,7 @@ main(int argc, char *const *argv)
         .auto_margin = true,
         .window_title_stack = tll_init(),
         .flash_timer_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
+        .blink_timer_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
         .vt = {
             .state = 1,  /* STATE_GROUND */
             .attrs = {
@@ -685,6 +686,7 @@ main(int argc, char *const *argv)
             {.fd = term.ptmx,                     .events = POLLIN},
             {.fd = term.kbd.repeat.pipe_read_fd,  .events = POLLIN},
             {.fd = term.flash_timer_fd,           .events = POLLIN},
+            {.fd = term.blink_timer_fd,           .events = POLLIN},
         };
 
         wl_display_flush(term.wl.display);
@@ -796,6 +798,26 @@ main(int argc, char *const *argv)
             if (term.frame_callback == NULL)
                 grid_render(&term);
         }
+
+        if (fds[4].revents & POLLIN) {
+            uint64_t expiration_count;
+            ssize_t ret = read(
+                term.blink_timer_fd, &expiration_count, sizeof(expiration_count));
+
+            if (ret < 0)
+                LOG_ERRNO("failed to read blink timer");
+            else
+                LOG_DBG("blink timer expired %llu times",
+                        (unsigned long long)expiration_count);
+
+            term.blink_mode = term.blink_mode == BLINK_ON
+                ? BLINK_OFF : BLINK_ON;
+            term_damage_view(&term);
+
+            if (term.frame_callback == NULL)
+                grid_render(&term);
+        }
+
     }
 
 out:
@@ -885,6 +907,8 @@ out:
 
     if (term.flash_timer_fd != -1)
         close(term.flash_timer_fd);
+    if (term.blink_timer_fd != -1)
+        close(term.blink_timer_fd);
 
     if (term.ptmx != -1)
         close(term.ptmx);

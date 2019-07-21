@@ -246,6 +246,10 @@ struct terminal {
     bool flash_active;
     int flash_timer_fd;
 
+    bool is_blinking;
+    enum { BLINK_ON, BLINK_OFF } blink_mode;
+    int blink_timer_fd;
+
     struct vt vt;
     struct kbd kbd;
 
