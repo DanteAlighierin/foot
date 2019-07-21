@@ -578,7 +578,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             case 1001: {
                 /* Our own private - flash */
                 unsigned duration_ms = vt_param_get(term, 1, 100);
-                LOG_WARN("FLASH for %ums", duration_ms);
+                LOG_DBG("FLASH for %ums", duration_ms);
 
                 struct itimerspec alarm = {
                     .it_value = {.tv_sec = 0, .tv_nsec = duration_ms * 1000000},
