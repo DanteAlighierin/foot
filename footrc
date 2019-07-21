@@ -1,0 +1,23 @@
+# term=foot
+# shell=/usr/bin/zsh
+# font=monospace
+
+[colors]
+# foreground=dcdccc
+# background=111111
+# regular0=000000
+# regular1=cc9393
+# regular2=7f9f7f
+# regular3=d0bf8f
+# regular4=6ca0a3
+# regular5=dc8cc3
+# regular6=93e0e3
+# regular7=dcdccc
+# bright0=000000
+# bright1=dca3a3
+# bright2=bfebbf
+# bright3=f0dfaf
+# bright4=8cd0d3
+# bright5=dc8cc3
+# bright6=93e0e3
+# bright7=ffffff
