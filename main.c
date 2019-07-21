@@ -812,7 +812,17 @@ main(int argc, char *const *argv)
 
             term.blink_mode = term.blink_mode == BLINK_ON
                 ? BLINK_OFF : BLINK_ON;
-            term_damage_view(&term);
+
+            /* Scan all visible cells and mark rows with blinking cells dirty */
+            for (int r = 0; r < term.rows; r++) {
+                struct row *row = grid_row_in_view(term.grid, r);
+                for (int col = 0; col < term.cols; col++) {
+                    if (row->cells[col].attrs.blink) {
+                        row->dirty = true;
+                        break;
+                    }
+                }
+            }
 
             if (term.frame_callback == NULL)
                 grid_render(&term);
