@@ -105,10 +105,10 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
 
     uint32_t _fg = cell->attrs.foreground >> 31
         ? cell->attrs.foreground
-        : !term->reverse ? term->foreground : term->background;
+        : !term->reverse ? term->colors.fg : term->colors.bg;
     uint32_t _bg = cell->attrs.background >> 31
         ? cell->attrs.background
-        : !term->reverse ? term->background : term->foreground;
+        : !term->reverse ? term->colors.bg : term->colors.fg;
 
     /* If *one* is set, we reverse */
     if (has_cursor ^ cell->attrs.reverse ^ is_selected) {
@@ -307,7 +307,7 @@ grid_render(struct terminal *term)
             int rmargin_width = term->width - rmargin;
             int bmargin_height = term->height - bmargin;
 
-            uint32_t _bg = !term->reverse ? term->background : term->foreground;
+            uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
             struct rgb bg = color_hex_to_rgb(_bg);
             cairo_set_source_rgb(buf->cairo, bg.r, bg.g, bg.b);
 

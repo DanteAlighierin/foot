@@ -111,8 +111,8 @@ static void
 sgr_reset(struct terminal *term)
 {
     memset(&term->vt.attrs, 0, sizeof(term->vt.attrs));
-    term->vt.attrs.foreground = term->foreground;
-    term->vt.attrs.background = term->background;
+    term->vt.attrs.foreground = term->colors.fg;
+    term->vt.attrs.background = term->colors.bg;
 }
 
 static const char *

@@ -346,8 +346,8 @@ main(int argc, char *const *argv)
                 .cmd = REPEAT_STOP,
             },
         },
-        .foreground = default_foreground,
-        .background = default_background,
+        .colors.fg = default_foreground,
+        .colors.bg = default_background,
         .selection = {
             .start = {-1, -1},
             .end = {-1, -1},

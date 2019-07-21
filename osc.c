@@ -18,7 +18,7 @@ osc_query(struct terminal *term, unsigned param)
     switch (param) {
     case 10:
     case 11: {
-        uint32_t color = param == 10 ? term->foreground : term->background;
+        uint32_t color = param == 10 ? term->colors.fg : term->colors.bg;
         uint8_t r = (color >> 16) & 0xff;
         uint8_t g = (color >>  8) & 0xff;
         uint8_t b = (color >>  0) & 0xff;
