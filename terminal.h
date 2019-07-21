@@ -245,6 +245,7 @@ struct terminal {
 
     int selected_charset;
     enum charset charset[4]; /* G0-G3 */
+    char *window_title;
 
     struct vt vt;
     struct kbd kbd;
@@ -341,3 +342,5 @@ void term_mouse_up(struct terminal *term, int button, int row, int col,
                    bool shift, bool alt, bool ctrl);
 void term_mouse_motion(struct terminal *term, int button, int row, int col,
                        bool shift, bool alt, bool ctrl);
+
+void term_set_window_title(struct terminal *term, const char *title);

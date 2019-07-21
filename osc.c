@@ -234,9 +234,9 @@ osc_dispatch(struct terminal *term)
     }
 
     switch (param) {
-    case 0: render_set_title(term, string); break;  /* icon + title */
-    case 1: break;                                             /* icon */
-    case 2: render_set_title(term, string); break;  /* title */
+    case 0: term_set_window_title(term, string); break;  /* icon + title */
+    case 1: break;                                       /* icon */
+    case 2: term_set_window_title(term, string); break;  /* title */
     case 52: osc_selection(term, string); break;
 
     case 104: /* Reset Color Number 'c' */

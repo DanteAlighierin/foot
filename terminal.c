@@ -10,6 +10,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "grid.h"
+#include "render.h"
 #include "vt.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
@@ -459,4 +460,12 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
         report_mouse_motion(term, encoded, row, col);
         break;
     }
+}
+
+void
+term_set_window_title(struct terminal *term, const char *title)
+{
+    free(term->window_title);
+    term->window_title = strdup(title);
+    render_set_title(term, term->window_title);
 }

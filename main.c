@@ -589,7 +589,7 @@ main(int argc, char *const *argv)
     xdg_toplevel_add_listener(term.wl.xdg_toplevel, &xdg_toplevel_listener, &term);
 
     xdg_toplevel_set_app_id(term.wl.xdg_toplevel, "foot");
-    render_set_title(&term, "foot");
+    term_set_window_title(&term, "foot");
 
     wl_surface_commit(term.wl.surface);
     wl_display_roundtrip(term.wl.display);
@@ -848,6 +848,7 @@ out:
     for (int row = 0; row < term.alt.num_rows; row++)
         grid_row_free(term.alt.rows[row]);
     free(term.alt.rows);
+    free(term.window_title);
 
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
         struct font *f = &term.fonts[i];
