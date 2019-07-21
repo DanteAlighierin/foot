@@ -179,4 +179,4 @@ foot+base|foot base fragment,
     u8=\E[?%[;0123456789]c,
     u9=\E[c,
     vpa=\E[%i%p1%dd,
-    
+    XM=\E[?1006;1000%?%p1%{1}%=%th%el%;,
