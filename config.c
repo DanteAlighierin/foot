@@ -16,6 +16,31 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
+static const uint32_t default_foreground = 0xdcdccc;
+static const uint32_t default_background = 0x111111;
+
+static const uint32_t default_regular[] = {
+    0x000000,
+    0xcc9393,
+    0x7f9f7f,
+    0xd0bf8f,
+    0x6ca0a3,
+    0xdc8cc3,
+    0x93e0e3,
+    0xdcdccc,
+};
+
+static const uint32_t default_bright[] = {
+    0x000000,
+    0xdca3a3,
+    0xbfebbf,
+    0xf0dfaf,
+    0x8cd0d3,
+    0xdc8cc3,
+    0x93e0e3,
+    0xffffff,
+};
+
 static char *
 get_shell(void)
 {
@@ -109,10 +134,59 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 }
 
 static bool
+parse_section_colors(const char *key, const char *value, struct config *conf,
+                     const char *path, unsigned lineno)
+{
+    uint32_t *color = NULL;
+
+    if (strcmp(key, "foreground") == 0)      color = &conf->colors.fg;
+    else if (strcmp(key, "background") == 0) color = &conf->colors.bg;
+    else if (strcmp(key, "regular0") == 0)   color = &conf->colors.regular[0];
+    else if (strcmp(key, "regular1") == 0)   color = &conf->colors.regular[1];
+    else if (strcmp(key, "regular2") == 0)   color = &conf->colors.regular[2];
+    else if (strcmp(key, "regular3") == 0)   color = &conf->colors.regular[3];
+    else if (strcmp(key, "regular4") == 0)   color = &conf->colors.regular[4];
+    else if (strcmp(key, "regular5") == 0)   color = &conf->colors.regular[5];
+    else if (strcmp(key, "regular6") == 0)   color = &conf->colors.regular[6];
+    else if (strcmp(key, "regular7") == 0)   color = &conf->colors.regular[7];
+    else if (strcmp(key, "bright0") == 0)    color = &conf->colors.bright[0];
+    else if (strcmp(key, "bright1") == 0)    color = &conf->colors.bright[1];
+    else if (strcmp(key, "bright2") == 0)    color = &conf->colors.bright[2];
+    else if (strcmp(key, "bright3") == 0)    color = &conf->colors.bright[3];
+    else if (strcmp(key, "bright4") == 0)    color = &conf->colors.bright[4];
+    else if (strcmp(key, "bright5") == 0)    color = &conf->colors.bright[5];
+    else if (strcmp(key, "bright6") == 0)    color = &conf->colors.bright[6];
+    else if (strcmp(key, "bright7") == 0)    color = &conf->colors.bright[7];
+
+    else {
+        LOG_ERR("%s:%d: invalid key: %s", path, lineno, key);
+        return false;
+    }
+
+    errno = 0;
+    char *end = NULL;
+    unsigned long res = strtoul(value, &end, 16);
+
+    if (errno != 0) {
+        LOG_ERRNO("%s:%d: invalid color: %s", path, lineno, value);
+        return false;
+    }
+
+    if (*end != '\0') {
+        LOG_ERR("%s:%d: invalid color: %s", path, lineno, value);
+        return false;
+    }
+
+    *color = res & 0xffffff;
+    return true;
+}
+
+static bool
 parse_config_file(FILE *f, struct config *conf, const char *path)
 {
     enum section {
         SECTION_MAIN,
+        SECTION_COLORS,
     } section = SECTION_MAIN;
 
     /* Function pointer, called for each key/value line */
@@ -123,11 +197,13 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
     /* Maps sections to line parser functions */
     static const parser_fun_t section_parser_map[] = {
         [SECTION_MAIN] = &parse_section_main,
+        [SECTION_COLORS] = &parse_section_colors,
     };
 
 #if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     static const char *const section_names[] = {
         [SECTION_MAIN] = "main",
+        [SECTION_COLORS] = "colors",
     };
 #endif
 
@@ -150,10 +226,25 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
             break;
         }
 
-        /* No sections yet */
-        if (line[0] == '[' && line[strlen(line) - 1] == ']') {
-            assert(false);
-            return false;
+        if (line[0] == '[') {
+            char *end = strchr(line, ']');
+            if (end == NULL) {
+                LOG_ERR("%s:%d: syntax error: %s", path, lineno, line);
+                free(line);
+                return false;
+            }
+
+            *end = '\0';
+
+            if (strcmp(&line[1], "colors") == 0)
+                section = SECTION_COLORS;
+            else {
+                LOG_ERR("%s:%d: invalid section name: %s", path, lineno, &line[1]);
+                free(line);
+                return false;
+            }
+
+            continue;
         }
 
         char *key = strtok(line, "=");
@@ -219,6 +310,31 @@ config_load(struct config *conf)
         .term = strdup("foot"),
         .shell = get_shell(),
         .font = strdup("monospace"),
+
+        .colors = {
+            .fg = default_foreground,
+            .bg = default_background,
+            .regular = {
+                default_regular[0],
+                default_regular[1],
+                default_regular[2],
+                default_regular[3],
+                default_regular[4],
+                default_regular[5],
+                default_regular[6],
+                default_regular[7],
+            },
+            .bright = {
+                default_bright[0],
+                default_bright[1],
+                default_bright[2],
+                default_bright[3],
+                default_bright[4],
+                default_bright[5],
+                default_bright[6],
+                default_bright[7],
+            },
+        },
     };
 
     char *path = get_config_path();

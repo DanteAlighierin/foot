@@ -18,101 +18,37 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
-#if 0
-static const struct rgb colors_regular[] = {
-    {0.000000, 0.000000, 0.000000},  /* 0x000000 */
-    {0.800000, 0.576471, 0.576471},  /* 0xcc9393 */
-    {0.498039, 0.623529, 0.498039},  /* 0x7f9f7f */
-    {0.815686, 0.749020, 0.560784},  /* 0xd0bf8f */
-    {0.423529, 0.627451, 0.639216},  /* 0x6ca0a3 */
-    {0.862745, 0.549020, 0.764706},  /* 0xdc8cc3 */
-    {0.576471, 0.878431, 0.890196},  /* 0x93e0e3 */
-    {0.862745, 0.862745, 0.800000},  /* 0xdcdccc */
-};
-
-static const struct rgb colors_bright[] = {
-    {0.000000, 0.000000, 0.000000},  /* 0x000000 */
-    {0.862745, 0.639216, 0.639216},  /* 0xdca3a3 */
-    {0.749020, 0.921569, 0.749020},  /* 0xbfebbf */
-    {0.941176, 0.874510, 0.686275},  /* 0xf0dfaf */
-    {0.549020, 0.815686, 0.827451},  /* 0x8cd0d3 */
-    {0.862745, 0.549020, 0.764706},  /* 0xdc8cc3 */
-    {0.576471, 0.878431, 0.890196},  /* 0x93e0e3 */
-    {1.000000, 1.000000, 1.000000},  /* 0xffffff */
-};
-
-static struct rgb colors256[256];
-#else
-static const uint32_t colors_regular[] = {
-    0x000000,
-    0xcc9393,
-    0x7f9f7f,
-    0xd0bf8f,
-    0x6ca0a3,
-    0xdc8cc3,
-    0x93e0e3,
-    0xdcdccc,
-};
-
-static const uint32_t colors_bright[] = {
-    0x000000,
-    0xdca3a3,
-    0xbfebbf,
-    0xf0dfaf,
-    0x8cd0d3,
-    0xdc8cc3,
-    0x93e0e3,
-    0xffffff,
-};
-
 static uint32_t colors256[256];
-#endif
 
 static void __attribute__((constructor))
 initialize_colors256(void)
 {
+#if 0 /* pick colors from term struct instead, since they can be changed runtime */
     for (size_t i = 0; i < 8; i++)
         colors256[i] = colors_regular[i];
     for (size_t i = 0; i < 8; i++)
         colors256[8 + i] = colors_bright[i];
+#endif
 
     for (size_t r = 0; r < 6; r++) {
         for (size_t g = 0; g < 6; g++) {
             for (size_t b = 0; b < 6; b++) {
-#if 0
-                colors256[16 + r * 6 * 6 + g * 6 + b] = (struct rgb) {
-                    r * 51 / 255.0,
-                    g * 51 / 255.0,
-                    b * 51 / 255.0,
-                };
-#else
                 colors256[16 + r * 6 * 6 + g * 6 + b]
                     = r * 51 << 16 | g * 51 << 8 | b * 51;
-#endif
             }
         }
     }
 
-    for (size_t i = 0; i < 24; i++){
-#if 0
-        colors256[232 + i] = (struct rgb) {
-            i * 11 / 255.0,
-            i * 11 / 255.0,
-            i * 11 / 255.0,
-        };
-#else
-        /* TODO: i + 1? */
+    for (size_t i = 0; i < 24; i++)
         colors256[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
-#endif
-    }
 }
 
 static void
 sgr_reset(struct terminal *term)
 {
     memset(&term->vt.attrs, 0, sizeof(term->vt.attrs));
-    term->vt.attrs.foreground = term->foreground;
-    term->vt.attrs.background = term->background;
+    term->vt.attrs.foreground = term->colors.fg;
+    term->vt.attrs.background = term->colors.bg;
 }
 
 static const char *
@@ -190,7 +126,7 @@ csi_sgr(struct terminal *term)
         case 35:
         case 36:
         case 37:
-            term->vt.attrs.foreground = 1 << 31 | colors_regular[param - 30];
+            term->vt.attrs.foreground = 1 << 31 | term->colors.regular[param - 30];
             break;
 
         case 38: {
@@ -198,7 +134,14 @@ csi_sgr(struct terminal *term)
                 term->vt.params.v[i + 1].value == 5)
             {
                 uint8_t idx = term->vt.params.v[i + 2].value;
-                term->vt.attrs.foreground = 1 << 31 | colors256[idx];
+                uint32_t color;
+                if (idx < 8)
+                    color = term->colors.regular[idx];
+                else if (idx < 16)
+                    color = term->colors.bright[idx - 8];
+                else
+                    color = colors256[idx];
+                term->vt.attrs.foreground = 1 << 31 | color;
                 i += 2;
 
             }
@@ -252,7 +195,7 @@ csi_sgr(struct terminal *term)
         case 45:
         case 46:
         case 47:
-            term->vt.attrs.background = 1 << 31 | colors_regular[param - 40];
+            term->vt.attrs.background = 1 << 31 | term->colors.regular[param - 40];
             break;
 
         case 48: {
@@ -260,7 +203,15 @@ csi_sgr(struct terminal *term)
                 term->vt.params.v[i + 1].value == 5)
             {
                 uint8_t idx = term->vt.params.v[i + 2].value;
-                term->vt.attrs.background = 1 << 31 | colors256[idx];
+                uint32_t color;
+
+                if (idx < 8)
+                    color = term->colors.regular[idx];
+                else if (idx < 16)
+                    color = term->colors.bright[idx - 8];
+                else
+                    color = colors256[idx];
+                term->vt.attrs.background = 1 << 31 | color;
                 i += 2;
             }
 
@@ -314,7 +265,7 @@ csi_sgr(struct terminal *term)
         case 95:
         case 96:
         case 97:
-            term->vt.attrs.foreground = 1 << 31 | colors_bright[param - 90];
+            term->vt.attrs.foreground = 1 << 31 | term->colors.bright[param - 90];
             break;
 
         /* Regular background colors */
@@ -326,7 +277,7 @@ csi_sgr(struct terminal *term)
         case 105:
         case 106:
         case 107:
-            term->vt.attrs.background = 1 << 31 | colors_bright[param - 100];
+            term->vt.attrs.background = 1 << 31 | term->colors.bright[param - 100];
             break;
 
         default:
