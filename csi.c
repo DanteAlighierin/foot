@@ -763,10 +763,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 case 1000:  /* MOUSE_NORMAL */
                 case 1002:  /* MOUSE_BUTTON_EVENT */
                 case 1003:  /* MOUSE_ANY_EVENT */
+                    term->mouse_tracking = MOUSE_NONE;
+                    break;
+
                 case 1005:  /* MOUSE_UTF8 */
                 case 1006:  /* MOUSE_SGR */
                 case 1015:  /* MOUSE_URXVT */
-                    term->mouse_tracking = MOUSE_NONE;
+                    term->mouse_reporting = MOUSE_NORMAL;
                     break;
 
                 case 1004:
