@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <assert.h>
 
+#include <sys/timerfd.h>
+
 #if defined(_DEBUG)
  #include <stdio.h>
 #endif
@@ -569,6 +571,23 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         term_set_window_title(term, title);
                         free(title);
                     }
+                }
+                break;
+            }
+
+            case 1001: {
+                /* Our own private - flash */
+                unsigned duration_ms = vt_param_get(term, 1, 100);
+                LOG_WARN("FLASH for %ums", duration_ms);
+
+                struct itimerspec alarm = {
+                    .it_value = {.tv_sec = 0, .tv_nsec = duration_ms * 1000000},
+                };
+
+                if (timerfd_settime(term->flash_timer_fd, 0, &alarm, NULL) < 0)
+                    LOG_ERRNO("failed to arm flash timer");
+                else {
+                    term->flash_active = true;
                 }
                 break;
             }

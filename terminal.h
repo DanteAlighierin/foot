@@ -243,6 +243,9 @@ struct terminal {
     char *window_title;
     tll(char *) window_title_stack;
 
+    bool flash_active;
+    int flash_timer_fd;
+
     struct vt vt;
     struct kbd kbd;
 

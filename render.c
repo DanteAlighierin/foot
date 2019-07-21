@@ -296,34 +296,40 @@ grid_render(struct terminal *term)
     struct buffer *buf = shm_get_buffer(term->wl.shm, term->width, term->height);
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
 
+    if (term->flash_active)
+        term_damage_view(term);
+
     static struct buffer *last_buf = NULL;
-    if (last_buf != buf || false) {
-        if (last_buf != NULL) {
-            LOG_DBG("new buffer");
+    static bool last_flash = false;
 
-            /* Fill area outside the cell grid with the default background color */
-            int rmargin = term->cols * term->cell_width;
-            int bmargin = term->rows * term->cell_height;
-            int rmargin_width = term->width - rmargin;
-            int bmargin_height = term->height - bmargin;
+    /* If we resized the window, or is flashing, or just stopped flashing */
+    if (last_buf != buf || term->flash_active || last_flash) {
+        LOG_DBG("new buffer");
 
-            uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
-            struct rgb bg = color_hex_to_rgb(_bg);
-            cairo_set_source_rgb(buf->cairo, bg.r, bg.g, bg.b);
+        /* Fill area outside the cell grid with the default background color */
+        int rmargin = term->cols * term->cell_width;
+        int bmargin = term->rows * term->cell_height;
+        int rmargin_width = term->width - rmargin;
+        int bmargin_height = term->height - bmargin;
 
-            cairo_rectangle(buf->cairo, rmargin, 0, rmargin_width, term->height);
-            cairo_rectangle(buf->cairo, 0, bmargin, term->width, bmargin_height);
-            cairo_fill(buf->cairo);
+        uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
+        struct rgb bg = color_hex_to_rgb(_bg);
+        cairo_set_source_rgb(buf->cairo, bg.r, bg.g, bg.b);
 
-            wl_surface_damage_buffer(
-                term->wl.surface, rmargin, 0, rmargin_width, term->height);
-            wl_surface_damage_buffer(
-                term->wl.surface, 0, bmargin, term->width, bmargin_height);
+        cairo_rectangle(buf->cairo, rmargin, 0, rmargin_width, term->height);
+        cairo_rectangle(buf->cairo, 0, bmargin, term->width, bmargin_height);
+        cairo_fill(buf->cairo);
 
-            /* Force a full grid refresh */
-            term_damage_all(term);
-        }
+        wl_surface_damage_buffer(
+            term->wl.surface, rmargin, 0, rmargin_width, term->height);
+        wl_surface_damage_buffer(
+            term->wl.surface, 0, bmargin, term->width, bmargin_height);
+
+        /* Force a full grid refresh */
+        term_damage_view(term);
+
         last_buf = buf;
+        last_flash = term->flash_active;
     }
 
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
@@ -418,6 +424,16 @@ grid_render(struct terminal *term)
 
     if (gseq.count > 0)
         gseq_flush(term, buf);
+
+    if (term->flash_active) {
+        cairo_set_source_rgba(buf->cairo, 1.0, 1.0, 0.0, 0.5);
+        cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
+        cairo_rectangle(buf->cairo, 0, 0, term->width, term->height);
+        cairo_fill(buf->cairo);
+
+        wl_surface_damage_buffer(
+            term->wl.surface, 0, 0, term->width, term->height);
+    }
 
     assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
     assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
