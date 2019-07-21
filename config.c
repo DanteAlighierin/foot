@@ -208,17 +208,17 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 #endif
 
     unsigned lineno = 0;
+    char *_line = NULL;
 
     while (true) {
         errno = 0;
         lineno++;
 
-        char *line = NULL;
         size_t count = 0;
-        ssize_t ret = getline(&line, &count, f);
+        ssize_t ret = getline(&_line, &count, f);
 
         if (ret < 0) {
-            free(line);
+            free(_line);
             if (errno != 0) {
                 LOG_ERRNO("failed to read from configuration");
                 return false;
@@ -226,12 +226,31 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
             break;
         }
 
+        /* Strip whitespace */
+        char *line = _line;
+        {
+            while (isspace(*line))
+                line++;
+            if (line[0] != '\0') {
+                char *end = line + strlen(line) - 1;
+                while (isspace(*end))
+                    end--;
+                *(end + 1) = '\0';
+            }
+        }
+
+        /* Empty line, or comment */
+        if (line[0] == '\0' || line[0] == '#') {
+            free(_line);
+            continue;
+        }
+
+        /* Check for new section */
         if (line[0] == '[') {
             char *end = strchr(line, ']');
             if (end == NULL) {
                 LOG_ERR("%s:%d: syntax error: %s", path, lineno, line);
-                free(line);
-                return false;
+                goto err;
             }
 
             *end = '\0';
@@ -240,19 +259,22 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
                 section = SECTION_COLORS;
             else {
                 LOG_ERR("%s:%d: invalid section name: %s", path, lineno, &line[1]);
-                free(line);
-                return false;
+                goto err;
             }
 
+            free(_line);
             continue;
         }
 
         char *key = strtok(line, "=");
         char *value = strtok(NULL, "\n");
 
+        LOG_INFO("key = %s, value = %s", key, value);
+
+        /* Strip trailing whitespace from key (leading stripped earlier) */
         {
-            while (isspace(*key))
-                key++;
+            assert(!isspace(*key));
+
             char *end = key + strlen(key) - 1;
             while (isspace(*end))
                 end--;
@@ -262,25 +284,22 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         if (value == NULL) {
             if (key != NULL && strlen(key) > 0 && key[0] != '#') {
                 LOG_ERR("%s:%d: syntax error: %s", path, lineno, line);
-                free(line);
-                return false;
+                goto err;
             }
 
-            free(line);
+            free(_line);
             continue;
         }
 
+        /* Strip leading whitespace from value (trailing stripped earlier) */
         {
             while (isspace(*value))
                 value++;
-            char *end = value + strlen(value) - 1;
-            while (isspace(*end))
-                end--;
-            *(end + 1) = '\0';
+            assert(!isspace(*(value + strlen(value) - 1)));
         }
 
         if (key[0] == '#') {
-            free(line);
+            free(_line);
             continue;
         }
 
@@ -290,15 +309,17 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         parser_fun_t section_parser = section_parser_map[section];
         assert(section_parser != NULL);
 
-        if (!section_parser(key, value, conf, path, lineno)) {
-            free(line);
-            return false;
-        }
+        if (!section_parser(key, value, conf, path, lineno))
+            goto err;
 
-        free(line);
+        free(_line);
     }
 
     return true;
+
+err:
+    free(_line);
+    return false;
 }
 
 bool
@@ -363,6 +384,7 @@ out:
 void
 config_free(struct config conf)
 {
+    free(conf.term);
     free(conf.shell);
     free(conf.font);
 }
