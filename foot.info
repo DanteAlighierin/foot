@@ -144,7 +144,7 @@ foot+base|foot base fragment,
     khome=\EOH,
     kich1=\E[2~,
     kind=\E[1;2B,
-    kmous=\E[<,
+    kmous=\E[M,
     knp=\E[6~,
     kpp=\E[5~,
     kri=\E[1;2A,
@@ -179,4 +179,12 @@ foot+base|foot base fragment,
     u8=\E[?%[;0123456789]c,
     u9=\E[c,
     vpa=\E[%i%p1%dd,
-    XM=\E[?1006;1000%?%p1%{1}%=%th%el%;,
+
+# XM tells ncurses how to initialize the mouse. The xterm terminfo
+# uses this to enable SGR (1006h). However, doing this also requirese
+# kmous=\E[<. But, ncurses *also* disables the mouse _completely_ if
+# kmous != \E[M (unless the TERM name contains "xterm"...)
+#    XT,
+#    AX,
+#    XM=\E[?1006;1000%?%p1%{1}%=%th%el%;,
+#    xm=\E[<%p1%d;%p2%d;%p3%d;%?%p4%tM%em%;,
