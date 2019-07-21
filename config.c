@@ -269,8 +269,6 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         char *key = strtok(line, "=");
         char *value = strtok(NULL, "\n");
 
-        LOG_INFO("key = %s, value = %s", key, value);
-
         /* Strip trailing whitespace from key (leading stripped earlier) */
         {
             assert(!isspace(*key));
