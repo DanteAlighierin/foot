@@ -299,7 +299,7 @@ grid_render(struct terminal *term)
     static struct buffer *last_buf = NULL;
     if (last_buf != buf || false) {
         if (last_buf != NULL) {
-            LOG_WARN("new buffer");
+            LOG_DBG("new buffer");
 
             /* Fill area outside the cell grid with the default background color */
             int rmargin = term->cols * term->cell_width;
