@@ -547,13 +547,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 't':
-            /*
-             * TODO: xterm's terminfo specifies *both* \e[?1049h *and*
-             * \e[22;0;0t in smcup, but only one is necessary. We
-             * should provide our own terminfo with *only* \e[?1049h
-             * (and \e[?1049l for rmcup)
-             */
-
             /* 22 - save window title */
             /* 23 - restore window title */
             LOG_WARN("ignoring %s", csi_as_string(term, final));
