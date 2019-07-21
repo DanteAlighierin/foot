@@ -9,7 +9,6 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "csi.h"
-#include "dcs.h"
 #include "grid.h"
 #include "osc.h"
 
@@ -931,20 +930,9 @@ action(struct terminal *term, enum action _action, uint8_t c)
         break;
 
     case ACTION_HOOK:
-        term->vt.dcs.idx = 0;
-        break;
-
     case ACTION_PUT:
-        if (!dcs_ensure_size(term, term->vt.dcs.idx + 1))
-            break;
-        term->vt.dcs.data[term->vt.dcs.idx++] = c;
-        break;
-
     case ACTION_UNHOOK:
-        if (!dcs_ensure_size(term, term->vt.dcs.idx + 1))
-            break;
-        term->vt.dcs.data[term->vt.dcs.idx] = '\0';
-        dcs_passthrough(term);
+        /* We have no parent terminal to pass through to */
         break;
 
     case ACTION_UTF8_2_ENTRY:

@@ -130,11 +130,6 @@ struct vt {
         size_t idx;
     } osc;
     struct {
-        uint8_t *data;
-        size_t size;
-        size_t idx;
-    } dcs;
-    struct {
         uint8_t data[4];
         size_t idx;
         size_t left;
