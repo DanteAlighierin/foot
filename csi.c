@@ -648,7 +648,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 5:
-                    LOG_INFO("REVERSE");
                     term->reverse = true;
                     term_damage_all(term);
                     break;
@@ -745,7 +744,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 5:
-                    LOG_INFO("REVERSE BACK");
                     term->reverse = false;
                     term_damage_all(term);
                     break;
