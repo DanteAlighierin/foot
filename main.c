@@ -36,14 +36,6 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-#if 0
-static const struct rgb default_foreground = {0.86, 0.86, 0.86};
-static const struct rgb default_background = {0.067, 0.067, 0.067};
-#else
-static const uint32_t default_foreground = 0xdcdccc;
-static const uint32_t default_background = 0x111111;
-#endif
-
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
@@ -335,8 +327,8 @@ main(int argc, char *const *argv)
         .vt = {
             .state = 1,  /* STATE_GROUND */
             .attrs = {
-                .foreground = default_foreground,
-                .background = default_background,
+                //.foreground = conf.colors.fg,
+                //.background = conf.colors.bg
             },
         },
         .kbd = {
@@ -346,8 +338,30 @@ main(int argc, char *const *argv)
                 .cmd = REPEAT_STOP,
             },
         },
-        .colors.fg = default_foreground,
-        .colors.bg = default_background,
+        .colors = {
+            .default_fg = conf.colors.fg,
+            .default_bg = conf.colors.bg,
+            .default_regular = {
+                conf.colors.regular[0],
+                conf.colors.regular[1],
+                conf.colors.regular[2],
+                conf.colors.regular[3],
+                conf.colors.regular[4],
+                conf.colors.regular[5],
+                conf.colors.regular[6],
+                conf.colors.regular[7],
+            },
+            .default_bright = {
+                conf.colors.bright[0],
+                conf.colors.bright[1],
+                conf.colors.bright[2],
+                conf.colors.bright[3],
+                conf.colors.bright[4],
+                conf.colors.bright[5],
+                conf.colors.bright[6],
+                conf.colors.bright[7],
+            },
+        },
         .selection = {
             .start = {-1, -1},
             .end = {-1, -1},
@@ -356,6 +370,14 @@ main(int argc, char *const *argv)
         .alt = {.damage = tll_init(), .scroll_damage = tll_init()},
         .grid = &term.normal,
     };
+
+    /* Initialize 'current' colors from the default colors */
+    term.colors.fg = term.colors.default_fg;
+    term.colors.bg = term.colors.default_bg;
+    for (size_t i = 0; i < 8; i++) {
+        term.colors.regular[i] = term.colors.default_regular[i];
+        term.colors.bright[i] = term.colors.default_bright[i];
+    }
 
     if (term.ptmx == -1) {
         LOG_ERRNO("failed to open pseudo terminal");

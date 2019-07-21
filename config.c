@@ -16,6 +16,31 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
+static const uint32_t default_foreground = 0xdcdccc;
+static const uint32_t default_background = 0x111111;
+
+static const uint32_t default_regular[] = {
+    0x000000,
+    0xcc9393,
+    0x7f9f7f,
+    0xd0bf8f,
+    0x6ca0a3,
+    0xdc8cc3,
+    0x93e0e3,
+    0xdcdccc,
+};
+
+static const uint32_t default_bright[] = {
+    0x000000,
+    0xdca3a3,
+    0xbfebbf,
+    0xf0dfaf,
+    0x8cd0d3,
+    0xdc8cc3,
+    0x93e0e3,
+    0xffffff,
+};
+
 static char *
 get_shell(void)
 {
@@ -219,6 +244,31 @@ config_load(struct config *conf)
         .term = strdup("foot"),
         .shell = get_shell(),
         .font = strdup("monospace"),
+
+        .colors = {
+            .fg = default_foreground,
+            .bg = default_background,
+            .regular = {
+                default_regular[0],
+                default_regular[1],
+                default_regular[2],
+                default_regular[3],
+                default_regular[4],
+                default_regular[5],
+                default_regular[6],
+                default_regular[7],
+            },
+            .bright = {
+                default_bright[0],
+                default_bright[1],
+                default_bright[2],
+                default_bright[3],
+                default_bright[4],
+                default_bright[5],
+                default_bright[6],
+                default_bright[7],
+            },
+        },
     };
 
     char *path = get_config_path();

@@ -18,31 +18,6 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
-#if 0
-static const struct rgb colors_regular[] = {
-    {0.000000, 0.000000, 0.000000},  /* 0x000000 */
-    {0.800000, 0.576471, 0.576471},  /* 0xcc9393 */
-    {0.498039, 0.623529, 0.498039},  /* 0x7f9f7f */
-    {0.815686, 0.749020, 0.560784},  /* 0xd0bf8f */
-    {0.423529, 0.627451, 0.639216},  /* 0x6ca0a3 */
-    {0.862745, 0.549020, 0.764706},  /* 0xdc8cc3 */
-    {0.576471, 0.878431, 0.890196},  /* 0x93e0e3 */
-    {0.862745, 0.862745, 0.800000},  /* 0xdcdccc */
-};
-
-static const struct rgb colors_bright[] = {
-    {0.000000, 0.000000, 0.000000},  /* 0x000000 */
-    {0.862745, 0.639216, 0.639216},  /* 0xdca3a3 */
-    {0.749020, 0.921569, 0.749020},  /* 0xbfebbf */
-    {0.941176, 0.874510, 0.686275},  /* 0xf0dfaf */
-    {0.549020, 0.815686, 0.827451},  /* 0x8cd0d3 */
-    {0.862745, 0.549020, 0.764706},  /* 0xdc8cc3 */
-    {0.576471, 0.878431, 0.890196},  /* 0x93e0e3 */
-    {1.000000, 1.000000, 1.000000},  /* 0xffffff */
-};
-
-static struct rgb colors256[256];
-#else
 static const uint32_t colors_regular[] = {
     0x000000,
     0xcc9393,
@@ -66,7 +41,6 @@ static const uint32_t colors_bright[] = {
 };
 
 static uint32_t colors256[256];
-#endif
 
 static void __attribute__((constructor))
 initialize_colors256(void)
@@ -79,32 +53,14 @@ initialize_colors256(void)
     for (size_t r = 0; r < 6; r++) {
         for (size_t g = 0; g < 6; g++) {
             for (size_t b = 0; b < 6; b++) {
-#if 0
-                colors256[16 + r * 6 * 6 + g * 6 + b] = (struct rgb) {
-                    r * 51 / 255.0,
-                    g * 51 / 255.0,
-                    b * 51 / 255.0,
-                };
-#else
                 colors256[16 + r * 6 * 6 + g * 6 + b]
                     = r * 51 << 16 | g * 51 << 8 | b * 51;
-#endif
             }
         }
     }
 
-    for (size_t i = 0; i < 24; i++){
-#if 0
-        colors256[232 + i] = (struct rgb) {
-            i * 11 / 255.0,
-            i * 11 / 255.0,
-            i * 11 / 255.0,
-        };
-#else
-        /* TODO: i + 1? */
+    for (size_t i = 0; i < 24; i++)
         colors256[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
-#endif
-    }
 }
 
 static void

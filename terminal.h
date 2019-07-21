@@ -266,9 +266,9 @@ struct terminal {
         uint32_t bright[8];
 
         uint32_t default_fg;
-        uint32_t defualt_bg;
+        uint32_t default_bg;
         uint32_t default_regular[8];
-        uint32_t defualt_bright[8];
+        uint32_t default_bright[8];
     } colors;
 
     struct {
