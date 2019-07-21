@@ -246,6 +246,7 @@ struct terminal {
     int selected_charset;
     enum charset charset[4]; /* G0-G3 */
     char *window_title;
+    tll(char *) window_title_stack;
 
     struct vt vt;
     struct kbd kbd;

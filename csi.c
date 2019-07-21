@@ -546,11 +546,39 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        case 't':
-            /* 22 - save window title */
-            /* 23 - restore window title */
-            LOG_WARN("ignoring %s", csi_as_string(term, final));
+        case 't': {
+            unsigned param = vt_param_get(term, 0, 0);
+
+            switch (param) {
+            case 22: { /* push window title */
+                /* 0 - icon + title, 1 - icon, 2 - title */
+                unsigned what = vt_param_get(term, 1, 0);
+                if (what == 0 || what == 2) {
+                    tll_push_back(
+                        term->window_title_stack, strdup(term->window_title));
+                }
+                break;
+            }
+
+            case 23: { /* pop window title */
+                /* 0 - icon + title, 1 - icon, 2 - title */
+                unsigned what = vt_param_get(term, 1, 0);
+                if (what == 0 || what == 2) {
+                    if (tll_length(term->window_title_stack) > 0) {
+                        char *title = tll_pop_back(term->window_title_stack);
+                        term_set_window_title(term, title);
+                        free(title);
+                    }
+                }
+                break;
+            }
+
+            default:
+                LOG_WARN("ignoring %s", csi_as_string(term, final));
+                break;
+            }
             break;
+        }
 
         case 'n': {
             if (term->vt.params.idx > 0) {

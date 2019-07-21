@@ -324,6 +324,7 @@ main(int argc, char *const *argv)
         .cursor_keys_mode = CURSOR_KEYS_NORMAL,
         .keypad_keys_mode = KEYPAD_NUMERICAL,
         .auto_margin = true,
+        .window_title_stack = tll_init(),
         .vt = {
             .state = 1,  /* STATE_GROUND */
             .attrs = {
@@ -848,7 +849,9 @@ out:
     for (int row = 0; row < term.alt.num_rows; row++)
         grid_row_free(term.alt.rows[row]);
     free(term.alt.rows);
+
     free(term.window_title);
+    tll_free_and_free(term.window_title_stack, free);
 
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
         struct font *f = &term.fonts[i];
