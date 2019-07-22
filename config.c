@@ -362,6 +362,7 @@ config_load(struct config *conf)
     if (path == NULL) {
         /* Default conf */
         LOG_WARN("no configuration found, using defaults");
+        ret = true;
         goto out;
     }
 
