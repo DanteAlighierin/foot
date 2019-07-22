@@ -237,7 +237,7 @@ foot+base|foot base fragment,
     vpa=\E[%i%p1%dd,
     E3=\E[3J,
     Ms=\E]52;%p1%s;%p2%s\007,
-    Se=\E[0 q,
+    Se=\E[2 q,
     Ss=\E[%p1%d q,
 
 # XM tells ncurses how to initialize the mouse. The xterm terminfo
