@@ -291,6 +291,8 @@ struct terminal {
     struct coord cursor;
     struct coord saved_cursor;
     struct coord alt_saved_cursor;
+    enum { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR } cursor_style;
+    bool cursor_blinking;
 
     uint32_t input_serial;
     struct {

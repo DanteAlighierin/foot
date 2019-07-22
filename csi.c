@@ -929,22 +929,27 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'q': {
             int param = vt_param_get(term, 0, 0);
             switch (param) {
-            case 2: /* steady block */
+            case 0: case 1: /* blinking block */
+            case 2:         /* steady block */
+                term->cursor_style = CURSOR_BLOCK;
                 break;
 
-            case 0:
-            case 1: /* blinking block */
-            case 3: /* blinking underline */
-            case 4: /* steady underline */
-            case 5: /* blinking bar */
-            case 6: /* steady bar */
-                LOG_WARN("unimplemented: cursor style: %s",
-                         param == 0 || param == 1 ? "blinking block" :
-                         param == 3 ? "blinking underline" :
-                         param == 4 ? "steady underline" :
-                         param == 5 ? "blinking bar" : "steady bar");
+            case 3:         /* blinking underline */
+            case 4:         /* steady underline */
+                term->cursor_style = CURSOR_UNDERLINE;
+                LOG_WARN("unimplemented: cursor style: underline");
+                break;
+
+            case 5:         /* blinking bar */
+            case 6:         /* steady bar */
+                term->cursor_style = CURSOR_BAR;
+                LOG_WARN("unimplemented: cursor style: bar");
                 break;
             }
+
+            term->cursor_blinking = param == 0 || param & 1;
+            if (term->cursor_blinking)
+                LOG_WARN("unimplemented: blinking cursor");
             break;
         }
 
