@@ -243,8 +243,10 @@ struct terminal {
     char *window_title;
     tll(char *) window_title_stack;
 
-    bool flash_active;
-    int flash_timer_fd;
+    struct {
+        bool active;
+        int fd;
+    } flash;
 
     bool is_blinking;
     enum { BLINK_ON, BLINK_OFF } blink_mode;

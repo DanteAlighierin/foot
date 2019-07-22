@@ -327,7 +327,9 @@ main(int argc, char *const *argv)
         .keypad_keys_mode = KEYPAD_NUMERICAL,
         .auto_margin = true,
         .window_title_stack = tll_init(),
-        .flash_timer_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
+        .flash = {
+            .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
+        },
         .blink_timer_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
         .vt = {
             .state = 1,  /* STATE_GROUND */
@@ -685,7 +687,7 @@ main(int argc, char *const *argv)
             {.fd = wl_display_get_fd(term.wl.display), .events = POLLIN},
             {.fd = term.ptmx,                     .events = POLLIN},
             {.fd = term.kbd.repeat.pipe_read_fd,  .events = POLLIN},
-            {.fd = term.flash_timer_fd,           .events = POLLIN},
+            {.fd = term.flash.fd,                 .events = POLLIN},
             {.fd = term.blink_timer_fd,           .events = POLLIN},
         };
 
@@ -785,7 +787,7 @@ main(int argc, char *const *argv)
         if (fds[3].revents & POLLIN) {
             uint64_t expiration_count;
             ssize_t ret = read(
-                term.flash_timer_fd, &expiration_count, sizeof(expiration_count));
+                term.flash.fd, &expiration_count, sizeof(expiration_count));
 
             if (ret < 0)
                 LOG_ERRNO("failed to read flash timer");
@@ -793,7 +795,7 @@ main(int argc, char *const *argv)
                 LOG_DBG("flash timer expired %llu times",
                         (unsigned long long)expiration_count);
 
-            term.flash_active = false;
+            term.flash.active = false;
             term_damage_view(&term);
             if (term.frame_callback == NULL)
                 grid_render(&term);
@@ -915,8 +917,8 @@ out:
             cairo_glyph_free(f->glyph_cache[j].glyphs);
     }
 
-    if (term.flash_timer_fd != -1)
-        close(term.flash_timer_fd);
+    if (term.flash.fd != -1)
+        close(term.flash.fd);
     if (term.blink_timer_fd != -1)
         close(term.blink_timer_fd);
 

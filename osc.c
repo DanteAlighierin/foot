@@ -213,10 +213,10 @@ osc_flash(struct terminal *term)
         .it_value = {.tv_sec = 0, .tv_nsec = duration_ms * 1000000},
     };
 
-    if (timerfd_settime(term->flash_timer_fd, 0, &alarm, NULL) < 0)
+    if (timerfd_settime(term->flash.fd, 0, &alarm, NULL) < 0)
         LOG_ERRNO("failed to arm flash timer");
     else {
-        term->flash_active = true;
+        term->flash.active = true;
     }
 }
 

@@ -314,14 +314,14 @@ grid_render(struct terminal *term)
     struct buffer *buf = shm_get_buffer(term->wl.shm, term->width, term->height);
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
 
-    if (term->flash_active)
+    if (term->flash.active)
         term_damage_view(term);
 
     static struct buffer *last_buf = NULL;
     static bool last_flash = false;
 
     /* If we resized the window, or is flashing, or just stopped flashing */
-    if (last_buf != buf || term->flash_active || last_flash) {
+    if (last_buf != buf || term->flash.active || last_flash) {
         LOG_DBG("new buffer");
 
         /* Fill area outside the cell grid with the default background color */
@@ -347,7 +347,7 @@ grid_render(struct terminal *term)
         term_damage_view(term);
 
         last_buf = buf;
-        last_flash = term->flash_active;
+        last_flash = term->flash.active;
     }
 
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
@@ -475,7 +475,7 @@ grid_render(struct terminal *term)
     if (gseq.count > 0)
         gseq_flush(term, buf);
 
-    if (term->flash_active) {
+    if (term->flash.active) {
         cairo_set_source_rgba(buf->cairo, 1.0, 1.0, 0.0, 0.5);
         cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
         cairo_rectangle(buf->cairo, 0, 0, term->width, term->height);
