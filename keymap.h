@@ -157,13 +157,13 @@ static const struct key_data key_pageup[] = {
 };
 
 static const struct key_data key_pagedown[] = {
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;2~"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;3~"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;4~"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;5~"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;6~"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;7~"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;8~"},
+    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[6;2~"},
+    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[6;3~"},
+    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[6;4~"},
+    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[6;5~"},
+    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[6;6~"},
+    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[6;7~"},
+    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[6;8~"},
     {MOD_ANY,                        CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[6~"},
 };
 
