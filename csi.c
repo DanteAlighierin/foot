@@ -541,6 +541,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'Z': {
+            /* Back tab */
+            int col = term->cursor.col;
+            col = (col - 8 + 7) / 8 * 8;
+            term_cursor_right(term, col - term->cursor.col);
+            break;
+        }
+
         case 'h':
             /* smir - insert mode enable */
             assert(false && "untested");
