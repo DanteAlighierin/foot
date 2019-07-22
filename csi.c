@@ -937,13 +937,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             case 3:         /* blinking underline */
             case 4:         /* steady underline */
                 term->cursor_style = CURSOR_UNDERLINE;
-                LOG_WARN("unimplemented: cursor style: underline");
                 break;
 
             case 5:         /* blinking bar */
             case 6:         /* steady bar */
                 term->cursor_style = CURSOR_BAR;
-                LOG_WARN("unimplemented: cursor style: bar");
                 break;
             }
 

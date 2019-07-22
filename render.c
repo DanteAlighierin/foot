@@ -70,15 +70,50 @@ gseq_flush(struct terminal *term, struct buffer *buf)
 }
 
 static void
-render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
-            int col, int row, bool has_cursor)
+draw_underline(const struct terminal *term, struct buffer *buf,
+               const struct font *font, struct rgb color, double x, double y)
 {
-    double width = term->cell_width;
-    double height = term->cell_height;
-    double x = col * width;
-    double y = row * height;
+    //const struct font *font = attrs_to_font(term, &cell->attrs);
+    double baseline = y + term->fextents.height - term->fextents.descent;
+    double width = font->underline.thickness;
+    double y_under = baseline - font->underline.position - width / 2.;
 
-    bool is_selected = false;
+    cairo_set_source_rgb(buf->cairo, color.r, color.g, color.b);
+    cairo_set_line_width(buf->cairo, width);
+    cairo_move_to(buf->cairo, x, round(y_under) + 0.5);
+    cairo_rel_line_to(buf->cairo, term->cell_width, 0);
+    cairo_stroke(buf->cairo);
+}
+
+static void
+draw_bar(const struct terminal *term, struct buffer *buf, struct rgb color,
+         double x, double y)
+{
+    cairo_set_source_rgb(buf->cairo, color.r, color.g, color.b);
+    cairo_set_line_width(buf->cairo, 1.0);
+    cairo_move_to(buf->cairo, x + 0.5, y);
+    cairo_rel_line_to(buf->cairo, 0, term->cell_height);
+    cairo_stroke(buf->cairo);
+}
+
+static void
+draw_strikeout(const struct terminal *term, struct buffer *buf,
+               const struct font *font, struct rgb color, double x, double y)
+{
+    double baseline = y + term->fextents.height - term->fextents.descent;
+    double width = font->strikeout.thickness;
+    double y_strike = baseline - font->strikeout.position - width / 2.;
+
+    cairo_set_source_rgb(buf->cairo, color.r, color.g, color.b);
+    cairo_set_line_width(buf->cairo, width);
+    cairo_move_to(buf->cairo, x, round(y_strike) + 0.5);
+    cairo_rel_line_to(buf->cairo, term->cell_width, 0);
+    cairo_stroke(buf->cairo);
+}
+
+static bool
+coord_is_selected(const struct terminal *term, int col, int row)
+{
     if (term->selection.start.col != -1 && term->selection.end.col != -1) {
         const struct coord *start = &term->selection.start;
         const struct coord *end = &term->selection.end;
@@ -92,17 +127,49 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         assert(start->row <= end->row);
 
         if (start->row == end->row) {
-            is_selected
-                = term->grid->view + row == start->row && col >= start->col && col <= end->col;
+            return (term->grid->view + row == start->row &&
+                    col >= start->col &&
+                    col <= end->col);
         } else {
             if (term->grid->view + row == start->row)
-                is_selected = col >= start->col;
+                return col >= start->col;
             else if (term->grid->view + row == end->row)
-                is_selected = col <= end->col;
+                return col <= end->col;
             else
-                is_selected = term->grid->view + row >= start->row && term->grid->view + row <= end->row;
+                return (term->grid->view + row >= start->row &&
+                        term->grid->view + row <= end->row);
         }
     }
+
+    return false;
+}
+
+static void
+arm_blink_timer(struct terminal *term)
+{
+    LOG_DBG("arming blink timer");
+    struct itimerspec alarm = {
+        .it_value = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
+        .it_interval = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
+    };
+
+    if (timerfd_settime(term->blink.fd, 0, &alarm, NULL) < 0)
+        LOG_ERRNO("failed to arm blink timer");
+    else
+        term->blink.active = true;
+}
+
+static void
+render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
+            int col, int row, bool has_cursor)
+{
+    double width = term->cell_width;
+    double height = term->cell_height;
+    double x = col * width;
+    double y = row * height;
+
+    bool block_cursor = has_cursor && term->cursor_style == CURSOR_BLOCK;
+    bool is_selected = coord_is_selected(term, col, row);
 
     uint32_t _fg = cell->attrs.foreground >> 31
         ? cell->attrs.foreground
@@ -112,7 +179,7 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         : !term->reverse ? term->colors.bg : term->colors.fg;
 
     /* If *one* is set, we reverse */
-    if (has_cursor ^ cell->attrs.reverse ^ is_selected) {
+    if (block_cursor ^ cell->attrs.reverse ^ is_selected) {
         uint32_t swap = _fg;
         _fg = _bg;
         _bg = swap;
@@ -132,49 +199,29 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     cairo_rectangle(buf->cairo, x, y, width, height);
     cairo_fill(buf->cairo);
 
+    /* Non-block cursors */
+    if (has_cursor) {
+        if (term->cursor_style == CURSOR_BAR)
+            draw_bar(term, buf, fg, x, y);
+        else if (term->cursor_style == CURSOR_UNDERLINE)
+            draw_underline(
+                term, buf, attrs_to_font(term, &cell->attrs), fg, x, y);
+    }
+
     if (cell->attrs.blink && !term->blink.active) {
         /* First cell we see that has blink set - arm blink timer */
-        LOG_DBG("arming blink timer");
-        struct itimerspec alarm = {
-            .it_value = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
-            .it_interval = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
-        };
-
-        if (timerfd_settime(term->blink.fd, 0, &alarm, NULL) < 0)
-            LOG_ERRNO("failed to arm blink timer");
-        else
-            term->blink.active = true;
+        arm_blink_timer(term);
     }
 
     if (cell->c[0] == '\0' || cell->attrs.conceal)
         return;
 
     /* Underline */
-    if (cell->attrs.underline) {
-        const struct font *font = attrs_to_font(term, &cell->attrs);
-        double baseline = y + term->fextents.height - term->fextents.descent;
-        double width = font->underline.thickness;
-        double y_under = baseline - font->underline.position - width / 2.;
+    if (cell->attrs.underline)
+        draw_underline(term, buf, attrs_to_font(term, &cell->attrs), fg, x, y);
 
-        cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
-        cairo_set_line_width(buf->cairo, width);
-        cairo_move_to(buf->cairo, x, round(y_under) + 0.5);
-        cairo_rel_line_to(buf->cairo, term->cell_width, 0);
-        cairo_stroke(buf->cairo);
-    }
-
-    if (cell->attrs.strikethrough) {
-        const struct font *font = attrs_to_font(term, &cell->attrs);
-        double baseline = y + term->fextents.height - term->fextents.descent;
-        double width = font->strikeout.thickness;
-        double y_strike = baseline - font->strikeout.position - width / 2.;
-
-        cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
-        cairo_set_line_width(buf->cairo, width);
-        cairo_move_to(buf->cairo, x, round(y_strike) + 0.5);
-        cairo_rel_line_to(buf->cairo, term->cell_width, 0);
-        cairo_stroke(buf->cairo);
-    }
+    if (cell->attrs.strikethrough)
+        draw_strikeout(term, buf, attrs_to_font(term, &cell->attrs), fg, x, y);
 
     /*
      * cairo_show_glyphs() apparently works *much* faster when
