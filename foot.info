@@ -183,6 +183,7 @@ foot+base|foot base fragment,
     u8=\E[?%[;0123456789]c,
     u9=\E[c,
     vpa=\E[%i%p1%dd,
+    Ms=\E]52;%p1%s;%p2%s\007,
 
 # XM tells ncurses how to initialize the mouse. The xterm terminfo
 # uses this to enable SGR (1006h). However, doing this also requirese
