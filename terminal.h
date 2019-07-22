@@ -222,6 +222,8 @@ struct font {
     struct glyph_cache glyph_cache[256];
 };
 
+enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
+
 struct terminal {
     pid_t slave;
     int ptmx;
@@ -291,7 +293,7 @@ struct terminal {
     struct coord cursor;
     struct coord saved_cursor;
     struct coord alt_saved_cursor;
-    enum { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR } cursor_style;
+    enum cursor_style cursor_style;
     bool cursor_blinking;
 
     uint32_t input_serial;

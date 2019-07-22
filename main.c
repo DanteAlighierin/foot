@@ -371,6 +371,7 @@ main(int argc, char *const *argv)
                 conf.colors.bright[7],
             },
         },
+        .cursor_style = conf.cursor.style,
         .selection = {
             .start = {-1, -1},
             .end = {-1, -1},

@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "terminal.h"
+
 struct config {
     char *term;
     char *shell;
@@ -14,6 +16,10 @@ struct config {
         uint32_t regular[8];
         uint32_t bright[8];
     } colors;
+
+    struct {
+        enum cursor_style style;
+    } cursor;
 };
 
 bool config_load(struct config *conf);

@@ -2,6 +2,9 @@
 # shell=/usr/bin/zsh
 # font=monospace
 
+[cursor]
+# style=block
+
 [colors]
 # foreground=dcdccc
 # background=111111

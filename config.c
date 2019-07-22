@@ -182,11 +182,38 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
 }
 
 static bool
+parse_section_cursor(const char *key, const char *value, struct config *conf,
+                     const char *path, unsigned lineno)
+{
+    if (strcmp(key, "style") == 0) {
+        if (strcmp(value, "block") == 0)
+            conf->cursor.style = CURSOR_BLOCK;
+        else if (strcmp(value, "bar") == 0)
+            conf->cursor.style = CURSOR_BAR;
+        else if (strcmp(value, "underline") == 0)
+            conf->cursor.style = CURSOR_UNDERLINE;
+
+        else {
+            LOG_ERR("%s:%d: invalid 'style': %s", path, lineno, value);
+            return false;
+        }
+    }
+
+    else {
+        LOG_ERR("%s:%d: invalid key: %s", path, lineno, key);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
 parse_config_file(FILE *f, struct config *conf, const char *path)
 {
     enum section {
         SECTION_MAIN,
         SECTION_COLORS,
+        SECTION_CURSOR,
     } section = SECTION_MAIN;
 
     /* Function pointer, called for each key/value line */
@@ -198,12 +225,14 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
     static const parser_fun_t section_parser_map[] = {
         [SECTION_MAIN] = &parse_section_main,
         [SECTION_COLORS] = &parse_section_colors,
+        [SECTION_CURSOR] = &parse_section_cursor,
     };
 
 #if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     static const char *const section_names[] = {
         [SECTION_MAIN] = "main",
         [SECTION_COLORS] = "colors",
+        [SECTION_CURSOR] = "cursor",
     };
 #endif
 
@@ -257,6 +286,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 
             if (strcmp(&line[1], "colors") == 0)
                 section = SECTION_COLORS;
+            else if (strcmp(&line[1], "cursor") == 0)
+                section = SECTION_CURSOR;
             else {
                 LOG_ERR("%s:%d: invalid section name: %s", path, lineno, &line[1]);
                 goto err;
@@ -353,6 +384,10 @@ config_load(struct config *conf)
                 default_bright[6],
                 default_bright[7],
             },
+        },
+
+        .cursor = {
+            .style = CURSOR_BLOCK,
         },
     };
 
