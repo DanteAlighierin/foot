@@ -293,6 +293,7 @@ struct terminal {
     struct coord cursor;
     struct coord saved_cursor;
     struct coord alt_saved_cursor;
+    enum cursor_style default_cursor_style;
     enum cursor_style cursor_style;
     bool cursor_blinking;
 

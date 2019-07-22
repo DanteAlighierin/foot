@@ -929,7 +929,12 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'q': {
             int param = vt_param_get(term, 0, 0);
             switch (param) {
-            case 0: case 1: /* blinking block */
+            case 0:
+                term->cursor_style = term->default_cursor_style;
+                term->cursor_blinking = false; /* TODO: configurable */
+                break;
+
+            case 1: /* blinking block */
             case 2:         /* steady block */
                 term->cursor_style = CURSOR_BLOCK;
                 break;
@@ -945,7 +950,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
             }
 
-            term->cursor_blinking = param == 0 || param & 1;
+            if (param != 0)
+                term->cursor_blinking = param & 1;
             if (term->cursor_blinking)
                 LOG_WARN("unimplemented: blinking cursor");
             break;
