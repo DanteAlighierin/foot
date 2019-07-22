@@ -330,7 +330,9 @@ main(int argc, char *const *argv)
         .flash = {
             .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
         },
-        .blink_timer_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
+        .blink = {
+            .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
+        },
         .vt = {
             .state = 1,  /* STATE_GROUND */
             .attrs = {
@@ -688,7 +690,7 @@ main(int argc, char *const *argv)
             {.fd = term.ptmx,                     .events = POLLIN},
             {.fd = term.kbd.repeat.pipe_read_fd,  .events = POLLIN},
             {.fd = term.flash.fd,                 .events = POLLIN},
-            {.fd = term.blink_timer_fd,           .events = POLLIN},
+            {.fd = term.blink.fd,                 .events = POLLIN},
         };
 
         wl_display_flush(term.wl.display);
@@ -804,7 +806,7 @@ main(int argc, char *const *argv)
         if (fds[4].revents & POLLIN) {
             uint64_t expiration_count;
             ssize_t ret = read(
-                term.blink_timer_fd, &expiration_count, sizeof(expiration_count));
+                term.blink.fd, &expiration_count, sizeof(expiration_count));
 
             if (ret < 0)
                 LOG_ERRNO("failed to read blink timer");
@@ -812,7 +814,7 @@ main(int argc, char *const *argv)
                 LOG_DBG("blink timer expired %llu times",
                         (unsigned long long)expiration_count);
 
-            term.blink_mode = term.blink_mode == BLINK_ON
+            term.blink.state = term.blink.state == BLINK_ON
                 ? BLINK_OFF : BLINK_ON;
 
             /* Scan all visible cells and mark rows with blinking cells dirty */
@@ -919,8 +921,8 @@ out:
 
     if (term.flash.fd != -1)
         close(term.flash.fd);
-    if (term.blink_timer_fd != -1)
-        close(term.blink_timer_fd);
+    if (term.blink.fd != -1)
+        close(term.blink.fd);
 
     if (term.ptmx != -1)
         close(term.ptmx);
