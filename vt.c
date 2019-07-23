@@ -597,7 +597,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
         break;
 
     case '8':
-        term->cursor = term->saved_cursor;
+        term_restore_cursor(term);
         term->vt.attrs = term->vt.saved_attrs;
         break;
 

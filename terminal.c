@@ -268,6 +268,14 @@ term_reverse_index(struct terminal *term)
 }
 
 void
+term_restore_cursor(struct terminal *term)
+{
+    int row = min(term->saved_cursor.row, term->rows - 1);
+    int col = min(term->saved_cursor.col, term->cols - 1);
+    term_cursor_to(term, row, col);
+}
+
+void
 term_focus_in(struct terminal *term)
 {
     if (!term->focus_events)

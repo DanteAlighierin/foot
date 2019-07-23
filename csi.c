@@ -576,6 +576,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 's':
+            term->saved_cursor = term->cursor;
+            break;
+
+        case 'u':
+            term_restore_cursor(term);
+            break;
+
         case 't': {
             unsigned param = vt_param_get(term, 0, 0);
 
@@ -794,8 +802,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     if (term->grid == &term->alt) {
                         term->grid = &term->normal;
 
-                        term->cursor = term->saved_cursor;
-                        term_cursor_to(term, term->cursor.row, term->cursor.col);
+                        term_restore_cursor(term);
 
                         tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);

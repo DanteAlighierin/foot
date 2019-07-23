@@ -346,6 +346,8 @@ void term_scroll_reverse_partial(
 void term_linefeed(struct terminal *term);
 void term_reverse_index(struct terminal *term);
 
+void term_restore_cursor(struct terminal *term);
+
 void term_focus_in(struct terminal *term);
 void term_focus_out(struct terminal *term);
 void term_mouse_down(struct terminal *term, int button, int row, int col,
