@@ -715,6 +715,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->mouse_reporting = MOUSE_URXVT;
                     break;
 
+                case 1036:
+                    /* metaSendsEscape - we always send escape */
+                    break;
+
                 case 1049:
                     if (term->grid != &term->alt) {
                         term->grid = &term->alt;
@@ -796,6 +800,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 1004:
                     term->focus_events = false;
+                    break;
+
+                case 1036:
+                    /* metaSendsEscape - we always send escape */
+                    LOG_WARN("unimplemented: meta does *not* send escape");
                     break;
 
                 case 1049:
