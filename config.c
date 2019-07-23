@@ -107,6 +107,30 @@ get_config_path(void)
 }
 
 static bool
+str_to_color(const char *s, uint32_t *color, const char *path, int lineno)
+{
+    if (s == NULL)
+        return false;
+
+    errno = 0;
+    char *end = NULL;
+    unsigned long res = strtoul(s, &end, 16);
+
+    if (errno != 0) {
+        LOG_ERRNO("%s:%d: invalid color: %s", path, lineno, s);
+        return false;
+    }
+
+    if (*end != '\0') {
+        LOG_ERR("%s:%d: invalid color: %s", path, lineno, s);
+        return false;
+    }
+
+    *color = res & 0xffffff;
+    return true;
+}
+
+static bool
 parse_section_main(const char *key, const char *value, struct config *conf,
                    const char *path, unsigned lineno)
 {
@@ -163,21 +187,11 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
         return false;
     }
 
-    errno = 0;
-    char *end = NULL;
-    unsigned long res = strtoul(value, &end, 16);
-
-    if (errno != 0) {
-        LOG_ERRNO("%s:%d: invalid color: %s", path, lineno, value);
+    uint32_t color_value;
+    if (!str_to_color(value, &color_value, path, lineno))
         return false;
-    }
 
-    if (*end != '\0') {
-        LOG_ERR("%s:%d: invalid color: %s", path, lineno, value);
-        return false;
-    }
-
-    *color = res & 0xffffff;
+    *color = color_value;
     return true;
 }
 
@@ -197,6 +211,26 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
             LOG_ERR("%s:%d: invalid 'style': %s", path, lineno, value);
             return false;
         }
+    }
+
+    else if (strcmp(key, "color") == 0) {
+        char *value_copy = strdup(value);
+        const char *text = strtok(value_copy, " ");
+        const char *cursor = strtok(NULL, " ");
+
+        uint32_t text_color, cursor_color;
+        if (text == NULL || cursor == NULL ||
+            !str_to_color(text, &text_color, path, lineno) ||
+            !str_to_color(cursor, &cursor_color, path, lineno))
+        {
+            LOG_ERR("%s:%d: invalid cursor colors: %s", path, lineno, value);
+            free(value_copy);
+            return false;
+        }
+
+        conf->cursor.color.text = 1 << 31 | text_color;
+        conf->cursor.color.cursor = 1 << 31 | cursor_color;
+        free(value_copy);
     }
 
     else {
@@ -388,6 +422,10 @@ config_load(struct config *conf)
 
         .cursor = {
             .style = CURSOR_BLOCK,
+            .color = {
+                .text = 0,
+                .cursor = 0,
+            },
         },
     };
 

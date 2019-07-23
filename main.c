@@ -373,6 +373,14 @@ main(int argc, char *const *argv)
         },
         .default_cursor_style = conf.cursor.style,
         .cursor_style = conf.cursor.style,
+        .default_cursor_color = {
+            .text = conf.cursor.color.text,
+            .cursor = conf.cursor.color.cursor,
+        },
+        .cursor_color = {
+            .text = conf.cursor.color.text,
+            .cursor = conf.cursor.color.cursor,
+        },
         .selection = {
             .start = {-1, -1},
             .end = {-1, -1},

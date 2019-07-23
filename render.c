@@ -194,6 +194,13 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     if (cell->attrs.dim)
         color_dim(&fg);
 
+    if (block_cursor && term->cursor_color.text >> 31) {
+        /* User configured cursor color overrides all attributes */
+        assert(term->cursor_color.cursor >> 31);
+        fg = color_hex_to_rgb(term->cursor_color.text);
+        bg = color_hex_to_rgb(term->cursor_color.cursor);
+    }
+
     /* Background */
     cairo_set_source_rgb(buf->cairo, bg.r, bg.g, bg.b);
     cairo_rectangle(buf->cairo, x, y, width, height);
@@ -201,11 +208,12 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
 
     /* Non-block cursors */
     if (has_cursor) {
+        struct rgb cursor_color = color_hex_to_rgb(term->cursor_color.cursor);
         if (term->cursor_style == CURSOR_BAR)
-            draw_bar(term, buf, fg, x, y);
+            draw_bar(term, buf, cursor_color, x, y);
         else if (term->cursor_style == CURSOR_UNDERLINE)
             draw_underline(
-                term, buf, attrs_to_font(term, &cell->attrs), fg, x, y);
+                term, buf, attrs_to_font(term, &cell->attrs), cursor_color, x, y);
     }
 
     if (cell->attrs.blink && !term->blink.active) {

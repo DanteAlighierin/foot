@@ -296,6 +296,14 @@ struct terminal {
     enum cursor_style default_cursor_style;
     enum cursor_style cursor_style;
     bool cursor_blinking;
+    struct {
+        uint32_t text;
+        uint32_t cursor;
+    } default_cursor_color;
+    struct {
+        uint32_t text;
+        uint32_t cursor;
+    } cursor_color;
 
     uint32_t input_serial;
     struct {

@@ -19,6 +19,10 @@ struct config {
 
     struct {
         enum cursor_style style;
+        struct {
+            uint32_t text;
+            uint32_t cursor;
+        } color;
     } cursor;
 };
 
