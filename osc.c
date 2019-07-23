@@ -257,7 +257,13 @@ osc_dispatch(struct terminal *term)
     case 0: term_set_window_title(term, string); break;  /* icon + title */
     case 1: break;                                       /* icon */
     case 2: term_set_window_title(term, string); break;  /* title */
-    case 52: osc_selection(term, string); break;
+
+    case 30:  /* Set tab title */
+        break;
+        
+    case 52:  /* Copy to/from clipboard/primary */
+        osc_selection(term, string);
+        break;
 
     case 104: /* Reset Color Number 'c' */
     case 105: /* Reset Special Color Number 'c' */
