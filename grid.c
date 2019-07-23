@@ -22,9 +22,6 @@ grid_swap_row(struct grid *grid, int row_a, int row_b)
     struct row *tmp = grid->rows[real_a];
     grid->rows[real_a] = grid->rows[real_b];
     grid->rows[real_b] = tmp;
-
-    grid->rows[real_a]->dirty = true;
-    grid->rows[real_b]->dirty = true;
 }
 
 struct row *
