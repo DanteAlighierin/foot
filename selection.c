@@ -131,8 +131,7 @@ selection_update(struct terminal *term, int col, int row)
     assert(term->selection.start.row != -1 && term->selection.end.row != -1);
     term_damage_rows_in_view(term, from - term->grid->view, to - term->grid->view);
 
-    if (term->frame_callback == NULL)
-        grid_render(term);
+    render_refresh(term);
 }
 
 static const struct zwp_primary_selection_source_v1_listener primary_selection_source_listener;
@@ -210,8 +209,7 @@ selection_cancel(struct terminal *term)
             min(start_row, end_row) - term->grid->view,
             max(start_row, end_row) - term->grid->view);
 
-        if (term->frame_callback == NULL)
-            grid_render(term);
+        render_refresh(term);
     }
 }
 

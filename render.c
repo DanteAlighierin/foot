@@ -715,8 +715,7 @@ render_resize(struct terminal *term, int width, int height)
     term_damage_all(term);
     term_damage_view(term);
 
-    if (term->frame_callback == NULL)
-        grid_render(term);
+    render_refresh(term);
 }
 
 void
@@ -750,4 +749,11 @@ render_update_cursor_surface(struct terminal *term)
         term->wl.pointer.surface, 0, 0, INT32_MAX, INT32_MAX);
 
     wl_surface_commit(term->wl.pointer.surface);
+}
+
+void
+render_refresh(struct terminal *term)
+{
+    if (term->frame_callback == NULL)
+        grid_render(term);
 }

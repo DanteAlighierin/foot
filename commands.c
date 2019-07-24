@@ -62,8 +62,7 @@ cmd_scrollback_up(struct terminal *term, int rows)
     term->grid->view = new_view;
 
     term_damage_view(term);
-    if (term->frame_callback == NULL)
-        grid_render(term);
+    render_refresh(term);
 }
 
 void
@@ -122,6 +121,5 @@ cmd_scrollback_down(struct terminal *term, int rows)
     term->grid->view = new_view;
 
     term_damage_view(term);
-    if (term->frame_callback == NULL)
-        grid_render(term);
+    render_refresh(term);
 }

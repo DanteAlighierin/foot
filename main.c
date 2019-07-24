@@ -716,8 +716,7 @@ main(int argc, char *const *argv)
 
         if (ret == 0 || (timeout_ms != -1 && !(fds[1].revents & POLLIN))) {
             /* Delayed rendering */
-            if (term.frame_callback == NULL)
-                grid_render(&term);
+            render_refresh(&term);
         }
 
         /* Reset poll timeout to infinity */
@@ -809,8 +808,7 @@ main(int argc, char *const *argv)
 
             term.flash.active = false;
             term_damage_view(&term);
-            if (term.frame_callback == NULL)
-                grid_render(&term);
+            render_refresh(&term);
         }
 
         if (fds[4].revents & POLLIN) {
@@ -838,8 +836,7 @@ main(int argc, char *const *argv)
                 }
             }
 
-            if (term.frame_callback == NULL)
-                grid_render(&term);
+            render_refresh(&term);
         }
 
     }
