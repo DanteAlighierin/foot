@@ -370,27 +370,25 @@ grid_render(struct terminal *term)
     gseq.g = gseq.glyphs;
     gseq.count = 0;
 
-    static struct coord last_cursor = {0,0};
-    static struct coord last_cursor_on_screen = {0, 0};
-    static struct cell *last_cursor_cell = NULL;
-
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
 
     /* Erase old cursor (if we rendered a cursor last time) */
-    if (last_cursor_cell != NULL) {
+    if (term->render.last_cursor.cell != NULL) {
         render_cell(
-            term, buf, last_cursor_cell,
-            last_cursor_on_screen.col, last_cursor_on_screen.row, false);
+            term, buf,
+            term->render.last_cursor.cell,
+            term->render.last_cursor.in_view.col,
+            term->render.last_cursor.in_view.row, false);
 
         wl_surface_damage_buffer(
             term->wl.surface,
-            last_cursor_on_screen.col * term->cell_width,
-            last_cursor_on_screen.row * term->cell_height,
+            term->render.last_cursor.in_view.col * term->cell_width,
+            term->render.last_cursor.in_view.row * term->cell_height,
             term->cell_width, term->cell_height);
-        last_cursor_cell = NULL;
+        term->render.last_cursor.cell = NULL;
 
-        if (last_cursor.col != term->cursor.col ||
-            last_cursor.row != term->cursor.row) {
+        if (term->render.last_cursor.actual.col != term->cursor.col ||
+            term->render.last_cursor.actual.row != term->cursor.row) {
             /* Detect cursor movement - we don't dirty cells touched
              * by the cursor, since only the final cell matters. */
             all_clean = false;
@@ -400,11 +398,8 @@ grid_render(struct terminal *term)
     if (term->flash.active)
         term_damage_view(term);
 
-    static struct buffer *last_buf = NULL;
-    static bool last_flash = false;
-
     /* If we resized the window, or is flashing, or just stopped flashing */
-    if (last_buf != buf || term->flash.active || last_flash) {
+    if (term->render.last_buf != buf || term->flash.active || term->render.was_flashing) {
         LOG_DBG("new buffer");
 
         /* Fill area outside the cell grid with the default background color */
@@ -429,8 +424,8 @@ grid_render(struct terminal *term)
         /* Force a full grid refresh */
         term_damage_view(term);
 
-        last_buf = buf;
-        last_flash = term->flash.active;
+        term->render.last_buf = buf;
+        term->render.was_flashing = term->flash.active;
     }
 
     tll_foreach(term->grid->scroll_damage, it) {
@@ -516,25 +511,25 @@ grid_render(struct terminal *term)
     if (cursor_is_visible && !term->hide_cursor) {
         /* Remember cursor coordinates so that we can erase it next
          * time. Note that we need to re-align it against the view. */
-        last_cursor = term->cursor;
-        last_cursor_on_screen = (struct coord) {
-            term->cursor.col,
-            (cursor_row - term->grid->view + term->grid->num_rows) % term->grid->num_rows,
-        };
+        int view_aligned_row
+            = (cursor_row - term->grid->view + term->grid->num_rows)
+            % term->grid->num_rows;
 
-        struct row *row = grid_row_in_view(
-            term->grid, last_cursor_on_screen.row);
+        term->render.last_cursor.actual = term->cursor;
+        term->render.last_cursor.in_view = (struct coord) {
+            term->cursor.col, view_aligned_row};
 
-        last_cursor_cell = &row->cells[term->cursor.col];
-        render_cell(term, buf, last_cursor_cell,
-                    term->cursor.col,
-                    last_cursor_on_screen.row,
-                    true);
+        struct row *row = grid_row_in_view(term->grid, view_aligned_row);
+
+        term->render.last_cursor.cell = &row->cells[term->cursor.col];
+        render_cell(
+            term, buf, term->render.last_cursor.cell,
+            term->cursor.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
             term->wl.surface,
             term->cursor.col * term->cell_width,
-            term->cursor.row * term->cell_height,
+            view_aligned_row * term->cell_height,
             term->cell_width, term->cell_height);
     }
 

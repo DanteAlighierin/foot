@@ -323,6 +323,16 @@ struct terminal {
     struct wayland wl;
     struct {
         struct wl_callback *frame_callback;
+
+        /* Last rendered cursor position */
+        struct {
+            struct coord actual;     /* Absolute */
+            struct coord in_view;    /* Offset by view */
+            const struct cell *cell; /* For easy access to content */
+        } last_cursor;
+
+        struct buffer *last_buf;     /* Buffer we rendered to last time */
+        bool was_flashing;           /* Flash was active last time we rendered */
     } render;
 };
 
