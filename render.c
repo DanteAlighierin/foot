@@ -344,6 +344,18 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
     }
 }
 
+static void
+render_row(struct terminal *term, struct buffer *buf, struct row *row, int row_no)
+{
+    for (int col = 0; col < term->cols; col++)
+        render_cell(term, buf, &row->cells[col], col, row_no, false);
+
+    wl_surface_damage_buffer(
+        term->wl.surface,
+        0, row_no * term->cell_height,
+        term->width, term->cell_height);
+}
+
 static void frame_callback(
     void *data, struct wl_callback *wl_callback, uint32_t callback_data);
 
@@ -451,16 +463,10 @@ grid_render(struct terminal *term)
 
         //LOG_WARN("rendering line: %d", r);
 
-        for (int col = 0; col < term->cols; col++)
-            render_cell(term, buf, &row->cells[col], col, r, false);
-
         row->dirty = false;
         all_clean = false;
 
-        wl_surface_damage_buffer(
-            term->wl.surface,
-            0, r * term->cell_height,
-            term->width, term->cell_height);
+        render_row(term, buf, row, r);
     }
 
     if (term->blink.active) {
