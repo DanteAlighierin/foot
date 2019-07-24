@@ -361,13 +361,41 @@ grid_render(struct terminal *term)
     gettimeofday(&start_time, NULL);
 #endif
 
-    static int last_cursor;
-
     assert(term->width > 0);
     assert(term->height > 0);
 
     struct buffer *buf = shm_get_buffer(term->wl.shm, term->width, term->height);
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
+
+    gseq.g = gseq.glyphs;
+    gseq.count = 0;
+
+    static struct coord last_cursor = {0,0};
+    static struct coord last_cursor_on_screen = {0, 0};
+    static struct cell *last_cursor_cell = NULL;
+
+    bool all_clean = tll_length(term->grid->scroll_damage) == 0;
+
+    /* Erase old cursor (if we rendered a cursor last time) */
+    if (last_cursor_cell != NULL) {
+        render_cell(
+            term, buf, last_cursor_cell,
+            last_cursor_on_screen.col, last_cursor_on_screen.row, false);
+
+        wl_surface_damage_buffer(
+            term->wl.surface,
+            last_cursor_on_screen.col * term->cell_width,
+            last_cursor_on_screen.row * term->cell_height,
+            term->cell_width, term->cell_height);
+        last_cursor_cell = NULL;
+
+        if (last_cursor.col != term->cursor.col ||
+            last_cursor.row != term->cursor.row) {
+            /* Detect cursor movement - we don't dirty cells touched
+             * by the cursor, since only the final cell matters. */
+            all_clean = false;
+        }
+    }
 
     if (term->flash.active)
         term_damage_view(term);
@@ -405,8 +433,6 @@ grid_render(struct terminal *term)
         last_flash = term->flash.active;
     }
 
-    bool all_clean = tll_length(term->grid->scroll_damage) == 0;
-
     tll_foreach(term->grid->scroll_damage, it) {
         switch (it->item.type) {
         case DAMAGE_SCROLL:
@@ -420,9 +446,6 @@ grid_render(struct terminal *term)
 
         tll_remove(term->grid->scroll_damage, it);
     }
-
-    gseq.g = gseq.glyphs;
-    gseq.count = 0;
 
     for (int r = 0; r < term->rows; r++) {
         struct row *row = grid_row_in_view(term->grid, r);
@@ -473,34 +496,10 @@ grid_render(struct terminal *term)
         }
     }
 
-    /* TODO: break out to function */
-    /* Re-render last cursor cell and current cursor cell */
-    /* Make sure previous cursor is refreshed (to avoid "ghost" cursors) */
-    int cursor_as_linear
-        = (term->grid->offset + term->cursor.row) * term->cols + term->cursor.col;
-
-    if (last_cursor != cursor_as_linear) {
-        int row = last_cursor / term->cols - term->grid->offset;
-        int col = last_cursor % term->cols;
-
-        /* Last cursor cell may have scrolled off screen */
-        if (row >= 0 && row < term->rows) {
-            render_cell(term, buf, &grid_row_in_view(term->grid, row)->cells[col], col, row, false);
-            all_clean = false;
-
-            wl_surface_damage_buffer(
-                term->wl.surface, col * term->cell_width, row * term->cell_height,
-                term->cell_width, term->cell_height);
-        }
-        last_cursor = cursor_as_linear;
-    }
-
-    if (all_clean) {
-        buf->busy = false;
-        return;
-    }
-
-    /* Current cursor cell - may be invisible if we've scrolled back */
+    /*
+     * Determine if we need to render a cursor or not. The cursor
+     * could be hidden. Or it could have been scrolled out of view.
+     */
     bool cursor_is_visible = false;
     int view_end = (term->grid->view + term->rows - 1) % term->grid->num_rows;
     int cursor_row = (term->grid->offset + term->cursor.row) % term->grid->num_rows;
@@ -515,16 +514,34 @@ grid_render(struct terminal *term)
     }
 
     if (cursor_is_visible && !term->hide_cursor) {
-        render_cell(
-            term, buf,
-            &grid_row_in_view(term->grid, term->cursor.row)->cells[term->cursor.col],
-            term->cursor.col, term->cursor.row, true);
+        /* Remember cursor coordinates so that we can erase it next
+         * time. Note that we need to re-align it against the view. */
+        last_cursor = term->cursor;
+        last_cursor_on_screen = (struct coord) {
+            term->cursor.col,
+            (cursor_row - term->grid->view + term->grid->num_rows) % term->grid->num_rows,
+        };
+
+        struct row *row = grid_row_in_view(
+            term->grid, last_cursor_on_screen.row);
+
+        last_cursor_cell = &row->cells[term->cursor.col];
+        render_cell(term, buf, last_cursor_cell,
+                    term->cursor.col,
+                    last_cursor_on_screen.row,
+                    true);
 
         wl_surface_damage_buffer(
             term->wl.surface,
             term->cursor.col * term->cell_width,
             term->cursor.row * term->cell_height,
             term->cell_width, term->cell_height);
+    }
+
+    if (all_clean) {
+        buf->busy = false;
+        gseq_flush(term, buf);
+        return;
     }
 
     if (gseq.count > 0)
