@@ -4,6 +4,7 @@
 
 [cursor]
 # style=block
+# color=111111 dcdccc
 
 [colors]
 # foreground=dcdccc
