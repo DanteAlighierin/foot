@@ -388,7 +388,8 @@ grid_render(struct terminal *term)
         term->render.last_cursor.cell = NULL;
 
         if (term->render.last_cursor.actual.col != term->cursor.col ||
-            term->render.last_cursor.actual.row != term->cursor.row) {
+            term->render.last_cursor.actual.row != term->cursor.row)
+        {
             /* Detect cursor movement - we don't dirty cells touched
              * by the cursor, since only the final cell matters. */
             all_clean = false;
