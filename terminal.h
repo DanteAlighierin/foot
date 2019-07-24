@@ -321,7 +321,9 @@ struct terminal {
     cairo_font_extents_t fextents;
 
     struct wayland wl;
-    struct wl_callback *frame_callback;
+    struct {
+        struct wl_callback *frame_callback;
+    } render;
 };
 
 void term_damage_rows(struct terminal *term, int start, int end);

@@ -563,9 +563,9 @@ grid_render(struct terminal *term)
     cairo_surface_flush(buf->cairo_surface);
     wl_surface_attach(term->wl.surface, buf->wl_buf, 0, 0);
 
-    assert(term->frame_callback == NULL);
-    term->frame_callback = wl_surface_frame(term->wl.surface);
-    wl_callback_add_listener(term->frame_callback, &frame_listener, term);
+    assert(term->render.frame_callback == NULL);
+    term->render.frame_callback = wl_surface_frame(term->wl.surface);
+    wl_callback_add_listener(term->render.frame_callback, &frame_listener, term);
 
     wl_surface_commit(term->wl.surface);
 
@@ -585,9 +585,9 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 {
     struct terminal *term = data;
 
-    assert(term->frame_callback == wl_callback);
+    assert(term->render.frame_callback == wl_callback);
     wl_callback_destroy(wl_callback);
-    term->frame_callback = NULL;
+    term->render.frame_callback = NULL;
     grid_render(term);
 }
 
@@ -754,6 +754,6 @@ render_update_cursor_surface(struct terminal *term)
 void
 render_refresh(struct terminal *term)
 {
-    if (term->frame_callback == NULL)
+    if (term->render.frame_callback == NULL)
         grid_render(term);
 }

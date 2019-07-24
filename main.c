@@ -848,8 +848,8 @@ out:
     mtx_unlock(&term.kbd.repeat.mutex);
 
     shm_fini();
-    if (term.frame_callback != NULL)
-        wl_callback_destroy(term.frame_callback);
+    if (term.render.frame_callback != NULL)
+        wl_callback_destroy(term.render.frame_callback);
     if (term.wl.xdg_toplevel != NULL)
         xdg_toplevel_destroy(term.wl.xdg_toplevel);
     if (term.wl.xdg_surface != NULL)
