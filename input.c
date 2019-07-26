@@ -411,36 +411,53 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 }
 
 static void
+mouse_scroll(struct terminal *term, int amount)
+{
+    int button = amount < 0 ? BTN_BACK : BTN_FORWARD;
+
+    void (*scrollback)(struct terminal *term, int rows)
+        = amount < 0 ? &cmd_scrollback_up : &cmd_scrollback_down;
+
+    amount = abs(amount);
+
+    for (int i = 0; i < amount; i++)
+        term_mouse_down(term, button, term->mouse.row, term->mouse.col,
+                        term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
+
+    scrollback(term, amount);
+}
+
+static void
 wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
                 uint32_t time, uint32_t axis, wl_fixed_t value)
 {
-    struct terminal *term = data;
-
-    /* TODO: generate button event for BTN_FORWARD/BTN_BACK? */
-
     if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
         return;
 
-    int amount = wl_fixed_to_int(value);
+    struct terminal *term = data;
+    if (term->mouse.have_discrete)
+        return;
 
-    if (amount < 0) {
-        for (int i = 0; i < -amount; i++) {
-            term_mouse_down(term, BTN_BACK, term->mouse.row, term->mouse.col,
-                            term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
-        }
-        cmd_scrollback_up(term, -amount);
-    } else {
-        for (int i = 0; i < amount; i++) {
-            term_mouse_down(term, BTN_FORWARD, term->mouse.row, term->mouse.col,
-                            term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
-        }
-        cmd_scrollback_down(term, amount);
-    }
+    mouse_scroll(term, wl_fixed_to_int(value));
+}
+
+static void
+wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
+                         uint32_t axis, int32_t discrete)
+{
+    if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
+        return;
+
+    struct terminal *term = data;
+    term->mouse.have_discrete = true;
+    mouse_scroll(term, discrete);
 }
 
 static void
 wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
 {
+    struct terminal *term = data;
+    term->mouse.have_discrete = false;
 }
 
 static void
@@ -452,12 +469,6 @@ wl_pointer_axis_source(void *data, struct wl_pointer *wl_pointer,
 static void
 wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
                      uint32_t time, uint32_t axis)
-{
-}
-
-static void
-wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
-                         uint32_t axis, int32_t discrete)
 {
 }
 

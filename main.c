@@ -125,7 +125,7 @@ handle_global(void *data, struct wl_registry *registry,
 
     else if (strcmp(interface, wl_seat_interface.name) == 0) {
         term->wl.seat = wl_registry_bind(
-            term->wl.registry, name, &wl_seat_interface, 4);
+            term->wl.registry, name, &wl_seat_interface, 5);
         wl_seat_add_listener(term->wl.seat, &seat_listener, term);
         wl_display_roundtrip(term->wl.display);
     }

@@ -288,6 +288,9 @@ struct terminal {
 
         int last_button;
         struct timeval last_time;
+
+        /* We used a discrete axis event in the current pointer frame */
+        bool have_discrete;
     } mouse;
 
     struct coord cursor;
