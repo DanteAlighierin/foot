@@ -5,6 +5,10 @@
 #include <sys/time.h>
 #include <sys/timerfd.h>
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
+#include <cairo-ft.h>
+
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
 
@@ -255,11 +259,14 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         gseq.foreground = _fg;
     }
 
+#if 0
     int new_glyphs
         = sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - gseq.count;
+#endif
 
     struct font *font = attrs_to_font(term, &cell->attrs);
 
+#if 0
     struct glyph_cache *entry = cell->c[1] == '\0'
         ? &font->glyph_cache[(unsigned char)cell->c[0]]
         : NULL;
@@ -287,6 +294,123 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     gseq.g += new_glyphs;
     gseq.count += new_glyphs;
     assert(gseq.count <= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]));
+#else
+
+    struct foo_cache {
+        uint8_t *data;
+        cairo_surface_t *surf;
+        int left;
+        int top;
+    };
+    static struct foo_cache foo_cache[4][256] = {0};
+
+    cairo_surface_t *glyph = NULL;
+    double left, top;
+
+    struct foo_cache *e = strnlen(cell->c, 4) == 1
+        ? &foo_cache[cell->attrs.italic << 1 | cell->attrs.bold][(unsigned char)cell->c[0]]
+        : NULL;
+
+    if (e == NULL || e->data == NULL) {
+        wchar_t wc;
+        int res __attribute__((unused)) = mbstowcs(&wc, cell->c, 1);
+        if (res != 1)
+            return;
+
+        FT_Face ft_face = cairo_ft_scaled_font_lock_face(font->font);
+
+        FT_UInt glyph_idx = FT_Get_Char_Index(ft_face, wc);
+        FT_Error ft_err = FT_Load_Glyph(ft_face, glyph_idx, FT_LOAD_DEFAULT);
+        if (ft_err != 0) {
+            LOG_ERR("FT_Load_Glyph");
+            cairo_ft_scaled_font_unlock_face(font->font);
+            goto done;
+        }
+
+        ft_err = FT_Render_Glyph(ft_face->glyph, FT_RENDER_MODE_NORMAL);
+        if (ft_err != 0) {
+            LOG_ERR("FT_Render_Glyph");
+            cairo_ft_scaled_font_unlock_face(font->font);
+            goto done;
+        }
+
+        FT_Bitmap *bitmap = &ft_face->glyph->bitmap;
+        assert(bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ||
+               bitmap->pixel_mode == FT_PIXEL_MODE_MONO);
+
+        cairo_format_t cr_format = bitmap->pixel_mode == FT_PIXEL_MODE_GRAY
+             ? CAIRO_FORMAT_A8 : CAIRO_FORMAT_A1;
+
+        int stride = cairo_format_stride_for_width(cr_format, buf->width);
+        assert(stride >= bitmap->pitch);
+
+        uint8_t *copy = malloc(bitmap->rows * stride);
+
+        switch (bitmap->pixel_mode)  {
+        case FT_PIXEL_MODE_MONO: {
+            for (size_t r = 0; r < bitmap->rows; r++) {
+                for (size_t c = 0; c < bitmap->width; c++) {
+                    uint8_t v = bitmap->buffer[r * bitmap->pitch + c];
+                    uint8_t reversed = 0;
+                    for (size_t i = 0; i < 8; i++) {
+                        reversed |= (v & 1) << (7 - i);
+                        v >>= 1;
+                    }
+                    copy[r * stride + c] = reversed;
+                }
+            }
+            break;
+        }
+
+        case FT_PIXEL_MODE_GRAY:
+            for (size_t r = 0; r < bitmap->rows; r++) {
+                for (size_t c = 0; c < bitmap->width; c++)
+                    copy[r * stride + c] = bitmap->buffer[r * bitmap->pitch + c];
+            }
+            break;
+            
+        default:
+            LOG_ERR("unimplemented FT bitmap pixel mode: %d", bitmap->pixel_mode);
+            abort();
+            break;
+        }
+
+        glyph = cairo_image_surface_create_for_data(
+            copy, cr_format, bitmap->width, bitmap->rows, stride);
+
+        left = ft_face->glyph->bitmap_left;
+        top = ft_face->glyph->bitmap_top;
+
+        assert(cairo_surface_status(glyph) == CAIRO_STATUS_SUCCESS);
+
+        if (e != NULL) {
+            e->data = copy;
+            e->surf = glyph;
+            e->left = left;
+            e->top = top;
+        }
+
+        cairo_ft_scaled_font_unlock_face(font->font);
+    } else {
+        glyph = e->surf;
+        left = e->left;
+        top = e->top;
+    }
+
+    assert(glyph != NULL);
+    cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
+    cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
+    cairo_mask_surface(buf->cairo, glyph, x + left, y + term->fextents.ascent - top);
+
+    if (e == NULL) {
+        void *raw = cairo_image_surface_get_data(glyph);
+        cairo_surface_destroy(glyph);
+        free(raw);
+    }
+
+done:
+    return;
+#endif
 }
 
 static void
