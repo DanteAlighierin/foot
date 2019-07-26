@@ -718,9 +718,9 @@ render_resize(struct terminal *term, int width, int height)
         min(term->cursor.row, term->rows - 1),
         min(term->cursor.col, term->cols - 1));
 
-    term_damage_all(term);
-    term_damage_view(term);
+    term->render.last_cursor.cell = NULL;
 
+    term_damage_view(term);
     render_refresh(term);
 }
 
