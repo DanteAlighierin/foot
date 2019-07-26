@@ -56,6 +56,9 @@ color_dim(struct rgb *rgb)
 static void
 gseq_flush(struct terminal *term, struct buffer *buf)
 {
+    if (gseq.count == 0)
+        return;
+
     struct rgb fg = color_hex_to_rgb(gseq.foreground);
 
     if (gseq.attrs.dim)
@@ -392,6 +395,9 @@ grid_render(struct terminal *term)
             term->render.last_cursor.in_view.col,
             term->render.last_cursor.in_view.row, false);
 
+        /* Must flush now since scroll damage will shift the entire pixmap */
+        gseq_flush(term, buf);
+
         wl_surface_damage_buffer(
             term->wl.surface,
             term->render.last_cursor.in_view.col * term->cell_width,
@@ -540,14 +546,12 @@ grid_render(struct terminal *term)
             term->cell_width, term->cell_height);
     }
 
+    gseq_flush(term, buf);
+
     if (all_clean) {
         buf->busy = false;
-        gseq_flush(term, buf);
         return;
     }
-
-    if (gseq.count > 0)
-        gseq_flush(term, buf);
 
     if (term->flash.active) {
         cairo_set_source_rgba(buf->cairo, 1.0, 1.0, 0.0, 0.5);
