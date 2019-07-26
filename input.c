@@ -221,14 +221,42 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         }
 
         if (count > 0) {
-            if (effective_mods & alt)
-                vt_to_slave(term, "\x1b", 1);
 
-            vt_to_slave(term, buf, count);
+#define is_control_key(x) ((x) >= 0x40 && (x) <= 0x7f)
+#define IS_CTRL(x) ((x) < 0x20 || ((x) >= 0x7f && (x) <= 0x9f))
 
-            if (term->grid->view != term->grid->offset) {
-                term->grid->view = term->grid->offset;
-                term_damage_all(term);
+            if ((keymap_mods & MOD_CTRL) &&
+                !is_control_key(sym) &&
+                (count == 1 && !IS_CTRL(buf[0])) &&
+                sym < 256)
+            {
+                static const int mod_param_map[16] = {
+                    [MOD_SHIFT] = 2,
+                    [MOD_ALT] = 3,
+                    [MOD_SHIFT | MOD_ALT] = 4,
+                    [MOD_CTRL] = 5,
+                    [MOD_SHIFT | MOD_CTRL] = 6,
+                    [MOD_ALT | MOD_CTRL] = 7,
+                    [MOD_SHIFT | MOD_ALT | MOD_CTRL] = 8,
+                };
+                int modify_param = mod_param_map[keymap_mods];
+                assert(modify_param != 0);
+
+                char reply[1024];
+                snprintf(reply, sizeof(reply), "\x1b[27;%d;%d~", modify_param, sym);
+                vt_to_slave(term, reply, strlen(reply));
+            }
+
+            else {
+                if (effective_mods & alt)
+                    vt_to_slave(term, "\x1b", 1);
+
+                vt_to_slave(term, buf, count);
+
+                if (term->grid->view != term->grid->offset) {
+                    term->grid->view = term->grid->offset;
+                    term_damage_all(term);
+                }
             }
 
             selection_cancel(term);
