@@ -315,20 +315,18 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         if (res != 1)
             return;
 
-        FT_Face ft_face = cairo_ft_scaled_font_lock_face(font->font);
+        FT_Face ft_face = font->face;
 
         FT_UInt glyph_idx = FT_Get_Char_Index(ft_face, wc);
         FT_Error ft_err = FT_Load_Glyph(ft_face, glyph_idx, FT_LOAD_DEFAULT);
         if (ft_err != 0) {
             LOG_ERR("FT_Load_Glyph");
-            cairo_ft_scaled_font_unlock_face(font->font);
             goto done;
         }
 
         ft_err = FT_Render_Glyph(ft_face->glyph, FT_RENDER_MODE_NORMAL);
         if (ft_err != 0) {
             LOG_ERR("FT_Render_Glyph");
-            cairo_ft_scaled_font_unlock_face(font->font);
             goto done;
         }
 
@@ -366,7 +364,7 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
                     copy[r * stride + c] = bitmap->buffer[r * bitmap->pitch + c];
             }
             break;
-            
+
         default:
             LOG_ERR("unimplemented FT bitmap pixel mode: %d", bitmap->pixel_mode);
             abort();
@@ -387,8 +385,6 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
             e->left = left;
             e->top = top;
         }
-
-        cairo_ft_scaled_font_unlock_face(font->font);
     } else {
         glyph = e->surf;
         left = e->left;
