@@ -223,6 +223,8 @@ struct font {
         double position;
         double thickness;
     } strikeout;
+
+    struct glyph cache[256];
 };
 
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };

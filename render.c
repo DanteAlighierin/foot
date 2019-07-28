@@ -258,93 +258,30 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         gseq.foreground = _fg;
     }
 
-#if 0
-    int new_glyphs
-        = sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - gseq.count;
-#endif
-
     struct font *font = attrs_to_font(term, &cell->attrs);
 
-#if 0
-    struct glyph_cache *entry = cell->c[1] == '\0'
-        ? &font->glyph_cache[(unsigned char)cell->c[0]]
-        : NULL;
-
-    if (likely(entry != NULL && entry->glyphs != NULL)) {
-        /* Copy cached glyph(s) and upate position */
-        memcpy(gseq.g, entry->glyphs, entry->count * sizeof(gseq.g[0]));
-        for (size_t i = 0; i < entry->count; i++) {
-            gseq.g[i].x += x;
-            gseq.g[i].y += y;
-        }
-
-        new_glyphs = entry->count;
-    } else {
-        /* Must generate new glyph(s) */
-        cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-            font->font, x, y + term->fextents.ascent,
-            cell->c, strnlen(cell->c, 4), &gseq.g, &new_glyphs,
-            NULL, NULL, NULL);
-
-        if (status != CAIRO_STATUS_SUCCESS)
-            return;
+    struct glyph *glyph = NULL;
+    if (strnlen(cell->c, 4) == 1) {
+        if (font->cache[(unsigned char)cell->c[0]].surf != NULL)
+            glyph = &font->cache[(unsigned char)cell->c[0]];
     }
 
-    gseq.g += new_glyphs;
-    gseq.count += new_glyphs;
-    assert(gseq.count <= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]));
-#else
-
-    struct foo_cache {
-        uint8_t *data;
-        cairo_surface_t *surf;
-        int left;
-        int top;
-    };
-    static struct foo_cache foo_cache[4][256] = {0};
-
-    cairo_surface_t *glyph = NULL;
-    double left, top;
-
-    struct foo_cache *e = strnlen(cell->c, 4) == 1
-        ? &foo_cache[cell->attrs.italic << 1 | cell->attrs.bold][(unsigned char)cell->c[0]]
-        : NULL;
-
-    if (e == NULL || e->data == NULL) {
-        struct glyph g;
-        if (!font_glyph_for_utf8(font, cell->c, &g))
-            goto done;
-
-        if (e != NULL) {
-            e->data = g.data;
-            e->surf = g.surf;
-            e->left = g.left;
-            e->top = g.top;
-        }
-
-        glyph = g.surf;
-        left = g.left;
-        top = g.top;
-    } else {
-        glyph = e->surf;
-        left = e->left;
-        top = e->top;
+    struct glyph _glyph;
+    if (glyph == NULL) {
+        if (!font_glyph_for_utf8(font, cell->c, &_glyph))
+            return;
+        glyph = &_glyph;
     }
 
     assert(glyph != NULL);
     cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
     cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
-    cairo_mask_surface(buf->cairo, glyph, x + left, y + term->fextents.ascent - top);
+    cairo_mask_surface(buf->cairo, glyph->surf, x + glyph->left, y + term->fextents.ascent - glyph->top);
 
-    if (e == NULL) {
-        void *raw = cairo_image_surface_get_data(glyph);
-        cairo_surface_destroy(glyph);
-        free(raw);
+    if (glyph == &_glyph) {
+        cairo_surface_destroy(_glyph.surf);
+        free(_glyph.data);
     }
-
-done:
-    return;
-#endif
 }
 
 static void

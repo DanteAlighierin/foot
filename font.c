@@ -25,6 +25,14 @@ fini(void)
     FT_Done_FreeType(ft_lib);
 }
 
+static void
+font_populate_glyph_cache(struct font *font)
+{
+    memset(font->cache, 0, sizeof(font->cache));
+    for (size_t i = 0; i < 256; i++)
+        font_glyph_for_utf8(font, &(char){i}, &font->cache[i]);
+}
+
 bool
 font_from_name(const char *name, struct font *font)
 {
@@ -94,6 +102,7 @@ font_from_name(const char *name, struct font *font)
     FcPatternDestroy(final_pattern);
 
     font->face = ft_face;
+    font_populate_glyph_cache(font);
     return true;
 }
 
@@ -113,6 +122,8 @@ font_glyph_for_utf8(const struct font *font, const char *utf8,
     err = FT_Render_Glyph(font->face->glyph, FT_RENDER_MODE_NORMAL);
     if (err != 0)
         return false;
+
+    assert(font->face->glyph->format == FT_GLYPH_FORMAT_BITMAP);
 
     FT_Bitmap *bitmap = &font->face->glyph->bitmap;
     assert(bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ||
@@ -171,4 +182,18 @@ font_glyph_for_utf8(const struct font *font, const char *utf8,
         .top = font->face->glyph->bitmap_top,
     };
     return true;
+}
+
+void
+font_destroy(struct font *font)
+{
+    if (font->face != NULL)
+        FT_Done_Face(font->face);
+
+    for (size_t i = 0; i < 256; i++) {
+        if (font->cache[i].surf != NULL)
+            cairo_surface_destroy(font->cache[i].surf);
+        if (font->cache[i].data != NULL)
+            free(font->cache[i].data);
+    }
 }

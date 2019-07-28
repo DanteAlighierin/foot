@@ -896,12 +896,8 @@ out:
     free(term.window_title);
     tll_free_and_free(term.window_title_stack, free);
 
-    for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
-        struct font *f = &term.fonts[i];
-
-        if (f->face != NULL)
-            FT_Done_Face(f->face);
-    }
+    for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++)
+        font_destroy(&term.fonts[i]);
 
     if (term.flash.fd != -1)
         close(term.flash.fd);
@@ -921,4 +917,5 @@ out:
 
     cairo_debug_reset_static_data();
     return ret;
+
 }
