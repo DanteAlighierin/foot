@@ -1,5 +1,6 @@
 #pragma once
 
-#include <cairo.h>
+#include <stdbool.h>
+#include "terminal.h"
 
-cairo_scaled_font_t *font_from_name(const char *name);
+bool font_from_name(const char *name, struct font *result);

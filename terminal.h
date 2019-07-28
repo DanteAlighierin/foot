@@ -6,6 +6,9 @@
 
 #include <threads.h>
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
+
 #include <cairo.h>
 #include <wayland-client.h>
 #include <primary-selection-unstable-v1.h>
@@ -209,6 +212,7 @@ struct glyph_cache {
 };
 
 struct font {
+    FT_Face face;
     cairo_scaled_font_t *font;
     struct {
         double position;

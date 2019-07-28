@@ -409,20 +409,19 @@ main(int argc, char *const *argv)
     thrd_t keyboard_repeater_id;
     thrd_create(&keyboard_repeater_id, &keyboard_repeater, &term);
 
-    term.fonts[0].font = font_from_name(conf.font);
-    if (term.fonts[0].font == NULL)
+    if (!font_from_name(conf.font, &term.fonts[0]))
         goto out;
 
     {
         char fname[1024];
         snprintf(fname, sizeof(fname), "%s:style=bold", conf.font);
-        term.fonts[1].font = font_from_name(fname);
+        font_from_name(fname, &term.fonts[1]);
 
         snprintf(fname, sizeof(fname), "%s:style=italic", conf.font);
-        term.fonts[2].font = font_from_name(fname);
+        font_from_name(fname, &term.fonts[2]);
 
         snprintf(fname, sizeof(fname), "%s:style=bold italic", conf.font);
-        term.fonts[3].font = font_from_name(fname);
+        font_from_name(fname, &term.fonts[3]);
     }
 
     /* Underline position and size */
@@ -924,6 +923,9 @@ out:
 
         for (size_t j = 0; j < 256; j++)
             cairo_glyph_free(f->glyph_cache[j].glyphs);
+
+        if (f->face != NULL)
+            FT_Done_Face(f->face);
     }
 
     if (term.flash.fd != -1)

@@ -5,8 +5,6 @@
 #include <sys/time.h>
 #include <sys/timerfd.h>
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
 #include <cairo-ft.h>
 
 #include <wayland-cursor.h>
