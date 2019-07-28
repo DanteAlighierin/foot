@@ -5,8 +5,6 @@
 #include <sys/time.h>
 #include <sys/timerfd.h>
 
-#include <cairo-ft.h>
-
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
 
@@ -15,6 +13,7 @@
 #include "log.h"
 #include "shm.h"
 #include "grid.h"
+#include "font.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -312,81 +311,20 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         : NULL;
 
     if (e == NULL || e->data == NULL) {
-        wchar_t wc;
-        int res __attribute__((unused)) = mbstowcs(&wc, cell->c, 1);
-        if (res != 1)
-            return;
-
-        FT_Face ft_face = font->face;
-
-        FT_UInt glyph_idx = FT_Get_Char_Index(ft_face, wc);
-        FT_Error ft_err = FT_Load_Glyph(ft_face, glyph_idx, FT_LOAD_DEFAULT);
-        if (ft_err != 0) {
-            LOG_ERR("FT_Load_Glyph");
+        struct glyph g;
+        if (!font_glyph_for_utf8(font, cell->c, &g))
             goto done;
-        }
-
-        ft_err = FT_Render_Glyph(ft_face->glyph, FT_RENDER_MODE_NORMAL);
-        if (ft_err != 0) {
-            LOG_ERR("FT_Render_Glyph");
-            goto done;
-        }
-
-        FT_Bitmap *bitmap = &ft_face->glyph->bitmap;
-        assert(bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ||
-               bitmap->pixel_mode == FT_PIXEL_MODE_MONO);
-
-        cairo_format_t cr_format = bitmap->pixel_mode == FT_PIXEL_MODE_GRAY
-             ? CAIRO_FORMAT_A8 : CAIRO_FORMAT_A1;
-
-        int stride = cairo_format_stride_for_width(cr_format, buf->width);
-        assert(stride >= bitmap->pitch);
-
-        uint8_t *copy = malloc(bitmap->rows * stride);
-
-        switch (bitmap->pixel_mode)  {
-        case FT_PIXEL_MODE_MONO: {
-            for (size_t r = 0; r < bitmap->rows; r++) {
-                for (size_t c = 0; c < bitmap->width; c++) {
-                    uint8_t v = bitmap->buffer[r * bitmap->pitch + c];
-                    uint8_t reversed = 0;
-                    for (size_t i = 0; i < 8; i++) {
-                        reversed |= (v & 1) << (7 - i);
-                        v >>= 1;
-                    }
-                    copy[r * stride + c] = reversed;
-                }
-            }
-            break;
-        }
-
-        case FT_PIXEL_MODE_GRAY:
-            for (size_t r = 0; r < bitmap->rows; r++) {
-                for (size_t c = 0; c < bitmap->width; c++)
-                    copy[r * stride + c] = bitmap->buffer[r * bitmap->pitch + c];
-            }
-            break;
-
-        default:
-            LOG_ERR("unimplemented FT bitmap pixel mode: %d", bitmap->pixel_mode);
-            abort();
-            break;
-        }
-
-        glyph = cairo_image_surface_create_for_data(
-            copy, cr_format, bitmap->width, bitmap->rows, stride);
-
-        left = ft_face->glyph->bitmap_left;
-        top = ft_face->glyph->bitmap_top;
-
-        assert(cairo_surface_status(glyph) == CAIRO_STATUS_SUCCESS);
 
         if (e != NULL) {
-            e->data = copy;
-            e->surf = glyph;
-            e->left = left;
-            e->top = top;
+            e->data = g.data;
+            e->surf = g.surf;
+            e->left = g.left;
+            e->top = g.top;
         }
+
+        glyph = g.surf;
+        left = g.left;
+        top = g.top;
     } else {
         glyph = e->surf;
         left = e->left;

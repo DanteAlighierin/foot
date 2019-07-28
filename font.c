@@ -96,3 +96,79 @@ font_from_name(const char *name, struct font *font)
     font->face = ft_face;
     return true;
 }
+
+bool
+font_glyph_for_utf8(const struct font *font, const char *utf8,
+                    struct glyph *glyph)
+{
+    wchar_t wc;
+    if (mbstowcs(&wc, utf8, 1) < 0)
+        return false;
+
+    FT_UInt idx = FT_Get_Char_Index(font->face, wc);
+    FT_Error err = FT_Load_Glyph(font->face, idx, FT_LOAD_DEFAULT);
+    if (err != 0)
+        return false;
+
+    err = FT_Render_Glyph(font->face->glyph, FT_RENDER_MODE_NORMAL);
+    if (err != 0)
+        return false;
+
+    FT_Bitmap *bitmap = &font->face->glyph->bitmap;
+    assert(bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ||
+           bitmap->pixel_mode == FT_PIXEL_MODE_MONO);
+
+    cairo_format_t cr_format = bitmap->pixel_mode == FT_PIXEL_MODE_GRAY
+        ? CAIRO_FORMAT_A8 : CAIRO_FORMAT_A1;
+
+    int stride = cairo_format_stride_for_width(cr_format, bitmap->width);
+    assert(stride >= bitmap->pitch);
+
+    uint8_t *data = malloc(bitmap->rows * stride);
+
+    switch (bitmap->pixel_mode) {
+    case FT_PIXEL_MODE_MONO:
+        for (size_t r = 0; r < bitmap->rows; r++) {
+            for (size_t c = 0; c < bitmap->width; c++) {
+                uint8_t v = bitmap->buffer[r * bitmap->pitch + c];
+                uint8_t reversed = 0;
+                for (size_t i = 0; i < 8; i++) {
+                    reversed |= (v & 1) << (7 - i);
+                    v >>= 1;
+                }
+                data[r * stride + c] = reversed;
+            }
+        }
+        break;
+
+    case FT_PIXEL_MODE_GRAY:
+        for (size_t r = 0; r < bitmap->rows; r++) {
+            for (size_t c = 0; c < bitmap->width; c++)
+                data[r * stride + c] = bitmap->buffer[r * bitmap->pitch + c];
+        }
+        break;
+
+    default:
+        LOG_ERR("unimplemented FreeType bitmap pixel mode: %d",
+                bitmap->pixel_mode);
+        free(data);
+        return false;
+    }
+
+    cairo_surface_t *surf = cairo_image_surface_create_for_data(
+        data, cr_format, bitmap->width, bitmap->rows, stride);
+
+    if (cairo_surface_status(surf) != CAIRO_STATUS_SUCCESS) {
+        free(data);
+        cairo_surface_destroy(surf);
+        return false;
+    }
+
+    *glyph = (struct glyph){
+        .data = data,
+        .surf = surf,
+        .left = font->face->glyph->bitmap_left,
+        .top = font->face->glyph->bitmap_top,
+    };
+    return true;
+}

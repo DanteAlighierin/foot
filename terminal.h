@@ -206,9 +206,11 @@ struct primary {
     uint32_t serial;
 };
 
-struct glyph_cache {
-    cairo_glyph_t *glyphs;
-    int count;
+struct glyph {
+    void *data;
+    cairo_surface_t *surf;
+    int left;
+    int top;
 };
 
 struct font {
