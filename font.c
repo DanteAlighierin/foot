@@ -5,7 +5,6 @@
 #include <assert.h>
 
 #include <fontconfig/fontconfig.h>
-#include <cairo-ft.h>
 
 #define LOG_MODULE "font"
 #include "log.h"
@@ -42,12 +41,6 @@ font_from_name(const char *name, struct font *font)
         FcPatternDestroy(pattern);
         return false;
     }
-
-    cairo_font_options_t *options = cairo_font_options_create();
-    cairo_font_options_set_hint_style(options, CAIRO_HINT_STYLE_DEFAULT);
-    cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_DEFAULT);
-    cairo_font_options_set_subpixel_order(options, CAIRO_SUBPIXEL_ORDER_DEFAULT);
-    cairo_ft_font_options_substitute(options, pattern);
 
     FcDefaultSubstitute(pattern);
 
@@ -98,39 +91,8 @@ font_from_name(const char *name, struct font *font)
     if (FcPatternGetBool(final_pattern, FC_ANTIALIAS, 0, &fc_antialias) != FcResultMatch)
         fc_antialias = FcTrue;
 
-    cairo_font_options_set_hint_style(
-        options, fc_hinting ? CAIRO_HINT_STYLE_DEFAULT : CAIRO_HINT_STYLE_NONE);
-    cairo_font_options_set_antialias(
-        options, fc_antialias ? CAIRO_ANTIALIAS_DEFAULT : CAIRO_ANTIALIAS_NONE);
-
-    cairo_font_face_t *face = cairo_ft_font_face_create_for_pattern(
-        final_pattern);
-
     FcPatternDestroy(final_pattern);
 
-    if (cairo_font_face_status(face) != CAIRO_STATUS_SUCCESS) {
-        LOG_ERR("%s: failed to create cairo font face", name);
-        cairo_font_face_destroy(face);
-        return false;
-    }
-
-    cairo_matrix_t matrix, ctm;
-    cairo_matrix_init_identity(&ctm);
-    cairo_matrix_init_scale(&matrix, size, size);
-
-    cairo_scaled_font_t *scaled_font = cairo_scaled_font_create(
-        face, &matrix, &ctm, options);
-
-    cairo_font_options_destroy(options);
-    cairo_font_face_destroy(face);
-
-    if (cairo_scaled_font_status(scaled_font) != CAIRO_STATUS_SUCCESS) {
-        LOG_ERR("%s: failed to create scaled font", name);
-        cairo_scaled_font_destroy(scaled_font);
-        return false;
-    }
-
     font->face = ft_face;
-    font->font = scaled_font;
     return true;
 }

@@ -485,34 +485,6 @@ main(int argc, char *const *argv)
     term.cell_width = (int)ceil(term.fextents.max_x_advance);
     term.cell_height = (int)ceil(term.fextents.height);
 
-    /* Glyph cache */
-    for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
-        struct font *f = &term.fonts[i];
-
-        for (int j = 0; j < 256; j++) {
-            cairo_glyph_t *glyphs = NULL;
-            int count = 0;
-
-            char c = j;
-            cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-                f->font, 0, 0 + term.fextents.ascent,
-                &c, 1, &glyphs, &count,
-                NULL, NULL, NULL);
-
-            if (status != CAIRO_STATUS_SUCCESS)
-                continue;
-
-            if (count == 0)
-                continue;
-
-            assert(glyphs != NULL);
-            assert(count == 1);
-
-            f->glyph_cache[j].glyphs = glyphs;
-            f->glyph_cache[j].count = count;
-        }
-    }
-
     term.wl.display = wl_display_connect(NULL);
     if (term.wl.display == NULL) {
         LOG_ERR("failed to connect to wayland; no compositor running?");
@@ -926,12 +898,6 @@ out:
 
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
         struct font *f = &term.fonts[i];
-
-        if (f->font != NULL)
-            cairo_scaled_font_destroy(f->font);
-
-        for (size_t j = 0; j < 256; j++)
-            cairo_glyph_free(f->glyph_cache[j].glyphs);
 
         if (f->face != NULL)
             FT_Done_Face(f->face);

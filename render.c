@@ -61,15 +61,17 @@ gseq_flush(struct terminal *term, struct buffer *buf)
     if (gseq.count == 0)
         return;
 
+    assert(NULL);
     struct rgb fg = color_hex_to_rgb(gseq.foreground);
 
     if (gseq.attrs.dim)
         color_dim(&fg);
 
+#if 0
     cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs)->font);
     cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
     cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
-
+#endif
     gseq.g = gseq.glyphs;
     gseq.count = 0;
 }

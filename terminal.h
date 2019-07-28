@@ -213,7 +213,6 @@ struct glyph_cache {
 
 struct font {
     FT_Face face;
-    cairo_scaled_font_t *font;
     struct {
         double position;
         double thickness;
@@ -222,8 +221,6 @@ struct font {
         double position;
         double thickness;
     } strikeout;
-
-    struct glyph_cache glyph_cache[256];
 };
 
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
