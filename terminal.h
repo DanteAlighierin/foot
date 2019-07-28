@@ -325,7 +325,13 @@ struct terminal {
     struct grid *grid;
 
     struct font fonts[4];
-    cairo_font_extents_t fextents;
+    //cairo_font_extents_t fextents;
+    struct {
+        int height;
+        int descent;
+        int ascent;
+        int max_x_advance;
+    } fextents;
 
     struct wayland wl;
     struct {

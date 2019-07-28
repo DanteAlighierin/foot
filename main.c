@@ -428,10 +428,10 @@ main(int argc, char *const *argv)
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
         struct font *f = &term.fonts[i];
 
-        if (f->font == NULL)
+        if (f->face == NULL)
             continue;
 
-        FT_Face ft_face = cairo_ft_scaled_font_lock_face(f->font);
+        FT_Face ft_face = f->face;
 
         double x_scale = ft_face->size->metrics.x_scale / 65526.;
         double height = ft_face->size->metrics.height / 64;
@@ -464,17 +464,26 @@ main(int argc, char *const *argv)
 
         LOG_DBG("strikeout: pos=%f, thick=%f",
                 f->strikeout.position, f->strikeout.thickness);
-
-        cairo_ft_scaled_font_unlock_face(f->font);
     }
 
-    cairo_scaled_font_extents(term.fonts[0].font,  &term.fextents);
+    {
+        FT_Face ft_face = term.fonts[0].face;
+        int max_x_advance = ft_face->size->metrics.max_advance / 64;
+        int height = ft_face->size->metrics.height / 64;
+        int descent = ft_face->size->metrics.descender / 64;
+        int ascent = ft_face->size->metrics.ascender / 64;
+
+        term.fextents.height = height;
+        term.fextents.descent = -descent;
+        term.fextents.ascent = ascent;
+        term.fextents.max_x_advance = max_x_advance;
+
+        LOG_WARN("metrics: height: %d, descent: %d, ascent: %d, x-advance: %d",
+                height, descent, ascent, max_x_advance);
+    }
+
     term.cell_width = (int)ceil(term.fextents.max_x_advance);
     term.cell_height = (int)ceil(term.fextents.height);
-
-    LOG_DBG("font: height: %.2f, x-advance: %.2f",
-            term.fextents.height, term.fextents.max_x_advance);
-    assert(term.fextents.max_y_advance == 0);
 
     /* Glyph cache */
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
