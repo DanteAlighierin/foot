@@ -10,7 +10,7 @@ project('foot', 'c',
 is_debug_build = get_option('buildtype').startswith('debug')
 
 add_project_arguments(
-  ['-D_GNU_SOURCE',
+  ['-D_GNU_SOURCE=200809L',
    #'-DF00SEL_VERSION=@0@'.format(version)] +
    ] +
   (is_debug_build ? ['-D_DEBUG'] : []),
