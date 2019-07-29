@@ -24,6 +24,8 @@ struct config {
             uint32_t cursor;
         } color;
     } cursor;
+
+    size_t render_worker_count;
 };
 
 bool config_load(struct config *conf);

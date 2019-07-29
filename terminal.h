@@ -5,9 +5,11 @@
 #include <stddef.h>
 
 #include <threads.h>
+#include <semaphore.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_LCD_FILTER_H
 
 #include <cairo.h>
 #include <wayland-client.h>
@@ -211,6 +213,11 @@ struct glyph {
     cairo_surface_t *surf;
     int left;
     int top;
+
+    int format;
+    int width;
+    int height;
+    int stride;
 };
 
 struct font {
@@ -340,6 +347,17 @@ struct terminal {
     struct wayland wl;
     struct {
         struct wl_callback *frame_callback;
+
+        struct {
+            size_t count;
+            sem_t start;
+            sem_t done;
+            cnd_t cond;
+            mtx_t lock;
+            tll(int) queue;
+            thrd_t *threads;
+            struct buffer *buf;
+        } workers;
 
         /* Last rendered cursor position */
         struct {

@@ -16,9 +16,10 @@ struct buffer {
 
     struct wl_buffer *wl_buf;
 
-    cairo_surface_t *cairo_surface;
-    cairo_t *cairo;
+    size_t copies;
+    cairo_surface_t **cairo_surface;
+    cairo_t **cairo;
 };
 
-struct buffer *shm_get_buffer(struct wl_shm *shm, int width, int height);
+struct buffer *shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies);
 void shm_fini(void);

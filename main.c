@@ -11,9 +11,9 @@
 #include <errno.h>
 
 #include <sys/timerfd.h>
+#include <sys/sysinfo.h>
 
 #include <freetype/tttables.h>
-#include <cairo-ft.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
@@ -388,7 +388,17 @@ main(int argc, char *const *argv)
         .normal = {.damage = tll_init(), .scroll_damage = tll_init()},
         .alt = {.damage = tll_init(), .scroll_damage = tll_init()},
         .grid = &term.normal,
+        .render = {
+            .workers = {
+                .count = conf.render_worker_count,
+                .queue = tll_init(),
+            },
+        },
     };
+
+    LOG_INFO("using %zu rendering threads", term.render.workers.count);
+
+    struct render_worker_context worker_context[term.render.workers.count];
 
     /* Initialize 'current' colors from the default colors */
     term.colors.fg = term.colors.default_fg;
@@ -408,6 +418,18 @@ main(int argc, char *const *argv)
 
     thrd_t keyboard_repeater_id;
     thrd_create(&keyboard_repeater_id, &keyboard_repeater, &term);
+
+    sem_init(&term.render.workers.start, 0, 0);
+    sem_init(&term.render.workers.done, 0, 0);
+    mtx_init(&term.render.workers.lock, mtx_plain);
+    cnd_init(&term.render.workers.cond);
+
+    term.render.workers.threads = calloc(term.render.workers.count, sizeof(term.render.workers.threads[0]));
+    for (size_t i = 0; i < term.render.workers.count; i++) {
+        worker_context[i].term = &term;
+        worker_context[i].my_id = 1 + i;
+        thrd_create(&term.render.workers.threads[i], &render_worker_thread, &worker_context[i]);
+    }
 
     if (!font_from_name(conf.font, &term.fonts[0]))
         goto out;
@@ -827,6 +849,15 @@ out:
     cnd_signal(&term.kbd.repeat.cond);
     mtx_unlock(&term.kbd.repeat.mutex);
 
+    mtx_lock(&term.render.workers.lock);
+    assert(tll_length(term.render.workers.queue) == 0);
+    for (size_t i = 0; i < term.render.workers.count; i++) {
+        sem_post(&term.render.workers.start);
+        tll_push_back(term.render.workers.queue, -2);
+    }
+    cnd_broadcast(&term.render.workers.cond);
+    mtx_unlock(&term.render.workers.lock);
+
     shm_fini();
     if (term.render.frame_callback != NULL)
         wl_callback_destroy(term.render.frame_callback);
@@ -910,6 +941,17 @@ out:
     thrd_join(keyboard_repeater_id, NULL);
     cnd_destroy(&term.kbd.repeat.cond);
     mtx_destroy(&term.kbd.repeat.mutex);
+
+    for (size_t i = 0; i < term.render.workers.count; i++)
+        thrd_join(term.render.workers.threads[i], NULL);
+    free(term.render.workers.threads);
+    cnd_destroy(&term.render.workers.cond);
+    mtx_destroy(&term.render.workers.lock);
+    sem_destroy(&term.render.workers.start);
+    sem_destroy(&term.render.workers.done);
+    assert(tll_length(term.render.workers.queue) == 0);
+    tll_free(term.render.workers.queue);
+
     close(term.kbd.repeat.pipe_read_fd);
     close(term.kbd.repeat.pipe_write_fd);
 
