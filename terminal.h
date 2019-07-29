@@ -6,6 +6,9 @@
 
 #include <threads.h>
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
+
 #include <cairo.h>
 #include <wayland-client.h>
 #include <primary-selection-unstable-v1.h>
@@ -203,13 +206,18 @@ struct primary {
     uint32_t serial;
 };
 
-struct glyph_cache {
-    cairo_glyph_t *glyphs;
-    int count;
+struct glyph {
+    void *data;
+    cairo_surface_t *surf;
+    int left;
+    int top;
 };
 
 struct font {
-    cairo_scaled_font_t *font;
+    FT_Face face;
+    int load_flags;
+    int render_flags;
+    FT_LcdFilter lcd_filter;
     struct {
         double position;
         double thickness;
@@ -219,7 +227,8 @@ struct font {
         double thickness;
     } strikeout;
 
-    struct glyph_cache glyph_cache[256];
+    struct glyph cache[256];
+    mtx_t lock;
 };
 
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
@@ -321,7 +330,12 @@ struct terminal {
     struct grid *grid;
 
     struct font fonts[4];
-    cairo_font_extents_t fextents;
+    struct {
+        int height;
+        int descent;
+        int ascent;
+        int max_x_advance;
+    } fextents;
 
     struct wayland wl;
     struct {

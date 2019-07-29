@@ -1,5 +1,5 @@
 pkgname=foot
-pkgver=0.0.r2.g7379198
+pkgver=0.0.r136.g90d357b
 pkgrel=1
 pkgdesc="A wayland native terminal emulator"
 arch=('x86_64')

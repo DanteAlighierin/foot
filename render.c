@@ -13,6 +13,7 @@
 #include "log.h"
 #include "shm.h"
 #include "grid.h"
+#include "font.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -59,15 +60,17 @@ gseq_flush(struct terminal *term, struct buffer *buf)
     if (gseq.count == 0)
         return;
 
+    assert(NULL);
     struct rgb fg = color_hex_to_rgb(gseq.foreground);
 
     if (gseq.attrs.dim)
         color_dim(&fg);
 
+#if 0
     cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs)->font);
     cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
     cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
-
+#endif
     gseq.g = gseq.glyphs;
     gseq.count = 0;
 }
@@ -255,38 +258,30 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
         gseq.foreground = _fg;
     }
 
-    int new_glyphs
-        = sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - gseq.count;
-
     struct font *font = attrs_to_font(term, &cell->attrs);
 
-    struct glyph_cache *entry = cell->c[1] == '\0'
-        ? &font->glyph_cache[(unsigned char)cell->c[0]]
-        : NULL;
-
-    if (likely(entry != NULL && entry->glyphs != NULL)) {
-        /* Copy cached glyph(s) and upate position */
-        memcpy(gseq.g, entry->glyphs, entry->count * sizeof(gseq.g[0]));
-        for (size_t i = 0; i < entry->count; i++) {
-            gseq.g[i].x += x;
-            gseq.g[i].y += y;
-        }
-
-        new_glyphs = entry->count;
-    } else {
-        /* Must generate new glyph(s) */
-        cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-            font->font, x, y + term->fextents.ascent,
-            cell->c, strnlen(cell->c, 4), &gseq.g, &new_glyphs,
-            NULL, NULL, NULL);
-
-        if (status != CAIRO_STATUS_SUCCESS)
-            return;
+    struct glyph *glyph = NULL;
+    if (strnlen(cell->c, 4) == 1) {
+        if (font->cache[(unsigned char)cell->c[0]].surf != NULL)
+            glyph = &font->cache[(unsigned char)cell->c[0]];
     }
 
-    gseq.g += new_glyphs;
-    gseq.count += new_glyphs;
-    assert(gseq.count <= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]));
+    struct glyph _glyph;
+    if (glyph == NULL) {
+        if (!font_glyph_for_utf8(font, cell->c, &_glyph))
+            return;
+        glyph = &_glyph;
+    }
+
+    assert(glyph != NULL);
+    cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
+    cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
+    cairo_mask_surface(buf->cairo, glyph->surf, x + glyph->left, y + term->fextents.ascent - glyph->top);
+
+    if (glyph == &_glyph) {
+        cairo_surface_destroy(_glyph.surf);
+        free(_glyph.data);
+    }
 }
 
 static void

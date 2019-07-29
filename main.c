@@ -409,30 +409,29 @@ main(int argc, char *const *argv)
     thrd_t keyboard_repeater_id;
     thrd_create(&keyboard_repeater_id, &keyboard_repeater, &term);
 
-    term.fonts[0].font = font_from_name(conf.font);
-    if (term.fonts[0].font == NULL)
+    if (!font_from_name(conf.font, &term.fonts[0]))
         goto out;
 
     {
         char fname[1024];
         snprintf(fname, sizeof(fname), "%s:style=bold", conf.font);
-        term.fonts[1].font = font_from_name(fname);
+        font_from_name(fname, &term.fonts[1]);
 
         snprintf(fname, sizeof(fname), "%s:style=italic", conf.font);
-        term.fonts[2].font = font_from_name(fname);
+        font_from_name(fname, &term.fonts[2]);
 
         snprintf(fname, sizeof(fname), "%s:style=bold italic", conf.font);
-        term.fonts[3].font = font_from_name(fname);
+        font_from_name(fname, &term.fonts[3]);
     }
 
     /* Underline position and size */
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
         struct font *f = &term.fonts[i];
 
-        if (f->font == NULL)
+        if (f->face == NULL)
             continue;
 
-        FT_Face ft_face = cairo_ft_scaled_font_lock_face(f->font);
+        FT_Face ft_face = f->face;
 
         double x_scale = ft_face->size->metrics.x_scale / 65526.;
         double height = ft_face->size->metrics.height / 64;
@@ -465,45 +464,26 @@ main(int argc, char *const *argv)
 
         LOG_DBG("strikeout: pos=%f, thick=%f",
                 f->strikeout.position, f->strikeout.thickness);
-
-        cairo_ft_scaled_font_unlock_face(f->font);
     }
 
-    cairo_scaled_font_extents(term.fonts[0].font,  &term.fextents);
+    {
+        FT_Face ft_face = term.fonts[0].face;
+        int max_x_advance = ft_face->size->metrics.max_advance / 64;
+        int height = ft_face->size->metrics.height / 64;
+        int descent = ft_face->size->metrics.descender / 64;
+        int ascent = ft_face->size->metrics.ascender / 64;
+
+        term.fextents.height = height;
+        term.fextents.descent = -descent;
+        term.fextents.ascent = ascent;
+        term.fextents.max_x_advance = max_x_advance;
+
+        LOG_WARN("metrics: height: %d, descent: %d, ascent: %d, x-advance: %d",
+                height, descent, ascent, max_x_advance);
+    }
+
     term.cell_width = (int)ceil(term.fextents.max_x_advance);
     term.cell_height = (int)ceil(term.fextents.height);
-
-    LOG_DBG("font: height: %.2f, x-advance: %.2f",
-            term.fextents.height, term.fextents.max_x_advance);
-    assert(term.fextents.max_y_advance == 0);
-
-    /* Glyph cache */
-    for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
-        struct font *f = &term.fonts[i];
-
-        for (int j = 0; j < 256; j++) {
-            cairo_glyph_t *glyphs = NULL;
-            int count = 0;
-
-            char c = j;
-            cairo_status_t status = cairo_scaled_font_text_to_glyphs(
-                f->font, 0, 0 + term.fextents.ascent,
-                &c, 1, &glyphs, &count,
-                NULL, NULL, NULL);
-
-            if (status != CAIRO_STATUS_SUCCESS)
-                continue;
-
-            if (count == 0)
-                continue;
-
-            assert(glyphs != NULL);
-            assert(count == 1);
-
-            f->glyph_cache[j].glyphs = glyphs;
-            f->glyph_cache[j].count = count;
-        }
-    }
 
     term.wl.display = wl_display_connect(NULL);
     if (term.wl.display == NULL) {
@@ -916,15 +896,8 @@ out:
     free(term.window_title);
     tll_free_and_free(term.window_title_stack, free);
 
-    for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
-        struct font *f = &term.fonts[i];
-
-        if (f->font != NULL)
-            cairo_scaled_font_destroy(f->font);
-
-        for (size_t j = 0; j < 256; j++)
-            cairo_glyph_free(f->glyph_cache[j].glyphs);
-    }
+    for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++)
+        font_destroy(&term.fonts[i]);
 
     if (term.flash.fd != -1)
         close(term.flash.fd);
@@ -944,4 +917,5 @@ out:
 
     cairo_debug_reset_static_data();
     return ret;
+
 }

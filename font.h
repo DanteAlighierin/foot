@@ -1,5 +1,11 @@
 #pragma once
 
-#include <cairo.h>
+#include <stdbool.h>
+#include <threads.h>
 
-cairo_scaled_font_t *font_from_name(const char *name);
+#include "terminal.h"
+
+bool font_from_name(const char *name, struct font *result);
+bool font_glyph_for_utf8(
+    struct font *font, const char *utf8, struct glyph *glyph);
+void font_destroy(struct font *font);

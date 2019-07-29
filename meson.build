@@ -10,7 +10,7 @@ project('foot', 'c',
 is_debug_build = get_option('buildtype').startswith('debug')
 
 add_project_arguments(
-  ['-D_GNU_SOURCE',
+  ['-D_GNU_SOURCE=200809L',
    #'-DF00SEL_VERSION=@0@'.format(version)] +
    ] +
   (is_debug_build ? ['-D_DEBUG'] : []),
@@ -23,7 +23,6 @@ math = cc.find_library('m')
 threads = dependency('threads')
 fontconfig = dependency('fontconfig')
 cairo = dependency('cairo')
-cairo_ft = dependency('cairo-ft')
 wayland_protocols = dependency('wayland-protocols')
 wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
@@ -78,7 +77,7 @@ executable(
   'tllist.h',
   'vt.c', 'vt.h',
   wl_proto_src + wl_proto_headers,
-  dependencies: [threads, math, cairo, cairo_ft, fontconfig, wayland_client, wayland_cursor, xkb],
+  dependencies: [threads, math, cairo, fontconfig, wayland_client, wayland_cursor, xkb],
   install: true)
 
 custom_target(
