@@ -29,6 +29,8 @@ grid_row_alloc(int cols)
 {
     struct row *row = malloc(sizeof(*row));
     row->cells = calloc(cols, sizeof(row->cells[0]));
+    for (size_t c = 0; c < cols; c++)
+        row->cells[c].attrs.clean = 1;
     row->dirty = false;  /* TODO: parameter? */
     return row;
 }

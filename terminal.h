@@ -65,8 +65,11 @@ struct attributes {
     uint8_t conceal:1;
     uint8_t reverse:1;
 
-    uint32_t foreground;
-    uint32_t background;
+    uint32_t clean:1;
+    uint32_t foreground:31;
+
+    uint32_t reserved:1;
+    uint32_t background:31;
 } __attribute__((packed));
 
 struct cell {

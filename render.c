@@ -174,8 +174,13 @@ arm_blink_timer(struct terminal *term)
 
 static void
 render_cell(struct terminal *term, struct buffer *buf, size_t buf_idx,
-            const struct cell *cell, int col, int row, bool has_cursor)
+            struct cell *cell, int col, int row, bool has_cursor)
 {
+    if (cell->attrs.clean)
+        return;
+
+    cell->attrs.clean = 1;
+
     cairo_t *cr = buf->cairo[buf_idx];
     double width = term->cell_width;
     double height = term->cell_height;
@@ -185,10 +190,10 @@ render_cell(struct terminal *term, struct buffer *buf, size_t buf_idx,
     bool block_cursor = has_cursor && term->cursor_style == CURSOR_BLOCK;
     bool is_selected = coord_is_selected(term, col, row);
 
-    uint32_t _fg = cell->attrs.foreground >> 31
+    uint32_t _fg = cell->attrs.foreground >> 30
         ? cell->attrs.foreground
         : !term->reverse ? term->colors.fg : term->colors.bg;
-    uint32_t _bg = cell->attrs.background >> 31
+    uint32_t _bg = cell->attrs.background >> 30
         ? cell->attrs.background
         : !term->reverse ? term->colors.bg : term->colors.fg;
 

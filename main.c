@@ -831,9 +831,11 @@ main(int argc, char *const *argv)
             for (int r = 0; r < term.rows; r++) {
                 struct row *row = grid_row_in_view(term.grid, r);
                 for (int col = 0; col < term.cols; col++) {
-                    if (row->cells[col].attrs.blink) {
+                    struct cell *cell = &row->cells[col];
+
+                    if (cell->attrs.blink) {
+                        cell->attrs.clean = 0;
                         row->dirty = true;
-                        break;
                     }
                 }
             }
