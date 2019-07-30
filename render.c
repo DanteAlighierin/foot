@@ -374,20 +374,18 @@ grid_render(struct terminal *term)
 
     /* Erase old cursor (if we rendered a cursor last time) */
     if (term->render.last_cursor.cell != NULL) {
-        struct cell *hack = (struct cell *)term->render.last_cursor.cell;
-        hack->attrs.clean = 0;
-        render_cell(
-            term, buf, 0,
-            //term->render.last_cursor.cell,
-            hack,
-            term->render.last_cursor.in_view.col,
-            term->render.last_cursor.in_view.row, false);
+        struct cell *cell = term->render.last_cursor.cell;
+        struct coord at = term->render.last_cursor.in_view;
 
-        wl_surface_damage_buffer(
-            term->wl.surface,
-            term->render.last_cursor.in_view.col * term->cell_width,
-            term->render.last_cursor.in_view.row * term->cell_height,
-            term->cell_width, term->cell_height);
+        if (cell->attrs.clean) {
+            cell->attrs.clean = 0;
+            render_cell(term, buf, 0, cell, at.col, at.row, false);
+
+            wl_surface_damage_buffer(
+                term->wl.surface,
+                at.col * term->cell_width, at.row * term->cell_height,
+                term->cell_width, term->cell_height);
+        }
         term->render.last_cursor.cell = NULL;
 
         if (term->render.last_cursor.actual.col != term->cursor.col ||
