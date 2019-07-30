@@ -704,9 +704,9 @@ main(int argc, char *const *argv)
         };
 
         wl_display_flush(term.wl.display);
-        int ret = poll(fds, sizeof(fds) / sizeof(fds[0]), timeout_ms);
+        int pret = poll(fds, sizeof(fds) / sizeof(fds[0]), timeout_ms);
 
-        if (ret == -1) {
+        if (pret == -1) {
             if (errno == EINTR)
                 continue;
 
@@ -714,7 +714,7 @@ main(int argc, char *const *argv)
             break;
         }
 
-        if (ret == 0 || (timeout_ms != -1 && !(fds[1].revents & POLLIN))) {
+        if (pret == 0 || (timeout_ms != -1 && !(fds[1].revents & POLLIN))) {
             /* Delayed rendering */
             render_refresh(&term);
         }
