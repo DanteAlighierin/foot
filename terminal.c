@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <assert.h>
 
+#include <sys/timerfd.h>
 #include <linux/input-event-codes.h>
 
 #define LOG_MODULE "terminal"
@@ -484,4 +485,20 @@ term_set_window_title(struct terminal *term, const char *title)
     free(term->window_title);
     term->window_title = strdup(title);
     render_set_title(term, term->window_title);
+}
+
+void
+term_flash(struct terminal *term, unsigned duration_ms)
+{
+    LOG_DBG("FLASH for %ums", duration_ms);
+
+    struct itimerspec alarm = {
+        .it_value = {.tv_sec = 0, .tv_nsec = duration_ms * 1000000},
+    };
+
+    if (timerfd_settime(term->flash.fd, 0, &alarm, NULL) < 0)
+        LOG_ERRNO("failed to arm flash timer");
+    else {
+        term->flash.active = true;
+    }
 }

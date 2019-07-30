@@ -3,8 +3,6 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <sys/timerfd.h>
-
 #define LOG_MODULE "osc"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
@@ -205,17 +203,7 @@ osc_flash(struct terminal *term)
 {
     /* Our own private - flash */
     unsigned duration_ms = vt_param_get(term, 1, 100);
-    LOG_DBG("FLASH for %ums", duration_ms);
-
-    struct itimerspec alarm = {
-        .it_value = {.tv_sec = 0, .tv_nsec = duration_ms * 1000000},
-    };
-
-    if (timerfd_settime(term->flash.fd, 0, &alarm, NULL) < 0)
-        LOG_ERRNO("failed to arm flash timer");
-    else {
-        term->flash.active = true;
-    }
+    term_flash(term, duration_ms);
 }
 
 void

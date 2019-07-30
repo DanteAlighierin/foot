@@ -382,3 +382,4 @@ void term_mouse_motion(struct terminal *term, int button, int row, int col,
                        bool shift, bool alt, bool ctrl);
 
 void term_set_window_title(struct terminal *term, const char *title);
+void term_flash(struct terminal *term, unsigned duration_ms);
