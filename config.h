@@ -4,11 +4,12 @@
 #include <stdbool.h>
 
 #include "terminal.h"
+#include "tllist.h"
 
 struct config {
     char *term;
     char *shell;
-    char *font;
+    tll(char *) fonts;
 
     struct {
         uint32_t fg;
@@ -24,6 +25,8 @@ struct config {
             uint32_t cursor;
         } color;
     } cursor;
+
+    size_t render_worker_count;
 };
 
 bool config_load(struct config *conf);

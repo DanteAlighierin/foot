@@ -27,8 +27,10 @@ static const struct wl_buffer_listener buffer_listener = {
 };
 
 struct buffer *
-shm_get_buffer(struct wl_shm *shm, int width, int height)
+shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
 {
+    assert(copies >= 1);
+
     tll_foreach(buffers, it) {
         if (it->item.width != width || it->item.height != height)
             continue;
@@ -57,8 +59,8 @@ shm_get_buffer(struct wl_shm *shm, int width, int height)
     struct wl_shm_pool *pool = NULL;
     struct wl_buffer *buf = NULL;
 
-    cairo_surface_t *cairo_surface = NULL;
-    cairo_t *cairo = NULL;
+    cairo_surface_t **cairo_surface = NULL;
+    cairo_t **cairo = NULL;
 
     /* Backing memory for SHM */
     pool_fd = memfd_create("f00sel-wayland-shm-buffer-pool", MFD_CLOEXEC);
@@ -99,19 +101,25 @@ shm_get_buffer(struct wl_shm *shm, int width, int height)
     close(pool_fd); pool_fd = -1;
 
     /* Create a cairo surface around the mmapped memory */
-    cairo_surface = cairo_image_surface_create_for_data(
-        mmapped, CAIRO_FORMAT_ARGB32, width, height, stride);
-    if (cairo_surface_status(cairo_surface) != CAIRO_STATUS_SUCCESS) {
-        LOG_ERR("failed to create cairo surface: %s",
-                cairo_status_to_string(cairo_surface_status(cairo_surface)));
-        goto err;
-    }
+    cairo_surface = calloc(copies, sizeof(cairo_surface[0]));
+    cairo = calloc(copies, sizeof(cairo[0]));
 
-    cairo = cairo_create(cairo_surface);
-    if (cairo_status(cairo) != CAIRO_STATUS_SUCCESS) {
-        LOG_ERR("failed to create cairo context: %s",
-                cairo_status_to_string(cairo_status(cairo)));
-        goto err;
+    for (size_t i = 0; i < copies; i++) {
+        cairo_surface[i] = cairo_image_surface_create_for_data(
+            mmapped, CAIRO_FORMAT_ARGB32, width, height, stride);
+
+        if (cairo_surface_status(cairo_surface[i]) != CAIRO_STATUS_SUCCESS) {
+            LOG_ERR("failed to create cairo surface: %s",
+                    cairo_status_to_string(cairo_surface_status(cairo_surface[i])));
+            goto err;
+        }
+
+        cairo[i] = cairo_create(cairo_surface[i]);
+        if (cairo_status(cairo[i]) != CAIRO_STATUS_SUCCESS) {
+            LOG_ERR("failed to create cairo context: %s",
+                    cairo_status_to_string(cairo_status(cairo[i])));
+            goto err;
+        }
     }
 
     /* Push to list of available buffers, but marked as 'busy' */
@@ -124,6 +132,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height)
             .size = size,
             .mmapped = mmapped,
             .wl_buf = buf,
+            .copies = copies,
             .cairo_surface = cairo_surface,
             .cairo = cairo}
             )
@@ -134,10 +143,18 @@ shm_get_buffer(struct wl_shm *shm, int width, int height)
     return ret;
 
 err:
-    if (cairo != NULL)
-        cairo_destroy(cairo);
-    if (cairo_surface != NULL)
-        cairo_surface_destroy(cairo_surface);
+    if (cairo != NULL) {
+        for (size_t i = 0; i < copies; i++)
+            if (cairo[i] != NULL)
+                cairo_destroy(cairo[i]);
+        free(cairo);
+    }
+    if (cairo_surface != NULL) {
+        for (size_t i = 0; i < copies; i++)
+            if (cairo_surface[i] != NULL)
+                cairo_surface_destroy(cairo_surface[i]);
+        free(cairo_surface);
+    }
     if (buf != NULL)
         wl_buffer_destroy(buf);
     if (pool != NULL)
@@ -156,8 +173,18 @@ shm_fini(void)
     tll_foreach(buffers, it) {
         struct buffer *buf = &it->item;
 
-        cairo_destroy(buf->cairo);
-        cairo_surface_destroy(buf->cairo_surface);
+        if (buf->cairo != NULL) {
+            for (size_t i = 0; i < buf->copies; i++)
+                if (buf->cairo[i] != NULL)
+                    cairo_destroy(buf->cairo[i]);
+            free(buf->cairo);
+        }
+        if (buf->cairo_surface != NULL) {
+            for (size_t i = 0; i < buf->copies; i++)
+                if (buf->cairo_surface[i] != NULL)
+                    cairo_surface_destroy(buf->cairo_surface[i]);
+            free(buf->cairo_surface);
+        }
         wl_buffer_destroy(buf->wl_buf);
         munmap(buf->mmapped, buf->size);
 

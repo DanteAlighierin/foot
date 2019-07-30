@@ -76,45 +76,52 @@ gseq_flush(struct terminal *term, struct buffer *buf)
 }
 
 static void
-draw_underline(const struct terminal *term, struct buffer *buf,
+draw_underline(const struct terminal *term, struct buffer *buf, size_t buf_idx,
                const struct font *font, struct rgb color, double x, double y)
 {
     //const struct font *font = attrs_to_font(term, &cell->attrs);
     double baseline = y + term->fextents.height - term->fextents.descent;
     double width = font->underline.thickness;
     double y_under = baseline - font->underline.position - width / 2.;
+    cairo_t *cr = buf->cairo[buf_idx];
 
-    cairo_set_source_rgb(buf->cairo, color.r, color.g, color.b);
-    cairo_set_line_width(buf->cairo, width);
-    cairo_move_to(buf->cairo, x, round(y_under) + 0.5);
-    cairo_rel_line_to(buf->cairo, term->cell_width, 0);
-    cairo_stroke(buf->cairo);
+    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    cairo_set_source_rgb(cr, color.r, color.g, color.b);
+    cairo_set_line_width(cr, width);
+    cairo_move_to(cr, x, round(y_under) + 0.5);
+    cairo_rel_line_to(cr, term->cell_width, 0);
+    cairo_stroke(cr);
 }
 
 static void
-draw_bar(const struct terminal *term, struct buffer *buf, struct rgb color,
-         double x, double y)
+draw_bar(const struct terminal *term, struct buffer *buf, size_t buf_idx,
+         struct rgb color, double x, double y)
 {
-    cairo_set_source_rgb(buf->cairo, color.r, color.g, color.b);
-    cairo_set_line_width(buf->cairo, 1.0);
-    cairo_move_to(buf->cairo, x + 0.5, y);
-    cairo_rel_line_to(buf->cairo, 0, term->cell_height);
-    cairo_stroke(buf->cairo);
+    cairo_t *cr = buf->cairo[buf_idx];
+
+    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    cairo_set_source_rgb(cr, color.r, color.g, color.b);
+    cairo_set_line_width(cr, 1.0);
+    cairo_move_to(cr, x + 0.5, y);
+    cairo_rel_line_to(cr, 0, term->cell_height);
+    cairo_stroke(cr);
 }
 
 static void
-draw_strikeout(const struct terminal *term, struct buffer *buf,
+draw_strikeout(const struct terminal *term, struct buffer *buf, size_t buf_idx,
                const struct font *font, struct rgb color, double x, double y)
 {
     double baseline = y + term->fextents.height - term->fextents.descent;
     double width = font->strikeout.thickness;
     double y_strike = baseline - font->strikeout.position - width / 2.;
+    cairo_t *cr = buf->cairo[buf_idx];
 
-    cairo_set_source_rgb(buf->cairo, color.r, color.g, color.b);
-    cairo_set_line_width(buf->cairo, width);
-    cairo_move_to(buf->cairo, x, round(y_strike) + 0.5);
-    cairo_rel_line_to(buf->cairo, term->cell_width, 0);
-    cairo_stroke(buf->cairo);
+    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    cairo_set_source_rgb(cr, color.r, color.g, color.b);
+    cairo_set_line_width(cr, width);
+    cairo_move_to(cr, x, round(y_strike) + 0.5);
+    cairo_rel_line_to(cr, term->cell_width, 0);
+    cairo_stroke(cr);
 }
 
 static bool
@@ -166,9 +173,15 @@ arm_blink_timer(struct terminal *term)
 }
 
 static void
-render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
-            int col, int row, bool has_cursor)
+render_cell(struct terminal *term, struct buffer *buf, size_t buf_idx,
+            struct cell *cell, int col, int row, bool has_cursor)
 {
+    if (cell->attrs.clean)
+        return;
+
+    cell->attrs.clean = 1;
+
+    cairo_t *cr = buf->cairo[buf_idx];
     double width = term->cell_width;
     double height = term->cell_height;
     double x = col * width;
@@ -177,10 +190,10 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     bool block_cursor = has_cursor && term->cursor_style == CURSOR_BLOCK;
     bool is_selected = coord_is_selected(term, col, row);
 
-    uint32_t _fg = cell->attrs.foreground >> 31
+    uint32_t _fg = cell->attrs.foreground >> 30
         ? cell->attrs.foreground
         : !term->reverse ? term->colors.fg : term->colors.bg;
-    uint32_t _bg = cell->attrs.background >> 31
+    uint32_t _bg = cell->attrs.background >> 30
         ? cell->attrs.background
         : !term->reverse ? term->colors.bg : term->colors.fg;
 
@@ -208,18 +221,19 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     }
 
     /* Background */
-    cairo_set_source_rgb(buf->cairo, bg.r, bg.g, bg.b);
-    cairo_rectangle(buf->cairo, x, y, width, height);
-    cairo_fill(buf->cairo);
+    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    cairo_set_source_rgb(cr, bg.r, bg.g, bg.b);
+    cairo_rectangle(cr, x, y, width, height);
+    cairo_fill(cr);
 
     /* Non-block cursors */
     if (has_cursor) {
         struct rgb cursor_color = color_hex_to_rgb(term->cursor_color.cursor);
         if (term->cursor_style == CURSOR_BAR)
-            draw_bar(term, buf, cursor_color, x, y);
+            draw_bar(term, buf, buf_idx, cursor_color, x, y);
         else if (term->cursor_style == CURSOR_UNDERLINE)
             draw_underline(
-                term, buf, attrs_to_font(term, &cell->attrs), cursor_color, x, y);
+                term, buf, buf_idx, attrs_to_font(term, &cell->attrs), cursor_color, x, y);
     }
 
     if (cell->attrs.blink && !term->blink.active) {
@@ -232,10 +246,10 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
 
     /* Underline */
     if (cell->attrs.underline)
-        draw_underline(term, buf, attrs_to_font(term, &cell->attrs), fg, x, y);
+        draw_underline(term, buf, buf_idx, attrs_to_font(term, &cell->attrs), fg, x, y);
 
     if (cell->attrs.strikethrough)
-        draw_strikeout(term, buf, attrs_to_font(term, &cell->attrs), fg, x, y);
+        draw_strikeout(term, buf, buf_idx, attrs_to_font(term, &cell->attrs), fg, x, y);
 
     /*
      * cairo_show_glyphs() apparently works *much* faster when
@@ -259,28 +273,12 @@ render_cell(struct terminal *term, struct buffer *buf, const struct cell *cell,
     }
 
     struct font *font = attrs_to_font(term, &cell->attrs);
-
-    struct glyph *glyph = NULL;
-    if (strnlen(cell->c, 4) == 1) {
-        if (font->cache[(unsigned char)cell->c[0]].surf != NULL)
-            glyph = &font->cache[(unsigned char)cell->c[0]];
-    }
-
-    struct glyph _glyph;
-    if (glyph == NULL) {
-        if (!font_glyph_for_utf8(font, cell->c, &_glyph))
-            return;
-        glyph = &_glyph;
-    }
-
-    assert(glyph != NULL);
-    cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
-    cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
-    cairo_mask_surface(buf->cairo, glyph->surf, x + glyph->left, y + term->fextents.ascent - glyph->top);
-
-    if (glyph == &_glyph) {
-        cairo_surface_destroy(_glyph.surf);
-        free(_glyph.data);
+    const struct glyph *glyph = font_glyph_for_utf8(font, cell->c);
+    if (glyph != NULL) {
+        cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+        cairo_set_source_rgb(cr, fg.r, fg.g, fg.b);
+        cairo_mask_surface(
+            cr, glyph->surf, x + glyph->left, y + term->fextents.ascent - glyph->top);
     }
 }
 
@@ -303,11 +301,11 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
             buf->size);
 
     if (height > 0) {
-        cairo_surface_flush(buf->cairo_surface);
-        uint8_t *raw = cairo_image_surface_get_data(buf->cairo_surface);
+        cairo_surface_flush(buf->cairo_surface[0]);
+        uint8_t *raw = cairo_image_surface_get_data(buf->cairo_surface[0]);
 
         memmove(raw + dst_y * stride, raw + src_y * stride, height * stride);
-        cairo_surface_mark_dirty(buf->cairo_surface);
+        cairo_surface_mark_dirty(buf->cairo_surface[0]);
 
         wl_surface_damage_buffer(term->wl.surface, 0, dst_y, width, height);
     }
@@ -332,26 +330,74 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
             buf->size);
 
     if (height > 0) {
-        cairo_surface_flush(buf->cairo_surface);
-        uint8_t *raw = cairo_image_surface_get_data(buf->cairo_surface);
+        cairo_surface_flush(buf->cairo_surface[0]);
+        uint8_t *raw = cairo_image_surface_get_data(buf->cairo_surface[0]);
 
         memmove(raw + dst_y * stride, raw + src_y * stride, height * stride);
-        cairo_surface_mark_dirty(buf->cairo_surface);
+        cairo_surface_mark_dirty(buf->cairo_surface[0]);
 
         wl_surface_damage_buffer(term->wl.surface, 0, dst_y, width, height);
     }
 }
 
 static void
-render_row(struct terminal *term, struct buffer *buf, struct row *row, int row_no)
+render_row(struct terminal *term, struct buffer *buf, size_t buf_idx, struct row *row, int row_no)
 {
     for (int col = 0; col < term->cols; col++)
-        render_cell(term, buf, &row->cells[col], col, row_no, false);
+        render_cell(term, buf, buf_idx, &row->cells[col], col, row_no, false);
 
+#if 0
     wl_surface_damage_buffer(
         term->wl.surface,
         0, row_no * term->cell_height,
         term->width, term->cell_height);
+#endif
+}
+
+int
+render_worker_thread(void *_ctx)
+{
+    struct render_worker_context *ctx = _ctx;
+    struct terminal *term = ctx->term;
+    const int my_id = ctx->my_id;
+
+    sem_t *start = &term->render.workers.start;
+    sem_t *done = &term->render.workers.done;
+    mtx_t *lock = &term->render.workers.lock;
+    cnd_t *cond = &term->render.workers.cond;
+
+    while (true) {
+        sem_wait(start);
+
+        struct buffer *buf = term->render.workers.buf;
+        bool frame_done = false;
+
+        while (!frame_done) {
+            mtx_lock(lock);
+            while (tll_length(term->render.workers.queue) == 0)
+                cnd_wait(cond, lock);
+
+            int row_no = tll_pop_front(term->render.workers.queue);
+            mtx_unlock(lock);
+
+            switch (row_no) {
+            default:
+                assert(buf != NULL);
+                render_row(term, buf, my_id, grid_row_in_view(term->grid, row_no), row_no);
+                break;
+
+            case -1:
+                frame_done = true;
+                sem_post(done);
+                break;
+
+            case -2:
+                return 0;
+            }
+        }
+    };
+
+    return -1;
 }
 
 static void frame_callback(
@@ -374,8 +420,8 @@ grid_render(struct terminal *term)
     assert(term->width > 0);
     assert(term->height > 0);
 
-    struct buffer *buf = shm_get_buffer(term->wl.shm, term->width, term->height);
-    cairo_set_operator(buf->cairo, CAIRO_OPERATOR_SOURCE);
+    struct buffer *buf = shm_get_buffer(term->wl.shm, term->width, term->height, 1 + term->render.workers.count);
+    cairo_set_operator(buf->cairo[0], CAIRO_OPERATOR_SOURCE);
 
     gseq.g = gseq.glyphs;
     gseq.count = 0;
@@ -384,9 +430,12 @@ grid_render(struct terminal *term)
 
     /* Erase old cursor (if we rendered a cursor last time) */
     if (term->render.last_cursor.cell != NULL) {
+        struct cell *hack = (struct cell *)term->render.last_cursor.cell;
+        hack->attrs.clean = 0;
         render_cell(
-            term, buf,
-            term->render.last_cursor.cell,
+            term, buf, 0,
+            //term->render.last_cursor.cell,
+            hack,
             term->render.last_cursor.in_view.col,
             term->render.last_cursor.in_view.row, false);
 
@@ -424,11 +473,11 @@ grid_render(struct terminal *term)
 
         uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
         struct rgb bg = color_hex_to_rgb(_bg);
-        cairo_set_source_rgb(buf->cairo, bg.r, bg.g, bg.b);
+        cairo_set_source_rgb(buf->cairo[0], bg.r, bg.g, bg.b);
 
-        cairo_rectangle(buf->cairo, rmargin, 0, rmargin_width, term->height);
-        cairo_rectangle(buf->cairo, 0, bmargin, term->width, bmargin_height);
-        cairo_fill(buf->cairo);
+        cairo_rectangle(buf->cairo[0], rmargin, 0, rmargin_width, term->height);
+        cairo_rectangle(buf->cairo[0], 0, bmargin, term->width, bmargin_height);
+        cairo_fill(buf->cairo[0]);
 
         wl_surface_damage_buffer(
             term->wl.surface, rmargin, 0, rmargin_width, term->height);
@@ -456,19 +505,37 @@ grid_render(struct terminal *term)
         tll_remove(term->grid->scroll_damage, it);
     }
 
+    term->render.workers.buf = buf;
+    for (size_t i = 0; i < term->render.workers.count; i++)
+        sem_post(&term->render.workers.start);
+
+    assert(tll_length(term->render.workers.queue) == 0);
+
     for (int r = 0; r < term->rows; r++) {
         struct row *row = grid_row_in_view(term->grid, r);
 
         if (!row->dirty)
             continue;
 
-        //LOG_WARN("rendering line: %d", r);
+        mtx_lock(&term->render.workers.lock);
+        tll_push_back(term->render.workers.queue, r);
+        cnd_signal(&term->render.workers.cond);
+        mtx_unlock(&term->render.workers.lock);
 
         row->dirty = false;
         all_clean = false;
 
-        render_row(term, buf, row, r);
+        wl_surface_damage_buffer(
+            term->wl.surface,
+            0, r * term->cell_height,
+            term->width, term->cell_height);
     }
+
+    mtx_lock(&term->render.workers.lock);
+    for (size_t i = 0; i < term->render.workers.count; i++)
+        tll_push_back(term->render.workers.queue, -1);
+    cnd_broadcast(&term->render.workers.cond);
+    mtx_unlock(&term->render.workers.lock);
 
     if (term->blink.active) {
         /* Check if there are still any visible blinking cells */
@@ -516,6 +583,10 @@ grid_render(struct terminal *term)
             cursor_is_visible = true;
     }
 
+    for (size_t i = 0; i < term->render.workers.count; i++)
+        sem_wait(&term->render.workers.done);
+    term->render.workers.buf = NULL;
+
     if (cursor_is_visible && !term->hide_cursor) {
         /* Remember cursor coordinates so that we can erase it next
          * time. Note that we need to re-align it against the view. */
@@ -528,11 +599,12 @@ grid_render(struct terminal *term)
             term->cursor.col, view_aligned_row};
 
         struct row *row = grid_row_in_view(term->grid, view_aligned_row);
+        struct cell *cell = &row->cells[term->cursor.col];
 
-        term->render.last_cursor.cell = &row->cells[term->cursor.col];
+        cell->attrs.clean = 0;
+        term->render.last_cursor.cell = cell;
         render_cell(
-            term, buf, term->render.last_cursor.cell,
-            term->cursor.col, view_aligned_row, true);
+            term, buf, 0, cell, term->cursor.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
             term->wl.surface,
@@ -549,10 +621,10 @@ grid_render(struct terminal *term)
     }
 
     if (term->flash.active) {
-        cairo_set_source_rgba(buf->cairo, 1.0, 1.0, 0.0, 0.5);
-        cairo_set_operator(buf->cairo, CAIRO_OPERATOR_OVER);
-        cairo_rectangle(buf->cairo, 0, 0, term->width, term->height);
-        cairo_fill(buf->cairo);
+        cairo_set_source_rgba(buf->cairo[0], 1.0, 1.0, 0.0, 0.5);
+        cairo_set_operator(buf->cairo[0], CAIRO_OPERATOR_OVER);
+        cairo_rectangle(buf->cairo[0], 0, 0, term->width, term->height);
+        cairo_fill(buf->cairo[0]);
 
         wl_surface_damage_buffer(
             term->wl.surface, 0, 0, term->width, term->height);
@@ -561,7 +633,7 @@ grid_render(struct terminal *term)
     assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
     assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
 
-    cairo_surface_flush(buf->cairo_surface);
+    cairo_surface_flush(buf->cairo_surface[0]);
     wl_surface_attach(term->wl.surface, buf->wl_buf, 0, 0);
 
     assert(term->render.frame_callback == NULL);

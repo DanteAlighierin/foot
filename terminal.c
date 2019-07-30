@@ -20,29 +20,36 @@ void
 term_damage_rows(struct terminal *term, int start, int end)
 {
     assert(start <= end);
-    for (int r = start; r <= end; r++)
-        grid_row(term->grid, r)->dirty = true;
+    for (int r = start; r <= end; r++) {
+        struct row *row = grid_row(term->grid, r);
+        row->dirty = true;
+        for (int c = 0; c < term->grid->num_cols; c++)
+            row->cells[c].attrs.clean = 0;
+    }
 }
 
 void
 term_damage_rows_in_view(struct terminal *term, int start, int end)
 {
     assert(start <= end);
-    for (int r = start; r <= end; r++)
-        grid_row_in_view(term->grid, r)->dirty = true;
+    for (int r = start; r <= end; r++) {
+        struct row *row = grid_row_in_view(term->grid, r);
+        row->dirty = true;
+        for (int c = 0; c < term->grid->num_cols; c++)
+            row->cells[c].attrs.clean = 0;
+    }
 }
 
 void
 term_damage_all(struct terminal *term)
 {
-    term_damage_rows(term, 0, term->rows);
+    term_damage_rows(term, 0, term->rows - 1);
 }
 
 void
 term_damage_view(struct terminal *term)
 {
-    for (int i = 0; i < term->rows; i++)
-        grid_row_in_view(term->grid, i)->dirty = true;
+    term_damage_rows_in_view(term, 0, term->rows - 1);
 }
 
 void
@@ -73,9 +80,10 @@ erase_cell_range(struct terminal *term, struct row *row, int start, int end)
     assert(start < term->cols);
     assert(end < term->cols);
 
-    if (unlikely(term->vt.attrs.background >> 31)) {
+    if (unlikely(term->vt.attrs.background >> 30)) {
         for (int col = start; col <= end; col++) {
             row->cells[col].c[0] = '\0';
+            row->cells[col].attrs.clean = 0;
             row->cells[col].attrs.background = term->vt.attrs.background;
         }
     } else {

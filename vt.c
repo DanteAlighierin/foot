@@ -698,7 +698,6 @@ pre_print(struct terminal *term)
 static inline void
 post_print(struct terminal *term)
 {
-    term->grid->cur_row->dirty = true;
     if (term->cursor.col < term->cols - 1)
         term_cursor_right(term, 1);
     else
@@ -716,13 +715,6 @@ print_insert(struct terminal *term)
             &row[term->cursor.col + 1],
             &row[term->cursor.col],
             term->cols - term->cursor.col - 1);
-
-#if 0
-        term_damage_update(
-            term, term->cursor.linear + 1, term->cols - term->cursor.col - 1);
-#else
-        row->dirty = true;
-#endif
     }
 }
 
@@ -737,6 +729,7 @@ action_print_utf8(struct terminal *term)
     term_damage_update(term, term->cursor.linear, 1);
 #else
     row->dirty = true;
+    cell->attrs.clean = 0;
 #endif
 
     print_insert(term);
@@ -761,6 +754,7 @@ action_print(struct terminal *term, uint8_t c)
     term_damage_update(term, term->cursor.linear, 1);
 #else
     row->dirty = true;
+    cell->attrs.clean = 0;
 #endif
 
     print_insert(term);

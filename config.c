@@ -107,26 +107,28 @@ get_config_path(void)
 }
 
 static bool
-str_to_color(const char *s, uint32_t *color, const char *path, int lineno)
+str_to_ulong(const char *s, int base, unsigned long *res)
 {
     if (s == NULL)
         return false;
 
     errno = 0;
     char *end = NULL;
-    unsigned long res = strtoul(s, &end, 16);
 
-    if (errno != 0) {
+    *res = strtoul(s, &end, base);
+    return errno == 0 && *end == '\0';
+}
+
+static bool
+str_to_color(const char *s, uint32_t *color, const char *path, int lineno)
+{
+    unsigned long value;
+    if (!str_to_ulong(s, 16, &value)) {
         LOG_ERRNO("%s:%d: invalid color: %s", path, lineno, s);
         return false;
     }
 
-    if (*end != '\0') {
-        LOG_ERR("%s:%d: invalid color: %s", path, lineno, s);
-        return false;
-    }
-
-    *color = res & 0xffffff;
+    *color = value & 0xffffff;
     return true;
 }
 
@@ -145,8 +147,21 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "font") == 0) {
-        free(conf->font);
-        conf->font = strdup(value);
+        //free(conf->font);
+        //conf->font = strdup(value);
+        char *copy = strdup(value);
+        for (const char *font = strtok(copy, ","); font != NULL; font = strtok(NULL, ","))
+            tll_push_back(conf->fonts, strdup(font));
+        free(copy);
+    }
+
+    else if (strcmp(key, "workers") == 0) {
+        unsigned long count;
+        if (!str_to_ulong(value, 10, &count)) {
+            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            return false;
+        }
+        conf->render_worker_count = count;
     }
 
     else {
@@ -393,7 +408,7 @@ config_load(struct config *conf)
     *conf = (struct config) {
         .term = strdup("foot"),
         .shell = get_shell(),
-        .font = strdup("monospace"),
+        .fonts = tll_init(),
 
         .colors = {
             .fg = default_foreground,
@@ -427,6 +442,8 @@ config_load(struct config *conf)
                 .cursor = 0,
             },
         },
+
+        .render_worker_count = sysconf(_SC_NPROCESSORS_ONLN),
     };
 
     char *path = get_config_path();
@@ -449,6 +466,7 @@ config_load(struct config *conf)
     fclose(f);
 
 out:
+    tll_push_back(conf->fonts, strdup("monospace"));
     free(path);
     return ret;
 }
@@ -458,5 +476,6 @@ config_free(struct config conf)
 {
     free(conf.term);
     free(conf.shell);
-    free(conf.font);
+    //free(conf.font);
+    tll_free_and_free(conf.fonts, free);
 }

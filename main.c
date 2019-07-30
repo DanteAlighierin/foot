@@ -11,9 +11,9 @@
 #include <errno.h>
 
 #include <sys/timerfd.h>
+#include <sys/sysinfo.h>
 
 #include <freetype/tttables.h>
-#include <cairo-ft.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
@@ -291,8 +291,8 @@ main(int argc, char *const *argv)
             break;
 
         case 'f':
-            free(conf.font);
-            conf.font = strdup(optarg);
+            tll_free_and_free(conf.fonts, free);
+            tll_push_back(conf.fonts, strdup(optarg));
             break;
 
         case 'h':
@@ -388,7 +388,17 @@ main(int argc, char *const *argv)
         .normal = {.damage = tll_init(), .scroll_damage = tll_init()},
         .alt = {.damage = tll_init(), .scroll_damage = tll_init()},
         .grid = &term.normal,
+        .render = {
+            .workers = {
+                .count = conf.render_worker_count,
+                .queue = tll_init(),
+            },
+        },
     };
+
+    LOG_INFO("using %zu rendering threads", term.render.workers.count);
+
+    struct render_worker_context worker_context[term.render.workers.count];
 
     /* Initialize 'current' colors from the default colors */
     term.colors.fg = term.colors.default_fg;
@@ -409,20 +419,32 @@ main(int argc, char *const *argv)
     thrd_t keyboard_repeater_id;
     thrd_create(&keyboard_repeater_id, &keyboard_repeater, &term);
 
-    if (!font_from_name(conf.font, &term.fonts[0]))
-        goto out;
+    sem_init(&term.render.workers.start, 0, 0);
+    sem_init(&term.render.workers.done, 0, 0);
+    mtx_init(&term.render.workers.lock, mtx_plain);
+    cnd_init(&term.render.workers.cond);
 
-    {
-        char fname[1024];
-        snprintf(fname, sizeof(fname), "%s:style=bold", conf.font);
-        font_from_name(fname, &term.fonts[1]);
-
-        snprintf(fname, sizeof(fname), "%s:style=italic", conf.font);
-        font_from_name(fname, &term.fonts[2]);
-
-        snprintf(fname, sizeof(fname), "%s:style=bold italic", conf.font);
-        font_from_name(fname, &term.fonts[3]);
+    term.render.workers.threads = calloc(term.render.workers.count, sizeof(term.render.workers.threads[0]));
+    for (size_t i = 0; i < term.render.workers.count; i++) {
+        worker_context[i].term = &term;
+        worker_context[i].my_id = 1 + i;
+        thrd_create(&term.render.workers.threads[i], &render_worker_thread, &worker_context[i]);
     }
+
+    font_list_t font_names = tll_init();
+    tll_foreach(conf.fonts, it)
+        tll_push_back(font_names, it->item);
+
+    if (!font_from_name(font_names, "", &term.fonts[0])) {
+        tll_free(font_names);
+        goto out;
+    }
+
+    font_from_name(font_names, "style=bold", &term.fonts[1]);
+    font_from_name(font_names, "style=italic", &term.fonts[2]);
+    font_from_name(font_names, "style=bold italic", &term.fonts[3]);
+
+    tll_free(font_names);
 
     /* Underline position and size */
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
@@ -716,7 +738,7 @@ main(int argc, char *const *argv)
         }
 
         if (fds[1].revents & POLLIN) {
-            uint8_t data[8192];
+            uint8_t data[24 * 1024];
             ssize_t count = read(term.ptmx, data, sizeof(data));
             if (count < 0) {
                 if (errno != EAGAIN)
@@ -809,9 +831,11 @@ main(int argc, char *const *argv)
             for (int r = 0; r < term.rows; r++) {
                 struct row *row = grid_row_in_view(term.grid, r);
                 for (int col = 0; col < term.cols; col++) {
-                    if (row->cells[col].attrs.blink) {
+                    struct cell *cell = &row->cells[col];
+
+                    if (cell->attrs.blink) {
+                        cell->attrs.clean = 0;
                         row->dirty = true;
-                        break;
                     }
                 }
             }
@@ -826,6 +850,15 @@ out:
     term.kbd.repeat.cmd = REPEAT_EXIT;
     cnd_signal(&term.kbd.repeat.cond);
     mtx_unlock(&term.kbd.repeat.mutex);
+
+    mtx_lock(&term.render.workers.lock);
+    assert(tll_length(term.render.workers.queue) == 0);
+    for (size_t i = 0; i < term.render.workers.count; i++) {
+        sem_post(&term.render.workers.start);
+        tll_push_back(term.render.workers.queue, -2);
+    }
+    cnd_broadcast(&term.render.workers.cond);
+    mtx_unlock(&term.render.workers.lock);
 
     shm_fini();
     if (term.render.frame_callback != NULL)
@@ -910,6 +943,17 @@ out:
     thrd_join(keyboard_repeater_id, NULL);
     cnd_destroy(&term.kbd.repeat.cond);
     mtx_destroy(&term.kbd.repeat.mutex);
+
+    for (size_t i = 0; i < term.render.workers.count; i++)
+        thrd_join(term.render.workers.threads[i], NULL);
+    free(term.render.workers.threads);
+    cnd_destroy(&term.render.workers.cond);
+    mtx_destroy(&term.render.workers.lock);
+    sem_destroy(&term.render.workers.start);
+    sem_destroy(&term.render.workers.done);
+    assert(tll_length(term.render.workers.queue) == 0);
+    tll_free(term.render.workers.queue);
+
     close(term.kbd.repeat.pipe_read_fd);
     close(term.kbd.repeat.pipe_write_fd);
 

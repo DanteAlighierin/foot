@@ -5,9 +5,7 @@
 #include <stddef.h>
 
 #include <threads.h>
-
-#include <ft2build.h>
-#include FT_FREETYPE_H
+#include <semaphore.h>
 
 #include <cairo.h>
 #include <wayland-client.h>
@@ -15,7 +13,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
-
+#include "font.h"
 #include "tllist.h"
 
 #define likely(c) __builtin_expect(!!(c), 1)
@@ -63,8 +61,11 @@ struct attributes {
     uint8_t conceal:1;
     uint8_t reverse:1;
 
-    uint32_t foreground;
-    uint32_t background;
+    uint32_t clean:1;
+    uint32_t foreground:31;
+
+    uint32_t reserved:1;
+    uint32_t background:31;
 } __attribute__((packed));
 
 struct cell {
@@ -206,31 +207,6 @@ struct primary {
     uint32_t serial;
 };
 
-struct glyph {
-    void *data;
-    cairo_surface_t *surf;
-    int left;
-    int top;
-};
-
-struct font {
-    FT_Face face;
-    int load_flags;
-    int render_flags;
-    FT_LcdFilter lcd_filter;
-    struct {
-        double position;
-        double thickness;
-    } underline;
-    struct {
-        double position;
-        double thickness;
-    } strikeout;
-
-    struct glyph cache[256];
-    mtx_t lock;
-};
-
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
 
 struct terminal {
@@ -340,6 +316,17 @@ struct terminal {
     struct wayland wl;
     struct {
         struct wl_callback *frame_callback;
+
+        struct {
+            size_t count;
+            sem_t start;
+            sem_t done;
+            cnd_t cond;
+            mtx_t lock;
+            tll(int) queue;
+            thrd_t *threads;
+            struct buffer *buf;
+        } workers;
 
         /* Last rendered cursor position */
         struct {
