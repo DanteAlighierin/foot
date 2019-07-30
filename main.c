@@ -738,7 +738,7 @@ main(int argc, char *const *argv)
         }
 
         if (fds[1].revents & POLLIN) {
-            uint8_t data[8192];
+            uint8_t data[24 * 1024];
             ssize_t count = read(term.ptmx, data, sizeof(data));
             if (count < 0) {
                 if (errno != EAGAIN)
