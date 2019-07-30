@@ -25,17 +25,6 @@ attrs_to_font(struct terminal *term, const struct attributes *attrs)
     return &term->fonts[idx];
 }
 
-struct glyph_sequence {
-    cairo_glyph_t glyphs[100000];
-    cairo_glyph_t *g;
-    int count;
-
-    struct attributes attrs;
-    uint32_t foreground;
-};
-
-static struct glyph_sequence gseq;
-
 static inline struct rgb
 color_hex_to_rgb(uint32_t color)
 {
@@ -52,27 +41,6 @@ color_dim(struct rgb *rgb)
     rgb->r /= 2.;
     rgb->g /= 2.;
     rgb->b /= 2.;
-}
-
-static void
-gseq_flush(struct terminal *term, struct buffer *buf)
-{
-    if (gseq.count == 0)
-        return;
-
-    assert(NULL);
-    struct rgb fg = color_hex_to_rgb(gseq.foreground);
-
-    if (gseq.attrs.dim)
-        color_dim(&fg);
-
-#if 0
-    cairo_set_scaled_font(buf->cairo, attrs_to_font(term, &gseq.attrs)->font);
-    cairo_set_source_rgb(buf->cairo, fg.r, fg.g, fg.b);
-    cairo_show_glyphs(buf->cairo, gseq.glyphs, gseq.count);
-#endif
-    gseq.g = gseq.glyphs;
-    gseq.count = 0;
 }
 
 static void
@@ -251,27 +219,6 @@ render_cell(struct terminal *term, struct buffer *buf, size_t buf_idx,
     if (cell->attrs.strikethrough)
         draw_strikeout(term, buf, buf_idx, attrs_to_font(term, &cell->attrs), fg, x, y);
 
-    /*
-     * cairo_show_glyphs() apparently works *much* faster when
-     * called once with a large array of glyphs, compared to
-     * multiple calls with a single glyph.
-     *
-     * So, collect glyphs until cell attributes change, then we
-     * 'flush' (render) the glyphs.
-     */
-
-    if (memcmp(&cell->attrs, &gseq.attrs, sizeof(cell->attrs)) != 0 ||
-        gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10 ||
-        gseq.foreground != _fg)
-    {
-        if (gseq.count >= sizeof(gseq.glyphs) / sizeof(gseq.glyphs[0]) - 10)
-            LOG_WARN("hit glyph limit");
-
-        gseq_flush(term, buf);
-        gseq.attrs = cell->attrs;
-        gseq.foreground = _fg;
-    }
-
     struct font *font = attrs_to_font(term, &cell->attrs);
     const struct glyph *glyph = font_glyph_for_utf8(font, cell->c);
     if (glyph != NULL) {
@@ -423,9 +370,6 @@ grid_render(struct terminal *term)
     struct buffer *buf = shm_get_buffer(term->wl.shm, term->width, term->height, 1 + term->render.workers.count);
     cairo_set_operator(buf->cairo[0], CAIRO_OPERATOR_SOURCE);
 
-    gseq.g = gseq.glyphs;
-    gseq.count = 0;
-
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
 
     /* Erase old cursor (if we rendered a cursor last time) */
@@ -438,9 +382,6 @@ grid_render(struct terminal *term)
             hack,
             term->render.last_cursor.in_view.col,
             term->render.last_cursor.in_view.row, false);
-
-        /* Must flush now since scroll damage will shift the entire pixmap */
-        gseq_flush(term, buf);
 
         wl_surface_damage_buffer(
             term->wl.surface,
@@ -612,8 +553,6 @@ grid_render(struct terminal *term)
             view_aligned_row * term->cell_height,
             term->cell_width, term->cell_height);
     }
-
-    gseq_flush(term, buf);
 
     if (all_clean) {
         buf->busy = false;
