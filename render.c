@@ -273,38 +273,12 @@ render_cell(struct terminal *term, struct buffer *buf, size_t buf_idx,
     }
 
     struct font *font = attrs_to_font(term, &cell->attrs);
-
-    struct glyph *glyph = NULL;
-    if (strnlen(cell->c, 4) == 1) {
-        if (font->cache[(unsigned char)cell->c[0]].surf != NULL)
-            glyph = &font->cache[(unsigned char)cell->c[0]];
-    }
-
-    struct glyph _glyph;
-    if (glyph == NULL) {
-        if (!font_glyph_for_utf8(font, cell->c, &_glyph)) {
-            LOG_ERR("FAILED: %.4s", cell->c);
-            return;
-        }
-        glyph = &_glyph;
-    }
-
-    assert(glyph != NULL);
-    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-    cairo_set_source_rgb(cr, fg.r, fg.g, fg.b);
-
-#if 0
-    cairo_surface_t *surf = cairo_image_surface_create_for_data(
-        glyph->data, glyph->format, glyph->width, glyph->height, glyph->stride);
-    cairo_mask_surface(cr, surf, x + glyph->left, y + term->fextents.ascent - glyph->top);
-    cairo_surface_destroy(surf);
-#else
-    cairo_mask_surface(cr, glyph->surf, x + glyph->left, y + term->fextents.ascent - glyph->top);
-#endif
-
-    if (glyph == &_glyph) {
-        cairo_surface_destroy(_glyph.surf);
-        free(_glyph.data);
+    const struct glyph *glyph = font_glyph_for_utf8(font, cell->c);
+    if (glyph != NULL) {
+        cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+        cairo_set_source_rgb(cr, fg.r, fg.g, fg.b);
+        cairo_mask_surface(
+            cr, glyph->surf, x + glyph->left, y + term->fextents.ascent - glyph->top);
     }
 }
 
@@ -456,9 +430,12 @@ grid_render(struct terminal *term)
 
     /* Erase old cursor (if we rendered a cursor last time) */
     if (term->render.last_cursor.cell != NULL) {
+        struct cell *hack = (struct cell *)term->render.last_cursor.cell;
+        hack->attrs.clean = 0;
         render_cell(
             term, buf, 0,
-            term->render.last_cursor.cell,
+            //term->render.last_cursor.cell,
+            hack,
             term->render.last_cursor.in_view.col,
             term->render.last_cursor.in_view.row, false);
 
@@ -622,11 +599,12 @@ grid_render(struct terminal *term)
             term->cursor.col, view_aligned_row};
 
         struct row *row = grid_row_in_view(term->grid, view_aligned_row);
+        struct cell *cell = &row->cells[term->cursor.col];
 
-        term->render.last_cursor.cell = &row->cells[term->cursor.col];
+        cell->attrs.clean = 0;
+        term->render.last_cursor.cell = cell;
         render_cell(
-            term, buf, 0, term->render.last_cursor.cell,
-            term->cursor.col, view_aligned_row, true);
+            term, buf, 0, cell, term->cursor.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
             term->wl.surface,

@@ -291,8 +291,8 @@ main(int argc, char *const *argv)
             break;
 
         case 'f':
-            free(conf.font);
-            conf.font = strdup(optarg);
+            tll_free_and_free(conf.fonts, free);
+            tll_push_back(conf.fonts, strdup(optarg));
             break;
 
         case 'h':
@@ -431,20 +431,20 @@ main(int argc, char *const *argv)
         thrd_create(&term.render.workers.threads[i], &render_worker_thread, &worker_context[i]);
     }
 
-    if (!font_from_name(conf.font, &term.fonts[0]))
+    font_list_t font_names = tll_init();
+    tll_foreach(conf.fonts, it)
+        tll_push_back(font_names, it->item);
+
+    if (!font_from_name(font_names, "", &term.fonts[0])) {
+        tll_free(font_names);
         goto out;
-
-    {
-        char fname[1024];
-        snprintf(fname, sizeof(fname), "%s:style=bold", conf.font);
-        font_from_name(fname, &term.fonts[1]);
-
-        snprintf(fname, sizeof(fname), "%s:style=italic", conf.font);
-        font_from_name(fname, &term.fonts[2]);
-
-        snprintf(fname, sizeof(fname), "%s:style=bold italic", conf.font);
-        font_from_name(fname, &term.fonts[3]);
     }
+
+    font_from_name(font_names, "style=bold", &term.fonts[1]);
+    font_from_name(font_names, "style=italic", &term.fonts[2]);
+    font_from_name(font_names, "style=bold italic", &term.fonts[3]);
+
+    tll_free(font_names);
 
     /* Underline position and size */
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {

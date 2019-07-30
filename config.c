@@ -147,8 +147,12 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "font") == 0) {
-        free(conf->font);
-        conf->font = strdup(value);
+        //free(conf->font);
+        //conf->font = strdup(value);
+        char *copy = strdup(value);
+        for (const char *font = strtok(copy, ","); font != NULL; font = strtok(NULL, ","))
+            tll_push_back(conf->fonts, strdup(font));
+        free(copy);
     }
 
     else if (strcmp(key, "workers") == 0) {
@@ -404,7 +408,7 @@ config_load(struct config *conf)
     *conf = (struct config) {
         .term = strdup("foot"),
         .shell = get_shell(),
-        .font = strdup("monospace"),
+        .fonts = tll_init(),
 
         .colors = {
             .fg = default_foreground,
@@ -462,6 +466,7 @@ config_load(struct config *conf)
     fclose(f);
 
 out:
+    tll_push_back(conf->fonts, strdup("monospace"));
     free(path);
     return ret;
 }
@@ -471,5 +476,6 @@ config_free(struct config conf)
 {
     free(conf.term);
     free(conf.shell);
-    free(conf.font);
+    //free(conf.font);
+    tll_free_and_free(conf.fonts, free);
 }

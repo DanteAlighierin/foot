@@ -4,11 +4,12 @@
 #include <stdbool.h>
 
 #include "terminal.h"
+#include "tllist.h"
 
 struct config {
     char *term;
     char *shell;
-    char *font;
+    tll(char *) fonts;
 
     struct {
         uint32_t fg;

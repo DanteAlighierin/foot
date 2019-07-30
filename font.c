@@ -1,33 +1,42 @@
 #include "font.h"
 
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdbool.h>
 #include <wchar.h>
 #include <assert.h>
+#include <threads.h>
 
 #include <fontconfig/fontconfig.h>
 
 #define LOG_MODULE "font"
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
 static FT_Library ft_lib;
+static mtx_t ft_lock;
+
+static const size_t cache_size = 512;
 
 static void __attribute__((constructor))
 init(void)
 {
     FcInit();
     FT_Init_FreeType(&ft_lib);
+    mtx_init(&ft_lock, mtx_plain);
 }
 
 static void __attribute__((destructor))
 fini(void)
 {
-    FcFini();
+    mtx_destroy(&ft_lock);
     FT_Done_FreeType(ft_lib);
+    FcFini();
 }
 
+#if 0
 static void
 font_populate_glyph_cache(struct font *font)
 {
@@ -35,11 +44,24 @@ font_populate_glyph_cache(struct font *font)
     for (size_t i = 0; i < 256; i++)
         font_glyph_for_utf8(font, &(char){i}, &font->cache[i]);
 }
+#endif
 
-bool
-font_from_name(const char *name, struct font *font)
+static bool
+from_name(const char *base_name, const font_list_t *fallbacks, const char *attributes, struct font *font, bool is_fallback)
 {
     memset(font, 0, sizeof(*font));
+
+    size_t attr_len = attributes == NULL ? 0 : strlen(attributes);
+    bool have_attrs = attr_len > 0;
+
+    char name[strlen(base_name) + (have_attrs ? 1 : 0) + attr_len + 1];
+    strcpy(name, base_name);
+    if (have_attrs){
+        strcat(name, ":");
+        strcat(name, attributes);
+    }
+
+    LOG_DBG("instantiating %s", name);
 
     FcPattern *pattern = FcNameParse((const unsigned char *)name);
     if (pattern == NULL) {
@@ -86,8 +108,10 @@ font_from_name(const char *name, struct font *font)
 
     LOG_DBG("loading: %s", face_file);
 
+    mtx_lock(&ft_lock);
     FT_Face ft_face;
     FT_Error ft_err = FT_New_Face(ft_lib, (const char *)face_file, 0, &ft_face);
+    mtx_unlock(&ft_lock);
     if (ft_err != 0)
         LOG_ERR("%s: failed to create FreeType face", face_file);
 
@@ -122,11 +146,13 @@ font_from_name(const char *name, struct font *font)
         else if (fc_hinting && fc_hintstyle == FC_HINT_SLIGHT)
             load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT;
         else if (fc_rgba == FC_RGBA_RGB) {
-            LOG_WARN("unimplemented: subpixel antialiasing");
+            if (!is_fallback)
+                LOG_WARN("unimplemented: subpixel antialiasing");
             // load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD;
             load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL;
         } else if (fc_rgba == FC_RGBA_VRGB) {
-            LOG_WARN("unimplemented: subpixel antialiasing");
+            if (!is_fallback)
+                LOG_WARN("unimplemented: subpixel antialiasing");
             //load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD_V;
             load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL;
         } else
@@ -144,15 +170,17 @@ font_from_name(const char *name, struct font *font)
     if (!fc_antialias)
         render_flags |= FT_RENDER_MODE_MONO;
     else {
-        if (false)
-            ;
-#if 0
-        if (fc_rgba == FC_RGBA_RGB)
-            render_flags |= FT_RENDER_MODE_LCD;
-        else if (fc_rgba == FC_RGBA_VRGB)
-            render_flags |= FT_RENDER_MODE_LCD_V;
-#endif
-        else
+        if (fc_rgba == FC_RGBA_RGB) {
+            if (!is_fallback)
+                LOG_WARN("unimplemented: subpixel antialiasing");
+            //render_flags |= FT_RENDER_MODE_LCD;
+            render_flags |= FT_RENDER_MODE_NORMAL;
+        } else if (fc_rgba == FC_RGBA_VRGB) {
+            if (!is_fallback)
+                LOG_WARN("unimplemented: subpixel antialiasing");
+            //render_flags |= FT_RENDER_MODE_LCD_V;
+            render_flags |= FT_RENDER_MODE_NORMAL;
+        } else
             render_flags |= FT_RENDER_MODE_NORMAL;
     }
 
@@ -173,25 +201,64 @@ font_from_name(const char *name, struct font *font)
     font->face = ft_face;
     font->load_flags = load_flags;
     font->render_flags = render_flags;
-    font_populate_glyph_cache(font);
+    font->is_fallback = is_fallback;
+
+    if (fallbacks != NULL) {
+        tll_foreach(*fallbacks, it) {
+            size_t len = strlen(it->item) + (have_attrs ? 1 : 0) + attr_len + 1;
+            char *fallback = malloc(len);
+
+            strcpy(fallback, it->item);
+            if (have_attrs) {
+                strcat(fallback, ":");
+                strcat(fallback, attributes);
+            }
+
+            LOG_DBG("%s: adding fallback: %s", name, fallback);
+            tll_push_back(font->fallbacks, fallback);
+        }
+    }
+
+    if (is_fallback)
+        return true;
+
+    //font_populate_glyph_cache(font);
+    font->cache = calloc(cache_size, sizeof(font->cache[0]));
     return true;
 }
 
 bool
-font_glyph_for_utf8(struct font *font, const char *utf8,
-                    struct glyph *glyph)
+font_from_name(font_list_t names, const char *attributes, struct font *font)
 {
-    mbstate_t ps = {0};
-    wchar_t wc;
-    if (mbrtowc(&wc, utf8, 4, &ps) < 0) {
-        LOG_ERR("FAILED: %.4s", utf8);
+    if (tll_length(names) == 0)
         return false;
+        
+    font_list_t fallbacks = tll_init();
+    bool skip_first = true;
+    tll_foreach(names, it) {
+        if (skip_first) {
+            skip_first = false;
+            continue;
+        }
+
+        tll_push_back(fallbacks, it->item);
     }
 
-    wprintf(L"CONVERTED: %.1s\n", &wc);
+    bool ret = from_name(tll_front(names), &fallbacks, attributes, font, false);
 
-    mtx_lock(&font->lock);
+    tll_free(fallbacks);
+    return ret;
+}
 
+static size_t
+hash_index(wchar_t wc)
+{
+    return wc % cache_size;
+}
+
+static bool
+glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
+{
     /*
      * LCD filter is per library instance. Thus we need to re-set it
      * every time...
@@ -204,6 +271,28 @@ font_glyph_for_utf8(struct font *font, const char *utf8,
         goto err;
 
     FT_UInt idx = FT_Get_Char_Index(font->face, wc);
+    if (idx == 0) {
+        /* LOG_DBG("no glyph found for %02x %02x %02x %02x", */
+        /*         (unsigned char)utf8[0], (unsigned char)utf8[1], */
+        /*         (unsigned char)utf8[2], (unsigned char)utf8[3]); */
+
+        /* Try fallback fonts */
+        tll_foreach(font->fallbacks, it) {
+            struct font fallback;
+            if (from_name(it->item, NULL, "", &fallback, true)) {
+                if (glyph_for_wchar(&fallback, wc, glyph)) {
+                    font_destroy(&fallback);
+                    return true;
+                }
+
+                font_destroy(&fallback);
+            }
+        }
+
+        if (font->is_fallback)
+            return false;
+    }
+
     err = FT_Load_Glyph(font->face, idx, font->load_flags);
     if (err != 0) {
         LOG_ERR("load failed");
@@ -267,36 +356,102 @@ font_glyph_for_utf8(struct font *font, const char *utf8,
     }
 
     *glyph = (struct glyph){
+        .wc = wc,
         .data = data,
         .surf = surf,
         .left = font->face->glyph->bitmap_left,
         .top = font->face->glyph->bitmap_top,
-
-        .format = cr_format,
-        .width = bitmap->width,
-        .height = bitmap->rows,
-        .stride = stride,
     };
-    mtx_unlock(&font->lock);
+
     return true;
 
 err:
-    mtx_unlock(&font->lock);
     return false;
+}
+
+const struct glyph *
+font_glyph_for_utf8(struct font *font, const char *utf8)
+{
+    mtx_lock(&font->lock);
+
+    mbstate_t ps = {0};
+    wchar_t wc;
+    if (mbrtowc(&wc, utf8, 4, &ps) < 0) {
+        LOG_DBG("failed to convert utf-8 sequence %02x %02x %02x %02x to unicode",
+                (unsigned char)utf8[0], (unsigned char)utf8[1],
+                (unsigned char)utf8[2], (unsigned char)utf8[3]);
+        mtx_unlock(&font->lock);
+        return NULL;
+    }
+
+    assert(font->cache != NULL);
+    size_t hash_idx = hash_index(wc);
+    hash_entry_t *hash_entry = font->cache[hash_idx];
+
+    if (hash_entry != NULL) {
+        tll_foreach(*hash_entry, it) {
+            if (it->item.wc == wc) {
+                mtx_unlock(&font->lock);
+                return &it->item;
+            }
+        }
+    }
+
+    struct glyph glyph;
+    if (!glyph_for_wchar(font, wc, &glyph)) {
+        mtx_unlock(&font->lock);
+        return NULL;
+    }
+
+    if (hash_entry == NULL) {
+        hash_entry = calloc(1, sizeof(*hash_entry));
+
+        assert(font->cache[hash_idx] == NULL);
+        font->cache[hash_idx] = hash_entry;
+    }
+    
+    assert(hash_entry != NULL);
+    tll_push_back(*hash_entry, glyph);
+
+    mtx_unlock(&font->lock);
+    return &tll_back(*hash_entry);
 }
 
 void
 font_destroy(struct font *font)
 {
-    if (font->face != NULL)
-        FT_Done_Face(font->face);
+    tll_free_and_free(font->fallbacks, free);
 
+    if (font->face != NULL) {
+        mtx_lock(&ft_lock);
+        FT_Done_Face(font->face);
+        mtx_unlock(&ft_lock);
+    }
+
+    if (font->cache != NULL) {
+        for (size_t i = 0; i < cache_size; i++) {
+            if (font->cache[i] == NULL)
+                continue;
+
+            tll_foreach(*font->cache[i], it) {
+                cairo_surface_destroy(it->item.surf);
+                free(it->item.data);
+            }
+
+            tll_free(*font->cache[i]);
+            free(font->cache[i]);
+        }
+        free(font->cache);
+    }
+
+#if 0
     for (size_t i = 0; i < 256; i++) {
         if (font->cache[i].surf != NULL)
             cairo_surface_destroy(font->cache[i].surf);
         if (font->cache[i].data != NULL)
             free(font->cache[i].data);
     }
-
+#endif
+    
     mtx_destroy(&font->lock);
 }

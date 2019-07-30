@@ -7,17 +7,13 @@
 #include <threads.h>
 #include <semaphore.h>
 
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include FT_LCD_FILTER_H
-
 #include <cairo.h>
 #include <wayland-client.h>
 #include <primary-selection-unstable-v1.h>
 #include <xkbcommon/xkbcommon.h>
 #include <xkbcommon/xkbcommon-keysyms.h>
 
-
+#include "font.h"
 #include "tllist.h"
 
 #define likely(c) __builtin_expect(!!(c), 1)
@@ -209,36 +205,6 @@ struct primary {
     struct zwp_primary_selection_offer_v1 *data_offer;
     char *text;
     uint32_t serial;
-};
-
-struct glyph {
-    void *data;
-    cairo_surface_t *surf;
-    int left;
-    int top;
-
-    int format;
-    int width;
-    int height;
-    int stride;
-};
-
-struct font {
-    FT_Face face;
-    int load_flags;
-    int render_flags;
-    FT_LcdFilter lcd_filter;
-    struct {
-        double position;
-        double thickness;
-    } underline;
-    struct {
-        double position;
-        double thickness;
-    } strikeout;
-
-    struct glyph cache[256];
-    mtx_t lock;
 };
 
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
