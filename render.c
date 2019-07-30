@@ -292,13 +292,6 @@ render_row(struct terminal *term, struct buffer *buf, size_t buf_idx, struct row
 {
     for (int col = 0; col < term->cols; col++)
         render_cell(term, buf, buf_idx, &row->cells[col], col, row_no, false);
-
-#if 0
-    wl_surface_damage_buffer(
-        term->wl.surface,
-        0, row_no * term->cell_height,
-        term->width, term->cell_height);
-#endif
 }
 
 int
@@ -623,14 +616,6 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
         memcpy(new_cells, old_cells, copy_cols * sizeof(new_cells[0]));
         memset(&new_cells[copy_cols], 0, clear_cols * sizeof(new_cells[0]));
     }
-
-#if 0
-    for (int r = min(new_rows, old_rows); r < new_rows; r++) {
-        new_grid[r]->initialized = false;
-        new_grid[r]->dirty = false;
-        memset(new_grid[r]->cells, 0, new_cols * sizeof(new_grid[r]->cells[0]));
-    }
-#endif
 }
 
 /* Move to terminal.c? */
