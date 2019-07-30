@@ -1,6 +1,7 @@
 # term=foot
 # shell=/usr/bin/zsh
 # font=monospace
+# workers=<number of logical CPUs>
 
 [cursor]
 # style=block
