@@ -213,6 +213,24 @@ selection_cancel(struct terminal *term)
     }
 }
 
+static bool
+isword(int c)
+{
+    switch (c) {
+    default: return !isspace(c);
+
+    case '{': case '}':
+    case '[': case ']':
+    case '(': case ')':
+    case '`':
+    case '\'':
+    case '"':
+    case ',': case '.':
+    case ':': case ';':
+        return false;
+    }
+}
+
 void
 selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
 {
@@ -227,7 +245,7 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
     const struct row *r = grid_row_in_view(term->grid, start.row);
     unsigned char c = r->cells[start.col].c[0];
 
-    if (!(c == '\0' || isspace(c))) {
+    if (!(c == '\0' || !isword(c))) {
         while (true) {
             int next_col = start.col - 1;
             int next_row = start.row;
@@ -242,7 +260,7 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
             const struct row *row = grid_row_in_view(term->grid, next_row);
 
             unsigned char c = row->cells[next_col].c[0];
-            if (c == '\0' || isspace(c))
+            if (c == '\0' || !isword(c))
                 break;
 
             start.col = next_col;
@@ -253,7 +271,7 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
     r = grid_row_in_view(term->grid, end.row);
     c = r->cells[end.col].c[0];
 
-    if (!(c == '\0' || isspace(c))) {
+    if (!(c == '\0' || !isword(c))) {
         while (true) {
             int next_col = end.col + 1;
             int next_row = end.row;
@@ -268,7 +286,7 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
             const struct row *row = grid_row_in_view(term->grid, next_row);
 
             unsigned char c = row->cells[next_col].c[0];
-            if (c == '\0' || isspace(c))
+            if (c == '\0' || !isword(c))
                 break;
 
             end.col = next_col;
