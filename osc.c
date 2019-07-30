@@ -202,8 +202,7 @@ static void
 osc_flash(struct terminal *term)
 {
     /* Our own private - flash */
-    unsigned duration_ms = vt_param_get(term, 1, 100);
-    term_flash(term, duration_ms);
+    term_flash(term, 50);
 }
 
 void
