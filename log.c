@@ -63,8 +63,10 @@ _log(enum log_class log_class, const char *module, const char *file, int lineno,
 }
 
 static void
-_sys_log(enum log_class log_class, const char *module, const char *file,
-         int lineno, const char *fmt, int sys_errno, va_list va)
+_sys_log(enum log_class log_class, const char *module,
+         const char *file __attribute__((unused)),
+         int lineno __attribute__((unused)),
+         const char *fmt, int sys_errno, va_list va)
 {
     /* Map our log level to syslog's level */
     int level = -1;
