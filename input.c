@@ -206,16 +206,16 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     }
 
     if (!found_map) {
-        char buf[64] = {0};
+        uint8_t buf[64] = {0};
         int count = 0;
 
         if (compose_status == XKB_COMPOSE_COMPOSED) {
             count = xkb_compose_state_get_utf8(
-                term->kbd.xkb_compose_state, buf, sizeof(buf));
+                term->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
             xkb_compose_state_reset(term->kbd.xkb_compose_state);
         } else {
             count = xkb_state_key_get_utf8(
-                term->kbd.xkb_state, key, buf, sizeof(buf));
+                term->kbd.xkb_state, key, (char *)buf, sizeof(buf));
         }
 
         if (count > 0) {
