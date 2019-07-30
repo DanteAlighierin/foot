@@ -463,7 +463,6 @@ static const struct state_transition state_dcs_ignore[256] = {
     [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
     [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
     [0x9b]          = {                          .state = STATE_CSI_ENTRY},
-    [0x9c]          = {                          .state = STATE_GROUND},
     [0x9d]          = {                          .state = STATE_OSC_STRING},
     [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
@@ -486,7 +485,6 @@ static const struct state_transition state_dcs_passthrough[256] = {
     [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
     [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
     [0x9b]          = {                          .state = STATE_CSI_ENTRY},
-    [0x9c]          = {                          .state = STATE_GROUND},
     [0x9d]          = {                          .state = STATE_OSC_STRING},
     [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
@@ -508,7 +506,6 @@ static const struct state_transition state_sos_pm_apc_string[256] = {
     [0x99]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
     [0x9a]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
     [0x9b]          = {                          .state = STATE_CSI_ENTRY},
-    [0x9c]          = {                          .state = STATE_GROUND},
     [0x9d]          = {                          .state = STATE_OSC_STRING},
     [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
