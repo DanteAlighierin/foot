@@ -44,14 +44,12 @@ color_dim(struct rgb *rgb)
 }
 
 static void
-draw_underline(const struct terminal *term, struct buffer *buf, size_t buf_idx,
-               const struct font *font, struct rgb color, double x, double y)
+draw_underline(const struct terminal *term, cairo_t *cr, const struct font *font,
+               struct rgb color, double x, double y)
 {
-    //const struct font *font = attrs_to_font(term, &cell->attrs);
     double baseline = y + term->fextents.height - term->fextents.descent;
     double width = font->underline.thickness;
     double y_under = baseline - font->underline.position - width / 2.;
-    cairo_t *cr = buf->cairo[buf_idx];
 
     cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
     cairo_set_source_rgb(cr, color.r, color.g, color.b);
@@ -62,11 +60,9 @@ draw_underline(const struct terminal *term, struct buffer *buf, size_t buf_idx,
 }
 
 static void
-draw_bar(const struct terminal *term, struct buffer *buf, size_t buf_idx,
-         struct rgb color, double x, double y)
+draw_bar(const struct terminal *term, cairo_t *cr, struct rgb color,
+         double x, double y)
 {
-    cairo_t *cr = buf->cairo[buf_idx];
-
     cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
     cairo_set_source_rgb(cr, color.r, color.g, color.b);
     cairo_set_line_width(cr, 1.0);
@@ -76,13 +72,12 @@ draw_bar(const struct terminal *term, struct buffer *buf, size_t buf_idx,
 }
 
 static void
-draw_strikeout(const struct terminal *term, struct buffer *buf, size_t buf_idx,
-               const struct font *font, struct rgb color, double x, double y)
+draw_strikeout(const struct terminal *term, cairo_t *cr, const struct font *font,
+               struct rgb color, double x, double y)
 {
     double baseline = y + term->fextents.height - term->fextents.descent;
     double width = font->strikeout.thickness;
     double y_strike = baseline - font->strikeout.position - width / 2.;
-    cairo_t *cr = buf->cairo[buf_idx];
 
     cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
     cairo_set_source_rgb(cr, color.r, color.g, color.b);
@@ -141,7 +136,7 @@ arm_blink_timer(struct terminal *term)
 }
 
 static void
-render_cell(struct terminal *term, struct buffer *buf, size_t buf_idx,
+render_cell(struct terminal *term, cairo_t *cr,
             struct cell *cell, int col, int row, bool has_cursor)
 {
     if (cell->attrs.clean)
@@ -149,7 +144,6 @@ render_cell(struct terminal *term, struct buffer *buf, size_t buf_idx,
 
     cell->attrs.clean = 1;
 
-    cairo_t *cr = buf->cairo[buf_idx];
     double width = term->cell_width;
     double height = term->cell_height;
     double x = col * width;
@@ -198,10 +192,10 @@ render_cell(struct terminal *term, struct buffer *buf, size_t buf_idx,
     if (has_cursor) {
         struct rgb cursor_color = color_hex_to_rgb(term->cursor_color.cursor);
         if (term->cursor_style == CURSOR_BAR)
-            draw_bar(term, buf, buf_idx, cursor_color, x, y);
+            draw_bar(term, cr, cursor_color, x, y);
         else if (term->cursor_style == CURSOR_UNDERLINE)
             draw_underline(
-                term, buf, buf_idx, attrs_to_font(term, &cell->attrs), cursor_color, x, y);
+                term, cr, attrs_to_font(term, &cell->attrs), cursor_color, x, y);
     }
 
     if (cell->attrs.blink && !term->blink.active) {
@@ -214,10 +208,10 @@ render_cell(struct terminal *term, struct buffer *buf, size_t buf_idx,
 
     /* Underline */
     if (cell->attrs.underline)
-        draw_underline(term, buf, buf_idx, attrs_to_font(term, &cell->attrs), fg, x, y);
+        draw_underline(term, cr, attrs_to_font(term, &cell->attrs), fg, x, y);
 
     if (cell->attrs.strikethrough)
-        draw_strikeout(term, buf, buf_idx, attrs_to_font(term, &cell->attrs), fg, x, y);
+        draw_strikeout(term, cr, attrs_to_font(term, &cell->attrs), fg, x, y);
 
     struct font *font = attrs_to_font(term, &cell->attrs);
     const struct glyph *glyph = font_glyph_for_utf8(font, cell->c);
@@ -288,10 +282,10 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
 }
 
 static void
-render_row(struct terminal *term, struct buffer *buf, size_t buf_idx, struct row *row, int row_no)
+render_row(struct terminal *term, cairo_t *cr, struct row *row, int row_no)
 {
     for (int col = 0; col < term->cols; col++)
-        render_cell(term, buf, buf_idx, &row->cells[col], col, row_no, false);
+        render_cell(term, cr, &row->cells[col], col, row_no, false);
 }
 
 int
@@ -323,7 +317,7 @@ render_worker_thread(void *_ctx)
             switch (row_no) {
             default:
                 assert(buf != NULL);
-                render_row(term, buf, my_id, grid_row_in_view(term->grid, row_no), row_no);
+                render_row(term, buf->cairo[my_id], grid_row_in_view(term->grid, row_no), row_no);
                 break;
 
             case -1:
@@ -361,7 +355,8 @@ grid_render(struct terminal *term)
     assert(term->height > 0);
 
     struct buffer *buf = shm_get_buffer(term->wl.shm, term->width, term->height, 1 + term->render.workers.count);
-    cairo_set_operator(buf->cairo[0], CAIRO_OPERATOR_SOURCE);
+    cairo_t *cr = buf->cairo[0];
+    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
 
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
 
@@ -372,7 +367,7 @@ grid_render(struct terminal *term)
 
         if (cell->attrs.clean) {
             cell->attrs.clean = 0;
-            render_cell(term, buf, 0, cell, at.col, at.row, false);
+            render_cell(term, cr, cell, at.col, at.row, false);
 
             wl_surface_damage_buffer(
                 term->wl.surface,
@@ -536,7 +531,7 @@ grid_render(struct terminal *term)
         cell->attrs.clean = 0;
         term->render.last_cursor.cell = cell;
         render_cell(
-            term, buf, 0, cell, term->cursor.col, view_aligned_row, true);
+            term, cr, cell, term->cursor.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
             term->wl.surface,
