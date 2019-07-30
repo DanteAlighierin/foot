@@ -12,6 +12,8 @@
 #include "grid.h"
 #include "osc.h"
 
+#define UNHANDLED() LOG_ERR("unhandled: %s", esc_as_string(term, final))
+
 /* https://vt100.net/emu/dec_ansi_parser */
 
 enum state {
@@ -613,8 +615,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
         case '+': term->charset[3] = CHARSET_ASCII; break;
 
         default:
-            LOG_ERR("%s: invalid charset identifier", esc_as_string(term, final));
-            abort();
+            UNHANDLED();
             break;
         }
         break;
@@ -658,8 +659,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
         case '+': term->charset[3] = CHARSET_GRAPHIC; break;
 
         default:
-            LOG_ERR("%s: invalid charset identifier", esc_as_string(term, final));
-            abort();
+            UNHANDLED();
             break;
         }
         break;
@@ -674,8 +674,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
         break;
 
     default:
-        LOG_ERR("unimplemented: ESC: %s", esc_as_string(term, final));
-        abort();
+        UNHANDLED();
         break;
     }
 }
@@ -888,10 +887,8 @@ action(struct terminal *term, enum action _action, uint8_t c)
             term->vt.private[0] = c;
         else if (term->vt.private[1] == 0)
             term->vt.private[1] = c;
-        else {
+        else
             LOG_ERR("only two private/intermediate characters supported");
-            abort();
-        }
         break;
 
     case ACTION_ESC_DISPATCH:

@@ -14,6 +14,8 @@
 #include "terminal.h"
 #include "vt.h"
 
+#define UNHANDLED() LOG_ERR("unhandled: OSC: %.*s", (int)term->vt.osc.idx, term->vt.osc.data)
+
 static void
 osc_query(struct terminal *term, unsigned param)
 {
@@ -39,9 +41,7 @@ osc_query(struct terminal *term, unsigned param)
     }
 
     default:
-        LOG_ERR("unimplemented: OSC query: %.*s",
-                (int)term->vt.osc.idx, term->vt.osc.data);
-        abort();
+        UNHANDLED();
         break;
     }
 }
@@ -55,8 +55,6 @@ osc_to_clipboard(struct terminal *term, const char *target,
 
     if (decoded == NULL) {
         LOG_WARN("OSC: invalid clipboard data: %s", base64_data);
-        /* TODO: clear selection */
-        abort();
         return;
     }
 
@@ -235,14 +233,14 @@ osc_dispatch(struct terminal *term)
         }
 
         if (!isdigit(c)) {
-            LOG_ERR("OSC: invalid parameter: %.*s",
-                    (int)term->vt.osc.idx, term->vt.osc.data);
-            abort();
+            UNHANDLED();
+            return;
         }
 
         param *= 10;
         param += c - '0';
     }
+
     LOG_DBG("OCS: %.*s (param = %d)",
             (int)term->vt.osc.idx, term->vt.osc.data, param);
 
@@ -260,7 +258,7 @@ osc_dispatch(struct terminal *term)
 
     case 30:  /* Set tab title */
         break;
-        
+
     case 52:  /* Copy to/from clipboard/primary */
         osc_selection(term, string);
         break;
@@ -275,9 +273,7 @@ osc_dispatch(struct terminal *term)
         break;
 
     default:
-        LOG_ERR("unimplemented: OSC: %.*s",
-                (int)term->vt.osc.idx, term->vt.osc.data);
-        abort();
+        UNHANDLED();
         break;
     }
 }

@@ -20,6 +20,9 @@
 
 static uint32_t colors256[256];
 
+#define UNHANDLED()     LOG_ERR("unhandled: %s", csi_as_string(term, final))
+#define UNHANDLED_SGR() LOG_ERR("unhandled: %s", csi_as_string(term, 'm'))
+
 static void __attribute__((constructor))
 initialize_colors256(void)
 {
@@ -169,16 +172,13 @@ csi_sgr(struct terminal *term)
                     /* 7 - color space associated with tolerance */
 
                     term->vt.attrs.foreground = 1 << 30 | r << 16 | g << 8 | b;
-                } else {
-                    LOG_ERR("invalid CSI SGR sequence");
-                    abort();
-                }
+                } else
+                    UNHANDLED_SGR();
             }
 
-            else {
-                LOG_ERR("invalid CSI SGR sequence");
-                abort();
-            }
+            else
+                UNHANDLED_SGR();
+
             break;
         }
 
@@ -239,17 +239,13 @@ csi_sgr(struct terminal *term)
                     /* 7 - color space associated with tolerance */
 
                     term->vt.attrs.background = 1 << 30 | r << 16 | g << 8 | b;
-                } else {
-                    LOG_ERR("invalid CSI SGR sequence");
-                    abort();
-                }
+                } else
+                    UNHANDLED_SGR();
             }
 
-            else {
-                LOG_ERR("invalid CSI SGR sequence");
-                abort();
-                break;
-            }
+            else
+                UNHANDLED_SGR();
+
             break;
         }
         case 49:
@@ -281,8 +277,7 @@ csi_sgr(struct terminal *term)
             break;
 
         default:
-            LOG_ERR("unimplemented: CSI: SGR: %u", term->vt.params.v[i].value);
-            abort();
+            UNHANDLED_SGR();
             break;
         }
     }
@@ -392,9 +387,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             }
 
             default:
-                LOG_ERR("%s: invalid argument: %d",
-                        csi_as_string(term, final), param);
-                abort();
+                UNHANDLED();
                 break;
             }
             break;
@@ -428,9 +421,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
 
             default:
-                LOG_ERR("%s: invalid argument: %d",
-                        csi_as_string(term, final), param);
-                abort();
+                UNHANDLED();
                 break;
             }
 
@@ -644,21 +635,17 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 }
 
                 default:
-                    LOG_ERR("unimplemented: %s, parameter = %d",
-                            csi_as_string(term, final), param);
-                    abort();
+                    UNHANDLED();
                     break;
                 }
-            } else {
-                LOG_ERR("%s: missing parameter", csi_as_string(term, final));
-                abort();
-            }
+            } else
+                UNHANDLED();
+
             break;
         }
 
         default:
-            LOG_ERR("unimplemented: %s", csi_as_string(term, final));
-            abort();
+            UNHANDLED();
             break;
         }
 
@@ -747,10 +734,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_ERR("%s: unimplemented param: %d",
-                            csi_as_string(term, final),
-                            term->vt.params.v[i].value);
-                    abort();
+                    UNHANDLED();
                     break;
                 }
             }
@@ -831,10 +815,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_ERR("%s: unimplemented param: %d",
-                            csi_as_string(term, final),
-                            term->vt.params.v[i].value);
-                    abort();
+                    UNHANDLED();
                     break;
                 }
             }
@@ -843,8 +824,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'p': {
             if (term->vt.private[1] != '$') {
-                LOG_ERR("unimplemented: %s", csi_as_string(term, final));
-                abort();
+                UNHANDLED();
+                break;
             }
 
             unsigned param = vt_param_get(term, 0, 0);
@@ -874,8 +855,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_ERR("unimplemented: %s", csi_as_string(term, final));
-                    abort();
+                    UNHANDLED();
                     break;
                 }
             }
@@ -891,15 +871,15 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_ERR("unimplemented: CSI %s", csi_as_string(term, final));
-                    abort();
+                    UNHANDLED();
+                    break;
                 }
             }
             break;
 
         default:
-            LOG_ERR("unimplemented: %s", csi_as_string(term, final));
-            abort();
+            UNHANDLED();
+            break;
         }
 
         break; /* private == '?' */
@@ -910,10 +890,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             case 'c': {
                 int param = vt_param_get(term, 0, 0);
                 if (param != 0) {
-                    LOG_ERR(
-                        "unimplemented: send device attributes with param = %d",
-                        param);
-                    abort();
+                    UNHANDLED();
                     break;
                 }
 
@@ -945,8 +922,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break; /* final == 'm' */
 
         default:
-            LOG_ERR("unimplemented: %s", csi_as_string(term, final));
-            abort();
+            UNHANDLED();
             break;
         }
 
@@ -984,8 +960,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         default:
-            LOG_ERR("unimplemented: %s", csi_as_string(term, final));
-            abort();
+            UNHANDLED();
             break;
         }
         break; /* private == ' ' */
@@ -998,16 +973,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
 
         default:
-            LOG_ERR("unimplemented: %s", csi_as_string(term, final));
-            abort();
+            UNHANDLED();
             break;
         }
         break; /* private == '!' */
     }
 
     default:
-        LOG_ERR("unimplemented: %s", csi_as_string(term, final));
-        abort();
+        UNHANDLED();
         break;
     }
 }
