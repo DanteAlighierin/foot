@@ -277,8 +277,6 @@ main(int argc, char *const *argv)
         {NULL,   no_argument,       0,   0},
     };
 
-    //const char *font_name = "monospace";
-
     while (true) {
         int c = getopt_long(argc, argv, ":t:f:h", longopts, NULL);
         if (c == -1)
@@ -500,7 +498,7 @@ main(int argc, char *const *argv)
         term.fextents.ascent = ascent;
         term.fextents.max_x_advance = max_x_advance;
 
-        LOG_WARN("metrics: height: %d, descent: %d, ascent: %d, x-advance: %d",
+        LOG_DBG("metrics: height: %d, descent: %d, ascent: %d, x-advance: %d",
                 height, descent, ascent, max_x_advance);
     }
 
