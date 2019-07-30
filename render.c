@@ -498,7 +498,7 @@ grid_render(struct terminal *term)
 
             if (timerfd_settime(
                     term->blink.fd, 0,
-                    &(struct itimerspec){0}, NULL)  < 0)
+                    &(struct itimerspec){{0}}, NULL)  < 0)
             {
                 LOG_ERRNO("failed to disarm blink timer");
             }
