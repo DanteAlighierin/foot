@@ -725,12 +725,13 @@ render_update_cursor_surface(struct terminal *term)
     if (term->wl.pointer.cursor == NULL)
         return;
 
-    //const int scale = backend->monitor->scale;
     const int scale = 1;
+#if 0
+    //const int scale = backend->monitor->scale;
+    wl_surface_set_buffer_scale(term->wl.pointer.surface, scale);
+#endif
 
     struct wl_cursor_image *image = term->wl.pointer.cursor->images[0];
-
-    wl_surface_set_buffer_scale(term->wl.pointer.surface, scale);
 
     wl_surface_attach(
         term->wl.pointer.surface, wl_cursor_image_get_buffer(image), 0, 0);
