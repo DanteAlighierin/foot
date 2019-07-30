@@ -332,7 +332,7 @@ struct terminal {
         struct {
             struct coord actual;     /* Absolute */
             struct coord in_view;    /* Offset by view */
-            const struct cell *cell; /* For easy access to content */
+            struct cell *cell; /* For easy access to content */
         } last_cursor;
 
         struct buffer *last_buf;     /* Buffer we rendered to last time */
