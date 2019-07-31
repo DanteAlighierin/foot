@@ -15,18 +15,13 @@ typedef tll(const char *) font_list_t;
 
 struct glyph {
     wchar_t wc;
+    int width;
 
-    void *data;
     cairo_surface_t *surf;
     int left;
     int top;
 
-#if 0
-    int format;
-    int width;
-    int height;
-    int stride;
-#endif
+    double pixel_size_fixup;
 };
 
 typedef tll(struct glyph) hash_entry_t;
@@ -36,10 +31,13 @@ struct font {
     int load_flags;
     int render_flags;
     FT_LcdFilter lcd_filter;
+    double pixel_size_fixup; /* Scale factor - should only be used with ARGB32 glyphs */
+
     struct {
         double position;
         double thickness;
     } underline;
+
     struct {
         double position;
         double thickness;
@@ -48,7 +46,6 @@ struct font {
     bool is_fallback;
     tll(char *) fallbacks;
 
-    //struct glyph cache[256];
     hash_entry_t **cache;
     mtx_t lock;
 };

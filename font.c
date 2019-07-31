@@ -106,6 +106,14 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
         return false;
     }
 
+    FcBool scalable;
+    if (FcPatternGetBool(final_pattern, FC_SCALABLE, 0, &scalable) != FcResultMatch)
+        scalable = FcTrue;
+
+    double pixel_fixup;
+    if (FcPatternGetDouble(final_pattern, "pixelsizefixupfactor", 0, &pixel_fixup) != FcResultMatch)
+        pixel_fixup = 1.;
+
     LOG_DBG("loading: %s", face_file);
 
     mtx_lock(&ft_lock);
@@ -199,9 +207,10 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
 
     mtx_init(&font->lock, mtx_plain);
     font->face = ft_face;
-    font->load_flags = load_flags;
+    font->load_flags = load_flags | FT_LOAD_COLOR;
     font->render_flags = render_flags;
     font->is_fallback = is_fallback;
+    font->pixel_size_fixup = scalable ? pixel_fixup : 1.;
 
     if (fallbacks != NULL) {
         tll_foreach(*fallbacks, it) {
@@ -222,7 +231,6 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
     if (is_fallback)
         return true;
 
-    //font_populate_glyph_cache(font);
     font->cache = calloc(cache_size, sizeof(font->cache[0]));
     return true;
 }
@@ -272,15 +280,16 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
 
     FT_UInt idx = FT_Get_Char_Index(font->face, wc);
     if (idx == 0) {
-        /* LOG_DBG("no glyph found for %02x %02x %02x %02x", */
-        /*         (unsigned char)utf8[0], (unsigned char)utf8[1], */
-        /*         (unsigned char)utf8[2], (unsigned char)utf8[3]); */
+        LOG_DBG("no glyph found for %02x %02x %02x %02x",
+                (unsigned char)utf8[0], (unsigned char)utf8[1],
+                (unsigned char)utf8[2], (unsigned char)utf8[3]);
 
         /* Try fallback fonts */
         tll_foreach(font->fallbacks, it) {
             struct font fallback;
             if (from_name(it->item, NULL, "", &fallback, true)) {
                 if (glyph_for_wchar(&fallback, wc, glyph)) {
+                    LOG_DBG("used fallback %s (fixup = %f)", it->item, fallback.pixel_size_fixup);
                     font_destroy(&fallback);
                     return true;
                 }
@@ -306,11 +315,15 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
     assert(font->face->glyph->format == FT_GLYPH_FORMAT_BITMAP);
 
     FT_Bitmap *bitmap = &font->face->glyph->bitmap;
-    assert(bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ||
-           bitmap->pixel_mode == FT_PIXEL_MODE_MONO);
+    assert(bitmap->pixel_mode == FT_PIXEL_MODE_MONO ||
+           bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ||
+           bitmap->pixel_mode == FT_PIXEL_MODE_BGRA);
 
-    cairo_format_t cr_format = bitmap->pixel_mode == FT_PIXEL_MODE_GRAY
-        ? CAIRO_FORMAT_A8 : CAIRO_FORMAT_A1;
+    /* Map FT pixel format to cairo surface format */
+    cairo_format_t cr_format =
+        bitmap->pixel_mode == FT_PIXEL_MODE_MONO ? CAIRO_FORMAT_A1 :
+        bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ? CAIRO_FORMAT_A8 :
+        bitmap->pixel_mode == FT_PIXEL_MODE_BGRA ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_INVALID;
 
     int stride = cairo_format_stride_for_width(cr_format, bitmap->width);
     assert(stride >= bitmap->pitch);
@@ -318,6 +331,7 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
     uint8_t *data = malloc(bitmap->rows * stride);
     assert(bitmap->pitch >= 0);
 
+    /* Convert FT bitmap to cairo surface (well, the backing image) */
     switch (bitmap->pixel_mode) {
     case FT_PIXEL_MODE_MONO:
         for (size_t r = 0; r < bitmap->rows; r++) {
@@ -339,6 +353,11 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
         }
         break;
 
+    case FT_PIXEL_MODE_BGRA:
+        assert(stride == bitmap->pitch);
+        memcpy(data, bitmap->buffer, bitmap->rows * bitmap->pitch);
+        break;
+
     default:
         LOG_ERR("unimplemented FreeType bitmap pixel mode: %d",
                 bitmap->pixel_mode);
@@ -357,10 +376,11 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
 
     *glyph = (struct glyph){
         .wc = wc,
-        .data = data,
+        .width = wcwidth(wc),
         .surf = surf,
         .left = font->face->glyph->bitmap_left,
         .top = font->face->glyph->bitmap_top,
+        .pixel_size_fixup = font->pixel_size_fixup,
     };
 
     return true;
@@ -428,30 +448,25 @@ font_destroy(struct font *font)
         mtx_unlock(&ft_lock);
     }
 
-    if (font->cache != NULL) {
-        for (size_t i = 0; i < cache_size; i++) {
-            if (font->cache[i] == NULL)
-                continue;
-
-            tll_foreach(*font->cache[i], it) {
-                cairo_surface_destroy(it->item.surf);
-                free(it->item.data);
-            }
-
-            tll_free(*font->cache[i]);
-            free(font->cache[i]);
-        }
-        free(font->cache);
-    }
-
-#if 0
-    for (size_t i = 0; i < 256; i++) {
-        if (font->cache[i].surf != NULL)
-            cairo_surface_destroy(font->cache[i].surf);
-        if (font->cache[i].data != NULL)
-            free(font->cache[i].data);
-    }
-#endif
-    
     mtx_destroy(&font->lock);
+
+    if (font->cache == NULL)
+        return;
+
+    for (size_t i = 0; i < cache_size; i++) {
+        if (font->cache[i] == NULL)
+            continue;
+
+        tll_foreach(*font->cache[i], it) {
+            cairo_surface_flush(it->item.surf);
+            void *image = cairo_image_surface_get_data(it->item.surf);
+
+            cairo_surface_destroy(it->item.surf);
+            free(image);
+        }
+
+        tll_free(*font->cache[i]);
+        free(font->cache[i]);
+    }
+    free(font->cache);
 }

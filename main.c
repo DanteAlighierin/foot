@@ -493,10 +493,10 @@ main(int argc, char *const *argv)
         int descent = ft_face->size->metrics.descender / 64;
         int ascent = ft_face->size->metrics.ascender / 64;
 
-        term.fextents.height = height;
-        term.fextents.descent = -descent;
-        term.fextents.ascent = ascent;
-        term.fextents.max_x_advance = max_x_advance;
+        term.fextents.height = height * term.fonts[0].pixel_size_fixup;
+        term.fextents.descent = -descent * term.fonts[0].pixel_size_fixup;
+        term.fextents.ascent = ascent * term.fonts[0].pixel_size_fixup;
+        term.fextents.max_x_advance = max_x_advance * term.fonts[0].pixel_size_fixup;
 
         LOG_DBG("metrics: height: %d, descent: %d, ascent: %d, x-advance: %d",
                 height, descent, ascent, max_x_advance);

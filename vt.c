@@ -691,6 +691,7 @@ pre_print(struct terminal *term)
     }
 }
 
+#include <wchar.h>
 static inline void
 post_print(struct terminal *term)
 {
@@ -721,12 +722,9 @@ action_print_utf8(struct terminal *term)
 
     struct row *row = term->grid->cur_row;
     struct cell *cell = &row->cells[term->cursor.col];
-#if 0
-    term_damage_update(term, term->cursor.linear, 1);
-#else
+
     row->dirty = true;
     cell->attrs.clean = 0;
-#endif
 
     print_insert(term);
 
@@ -736,6 +734,29 @@ action_print_utf8(struct terminal *term)
     term->vt.utf8.idx = 0;
 
     cell->attrs = term->vt.attrs;
+
+    /* Hack: zero- and double-width characters */
+    mbstate_t ps = {0};
+    wchar_t wc;
+    if (mbrtowc(&wc, cell->c, 4, &ps) >= 0) {
+        int width = wcwidth(wc);
+        if (width <= 0) {
+            /* Skip post_print() below - i.e. don't advance cursor */
+            return;
+        }
+
+        /* Advance cursor the 'additional' columns (last step is done
+         * by post_print()) */
+        for (int i = 1; i < width && term->cursor.col < term->cols - 1; i++) {
+            term_cursor_right(term, 1);
+
+            assert(term->cursor.col < term->cols);
+            struct cell *cell = &row->cells[term->cursor.col];
+            cell->c[0] = '\0';
+            cell->attrs.clean = 0;
+        }
+    }
+
     post_print(term);
 }
 
@@ -746,12 +767,9 @@ action_print(struct terminal *term, uint8_t c)
 
     struct row *row = term->grid->cur_row;
     struct cell *cell = &row->cells[term->cursor.col];
-#if 0
-    term_damage_update(term, term->cursor.linear, 1);
-#else
+
     row->dirty = true;
     cell->attrs.clean = 0;
-#endif
 
     print_insert(term);
 

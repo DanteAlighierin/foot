@@ -139,6 +139,7 @@ static void
 render_cell(struct terminal *term, cairo_t *cr,
             struct cell *cell, int col, int row, bool has_cursor)
 {
+
     if (cell->attrs.clean)
         return;
 
@@ -215,12 +216,31 @@ render_cell(struct terminal *term, cairo_t *cr,
 
     struct font *font = attrs_to_font(term, &cell->attrs);
     const struct glyph *glyph = font_glyph_for_utf8(font, cell->c);
-    if (glyph != NULL) {
-        cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+    if (glyph == NULL)
+        return;
+
+    cairo_save(cr);
+    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+
+    double fixup = glyph->pixel_size_fixup;
+    cairo_translate(
+        cr,
+        x + glyph->left / fixup,
+        y + term->fextents.ascent - glyph->top * fixup);
+    cairo_scale(cr, fixup, fixup);
+
+    if (cairo_image_surface_get_format(glyph->surf) == CAIRO_FORMAT_ARGB32) {
+        /* Glyph surface is a pre-rendered image (typically a color emoji...) */
+        cairo_set_source_surface(cr, glyph->surf, 0, 0);
+        cairo_paint(cr);
+    } else {
+        /* Glyph surface is an alpha mask */
+        //assert(glyph->pixel_size_fixup == 1.);
         cairo_set_source_rgb(cr, fg.r, fg.g, fg.b);
-        cairo_mask_surface(
-            cr, glyph->surf, x + glyph->left, y + term->fextents.ascent - glyph->top);
+        cairo_mask_surface(cr, glyph->surf, 0, 0);
+            //cr, glyph->surf, x + glyph->left, y + term->fextents.ascent - glyph->top);
     }
+        cairo_restore(cr);
 }
 
 static void
@@ -284,7 +304,7 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
 static void
 render_row(struct terminal *term, cairo_t *cr, struct row *row, int row_no)
 {
-    for (int col = 0; col < term->cols; col++)
+    for (int col = term->cols - 1; col >= 0; col--)
         render_cell(term, cr, &row->cells[col], col, row_no, false);
 }
 
