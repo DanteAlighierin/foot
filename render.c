@@ -45,7 +45,7 @@ color_dim(struct rgb *rgb)
 
 static void
 draw_underline(const struct terminal *term, cairo_t *cr, const struct font *font,
-               struct rgb color, double x, double y)
+               struct rgb color, double x, double y, int cols)
 {
     double baseline = y + term->fextents.height - term->fextents.descent;
     double width = font->underline.thickness;
@@ -55,7 +55,7 @@ draw_underline(const struct terminal *term, cairo_t *cr, const struct font *font
     cairo_set_source_rgb(cr, color.r, color.g, color.b);
     cairo_set_line_width(cr, width);
     cairo_move_to(cr, x, round(y_under) + 0.5);
-    cairo_rel_line_to(cr, term->cell_width, 0);
+    cairo_rel_line_to(cr, cols * term->cell_width, 0);
     cairo_stroke(cr);
 }
 
@@ -73,7 +73,7 @@ draw_bar(const struct terminal *term, cairo_t *cr, struct rgb color,
 
 static void
 draw_strikeout(const struct terminal *term, cairo_t *cr, const struct font *font,
-               struct rgb color, double x, double y)
+               struct rgb color, double x, double y, int cols)
 {
     double baseline = y + term->fextents.height - term->fextents.descent;
     double width = font->strikeout.thickness;
@@ -83,7 +83,7 @@ draw_strikeout(const struct terminal *term, cairo_t *cr, const struct font *font
     cairo_set_source_rgb(cr, color.r, color.g, color.b);
     cairo_set_line_width(cr, width);
     cairo_move_to(cr, x, round(y_strike) + 0.5);
-    cairo_rel_line_to(cr, term->cell_width, 0);
+    cairo_rel_line_to(cr, cols * term->cell_width, 0);
     cairo_stroke(cr);
 }
 
@@ -139,7 +139,6 @@ static void
 render_cell(struct terminal *term, cairo_t *cr,
             struct cell *cell, int col, int row, bool has_cursor)
 {
-
     if (cell->attrs.clean)
         return;
 
@@ -183,10 +182,15 @@ render_cell(struct terminal *term, cairo_t *cr,
         bg = color_hex_to_rgb(term->cursor_color.cursor);
     }
 
+    struct font *font = attrs_to_font(term, &cell->attrs);
+    const struct glyph *glyph = font_glyph_for_utf8(font, cell->c);
+
+    int cell_cols = glyph != NULL ? max(1, glyph->width) : 1;
+
     /* Background */
     cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
     cairo_set_source_rgb(cr, bg.r, bg.g, bg.b);
-    cairo_rectangle(cr, x, y, width, height);
+    cairo_rectangle(cr, x, y, cell_cols * width, height);
     cairo_fill(cr);
 
     /* Non-block cursors */
@@ -196,7 +200,7 @@ render_cell(struct terminal *term, cairo_t *cr,
             draw_bar(term, cr, cursor_color, x, y);
         else if (term->cursor_style == CURSOR_UNDERLINE)
             draw_underline(
-                term, cr, attrs_to_font(term, &cell->attrs), cursor_color, x, y);
+                term, cr, attrs_to_font(term, &cell->attrs), cursor_color, x, y, cell_cols);
     }
 
     if (cell->attrs.blink && !term->blink.active) {
@@ -207,40 +211,37 @@ render_cell(struct terminal *term, cairo_t *cr,
     if (cell->c[0] == '\0' || cell->attrs.conceal)
         return;
 
+    if (glyph != NULL) {
+        cairo_save(cr);
+        cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+
+        double fixup = glyph->pixel_size_fixup;
+        cairo_translate(
+            cr,
+            x + glyph->left / fixup,
+            y + term->fextents.ascent - glyph->top * fixup);
+        cairo_scale(cr, fixup, fixup);
+
+        if (cairo_image_surface_get_format(glyph->surf) == CAIRO_FORMAT_ARGB32) {
+            /* Glyph surface is a pre-rendered image (typically a color emoji...) */
+            if (!(cell->attrs.blink && term->blink.state == BLINK_OFF)) {
+                cairo_set_source_surface(cr, glyph->surf, 0, 0);
+                cairo_paint(cr);
+            }
+        } else {
+            /* Glyph surface is an alpha mask */
+            cairo_set_source_rgb(cr, fg.r, fg.g, fg.b);
+            cairo_mask_surface(cr, glyph->surf, 0, 0);
+        }
+        cairo_restore(cr);
+    }
+
     /* Underline */
     if (cell->attrs.underline)
-        draw_underline(term, cr, attrs_to_font(term, &cell->attrs), fg, x, y);
+        draw_underline(term, cr, attrs_to_font(term, &cell->attrs), fg, x, y, cell_cols);
 
     if (cell->attrs.strikethrough)
-        draw_strikeout(term, cr, attrs_to_font(term, &cell->attrs), fg, x, y);
-
-    struct font *font = attrs_to_font(term, &cell->attrs);
-    const struct glyph *glyph = font_glyph_for_utf8(font, cell->c);
-    if (glyph == NULL)
-        return;
-
-    cairo_save(cr);
-    cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-
-    double fixup = glyph->pixel_size_fixup;
-    cairo_translate(
-        cr,
-        x + glyph->left / fixup,
-        y + term->fextents.ascent - glyph->top * fixup);
-    cairo_scale(cr, fixup, fixup);
-
-    if (cairo_image_surface_get_format(glyph->surf) == CAIRO_FORMAT_ARGB32) {
-        /* Glyph surface is a pre-rendered image (typically a color emoji...) */
-        cairo_set_source_surface(cr, glyph->surf, 0, 0);
-        cairo_paint(cr);
-    } else {
-        /* Glyph surface is an alpha mask */
-        //assert(glyph->pixel_size_fixup == 1.);
-        cairo_set_source_rgb(cr, fg.r, fg.g, fg.b);
-        cairo_mask_surface(cr, glyph->surf, 0, 0);
-            //cr, glyph->surf, x + glyph->left, y + term->fextents.ascent - glyph->top);
-    }
-        cairo_restore(cr);
+        draw_strikeout(term, cr, attrs_to_font(term, &cell->attrs), fg, x, y, cell_cols);
 }
 
 static void
