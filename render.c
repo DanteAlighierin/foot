@@ -558,7 +558,7 @@ grid_render(struct terminal *term)
             term->wl.surface,
             term->cursor.col * term->cell_width,
             view_aligned_row * term->cell_height,
-            term->cell_width, term->cell_height);
+            2 * term->cell_width, term->cell_height);
     }
 
     if (all_clean) {
