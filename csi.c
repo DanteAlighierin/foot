@@ -969,7 +969,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
     case '!': {
         switch (final) {
         case 'p':
-            LOG_WARN("unimplemented: soft reset");
+            term_reset(term, false);
             break;
 
         default:

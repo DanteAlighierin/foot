@@ -601,7 +601,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
         break;
 
     case 'c':
-        LOG_WARN("unimplemented: reset to initial state");
+        term_reset(term, true);
         break;
 
     case 'B': {

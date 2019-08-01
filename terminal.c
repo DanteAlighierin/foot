@@ -13,9 +13,91 @@
 #include "grid.h"
 #include "render.h"
 #include "vt.h"
+#include "selection.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
+
+void
+term_reset(struct terminal *term, bool hard)
+{
+    term->cursor_keys_mode = CURSOR_KEYS_NORMAL;
+    term->keypad_keys_mode = KEYPAD_NUMERICAL;
+    term->reverse = false;
+    term->hide_cursor = false;
+    term->auto_margin = true;
+    term->insert_mode = false;
+    term->bracketed_paste = false;
+    term->focus_events = false;
+    term->mouse_tracking = MOUSE_NONE;
+    term->mouse_reporting = MOUSE_NORMAL;
+    term->selected_charset = 0;
+    term->charset[0] = CHARSET_ASCII;
+    term->charset[1] = CHARSET_ASCII;
+    term->charset[2] = CHARSET_ASCII;
+    term->charset[3] = CHARSET_ASCII;
+    tll_free_and_free(term->window_title_stack, free);
+    free(term->window_title);
+    term->window_title = strdup("foot");
+
+    term->scroll_region.start = 0;
+    term->scroll_region.end = term->rows;
+
+    free(term->vt.osc.data);
+    memset(&term->vt, 0, sizeof(term->vt));
+    term->vt.state = 1; /* GROUND */
+
+    if (term->grid == &term->alt) {
+        term->grid = &term->normal;
+        term_restore_cursor(term);
+        selection_cancel(term);
+    }
+
+    if (!hard)
+        return;
+
+    term->flash.active = false;
+    term->blink.active = false;
+    term->blink.state = BLINK_ON;
+    term->colors.fg = term->colors.default_fg;
+    term->colors.bg = term->colors.default_bg;
+    for (size_t i = 0; i < 8; i++) {
+        term->colors.regular[i] = term->colors.default_regular[i];
+        term->colors.bright[i] = term->colors.default_bright[i];
+    }
+    term->print_needs_wrap = false;
+    term->cursor = (struct coord){0, 0};
+    term->saved_cursor = (struct coord){0, 0};
+    term->alt_saved_cursor = (struct coord){0, 0};
+    term->cursor_style = term->default_cursor_style;
+    term->cursor_blinking = false;
+    term->cursor_color.text = term->default_cursor_color.text;
+    term->cursor_color.cursor = term->default_cursor_color.cursor;
+    selection_cancel(term);
+    term->normal.offset = term->normal.view = 0;
+    term->alt.offset = term->alt.view = 0;
+    for (size_t i = 0; i < term->rows; i++) {
+        memset(term->normal.rows[i]->cells, 0, term->cols * sizeof(struct cell));
+        memset(term->alt.rows[i]->cells, 0, term->cols * sizeof(struct cell));
+    }
+    for (size_t i = term->rows; i < term->normal.num_rows; i++) {
+        grid_row_free(term->normal.rows[i]);
+        term->normal.rows[i] = NULL;
+    }
+    for (size_t i = term->rows; i < term->alt.num_rows; i++) {
+        grid_row_free(term->alt.rows[i]);
+        term->alt.rows[i] = NULL;
+    }
+    term->normal.cur_row = term->normal.rows[0];
+    term->alt.cur_row = term->alt.rows[0];
+    tll_free(term->normal.damage);
+    tll_free(term->normal.scroll_damage);
+    tll_free(term->alt.damage);
+    tll_free(term->alt.scroll_damage);
+    term->render.last_cursor.cell = NULL;
+    term->render.was_flashing = false;
+    term_damage_all(term);
+}
 
 void
 term_damage_rows(struct terminal *term, int start, int end)

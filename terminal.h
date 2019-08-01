@@ -341,6 +341,8 @@ struct terminal {
     } render;
 };
 
+void term_reset(struct terminal *term, bool hard);
+
 void term_damage_rows(struct terminal *term, int start, int end);
 void term_damage_rows_in_view(struct terminal *term, int start, int end);
 
