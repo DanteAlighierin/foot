@@ -12,6 +12,7 @@
 
 #include <sys/timerfd.h>
 #include <sys/sysinfo.h>
+#include <sys/prctl.h>
 
 #include <freetype/tttables.h>
 #include <wayland-client.h>
@@ -195,6 +196,12 @@ static int
 keyboard_repeater(void *arg)
 {
     struct terminal *term = arg;
+
+    char proc_title[16];
+    snprintf(proc_title, sizeof(proc_title), "foot:kbd-repeat");
+
+    if (prctl(PR_SET_NAME, proc_title, 0, 0, 0) < 0)
+        LOG_ERRNO("kbd repeat: failed to set process title");
 
     while (true) {
         LOG_DBG("repeater: waiting for start");
