@@ -137,12 +137,12 @@ arm_blink_timer(struct terminal *term)
         term->blink.active = true;
 }
 
-static void
+static int
 render_cell(struct terminal *term, cairo_t *cr,
             struct cell *cell, int col, int row, bool has_cursor)
 {
     if (cell->attrs.clean)
-        return;
+        return 0;
 
     cell->attrs.clean = 1;
 
@@ -211,7 +211,7 @@ render_cell(struct terminal *term, cairo_t *cr,
     }
 
     if (cell->c[0] == '\0' || cell->attrs.conceal)
-        return;
+        return cell_cols;
 
     if (glyph != NULL) {
         cairo_save(cr);
@@ -244,6 +244,8 @@ render_cell(struct terminal *term, cairo_t *cr,
 
     if (cell->attrs.strikethrough)
         draw_strikeout(term, cr, attrs_to_font(term, &cell->attrs), fg, x, y, cell_cols);
+
+    return cell_cols;
 }
 
 static void
@@ -461,37 +463,57 @@ grid_render(struct terminal *term)
         tll_remove(term->grid->scroll_damage, it);
     }
 
-    term->render.workers.buf = buf;
-    for (size_t i = 0; i < term->render.workers.count; i++)
-        sem_post(&term->render.workers.start);
+    if (term->render.workers.count > 0) {
 
-    assert(tll_length(term->render.workers.queue) == 0);
+        term->render.workers.buf = buf;
+        for (size_t i = 0; i < term->render.workers.count; i++)
+            sem_post(&term->render.workers.start);
 
-    for (int r = 0; r < term->rows; r++) {
-        struct row *row = grid_row_in_view(term->grid, r);
+        assert(tll_length(term->render.workers.queue) == 0);
 
-        if (!row->dirty)
-            continue;
+        for (int r = 0; r < term->rows; r++) {
+            struct row *row = grid_row_in_view(term->grid, r);
+
+            if (!row->dirty)
+                continue;
+
+            mtx_lock(&term->render.workers.lock);
+            tll_push_back(term->render.workers.queue, r);
+            cnd_signal(&term->render.workers.cond);
+            mtx_unlock(&term->render.workers.lock);
+
+            row->dirty = false;
+            all_clean = false;
+
+            wl_surface_damage_buffer(
+                term->wl.surface,
+                0, r * term->cell_height,
+                term->width, term->cell_height);
+        }
 
         mtx_lock(&term->render.workers.lock);
-        tll_push_back(term->render.workers.queue, r);
-        cnd_signal(&term->render.workers.cond);
+        for (size_t i = 0; i < term->render.workers.count; i++)
+            tll_push_back(term->render.workers.queue, -1);
+        cnd_broadcast(&term->render.workers.cond);
         mtx_unlock(&term->render.workers.lock);
+    } else {
+        for (int r = 0; r < term->rows; r++) {
+            struct row *row = grid_row_in_view(term->grid, r);
 
-        row->dirty = false;
-        all_clean = false;
+            if (!row->dirty)
+                continue;
 
-        wl_surface_damage_buffer(
-            term->wl.surface,
-            0, r * term->cell_height,
-            term->width, term->cell_height);
+            render_row(term, cr, row, r);
+
+            row->dirty = false;
+            all_clean = false;
+
+            wl_surface_damage_buffer(
+                term->wl.surface,
+                0, r * term->cell_height,
+                term->width, term->cell_height);
+        }
     }
-
-    mtx_lock(&term->render.workers.lock);
-    for (size_t i = 0; i < term->render.workers.count; i++)
-        tll_push_back(term->render.workers.queue, -1);
-    cnd_broadcast(&term->render.workers.cond);
-    mtx_unlock(&term->render.workers.lock);
 
     if (term->blink.active) {
         /* Check if there are still any visible blinking cells */
@@ -539,9 +561,16 @@ grid_render(struct terminal *term)
             cursor_is_visible = true;
     }
 
-    for (size_t i = 0; i < term->render.workers.count; i++)
-        sem_wait(&term->render.workers.done);
-    term->render.workers.buf = NULL;
+    /*
+     * Wait for workers to finish before we render the cursor. This is
+     * because the cursor cell might be dirty, in which case a worker
+     * will render it (but without the cursor).
+     */
+    if (term->render.workers.count > 0) {
+        for (size_t i = 0; i < term->render.workers.count; i++)
+            sem_wait(&term->render.workers.done);
+        term->render.workers.buf = NULL;
+    }
 
     if (cursor_is_visible && !term->hide_cursor) {
         /* Remember cursor coordinates so that we can erase it next
@@ -559,14 +588,14 @@ grid_render(struct terminal *term)
 
         cell->attrs.clean = 0;
         term->render.last_cursor.cell = cell;
-        render_cell(
+        int cols_updated = render_cell(
             term, cr, cell, term->cursor.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
             term->wl.surface,
             term->cursor.col * term->cell_width,
             view_aligned_row * term->cell_height,
-            2 * term->cell_width, term->cell_height);
+            cols_updated * term->cell_width, term->cell_height);
     }
 
     if (all_clean) {
@@ -652,7 +681,7 @@ render_resize(struct terminal *term, int width, int height)
     term->width = width;
     term->height = height;
 
-    const int scrollback_lines = 1000;
+    const int scrollback_lines = term->render.scrollback_lines;
 
     const int old_cols = term->cols;
     const int old_rows = term->rows;
