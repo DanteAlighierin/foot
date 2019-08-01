@@ -315,6 +315,7 @@ struct terminal {
 
     struct wayland wl;
     struct {
+        int scrollback_lines;
         struct wl_callback *frame_callback;
 
         struct {

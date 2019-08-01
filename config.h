@@ -11,6 +11,8 @@ struct config {
     char *shell;
     tll(char *) fonts;
 
+    int scrollback_lines;
+
     struct {
         uint32_t fg;
         uint32_t bg;

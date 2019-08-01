@@ -387,6 +387,7 @@ main(int argc, char *const *argv)
         .alt = {.damage = tll_init(), .scroll_damage = tll_init()},
         .grid = &term.normal,
         .render = {
+            .scrollback_lines = conf.scrollback_lines,
             .workers = {
                 .count = conf.render_worker_count,
                 .queue = tll_init(),

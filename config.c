@@ -162,6 +162,15 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->render_worker_count = count;
     }
 
+    else if (strcmp(key, "scrollback") == 0) {
+        unsigned long lines;
+        if (!str_to_ulong(value, 10, &lines)) {
+            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            return false;
+        }
+        conf->scrollback_lines = lines;
+    }
+
     else {
         LOG_WARN("%s:%u: invalid key: %s", path, lineno, key);
         return false;
@@ -407,6 +416,7 @@ config_load(struct config *conf)
         .term = strdup("foot"),
         .shell = get_shell(),
         .fonts = tll_init(),
+        .scrollback_lines = 1000,
 
         .colors = {
             .fg = default_foreground,
