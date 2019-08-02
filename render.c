@@ -154,11 +154,11 @@ render_cell(struct terminal *term, cairo_t *cr,
     bool block_cursor = has_cursor && term->cursor_style == CURSOR_BLOCK;
     bool is_selected = coord_is_selected(term, col, row);
 
-    uint32_t _fg = cell->attrs.foreground >> 30
-        ? cell->attrs.foreground
+    uint32_t _fg = cell->attrs.have_fg
+        ? cell->attrs.fg
         : !term->reverse ? term->colors.fg : term->colors.bg;
-    uint32_t _bg = cell->attrs.background >> 30
-        ? cell->attrs.background
+    uint32_t _bg = cell->attrs.have_bg
+        ? cell->attrs.bg
         : !term->reverse ? term->colors.bg : term->colors.fg;
 
     /* If *one* is set, we reverse */
@@ -185,7 +185,7 @@ render_cell(struct terminal *term, cairo_t *cr,
     }
 
     struct font *font = attrs_to_font(term, &cell->attrs);
-    const struct glyph *glyph = font_glyph_for_utf8(font, cell->c);
+    const struct glyph *glyph = font_glyph_for_wc(font, cell->wc);
 
     int cell_cols = glyph != NULL ? max(1, glyph->width) : 1;
 
@@ -210,7 +210,7 @@ render_cell(struct terminal *term, cairo_t *cr,
         arm_blink_timer(term);
     }
 
-    if (cell->c[0] == '\0' || cell->attrs.conceal)
+    if (cell->wc == 0 || cell->attrs.conceal)
         return cell_cols;
 
     if (glyph != NULL) {

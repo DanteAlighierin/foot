@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <wctype.h>
 
 #define LOG_MODULE "selection"
 #define LOG_ENABLE_DBG 0
@@ -58,11 +59,12 @@ extract_selection(const struct terminal *term)
         /* TODO: replace '\0' with spaces, then trim lines */
         for (int col = start_col; col < term->cols; col++) {
             const struct cell *cell = &row->cells[col];
-            if (cell->c[0] == '\0')
+            if (cell->wc == 0)
                 continue;
 
-            size_t len = strnlen(cell->c, 4);
-            memcpy(&buf[idx], cell->c, len);
+            mbstate_t ps = {0};
+            size_t len = wcrtomb(&buf[idx], cell->wc, &ps);
+            assert(len >= 0); /* All wchars were valid multibyte strings to begin with */
             idx += len;
         }
 
@@ -76,11 +78,12 @@ extract_selection(const struct terminal *term)
         const struct row *row = grid_row_in_view(term->grid, end->row - term->grid->view);
         for (int col = start_col; row != NULL && col <= end->col; col++) {
             const struct cell *cell = &row->cells[col];
-            if (cell->c[0] == '\0')
+            if (cell->wc == 0)
                 continue;
 
-            size_t len = strnlen(cell->c, 4);
-            memcpy(&buf[idx], cell->c, len);
+            mbstate_t ps = {0};
+            size_t len = wcrtomb(&buf[idx], cell->wc, &ps);
+            assert(len >= 0); /* All wchars were valid multibyte strings to begin with */
             idx += len;
         }
     }
@@ -214,19 +217,19 @@ selection_cancel(struct terminal *term)
 }
 
 static bool
-isword(int c)
+isword(wint_t c)
 {
     switch (c) {
-    default: return !isspace(c);
+    default: return !iswspace(c);
 
-    case '{': case '}':
-    case '[': case ']':
-    case '(': case ')':
-    case '`':
-    case '\'':
-    case '"':
-    case ',': case '.':
-    case ':': case ';':
+    case L'{': case L'}':
+    case L'[': case L']':
+    case L'(': case L')':
+    case L'`':
+    case L'\'':
+    case L'"':
+    case L',': case L'.':
+    case L':': case L';':
         return false;
     }
 }
@@ -243,9 +246,9 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
     struct coord end = {col, row};
 
     const struct row *r = grid_row_in_view(term->grid, start.row);
-    unsigned char c = r->cells[start.col].c[0];
+    wchar_t c = r->cells[start.col].wc;
 
-    if (!(c == '\0' || !isword(c))) {
+    if (!(c == 0 || !isword(c))) {
         while (true) {
             int next_col = start.col - 1;
             int next_row = start.row;
@@ -259,8 +262,8 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
 
             const struct row *row = grid_row_in_view(term->grid, next_row);
 
-            unsigned char c = row->cells[next_col].c[0];
-            if (c == '\0' || !isword(c))
+            c = row->cells[next_col].wc;
+            if (c == 0 || !isword(c))
                 break;
 
             start.col = next_col;
@@ -269,9 +272,9 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
     }
 
     r = grid_row_in_view(term->grid, end.row);
-    c = r->cells[end.col].c[0];
+    c = r->cells[end.col].wc;
 
-    if (!(c == '\0' || !isword(c))) {
+    if (!(c == 0 || !isword(c))) {
         while (true) {
             int next_col = end.col + 1;
             int next_row = end.row;
@@ -285,7 +288,7 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
 
             const struct row *row = grid_row_in_view(term->grid, next_row);
 
-            unsigned char c = row->cells[next_col].c[0];
+            c = row->cells[next_col].wc;
             if (c == '\0' || !isword(c))
                 break;
 

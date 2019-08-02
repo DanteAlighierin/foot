@@ -22,6 +22,7 @@ struct glyph {
     int top;
 
     double pixel_size_fixup;
+    bool valid;
 };
 
 typedef tll(struct glyph) hash_entry_t;
@@ -51,5 +52,5 @@ struct font {
 };
 
 bool font_from_name(font_list_t names, const char *attributes, struct font *result);
-const struct glyph *font_glyph_for_utf8(struct font *font, const char *utf8);
+const struct glyph *font_glyph_for_wc(struct font *font, wchar_t wc);
 void font_destroy(struct font *font);

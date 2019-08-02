@@ -381,28 +381,22 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
         .left = font->face->glyph->bitmap_left,
         .top = font->face->glyph->bitmap_top,
         .pixel_size_fixup = font->pixel_size_fixup,
+        .valid = true,
     };
 
     return true;
 
 err:
+    *glyph = (struct glyph){
+        .valid = false,
+    };
     return false;
 }
 
 const struct glyph *
-font_glyph_for_utf8(struct font *font, const char *utf8)
+font_glyph_for_wc(struct font *font, wchar_t wc)
 {
     mtx_lock(&font->lock);
-
-    mbstate_t ps = {0};
-    wchar_t wc;
-    if (mbrtowc(&wc, utf8, 4, &ps) < 0) {
-        LOG_DBG("failed to convert utf-8 sequence %02x %02x %02x %02x to unicode",
-                (unsigned char)utf8[0], (unsigned char)utf8[1],
-                (unsigned char)utf8[2], (unsigned char)utf8[3]);
-        mtx_unlock(&font->lock);
-        return NULL;
-    }
 
     assert(font->cache != NULL);
     size_t hash_idx = hash_index(wc);
@@ -418,10 +412,7 @@ font_glyph_for_utf8(struct font *font, const char *utf8)
     }
 
     struct glyph glyph;
-    if (!glyph_for_wchar(font, wc, &glyph)) {
-        mtx_unlock(&font->lock);
-        return NULL;
-    }
+    bool got_glyph = glyph_for_wchar(font, wc, &glyph);
 
     if (hash_entry == NULL) {
         hash_entry = calloc(1, sizeof(*hash_entry));
@@ -434,7 +425,7 @@ font_glyph_for_utf8(struct font *font, const char *utf8)
     tll_push_back(*hash_entry, glyph);
 
     mtx_unlock(&font->lock);
-    return &tll_back(*hash_entry);
+    return got_glyph ? &tll_back(*hash_entry) : NULL;
 }
 
 void

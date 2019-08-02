@@ -728,33 +728,29 @@ action_print_utf8(struct terminal *term)
 
     print_insert(term);
 
-    //LOG_DBG("print: UTF8: %.*s", (int)term->vt.utf8.idx, term->vt.utf8.data);
-    memcpy(cell->c, term->vt.utf8.data, term->vt.utf8.idx);
-    cell->c[term->vt.utf8.idx] = '\0';
+    mbstate_t ps = {0};
+    if (mbrtowc(&cell->wc, (const char *)term->vt.utf8.data, term->vt.utf8.idx, &ps) < 0)
+        cell->wc = 0;
+    
     term->vt.utf8.idx = 0;
 
     cell->attrs = term->vt.attrs;
 
-    /* Hack: zero- and double-width characters */
-    mbstate_t ps = {0};
-    wchar_t wc;
-    if (mbrtowc(&wc, cell->c, 4, &ps) >= 0) {
-        int width = wcwidth(wc);
-        if (width <= 0) {
-            /* Skip post_print() below - i.e. don't advance cursor */
-            return;
-        }
+    int width = wcwidth(cell->wc);
+    if (width <= 0) {
+        /* Skip post_print() below - i.e. don't advance cursor */
+        return;
+    }
 
-        /* Advance cursor the 'additional' columns (last step is done
-         * by post_print()) */
-        for (int i = 1; i < width && term->cursor.col < term->cols - 1; i++) {
-            term_cursor_right(term, 1);
+    /* Advance cursor the 'additional' columns (last step is done
+     * by post_print()) */
+    for (int i = 1; i < width && term->cursor.col < term->cols - 1; i++) {
+        term_cursor_right(term, 1);
 
-            assert(term->cursor.col < term->cols);
-            struct cell *cell = &row->cells[term->cursor.col];
-            cell->c[0] = '\0';
-            cell->attrs.clean = 0;
-        }
+        assert(term->cursor.col < term->cols);
+        struct cell *cell = &row->cells[term->cursor.col];
+        cell->wc = 0;
+        cell->attrs.clean = 0;
     }
 
     post_print(term);
@@ -788,16 +784,17 @@ action_print(struct terminal *term, uint8_t c)
         c >= 0x41 && c <= 0x7e)
     {
         const char *glyph = vt100_0[c - 0x41];
-        if (glyph != NULL)
-            strncpy(cell->c, glyph, sizeof(cell->c));
+        if (glyph != NULL) {
+            mbstate_t ps = {0};
+            if (mbrtowc(&cell->wc, glyph, strlen(glyph), &ps) < 0)
+                cell->wc = 0;
+        }
     } else {
         //LOG_DBG("print: ASCII: %c", c);
-        cell->c[0] = c;
-        cell->c[1] = '\0';
+        cell->wc = c;
     }
 
     cell->attrs = term->vt.attrs;
-
     post_print(term);
 }
 

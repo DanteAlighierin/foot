@@ -60,12 +60,6 @@ static void
 keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface, struct wl_array *keys)
 {
-    LOG_DBG("enter");
-#if 0
-    uint32_t *key;
-    wl_array_for_each(key, keys)
-        xkb_state_update_key(xkb_state, *key, 1);
-#endif
     struct terminal *term = data;
     term->input_serial = serial;
     term_focus_in(term);
@@ -76,12 +70,40 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface)
 {
     struct terminal *term = data;
-    term_focus_out(term);
 
     mtx_lock(&term->kbd.repeat.mutex);
     if (term->kbd.repeat.cmd != REPEAT_EXIT) {
         term->kbd.repeat.cmd = REPEAT_STOP;
         cnd_signal(&term->kbd.repeat.cond);
+    }
+    mtx_unlock(&term->kbd.repeat.mutex);
+
+    term_focus_out(term);
+}
+
+static void
+start_repeater(struct terminal *term, uint32_t key)
+{
+    mtx_lock(&term->kbd.repeat.mutex);
+    if (!term->kbd.repeat.dont_re_repeat) {
+        if (term->kbd.repeat.cmd != REPEAT_EXIT) {
+            term->kbd.repeat.cmd = REPEAT_START;
+            term->kbd.repeat.key = key;
+            cnd_signal(&term->kbd.repeat.cond);
+        }
+    }
+    mtx_unlock(&term->kbd.repeat.mutex);
+}
+
+static void
+stop_repeater(struct terminal *term, uint32_t key)
+{
+    mtx_lock(&term->kbd.repeat.mutex);
+    if (term->kbd.repeat.key == key) {
+        if (term->kbd.repeat.cmd != REPEAT_EXIT) {
+            term->kbd.repeat.cmd = REPEAT_STOP;
+            cnd_signal(&term->kbd.repeat.cond);
+        }
     }
     mtx_unlock(&term->kbd.repeat.mutex);
 }
@@ -97,14 +119,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     const xkb_mod_mask_t shift = 1 << term->kbd.mod_shift;
 
     if (state == XKB_KEY_UP) {
-        mtx_lock(&term->kbd.repeat.mutex);
-        if (term->kbd.repeat.key == key) {
-            if (term->kbd.repeat.cmd != REPEAT_EXIT) {
-                term->kbd.repeat.cmd = REPEAT_STOP;
-                cnd_signal(&term->kbd.repeat.cond);
-            }
-        }
-        mtx_unlock(&term->kbd.repeat.mutex);
+        stop_repeater(term, key);
         return;
     }
 
@@ -261,15 +276,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         }
     }
 
-    mtx_lock(&term->kbd.repeat.mutex);
-    if (!term->kbd.repeat.dont_re_repeat) {
-        if (term->kbd.repeat.cmd != REPEAT_EXIT) {
-            term->kbd.repeat.cmd = REPEAT_START;
-            term->kbd.repeat.key = key - 8;
-            cnd_signal(&term->kbd.repeat.cond);
-        }
-    }
-    mtx_unlock(&term->kbd.repeat.mutex);
+    start_repeater(term, key - 8);
 }
 
 static void

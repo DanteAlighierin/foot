@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <wchar.h>
 
 #include <threads.h>
 #include <semaphore.h>
@@ -50,28 +51,34 @@ struct rgb { float r, g, b; };
 /*
  *  Note: we want the cells to be as small as possible. Larger cells
  *  means fewer scrollback lines (or performance drops due to cache
- *  misses) */
+ *  misses)
+ *
+ * Note that the members are laid out optimized for x86
+ */
 struct attributes {
-    uint8_t bold:1;
-    uint8_t dim:1;
-    uint8_t italic:1;
-    uint8_t underline:1;
-    uint8_t strikethrough:1;
-    uint8_t blink:1;
-    uint8_t conceal:1;
-    uint8_t reverse:1;
+    uint32_t bold:1;
+    uint32_t dim:1;
+    uint32_t italic:1;
+    uint32_t underline:1;
+    uint32_t strikethrough:1;
+    uint32_t blink:1;
+    uint32_t conceal:1;
+    uint32_t reverse:1;
+    uint32_t fg:24;
 
     uint32_t clean:1;
-    uint32_t foreground:31;
-
-    uint32_t reserved:1;
-    uint32_t background:31;
-} __attribute__((packed));
+    uint32_t have_fg:1;
+    uint32_t have_bg:1;
+    uint32_t reserved:5;
+    uint32_t bg:24;
+};
+static_assert(sizeof(struct attributes) == 8, "bad size");
 
 struct cell {
+    wchar_t wc;
     struct attributes attrs;
-    char c[4];
-} __attribute__((packed));
+};
+static_assert(sizeof(struct cell) == 12, "bad size");
 
 struct scroll_region {
     int start;
