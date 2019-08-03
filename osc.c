@@ -111,10 +111,12 @@ from_clipboard_cb(const char *text, size_t size, void *user)
     if (left == 0)
         return;
 
+    assert(ctx->idx == 0);
+
     int remaining = left % 3;
     for (int i = remaining; i > 0; i--)
-        ctx->buf[0] = text[size - i];
-    ctx->idx = remaining;
+        ctx->buf[ctx->idx++] = text[size - i];
+    assert(ctx->idx == remaining);
 
     char *chunk = base64_encode((const uint8_t *)t, left / 3 * 3);
     assert(chunk != NULL);
