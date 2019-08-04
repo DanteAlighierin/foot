@@ -20,7 +20,8 @@
 static bool
 selection_enabled(const struct terminal *term)
 {
-    return term->mouse_tracking == MOUSE_NONE;
+    return (term->mouse_tracking != MOUSE_DRAG &&
+            term->mouse_tracking != MOUSE_MOTION);
 }
 
 static char *
