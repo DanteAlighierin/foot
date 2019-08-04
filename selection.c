@@ -56,20 +56,20 @@ extract_selection(const struct terminal *term)
         if (row == NULL)
             continue;
 
-        /* TODO: replace '\0' with spaces, then trim lines */
+        /* TODO: replace '\0' with spaces, then trim lines? */
         for (int col = start_col; col < term->cols; col++) {
             const struct cell *cell = &row->cells[col];
-            if (cell->wc == 0)
+            if (cell->wc == 0) {
+                if (col == term->cols - 1)
+                    buf[idx++] = '\n';
                 continue;
+            }
 
             mbstate_t ps = {0};
             size_t len = wcrtomb(&buf[idx], cell->wc, &ps);
             assert(len >= 0); /* All wchars were valid multibyte strings to begin with */
             idx += len;
         }
-
-        if (r != end->row - 1)
-            buf[idx++] = '\n';
 
         start_col = 0;
     }
@@ -78,8 +78,11 @@ extract_selection(const struct terminal *term)
         const struct row *row = grid_row_in_view(term->grid, end->row - term->grid->view);
         for (int col = start_col; row != NULL && col <= end->col; col++) {
             const struct cell *cell = &row->cells[col];
-            if (cell->wc == 0)
+            if (cell->wc == 0) {
+                if (col == term->cols - 1)
+                    buf[idx++] = '\n';
                 continue;
+            }
 
             mbstate_t ps = {0};
             size_t len = wcrtomb(&buf[idx], cell->wc, &ps);
@@ -88,7 +91,11 @@ extract_selection(const struct terminal *term)
         }
     }
 
-    buf[idx] = '\0';
+    if (buf[idx - 1] == '\n')
+        buf[idx - 1] = '\0';
+    else
+        buf[idx] = '\0';
+
     return buf;
 }
 
