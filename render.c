@@ -693,15 +693,21 @@ render_resize(struct terminal *term, int width, int height)
     const int new_normal_grid_rows = new_rows + scrollback_lines;
     const int new_alt_grid_rows = new_rows;
 
+    term->normal.offset %= new_normal_grid_rows;
+    term->normal.view %= new_normal_grid_rows;
+
+    term->alt.offset %= new_alt_grid_rows;
+    term->alt.view %= new_alt_grid_rows;
+
     /* Allocate new 'normal' grid */
     struct row **normal = calloc(new_normal_grid_rows, sizeof(normal[0]));
     for (int r = 0; r < new_rows; r++)
-        normal[r] = grid_row_alloc(new_cols);
+        normal[(term->normal.view + r) % new_normal_grid_rows] = grid_row_alloc(new_cols);
 
     /* Allocate new 'alt' grid */
     struct row **alt = calloc(new_alt_grid_rows, sizeof(alt[0]));
     for (int r = 0; r < new_rows; r++)
-        alt[r] = grid_row_alloc(new_cols);
+        alt[(term->alt.view + r) % new_alt_grid_rows] = grid_row_alloc(new_cols);
 
     /* Reflow content */
     reflow(normal, new_cols, new_normal_grid_rows,
@@ -748,12 +754,6 @@ render_resize(struct terminal *term, int width, int height)
 
     if (term->scroll_region.end >= old_rows)
         term->scroll_region.end = term->rows;
-
-    term->normal.offset %= term->normal.num_rows;
-    term->normal.view %= term->normal.num_rows;
-
-    term->alt.offset %= term->alt.num_rows;
-    term->alt.view %= term->alt.num_rows;
 
     term_cursor_to(
         term,
