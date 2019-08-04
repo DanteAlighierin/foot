@@ -105,7 +105,7 @@ csi_sgr(struct terminal *term)
         case 3: term->vt.attrs.italic = true; break;
         case 4: term->vt.attrs.underline = true; break;
         case 5: term->vt.attrs.blink = true; break;
-        case 6: break; /* rapid blink, ignored */
+        case 6: LOG_WARN("ignored: rapid blink"); break;
         case 7: term->vt.attrs.reverse = true; break;
         case 8: term->vt.attrs.conceal = true; break;
         case 9: term->vt.attrs.strikethrough = true; break;
@@ -860,8 +860,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 switch (term->vt.params.v[i].value) {
                 case 1001:  /* save old highlight mouse tracking mode? */
                     LOG_WARN(
-                        "unimplemented: CSI ?1001s "
-                        "(save 'highlight mouse tracking' mode)");
+                        "unimplemented: %s "
+                        "(save 'highlight mouse tracking' mode)",
+                        csi_as_string(term, final));
                     break;
 
                 default:
@@ -876,8 +877,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 switch (term->vt.params.v[i].value) {
                 case 1001:  /* restore old highlight mouse tracking mode? */
                     LOG_WARN(
-                        "unimplemented: CSI ?1001r "
-                        "(restore 'highlight mouse tracking' mode)");
+                        "unimplemented: %s "
+                        "(restore 'highlight mouse tracking' mode)",
+                        csi_as_string(term, final));
                     break;
 
                 default:
@@ -913,14 +915,25 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 /* Reset all */
             } else {
                 int resource = vt_param_get(term, 0, 0);
-                int value __attribute__((unused)) = vt_param_get(term, 1, 0);
+                int value = vt_param_get(term, 1, -1);
 
                 switch (resource) {
                 case 0: /* modifyKeyboard */
+                    break;
+
                 case 1: /* modifyCursorKeys */
                 case 2: /* modifyFunctionKeys */
                 case 4: /* modifyOtherKeys */
                     /* Ignored, we always report modifiers */
+                    if (value != 2 && value != -1 &&
+                        !(resource == 4 && value == 1))
+                    {
+                        LOG_WARN("unimplemented: %s = %d",
+                                 resource == 1 ? "modifyCursorKeys" :
+                                 resource == 2 ? "modifyFunctionKeys" :
+                                 resource == 4 ? "modifyOtherKeys" : "<invalid>",
+                                 value);
+                    }
                     break;
 
                 default:
