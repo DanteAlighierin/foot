@@ -59,9 +59,20 @@ cmd_scrollback_up(struct terminal *term, int rows)
     if (new_view == term->grid->view)
         return;
 
+    int diff = -1;
+    if (new_view < term->grid->view)
+        diff = term->grid->view - new_view;
+    else
+        diff = (term->grid->num_rows - new_view) + term->grid->view;
+
     term->grid->view = new_view;
 
-    term_damage_view(term);
+    if (diff >= 0 && diff < term->rows) {
+        term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, (struct scroll_region){0, term->rows}, diff);
+        term_damage_rows_in_view(term, 0, diff - 1);
+    } else
+        term_damage_view(term);
+
     render_refresh(term);
 }
 
@@ -118,8 +129,19 @@ cmd_scrollback_down(struct terminal *term, int rows)
     if (new_view == term->grid->view)
         return;
 
+    int diff = -1;
+    if (new_view > term->grid->view)
+        diff = new_view - term->grid->view;
+    else
+        diff = (term->grid->num_rows - term->grid->view) + new_view;
+
     term->grid->view = new_view;
 
-    term_damage_view(term);
+    if (diff >= 0 && diff < term->rows) {
+        term_damage_scroll(term, DAMAGE_SCROLL, (struct scroll_region){0, term->rows}, diff);
+        term_damage_rows_in_view(term, term->rows - diff, term->rows - 1);
+    } else
+        term_damage_view(term);
+
     render_refresh(term);
 }
