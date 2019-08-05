@@ -24,6 +24,20 @@ selection_enabled(const struct terminal *term)
             term->mouse_tracking != MOUSE_MOTION);
 }
 
+bool
+selection_on_row_in_view(const struct terminal *term, int row_no)
+{
+    if (term->selection.start.row == -1 || term->selection.end.row == -1)
+        return false;
+
+    const struct coord *start = &term->selection.start;
+    const struct coord *end = &term->selection.end;
+    assert(start->row <= end->row);
+
+    row_no += term->grid->view;
+    return row_no >= start->row && row_no <= end->row;
+}
+
 static char *
 extract_selection(const struct terminal *term)
 {

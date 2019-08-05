@@ -282,8 +282,11 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
         grid_swap_row(term->grid, i - rows, i);
 
     /* Erase scrolled in lines */
-    for (int r = max(region.end - rows, 0); r < region.end; r++)
+    for (int r = max(region.end - rows, 0); r < region.end; r++) {
         erase_line(term, grid_row(term->grid, r));
+        if (selection_on_row_in_view(term, r))
+            selection_cancel(term);
+    }
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->cursor.row);
@@ -325,8 +328,11 @@ term_scroll_reverse_partial(struct terminal *term,
         grid_swap_row(term->grid, i, i - rows);
 
     /* Erase scrolled in lines */
-    for (int r = region.start; r < min(region.start + rows, region.end); r++)
+    for (int r = region.start; r < min(region.start + rows, region.end); r++) {
         erase_line(term, grid_row(term->grid, r));
+        if (selection_on_row_in_view(term, r))
+            selection_cancel(term);
+    }
 
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->cursor.row);
