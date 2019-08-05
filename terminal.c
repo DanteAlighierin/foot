@@ -385,12 +385,12 @@ linux_mouse_button_to_x(int button)
 {
     switch (button) {
     case BTN_LEFT:    return 1;
-    case BTN_RIGHT:   return 3;
     case BTN_MIDDLE:  return 2;
-    case BTN_SIDE:    return 8;
-    case BTN_EXTRA:   return 9;
+    case BTN_RIGHT:   return 3;
     case BTN_BACK:    return 4;
     case BTN_FORWARD: return 5;
+    case BTN_SIDE:    return 8;
+    case BTN_EXTRA:   return 9;
     case BTN_TASK:    return -1;  /* TODO: ??? */
 
     default:
