@@ -408,7 +408,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         if (button == BTN_LEFT) {
             if (double_click)
-                selection_mark_word(term, term->mouse.col, term->mouse.row, serial);
+                selection_mark_word(term, term->mouse.col, term->mouse.row,
+                                    term->kbd.ctrl, serial);
             else
                 selection_start(term, term->mouse.col, term->mouse.row);
         } else {

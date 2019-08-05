@@ -225,8 +225,11 @@ selection_cancel(struct terminal *term)
 }
 
 static bool
-isword(wint_t c)
+isword(wint_t c, bool spaces_only)
 {
+    if (spaces_only)
+        return !iswspace(c);
+
     switch (c) {
     default: return !iswspace(c);
 
@@ -243,7 +246,8 @@ isword(wint_t c)
 }
 
 void
-selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
+selection_mark_word(struct terminal *term, int col, int row, bool spaces_only,
+                    uint32_t serial)
 {
     if (!selection_enabled(term))
         return;
@@ -256,7 +260,7 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
     const struct row *r = grid_row_in_view(term->grid, start.row);
     wchar_t c = r->cells[start.col].wc;
 
-    if (!(c == 0 || !isword(c))) {
+    if (!(c == 0 || !isword(c, spaces_only))) {
         while (true) {
             int next_col = start.col - 1;
             int next_row = start.row;
@@ -271,7 +275,7 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
             const struct row *row = grid_row_in_view(term->grid, next_row);
 
             c = row->cells[next_col].wc;
-            if (c == 0 || !isword(c))
+            if (c == 0 || !isword(c, spaces_only))
                 break;
 
             start.col = next_col;
@@ -282,7 +286,7 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
     r = grid_row_in_view(term->grid, end.row);
     c = r->cells[end.col].wc;
 
-    if (!(c == 0 || !isword(c))) {
+    if (!(c == 0 || !isword(c, spaces_only))) {
         while (true) {
             int next_col = end.col + 1;
             int next_row = end.row;
@@ -297,7 +301,7 @@ selection_mark_word(struct terminal *term, int col, int row, uint32_t serial)
             const struct row *row = grid_row_in_view(term->grid, next_row);
 
             c = row->cells[next_col].wc;
-            if (c == '\0' || !isword(c))
+            if (c == '\0' || !isword(c, spaces_only))
                 break;
 
             end.col = next_col;
