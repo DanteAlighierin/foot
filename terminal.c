@@ -389,8 +389,8 @@ linux_mouse_button_to_x(int button)
     case BTN_MIDDLE:  return 2;
     case BTN_SIDE:    return 8;
     case BTN_EXTRA:   return 9;
-    case BTN_FORWARD: return 4;
-    case BTN_BACK:    return 5;
+    case BTN_BACK:    return 4;
+    case BTN_FORWARD: return 5;
     case BTN_TASK:    return -1;  /* TODO: ??? */
 
     default:
