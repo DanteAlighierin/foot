@@ -250,10 +250,10 @@ main(int argc, char *const *argv)
         .auto_margin = true,
         .window_title_stack = tll_init(),
         .flash = {
-            .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
+            .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK),
         },
         .blink = {
-            .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
+            .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK),
         },
         .vt = {
             .state = 1,  /* STATE_GROUND */
@@ -264,7 +264,7 @@ main(int argc, char *const *argv)
         },
         .kbd = {
             .repeat = {
-                .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
+                .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK),
             },
         },
         .colors = {
@@ -614,8 +614,22 @@ main(int argc, char *const *argv)
         }
     }
 
-    int timeout_ms = -1;
 
+    {
+        int fd = wl_display_get_fd(term.wl.display);
+        int fd_flags = fcntl(fd, F_GETFL);
+        if (fd_flags == -1) {
+            LOG_ERRNO("failed to set non blocking mode on Wayland display connection");
+            goto out;
+        }
+        if (fcntl(fd, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
+            LOG_ERRNO("failed to set non blocking mode on Wayland display connection");
+            goto out;
+        }
+    }
+
+
+    int timeout_ms = -1;
     while (true) {
         struct pollfd fds[] = {
             {.fd = wl_display_get_fd(term.wl.display), .events = POLLIN},
@@ -660,41 +674,42 @@ main(int argc, char *const *argv)
         if (fds[1].revents & POLLIN) {
             uint8_t data[24 * 1024];
             ssize_t count = read(term.ptmx, data, sizeof(data));
-            if (count < 0) {
-                if (errno != EAGAIN)
-                    LOG_ERRNO("failed to read from pseudo terminal");
+            if (count < 0 && errno != EAGAIN) {
+                LOG_ERRNO("failed to read from pseudo terminal");
                 break;
             }
 
-            vt_from_slave(&term, data, count);
+            if (count > 0) {
+                vt_from_slave(&term, data, count);
 
-            /*
-             * We likely need to re-render. But, we don't want to do
-             * it immediately. Often, a single client operation is
-             * done through multiple writes. Many times, we're so fast
-             * that we render mid-operation frames.
-             *
-             * For example, we might end up rendering a frame where
-             * the client just erased a line, while in the next frame,
-             * the client wrote to the same line. This causes screen
-             * "flashes".
-             *
-             * Mitigate by always incuring a small delay before
-             * rendering the next frame. This gives the client some
-             * time to finish the operation (and thus gives us time to
-             * receive the last writes before doing any actual
-             * rendering).
-             *
-             * Note that when the client is producing data at a very
-             * high pace, we're rate limited by the wayland compositor
-             * anyway. The delay we introduce here only has any effect
-             * when the renderer is idle.
-             *
-             * TODO: this adds input latency. Can we somehow hint
-             * ourselves we just received keyboard input, and in this
-             * case *not* delay rendering?
-             */
-            timeout_ms = 1;
+                /*
+                 * We likely need to re-render. But, we don't want to
+                 * do it immediately. Often, a single client operation
+                 * is done through multiple writes. Many times, we're
+                 * so fast that we render mid-operation frames.
+                 *
+                 * For example, we might end up rendering a frame
+                 * where the client just erased a line, while in the
+                 * next frame, the client wrote to the same line. This
+                 * causes screen "flashes".
+                 *
+                 * Mitigate by always incuring a small delay before
+                 * rendering the next frame. This gives the client
+                 * some time to finish the operation (and thus gives
+                 * us time to receive the last writes before doing any
+                 * actual rendering).
+                 *
+                 * Note that when the client is producing data at a
+                 * very high pace, we're rate limited by the wayland
+                 * compositor anyway. The delay we introduce here only
+                 * has any effect when the renderer is idle.
+                 *
+                 * TODO: this adds input latency. Can we somehow hint
+                 * ourselves we just received keyboard input, and in
+                 * this case *not* delay rendering?
+                 */
+                timeout_ms = 1;
+            }
         }
 
         if (fds[1].revents & POLLHUP) {
@@ -707,9 +722,9 @@ main(int argc, char *const *argv)
             ssize_t ret = read(
                 term.kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
 
-            if (ret < 0)
+            if (ret < 0 && errno != EAGAIN)
                 LOG_ERRNO("failed to read repeat key from repeat timer fd");
-            else {
+            else if (ret > 0) {
                 term.kbd.repeat.dont_re_repeat = true;
                 for (size_t i = 0; i < expiration_count; i++)
                     input_repeat(&term, term.kbd.repeat.key);
@@ -722,15 +737,16 @@ main(int argc, char *const *argv)
             ssize_t ret = read(
                 term.flash.fd, &expiration_count, sizeof(expiration_count));
 
-            if (ret < 0)
+            if (ret < 0 && errno != EAGAIN)
                 LOG_ERRNO("failed to read flash timer");
-            else
+            else if (ret > 0) {
                 LOG_DBG("flash timer expired %llu times",
                         (unsigned long long)expiration_count);
 
-            term.flash.active = false;
-            term_damage_view(&term);
-            render_refresh(&term);
+                term.flash.active = false;
+                term_damage_view(&term);
+                render_refresh(&term);
+            }
         }
 
         if (fds[4].revents & POLLIN) {
@@ -738,29 +754,30 @@ main(int argc, char *const *argv)
             ssize_t ret = read(
                 term.blink.fd, &expiration_count, sizeof(expiration_count));
 
-            if (ret < 0)
+            if (ret < 0 && errno != EAGAIN)
                 LOG_ERRNO("failed to read blink timer");
-            else
+            else if (ret > 0) {
                 LOG_DBG("blink timer expired %llu times",
                         (unsigned long long)expiration_count);
 
-            term.blink.state = term.blink.state == BLINK_ON
-                ? BLINK_OFF : BLINK_ON;
+                term.blink.state = term.blink.state == BLINK_ON
+                    ? BLINK_OFF : BLINK_ON;
 
-            /* Scan all visible cells and mark rows with blinking cells dirty */
-            for (int r = 0; r < term.rows; r++) {
-                struct row *row = grid_row_in_view(term.grid, r);
-                for (int col = 0; col < term.cols; col++) {
-                    struct cell *cell = &row->cells[col];
+                /* Scan all visible cells and mark rows with blinking cells dirty */
+                for (int r = 0; r < term.rows; r++) {
+                    struct row *row = grid_row_in_view(term.grid, r);
+                    for (int col = 0; col < term.cols; col++) {
+                        struct cell *cell = &row->cells[col];
 
-                    if (cell->attrs.blink) {
-                        cell->attrs.clean = 0;
-                        row->dirty = true;
+                        if (cell->attrs.blink) {
+                            cell->attrs.clean = 0;
+                            row->dirty = true;
+                        }
                     }
                 }
-            }
 
-            render_refresh(&term);
+                render_refresh(&term);
+            }
         }
 
     }
