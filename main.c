@@ -192,83 +192,6 @@ static const struct wl_registry_listener registry_listener = {
     .global_remove = &handle_global_remove,
 };
 
-static int
-keyboard_repeater(void *arg)
-{
-    struct terminal *term = arg;
-
-    char proc_title[16];
-    snprintf(proc_title, sizeof(proc_title), "foot:kbd-repeat");
-
-    if (prctl(PR_SET_NAME, proc_title, 0, 0, 0) < 0)
-        LOG_ERRNO("kbd repeat: failed to set process title");
-
-    while (true) {
-        LOG_DBG("repeater: waiting for start");
-
-        mtx_lock(&term->kbd.repeat.mutex);
-        while (term->kbd.repeat.cmd == REPEAT_STOP)
-            cnd_wait(&term->kbd.repeat.cond, &term->kbd.repeat.mutex);
-
-        if (term->kbd.repeat.cmd == REPEAT_EXIT) {
-            mtx_unlock(&term->kbd.repeat.mutex);
-            return 0;
-        }
-
-    restart:
-
-        LOG_DBG("repeater: started");
-        assert(term->kbd.repeat.cmd == REPEAT_START);
-
-        const long rate_delay = 1000000000 / term->kbd.repeat.rate;
-        long delay = term->kbd.repeat.delay * 1000000;
-
-        while (true) {
-            assert(term->kbd.repeat.rate > 0);
-
-            struct timespec timeout;
-            clock_gettime(CLOCK_REALTIME, &timeout);
-
-            timeout.tv_nsec += delay;
-            if (timeout.tv_nsec >= 1000000000) {
-                timeout.tv_sec += timeout.tv_nsec / 1000000000;
-                timeout.tv_nsec %= 1000000000;
-            }
-
-            int ret = cnd_timedwait(&term->kbd.repeat.cond, &term->kbd.repeat.mutex, &timeout);
-            if (ret == thrd_success) {
-                if (term->kbd.repeat.cmd == REPEAT_START)
-                    goto restart;
-                else if (term->kbd.repeat.cmd == REPEAT_STOP) {
-                    mtx_unlock(&term->kbd.repeat.mutex);
-                    break;
-                } else if (term->kbd.repeat.cmd == REPEAT_EXIT) {
-                    mtx_unlock(&term->kbd.repeat.mutex);
-                    return 0;
-                }
-            }
-
-            assert(ret == thrd_timedout);
-            assert(term->kbd.repeat.cmd == REPEAT_START);
-            LOG_DBG("repeater: repeat: %u", term->kbd.repeat.key);
-
-            if (write(term->kbd.repeat.pipe_write_fd, &term->kbd.repeat.key,
-                      sizeof(term->kbd.repeat.key)) != sizeof(term->kbd.repeat.key))
-            {
-                LOG_ERRNO("faile to write repeat key to repeat pipe");
-                mtx_unlock(&term->kbd.repeat.mutex);
-                return 0;
-            }
-
-            delay = rate_delay;
-        }
-
-    }
-
-    assert(false);
-    return 1;
-}
-
 int
 main(int argc, char *const *argv)
 {
@@ -319,12 +242,6 @@ main(int argc, char *const *argv)
     setlocale(LC_ALL, "");
     setenv("TERM", conf.term, 1);
 
-    int repeat_pipe_fds[2] = {-1, -1};
-    if (pipe2(repeat_pipe_fds, O_CLOEXEC) == -1) {
-        LOG_ERRNO("failed to create pipe for repeater thread");
-        return ret;
-    }
-
     struct terminal term = {
         .quit = false,
         .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
@@ -347,9 +264,7 @@ main(int argc, char *const *argv)
         },
         .kbd = {
             .repeat = {
-                .pipe_read_fd = repeat_pipe_fds[0],
-                .pipe_write_fd = repeat_pipe_fds[1],
-                .cmd = REPEAT_STOP,
+                .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC),
             },
         },
         .colors = {
@@ -415,15 +330,14 @@ main(int argc, char *const *argv)
     }
 
     if (term.ptmx == -1) {
-        LOG_ERRNO("failed to open pseudo terminal");
+        LOG_ERR("failed to open pseudo terminal");
         goto out;
     }
 
-    mtx_init(&term.kbd.repeat.mutex, mtx_plain);
-    cnd_init(&term.kbd.repeat.cond);
-
-    thrd_t keyboard_repeater_id;
-    thrd_create(&keyboard_repeater_id, &keyboard_repeater, &term);
+    if (term.flash.fd == -1 || term.blink.fd == -1 || term.kbd.repeat.fd == -1) {
+        LOG_ERR("failed to create timers");
+        goto out;
+    }
 
     sem_init(&term.render.workers.start, 0, 0);
     sem_init(&term.render.workers.done, 0, 0);
@@ -706,7 +620,7 @@ main(int argc, char *const *argv)
         struct pollfd fds[] = {
             {.fd = wl_display_get_fd(term.wl.display), .events = POLLIN},
             {.fd = term.ptmx,                     .events = POLLIN},
-            {.fd = term.kbd.repeat.pipe_read_fd,  .events = POLLIN},
+            {.fd = term.kbd.repeat.fd,            .events = POLLIN},
             {.fd = term.flash.fd,                 .events = POLLIN},
             {.fd = term.blink.fd,                 .events = POLLIN},
         };
@@ -789,19 +703,19 @@ main(int argc, char *const *argv)
         }
 
         if (fds[2].revents & POLLIN) {
-            uint32_t key;
-            if (read(term.kbd.repeat.pipe_read_fd, &key, sizeof(key)) != sizeof(key)) {
-                LOG_ERRNO("failed to read repeat key from repeat pipe");
-                break;
+            uint64_t expiration_count;
+            ssize_t ret = read(
+                term.kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
+
+            if (ret < 0)
+                LOG_ERRNO("failed to read repeat key from repeat timer fd");
+            else {
+                term.kbd.repeat.dont_re_repeat = true;
+                for (size_t i = 0; i < expiration_count; i++)
+                    input_repeat(&term, term.kbd.repeat.key);
+                term.kbd.repeat.dont_re_repeat = false;
             }
-
-            term.kbd.repeat.dont_re_repeat = true;
-            input_repeat(&term, key);
-            term.kbd.repeat.dont_re_repeat = false;
         }
-
-        if (fds[2].revents & POLLHUP)
-            LOG_ERR("keyboard repeat handling thread died");
 
         if (fds[3].revents & POLLIN) {
             uint64_t expiration_count;
@@ -852,11 +766,6 @@ main(int argc, char *const *argv)
     }
 
 out:
-    mtx_lock(&term.kbd.repeat.mutex);
-    term.kbd.repeat.cmd = REPEAT_EXIT;
-    cnd_signal(&term.kbd.repeat.cond);
-    mtx_unlock(&term.kbd.repeat.mutex);
-
     mtx_lock(&term.render.workers.lock);
     assert(tll_length(term.render.workers.queue) == 0);
     for (size_t i = 0; i < term.render.workers.count; i++) {
@@ -942,13 +851,11 @@ out:
         close(term.flash.fd);
     if (term.blink.fd != -1)
         close(term.blink.fd);
+    if (term.kbd.repeat.fd != -1)
+        close(term.kbd.repeat.fd);
 
     if (term.ptmx != -1)
         close(term.ptmx);
-
-    thrd_join(keyboard_repeater_id, NULL);
-    cnd_destroy(&term.kbd.repeat.cond);
-    mtx_destroy(&term.kbd.repeat.mutex);
 
     for (size_t i = 0; i < term.render.workers.count; i++)
         thrd_join(term.render.workers.threads[i], NULL);
@@ -959,9 +866,6 @@ out:
     sem_destroy(&term.render.workers.done);
     assert(tll_length(term.render.workers.queue) == 0);
     tll_free(term.render.workers.queue);
-
-    close(term.kbd.repeat.pipe_read_fd);
-    close(term.kbd.repeat.pipe_write_fd);
 
     config_free(conf);
 

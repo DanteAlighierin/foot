@@ -156,12 +156,7 @@ struct kbd {
     struct xkb_compose_table *xkb_compose_table;
     struct xkb_compose_state *xkb_compose_state;
     struct {
-        mtx_t mutex;
-        cnd_t cond;
-        int trigger;
-        int pipe_read_fd;
-        int pipe_write_fd;
-        enum {REPEAT_STOP, REPEAT_START, REPEAT_EXIT} cmd;
+        int fd;
 
         bool dont_re_repeat;
         int32_t delay;

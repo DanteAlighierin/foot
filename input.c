@@ -7,6 +7,7 @@
 #include <locale.h>
 #include <sys/mman.h>
 #include <sys/time.h>
+#include <sys/timerfd.h>
 
 #include <linux/input-event-codes.h>
 
@@ -65,47 +66,56 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     term_focus_in(term);
 }
 
+static bool
+start_repeater(struct terminal *term, uint32_t key)
+{
+    if (term->kbd.repeat.dont_re_repeat)
+        return true;
+
+    struct itimerspec t = {
+        .it_value = {.tv_sec = 0, .tv_nsec = term->kbd.repeat.delay * 1000000},
+        .it_interval = {.tv_sec = 0, .tv_nsec = 1000000000 / term->kbd.repeat.rate},
+    };
+
+    if (t.it_value.tv_nsec >= 1000000000) {
+        t.it_value.tv_sec += t.it_value.tv_nsec / 1000000000;
+        t.it_value.tv_nsec %= 1000000000;
+    }
+    if (t.it_interval.tv_nsec >= 1000000000) {
+        t.it_interval.tv_sec += t.it_interval.tv_nsec / 1000000000;
+        t.it_interval.tv_nsec %= 1000000000;
+    }
+    if (timerfd_settime(term->kbd.repeat.fd, 0, &t, NULL) < 0) {
+        LOG_ERRNO("failed to arm keyboard repeat timer");
+        return false;
+    }
+
+    term->kbd.repeat.key = key;
+    return true;
+}
+
+static bool
+stop_repeater(struct terminal *term, uint32_t key)
+{
+    if (key != -1 && key != term->kbd.repeat.key)
+        return true;
+
+    if (timerfd_settime(term->kbd.repeat.fd, 0, &(struct itimerspec){{0}}, NULL) < 0) {
+        LOG_ERRNO("failed to disarm keyboard repeat timer");
+        return false;
+    }
+
+    return true;
+}
+
 static void
 keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface)
 {
     struct terminal *term = data;
 
-    mtx_lock(&term->kbd.repeat.mutex);
-    if (term->kbd.repeat.cmd != REPEAT_EXIT) {
-        term->kbd.repeat.cmd = REPEAT_STOP;
-        cnd_signal(&term->kbd.repeat.cond);
-    }
-    mtx_unlock(&term->kbd.repeat.mutex);
-
+    stop_repeater(term, -1);
     term_focus_out(term);
-}
-
-static void
-start_repeater(struct terminal *term, uint32_t key)
-{
-    mtx_lock(&term->kbd.repeat.mutex);
-    if (!term->kbd.repeat.dont_re_repeat) {
-        if (term->kbd.repeat.cmd != REPEAT_EXIT) {
-            term->kbd.repeat.cmd = REPEAT_START;
-            term->kbd.repeat.key = key;
-            cnd_signal(&term->kbd.repeat.cond);
-        }
-    }
-    mtx_unlock(&term->kbd.repeat.mutex);
-}
-
-static void
-stop_repeater(struct terminal *term, uint32_t key)
-{
-    mtx_lock(&term->kbd.repeat.mutex);
-    if (term->kbd.repeat.key == key) {
-        if (term->kbd.repeat.cmd != REPEAT_EXIT) {
-            term->kbd.repeat.cmd = REPEAT_STOP;
-            cnd_signal(&term->kbd.repeat.cond);
-        }
-    }
-    mtx_unlock(&term->kbd.repeat.mutex);
 }
 
 static void
