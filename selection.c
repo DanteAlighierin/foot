@@ -30,12 +30,6 @@ extract_selection(const struct terminal *term)
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
 
-    if (start->row > end->row || (start->row == end->row && start->col > end->col)) {
-        const struct coord *tmp = start;
-        start = end;
-        end = tmp;
-    }
-
     assert(start->row <= end->row);
 
     size_t max_cells = 0;
@@ -158,6 +152,17 @@ selection_finalize(struct terminal *term, uint32_t serial)
 
     assert(term->selection.start.row != -1);
     assert(term->selection.end.row != -1);
+
+    if (term->selection.start.row > term->selection.end.row ||
+        (term->selection.start.row == term->selection.end.row &&
+         term->selection.start.col > term->selection.end.col))
+    {
+        struct coord tmp = term->selection.start;
+        term->selection.start = term->selection.end;
+        term->selection.end = tmp;
+    }
+
+    assert(term->selection.start.row <= term->selection.end.row);
 
     /* TODO: somehow share code with the clipboard equivalent */
     if (term->selection.primary.data_source != NULL) {

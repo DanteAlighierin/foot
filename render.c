@@ -92,34 +92,26 @@ draw_strikeout(const struct terminal *term, cairo_t *cr, const struct font *font
 static bool
 coord_is_selected(const struct terminal *term, int col, int row)
 {
-    if (term->selection.start.col != -1 && term->selection.end.col != -1) {
-        const struct coord *start = &term->selection.start;
-        const struct coord *end = &term->selection.end;
+    if (term->selection.start.col == -1 || term->selection.end.col == -1)
+        return false;
 
-        if (end->row < start->row || (end->row == start->row && end->col < start->col)) {
-            const struct coord *tmp = start;
-            start = end;
-            end = tmp;
-        }
+    const struct coord *start = &term->selection.start;
+    const struct coord *end = &term->selection.end;
 
-        assert(start->row <= end->row);
+    assert(start->row <= end->row);
 
-        if (start->row == end->row) {
-            return (term->grid->view + row == start->row &&
-                    col >= start->col &&
-                    col <= end->col);
-        } else {
-            if (term->grid->view + row == start->row)
-                return col >= start->col;
-            else if (term->grid->view + row == end->row)
-                return col <= end->col;
-            else
-                return (term->grid->view + row >= start->row &&
-                        term->grid->view + row <= end->row);
-        }
+    row += term->grid->view;
+
+    if (start->row == end->row) {
+        return row == start->row && col >= start->col && col <= end->col;
+    } else {
+        if (row == start->row)
+            return col >= start->col;
+        else if (row == end->row)
+            return col <= end->col;
+        else
+            return row >= start->row && row <= end->row;
     }
-
-    return false;
 }
 
 static void
