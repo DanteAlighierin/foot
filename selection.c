@@ -333,6 +333,14 @@ selection_mark_word(struct terminal *term, int col, int row, bool spaces_only,
     selection_finalize(term, serial);
 }
 
+void
+selection_mark_row(struct terminal *term, int row, uint32_t serial)
+{
+    selection_start(term, 0, row);
+    selection_update(term, term->cols - 1, row);
+    selection_finalize(term, serial);
+}
+
 static void
 target(void *data, struct wl_data_source *wl_data_source, const char *mime_type)
 {

@@ -403,27 +403,37 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     switch (state) {
     case WL_POINTER_BUTTON_STATE_PRESSED: {
-        bool double_click = false;
-
-        struct timeval now;
+        /* Time since last click */
+        struct timeval now, since_last;
         gettimeofday(&now, NULL);
-
-        struct timeval since_last;
         timersub(&now, &term->mouse.last_time, &since_last);
+
+        /* Double- or triple click? */
         if (button == term->mouse.last_button &&
-            since_last.tv_sec == 0 && since_last.tv_usec <= 300 * 1000)
+            since_last.tv_sec == 0 &&
+            since_last.tv_usec <= 300 * 1000)
         {
-            double_click = true;
-        }
+            term->mouse.count++;
+        } else
+            term->mouse.count = 1;
 
         if (button == BTN_LEFT) {
-            if (double_click)
+            switch (term->mouse.count) {
+            case 1:
+                selection_start(term, term->mouse.col, term->mouse.row);
+                break;
+
+            case 2:
                 selection_mark_word(term, term->mouse.col, term->mouse.row,
                                     term->kbd.ctrl, serial);
-            else
-                selection_start(term, term->mouse.col, term->mouse.row);
+                break;
+
+            case 3:
+                selection_mark_row(term, term->mouse.row, serial);
+                break;
+            }
         } else {
-            if (button == BTN_MIDDLE)
+            if (term->mouse.count == 1 && button == BTN_MIDDLE)
                 selection_from_primary(term);
             selection_cancel(term);
         }

@@ -273,6 +273,7 @@ struct terminal {
         int row;
         int button;
 
+        int count;
         int last_button;
         struct timeval last_time;
 

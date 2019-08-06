@@ -14,6 +14,7 @@ void selection_finalize(struct terminal *term, uint32_t serial);
 void selection_cancel(struct terminal *term);
 void selection_mark_word(struct terminal *term, int col, int row,
                          bool spaces_only, uint32_t serial);
+void selection_mark_row(struct terminal *term, int row, uint32_t serial);
 
 void selection_to_clipboard(struct terminal *term, uint32_t serial);
 void selection_from_clipboard(struct terminal *term, uint32_t serial);
