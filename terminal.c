@@ -470,6 +470,11 @@ void
 term_mouse_down(struct terminal *term, int button, int row, int col,
                 bool shift, bool alt, bool ctrl)
 {
+    if (term->kbd.shift) {
+        /* "raw" mouse mode */
+        return;
+    }
+
     /* Map libevent button event code to X button number */
     int xbutton = linux_mouse_button_to_x(button);
     if (xbutton == -1)
@@ -498,6 +503,11 @@ void
 term_mouse_up(struct terminal *term, int button, int row, int col,
               bool shift, bool alt, bool ctrl)
 {
+    if (term->kbd.shift) {
+        /* "raw" mouse mode */
+        return;
+    }
+
     /* Map libevent button event code to X button number */
     int xbutton = linux_mouse_button_to_x(button);
     if (xbutton == -1)
@@ -531,6 +541,11 @@ void
 term_mouse_motion(struct terminal *term, int button, int row, int col,
                   bool shift, bool alt, bool ctrl)
 {
+    if (term->kbd.shift) {
+        /* "raw" mouse mode */
+        return;
+    }
+
     int encoded = 0;
 
     if (button != 0) {
