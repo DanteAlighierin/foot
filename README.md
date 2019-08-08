@@ -50,10 +50,8 @@ is **not** possible to define new key bindings.
   text is copied to the _primary_ selection. Note that this feature is
   normally disabled whenever the client has enabled mouse tracking,
   but can be forced by holding `shift`.
-
 * `left` - double-click: selects the _word_ (separated by spaces,
   period, comma, parenthesis etc) under the pointer. Hold `ctrl` to
   select everything under the pointer up to, and until, the next space
   characters.
-
 * `left` - triple-click: selects the entire row
