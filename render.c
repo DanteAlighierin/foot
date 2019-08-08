@@ -98,6 +98,12 @@ coord_is_selected(const struct terminal *term, int col, int row)
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
 
+    if (start->row > end->row || (start->row == end->row && start->col > end->col)) {
+        const struct coord *tmp = start;
+        start = end;
+        end = tmp;
+    }
+
     assert(start->row <= end->row);
 
     row += term->grid->view;
