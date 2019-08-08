@@ -723,6 +723,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 1049:
                     if (term->grid != &term->alt) {
+                        selection_cancel(term);
+
                         term->grid = &term->alt;
                         term->saved_cursor = term->cursor;
 
@@ -730,7 +732,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                         tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);
-                        selection_cancel(term);
 
                         term_erase(
                             term,
@@ -808,14 +809,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 1049:
                     if (term->grid == &term->alt) {
-                        term->grid = &term->normal;
+                        selection_cancel(term);
 
+                        term->grid = &term->normal;
                         term_restore_cursor(term);
 
                         tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);
 
-                        selection_cancel(term);
                         term_damage_all(term);
                     }
                     break;
