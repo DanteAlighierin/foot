@@ -484,6 +484,5 @@ config_free(struct config conf)
 {
     free(conf.term);
     free(conf.shell);
-    //free(conf.font);
     tll_free_and_free(conf.fonts, free);
 }
