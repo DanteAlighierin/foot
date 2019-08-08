@@ -280,16 +280,13 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
 
     FT_UInt idx = FT_Get_Char_Index(font->face, wc);
     if (idx == 0) {
-        LOG_DBG("no glyph found for %02x %02x %02x %02x",
-                (unsigned char)utf8[0], (unsigned char)utf8[1],
-                (unsigned char)utf8[2], (unsigned char)utf8[3]);
-
-        /* Try fallback fonts */
+        /* No glyph in this font, try fallback fonts */
         tll_foreach(font->fallbacks, it) {
             struct font fallback;
             if (from_name(it->item, NULL, "", &fallback, true)) {
                 if (glyph_for_wchar(&fallback, wc, glyph)) {
-                    LOG_DBG("used fallback %s (fixup = %f)", it->item, fallback.pixel_size_fixup);
+                    LOG_DBG("%C: used fallback %s (fixup = %f)",
+                            wc, it->item, fallback.pixel_size_fixup);
                     font_destroy(&fallback);
                     return true;
                 }
@@ -300,6 +297,9 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
 
         if (font->is_fallback)
             return false;
+
+        LOG_WARN("%C: no glyph found (in neither the main font, "
+                 "nor any fallback fonts)", wc);
     }
 
     err = FT_Load_Glyph(font->face, idx, font->load_flags);
