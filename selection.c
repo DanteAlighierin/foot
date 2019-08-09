@@ -17,7 +17,7 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-static bool
+bool
 selection_enabled(const struct terminal *term)
 {
     return term->mouse_tracking == MOUSE_NONE || term->kbd.shift;

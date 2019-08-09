@@ -433,7 +433,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 break;
             }
         } else {
-            if (term->mouse.count == 1 && button == BTN_MIDDLE)
+            if (term->mouse.count == 1 && button == BTN_MIDDLE && selection_enabled(term))
                 selection_from_primary(term);
             selection_cancel(term);
         }
