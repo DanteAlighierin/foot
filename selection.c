@@ -55,23 +55,42 @@ extract_selection(const struct terminal *term)
         max_cells += end->col + 1;
     }
 
-    char *buf = malloc(max_cells * 4 + 1);
+    const size_t buf_size = max_cells * 4 + 1;
+    char *buf = malloc(buf_size);
     int idx = 0;
 
     int start_col = start->col;
-    for (int r = start->row; r < end->row; r++) {
+    for (int r = start->row; r <= end->row; r++) {
         const struct row *row = grid_row_in_view(term->grid, r - term->grid->view);
         if (row == NULL)
             continue;
 
-        /* TODO: replace '\0' with spaces, then trim lines? */
-        for (int col = start_col; col < term->cols; col++) {
+        /*
+         * Trailing empty cells are never included in the selection.
+         *
+         * Empty cells between non-empty cells however are replaced
+         * with spaces.
+         */
+
+        for (int col = start_col, empty_count = 0;
+             col < (r == end->row ? end->col : term->cols);
+             col++)
+        {
             const struct cell *cell = &row->cells[col];
+
             if (cell->wc == 0) {
+                empty_count++;
                 if (col == term->cols - 1)
                     buf[idx++] = '\n';
                 continue;
             }
+
+            assert(idx + empty_count <= buf_size);
+            memset(&buf[idx], ' ', empty_count);
+            idx += empty_count;
+            empty_count = 0;
+
+            assert(idx + 1 <= buf_size);
 
             mbstate_t ps = {0};
             size_t len = wcrtomb(&buf[idx], cell->wc, &ps);
@@ -82,23 +101,7 @@ extract_selection(const struct terminal *term)
         start_col = 0;
     }
 
-    {
-        const struct row *row = grid_row_in_view(term->grid, end->row - term->grid->view);
-        for (int col = start_col; row != NULL && col <= end->col; col++) {
-            const struct cell *cell = &row->cells[col];
-            if (cell->wc == 0) {
-                if (col == term->cols - 1)
-                    buf[idx++] = '\n';
-                continue;
-            }
-
-            mbstate_t ps = {0};
-            size_t len = wcrtomb(&buf[idx], cell->wc, &ps);
-            assert(len >= 0); /* All wchars were valid multibyte strings to begin with */
-            idx += len;
-        }
-    }
-
+    assert(idx < buf_size);
     if (buf[idx - 1] == '\n')
         buf[idx - 1] = '\0';
     else
@@ -176,44 +179,7 @@ selection_finalize(struct terminal *term, uint32_t serial)
     }
 
     assert(term->selection.start.row <= term->selection.end.row);
-
-    /* TODO: somehow share code with the clipboard equivalent */
-    if (term->selection.primary.data_source != NULL) {
-        /* Kill previous data source */
-        struct primary *primary = &term->selection.primary;
-
-        assert(primary->serial != 0);
-        zwp_primary_selection_device_v1_set_selection(
-            term->wl.primary_selection_device, NULL, primary->serial);
-        zwp_primary_selection_source_v1_destroy(primary->data_source);
-        free(primary->text);
-
-        primary->data_source = NULL;
-        primary->serial = 0;
-    }
-
-    struct primary *primary = &term->selection.primary;
-
-    primary->data_source
-        = zwp_primary_selection_device_manager_v1_create_source(
-            term->wl.primary_selection_device_manager);
-
-    if (primary->data_source == NULL) {
-        LOG_ERR("failed to create clipboard data source");
-        return;
-    }
-
-    /* Get selection as a string */
-    primary->text = extract_selection(term);
-
-    /* Configure source */
-    zwp_primary_selection_source_v1_offer(primary->data_source, "text/plain;charset=utf-8");
-    zwp_primary_selection_source_v1_add_listener(primary->data_source, &primary_selection_source_listener, term);
-    zwp_primary_selection_device_v1_set_selection(term->wl.primary_selection_device, primary->data_source, serial);
-    zwp_primary_selection_source_v1_set_user_data(primary->data_source, primary);
-
-    /* Needed when sending the selection to other client */
-    primary->serial = serial;
+    selection_to_primary(term, serial);
 }
 
 void
@@ -577,8 +543,62 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
         vt_to_slave(term, "\033[201~", 6);
 }
 
+bool
+text_to_primary(struct terminal *term, char *text, uint32_t serial)
+{
+    /* TODO: somehow share code with the clipboard equivalent */
+    if (term->selection.primary.data_source != NULL) {
+        /* Kill previous data source */
+        struct primary *primary = &term->selection.primary;
+
+        assert(primary->serial != 0);
+        zwp_primary_selection_device_v1_set_selection(
+            term->wl.primary_selection_device, NULL, primary->serial);
+        zwp_primary_selection_source_v1_destroy(primary->data_source);
+        free(primary->text);
+
+        primary->data_source = NULL;
+        primary->serial = 0;
+    }
+
+    struct primary *primary = &term->selection.primary;
+
+    primary->data_source
+        = zwp_primary_selection_device_manager_v1_create_source(
+            term->wl.primary_selection_device_manager);
+
+    if (primary->data_source == NULL) {
+        LOG_ERR("failed to create clipboard data source");
+        return false;
+    }
+
+    /* Get selection as a string */
+    primary->text = text;
+
+    /* Configure source */
+    zwp_primary_selection_source_v1_offer(primary->data_source, "text/plain;charset=utf-8");
+    zwp_primary_selection_source_v1_add_listener(primary->data_source, &primary_selection_source_listener, term);
+    zwp_primary_selection_device_v1_set_selection(term->wl.primary_selection_device, primary->data_source, serial);
+    zwp_primary_selection_source_v1_set_user_data(primary->data_source, primary);
+
+    /* Needed when sending the selection to other client */
+    primary->serial = serial;
+    return true;
+}
+
 void
-selection_from_primary(struct terminal *term)
+selection_to_primary(struct terminal *term, uint32_t serial)
+{
+    /* Get selection as a string */
+    char *text = extract_selection(term);
+    if (!text_to_primary(term, text, serial))
+        free(text);
+}
+
+void
+text_from_primary(
+    struct terminal *term, void (*cb)(const char *data, size_t size, void *user),
+    void *user)
 {
     struct primary *primary = &term->selection.primary;
     if (primary->data_offer == NULL)
@@ -602,9 +622,6 @@ selection_from_primary(struct terminal *term)
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
 
-    if (term->bracketed_paste)
-        vt_to_slave(term, "\033[200~", 6);
-
     /* Read until EOF */
     while (true) {
         char text[256];
@@ -616,13 +633,26 @@ selection_from_primary(struct terminal *term)
         } else if (amount == 0)
             break;
 
-        vt_to_slave(term, text, amount);
+        cb(text, amount, user);
     }
+
+    close(read_fd);
+}
+
+void
+selection_from_primary(struct terminal *term)
+{
+    struct clipboard *clipboard = &term->selection.clipboard;
+    if (clipboard->data_offer == NULL)
+        return;
+
+    if (term->bracketed_paste)
+        vt_to_slave(term, "\033[200~", 6);
+
+    text_from_primary(term, &from_clipboard_cb, term);
 
     if (term->bracketed_paste)
         vt_to_slave(term, "\033[201~", 6);
-
-    close(read_fd);
 }
 
 #if 0

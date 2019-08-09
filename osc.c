@@ -65,6 +65,13 @@ osc_to_clipboard(struct terminal *term, const char *target,
             break;
         }
 
+        case 'p': {
+            char *copy = strdup(decoded);
+            if (!text_to_primary(term, copy, term->input_serial))
+                free(copy);
+            break;
+        }
+
         default:
             LOG_WARN("unimplemented: clipboard target '%c'", *t);
             break;
@@ -157,9 +164,7 @@ osc_from_clipboard(struct terminal *term, const char *source)
         break;
 
     case 'p':
-        LOG_ERR("unimplemented: osc from primary");
-        abort();
-        // text_from_primary(term, term->input_serial, &from_clipboard_cb, &ctx);
+        text_from_primary(term, &from_clipboard_cb, &ctx);
         break;
     }
 
