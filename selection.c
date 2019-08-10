@@ -73,7 +73,7 @@ extract_selection(const struct terminal *term)
          */
 
         for (int col = start_col, empty_count = 0;
-             col < (r == end->row ? end->col : term->cols);
+             col <= (r == end->row ? end->col : term->cols - 1);
              col++)
         {
             const struct cell *cell = &row->cells[col];
