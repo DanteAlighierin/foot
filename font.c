@@ -34,16 +34,6 @@ fini(void)
     FcFini();
 }
 
-#if 0
-static void
-font_populate_glyph_cache(struct font *font)
-{
-    memset(font->cache, 0, sizeof(font->cache));
-    for (size_t i = 0; i < 256; i++)
-        font_glyph_for_utf8(font, &(char){i}, &font->cache[i]);
-}
-#endif
-
 static bool
 from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_list_t *fallbacks,
               const char *attributes, struct font *font, bool is_fallback)
@@ -76,13 +66,6 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
     assert(font_idx != -1);
     assert(final_pattern != NULL);
 
-#if 0
-    if (is_fallback) {
-        FcFontSetDestroy(fonts);
-        FcPatternDestroy(pattern);
-    }
-#endif
-
     double dpi;
     if (FcPatternGetDouble(final_pattern, FC_DPI, 0, &dpi) != FcResultMatch)
         dpi = 96;
@@ -91,12 +74,6 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
     if (FcPatternGetDouble(final_pattern, FC_PIXEL_SIZE, 0, &size)) {
         LOG_ERR("%s: failed to get size", face_file);
         FcPatternDestroy(final_pattern);
-#if 0
-        if (!is_fallback) {
-            FcFontSetDestroy(fonts);
-            FcPatternDestroy(pattern);
-        }
-#endif
         return false;
     }
 
@@ -207,6 +184,12 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
     font->pixel_size_fixup = scalable ? pixel_fixup : 1.;
     font->fc_idx = font_idx;
 
+    if (!is_fallback) {
+        font->fc_pattern = pattern;
+        font->fc_fonts = fonts;
+        font->cache = calloc(cache_size, sizeof(font->cache[0]));
+    }
+
     if (fallbacks != NULL) {
         tll_foreach(*fallbacks, it) {
             size_t len = strlen(it->item) + (have_attrs ? 1 : 0) + attr_len + 1;
@@ -229,8 +212,6 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
 static bool
 from_name(const char *base_name, const font_list_t *fallbacks, const char *attributes, struct font *font, bool is_fallback)
 {
-    //memset(font, 0, sizeof(*font));
-
     size_t attr_len = attributes == NULL ? 0 : strlen(attributes);
     bool have_attrs = attr_len > 0;
 
@@ -271,11 +252,7 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
         return false;
     }
 
-    if (!is_fallback) {
-        font->fc_pattern = pattern;
-        font->fc_fonts = fonts;
-        font->cache = calloc(cache_size, sizeof(font->cache[0]));
-    } else {
+    if (is_fallback) {
         FcFontSetDestroy(fonts);
         FcPatternDestroy(pattern);
     }
