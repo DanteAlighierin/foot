@@ -6,6 +6,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_LCD_FILTER_H
+#include <fontconfig/fontconfig.h>
 #include <cairo.h>
 
 #include "tllist.h"
@@ -28,6 +29,10 @@ struct glyph {
 typedef tll(struct glyph) hash_entry_t;
 
 struct font {
+    FcPattern *fc_pattern;
+    FcFontSet *fc_fonts;
+    int fc_idx;
+
     FT_Face face;
     int load_flags;
     int render_flags;

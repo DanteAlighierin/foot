@@ -7,8 +7,6 @@
 #include <assert.h>
 #include <threads.h>
 
-#include <fontconfig/fontconfig.h>
-
 #define LOG_MODULE "font"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
@@ -47,53 +45,43 @@ font_populate_glyph_cache(struct font *font)
 #endif
 
 static bool
-from_name(const char *base_name, const font_list_t *fallbacks, const char *attributes, struct font *font, bool is_fallback)
+from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_list_t *fallbacks,
+              const char *attributes, struct font *font, bool is_fallback)
 {
     memset(font, 0, sizeof(*font));
 
     size_t attr_len = attributes == NULL ? 0 : strlen(attributes);
     bool have_attrs = attr_len > 0;
 
-    char name[strlen(base_name) + (have_attrs ? 1 : 0) + attr_len + 1];
-    strcpy(name, base_name);
-    if (have_attrs){
-        strcat(name, ":");
-        strcat(name, attributes);
-    }
-
-    LOG_DBG("instantiating %s", name);
-
-    FcPattern *pattern = FcNameParse((const unsigned char *)name);
-    if (pattern == NULL) {
-        LOG_ERR("%s: failed to lookup font", name);
-        return false;
-    }
-
-    if (!FcConfigSubstitute(NULL, pattern, FcMatchPattern)) {
-        LOG_ERR("%s: failed to do config substitution", name);
-        FcPatternDestroy(pattern);
-        return false;
-    }
-
-    FcDefaultSubstitute(pattern);
-
-    FcResult result;
-    FcPattern *final_pattern = FcFontMatch(NULL, pattern, &result);
-    FcPatternDestroy(pattern);
-
-    if (final_pattern == NULL) {
-        LOG_ERR("%s: failed to match font", name);
-        return false;
-    }
-
     FcChar8 *face_file = NULL;
-    if (FcPatternGetString(final_pattern, FC_FT_FACE, 0, &face_file) != FcResultMatch) {
-        if (FcPatternGetString(final_pattern, FC_FILE, 0, &face_file) != FcResultMatch) {
-            LOG_ERR("no font file name available");
-            FcPatternDestroy(final_pattern);
-            return false;
+    FcPattern *final_pattern = NULL;
+    int font_idx = -1;
+
+    for (int i = start_idx; i < fonts->nfont; i++) {
+        FcPattern *pat = FcFontRenderPrepare(NULL, pattern, fonts->fonts[i]);
+        assert(pat != NULL);
+
+        if (FcPatternGetString(pat, FC_FT_FACE, 0, &face_file) != FcResultMatch) {
+            if (FcPatternGetString(pat, FC_FILE, 0, &face_file) != FcResultMatch) {
+                FcPatternDestroy(pat);
+                continue;
+            }
         }
+
+        final_pattern = pat;
+        font_idx = i;
+        break;
     }
+
+    assert(font_idx != -1);
+    assert(final_pattern != NULL);
+
+#if 0
+    if (is_fallback) {
+        FcFontSetDestroy(fonts);
+        FcPatternDestroy(pattern);
+    }
+#endif
 
     double dpi;
     if (FcPatternGetDouble(final_pattern, FC_DPI, 0, &dpi) != FcResultMatch)
@@ -101,8 +89,14 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
 
     double size;
     if (FcPatternGetDouble(final_pattern, FC_PIXEL_SIZE, 0, &size)) {
-        LOG_ERR("%s: failed to get size", name);
+        LOG_ERR("%s: failed to get size", face_file);
         FcPatternDestroy(final_pattern);
+#if 0
+        if (!is_fallback) {
+            FcFontSetDestroy(fonts);
+            FcPatternDestroy(pattern);
+        }
+#endif
         return false;
     }
 
@@ -211,6 +205,7 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
     font->render_flags = render_flags;
     font->is_fallback = is_fallback;
     font->pixel_size_fixup = scalable ? pixel_fixup : 1.;
+    font->fc_idx = font_idx;
 
     if (fallbacks != NULL) {
         tll_foreach(*fallbacks, it) {
@@ -228,10 +223,63 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
         }
     }
 
-    if (is_fallback)
-        return true;
+    return true;
+}
 
-    font->cache = calloc(cache_size, sizeof(font->cache[0]));
+static bool
+from_name(const char *base_name, const font_list_t *fallbacks, const char *attributes, struct font *font, bool is_fallback)
+{
+    //memset(font, 0, sizeof(*font));
+
+    size_t attr_len = attributes == NULL ? 0 : strlen(attributes);
+    bool have_attrs = attr_len > 0;
+
+    char name[strlen(base_name) + (have_attrs ? 1 : 0) + attr_len + 1];
+    strcpy(name, base_name);
+    if (have_attrs){
+        strcat(name, ":");
+        strcat(name, attributes);
+    }
+
+    LOG_DBG("instantiating %s", name);
+
+    FcPattern *pattern = FcNameParse((const unsigned char *)name);
+    if (pattern == NULL) {
+        LOG_ERR("%s: failed to lookup font", name);
+        return false;
+    }
+
+    if (!FcConfigSubstitute(NULL, pattern, FcMatchPattern)) {
+        LOG_ERR("%s: failed to do config substitution", name);
+        FcPatternDestroy(pattern);
+        return false;
+    }
+
+    FcDefaultSubstitute(pattern);
+
+    FcResult result;
+    FcFontSet *fonts = FcFontSort(NULL, pattern, FcTrue, NULL, &result);
+    if (result != FcResultMatch) {
+        LOG_ERR("%s: failed to match font", name);
+        FcPatternDestroy(pattern);
+        return false;
+    }
+
+    if (!from_font_set(pattern, fonts, 0, fallbacks, attributes, font, is_fallback)) {
+        FcFontSetDestroy(fonts);
+        FcPatternDestroy(pattern);
+        return false;
+    }
+
+    if (!is_fallback) {
+        font->fc_pattern = pattern;
+        font->fc_fonts = fonts;
+        font->cache = calloc(cache_size, sizeof(font->cache[0]));
+    } else {
+        FcFontSetDestroy(fonts);
+        FcPatternDestroy(pattern);
+    }
+
     return true;
 }
 
@@ -240,7 +288,7 @@ font_from_name(font_list_t names, const char *attributes, struct font *font)
 {
     if (tll_length(names) == 0)
         return false;
-        
+
     font_list_t fallbacks = tll_init();
     bool skip_first = true;
     tll_foreach(names, it) {
@@ -281,8 +329,10 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
     FT_UInt idx = FT_Get_Char_Index(font->face, wc);
     if (idx == 0) {
         /* No glyph in this font, try fallback fonts */
+        struct font fallback;
+
+        /* Try user configured fallback fonts */
         tll_foreach(font->fallbacks, it) {
-            struct font fallback;
             if (from_name(it->item, NULL, "", &fallback, true)) {
                 if (glyph_for_wchar(&fallback, wc, glyph)) {
                     LOG_DBG("%C: used fallback %s (fixup = %f)",
@@ -297,6 +347,24 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
 
         if (font->is_fallback)
             return false;
+
+        /* Try fontconfig fallback fonts */
+
+        assert(font->fc_pattern != NULL);
+        assert(font->fc_fonts != NULL);
+        assert(font->fc_idx != -1);
+
+        for (int i = font->fc_idx + 1; i < font->fc_fonts->nfont; i++) {
+            if (from_font_set(font->fc_pattern, font->fc_fonts, i, NULL, "", &fallback, true)) {
+                if (glyph_for_wchar(&fallback, wc, glyph)) {
+                    LOG_DBG("%C: used fontconfig fallback", wc);
+                    font_destroy(&fallback);
+                    return true;
+                }
+
+                font_destroy(&fallback);
+            }
+        }
 
         LOG_WARN("%C: no glyph found (in neither the main font, "
                  "nor any fallback fonts)", wc);
@@ -440,6 +508,11 @@ font_destroy(struct font *font)
     }
 
     mtx_destroy(&font->lock);
+
+    if (font->fc_pattern != NULL)
+        FcPatternDestroy(font->fc_pattern);
+    if (font->fc_fonts != NULL)
+        FcFontSetDestroy(font->fc_fonts);
 
     if (font->cache == NULL)
         return;
