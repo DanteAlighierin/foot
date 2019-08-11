@@ -110,3 +110,5 @@ custom_target(
   install_dir: join_paths(get_option('datadir'), 'terminfo'))
 
 install_data('foot.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
+
+subdir('doc')
