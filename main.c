@@ -192,6 +192,18 @@ static const struct wl_registry_listener registry_listener = {
     .global_remove = &handle_global_remove,
 };
 
+static void
+print_usage(const char *prog_name)
+{
+    printf("Usage: %s [OPTION]...\n", prog_name);
+    printf("\n");
+    printf("Options:\n");
+    printf("  -f,--font=FONT             font name and style in fontconfig format (monospace)\n"
+           "  -t,--term=TERM             value to set the environment variable TERM to (foot)\n"
+           "  -v,--version               show the version number and quit\n");
+    printf("\n");
+}
+
 int
 main(int argc, char *const *argv)
 {
@@ -201,14 +213,18 @@ main(int argc, char *const *argv)
     if (!config_load(&conf))
         return ret;
 
+    const char *const prog_name = argv[0];
+
     static const struct option longopts[] =  {
-        {"term", required_argument, 0, 't'},
-        {"font", required_argument, 0, 'f'},
-        {NULL,   no_argument,       0,   0},
+        {"term",    required_argument, 0, 't'},
+        {"font",    required_argument, 0, 'f'},
+        {"version", no_argument,       0, 'v'},
+        {"help",    no_argument,       0, 'h'},
+        {NULL,      no_argument,       0,   0},
     };
 
     while (true) {
-        int c = getopt_long(argc, argv, ":t:f:h", longopts, NULL);
+        int c = getopt_long(argc, argv, ":t:f:vh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -223,8 +239,13 @@ main(int argc, char *const *argv)
             tll_push_back(conf.fonts, strdup(optarg));
             break;
 
+        case 'v':
+            printf("foot version %s\n", FOOT_VERSION);
+            return EXIT_SUCCESS;
+
         case 'h':
-            break;
+            print_usage(prog_name);
+            return EXIT_SUCCESS;
 
         case ':':
             fprintf(stderr, "error: -%c: missing required argument\n", optopt);

@@ -9,10 +9,31 @@ project('foot', 'c',
 
 is_debug_build = get_option('buildtype').startswith('debug')
 
+version = '"@0@"'.format(meson.project_version())
+
+sh = find_program('sh', native: true)
+git = find_program('git', required: false, native: true)
+
+if git.found()
+  commit_hash = run_command(
+    [sh.path(), '-c',
+     '@0@ --git-dir="$MESON_SOURCE_ROOT/.git" describe --always --tags'.format(
+       git.path())])
+
+  branch = run_command(
+    [sh.path(), '-c',
+     '@0@ --git-dir="$MESON_SOURCE_ROOT/.git" rev-parse --abbrev-ref HEAD'.format(
+       git.path())])
+
+  if commit_hash.returncode() == 0 and branch.returncode() == 0
+    version = '"@0@ (" __DATE__ ", branch \'@1@\')"'.format(
+      commit_hash.stdout().strip(), branch.stdout().strip())
+  endif
+endif
+
 add_project_arguments(
   ['-D_GNU_SOURCE=200809L',
-   #'-DF00SEL_VERSION=@0@'.format(version)] +
-   ] +
+   '-DFOOT_VERSION=@0@'.format(version)] +
   (is_debug_build ? ['-D_DEBUG'] : []),
   language: 'c',
 )
