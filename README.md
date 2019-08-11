@@ -27,6 +27,9 @@ Instead, foot allows you to specify a font fallback list, where _each_
 font can be configured independently (for example, you can configure
 the size for each font individually).
 
+If a glyph cannot be found in _any_ of the user configured fallback
+fonts, _then_ fontconfig's list is used.
+
 Note that _subpixel antialiasing_ is **not** supported at the moment
 (but grayscale antialiasing is).
 
