@@ -58,3 +58,4 @@ is **not** possible to define new key bindings.
   select everything under the pointer up to, and until, the next space
   characters.
 * `left` - triple-click: selects the entire row
+* `middle` - paste from _primary_ selection
