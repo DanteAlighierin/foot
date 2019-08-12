@@ -27,3 +27,12 @@ list of font name and font options.
 _Examples_:
 - Dina:weight=bold:slant=italic
 - Arial:size=12
+
+
+# CONFIGURATION
+
+See *foot*(5)
+
+# SEE ALSO
+
+*foot*(5)

@@ -1,7 +1,7 @@
 scdoc = dependency('scdoc', native: true)
 scdoc_prog = find_program(scdoc.get_pkgconfig_variable('scdoc'), native: true)
 
-foreach man_src : ['foot.1.scd']
+foreach man_src : ['foot.1.scd', 'foot.5.scd']
   parts = man_src.split('.')
   name = parts[-3]
   section = parts[-2]
