@@ -34,6 +34,26 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     char *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
 
     /* TODO: free old context + keymap */
+    if (term->kbd.xkb_compose_state != NULL) {
+        xkb_compose_state_unref(term->kbd.xkb_compose_state);
+        term->kbd.xkb_compose_state = NULL;
+    }
+    if (term->kbd.xkb_compose_table != NULL) {
+        xkb_compose_table_unref(term->kbd.xkb_compose_table);
+        term->kbd.xkb_compose_table = NULL;
+    }
+    if (term->kbd.xkb_keymap != NULL) {
+        xkb_keymap_unref(term->kbd.xkb_keymap);
+        term->kbd.xkb_keymap = NULL;
+    }
+    if (term->kbd.xkb_state != NULL) {
+        xkb_state_unref(term->kbd.xkb_state);
+        term->kbd.xkb_state = NULL;
+    }
+    if (term->kbd.xkb != NULL) {
+        xkb_context_unref(term->kbd.xkb);
+        term->kbd.xkb = NULL;
+    }
 
     term->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     term->kbd.xkb_keymap = xkb_keymap_new_from_string(
