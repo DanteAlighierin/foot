@@ -195,7 +195,10 @@ render_cell(struct terminal *term, cairo_t *cr,
 
     /* Non-block cursors */
     if (has_cursor) {
-        struct rgb cursor_color = color_hex_to_rgb(term->cursor_color.cursor);
+        struct rgb cursor_color = term->cursor_color.text >> 31
+            ? color_hex_to_rgb(term->cursor_color.cursor)
+            : fg;
+
         if (term->cursor_style == CURSOR_BAR)
             draw_bar(term, cr, cursor_color, x, y);
         else if (term->cursor_style == CURSOR_UNDERLINE)
