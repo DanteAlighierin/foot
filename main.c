@@ -128,7 +128,7 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 {
     struct monitor *mon = data;
     mon->scale = factor;
-    render_resize(mon->term, mon->term->width, mon->term->height, factor);
+    render_resize(mon->term, mon->term->width, mon->term->height);
 }
 
 static const struct wl_output_listener output_listener = {
@@ -249,16 +249,60 @@ handle_global(void *data, struct wl_registry *registry,
 }
 
 static void
+surface_enter(void *data, struct wl_surface *wl_surface,
+              struct wl_output *wl_output)
+{
+    struct terminal *term = data;
+    tll_foreach(term->wl.monitors, it) {
+        if (it->item.output == wl_output) {
+            LOG_DBG("mapped on %s", it->item.name);
+            tll_push_back(term->wl.on_outputs, &it->item);
+
+            /* Resize, since scale-to-use may have changed */
+            render_resize(term, term->width, term->height);
+            return;
+        }
+    }
+
+    LOG_ERR("mapped on unknown output");
+}
+
+static void
+surface_leave(void *data, struct wl_surface *wl_surface,
+              struct wl_output *wl_output)
+{
+    struct terminal *term = data;
+    tll_foreach(term->wl.on_outputs, it) {
+        if (it->item->output != wl_output)
+            continue;
+
+        LOG_DBG("unmapped from %s", it->item->name);
+        tll_remove(term->wl.on_outputs, it);
+
+        /* Resize, since scale-to-use may have changed */
+        render_resize(term, term->width, term->height);
+        return;
+    }
+
+    LOG_ERR("unmapped from unknown output");
+}
+
+static const struct wl_surface_listener surface_listener = {
+    .enter = &surface_enter,
+    .leave = &surface_leave,
+};
+
+static void
 xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
                        int32_t width, int32_t height, struct wl_array *states)
 {
-    //struct context *c = data;
-    //LOG_DBG("xdg-toplevel: configure: %dx%d", width, height);
+    LOG_DBG("xdg-toplevel: configure: %dx%d", width, height);
+
     if (width <= 0 || height <= 0)
         return;
 
     struct terminal *term = data;
-    render_resize(term, width, height, term->scale);
+    render_resize(term, width, height);
 }
 
 static void
@@ -662,6 +706,8 @@ main(int argc, char *const *argv)
         goto out;
     }
 
+    wl_surface_add_listener(term.wl.surface, &surface_listener, &term);
+
     term.wl.xdg_surface = xdg_wm_base_get_xdg_surface(term.wl.shell, term.wl.surface);
     xdg_surface_add_listener(term.wl.xdg_surface, &xdg_surface_listener, &term);
 
@@ -677,7 +723,7 @@ main(int argc, char *const *argv)
     /* TODO: use font metrics to calculate initial size from ROWS x COLS */
     const int default_width = 300;
     const int default_height = 300;
-    render_resize(&term, default_width, default_height, term.scale);
+    render_resize(&term, default_width, default_height);
 
     wl_display_dispatch_pending(term.wl.display);
 
@@ -933,6 +979,7 @@ out:
 
     shm_fini();
 
+    tll_free(term.wl.on_outputs);
     tll_foreach(term.wl.monitors, it) {
         free(it->item.name);
         if (it->item.xdg != NULL)

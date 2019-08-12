@@ -675,8 +675,19 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
 
 /* Move to terminal.c? */
 void
-render_resize(struct terminal *term, int width, int height, int scale)
+render_resize(struct terminal *term, int width, int height)
 {
+    int scale = -1;
+    tll_foreach(term->wl.on_outputs, it) {
+        if (it->item->scale > scale)
+            scale = it->item->scale;
+    }
+
+    if (scale == -1) {
+        /* Haven't 'entered' an output yet? */
+        scale = 1;
+    }
+
     width *= term->scale;
     height *= term->scale;
 

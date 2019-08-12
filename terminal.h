@@ -63,7 +63,8 @@ struct wayland {
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
     bool have_argb8888;
-    tll(struct monitor) monitors;
+    tll(struct monitor) monitors;  /* All available outputs */
+    tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
 };
 
 struct rgb { float r, g, b; };
