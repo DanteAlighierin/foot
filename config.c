@@ -455,14 +455,14 @@ config_load(struct config *conf)
     };
 
     char *path = get_config_path();
-    LOG_INFO("loading configuration from %s", path);
-
     if (path == NULL) {
         /* Default conf */
         LOG_WARN("no configuration found, using defaults");
         ret = true;
         goto out;
     }
+
+    LOG_INFO("loading configuration from %s", path);
 
     FILE *f = fopen(path, "r");
     if (f == NULL) {
