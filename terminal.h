@@ -21,6 +21,7 @@
 #define unlikely(c) __builtin_expect(!!(c), 0)
 
 struct monitor {
+    struct terminal *term;
     struct wl_output *output;
     struct zxdg_output_v1 *xdg;
     char *name;

@@ -675,16 +675,22 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
 
 /* Move to terminal.c? */
 void
-render_resize(struct terminal *term, int width, int height)
+render_resize(struct terminal *term, int width, int height, int scale)
 {
     width *= term->scale;
     height *= term->scale;
 
-    if (width == term->width && height == term->height)
+    if (width == 0 && height == 0) {
+        /* Assume we're not fully up and running yet */
+        return;
+    }
+
+    if (width == term->width && height == term->height && scale == term->scale)
         return;
 
     term->width = width;
     term->height = height;
+    term->scale = scale;
 
     const int scrollback_lines = term->render.scrollback_lines;
 

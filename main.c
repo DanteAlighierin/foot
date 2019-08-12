@@ -128,6 +128,7 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 {
     struct monitor *mon = data;
     mon->scale = factor;
+    render_resize(mon->term, mon->term->width, mon->term->height, factor);
 }
 
 static const struct wl_output_listener output_listener = {
@@ -224,7 +225,8 @@ handle_global(void *data, struct wl_registry *registry,
             term->wl.registry, name, &wl_output_interface, 3);
 
         tll_push_back(
-            term->wl.monitors, ((struct monitor){.output = output}));
+            term->wl.monitors, ((struct monitor){
+                    .term = term, .output = output}));
 
         struct monitor *mon = &tll_back(term->wl.monitors);
         wl_output_add_listener(output, &output_listener, mon);
@@ -255,7 +257,8 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     if (width <= 0 || height <= 0)
         return;
 
-    render_resize(data, width, height);
+    struct terminal *term = data;
+    render_resize(term, width, height, term->scale);
 }
 
 static void
@@ -674,7 +677,7 @@ main(int argc, char *const *argv)
     /* TODO: use font metrics to calculate initial size from ROWS x COLS */
     const int default_width = 300;
     const int default_height = 300;
-    render_resize(&term, default_width, default_height);
+    render_resize(&term, default_width, default_height, term.scale);
 
     wl_display_dispatch_pending(term.wl.display);
 
