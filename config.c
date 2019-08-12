@@ -299,6 +299,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         errno = 0;
         lineno++;
 
+        _line = NULL;
         size_t count = 0;
         ssize_t ret = getline(&_line, &count, f);
 
