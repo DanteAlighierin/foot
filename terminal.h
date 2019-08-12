@@ -20,6 +20,23 @@
 #define likely(c) __builtin_expect(!!(c), 1)
 #define unlikely(c) __builtin_expect(!!(c), 0)
 
+struct monitor {
+    struct wl_output *output;
+    struct zxdg_output_v1 *xdg;
+    char *name;
+
+    int x;
+    int y;
+
+    int width_mm;
+    int height_mm;
+
+    int width_px;
+    int height_px;
+
+    int scale;
+};
+
 struct wayland {
     struct wl_display *display;
     struct wl_registry *registry;
@@ -27,6 +44,7 @@ struct wayland {
     struct wl_surface *surface;
     struct wl_shm *shm;
     struct wl_seat *seat;
+    struct zxdg_output_manager_v1 *xdg_output_manager;
     struct wl_data_device_manager *data_device_manager;
     struct wl_data_device *data_device;
     struct zwp_primary_selection_device_manager_v1 *primary_selection_device_manager;
@@ -44,6 +62,7 @@ struct wayland {
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
     bool have_argb8888;
+    tll(struct monitor) monitors;
 };
 
 struct rgb { float r, g, b; };
@@ -246,6 +265,7 @@ struct terminal {
     struct vt vt;
     struct kbd kbd;
 
+    int scale;
     int width;  /* pixels */
     int height; /* pixels */
     int cols;   /* number of columns */

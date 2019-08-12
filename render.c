@@ -624,6 +624,7 @@ grid_render(struct terminal *term)
     term->render.frame_callback = wl_surface_frame(term->wl.surface);
     wl_callback_add_listener(term->render.frame_callback, &frame_listener, term);
 
+    wl_surface_set_buffer_scale(term->wl.surface, term->scale);
     wl_surface_commit(term->wl.surface);
 
 #if TIME_FRAME_RENDERING
@@ -676,6 +677,9 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
 void
 render_resize(struct terminal *term, int width, int height)
 {
+    width *= term->scale;
+    height *= term->scale;
+
     if (width == term->width && height == term->height)
         return;
 
@@ -779,11 +783,8 @@ render_update_cursor_surface(struct terminal *term)
     if (term->wl.pointer.cursor == NULL)
         return;
 
-    const int scale = 1;
-#if 0
-    //const int scale = backend->monitor->scale;
+    const int scale = term->scale;
     wl_surface_set_buffer_scale(term->wl.pointer.surface, scale);
-#endif
 
     struct wl_cursor_image *image = term->wl.pointer.cursor->images[0];
 

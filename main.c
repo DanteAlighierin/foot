@@ -20,6 +20,8 @@
 #include <xdg-shell.h>
 #include <xkbcommon/xkbcommon-compose.h>
 
+#include <xdg-output-unstable-v1.h>
+
 #define LOG_MODULE "main"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
@@ -100,6 +102,87 @@ static const struct wl_seat_listener seat_listener = {
 };
 
 static void
+output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
+                int32_t physical_width, int32_t physical_height,
+                int32_t subpixel, const char *make, const char *model,
+                int32_t transform)
+{
+    struct monitor *mon = data;
+    mon->width_mm = physical_width;
+    mon->height_mm = physical_height;
+}
+
+static void
+output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
+            int32_t width, int32_t height, int32_t refresh)
+{
+}
+
+static void
+output_done(void *data, struct wl_output *wl_output)
+{
+}
+
+static void
+output_scale(void *data, struct wl_output *wl_output, int32_t factor)
+{
+    struct monitor *mon = data;
+    mon->scale = factor;
+}
+
+static const struct wl_output_listener output_listener = {
+    .geometry = &output_geometry,
+    .mode = &output_mode,
+    .done = &output_done,
+    .scale = &output_scale,
+};
+
+static void
+xdg_output_handle_logical_position(
+    void *data, struct zxdg_output_v1 *xdg_output, int32_t x, int32_t y)
+{
+    struct monitor *mon = data;
+    mon->x = x;
+    mon->y = y;
+}
+
+static void
+xdg_output_handle_logical_size(void *data, struct zxdg_output_v1 *xdg_output,
+                               int32_t width, int32_t height)
+{
+    struct monitor *mon = data;
+    mon->width_px = width;
+    mon->height_px = height;
+}
+
+static void
+xdg_output_handle_done(void *data, struct zxdg_output_v1 *xdg_output)
+{
+}
+
+static void
+xdg_output_handle_name(void *data, struct zxdg_output_v1 *xdg_output,
+                       const char *name)
+{
+    struct monitor *mon = data;
+    mon->name = strdup(name);
+}
+
+static void
+xdg_output_handle_description(void *data, struct zxdg_output_v1 *xdg_output,
+                              const char *description)
+{
+}
+
+static struct zxdg_output_v1_listener xdg_output_listener = {
+    .logical_position = xdg_output_handle_logical_position,
+    .logical_size = xdg_output_handle_logical_size,
+    .done = xdg_output_handle_done,
+    .name = xdg_output_handle_name,
+    .description = xdg_output_handle_description,
+};
+
+static void
 handle_global(void *data, struct wl_registry *registry,
               uint32_t name, const char *interface, uint32_t version)
 {
@@ -128,6 +211,27 @@ handle_global(void *data, struct wl_registry *registry,
         term->wl.seat = wl_registry_bind(
             term->wl.registry, name, &wl_seat_interface, 5);
         wl_seat_add_listener(term->wl.seat, &seat_listener, term);
+        wl_display_roundtrip(term->wl.display);
+    }
+
+    else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0) {
+        term->wl.xdg_output_manager = wl_registry_bind(
+            term->wl.registry, name, &zxdg_output_manager_v1_interface, 2);
+    }
+
+    else if (strcmp(interface, wl_output_interface.name) == 0) {
+        struct wl_output *output = wl_registry_bind(
+            term->wl.registry, name, &wl_output_interface, 3);
+
+        tll_push_back(
+            term->wl.monitors, ((struct monitor){.output = output}));
+
+        struct monitor *mon = &tll_back(term->wl.monitors);
+        wl_output_add_listener(output, &output_listener, mon);
+
+        mon->xdg = zxdg_output_manager_v1_get_xdg_output(
+            term->wl.xdg_output_manager, mon->output);
+        zxdg_output_v1_add_listener(mon->xdg, &xdg_output_listener, mon);
         wl_display_roundtrip(term->wl.display);
     }
 
@@ -493,6 +597,18 @@ main(int argc, char *const *argv)
         goto out;
     }
 
+    tll_foreach(term.wl.monitors, it) {
+        LOG_INFO("%s: %dx%d+%dx%d (scale=%d)",
+                 it->item.name, it->item.width_px, it->item.height_px,
+                 it->item.x, it->item.y, it->item.scale);
+    }
+
+    assert(tll_length(term.wl.monitors) == 1 &&
+           "unimplemented: output tracking");
+
+    /* TODO: dynamic tracking */
+    term.scale = tll_back(term.wl.monitors).scale;
+
     /* Clipboard */
     term.wl.data_device = wl_data_device_manager_get_data_device(
         term.wl.data_device_manager, term.wl.seat);
@@ -526,8 +642,7 @@ main(int argc, char *const *argv)
     LOG_INFO("cursor theme: %s, size: %u", cursor_theme, cursor_size);
 
     term.wl.pointer.theme = wl_cursor_theme_load(
-        cursor_theme, cursor_size * 1 /* backend->monitor->scale */,
-        term.wl.shm);
+        cursor_theme, cursor_size * term.scale, term.wl.shm);
     if (term.wl.pointer.theme == NULL) {
         LOG_ERR("failed to load cursor theme");
         goto out;
@@ -814,6 +929,19 @@ out:
     mtx_unlock(&term.render.workers.lock);
 
     shm_fini();
+
+    tll_foreach(term.wl.monitors, it) {
+        free(it->item.name);
+        if (it->item.xdg != NULL)
+            zxdg_output_v1_destroy(it->item.xdg);
+        if (it->item.output != NULL)
+            wl_output_destroy(it->item.output);
+        tll_remove(term.wl.monitors, it);
+    }
+
+    if (term.wl.xdg_output_manager != NULL)
+        zxdg_output_manager_v1_destroy(term.wl.xdg_output_manager);
+
     if (term.render.frame_callback != NULL)
         wl_callback_destroy(term.render.frame_callback);
     if (term.wl.xdg_toplevel != NULL)
