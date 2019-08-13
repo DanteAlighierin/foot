@@ -364,6 +364,9 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
            bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ||
            bitmap->pixel_mode == FT_PIXEL_MODE_BGRA);
 
+    if (bitmap->width == 0)
+        goto err;
+
     /* Map FT pixel format to cairo surface format */
     cairo_format_t cr_format =
         bitmap->pixel_mode == FT_PIXEL_MODE_MONO ? CAIRO_FORMAT_A1 :
@@ -466,7 +469,7 @@ font_glyph_for_wc(struct font *font, wchar_t wc)
         assert(font->cache[hash_idx] == NULL);
         font->cache[hash_idx] = hash_entry;
     }
-    
+
     assert(hash_entry != NULL);
     tll_push_back(*hash_entry, glyph);
 
