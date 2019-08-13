@@ -433,6 +433,7 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
 
 err:
     *glyph = (struct glyph){
+        .wc = wc,
         .valid = false,
     };
     return false;
@@ -451,7 +452,7 @@ font_glyph_for_wc(struct font *font, wchar_t wc)
         tll_foreach(*hash_entry, it) {
             if (it->item.wc == wc) {
                 mtx_unlock(&font->lock);
-                return &it->item;
+                return it->item.valid ? &it->item : NULL;
             }
         }
     }
@@ -499,6 +500,9 @@ font_destroy(struct font *font)
             continue;
 
         tll_foreach(*font->cache[i], it) {
+            if (!it->item.valid)
+                continue;
+
             cairo_surface_flush(it->item.surf);
             void *image = cairo_image_surface_get_data(it->item.surf);
 
