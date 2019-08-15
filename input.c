@@ -66,6 +66,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     term->kbd.mod_shift = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Shift");
     term->kbd.mod_alt = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Mod1") ;
     term->kbd.mod_ctrl = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Control");
+    term->kbd.mod_meta = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Mod4");
 
     /* Compose (dead keys) */
     term->kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
@@ -147,6 +148,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     const xkb_mod_mask_t ctrl = 1 << term->kbd.mod_ctrl;
     const xkb_mod_mask_t alt = 1 << term->kbd.mod_alt;
     const xkb_mod_mask_t shift = 1 << term->kbd.mod_shift;
+    const xkb_mod_mask_t meta = 1 << term->kbd.mod_meta;
 
     if (state == XKB_KEY_UP) {
         stop_repeater(term, key);
@@ -173,13 +175,13 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         term->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
     //xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(term->kbd.xkb_state, key);
     xkb_mod_mask_t consumed = 0x0;
-    xkb_mod_mask_t significant = ctrl | alt | shift;
+    xkb_mod_mask_t significant = ctrl | alt | shift | meta;
     xkb_mod_mask_t effective_mods = mods & ~consumed & significant;
 
 #if 0
     for (size_t i = 0; i < 32; i++) {
         if (mods & (1 << i)) {
-            LOG_DBG("%s", xkb_keymap_mod_get_name(term->kbd.xkb_keymap, i));
+            LOG_INFO("%s", xkb_keymap_mod_get_name(term->kbd.xkb_keymap, i));
         }
     }
 #endif
@@ -194,6 +196,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     keymap_mods |= term->kbd.shift ? MOD_SHIFT : MOD_NONE;
     keymap_mods |= term->kbd.alt ? MOD_ALT : MOD_NONE;
     keymap_mods |= term->kbd.ctrl ? MOD_CTRL : MOD_NONE;
+    keymap_mods |= term->kbd.meta ? MOD_META : MOD_NONE;
 
     if (effective_mods == shift) {
         if (sym == XKB_KEY_Page_Up) {
@@ -273,7 +276,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                 (count == 1 && !IS_CTRL(buf[0])) &&
                 sym < 256)
             {
-                static const int mod_param_map[16] = {
+                static const int mod_param_map[32] = {
                     [MOD_SHIFT] = 2,
                     [MOD_ALT] = 3,
                     [MOD_SHIFT | MOD_ALT] = 4,
@@ -281,8 +284,19 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                     [MOD_SHIFT | MOD_CTRL] = 6,
                     [MOD_ALT | MOD_CTRL] = 7,
                     [MOD_SHIFT | MOD_ALT | MOD_CTRL] = 8,
+                    [MOD_META] = 9,
+                    [MOD_META | MOD_SHIFT] = 10,
+                    [MOD_META | MOD_ALT] = 11,
+                    [MOD_META | MOD_SHIFT | MOD_ALT] = 12,
+                    [MOD_META | MOD_CTRL] = 13,
+                    [MOD_META | MOD_SHIFT | MOD_CTRL] = 14,
+                    [MOD_META | MOD_ALT | MOD_CTRL] = 15,
+                    [MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL] = 16,
                 };
+
+                assert(keymap_mods < sizeof(mod_param_map) / sizeof(mod_param_map[0]));
                 int modify_param = mod_param_map[keymap_mods];
+                LOG_INFO("modify_param = %d", modify_param);
                 assert(modify_param != 0);
 
                 char reply[1024];
@@ -329,6 +343,8 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         term->kbd.xkb_state, term->kbd.mod_alt, XKB_STATE_MODS_DEPRESSED);
     term->kbd.ctrl = xkb_state_mod_index_is_active(
         term->kbd.xkb_state, term->kbd.mod_ctrl, XKB_STATE_MODS_DEPRESSED);
+    term->kbd.meta = xkb_state_mod_index_is_active(
+        term->kbd.xkb_state, term->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
 }
 
 static void
