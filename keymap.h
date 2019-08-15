@@ -225,249 +225,122 @@ static const struct key_data key_f33[] = {{MOD_NONE, CURSOR_KEYS_DONTCARE, KEYPA
 static const struct key_data key_f34[] = {{MOD_NONE, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[21;5~"}};
 static const struct key_data key_f35[] = {{MOD_NONE, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[23;5~"}};
 
+/* Keypad keys don't map shift */
 #undef DEFAULT_MODS_FOR_SINGLE
 #undef DEFAULT_MODS_FOR_TILDE
 
+#define DEFAULT_MODS_FOR_SINGLE(sym)                                    \
+    {MOD_ALT,                                   CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;3"#sym}, \
+    {MOD_CTRL,                                  CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;5"#sym}, \
+    {MOD_ALT | MOD_CTRL,                        CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;7"#sym}, \
+    {MOD_META,                                  CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;9"#sym}, \
+    {MOD_META | MOD_ALT,                        CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;11"#sym}, \
+    {MOD_META | MOD_CTRL,                       CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;13"#sym}, \
+    {MOD_META | MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;15"#sym}
+
+#define DEFAULT_MODS_FOR_TILDE(sym) \
+    {MOD_ALT,                                   CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";3~"}, \
+    {MOD_CTRL,                                  CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";5~"}, \
+    {MOD_ALT | MOD_CTRL,                        CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";7~"}, \
+    {MOD_META,                                  CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";9~"}, \
+    {MOD_META  | MOD_ALT,                       CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";11~"}, \
+    {MOD_META  | MOD_CTRL,                      CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";13~"}, \
+    {MOD_META  | MOD_ALT | MOD_CTRL,            CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";15~"}
+
 static const struct key_data key_kp_up[] = {
-    {MOD_ALT,            CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;3A"},
-    {MOD_CTRL,           CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;5A"},
-    {MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;7A"},
+    DEFAULT_MODS_FOR_SINGLE(A),
     {MOD_ANY,            CURSOR_KEYS_NORMAL,      KEYPAD_DONTCARE, "\033[A"},
     {MOD_ANY,            CURSOR_KEYS_APPLICATION, KEYPAD_DONTCARE, "\033OA"},
 };
 
 static const struct key_data key_kp_down[] = {
-    {MOD_ALT,            CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;3B"},
-    {MOD_CTRL,           CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;5B"},
-    {MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;7B"},
+    DEFAULT_MODS_FOR_SINGLE(B),
     {MOD_ANY,            CURSOR_KEYS_NORMAL,      KEYPAD_DONTCARE, "\033[B"},
     {MOD_ANY,            CURSOR_KEYS_APPLICATION, KEYPAD_DONTCARE, "\033OB"},
 };
 
 static const struct key_data key_kp_right[] = {
-    {MOD_ALT,            CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;3C"},
-    {MOD_CTRL,           CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;5C"},
-    {MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;7C"},
+    DEFAULT_MODS_FOR_SINGLE(C),
     {MOD_ANY,            CURSOR_KEYS_NORMAL,      KEYPAD_DONTCARE, "\033[C"},
     {MOD_ANY,            CURSOR_KEYS_APPLICATION, KEYPAD_DONTCARE, "\033OC"},
 };
 
 static const struct key_data key_kp_left[] = {
-    {MOD_ALT,            CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;3D"},
-    {MOD_CTRL,           CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;5D"},
-    {MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;7D"},
+    DEFAULT_MODS_FOR_SINGLE(D),
     {MOD_ANY,            CURSOR_KEYS_NORMAL,      KEYPAD_DONTCARE, "\033[D"},
     {MOD_ANY,            CURSOR_KEYS_APPLICATION, KEYPAD_DONTCARE, "\033OD"},
 };
 
 static const struct key_data key_kp_home[] = {
-    {MOD_ALT,            CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;3H"},
-    {MOD_CTRL,           CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;5H"},
-    {MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;7H"},
+    DEFAULT_MODS_FOR_SINGLE(H),
     {MOD_ANY,            CURSOR_KEYS_NORMAL,      KEYPAD_DONTCARE, "\033[H"},
     {MOD_ANY,            CURSOR_KEYS_APPLICATION, KEYPAD_DONTCARE, "\033OH"},
 };
 
 static const struct key_data key_kp_end[] = {
-    {MOD_ALT,            CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;3F"},
-    {MOD_CTRL,           CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;5F"},
-    {MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;7F"},
+    DEFAULT_MODS_FOR_SINGLE(F),
     {MOD_ANY,            CURSOR_KEYS_NORMAL,      KEYPAD_DONTCARE, "\033[F"},
     {MOD_ANY,            CURSOR_KEYS_APPLICATION, KEYPAD_DONTCARE, "\033OF"},
 };
 
 static const struct key_data key_kp_insert[] = {
-    {MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[2;3~"},
-    {MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[2;5~"},
-    {MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[2;7~"},
+    DEFAULT_MODS_FOR_TILDE(2),
     {MOD_ANY,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[2~"},
 };
 
 static const struct key_data key_kp_delete[] = {
-    {MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[3;3~"},
-    {MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[3;5~"},
-    {MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[3;7~"},
+    DEFAULT_MODS_FOR_TILDE(3),
     {MOD_ANY,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[3~"},
 };
 
 static const struct key_data key_kp_pageup[] = {
-    {MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;3~"},
-    {MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;5~"},
-    {MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;7~"},
+    DEFAULT_MODS_FOR_TILDE(5),
     {MOD_ANY,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5~"},
 };
 
 static const struct key_data key_kp_pagedown[] = {
-    {MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;3~"},
-    {MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;5~"},
-    {MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[5;7~"},
+    DEFAULT_MODS_FOR_TILDE(6),
     {MOD_ANY,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[6~"},
 };
 
-static const struct key_data key_kp_divide[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Oo"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2o"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3o"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4o"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5o"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6o"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7o"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8o"},
-};
+#undef DEFAULT_MODS_FOR_SINGLE
+#undef DEFAULT_MODS_FOR_TILDE
 
-static const struct key_data key_kp_multiply[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Oj"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2j"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3j"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4j"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5j"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6j"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7j"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8j"},
-};
+#define DEFAULT_MODS_FOR_KP(sym) \
+    {MOD_NONE,                                  CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O"#sym}, \
+    {MOD_SHIFT,                                 CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2"#sym}, \
+    {MOD_ALT,                                   CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3"#sym}, \
+    {MOD_SHIFT | MOD_ALT,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4"#sym}, \
+    {MOD_CTRL,                                  CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5"#sym}, \
+    {MOD_SHIFT | MOD_CTRL,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6"#sym}, \
+    {MOD_ALT | MOD_CTRL,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7"#sym}, \
+    {MOD_SHIFT | MOD_ALT | MOD_CTRL,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8"#sym}, \
+    {MOD_META,                                  CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O9"#sym}, \
+    {MOD_META | MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O10"#sym}, \
+    {MOD_META  | MOD_ALT,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O11"#sym}, \
+    {MOD_META | MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O12"#sym}, \
+    {MOD_META  | MOD_CTRL,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O13"#sym}, \
+    {MOD_META | MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O14"#sym}, \
+    {MOD_META  | MOD_ALT | MOD_CTRL,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O15"#sym}, \
+    {MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O16"#sym}
 
-static const struct key_data key_kp_subtract[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Om"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2m"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3m"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4m"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5m"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6m"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7m"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8m"},
-};
+static const struct key_data key_kp_divide[] = {DEFAULT_MODS_FOR_KP(o)};
+static const struct key_data key_kp_multiply[] = {DEFAULT_MODS_FOR_KP(j)};
+static const struct key_data key_kp_subtract[] = {DEFAULT_MODS_FOR_KP(m)};
+static const struct key_data key_kp_add[] = {DEFAULT_MODS_FOR_KP(k)};
+static const struct key_data key_kp_separator[] = {DEFAULT_MODS_FOR_KP(l)};
+static const struct key_data key_kp_0[] = {DEFAULT_MODS_FOR_KP(p)};
+static const struct key_data key_kp_1[] = {DEFAULT_MODS_FOR_KP(q)};
+static const struct key_data key_kp_2[] = {DEFAULT_MODS_FOR_KP(r)};
+static const struct key_data key_kp_3[] = {DEFAULT_MODS_FOR_KP(s)};
+static const struct key_data key_kp_4[] = {DEFAULT_MODS_FOR_KP(t)};
+static const struct key_data key_kp_5[] = {DEFAULT_MODS_FOR_KP(u)};
+static const struct key_data key_kp_6[] = {DEFAULT_MODS_FOR_KP(v)};
+static const struct key_data key_kp_7[] = {DEFAULT_MODS_FOR_KP(w)};
+static const struct key_data key_kp_8[] = {DEFAULT_MODS_FOR_KP(x)};
+static const struct key_data key_kp_9[] = {DEFAULT_MODS_FOR_KP(y)};
 
-static const struct key_data key_kp_add[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Ok"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2k"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3k"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4k"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5k"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6k"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7k"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8k"},
-};
-
-static const struct key_data key_kp_separator[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Ol"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2l"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3l"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4l"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5l"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6l"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7l"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8l"},
-};
-
-static const struct key_data key_kp_0[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Op"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2p"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3p"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4p"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5p"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6p"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7p"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8p"},
-};
-
-static const struct key_data key_kp_1[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Oq"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2q"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3q"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4q"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5q"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6q"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7q"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8q"},
-};
-
-static const struct key_data key_kp_2[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Or"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2r"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3r"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4r"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5r"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6r"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7r"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8r"},
-};
-
-static const struct key_data key_kp_3[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Os"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2s"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3s"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4s"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5s"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6s"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7s"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8s"},
-};
-
-static const struct key_data key_kp_4[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Ot"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2t"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3t"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4t"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5t"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6t"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7t"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8t"},
-};
-
-static const struct key_data key_kp_5[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Ou"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2u"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3u"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4u"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5u"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6u"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7u"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8u"},
-};
-
-static const struct key_data key_kp_6[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Ov"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2v"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3v"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4v"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5v"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6v"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7v"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8v"},
-};
-
-static const struct key_data key_kp_7[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Ow"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2w"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3w"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4w"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5w"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6w"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7w"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8w"},
-};
-
-static const struct key_data key_kp_8[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Ox"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2x"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3x"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4x"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5x"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6x"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7x"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8x"},
-};
-
-static const struct key_data key_kp_9[] = {
-    {MOD_NONE,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033Oy"},
-    {MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O2y"},
-    {MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O3y"},
-    {MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O4y"},
-    {MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O5y"},
-    {MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O6y"},
-    {MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O7y"},
-    {MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O8y"},
-};
+#undef DEFAULT_MODS_FOR_KP
 
 #define ALEN(a) (sizeof(a) / sizeof(a[0]))
 static const struct key_map key_map[] = {
