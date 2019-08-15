@@ -4,7 +4,11 @@ foot(1)
 foot - Wayland terminal emulator
 
 # SYNOPSIS
-*foot* [_OPTIONS_]...
+*foot* [_OPTIONS_]++
+*foot* [_OPTIONS_] -- <command>
+
+All trailing (non-option) arguments are treated as a command to
+execute (instead of the shell).
 
 # OPTIONS
 
