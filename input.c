@@ -296,7 +296,6 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
                 assert(keymap_mods < sizeof(mod_param_map) / sizeof(mod_param_map[0]));
                 int modify_param = mod_param_map[keymap_mods];
-                LOG_INFO("modify_param = %d", modify_param);
                 assert(modify_param != 0);
 
                 char reply[1024];
