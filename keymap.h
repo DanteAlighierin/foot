@@ -11,6 +11,7 @@ enum modifier {
     MOD_SHIFT = 0x2,
     MOD_ALT = 0x4,
     MOD_CTRL = 0x8,
+    MOD_META = 0x10,
 };
 
 struct key_data {

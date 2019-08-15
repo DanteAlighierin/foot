@@ -188,11 +188,13 @@ struct kbd {
     xkb_mod_index_t mod_shift;
     xkb_mod_index_t mod_alt;
     xkb_mod_index_t mod_ctrl;
+    xkb_mod_index_t mod_meta;
 
     /* Enabled modifiers */
     bool shift;
     bool alt;
     bool ctrl;
+    bool meta;
 };
 
 enum cursor_keys { CURSOR_KEYS_DONTCARE, CURSOR_KEYS_NORMAL, CURSOR_KEYS_APPLICATION};
