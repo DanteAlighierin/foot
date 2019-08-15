@@ -31,7 +31,6 @@ static const struct key_data key_escape[] = {
 };
 
 static const struct key_data key_return[] = {
-    {MOD_SHIFT, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\r"},
     {MOD_ANY,   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\r"},
 };
 
