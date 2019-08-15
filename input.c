@@ -276,7 +276,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                 (count == 1 && !IS_CTRL(buf[0])) &&
                 sym < 256)
             {
-                static const int mod_param_map[16] = {
+                static const int mod_param_map[32] = {
                     [MOD_SHIFT] = 2,
                     [MOD_ALT] = 3,
                     [MOD_SHIFT | MOD_ALT] = 4,
@@ -284,8 +284,19 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                     [MOD_SHIFT | MOD_CTRL] = 6,
                     [MOD_ALT | MOD_CTRL] = 7,
                     [MOD_SHIFT | MOD_ALT | MOD_CTRL] = 8,
+                    [MOD_META] = 9,
+                    [MOD_META | MOD_SHIFT] = 10,
+                    [MOD_META | MOD_ALT] = 11,
+                    [MOD_META | MOD_SHIFT | MOD_ALT] = 12,
+                    [MOD_META | MOD_CTRL] = 13,
+                    [MOD_META | MOD_SHIFT | MOD_CTRL] = 14,
+                    [MOD_META | MOD_ALT | MOD_CTRL] = 15,
+                    [MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL] = 16,
                 };
+
+                assert(keymap_mods < sizeof(mod_param_map) / sizeof(mod_param_map[0]));
                 int modify_param = mod_param_map[keymap_mods];
+                LOG_INFO("modify_param = %d", modify_param);
                 assert(modify_param != 0);
 
                 char reply[1024];
