@@ -189,7 +189,7 @@ render_cell(struct terminal *term, cairo_t *cr,
 
     /* Background */
     cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-    cairo_set_source_rgb(cr, bg.r, bg.g, bg.b);
+    cairo_set_source_rgba(cr, bg.r, bg.g, bg.b, block_cursor ? 1.0 : term->colors.alpha);
     cairo_rectangle(cr, x, y, cell_cols * width, height);
     cairo_fill(cr);
 
@@ -432,7 +432,7 @@ grid_render(struct terminal *term)
 
         uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
         struct rgb bg = color_hex_to_rgb(_bg);
-        cairo_set_source_rgb(buf->cairo[0], bg.r, bg.g, bg.b);
+        cairo_set_source_rgba(buf->cairo[0], bg.r, bg.g, bg.b, term->colors.alpha);
 
         cairo_rectangle(buf->cairo[0], rmargin, 0, rmargin_width, term->height);
         cairo_rectangle(buf->cairo[0], 0, bmargin, term->width, bmargin_height);

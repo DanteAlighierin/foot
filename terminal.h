@@ -283,6 +283,7 @@ struct terminal {
         uint32_t bg;
         uint32_t regular[8];
         uint32_t bright[8];
+        double alpha;
 
         uint32_t default_fg;
         uint32_t default_bg;

@@ -120,6 +120,19 @@ str_to_ulong(const char *s, int base, unsigned long *res)
 }
 
 static bool
+str_to_double(const char *s, double *res)
+{
+    if (s == NULL)
+        return false;
+
+    errno = 0;
+    char *end = NULL;
+
+    *res = strtod(s, &end);
+    return errno == 0 && *end == '\0';
+}
+
+static bool
 str_to_color(const char *s, uint32_t *color, const char *path, int lineno)
 {
     unsigned long value;
@@ -203,6 +216,17 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "bright5") == 0)    color = &conf->colors.bright[5];
     else if (strcmp(key, "bright6") == 0)    color = &conf->colors.bright[6];
     else if (strcmp(key, "bright7") == 0)    color = &conf->colors.bright[7];
+    else if (strcmp(key, "alpha") == 0) {
+        double alpha;
+        if (!str_to_double(value, &alpha) || alpha < 0. || alpha > 1.) {
+            LOG_ERR("%s: %d: alpha: expected a value in the range 0.0-1.0",
+                    path, lineno);
+            return false;
+        }
+
+        conf->colors.alpha = alpha;
+        return true;
+    }
 
     else {
         LOG_ERR("%s:%d: invalid key: %s", path, lineno, key);
@@ -442,6 +466,7 @@ config_load(struct config *conf)
                 default_bright[6],
                 default_bright[7],
             },
+            .alpha = 1.,
         },
 
         .cursor = {

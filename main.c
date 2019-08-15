@@ -462,6 +462,7 @@ main(int argc, char *const *argv)
                 conf.colors.bright[6],
                 conf.colors.bright[7],
             },
+            .alpha = conf.colors.alpha,
         },
         .default_cursor_style = conf.cursor.style,
         .cursor_style = conf.cursor.style,

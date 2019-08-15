@@ -71,6 +71,10 @@ in this order:
 	_bfebbf_, _f0dfaf_, _8cd0d3_, _dc8cc3_, _93e0e3_ and _ffffff_ (a
 	variant of the _zenburn_ theme).
 
+*alpha*
+	Background translucency. A value in the range 0.0-1.0, where 0.0
+	means completely transparent, and 1.0 is opaque. Default: _1.0_.
+
 # FONT FORMAT
 
 The font is specified in FontConfig syntax. That is, a colon-separated
