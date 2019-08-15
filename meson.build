@@ -42,7 +42,9 @@ cc = meson.get_compiler('c')
 math = cc.find_library('m')
 
 threads = dependency('threads')
+freetype = dependency('freetype2')
 fontconfig = dependency('fontconfig')
+pixman = dependency('pixman-1')
 cairo = dependency('cairo')
 wayland_protocols = dependency('wayland-protocols')
 wayland_client = dependency('wayland-client')
@@ -99,7 +101,7 @@ executable(
   'tllist.h',
   'vt.c', 'vt.h',
   wl_proto_src + wl_proto_headers,
-  dependencies: [threads, math, cairo, fontconfig, wayland_client, wayland_cursor, xkb],
+  dependencies: [threads, math, freetype, fontconfig, pixman, cairo, wayland_client, wayland_cursor, xkb],
   install: true)
 
 custom_target(
