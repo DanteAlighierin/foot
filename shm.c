@@ -7,6 +7,8 @@
 #include <sys/mman.h>
 #include <linux/memfd.h>
 
+#include <pixman.h>
+
 #define LOG_MODULE "shm"
 #include "log.h"
 #include "tllist.h"
@@ -61,6 +63,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
 
     cairo_surface_t **cairo_surface = NULL;
     cairo_t **cairo = NULL;
+    pixman_image_t **pix = NULL;
 
     /* Backing memory for SHM */
     pool_fd = memfd_create("f00sel-wayland-shm-buffer-pool", MFD_CLOEXEC);
@@ -103,6 +106,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
     /* Create a cairo surface around the mmapped memory */
     cairo_surface = calloc(copies, sizeof(cairo_surface[0]));
     cairo = calloc(copies, sizeof(cairo[0]));
+    pix = calloc(copies, sizeof(pix[0]));
 
     for (size_t i = 0; i < copies; i++) {
         cairo_surface[i] = cairo_image_surface_create_for_data(
@@ -120,6 +124,14 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
                     cairo_status_to_string(cairo_status(cairo[i])));
             goto err;
         }
+
+        pix[i] = pixman_image_create_bits_no_clear(
+            PIXMAN_a8r8g8b8, width, height, (uint32_t *)mmapped, stride);
+
+        if (pix[i] == NULL) {
+            LOG_ERR("failed to create pixman image");
+            goto err;
+        }
     }
 
     /* Push to list of available buffers, but marked as 'busy' */
@@ -128,13 +140,15 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
         ((struct buffer){
             .width = width,
             .height = height,
+            .stride = stride,
             .busy = true,
             .size = size,
             .mmapped = mmapped,
             .wl_buf = buf,
             .copies = copies,
             .cairo_surface = cairo_surface,
-            .cairo = cairo}
+            .cairo = cairo,
+            .pix = pix}
             )
         );
 
@@ -154,6 +168,12 @@ err:
             if (cairo_surface[i] != NULL)
                 cairo_surface_destroy(cairo_surface[i]);
         free(cairo_surface);
+    }
+    if (pix != NULL) {
+        for (size_t i = 0; i < copies; i++)
+            if (pix[i] != NULL)
+                pixman_image_unref(pix[i]);
+        free(pix);
     }
     if (buf != NULL)
         wl_buffer_destroy(buf);
@@ -184,6 +204,12 @@ shm_fini(void)
                 if (buf->cairo_surface[i] != NULL)
                     cairo_surface_destroy(buf->cairo_surface[i]);
             free(buf->cairo_surface);
+        }
+        if (buf->pix != NULL) {
+            for (size_t i = 0; i < buf->copies; i++)
+                if (buf->pix[i] != NULL)
+                    pixman_image_unref(buf->pix[i]);
+            free(buf->pix);
         }
         wl_buffer_destroy(buf->wl_buf);
         munmap(buf->mmapped, buf->size);

@@ -7,7 +7,7 @@
 #include FT_FREETYPE_H
 #include FT_LCD_FILTER_H
 #include <fontconfig/fontconfig.h>
-#include <cairo.h>
+#include <pixman.h>
 
 #include "tllist.h"
 //#include "terminal.h"
@@ -16,13 +16,14 @@ typedef tll(const char *) font_list_t;
 
 struct glyph {
     wchar_t wc;
+    int cols;
+
+    pixman_image_t *pix;
+    int x;
+    int y;
     int width;
+    int height;
 
-    cairo_surface_t *surf;
-    int left;
-    int top;
-
-    double pixel_size_fixup;
     bool valid;
 };
 

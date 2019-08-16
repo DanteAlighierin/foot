@@ -367,13 +367,20 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
     if (bitmap->width == 0)
         goto err;
 
-    /* Map FT pixel format to cairo surface format */
-    cairo_format_t cr_format =
-        bitmap->pixel_mode == FT_PIXEL_MODE_MONO ? CAIRO_FORMAT_A1 :
-        bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ? CAIRO_FORMAT_A8 :
-        bitmap->pixel_mode == FT_PIXEL_MODE_BGRA ? CAIRO_FORMAT_ARGB32 : CAIRO_FORMAT_INVALID;
+    /* Map FT pixel format to pixman format */
+    pixman_format_code_t pix_format =
+        bitmap->pixel_mode == FT_PIXEL_MODE_MONO ? PIXMAN_a1 :
+        bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ? PIXMAN_a8 :
+        bitmap->pixel_mode == FT_PIXEL_MODE_BGRA ? PIXMAN_a8r8g8b8 : -1;
 
-    int stride = cairo_format_stride_for_width(cr_format, bitmap->width);
+    /* Calculate stride. Copied from cairoint.h:CAIRO_STRIDE_FOR_WIDTH_BPP */
+    int bpp =
+        pix_format == PIXMAN_a1 ? 1 :
+        pix_format == PIXMAN_a8 ? 8 :
+        pix_format == PIXMAN_a8r8g8b8 ? 32 : -1;
+    assert(bpp >= 0);
+
+    int stride = (((bpp * bitmap->width + 7) / 8 + 4 - 1) & -4);
     assert(stride >= bitmap->pitch);
 
     uint8_t *data = malloc(bitmap->rows * stride);
@@ -413,22 +420,31 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
         goto err;
     }
 
-    cairo_surface_t *surf = cairo_image_surface_create_for_data(
-        data, cr_format, bitmap->width, bitmap->rows, stride);
+    pixman_image_t *pix = pixman_image_create_bits_no_clear(
+        pix_format, bitmap->width, bitmap->rows, (uint32_t *)data, stride);
 
-    if (cairo_surface_status(surf) != CAIRO_STATUS_SUCCESS) {
+    if (pix == NULL) {
         free(data);
-        cairo_surface_destroy(surf);
         goto err;
+    }
+
+    if (font->pixel_size_fixup != 1.) {
+        struct pixman_transform scale;
+        pixman_transform_init_scale(
+            &scale,
+            pixman_double_to_fixed(1. / font->pixel_size_fixup),
+            pixman_double_to_fixed(1. / font->pixel_size_fixup));
+        pixman_image_set_transform(pix, &scale);
     }
 
     *glyph = (struct glyph){
         .wc = wc,
-        .width = wcwidth(wc),
-        .surf = surf,
-        .left = font->face->glyph->bitmap_left,
-        .top = font->face->glyph->bitmap_top,
-        .pixel_size_fixup = font->pixel_size_fixup,
+        .cols = wcwidth(wc),
+        .pix = pix,
+        .x = font->face->glyph->bitmap_left / font->pixel_size_fixup,
+        .y = font->face->glyph->bitmap_top * font->pixel_size_fixup,
+        .width = bitmap->width,
+        .height = bitmap->rows,
         .valid = true,
     };
 
@@ -506,10 +522,8 @@ font_destroy(struct font *font)
             if (!it->item.valid)
                 continue;
 
-            cairo_surface_flush(it->item.surf);
-            void *image = cairo_image_surface_get_data(it->item.surf);
-
-            cairo_surface_destroy(it->item.surf);
+            void *image = pixman_image_get_data(it->item.pix);
+            pixman_image_unref(it->item.pix);
             free(image);
         }
 
