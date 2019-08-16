@@ -41,13 +41,13 @@ struct font {
     double pixel_size_fixup; /* Scale factor - should only be used with ARGB32 glyphs */
 
     struct {
-        double position;
-        double thickness;
+        int position;
+        int thickness;
     } underline;
 
     struct {
-        double position;
-        double thickness;
+        int position;
+        int thickness;
     } strikeout;
 
     bool is_fallback;

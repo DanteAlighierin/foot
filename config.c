@@ -224,7 +224,7 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
             return false;
         }
 
-        conf->colors.alpha = alpha;
+        conf->colors.alpha = alpha * 65535.;
         return true;
     }
 
@@ -466,7 +466,7 @@ config_load(struct config *conf)
                 default_bright[6],
                 default_bright[7],
             },
-            .alpha = 1.,
+            .alpha = 0xffff,
         },
 
         .cursor = {

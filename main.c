@@ -555,8 +555,8 @@ main(int argc, char *const *argv)
         LOG_DBG("ft: x-scale: %f, height: %f, descent: %f",
                 x_scale, height, descent);
 
-        f->underline.position = ft_face->underline_position * x_scale / 64.;
-        f->underline.thickness = ft_face->underline_thickness * x_scale / 64.;
+        f->underline.position = round(ft_face->underline_position * x_scale / 64.);
+        f->underline.thickness = ceil(ft_face->underline_thickness * x_scale / 64.);
 
         if (f->underline.position == 0.) {
             f->underline.position =  descent / 2.;
