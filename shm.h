@@ -16,9 +16,7 @@ struct buffer {
     void *mmapped;
 
     struct wl_buffer *wl_buf;
-
-    size_t copies;
-    pixman_image_t **pix;
+    pixman_image_t *pix;
 };
 
 struct buffer *shm_get_buffer(

@@ -367,7 +367,7 @@ render_worker_thread(void *_ctx)
             switch (row_no) {
             default:
                 assert(buf != NULL);
-                render_row(term, buf->pix[my_id], grid_row_in_view(term->grid, row_no), row_no);
+                render_row(term, buf->pix, grid_row_in_view(term->grid, row_no), row_no);
                 break;
 
             case -1:
@@ -405,7 +405,7 @@ grid_render(struct terminal *term)
     assert(term->height > 0);
 
     struct buffer *buf = shm_get_buffer(term->wl.shm, term->width, term->height, 1 + term->render.workers.count);
-    pixman_image_t *pix = buf->pix[0];
+    pixman_image_t *pix = buf->pix;
 
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
 
