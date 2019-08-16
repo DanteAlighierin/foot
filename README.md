@@ -7,7 +7,7 @@
 
 * fontconfig
 * freetype
-* cairo
+* pixman
 * wayland (_client_ and _cursor_ libraries)
 * wayland protocols
 * xkbcommon

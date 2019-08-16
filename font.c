@@ -386,7 +386,7 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
     uint8_t *data = malloc(bitmap->rows * stride);
     assert(bitmap->pitch >= 0);
 
-    /* Convert FT bitmap to cairo surface (well, the backing image) */
+    /* Convert FT bitmap to pixman image */
     switch (bitmap->pixel_mode) {
     case FT_PIXEL_MODE_MONO:
         for (size_t r = 0; r < bitmap->rows; r++) {

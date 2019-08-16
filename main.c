@@ -1085,8 +1085,6 @@ out:
     tll_free(term.render.workers.queue);
 
     config_free(conf);
-
-    cairo_debug_reset_static_data();
     return ret;
 
 }
