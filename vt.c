@@ -606,13 +606,14 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     case 'B': {
         /* Configure G0-G3 to use ASCII */
-        char param = term->vt.private[0] != 0 ? term->vt.private[0] : '(';
+        char param = term->vt.private[0] != 0 ? term->vt.private[0] : 0;
 
         switch (param) {
         case '(': term->charset[0] = CHARSET_ASCII; break;
         case ')': term->charset[1] = CHARSET_ASCII; break;
         case '*': term->charset[2] = CHARSET_ASCII; break;
         case '+': term->charset[3] = CHARSET_ASCII; break;
+        case 0: break;
 
         default:
             UNHANDLED();
@@ -650,13 +651,14 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
     case '0': {
         /* Configure G0-G3 to use special chars + line drawing */
-        char param = term->vt.private[0] != 0 ? term->vt.private[0] : '(';
+        char param = term->vt.private[0] != 0 ? term->vt.private[0] : 0;
 
         switch (param) {
         case '(': term->charset[0] = CHARSET_GRAPHIC; break;
         case ')': term->charset[1] = CHARSET_GRAPHIC; break;
         case '*': term->charset[2] = CHARSET_GRAPHIC; break;
         case '+': term->charset[3] = CHARSET_GRAPHIC; break;
+        case 0: break;
 
         default:
             UNHANDLED();
