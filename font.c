@@ -201,7 +201,7 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
                 strcat(fallback, attributes);
             }
 
-            LOG_DBG("%s: adding fallback: %s", name, fallback);
+            LOG_DBG("%s: adding fallback: %s", it->item, fallback);
             tll_push_back(font->fallbacks, fallback);
         }
     }
