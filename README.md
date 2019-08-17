@@ -1,16 +1,27 @@
 # foot
 
-**foot** is a Wayland terminal emulator.
+**foot** is a fast Wayland terminal emulator.
 
 
 ## Requirements
+
+### Running
 
 * fontconfig
 * freetype
 * pixman
 * wayland (_client_ and _cursor_ libraries)
-* wayland protocols
 * xkbcommon
+
+
+### Building
+
+In addition to the dev variant of the packages above, you need:
+
+* meson
+* ninja
+* wayland protocols
+* scdoc
 
 
 ## Fonts
