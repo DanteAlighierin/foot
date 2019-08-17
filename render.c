@@ -37,6 +37,25 @@ color_hex_to_rgb(uint32_t color)
     };
 }
 
+static inline pixman_color_t
+color_hex_to_pixman_with_alpha(uint32_t color, uint16_t alpha)
+{
+    int alpha_div = 0xffff / alpha;
+    return (pixman_color_t){
+        .red =   ((color >> 16 & 0xff) | (color >> 8 & 0xff00)) / alpha_div,
+        .green = ((color >>  8 & 0xff) | (color >> 0 & 0xff00)) / alpha_div,
+        .blue =  ((color >>  0 & 0xff) | (color << 8 & 0xff00)) / alpha_div,
+        .alpha = alpha,
+    };
+}
+
+static inline pixman_color_t
+color_hex_to_pixman(uint32_t color)
+{
+    /* Count on the compiler optimizing this */
+    return color_hex_to_pixman_with_alpha(color, 0xffff);
+}
+
 static inline void
 color_dim(struct rgb *rgb)
 {
@@ -45,48 +64,50 @@ color_dim(struct rgb *rgb)
     rgb->b /= 2.;
 }
 
-static void
-draw_underline(const struct terminal *term, cairo_t *cr, const struct font *font,
-               struct rgb color, double x, double y, int cols)
+static inline void
+pixman_color_dim(pixman_color_t *color)
 {
-    double baseline = y + term->fextents.height - term->fextents.descent;
-    double width = font->underline.thickness;
-    double y_under = baseline - font->underline.position - width / 2.;
-
-    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-    cairo_set_source_rgb(cr, color.r, color.g, color.b);
-    cairo_set_line_width(cr, width);
-    cairo_move_to(cr, x, round(y_under) + 0.5);
-    cairo_rel_line_to(cr, cols * term->cell_width, 0);
-    cairo_stroke(cr);
+    color->red /= 2;
+    color->green /= 2;
+    color->blue /= 2;
 }
 
 static void
-draw_bar(const struct terminal *term, cairo_t *cr, struct rgb color,
-         double x, double y)
+draw_bar(const struct terminal *term, pixman_image_t *pix,
+         const pixman_color_t *color, int x, int y)
 {
-    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-    cairo_set_source_rgb(cr, color.r, color.g, color.b);
-    cairo_set_line_width(cr, 1.0);
-    cairo_move_to(cr, x + 0.5, y);
-    cairo_rel_line_to(cr, 0, term->cell_height);
-    cairo_stroke(cr);
+    /* TODO: investigate if this is the best way */
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, pix, color,
+        1, &(pixman_rectangle16_t){x, y, 1, term->cell_height});
 }
 
 static void
-draw_strikeout(const struct terminal *term, cairo_t *cr, const struct font *font,
-               struct rgb color, double x, double y, int cols)
+draw_underline(const struct terminal *term, pixman_image_t *pix,
+               const struct font *font,
+               const pixman_color_t *color, int x, int y, int cols)
 {
-    double baseline = y + term->fextents.height - term->fextents.descent;
-    double width = font->strikeout.thickness;
-    double y_strike = baseline - font->strikeout.position - width / 2.;
+    int baseline = y + term->fextents.height - term->fextents.descent;
+    int width = font->underline.thickness;
+    int y_under = baseline - font->underline.position - width / 2;
 
-    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-    cairo_set_source_rgb(cr, color.r, color.g, color.b);
-    cairo_set_line_width(cr, width);
-    cairo_move_to(cr, x, round(y_strike) + 0.5);
-    cairo_rel_line_to(cr, cols * term->cell_width, 0);
-    cairo_stroke(cr);
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, pix, color,
+        1, &(pixman_rectangle16_t){x, y_under, cols * term->cell_width, width});
+}
+
+static void
+draw_strikeout(const struct terminal *term, pixman_image_t *pix,
+               const struct font *font,
+               const pixman_color_t *color, int x, int y, int cols)
+{
+    int baseline = y + term->fextents.height - term->fextents.descent;
+    int width = font->strikeout.thickness;
+    int y_strike = baseline - font->strikeout.position - width / 2;
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, pix, color,
+        1, &(pixman_rectangle16_t){x, y_strike, cols * term->cell_width, width});
 }
 
 static bool
@@ -136,7 +157,7 @@ arm_blink_timer(struct terminal *term)
 }
 
 static int
-render_cell(struct terminal *term, cairo_t *cr,
+render_cell(struct terminal *term, pixman_image_t *pix,
             struct cell *cell, int col, int row, bool has_cursor)
 {
     if (cell->attrs.clean)
@@ -144,10 +165,10 @@ render_cell(struct terminal *term, cairo_t *cr,
 
     cell->attrs.clean = 1;
 
-    double width = term->cell_width;
-    double height = term->cell_height;
-    double x = col * width;
-    double y = row * height;
+    int width = term->cell_width;
+    int height = term->cell_height;
+    int x = col * width;
+    int y = row * height;
 
     bool block_cursor = has_cursor && term->cursor_style == CURSOR_BLOCK;
     bool is_selected = coord_is_selected(term, col, row);
@@ -169,41 +190,42 @@ render_cell(struct terminal *term, cairo_t *cr,
     if (cell->attrs.blink && term->blink.state == BLINK_OFF)
         _fg = _bg;
 
-    struct rgb fg = color_hex_to_rgb(_fg);
-    struct rgb bg = color_hex_to_rgb(_bg);
+    pixman_color_t fg = color_hex_to_pixman(_fg);
+    pixman_color_t bg = color_hex_to_pixman_with_alpha(
+        _bg, block_cursor ? 0xffff : term->colors.alpha);
 
     if (cell->attrs.dim)
-        color_dim(&fg);
+        pixman_color_dim(&fg);
 
     if (block_cursor && term->cursor_color.text >> 31) {
         /* User configured cursor color overrides all attributes */
         assert(term->cursor_color.cursor >> 31);
-        fg = color_hex_to_rgb(term->cursor_color.text);
-        bg = color_hex_to_rgb(term->cursor_color.cursor);
+        fg = color_hex_to_pixman(term->cursor_color.text);
+        bg = color_hex_to_pixman(term->cursor_color.cursor);
     }
 
     struct font *font = attrs_to_font(term, &cell->attrs);
     const struct glyph *glyph = font_glyph_for_wc(font, cell->wc);
 
-    int cell_cols = glyph != NULL ? max(1, glyph->width) : 1;
+    int cell_cols = glyph != NULL ? max(1, glyph->cols) : 1;
 
     /* Background */
-    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-    cairo_set_source_rgba(cr, bg.r, bg.g, bg.b, block_cursor ? 1.0 : term->colors.alpha);
-    cairo_rectangle(cr, x, y, cell_cols * width, height);
-    cairo_fill(cr);
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, pix, &bg, 1,
+        &(pixman_rectangle16_t){x, y, cell_cols * width, height});
 
     /* Non-block cursors */
     if (has_cursor) {
-        struct rgb cursor_color = term->cursor_color.text >> 31
-            ? color_hex_to_rgb(term->cursor_color.cursor)
-            : fg;
+        pixman_color_t cursor_color = term->cursor_color.text >> 31
+            ? color_hex_to_pixman(term->cursor_color.cursor)
+            : color_hex_to_pixman(_fg);
 
         if (term->cursor_style == CURSOR_BAR)
-            draw_bar(term, cr, cursor_color, x, y);
+            draw_bar(term, pix, &cursor_color, x, y);
         else if (term->cursor_style == CURSOR_UNDERLINE)
             draw_underline(
-                term, cr, attrs_to_font(term, &cell->attrs), cursor_color, x, y, cell_cols);
+                term, pix, attrs_to_font(term, &cell->attrs), &cursor_color,
+                x, y, cell_cols);
     }
 
     if (cell->attrs.blink && !term->blink.active) {
@@ -215,36 +237,38 @@ render_cell(struct terminal *term, cairo_t *cr,
         return cell_cols;
 
     if (glyph != NULL) {
-        cairo_save(cr);
-        cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
-
-        double fixup = glyph->pixel_size_fixup;
-        cairo_translate(
-            cr,
-            x + glyph->left / fixup,
-            y + term->fextents.ascent - glyph->top * fixup);
-        cairo_scale(cr, fixup, fixup);
-
-        if (cairo_image_surface_get_format(glyph->surf) == CAIRO_FORMAT_ARGB32) {
+        if (pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8) {
             /* Glyph surface is a pre-rendered image (typically a color emoji...) */
             if (!(cell->attrs.blink && term->blink.state == BLINK_OFF)) {
-                cairo_set_source_surface(cr, glyph->surf, 0, 0);
-                cairo_paint(cr);
+                pixman_image_composite(
+                    PIXMAN_OP_OVER, glyph->pix, NULL, pix, 0, 0, 0, 0,
+                    x + glyph->x, y + term->fextents.ascent - glyph->y,
+                    glyph->width, glyph->height);
             }
         } else {
             /* Glyph surface is an alpha mask */
-            cairo_set_source_rgb(cr, fg.r, fg.g, fg.b);
-            cairo_mask_surface(cr, glyph->surf, 0, 0);
+            /* TODO: cache */
+            pixman_image_t *src = pixman_image_create_solid_fill(&fg);
+            pixman_image_composite(
+                PIXMAN_OP_OVER, src, glyph->pix, pix, 0, 0, 0, 0,
+                x + glyph->x, y + term->fextents.ascent - glyph->y,
+                glyph->width, glyph->height);
+            pixman_image_unref(src);
         }
-        cairo_restore(cr);
     }
 
     /* Underline */
-    if (cell->attrs.underline)
-        draw_underline(term, cr, attrs_to_font(term, &cell->attrs), fg, x, y, cell_cols);
+    if (cell->attrs.underline) {
+        pixman_color_t color = color_hex_to_pixman(_fg);
+        draw_underline(term, pix, attrs_to_font(term, &cell->attrs),
+                       &color, x, y, cell_cols);
+    }
 
-    if (cell->attrs.strikethrough)
-        draw_strikeout(term, cr, attrs_to_font(term, &cell->attrs), fg, x, y, cell_cols);
+    if (cell->attrs.strikethrough) {
+        pixman_color_t color = color_hex_to_pixman(_fg);
+        draw_strikeout(term, pix, attrs_to_font(term, &cell->attrs),
+                       &color, x, y, cell_cols);
+    }
 
     return cell_cols;
 }
@@ -258,21 +282,18 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
     int width = buf->width;
     int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * term->cell_height;
 
-    const uint32_t stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
-
     LOG_DBG("damage: SCROLL: %d-%d by %d lines (dst-y: %d, src-y: %d, "
             "height: %d, stride: %d, mmap-size: %zu)",
             dmg->scroll.region.start, dmg->scroll.region.end,
             dmg->scroll.lines,
-            dst_y, src_y, height, stride,
+            dst_y, src_y, height, buf->stride,
             buf->size);
 
     if (height > 0) {
-        cairo_surface_flush(buf->cairo_surface[0]);
-        uint8_t *raw = cairo_image_surface_get_data(buf->cairo_surface[0]);
-
-        memmove(raw + dst_y * stride, raw + src_y * stride, height * stride);
-        cairo_surface_mark_dirty(buf->cairo_surface[0]);
+        uint8_t *raw = buf->mmapped;
+        memmove(raw + dst_y * buf->stride,
+                raw + src_y * buf->stride,
+                height * buf->stride);
 
         wl_surface_damage_buffer(term->wl.surface, 0, dst_y, width, height);
     }
@@ -287,31 +308,28 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
     int width = buf->width;
     int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * term->cell_height;
 
-    const uint32_t stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
-
     LOG_DBG("damage: SCROLL REVERSE: %d-%d by %d lines (dst-y: %d, src-y: %d, "
             "height: %d, stride: %d, mmap-size: %zu)",
             dmg->scroll.region.start, dmg->scroll.region.end,
             dmg->scroll.lines,
-            dst_y, src_y, height, stride,
+            dst_y, src_y, height, buf->stride,
             buf->size);
 
     if (height > 0) {
-        cairo_surface_flush(buf->cairo_surface[0]);
-        uint8_t *raw = cairo_image_surface_get_data(buf->cairo_surface[0]);
-
-        memmove(raw + dst_y * stride, raw + src_y * stride, height * stride);
-        cairo_surface_mark_dirty(buf->cairo_surface[0]);
+        uint8_t *raw = buf->mmapped;
+        memmove(raw + dst_y * buf->stride,
+                raw + src_y * buf->stride,
+                height * buf->stride);
 
         wl_surface_damage_buffer(term->wl.surface, 0, dst_y, width, height);
     }
 }
 
 static void
-render_row(struct terminal *term, cairo_t *cr, struct row *row, int row_no)
+render_row(struct terminal *term, pixman_image_t *pix, struct row *row, int row_no)
 {
     for (int col = term->cols - 1; col >= 0; col--)
-        render_cell(term, cr, &row->cells[col], col, row_no, false);
+        render_cell(term, pix, &row->cells[col], col, row_no, false);
 }
 
 int
@@ -349,7 +367,7 @@ render_worker_thread(void *_ctx)
             switch (row_no) {
             default:
                 assert(buf != NULL);
-                render_row(term, buf->cairo[my_id], grid_row_in_view(term->grid, row_no), row_no);
+                render_row(term, buf->pix, grid_row_in_view(term->grid, row_no), row_no);
                 break;
 
             case -1:
@@ -387,8 +405,7 @@ grid_render(struct terminal *term)
     assert(term->height > 0);
 
     struct buffer *buf = shm_get_buffer(term->wl.shm, term->width, term->height, 1 + term->render.workers.count);
-    cairo_t *cr = buf->cairo[0];
-    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    pixman_image_t *pix = buf->pix;
 
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
 
@@ -399,7 +416,7 @@ grid_render(struct terminal *term)
 
         if (cell->attrs.clean) {
             cell->attrs.clean = 0;
-            render_cell(term, cr, cell, at.col, at.row, false);
+            render_cell(term, pix, cell, at.col, at.row, false);
 
             wl_surface_damage_buffer(
                 term->wl.surface,
@@ -431,12 +448,15 @@ grid_render(struct terminal *term)
         int bmargin_height = term->height - bmargin;
 
         uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
-        struct rgb bg = color_hex_to_rgb(_bg);
-        cairo_set_source_rgba(buf->cairo[0], bg.r, bg.g, bg.b, term->colors.alpha);
 
-        cairo_rectangle(buf->cairo[0], rmargin, 0, rmargin_width, term->height);
-        cairo_rectangle(buf->cairo[0], 0, bmargin, term->width, bmargin_height);
-        cairo_fill(buf->cairo[0]);
+        pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
+        pixman_image_fill_rectangles(
+            PIXMAN_OP_SRC, pix, &bg, 1,
+            &(pixman_rectangle16_t){rmargin, 0, rmargin_width, term->height});
+
+        pixman_image_fill_rectangles(
+            PIXMAN_OP_SRC, pix, &bg, 1,
+            &(pixman_rectangle16_t){0, bmargin, term->width, bmargin_height});
 
         wl_surface_damage_buffer(
             term->wl.surface, rmargin, 0, rmargin_width, term->height);
@@ -504,7 +524,7 @@ grid_render(struct terminal *term)
             if (!row->dirty)
                 continue;
 
-            render_row(term, cr, row, r);
+            render_row(term, pix, row, r);
 
             row->dirty = false;
             all_clean = false;
@@ -590,7 +610,7 @@ grid_render(struct terminal *term)
         cell->attrs.clean = 0;
         term->render.last_cursor.cell = cell;
         int cols_updated = render_cell(
-            term, cr, cell, term->cursor.col, view_aligned_row, true);
+            term, pix, cell, term->cursor.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
             term->wl.surface,
@@ -605,10 +625,11 @@ grid_render(struct terminal *term)
     }
 
     if (term->flash.active) {
-        cairo_set_source_rgba(buf->cairo[0], 1.0, 1.0, 0.0, 0.5);
-        cairo_set_operator(buf->cairo[0], CAIRO_OPERATOR_OVER);
-        cairo_rectangle(buf->cairo[0], 0, 0, term->width, term->height);
-        cairo_fill(buf->cairo[0]);
+        /* Note: alpha is pre-computed in each color component */
+        pixman_image_fill_rectangles(
+            PIXMAN_OP_OVER, pix,
+            &(pixman_color_t){.red=0x7fff, .green=0x7fff, .blue=0, .alpha=0x7fff},
+            1, &(pixman_rectangle16_t){0, 0, term->width, term->height});
 
         wl_surface_damage_buffer(
             term->wl.surface, 0, 0, term->width, term->height);
@@ -617,7 +638,6 @@ grid_render(struct terminal *term)
     assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
     assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
 
-    cairo_surface_flush(buf->cairo_surface[0]);
     wl_surface_attach(term->wl.surface, buf->wl_buf, 0, 0);
 
     assert(term->render.frame_callback == NULL);

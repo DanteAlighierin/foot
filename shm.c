@@ -7,6 +7,8 @@
 #include <sys/mman.h>
 #include <linux/memfd.h>
 
+#include <pixman.h>
+
 #define LOG_MODULE "shm"
 #include "log.h"
 #include "tllist.h"
@@ -45,11 +47,10 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
      * No existing buffer available. Create a new one by:
      *
      * 1. open a memory backed "file" with memfd_create()
-     * 2. mmap() the memory file, to be used by the cairo surface
+     * 2. mmap() the memory file, to be used by the pixman image
      * 3. create a wayland shm buffer for the same memory file
      *
-     * The cairo surface and the wayland buffer are now sharing
-     * memory.
+     * The pixman image and the wayland buffer are now sharing memory.
      */
 
     int pool_fd = -1;
@@ -59,8 +60,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
     struct wl_shm_pool *pool = NULL;
     struct wl_buffer *buf = NULL;
 
-    cairo_surface_t **cairo_surface = NULL;
-    cairo_t **cairo = NULL;
+    pixman_image_t *pix = NULL;
 
     /* Backing memory for SHM */
     pool_fd = memfd_create("f00sel-wayland-shm-buffer-pool", MFD_CLOEXEC);
@@ -69,8 +69,12 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
         goto err;
     }
 
+    /* TODO: copied from font.c */
+    /* Calculate stride. Copied from cairoint.h:CAIRO_STRIDE_FOR_WIDTH_BPP */
+    int bpp = 32;
+    const int stride = (((bpp * width + 7) / 8 + 4 - 1) & -4);
+
     /* Total size */
-    const uint32_t stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, width);
     size = stride * height;
     if (ftruncate(pool_fd, size) == -1) {
         LOG_ERRNO("failed to truncate SHM pool");
@@ -100,27 +104,9 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
     wl_shm_pool_destroy(pool); pool = NULL;
     close(pool_fd); pool_fd = -1;
 
-    /* Create a cairo surface around the mmapped memory */
-    cairo_surface = calloc(copies, sizeof(cairo_surface[0]));
-    cairo = calloc(copies, sizeof(cairo[0]));
-
-    for (size_t i = 0; i < copies; i++) {
-        cairo_surface[i] = cairo_image_surface_create_for_data(
-            mmapped, CAIRO_FORMAT_ARGB32, width, height, stride);
-
-        if (cairo_surface_status(cairo_surface[i]) != CAIRO_STATUS_SUCCESS) {
-            LOG_ERR("failed to create cairo surface: %s",
-                    cairo_status_to_string(cairo_surface_status(cairo_surface[i])));
-            goto err;
-        }
-
-        cairo[i] = cairo_create(cairo_surface[i]);
-        if (cairo_status(cairo[i]) != CAIRO_STATUS_SUCCESS) {
-            LOG_ERR("failed to create cairo context: %s",
-                    cairo_status_to_string(cairo_status(cairo[i])));
-            goto err;
-        }
-    }
+    /* One pixman image for each worker thread (do we really need multiple?) */
+    pix = pixman_image_create_bits_no_clear(
+        PIXMAN_a8r8g8b8, width, height, (uint32_t *)mmapped, stride);
 
     /* Push to list of available buffers, but marked as 'busy' */
     tll_push_back(
@@ -128,13 +114,12 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
         ((struct buffer){
             .width = width,
             .height = height,
+            .stride = stride,
             .busy = true,
             .size = size,
             .mmapped = mmapped,
             .wl_buf = buf,
-            .copies = copies,
-            .cairo_surface = cairo_surface,
-            .cairo = cairo}
+            .pix = pix}
             )
         );
 
@@ -143,18 +128,8 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
     return ret;
 
 err:
-    if (cairo != NULL) {
-        for (size_t i = 0; i < copies; i++)
-            if (cairo[i] != NULL)
-                cairo_destroy(cairo[i]);
-        free(cairo);
-    }
-    if (cairo_surface != NULL) {
-        for (size_t i = 0; i < copies; i++)
-            if (cairo_surface[i] != NULL)
-                cairo_surface_destroy(cairo_surface[i]);
-        free(cairo_surface);
-    }
+    if (pix != NULL)
+        pixman_image_unref(pix);
     if (buf != NULL)
         wl_buffer_destroy(buf);
     if (pool != NULL)
@@ -173,18 +148,8 @@ shm_fini(void)
     tll_foreach(buffers, it) {
         struct buffer *buf = &it->item;
 
-        if (buf->cairo != NULL) {
-            for (size_t i = 0; i < buf->copies; i++)
-                if (buf->cairo[i] != NULL)
-                    cairo_destroy(buf->cairo[i]);
-            free(buf->cairo);
-        }
-        if (buf->cairo_surface != NULL) {
-            for (size_t i = 0; i < buf->copies; i++)
-                if (buf->cairo_surface[i] != NULL)
-                    cairo_surface_destroy(buf->cairo_surface[i]);
-            free(buf->cairo_surface);
-        }
+        if (buf->pix != NULL)
+            pixman_image_unref(buf->pix);
         wl_buffer_destroy(buf->wl_buf);
         munmap(buf->mmapped, buf->size);
 

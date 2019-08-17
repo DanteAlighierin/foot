@@ -8,7 +8,6 @@
 #include <threads.h>
 #include <semaphore.h>
 
-#include <cairo.h>
 #include <wayland-client.h>
 #include <primary-selection-unstable-v1.h>
 #include <xkbcommon/xkbcommon.h>

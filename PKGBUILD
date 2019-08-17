@@ -9,7 +9,7 @@ makedepends=('meson' 'ninja' 'scdoc')
 depends=(
   'libxkbcommon'
   'wayland'
-  'freetype2' 'fontconfig' 'cairo')
+  'freetype2' 'fontconfig' 'pixman')
 source=()
 
 pkgver() {
@@ -25,4 +25,3 @@ build() {
 package() {
   DESTDIR="${pkgdir}/" ninja install
 }
-
