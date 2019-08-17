@@ -21,6 +21,7 @@ In addition to the dev variant of the packages above, you need:
 * meson
 * ninja
 * wayland protocols
+* ncurses
 * scdoc
 
 
