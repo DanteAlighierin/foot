@@ -28,7 +28,7 @@ In addition to the dev variant of the packages above, you need:
 ## Fonts
 
 **foot** supports all fonts that can be loaded by freetype, including
-bitmap fonts and color emoji fonts.
+**bitmap** fonts and **color emoji** fonts.
 
 Foot uses its own font fallback mechanism, rather than relying on
 fontconfig's fallback. This is because fontconfig is quite bad at
