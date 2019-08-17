@@ -215,7 +215,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         &(pixman_rectangle16_t){x, y, cell_cols * width, height});
 
     /* Non-block cursors */
-    if (has_cursor) {
+    if (has_cursor && !block_cursor) {
         pixman_color_t cursor_color = term->cursor_color.text >> 31
             ? color_hex_to_pixman(term->cursor_color.cursor)
             : color_hex_to_pixman(_fg);
