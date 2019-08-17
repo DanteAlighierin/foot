@@ -1,0 +1,30 @@
+image: alpine:edge
+
+stages:
+  - build
+
+variables:
+  GIT_SUBMODULE_STRATEGY: normal
+
+before_script:
+  - echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
+  - apk update
+  - apk add musl-dev linux-headers meson ninja gcc scdoc
+  - apk add libxkbcommon-dev pixman-dev freetype-dev fontconfig-dev
+  - apk add wayland-dev wayland-protocols
+
+debug:
+  stage: build
+  script:
+    - mkdir -p bld/debug
+    - cd bld/debug
+    - meson --buildtype=debug ../../
+    - ninja -k0
+
+release:
+  stage: build
+  script:
+    - mkdir -p bld/release
+    - cd bld/release
+    - meson --buildtype=release ../../
+    - ninja -k0
