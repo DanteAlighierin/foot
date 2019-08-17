@@ -59,11 +59,9 @@ wscanner_prog = find_program(
 wl_proto_headers = []
 wl_proto_src = []
 foreach prot : [
-  #'external/wlr-layer-shell-unstable-v1.xml',
   wayland_protocols_datadir + '/stable/xdg-shell/xdg-shell.xml',
   wayland_protocols_datadir + '/unstable/xdg-output/xdg-output-unstable-v1.xml',
   wayland_protocols_datadir + '/unstable/primary-selection/primary-selection-unstable-v1.xml',
-  #wayland_protocols_datadir + '/unstable/xdg-output/xdg-output-unstable-v1.xml']
   ]
 
   wl_proto_headers += custom_target(
