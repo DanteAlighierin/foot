@@ -218,7 +218,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     if (has_cursor && !block_cursor) {
         pixman_color_t cursor_color = term->cursor_color.text >> 31
             ? color_hex_to_pixman(term->cursor_color.cursor)
-            : color_hex_to_pixman(_fg);
+            : fg;
 
         if (term->cursor_style == CURSOR_BAR)
             draw_bar(term, pix, &cursor_color, x, y);
@@ -237,7 +237,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         return cell_cols;
 
     if (glyph != NULL) {
-        if (pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8) {
+        if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
             /* Glyph surface is a pre-rendered image (typically a color emoji...) */
             if (!(cell->attrs.blink && term->blink.state == BLINK_OFF)) {
                 pixman_image_composite32(
@@ -259,15 +259,13 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     /* Underline */
     if (cell->attrs.underline) {
-        pixman_color_t color = color_hex_to_pixman(_fg);
         draw_underline(term, pix, attrs_to_font(term, &cell->attrs),
-                       &color, x, y, cell_cols);
+                       &fg, x, y, cell_cols);
     }
 
     if (cell->attrs.strikethrough) {
-        pixman_color_t color = color_hex_to_pixman(_fg);
         draw_strikeout(term, pix, attrs_to_font(term, &cell->attrs),
-                       &color, x, y, cell_cols);
+                       &fg, x, y, cell_cols);
     }
 
     return cell_cols;
