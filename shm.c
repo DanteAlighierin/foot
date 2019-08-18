@@ -11,6 +11,7 @@
 
 #define LOG_MODULE "shm"
 #include "log.h"
+#include "stride.h"
 #include "tllist.h"
 
 static tll(struct buffer) buffers;
@@ -69,10 +70,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
         goto err;
     }
 
-    /* TODO: copied from font.c */
-    /* Calculate stride. Copied from cairoint.h:CAIRO_STRIDE_FOR_WIDTH_BPP */
-    int bpp = 32;
-    const int stride = (((bpp * width + 7) / 8 + 4 - 1) & -4);
+    const int stride = stride_for_format_and_width(PIXMAN_a8r8g8b8, width);
 
     /* Total size */
     size = stride * height;

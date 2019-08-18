@@ -10,6 +10,7 @@
 #define LOG_MODULE "font"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "stride.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
@@ -392,8 +393,7 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
         break;
     }
 
-    /* Calculate stride. Copied from cairoint.h:CAIRO_STRIDE_FOR_WIDTH_BPP */
-    int stride = (((PIXMAN_FORMAT_BPP(pix_format) * width + 7) / 8 + 4 - 1) & -4);
+    int stride = stride_for_format_and_width(pix_format, width);
     assert(stride >= bitmap->pitch);
 
     uint8_t *data = malloc(rows * stride);
