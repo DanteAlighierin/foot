@@ -124,17 +124,11 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
             load_flags |= FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING | FT_LOAD_TARGET_NORMAL;
         else if (fc_hinting && fc_hintstyle == FC_HINT_SLIGHT)
             load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT;
-        else if (fc_rgba == FC_RGBA_RGB) {
-            if (!is_fallback)
-                LOG_WARN("unimplemented: subpixel antialiasing");
-            // load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD;
-            load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL;
-        } else if (fc_rgba == FC_RGBA_VRGB) {
-            if (!is_fallback)
-                LOG_WARN("unimplemented: subpixel antialiasing");
-            //load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD_V;
-            load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL;
-        } else
+        else if (fc_rgba == FC_RGBA_RGB)
+            load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD;
+        else if (fc_rgba == FC_RGBA_VRGB)
+            load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD_V;
+        else
             load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL;
     }
 
@@ -149,17 +143,11 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
     if (!fc_antialias)
         render_flags |= FT_RENDER_MODE_MONO;
     else {
-        if (fc_rgba == FC_RGBA_RGB) {
-            if (!is_fallback)
-                LOG_WARN("unimplemented: subpixel antialiasing");
-            //render_flags |= FT_RENDER_MODE_LCD;
-            render_flags |= FT_RENDER_MODE_NORMAL;
-        } else if (fc_rgba == FC_RGBA_VRGB) {
-            if (!is_fallback)
-                LOG_WARN("unimplemented: subpixel antialiasing");
-            //render_flags |= FT_RENDER_MODE_LCD_V;
-            render_flags |= FT_RENDER_MODE_NORMAL;
-        } else
+        if (fc_rgba == FC_RGBA_RGB)
+            render_flags |= FT_RENDER_MODE_LCD;
+        else if (fc_rgba == FC_RGBA_VRGB)
+            render_flags |= FT_RENDER_MODE_LCD_V;
+        else
             render_flags |= FT_RENDER_MODE_NORMAL;
     }
 
@@ -295,7 +283,7 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
     /*
      * LCD filter is per library instance. Thus we need to re-set it
      * every time...
-     * 
+     *
      * Also note that many freetype builds lack this feature
      * (FT_CONFIG_OPTION_SUBPIXEL_RENDERING must be defined, and isn't
      * by default) */
@@ -360,31 +348,55 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
     assert(font->face->glyph->format == FT_GLYPH_FORMAT_BITMAP);
 
     FT_Bitmap *bitmap = &font->face->glyph->bitmap;
-    assert(bitmap->pixel_mode == FT_PIXEL_MODE_MONO ||
-           bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ||
-           bitmap->pixel_mode == FT_PIXEL_MODE_BGRA);
-
     if (bitmap->width == 0)
         goto err;
 
-    /* Map FT pixel format to pixman format */
-    pixman_format_code_t pix_format =
-        bitmap->pixel_mode == FT_PIXEL_MODE_MONO ? PIXMAN_a1 :
-        bitmap->pixel_mode == FT_PIXEL_MODE_GRAY ? PIXMAN_a8 :
-        bitmap->pixel_mode == FT_PIXEL_MODE_BGRA ? PIXMAN_a8r8g8b8 : -1;
+    pixman_format_code_t pix_format;
+    int width;
+    int rows;
+
+    switch (bitmap->pixel_mode) {
+    case FT_PIXEL_MODE_MONO:
+        pix_format = PIXMAN_a1;
+        width = bitmap->width;
+        rows = bitmap->rows;
+        break;
+
+    case FT_PIXEL_MODE_GRAY:
+        pix_format = PIXMAN_a8;
+        width = bitmap->width;
+        rows = bitmap->rows;
+        break;
+
+    case FT_PIXEL_MODE_LCD:
+        pix_format = PIXMAN_x8r8g8b8;
+        width = bitmap->width / 3;
+        rows = bitmap->rows;
+        break;
+
+    case FT_PIXEL_MODE_LCD_V:
+        pix_format = PIXMAN_x8r8g8b8;
+        width = bitmap->width;
+        rows = bitmap->rows / 3;
+        break;
+
+    case FT_PIXEL_MODE_BGRA:
+        pix_format = PIXMAN_a8r8g8b8;
+        width = bitmap->width;
+        rows = bitmap->rows;
+        break;
+
+    default:
+        LOG_ERR("unimplemented: FT pixel mode: %d", bitmap->pixel_mode);
+        goto err;
+        break;
+    }
 
     /* Calculate stride. Copied from cairoint.h:CAIRO_STRIDE_FOR_WIDTH_BPP */
-    int bpp =
-        pix_format == PIXMAN_a1 ? 1 :
-        pix_format == PIXMAN_a8 ? 8 :
-        pix_format == PIXMAN_a8r8g8b8 ? 32 : -1;
-    assert(bpp >= 0);
-
-    int stride = (((bpp * bitmap->width + 7) / 8 + 4 - 1) & -4);
+    int stride = (((PIXMAN_FORMAT_BPP(pix_format) * width + 7) / 8 + 4 - 1) & -4);
     assert(stride >= bitmap->pitch);
 
-    uint8_t *data = malloc(bitmap->rows * stride);
-    assert(bitmap->pitch >= 0);
+    uint8_t *data = malloc(rows * stride);
 
     /* Convert FT bitmap to pixman image */
     switch (bitmap->pixel_mode) {
@@ -413,20 +425,36 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
         memcpy(data, bitmap->buffer, bitmap->rows * bitmap->pitch);
         break;
 
+    case FT_PIXEL_MODE_LCD:
+        for (size_t r = 0; r < bitmap->rows; r++) {
+            for (size_t c = 0; c < bitmap->width; c += 3) {
+                unsigned char _r = bitmap->buffer[r * bitmap->pitch + c + 0];
+                unsigned char _g = bitmap->buffer[r * bitmap->pitch + c + 1];
+                unsigned char _b = bitmap->buffer[r * bitmap->pitch + c + 2];
+
+                uint32_t *p = (uint32_t *)&data[r * stride + 4 * (c / 3)];
+                *p =  _r << 16 | _g << 8 | _b;
+            }
+        }
+        break;
+
     default:
-        LOG_ERR("unimplemented FreeType bitmap pixel mode: %d",
-                bitmap->pixel_mode);
-        free(data);
-        goto err;
+        abort();
+        break;
     }
 
     pixman_image_t *pix = pixman_image_create_bits_no_clear(
-        pix_format, bitmap->width, bitmap->rows, (uint32_t *)data, stride);
+        pix_format, width, rows, (uint32_t *)data, stride);
 
     if (pix == NULL) {
         free(data);
         goto err;
     }
+
+    pixman_image_set_component_alpha(
+        pix,
+        bitmap->pixel_mode == FT_PIXEL_MODE_LCD ||
+        bitmap->pixel_mode == FT_PIXEL_MODE_LCD_V);
 
     if (font->pixel_size_fixup != 1.) {
         struct pixman_transform scale;
@@ -443,8 +471,8 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
         .pix = pix,
         .x = font->face->glyph->bitmap_left / font->pixel_size_fixup,
         .y = font->face->glyph->bitmap_top * font->pixel_size_fixup,
-        .width = bitmap->width,
-        .height = bitmap->rows,
+        .width = width,
+        .height = rows,
         .valid = true,
     };
 
