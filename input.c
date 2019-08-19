@@ -158,10 +158,10 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     key += 8;
     xkb_keysym_t sym = xkb_state_key_get_one_sym(term->kbd.xkb_state, key);
 
-#if 0
+#if 1
     char foo[100];
     xkb_keysym_get_name(sym, foo, sizeof(foo));
-    LOG_ERR("%s", foo);
+    LOG_INFO("%s", foo);
 #endif
 
     xkb_compose_state_feed(term->kbd.xkb_compose_state, sym);
@@ -504,11 +504,27 @@ mouse_scroll(struct terminal *term, int amount)
 
     amount = abs(amount);
 
-    for (int i = 0; i < amount; i++)
-        term_mouse_down(term, button, term->mouse.row, term->mouse.col,
-                        term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
+    if ((button == BTN_BACK || button == BTN_FORWARD) &&
+        term->grid == &term->alt && term->alt_scrolling)
+    {
+        /*
+         * alternateScroll/faux scrolling - translate mouse
+         * "back"/"forward" to up/down keys
+         */
 
-    scrollback(term, amount);
+        xkb_keycode_t key = xkb_keymap_key_by_name(
+            term->kbd.xkb_keymap, button == BTN_BACK ? "UP" : "DOWN");
+
+        for (int i = 0; i < amount; i++)
+            keyboard_key(term, NULL, term->input_serial, 0, key - 8, XKB_KEY_DOWN);
+        keyboard_key(term, NULL, term->input_serial, 0, key - 8, XKB_KEY_UP);
+    } else {
+        for (int i = 0; i < amount; i++)
+            term_mouse_down(term, button, term->mouse.row, term->mouse.col,
+                            term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
+
+        scrollback(term, amount);
+    }
 }
 
 static void

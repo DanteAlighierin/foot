@@ -713,6 +713,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->mouse_reporting = MOUSE_SGR;
                     break;
 
+                case 1007:
+                    term->alt_scrolling = true;
+                    break;
+
                 case 1015:
                     term->mouse_reporting = MOUSE_URXVT;
                     break;
@@ -800,6 +804,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 1004:
                     term->focus_events = false;
+                    break;
+
+                case 1007:
+                    term->alt_scrolling = false;
                     break;
 
                 case 1036:

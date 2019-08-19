@@ -246,6 +246,7 @@ struct terminal {
     bool insert_mode;
     bool bracketed_paste;
     bool focus_events;
+    bool alt_scrolling;
     enum mouse_tracking mouse_tracking;
     enum mouse_reporting mouse_reporting;
 
