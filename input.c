@@ -158,7 +158,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     key += 8;
     xkb_keysym_t sym = xkb_state_key_get_one_sym(term->kbd.xkb_state, key);
 
-#if 1
+#if 0
     char foo[100];
     xkb_keysym_get_name(sym, foo, sizeof(foo));
     LOG_INFO("%s", foo);
