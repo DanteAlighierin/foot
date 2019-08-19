@@ -125,9 +125,9 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
             load_flags |= FT_LOAD_DEFAULT | FT_LOAD_NO_HINTING | FT_LOAD_TARGET_NORMAL;
         else if (fc_hinting && fc_hintstyle == FC_HINT_SLIGHT)
             load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_LIGHT;
-        else if (fc_rgba == FC_RGBA_RGB)
+        else if (fc_rgba == FC_RGBA_RGB || fc_rgba == FC_RGBA_BGR)
             load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD;
-        else if (fc_rgba == FC_RGBA_VRGB)
+        else if (fc_rgba == FC_RGBA_VRGB || fc_rgba == FC_RGBA_VBGR)
             load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_LCD_V;
         else
             load_flags |= FT_LOAD_DEFAULT | FT_LOAD_TARGET_NORMAL;
@@ -144,9 +144,9 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
     if (!fc_antialias)
         render_flags |= FT_RENDER_MODE_MONO;
     else {
-        if (fc_rgba == FC_RGBA_RGB)
+        if (fc_rgba == FC_RGBA_RGB || fc_rgba == FC_RGBA_BGR)
             render_flags |= FT_RENDER_MODE_LCD;
-        else if (fc_rgba == FC_RGBA_VRGB)
+        else if (fc_rgba == FC_RGBA_VRGB || fc_rgba == FC_RGBA_VBGR)
             render_flags |= FT_RENDER_MODE_LCD_V;
         else
             render_flags |= FT_RENDER_MODE_NORMAL;
@@ -171,6 +171,7 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
     font->render_flags = render_flags;
     font->is_fallback = is_fallback;
     font->pixel_size_fixup = scalable ? pixel_fixup : 1.;
+    font->bgr = fc_rgba == FC_RGBA_BGR || fc_rgba == FC_RGBA_VBGR;
     font->fc_idx = font_idx;
 
     if (!is_fallback) {
@@ -279,7 +280,7 @@ hash_index(wchar_t wc)
 }
 
 static bool
-glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
+glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
 {
     /*
      * LCD filter is per library instance. Thus we need to re-set it
@@ -428,11 +429,25 @@ glyph_for_wchar(struct font *font, wchar_t wc, struct glyph *glyph)
     case FT_PIXEL_MODE_LCD:
         for (size_t r = 0; r < bitmap->rows; r++) {
             for (size_t c = 0; c < bitmap->width; c += 3) {
-                unsigned char _r = bitmap->buffer[r * bitmap->pitch + c + 0];
+                unsigned char _r = bitmap->buffer[r * bitmap->pitch + c + (font->bgr ? 2 : 0)];
                 unsigned char _g = bitmap->buffer[r * bitmap->pitch + c + 1];
-                unsigned char _b = bitmap->buffer[r * bitmap->pitch + c + 2];
+                unsigned char _b = bitmap->buffer[r * bitmap->pitch + c + (font->bgr ? 0 : 2)];
 
                 uint32_t *p = (uint32_t *)&data[r * stride + 4 * (c / 3)];
+                *p =  _r << 16 | _g << 8 | _b;
+            }
+        }
+        break;
+
+    case FT_PIXEL_MODE_LCD_V:
+        /* Unverified */
+        for (size_t r = 0; r < bitmap->rows; r += 3) {
+            for (size_t c = 0; c < bitmap->width; c++) {
+                unsigned char _r = bitmap->buffer[(r + (font->bgr ? 2 : 0)) * bitmap->pitch + c];
+                unsigned char _g = bitmap->buffer[(r + 1) * bitmap->pitch + c];
+                unsigned char _b = bitmap->buffer[(r + (font->bgr ? 0 : 2)) * bitmap->pitch + c];
+
+                uint32_t *p = (uint32_t *)&data[r / 3 * stride + 4 * c];
                 *p =  _r << 16 | _g << 8 | _b;
             }
         }
