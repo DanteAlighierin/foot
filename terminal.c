@@ -163,13 +163,15 @@ erase_cell_range(struct terminal *term, struct row *row, int start, int end)
     assert(start < term->cols);
     assert(end < term->cols);
 
-    memset(&row->cells[start], 0, (end - start + 1) * sizeof(row->cells[0]));
     if (unlikely(term->vt.attrs.have_bg)) {
         for (int col = start; col <= end; col++) {
-            row->cells[col].attrs.have_bg = 1;
-            row->cells[col].attrs.bg = term->vt.attrs.bg;
+            struct cell *c = &row->cells[col];
+            c->wc = 0;
+            c->attrs = (struct attributes){.have_bg = 1, .bg = term->vt.attrs.bg};
         }
-    }
+    } else
+        memset(&row->cells[start], 0, (end - start + 1) * sizeof(row->cells[0]));
+
     row->dirty = true;
 }
 
