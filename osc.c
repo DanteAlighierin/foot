@@ -15,36 +15,6 @@
 #define UNHANDLED() LOG_ERR("unhandled: OSC: %.*s", (int)term->vt.osc.idx, term->vt.osc.data)
 
 static void
-osc_query(struct terminal *term, unsigned param)
-{
-    switch (param) {
-    case 10:
-    case 11: {
-        uint32_t color = param == 10 ? term->colors.fg : term->colors.bg;
-        uint8_t r = (color >> 16) & 0xff;
-        uint8_t g = (color >>  8) & 0xff;
-        uint8_t b = (color >>  0) & 0xff;
-
-        /*
-         * Reply in XParseColor format
-         * E.g. for color 0xdcdccc we reply "\e]10;rgb:dc/dc/cc\e\\"
-         */
-        char reply[32];
-        snprintf(
-            reply, sizeof(reply), "\033]%u;rgb:%02x/%02x/%02x\033\\",
-            param, r, g, b);
-
-        vt_to_slave(term, reply, strlen(reply));
-        break;
-    }
-
-    default:
-        UNHANDLED();
-        break;
-    }
-}
-
-static void
 osc_to_clipboard(struct terminal *term, const char *target,
                  const char *base64_data)
 {
@@ -210,17 +180,69 @@ osc_flash(struct terminal *term)
     term_flash(term, 50);
 }
 
+static bool
+parse_rgb(const char *string, uint32_t *color)
+{
+    size_t len = strlen(string);
+
+    /* Verify we have the minimum required length (for "rgb:x/x/x") */
+    if (len < 3 /* 'rgb' */ + 1 /* ':' */ + 2 /* '/' */ + 3 * 1 /* 3 * 'x' */)
+        return false;
+
+    /* Verify prefix is "rgb:" */
+    if (string[0] != 'r' || string[1] != 'g' || string[2] != 'b' || string[3] != ':')
+        return false;
+
+    string += 4;
+    len -= 4;
+
+    int rgb[3];
+    int digits[3];
+
+    for (size_t i = 0; i < 3; i++) {
+        for (rgb[i] = 0, digits[i] = 0;
+             len > 0 && *string != '/';
+             len--, string++, digits[i]++)
+        {
+            char c = *string;
+            rgb[i] <<= 4;
+
+            if (!isxdigit(c))
+                rgb[i] |= 0;
+            else
+                rgb[i] |= c >= '0' && c <= '9' ? c - '0' :
+                    c >= 'a' && c <= 'f' ? c - 'a' + 10 : c - 'A' + 10;
+        }
+
+        if (i >= 2)
+            break;
+
+        if (len == 0 || *string != '/')
+            return false;
+        string++; len--;
+    }
+
+    /* Re-scale to 8-bit */
+    uint8_t r = 255 * (rgb[0] / (double)((1 << (4 * digits[0])) - 1));
+    uint8_t g = 255 * (rgb[1] / (double)((1 << (4 * digits[1])) - 1));
+    uint8_t b = 255 * (rgb[2] / (double)((1 << (4 * digits[2])) - 1));
+
+    LOG_DBG("rgb: %02x%02x%02x", r, g, b);
+    *color = r << 16 | g << 8 | b;
+    return true;
+}
+
 void
 osc_dispatch(struct terminal *term)
 {
     unsigned param = 0;
     int data_ofs = 0;
 
-    for (size_t i = 0; i < term->vt.osc.idx; i++) {
+    for (size_t i = 0; i < term->vt.osc.idx; i++, data_ofs++) {
         char c = term->vt.osc.data[i];
 
         if (c == ';') {
-            data_ofs = i + 1;
+            data_ofs++;
             break;
         }
 
@@ -238,15 +260,107 @@ osc_dispatch(struct terminal *term)
 
     char *string = (char *)&term->vt.osc.data[data_ofs];
 
-    if (strlen(string) == 1 && string[0] == '?') {
-        osc_query(term, param);
-        return;
-    }
-
     switch (param) {
     case 0: term_set_window_title(term, string); break;  /* icon + title */
     case 1: break;                                       /* icon */
     case 2: term_set_window_title(term, string); break;  /* title */
+
+    case 4: {
+        /* Set color<idx> */
+
+        /* First param - the color index */
+        unsigned idx = 0;
+        for (; *string != '\0' && *string != ';'; string++) {
+            char c = *string;
+            idx *= 10;
+            idx += c - '0';
+        }
+
+        if (idx >= 256)
+            break;
+
+        /* Next follows the color specification. For now, we only support rgb:x/y/z */
+
+        if (*string == '\0') {
+            /* No color specification */
+            break;
+        }
+
+        assert(*string == ';');
+        string++;
+
+        /* Client queried for current value */
+        if (strlen(string) == 1 && string[0] == '?') {
+            uint32_t color =
+                (idx >= 0 && idx < 8) ? term->colors.regular[idx] :
+                (idx >= 8 && idx < 16) ? term->colors.bright[idx] :
+                term->colors.colors256[idx];
+
+            uint8_t r = (color >> 16) & 0xff;
+            uint8_t g = (color >>  8) & 0xff;
+            uint8_t b = (color >>  0) & 0xff;
+
+            char reply[32];
+            snprintf(reply, sizeof(reply), "\033]4;%u;rgb:%02x/%02x/%02x\033\\",
+                     idx, r, g, b);
+            vt_to_slave(term, reply, strlen(reply));
+            break;
+        }
+
+        uint32_t color;
+        if (!parse_rgb(string, &color))
+            break;
+
+        if (idx >= 0 && idx < 8)
+            term->colors.regular[idx] = color;
+        else if (idx >= 8 && idx < 16)
+            term->colors.bright[idx - 8] = color;
+        else
+            term->colors.colors256[idx] = color;
+
+        render_refresh(term);
+        break;
+    }
+
+    case 10:
+    case 11: {
+        /* Set default foreground/background color */
+
+        /* Client queried for current value */
+        if (strlen(string) == 1 && string[0] == '?') {
+            uint32_t color = param == 10 ? term->colors.fg : term->colors.bg;
+            uint8_t r = (color >> 16) & 0xff;
+            uint8_t g = (color >>  8) & 0xff;
+            uint8_t b = (color >>  0) & 0xff;
+
+            /*
+             * Reply in XParseColor format
+             * E.g. for color 0xdcdccc we reply "\e]10;rgb:dc/dc/cc\e\\"
+             */
+            char reply[32];
+            snprintf(
+                reply, sizeof(reply), "\033]%u;rgb:%02x/%02x/%02x\033\\",
+                param, r, g, b);
+
+            vt_to_slave(term, reply, strlen(reply));
+            break;
+        }
+
+        uint32_t color;
+        if (!parse_rgb(string, &color))
+            break;
+
+        switch (param) {
+        case 10: term->colors.fg = color; break;
+        case 11: term->colors.bg = color; break;
+        }
+
+        render_refresh(term);
+        break;
+    }
+
+    case 12: /* Set cursor color */
+        break;
 
     case 30:  /* Set tab title */
         break;
@@ -255,9 +369,59 @@ osc_dispatch(struct terminal *term)
         osc_selection(term, string);
         break;
 
-    case 104: /* Reset Color Number 'c' */
+    case 104: {
+        /* Reset Color Number 'c' (whole table if no parameter) */
+
+        if (strlen(string) == 0) {
+            for (size_t i = 0; i < 8; i++) {
+                term->colors.regular[i] = term->colors.default_regular[i];
+                term->colors.bright[i] = term->colors.default_bright[i];
+            }
+            for (size_t i = 16; i < 256; i++)
+                term->colors.colors256[i] = term->colors.default_colors256[i];
+        } else {
+            unsigned idx = 0;
+
+            for (; *string != '\0'; string++) {
+                char c = *string;
+                if (c == ';') {
+                    if (idx >= 0 && idx < 8)
+                        term->colors.regular[idx] = term->colors.default_regular[idx];
+                    else if (idx >= 8 && idx < 16)
+                        term->colors.bright[idx] = term->colors.default_bright[idx];
+                    else if (idx < 256)
+                        term->colors.colors256[idx] = term->colors.default_colors256[idx];
+                    idx = 0;
+                    continue;
+                }
+
+                idx *= 10;
+                idx += c - '0';
+            }
+
+            if (idx >= 0 && idx < 8)
+                term->colors.regular[idx] = term->colors.default_regular[idx];
+            else if (idx >= 8 && idx < 16)
+                term->colors.bright[idx] = term->colors.default_bright[idx];
+            else if (idx < 256)
+                term->colors.colors256[idx] = term->colors.default_colors256[idx];
+        }
+
+        render_refresh(term);
+        break;
+    }
+
     case 105: /* Reset Special Color Number 'c' */
-    case 112: /* Reset text cursor color */
+        break;
+
+    case 110: /* Reset default text foreground color */
+        term->colors.fg = term->colors.default_fg;
+        render_refresh(term);
+        break;
+
+    case 111: /* Reset default text backgroundc color */
+        term->colors.bg = term->colors.default_bg;
+        render_refresh(term);
         break;
 
     case 555:
