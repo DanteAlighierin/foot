@@ -445,7 +445,7 @@ main(int argc, char *const *argv)
         .colors = {
             .default_fg = conf.colors.fg,
             .default_bg = conf.colors.bg,
-            .default_regular = {
+            .default_colors256 = {
                 conf.colors.regular[0],
                 conf.colors.regular[1],
                 conf.colors.regular[2],
@@ -454,8 +454,7 @@ main(int argc, char *const *argv)
                 conf.colors.regular[5],
                 conf.colors.regular[6],
                 conf.colors.regular[7],
-            },
-            .default_bright = {
+
                 conf.colors.bright[0],
                 conf.colors.bright[1],
                 conf.colors.bright[2],
@@ -493,6 +492,14 @@ main(int argc, char *const *argv)
         },
     };
 
+    LOG_INFO("using %zu rendering threads", term.render.workers.count);
+
+    struct render_worker_context worker_context[term.render.workers.count];
+
+    /* Initialize 'current' colors from the default colors */
+    term.colors.fg = term.colors.default_fg;
+    term.colors.bg = term.colors.default_bg;
+
     /* Initialize the 256 gray-scale color cube */
     {
 #if 0 /* pick colors from term struct instead, since they can be changed runtime */
@@ -515,18 +522,6 @@ main(int argc, char *const *argv)
             term.colors.default_colors256[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
 
         memcpy(term.colors.colors256, term.colors.default_colors256, sizeof(term.colors.colors256));
-    }
-
-    LOG_INFO("using %zu rendering threads", term.render.workers.count);
-
-    struct render_worker_context worker_context[term.render.workers.count];
-
-    /* Initialize 'current' colors from the default colors */
-    term.colors.fg = term.colors.default_fg;
-    term.colors.bg = term.colors.default_bg;
-    for (size_t i = 0; i < 8; i++) {
-        term.colors.regular[i] = term.colors.default_regular[i];
-        term.colors.bright[i] = term.colors.default_bright[i];
     }
 
     if (term.ptmx == -1) {

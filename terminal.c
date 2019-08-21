@@ -61,10 +61,6 @@ term_reset(struct terminal *term, bool hard)
     term->blink.state = BLINK_ON;
     term->colors.fg = term->colors.default_fg;
     term->colors.bg = term->colors.default_bg;
-    for (size_t i = 0; i < 8; i++) {
-        term->colors.regular[i] = term->colors.default_regular[i];
-        term->colors.bright[i] = term->colors.default_bright[i];
-    }
     for (size_t i = 0; i < 256; i++)
         term->colors.colors256[i] = term->colors.default_colors256[i];
     term->print_needs_wrap = false;

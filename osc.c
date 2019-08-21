@@ -291,11 +291,7 @@ osc_dispatch(struct terminal *term)
 
         /* Client queried for current value */
         if (strlen(string) == 1 && string[0] == '?') {
-            uint32_t color =
-                (idx >= 0 && idx < 8) ? term->colors.regular[idx] :
-                (idx >= 8 && idx < 16) ? term->colors.bright[idx - 8] :
-                term->colors.colors256[idx];
-
+            uint32_t color = term->colors.colors256[idx];
             uint8_t r = (color >> 16) & 0xff;
             uint8_t g = (color >>  8) & 0xff;
             uint8_t b = (color >>  0) & 0xff;
@@ -311,13 +307,7 @@ osc_dispatch(struct terminal *term)
         if (!parse_rgb(string, &color))
             break;
 
-        if (idx >= 0 && idx < 8)
-            term->colors.regular[idx] = color;
-        else if (idx >= 8 && idx < 16)
-            term->colors.bright[idx - 8] = color;
-        else
-            term->colors.colors256[idx] = color;
-
+        term->colors.colors256[idx] = color;
         render_refresh(term);
         break;
     }
@@ -373,11 +363,7 @@ osc_dispatch(struct terminal *term)
         /* Reset Color Number 'c' (whole table if no parameter) */
 
         if (strlen(string) == 0) {
-            for (size_t i = 0; i < 8; i++) {
-                term->colors.regular[i] = term->colors.default_regular[i];
-                term->colors.bright[i] = term->colors.default_bright[i];
-            }
-            for (size_t i = 16; i < 256; i++)
+            for (size_t i = 0; i < 256; i++)
                 term->colors.colors256[i] = term->colors.default_colors256[i];
         } else {
             unsigned idx = 0;
@@ -385,12 +371,7 @@ osc_dispatch(struct terminal *term)
             for (; *string != '\0'; string++) {
                 char c = *string;
                 if (c == ';') {
-                    if (idx >= 0 && idx < 8)
-                        term->colors.regular[idx] = term->colors.default_regular[idx];
-                    else if (idx >= 8 && idx < 16)
-                        term->colors.bright[idx - 8] = term->colors.default_bright[idx - 8];
-                    else if (idx < 256)
-                        term->colors.colors256[idx] = term->colors.default_colors256[idx];
+                    term->colors.colors256[idx] = term->colors.default_colors256[idx];
                     idx = 0;
                     continue;
                 }
@@ -399,12 +380,7 @@ osc_dispatch(struct terminal *term)
                 idx += c - '0';
             }
 
-            if (idx >= 0 && idx < 8)
-                term->colors.regular[idx] = term->colors.default_regular[idx];
-            else if (idx >= 8 && idx < 16)
-                term->colors.bright[idx - 8] = term->colors.default_bright[idx - 8];
-            else if (idx < 256)
-                term->colors.colors256[idx] = term->colors.default_colors256[idx];
+            term->colors.colors256[idx] = term->colors.default_colors256[idx];
         }
 
         render_refresh(term);
