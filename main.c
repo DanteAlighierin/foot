@@ -654,8 +654,6 @@ main(int argc, char *const *argv)
                  it->item.x, it->item.y, it->item.scale);
     }
 
-    assert(tll_length(term.wl.monitors) == 1 &&
-           "unimplemented: output tracking");
 
     /* TODO: dynamic tracking */
     term.scale = tll_back(term.wl.monitors).scale;
