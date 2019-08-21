@@ -18,7 +18,12 @@ pkgver() {
 }
 
 build() {
-  meson --prefix=/usr --buildtype=release -Db_lto=true Dc_args="-fno-stack-protector" ..
+  meson --prefix=/usr --buildtype=release -Db_lto=true -Dc_args="-fno-stack-protector" -Db_pgo=generate ..
+  ninja
+
+  # TODO: run something to actually create a profile
+
+  meson --prefix=/usr --buildtype=release -Db_lto=true -Dc_args="-fno-stack-protector" -Db_pgo=use ..
   ninja
 }
 
