@@ -18,12 +18,15 @@ pkgver() {
 }
 
 build() {
-  meson --prefix=/usr --buildtype=release -Db_lto=true -Dc_args="-fno-stack-protector" -Db_pgo=generate ..
+  meson --prefix=/usr --buildtype=release -Db_lto=true -Dc_args="-fno-stack-protector" ..
+
+  meson configure -Db_pgo=generate
   ninja
 
-  # TODO: run something to actually create a profile
+  rm -f alt-random
+  ./foot -- sh -c "../scripts/generate-alt-random-writes.py > alt-random && sync && cat alt-random"
 
-  meson --prefix=/usr --buildtype=release -Db_lto=true -Dc_args="-fno-stack-protector" -Db_pgo=use ..
+  meson configure -Db_pgo=use
   ninja
 }
 
