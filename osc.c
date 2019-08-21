@@ -293,7 +293,7 @@ osc_dispatch(struct terminal *term)
         if (strlen(string) == 1 && string[0] == '?') {
             uint32_t color =
                 (idx >= 0 && idx < 8) ? term->colors.regular[idx] :
-                (idx >= 8 && idx < 16) ? term->colors.bright[idx] :
+                (idx >= 8 && idx < 16) ? term->colors.bright[idx - 8] :
                 term->colors.colors256[idx];
 
             uint8_t r = (color >> 16) & 0xff;
@@ -388,7 +388,7 @@ osc_dispatch(struct terminal *term)
                     if (idx >= 0 && idx < 8)
                         term->colors.regular[idx] = term->colors.default_regular[idx];
                     else if (idx >= 8 && idx < 16)
-                        term->colors.bright[idx] = term->colors.default_bright[idx];
+                        term->colors.bright[idx - 8] = term->colors.default_bright[idx - 8];
                     else if (idx < 256)
                         term->colors.colors256[idx] = term->colors.default_colors256[idx];
                     idx = 0;
@@ -402,7 +402,7 @@ osc_dispatch(struct terminal *term)
             if (idx >= 0 && idx < 8)
                 term->colors.regular[idx] = term->colors.default_regular[idx];
             else if (idx >= 8 && idx < 16)
-                term->colors.bright[idx] = term->colors.default_bright[idx];
+                term->colors.bright[idx - 8] = term->colors.default_bright[idx - 8];
             else if (idx < 256)
                 term->colors.colors256[idx] = term->colors.default_colors256[idx];
         }
