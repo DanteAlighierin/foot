@@ -654,10 +654,6 @@ main(int argc, char *const *argv)
                  it->item.x, it->item.y, it->item.scale);
     }
 
-
-    /* TODO: dynamic tracking */
-    term.scale = tll_back(term.wl.monitors).scale;
-
     /* Clipboard */
     term.wl.data_device = wl_data_device_manager_get_data_device(
         term.wl.data_device_manager, term.wl.seat);
