@@ -18,7 +18,7 @@ pkgver() {
 }
 
 build() {
-  meson --prefix=/usr --buildtype=release -Db_lto=true ..
+  meson --prefix=/usr --buildtype=release -Db_lto=true Dc_args="-fno-stack-protector" ..
   ninja
 }
 
