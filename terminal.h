@@ -287,12 +287,14 @@ struct terminal {
         uint32_t bg;
         uint32_t regular[8];
         uint32_t bright[8];
+        uint32_t colors256[256];
         double alpha;
 
         uint32_t default_fg;
         uint32_t default_bg;
         uint32_t default_regular[8];
         uint32_t default_bright[8];
+        uint32_t default_colors256[256];
     } colors;
 
     struct {

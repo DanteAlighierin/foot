@@ -18,33 +18,8 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
-static uint32_t colors256[256];
-
 #define UNHANDLED()     LOG_ERR("unhandled: %s", csi_as_string(term, final))
 #define UNHANDLED_SGR() LOG_ERR("unhandled: %s", csi_as_string(term, 'm'))
-
-static void __attribute__((constructor))
-initialize_colors256(void)
-{
-#if 0 /* pick colors from term struct instead, since they can be changed runtime */
-    for (size_t i = 0; i < 8; i++)
-        colors256[i] = colors_regular[i];
-    for (size_t i = 0; i < 8; i++)
-        colors256[8 + i] = colors_bright[i];
-#endif
-
-    for (size_t r = 0; r < 6; r++) {
-        for (size_t g = 0; g < 6; g++) {
-            for (size_t b = 0; b < 6; b++) {
-                colors256[16 + r * 6 * 6 + g * 6 + b]
-                    = r * 51 << 16 | g * 51 << 8 | b * 51;
-            }
-        }
-    }
-
-    for (size_t i = 0; i < 24; i++)
-        colors256[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
-}
 
 static void
 sgr_reset(struct terminal *term)
@@ -144,7 +119,7 @@ csi_sgr(struct terminal *term)
                 else if (idx < 16)
                     color = term->colors.bright[idx - 8];
                 else
-                    color = colors256[idx];
+                    color = term->colors.colors256[idx];
                 term->vt.attrs.have_fg = 1;
                 term->vt.attrs.fg =  color;
                 i += 2;
@@ -215,7 +190,7 @@ csi_sgr(struct terminal *term)
                 else if (idx < 16)
                     color = term->colors.bright[idx - 8];
                 else
-                    color = colors256[idx];
+                    color = term->colors.colors256[idx];
                 term->vt.attrs.have_bg = 1;
                 term->vt.attrs.bg = color;
                 i += 2;
