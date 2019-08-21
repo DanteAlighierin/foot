@@ -105,7 +105,7 @@ csi_sgr(struct terminal *term)
         case 36:
         case 37:
             term->vt.attrs.have_fg = 1;
-            term->vt.attrs.fg = term->colors.colors256[param - 30];
+            term->vt.attrs.fg = term->colors.table[param - 30];
             break;
 
         case 38: {
@@ -114,7 +114,7 @@ csi_sgr(struct terminal *term)
             {
                 uint8_t idx = term->vt.params.v[i + 2].value;
                 term->vt.attrs.have_fg = 1;
-                term->vt.attrs.fg = term->colors.colors256[idx];
+                term->vt.attrs.fg = term->colors.table[idx];
                 i += 2;
 
             }
@@ -168,7 +168,7 @@ csi_sgr(struct terminal *term)
         case 46:
         case 47:
             term->vt.attrs.have_bg = 1;
-            term->vt.attrs.bg = term->colors.colors256[param - 40];
+            term->vt.attrs.bg = term->colors.table[param - 40];
             break;
 
         case 48: {
@@ -177,7 +177,7 @@ csi_sgr(struct terminal *term)
             {
                 uint8_t idx = term->vt.params.v[i + 2].value;
                 term->vt.attrs.have_bg = 1;
-                term->vt.attrs.bg = term->colors.colors256[idx];
+                term->vt.attrs.bg = term->colors.table[idx];
                 i += 2;
             }
 
@@ -230,7 +230,7 @@ csi_sgr(struct terminal *term)
         case 96:
         case 97:
             term->vt.attrs.have_fg = 1;
-            term->vt.attrs.fg = term->colors.colors256[param - 90 + 8];
+            term->vt.attrs.fg = term->colors.table[param - 90 + 8];
             break;
 
         /* Bright background colors */
@@ -243,7 +243,7 @@ csi_sgr(struct terminal *term)
         case 106:
         case 107:
             term->vt.attrs.have_bg = 1;
-            term->vt.attrs.bg = term->colors.colors256[param - 100 + 8];
+            term->vt.attrs.bg = term->colors.table[param - 100 + 8];
             break;
 
         default:

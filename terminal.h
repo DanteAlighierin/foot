@@ -285,12 +285,12 @@ struct terminal {
     struct {
         uint32_t fg;
         uint32_t bg;
-        uint32_t colors256[256];
+        uint32_t table[256];
         double alpha;
 
         uint32_t default_fg;
         uint32_t default_bg;
-        uint32_t default_colors256[256];
+        uint32_t default_table[256];
     } colors;
 
     struct {

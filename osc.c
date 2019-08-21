@@ -291,7 +291,7 @@ osc_dispatch(struct terminal *term)
 
         /* Client queried for current value */
         if (strlen(string) == 1 && string[0] == '?') {
-            uint32_t color = term->colors.colors256[idx];
+            uint32_t color = term->colors.table[idx];
             uint8_t r = (color >> 16) & 0xff;
             uint8_t g = (color >>  8) & 0xff;
             uint8_t b = (color >>  0) & 0xff;
@@ -307,7 +307,7 @@ osc_dispatch(struct terminal *term)
         if (!parse_rgb(string, &color))
             break;
 
-        term->colors.colors256[idx] = color;
+        term->colors.table[idx] = color;
         render_refresh(term);
         break;
     }
@@ -364,14 +364,14 @@ osc_dispatch(struct terminal *term)
 
         if (strlen(string) == 0) {
             for (size_t i = 0; i < 256; i++)
-                term->colors.colors256[i] = term->colors.default_colors256[i];
+                term->colors.table[i] = term->colors.default_table[i];
         } else {
             unsigned idx = 0;
 
             for (; *string != '\0'; string++) {
                 char c = *string;
                 if (c == ';') {
-                    term->colors.colors256[idx] = term->colors.default_colors256[idx];
+                    term->colors.table[idx] = term->colors.default_table[idx];
                     idx = 0;
                     continue;
                 }
@@ -380,7 +380,7 @@ osc_dispatch(struct terminal *term)
                 idx += c - '0';
             }
 
-            term->colors.colors256[idx] = term->colors.default_colors256[idx];
+            term->colors.table[idx] = term->colors.default_table[idx];
         }
 
         render_refresh(term);

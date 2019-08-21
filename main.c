@@ -445,7 +445,7 @@ main(int argc, char *const *argv)
         .colors = {
             .default_fg = conf.colors.fg,
             .default_bg = conf.colors.bg,
-            .default_colors256 = {
+            .default_table = {
                 conf.colors.regular[0],
                 conf.colors.regular[1],
                 conf.colors.regular[2],
@@ -502,26 +502,20 @@ main(int argc, char *const *argv)
 
     /* Initialize the 256 gray-scale color cube */
     {
-#if 0 /* pick colors from term struct instead, since they can be changed runtime */
-        for (size_t i = 0; i < 8; i++)
-            term.colors.default_colors256[i] = term.colors.default_regular[i];
-        for (size_t i = 0; i < 8; i++)
-            term.colors.default_colors256[8 + i] = term.colors.default_bright[i];
-#endif
-
+        /* First 16 entries have already been initialized from conf */
         for (size_t r = 0; r < 6; r++) {
             for (size_t g = 0; g < 6; g++) {
                 for (size_t b = 0; b < 6; b++) {
-                    term.colors.default_colors256[16 + r * 6 * 6 + g * 6 + b]
+                    term.colors.default_table[16 + r * 6 * 6 + g * 6 + b]
                         = r * 51 << 16 | g * 51 << 8 | b * 51;
                 }
             }
         }
 
         for (size_t i = 0; i < 24; i++)
-            term.colors.default_colors256[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
+            term.colors.default_table[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
 
-        memcpy(term.colors.colors256, term.colors.default_colors256, sizeof(term.colors.colors256));
+        memcpy(term.colors.table, term.colors.default_table, sizeof(term.colors.table));
     }
 
     if (term.ptmx == -1) {

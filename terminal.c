@@ -62,7 +62,7 @@ term_reset(struct terminal *term, bool hard)
     term->colors.fg = term->colors.default_fg;
     term->colors.bg = term->colors.default_bg;
     for (size_t i = 0; i < 256; i++)
-        term->colors.colors256[i] = term->colors.default_colors256[i];
+        term->colors.table[i] = term->colors.default_table[i];
     term->print_needs_wrap = false;
     term->cursor = (struct coord){0, 0};
     term->saved_cursor = (struct coord){0, 0};
