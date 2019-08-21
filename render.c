@@ -706,8 +706,8 @@ render_resize(struct terminal *term, int width, int height)
         scale = 1;
     }
 
-    width *= term->scale;
-    height *= term->scale;
+    width *= scale;
+    height *= scale;
 
     if (width == 0 && height == 0) {
         /* Assume we're not fully up and running yet */
