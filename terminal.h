@@ -57,6 +57,8 @@ struct wayland {
         struct wl_surface *surface;
         struct wl_cursor_theme *theme;
         struct wl_cursor *cursor;
+        int size;
+        char *theme_name;
     } pointer;
     struct xdg_wm_base *shell;
     struct xdg_surface *xdg_surface;

@@ -812,6 +812,48 @@ render_set_title(struct terminal *term, const char *title)
     xdg_toplevel_set_title(term->wl.xdg_toplevel, title);
 }
 
+bool
+render_reload_cursor_theme(struct terminal *term)
+{
+    if (term->wl.pointer.size == 0)
+        return true;
+
+    int scale = -1;
+    tll_foreach(term->wl.on_outputs, it) {
+        if (it->item->scale > scale)
+            scale = it->item->scale;
+    }
+
+    if (scale == -1) {
+        /* Haven't 'entered' an output yet? */
+        LOG_WARN("unknown scale, using '1'");
+        scale = 1;
+    }
+
+    if (term->wl.pointer.theme != NULL) {
+        wl_cursor_theme_destroy(term->wl.pointer.theme);
+        term->wl.pointer.theme = NULL;
+        term->wl.pointer.cursor = NULL;
+    }
+
+    LOG_DBG("reloading cursor theme: %s@%d",
+            term->wl.pointer.theme_name, term->wl.pointer.size);
+
+    term->wl.pointer.theme = wl_cursor_theme_load(
+        term->wl.pointer.theme_name, term->wl.pointer.size * scale, term->wl.shm);
+    if (term->wl.pointer.theme == NULL) {
+        LOG_ERR("failed to load cursor theme");
+        return false;
+    }
+
+    term->wl.pointer.cursor = wl_cursor_theme_get_cursor(
+        term->wl.pointer.theme, "left_ptr");
+    assert(term->wl.pointer.cursor != NULL);
+    render_update_cursor_surface(term);
+
+    return true;
+}
+
 void
 render_update_cursor_surface(struct terminal *term)
 {

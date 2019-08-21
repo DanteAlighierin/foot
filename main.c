@@ -128,6 +128,7 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 {
     struct monitor *mon = data;
     mon->scale = factor;
+    render_reload_cursor_theme(mon->term);
     render_resize(mon->term, mon->term->width, mon->term->height);
 }
 
@@ -259,6 +260,7 @@ surface_enter(void *data, struct wl_surface *wl_surface,
             tll_push_back(term->wl.on_outputs, &it->item);
 
             /* Resize, since scale-to-use may have changed */
+            render_reload_cursor_theme(term);
             render_resize(term, term->width, term->height);
             return;
         }
@@ -280,6 +282,7 @@ surface_leave(void *data, struct wl_surface *wl_surface,
         tll_remove(term->wl.on_outputs, it);
 
         /* Resize, since scale-to-use may have changed */
+        render_reload_cursor_theme(term);
         render_resize(term, term->width, term->height);
         return;
     }
@@ -669,12 +672,6 @@ main(int argc, char *const *argv)
         term.wl.primary_selection_device, &primary_selection_device_listener, &term);
 
     /* Cursor */
-    term.wl.pointer.surface = wl_compositor_create_surface(term.wl.compositor);
-    if (term.wl.pointer.surface == NULL) {
-        LOG_ERR("failed to create cursor surface");
-        goto out;
-    }
-
     unsigned cursor_size = 24;
     const char *cursor_theme = getenv("XCURSOR_THEME");
 
@@ -687,19 +684,16 @@ main(int argc, char *const *argv)
         }
     }
 
+    /* Note: theme is (re)loaded on scale and output changes */
     LOG_INFO("cursor theme: %s, size: %u", cursor_theme, cursor_size);
+    term.wl.pointer.size = cursor_size;
+    term.wl.pointer.theme_name = cursor_theme != NULL ? strdup(cursor_theme) : NULL;
 
-    term.wl.pointer.theme = wl_cursor_theme_load(
-        cursor_theme, cursor_size * term.scale, term.wl.shm);
-    if (term.wl.pointer.theme == NULL) {
-        LOG_ERR("failed to load cursor theme");
+    term.wl.pointer.surface = wl_compositor_create_surface(term.wl.compositor);
+    if (term.wl.pointer.surface == NULL) {
+        LOG_ERR("failed to create cursor surface");
         goto out;
     }
-
-    term.wl.pointer.cursor = wl_cursor_theme_get_cursor(
-        term.wl.pointer.theme, "left_ptr");
-    assert(term.wl.pointer.cursor != NULL);
-    render_update_cursor_surface(&term);
 
     term.wl.surface = wl_compositor_create_surface(term.wl.compositor);
     if (term.wl.surface == NULL) {
@@ -999,6 +993,7 @@ out:
         xdg_toplevel_destroy(term.wl.xdg_toplevel);
     if (term.wl.xdg_surface != NULL)
         xdg_surface_destroy(term.wl.xdg_surface);
+    free(term.wl.pointer.theme_name);
     if (term.wl.pointer.theme != NULL)
         wl_cursor_theme_destroy(term.wl.pointer.theme);
     if (term.wl.pointer.pointer != NULL)
