@@ -307,6 +307,7 @@ osc_dispatch(struct terminal *term)
         if (!parse_rgb(string, &color))
             break;
 
+        LOG_DBG("change color definition for #%u to %06x", idx, color);
         term->colors.table[idx] = color;
         render_refresh(term);
         break;
@@ -340,6 +341,9 @@ osc_dispatch(struct terminal *term)
         if (!parse_rgb(string, &color))
             break;
 
+        LOG_DBG("change color definition for %s to %06x",
+                param == 10 ? "foreground" : "background", color);
+
         switch (param) {
         case 10: term->colors.fg = color; break;
         case 11: term->colors.bg = color; break;
@@ -363,6 +367,7 @@ osc_dispatch(struct terminal *term)
         /* Reset Color Number 'c' (whole table if no parameter) */
 
         if (strlen(string) == 0) {
+            LOG_DBG("resetting all colors");
             for (size_t i = 0; i < 256; i++)
                 term->colors.table[i] = term->colors.default_table[i];
         } else {
@@ -371,6 +376,7 @@ osc_dispatch(struct terminal *term)
             for (; *string != '\0'; string++) {
                 char c = *string;
                 if (c == ';') {
+                    LOG_DBG("resetting color #%u", idx);
                     term->colors.table[idx] = term->colors.default_table[idx];
                     idx = 0;
                     continue;
@@ -380,6 +386,7 @@ osc_dispatch(struct terminal *term)
                 idx += c - '0';
             }
 
+            LOG_DBG("resetting color #%u", idx);
             term->colors.table[idx] = term->colors.default_table[idx];
         }
 
@@ -391,11 +398,13 @@ osc_dispatch(struct terminal *term)
         break;
 
     case 110: /* Reset default text foreground color */
+        LOG_DBG("resetting foreground");
         term->colors.fg = term->colors.default_fg;
         render_refresh(term);
         break;
 
-    case 111: /* Reset default text backgroundc color */
+    case 111: /* Reset default text background color */
+        LOG_DBG("resetting background");
         term->colors.bg = term->colors.default_bg;
         render_refresh(term);
         break;
