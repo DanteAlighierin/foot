@@ -566,7 +566,7 @@ main(int argc, char *const *argv)
             f->underline.thickness =  fabs(round(descent / 5.));
         }
 
-        LOG_DBG("underline: pos=%f, thick=%f",
+        LOG_DBG("underline: pos=%d, thick=%d",
                 f->underline.position, f->underline.thickness);
 
         TT_OS2 *os2 = FT_Get_Sfnt_Table(ft_face, ft_sfnt_os2);
@@ -580,7 +580,7 @@ main(int argc, char *const *argv)
             f->strikeout.thickness = f->underline.thickness;
         }
 
-        LOG_DBG("strikeout: pos=%f, thick=%f",
+        LOG_DBG("strikeout: pos=%d, thick=%d",
                 f->strikeout.position, f->strikeout.thickness);
     }
 
@@ -602,6 +602,7 @@ main(int argc, char *const *argv)
 
     term.cell_width = (int)ceil(term.fextents.max_x_advance);
     term.cell_height = (int)ceil(term.fextents.height);
+    LOG_DBG("cell width=%d, height=%d", term.cell_width, term.cell_height);
 
     term.wl.display = wl_display_connect(NULL);
     if (term.wl.display == NULL) {
