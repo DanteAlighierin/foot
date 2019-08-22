@@ -23,8 +23,9 @@ build() {
   meson configure -Db_pgo=generate
   ninja
 
-  rm -f alt-random
-  ./foot -- sh -c "../scripts/generate-alt-random-writes.py > alt-random && sync && cat alt-random"
+  tmp_file=$(mktemp)
+  ./foot -- sh -c "../scripts/generate-alt-random-writes.py --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${tmp_file} && cat ${tmp_file}"
+  rm "${tmp_file}"
 
   meson configure -Db_pgo=use
   ninja
