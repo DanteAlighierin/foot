@@ -568,8 +568,8 @@ grid_render(struct terminal *term)
      * could be hidden. Or it could have been scrolled out of view.
      */
     bool cursor_is_visible = false;
-    int view_end = (term->grid->view + term->rows - 1) % term->grid->num_rows;
-    int cursor_row = (term->grid->offset + term->cursor.row) % term->grid->num_rows;
+    int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
+    int cursor_row = (term->grid->offset + term->cursor.row) & (term->grid->num_rows - 1);
     if (view_end >= term->grid->view) {
         /* Not wrapped */
         if (cursor_row >= term->grid->view && cursor_row <= view_end)
@@ -595,8 +595,7 @@ grid_render(struct terminal *term)
         /* Remember cursor coordinates so that we can erase it next
          * time. Note that we need to re-align it against the view. */
         int view_aligned_row
-            = (cursor_row - term->grid->view + term->grid->num_rows)
-            % term->grid->num_rows;
+            = (cursor_row - term->grid->view + term->grid->num_rows) & (term->grid->num_rows - 1);
 
         term->render.last_cursor.actual = term->cursor;
         term->render.last_cursor.in_view = (struct coord) {
@@ -680,7 +679,7 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
             continue;
 
         if (new_grid[r] == NULL)
-            new_grid[r] = grid_row_alloc(new_cols);
+            new_grid[r] = grid_row_alloc(new_cols, false);
 
         struct cell *new_cells = new_grid[r]->cells;
         const struct cell *old_cells = old_grid[r]->cells;
@@ -730,8 +729,8 @@ render_resize(struct terminal *term, int width, int height)
 
     const int new_cols = term->width / term->cell_width;
     const int new_rows = term->height / term->cell_height;
-    const int new_normal_grid_rows = new_rows + scrollback_lines;
-    const int new_alt_grid_rows = new_rows;
+    const int new_normal_grid_rows = 1 << (32 - __builtin_clz(new_rows + scrollback_lines - 1));
+    const int new_alt_grid_rows = 1 << (32  - __builtin_clz(new_rows));
 
     term->normal.offset %= new_normal_grid_rows;
     term->normal.view %= new_normal_grid_rows;
@@ -742,12 +741,12 @@ render_resize(struct terminal *term, int width, int height)
     /* Allocate new 'normal' grid */
     struct row **normal = calloc(new_normal_grid_rows, sizeof(normal[0]));
     for (int r = 0; r < new_rows; r++)
-        normal[(term->normal.view + r) % new_normal_grid_rows] = grid_row_alloc(new_cols);
+        normal[(term->normal.view + r) & (new_normal_grid_rows - 1)] = grid_row_alloc(new_cols, true);;
 
     /* Allocate new 'alt' grid */
     struct row **alt = calloc(new_alt_grid_rows, sizeof(alt[0]));
     for (int r = 0; r < new_rows; r++)
-        alt[(term->alt.view + r) % new_alt_grid_rows] = grid_row_alloc(new_cols);
+        alt[(term->alt.view + r) & (new_alt_grid_rows - 1)] = grid_row_alloc(new_cols, true);
 
     /* Reflow content */
     reflow(normal, new_cols, new_normal_grid_rows,

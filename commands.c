@@ -19,7 +19,11 @@ cmd_scrollback_up(struct terminal *term, int rows)
     rows = min(rows, term->rows);
     assert(term->grid->offset >= 0);
 
-    int new_view = (term->grid->view + term->grid->num_rows - rows) % term->grid->num_rows;
+    int new_view = term->grid->view - rows;
+    while (new_view < 0)
+        new_view += term->grid->num_rows;
+    new_view %= term->grid->num_rows;
+
     assert(new_view >= 0);
     assert(new_view < term->grid->num_rows);
 

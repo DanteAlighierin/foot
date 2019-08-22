@@ -254,36 +254,47 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     LOG_DBG("scroll: rows=%d, region.start=%d, region.end=%d",
             rows, region.start, region.end);
 
-    assert(rows < term->rows && "unimplemented");
+#if 0
+    if (rows > region.end - region.start) {
+        /* For now, clamp */
+        rows = region.end - region.start;
+    }
+#endif
 
     bool view_follows = term->grid->view == term->grid->offset;
     term->grid->offset += rows;
-    term->grid->offset %= term->grid->num_rows;
+    term->grid->offset &= term->grid->num_rows - 1;
 
     if (view_follows)
         term->grid->view = term->grid->offset;
 
+#if 0
     /*
      * This loop serves two purposes:
      *   1) ensure all visible lines are *allocated*
      *   2) prefetch the cells - this makes life easier for erase_line() below
      */
+    /* TODO: optimize this to not loop over *all* rows */
     for (int r = max(region.end - rows, 0); r < term->rows; r++) {
-        struct row *row __attribute__((unused)) = grid_row(term->grid, r);
-        //__builtin_prefetch(row->cells, 1, 3);
+        int real_row = (term->grid->offset + r) & (term->grid->num_rows - 1);
+        struct row *row = term->grid->rows[real_row];
+        if (row == NULL) {
+            row = grid_row_alloc(term->grid->num_cols, false);
+            term->grid->rows[real_row] = row;
+        }
     }
-
+#endif
     /* Top non-scrolling region. */
     for (int i = region.start - 1; i >= 0; i--)
-        grid_swap_row(term->grid, i - rows, i);
+        grid_swap_row(term->grid, i - rows, i, false);
 
     /* Bottom non-scrolling region */
     for (int i = term->rows - 1; i >= region.end; i--)
-        grid_swap_row(term->grid, i - rows, i);
+        grid_swap_row(term->grid, i - rows, i, false);
 
     /* Erase scrolled in lines */
-    for (int r = max(region.end - rows, 0); r < region.end; r++) {
-        erase_line(term, grid_row(term->grid, r));
+    for (int r = max(region.end - rows, region.start); r < region.end; r++) {
+        erase_line(term, grid_row_and_alloc(term->grid, r));
         if (selection_on_row_in_view(term, r))
             selection_cancel(term);
     }
@@ -305,31 +316,47 @@ term_scroll_reverse_partial(struct terminal *term,
     LOG_DBG("scroll reverse: rows=%d, region.start=%d, region.end=%d",
             rows, region.start, region.end);
 
-    assert(rows < term->rows && "unimplemented");
+#if 0
+    if (rows > region.end - region.start) {
+        /* For now, clamp */
+        rows = region.end - region.start;
+    }
+#endif
 
     bool view_follows = term->grid->view == term->grid->offset;
-    term->grid->offset += term->grid->num_rows - rows;
-    term->grid->offset %= term->grid->num_rows;
+    term->grid->offset -= rows;
+    while (term->grid->offset < 0)
+        term->grid->offset += term->grid->num_rows;
+    term->grid->offset &= term->grid->num_rows - 1;
+
+    assert(term->grid->offset >= 0);
+    assert(term->grid->offset < term->grid->num_rows);
 
     if (view_follows)
         term->grid->view = term->grid->offset;
 
+#if 0
+    /* TODO: optimize this to not loop over *all* rows */
     for (int r = 0; r < min(region.start + rows, region.end); r++) {
-        struct row *row __attribute__((unused)) = grid_row(term->grid, r);
-        //__builtin_prefetch(row->cells, 1, 3);
+        int real_row = (term->grid->offset + r) & (term->grid->num_rows - 1);
+        struct row *row = term->grid->rows[real_row];
+        if (row == NULL) {
+            row = grid_row_alloc(term->grid->num_cols, false);
+            term->grid->rows[real_row] = row;
+        }
     }
-
+#endif
     /* Bottom non-scrolling region */
     for (int i = region.end + rows; i < term->rows + rows; i++)
-        grid_swap_row(term->grid, i, i - rows);
+        grid_swap_row(term->grid, i, i - rows, false);
 
     /* Top non-scrolling region */
     for (int i = 0 + rows; i < region.start + rows; i++)
-        grid_swap_row(term->grid, i, i - rows);
+        grid_swap_row(term->grid, i, i - rows, false);
 
     /* Erase scrolled in lines */
     for (int r = region.start; r < min(region.start + rows, region.end); r++) {
-        erase_line(term, grid_row(term->grid, r));
+        erase_line(term, grid_row_and_alloc(term->grid, r));
         if (selection_on_row_in_view(term, r))
             selection_cancel(term);
     }
