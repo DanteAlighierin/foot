@@ -13,6 +13,7 @@
 #include <sys/timerfd.h>
 #include <sys/sysinfo.h>
 #include <sys/prctl.h>
+#include <sys/wait.h>
 
 #include <freetype/tttables.h>
 #include <wayland-client.h>
@@ -1086,6 +1087,26 @@ out:
     sem_destroy(&term.render.workers.done);
     assert(tll_length(term.render.workers.queue) == 0);
     tll_free(term.render.workers.queue);
+
+    if (term.slave > 0) {
+        /* Note: we've closed ptmx, so the slave *should* exit... */
+        int status;
+        waitpid(term.slave, &status, 0);
+
+        int child_ret = EXIT_FAILURE;
+        if (WIFEXITED(status)) {
+            child_ret = WEXITSTATUS(status);
+            LOG_DBG("slave exited with code %d", child_ret);
+        } else if (WIFSIGNALED(status)) {
+            child_ret = WTERMSIG(status);
+            LOG_WARN("slave exited with signal %d", child_ret);
+        } else {
+            LOG_WARN("slave exited for unknown reason (status = 0x%08x)", status);
+        }
+
+        if (ret == EXIT_SUCCESS)
+            ret = child_ret;
+    }
 
     config_free(conf);
     return ret;
