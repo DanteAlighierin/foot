@@ -35,7 +35,7 @@ def main():
     # Characters to choose from
     alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRTSTUVWXYZ0123456789 '
 
-    color_variants = ([ColorVariant.NONE] + 
+    color_variants = ([ColorVariant.NONE] +
                       ([ColorVariant.REGULAR] if opts.colors_regular else []) +
                       ([ColorVariant.BRIGHT] if opts.colors_bright else []) +
                       ([ColorVariant.RGB] if opts.colors_rgb else []))
@@ -89,7 +89,7 @@ def main():
                     out.write('\033[m')
 
     # Leave alt screen
-    out.write('\033[?1049l')
+    out.write('\033[m\033[r\033[?1049l')
 
 
 if __name__ == '__main__':
