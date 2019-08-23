@@ -31,7 +31,7 @@ static const uint32_t default_regular[] = {
 };
 
 static const uint32_t default_bright[] = {
-    0x000000,
+    0x666666,
     0xdca3a3,
     0xbfebbf,
     0xf0dfaf,

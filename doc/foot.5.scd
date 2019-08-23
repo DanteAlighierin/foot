@@ -70,7 +70,7 @@ in this order:
 	variant of the _zenburn_ theme).
 
 *bright0*, *bright1* *..* *bright7*
-	The eight bright ANSI colors. Default: _000000_, _dca3a3_,
+	The eight bright ANSI colors. Default: _666666_, _dca3a3_,
 	_bfebbf_, _f0dfaf_, _8cd0d3_, _dc8cc3_, _93e0e3_ and _ffffff_ (a
 	variant of the _zenburn_ theme).
 
