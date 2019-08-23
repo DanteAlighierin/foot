@@ -774,7 +774,7 @@ render_resize(struct terminal *term, int width, int height)
     term->alt.num_rows = new_alt_grid_rows;
     term->alt.num_cols = new_cols;
 
-    LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d",
+    LOG_INFO("resize: %dx%d, grid: cols=%d, rows=%d",
              term->width, term->height, term->cols, term->rows);
 
     /* Signal TIOCSWINSZ */
