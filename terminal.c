@@ -268,22 +268,6 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     if (view_follows)
         term->grid->view = term->grid->offset;
 
-#if 0
-    /*
-     * This loop serves two purposes:
-     *   1) ensure all visible lines are *allocated*
-     *   2) prefetch the cells - this makes life easier for erase_line() below
-     */
-    /* TODO: optimize this to not loop over *all* rows */
-    for (int r = max(region.end - rows, 0); r < term->rows; r++) {
-        int real_row = (term->grid->offset + r) & (term->grid->num_rows - 1);
-        struct row *row = term->grid->rows[real_row];
-        if (row == NULL) {
-            row = grid_row_alloc(term->grid->num_cols, false);
-            term->grid->rows[real_row] = row;
-        }
-    }
-#endif
     /* Top non-scrolling region. */
     for (int i = region.start - 1; i >= 0; i--)
         grid_swap_row(term->grid, i - rows, i, false);
@@ -335,17 +319,6 @@ term_scroll_reverse_partial(struct terminal *term,
     if (view_follows)
         term->grid->view = term->grid->offset;
 
-#if 0
-    /* TODO: optimize this to not loop over *all* rows */
-    for (int r = 0; r < min(region.start + rows, region.end); r++) {
-        int real_row = (term->grid->offset + r) & (term->grid->num_rows - 1);
-        struct row *row = term->grid->rows[real_row];
-        if (row == NULL) {
-            row = grid_row_alloc(term->grid->num_cols, false);
-            term->grid->rows[real_row] = row;
-        }
-    }
-#endif
     /* Bottom non-scrolling region */
     for (int i = region.end + rows; i < term->rows + rows; i++)
         grid_swap_row(term->grid, i, i - rows, false);
