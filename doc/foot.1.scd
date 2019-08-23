@@ -16,6 +16,9 @@ execute (instead of the shell).
 	Font and style to use, in fontconfig format. See *FONT
 	FORMAT*. Default: _monospace_.
 
+*-g*,*--geometry*=_WIDTHxHEIGHT_
+	Set initial window width and height.
+
 *-t*,*--term*=_TERM_
 	Value to set the environment variable _TERM_ to. Default: _foot_.
 

@@ -1,5 +1,6 @@
 # font=monospace
 # scrollback=1000
+# geometry=500x300
 # shell=/usr/bin/zsh
 # term=foot
 # workers=<number of logical CPUs>

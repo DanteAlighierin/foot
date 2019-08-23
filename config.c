@@ -159,6 +159,19 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->shell = strdup(value);
     }
 
+    else if (strcmp(key, "geometry") == 0) {
+        unsigned width, height;
+        if (sscanf(value, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
+            LOG_ERR(
+                "%s: %d: expected WIDTHxHEIGHT, where both are positive integers: %s",
+                path, lineno, value);
+            return false;
+        }
+
+        conf->width = width;
+        conf->height = height;
+    }
+
     else if (strcmp(key, "font") == 0) {
         char *copy = strdup(value);
         for (const char *font = strtok(copy, ","); font != NULL; font = strtok(NULL, ","))
@@ -440,6 +453,8 @@ config_load(struct config *conf)
     *conf = (struct config) {
         .term = strdup("foot"),
         .shell = get_shell(),
+        .width = -1,
+        .height = -1,
         .fonts = tll_init(),
         .scrollback_lines = 1000,
 

@@ -21,6 +21,9 @@ in this order:
 	Font and style to use, in fontconfig format. See *FONT
 	FORMAT*. Default: _monospace_.
 
+*geometry*
+	Initial window width and height, on the form _WIDTHxHEIGHT_.
+
 *shell*
 	Executable to launch. Typically a shell. Default: the user's
 	default shell (as specified in _/etc/passwd_).

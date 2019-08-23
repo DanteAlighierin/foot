@@ -9,6 +9,9 @@
 struct config {
     char *term;
     char *shell;
+    unsigned width;
+    unsigned height;
+
     tll(char *) fonts;
 
     int scrollback_lines;

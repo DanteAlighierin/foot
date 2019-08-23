@@ -353,9 +353,10 @@ print_usage(const char *prog_name)
     printf("Usage: %s [OPTION]...\n", prog_name);
     printf("\n");
     printf("Options:\n");
-    printf("  -f,--font=FONT             font name and style in fontconfig format (monospace)\n"
-           "  -t,--term=TERM             value to set the environment variable TERM to (foot)\n"
-           "  -v,--version               show the version number and quit\n");
+    printf("  -f,--font=FONT              font name and style in fontconfig format (monospace)\n"
+           "  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
+           "  -g,--geometry=WIDTHxHEIGHT  set initial width and height\n"
+           "  -v,--version                show the version number and quit\n");
     printf("\n");
 }
 
@@ -371,15 +372,16 @@ main(int argc, char *const *argv)
     const char *const prog_name = argv[0];
 
     static const struct option longopts[] =  {
-        {"term",    required_argument, 0, 't'},
-        {"font",    required_argument, 0, 'f'},
-        {"version", no_argument,       0, 'v'},
-        {"help",    no_argument,       0, 'h'},
-        {NULL,      no_argument,       0,   0},
+        {"term",     required_argument, 0, 't'},
+        {"font",     required_argument, 0, 'f'},
+        {"geometry", required_argument, 0, 'g'},
+        {"version",  no_argument,       0, 'v'},
+        {"help",     no_argument,       0, 'h'},
+        {NULL,       no_argument,       0,   0},
     };
 
     while (true) {
-        int c = getopt_long(argc, argv, ":t:f:vh", longopts, NULL);
+        int c = getopt_long(argc, argv, ":t:f:g:vh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -393,6 +395,18 @@ main(int argc, char *const *argv)
             tll_free_and_free(conf.fonts, free);
             tll_push_back(conf.fonts, strdup(optarg));
             break;
+
+        case 'g': {
+            unsigned width, height;
+            if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
+                fprintf(stderr, "error: invalid geometry: %s\n", optarg);
+                return EXIT_FAILURE;
+            }
+
+            conf.width = width;
+            conf.height = height;
+            break;
+        }
 
         case 'v':
             printf("foot version %s\n", FOOT_VERSION);
@@ -724,10 +738,14 @@ main(int argc, char *const *argv)
     wl_surface_commit(term.wl.surface);
     wl_display_roundtrip(term.wl.display);
 
-    /* TODO: use font metrics to calculate initial size from ROWS x COLS */
-    const int default_width = 300;
-    const int default_height = 300;
-    render_resize(&term, default_width, default_height);
+    if (conf.width == -1) {
+        assert(conf.height == -1);
+        conf.width = 80 * term.cell_width;
+        conf.height = 24 * term.cell_height;
+    }
+    conf.width = max(conf.width, term.cell_width);
+    conf.height = max(conf.height, term.cell_height);
+    render_resize(&term, conf.width, conf.height);
 
     wl_display_dispatch_pending(term.wl.display);
 
