@@ -503,7 +503,7 @@ config_load(struct config *conf)
         goto out;
     }
 
-    LOG_INFO("loading configuration from %s", path);
+    LOG_DBG("loading configuration from %s", path);
 
     FILE *f = fopen(path, "r");
     if (f == NULL) {
