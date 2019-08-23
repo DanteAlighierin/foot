@@ -18,12 +18,7 @@ grid_swap_row(struct grid *grid, int row_a, int row_b, bool initialize)
 
     struct row *a = grid->rows[real_a];
     struct row *b = grid->rows[real_b];
-#if 0
-    if (a == NULL)
-        a = grid_row_alloc(grid->num_cols, initialize);
-    if (b == NULL)
-        b = grid_row_alloc(grid->num_cols, initialize);
-#endif
+
     grid->rows[real_a] = b;
     grid->rows[real_b] = a;
 }
