@@ -887,8 +887,7 @@ action(struct terminal *term, enum action _action, uint8_t c)
             term->vt.params.v[term->vt.params.idx - 1].sub.value[0] = 0;
         } else if (c == ':') {
             struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
-            param->sub.idx++;
-            param->sub.value[param->sub.idx] = 0;
+            param->sub.value[param->sub.idx++] = 0;
         } else {
             assert(term->vt.params.idx >= 0);
             struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
