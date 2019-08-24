@@ -858,7 +858,7 @@ action(struct terminal *term, enum action _action, uint8_t c)
         break;
 
     case ACTION_CLEAR:
-        memset(&term->vt.params, 0, sizeof(term->vt.params));
+        term->vt.params.idx = 0;
         term->vt.private[0] = 0;
         term->vt.private[1] = 0;
         term->vt.osc.idx = 0;
@@ -874,13 +874,21 @@ action(struct terminal *term, enum action _action, uint8_t c)
         break;
 
     case ACTION_PARAM:
-        if (term->vt.params.idx == 0)
+        if (term->vt.params.idx == 0) {
             term->vt.params.idx = 1;
+            term->vt.params.v[0].value = 0;
+            term->vt.params.v[0].sub.idx = 0;
+        }
 
         if (c == ';') {
             term->vt.params.idx++;
+            term->vt.params.v[term->vt.params.idx - 1].value = 0;
+            term->vt.params.v[term->vt.params.idx - 1].sub.idx = 0;
+            term->vt.params.v[term->vt.params.idx - 1].sub.value[0] = 0;
         } else if (c == ':') {
-            term->vt.params.v[term->vt.params.idx - 1].sub.idx++;
+            struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
+            param->sub.idx++;
+            param->sub.value[param->sub.idx] = 0;
         } else {
             assert(term->vt.params.idx >= 0);
             struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
