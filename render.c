@@ -650,8 +650,8 @@ grid_render(struct terminal *term)
 
     struct timeval render_time;
     timersub(&end_time, &start_time, &render_time);
-    LOG_INFO("frame rendered in %lds %ldms",
-             render_time.tv_sec, render_time.tv_usec / 1000);
+    LOG_INFO("frame rendered in %lds %ldus",
+             render_time.tv_sec, render_time.tv_usec);
 #endif
 }
 
