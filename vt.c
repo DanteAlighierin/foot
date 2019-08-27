@@ -871,16 +871,16 @@ action(struct terminal *term, enum action _action, uint8_t c)
 
     case ACTION_PARAM:
         if (term->vt.params.idx == 0) {
+            struct vt_param *param = &term->vt.params.v[0];
+            param->value = 0;
+            param->sub.idx = 0;
             term->vt.params.idx = 1;
-            term->vt.params.v[0].value = 0;
-            term->vt.params.v[0].sub.idx = 0;
         }
 
         if (c == ';') {
-            term->vt.params.idx++;
-            term->vt.params.v[term->vt.params.idx - 1].value = 0;
-            term->vt.params.v[term->vt.params.idx - 1].sub.idx = 0;
-            term->vt.params.v[term->vt.params.idx - 1].sub.value[0] = 0;
+            struct vt_param *param = &term->vt.params.v[term->vt.params.idx++];
+            param->value = 0;
+            param->sub.idx = 0;
         } else if (c == ':') {
             struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
             param->sub.value[param->sub.idx++] = 0;
