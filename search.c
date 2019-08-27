@@ -75,7 +75,7 @@ search_update(struct terminal *term)
             continue;
 
         for (; start_col >= 0; start_col--) {
-            if (row->cells[start_col].wc != term->search.buf[0])
+            if (wcsncasecmp(&row->cells[start_col].wc, term->search.buf, 1) != 0)
                 continue;
 
             /*
@@ -90,7 +90,7 @@ search_update(struct terminal *term)
             size_t match_len = 0;
 
             for (size_t i = 0; i < term->search.len; i++, match_len++) {
-                if (row->cells[end_col].wc != term->search.buf[i])
+                if (wcsncasecmp(&row->cells[end_col].wc, &term->search.buf[i], 1) != 0)
                     break;
 
                 if (++end_col >= term->cols) {
