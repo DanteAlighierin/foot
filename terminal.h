@@ -336,6 +336,11 @@ struct terminal {
         wchar_t *buf;
         size_t len;
         size_t sz;
+
+        int original_view;
+        bool view_followed_offset;
+        struct coord match;
+        size_t match_len;
     } search;
 
     struct grid normal;
