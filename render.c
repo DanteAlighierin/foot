@@ -167,8 +167,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     int width = term->cell_width;
     int height = term->cell_height;
-    int x = col * width;
-    int y = row * height;
+    int x = term->x_margin + col * width;
+    int y = term->y_margin + row * height;
 
     bool block_cursor = has_cursor && term->cursor_style == CURSOR_BLOCK;
     bool is_selected = coord_is_selected(term, col, row);
@@ -275,9 +275,8 @@ static void
 grid_render_scroll(struct terminal *term, struct buffer *buf,
                    const struct damage *dmg)
 {
-    int dst_y = (dmg->scroll.region.start + 0) * term->cell_height;
-    int src_y = (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
-    int width = buf->width;
+    int dst_y = term->y_margin + (dmg->scroll.region.start + 0) * term->cell_height;
+    int src_y = term->y_margin + (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
     int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * term->cell_height;
 
     LOG_DBG("damage: SCROLL: %d-%d by %d lines (dst-y: %d, src-y: %d, "
@@ -293,7 +292,7 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
                 raw + src_y * buf->stride,
                 height * buf->stride);
 
-        wl_surface_damage_buffer(term->wl.surface, 0, dst_y, width, height);
+        wl_surface_damage_buffer(term->wl.surface, term->x_margin, dst_y, term->width - term->x_margin, height);
     }
 }
 
@@ -301,9 +300,8 @@ static void
 grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
                            const struct damage *dmg)
 {
-    int src_y = (dmg->scroll.region.start + 0) * term->cell_height;
-    int dst_y = (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
-    int width = buf->width;
+    int src_y = term->y_margin + (dmg->scroll.region.start + 0) * term->cell_height;
+    int dst_y = term->y_margin + (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
     int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * term->cell_height;
 
     LOG_DBG("damage: SCROLL REVERSE: %d-%d by %d lines (dst-y: %d, src-y: %d, "
@@ -319,7 +317,7 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
                 raw + src_y * buf->stride,
                 height * buf->stride);
 
-        wl_surface_damage_buffer(term->wl.surface, 0, dst_y, width, height);
+        wl_surface_damage_buffer(term->wl.surface, term->x_margin, dst_y, term->width - term->x_margin, height);
     }
 }
 
@@ -418,7 +416,8 @@ grid_render(struct terminal *term)
 
             wl_surface_damage_buffer(
                 term->wl.surface,
-                at.col * term->cell_width, at.row * term->cell_height,
+                term->x_margin + at.col * term->cell_width,
+                term->y_margin + at.row * term->cell_height,
                 term->cell_width, term->cell_height);
         }
         term->render.last_cursor.cell = NULL;
@@ -440,8 +439,8 @@ grid_render(struct terminal *term)
         LOG_DBG("new buffer");
 
         /* Fill area outside the cell grid with the default background color */
-        int rmargin = term->cols * term->cell_width;
-        int bmargin = term->rows * term->cell_height;
+        int rmargin = term->x_margin + term->cols * term->cell_width;
+        int bmargin = term->y_margin + term->rows * term->cell_height;
         int rmargin_width = term->width - rmargin;
         int bmargin_height = term->height - bmargin;
 
@@ -449,13 +448,17 @@ grid_render(struct terminal *term)
 
         pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
         pixman_image_fill_rectangles(
-            PIXMAN_OP_SRC, pix, &bg, 1,
-            &(pixman_rectangle16_t){rmargin, 0, rmargin_width, term->height});
+            PIXMAN_OP_SRC, pix, &bg, 4,
+            (pixman_rectangle16_t[]){
+                {0, 0, term->width, term->y_margin},            /* Top */
+                {0, 0, term->x_margin, term->height},           /* Left */
+                {rmargin, 0, rmargin_width, term->height},      /* Right */
+                {0, bmargin, term->width, bmargin_height}});    /* Bottom */
 
-        pixman_image_fill_rectangles(
-            PIXMAN_OP_SRC, pix, &bg, 1,
-            &(pixman_rectangle16_t){0, bmargin, term->width, bmargin_height});
-
+        wl_surface_damage_buffer(
+            term->wl.surface, 0, 0, term->width, term->y_margin);
+        wl_surface_damage_buffer(
+            term->wl.surface, 0, 0, term->x_margin, term->height);
         wl_surface_damage_buffer(
             term->wl.surface, rmargin, 0, rmargin_width, term->height);
         wl_surface_damage_buffer(
@@ -506,8 +509,8 @@ grid_render(struct terminal *term)
 
             wl_surface_damage_buffer(
                 term->wl.surface,
-                0, r * term->cell_height,
-                term->width, term->cell_height);
+                term->x_margin, term->y_margin + r * term->cell_height,
+                term->width - term->x_margin, term->cell_height);
         }
 
         mtx_lock(&term->render.workers.lock);
@@ -529,8 +532,8 @@ grid_render(struct terminal *term)
 
             wl_surface_damage_buffer(
                 term->wl.surface,
-                0, r * term->cell_height,
-                term->width, term->cell_height);
+                term->x_margin, term->y_margin + r * term->cell_height,
+                term->width - term->x_margin, term->cell_height);
         }
     }
 
@@ -611,8 +614,8 @@ grid_render(struct terminal *term)
 
         wl_surface_damage_buffer(
             term->wl.surface,
-            term->cursor.col * term->cell_width,
-            view_aligned_row * term->cell_height,
+            term->x_margin + term->cursor.col * term->cell_width,
+            term->y_margin + view_aligned_row * term->cell_height,
             cols_updated * term->cell_width, term->cell_height);
     }
 
@@ -732,6 +735,9 @@ render_resize(struct terminal *term, int width, int height)
     const int new_normal_grid_rows = 1 << (32 - __builtin_clz(new_rows + scrollback_lines - 1));
     const int new_alt_grid_rows = 1 << (32  - __builtin_clz(new_rows));
 
+    term->x_margin = (term->width - new_cols * term->cell_width) / 2;
+    term->y_margin = (term->height - new_rows * term->cell_height) / 2;
+
     term->normal.offset %= new_normal_grid_rows;
     term->normal.view %= new_normal_grid_rows;
 
@@ -740,13 +746,17 @@ render_resize(struct terminal *term, int width, int height)
 
     /* Allocate new 'normal' grid */
     struct row **normal = calloc(new_normal_grid_rows, sizeof(normal[0]));
-    for (int r = 0; r < new_rows; r++)
-        normal[(term->normal.view + r) & (new_normal_grid_rows - 1)] = grid_row_alloc(new_cols, true);;
+    for (int r = 0; r < new_rows; r++) {
+        size_t real_r = (term->normal.view + r) & (new_normal_grid_rows - 1);
+        normal[real_r] = grid_row_alloc(new_cols, true);
+    }
 
     /* Allocate new 'alt' grid */
     struct row **alt = calloc(new_alt_grid_rows, sizeof(alt[0]));
-    for (int r = 0; r < new_rows; r++)
-        alt[(term->alt.view + r) & (new_alt_grid_rows - 1)] = grid_row_alloc(new_cols, true);
+    for (int r = 0; r < new_rows; r++)  {
+        int real_r = (term->alt.view + r) & (new_alt_grid_rows - 1);
+        alt[real_r] = grid_row_alloc(new_cols, true);
+    }
 
     /* Reflow content */
     reflow(normal, new_cols, new_normal_grid_rows,
@@ -774,8 +784,9 @@ render_resize(struct terminal *term, int width, int height)
     term->alt.num_rows = new_alt_grid_rows;
     term->alt.num_cols = new_cols;
 
-    LOG_INFO("resize: %dx%d, grid: cols=%d, rows=%d",
-             term->width, term->height, term->cols, term->rows);
+    LOG_INFO("resize: %dx%d, grid: cols=%d, rows=%d (x-margin=%d, y-margin=%d)",
+             term->width, term->height, term->cols, term->rows,
+             term->x_margin, term->y_margin);
 
     /* Signal TIOCSWINSZ */
     if (ioctl(term->ptmx, TIOCSWINSZ,
