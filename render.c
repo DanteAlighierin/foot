@@ -204,7 +204,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         bg = color_hex_to_pixman(term->cursor_color.cursor);
     }
 
-    if (term->is_searching) {
+    if (term->is_searching && !is_selected) {
         pixman_color_dim(&fg);
         pixman_color_dim(&bg);
     }
