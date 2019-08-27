@@ -219,7 +219,6 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
             if (new_row >= 0) {
                 term->search.match.col = new_col;
                 term->search.match.row = new_row;
-                search_update(term);
             }
         }
     }
