@@ -54,7 +54,7 @@ search_update(struct terminal *term)
 
     int start_row = term->search.match.row;
     int start_col = term->search.match.col;
-    size_t len = term->search.match_len;
+    size_t len __attribute__((unused)) = term->search.match_len;
 
     assert((len == 0 && start_row == -1 && start_col == -1) ||
            (len > 0 && start_row >= 0 && start_col >= 0));
