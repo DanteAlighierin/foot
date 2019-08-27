@@ -173,6 +173,11 @@ search_update(struct terminal *term)
 
         start_col = term->cols - 1;
     }
+
+    /* No match */
+    term->search.match = (struct coord){-1, -1};
+    term->search.match_len = 0;
+    selection_cancel(term);
 }
 
 void
