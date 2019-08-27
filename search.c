@@ -153,8 +153,14 @@ search_update(struct terminal *term)
                 start_row--;
             }
 
-            /* Begin a selection (it's finalized when "committing" the search) */
-            selection_start(term, start_col, start_row - term->grid->view);
+            /* Begin a new selection if the start coords changed */
+            if (start_row != term->search.match.row ||
+                start_col != term->search.match.col)
+            {
+                selection_start(term, start_col, start_row - term->grid->view);
+            }
+
+            /* Update selection endpoint */
             selection_update(term, end_col, end_row - term->grid->view);
 
             /* Update match state */
