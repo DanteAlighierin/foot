@@ -66,11 +66,13 @@ search_update(struct terminal *term)
 
     LOG_DBG("search: update: starting at row=%d col=%d", start_row, start_col);
 
+#define ROW_DEC(_r) ((_r) = ((_r) - 1 + term->grid->num_rows) % term->grid->num_rows)
+
     /* Scan backward from current end-of-output */
-    for (; start_row >= 0; start_row--) {
+    for (size_t r = 0; r < term->grid->num_rows; ROW_DEC(start_row), r++) {
         const struct row *row = term->grid->rows[start_row];
         if (row == NULL)
-            break;
+            continue;
 
         for (; start_col >= 0; start_col--) {
             if (row->cells[start_col].wc != term->search.buf[0])
@@ -175,9 +177,12 @@ search_update(struct terminal *term)
     }
 
     /* No match */
+    LOG_DBG("no match");
     term->search.match = (struct coord){-1, -1};
     term->search.match_len = 0;
     selection_cancel(term);
+
+#undef ROW_DEC
 }
 
 void
