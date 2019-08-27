@@ -6,9 +6,9 @@
 #define LOG_MODULE "search"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "grid.h"
 #include "render.h"
 #include "selection.h"
-#include "grid.h"
 
 void
 search_begin(struct terminal *term)
