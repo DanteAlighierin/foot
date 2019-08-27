@@ -54,6 +54,15 @@ is **not** possible to define new key bindings.
 * `shift+page up/down` - scroll up/down in history
 * `ctrl+shift+c` - copy selected text to the _clipboard_
 * `ctrl+shift+v` - paste from _clipboard_
+* `ctrl+shift+r` - start a scrollback search
+
+While doing a scrollback search, the following shortcuts are
+available:
+
+* `ctrl+r` - search for next match
+* `esc` - cancel the search
+* `ctrl+g` - cancel the search (same as `esc`)
+* `return` - finish the search and put the current match to the primary selection
 
 
 ### Mouse
