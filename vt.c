@@ -772,20 +772,17 @@ action_print(struct terminal *term, uint8_t c)
     print_insert(term);
 
     /* 0x60 - 0x7e */
-    static const char *const vt100_0[] = {
-        "◆", "▒", "␉", "␌", "␍", "␊", "°", "±", /* ` - g */
-        "␤", "␋", "┘", "┐", "┌", "└", "┼", "⎺", /* h - o */
-        "⎻", "─", "⎼", "⎽", "├", "┤", "┴", "┬", /* p - w */
-        "│", "≤", "≥", "π", "≠", "£", "·", /* x - ~ */
+    static const wchar_t vt100_0[] = {
+        L'◆', L'▒', L'␉', L'␌', L'␍', L'␊', L'°', L'±', /* ` - g */
+        L'␤', L'␋', L'┘', L'┐', L'┌', L'└', L'┼', L'⎺', /* h - o */
+        L'⎻', L'─', L'⎼', L'⎽', L'├', L'┤', L'┴', L'┬', /* p - w */
+        L'│', L'≤', L'≥', L'π', L'≠', L'£', L'·',       /* x - ~ */
     };
 
     if (unlikely(term->charset[term->selected_charset] == CHARSET_GRAPHIC) &&
         c >= 0x60 && c <= 0x7e)
     {
-        const char *glyph = vt100_0[c - 0x60];
-        mbstate_t ps = {0};
-        if (mbrtowc(&cell->wc, glyph, strlen(glyph), &ps) < 0)
-            cell->wc = 0;
+        cell->wc = vt100_0[c - 0x60];
     } else {
         //LOG_DBG("print: ASCII: %c", c);
         cell->wc = c;
