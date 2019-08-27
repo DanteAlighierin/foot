@@ -1086,6 +1086,8 @@ out:
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++)
         font_destroy(&term.fonts[i]);
 
+    free(term.search.buf);
+
     if (term.flash.fd != -1)
         close(term.flash.fd);
     if (term.blink.fd != -1)
