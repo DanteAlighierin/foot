@@ -18,11 +18,12 @@
 #define LOG_MODULE "input"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "terminal.h"
-#include "render.h"
-#include "keymap.h"
 #include "commands.h"
+#include "keymap.h"
+#include "render.h"
+#include "search.h"
 #include "selection.h"
+#include "terminal.h"
 #include "vt.h"
 
 static void
@@ -178,6 +179,12 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     xkb_mod_mask_t significant = ctrl | alt | shift | meta;
     xkb_mod_mask_t effective_mods = mods & ~consumed & significant;
 
+    if (term->is_searching) {
+        start_repeater(term, key - 8);
+        search_input(term, key, sym, effective_mods);
+        return;
+    }
+
 #if 0
     for (size_t i = 0; i < 32; i++) {
         if (mods & (1 << i)) {
@@ -218,6 +225,11 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
         else if (sym == XKB_KEY_V) {
             selection_from_clipboard(term, serial);
+            found_map = true;
+        }
+
+        else if (sym == XKB_KEY_R) {
+            search_begin(term);
             found_map = true;
         }
     }

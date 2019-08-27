@@ -90,6 +90,7 @@ executable(
   'main.c',
   'osc.c', 'osc.h',
   'render.c', 'render.h',
+  'search.c', 'search.h',
   'selection.c', 'selection.h',
   'shm.c', 'shm.h',
   'slave.c', 'slave.h',

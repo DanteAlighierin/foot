@@ -204,6 +204,11 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         bg = color_hex_to_pixman(term->cursor_color.cursor);
     }
 
+    if (term->is_searching) {
+        pixman_color_dim(&fg);
+        pixman_color_dim(&bg);
+    }
+
     struct font *font = attrs_to_font(term, &cell->attrs);
     const struct glyph *glyph = font_glyph_for_wc(font, cell->wc);
 
@@ -216,9 +221,13 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     /* Non-block cursors */
     if (has_cursor && !block_cursor) {
-        pixman_color_t cursor_color = term->cursor_color.text >> 31
-            ? color_hex_to_pixman(term->cursor_color.cursor)
-            : fg;
+        pixman_color_t cursor_color;
+        if (term->cursor_color.text >> 31) {
+            cursor_color = color_hex_to_pixman(term->cursor_color.cursor);
+            if (term->is_searching)
+                pixman_color_dim(&cursor_color);
+        } else
+            cursor_color = fg;
 
         if (term->cursor_style == CURSOR_BAR)
             draw_bar(term, pix, &cursor_color, x, y);
@@ -435,9 +444,10 @@ grid_render(struct terminal *term)
         term_damage_view(term);
 
     /* If we resized the window, or is flashing, or just stopped flashing */
-    if (term->render.last_buf != buf || term->flash.active || term->render.was_flashing) {
-        LOG_DBG("new buffer");
-
+    if (term->render.last_buf != buf ||
+        term->flash.active || term->render.was_flashing ||
+        term->is_searching != term->render.was_searching)
+    {
         /* Fill area outside the cell grid with the default background color */
         int rmargin = term->x_margin + term->cols * term->cell_width;
         int bmargin = term->y_margin + term->rows * term->cell_height;
@@ -445,8 +455,10 @@ grid_render(struct terminal *term)
         int bmargin_height = term->height - bmargin;
 
         uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
-
         pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
+        if (term->is_searching)
+            pixman_color_dim(&bg);
+
         pixman_image_fill_rectangles(
             PIXMAN_OP_SRC, pix, &bg, 4,
             (pixman_rectangle16_t[]){
@@ -469,6 +481,7 @@ grid_render(struct terminal *term)
 
         term->render.last_buf = buf;
         term->render.was_flashing = term->flash.active;
+        term->render.was_searching = term->is_searching;
     }
 
     tll_foreach(term->grid->scroll_damage, it) {
@@ -626,6 +639,7 @@ grid_render(struct terminal *term)
 
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
+        /* TODO: dim while searching */
         pixman_image_fill_rectangles(
             PIXMAN_OP_OVER, pix,
             &(pixman_color_t){.red=0x7fff, .green=0x7fff, .blue=0, .alpha=0x7fff},

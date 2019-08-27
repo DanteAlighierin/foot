@@ -331,6 +331,13 @@ struct terminal {
         struct primary primary;
     } selection;
 
+    bool is_searching;
+    struct {
+        wchar_t *buf;
+        size_t len;
+        size_t sz;
+    } search;
+
     struct grid normal;
     struct grid alt;
     struct grid *grid;
@@ -368,6 +375,7 @@ struct terminal {
 
         struct buffer *last_buf;     /* Buffer we rendered to last time */
         bool was_flashing;           /* Flash was active last time we rendered */
+        bool was_searching;
     } render;
 };
 
