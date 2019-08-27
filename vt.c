@@ -858,7 +858,6 @@ action(struct terminal *term, enum action _action, uint8_t c)
         term->vt.params.idx = 0;
         term->vt.private[0] = 0;
         term->vt.private[1] = 0;
-        term->vt.osc.idx = 0;
         term->vt.utf8.idx = 0;
         break;
 
