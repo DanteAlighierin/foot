@@ -448,6 +448,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     struct terminal *term = data;
 
+    search_cancel(term);
+
     switch (state) {
     case WL_POINTER_BUTTON_STATE_PRESSED: {
         /* Time since last click */
