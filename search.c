@@ -60,15 +60,17 @@ search_update(struct terminal *term)
            (len > 0 && start_row >= 0 && start_col >= 0));
 
     if (len == 0) {
-        start_row = grid_row_absolute(term->grid, term->rows - 1);
+        start_row = grid_row_absolute_in_view(term->grid, term->rows - 1);
         start_col = term->cols - 1;
     }
 
-    LOG_DBG("search: update: starting at row=%d col=%d", start_row, start_col);
+    LOG_DBG("search: update: starting at row=%d col=%d (offset = %d, view = %d)",
+            start_row, start_col, term->grid->offset, term->grid->view);
 
 #define ROW_DEC(_r) ((_r) = ((_r) - 1 + term->grid->num_rows) % term->grid->num_rows)
 
     /* Scan backward from current end-of-output */
+    /* TODO: don't search "scrollback" in alt screen? */
     for (size_t r = 0; r < term->grid->num_rows; ROW_DEC(start_row), r++) {
         const struct row *row = term->grid->rows[start_row];
         if (row == NULL)
