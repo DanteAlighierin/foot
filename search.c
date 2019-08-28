@@ -161,11 +161,25 @@ search_update(struct terminal *term)
             if (start_row != term->search.match.row ||
                 start_col != term->search.match.col)
             {
-                selection_start(term, start_col, start_row - term->grid->view);
+                int selection_row = start_row - term->grid->view;
+                while (selection_row < 0)
+                    selection_row += term->grid->num_rows;
+
+                assert(selection_row >= 0 &&
+                       selection_row < term->grid->num_rows);
+                selection_start(term, start_col, selection_row);
             }
 
             /* Update selection endpoint */
-            selection_update(term, end_col, end_row - term->grid->view);
+            {
+                int selection_row = end_row - term->grid->view;
+                while (selection_row < 0)
+                    selection_row += term->grid->num_rows;
+
+                assert(selection_row >= 0 &&
+                       selection_row < term->grid->num_rows);
+                selection_update(term, end_col, selection_row);
+            }
 
             /* Update match state */
             term->search.match.row = start_row;
