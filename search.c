@@ -25,6 +25,7 @@ search_begin(struct terminal *term)
     term->search.view_followed_offset = term->grid->view == term->grid->offset;
     term->is_searching = true;
 
+    selection_cancel(term);
     render_refresh(term);
 }
 
