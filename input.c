@@ -225,6 +225,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
         else if (sym == XKB_KEY_V) {
             selection_from_clipboard(term, serial);
+            term_reset_view(term);
             found_map = true;
         }
 
@@ -255,11 +256,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             vt_to_slave(term, info->seq, strlen(info->seq));
             found_map = true;
 
-            if (term->grid->view != term->grid->offset) {
-                term->grid->view = term->grid->offset;
-                term_damage_all(term);
-            }
-
+            term_reset_view(term);
             selection_cancel(term);
             break;
         }
@@ -320,13 +317,9 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                     vt_to_slave(term, "\x1b", 1);
 
                 vt_to_slave(term, buf, count);
-
-                if (term->grid->view != term->grid->offset) {
-                    term->grid->view = term->grid->offset;
-                    term_damage_all(term);
-                }
             }
 
+            term_reset_view(term);
             selection_cancel(term);
         }
     }
