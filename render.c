@@ -207,6 +207,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     if (term->is_searching && !is_selected) {
         pixman_color_dim(&fg);
         pixman_color_dim(&bg);
+        pixman_color_dim(&fg);
+        pixman_color_dim(&bg);
     }
 
     struct font *font = attrs_to_font(term, &cell->attrs);
