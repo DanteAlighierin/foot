@@ -300,7 +300,7 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
         term->search.buf[term->search.len] = L'\0';
     }
 
-    LOG_DBG("search: buffer: %S", term->search.buf);
+    LOG_INFO("search: buffer: %S", term->search.buf);
     search_update(term);
     render_refresh(term);
 }
