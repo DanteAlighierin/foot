@@ -181,6 +181,50 @@ osc_flash(struct terminal *term)
 }
 
 static bool
+parse_legacy_color(const char *string, uint32_t *color)
+{
+    if (string[0] != '#')
+        return false;
+
+    string++;
+    const size_t len = strlen(string);
+
+    if (len % 3 != 0)
+        return false;
+
+    const int digits = len / 3;
+
+    int rgb[3];
+    for (size_t i = 0; i < 3; i++) {
+        rgb[i] = 0;
+        for (size_t j = 0; j < digits; j++) {
+            size_t idx = i * digits + j;
+            char c = string[idx];
+            rgb[i] <<= 4;
+
+            if (!isxdigit(c))
+                rgb[i] |= 0;
+            else
+                rgb[i] |= c >= '0' && c <= '9' ? c - '0' :
+                    c >= 'a' && c <= 'f' ? c - 'a' + 10 : c - 'A' + 10;
+        }
+
+        /* Values with less than 16 bits represent the *most
+         * significant bits*. I.e. the values are *not* scaled */
+        rgb[i] <<= 16 - (4 * digits);
+    }
+
+    /* Re-scale to 8-bit */
+    uint8_t r = 255 * (rgb[0] / 65535.);
+    uint8_t g = 255 * (rgb[1] / 65535.);
+    uint8_t b = 255 * (rgb[2] / 65535.);
+
+    LOG_DBG("legacy: %02x%02x%02x", r, g, b);
+    *color = r << 16 | g << 8 | b;
+    return true;
+}
+
+static bool
 parse_rgb(const char *string, uint32_t *color)
 {
     size_t len = strlen(string);
@@ -304,7 +348,7 @@ osc_dispatch(struct terminal *term)
         }
 
         uint32_t color;
-        if (!parse_rgb(string, &color))
+        if (string[0] == '#' ? !parse_legacy_color(string, &color) : !parse_rgb(string, &color))
             break;
 
         LOG_DBG("change color definition for #%u to %06x", idx, color);
@@ -338,7 +382,7 @@ osc_dispatch(struct terminal *term)
         }
 
         uint32_t color;
-        if (!parse_rgb(string, &color))
+        if (string[0] == '#' ? !parse_legacy_color(string, &color) : !parse_rgb(string, &color))
             break;
 
         LOG_DBG("change color definition for %s to %06x",
