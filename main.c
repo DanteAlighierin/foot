@@ -630,7 +630,7 @@ main(int argc, char *const *argv)
 
     term.cell_width = (int)ceil(term.fextents.max_x_advance);
     term.cell_height = (int)ceil(term.fextents.height);
-    LOG_DBG("cell width=%d, height=%d", term.cell_width, term.cell_height);
+    LOG_INFO("cell width=%d, height=%d", term.cell_width, term.cell_height);
 
     term.wl.display = wl_display_connect(NULL);
     if (term.wl.display == NULL) {
