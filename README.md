@@ -51,7 +51,9 @@ is **not** possible to define new key bindings.
 
 ### Keyboard
 
-* <kbd>shift</kbd>+<kbd>page up</kbd>/<kbd>page down</kbd> - scroll up/down in history
+* <kbd>shift</kbd>+<kbd>page up</kbd>/<kbd>page down</kbd>
+
+   scroll up/down in history
 * <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>c</kbd> - copy selected text to the _clipboard_
 * <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>v</kbd> - paste from _clipboard_
 * <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>r</kbd>, - start a scrollback search
