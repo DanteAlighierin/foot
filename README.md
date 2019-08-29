@@ -151,7 +151,8 @@ In addition to the dev variant of the packages above, you need:
 ### Arch Linux
 
 Use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to build
-the bundled `PKGBUILD`.
+the bundled `PKGBUILD` (just run `makepkg` in the source root
+directory)..
 
 
 ### Other
