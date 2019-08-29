@@ -349,6 +349,7 @@ struct terminal {
         wchar_t *buf;
         size_t len;
         size_t sz;
+        size_t cursor;
 
         int original_view;
         bool view_followed_offset;
