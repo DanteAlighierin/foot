@@ -3,6 +3,26 @@
 **foot** is a fast Wayland terminal emulator.
 
 
+## Features
+
+* Fast (**TODO** insert benchmark results here)
+* Wayland native
+* DE agnostic
+* User configurable font fallback
+* Scrollback search
+* Color emoji support
+
+
+## Non-features
+
+This is a non-exhaustive list of things some people might consider
+being important features (i.e. _"must-haves"_), that are unlikely to
+ever be supported by foot.
+
+* Tabs
+* Multiple windows
+
+
 ## Requirements
 
 ### Running
