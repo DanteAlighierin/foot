@@ -2,6 +2,18 @@
 
 **foot** is a fast Wayland terminal emulator.
 
+## Index
+
+1. [Features](#features)
+1. [Non-features](#non-features)
+1. [Requirements](#requirements)
+  1. [Running](#running)
+  1. [Building](#building)
+1. [Fonts](#fonts)
+1. [Shortcuts](#shortcuts)
+  1. [Keyboard](#keyboard)
+  1. [Mouse](#mouse)
+
 
 ## Features
 
