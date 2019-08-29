@@ -1,6 +1,8 @@
 #include "search.h"
 
 #include <wchar.h>
+
+#include <wayland-client.h>
 #include <xkbcommon/xkbcommon-compose.h>
 
 #define LOG_MODULE "search"
@@ -9,11 +11,98 @@
 #include "grid.h"
 #include "render.h"
 #include "selection.h"
+#include "shm.h"
 
-void
-search_begin(struct terminal *term)
+#define max(x, y) ((x) > (y) ? (x) : (y))
+
+static struct wl_surface *wl_surf;
+static struct wl_subsurface *sub_surf;
+
+
+static inline pixman_color_t
+color_hex_to_pixman_with_alpha(uint32_t color, uint16_t alpha)
 {
-    LOG_DBG("search: begin");
+    int alpha_div = 0xffff / alpha;
+    return (pixman_color_t){
+        .red =   ((color >> 16 & 0xff) | (color >> 8 & 0xff00)) / alpha_div,
+        .green = ((color >>  8 & 0xff) | (color >> 0 & 0xff00)) / alpha_div,
+        .blue =  ((color >>  0 & 0xff) | (color << 8 & 0xff00)) / alpha_div,
+        .alpha = alpha,
+    };
+}
+
+static inline pixman_color_t
+color_hex_to_pixman(uint32_t color)
+{
+    /* Count on the compiler optimizing this */
+    return color_hex_to_pixman_with_alpha(color, 0xffff);
+}
+
+/* TODO: move to render.c? */
+static void
+render(struct terminal *term)
+{
+    assert(sub_surf != NULL);
+
+    /* TODO: at least sway allows the subsurface to extend outside the
+     * main window. Do we want that? */
+    const int scale = term->scale >= 1 ? term->scale : 1;
+    const int margin = scale * 3;
+    const int width = 2 * margin + max(20, term->search.len) * term->cell_width;
+    const int height = 2 * margin + 1 * term->cell_height;
+
+    struct buffer *buf = shm_get_buffer(term->wl.shm, width, height, 1);
+
+    /* Background - yellow on empty/match, red on mismatch */
+    pixman_color_t color = color_hex_to_pixman(
+        term->search.match_len == term->search.len ? 0xffff00 : 0xff0000);
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &color,
+        1, &(pixman_rectangle16_t){0, 0, width, height});
+
+    int x = margin;
+    int y = margin;
+    pixman_color_t fg = color_hex_to_pixman(0x000000);
+
+    /* Text (what the user entered - *not* match(es)) */
+    for (size_t i = 0; i < term->search.len; i++) {
+        const struct glyph *glyph = font_glyph_for_wc(&term->fonts[0], term->search.buf[i]);
+        if (glyph == NULL)
+            continue;
+
+        pixman_image_t *src = pixman_image_create_solid_fill(&fg);
+        pixman_image_composite32(
+            PIXMAN_OP_OVER, src, glyph->pix, buf->pix, 0, 0, 0, 0,
+            x + glyph->x, y + term->fextents.ascent - glyph->y,
+            glyph->width, glyph->height);
+        pixman_image_unref(src);
+
+        x += glyph->width;
+    }
+
+    LOG_INFO("match length: %zu", term->search.match_len);
+
+    wl_subsurface_set_position(
+        sub_surf, term->width - width - margin, term->height - height - margin);
+
+    wl_surface_damage_buffer(wl_surf, 0, 0, width, height);
+    wl_surface_attach(wl_surf, buf->wl_buf, 0, 0);
+    wl_surface_set_buffer_scale(wl_surf, scale);
+    wl_surface_commit(wl_surf);
+}
+
+static void
+search_cancel_keep_selection(struct terminal *term)
+{
+    if (sub_surf != NULL) {
+        wl_subsurface_destroy(sub_surf);
+        sub_surf = NULL;
+    }
+    if (wl_surf != NULL) {
+        wl_surface_destroy(wl_surf);
+        wl_surf = NULL;
+    }
 
     free(term->search.buf);
     term->search.buf = NULL;
@@ -21,35 +110,65 @@ search_begin(struct terminal *term)
     term->search.sz = 0;
     term->search.match = (struct coord){-1, -1};
     term->search.match_len = 0;
+    term->is_searching = false;
+
+    render_refresh(term);
+}
+
+void
+search_begin(struct terminal *term)
+{
+    LOG_DBG("search: begin");
+
+    search_cancel_keep_selection(term);
+    selection_cancel(term);
+
     term->search.original_view = term->grid->view;
     term->search.view_followed_offset = term->grid->view == term->grid->offset;
     term->is_searching = true;
 
-    selection_cancel(term);
+    wl_surf = wl_compositor_create_surface(term->wl.compositor);
+    if (wl_surf != NULL) {
+        sub_surf = wl_subcompositor_get_subsurface(
+            term->wl.sub_compositor, wl_surf, term->wl.surface);
+
+        if (sub_surf != NULL) {
+            /* Sub-surface updates may occur without updating the main
+             * window */
+            wl_subsurface_set_desync(sub_surf);
+        }
+    }
+
+    if (wl_surf == NULL || sub_surf == NULL) {
+        LOG_ERR("failed to create sub-surface for search box");
+        if (wl_surf != NULL)
+            wl_surface_destroy(wl_surf);
+        assert(sub_surf == NULL);
+    }
+
+    render(term);
     render_refresh(term);
 }
 
 void
 search_cancel(struct terminal *term)
 {
-    LOG_DBG("search: cancel");
+    if (!term->is_searching)
+        return;
 
-    free(term->search.buf);
-    term->search.buf = NULL;
-    term->search.len = 0;
-    term->search.sz = 0;
-    term->is_searching = false;
-
-    render_refresh(term);
+    search_cancel_keep_selection(term);
+    selection_cancel(term);
 }
 
 static void
 search_update(struct terminal *term)
 {
     if (term->search.len == 0) {
+        LOG_INFO("len == 0");
         term->search.match = (struct coord){-1, -1};
         term->search.match_len = 0;
         selection_cancel(term);
+        render(term);
         return;
     }
 
@@ -187,6 +306,7 @@ search_update(struct terminal *term)
             term->search.match.col = start_col;
             term->search.match_len = match_len;
 
+            render(term);
             return;
         }
 
@@ -198,7 +318,7 @@ search_update(struct terminal *term)
     term->search.match = (struct coord){-1, -1};
     term->search.match_len = 0;
     selection_cancel(term);
-
+    render(term);
 #undef ROW_DEC
 }
 
@@ -225,12 +345,13 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
             term->grid->view = term->search.original_view;
         term_damage_view(term);
         search_cancel(term);
+        return;
     }
 
     /* "Commit" search - copy selection to primary and cancel search */
     else if (mods == 0 && sym == XKB_KEY_Return) {
         selection_finalize(term, term->input_serial);
-        search_cancel(term);
+        search_cancel_keep_selection(term);
         return;
     }
 

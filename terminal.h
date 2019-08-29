@@ -41,6 +41,7 @@ struct wayland {
     struct wl_display *display;
     struct wl_registry *registry;
     struct wl_compositor *compositor;
+    struct wl_subcompositor *sub_compositor;
     struct wl_surface *surface;
     struct wl_shm *shm;
     struct wl_seat *seat;

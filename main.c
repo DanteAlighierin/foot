@@ -197,6 +197,11 @@ handle_global(void *data, struct wl_registry *registry,
             term->wl.registry, name, &wl_compositor_interface, 4);
     }
 
+    else if (strcmp(interface, wl_subcompositor_interface.name) == 0) {
+        term->wl.sub_compositor = wl_registry_bind(
+            term->wl.registry, name, &wl_subcompositor_interface, 1);
+    }
+
     else if (strcmp(interface, wl_shm_interface.name) == 0) {
         term->wl.shm = wl_registry_bind(
             term->wl.registry, name, &wl_shm_interface, 1);
