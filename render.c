@@ -80,6 +80,25 @@ pixman_color_dim_for_search(pixman_color_t *color)
     color->blue /= 3;
 }
 
+static inline int
+font_baseline(const struct terminal *term)
+{
+    assert(term->fextents.ascent >= 0);
+    assert(term->fextents.descent >= 0);
+
+    int diff = term->fextents.height - (term->fextents.ascent + term->fextents.descent);
+    assert(diff >= 0);
+
+#if 0
+    LOG_INFO("height=%d, ascent=%d, descent=%d, diff=%d",
+             term->fextents.height,
+             term->fextents.ascent, term->fextents.descent,
+             diff);
+#endif
+
+    return term->fextents.height - diff / 2 - term->fextents.descent;
+}
+
 static void
 draw_bar(const struct terminal *term, pixman_image_t *pix,
          const pixman_color_t *color, int x, int y)
