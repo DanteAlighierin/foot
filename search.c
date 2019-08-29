@@ -15,82 +15,6 @@
 
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-
-
-static inline pixman_color_t
-color_hex_to_pixman_with_alpha(uint32_t color, uint16_t alpha)
-{
-    int alpha_div = 0xffff / alpha;
-    return (pixman_color_t){
-        .red =   ((color >> 16 & 0xff) | (color >> 8 & 0xff00)) / alpha_div,
-        .green = ((color >>  8 & 0xff) | (color >> 0 & 0xff00)) / alpha_div,
-        .blue =  ((color >>  0 & 0xff) | (color << 8 & 0xff00)) / alpha_div,
-        .alpha = alpha,
-    };
-}
-
-static inline pixman_color_t
-color_hex_to_pixman(uint32_t color)
-{
-    /* Count on the compiler optimizing this */
-    return color_hex_to_pixman_with_alpha(color, 0xffff);
-}
-
-/* TODO: move to render.c? */
-static void
-render(struct terminal *term)
-{
-    assert(term->wl.search_sub_surface != NULL);
-
-    /* TODO: at least sway allows the subsurface to extend outside the
-     * main window. Do we want that? */
-    const int scale = term->scale >= 1 ? term->scale : 1;
-    const int margin = scale * 3;
-    const int width = 2 * margin + max(20, term->search.len) * term->cell_width;
-    const int height = 2 * margin + 1 * term->cell_height;
-
-    struct buffer *buf = shm_get_buffer(term->wl.shm, width, height, 1);
-
-    /* Background - yellow on empty/match, red on mismatch */
-    pixman_color_t color = color_hex_to_pixman(
-        term->search.match_len == term->search.len ? 0xffff00 : 0xff0000);
-
-    pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix, &color,
-        1, &(pixman_rectangle16_t){0, 0, width, height});
-
-    int x = margin;
-    int y = margin;
-    pixman_color_t fg = color_hex_to_pixman(0x000000);
-
-    /* Text (what the user entered - *not* match(es)) */
-    for (size_t i = 0; i < term->search.len; i++) {
-        const struct glyph *glyph = font_glyph_for_wc(&term->fonts[0], term->search.buf[i]);
-        if (glyph == NULL)
-            continue;
-
-        pixman_image_t *src = pixman_image_create_solid_fill(&fg);
-        pixman_image_composite32(
-            PIXMAN_OP_OVER, src, glyph->pix, buf->pix, 0, 0, 0, 0,
-            x + glyph->x, y + term->fextents.ascent - glyph->y,
-            glyph->width, glyph->height);
-        pixman_image_unref(src);
-
-        x += glyph->width;
-    }
-
-    LOG_INFO("match length: %zu", term->search.match_len);
-
-    wl_subsurface_set_position(
-        term->wl.search_sub_surface,
-        term->width - width - margin, term->height - height - margin);
-
-    wl_surface_damage_buffer(term->wl.search_surface, 0, 0, width, height);
-    wl_surface_attach(term->wl.search_surface, buf->wl_buf, 0, 0);
-    wl_surface_set_buffer_scale(term->wl.search_surface, scale);
-    wl_surface_commit(term->wl.search_surface);
-}
-
 static void
 search_cancel_keep_selection(struct terminal *term)
 {
@@ -145,7 +69,7 @@ search_begin(struct terminal *term)
         assert(term->wl.search_sub_surface == NULL);
     }
 
-    render(term);
+    render_search_box(term);
     render_refresh(term);
 }
 
@@ -167,7 +91,7 @@ search_update(struct terminal *term)
         term->search.match = (struct coord){-1, -1};
         term->search.match_len = 0;
         selection_cancel(term);
-        render(term);
+        render_search_box(term);
         return;
     }
 
@@ -305,7 +229,7 @@ search_update(struct terminal *term)
             term->search.match.col = start_col;
             term->search.match_len = match_len;
 
-            render(term);
+            render_search_box(term);
             return;
         }
 
@@ -317,7 +241,7 @@ search_update(struct terminal *term)
     term->search.match = (struct coord){-1, -1};
     term->search.match_len = 0;
     selection_cancel(term);
-    render(term);
+    render_search_box(term);
 #undef ROW_DEC
 }
 
