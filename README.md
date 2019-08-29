@@ -9,6 +9,9 @@
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
+1. [Installing](#installing)
+   1. [Arch Linux](#arch-linux)
+   1. [Other](#other)
 1. [Fonts](#fonts)
 1. [Shortcuts](#shortcuts)
    1. [Keyboard](#keyboard)
@@ -55,6 +58,24 @@ In addition to the dev variant of the packages above, you need:
 * wayland protocols
 * ncurses
 * scdoc
+
+
+## Installing
+
+### Arch Linux
+
+Use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to build
+the bundled `PKGBUILD`.
+
+
+### Other
+
+Foot uses _meson_. If you are unfamiliar with it, the official
+[tutorial](https://mesonbuild.com/Tutorial.html) might be a good
+starting point.
+
+I also recommend taking a look at that bundled Arch `PKGBUILD` file,
+to see how it builds foot.
 
 
 ## Fonts
