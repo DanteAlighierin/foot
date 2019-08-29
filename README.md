@@ -80,7 +80,7 @@ available:
 
 * <kbd>ctrl</kbd>+<kbd>g</kbd>
 
-  Cancel the search (same as `esc`)
+  Cancel the search (same as <kbd>escape</kbd>)
 
 * <kbd>return</kbd>
 
@@ -93,13 +93,13 @@ available:
   Drag to select; when released, the selected text is copied to the
   _primary_ selection. Note that this feature is normally disabled
   whenever the client has enabled mouse tracking, but can be forced by
-  holding `shift`.
+  holding <kbd>shift</kbd>.
 
 * <kbd>left</kbd> - **double-click**
 
   Selects the _word_ (separated by spaces, period, comma, parenthesis
-  etc) under the pointer. Hold `ctrl` to select everything under the
-  pointer up to, and until, the next space characters.
+  etc) under the pointer. Hold <kbd>ctrl</kbd> to select everything
+  under the pointer up to, and until, the next space characters.
 
 * <kbd>left</kbd> - **triple-click**
 
