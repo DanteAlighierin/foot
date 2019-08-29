@@ -116,7 +116,7 @@ draw_underline(const struct terminal *term, pixman_image_t *pix,
                const struct font *font,
                const pixman_color_t *color, int x, int y, int cols)
 {
-    int baseline = y + term->fextents.height - term->fextents.descent;
+    int baseline = y + font_baseline(term);
     int width = font->underline.thickness;
     int y_under = baseline - font->underline.position - width / 2;
 
