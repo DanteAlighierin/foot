@@ -103,10 +103,12 @@ static void
 draw_bar(const struct terminal *term, pixman_image_t *pix,
          const pixman_color_t *color, int x, int y)
 {
-    /* TODO: investigate if this is the best way */
+    int baseline = y + font_baseline(term) - term->fextents.ascent;
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, pix, color,
-        1, &(pixman_rectangle16_t){x, y, 1, term->cell_height});
+        1, &(pixman_rectangle16_t){
+            x, baseline,
+            1, term->fextents.ascent + term->fextents.descent});
 }
 
 static void
