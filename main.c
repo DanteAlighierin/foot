@@ -723,6 +723,7 @@ main(int argc, char *const *argv)
         goto out;
     }
 
+    /* Main window */
     term.wl.surface = wl_compositor_create_surface(term.wl.compositor);
     if (term.wl.surface == NULL) {
         LOG_ERR("failed to create wayland surface");
@@ -739,6 +740,12 @@ main(int argc, char *const *argv)
 
     xdg_toplevel_set_app_id(term.wl.xdg_toplevel, "foot");
     term_set_window_title(&term, "foot");
+
+    /* Scrollback search box */
+    term.wl.search_surface = wl_compositor_create_surface(term.wl.compositor);
+    term.wl.search_sub_surface = wl_subcompositor_get_subsurface(
+        term.wl.sub_compositor, term.wl.search_surface, term.wl.surface);
+    wl_subsurface_set_desync(term.wl.search_sub_surface);
 
     wl_surface_commit(term.wl.surface);
     wl_display_roundtrip(term.wl.display);
