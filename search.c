@@ -226,7 +226,7 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
     LOG_DBG("search: input: sym=%d/0x%x, mods=0x%08x", sym, sym, mods);
 
     const xkb_mod_mask_t ctrl = 1 << term->kbd.mod_ctrl;
-    //const xkb_mod_mask_t alt = 1 << term->kbd.mod_alt;
+    const xkb_mod_mask_t alt = 1 << term->kbd.mod_alt;
     //const xkb_mod_mask_t shift = 1 << term->kbd.mod_shift;
     //const xkb_mod_mask_t meta = 1 << term->kbd.mod_meta;
 
@@ -270,9 +270,52 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
         }
     }
 
+    else if (mods == 0 && sym == XKB_KEY_Left) {
+        if (term->search.cursor > 0)
+            term->search.cursor--;
+    }
+
+    else if (mods == 0 && sym == XKB_KEY_Right) {
+        if (term->search.cursor < term->search.len)
+            term->search.cursor++;
+    }
+
+    else if ((mods == 0 && sym == XKB_KEY_Home) ||
+             (mods == ctrl && sym == XKB_KEY_a))
+        term->search.cursor = 0;
+
+    else if ((mods == 0 && sym == XKB_KEY_End) ||
+             (mods == ctrl && sym == XKB_KEY_e))
+        term->search.cursor = term->search.len;
+
     else if (mods == 0 && sym == XKB_KEY_BackSpace) {
-        if (term->search.len > 0)
+        if (term->search.cursor > 0) {
+            memmove(
+                &term->search.buf[term->search.cursor - 1],
+                &term->search.buf[term->search.cursor],
+                (term->search.len - term->search.cursor) * sizeof(wchar_t));
+            term->search.cursor--;
             term->search.buf[--term->search.len] = L'\0';
+        }
+    }
+
+    else if ((mods == alt || mods == ctrl) && sym == XKB_KEY_BackSpace) {
+        /* TODO: delete word backward */
+    }
+
+    else if ((mods == alt && sym == XKB_KEY_d) ||
+             (mods == ctrl && sym == XKB_KEY_Delete)) {
+        /* TODO: delete word forward */
+    }
+
+    else if (mods == 0 && sym == XKB_KEY_Delete) {
+        if (term->search.cursor < term->search.len) {
+            memmove(
+                &term->search.buf[term->search.cursor],
+                &term->search.buf[term->search.cursor + 1],
+                (term->search.len - term->search.cursor - 1) * sizeof(wchar_t));
+            term->search.buf[--term->search.len] = L'\0';
+        }
     }
 
     else {
