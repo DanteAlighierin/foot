@@ -47,17 +47,18 @@ In addition to the dev variant of the packages above, you need:
 
 ## Fonts
 
-**foot** supports all fonts that can be loaded by freetype, including
-**bitmap** fonts and **color emoji** fonts.
+**foot** supports all fonts that can be loaded by _freetype_,
+including **bitmap** fonts and **color emoji** fonts.
 
-Foot uses its own font fallback mechanism, rather than relying on
-fontconfig's fallback. This is because fontconfig is quite bad at
-selecting fallback fonts suitable for a terminal (i.e. monospaced
-fonts).
+Foot uses _fontconfig_ to locate and configure the font(s) to
+use. Since fontconfig's fallback mechanism is imperfect, especially
+for monospace fonts (it doesn't prefer monospace fonts even though the
+requested font is one), foot allows you, the user, to configure the
+fallback fonts to use.
 
-Instead, foot allows you to specify a font fallback list, where _each_
-font can be configured independently (for example, you can configure
-the size for each font individually).
+This also means you can configure _each_ fallback font individually;
+you want _that_ fallback font to use _this_ size, and you want that
+_other_ fallback font to be _italic_?  No problem!
 
 If a glyph cannot be found in _any_ of the user configured fallback
 fonts, _then_ fontconfig's list is used.
