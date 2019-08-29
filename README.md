@@ -154,6 +154,10 @@ Use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to build
 the bundled `PKGBUILD` (just run `makepkg` in the source root
 directory)..
 
+Note that it will do a profiling-guided build, and that this requires
+a running wayland session since it needs to run an intermediate build
+of foot.
+
 
 ### Other
 
