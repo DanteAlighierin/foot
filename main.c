@@ -1064,6 +1064,8 @@ out:
         wl_surface_destroy(term.wl.surface);
     if (term.wl.shm != NULL)
         wl_shm_destroy(term.wl.shm);
+    if (term.wl.sub_compositor != NULL)
+        wl_subcompositor_destroy(term.wl.sub_compositor);
     if (term.wl.compositor != NULL)
         wl_compositor_destroy(term.wl.compositor);
     if (term.wl.registry != NULL)
