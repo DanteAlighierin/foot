@@ -293,9 +293,6 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
                 (term->search.len - term->search.cursor) * sizeof(wchar_t));
             term->search.cursor--;
             term->search.buf[--term->search.len] = L'\0';
-
-            term->search.match = (struct coord){-1, -1};
-            term->search.match_len = 0;
         }
     }
 
@@ -315,9 +312,6 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
                 &term->search.buf[term->search.cursor + 1],
                 (term->search.len - term->search.cursor - 1) * sizeof(wchar_t));
             term->search.buf[--term->search.len] = L'\0';
-
-            term->search.match = (struct coord){-1, -1};
-            term->search.match_len = 0;
         }
     }
 
@@ -369,9 +363,6 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
         term->search.len += wchars;
         term->search.cursor += wchars;
         term->search.buf[term->search.len] = L'\0';
-
-        term->search.match = (struct coord){-1, -1};
-        term->search.match_len = 0;
     }
 
     LOG_DBG("search: buffer: %S", term->search.buf);
