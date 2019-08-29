@@ -25,6 +25,7 @@ search_cancel_keep_selection(struct terminal *term)
     term->search.buf = NULL;
     term->search.len = 0;
     term->search.sz = 0;
+    term->search.cursor = 0;
     term->search.match = (struct coord){-1, -1};
     term->search.match_len = 0;
     term->is_searching = false;
