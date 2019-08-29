@@ -15,8 +15,6 @@
 
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-static struct wl_surface *wl_surf;
-static struct wl_subsurface *sub_surf;
 
 
 static inline pixman_color_t
@@ -42,7 +40,7 @@ color_hex_to_pixman(uint32_t color)
 static void
 render(struct terminal *term)
 {
-    assert(sub_surf != NULL);
+    assert(term->wl.search_sub_surface != NULL);
 
     /* TODO: at least sway allows the subsurface to extend outside the
      * main window. Do we want that? */
@@ -84,24 +82,25 @@ render(struct terminal *term)
     LOG_INFO("match length: %zu", term->search.match_len);
 
     wl_subsurface_set_position(
-        sub_surf, term->width - width - margin, term->height - height - margin);
+        term->wl.search_sub_surface,
+        term->width - width - margin, term->height - height - margin);
 
-    wl_surface_damage_buffer(wl_surf, 0, 0, width, height);
-    wl_surface_attach(wl_surf, buf->wl_buf, 0, 0);
-    wl_surface_set_buffer_scale(wl_surf, scale);
-    wl_surface_commit(wl_surf);
+    wl_surface_damage_buffer(term->wl.search_surface, 0, 0, width, height);
+    wl_surface_attach(term->wl.search_surface, buf->wl_buf, 0, 0);
+    wl_surface_set_buffer_scale(term->wl.search_surface, scale);
+    wl_surface_commit(term->wl.search_surface);
 }
 
 static void
 search_cancel_keep_selection(struct terminal *term)
 {
-    if (sub_surf != NULL) {
-        wl_subsurface_destroy(sub_surf);
-        sub_surf = NULL;
+    if (term->wl.search_sub_surface != NULL) {
+        wl_subsurface_destroy(term->wl.search_sub_surface);
+        term->wl.search_sub_surface = NULL;
     }
-    if (wl_surf != NULL) {
-        wl_surface_destroy(wl_surf);
-        wl_surf = NULL;
+    if (term->wl.search_surface != NULL) {
+        wl_surface_destroy(term->wl.search_surface);
+        term->wl.search_surface = NULL;
     }
 
     free(term->search.buf);
@@ -127,23 +126,23 @@ search_begin(struct terminal *term)
     term->search.view_followed_offset = term->grid->view == term->grid->offset;
     term->is_searching = true;
 
-    wl_surf = wl_compositor_create_surface(term->wl.compositor);
-    if (wl_surf != NULL) {
-        sub_surf = wl_subcompositor_get_subsurface(
-            term->wl.sub_compositor, wl_surf, term->wl.surface);
+    term->wl.search_surface = wl_compositor_create_surface(term->wl.compositor);
+    if (term->wl.search_surface != NULL) {
+        term->wl.search_sub_surface = wl_subcompositor_get_subsurface(
+            term->wl.sub_compositor, term->wl.search_surface, term->wl.surface);
 
-        if (sub_surf != NULL) {
+        if (term->wl.search_sub_surface != NULL) {
             /* Sub-surface updates may occur without updating the main
              * window */
-            wl_subsurface_set_desync(sub_surf);
+            wl_subsurface_set_desync(term->wl.search_sub_surface);
         }
     }
 
-    if (wl_surf == NULL || sub_surf == NULL) {
+    if (term->wl.search_surface == NULL || term->wl.search_sub_surface == NULL) {
         LOG_ERR("failed to create sub-surface for search box");
-        if (wl_surf != NULL)
-            wl_surface_destroy(wl_surf);
-        assert(sub_surf == NULL);
+        if (term->wl.search_surface != NULL)
+            wl_surface_destroy(term->wl.search_surface);
+        assert(term->wl.search_sub_surface == NULL);
     }
 
     render(term);

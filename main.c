@@ -1019,12 +1019,6 @@ out:
     if (term.wl.xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(term.wl.xdg_output_manager);
 
-    if (term.render.frame_callback != NULL)
-        wl_callback_destroy(term.render.frame_callback);
-    if (term.wl.xdg_toplevel != NULL)
-        xdg_toplevel_destroy(term.wl.xdg_toplevel);
-    if (term.wl.xdg_surface != NULL)
-        xdg_surface_destroy(term.wl.xdg_surface);
     free(term.wl.pointer.theme_name);
     if (term.wl.pointer.theme != NULL)
         wl_cursor_theme_destroy(term.wl.pointer.theme);
@@ -1054,10 +1048,20 @@ out:
         zwp_primary_selection_device_manager_v1_destroy(term.wl.primary_selection_device_manager);
     if (term.wl.seat != NULL)
         wl_seat_destroy(term.wl.seat);
-    if (term.wl.surface != NULL)
-        wl_surface_destroy(term.wl.surface);
+    if (term.wl.search_sub_surface != NULL)
+        wl_subsurface_destroy(term.wl.search_sub_surface);
+    if (term.wl.search_surface != NULL)
+        wl_surface_destroy(term.wl.search_surface);
+    if (term.render.frame_callback != NULL)
+        wl_callback_destroy(term.render.frame_callback);
+    if (term.wl.xdg_toplevel != NULL)
+        xdg_toplevel_destroy(term.wl.xdg_toplevel);
+    if (term.wl.xdg_surface != NULL)
+        xdg_surface_destroy(term.wl.xdg_surface);
     if (term.wl.shell != NULL)
         xdg_wm_base_destroy(term.wl.shell);
+    if (term.wl.surface != NULL)
+        wl_surface_destroy(term.wl.surface);
     if (term.wl.shm != NULL)
         wl_shm_destroy(term.wl.shm);
     if (term.wl.compositor != NULL)
