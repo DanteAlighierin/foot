@@ -130,7 +130,7 @@ draw_strikeout(const struct terminal *term, pixman_image_t *pix,
                const struct font *font,
                const pixman_color_t *color, int x, int y, int cols)
 {
-    int baseline = y + term->fextents.height - term->fextents.descent;
+    int baseline = y + font_baseline(term);
     int width = font->strikeout.thickness;
     int y_strike = baseline - font->strikeout.position - width / 2;
 
