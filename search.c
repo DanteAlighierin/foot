@@ -66,7 +66,6 @@ search_update(struct terminal *term)
         term->search.match = (struct coord){-1, -1};
         term->search.match_len = 0;
         selection_cancel(term);
-        render_search_box(term);
         return;
     }
 
@@ -204,7 +203,6 @@ search_update(struct terminal *term)
             term->search.match.col = start_col;
             term->search.match_len = match_len;
 
-            render_search_box(term);
             return;
         }
 
@@ -216,7 +214,6 @@ search_update(struct terminal *term)
     term->search.match = (struct coord){-1, -1};
     term->search.match_len = 0;
     selection_cancel(term);
-    render_search_box(term);
 #undef ROW_DEC
 }
 
@@ -371,4 +368,5 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
     LOG_DBG("search: buffer: %S", term->search.buf);
     search_update(term);
     render_refresh(term);
+    render_search_box(term);
 }
