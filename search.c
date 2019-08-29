@@ -62,7 +62,6 @@ static void
 search_update(struct terminal *term)
 {
     if (term->search.len == 0) {
-        LOG_INFO("len == 0");
         term->search.match = (struct coord){-1, -1};
         term->search.match_len = 0;
         selection_cancel(term);
