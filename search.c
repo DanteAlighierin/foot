@@ -312,11 +312,16 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
 
         assert(term->search.len + wchars < term->search.sz);
 
+        memmove(&term->search.buf[term->search.cursor + wchars],
+                &term->search.buf[term->search.cursor],
+                (term->search.len - term->search.cursor) * sizeof(wchar_t));
+
         memset(&ps, 0, sizeof(ps));
-        mbsnrtowcs(&term->search.buf[term->search.len], &src, count,
-                   term->search.sz - term->search.len - 1, &ps);
+        mbsnrtowcs(&term->search.buf[term->search.cursor], &src, count,
+                   wchars, &ps);
 
         term->search.len += wchars;
+        term->search.cursor += wchars;
         term->search.buf[term->search.len] = L'\0';
     }
 
