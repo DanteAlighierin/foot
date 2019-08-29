@@ -733,8 +733,6 @@ render_search_box(struct terminal *term)
         x += glyph->width;
     }
 
-    LOG_INFO("match length: %zu", term->search.match_len);
-
     wl_subsurface_set_position(
         term->wl.search_sub_surface,
         term->width - width - margin, term->height - height - margin);
