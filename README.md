@@ -112,9 +112,9 @@ available:
 * <kbd>left</kbd> - **single-click**
 
   Drag to select; when released, the selected text is copied to the
-  _primary_ selection. Note that this feature is normally disabled
-  whenever the client has enabled mouse tracking, but can be forced by
-  holding <kbd>shift</kbd>.
+  _primary_ selection. Note that this feature is normally **disabled**
+  whenever the client has enabled _mouse tracking_, but can be forced
+  by holding <kbd>shift</kbd>.
 
 * <kbd>left</kbd> - **double-click**
 
