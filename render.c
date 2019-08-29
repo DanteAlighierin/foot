@@ -72,6 +72,14 @@ pixman_color_dim(pixman_color_t *color)
     color->blue /= 2;
 }
 
+static inline void
+pixman_color_dim_for_search(pixman_color_t *color)
+{
+    color->red /= 3;
+    color->green /= 3;
+    color->blue /= 3;
+}
+
 static void
 draw_bar(const struct terminal *term, pixman_image_t *pix,
          const pixman_color_t *color, int x, int y)
@@ -205,10 +213,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     }
 
     if (term->is_searching && !is_selected) {
-        pixman_color_dim(&fg);
-        pixman_color_dim(&bg);
-        pixman_color_dim(&fg);
-        pixman_color_dim(&bg);
+        pixman_color_dim_for_search(&fg);
+        pixman_color_dim_for_search(&bg);
     }
 
     struct font *font = attrs_to_font(term, &cell->attrs);
