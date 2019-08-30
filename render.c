@@ -729,7 +729,8 @@ render_search_box(struct terminal *term)
 
     /* Background - yellow on empty/match, red on mismatch */
     pixman_color_t color = color_hex_to_pixman(
-        term->search.match_len == term->search.len ? 0xffff00 : 0xff0000);
+        term->search.match_len == term->search.len
+        ? term->colors.table[3] : term->colors.table[1]);
 
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix, &color,
@@ -738,7 +739,7 @@ render_search_box(struct terminal *term)
     struct font *font = &term->fonts[0];
     int x = margin;
     int y = margin;
-    pixman_color_t fg = color_hex_to_pixman(0x000000);
+    pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
     /* Text (what the user entered - *not* match(es)) */
     for (size_t i = 0; i < term->search.len; i++) {
