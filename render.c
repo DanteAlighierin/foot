@@ -754,7 +754,7 @@ render_search_box(struct terminal *term)
             glyph->width, glyph->height);
         pixman_image_unref(src);
 
-        x += glyph->width;
+        x += term->cell_width;
     }
 
     if (term->search.cursor >= term->search.len)
