@@ -353,12 +353,28 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
     }
 
     else if ((mods == alt || mods == ctrl) && sym == XKB_KEY_BackSpace) {
-        /* TODO: delete word backward */
+        size_t diff = distance_prev_word(term);
+        size_t old_cursor = term->search.cursor;
+        size_t new_cursor = old_cursor - diff;
+
+        memmove(&term->search.buf[new_cursor],
+                &term->search.buf[old_cursor],
+                (term->search.len - old_cursor) * sizeof(wchar_t));
+
+        term->search.len -= diff;
+        term->search.cursor = new_cursor;
     }
 
     else if ((mods == alt && sym == XKB_KEY_d) ||
              (mods == ctrl && sym == XKB_KEY_Delete)) {
-        /* TODO: delete word forward */
+        size_t diff = distance_next_word(term);
+        size_t cursor = term->search.cursor;
+
+        memmove(&term->search.buf[cursor],
+                &term->search.buf[cursor + diff],
+                (term->search.len - (cursor + diff)) * sizeof(wchar_t));
+
+        term->search.len -= diff;
     }
 
     else if (mods == 0 && sym == XKB_KEY_Delete) {
