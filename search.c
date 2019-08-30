@@ -357,7 +357,9 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
         }
     }
 
-    else if (mods == 0 && sym == XKB_KEY_Left) {
+    else if ((mods == 0 && sym == XKB_KEY_Left) ||
+             (mods == ctrl && sym == XKB_KEY_b))
+    {
         if (term->search.cursor > 0)
             term->search.cursor--;
     }
@@ -371,7 +373,9 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
         assert(term->search.cursor <= term->search.len);
     }
 
-    else if (mods == 0 && sym == XKB_KEY_Right) {
+    else if ((mods == 0 && sym == XKB_KEY_Right) ||
+             (mods == ctrl && sym == XKB_KEY_f))
+    {
         if (term->search.cursor < term->search.len)
             term->search.cursor++;
     }
