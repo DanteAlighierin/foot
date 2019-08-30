@@ -328,9 +328,27 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
             term->search.cursor--;
     }
 
+    else if ((mods == ctrl && sym == XKB_KEY_Left) ||
+             (mods == alt && sym == XKB_KEY_b))
+    {
+        size_t diff = distance_prev_word(term);
+        term->search.cursor -= diff;
+        assert(term->search.cursor >= 0);
+        assert(term->search.cursor <= term->search.len);
+    }
+
     else if (mods == 0 && sym == XKB_KEY_Right) {
         if (term->search.cursor < term->search.len)
             term->search.cursor++;
+    }
+
+    else if ((mods == ctrl && sym == XKB_KEY_Right) ||
+             (mods == alt && sym == XKB_KEY_f))
+    {
+        size_t diff = distance_next_word(term);
+        term->search.cursor += diff;
+        assert(term->search.cursor >= 0);
+        assert(term->search.cursor <= term->search.len);
     }
 
     else if ((mods == 0 && sym == XKB_KEY_Home) ||
