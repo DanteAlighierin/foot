@@ -693,7 +693,6 @@ pre_print(struct terminal *term)
     }
 }
 
-#include <wchar.h>
 static inline void
 post_print(struct terminal *term)
 {
