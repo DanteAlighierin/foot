@@ -339,6 +339,24 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
         }
     }
 
+    else if (mods == ctrl && sym == XKB_KEY_s) {
+        if (term->search.match_len > 0) {
+            int new_col = term->search.match.col + 1;
+            int new_row = term->search.match.row;
+
+            if (new_col >= term->cols) {
+                new_col = 0;
+                new_row++;
+            }
+
+            if (new_row < term->grid->num_rows) {
+                term->search.match.col = new_col;
+                term->search.match.row = new_row;
+                term->search.direction = SEARCH_FORWARD;
+            }
+        }
+    }
+
     else if (mods == 0 && sym == XKB_KEY_Left) {
         if (term->search.cursor > 0)
             term->search.cursor--;
