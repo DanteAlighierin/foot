@@ -102,7 +102,8 @@ available:
 
 * <kbd>return</kbd>
 
-  Finish the search and put the current match to the primary selection
+  Finish the search and copy the current match to the primary
+  selection
 
 ### Mouse
 
