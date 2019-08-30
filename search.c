@@ -1,6 +1,7 @@
 #include "search.h"
 
 #include <wchar.h>
+#include <wctype.h>
 
 #include <wayland-client.h>
 #include <xkbcommon/xkbcommon-compose.h>
@@ -215,6 +216,61 @@ search_update(struct terminal *term)
     term->search.match_len = 0;
     selection_cancel(term);
 #undef ROW_DEC
+}
+
+static size_t
+distance_next_word(const struct terminal *term)
+{
+    size_t cursor = term->search.cursor;
+
+    /* First eat non-whitespace. This is the word we're skipping past */
+    while (cursor < term->search.len) {
+        if (iswspace(term->search.buf[cursor++]))
+            break;
+    }
+
+    assert(cursor == term->search.len || iswspace(term->search.buf[cursor - 1]));
+
+    /* Now skip past whitespace, so that we end up at the beginning of
+     * the next word */
+    while (cursor < term->search.len) {
+        if (!iswspace(term->search.buf[cursor++]))
+            break;
+    }
+
+    LOG_INFO("cursor = %zu, iswspace() = %d", cursor, iswspace(term->search.buf[cursor - 1]));
+    assert(cursor == term->search.len || !iswspace(term->search.buf[cursor - 1]));
+
+    if (cursor < term->search.len && !iswspace(term->search.buf[cursor]))
+        cursor--;
+
+    return cursor - term->search.cursor;
+}
+
+static size_t
+distance_prev_word(const struct terminal *term)
+{
+    int cursor = term->search.cursor;
+
+    /* First, eat whitespace prefix */
+    while (cursor > 0) {
+        if (!iswspace(term->search.buf[--cursor]))
+            break;
+    }
+
+    assert(cursor == 0 || !iswspace(term->search.buf[cursor]));
+
+    /* Now eat non-whitespace. This is the word we're skipping past */
+    while (cursor > 0) {
+        if (iswspace(term->search.buf[--cursor]))
+            break;
+    }
+
+    assert(cursor == 0 || iswspace(term->search.buf[cursor]));
+    if (iswspace(term->search.buf[cursor]))
+        cursor++;
+
+    return term->search.cursor - cursor;
 }
 
 void
