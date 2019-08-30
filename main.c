@@ -130,8 +130,10 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 {
     struct monitor *mon = data;
     mon->scale = factor;
+
+    int old_scale = mon->term->scale >= 1 ? mon->term->scale : 1;
     render_reload_cursor_theme(mon->term);
-    render_resize(mon->term, mon->term->width, mon->term->height);
+    render_resize(mon->term, mon->term->width / old_scale, mon->term->height / old_scale);
 }
 
 static const struct wl_output_listener output_listener = {
@@ -271,8 +273,9 @@ surface_enter(void *data, struct wl_surface *wl_surface,
             tll_push_back(term->wl.on_outputs, &it->item);
 
             /* Resize, since scale-to-use may have changed */
+            int scale = term->scale >= 1 ? term->scale : 1;
             render_reload_cursor_theme(term);
-            render_resize(term, term->width, term->height);
+            render_resize(term, term->width / scale, term->height / scale);
             return;
         }
     }
@@ -293,8 +296,9 @@ surface_leave(void *data, struct wl_surface *wl_surface,
         tll_remove(term->wl.on_outputs, it);
 
         /* Resize, since scale-to-use may have changed */
+        int scale = term->scale >= 1 ? term->scale : 1;
         render_reload_cursor_theme(term);
-        render_resize(term, term->width, term->height);
+        render_resize(term, term->width / scale, term->height / scale);
         return;
     }
 
