@@ -72,6 +72,9 @@ struct wayland {
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
 
+    struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
+    struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
+
     /* Scrollback search */
     struct wl_surface *search_surface;
     struct wl_subsurface *search_sub_surface;

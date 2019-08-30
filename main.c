@@ -22,6 +22,7 @@
 #include <xkbcommon/xkbcommon-compose.h>
 
 #include <xdg-output-unstable-v1.h>
+#include <xdg-decoration-unstable-v1.h>
 
 #define LOG_MODULE "main"
 #define LOG_ENABLE_DBG 0
@@ -215,6 +216,10 @@ handle_global(void *data, struct wl_registry *registry,
         xdg_wm_base_add_listener(term->wl.shell, &xdg_wm_base_listener, term);
     }
 
+    else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0)
+        term->wl.xdg_decoration_manager = wl_registry_bind(
+            term->wl.registry, name, &zxdg_decoration_manager_v1_interface, 1);
+
     else if (strcmp(interface, wl_seat_interface.name) == 0) {
         term->wl.seat = wl_registry_bind(
             term->wl.registry, name, &wl_seat_interface, 5);
@@ -338,6 +343,30 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
 
 static const struct xdg_surface_listener xdg_surface_listener = {
     .configure = &xdg_surface_configure,
+};
+
+static void
+xdg_toplevel_decoration_configure(void *data,
+                                  struct zxdg_toplevel_decoration_v1 *zxdg_toplevel_decoration_v1,
+                                  uint32_t mode)
+{
+    switch (mode) {
+    case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
+        LOG_ERR("unimplemented: client-side decorations");
+        break;
+
+    case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
+        LOG_DBG("using server-side decorations");
+        break;
+
+    default:
+        LOG_ERR("unimplemented: unknown XDG toplevel decoration mode: %u", mode);
+        break;
+    }
+}
+
+static const struct zxdg_toplevel_decoration_v1_listener xdg_toplevel_decoration_listener = {
+    .configure = &xdg_toplevel_decoration_configure,
 };
 
 static void
@@ -741,6 +770,14 @@ main(int argc, char *const *argv)
     xdg_toplevel_set_app_id(term.wl.xdg_toplevel, "foot");
     term_set_window_title(&term, "foot");
 
+    /* Request server-side decorations */
+    term.wl.xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
+        term.wl.xdg_decoration_manager, term.wl.xdg_toplevel);
+    zxdg_toplevel_decoration_v1_set_mode(
+        term.wl.xdg_toplevel_decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+    zxdg_toplevel_decoration_v1_add_listener(
+        term.wl.xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, &term);
+
     /* Scrollback search box */
     term.wl.search_surface = wl_compositor_create_surface(term.wl.compositor);
     term.wl.search_sub_surface = wl_subcompositor_get_subsurface(
@@ -1061,6 +1098,10 @@ out:
         wl_surface_destroy(term.wl.search_surface);
     if (term.render.frame_callback != NULL)
         wl_callback_destroy(term.render.frame_callback);
+    if (term.wl.xdg_toplevel_decoration != NULL)
+        zxdg_toplevel_decoration_v1_destroy(term.wl.xdg_toplevel_decoration);
+    if (term.wl.xdg_decoration_manager != NULL)
+        zxdg_decoration_manager_v1_destroy(term.wl.xdg_decoration_manager);
     if (term.wl.xdg_toplevel != NULL)
         xdg_toplevel_destroy(term.wl.xdg_toplevel);
     if (term.wl.xdg_surface != NULL)
