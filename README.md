@@ -86,7 +86,11 @@ available:
 
 * <kbd>ctrl</kbd>+<kbd>r</kbd>
 
-  Search for next match
+  Search _backward_ for next match
+
+* <kbd>ctrl</kbd>+<kbd>s</kbd>
+
+  Search _forward_ for next match
 
 * <kbd>escape</kbd>
 
