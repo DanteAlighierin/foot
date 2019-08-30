@@ -101,6 +101,7 @@ font_baseline(const struct terminal *term)
 
 static void
 draw_bar(const struct terminal *term, pixman_image_t *pix,
+         const struct font *font,
          const pixman_color_t *color, int x, int y)
 {
     int baseline = y + font_baseline(term) - term->fextents.ascent;
@@ -108,7 +109,7 @@ draw_bar(const struct terminal *term, pixman_image_t *pix,
         PIXMAN_OP_SRC, pix, color,
         1, &(pixman_rectangle16_t){
             x, baseline,
-            1, term->fextents.ascent + term->fextents.descent});
+            font->underline.thickness, term->fextents.ascent + term->fextents.descent});
 }
 
 static void
@@ -259,7 +260,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             cursor_color = fg;
 
         if (term->cursor_style == CURSOR_BAR)
-            draw_bar(term, pix, &cursor_color, x, y);
+            draw_bar(term, pix, font, &cursor_color, x, y);
         else if (term->cursor_style == CURSOR_UNDERLINE)
             draw_underline(
                 term, pix, attrs_to_font(term, &cell->attrs), &cursor_color,
@@ -734,6 +735,7 @@ render_search_box(struct terminal *term)
         PIXMAN_OP_SRC, buf->pix, &color,
         1, &(pixman_rectangle16_t){0, 0, width, height});
 
+    struct font *font = &term->fonts[0];
     int x = margin;
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(0x000000);
@@ -741,9 +743,9 @@ render_search_box(struct terminal *term)
     /* Text (what the user entered - *not* match(es)) */
     for (size_t i = 0; i < term->search.len; i++) {
         if (i == term->search.cursor)
-            draw_bar(term, buf->pix, &fg, x, y);
+            draw_bar(term, buf->pix, font, &fg, x, y);
 
-        const struct glyph *glyph = font_glyph_for_wc(&term->fonts[0], term->search.buf[i]);
+        const struct glyph *glyph = font_glyph_for_wc(font, term->search.buf[i]);
         if (glyph == NULL)
             continue;
 
@@ -758,7 +760,7 @@ render_search_box(struct terminal *term)
     }
 
     if (term->search.cursor >= term->search.len)
-        draw_bar(term, buf->pix, &fg, x, y);
+        draw_bar(term, buf->pix, font, &fg, x, y);
 
     wl_subsurface_set_position(
         term->wl.search_sub_surface,
