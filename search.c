@@ -63,6 +63,9 @@ search_cancel(struct terminal *term)
 static void
 search_update(struct terminal *term)
 {
+    bool backward = term->search.direction == SEARCH_BACKWARD;
+    term->search.direction = SEARCH_BACKWARD;
+
     if (term->search.len == 0) {
         term->search.match = (struct coord){-1, -1};
         term->search.match_len = 0;
@@ -78,23 +81,36 @@ search_update(struct terminal *term)
            (len > 0 && start_row >= 0 && start_col >= 0));
 
     if (len == 0) {
-        start_row = grid_row_absolute_in_view(term->grid, term->rows - 1);
-        start_col = term->cols - 1;
+        if (backward) {
+            start_row = grid_row_absolute_in_view(term->grid, term->rows - 1);
+            start_col = term->cols - 1;
+        } else {
+            start_row = grid_row_absolute_in_view(term->grid, 0);
+            start_col = 0;
+        }
     }
 
-    LOG_DBG("search: update: starting at row=%d col=%d (offset = %d, view = %d)",
-            start_row, start_col, term->grid->offset, term->grid->view);
+    LOG_DBG("search: update: %s: starting at row=%d col=%d (offset = %d, view = %d)",
+            backward ? "backward" : "forward", start_row, start_col,
+            term->grid->offset, term->grid->view);
 
 #define ROW_DEC(_r) ((_r) = ((_r) - 1 + term->grid->num_rows) % term->grid->num_rows)
+#define ROW_INC(_r) ((_r) = ((_r) + 1) % term->grid->num_rows)
 
     /* Scan backward from current end-of-output */
     /* TODO: don't search "scrollback" in alt screen? */
-    for (size_t r = 0; r < term->grid->num_rows; ROW_DEC(start_row), r++) {
+    for (size_t r = 0;
+         r < term->grid->num_rows;
+         backward ? ROW_DEC(start_row) : ROW_INC(start_row), r++)
+    {
         const struct row *row = term->grid->rows[start_row];
         if (row == NULL)
             continue;
 
-        for (; start_col >= 0; start_col--) {
+        for (;
+             backward ? start_col >= 0 : start_col < term->cols;
+             backward ? start_col-- : start_col++)
+        {
             if (wcsncasecmp(&row->cells[start_col].wc, term->search.buf, 1) != 0)
                 continue;
 
@@ -207,7 +223,7 @@ search_update(struct terminal *term)
             return;
         }
 
-        start_col = term->cols - 1;
+        start_col = backward ? term->cols - 1 : 0;
     }
 
     /* No match */

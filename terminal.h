@@ -353,6 +353,7 @@ struct terminal {
         size_t len;
         size_t sz;
         size_t cursor;
+        enum { SEARCH_BACKWARD, SEARCH_FORWARD} direction;
 
         int original_view;
         bool view_followed_offset;
