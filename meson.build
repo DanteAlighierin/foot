@@ -60,6 +60,7 @@ wl_proto_headers = []
 wl_proto_src = []
 foreach prot : [
   wayland_protocols_datadir + '/stable/xdg-shell/xdg-shell.xml',
+  wayland_protocols_datadir + '/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml',
   wayland_protocols_datadir + '/unstable/xdg-output/xdg-output-unstable-v1.xml',
   wayland_protocols_datadir + '/unstable/primary-selection/primary-selection-unstable-v1.xml',
   ]
@@ -90,6 +91,7 @@ executable(
   'main.c',
   'osc.c', 'osc.h',
   'render.c', 'render.h',
+  'search.c', 'search.h',
   'selection.c', 'selection.h',
   'shm.c', 'shm.h',
   'slave.c', 'slave.h',

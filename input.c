@@ -18,11 +18,12 @@
 #define LOG_MODULE "input"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "terminal.h"
-#include "render.h"
-#include "keymap.h"
 #include "commands.h"
+#include "keymap.h"
+#include "render.h"
+#include "search.h"
 #include "selection.h"
+#include "terminal.h"
 #include "vt.h"
 
 static void
@@ -178,6 +179,12 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     xkb_mod_mask_t significant = ctrl | alt | shift | meta;
     xkb_mod_mask_t effective_mods = mods & ~consumed & significant;
 
+    if (term->is_searching) {
+        start_repeater(term, key - 8);
+        search_input(term, key, sym, effective_mods);
+        return;
+    }
+
 #if 0
     for (size_t i = 0; i < 32; i++) {
         if (mods & (1 << i)) {
@@ -218,6 +225,12 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
         else if (sym == XKB_KEY_V) {
             selection_from_clipboard(term, serial);
+            term_reset_view(term);
+            found_map = true;
+        }
+
+        else if (sym == XKB_KEY_R) {
+            search_begin(term);
             found_map = true;
         }
     }
@@ -243,11 +256,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             vt_to_slave(term, info->seq, strlen(info->seq));
             found_map = true;
 
-            if (term->grid->view != term->grid->offset) {
-                term->grid->view = term->grid->offset;
-                term_damage_all(term);
-            }
-
+            term_reset_view(term);
             selection_cancel(term);
             break;
         }
@@ -308,13 +317,9 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                     vt_to_slave(term, "\x1b", 1);
 
                 vt_to_slave(term, buf, count);
-
-                if (term->grid->view != term->grid->offset) {
-                    term->grid->view = term->grid->offset;
-                    term_damage_all(term);
-                }
             }
 
+            term_reset_view(term);
             selection_cancel(term);
         }
     }
@@ -435,6 +440,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     LOG_DBG("BUTTON: button=%x, state=%u", button, state);
 
     struct terminal *term = data;
+
+    search_cancel(term);
 
     switch (state) {
     case WL_POINTER_BUTTON_STATE_PRESSED: {

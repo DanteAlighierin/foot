@@ -72,14 +72,44 @@ pixman_color_dim(pixman_color_t *color)
     color->blue /= 2;
 }
 
+static inline void
+pixman_color_dim_for_search(pixman_color_t *color)
+{
+    color->red /= 3;
+    color->green /= 3;
+    color->blue /= 3;
+}
+
+static inline int
+font_baseline(const struct terminal *term)
+{
+    assert(term->fextents.ascent >= 0);
+    assert(term->fextents.descent >= 0);
+
+    int diff = term->fextents.height - (term->fextents.ascent + term->fextents.descent);
+    assert(diff >= 0);
+
+#if 0
+    LOG_INFO("height=%d, ascent=%d, descent=%d, diff=%d",
+             term->fextents.height,
+             term->fextents.ascent, term->fextents.descent,
+             diff);
+#endif
+
+    return term->fextents.height - diff / 2 - term->fextents.descent;
+}
+
 static void
 draw_bar(const struct terminal *term, pixman_image_t *pix,
+         const struct font *font,
          const pixman_color_t *color, int x, int y)
 {
-    /* TODO: investigate if this is the best way */
+    int baseline = y + font_baseline(term) - term->fextents.ascent;
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, pix, color,
-        1, &(pixman_rectangle16_t){x, y, 1, term->cell_height});
+        1, &(pixman_rectangle16_t){
+            x, baseline,
+            font->underline.thickness, term->fextents.ascent + term->fextents.descent});
 }
 
 static void
@@ -87,7 +117,7 @@ draw_underline(const struct terminal *term, pixman_image_t *pix,
                const struct font *font,
                const pixman_color_t *color, int x, int y, int cols)
 {
-    int baseline = y + term->fextents.height - term->fextents.descent;
+    int baseline = y + font_baseline(term);
     int width = font->underline.thickness;
     int y_under = baseline - font->underline.position - width / 2;
 
@@ -101,7 +131,7 @@ draw_strikeout(const struct terminal *term, pixman_image_t *pix,
                const struct font *font,
                const pixman_color_t *color, int x, int y, int cols)
 {
-    int baseline = y + term->fextents.height - term->fextents.descent;
+    int baseline = y + font_baseline(term);
     int width = font->strikeout.thickness;
     int y_strike = baseline - font->strikeout.position - width / 2;
 
@@ -204,6 +234,11 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         bg = color_hex_to_pixman(term->cursor_color.cursor);
     }
 
+    if (term->is_searching && !is_selected) {
+        pixman_color_dim_for_search(&fg);
+        pixman_color_dim_for_search(&bg);
+    }
+
     struct font *font = attrs_to_font(term, &cell->attrs);
     const struct glyph *glyph = font_glyph_for_wc(font, cell->wc);
 
@@ -216,12 +251,16 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     /* Non-block cursors */
     if (has_cursor && !block_cursor) {
-        pixman_color_t cursor_color = term->cursor_color.text >> 31
-            ? color_hex_to_pixman(term->cursor_color.cursor)
-            : fg;
+        pixman_color_t cursor_color;
+        if (term->cursor_color.text >> 31) {
+            cursor_color = color_hex_to_pixman(term->cursor_color.cursor);
+            if (term->is_searching)
+                pixman_color_dim(&cursor_color);
+        } else
+            cursor_color = fg;
 
         if (term->cursor_style == CURSOR_BAR)
-            draw_bar(term, pix, &cursor_color, x, y);
+            draw_bar(term, pix, font, &cursor_color, x, y);
         else if (term->cursor_style == CURSOR_UNDERLINE)
             draw_underline(
                 term, pix, attrs_to_font(term, &cell->attrs), &cursor_color,
@@ -435,9 +474,10 @@ grid_render(struct terminal *term)
         term_damage_view(term);
 
     /* If we resized the window, or is flashing, or just stopped flashing */
-    if (term->render.last_buf != buf || term->flash.active || term->render.was_flashing) {
-        LOG_DBG("new buffer");
-
+    if (term->render.last_buf != buf ||
+        term->flash.active || term->render.was_flashing ||
+        term->is_searching != term->render.was_searching)
+    {
         /* Fill area outside the cell grid with the default background color */
         int rmargin = term->x_margin + term->cols * term->cell_width;
         int bmargin = term->y_margin + term->rows * term->cell_height;
@@ -445,8 +485,10 @@ grid_render(struct terminal *term)
         int bmargin_height = term->height - bmargin;
 
         uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
-
         pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
+        if (term->is_searching)
+            pixman_color_dim(&bg);
+
         pixman_image_fill_rectangles(
             PIXMAN_OP_SRC, pix, &bg, 4,
             (pixman_rectangle16_t[]){
@@ -469,6 +511,7 @@ grid_render(struct terminal *term)
 
         term->render.last_buf = buf;
         term->render.was_flashing = term->flash.active;
+        term->render.was_searching = term->is_searching;
     }
 
     tll_foreach(term->grid->scroll_damage, it) {
@@ -626,6 +669,7 @@ grid_render(struct terminal *term)
 
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
+        /* TODO: dim while searching */
         pixman_image_fill_rectangles(
             PIXMAN_OP_OVER, pix,
             &(pixman_color_t){.red=0x7fff, .green=0x7fff, .blue=0, .alpha=0x7fff},
@@ -667,6 +711,65 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     wl_callback_destroy(wl_callback);
     term->render.frame_callback = NULL;
     grid_render(term);
+}
+
+void
+render_search_box(struct terminal *term)
+{
+    assert(term->wl.search_sub_surface != NULL);
+
+    /* TODO: at least sway allows the subsurface to extend outside the
+     * main window. Do we want that? */
+    const int scale = term->scale >= 1 ? term->scale : 1;
+    const int margin = scale * 3;
+    const int width = 2 * margin + max(20, term->search.len) * term->cell_width;
+    const int height = 2 * margin + 1 * term->cell_height;
+
+    struct buffer *buf = shm_get_buffer(term->wl.shm, width, height, 1);
+
+    /* Background - yellow on empty/match, red on mismatch */
+    pixman_color_t color = color_hex_to_pixman(
+        term->search.match_len == term->search.len ? 0xffff00 : 0xff0000);
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &color,
+        1, &(pixman_rectangle16_t){0, 0, width, height});
+
+    struct font *font = &term->fonts[0];
+    int x = margin;
+    int y = margin;
+    pixman_color_t fg = color_hex_to_pixman(0x000000);
+
+    /* Text (what the user entered - *not* match(es)) */
+    for (size_t i = 0; i < term->search.len; i++) {
+        if (i == term->search.cursor)
+            draw_bar(term, buf->pix, font, &fg, x, y);
+
+        const struct glyph *glyph = font_glyph_for_wc(font, term->search.buf[i]);
+        if (glyph == NULL)
+            continue;
+
+        pixman_image_t *src = pixman_image_create_solid_fill(&fg);
+        pixman_image_composite32(
+            PIXMAN_OP_OVER, src, glyph->pix, buf->pix, 0, 0, 0, 0,
+            x + glyph->x, y + term->fextents.ascent - glyph->y,
+            glyph->width, glyph->height);
+        pixman_image_unref(src);
+
+        x += term->cell_width;
+    }
+
+    if (term->search.cursor >= term->search.len)
+        draw_bar(term, buf->pix, font, &fg, x, y);
+
+    wl_subsurface_set_position(
+        term->wl.search_sub_surface,
+        term->width - width - margin, term->height - height - margin);
+
+    wl_surface_damage_buffer(term->wl.search_surface, 0, 0, width, height);
+    wl_surface_attach(term->wl.search_surface, buf->wl_buf, 0, 0);
+    wl_surface_set_buffer_scale(term->wl.search_surface, scale);
+    wl_surface_commit(term->wl.search_surface);
 }
 
 static void

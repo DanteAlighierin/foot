@@ -20,7 +20,10 @@
 bool
 selection_enabled(const struct terminal *term)
 {
-    return term->mouse_tracking == MOUSE_NONE || term->kbd.shift;
+    return
+        term->mouse_tracking == MOUSE_NONE ||
+        term->kbd.shift ||
+        term->is_searching;
 }
 
 bool

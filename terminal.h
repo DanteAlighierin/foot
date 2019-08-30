@@ -41,15 +41,20 @@ struct wayland {
     struct wl_display *display;
     struct wl_registry *registry;
     struct wl_compositor *compositor;
-    struct wl_surface *surface;
+    struct wl_subcompositor *sub_compositor;
     struct wl_shm *shm;
+
     struct wl_seat *seat;
+    struct wl_keyboard *keyboard;
     struct zxdg_output_manager_v1 *xdg_output_manager;
+
+    /* Clipboard */
     struct wl_data_device_manager *data_device_manager;
     struct wl_data_device *data_device;
     struct zwp_primary_selection_device_manager_v1 *primary_selection_device_manager;
     struct zwp_primary_selection_device_v1 *primary_selection_device;
-    struct wl_keyboard *keyboard;
+
+    /* Cursor */
     struct {
         struct wl_pointer *pointer;
         uint32_t serial;
@@ -60,9 +65,20 @@ struct wayland {
         int size;
         char *theme_name;
     } pointer;
+
+    /* Main window */
+    struct wl_surface *surface;
     struct xdg_wm_base *shell;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
+
+    struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
+    struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
+
+    /* Scrollback search */
+    struct wl_surface *search_surface;
+    struct wl_subsurface *search_sub_surface;
+
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
     tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
@@ -331,6 +347,20 @@ struct terminal {
         struct primary primary;
     } selection;
 
+    bool is_searching;
+    struct {
+        wchar_t *buf;
+        size_t len;
+        size_t sz;
+        size_t cursor;
+        enum { SEARCH_BACKWARD, SEARCH_FORWARD} direction;
+
+        int original_view;
+        bool view_followed_offset;
+        struct coord match;
+        size_t match_len;
+    } search;
+
     struct grid normal;
     struct grid alt;
     struct grid *grid;
@@ -368,6 +398,7 @@ struct terminal {
 
         struct buffer *last_buf;     /* Buffer we rendered to last time */
         bool was_flashing;           /* Flash was active last time we rendered */
+        bool was_searching;
     } render;
 };
 
@@ -378,6 +409,8 @@ void term_damage_rows_in_view(struct terminal *term, int start, int end);
 
 void term_damage_all(struct terminal *term);
 void term_damage_view(struct terminal *term);
+
+void term_reset_view(struct terminal *term);
 
 void term_damage_scroll(
     struct terminal *term, enum damage_type damage_type,

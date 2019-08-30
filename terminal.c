@@ -363,6 +363,16 @@ term_reverse_index(struct terminal *term)
 }
 
 void
+term_reset_view(struct terminal *term)
+{
+    if (term->grid->view == term->grid->offset)
+        return;
+
+    term->grid->view = term->grid->offset;
+    term_damage_view(term);
+}
+
+void
 term_restore_cursor(struct terminal *term)
 {
     int row = min(term->saved_cursor.row, term->rows - 1);

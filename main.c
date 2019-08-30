@@ -14,6 +14,7 @@
 #include <sys/sysinfo.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 
 #include <freetype/tttables.h>
 #include <wayland-client.h>
@@ -22,6 +23,7 @@
 #include <xkbcommon/xkbcommon-compose.h>
 
 #include <xdg-output-unstable-v1.h>
+#include <xdg-decoration-unstable-v1.h>
 
 #define LOG_MODULE "main"
 #define LOG_ENABLE_DBG 0
@@ -129,8 +131,10 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 {
     struct monitor *mon = data;
     mon->scale = factor;
+
+    int old_scale = mon->term->scale >= 1 ? mon->term->scale : 1;
     render_reload_cursor_theme(mon->term);
-    render_resize(mon->term, mon->term->width, mon->term->height);
+    render_resize(mon->term, mon->term->width / old_scale, mon->term->height / old_scale);
 }
 
 static const struct wl_output_listener output_listener = {
@@ -197,6 +201,11 @@ handle_global(void *data, struct wl_registry *registry,
             term->wl.registry, name, &wl_compositor_interface, 4);
     }
 
+    else if (strcmp(interface, wl_subcompositor_interface.name) == 0) {
+        term->wl.sub_compositor = wl_registry_bind(
+            term->wl.registry, name, &wl_subcompositor_interface, 1);
+    }
+
     else if (strcmp(interface, wl_shm_interface.name) == 0) {
         term->wl.shm = wl_registry_bind(
             term->wl.registry, name, &wl_shm_interface, 1);
@@ -209,6 +218,10 @@ handle_global(void *data, struct wl_registry *registry,
             term->wl.registry, name, &xdg_wm_base_interface, 1);
         xdg_wm_base_add_listener(term->wl.shell, &xdg_wm_base_listener, term);
     }
+
+    else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0)
+        term->wl.xdg_decoration_manager = wl_registry_bind(
+            term->wl.registry, name, &zxdg_decoration_manager_v1_interface, 1);
 
     else if (strcmp(interface, wl_seat_interface.name) == 0) {
         term->wl.seat = wl_registry_bind(
@@ -261,8 +274,9 @@ surface_enter(void *data, struct wl_surface *wl_surface,
             tll_push_back(term->wl.on_outputs, &it->item);
 
             /* Resize, since scale-to-use may have changed */
+            int scale = term->scale >= 1 ? term->scale : 1;
             render_reload_cursor_theme(term);
-            render_resize(term, term->width, term->height);
+            render_resize(term, term->width / scale, term->height / scale);
             return;
         }
     }
@@ -283,8 +297,9 @@ surface_leave(void *data, struct wl_surface *wl_surface,
         tll_remove(term->wl.on_outputs, it);
 
         /* Resize, since scale-to-use may have changed */
+        int scale = term->scale >= 1 ? term->scale : 1;
         render_reload_cursor_theme(term);
-        render_resize(term, term->width, term->height);
+        render_resize(term, term->width / scale, term->height / scale);
         return;
     }
 
@@ -333,6 +348,30 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
 
 static const struct xdg_surface_listener xdg_surface_listener = {
     .configure = &xdg_surface_configure,
+};
+
+static void
+xdg_toplevel_decoration_configure(void *data,
+                                  struct zxdg_toplevel_decoration_v1 *zxdg_toplevel_decoration_v1,
+                                  uint32_t mode)
+{
+    switch (mode) {
+    case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
+        LOG_ERR("unimplemented: client-side decorations");
+        break;
+
+    case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
+        LOG_DBG("using server-side decorations");
+        break;
+
+    default:
+        LOG_ERR("unimplemented: unknown XDG toplevel decoration mode: %u", mode);
+        break;
+    }
+}
+
+static const struct zxdg_toplevel_decoration_v1_listener xdg_toplevel_decoration_listener = {
+    .configure = &xdg_toplevel_decoration_configure,
 };
 
 static void
@@ -630,7 +669,7 @@ main(int argc, char *const *argv)
 
     term.cell_width = (int)ceil(term.fextents.max_x_advance);
     term.cell_height = (int)ceil(term.fextents.height);
-    LOG_DBG("cell width=%d, height=%d", term.cell_width, term.cell_height);
+    LOG_INFO("cell width=%d, height=%d", term.cell_width, term.cell_height);
 
     term.wl.display = wl_display_connect(NULL);
     if (term.wl.display == NULL) {
@@ -718,6 +757,7 @@ main(int argc, char *const *argv)
         goto out;
     }
 
+    /* Main window */
     term.wl.surface = wl_compositor_create_surface(term.wl.compositor);
     if (term.wl.surface == NULL) {
         LOG_ERR("failed to create wayland surface");
@@ -734,6 +774,20 @@ main(int argc, char *const *argv)
 
     xdg_toplevel_set_app_id(term.wl.xdg_toplevel, "foot");
     term_set_window_title(&term, "foot");
+
+    /* Request server-side decorations */
+    term.wl.xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
+        term.wl.xdg_decoration_manager, term.wl.xdg_toplevel);
+    zxdg_toplevel_decoration_v1_set_mode(
+        term.wl.xdg_toplevel_decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+    zxdg_toplevel_decoration_v1_add_listener(
+        term.wl.xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, &term);
+
+    /* Scrollback search box */
+    term.wl.search_surface = wl_compositor_create_surface(term.wl.compositor);
+    term.wl.search_sub_surface = wl_subcompositor_get_subsurface(
+        term.wl.sub_compositor, term.wl.search_surface, term.wl.surface);
+    wl_subsurface_set_desync(term.wl.search_sub_surface);
 
     wl_surface_commit(term.wl.surface);
     wl_display_roundtrip(term.wl.display);
@@ -835,8 +889,9 @@ main(int argc, char *const *argv)
         }
     }
 
+    bool timeout_is_armed = false;
+    int timeout_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
 
-    int timeout_ms = -1;
     while (true) {
         struct pollfd fds[] = {
             {.fd = wl_display_get_fd(term.wl.display), .events = POLLIN},
@@ -844,10 +899,11 @@ main(int argc, char *const *argv)
             {.fd = term.kbd.repeat.fd,            .events = POLLIN},
             {.fd = term.flash.fd,                 .events = POLLIN},
             {.fd = term.blink.fd,                 .events = POLLIN},
+            {.fd = timeout_fd,                    .events = POLLIN},
         };
 
         wl_display_flush(term.wl.display);
-        int pret = poll(fds, sizeof(fds) / sizeof(fds[0]), timeout_ms);
+        int pret = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
 
         if (pret == -1) {
             if (errno == EINTR)
@@ -857,13 +913,19 @@ main(int argc, char *const *argv)
             break;
         }
 
-        if (pret == 0 || (timeout_ms != -1 && !(fds[1].revents & POLLIN))) {
-            /* Delayed rendering */
-            render_refresh(&term);
-        }
+        if (fds[5].revents & POLLIN) {
+            assert(timeout_is_armed);
 
-        /* Reset poll timeout to infinity */
-        timeout_ms = -1;
+            uint64_t unused;
+            ssize_t ret = read(timeout_fd, &unused, sizeof(unused));
+
+            if (ret < 0 && errno != EAGAIN)
+                LOG_ERRNO("failed to read timeout timer");
+            else if (ret > 0) {
+                timeout_is_armed = false;
+                render_refresh(&term);
+            }
+        }
 
         if (fds[0].revents & POLLIN) {
             wl_display_dispatch(term.wl.display);
@@ -915,7 +977,10 @@ main(int argc, char *const *argv)
                  * ourselves we just received keyboard input, and in
                  * this case *not* delay rendering?
                  */
-                timeout_ms = 1;
+                if (!timeout_is_armed) {
+                    timerfd_settime(timeout_fd, 0, &(struct itimerspec){.it_value = {.tv_nsec = 1000000}}, NULL);
+                    timeout_is_armed = true;
+                }
             }
         }
 
@@ -986,8 +1051,9 @@ main(int argc, char *const *argv)
                 render_refresh(&term);
             }
         }
-
     }
+
+    close(timeout_fd);
 
 out:
     mtx_lock(&term.render.workers.lock);
@@ -1014,12 +1080,6 @@ out:
     if (term.wl.xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(term.wl.xdg_output_manager);
 
-    if (term.render.frame_callback != NULL)
-        wl_callback_destroy(term.render.frame_callback);
-    if (term.wl.xdg_toplevel != NULL)
-        xdg_toplevel_destroy(term.wl.xdg_toplevel);
-    if (term.wl.xdg_surface != NULL)
-        xdg_surface_destroy(term.wl.xdg_surface);
     free(term.wl.pointer.theme_name);
     if (term.wl.pointer.theme != NULL)
         wl_cursor_theme_destroy(term.wl.pointer.theme);
@@ -1049,12 +1109,28 @@ out:
         zwp_primary_selection_device_manager_v1_destroy(term.wl.primary_selection_device_manager);
     if (term.wl.seat != NULL)
         wl_seat_destroy(term.wl.seat);
-    if (term.wl.surface != NULL)
-        wl_surface_destroy(term.wl.surface);
+    if (term.wl.search_sub_surface != NULL)
+        wl_subsurface_destroy(term.wl.search_sub_surface);
+    if (term.wl.search_surface != NULL)
+        wl_surface_destroy(term.wl.search_surface);
+    if (term.render.frame_callback != NULL)
+        wl_callback_destroy(term.render.frame_callback);
+    if (term.wl.xdg_toplevel_decoration != NULL)
+        zxdg_toplevel_decoration_v1_destroy(term.wl.xdg_toplevel_decoration);
+    if (term.wl.xdg_decoration_manager != NULL)
+        zxdg_decoration_manager_v1_destroy(term.wl.xdg_decoration_manager);
+    if (term.wl.xdg_toplevel != NULL)
+        xdg_toplevel_destroy(term.wl.xdg_toplevel);
+    if (term.wl.xdg_surface != NULL)
+        xdg_surface_destroy(term.wl.xdg_surface);
     if (term.wl.shell != NULL)
         xdg_wm_base_destroy(term.wl.shell);
+    if (term.wl.surface != NULL)
+        wl_surface_destroy(term.wl.surface);
     if (term.wl.shm != NULL)
         wl_shm_destroy(term.wl.shm);
+    if (term.wl.sub_compositor != NULL)
+        wl_subcompositor_destroy(term.wl.sub_compositor);
     if (term.wl.compositor != NULL)
         wl_compositor_destroy(term.wl.compositor);
     if (term.wl.registry != NULL)
@@ -1085,6 +1161,8 @@ out:
 
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++)
         font_destroy(&term.fonts[i]);
+
+    free(term.search.buf);
 
     if (term.flash.fd != -1)
         close(term.flash.fd);
