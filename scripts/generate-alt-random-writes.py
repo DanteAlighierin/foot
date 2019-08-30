@@ -63,6 +63,9 @@ def main():
             col = rand.read(1)[0] % cols
             c = alphabet[rand.read(1)[0] % len(alphabet)]
 
+            repeat = rand.read(1)[0] % (cols - col) + 1
+            assert col + repeat <= cols
+
             color_variant = color_variants[rand.read(1)[0] % len(color_variants)]
 
             # Position cursor
@@ -81,7 +84,7 @@ def main():
                 rgb = rand.read(3)
                 out.write(f'\033[{48 if do_bg else 38}:2::{rgb[0]}:{rgb[1]}:{rgb[2]}m')
 
-            out.write(c)
+            out.write(c * repeat)
 
             if color_variant != ColorVariant.NONE:
                 do_sgr_reset = rand.read(1)[0] % 2
