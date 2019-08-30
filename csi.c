@@ -516,14 +516,38 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 'h':
-            /* smir - insert mode enable */
-            assert(false && "untested");
-            term->insert_mode = true;
+            /* Set mode */
+            switch (vt_param_get(term, 0, 0)) {
+            case 2:   /* Keyboard Action Mode - AM */
+                LOG_WARN("unimplemented: keyboard action mode (AM)");
+                break;
+
+            case 4:   /* Insert Mode - IRM */
+                term->insert_mode = true;
+                break;
+
+            case 12:  /* Send/receive Mode - SRM */
+                LOG_WARN("unimplemented: send/receive mode (SRM)");
+                break;
+
+            case 20:  /* Automatic Newline Mode - LNM */
+                LOG_WARN("unimplemented: automatic newline mode (LNM)");
+                break;
+            }
             break;
 
         case 'l':
-            /* rmir - insert mode disable */
-            term->insert_mode = false;
+            /* Reset mode */
+            switch (vt_param_get(term, 0, 0)) {
+            case 4:   /* Insert Mode - IRM */
+                term->insert_mode = false;
+                break;
+
+            case 2:   /* Keyboard Action Mode - AM */
+            case 12:  /* Send/receive Mode - SRM */
+            case 20:  /* Automatic Newline Mode - LNM */
+                break;
+            }
             break;
 
         case 'r': {
