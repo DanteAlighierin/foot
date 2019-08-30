@@ -12,6 +12,8 @@
 #include "grid.h"
 #include "osc.h"
 
+#define max(x, y) ((x) > (y) ? (x) : (y))
+
 #define UNHANDLED() LOG_ERR("unhandled: %s", esc_as_string(term, final))
 
 /* https://vt100.net/emu/dec_ansi_parser */
@@ -703,17 +705,21 @@ post_print(struct terminal *term)
 }
 
 static inline void
-print_insert(struct terminal *term)
+print_insert(struct terminal *term, int width)
 {
    if (unlikely(term->insert_mode)) {
-        assert(false && "untested");
+       struct row *row = term->grid->cur_row;
+       const size_t move_count = max(0, term->cols - term->cursor.col - width);
 
-        struct row *row = term->grid->cur_row;
-        memmove(
-            &row[term->cursor.col + 1],
-            &row[term->cursor.col],
-            term->cols - term->cursor.col - 1);
-    }
+       memmove(
+           &row->cells[term->cursor.col + width],
+           &row->cells[term->cursor.col],
+           move_count * sizeof(struct cell));
+
+       /* Mark moved cells as dirty */
+       for (size_t i = term->cursor.col + width; i < term->cols; i++)
+           row->cells[i].attrs.clean = 0;
+   }
 }
 
 static void
@@ -724,20 +730,23 @@ action_print_utf8(struct terminal *term)
     struct row *row = term->grid->cur_row;
     struct cell *cell = &row->cells[term->cursor.col];
 
-    row->dirty = true;
-    cell->attrs.clean = 0;
-
-    print_insert(term);
-
+    /* Convert to wchar */
     mbstate_t ps = {0};
-    if (mbrtowc(&cell->wc, (const char *)term->vt.utf8.data, term->vt.utf8.idx, &ps) < 0)
-        cell->wc = 0;
-    
-    term->vt.utf8.idx = 0;
+    wchar_t wc;
+    if (mbrtowc(&wc, (const char *)term->vt.utf8.data, term->vt.utf8.idx, &ps) < 0)
+        wc = 0;
 
+    int width = wcwidth(wc);
+    print_insert(term, width);
+
+    row->dirty = true;
+    cell->wc = wc;
+    cell->attrs.clean = 0;
     cell->attrs = term->vt.attrs;
 
-    int width = wcwidth(cell->wc);
+    /* Reset VT utf8 state */
+    term->vt.utf8.idx = 0;
+
     if (width <= 0) {
         /* Skip post_print() below - i.e. don't advance cursor */
         return;
@@ -768,7 +777,7 @@ action_print(struct terminal *term, uint8_t c)
     row->dirty = true;
     cell->attrs.clean = 0;
 
-    print_insert(term);
+    print_insert(term, 1);
 
     /* 0x60 - 0x7e */
     static const wchar_t vt100_0[] = {
