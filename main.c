@@ -14,6 +14,7 @@
 #include <sys/sysinfo.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
+#include <sys/time.h>
 
 #include <freetype/tttables.h>
 #include <wayland-client.h>
@@ -888,8 +889,9 @@ main(int argc, char *const *argv)
         }
     }
 
+    bool timeout_is_armed = false;
+    int timeout_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
 
-    int timeout_ms = -1;
     while (true) {
         struct pollfd fds[] = {
             {.fd = wl_display_get_fd(term.wl.display), .events = POLLIN},
@@ -897,10 +899,11 @@ main(int argc, char *const *argv)
             {.fd = term.kbd.repeat.fd,            .events = POLLIN},
             {.fd = term.flash.fd,                 .events = POLLIN},
             {.fd = term.blink.fd,                 .events = POLLIN},
+            {.fd = timeout_fd,                    .events = POLLIN},
         };
 
         wl_display_flush(term.wl.display);
-        int pret = poll(fds, sizeof(fds) / sizeof(fds[0]), timeout_ms);
+        int pret = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
 
         if (pret == -1) {
             if (errno == EINTR)
@@ -910,13 +913,19 @@ main(int argc, char *const *argv)
             break;
         }
 
-        if (pret == 0 || (timeout_ms != -1 && !(fds[1].revents & POLLIN))) {
-            /* Delayed rendering */
-            render_refresh(&term);
-        }
+        if (fds[5].revents & POLLIN) {
+            assert(timeout_is_armed);
 
-        /* Reset poll timeout to infinity */
-        timeout_ms = -1;
+            uint64_t unused;
+            ssize_t ret = read(timeout_fd, &unused, sizeof(unused));
+
+            if (ret < 0 && errno != EAGAIN)
+                LOG_ERRNO("failed to read timeout timer");
+            else if (ret > 0) {
+                timeout_is_armed = false;
+                render_refresh(&term);
+            }
+        }
 
         if (fds[0].revents & POLLIN) {
             wl_display_dispatch(term.wl.display);
@@ -968,7 +977,10 @@ main(int argc, char *const *argv)
                  * ourselves we just received keyboard input, and in
                  * this case *not* delay rendering?
                  */
-                timeout_ms = 1;
+                if (!timeout_is_armed) {
+                    timerfd_settime(timeout_fd, 0, &(struct itimerspec){.it_value = {.tv_nsec = 1000000}}, NULL);
+                    timeout_is_armed = true;
+                }
             }
         }
 
@@ -1039,8 +1051,9 @@ main(int argc, char *const *argv)
                 render_refresh(&term);
             }
         }
-
     }
+
+    close(timeout_fd);
 
 out:
     mtx_lock(&term.render.workers.lock);
