@@ -267,7 +267,7 @@ distance_prev_word(const struct terminal *term)
     }
 
     assert(cursor == 0 || iswspace(term->search.buf[cursor]));
-    if (iswspace(term->search.buf[cursor]))
+    if (cursor > 0 && iswspace(term->search.buf[cursor]))
         cursor++;
 
     return term->search.cursor - cursor;
