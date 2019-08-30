@@ -25,6 +25,59 @@ execute (instead of the shell).
 *-v*,*--version*
 	Show the version number and quit
 
+# KEYBOARD SHORTCUTS
+
+The following keyboard shortcuts are available. Note that they cannot
+be changed.
+
+*shift*+*page up*/*page down*
+	Scroll up/down in history
+
+*ctrl*+*shift*+*c*
+	Copy selected text to the _clipboard_
+
+*ctrl*+*shift*+*v*
+	Paste from _clipboard_
+
+*ctrl*+*shift*+*r*
+	Start a scrollback search
+
+While doing a scrollback search, the following shortcuts are
+available:
+
+*ctrl*+*r*
+	Search _backward_ for the next match
+
+*ctrl*+*s*
+	Search _forward_ for the next match
+
+*escape*, *ctrl*+*g*
+	Cancel the search
+
+*return*
+	Finish the search and copy the current match to the primary
+	selection
+
+# MOUSE SHORTCUTS
+
+*left*, single-click
+	Drag to select; when released, the selected text is copied to the
+	_primary_ selection. Note that this feature is normally
+	*disabled* whenever the client has enabled _mouse tracking_, but
+	can be forced by holding *shift*.
+
+*left*, double-click
+	Selects the _word_ (separated by spaces, period, comma,
+	parenthesis etc) under the pointer. Hold *ctrl* to select
+	everything under the pointer up to, and until, the next space
+	characters.
+
+*left*, triple-click
+	Selects the entire row
+
+*middle*
+	Paste from the _primary_ selection
+
 
 # FONT FORMAT
 
