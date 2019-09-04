@@ -109,6 +109,7 @@ csi_sgr(struct terminal *term)
             break;
 
         case 38: {
+            /* Indexed: 38;5;<idx> */
             if (term->vt.params.idx - i - 1 >= 2 &&
                 term->vt.params.v[i + 1].value == 5)
             {
@@ -119,6 +120,7 @@ csi_sgr(struct terminal *term)
 
             }
 
+            /* RGB: 38;2;<r>;<g>;<b> */
             else if (term->vt.params.idx - i - 1 >= 4 &&
                      term->vt.params.v[i + 1].value == 2)
             {
@@ -130,11 +132,21 @@ csi_sgr(struct terminal *term)
                 i += 4;
             }
 
-            else if (term->vt.params.v[i].sub.idx > 0) {
+            /* Sub-parameter style: 38:2:... */
+            else if (term->vt.params.v[i].sub.idx >= 2 &&
+                     term->vt.params.v[i].sub.value[0] == 2)
+            {
                 const struct vt_param *param = &term->vt.params.v[i];
+                const int color_space_id = param->sub.value[1];
 
-                if (param->sub.value[0] == 2 && param->sub.idx >= 5) {
-                    int color_space_id __attribute__((unused)) = param->sub.value[1];
+                switch (color_space_id) {
+                case 0:   /* Implementation defined - we map it to '2' */
+                case 2: { /* RGB - 38:2:2:<r>:<g>:<b> */
+                    if (param->sub.idx < 5) {
+                        UNHANDLED_SGR();
+                        break;
+                    }
+
                     uint8_t r = param->sub.value[2];
                     uint8_t g = param->sub.value[3];
                     uint8_t b = param->sub.value[4];
@@ -144,10 +156,30 @@ csi_sgr(struct terminal *term)
 
                     term->vt.attrs.have_fg = 1;
                     term->vt.attrs.fg = r << 16 | g << 8 | b;
-                } else
+                    break;
+                }
+
+                case 5: { /* Indexed - 38:2:5:<idx> */
+                    if (param->sub.idx < 3) {
+                        UNHANDLED_SGR();
+                        break;
+                    }
+
+                    uint8_t idx = param->sub.value[2];
+                    term->vt.attrs.have_fg = 1;
+                    term->vt.attrs.fg = term->colors.table[idx];
+                    break;
+                }
+
+                case 1: /* Transparent */
+                case 3: /* CMY */
+                case 4: /* CMYK */
                     UNHANDLED_SGR();
+                    break;
+                }
             }
 
+            /* Unrecognized */
             else
                 UNHANDLED_SGR();
 
@@ -172,6 +204,7 @@ csi_sgr(struct terminal *term)
             break;
 
         case 48: {
+            /* Indexed: 48;5;<idx> */
             if (term->vt.params.idx - i - 1 >= 2 &&
                 term->vt.params.v[i + 1].value == 5)
             {
@@ -179,10 +212,12 @@ csi_sgr(struct terminal *term)
                 term->vt.attrs.have_bg = 1;
                 term->vt.attrs.bg = term->colors.table[idx];
                 i += 2;
+
             }
 
+            /* RGB: 48;2;<r>;<g>;<b> */
             else if (term->vt.params.idx - i - 1 >= 4 &&
-                       term->vt.params.v[i + 1].value == 2)
+                     term->vt.params.v[i + 1].value == 2)
             {
                 uint8_t r = term->vt.params.v[i + 2].value;
                 uint8_t g = term->vt.params.v[i + 3].value;
@@ -190,14 +225,23 @@ csi_sgr(struct terminal *term)
                 term->vt.attrs.have_bg = 1;
                 term->vt.attrs.bg = r << 16 | g << 8 | b;
                 i += 4;
-
             }
 
-            else if (term->vt.params.v[i].sub.idx > 0) {
+            /* Sub-parameter style: 48:2:... */
+            else if (term->vt.params.v[i].sub.idx >= 2 &&
+                     term->vt.params.v[i].sub.value[0] == 2)
+            {
                 const struct vt_param *param = &term->vt.params.v[i];
+                const int color_space_id = param->sub.value[1];
 
-                if (param->sub.value[0] == 2 && param->sub.idx >= 5) {
-                    int color_space_id __attribute__((unused)) = param->sub.value[1];
+                switch (color_space_id) {
+                case 0:   /* Implementation defined - we map it to '2' */
+                case 2: { /* RGB - 48:2:2:<r>:<g>:<b> */
+                    if (param->sub.idx < 5) {
+                        UNHANDLED_SGR();
+                        break;
+                    }
+
                     uint8_t r = param->sub.value[2];
                     uint8_t g = param->sub.value[3];
                     uint8_t b = param->sub.value[4];
@@ -207,8 +251,27 @@ csi_sgr(struct terminal *term)
 
                     term->vt.attrs.have_bg = 1;
                     term->vt.attrs.bg = r << 16 | g << 8 | b;
-                } else
+                    break;
+                }
+
+                case 5: { /* Indexed - 48:2:5:<idx> */
+                    if (param->sub.idx < 3) {
+                        UNHANDLED_SGR();
+                        break;
+                    }
+
+                    uint8_t idx = param->sub.value[2];
+                    term->vt.attrs.have_bg = 1;
+                    term->vt.attrs.bg = term->colors.table[idx];
+                    break;
+                }
+
+                case 1: /* Transparent */
+                case 3: /* CMY */
+                case 4: /* CMYK */
                     UNHANDLED_SGR();
+                    break;
+                }
             }
 
             else
