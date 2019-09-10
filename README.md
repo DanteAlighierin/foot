@@ -92,13 +92,9 @@ available:
 
   Search _forward_ for next match
 
-* <kbd>escape</kbd>
+* <kbd>escape</kbd>, <kbd>ctrl</kbd>+<kbd>g</kbd>
 
   Cancel the search
-
-* <kbd>ctrl</kbd>+<kbd>g</kbd>
-
-  Cancel the search (same as <kbd>escape</kbd>)
 
 * <kbd>return</kbd>
 
