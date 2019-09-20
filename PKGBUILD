@@ -1,5 +1,5 @@
 pkgname=('foot' 'foot-terminfo')
-pkgver=0.0.r386.gce4d2a0
+pkgver=0.0.r388.g31efe8c
 pkgrel=1
 arch=('x86_64')
 url=https://gitlab.com/dnkl/foot
@@ -40,6 +40,7 @@ package_foot() {
 
 package_foot-terminfo() {
   pkgdesc="Terminfo files for the foot terminal emulator"
+  depends=('ncurses')
 
   install -dm 755 "${pkgdir}/usr/share/terminfo/f/"
   cp f/* "${pkgdir}/usr/share/terminfo/f/"
