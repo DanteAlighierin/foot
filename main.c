@@ -909,6 +909,14 @@ main(int argc, char *const *argv)
             {.fd = delay_render_timer_upper,      .events = POLLIN},
         };
 
+        const size_t WL_FD = 0;
+        const size_t PTMX_FD = 1;
+        const size_t KBD_REPEAT_FD = 2;
+        const size_t FLASH_FD = 3;
+        const size_t BLINK_FD = 4;
+        const size_t DELAY_LOWER_FD = 5;
+        const size_t DELAY_UPPER_FD = 6;
+
         wl_display_flush(term.wl.display);
         int pret = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
 
@@ -921,16 +929,18 @@ main(int argc, char *const *argv)
         }
 
         /* Delayed rendering timers (created when we receive input) */
-        if (fds[5].revents & POLLIN || fds[6].revents & POLLIN) {
+        if (fds[DELAY_LOWER_FD].revents & POLLIN ||
+            fds[DELAY_UPPER_FD].revents & POLLIN)
+        {
             assert(timeout_is_armed);
 
             uint64_t unused;
             ssize_t ret1 = 0;
             ssize_t ret2 = 0;
 
-            if (fds[5].revents & POLLIN)
+            if (fds[DELAY_LOWER_FD].revents & POLLIN)
                 ret1 = read(delay_render_timer_lower, &unused, sizeof(unused));
-            if (fds[6].revents & POLLIN)
+            if (fds[DELAY_UPPER_FD].revents & POLLIN)
                 ret2 = read(delay_render_timer_upper, &unused, sizeof(unused));
 
             if ((ret1 < 0 || ret2 < 0) && errno != EAGAIN)
@@ -946,7 +956,7 @@ main(int argc, char *const *argv)
                 assert(false);
         }
 
-        if (fds[0].revents & POLLIN) {
+        if (fds[WL_FD].revents & POLLIN) {
             wl_display_dispatch(term.wl.display);
             if (term.quit) {
                 ret = EXIT_SUCCESS;
@@ -954,12 +964,12 @@ main(int argc, char *const *argv)
             }
         }
 
-        if (fds[0].revents & POLLHUP) {
+        if (fds[WL_FD].revents & POLLHUP) {
             LOG_WARN("disconnected from wayland");
             break;
         }
 
-        if (fds[1].revents & POLLIN) {
+        if (fds[PTMX_FD].revents & POLLIN) {
             uint8_t data[24 * 1024];
             ssize_t count = read(term.ptmx, data, sizeof(data));
             if (count < 0 && errno != EAGAIN) {
@@ -1020,12 +1030,12 @@ main(int argc, char *const *argv)
             }
         }
 
-        if (fds[1].revents & POLLHUP) {
+        if (fds[PTMX_FD].revents & POLLHUP) {
             ret = EXIT_SUCCESS;
             break;
         }
 
-        if (fds[2].revents & POLLIN) {
+        if (fds[KBD_REPEAT_FD].revents & POLLIN) {
             uint64_t expiration_count;
             ssize_t ret = read(
                 term.kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
@@ -1040,7 +1050,7 @@ main(int argc, char *const *argv)
             }
         }
 
-        if (fds[3].revents & POLLIN) {
+        if (fds[FLASH_FD].revents & POLLIN) {
             uint64_t expiration_count;
             ssize_t ret = read(
                 term.flash.fd, &expiration_count, sizeof(expiration_count));
@@ -1057,7 +1067,7 @@ main(int argc, char *const *argv)
             }
         }
 
-        if (fds[4].revents & POLLIN) {
+        if (fds[BLINK_FD].revents & POLLIN) {
             uint64_t expiration_count;
             ssize_t ret = read(
                 term.blink.fd, &expiration_count, sizeof(expiration_count));
