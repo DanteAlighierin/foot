@@ -6,6 +6,7 @@
 
 1. [Features](#features)
 1. [Non-features](#non-features)
+1. [What does not work?](#what-does-not-work)
 1. [Fonts](#fonts)
 1. [Shortcuts](#shortcuts)
    1. [Keyboard](#keyboard)
@@ -36,6 +37,14 @@ ever be supported by foot.
 
 * Tabs
 * Multiple windows
+
+
+## What does not work?
+
+This is a list of known, but probably not all, issues:
+
+* Unicode combining characters
+  Examples: á, 👪🏼
 
 
 ## Fonts
