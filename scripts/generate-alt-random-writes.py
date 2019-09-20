@@ -30,7 +30,7 @@ def main():
     cols = term_size.columns
 
     # Number of characters to write to screen
-    count = 5 * 1024**2
+    count = 1 * 1024**2
 
     # Characters to choose from
     alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRTSTUVWXYZ0123456789 '
