@@ -1,15 +1,10 @@
-pkgname=foot
-pkgver=0.0.r136.g90d357b
+pkgname=('foot' 'foot-terminfo')
+pkgver=0.0.r386.gce4d2a0
 pkgrel=1
-pkgdesc="A wayland native terminal emulator"
 arch=('x86_64')
 url=https://gitlab.com/dnkl/foot
 license=(mit)
 makedepends=('meson' 'ninja' 'scdoc')
-depends=(
-  'libxkbcommon'
-  'wayland'
-  'freetype2' 'fontconfig' 'pixman')
 source=()
 
 pkgver() {
@@ -31,6 +26,20 @@ build() {
   ninja
 }
 
-package() {
+package_foot() {
+  pkgdesc="A wayland native terminal emulator"
+  depends=(
+    'libxkbcommon'
+    'wayland'
+    'freetype2' 'fontconfig' 'pixman')
+
   DESTDIR="${pkgdir}/" ninja install
+  rm -rf "${pkgdir}/usr/share/terminfo"
+}
+
+package_foot-terminfo() {
+  pkgdesc="Terminfo files for the foot terminal emulator"
+
+  install -dm 755 "${pkgdir}/usr/share/terminfo/f/"
+  cp f/* "${pkgdir}/usr/share/terminfo/f/"
 }
