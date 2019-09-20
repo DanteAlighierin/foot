@@ -87,7 +87,6 @@ font_baseline(const struct terminal *term)
     assert(term->fextents.descent >= 0);
 
     int diff = term->fextents.height - (term->fextents.ascent + term->fextents.descent);
-    assert(diff >= 0);
 
 #if 0
     LOG_INFO("height=%d, ascent=%d, descent=%d, diff=%d",
