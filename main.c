@@ -634,7 +634,7 @@ main(int argc, char *const *argv)
         f->underline.thickness = ceil(ft_face->underline_thickness * x_scale / 64.);
 
         if (f->underline.position == 0.) {
-            f->underline.position =  descent / 2.;
+            f->underline.position =  round(descent / 2.);
             f->underline.thickness =  fabs(round(descent / 5.));
         }
 
@@ -648,7 +648,7 @@ main(int argc, char *const *argv)
         }
 
         if (f->strikeout.position == 0.) {
-            f->strikeout.position = height / 2. + descent;
+            f->strikeout.position = round(height / 2. + descent);
             f->strikeout.thickness = f->underline.thickness;
         }
 
