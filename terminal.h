@@ -35,6 +35,7 @@ struct monitor {
     int height_px;
 
     int scale;
+    float refresh;
 };
 
 struct wayland {

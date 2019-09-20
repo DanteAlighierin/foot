@@ -119,6 +119,11 @@ static void
 output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
             int32_t width, int32_t height, int32_t refresh)
 {
+    if ((flags & WL_OUTPUT_MODE_CURRENT) == 0)
+        return;
+
+    struct monitor *mon = data;
+    mon->refresh = (float)refresh / 1000;
 }
 
 static void
@@ -717,9 +722,9 @@ main(int argc, char *const *argv)
     }
 
     tll_foreach(term.wl.monitors, it) {
-        LOG_INFO("%s: %dx%d+%dx%d (scale=%d)",
+        LOG_INFO("%s: %dx%d+%dx%d (scale=%d, refresh=%.2fHZ)",
                  it->item.name, it->item.width_px, it->item.height_px,
-                 it->item.x, it->item.y, it->item.scale);
+                 it->item.x, it->item.y, it->item.scale, it->item.refresh);
     }
 
     /* Clipboard */
