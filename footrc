@@ -1,7 +1,7 @@
 # font=monospace
 # scrollback=1000
 # geometry=500x300
-# shell=/usr/bin/zsh
+# shell=<user's default shell (from /etc/passwd)>
 # term=foot
 # workers=<number of logical CPUs>
 
