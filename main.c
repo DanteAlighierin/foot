@@ -895,8 +895,8 @@ main(int argc, char *const *argv)
     }
 
     bool timeout_is_armed = false;
-    int timeout_fd1 = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
-    int timeout_fd2 = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
+    int delay_render_timer_lower = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
+    int delay_render_timer_upper = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
 
     while (true) {
         struct pollfd fds[] = {
@@ -905,8 +905,8 @@ main(int argc, char *const *argv)
             {.fd = term.kbd.repeat.fd,            .events = POLLIN},
             {.fd = term.flash.fd,                 .events = POLLIN},
             {.fd = term.blink.fd,                 .events = POLLIN},
-            {.fd = timeout_fd1,                   .events = POLLIN},
-            {.fd = timeout_fd2,                   .events = POLLIN},
+            {.fd = delay_render_timer_lower,      .events = POLLIN},
+            {.fd = delay_render_timer_upper,      .events = POLLIN},
         };
 
         wl_display_flush(term.wl.display);
@@ -929,9 +929,9 @@ main(int argc, char *const *argv)
             ssize_t ret2 = 0;
 
             if (fds[5].revents & POLLIN)
-                ret1 = read(timeout_fd1, &unused, sizeof(unused));
+                ret1 = read(delay_render_timer_lower, &unused, sizeof(unused));
             if (fds[6].revents & POLLIN)
-                ret2 = read(timeout_fd2, &unused, sizeof(unused));
+                ret2 = read(delay_render_timer_upper, &unused, sizeof(unused));
 
             if ((ret1 < 0 || ret2 < 0) && errno != EAGAIN)
                 LOG_ERRNO("failed to read timeout timer");
@@ -940,8 +940,8 @@ main(int argc, char *const *argv)
 
                 /* Reset timers */
                 timeout_is_armed = false;
-                timerfd_settime(timeout_fd1, 0, &(struct itimerspec){.it_value = {0}}, NULL);
-                timerfd_settime(timeout_fd2, 0, &(struct itimerspec){.it_value = {0}}, NULL);
+                timerfd_settime(delay_render_timer_lower, 0, &(struct itimerspec){.it_value = {0}}, NULL);
+                timerfd_settime(delay_render_timer_upper, 0, &(struct itimerspec){.it_value = {0}}, NULL);
             } else
                 assert(false);
         }
@@ -1003,11 +1003,17 @@ main(int argc, char *const *argv)
                  */
                 if (term.render.frame_callback == NULL) {
                     /* First timeout - reset each time we receive input. */
-                    timerfd_settime(timeout_fd1, 0, &(struct itimerspec){.it_value = {.tv_nsec = 1000000}}, NULL);
+                    timerfd_settime(
+                        delay_render_timer_lower, 0,
+                        &(struct itimerspec){.it_value = {.tv_nsec = 1000000}},
+                        NULL);
 
                     /* Second timeout - only reset when we render. Set to one frame (assuming 60HZ) */
                     if (!timeout_is_armed) {
-                        timerfd_settime(timeout_fd2, 0, &(struct itimerspec){.it_value = {.tv_nsec = 16666666}}, NULL);
+                        timerfd_settime(
+                            delay_render_timer_upper, 0,
+                            &(struct itimerspec){.it_value = {.tv_nsec = 16666666}},
+                            NULL);
                         timeout_is_armed = true;
                     }
                 }
@@ -1083,8 +1089,8 @@ main(int argc, char *const *argv)
         }
     }
 
-    close(timeout_fd1);
-    close(timeout_fd2);
+    close(delay_render_timer_lower);
+    close(delay_render_timer_upper);
 
 out:
     mtx_lock(&term.render.workers.lock);
