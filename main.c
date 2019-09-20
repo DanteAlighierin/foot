@@ -890,7 +890,8 @@ main(int argc, char *const *argv)
     }
 
     bool timeout_is_armed = false;
-    int timeout_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
+    int timeout_fd1 = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
+    int timeout_fd2 = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
 
     while (true) {
         struct pollfd fds[] = {
@@ -899,7 +900,8 @@ main(int argc, char *const *argv)
             {.fd = term.kbd.repeat.fd,            .events = POLLIN},
             {.fd = term.flash.fd,                 .events = POLLIN},
             {.fd = term.blink.fd,                 .events = POLLIN},
-            {.fd = timeout_fd,                    .events = POLLIN},
+            {.fd = timeout_fd1,                   .events = POLLIN},
+            {.fd = timeout_fd2,                   .events = POLLIN},
         };
 
         wl_display_flush(term.wl.display);
@@ -913,18 +915,30 @@ main(int argc, char *const *argv)
             break;
         }
 
-        if (fds[5].revents & POLLIN) {
+        /* Delayed rendering timers (created when we receive input) */
+        if (fds[5].revents & POLLIN || fds[6].revents & POLLIN) {
             assert(timeout_is_armed);
 
             uint64_t unused;
-            ssize_t ret = read(timeout_fd, &unused, sizeof(unused));
+            ssize_t ret1 = 0;
+            ssize_t ret2 = 0;
 
-            if (ret < 0 && errno != EAGAIN)
+            if (fds[5].revents & POLLIN)
+                ret1 = read(timeout_fd1, &unused, sizeof(unused));
+            if (fds[6].revents & POLLIN)
+                ret2 = read(timeout_fd2, &unused, sizeof(unused));
+
+            if ((ret1 < 0 || ret2 < 0) && errno != EAGAIN)
                 LOG_ERRNO("failed to read timeout timer");
-            else if (ret > 0) {
-                timeout_is_armed = false;
+            else if (ret1 > 0 || ret2 > 0) {
                 render_refresh(&term);
-            }
+
+                /* Reset timers */
+                timeout_is_armed = false;
+                timerfd_settime(timeout_fd1, 0, &(struct itimerspec){.it_value = {0}}, NULL);
+                timerfd_settime(timeout_fd2, 0, &(struct itimerspec){.it_value = {0}}, NULL);
+            } else
+                assert(false);
         }
 
         if (fds[0].revents & POLLIN) {
@@ -968,6 +982,11 @@ main(int argc, char *const *argv)
                  * us time to receive the last writes before doing any
                  * actual rendering).
                  *
+                 * We incur this delay *every* time we receive
+                 * input. To ensure we don't delay rendering
+                 * indefinitely, we start a second timer that is only
+                 * reset when we render.
+                 *
                  * Note that when the client is producing data at a
                  * very high pace, we're rate limited by the wayland
                  * compositor anyway. The delay we introduce here only
@@ -977,9 +996,15 @@ main(int argc, char *const *argv)
                  * ourselves we just received keyboard input, and in
                  * this case *not* delay rendering?
                  */
-                if (!timeout_is_armed) {
-                    timerfd_settime(timeout_fd, 0, &(struct itimerspec){.it_value = {.tv_nsec = 1000000}}, NULL);
-                    timeout_is_armed = true;
+                if (term.render.frame_callback == NULL) {
+                    /* First timeout - reset each time we receive input. */
+                    timerfd_settime(timeout_fd1, 0, &(struct itimerspec){.it_value = {.tv_nsec = 1000000}}, NULL);
+
+                    /* Second timeout - only reset when we render. Set to one frame (assuming 60HZ) */
+                    if (!timeout_is_armed) {
+                        timerfd_settime(timeout_fd2, 0, &(struct itimerspec){.it_value = {.tv_nsec = 16666666}}, NULL);
+                        timeout_is_armed = true;
+                    }
                 }
             }
         }
@@ -1053,7 +1078,8 @@ main(int argc, char *const *argv)
         }
     }
 
-    close(timeout_fd);
+    close(timeout_fd1);
+    close(timeout_fd2);
 
 out:
     mtx_lock(&term.render.workers.lock);
