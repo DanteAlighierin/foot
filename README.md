@@ -43,8 +43,10 @@ ever be supported by foot.
 
 This is a list of known, but probably not all, issues:
 
-* **Unicode combining characters**: examples: á, 👪🏼 (_note_: may not
-  be displayed correctly in your browser/editor)
+* **Unicode combining characters**
+
+  Examples: á, 👪🏼 (_may not be displayed correctly in your
+  browser/editor_)
 
 
 ## Fonts
