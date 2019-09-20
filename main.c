@@ -643,8 +643,8 @@ main(int argc, char *const *argv)
 
         TT_OS2 *os2 = FT_Get_Sfnt_Table(ft_face, ft_sfnt_os2);
         if (os2 != NULL) {
-            f->strikeout.position = os2->yStrikeoutPosition * x_scale / 64.;
-            f->strikeout.thickness = os2->yStrikeoutSize * x_scale / 64.;
+            f->strikeout.position = round(os2->yStrikeoutPosition * x_scale / 64.);
+            f->strikeout.thickness = ceil(os2->yStrikeoutSize * x_scale / 64.);
         }
 
         if (f->strikeout.position == 0.) {
