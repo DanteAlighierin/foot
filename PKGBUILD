@@ -32,6 +32,7 @@ package_foot() {
     'libxkbcommon'
     'wayland'
     'freetype2' 'fontconfig' 'pixman')
+  optdepends=('foot-terminfo: terminfo for foot')
 
   DESTDIR="${pkgdir}/" ninja install
   rm -rf "${pkgdir}/usr/share/terminfo"
