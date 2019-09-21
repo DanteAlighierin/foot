@@ -741,7 +741,7 @@ main(int argc, char *const *argv)
     }
 
     tll_foreach(term.wl.monitors, it) {
-        LOG_INFO("%s: %dx%d+%dx%d (scale=%d, refresh=%.2fHZ)",
+        LOG_INFO("%s: %dx%d+%dx%d (scale=%d, refresh=%.2fHz)",
                  it->item.name, it->item.width_px, it->item.height_px,
                  it->item.x, it->item.y, it->item.scale, it->item.refresh);
     }
@@ -1037,7 +1037,7 @@ main(int argc, char *const *argv)
                         &(struct itimerspec){.it_value = {.tv_nsec = 1000000}},
                         NULL);
 
-                    /* Second timeout - only reset when we render. Set to one frame (assuming 60HZ) */
+                    /* Second timeout - only reset when we render. Set to one frame (assuming 60Hz) */
                     if (!timeout_is_armed) {
                         timerfd_settime(
                             delay_render_timer_upper, 0,
