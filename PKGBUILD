@@ -4,7 +4,7 @@ pkgrel=1
 arch=('x86_64')
 url=https://gitlab.com/dnkl/foot
 license=(mit)
-makedepends=('meson' 'ninja' 'scdoc')
+makedepends=('meson' 'ninja' 'scdoc' 'python')
 source=()
 
 pkgver() {
