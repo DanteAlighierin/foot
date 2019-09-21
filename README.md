@@ -1,5 +1,4 @@
 # foot
-[![pipeline status](https://gitlab.com/dnkl/foot/badges/master/pipeline.svg)](https://gitlab.com/dnkl/foot/commits/master)
 
 **foot** is a fast Wayland terminal emulator.
 
