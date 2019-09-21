@@ -20,7 +20,7 @@ static const uint32_t default_foreground = 0xdcdccc;
 static const uint32_t default_background = 0x111111;
 
 static const uint32_t default_regular[] = {
-    0x000000,
+    0x222222,
     0xcc9393,
     0x7f9f7f,
     0xd0bf8f,
