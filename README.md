@@ -48,6 +48,8 @@ This is a list of known, but probably not all, issues:
   Examples: á, 👪🏼 (_may not be displayed correctly in your
   browser/editor_)
 
+* **Reflow text on window resize**
+
 
 ## Fonts
 
