@@ -97,7 +97,7 @@ list of font name and font options.
 
 _Examples_:
 - Dina:weight=bold:slant=italic
-- Arial:size=12
+- Courier New:size=12
 
 
 # CONFIGURATION
