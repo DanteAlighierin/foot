@@ -179,5 +179,5 @@ Foot uses _meson_. If you are unfamiliar with it, the official
 [tutorial](https://mesonbuild.com/Tutorial.html) might be a good
 starting point.
 
-I also recommend taking a look at that bundled Arch `PKGBUILD` file,
-to see how it builds foot.
+I also recommend taking a look at the bundled Arch `PKGBUILD` file, to
+see how it builds foot.
