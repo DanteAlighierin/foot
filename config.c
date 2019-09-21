@@ -36,8 +36,8 @@ static const uint32_t default_bright[] = {
     0xbfebbf,
     0xf0dfaf,
     0x8cd0d3,
-    0xdc8cc3,
-    0x93e0e3,
+    0xfcace3,
+    0xb3ffff,
     0xffffff,
 };
 
