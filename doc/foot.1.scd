@@ -13,8 +13,19 @@ execute (instead of the shell).
 # OPTIONS
 
 *-f*,*--font*=_FONT_
-	Font and style to use, in fontconfig format. See *FONT
-	FORMAT*. Default: _monospace_.
+	Comma separated list of fonts to use, in fontconfig format (see
+	*FONT FORMAT*).
+	
+	The first font is the primary font. The remaining fonts are
+	fallback fonts that will be used whenever a glyph cannot be found
+	in the primary font.
+	
+	The fallback fonts are searched in the order they appear. If a
+	glyph cannot be found in any of the fallback fonts, the dynamic
+	fallback list from fontconfig (for the primary font) is
+	searched.
+	
+	Default: _monospace_.
 
 *-g*,*--geometry*=_WIDTHxHEIGHT_
 	Set initial window width and height.

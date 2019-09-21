@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <assert.h>
@@ -397,7 +398,7 @@ print_usage(const char *prog_name)
     printf("Usage: %s [OPTION]...\n", prog_name);
     printf("\n");
     printf("Options:\n");
-    printf("  -f,--font=FONT              font name and style in fontconfig format (monospace)\n"
+    printf("  -f,--font=FONT              comma separated list of fonts in fontconfig format (monospace)\n"
            "  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
            "  -g,--geometry=WIDTHxHEIGHT  set initial width and height\n"
            "  -v,--version                show the version number and quit\n");
@@ -437,7 +438,25 @@ main(int argc, char *const *argv)
 
         case 'f':
             tll_free_and_free(conf.fonts, free);
-            tll_push_back(conf.fonts, strdup(optarg));
+            //tll_push_back(conf.fonts, strdup(optarg));
+            for (char *font = strtok(optarg, ","); font != NULL; font = strtok(NULL, ",")) {
+
+                /* Strip leading spaces */
+                while (*font != '\0' && isspace(*font))
+                    font++;
+
+                /* Strip trailing spaces */
+                char *end = font + strlen(font);
+                assert(*end == '\0');
+                end--;
+                while (end > font && isspace(*end))
+                    *(end--) = '\0';
+
+                if (strlen(font) == 0)
+                    continue;
+
+                tll_push_back(conf.fonts, strdup(font));
+            }
             break;
 
         case 'g': {
