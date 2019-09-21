@@ -43,12 +43,12 @@ ever be supported by foot.
 
 This is a list of known, but probably not all, issues:
 
-* **Unicode combining characters**
+* Unicode combining characters
 
   Examples: á, 👪🏼 (_may not be displayed correctly in your
   browser/editor_)
 
-* **Reflow text on window resize**
+* Reflow text on window resize
 
 
 ## Fonts
