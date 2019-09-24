@@ -199,7 +199,7 @@ static void
 handle_global(void *data, struct wl_registry *registry,
               uint32_t name, const char *interface, uint32_t version)
 {
-    //LOG_DBG("global: %s", interface);
+    LOG_DBG("global: %s, version=%u", interface, version);
     struct terminal *term = data;
 
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
