@@ -238,7 +238,7 @@ handle_global(void *data, struct wl_registry *registry,
 
     else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0) {
         term->wl.xdg_output_manager = wl_registry_bind(
-            term->wl.registry, name, &zxdg_output_manager_v1_interface, 2);
+            term->wl.registry, name, &zxdg_output_manager_v1_interface, min(version, 2));
     }
 
     else if (strcmp(interface, wl_output_interface.name) == 0) {
