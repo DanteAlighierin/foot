@@ -549,6 +549,9 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
 bool
 text_to_primary(struct terminal *term, char *text, uint32_t serial)
 {
+    if (term->wl.primary_selection_device_manager == NULL)
+        return false;
+
     /* TODO: somehow share code with the clipboard equivalent */
     if (term->selection.primary.data_source != NULL) {
         /* Kill previous data source */
@@ -592,6 +595,9 @@ text_to_primary(struct terminal *term, char *text, uint32_t serial)
 void
 selection_to_primary(struct terminal *term, uint32_t serial)
 {
+    if (term->wl.primary_selection_device_manager == NULL)
+        return;
+
     /* Get selection as a string */
     char *text = extract_selection(term);
     if (!text_to_primary(term, text, serial))
@@ -603,6 +609,9 @@ text_from_primary(
     struct terminal *term, void (*cb)(const char *data, size_t size, void *user),
     void *user)
 {
+    if (term->wl.primary_selection_device_manager == NULL)
+        return;
+
     struct primary *primary = &term->selection.primary;
     if (primary->data_offer == NULL)
         return;
@@ -645,6 +654,9 @@ text_from_primary(
 void
 selection_from_primary(struct terminal *term)
 {
+    if (term->wl.primary_selection_device_manager == NULL)
+        return;
+
     struct clipboard *clipboard = &term->selection.clipboard;
     if (clipboard->data_offer == NULL)
         return;

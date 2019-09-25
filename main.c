@@ -735,10 +735,8 @@ main(int argc, char *const *argv)
                 "(wl_data_device_manager not implemented by server)");
         goto out;
     }
-    if (term.wl.primary_selection_device_manager == NULL) {
-        LOG_ERR("no primary selection available");
-        goto out;
-    }
+    if (term.wl.primary_selection_device_manager == NULL)
+        LOG_WARN("no primary selection available");
 
     tll_foreach(term.wl.monitors, it) {
         LOG_INFO("%s: %dx%d+%dx%d (scale=%d, refresh=%.2fHz)",
@@ -752,10 +750,12 @@ main(int argc, char *const *argv)
     wl_data_device_add_listener(term.wl.data_device, &data_device_listener, &term);
 
     /* Primary selection */
-    term.wl.primary_selection_device = zwp_primary_selection_device_manager_v1_get_device(
-        term.wl.primary_selection_device_manager, term.wl.seat);
-    zwp_primary_selection_device_v1_add_listener(
-        term.wl.primary_selection_device, &primary_selection_device_listener, &term);
+    if (term.wl.primary_selection_device_manager != NULL) {
+        term.wl.primary_selection_device = zwp_primary_selection_device_manager_v1_get_device(
+            term.wl.primary_selection_device_manager, term.wl.seat);
+        zwp_primary_selection_device_v1_add_listener(
+            term.wl.primary_selection_device, &primary_selection_device_listener, &term);
+    }
 
     /* Cursor */
     unsigned cursor_size = 24;
