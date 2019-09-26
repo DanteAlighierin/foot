@@ -383,8 +383,8 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 {
     struct terminal *term = data;
 
-    int x = wl_fixed_to_int(surface_x) * 1; //scale
-    int y = wl_fixed_to_int(surface_y) * 1; //scale
+    int x = wl_fixed_to_int(surface_x) * term->scale;
+    int y = wl_fixed_to_int(surface_y) * term->scale;
 
     term->mouse.col = x / term->cell_width;
     term->mouse.row = y / term->cell_height;
