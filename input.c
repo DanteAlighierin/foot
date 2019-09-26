@@ -404,9 +404,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 {
     struct terminal *term = data;
 
-    const int scale = term->scale >= 1 ? term->scale : 1;
-    int x = wl_fixed_to_int(surface_x) * scale;
-    int y = wl_fixed_to_int(surface_y) * scale;
+    int x = wl_fixed_to_int(surface_x) * term->scale;
+    int y = wl_fixed_to_int(surface_y) * term->scale;
 
     int col = (x - term->x_margin) / term->cell_width;
     int row = (y - term->y_margin) / term->cell_height;

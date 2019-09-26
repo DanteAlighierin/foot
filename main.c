@@ -138,9 +138,8 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
     struct monitor *mon = data;
     mon->scale = factor;
 
-    int old_scale = mon->term->scale >= 1 ? mon->term->scale : 1;
+    render_resize(mon->term, mon->term->width / mon->term->scale, mon->term->height / mon->term->scale);
     render_reload_cursor_theme(mon->term);
-    render_resize(mon->term, mon->term->width / old_scale, mon->term->height / old_scale);
 }
 
 static const struct wl_output_listener output_listener = {
@@ -280,9 +279,8 @@ surface_enter(void *data, struct wl_surface *wl_surface,
             tll_push_back(term->wl.on_outputs, &it->item);
 
             /* Resize, since scale-to-use may have changed */
-            int scale = term->scale >= 1 ? term->scale : 1;
+            render_resize(term, term->width / term->scale, term->height / term->scale);
             render_reload_cursor_theme(term);
-            render_resize(term, term->width / scale, term->height / scale);
             return;
         }
     }
@@ -303,9 +301,8 @@ surface_leave(void *data, struct wl_surface *wl_surface,
         tll_remove(term->wl.on_outputs, it);
 
         /* Resize, since scale-to-use may have changed */
-        int scale = term->scale >= 1 ? term->scale : 1;
+        render_resize(term, term->width / term->scale, term->height / term->scale);
         render_reload_cursor_theme(term);
-        render_resize(term, term->width / scale, term->height / scale);
         return;
     }
 
@@ -502,6 +499,7 @@ main(int argc, char *const *argv)
         .keypad_keys_mode = KEYPAD_NUMERICAL,
         .auto_margin = true,
         .window_title_stack = tll_init(),
+        .scale = 1,
         .flash = {
             .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK),
         },

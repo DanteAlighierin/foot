@@ -931,18 +931,6 @@ render_reload_cursor_theme(struct terminal *term)
     if (term->wl.pointer.size == 0)
         return true;
 
-    int scale = -1;
-    tll_foreach(term->wl.on_outputs, it) {
-        if (it->item->scale > scale)
-            scale = it->item->scale;
-    }
-
-    if (scale == -1) {
-        /* Haven't 'entered' an output yet? */
-        LOG_WARN("unknown scale, using '1'");
-        scale = 1;
-    }
-
     if (term->wl.pointer.theme != NULL) {
         wl_cursor_theme_destroy(term->wl.pointer.theme);
         term->wl.pointer.theme = NULL;
@@ -953,7 +941,7 @@ render_reload_cursor_theme(struct terminal *term)
             term->wl.pointer.theme_name, term->wl.pointer.size);
 
     term->wl.pointer.theme = wl_cursor_theme_load(
-        term->wl.pointer.theme_name, term->wl.pointer.size * scale, term->wl.shm);
+        term->wl.pointer.theme_name, term->wl.pointer.size * term->scale, term->wl.shm);
     if (term->wl.pointer.theme == NULL) {
         LOG_ERR("failed to load cursor theme");
         return false;
