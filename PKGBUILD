@@ -19,7 +19,7 @@ build() {
   ninja
 
   tmp_file=$(mktemp)
-  ./foot -- sh -c "../scripts/generate-alt-random-writes.py --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${tmp_file} && cat ${tmp_file}"
+  ./foot --term=xterm -- sh -c "../scripts/generate-alt-random-writes.py --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${tmp_file} && cat ${tmp_file}"
   rm "${tmp_file}"
 
   meson configure -Db_pgo=use
