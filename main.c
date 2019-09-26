@@ -407,6 +407,10 @@ main(int argc, char *const *argv)
 {
     int ret = EXIT_FAILURE;
 
+    /* Startup notifications; we don't support it, but must ensure we
+     * don't pass this on to programs launched by us */
+    unsetenv("DESKTOP_STARTUP_ID");
+
     struct config conf = {NULL};
     if (!config_load(&conf))
         return ret;
