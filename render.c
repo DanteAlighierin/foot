@@ -439,6 +439,7 @@ grid_render(struct terminal *term)
     assert(term->height > 0);
 
     struct buffer *buf = shm_get_buffer(term->wl.shm, term->width, term->height, 1 + term->render.workers.count);
+    wl_surface_attach(term->wl.surface, buf->wl_buf, 0, 0);
     pixman_image_t *pix = buf->pix;
 
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
@@ -680,8 +681,6 @@ grid_render(struct terminal *term)
 
     assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
     assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
-
-    wl_surface_attach(term->wl.surface, buf->wl_buf, 0, 0);
 
     assert(term->render.frame_callback == NULL);
     term->render.frame_callback = wl_surface_frame(term->wl.surface);
