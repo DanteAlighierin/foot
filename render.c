@@ -444,6 +444,66 @@ grid_render(struct terminal *term)
 
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
 
+    /* If we resized the window, or is flashing, or just stopped flashing */
+    if (term->render.last_buf != buf ||
+        term->flash.active || term->render.was_flashing ||
+        term->is_searching != term->render.was_searching)
+    {
+        if (term->render.last_buf != NULL &&
+            term->render.last_buf->width == buf->width &&
+            term->render.last_buf->height == buf->height &&
+            !term->flash.active &&
+            !term->render.was_flashing &&
+            term->is_searching == term->render.was_searching)
+        {
+            static bool has_warned = false;
+            if (!has_warned) {
+                LOG_WARN("it appears your Wayland compositor does not support buffer re-use for SHM clients; expect lower performance.");
+                has_warned = true;
+            }
+
+            assert(term->render.last_buf->size == buf->size);
+            memcpy(buf->mmapped, term->render.last_buf->mmapped, buf->size);
+        }
+
+        else {
+            /* Fill area outside the cell grid with the default background color */
+            int rmargin = term->x_margin + term->cols * term->cell_width;
+            int bmargin = term->y_margin + term->rows * term->cell_height;
+            int rmargin_width = term->width - rmargin;
+            int bmargin_height = term->height - bmargin;
+
+            uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
+            pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
+            if (term->is_searching)
+                pixman_color_dim(&bg);
+
+            pixman_image_fill_rectangles(
+                PIXMAN_OP_SRC, pix, &bg, 4,
+                (pixman_rectangle16_t[]){
+                {0, 0, term->width, term->y_margin},            /* Top */
+                {0, 0, term->x_margin, term->height},           /* Left */
+                {rmargin, 0, rmargin_width, term->height},      /* Right */
+                {0, bmargin, term->width, bmargin_height}});    /* Bottom */
+
+            wl_surface_damage_buffer(
+                term->wl.surface, 0, 0, term->width, term->y_margin);
+            wl_surface_damage_buffer(
+                term->wl.surface, 0, 0, term->x_margin, term->height);
+            wl_surface_damage_buffer(
+                term->wl.surface, rmargin, 0, rmargin_width, term->height);
+            wl_surface_damage_buffer(
+                term->wl.surface, 0, bmargin, term->width, bmargin_height);
+
+            /* Force a full grid refresh */
+            term_damage_view(term);
+        }
+
+        term->render.last_buf = buf;
+        term->render.was_flashing = term->flash.active;
+        term->render.was_searching = term->is_searching;
+    }
+
     /* Erase old cursor (if we rendered a cursor last time) */
     if (term->render.last_cursor.cell != NULL) {
         struct cell *cell = term->render.last_cursor.cell;
@@ -468,51 +528,7 @@ grid_render(struct terminal *term)
              * by the cursor, since only the final cell matters. */
             all_clean = false;
         }
-    }
-
-    if (term->flash.active)
-        term_damage_view(term);
-
-    /* If we resized the window, or is flashing, or just stopped flashing */
-    if (term->render.last_buf != buf ||
-        term->flash.active || term->render.was_flashing ||
-        term->is_searching != term->render.was_searching)
-    {
-        /* Fill area outside the cell grid with the default background color */
-        int rmargin = term->x_margin + term->cols * term->cell_width;
-        int bmargin = term->y_margin + term->rows * term->cell_height;
-        int rmargin_width = term->width - rmargin;
-        int bmargin_height = term->height - bmargin;
-
-        uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
-        pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
-        if (term->is_searching)
-            pixman_color_dim(&bg);
-
-        pixman_image_fill_rectangles(
-            PIXMAN_OP_SRC, pix, &bg, 4,
-            (pixman_rectangle16_t[]){
-                {0, 0, term->width, term->y_margin},            /* Top */
-                {0, 0, term->x_margin, term->height},           /* Left */
-                {rmargin, 0, rmargin_width, term->height},      /* Right */
-                {0, bmargin, term->width, bmargin_height}});    /* Bottom */
-
-        wl_surface_damage_buffer(
-            term->wl.surface, 0, 0, term->width, term->y_margin);
-        wl_surface_damage_buffer(
-            term->wl.surface, 0, 0, term->x_margin, term->height);
-        wl_surface_damage_buffer(
-            term->wl.surface, rmargin, 0, rmargin_width, term->height);
-        wl_surface_damage_buffer(
-            term->wl.surface, 0, bmargin, term->width, bmargin_height);
-
-        /* Force a full grid refresh */
-        term_damage_view(term);
-
-        term->render.last_buf = buf;
-        term->render.was_flashing = term->flash.active;
-        term->render.was_searching = term->is_searching;
-    }
+    } 
 
     tll_foreach(term->grid->scroll_damage, it) {
         switch (it->item.type) {
