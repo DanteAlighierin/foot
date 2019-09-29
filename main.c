@@ -17,7 +17,6 @@
 #include <sys/wait.h>
 #include <sys/time.h>
 
-#include <freetype/tttables.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
@@ -634,48 +633,6 @@ main(int argc, char *const *argv)
     font_from_name(font_names, "style=bold italic", &term.fonts[3]);
 
     tll_free(font_names);
-
-    /* Underline position and size */
-    for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++) {
-        struct font *f = &term.fonts[i];
-
-        if (f->face == NULL)
-            continue;
-
-        FT_Face ft_face = f->face;
-
-        double x_scale = ft_face->size->metrics.x_scale / 65526.;
-        double height = ft_face->size->metrics.height / 64;
-        double descent = ft_face->size->metrics.descender / 64;
-
-        LOG_DBG("ft: x-scale: %f, height: %f, descent: %f",
-                x_scale, height, descent);
-
-        f->underline.position = round(ft_face->underline_position * x_scale / 64.);
-        f->underline.thickness = ceil(ft_face->underline_thickness * x_scale / 64.);
-
-        if (f->underline.position == 0.) {
-            f->underline.position =  round(descent / 2.);
-            f->underline.thickness =  fabs(round(descent / 5.));
-        }
-
-        LOG_DBG("underline: pos=%d, thick=%d",
-                f->underline.position, f->underline.thickness);
-
-        TT_OS2 *os2 = FT_Get_Sfnt_Table(ft_face, ft_sfnt_os2);
-        if (os2 != NULL) {
-            f->strikeout.position = round(os2->yStrikeoutPosition * x_scale / 64.);
-            f->strikeout.thickness = ceil(os2->yStrikeoutSize * x_scale / 64.);
-        }
-
-        if (f->strikeout.position == 0.) {
-            f->strikeout.position = round(height / 2. + descent);
-            f->strikeout.thickness = f->underline.thickness;
-        }
-
-        LOG_DBG("strikeout: pos=%d, thick=%d",
-                f->strikeout.position, f->strikeout.thickness);
-    }
 
     {
         FT_Face ft_face = term.fonts[0].face;

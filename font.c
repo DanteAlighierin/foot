@@ -4,8 +4,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <wchar.h>
+#include <math.h>
 #include <assert.h>
 #include <threads.h>
+
+#include <freetype/tttables.h>
 
 #define LOG_MODULE "font"
 #define LOG_ENABLE_DBG 0
@@ -33,6 +36,43 @@ fini(void)
     mtx_destroy(&ft_lock);
     FT_Done_FreeType(ft_lib);
     FcFini();
+}
+
+static void
+underline_strikeout_metrics(struct font *font)
+{
+    FT_Face ft_face = font->face;
+    double x_scale = ft_face->size->metrics.x_scale / 65526.;
+    double height = ft_face->size->metrics.height / 64;
+    double descent = ft_face->size->metrics.descender / 64;
+
+    LOG_DBG("ft: x-scale: %f, height: %f, descent: %f",
+            x_scale, height, descent);
+
+    font->underline.position = round(ft_face->underline_position * x_scale / 64.);
+    font->underline.thickness = ceil(ft_face->underline_thickness * x_scale / 64.);
+
+    if (font->underline.position == 0.) {
+        font->underline.position =  round(descent / 2.);
+        font->underline.thickness =  fabs(round(descent / 5.));
+    }
+
+    LOG_DBG("underline: pos=%d, thick=%d",
+            font->underline.position, font->underline.thickness);
+
+    TT_OS2 *os2 = FT_Get_Sfnt_Table(ft_face, ft_sfnt_os2);
+    if (os2 != NULL) {
+        font->strikeout.position = round(os2->yStrikeoutPosition * x_scale / 64.);
+        font->strikeout.thickness = ceil(os2->yStrikeoutSize * x_scale / 64.);
+    }
+
+    if (font->strikeout.position == 0.) {
+        font->strikeout.position = round(height / 2. + descent);
+        font->strikeout.thickness = font->underline.thickness;
+    }
+
+    LOG_DBG("strikeout: pos=%d, thick=%d",
+            font->strikeout.position, font->strikeout.thickness);
 }
 
 static bool
@@ -196,6 +236,7 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
         }
     }
 
+    underline_strikeout_metrics(font);
     return true;
 }
 
