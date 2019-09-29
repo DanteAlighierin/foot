@@ -617,15 +617,18 @@ csi_dispatch(struct terminal *term, uint8_t final)
             int start = vt_param_get(term, 0, 1);
             int end = min(vt_param_get(term, 1, term->rows), term->rows);
 
-            /* 1-based */
-            term->scroll_region.start = start - 1;
-            term->scroll_region.end = end;
+            if (end > start) {
 
-            term_cursor_to(term, start - 1, 0);
+                /* 1-based */
+                term->scroll_region.start = start - 1;
+                term->scroll_region.end = end;
 
-            LOG_DBG("scroll region: %d-%d",
-                    term->scroll_region.start,
-                    term->scroll_region.end);
+                term_cursor_to(term, start - 1, 0);
+
+                LOG_DBG("scroll region: %d-%d",
+                        term->scroll_region.start,
+                        term->scroll_region.end);
+            }
             break;
         }
 
