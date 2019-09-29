@@ -1,5 +1,5 @@
 pkgname=('foot' 'foot-terminfo')
-pkgver=0.0.r388.g31efe8c
+pkgver=0.9.0.r0.g4594899
 pkgrel=1
 arch=('x86_64')
 url=https://gitlab.com/dnkl/foot
