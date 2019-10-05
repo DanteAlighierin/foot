@@ -165,7 +165,7 @@ In addition to the dev variant of the packages above, you need:
 ### Arch Linux
 
 Use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to build
-the bundled `PKGBUILD` (just run `makepkg` in the source root
+the bundled [PKGBUILD](PKGBUILD) run `makepkg` in the source root
 directory)..
 
 Note that it will do a profiling-guided build, and that this requires
@@ -179,5 +179,5 @@ Foot uses _meson_. If you are unfamiliar with it, the official
 [tutorial](https://mesonbuild.com/Tutorial.html) might be a good
 starting point.
 
-I also recommend taking a look at the bundled Arch `PKGBUILD` file, to
-see how it builds foot.
+I also recommend taking a look at the bundled Arch
+[PKGBUILD](PKGBUILD) file, to see how it builds foot.
