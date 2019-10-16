@@ -517,6 +517,14 @@ text_from_clipboard(struct terminal *term, uint32_t serial,
         } else if (amount == 0)
             break;
 
+        /* Replace \r\n with \n */
+        for (size_t i = 0; i < amount - 1; i++) {
+            if (text[i] == '\r' && text[i + 1] == '\n') {
+                memmove(&text[i], &text[i + 1], amount - i - 1);
+                amount--;
+            }
+        }
+
         cb(text, amount, user);
     }
 
@@ -644,6 +652,14 @@ text_from_primary(
             break;
         } else if (amount == 0)
             break;
+
+        /* Replace \r\n with \n */
+        for (size_t i = 0; i < amount - 1; i++) {
+            if (text[i] == '\r' && text[i + 1] == '\n') {
+                memmove(&text[i], &text[i + 1], amount - i - 1);
+                amount--;
+            }
+        }
 
         cb(text, amount, user);
     }
