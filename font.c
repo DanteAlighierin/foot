@@ -247,8 +247,8 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
     return true;
 }
 
-static bool
-from_name(const char *base_name, const font_list_t *fallbacks, const char *attributes, struct font *font, bool is_fallback)
+static struct font *
+from_name(const char *base_name, const font_list_t *fallbacks, const char *attributes, bool is_fallback)
 {
     size_t attr_len = attributes == NULL ? 0 : strlen(attributes);
     bool have_attrs = attr_len > 0;
@@ -265,13 +265,13 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
     FcPattern *pattern = FcNameParse((const unsigned char *)name);
     if (pattern == NULL) {
         LOG_ERR("%s: failed to lookup font", name);
-        return false;
+        return NULL;
     }
 
     if (!FcConfigSubstitute(NULL, pattern, FcMatchPattern)) {
         LOG_ERR("%s: failed to do config substitution", name);
         FcPatternDestroy(pattern);
-        return false;
+        return NULL;
     }
 
     FcDefaultSubstitute(pattern);
@@ -281,13 +281,16 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
     if (result != FcResultMatch) {
         LOG_ERR("%s: failed to match font", name);
         FcPatternDestroy(pattern);
-        return false;
+        return NULL;
     }
 
+    struct font *font = malloc(sizeof(*font));
+
     if (!from_font_set(pattern, fonts, 0, fallbacks, attributes, font, is_fallback)) {
+        free(font);
         FcFontSetDestroy(fonts);
         FcPatternDestroy(pattern);
-        return false;
+        return NULL;
     }
 
     if (is_fallback) {
@@ -295,7 +298,7 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
         FcPatternDestroy(pattern);
     }
 
-    return true;
+    return font;
 }
 
 struct font *
@@ -315,14 +318,10 @@ font_from_name(font_list_t names, const char *attributes)
         tll_push_back(fallbacks, it->item);
     }
 
-    struct font *font = malloc(sizeof(*font));
-    bool ret = from_name(tll_front(names), &fallbacks, attributes, font, false);
-
-    if (!ret)
-        free(font);
+    struct font *font = from_name(tll_front(names), &fallbacks, attributes, false);
 
     tll_free(fallbacks);
-    return ret ? font : NULL;
+    return font;
 }
 
 static size_t
@@ -351,17 +350,15 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
 
         /* Try user configured fallback fonts */
         tll_foreach(font->fallbacks, it) {
-            struct font *fallback = malloc(sizeof(*fallback));
+            struct font *fallback = from_name(it->item, NULL, "", true);
+            if (fallback == NULL)
+                continue;
 
-            if (from_name(it->item, NULL, "", fallback, true)) {
-                if (glyph_for_wchar(fallback, wc, glyph)) {
-                    LOG_DBG("%C: used fallback %s (fixup = %f)",
-                            wc, it->item, fallback->pixel_size_fixup);
-                    font_destroy(fallback);
-                    return true;
-                }
-
+            if (glyph_for_wchar(fallback, wc, glyph)) {
+                LOG_DBG("%C: used fallback %s (fixup = %f)",
+                        wc, it->item, fallback->pixel_size_fixup);
                 font_destroy(fallback);
+                return true;
             }
         }
 
