@@ -20,6 +20,12 @@
 static FT_Library ft_lib;
 static mtx_t ft_lock;
 
+struct font_cache_entry {
+    uint64_t hash;
+    struct font *font;
+};
+static tll(struct font_cache_entry) font_cache = tll_init();
+
 static const size_t cache_size = 512;
 
 static void __attribute__((constructor))
@@ -33,6 +39,8 @@ init(void)
 static void __attribute__((destructor))
 fini(void)
 {
+    assert(tll_length(font_cache) == 0);
+
     mtx_destroy(&ft_lock);
     FT_Done_FreeType(ft_lib);
     FcFini();
@@ -212,6 +220,7 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
     font->is_fallback = is_fallback;
     font->pixel_size_fixup = scalable ? pixel_fixup : 1.;
     font->bgr = fc_rgba == FC_RGBA_BGR || fc_rgba == FC_RGBA_VBGR;
+    font->ref_counter = 1;
 
     if (is_fallback) {
         font->fc_idx = 0;
@@ -247,9 +256,49 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
     return true;
 }
 
-static struct font *
-from_name(const char *base_name, const font_list_t *fallbacks, const char *attributes, bool is_fallback)
+static uint64_t
+hash_font(const char *base_name, const font_list_t *fallbacks,
+          const char *attributes, bool is_fallback)
 {
+#define rot(h, n) (((h) << (n)) | ((h) >> (64 - (n))))
+
+    /* TODO: better string hash */
+    uint64_t hash = 0;
+
+    for (size_t i = 0; i < strlen(base_name); i++)
+        hash = rot(hash, 7) ^ base_name[i];
+
+    if (fallbacks != NULL) {
+        tll_foreach(*fallbacks, it) {
+            for (size_t i = 0; i < strlen(it->item); i++)
+                hash = rot(hash, 17) ^ it->item[i];
+        }
+    }
+
+    if (attributes != NULL) {
+        for (size_t i = 0; i < strlen(attributes); i++)
+            hash = rot(hash, 11) ^ attributes[i];
+    }
+
+    if (is_fallback)
+        hash = rot(hash, 27);
+
+    return hash;
+#undef rot
+}
+
+static struct font *
+from_name(const char *base_name, const font_list_t *fallbacks,
+          const char *attributes, bool is_fallback)
+{
+    uint64_t hash = hash_font(base_name, fallbacks, attributes, is_fallback);
+    tll_foreach(font_cache, it) {
+        if (it->item.hash == hash) {
+            it->item.font->ref_counter++;
+            return it->item.font;
+        }
+    }
+
     size_t attr_len = attributes == NULL ? 0 : strlen(attributes);
     bool have_attrs = attr_len > 0;
 
@@ -298,6 +347,7 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
         FcPatternDestroy(pattern);
     }
 
+    tll_push_back(font_cache, ((struct font_cache_entry){.hash = hash, .font = font}));
     return font;
 }
 
@@ -605,6 +655,9 @@ font_destroy(struct font *font)
     if (font == NULL)
         return;
 
+    if (--font->ref_counter > 0)
+        return;
+
     tll_free_and_free(font->fallbacks, free);
 
     if (font->face != NULL) {
@@ -647,5 +700,13 @@ font_destroy(struct font *font)
         free(font->cache[i]);
     }
     free(font->cache);
+
+    tll_foreach(font_cache, it) {
+        if (it->item.font == font) {
+            tll_remove(font_cache, it);
+            break;
+        }
+    }
+
     free(font);
 }

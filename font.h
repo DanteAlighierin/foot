@@ -52,6 +52,8 @@ struct font {
     bool is_fallback;
     tll(char *) fallbacks;
 
+    size_t ref_counter;
+
     /* Fields below are only valid for non-fallback fonts */
     FcPattern *fc_pattern;
     FcFontSet *fc_fonts;
