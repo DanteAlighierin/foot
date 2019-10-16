@@ -24,7 +24,7 @@ struct font *
 attrs_to_font(struct terminal *term, const struct attributes *attrs)
 {
     int idx = attrs->italic << 1 | attrs->bold;
-    return &term->fonts[idx];
+    return term->fonts[idx];
 }
 
 static inline struct rgb
@@ -750,7 +750,7 @@ render_search_box(struct terminal *term)
         PIXMAN_OP_SRC, buf->pix, &color,
         1, &(pixman_rectangle16_t){0, 0, width, height});
 
-    struct font *font = &term->fonts[0];
+    struct font *font = term->fonts[0];
     int x = margin;
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
