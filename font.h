@@ -30,14 +30,12 @@ struct glyph {
 typedef tll(struct glyph) hash_entry_t;
 
 struct font {
-    FcPattern *fc_pattern;
-    FcFontSet *fc_fonts;
-    int fc_idx;
-
+    mtx_t lock;
     FT_Face face;
     int load_flags;
     int render_flags;
     FT_LcdFilter lcd_filter;
+
     double pixel_size_fixup; /* Scale factor - should only be used with ARGB32 glyphs */
     bool bgr;  /* True for FC_RGBA_BGR and FC_RGBA_VBGR */
 
@@ -54,8 +52,13 @@ struct font {
     bool is_fallback;
     tll(char *) fallbacks;
 
+    /* Fields below are only valid for non-fallback fonts */
+    FcPattern *fc_pattern;
+    FcFontSet *fc_fonts;
+    int fc_idx;
+    struct font **fc_loaded_fonts; /* fc_fonts->nfont array */
+
     hash_entry_t **cache;
-    mtx_t lock;
 };
 
 struct font *font_from_name(font_list_t names, const char *attributes);
