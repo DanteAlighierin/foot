@@ -623,28 +623,28 @@ main(int argc, char *const *argv)
     tll_foreach(conf.fonts, it)
         tll_push_back(font_names, it->item);
 
-    if (!font_from_name(font_names, "", &term.fonts[0])) {
+    if ((term.fonts[0] = font_from_name(font_names, "")) == NULL) {
         tll_free(font_names);
         goto out;
     }
 
-    font_from_name(font_names, "style=bold", &term.fonts[1]);
-    font_from_name(font_names, "style=italic", &term.fonts[2]);
-    font_from_name(font_names, "style=bold italic", &term.fonts[3]);
+    term.fonts[1] = font_from_name(font_names, "style=bold");
+    term.fonts[2] = font_from_name(font_names, "style=italic");
+    term.fonts[3] = font_from_name(font_names, "style=bold italic");
 
     tll_free(font_names);
 
     {
-        FT_Face ft_face = term.fonts[0].face;
+        FT_Face ft_face = term.fonts[0]->face;
         int max_x_advance = ft_face->size->metrics.max_advance / 64;
         int height = ft_face->size->metrics.height / 64;
         int descent = ft_face->size->metrics.descender / 64;
         int ascent = ft_face->size->metrics.ascender / 64;
 
-        term.fextents.height = height * term.fonts[0].pixel_size_fixup;
-        term.fextents.descent = -descent * term.fonts[0].pixel_size_fixup;
-        term.fextents.ascent = ascent * term.fonts[0].pixel_size_fixup;
-        term.fextents.max_x_advance = max_x_advance * term.fonts[0].pixel_size_fixup;
+        term.fextents.height = height * term.fonts[0]->pixel_size_fixup;
+        term.fextents.descent = -descent * term.fonts[0]->pixel_size_fixup;
+        term.fextents.ascent = ascent * term.fonts[0]->pixel_size_fixup;
+        term.fextents.max_x_advance = max_x_advance * term.fonts[0]->pixel_size_fixup;
 
         LOG_DBG("metrics: height: %d, descent: %d, ascent: %d, x-advance: %d",
                 height, descent, ascent, max_x_advance);
@@ -1185,7 +1185,7 @@ out:
     tll_free_and_free(term.window_title_stack, free);
 
     for (size_t i = 0; i < sizeof(term.fonts) / sizeof(term.fonts[0]); i++)
-        font_destroy(&term.fonts[i]);
+        font_destroy(term.fonts[i]);
 
     free(term.search.buf);
 

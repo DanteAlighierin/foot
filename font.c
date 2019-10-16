@@ -291,8 +291,8 @@ from_name(const char *base_name, const font_list_t *fallbacks, const char *attri
     return true;
 }
 
-bool
-font_from_name(font_list_t names, const char *attributes, struct font *font)
+struct font *
+font_from_name(font_list_t names, const char *attributes)
 {
     if (tll_length(names) == 0)
         return false;
@@ -308,10 +308,14 @@ font_from_name(font_list_t names, const char *attributes, struct font *font)
         tll_push_back(fallbacks, it->item);
     }
 
+    struct font *font = malloc(sizeof(*font));
     bool ret = from_name(tll_front(names), &fallbacks, attributes, font, false);
 
+    if (!ret)
+        free(font);
+
     tll_free(fallbacks);
-    return ret;
+    return ret ? font : NULL;
 }
 
 static size_t

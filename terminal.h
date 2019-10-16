@@ -366,7 +366,7 @@ struct terminal {
     struct grid alt;
     struct grid *grid;
 
-    struct font fonts[4];
+    struct font *fonts[4];
     struct {
         int height;
         int descent;
