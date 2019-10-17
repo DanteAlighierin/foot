@@ -227,13 +227,13 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
         font->fc_pattern = NULL;
         font->fc_fonts = NULL;
         font->fc_loaded_fallbacks = NULL;
-        font->cache = NULL;
+        font->glyph_cache = NULL;
     } else {
         font->fc_pattern = !is_fallback ? pattern : NULL;
         font->fc_fonts = !is_fallback ? fonts : NULL;
         font->fc_loaded_fallbacks = calloc(
             fonts->nfont, sizeof(font->fc_loaded_fallbacks[0]));
-        font->cache = calloc(cache_size, sizeof(font->cache[0]));
+        font->glyph_cache = calloc(cache_size, sizeof(font->glyph_cache[0]));
     }
 
     if (fallbacks != NULL) {
@@ -622,9 +622,9 @@ font_glyph_for_wc(struct font *font, wchar_t wc)
 {
     mtx_lock(&font->lock);
 
-    assert(font->cache != NULL);
+    assert(font->glyph_cache != NULL);
     size_t hash_idx = hash_index(wc);
-    hash_entry_t *hash_entry = font->cache[hash_idx];
+    hash_entry_t *hash_entry = font->glyph_cache[hash_idx];
 
     if (hash_entry != NULL) {
         tll_foreach(*hash_entry, it) {
@@ -641,8 +641,8 @@ font_glyph_for_wc(struct font *font, wchar_t wc)
     if (hash_entry == NULL) {
         hash_entry = calloc(1, sizeof(*hash_entry));
 
-        assert(font->cache[hash_idx] == NULL);
-        font->cache[hash_idx] = hash_entry;
+        assert(font->glyph_cache[hash_idx] == NULL);
+        font->glyph_cache[hash_idx] = hash_entry;
     }
 
     assert(hash_entry != NULL);
@@ -686,11 +686,11 @@ font_destroy(struct font *font)
         FcFontSetDestroy(font->fc_fonts);
 
 
-    for (size_t i = 0; i < cache_size && font->cache != NULL; i++) {
-        if (font->cache[i] == NULL)
+    for (size_t i = 0; i < cache_size && font->glyph_cache != NULL; i++) {
+        if (font->glyph_cache[i] == NULL)
             continue;
 
-        tll_foreach(*font->cache[i], it) {
+        tll_foreach(*font->glyph_cache[i], it) {
             if (!it->item.valid)
                 continue;
 
@@ -699,17 +699,19 @@ font_destroy(struct font *font)
             free(image);
         }
 
-        tll_free(*font->cache[i]);
-        free(font->cache[i]);
+        tll_free(*font->glyph_cache[i]);
+        free(font->glyph_cache[i]);
     }
-    free(font->cache);
+    free(font->glyph_cache);
 
     tll_foreach(font_cache, it) {
         if (it->item.font == font) {
             tll_remove(font_cache, it);
-            break;
+            free(font);
+            return;
         }
     }
 
+    LOG_ERR("font not found in cache");
     free(font);
 }

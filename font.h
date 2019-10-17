@@ -60,7 +60,7 @@ struct font {
     int fc_idx;
     struct font **fc_loaded_fallbacks; /* fc_fonts->nfont array */
 
-    hash_entry_t **cache;
+    hash_entry_t **glyph_cache;
 };
 
 struct font *font_from_name(font_list_t names, const char *attributes);
