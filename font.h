@@ -58,7 +58,7 @@ struct font {
     FcPattern *fc_pattern;
     FcFontSet *fc_fonts;
     int fc_idx;
-    struct font **fc_loaded_fonts; /* fc_fonts->nfont array */
+    struct font **fc_loaded_fallbacks; /* fc_fonts->nfont array */
 
     hash_entry_t **cache;
 };

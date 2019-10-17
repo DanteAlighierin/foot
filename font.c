@@ -226,13 +226,14 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
         font->fc_idx = 0;
         font->fc_pattern = NULL;
         font->fc_fonts = NULL;
-        font->fc_loaded_fonts = NULL;
+        font->fc_loaded_fallbacks = NULL;
         font->cache = NULL;
     } else {
         font->fc_idx = font_idx;
         font->fc_pattern = !is_fallback ? pattern : NULL;
         font->fc_fonts = !is_fallback ? fonts : NULL;
-        font->fc_loaded_fonts = calloc(fonts->nfont, sizeof(font->fc_loaded_fonts[0]));
+        font->fc_loaded_fallbacks = calloc(
+            fonts->nfont, sizeof(font->fc_loaded_fallbacks[0]));
         font->cache = calloc(cache_size, sizeof(font->cache[0]));
     }
 
@@ -419,11 +420,11 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
 
         assert(font->fc_pattern != NULL);
         assert(font->fc_fonts != NULL);
-        assert(font->fc_loaded_fonts != NULL);
+        assert(font->fc_loaded_fallbacks != NULL);
         assert(font->fc_idx != -1);
 
         for (int i = font->fc_idx + 1; i < font->fc_fonts->nfont; i++) {
-            if (font->fc_loaded_fonts[i] == NULL) {
+            if (font->fc_loaded_fallbacks[i] == NULL) {
                 /* Load font */
                 struct font *fallback = malloc(sizeof(*fallback));
                 if (!from_font_set(font->fc_pattern, font->fc_fonts, i, NULL,
@@ -435,12 +436,12 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
                 }
 
                 LOG_DBG("loaded new fontconfig fallback font");
-                font->fc_loaded_fonts[i] = fallback;
+                font->fc_loaded_fallbacks[i] = fallback;
             }
 
-            assert(font->fc_loaded_fonts[i] != NULL);
+            assert(font->fc_loaded_fallbacks[i] != NULL);
 
-            if (glyph_for_wchar(font->fc_loaded_fonts[i], wc, glyph)) {
+            if (glyph_for_wchar(font->fc_loaded_fallbacks[i], wc, glyph)) {
                 LOG_DBG("%C: used fontconfig fallback", wc);
                 return true;
             }
@@ -669,12 +670,12 @@ font_destroy(struct font *font)
     mtx_destroy(&font->lock);
 
     if (font->fc_fonts != NULL) {
-        assert(font->fc_loaded_fonts != NULL);
+        assert(font->fc_loaded_fallbacks != NULL);
 
         for (size_t i = 0; i < font->fc_fonts->nfont; i++)
-            font_destroy(font->fc_loaded_fonts[i]);
+            font_destroy(font->fc_loaded_fallbacks[i]);
 
-        free(font->fc_loaded_fonts);
+        free(font->fc_loaded_fallbacks);
     }
 
     if (font->fc_pattern != NULL)
