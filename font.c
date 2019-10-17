@@ -20,12 +20,6 @@
 static FT_Library ft_lib;
 static mtx_t ft_lock;
 
-struct font_cache_entry {
-    uint64_t hash;
-    struct font *font;
-};
-static tll(struct font_cache_entry) font_cache = tll_init();
-
 static const size_t cache_size = 512;
 
 static void __attribute__((constructor))
@@ -39,8 +33,6 @@ init(void)
 static void __attribute__((destructor))
 fini(void)
 {
-    assert(tll_length(font_cache) == 0);
-
     mtx_destroy(&ft_lock);
     FT_Done_FreeType(ft_lib);
     FcFini();
@@ -84,13 +76,10 @@ underline_strikeout_metrics(struct font *font)
 }
 
 static bool
-from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_list_t *fallbacks,
-              const char *attributes, struct font *font, bool is_fallback)
+from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
+              struct font *font, bool is_fallback)
 {
     memset(font, 0, sizeof(*font));
-
-    size_t attr_len = attributes == NULL ? 0 : strlen(attributes);
-    bool have_attrs = attr_len > 0;
 
     FcChar8 *face_file = NULL;
     FcPattern *final_pattern = NULL;
@@ -211,6 +200,7 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
     case FC_LCD_LEGACY:  font->lcd_filter = FT_LCD_FILTER_LEGACY; break;
     }
 
+    font->name = strdup((char *)face_file);
     FcPatternDestroy(final_pattern);
 
     mtx_init(&font->lock, mtx_plain);
@@ -236,79 +226,13 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
         font->glyph_cache = calloc(cache_size, sizeof(font->glyph_cache[0]));
     }
 
-    if (fallbacks != NULL) {
-        tll_foreach(*fallbacks, it) {
-            size_t len = strlen(it->item) + (have_attrs ? 1 : 0) + attr_len + 1;
-            char *fallback = malloc(len);
-
-            strcpy(fallback, it->item);
-            if (have_attrs) {
-                strcat(fallback, ":");
-                strcat(fallback, attributes);
-            }
-
-            LOG_DBG("%s: adding fallback: %s", it->item, fallback);
-            tll_push_back(font->fallbacks, fallback);
-        }
-    }
-
     underline_strikeout_metrics(font);
     return true;
 }
 
-static uint64_t
-hash_font(const char *base_name, const font_list_t *fallbacks,
-          const char *attributes, bool is_fallback)
-{
-#define rot(h, n) (((h) << (n)) | ((h) >> (64 - (n))))
-
-    /* TODO: better string hash */
-    uint64_t hash = 0;
-
-    for (size_t i = 0; i < strlen(base_name); i++)
-        hash = rot(hash, 7) ^ base_name[i];
-
-    if (fallbacks != NULL) {
-        tll_foreach(*fallbacks, it) {
-            for (size_t i = 0; i < strlen(it->item); i++)
-                hash = rot(hash, 17) ^ it->item[i];
-        }
-    }
-
-    if (attributes != NULL) {
-        for (size_t i = 0; i < strlen(attributes); i++)
-            hash = rot(hash, 11) ^ attributes[i];
-    }
-
-    if (is_fallback)
-        hash = rot(hash, 27);
-
-    return hash;
-#undef rot
-}
-
 static struct font *
-from_name(const char *base_name, const font_list_t *fallbacks,
-          const char *attributes, bool is_fallback)
+from_name(const char *name, bool is_fallback)
 {
-    uint64_t hash = hash_font(base_name, fallbacks, attributes, is_fallback);
-    tll_foreach(font_cache, it) {
-        if (it->item.hash == hash) {
-            it->item.font->ref_counter++;
-            return it->item.font;
-        }
-    }
-
-    size_t attr_len = attributes == NULL ? 0 : strlen(attributes);
-    bool have_attrs = attr_len > 0;
-
-    char name[strlen(base_name) + (have_attrs ? 1 : 0) + attr_len + 1];
-    strcpy(name, base_name);
-    if (have_attrs){
-        strcat(name, ":");
-        strcat(name, attributes);
-    }
-
     LOG_DBG("instantiating %s", name);
 
     FcPattern *pattern = FcNameParse((const unsigned char *)name);
@@ -335,7 +259,7 @@ from_name(const char *base_name, const font_list_t *fallbacks,
 
     struct font *font = malloc(sizeof(*font));
 
-    if (!from_font_set(pattern, fonts, 0, fallbacks, attributes, font, is_fallback)) {
+    if (!from_font_set(pattern, fonts, 0, font, is_fallback)) {
         free(font);
         FcFontSetDestroy(fonts);
         FcPatternDestroy(pattern);
@@ -347,7 +271,7 @@ from_name(const char *base_name, const font_list_t *fallbacks,
         FcPatternDestroy(pattern);
     }
 
-    tll_push_back(font_cache, ((struct font_cache_entry){.hash = hash, .font = font}));
+    LOG_DBG("instantiated: %s", font->name);
     return font;
 }
 
@@ -357,21 +281,39 @@ font_from_name(font_list_t names, const char *attributes)
     if (tll_length(names) == 0)
         return false;
 
-    font_list_t fallbacks = tll_init();
-    bool skip_first = true;
+    struct font *res = NULL;
+
+    bool have_attrs = attributes != NULL && strlen(attributes) > 0;
+    size_t attr_len = have_attrs ? strlen(attributes) + 1 : 0;
+
+    bool first = true;
     tll_foreach(names, it) {
-        if (skip_first) {
-            skip_first = false;
+        const char *base_name = it->item;
+
+        char primary_name[strlen(base_name) + attr_len + 1];
+        strcpy(primary_name, base_name);
+        if (have_attrs) {
+            strcat(primary_name, ":");
+            strcat(primary_name, attributes);
+        }
+
+        struct font *font = from_name(primary_name, !first);
+        if (font == NULL) {
+            if (first)
+                return NULL;
             continue;
         }
 
-        tll_push_back(fallbacks, it->item);
+        if (first) {
+            res = font;
+            first = false;
+            continue;
+        }
+
+        tll_push_back(res->fallbacks, font);
     }
 
-    struct font *font = from_name(tll_front(names), &fallbacks, attributes, false);
-
-    tll_free(fallbacks);
-    return font;
+    return res;
 }
 
 static size_t
@@ -398,16 +340,10 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
     if (idx == 0) {
         /* No glyph in this font, try fallback fonts */
 
-        /* Try user configured fallback fonts */
         tll_foreach(font->fallbacks, it) {
-            struct font *fallback = from_name(it->item, NULL, "", true);
-            if (fallback == NULL)
-                continue;
-
-            if (glyph_for_wchar(fallback, wc, glyph)) {
-                LOG_DBG("%C: used fallback %s (fixup = %f)",
-                        wc, it->item, fallback->pixel_size_fixup);
-                font_destroy(fallback);
+            if (glyph_for_wchar(it->item, wc, glyph)) {
+                LOG_DBG("%C: used fallback: %s (fixup = %f)",
+                        wc, it->item->name, it->item->pixel_size_fixup);
                 return true;
             }
         }
@@ -426,8 +362,7 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
             if (font->fc_loaded_fallbacks[i] == NULL) {
                 /* Load font */
                 struct font *fallback = malloc(sizeof(*fallback));
-                if (!from_font_set(font->fc_pattern, font->fc_fonts, i, NULL,
-                                   "", fallback, true))
+                if (!from_font_set(font->fc_pattern, font->fc_fonts, i, fallback, true))
                 {
                     LOG_WARN("failed to load fontconfig fallback font");
                     free(fallback);
@@ -444,7 +379,8 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
             assert(font->fc_loaded_fallbacks[i] != NULL);
 
             if (glyph_for_wchar(font->fc_loaded_fallbacks[i], wc, glyph)) {
-                LOG_DBG("%C: used fontconfig fallback", wc);
+                LOG_DBG("%C: used fontconfig fallback: %s",
+                        wc, font->fc_loaded_fallbacks[i]->name);
                 return true;
             }
         }
@@ -661,7 +597,8 @@ font_destroy(struct font *font)
     if (--font->ref_counter > 0)
         return;
 
-    tll_free_and_free(font->fallbacks, free);
+    free(font->name);
+    tll_free_and_free(font->fallbacks, font_destroy);
 
     if (font->face != NULL) {
         mtx_lock(&ft_lock);
@@ -703,15 +640,5 @@ font_destroy(struct font *font)
         free(font->glyph_cache[i]);
     }
     free(font->glyph_cache);
-
-    tll_foreach(font_cache, it) {
-        if (it->item.font == font) {
-            tll_remove(font_cache, it);
-            free(font);
-            return;
-        }
-    }
-
-    LOG_ERR("font not found in cache");
     free(font);
 }

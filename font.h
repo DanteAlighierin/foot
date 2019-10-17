@@ -30,6 +30,8 @@ struct glyph {
 typedef tll(struct glyph) hash_entry_t;
 
 struct font {
+    char *name;
+
     mtx_t lock;
     FT_Face face;
     int load_flags;
@@ -50,7 +52,7 @@ struct font {
     } strikeout;
 
     bool is_fallback;
-    tll(char *) fallbacks;
+    tll(struct font *) fallbacks;
 
     size_t ref_counter;
 
