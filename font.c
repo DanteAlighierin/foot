@@ -281,7 +281,7 @@ font_from_name(font_list_t names, const char *attributes)
     if (tll_length(names) == 0)
         return false;
 
-    struct font *res = NULL;
+    struct font *font = NULL;
 
     bool have_attrs = attributes != NULL && strlen(attributes) > 0;
     size_t attr_len = have_attrs ? strlen(attributes) + 1 : 0;
@@ -290,30 +290,29 @@ font_from_name(font_list_t names, const char *attributes)
     tll_foreach(names, it) {
         const char *base_name = it->item;
 
-        char primary_name[strlen(base_name) + attr_len + 1];
-        strcpy(primary_name, base_name);
+        char name[strlen(base_name) + attr_len + 1];
+        strcpy(name, base_name);
         if (have_attrs) {
-            strcat(primary_name, ":");
-            strcat(primary_name, attributes);
-        }
-
-        struct font *font = from_name(primary_name, !first);
-        if (font == NULL) {
-            if (first)
-                return NULL;
-            continue;
+            strcat(name, ":");
+            strcat(name, attributes);
         }
 
         if (first) {
-            res = font;
             first = false;
+
+            font = from_name(name, false);
+            if (font == NULL)
+                return NULL;
+
             continue;
         }
 
-        tll_push_back(res->fallbacks, font);
+        assert(font != NULL);
+        tll_push_back(
+            font->fallbacks, ((struct font_fallback){.pattern = strdup(name)}));
     }
 
-    return res;
+    return font;
 }
 
 static size_t
@@ -341,9 +340,16 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
         /* No glyph in this font, try fallback fonts */
 
         tll_foreach(font->fallbacks, it) {
-            if (glyph_for_wchar(it->item, wc, glyph)) {
+            if (it->item.font == NULL) {
+                it->item.font = from_name(it->item.pattern, true);
+                if (it->item.font == NULL)
+                    continue;
+            }
+
+            if (glyph_for_wchar(it->item.font, wc, glyph)) {
                 LOG_DBG("%C: used fallback: %s (fixup = %f)",
-                        wc, it->item->name, it->item->pixel_size_fixup);
+                        wc, it->item.font->name,
+                        it->item.font->pixel_size_fixup);
                 return true;
             }
         }
@@ -598,7 +604,12 @@ font_destroy(struct font *font)
         return;
 
     free(font->name);
-    tll_free_and_free(font->fallbacks, font_destroy);
+
+    tll_foreach(font->fallbacks, it) {
+        font_destroy(it->item.font);
+        free(it->item.pattern);
+    }
+    tll_free(font->fallbacks);
 
     if (font->face != NULL) {
         mtx_lock(&ft_lock);
