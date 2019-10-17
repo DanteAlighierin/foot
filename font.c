@@ -221,15 +221,14 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx, const font_li
     font->pixel_size_fixup = scalable ? pixel_fixup : 1.;
     font->bgr = fc_rgba == FC_RGBA_BGR || fc_rgba == FC_RGBA_VBGR;
     font->ref_counter = 1;
+    font->fc_idx = font_idx;
 
     if (is_fallback) {
-        font->fc_idx = 0;
         font->fc_pattern = NULL;
         font->fc_fonts = NULL;
         font->fc_loaded_fallbacks = NULL;
         font->cache = NULL;
     } else {
-        font->fc_idx = font_idx;
         font->fc_pattern = !is_fallback ? pattern : NULL;
         font->fc_fonts = !is_fallback ? fonts : NULL;
         font->fc_loaded_fallbacks = calloc(
@@ -436,6 +435,9 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
                 }
 
                 LOG_DBG("loaded new fontconfig fallback font");
+                assert(fallback->fc_idx >= i);
+
+                i = fallback->fc_idx;
                 font->fc_loaded_fallbacks[i] = fallback;
             }
 
