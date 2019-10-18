@@ -324,6 +324,11 @@ hash_index(wchar_t wc)
 static bool
 glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
 {
+    *glyph = (struct glyph){
+        .wc = wc,
+        .valid = false,
+    };
+
     /*
      * LCD filter is per library instance. Thus we need to re-set it
      * every time...
@@ -552,10 +557,7 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
     return true;
 
 err:
-    *glyph = (struct glyph){
-        .wc = wc,
-        .valid = false,
-    };
+    assert(!glyph->valid);
     return false;
 }
 
