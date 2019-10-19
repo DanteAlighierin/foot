@@ -39,6 +39,7 @@
 #include "slave.h"
 #include "terminal.h"
 #include "tokenize.h"
+#include "version.h"
 #include "vt.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
