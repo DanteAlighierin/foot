@@ -1,0 +1,14 @@
+#compdef foot
+
+_arguments \
+    -s \
+    '(-v --version)'{-v,--version}'[show the version number and quit]' \
+    '(-h --help)'{-h,--help}'[show help message and quit]' \
+    '(-f --font)'{-f,--font}'[font name and style in fontconfig format (monospace)]:font:->fonts' \
+    '(-g --geometry)'{-g,--geometry}'[window WIDTHxHEIGHT, in pixels (84x24 cells)]'
+
+case "${state}" in
+    fonts)
+        _values 'font families' $(fc-list : family | tr -d ' ')
+        ;;
+esac

@@ -98,4 +98,5 @@ custom_target(
 install_data('foot.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
 install_data('footrc', install_dir: join_paths(get_option('datadir'), 'foot'))
 
+subdir('completions')
 subdir('doc')
