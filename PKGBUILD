@@ -8,8 +8,8 @@ makedepends=('meson' 'ninja' 'scdoc' 'python')
 source=()
 
 pkgver() {
-  [ -d ../.git ] && git describe --tags --long | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
-  [ ! -d ../.git ] && head -3 ../meson.build | grep version | cut -d "'" -f 2
+  cd ../.git &> /dev/null && git describe --tags --long | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g' ||
+      head -3 ../meson.build | grep version | cut -d "'" -f 2
 }
 
 build() {
