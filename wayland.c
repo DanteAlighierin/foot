@@ -1,6 +1,9 @@
 #include "wayland.h"
 
 #include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
 
@@ -393,6 +396,32 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
     return event_count != -1 && !wayl->term->quit;
 }
 
+static bool
+fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
+{
+    if (events & EPOLLHUP)
+        return false;
+
+    struct wayland *wayl = data;
+    uint64_t expiration_count;
+    ssize_t ret = read(
+        wayl->kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
+
+    if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+
+        LOG_ERRNO("failed to read repeat key from repeat timer fd");
+        return false;
+    }
+
+    wayl->kbd.repeat.dont_re_repeat = true;
+    for (size_t i = 0; i < expiration_count; i++)
+        input_repeat(wayl, wayl->kbd.repeat.key);
+    wayl->kbd.repeat.dont_re_repeat = false;
+    return true;
+}
+
 struct wayland *
 wayl_init(struct fdm *fdm)
 {
@@ -496,6 +525,11 @@ wayl_init(struct fdm *fdm)
         goto out;
     }
 
+    if (!fdm_add(fdm, wayl->kbd.repeat.fd, EPOLLIN, &fdm_repeat, wayl)) {
+        LOG_ERR("failed to register keyboard repeat timer with the FDM");
+        goto out;
+    }
+
     return wayl;
 
 out:
@@ -507,6 +541,11 @@ out:
 void
 wayl_destroy(struct wayland *wayl)
 {
+    if (wayl->kbd.repeat.fd != 0) {
+        fdm_del(wayl->fdm, wayl->kbd.repeat.fd);
+        close(wayl->kbd.repeat.fd);
+    }
+
     tll_foreach(wayl->monitors, it) {
         free(it->item.name);
         if (it->item.xdg != NULL)

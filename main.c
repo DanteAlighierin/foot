@@ -123,33 +123,6 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     return !(events & EPOLLHUP);
 }
 
-#include "input.h"
-static bool
-fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
-{
-    if (events & EPOLLHUP)
-        return false;
-
-    struct wayland *wayl = data;
-    uint64_t expiration_count;
-    ssize_t ret = read(
-        wayl->kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
-
-    if (ret < 0) {
-        if (errno == EAGAIN)
-            return true;
-
-        LOG_ERRNO("failed to read repeat key from repeat timer fd");
-        return false;
-    }
-
-    wayl->kbd.repeat.dont_re_repeat = true;
-    for (size_t i = 0; i < expiration_count; i++)
-        input_repeat(wayl, wayl->kbd.repeat.key);
-    wayl->kbd.repeat.dont_re_repeat = false;
-    return true;
-}
-
 static bool
 fdm_flash(struct fdm *fdm, int fd, int events, void *data)
 {
@@ -637,7 +610,6 @@ main(int argc, char *const *argv)
     }
 
     fdm_add(fdm, term.ptmx, EPOLLIN, &fdm_ptmx, &term);
-    fdm_add(fdm, term.wl->kbd.repeat.fd, EPOLLIN, &fdm_repeat, term.wl);
     fdm_add(fdm, term.flash.fd, EPOLLIN, &fdm_flash, &term);
     fdm_add(fdm, term.blink.fd, EPOLLIN, &fdm_blink, &term);
     fdm_add(fdm, term.delayed_render_timer.lower_fd, EPOLLIN, &fdm_delayed_render, &term);
@@ -655,7 +627,6 @@ main(int argc, char *const *argv)
 out:
     if (fdm != NULL) {
         fdm_del(fdm, term.ptmx);
-        fdm_del(fdm, term.wl->kbd.repeat.fd);
         fdm_del(fdm, term.flash.fd);
         fdm_del(fdm, term.blink.fd);
         fdm_del(fdm, term.delayed_render_timer.lower_fd);
@@ -701,8 +672,6 @@ out:
         close(term.flash.fd);
     if (term.blink.fd != -1)
         close(term.blink.fd);
-    if (term.wl->kbd.repeat.fd != -1)
-        close(term.wl->kbd.repeat.fd);
 
     if (term.ptmx != -1)
         close(term.ptmx);
