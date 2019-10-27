@@ -480,7 +480,7 @@ void
 term_mouse_down(struct terminal *term, int button, int row, int col,
                 bool shift, bool alt, bool ctrl)
 {
-    if (term->wl.kbd.shift) {
+    if (term->wl->kbd.shift) {
         /* "raw" mouse mode */
         return;
     }
@@ -513,7 +513,7 @@ void
 term_mouse_up(struct terminal *term, int button, int row, int col,
               bool shift, bool alt, bool ctrl)
 {
-    if (term->wl.kbd.shift) {
+    if (term->wl->kbd.shift) {
         /* "raw" mouse mode */
         return;
     }
@@ -551,7 +551,7 @@ void
 term_mouse_motion(struct terminal *term, int button, int row, int col,
                   bool shift, bool alt, bool ctrl)
 {
-    if (term->wl.kbd.shift) {
+    if (term->wl->kbd.shift) {
         /* "raw" mouse mode */
         return;
     }

@@ -729,6 +729,14 @@ main(int argc, char *const *argv)
 
     struct fdm *fdm = NULL;
 
+    struct wayland wayl = {
+        .kbd = {
+            .repeat = {
+                .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK),
+            },
+        },
+    };
+
     struct terminal term = {
         .quit = false,
         .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
@@ -791,13 +799,7 @@ main(int argc, char *const *argv)
         .normal = {.damage = tll_init(), .scroll_damage = tll_init()},
         .alt = {.damage = tll_init(), .scroll_damage = tll_init()},
         .grid = &term.normal,
-        .wl = {
-            .kbd = {
-                .repeat = {
-                    .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK),
-                },
-            },
-        },
+        .wl = &wayl,
         .render = {
             .scrollback_lines = conf.scrollback_lines,
             .workers = {
@@ -843,7 +845,7 @@ main(int argc, char *const *argv)
         goto out;
     }
 
-    if (term.flash.fd == -1 || term.blink.fd == -1 || term.wl.kbd.repeat.fd == -1) {
+    if (term.flash.fd == -1 || term.blink.fd == -1 || term.wl->kbd.repeat.fd == -1) {
         LOG_ERR("failed to create timers");
         goto out;
     }
@@ -895,67 +897,67 @@ main(int argc, char *const *argv)
     term.cell_height = (int)ceil(term.fextents.height);
     LOG_INFO("cell width=%d, height=%d", term.cell_width, term.cell_height);
 
-    term.wl.term = &term;
-    term.wl.display = wl_display_connect(NULL);
-    if (term.wl.display == NULL) {
+    term.wl->term = &term;
+    term.wl->display = wl_display_connect(NULL);
+    if (term.wl->display == NULL) {
         LOG_ERR("failed to connect to wayland; no compositor running?");
         goto out;
     }
 
-    term.wl.registry = wl_display_get_registry(term.wl.display);
-    if (term.wl.registry == NULL) {
+    term.wl->registry = wl_display_get_registry(term.wl->display);
+    if (term.wl->registry == NULL) {
         LOG_ERR("failed to get wayland registry");
         goto out;
     }
 
-    wl_registry_add_listener(term.wl.registry, &registry_listener, &term.wl);
-    wl_display_roundtrip(term.wl.display);
+    wl_registry_add_listener(term.wl->registry, &registry_listener, term.wl);
+    wl_display_roundtrip(term.wl->display);
 
-    if (term.wl.compositor == NULL) {
+    if (term.wl->compositor == NULL) {
         LOG_ERR("no compositor");
         goto out;
     }
-    if (term.wl.shm == NULL) {
+    if (term.wl->shm == NULL) {
         LOG_ERR("no shared memory buffers interface");
         goto out;
     }
-    if (term.wl.shell == NULL) {
+    if (term.wl->shell == NULL) {
         LOG_ERR("no XDG shell interface");
         goto out;
     }
-    if (!term.wl.have_argb8888) {
+    if (!term.wl->have_argb8888) {
         LOG_ERR("compositor does not support ARGB surfaces");
         goto out;
     }
-    if (term.wl.seat == NULL) {
+    if (term.wl->seat == NULL) {
         LOG_ERR("no seat available");
         goto out;
     }
-    if (term.wl.data_device_manager == NULL) {
+    if (term.wl->data_device_manager == NULL) {
         LOG_ERR("no clipboard available "
                 "(wl_data_device_manager not implemented by server)");
         goto out;
     }
-    if (term.wl.primary_selection_device_manager == NULL)
+    if (term.wl->primary_selection_device_manager == NULL)
         LOG_WARN("no primary selection available");
 
-    tll_foreach(term.wl.monitors, it) {
+    tll_foreach(term.wl->monitors, it) {
         LOG_INFO("%s: %dx%d+%dx%d (scale=%d, refresh=%.2fHz)",
                  it->item.name, it->item.width_px, it->item.height_px,
                  it->item.x, it->item.y, it->item.scale, it->item.refresh);
     }
 
     /* Clipboard */
-    term.wl.data_device = wl_data_device_manager_get_data_device(
-        term.wl.data_device_manager, term.wl.seat);
-    wl_data_device_add_listener(term.wl.data_device, &data_device_listener, &term.wl);
+    term.wl->data_device = wl_data_device_manager_get_data_device(
+        term.wl->data_device_manager, term.wl->seat);
+    wl_data_device_add_listener(term.wl->data_device, &data_device_listener, term.wl);
 
     /* Primary selection */
-    if (term.wl.primary_selection_device_manager != NULL) {
-        term.wl.primary_selection_device = zwp_primary_selection_device_manager_v1_get_device(
-            term.wl.primary_selection_device_manager, term.wl.seat);
+    if (term.wl->primary_selection_device_manager != NULL) {
+        term.wl->primary_selection_device = zwp_primary_selection_device_manager_v1_get_device(
+            term.wl->primary_selection_device_manager, term.wl->seat);
         zwp_primary_selection_device_v1_add_listener(
-            term.wl.primary_selection_device, &primary_selection_device_listener, &term.wl);
+            term.wl->primary_selection_device, &primary_selection_device_listener, term.wl);
     }
 
     /* Cursor */
@@ -973,49 +975,49 @@ main(int argc, char *const *argv)
 
     /* Note: theme is (re)loaded on scale and output changes */
     LOG_INFO("cursor theme: %s, size: %u", cursor_theme, cursor_size);
-    term.wl.pointer.size = cursor_size;
-    term.wl.pointer.theme_name = cursor_theme != NULL ? strdup(cursor_theme) : NULL;
+    term.wl->pointer.size = cursor_size;
+    term.wl->pointer.theme_name = cursor_theme != NULL ? strdup(cursor_theme) : NULL;
 
-    term.wl.pointer.surface = wl_compositor_create_surface(term.wl.compositor);
-    if (term.wl.pointer.surface == NULL) {
+    term.wl->pointer.surface = wl_compositor_create_surface(term.wl->compositor);
+    if (term.wl->pointer.surface == NULL) {
         LOG_ERR("failed to create cursor surface");
         goto out;
     }
 
     /* Main window */
-    term.window.surface = wl_compositor_create_surface(term.wl.compositor);
+    term.window.surface = wl_compositor_create_surface(term.wl->compositor);
     if (term.window.surface == NULL) {
         LOG_ERR("failed to create wayland surface");
         goto out;
     }
 
-    wl_surface_add_listener(term.window.surface, &surface_listener, &term.wl);
+    wl_surface_add_listener(term.window.surface, &surface_listener, term.wl);
 
-    term.window.xdg_surface = xdg_wm_base_get_xdg_surface(term.wl.shell, term.window.surface);
-    xdg_surface_add_listener(term.window.xdg_surface, &xdg_surface_listener, &term.wl);
+    term.window.xdg_surface = xdg_wm_base_get_xdg_surface(term.wl->shell, term.window.surface);
+    xdg_surface_add_listener(term.window.xdg_surface, &xdg_surface_listener, term.wl);
 
     term.window.xdg_toplevel = xdg_surface_get_toplevel(term.window.xdg_surface);
-    xdg_toplevel_add_listener(term.window.xdg_toplevel, &xdg_toplevel_listener, &term.wl);
+    xdg_toplevel_add_listener(term.window.xdg_toplevel, &xdg_toplevel_listener, term.wl);
 
     xdg_toplevel_set_app_id(term.window.xdg_toplevel, "foot");
     term_set_window_title(&term, "foot");
 
     /* Request server-side decorations */
     term.window.xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
-        term.wl.xdg_decoration_manager, term.window.xdg_toplevel);
+        term.wl->xdg_decoration_manager, term.window.xdg_toplevel);
     zxdg_toplevel_decoration_v1_set_mode(
         term.window.xdg_toplevel_decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
     zxdg_toplevel_decoration_v1_add_listener(
-        term.window.xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, &term.wl);
+        term.window.xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, term.wl);
 
     /* Scrollback search box */
-    term.window.search_surface = wl_compositor_create_surface(term.wl.compositor);
+    term.window.search_surface = wl_compositor_create_surface(term.wl->compositor);
     term.window.search_sub_surface = wl_subcompositor_get_subsurface(
-        term.wl.sub_compositor, term.window.search_surface, term.window.surface);
+        term.wl->sub_compositor, term.window.search_surface, term.window.surface);
     wl_subsurface_set_desync(term.window.search_sub_surface);
 
     wl_surface_commit(term.window.surface);
-    wl_display_roundtrip(term.wl.display);
+    wl_display_roundtrip(term.wl->display);
 
     if (conf.width == -1) {
         assert(conf.height == -1);
@@ -1026,7 +1028,7 @@ main(int argc, char *const *argv)
     conf.height = max(conf.height, term.cell_height);
     render_resize(&term, conf.width, conf.height);
 
-    wl_display_dispatch_pending(term.wl.display);
+    wl_display_dispatch_pending(term.wl->display);
 
     {
         int fork_pipe[2];
@@ -1102,7 +1104,7 @@ main(int argc, char *const *argv)
 
 
     {
-        int fd = wl_display_get_fd(term.wl.display);
+        int fd = wl_display_get_fd(term.wl->display);
         int fd_flags = fcntl(fd, F_GETFL);
         if (fd_flags == -1) {
             LOG_ERRNO("failed to set non blocking mode on Wayland display connection");
@@ -1117,16 +1119,16 @@ main(int argc, char *const *argv)
     if ((fdm = fdm_init()) == NULL)
         goto out;
 
-    fdm_add(fdm, wl_display_get_fd(term.wl.display), EPOLLIN, &fdm_wayl, &term.wl);
+    fdm_add(fdm, wl_display_get_fd(term.wl->display), EPOLLIN, &fdm_wayl, term.wl);
     fdm_add(fdm, term.ptmx, EPOLLIN, &fdm_ptmx, &term);
-    fdm_add(fdm, term.wl.kbd.repeat.fd, EPOLLIN, &fdm_repeat, &term.wl);
+    fdm_add(fdm, term.wl->kbd.repeat.fd, EPOLLIN, &fdm_repeat, term.wl);
     fdm_add(fdm, term.flash.fd, EPOLLIN, &fdm_flash, &term);
     fdm_add(fdm, term.blink.fd, EPOLLIN, &fdm_blink, &term);
     fdm_add(fdm, term.delayed_render_timer.lower_fd, EPOLLIN, &fdm_delayed_render, &term);
     fdm_add(fdm, term.delayed_render_timer.upper_fd, EPOLLIN, &fdm_delayed_render, &term);
 
     while (true) {
-        wl_display_flush(term.wl.display);
+        wl_display_flush(term.wl->display);
         if (!fdm_poll(fdm))
             break;
     }
@@ -1136,9 +1138,9 @@ main(int argc, char *const *argv)
 
 out:
     if (fdm != NULL) {
-        fdm_del(fdm, wl_display_get_fd(term.wl.display));
+        fdm_del(fdm, wl_display_get_fd(term.wl->display));
         fdm_del(fdm, term.ptmx);
-        fdm_del(fdm, term.wl.kbd.repeat.fd);
+        fdm_del(fdm, term.wl->kbd.repeat.fd);
         fdm_del(fdm, term.flash.fd);
         fdm_del(fdm, term.blink.fd);
         fdm_del(fdm, term.delayed_render_timer.lower_fd);
@@ -1162,7 +1164,7 @@ out:
     shm_fini();
 
     wayl_win_destroy(&term.window);
-    wayl_destroy(&term.wl);
+    wayl_destroy(&wayl);
 
     free(term.vt.osc.data);
     for (int row = 0; row < term.normal.num_rows; row++)
@@ -1184,8 +1186,8 @@ out:
         close(term.flash.fd);
     if (term.blink.fd != -1)
         close(term.blink.fd);
-    if (term.wl.kbd.repeat.fd != -1)
-        close(term.wl.kbd.repeat.fd);
+    if (term.wl->kbd.repeat.fd != -1)
+        close(term.wl->kbd.repeat.fd);
 
     if (term.ptmx != -1)
         close(term.ptmx);

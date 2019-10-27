@@ -22,7 +22,7 @@ selection_enabled(const struct terminal *term)
 {
     return
         term->mouse_tracking == MOUSE_NONE ||
-        term->wl.kbd.shift ||
+        term->wl->kbd.shift ||
         term->is_searching;
 }
 
@@ -434,12 +434,12 @@ static const struct zwp_primary_selection_source_v1_listener primary_selection_s
 bool
 text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
 {
-    struct wl_clipboard *clipboard = &term->wl.clipboard;
+    struct wl_clipboard *clipboard = &term->wl->clipboard;
 
-    if (term->wl.clipboard.data_source != NULL) {
+    if (term->wl->clipboard.data_source != NULL) {
         /* Kill previous data source */
         assert(clipboard->serial != 0);
-        wl_data_device_set_selection(term->wl.data_device, NULL, clipboard->serial);
+        wl_data_device_set_selection(term->wl->data_device, NULL, clipboard->serial);
         wl_data_source_destroy(clipboard->data_source);
         free(clipboard->text);
 
@@ -448,7 +448,7 @@ text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
     }
 
     clipboard->data_source
-        = wl_data_device_manager_create_data_source(term->wl.data_device_manager);
+        = wl_data_device_manager_create_data_source(term->wl->data_device_manager);
 
     if (clipboard->data_source == NULL) {
         LOG_ERR("failed to create clipboard data source");
@@ -460,7 +460,7 @@ text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
     /* Configure source */
     wl_data_source_offer(clipboard->data_source, "text/plain;charset=utf-8");
     wl_data_source_add_listener(clipboard->data_source, &data_source_listener, term);
-    wl_data_device_set_selection(term->wl.data_device, clipboard->data_source, serial);
+    wl_data_device_set_selection(term->wl->data_device, clipboard->data_source, serial);
     wl_data_source_set_user_data(clipboard->data_source, clipboard);
 
     /* Needed when sending the selection to other client */
@@ -482,7 +482,7 @@ text_from_clipboard(struct terminal *term, uint32_t serial,
                     void (*cb)(const char *data, size_t size, void *user),
                     void *user)
 {
-    struct wl_clipboard *clipboard = &term->wl.clipboard;
+    struct wl_clipboard *clipboard = &term->wl->clipboard;
     if (clipboard->data_offer == NULL)
         return;
 
@@ -499,7 +499,7 @@ text_from_clipboard(struct terminal *term, uint32_t serial,
     /* Give write-end of pipe to other client */
     wl_data_offer_receive(
         clipboard->data_offer, "text/plain;charset=utf-8", write_fd);
-    wl_display_roundtrip(term->wl.display);
+    wl_display_roundtrip(term->wl->display);
 
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
@@ -539,7 +539,7 @@ from_clipboard_cb(const char *data, size_t size, void *user)
 void
 selection_from_clipboard(struct terminal *term, uint32_t serial)
 {
-    struct wl_clipboard *clipboard = &term->wl.clipboard;
+    struct wl_clipboard *clipboard = &term->wl->clipboard;
     if (clipboard->data_offer == NULL)
         return;
 
@@ -555,18 +555,18 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
 bool
 text_to_primary(struct terminal *term, char *text, uint32_t serial)
 {
-    if (term->wl.primary_selection_device_manager == NULL)
+    if (term->wl->primary_selection_device_manager == NULL)
         return false;
 
-    struct wl_primary *primary = &term->wl.primary;
+    struct wl_primary *primary = &term->wl->primary;
 
     /* TODO: somehow share code with the clipboard equivalent */
-    if (term->wl.primary.data_source != NULL) {
+    if (term->wl->primary.data_source != NULL) {
         /* Kill previous data source */
 
         assert(primary->serial != 0);
         zwp_primary_selection_device_v1_set_selection(
-            term->wl.primary_selection_device, NULL, primary->serial);
+            term->wl->primary_selection_device, NULL, primary->serial);
         zwp_primary_selection_source_v1_destroy(primary->data_source);
         free(primary->text);
 
@@ -576,7 +576,7 @@ text_to_primary(struct terminal *term, char *text, uint32_t serial)
 
     primary->data_source
         = zwp_primary_selection_device_manager_v1_create_source(
-            term->wl.primary_selection_device_manager);
+            term->wl->primary_selection_device_manager);
 
     if (primary->data_source == NULL) {
         LOG_ERR("failed to create clipboard data source");
@@ -589,7 +589,7 @@ text_to_primary(struct terminal *term, char *text, uint32_t serial)
     /* Configure source */
     zwp_primary_selection_source_v1_offer(primary->data_source, "text/plain;charset=utf-8");
     zwp_primary_selection_source_v1_add_listener(primary->data_source, &primary_selection_source_listener, term);
-    zwp_primary_selection_device_v1_set_selection(term->wl.primary_selection_device, primary->data_source, serial);
+    zwp_primary_selection_device_v1_set_selection(term->wl->primary_selection_device, primary->data_source, serial);
     zwp_primary_selection_source_v1_set_user_data(primary->data_source, primary);
 
     /* Needed when sending the selection to other client */
@@ -600,7 +600,7 @@ text_to_primary(struct terminal *term, char *text, uint32_t serial)
 void
 selection_to_primary(struct terminal *term, uint32_t serial)
 {
-    if (term->wl.primary_selection_device_manager == NULL)
+    if (term->wl->primary_selection_device_manager == NULL)
         return;
 
     /* Get selection as a string */
@@ -614,10 +614,10 @@ text_from_primary(
     struct terminal *term, void (*cb)(const char *data, size_t size, void *user),
     void *user)
 {
-    if (term->wl.primary_selection_device_manager == NULL)
+    if (term->wl->primary_selection_device_manager == NULL)
         return;
 
-    struct wl_primary *primary = &term->wl.primary;
+    struct wl_primary *primary = &term->wl->primary;
     if (primary->data_offer == NULL)
         return;
 
@@ -634,7 +634,7 @@ text_from_primary(
     /* Give write-end of pipe to other client */
     zwp_primary_selection_offer_v1_receive(
         primary->data_offer, "text/plain;charset=utf-8", write_fd);
-    wl_display_roundtrip(term->wl.display);
+    wl_display_roundtrip(term->wl->display);
 
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
@@ -667,10 +667,10 @@ text_from_primary(
 void
 selection_from_primary(struct terminal *term)
 {
-    if (term->wl.primary_selection_device_manager == NULL)
+    if (term->wl->primary_selection_device_manager == NULL)
         return;
 
-    struct wl_clipboard *clipboard = &term->wl.clipboard;
+    struct wl_clipboard *clipboard = &term->wl->clipboard;
     if (clipboard->data_offer == NULL)
         return;
 

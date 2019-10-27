@@ -12,7 +12,6 @@
 #include "tllist.h"
 
 struct monitor {
-    //struct terminal *term;
     struct wayland *wayl;
     struct wl_output *output;
     struct zxdg_output_v1 *xdg;

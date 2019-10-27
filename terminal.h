@@ -246,7 +246,7 @@ struct terminal {
         int max_x_advance;
     } fextents;
 
-    struct wayland wl;
+    struct wayland *wl;
     struct wl_window window;
 
     struct {
