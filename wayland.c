@@ -619,6 +619,8 @@ wayl_destroy(struct wayland *wayl)
         fdm_del(wayl->fdm, wl_display_get_fd(wayl->display));
         wl_display_disconnect(wayl->display);
     }
+
+    free(wayl);
 }
 
 struct wl_window *
@@ -685,6 +687,7 @@ wayl_win_destroy(struct wl_window *win)
         xdg_surface_destroy(win->xdg_surface);
     if (win->surface != NULL)
         wl_surface_destroy(win->surface);
+    free(win);
 }
 
 struct terminal *
