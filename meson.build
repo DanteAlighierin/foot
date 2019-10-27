@@ -84,7 +84,7 @@ executable(
   'tokenize.c', 'tokenize.h',
   'tllist.h',
   'vt.c', 'vt.h',
-  'wayland.h',
+  'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
   dependencies: [threads, math, freetype, fontconfig, pixman, wayland_client, wayland_cursor, xkb],
   install: true)

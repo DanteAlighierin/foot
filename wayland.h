@@ -3,6 +3,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <wayland-client.h>
+#include <primary-selection-unstable-v1.h>
+
 #include "tllist.h"
 
 struct monitor {
@@ -72,3 +75,7 @@ struct wayland {
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
 };
+
+/* TODO: return allocated pointer */
+void wayl_init(struct wayland *wayl);
+void wayl_destroy(struct wayland *wayl);

@@ -1152,47 +1152,26 @@ out:
     shm_fini();
 
     tll_free(term.window.on_outputs);
-    tll_foreach(term.wl.monitors, it) {
-        free(it->item.name);
-        if (it->item.xdg != NULL)
-            zxdg_output_v1_destroy(it->item.xdg);
-        if (it->item.output != NULL)
-            wl_output_destroy(it->item.output);
-        tll_remove(term.wl.monitors, it);
-    }
-
-    if (term.wl.xdg_output_manager != NULL)
-        zxdg_output_manager_v1_destroy(term.wl.xdg_output_manager);
-
-    free(term.wl.pointer.theme_name);
-    if (term.wl.pointer.theme != NULL)
-        wl_cursor_theme_destroy(term.wl.pointer.theme);
-    if (term.wl.pointer.pointer != NULL)
-        wl_pointer_destroy(term.wl.pointer.pointer);
-    if (term.wl.pointer.surface != NULL)
-        wl_surface_destroy(term.wl.pointer.surface);
-    if (term.wl.keyboard != NULL)
-        wl_keyboard_destroy(term.wl.keyboard);
     if (term.selection.clipboard.data_source != NULL)
         wl_data_source_destroy(term.selection.clipboard.data_source);
     if (term.selection.clipboard.data_offer != NULL)
         wl_data_offer_destroy(term.selection.clipboard.data_offer);
     free(term.selection.clipboard.text);
-    if (term.wl.data_device != NULL)
-        wl_data_device_destroy(term.wl.data_device);
-    if (term.wl.data_device_manager != NULL)
-        wl_data_device_manager_destroy(term.wl.data_device_manager);
     if (term.selection.primary.data_source != NULL)
         zwp_primary_selection_source_v1_destroy(term.selection.primary.data_source);
     if (term.selection.primary.data_offer != NULL)
         zwp_primary_selection_offer_v1_destroy(term.selection.primary.data_offer);
     free(term.selection.primary.text);
-    if (term.wl.primary_selection_device != NULL)
-        zwp_primary_selection_device_v1_destroy(term.wl.primary_selection_device);
-    if (term.wl.primary_selection_device_manager != NULL)
-        zwp_primary_selection_device_manager_v1_destroy(term.wl.primary_selection_device_manager);
-    if (term.wl.seat != NULL)
-        wl_seat_destroy(term.wl.seat);
+    if (term.kbd.xkb_compose_state != NULL)
+        xkb_compose_state_unref(term.kbd.xkb_compose_state);
+    if (term.kbd.xkb_compose_table != NULL)
+        xkb_compose_table_unref(term.kbd.xkb_compose_table);
+    if (term.kbd.xkb_keymap != NULL)
+        xkb_keymap_unref(term.kbd.xkb_keymap);
+    if (term.kbd.xkb_state != NULL)
+        xkb_state_unref(term.kbd.xkb_state);
+    if (term.kbd.xkb != NULL)
+        xkb_context_unref(term.kbd.xkb);
     if (term.window.search_sub_surface != NULL)
         wl_subsurface_destroy(term.window.search_sub_surface);
     if (term.window.search_surface != NULL)
@@ -1211,26 +1190,7 @@ out:
         xdg_wm_base_destroy(term.window.shell);
     if (term.window.surface != NULL)
         wl_surface_destroy(term.window.surface);
-    if (term.wl.shm != NULL)
-        wl_shm_destroy(term.wl.shm);
-    if (term.wl.sub_compositor != NULL)
-        wl_subcompositor_destroy(term.wl.sub_compositor);
-    if (term.wl.compositor != NULL)
-        wl_compositor_destroy(term.wl.compositor);
-    if (term.wl.registry != NULL)
-        wl_registry_destroy(term.wl.registry);
-    if (term.wl.display != NULL)
-        wl_display_disconnect(term.wl.display);
-    if (term.kbd.xkb_compose_state != NULL)
-        xkb_compose_state_unref(term.kbd.xkb_compose_state);
-    if (term.kbd.xkb_compose_table != NULL)
-        xkb_compose_table_unref(term.kbd.xkb_compose_table);
-    if (term.kbd.xkb_keymap != NULL)
-        xkb_keymap_unref(term.kbd.xkb_keymap);
-    if (term.kbd.xkb_state != NULL)
-        xkb_state_unref(term.kbd.xkb_state);
-    if (term.kbd.xkb != NULL)
-        xkb_context_unref(term.kbd.xkb);
+    wayl_destroy(&term.wl);
 
     free(term.vt.osc.data);
     for (int row = 0; row < term.normal.num_rows; row++)
