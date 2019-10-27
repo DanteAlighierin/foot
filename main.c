@@ -221,13 +221,13 @@ handle_global(void *data, struct wl_registry *registry,
     }
 
     else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
-        term->wl.shell = wl_registry_bind(
+        term->window.shell = wl_registry_bind(
             term->wl.registry, name, &xdg_wm_base_interface, 1);
-        xdg_wm_base_add_listener(term->wl.shell, &xdg_wm_base_listener, term);
+        xdg_wm_base_add_listener(term->window.shell, &xdg_wm_base_listener, term);
     }
 
     else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0)
-        term->wl.xdg_decoration_manager = wl_registry_bind(
+        term->window.xdg_decoration_manager = wl_registry_bind(
             term->wl.registry, name, &zxdg_decoration_manager_v1_interface, 1);
 
     else if (strcmp(interface, wl_seat_interface.name) == 0) {
@@ -278,7 +278,7 @@ surface_enter(void *data, struct wl_surface *wl_surface,
     tll_foreach(term->wl.monitors, it) {
         if (it->item.output == wl_output) {
             LOG_DBG("mapped on %s", it->item.name);
-            tll_push_back(term->wl.on_outputs, &it->item);
+            tll_push_back(term->window.on_outputs, &it->item);
 
             /* Resize, since scale-to-use may have changed */
             render_resize(term, term->width / term->scale, term->height / term->scale);
@@ -295,12 +295,12 @@ surface_leave(void *data, struct wl_surface *wl_surface,
               struct wl_output *wl_output)
 {
     struct terminal *term = data;
-    tll_foreach(term->wl.on_outputs, it) {
+    tll_foreach(term->window.on_outputs, it) {
         if (it->item->output != wl_output)
             continue;
 
         LOG_DBG("unmapped from %s", it->item->name);
-        tll_remove(term->wl.on_outputs, it);
+        tll_remove(term->window.on_outputs, it);
 
         /* Resize, since scale-to-use may have changed */
         render_resize(term, term->width / term->scale, term->height / term->scale);
@@ -909,7 +909,7 @@ main(int argc, char *const *argv)
         LOG_ERR("no shared memory buffers interface");
         goto out;
     }
-    if (term.wl.shell == NULL) {
+    if (term.window.shell == NULL) {
         LOG_ERR("no XDG shell interface");
         goto out;
     }
@@ -973,38 +973,38 @@ main(int argc, char *const *argv)
     }
 
     /* Main window */
-    term.wl.surface = wl_compositor_create_surface(term.wl.compositor);
-    if (term.wl.surface == NULL) {
+    term.window.surface = wl_compositor_create_surface(term.wl.compositor);
+    if (term.window.surface == NULL) {
         LOG_ERR("failed to create wayland surface");
         goto out;
     }
 
-    wl_surface_add_listener(term.wl.surface, &surface_listener, &term);
+    wl_surface_add_listener(term.window.surface, &surface_listener, &term);
 
-    term.wl.xdg_surface = xdg_wm_base_get_xdg_surface(term.wl.shell, term.wl.surface);
-    xdg_surface_add_listener(term.wl.xdg_surface, &xdg_surface_listener, &term);
+    term.window.xdg_surface = xdg_wm_base_get_xdg_surface(term.window.shell, term.window.surface);
+    xdg_surface_add_listener(term.window.xdg_surface, &xdg_surface_listener, &term);
 
-    term.wl.xdg_toplevel = xdg_surface_get_toplevel(term.wl.xdg_surface);
-    xdg_toplevel_add_listener(term.wl.xdg_toplevel, &xdg_toplevel_listener, &term);
+    term.window.xdg_toplevel = xdg_surface_get_toplevel(term.window.xdg_surface);
+    xdg_toplevel_add_listener(term.window.xdg_toplevel, &xdg_toplevel_listener, &term);
 
-    xdg_toplevel_set_app_id(term.wl.xdg_toplevel, "foot");
+    xdg_toplevel_set_app_id(term.window.xdg_toplevel, "foot");
     term_set_window_title(&term, "foot");
 
     /* Request server-side decorations */
-    term.wl.xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
-        term.wl.xdg_decoration_manager, term.wl.xdg_toplevel);
+    term.window.xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
+        term.window.xdg_decoration_manager, term.window.xdg_toplevel);
     zxdg_toplevel_decoration_v1_set_mode(
-        term.wl.xdg_toplevel_decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+        term.window.xdg_toplevel_decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
     zxdg_toplevel_decoration_v1_add_listener(
-        term.wl.xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, &term);
+        term.window.xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, &term);
 
     /* Scrollback search box */
-    term.wl.search_surface = wl_compositor_create_surface(term.wl.compositor);
-    term.wl.search_sub_surface = wl_subcompositor_get_subsurface(
-        term.wl.sub_compositor, term.wl.search_surface, term.wl.surface);
-    wl_subsurface_set_desync(term.wl.search_sub_surface);
+    term.window.search_surface = wl_compositor_create_surface(term.wl.compositor);
+    term.window.search_sub_surface = wl_subcompositor_get_subsurface(
+        term.wl.sub_compositor, term.window.search_surface, term.window.surface);
+    wl_subsurface_set_desync(term.window.search_sub_surface);
 
-    wl_surface_commit(term.wl.surface);
+    wl_surface_commit(term.window.surface);
     wl_display_roundtrip(term.wl.display);
 
     if (conf.width == -1) {
@@ -1151,7 +1151,7 @@ out:
 
     shm_fini();
 
-    tll_free(term.wl.on_outputs);
+    tll_free(term.window.on_outputs);
     tll_foreach(term.wl.monitors, it) {
         free(it->item.name);
         if (it->item.xdg != NULL)
@@ -1193,24 +1193,24 @@ out:
         zwp_primary_selection_device_manager_v1_destroy(term.wl.primary_selection_device_manager);
     if (term.wl.seat != NULL)
         wl_seat_destroy(term.wl.seat);
-    if (term.wl.search_sub_surface != NULL)
-        wl_subsurface_destroy(term.wl.search_sub_surface);
-    if (term.wl.search_surface != NULL)
-        wl_surface_destroy(term.wl.search_surface);
+    if (term.window.search_sub_surface != NULL)
+        wl_subsurface_destroy(term.window.search_sub_surface);
+    if (term.window.search_surface != NULL)
+        wl_surface_destroy(term.window.search_surface);
     if (term.render.frame_callback != NULL)
         wl_callback_destroy(term.render.frame_callback);
-    if (term.wl.xdg_toplevel_decoration != NULL)
-        zxdg_toplevel_decoration_v1_destroy(term.wl.xdg_toplevel_decoration);
-    if (term.wl.xdg_decoration_manager != NULL)
-        zxdg_decoration_manager_v1_destroy(term.wl.xdg_decoration_manager);
-    if (term.wl.xdg_toplevel != NULL)
-        xdg_toplevel_destroy(term.wl.xdg_toplevel);
-    if (term.wl.xdg_surface != NULL)
-        xdg_surface_destroy(term.wl.xdg_surface);
-    if (term.wl.shell != NULL)
-        xdg_wm_base_destroy(term.wl.shell);
-    if (term.wl.surface != NULL)
-        wl_surface_destroy(term.wl.surface);
+    if (term.window.xdg_toplevel_decoration != NULL)
+        zxdg_toplevel_decoration_v1_destroy(term.window.xdg_toplevel_decoration);
+    if (term.window.xdg_decoration_manager != NULL)
+        zxdg_decoration_manager_v1_destroy(term.window.xdg_decoration_manager);
+    if (term.window.xdg_toplevel != NULL)
+        xdg_toplevel_destroy(term.window.xdg_toplevel);
+    if (term.window.xdg_surface != NULL)
+        xdg_surface_destroy(term.window.xdg_surface);
+    if (term.window.shell != NULL)
+        xdg_wm_base_destroy(term.window.shell);
+    if (term.window.surface != NULL)
+        wl_surface_destroy(term.window.surface);
     if (term.wl.shm != NULL)
         wl_shm_destroy(term.wl.shm);
     if (term.wl.sub_compositor != NULL)

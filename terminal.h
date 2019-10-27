@@ -67,22 +67,8 @@ struct wayland {
         char *theme_name;
     } pointer;
 
-    /* Main window */
-    struct wl_surface *surface;
-    struct xdg_wm_base *shell;
-    struct xdg_surface *xdg_surface;
-    struct xdg_toplevel *xdg_toplevel;
-
-    struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
-    struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
-
-    /* Scrollback search */
-    struct wl_surface *search_surface;
-    struct wl_subsurface *search_sub_surface;
-
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
-    tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
 };
 
 struct rgb { float r, g, b; };
@@ -375,6 +361,22 @@ struct terminal {
     } fextents;
 
     struct wayland wl;
+    struct {
+        struct wl_surface *surface;
+        struct xdg_wm_base *shell;
+        struct xdg_surface *xdg_surface;
+        struct xdg_toplevel *xdg_toplevel;
+
+        struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
+        struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
+
+        /* Scrollback search */
+        struct wl_surface *search_surface;
+        struct wl_subsurface *search_sub_surface;
+
+        tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
+    } window;
+
     struct {
         int scrollback_lines;
         struct wl_callback *frame_callback;
