@@ -45,20 +45,6 @@
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
 static bool
-fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
-{
-    struct wayland *wayl = data;
-    int event_count = wl_display_dispatch(wayl->display);
-
-    if (events & EPOLLHUP) {
-        LOG_ERR("disconnected from Wayland");
-        return false;
-    }
-
-    return event_count != -1 && !wayl->term->quit;
-}
-
-static bool
 fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
@@ -650,7 +636,6 @@ main(int argc, char *const *argv)
         }
     }
 
-    fdm_add(fdm, wl_display_get_fd(term.wl->display), EPOLLIN, &fdm_wayl, term.wl);
     fdm_add(fdm, term.ptmx, EPOLLIN, &fdm_ptmx, &term);
     fdm_add(fdm, term.wl->kbd.repeat.fd, EPOLLIN, &fdm_repeat, term.wl);
     fdm_add(fdm, term.flash.fd, EPOLLIN, &fdm_flash, &term);
@@ -669,7 +654,6 @@ main(int argc, char *const *argv)
 
 out:
     if (fdm != NULL) {
-        fdm_del(fdm, wl_display_get_fd(term.wl->display));
         fdm_del(fdm, term.ptmx);
         fdm_del(fdm, term.wl->kbd.repeat.fd);
         fdm_del(fdm, term.flash.fd);

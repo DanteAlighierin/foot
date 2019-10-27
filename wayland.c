@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <sys/timerfd.h>
+#include <sys/epoll.h>
 
 #include <wayland-client.h>
 #include <wayland-cursor.h>
@@ -378,6 +379,20 @@ static const struct wl_registry_listener registry_listener = {
     .global_remove = &handle_global_remove,
 };
 
+static bool
+fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct wayland *wayl = data;
+    int event_count = wl_display_dispatch(wayl->display);
+
+    if (events & EPOLLHUP) {
+        LOG_ERR("disconnected from Wayland");
+        return false;
+    }
+
+    return event_count != -1 && !wayl->term->quit;
+}
+
 struct wayland *
 wayl_init(struct fdm *fdm)
 {
@@ -476,6 +491,11 @@ wayl_init(struct fdm *fdm)
         goto out;
     }
 
+    if (!fdm_add(fdm, wl_display_get_fd(wayl->display), EPOLLIN, &fdm_wayl, wayl)) {
+        LOG_ERR("failed to register Wayland connection with the FDM");
+        goto out;
+    }
+
     return wayl;
 
 out:
@@ -553,8 +573,10 @@ wayl_destroy(struct wayland *wayl)
         wl_compositor_destroy(wayl->compositor);
     if (wayl->registry != NULL)
         wl_registry_destroy(wayl->registry);
-    if (wayl->display != NULL)
+    if (wayl->display != NULL) {
+        fdm_del(wayl->fdm, wl_display_get_fd(wayl->display));
         wl_display_disconnect(wayl->display);
+    }
 }
 
 struct wl_window *
