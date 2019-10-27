@@ -40,6 +40,8 @@ struct wl_window {
     struct wl_surface *search_surface;
     struct wl_subsurface *search_sub_surface;
 
+    struct wl_callback *frame_callback;
+
     tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
 };
 
@@ -79,3 +81,5 @@ struct wayland {
 /* TODO: return allocated pointer */
 void wayl_init(struct wayland *wayl);
 void wayl_destroy(struct wayland *wayl);
+
+void wayl_win_destroy(struct wl_window *win);

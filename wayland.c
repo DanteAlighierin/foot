@@ -64,3 +64,27 @@ wayl_destroy(struct wayland *wayl)
     if (wayl->display != NULL)
         wl_display_disconnect(wayl->display);
 }
+
+void
+wayl_win_destroy(struct wl_window *win)
+{
+    tll_free(win->on_outputs);
+    if (win->search_sub_surface != NULL)
+        wl_subsurface_destroy(win->search_sub_surface);
+    if (win->search_surface != NULL)
+        wl_surface_destroy(win->search_surface);
+    if (win->frame_callback != NULL)
+        wl_callback_destroy(win->frame_callback);
+    if (win->xdg_toplevel_decoration != NULL)
+        zxdg_toplevel_decoration_v1_destroy(win->xdg_toplevel_decoration);
+    if (win->xdg_decoration_manager != NULL)
+        zxdg_decoration_manager_v1_destroy(win->xdg_decoration_manager);
+    if (win->xdg_toplevel != NULL)
+        xdg_toplevel_destroy(win->xdg_toplevel);
+    if (win->xdg_surface != NULL)
+        xdg_surface_destroy(win->xdg_surface);
+    if (win->shell != NULL)
+        xdg_wm_base_destroy(win->shell);
+    if (win->surface != NULL)
+        wl_surface_destroy(win->surface);
+}

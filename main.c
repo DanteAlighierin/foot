@@ -463,7 +463,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
      * ourselves we just received keyboard input, and in
      * this case *not* delay rendering?
      */
-    if (term->render.frame_callback == NULL) {
+    if (term->window.frame_callback == NULL) {
         /* First timeout - reset each time we receive input. */
         timerfd_settime(
             term->delayed_render_timer.lower_fd, 0,
@@ -1151,7 +1151,6 @@ out:
 
     shm_fini();
 
-    tll_free(term.window.on_outputs);
     if (term.selection.clipboard.data_source != NULL)
         wl_data_source_destroy(term.selection.clipboard.data_source);
     if (term.selection.clipboard.data_offer != NULL)
@@ -1172,24 +1171,8 @@ out:
         xkb_state_unref(term.kbd.xkb_state);
     if (term.kbd.xkb != NULL)
         xkb_context_unref(term.kbd.xkb);
-    if (term.window.search_sub_surface != NULL)
-        wl_subsurface_destroy(term.window.search_sub_surface);
-    if (term.window.search_surface != NULL)
-        wl_surface_destroy(term.window.search_surface);
-    if (term.render.frame_callback != NULL)
-        wl_callback_destroy(term.render.frame_callback);
-    if (term.window.xdg_toplevel_decoration != NULL)
-        zxdg_toplevel_decoration_v1_destroy(term.window.xdg_toplevel_decoration);
-    if (term.window.xdg_decoration_manager != NULL)
-        zxdg_decoration_manager_v1_destroy(term.window.xdg_decoration_manager);
-    if (term.window.xdg_toplevel != NULL)
-        xdg_toplevel_destroy(term.window.xdg_toplevel);
-    if (term.window.xdg_surface != NULL)
-        xdg_surface_destroy(term.window.xdg_surface);
-    if (term.window.shell != NULL)
-        xdg_wm_base_destroy(term.window.shell);
-    if (term.window.surface != NULL)
-        wl_surface_destroy(term.window.surface);
+
+    wayl_win_destroy(&term.window);
     wayl_destroy(&term.wl);
 
     free(term.vt.osc.data);

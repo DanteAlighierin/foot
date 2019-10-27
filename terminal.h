@@ -314,7 +314,6 @@ struct terminal {
 
     struct {
         int scrollback_lines;
-        struct wl_callback *frame_callback;
 
         struct {
             size_t count;

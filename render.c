@@ -700,9 +700,9 @@ grid_render(struct terminal *term)
     assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
     assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
 
-    assert(term->render.frame_callback == NULL);
-    term->render.frame_callback = wl_surface_frame(term->window.surface);
-    wl_callback_add_listener(term->render.frame_callback, &frame_listener, term);
+    assert(term->window.frame_callback == NULL);
+    term->window.frame_callback = wl_surface_frame(term->window.surface);
+    wl_callback_add_listener(term->window.frame_callback, &frame_listener, term);
 
     wl_surface_set_buffer_scale(term->window.surface, term->scale);
     wl_surface_commit(term->window.surface);
@@ -723,9 +723,9 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 {
     struct terminal *term = data;
 
-    assert(term->render.frame_callback == wl_callback);
+    assert(term->window.frame_callback == wl_callback);
     wl_callback_destroy(wl_callback);
-    term->render.frame_callback = NULL;
+    term->window.frame_callback = NULL;
     grid_render(term);
 }
 
@@ -1000,6 +1000,6 @@ render_update_cursor_surface(struct terminal *term)
 void
 render_refresh(struct terminal *term)
 {
-    if (term->render.frame_callback == NULL)
+    if (term->window.frame_callback == NULL)
         grid_render(term);
 }
