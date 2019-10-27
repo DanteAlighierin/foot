@@ -247,7 +247,7 @@ struct terminal {
     } fextents;
 
     struct wayland *wl;
-    struct wl_window window;
+    struct wl_window *window;
 
     struct {
         int scrollback_lines;

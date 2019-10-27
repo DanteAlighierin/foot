@@ -331,7 +331,7 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
                 height * buf->stride);
 
         wl_surface_damage_buffer(
-            term->window.surface, term->x_margin, dst_y, term->width - term->x_margin, height);
+            term->window->surface, term->x_margin, dst_y, term->width - term->x_margin, height);
     }
 }
 
@@ -357,7 +357,7 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
                 height * buf->stride);
 
         wl_surface_damage_buffer(
-            term->window.surface, term->x_margin, dst_y, term->width - term->x_margin, height);
+            term->window->surface, term->x_margin, dst_y, term->width - term->x_margin, height);
     }
 }
 
@@ -441,7 +441,7 @@ grid_render(struct terminal *term)
     assert(term->height > 0);
 
     struct buffer *buf = shm_get_buffer(term->wl->shm, term->width, term->height, 1 + term->render.workers.count);
-    wl_surface_attach(term->window.surface, buf->wl_buf, 0, 0);
+    wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
     pixman_image_t *pix = buf->pix;
 
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
@@ -489,13 +489,13 @@ grid_render(struct terminal *term)
                 {0, bmargin, term->width, bmargin_height}});    /* Bottom */
 
             wl_surface_damage_buffer(
-                term->window.surface, 0, 0, term->width, term->y_margin);
+                term->window->surface, 0, 0, term->width, term->y_margin);
             wl_surface_damage_buffer(
-                term->window.surface, 0, 0, term->x_margin, term->height);
+                term->window->surface, 0, 0, term->x_margin, term->height);
             wl_surface_damage_buffer(
-                term->window.surface, rmargin, 0, rmargin_width, term->height);
+                term->window->surface, rmargin, 0, rmargin_width, term->height);
             wl_surface_damage_buffer(
-                term->window.surface, 0, bmargin, term->width, bmargin_height);
+                term->window->surface, 0, bmargin, term->width, bmargin_height);
 
             /* Force a full grid refresh */
             term_damage_view(term);
@@ -516,7 +516,7 @@ grid_render(struct terminal *term)
             render_cell(term, pix, cell, at.col, at.row, false);
 
             wl_surface_damage_buffer(
-                term->window.surface,
+                term->window->surface,
                 term->x_margin + at.col * term->cell_width,
                 term->y_margin + at.row * term->cell_height,
                 term->cell_width, term->cell_height);
@@ -569,7 +569,7 @@ grid_render(struct terminal *term)
             all_clean = false;
 
             wl_surface_damage_buffer(
-                term->window.surface,
+                term->window->surface,
                 term->x_margin, term->y_margin + r * term->cell_height,
                 term->width - term->x_margin, term->cell_height);
         }
@@ -592,7 +592,7 @@ grid_render(struct terminal *term)
             all_clean = false;
 
             wl_surface_damage_buffer(
-                term->window.surface,
+                term->window->surface,
                 term->x_margin, term->y_margin + r * term->cell_height,
                 term->width - term->x_margin, term->cell_height);
         }
@@ -674,7 +674,7 @@ grid_render(struct terminal *term)
             term, pix, cell, term->cursor.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
-            term->window.surface,
+            term->window->surface,
             term->x_margin + term->cursor.col * term->cell_width,
             term->y_margin + view_aligned_row * term->cell_height,
             cols_updated * term->cell_width, term->cell_height);
@@ -694,18 +694,18 @@ grid_render(struct terminal *term)
             1, &(pixman_rectangle16_t){0, 0, term->width, term->height});
 
         wl_surface_damage_buffer(
-            term->window.surface, 0, 0, term->width, term->height);
+            term->window->surface, 0, 0, term->width, term->height);
     }
 
     assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
     assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
 
-    assert(term->window.frame_callback == NULL);
-    term->window.frame_callback = wl_surface_frame(term->window.surface);
-    wl_callback_add_listener(term->window.frame_callback, &frame_listener, term);
+    assert(term->window->frame_callback == NULL);
+    term->window->frame_callback = wl_surface_frame(term->window->surface);
+    wl_callback_add_listener(term->window->frame_callback, &frame_listener, term);
 
-    wl_surface_set_buffer_scale(term->window.surface, term->scale);
-    wl_surface_commit(term->window.surface);
+    wl_surface_set_buffer_scale(term->window->surface, term->scale);
+    wl_surface_commit(term->window->surface);
 
 #if TIME_FRAME_RENDERING
     struct timeval end_time;
@@ -723,16 +723,16 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 {
     struct terminal *term = data;
 
-    assert(term->window.frame_callback == wl_callback);
+    assert(term->window->frame_callback == wl_callback);
     wl_callback_destroy(wl_callback);
-    term->window.frame_callback = NULL;
+    term->window->frame_callback = NULL;
     grid_render(term);
 }
 
 void
 render_search_box(struct terminal *term)
 {
-    assert(term->window.search_sub_surface != NULL);
+    assert(term->window->search_sub_surface != NULL);
 
     /* TODO: at least sway allows the subsurface to extend outside the
      * main window. Do we want that? */
@@ -780,13 +780,13 @@ render_search_box(struct terminal *term)
         draw_bar(term, buf->pix, font, &fg, x, y);
 
     wl_subsurface_set_position(
-        term->window.search_sub_surface,
+        term->window->search_sub_surface,
         term->width - width - margin, term->height - height - margin);
 
-    wl_surface_damage_buffer(term->window.search_surface, 0, 0, width, height);
-    wl_surface_attach(term->window.search_surface, buf->wl_buf, 0, 0);
-    wl_surface_set_buffer_scale(term->window.search_surface, scale);
-    wl_surface_commit(term->window.search_surface);
+    wl_surface_damage_buffer(term->window->search_surface, 0, 0, width, height);
+    wl_surface_attach(term->window->search_surface, buf->wl_buf, 0, 0);
+    wl_surface_set_buffer_scale(term->window->search_surface, scale);
+    wl_surface_commit(term->window->search_surface);
 }
 
 static void
@@ -818,7 +818,7 @@ void
 render_resize(struct terminal *term, int width, int height)
 {
     int scale = -1;
-    tll_foreach(term->window.on_outputs, it) {
+    tll_foreach(term->window->on_outputs, it) {
         if (it->item->scale > scale)
             scale = it->item->scale;
     }
@@ -939,7 +939,7 @@ render_resize(struct terminal *term, int width, int height)
 void
 render_set_title(struct terminal *term, const char *title)
 {
-    xdg_toplevel_set_title(term->window.xdg_toplevel, title);
+    xdg_toplevel_set_title(term->window->xdg_toplevel, title);
 }
 
 bool
@@ -1000,6 +1000,6 @@ render_update_cursor_surface(struct terminal *term)
 void
 render_refresh(struct terminal *term)
 {
-    if (term->window.frame_callback == NULL)
+    if (term->window->frame_callback == NULL)
         grid_render(term);
 }

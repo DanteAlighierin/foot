@@ -9,6 +9,7 @@
 #include <primary-selection-unstable-v1.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include "fdm.h"
 #include "tllist.h"
 
 struct monitor {
@@ -89,6 +90,7 @@ struct wl_window {
 
 struct terminal;
 struct wayland {
+    struct fdm *fdm;
     struct wl_display *display;
     struct wl_registry *registry;
     struct wl_compositor *compositor;
@@ -149,8 +151,7 @@ struct wayland {
     struct terminal *moused;
 };
 
-/* TODO: return allocated pointer */
-void wayl_init(struct wayland *wayl);
+struct wayland *wayl_init(struct fdm *fdm);
 void wayl_destroy(struct wayland *wayl);
 
 struct terminal *wayl_terminal_from_surface(
@@ -160,4 +161,5 @@ struct terminal *wayl_terminal_from_xdg_surface(
 struct terminal *wayl_terminal_from_xdg_toplevel(
     struct wayland *wayl, struct xdg_toplevel *toplevel);
 
+struct wl_window *wayl_win_init(struct wayland *wayl);
 void wayl_win_destroy(struct wl_window *win);

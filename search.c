@@ -19,8 +19,8 @@
 static void
 search_cancel_keep_selection(struct terminal *term)
 {
-    wl_surface_attach(term->window.search_surface, NULL, 0, 0);
-    wl_surface_commit(term->window.search_surface);
+    wl_surface_attach(term->window->search_surface, NULL, 0, 0);
+    wl_surface_commit(term->window->search_surface);
 
     free(term->search.buf);
     term->search.buf = NULL;
