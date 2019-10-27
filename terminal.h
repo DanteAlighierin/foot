@@ -401,6 +401,13 @@ struct terminal {
         bool was_flashing;           /* Flash was active last time we rendered */
         bool was_searching;
     } render;
+
+    /* Temporary: for FDM */
+    struct {
+        bool is_armed;
+        int lower_fd;
+        int upper_fd;
+    } delayed_render_timer;
 };
 
 void term_reset(struct terminal *term, bool hard);

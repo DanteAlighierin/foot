@@ -68,6 +68,7 @@ executable(
   'config.c', 'config.h',
   'commands.c', 'commands.h',
   'csi.c', 'csi.h',
+  'fdm.c', 'fdm.h',
   'font.c', 'font.h',
   'grid.c', 'grid.h',
   'input.c', 'input.h',

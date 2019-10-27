@@ -16,6 +16,7 @@
 #include <sys/prctl.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+#include <sys/epoll.h>
 
 #include <wayland-client.h>
 #include <wayland-cursor.h>
@@ -26,10 +27,11 @@
 #include <xdg-decoration-unstable-v1.h>
 
 #define LOG_MODULE "main"
-#define LOG_ENABLE_DBG 0
+#define LOG_ENABLE_DBG 1
 #include "log.h"
 
 #include "config.h"
+#include "fdm.h"
 #include "font.h"
 #include "grid.h"
 #include "input.h"
@@ -389,6 +391,228 @@ static const struct wl_registry_listener registry_listener = {
     .global_remove = &handle_global_remove,
 };
 
+static bool
+fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct terminal *term = data;
+    int event_count = wl_display_dispatch(term->wl.display);
+
+    if (events & EPOLLHUP) {
+        LOG_ERR("disconnected from Wayland");
+        return false;
+    }
+
+    return event_count != -1 && !term->quit;
+}
+
+static bool
+fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct terminal *term = data;
+
+    if (events & EPOLLHUP) {
+        term->quit = true;
+
+        if (!(events & EPOLLIN))
+            return false;
+    }
+
+    assert(events & EPOLLIN);
+
+    uint8_t buf[24 * 1024];
+    ssize_t count = read(term->ptmx, buf, sizeof(buf));
+
+    if (count < 0) {
+        if (errno == EAGAIN)
+            return true;
+
+        LOG_ERRNO("failed to read from pseudo terminal");
+        return false;
+    }
+
+    vt_from_slave(term, buf, count);
+
+    /*
+     * We likely need to re-render. But, we don't want to
+     * do it immediately. Often, a single client operation
+     * is done through multiple writes. Many times, we're
+     * so fast that we render mid-operation frames.
+     *
+     * For example, we might end up rendering a frame
+     * where the client just erased a line, while in the
+     * next frame, the client wrote to the same line. This
+     * causes screen "flashes".
+     *
+     * Mitigate by always incuring a small delay before
+     * rendering the next frame. This gives the client
+     * some time to finish the operation (and thus gives
+     * us time to receive the last writes before doing any
+     * actual rendering).
+     *
+     * We incur this delay *every* time we receive
+     * input. To ensure we don't delay rendering
+     * indefinitely, we start a second timer that is only
+     * reset when we render.
+     *
+     * Note that when the client is producing data at a
+     * very high pace, we're rate limited by the wayland
+     * compositor anyway. The delay we introduce here only
+     * has any effect when the renderer is idle.
+     *
+     * TODO: this adds input latency. Can we somehow hint
+     * ourselves we just received keyboard input, and in
+     * this case *not* delay rendering?
+     */
+    if (term->render.frame_callback == NULL) {
+        /* First timeout - reset each time we receive input. */
+        timerfd_settime(
+            term->delayed_render_timer.lower_fd, 0,
+            &(struct itimerspec){.it_value = {.tv_nsec = 1000000}},
+            NULL);
+
+        /* Second timeout - only reset when we render. Set to one
+         * frame (assuming 60Hz) */
+        if (!term->delayed_render_timer.is_armed) {
+            timerfd_settime(
+                term->delayed_render_timer.upper_fd, 0,
+                &(struct itimerspec){.it_value = {.tv_nsec = 16666666}},
+                NULL);
+            term->delayed_render_timer.is_armed = true;
+        }
+    }
+
+    return !(events & EPOLLHUP);
+}
+
+static bool
+fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
+{
+    if (events & EPOLLHUP)
+        return false;
+
+    struct terminal *term = data;
+    uint64_t expiration_count;
+    ssize_t ret = read(
+        term->kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
+
+    if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+
+        LOG_ERRNO("failed to read repeat key from repeat timer fd");
+        return false;
+    }
+
+    term->kbd.repeat.dont_re_repeat = true;
+    for (size_t i = 0; i < expiration_count; i++)
+        input_repeat(term, term->kbd.repeat.key);
+    term->kbd.repeat.dont_re_repeat = false;
+    return true;
+}
+
+static bool
+fdm_flash(struct fdm *fdm, int fd, int events, void *data)
+{
+    if (events & EPOLLHUP)
+        return false;
+
+    struct terminal *term = data;
+    uint64_t expiration_count;
+    ssize_t ret = read(
+        term->flash.fd, &expiration_count, sizeof(expiration_count));
+
+    if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+
+        LOG_ERRNO("failed to read flash timer");
+        return false;
+    }
+
+    LOG_DBG("flash timer expired %llu times",
+            (unsigned long long)expiration_count);
+
+    term->flash.active = false;
+    term_damage_view(term);
+    render_refresh(term);
+    return true;
+}
+
+static bool
+fdm_blink(struct fdm *fdm, int fd, int events, void *data)
+{
+    if (events & EPOLLHUP)
+        return false;
+
+    struct terminal *term = data;
+    uint64_t expiration_count;
+    ssize_t ret = read(
+        term->blink.fd, &expiration_count, sizeof(expiration_count));
+
+    if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+
+        LOG_ERRNO("failed to read blink timer");
+        return false;
+    }
+
+    LOG_DBG("blink timer expired %llu times",
+            (unsigned long long)expiration_count);
+
+    term->blink.state = term->blink.state == BLINK_ON
+        ? BLINK_OFF : BLINK_ON;
+
+    /* Scan all visible cells and mark rows with blinking cells dirty */
+    for (int r = 0; r < term->rows; r++) {
+        struct row *row = grid_row_in_view(term->grid, r);
+        for (int col = 0; col < term->cols; col++) {
+            struct cell *cell = &row->cells[col];
+
+            if (cell->attrs.blink) {
+                cell->attrs.clean = 0;
+                row->dirty = true;
+            }
+        }
+    }
+
+    render_refresh(term);
+    return true;
+}
+
+static bool
+fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
+{
+    if (events & EPOLLHUP)
+        return false;
+
+    struct terminal *term = data;
+    assert(term->delayed_render_timer.is_armed);
+
+    uint64_t unused;
+    ssize_t ret1 = 0;
+    ssize_t ret2 = 0;
+
+    if (fd == term->delayed_render_timer.lower_fd)
+        ret1 = read(term->delayed_render_timer.lower_fd, &unused, sizeof(unused));
+    if (fd == term->delayed_render_timer.upper_fd)
+        ret2 = read(term->delayed_render_timer.upper_fd, &unused, sizeof(unused));
+
+    if ((ret1 < 0 || ret2 < 0) && errno != EAGAIN)
+        LOG_ERRNO("failed to read timeout timer");
+    else if (ret1 > 0 || ret2 > 0) {
+        render_refresh(term);
+
+        /* Reset timers */
+        term->delayed_render_timer.is_armed = false;
+        timerfd_settime(term->delayed_render_timer.lower_fd, 0, &(struct itimerspec){.it_value = {0}}, NULL);
+        timerfd_settime(term->delayed_render_timer.upper_fd, 0, &(struct itimerspec){.it_value = {0}}, NULL);
+    } else
+        assert(false);
+
+    return true;
+}
+
 static void
 print_usage(const char *prog_name)
 {
@@ -496,6 +720,8 @@ main(int argc, char *const *argv)
     setlocale(LC_ALL, "");
     setenv("TERM", conf.term, 1);
 
+    struct fdm *fdm = NULL;
+
     struct terminal term = {
         .quit = false,
         .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
@@ -569,6 +795,11 @@ main(int argc, char *const *argv)
                 .count = conf.render_worker_count,
                 .queue = tll_init(),
             },
+        },
+        .delayed_render_timer = {
+            .is_armed = false,
+            .lower_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC),
+            .upper_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC),
         },
     };
 
@@ -873,215 +1104,42 @@ main(int argc, char *const *argv)
         }
     }
 
-    bool timeout_is_armed = false;
-    int delay_render_timer_lower = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
-    int delay_render_timer_upper = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
+    if ((fdm = fdm_init()) == NULL)
+        goto out;
+
+    fdm_add(fdm, wl_display_get_fd(term.wl.display), EPOLLIN, &fdm_wayl, &term);
+    fdm_add(fdm, term.ptmx, EPOLLIN, &fdm_ptmx, &term);
+    fdm_add(fdm, term.kbd.repeat.fd, EPOLLIN, &fdm_repeat, &term);
+    fdm_add(fdm, term.flash.fd, EPOLLIN, &fdm_flash, &term);
+    fdm_add(fdm, term.blink.fd, EPOLLIN, &fdm_blink, &term);
+    fdm_add(fdm, term.delayed_render_timer.lower_fd, EPOLLIN, &fdm_delayed_render, &term);
+    fdm_add(fdm, term.delayed_render_timer.upper_fd, EPOLLIN, &fdm_delayed_render, &term);
 
     while (true) {
-        struct pollfd fds[] = {
-            {.fd = wl_display_get_fd(term.wl.display), .events = POLLIN},
-            {.fd = term.ptmx,                     .events = POLLIN},
-            {.fd = term.kbd.repeat.fd,            .events = POLLIN},
-            {.fd = term.flash.fd,                 .events = POLLIN},
-            {.fd = term.blink.fd,                 .events = POLLIN},
-            {.fd = delay_render_timer_lower,      .events = POLLIN},
-            {.fd = delay_render_timer_upper,      .events = POLLIN},
-        };
-
-        const size_t WL_FD = 0;
-        const size_t PTMX_FD = 1;
-        const size_t KBD_REPEAT_FD = 2;
-        const size_t FLASH_FD = 3;
-        const size_t BLINK_FD = 4;
-        const size_t DELAY_LOWER_FD = 5;
-        const size_t DELAY_UPPER_FD = 6;
-
         wl_display_flush(term.wl.display);
-        int pret = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
-
-        if (pret == -1) {
-            if (errno == EINTR)
-                continue;
-
-            LOG_ERRNO("failed to poll file descriptors");
+        if (!fdm_poll(fdm))
             break;
-        }
-
-        /* Delayed rendering timers (created when we receive input) */
-        if (fds[DELAY_LOWER_FD].revents & POLLIN ||
-            fds[DELAY_UPPER_FD].revents & POLLIN)
-        {
-            assert(timeout_is_armed);
-
-            uint64_t unused;
-            ssize_t ret1 = 0;
-            ssize_t ret2 = 0;
-
-            if (fds[DELAY_LOWER_FD].revents & POLLIN)
-                ret1 = read(delay_render_timer_lower, &unused, sizeof(unused));
-            if (fds[DELAY_UPPER_FD].revents & POLLIN)
-                ret2 = read(delay_render_timer_upper, &unused, sizeof(unused));
-
-            if ((ret1 < 0 || ret2 < 0) && errno != EAGAIN)
-                LOG_ERRNO("failed to read timeout timer");
-            else if (ret1 > 0 || ret2 > 0) {
-                render_refresh(&term);
-
-                /* Reset timers */
-                timeout_is_armed = false;
-                timerfd_settime(delay_render_timer_lower, 0, &(struct itimerspec){.it_value = {0}}, NULL);
-                timerfd_settime(delay_render_timer_upper, 0, &(struct itimerspec){.it_value = {0}}, NULL);
-            } else
-                assert(false);
-        }
-
-        if (fds[WL_FD].revents & POLLIN) {
-            wl_display_dispatch(term.wl.display);
-            if (term.quit) {
-                ret = EXIT_SUCCESS;
-                break;
-            }
-        }
-
-        if (fds[WL_FD].revents & POLLHUP) {
-            LOG_WARN("disconnected from wayland");
-            break;
-        }
-
-        if (fds[PTMX_FD].revents & POLLIN) {
-            uint8_t data[24 * 1024];
-            ssize_t count = read(term.ptmx, data, sizeof(data));
-            if (count < 0 && errno != EAGAIN) {
-                LOG_ERRNO("failed to read from pseudo terminal");
-                break;
-            }
-
-            if (count > 0) {
-                vt_from_slave(&term, data, count);
-
-                /*
-                 * We likely need to re-render. But, we don't want to
-                 * do it immediately. Often, a single client operation
-                 * is done through multiple writes. Many times, we're
-                 * so fast that we render mid-operation frames.
-                 *
-                 * For example, we might end up rendering a frame
-                 * where the client just erased a line, while in the
-                 * next frame, the client wrote to the same line. This
-                 * causes screen "flashes".
-                 *
-                 * Mitigate by always incuring a small delay before
-                 * rendering the next frame. This gives the client
-                 * some time to finish the operation (and thus gives
-                 * us time to receive the last writes before doing any
-                 * actual rendering).
-                 *
-                 * We incur this delay *every* time we receive
-                 * input. To ensure we don't delay rendering
-                 * indefinitely, we start a second timer that is only
-                 * reset when we render.
-                 *
-                 * Note that when the client is producing data at a
-                 * very high pace, we're rate limited by the wayland
-                 * compositor anyway. The delay we introduce here only
-                 * has any effect when the renderer is idle.
-                 *
-                 * TODO: this adds input latency. Can we somehow hint
-                 * ourselves we just received keyboard input, and in
-                 * this case *not* delay rendering?
-                 */
-                if (term.render.frame_callback == NULL) {
-                    /* First timeout - reset each time we receive input. */
-                    timerfd_settime(
-                        delay_render_timer_lower, 0,
-                        &(struct itimerspec){.it_value = {.tv_nsec = 1000000}},
-                        NULL);
-
-                    /* Second timeout - only reset when we render. Set to one frame (assuming 60Hz) */
-                    if (!timeout_is_armed) {
-                        timerfd_settime(
-                            delay_render_timer_upper, 0,
-                            &(struct itimerspec){.it_value = {.tv_nsec = 16666666}},
-                            NULL);
-                        timeout_is_armed = true;
-                    }
-                }
-            }
-        }
-
-        if (fds[PTMX_FD].revents & POLLHUP) {
-            ret = EXIT_SUCCESS;
-            break;
-        }
-
-        if (fds[KBD_REPEAT_FD].revents & POLLIN) {
-            uint64_t expiration_count;
-            ssize_t ret = read(
-                term.kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
-
-            if (ret < 0 && errno != EAGAIN)
-                LOG_ERRNO("failed to read repeat key from repeat timer fd");
-            else if (ret > 0) {
-                term.kbd.repeat.dont_re_repeat = true;
-                for (size_t i = 0; i < expiration_count; i++)
-                    input_repeat(&term, term.kbd.repeat.key);
-                term.kbd.repeat.dont_re_repeat = false;
-            }
-        }
-
-        if (fds[FLASH_FD].revents & POLLIN) {
-            uint64_t expiration_count;
-            ssize_t ret = read(
-                term.flash.fd, &expiration_count, sizeof(expiration_count));
-
-            if (ret < 0 && errno != EAGAIN)
-                LOG_ERRNO("failed to read flash timer");
-            else if (ret > 0) {
-                LOG_DBG("flash timer expired %llu times",
-                        (unsigned long long)expiration_count);
-
-                term.flash.active = false;
-                term_damage_view(&term);
-                render_refresh(&term);
-            }
-        }
-
-        if (fds[BLINK_FD].revents & POLLIN) {
-            uint64_t expiration_count;
-            ssize_t ret = read(
-                term.blink.fd, &expiration_count, sizeof(expiration_count));
-
-            if (ret < 0 && errno != EAGAIN)
-                LOG_ERRNO("failed to read blink timer");
-            else if (ret > 0) {
-                LOG_DBG("blink timer expired %llu times",
-                        (unsigned long long)expiration_count);
-
-                term.blink.state = term.blink.state == BLINK_ON
-                    ? BLINK_OFF : BLINK_ON;
-
-                /* Scan all visible cells and mark rows with blinking cells dirty */
-                for (int r = 0; r < term.rows; r++) {
-                    struct row *row = grid_row_in_view(term.grid, r);
-                    for (int col = 0; col < term.cols; col++) {
-                        struct cell *cell = &row->cells[col];
-
-                        if (cell->attrs.blink) {
-                            cell->attrs.clean = 0;
-                            row->dirty = true;
-                        }
-                    }
-                }
-
-                render_refresh(&term);
-            }
-        }
     }
 
-    close(delay_render_timer_lower);
-    close(delay_render_timer_upper);
+    if (term.quit)
+        ret = EXIT_SUCCESS;
 
 out:
+    if (fdm != NULL) {
+        fdm_del(fdm, wl_display_get_fd(term.wl.display));
+        fdm_del(fdm, term.ptmx);
+        fdm_del(fdm, term.kbd.repeat.fd);
+        fdm_del(fdm, term.flash.fd);
+        fdm_del(fdm, term.blink.fd);
+        fdm_del(fdm, term.delayed_render_timer.lower_fd);
+        fdm_del(fdm, term.delayed_render_timer.upper_fd);
+    }
+
+    if (term.delayed_render_timer.lower_fd != -1)
+        close(term.delayed_render_timer.lower_fd);
+    if (term.delayed_render_timer.upper_fd != -1)
+        close(term.delayed_render_timer.upper_fd);
+
     mtx_lock(&term.render.workers.lock);
     assert(tll_length(term.render.workers.queue) == 0);
     for (size_t i = 0; i < term.render.workers.count; i++) {
@@ -1229,6 +1287,8 @@ out:
         if (ret == EXIT_SUCCESS)
             ret = child_ret;
     }
+
+    fdm_destroy(fdm);
 
     config_free(conf);
     return ret;
