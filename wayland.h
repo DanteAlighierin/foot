@@ -27,6 +27,20 @@ struct monitor {
     float refresh;
 };
 
+struct wl_clipboard {
+    struct wl_data_source *data_source;
+    struct wl_data_offer *data_offer;
+    char *text;
+    uint32_t serial;
+};
+
+struct wl_primary {
+    struct zwp_primary_selection_source_v1 *data_source;
+    struct zwp_primary_selection_offer_v1 *data_offer;
+    char *text;
+    uint32_t serial;
+};
+
 struct wl_window {
     struct wl_surface *surface;
     struct xdg_wm_base *shell;
@@ -73,6 +87,10 @@ struct wayland {
         int size;
         char *theme_name;
     } pointer;
+
+    /* Clipboard */
+    struct wl_clipboard clipboard;
+    struct wl_primary primary;
 
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */

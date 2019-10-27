@@ -34,6 +34,17 @@ wayl_destroy(struct wayland *wayl)
     if (wayl->xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);
 
+    if (wayl->clipboard.data_source != NULL)
+        wl_data_source_destroy(wayl->clipboard.data_source);
+    if (wayl->clipboard.data_offer != NULL)
+        wl_data_offer_destroy(wayl->clipboard.data_offer);
+    free(wayl->clipboard.text);
+    if (wayl->primary.data_source != NULL)
+        zwp_primary_selection_source_v1_destroy(wayl->primary.data_source);
+    if (wayl->primary.data_offer != NULL)
+        zwp_primary_selection_offer_v1_destroy(wayl->primary.data_offer);
+    free(wayl->primary.text);
+
     free(wayl->pointer.theme_name);
     if (wayl->pointer.theme != NULL)
         wl_cursor_theme_destroy(wayl->pointer.theme);

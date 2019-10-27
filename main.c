@@ -1151,16 +1151,6 @@ out:
 
     shm_fini();
 
-    if (term.selection.clipboard.data_source != NULL)
-        wl_data_source_destroy(term.selection.clipboard.data_source);
-    if (term.selection.clipboard.data_offer != NULL)
-        wl_data_offer_destroy(term.selection.clipboard.data_offer);
-    free(term.selection.clipboard.text);
-    if (term.selection.primary.data_source != NULL)
-        zwp_primary_selection_source_v1_destroy(term.selection.primary.data_source);
-    if (term.selection.primary.data_offer != NULL)
-        zwp_primary_selection_offer_v1_destroy(term.selection.primary.data_offer);
-    free(term.selection.primary.text);
     if (term.kbd.xkb_compose_state != NULL)
         xkb_compose_state_unref(term.kbd.xkb_compose_state);
     if (term.kbd.xkb_compose_table != NULL)

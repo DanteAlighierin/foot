@@ -171,20 +171,6 @@ enum mouse_reporting {
     MOUSE_URXVT,         /* ?1015h */
 };
 
-struct clipboard {
-    struct wl_data_source *data_source;
-    struct wl_data_offer *data_offer;
-    char *text;
-    uint32_t serial;
-};
-
-struct primary {
-    struct zwp_primary_selection_source_v1 *data_source;
-    struct zwp_primary_selection_offer_v1 *data_offer;
-    char *text;
-    uint32_t serial;
-};
-
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
 
 struct terminal {
@@ -279,8 +265,6 @@ struct terminal {
     struct {
         struct coord start;
         struct coord end;
-        struct clipboard clipboard;
-        struct primary primary;
     } selection;
 
     bool is_searching;
