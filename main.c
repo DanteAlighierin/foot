@@ -49,9 +49,9 @@
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
-    struct terminal *term = data;
+    struct wayland *wayl = data;
     if (format == WL_SHM_FORMAT_ARGB8888)
-        term->wl.have_argb8888 = true;
+        wayl->have_argb8888 = true;
 }
 
 static const struct wl_shm_listener shm_listener = {
@@ -73,26 +73,26 @@ static void
 seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
                          enum wl_seat_capability caps)
 {
-    struct terminal *term = data;
+    struct wayland *wayl = data;
 
-    if (term->wl.keyboard != NULL) {
-        wl_keyboard_release(term->wl.keyboard);
-        term->wl.keyboard = NULL;
+    if (wayl->keyboard != NULL) {
+        wl_keyboard_release(wayl->keyboard);
+        wayl->keyboard = NULL;
     }
 
-    if (term->wl.pointer.pointer != NULL) {
-        wl_pointer_release(term->wl.pointer.pointer);
-        term->wl.pointer.pointer = NULL;
+    if (wayl->pointer.pointer != NULL) {
+        wl_pointer_release(wayl->pointer.pointer);
+        wayl->pointer.pointer = NULL;
     }
 
     if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
-        term->wl.keyboard = wl_seat_get_keyboard(wl_seat);
-        wl_keyboard_add_listener(term->wl.keyboard, &keyboard_listener, term);
+        wayl->keyboard = wl_seat_get_keyboard(wl_seat);
+        wl_keyboard_add_listener(wayl->keyboard, &keyboard_listener, wayl);
     }
 
     if (caps & WL_SEAT_CAPABILITY_POINTER) {
-        term->wl.pointer.pointer = wl_seat_get_pointer(wl_seat);
-        wl_pointer_add_listener(term->wl.pointer.pointer, &pointer_listener, term);
+        wayl->pointer.pointer = wl_seat_get_pointer(wl_seat);
+        wl_pointer_add_listener(wayl->pointer.pointer, &pointer_listener, wayl);
     }
 }
 
@@ -137,10 +137,12 @@ static void
 output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 {
     struct monitor *mon = data;
+    struct terminal *term = mon->wayl->term;
+
     mon->scale = factor;
 
-    render_resize(mon->term, mon->term->width / mon->term->scale, mon->term->height / mon->term->scale);
-    render_reload_cursor_theme(mon->term);
+    render_resize(term, term->width / term->scale, term->height / term->scale);
+    render_reload_cursor_theme(term);
 }
 
 static const struct wl_output_listener output_listener = {
@@ -200,72 +202,71 @@ handle_global(void *data, struct wl_registry *registry,
               uint32_t name, const char *interface, uint32_t version)
 {
     LOG_DBG("global: %s, version=%u", interface, version);
-    struct terminal *term = data;
+    struct wayland *wayl = data;
 
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
-        term->wl.compositor = wl_registry_bind(
-            term->wl.registry, name, &wl_compositor_interface, 4);
+        wayl->compositor = wl_registry_bind(
+            wayl->registry, name, &wl_compositor_interface, 4);
     }
 
     else if (strcmp(interface, wl_subcompositor_interface.name) == 0) {
-        term->wl.sub_compositor = wl_registry_bind(
-            term->wl.registry, name, &wl_subcompositor_interface, 1);
+        wayl->sub_compositor = wl_registry_bind(
+            wayl->registry, name, &wl_subcompositor_interface, 1);
     }
 
     else if (strcmp(interface, wl_shm_interface.name) == 0) {
-        term->wl.shm = wl_registry_bind(
-            term->wl.registry, name, &wl_shm_interface, 1);
-        wl_shm_add_listener(term->wl.shm, &shm_listener, term);
-        wl_display_roundtrip(term->wl.display);
+        wayl->shm = wl_registry_bind(
+            wayl->registry, name, &wl_shm_interface, 1);
+        wl_shm_add_listener(wayl->shm, &shm_listener, wayl);
+        wl_display_roundtrip(wayl->display);
     }
 
     else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
-        term->window.shell = wl_registry_bind(
-            term->wl.registry, name, &xdg_wm_base_interface, 1);
-        xdg_wm_base_add_listener(term->window.shell, &xdg_wm_base_listener, term);
+        wayl->shell = wl_registry_bind(
+            wayl->registry, name, &xdg_wm_base_interface, 1);
+        xdg_wm_base_add_listener(wayl->shell, &xdg_wm_base_listener, wayl);
     }
 
     else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0)
-        term->window.xdg_decoration_manager = wl_registry_bind(
-            term->wl.registry, name, &zxdg_decoration_manager_v1_interface, 1);
+        wayl->xdg_decoration_manager = wl_registry_bind(
+            wayl->registry, name, &zxdg_decoration_manager_v1_interface, 1);
 
     else if (strcmp(interface, wl_seat_interface.name) == 0) {
-        term->wl.seat = wl_registry_bind(
-            term->wl.registry, name, &wl_seat_interface, 5);
-        wl_seat_add_listener(term->wl.seat, &seat_listener, term);
-        wl_display_roundtrip(term->wl.display);
+        wayl->seat = wl_registry_bind(
+            wayl->registry, name, &wl_seat_interface, 5);
+        wl_seat_add_listener(wayl->seat, &seat_listener, wayl);
+        wl_display_roundtrip(wayl->display);
     }
 
     else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0) {
-        term->wl.xdg_output_manager = wl_registry_bind(
-            term->wl.registry, name, &zxdg_output_manager_v1_interface, min(version, 2));
+        wayl->xdg_output_manager = wl_registry_bind(
+            wayl->registry, name, &zxdg_output_manager_v1_interface, min(version, 2));
     }
 
     else if (strcmp(interface, wl_output_interface.name) == 0) {
         struct wl_output *output = wl_registry_bind(
-            term->wl.registry, name, &wl_output_interface, 3);
+            wayl->registry, name, &wl_output_interface, 3);
 
         tll_push_back(
-            term->wl.monitors, ((struct monitor){
-                    .term = term, .output = output}));
+            wayl->monitors, ((struct monitor){.wayl = wayl, .output = output}));
 
-        struct monitor *mon = &tll_back(term->wl.monitors);
+        struct monitor *mon = &tll_back(wayl->monitors);
         wl_output_add_listener(output, &output_listener, mon);
 
         mon->xdg = zxdg_output_manager_v1_get_xdg_output(
-            term->wl.xdg_output_manager, mon->output);
+            wayl->xdg_output_manager, mon->output);
         zxdg_output_v1_add_listener(mon->xdg, &xdg_output_listener, mon);
-        wl_display_roundtrip(term->wl.display);
+        wl_display_roundtrip(wayl->display);
     }
 
     else if (strcmp(interface, wl_data_device_manager_interface.name) == 0) {
-        term->wl.data_device_manager = wl_registry_bind(
-            term->wl.registry, name, &wl_data_device_manager_interface, 1);
+        wayl->data_device_manager = wl_registry_bind(
+            wayl->registry, name, &wl_data_device_manager_interface, 1);
     }
 
     else if (strcmp(interface, zwp_primary_selection_device_manager_v1_interface.name) == 0) {
-        term->wl.primary_selection_device_manager = wl_registry_bind(
-            term->wl.registry, name, &zwp_primary_selection_device_manager_v1_interface, 1);
+        wayl->primary_selection_device_manager = wl_registry_bind(
+            wayl->registry, name, &zwp_primary_selection_device_manager_v1_interface, 1);
     }
 }
 
@@ -273,8 +274,10 @@ static void
 surface_enter(void *data, struct wl_surface *wl_surface,
               struct wl_output *wl_output)
 {
-    struct terminal *term = data;
-    tll_foreach(term->wl.monitors, it) {
+    struct wayland *wayl = data;
+    struct terminal *term = wayl_terminal_from_surface(wayl, wl_surface);
+
+    tll_foreach(wayl->monitors, it) {
         if (it->item.output == wl_output) {
             LOG_DBG("mapped on %s", it->item.name);
             tll_push_back(term->window.on_outputs, &it->item);
@@ -293,7 +296,9 @@ static void
 surface_leave(void *data, struct wl_surface *wl_surface,
               struct wl_output *wl_output)
 {
-    struct terminal *term = data;
+    struct wayland *wayl = data;
+    struct terminal *term = wayl_terminal_from_surface(wayl, wl_surface);
+
     tll_foreach(term->window.on_outputs, it) {
         if (it->item->output != wl_output)
             continue;
@@ -324,17 +329,20 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     if (width <= 0 || height <= 0)
         return;
 
-    struct terminal *term = data;
+    struct wayland *wayl = data;
+    struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
     render_resize(term, width, height);
 }
 
 static void
 xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
 {
-    struct terminal *term = data;
+    struct wayland *wayl = data;
+    struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
     LOG_DBG("xdg-toplevel: close");
+
     term->quit = true;
-    wl_display_roundtrip(term->wl.display);
+    wl_display_roundtrip(wayl->display);
 }
 
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
@@ -393,15 +401,15 @@ static const struct wl_registry_listener registry_listener = {
 static bool
 fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
 {
-    struct terminal *term = data;
-    int event_count = wl_display_dispatch(term->wl.display);
+    struct wayland *wayl = data;
+    int event_count = wl_display_dispatch(wayl->display);
 
     if (events & EPOLLHUP) {
         LOG_ERR("disconnected from Wayland");
         return false;
     }
 
-    return event_count != -1 && !term->quit;
+    return event_count != -1 && !wayl->term->quit;
 }
 
 static bool
@@ -900,7 +908,7 @@ main(int argc, char *const *argv)
         goto out;
     }
 
-    wl_registry_add_listener(term.wl.registry, &registry_listener, &term);
+    wl_registry_add_listener(term.wl.registry, &registry_listener, &term.wl);
     wl_display_roundtrip(term.wl.display);
 
     if (term.wl.compositor == NULL) {
@@ -911,7 +919,7 @@ main(int argc, char *const *argv)
         LOG_ERR("no shared memory buffers interface");
         goto out;
     }
-    if (term.window.shell == NULL) {
+    if (term.wl.shell == NULL) {
         LOG_ERR("no XDG shell interface");
         goto out;
     }
@@ -940,14 +948,14 @@ main(int argc, char *const *argv)
     /* Clipboard */
     term.wl.data_device = wl_data_device_manager_get_data_device(
         term.wl.data_device_manager, term.wl.seat);
-    wl_data_device_add_listener(term.wl.data_device, &data_device_listener, &term);
+    wl_data_device_add_listener(term.wl.data_device, &data_device_listener, &term.wl);
 
     /* Primary selection */
     if (term.wl.primary_selection_device_manager != NULL) {
         term.wl.primary_selection_device = zwp_primary_selection_device_manager_v1_get_device(
             term.wl.primary_selection_device_manager, term.wl.seat);
         zwp_primary_selection_device_v1_add_listener(
-            term.wl.primary_selection_device, &primary_selection_device_listener, &term);
+            term.wl.primary_selection_device, &primary_selection_device_listener, &term.wl);
     }
 
     /* Cursor */
@@ -981,24 +989,24 @@ main(int argc, char *const *argv)
         goto out;
     }
 
-    wl_surface_add_listener(term.window.surface, &surface_listener, &term);
+    wl_surface_add_listener(term.window.surface, &surface_listener, &term.wl);
 
-    term.window.xdg_surface = xdg_wm_base_get_xdg_surface(term.window.shell, term.window.surface);
-    xdg_surface_add_listener(term.window.xdg_surface, &xdg_surface_listener, &term);
+    term.window.xdg_surface = xdg_wm_base_get_xdg_surface(term.wl.shell, term.window.surface);
+    xdg_surface_add_listener(term.window.xdg_surface, &xdg_surface_listener, &term.wl);
 
     term.window.xdg_toplevel = xdg_surface_get_toplevel(term.window.xdg_surface);
-    xdg_toplevel_add_listener(term.window.xdg_toplevel, &xdg_toplevel_listener, &term);
+    xdg_toplevel_add_listener(term.window.xdg_toplevel, &xdg_toplevel_listener, &term.wl);
 
     xdg_toplevel_set_app_id(term.window.xdg_toplevel, "foot");
     term_set_window_title(&term, "foot");
 
     /* Request server-side decorations */
     term.window.xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
-        term.window.xdg_decoration_manager, term.window.xdg_toplevel);
+        term.wl.xdg_decoration_manager, term.window.xdg_toplevel);
     zxdg_toplevel_decoration_v1_set_mode(
         term.window.xdg_toplevel_decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
     zxdg_toplevel_decoration_v1_add_listener(
-        term.window.xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, &term);
+        term.window.xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, &term.wl);
 
     /* Scrollback search box */
     term.window.search_surface = wl_compositor_create_surface(term.wl.compositor);
@@ -1109,7 +1117,7 @@ main(int argc, char *const *argv)
     if ((fdm = fdm_init()) == NULL)
         goto out;
 
-    fdm_add(fdm, wl_display_get_fd(term.wl.display), EPOLLIN, &fdm_wayl, &term);
+    fdm_add(fdm, wl_display_get_fd(term.wl.display), EPOLLIN, &fdm_wayl, &term.wl);
     fdm_add(fdm, term.ptmx, EPOLLIN, &fdm_ptmx, &term);
     fdm_add(fdm, term.wl.kbd.repeat.fd, EPOLLIN, &fdm_repeat, &term);
     fdm_add(fdm, term.flash.fd, EPOLLIN, &fdm_flash, &term);

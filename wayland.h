@@ -10,7 +10,8 @@
 #include "tllist.h"
 
 struct monitor {
-    struct terminal *term;
+    //struct terminal *term;
+    struct wayland *wayl;
     struct wl_output *output;
     struct zxdg_output_v1 *xdg;
     char *name;
@@ -71,11 +72,9 @@ struct wl_primary {
 
 struct wl_window {
     struct wl_surface *surface;
-    struct xdg_wm_base *shell;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
 
-    struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
 
     /* Scrollback search */
@@ -99,10 +98,14 @@ struct wayland {
     struct wl_keyboard *keyboard;
     struct zxdg_output_manager_v1 *xdg_output_manager;
 
+    struct xdg_wm_base *shell;
+    struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
+
     /* Keyboard */
     struct kbd kbd;
 
     /* Clipboard */
+    uint32_t input_serial;
     struct wl_data_device_manager *data_device_manager;
     struct wl_data_device *data_device;
     struct zwp_primary_selection_device_manager_v1 *primary_selection_device_manager;
@@ -123,15 +126,37 @@ struct wayland {
         char *theme_name;
     } pointer;
 
+    struct {
+        int col;
+        int row;
+        int button;
+
+        int count;
+        int last_button;
+        struct timeval last_time;
+
+        /* We used a discrete axis event in the current pointer frame */
+        bool have_discrete;
+    } mouse;
+
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
 
     /* TODO: turn into a list to support multiple windows */
     struct terminal *term;
+    struct terminal *focused;
+    struct terminal *moused;
 };
 
 /* TODO: return allocated pointer */
 void wayl_init(struct wayland *wayl);
 void wayl_destroy(struct wayland *wayl);
+
+struct terminal *wayl_terminal_from_surface(
+    struct wayland *wayl, struct wl_surface *surface);
+struct terminal *wayl_terminal_from_xdg_surface(
+    struct wayland *wayl, struct xdg_surface *surface);
+struct terminal *wayl_terminal_from_xdg_toplevel(
+    struct wayland *wayl, struct xdg_toplevel *toplevel);
 
 void wayl_win_destroy(struct wl_window *win);

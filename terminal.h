@@ -200,19 +200,6 @@ struct terminal {
         uint32_t default_table[256];
     } colors;
 
-    struct {
-        int col;
-        int row;
-        int button;
-
-        int count;
-        int last_button;
-        struct timeval last_time;
-
-        /* We used a discrete axis event in the current pointer frame */
-        bool have_discrete;
-    } mouse;
-
     struct coord cursor;
     struct coord saved_cursor;
     struct coord alt_saved_cursor;
@@ -228,7 +215,6 @@ struct terminal {
         uint32_t cursor;
     } cursor_color;
 
-    uint32_t input_serial;
     struct {
         struct coord start;
         struct coord end;

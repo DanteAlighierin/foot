@@ -317,7 +317,7 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
 
     /* "Commit" search - copy selection to primary and cancel search */
     else if (mods == 0 && sym == XKB_KEY_Return) {
-        selection_finalize(term, term->input_serial);
+        selection_finalize(term, term->wl.input_serial);
         search_cancel_keep_selection(term);
         return;
     }

@@ -13,6 +13,7 @@
 #include "log.h"
 
 #include "tllist.h"
+#include "terminal.h"
 
 void
 wayl_init(struct wayland *wayl)
@@ -33,6 +34,11 @@ wayl_destroy(struct wayland *wayl)
 
     if (wayl->xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);
+    if (wayl->shell != NULL)
+        xdg_wm_base_destroy(wayl->shell);
+
+    if (wayl->xdg_decoration_manager != NULL)
+        zxdg_decoration_manager_v1_destroy(wayl->xdg_decoration_manager);
 
     if (wayl->kbd.xkb_compose_state != NULL)
         xkb_compose_state_unref(wayl->kbd.xkb_compose_state);
@@ -99,14 +105,25 @@ wayl_win_destroy(struct wl_window *win)
         wl_callback_destroy(win->frame_callback);
     if (win->xdg_toplevel_decoration != NULL)
         zxdg_toplevel_decoration_v1_destroy(win->xdg_toplevel_decoration);
-    if (win->xdg_decoration_manager != NULL)
-        zxdg_decoration_manager_v1_destroy(win->xdg_decoration_manager);
     if (win->xdg_toplevel != NULL)
         xdg_toplevel_destroy(win->xdg_toplevel);
     if (win->xdg_surface != NULL)
         xdg_surface_destroy(win->xdg_surface);
-    if (win->shell != NULL)
-        xdg_wm_base_destroy(win->shell);
     if (win->surface != NULL)
         wl_surface_destroy(win->surface);
+}
+
+struct terminal *
+wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
+{
+    assert(surface == wayl->term->window.surface);
+    return wayl->term;
+}
+
+struct terminal *
+wayl_terminal_from_xdg_toplevel(struct wayland *wayl,
+                                struct xdg_toplevel *toplevel)
+{
+    assert(toplevel == wayl->term->window.xdg_toplevel);
+    return wayl->term;
 }

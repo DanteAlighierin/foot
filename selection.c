@@ -742,8 +742,8 @@ selection(void *data, struct wl_data_device *wl_data_device,
 {
     /* Selection offer from other client */
 
-    struct terminal *term = data;
-    struct wl_clipboard *clipboard = &term->wl.clipboard;
+    struct wayland *wayl = data;
+    struct wl_clipboard *clipboard = &wayl->clipboard;
 
     if (clipboard->data_offer != NULL)
         wl_data_offer_destroy(clipboard->data_offer);
@@ -791,8 +791,8 @@ primary_selection(void *data,
 {
     /* Selection offer from other client, for primary */
 
-    struct terminal *term = data;
-    struct wl_primary *primary = &term->wl.primary;
+    struct wayland *wayl = data;
+    struct wl_primary *primary = &wayl->primary;
 
     if (primary->data_offer != NULL)
         zwp_primary_selection_offer_v1_destroy(primary->data_offer);
