@@ -6,6 +6,7 @@
 
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
+#include <fcntl.h>
 
 #include <wayland-client.h>
 #include <wayland-cursor.h>
@@ -520,7 +521,18 @@ wayl_init(struct fdm *fdm)
         goto out;
     }
 
-    if (!fdm_add(fdm, wl_display_get_fd(wayl->display), EPOLLIN, &fdm_wayl, wayl)) {
+    int wl_fd = wl_display_get_fd(wayl->display);
+    int fd_flags = fcntl(wl_fd, F_GETFL);
+    if (fd_flags == -1) {
+        LOG_ERRNO("failed to set non blocking mode on Wayland display connection");
+        goto out;
+    }
+    if (fcntl(wl_fd, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
+        LOG_ERRNO("failed to set non blocking mode on Wayland display connection");
+        goto out;
+    }
+
+    if (!fdm_add(fdm, wl_fd, EPOLLIN, &fdm_wayl, wayl)) {
         LOG_ERR("failed to register Wayland connection with the FDM");
         goto out;
     }
@@ -530,6 +542,8 @@ wayl_init(struct fdm *fdm)
         goto out;
     }
 
+    //wl_display_dispatch_pending(wayl->display);
+    //wl_display_flush(wayl->display);
     return wayl;
 
 out:

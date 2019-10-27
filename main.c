@@ -588,20 +588,6 @@ main(int argc, char *const *argv)
         }
     }
 
-
-    {
-        int fd = wl_display_get_fd(term.wl->display);
-        int fd_flags = fcntl(fd, F_GETFL);
-        if (fd_flags == -1) {
-            LOG_ERRNO("failed to set non blocking mode on Wayland display connection");
-            goto out;
-        }
-        if (fcntl(fd, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
-            LOG_ERRNO("failed to set non blocking mode on Wayland display connection");
-            goto out;
-        }
-    }
-
     fdm_add(fdm, term.ptmx, EPOLLIN, &fdm_ptmx, &term);
     fdm_add(fdm, term.flash.fd, EPOLLIN, &fdm_flash, &term);
     fdm_add(fdm, term.blink.fd, EPOLLIN, &fdm_blink, &term);
@@ -609,7 +595,8 @@ main(int argc, char *const *argv)
     fdm_add(fdm, term.delayed_render_timer.upper_fd, EPOLLIN, &fdm_delayed_render, &term);
 
     while (true) {
-        wl_display_flush(term.wl->display);
+        wl_display_flush(term.wl->display);  /* TODO: figure out how to get rid of this */
+
         if (!fdm_poll(fdm))
             break;
     }
