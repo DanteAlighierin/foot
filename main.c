@@ -447,7 +447,7 @@ main(int argc, char *const *argv)
         goto out;
     }
 
-    if (term.flash.fd == -1 || term.blink.fd == -1 || term.wl->kbd.repeat.fd == -1) {
+    if (term.flash.fd == -1 || term.blink.fd == -1) {
         LOG_ERR("failed to create timers");
         goto out;
     }
