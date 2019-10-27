@@ -497,10 +497,10 @@ fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
     if (events & EPOLLHUP)
         return false;
 
-    struct terminal *term = data;
+    struct wayland *wayl = data;
     uint64_t expiration_count;
     ssize_t ret = read(
-        term->wl.kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
+        wayl->kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
 
     if (ret < 0) {
         if (errno == EAGAIN)
@@ -510,10 +510,10 @@ fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
-    term->wl.kbd.repeat.dont_re_repeat = true;
+    wayl->kbd.repeat.dont_re_repeat = true;
     for (size_t i = 0; i < expiration_count; i++)
-        input_repeat(term, term->wl.kbd.repeat.key);
-    term->wl.kbd.repeat.dont_re_repeat = false;
+        input_repeat(wayl, wayl->kbd.repeat.key);
+    wayl->kbd.repeat.dont_re_repeat = false;
     return true;
 }
 
@@ -1119,7 +1119,7 @@ main(int argc, char *const *argv)
 
     fdm_add(fdm, wl_display_get_fd(term.wl.display), EPOLLIN, &fdm_wayl, &term.wl);
     fdm_add(fdm, term.ptmx, EPOLLIN, &fdm_ptmx, &term);
-    fdm_add(fdm, term.wl.kbd.repeat.fd, EPOLLIN, &fdm_repeat, &term);
+    fdm_add(fdm, term.wl.kbd.repeat.fd, EPOLLIN, &fdm_repeat, &term.wl);
     fdm_add(fdm, term.flash.fd, EPOLLIN, &fdm_flash, &term);
     fdm_add(fdm, term.blink.fd, EPOLLIN, &fdm_blink, &term);
     fdm_add(fdm, term.delayed_render_timer.lower_fd, EPOLLIN, &fdm_delayed_render, &term);

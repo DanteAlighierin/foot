@@ -376,9 +376,9 @@ const struct wl_keyboard_listener keyboard_listener = {
 };
 
 void
-input_repeat(struct terminal *term, uint32_t key)
+input_repeat(struct wayland *wayl, uint32_t key)
 {
-    keyboard_key(&term->wl, NULL, 0, 0, key, XKB_KEY_DOWN);
+    keyboard_key(wayl, NULL, 0, 0, key, XKB_KEY_DOWN);
 }
 
 static void
