@@ -126,7 +126,7 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
     struct terminal *term = mon->wayl->term;
     if (term != NULL) {
         render_resize(term, term->width / term->scale, term->height / term->scale);
-        render_reload_cursor_theme(term);
+        wayl_reload_cursor_theme(mon->wayl, term);
     }
 }
 
@@ -269,7 +269,7 @@ surface_enter(void *data, struct wl_surface *wl_surface,
 
             /* Resize, since scale-to-use may have changed */
             render_resize(term, term->width / term->scale, term->height / term->scale);
-            render_reload_cursor_theme(term);
+            wayl_reload_cursor_theme(wayl, term);
             return;
         }
     }
@@ -293,7 +293,7 @@ surface_leave(void *data, struct wl_surface *wl_surface,
 
         /* Resize, since scale-to-use may have changed */
         render_resize(term, term->width / term->scale, term->height / term->scale);
-        render_reload_cursor_theme(term);
+        wayl_reload_cursor_theme(wayl, term);
         return;
     }
 
@@ -703,6 +703,62 @@ wayl_win_destroy(struct wl_window *win)
         wl_surface_destroy(win->surface);
     free(win);
 }
+
+bool
+wayl_reload_cursor_theme(struct wayland *wayl, struct terminal *term)
+{
+    if (wayl->pointer.size == 0)
+        return true;
+
+    if (wayl->pointer.theme != NULL) {
+        wl_cursor_theme_destroy(wayl->pointer.theme);
+        wayl->pointer.theme = NULL;
+        wayl->pointer.cursor = NULL;
+    }
+
+    LOG_DBG("reloading cursor theme: %s@%d",
+            wayl->pointer.theme_name, wayl->pointer.size);
+
+    wayl->pointer.theme = wl_cursor_theme_load(
+        wayl->pointer.theme_name, wayl->pointer.size * term->scale, wayl->shm);
+    if (wayl->pointer.theme == NULL) {
+        LOG_ERR("failed to load cursor theme");
+        return false;
+    }
+
+    wayl->pointer.cursor = wl_cursor_theme_get_cursor(
+        wayl->pointer.theme, "left_ptr");
+    assert(wayl->pointer.cursor != NULL);
+    wayl_update_cursor_surface(wayl, term);
+
+    return true;
+}
+
+void
+wayl_update_cursor_surface(struct wayland *wayl, struct terminal *term)
+{
+    if (wayl->pointer.cursor == NULL)
+        return;
+
+    const int scale = term->scale;
+    wl_surface_set_buffer_scale(wayl->pointer.surface, scale);
+
+    struct wl_cursor_image *image = wayl->pointer.cursor->images[0];
+
+    wl_surface_attach(
+        wayl->pointer.surface, wl_cursor_image_get_buffer(image), 0, 0);
+
+    wl_pointer_set_cursor(
+        wayl->pointer.pointer, wayl->pointer.serial,
+        wayl->pointer.surface,
+        image->hotspot_x / scale, image->hotspot_y / scale);
+
+    wl_surface_damage_buffer(
+        wayl->pointer.surface, 0, 0, INT32_MAX, INT32_MAX);
+
+    wl_surface_commit(wayl->pointer.surface);
+}
+
 
 struct terminal *
 wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)

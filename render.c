@@ -942,61 +942,6 @@ render_set_title(struct terminal *term, const char *title)
     xdg_toplevel_set_title(term->window->xdg_toplevel, title);
 }
 
-bool
-render_reload_cursor_theme(struct terminal *term)
-{
-    if (term->wl->pointer.size == 0)
-        return true;
-
-    if (term->wl->pointer.theme != NULL) {
-        wl_cursor_theme_destroy(term->wl->pointer.theme);
-        term->wl->pointer.theme = NULL;
-        term->wl->pointer.cursor = NULL;
-    }
-
-    LOG_DBG("reloading cursor theme: %s@%d",
-            term->wl->pointer.theme_name, term->wl->pointer.size);
-
-    term->wl->pointer.theme = wl_cursor_theme_load(
-        term->wl->pointer.theme_name, term->wl->pointer.size * term->scale, term->wl->shm);
-    if (term->wl->pointer.theme == NULL) {
-        LOG_ERR("failed to load cursor theme");
-        return false;
-    }
-
-    term->wl->pointer.cursor = wl_cursor_theme_get_cursor(
-        term->wl->pointer.theme, "left_ptr");
-    assert(term->wl->pointer.cursor != NULL);
-    render_update_cursor_surface(term);
-
-    return true;
-}
-
-void
-render_update_cursor_surface(struct terminal *term)
-{
-    if (term->wl->pointer.cursor == NULL)
-        return;
-
-    const int scale = term->scale;
-    wl_surface_set_buffer_scale(term->wl->pointer.surface, scale);
-
-    struct wl_cursor_image *image = term->wl->pointer.cursor->images[0];
-
-    wl_surface_attach(
-        term->wl->pointer.surface, wl_cursor_image_get_buffer(image), 0, 0);
-
-    wl_pointer_set_cursor(
-        term->wl->pointer.pointer, term->wl->pointer.serial,
-        term->wl->pointer.surface,
-        image->hotspot_x / scale, image->hotspot_y / scale);
-
-    wl_surface_damage_buffer(
-        term->wl->pointer.surface, 0, 0, INT32_MAX, INT32_MAX);
-
-    wl_surface_commit(term->wl->pointer.surface);
-}
-
 void
 render_refresh(struct terminal *term)
 {

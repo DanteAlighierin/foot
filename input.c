@@ -397,7 +397,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     wayl->mouse.col = x / term->cell_width;
     wayl->mouse.row = y / term->cell_height;
 
-    render_update_cursor_surface(term);
+    wayl_update_cursor_surface(wayl, term);
 }
 
 static void

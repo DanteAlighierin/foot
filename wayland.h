@@ -161,5 +161,9 @@ struct terminal *wayl_terminal_from_xdg_surface(
 struct terminal *wayl_terminal_from_xdg_toplevel(
     struct wayland *wayl, struct xdg_toplevel *toplevel);
 
+/* TODO: pass something other than 'term'? Need scale... */
+bool wayl_reload_cursor_theme(struct wayland *wayl, struct terminal *term);
+void wayl_update_cursor_surface(struct wayland *wayl, struct terminal *term);
+
 struct wl_window *wayl_win_init(struct wayland *wayl);
 void wayl_win_destroy(struct wl_window *win);

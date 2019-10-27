@@ -11,8 +11,6 @@ void render_set_title(struct terminal *term, const char *title);
 void render_refresh(struct terminal *term);
 
 void render_search_box(struct terminal *term);
-bool render_reload_cursor_theme(struct terminal *term);
-void render_update_cursor_surface(struct terminal *term);
 
 struct render_worker_context {
     int my_id;
