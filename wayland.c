@@ -541,6 +541,9 @@ out:
 void
 wayl_destroy(struct wayland *wayl)
 {
+    if (wayl == NULL)
+        return;
+
     if (wayl->kbd.repeat.fd != 0) {
         fdm_del(wayl->fdm, wayl->kbd.repeat.fd);
         close(wayl->kbd.repeat.fd);
