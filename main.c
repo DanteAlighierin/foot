@@ -276,7 +276,6 @@ main(int argc, char *const *argv)
 
         case 'f':
             tll_free_and_free(conf.fonts, free);
-            //tll_push_back(conf.fonts, strdup(optarg));
             for (char *font = strtok(optarg, ","); font != NULL; font = strtok(NULL, ",")) {
 
                 /* Strip leading spaces */
@@ -349,10 +348,6 @@ main(int argc, char *const *argv)
         },
         .vt = {
             .state = 1,  /* STATE_GROUND */
-            .attrs = {
-                //.foreground = conf.colors.fg,
-                //.background = conf.colors.bg
-            },
         },
         .colors = {
             .default_fg = conf.colors.fg,
@@ -520,8 +515,6 @@ main(int argc, char *const *argv)
     conf.width = max(conf.width, term.cell_width);
     conf.height = max(conf.height, term.cell_height);
     render_resize(&term, conf.width, conf.height);
-
-    wl_display_dispatch_pending(term.wl->display);
 
     {
         int fork_pipe[2];
