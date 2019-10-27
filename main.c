@@ -21,7 +21,6 @@
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
-#include <xkbcommon/xkbcommon-compose.h>
 
 #include <xdg-output-unstable-v1.h>
 #include <xdg-decoration-unstable-v1.h>
@@ -1151,17 +1150,7 @@ out:
 
     shm_fini();
 
-    if (term.kbd.xkb_compose_state != NULL)
-        xkb_compose_state_unref(term.kbd.xkb_compose_state);
-    if (term.kbd.xkb_compose_table != NULL)
-        xkb_compose_table_unref(term.kbd.xkb_compose_table);
-    if (term.kbd.xkb_keymap != NULL)
-        xkb_keymap_unref(term.kbd.xkb_keymap);
-    if (term.kbd.xkb_state != NULL)
-        xkb_state_unref(term.kbd.xkb_state);
-    if (term.kbd.xkb != NULL)
-        xkb_context_unref(term.kbd.xkb);
-
+    kbd_destroy(&term.kbd);
     wayl_win_destroy(&term.window);
     wayl_destroy(&term.wl);
 

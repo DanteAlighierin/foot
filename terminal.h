@@ -8,14 +8,10 @@
 #include <threads.h>
 #include <semaphore.h>
 
-#include <wayland-client.h>
-#include <primary-selection-unstable-v1.h>
-#include <xkbcommon/xkbcommon.h>
-#include <xkbcommon/xkbcommon-keysyms.h>
-
 #include "font.h"
 #include "tllist.h"
 #include "wayland.h"
+#include "kbd.h"
 
 #define likely(c) __builtin_expect(!!(c), 1)
 #define unlikely(c) __builtin_expect(!!(c), 0)
@@ -121,33 +117,6 @@ struct vt {
     } utf8;
     struct attributes attrs;
     struct attributes saved_attrs;
-};
-
-struct kbd {
-    struct xkb_context *xkb;
-    struct xkb_keymap *xkb_keymap;
-    struct xkb_state *xkb_state;
-    struct xkb_compose_table *xkb_compose_table;
-    struct xkb_compose_state *xkb_compose_state;
-    struct {
-        int fd;
-
-        bool dont_re_repeat;
-        int32_t delay;
-        int32_t rate;
-        uint32_t key;
-    } repeat;
-
-    xkb_mod_index_t mod_shift;
-    xkb_mod_index_t mod_alt;
-    xkb_mod_index_t mod_ctrl;
-    xkb_mod_index_t mod_meta;
-
-    /* Enabled modifiers */
-    bool shift;
-    bool alt;
-    bool ctrl;
-    bool meta;
 };
 
 enum cursor_keys { CURSOR_KEYS_DONTCARE, CURSOR_KEYS_NORMAL, CURSOR_KEYS_APPLICATION};
