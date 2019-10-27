@@ -38,6 +38,22 @@ struct monitor {
     float refresh;
 };
 
+struct wl_window {
+    struct wl_surface *surface;
+    struct xdg_wm_base *shell;
+    struct xdg_surface *xdg_surface;
+    struct xdg_toplevel *xdg_toplevel;
+
+    struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
+    struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
+
+    /* Scrollback search */
+    struct wl_surface *search_surface;
+    struct wl_subsurface *search_sub_surface;
+
+    tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
+};
+
 struct wayland {
     struct wl_display *display;
     struct wl_registry *registry;
@@ -361,21 +377,7 @@ struct terminal {
     } fextents;
 
     struct wayland wl;
-    struct {
-        struct wl_surface *surface;
-        struct xdg_wm_base *shell;
-        struct xdg_surface *xdg_surface;
-        struct xdg_toplevel *xdg_toplevel;
-
-        struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
-        struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
-
-        /* Scrollback search */
-        struct wl_surface *search_surface;
-        struct wl_subsurface *search_sub_surface;
-
-        tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
-    } window;
+    struct wl_window window;
 
     struct {
         int scrollback_lines;
