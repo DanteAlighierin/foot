@@ -5,6 +5,7 @@
 
 #include <wayland-client.h>
 #include <primary-selection-unstable-v1.h>
+#include <xkbcommon/xkbcommon.h>
 
 #include "tllist.h"
 
@@ -25,6 +26,33 @@ struct monitor {
 
     int scale;
     float refresh;
+};
+
+struct kbd {
+    struct xkb_context *xkb;
+    struct xkb_keymap *xkb_keymap;
+    struct xkb_state *xkb_state;
+    struct xkb_compose_table *xkb_compose_table;
+    struct xkb_compose_state *xkb_compose_state;
+    struct {
+        int fd;
+
+        bool dont_re_repeat;
+        int32_t delay;
+        int32_t rate;
+        uint32_t key;
+    } repeat;
+
+    xkb_mod_index_t mod_shift;
+    xkb_mod_index_t mod_alt;
+    xkb_mod_index_t mod_ctrl;
+    xkb_mod_index_t mod_meta;
+
+    /* Enabled modifiers */
+    bool shift;
+    bool alt;
+    bool ctrl;
+    bool meta;
 };
 
 struct wl_clipboard {
@@ -70,11 +98,17 @@ struct wayland {
     struct wl_keyboard *keyboard;
     struct zxdg_output_manager_v1 *xdg_output_manager;
 
+    /* Keyboard */
+    struct kbd kbd;
+
     /* Clipboard */
     struct wl_data_device_manager *data_device_manager;
     struct wl_data_device *data_device;
     struct zwp_primary_selection_device_manager_v1 *primary_selection_device_manager;
     struct zwp_primary_selection_device_v1 *primary_selection_device;
+
+    struct wl_clipboard clipboard;
+    struct wl_primary primary;
 
     /* Cursor */
     struct {
@@ -87,10 +121,6 @@ struct wayland {
         int size;
         char *theme_name;
     } pointer;
-
-    /* Clipboard */
-    struct wl_clipboard clipboard;
-    struct wl_primary primary;
 
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */

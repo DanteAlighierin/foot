@@ -11,7 +11,6 @@
 #include "font.h"
 #include "tllist.h"
 #include "wayland.h"
-#include "kbd.h"
 
 #define likely(c) __builtin_expect(!!(c), 1)
 #define unlikely(c) __builtin_expect(!!(c), 0)
@@ -176,7 +175,6 @@ struct terminal {
     } blink;
 
     struct vt vt;
-    struct kbd kbd;
 
     int scale;
     int width;  /* pixels */

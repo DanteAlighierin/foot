@@ -34,6 +34,17 @@ wayl_destroy(struct wayland *wayl)
     if (wayl->xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);
 
+    if (wayl->kbd.xkb_compose_state != NULL)
+        xkb_compose_state_unref(wayl->kbd.xkb_compose_state);
+    if (wayl->kbd.xkb_compose_table != NULL)
+        xkb_compose_table_unref(wayl->kbd.xkb_compose_table);
+    if (wayl->kbd.xkb_keymap != NULL)
+        xkb_keymap_unref(wayl->kbd.xkb_keymap);
+    if (wayl->kbd.xkb_state != NULL)
+        xkb_state_unref(wayl->kbd.xkb_state);
+    if (wayl->kbd.xkb != NULL)
+        xkb_context_unref(wayl->kbd.xkb);
+
     if (wayl->clipboard.data_source != NULL)
         wl_data_source_destroy(wayl->clipboard.data_source);
     if (wayl->clipboard.data_offer != NULL)

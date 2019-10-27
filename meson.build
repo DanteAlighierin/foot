@@ -72,7 +72,6 @@ executable(
   'font.c', 'font.h',
   'grid.c', 'grid.h',
   'input.c', 'input.h',
-  'kbd.c', 'kbd.h',
   'log.c', 'log.h',
   'main.c',
   'osc.c', 'osc.h',

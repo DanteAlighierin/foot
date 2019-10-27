@@ -35,45 +35,45 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     char *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
 
     /* TODO: free old context + keymap */
-    if (term->kbd.xkb_compose_state != NULL) {
-        xkb_compose_state_unref(term->kbd.xkb_compose_state);
-        term->kbd.xkb_compose_state = NULL;
+    if (term->wl.kbd.xkb_compose_state != NULL) {
+        xkb_compose_state_unref(term->wl.kbd.xkb_compose_state);
+        term->wl.kbd.xkb_compose_state = NULL;
     }
-    if (term->kbd.xkb_compose_table != NULL) {
-        xkb_compose_table_unref(term->kbd.xkb_compose_table);
-        term->kbd.xkb_compose_table = NULL;
+    if (term->wl.kbd.xkb_compose_table != NULL) {
+        xkb_compose_table_unref(term->wl.kbd.xkb_compose_table);
+        term->wl.kbd.xkb_compose_table = NULL;
     }
-    if (term->kbd.xkb_keymap != NULL) {
-        xkb_keymap_unref(term->kbd.xkb_keymap);
-        term->kbd.xkb_keymap = NULL;
+    if (term->wl.kbd.xkb_keymap != NULL) {
+        xkb_keymap_unref(term->wl.kbd.xkb_keymap);
+        term->wl.kbd.xkb_keymap = NULL;
     }
-    if (term->kbd.xkb_state != NULL) {
-        xkb_state_unref(term->kbd.xkb_state);
-        term->kbd.xkb_state = NULL;
+    if (term->wl.kbd.xkb_state != NULL) {
+        xkb_state_unref(term->wl.kbd.xkb_state);
+        term->wl.kbd.xkb_state = NULL;
     }
-    if (term->kbd.xkb != NULL) {
-        xkb_context_unref(term->kbd.xkb);
-        term->kbd.xkb = NULL;
+    if (term->wl.kbd.xkb != NULL) {
+        xkb_context_unref(term->wl.kbd.xkb);
+        term->wl.kbd.xkb = NULL;
     }
 
-    term->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    term->kbd.xkb_keymap = xkb_keymap_new_from_string(
-        term->kbd.xkb, map_str, XKB_KEYMAP_FORMAT_TEXT_V1,
+    term->wl.kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    term->wl.kbd.xkb_keymap = xkb_keymap_new_from_string(
+        term->wl.kbd.xkb, map_str, XKB_KEYMAP_FORMAT_TEXT_V1,
         XKB_KEYMAP_COMPILE_NO_FLAGS);
 
     /* TODO: initialize in enter? */
-    term->kbd.xkb_state = xkb_state_new(term->kbd.xkb_keymap);
+    term->wl.kbd.xkb_state = xkb_state_new(term->wl.kbd.xkb_keymap);
 
-    term->kbd.mod_shift = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Shift");
-    term->kbd.mod_alt = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Mod1") ;
-    term->kbd.mod_ctrl = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Control");
-    term->kbd.mod_meta = xkb_keymap_mod_get_index(term->kbd.xkb_keymap, "Mod4");
+    term->wl.kbd.mod_shift = xkb_keymap_mod_get_index(term->wl.kbd.xkb_keymap, "Shift");
+    term->wl.kbd.mod_alt = xkb_keymap_mod_get_index(term->wl.kbd.xkb_keymap, "Mod1") ;
+    term->wl.kbd.mod_ctrl = xkb_keymap_mod_get_index(term->wl.kbd.xkb_keymap, "Control");
+    term->wl.kbd.mod_meta = xkb_keymap_mod_get_index(term->wl.kbd.xkb_keymap, "Mod4");
 
     /* Compose (dead keys) */
-    term->kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
-        term->kbd.xkb, setlocale(LC_CTYPE, NULL), XKB_COMPOSE_COMPILE_NO_FLAGS);
-    term->kbd.xkb_compose_state = xkb_compose_state_new(
-        term->kbd.xkb_compose_table, XKB_COMPOSE_STATE_NO_FLAGS);
+    term->wl.kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
+        term->wl.kbd.xkb, setlocale(LC_CTYPE, NULL), XKB_COMPOSE_COMPILE_NO_FLAGS);
+    term->wl.kbd.xkb_compose_state = xkb_compose_state_new(
+        term->wl.kbd.xkb_compose_table, XKB_COMPOSE_STATE_NO_FLAGS);
 
     munmap(map_str, size);
     close(fd);
@@ -91,12 +91,12 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 static bool
 start_repeater(struct terminal *term, uint32_t key)
 {
-    if (term->kbd.repeat.dont_re_repeat)
+    if (term->wl.kbd.repeat.dont_re_repeat)
         return true;
 
     struct itimerspec t = {
-        .it_value = {.tv_sec = 0, .tv_nsec = term->kbd.repeat.delay * 1000000},
-        .it_interval = {.tv_sec = 0, .tv_nsec = 1000000000 / term->kbd.repeat.rate},
+        .it_value = {.tv_sec = 0, .tv_nsec = term->wl.kbd.repeat.delay * 1000000},
+        .it_interval = {.tv_sec = 0, .tv_nsec = 1000000000 / term->wl.kbd.repeat.rate},
     };
 
     if (t.it_value.tv_nsec >= 1000000000) {
@@ -107,22 +107,22 @@ start_repeater(struct terminal *term, uint32_t key)
         t.it_interval.tv_sec += t.it_interval.tv_nsec / 1000000000;
         t.it_interval.tv_nsec %= 1000000000;
     }
-    if (timerfd_settime(term->kbd.repeat.fd, 0, &t, NULL) < 0) {
+    if (timerfd_settime(term->wl.kbd.repeat.fd, 0, &t, NULL) < 0) {
         LOG_ERRNO("failed to arm keyboard repeat timer");
         return false;
     }
 
-    term->kbd.repeat.key = key;
+    term->wl.kbd.repeat.key = key;
     return true;
 }
 
 static bool
 stop_repeater(struct terminal *term, uint32_t key)
 {
-    if (key != -1 && key != term->kbd.repeat.key)
+    if (key != -1 && key != term->wl.kbd.repeat.key)
         return true;
 
-    if (timerfd_settime(term->kbd.repeat.fd, 0, &(struct itimerspec){{0}}, NULL) < 0) {
+    if (timerfd_settime(term->wl.kbd.repeat.fd, 0, &(struct itimerspec){{0}}, NULL) < 0) {
         LOG_ERRNO("failed to disarm keyboard repeat timer");
         return false;
     }
@@ -146,10 +146,10 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 {
     struct terminal *term = data;
 
-    const xkb_mod_mask_t ctrl = 1 << term->kbd.mod_ctrl;
-    const xkb_mod_mask_t alt = 1 << term->kbd.mod_alt;
-    const xkb_mod_mask_t shift = 1 << term->kbd.mod_shift;
-    const xkb_mod_mask_t meta = 1 << term->kbd.mod_meta;
+    const xkb_mod_mask_t ctrl = 1 << term->wl.kbd.mod_ctrl;
+    const xkb_mod_mask_t alt = 1 << term->wl.kbd.mod_alt;
+    const xkb_mod_mask_t shift = 1 << term->wl.kbd.mod_shift;
+    const xkb_mod_mask_t meta = 1 << term->wl.kbd.mod_meta;
 
     if (state == XKB_KEY_UP) {
         stop_repeater(term, key);
@@ -157,7 +157,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     }
 
     key += 8;
-    xkb_keysym_t sym = xkb_state_key_get_one_sym(term->kbd.xkb_state, key);
+    xkb_keysym_t sym = xkb_state_key_get_one_sym(term->wl.kbd.xkb_state, key);
 
 #if 0
     char foo[100];
@@ -165,16 +165,16 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     LOG_INFO("%s", foo);
 #endif
 
-    xkb_compose_state_feed(term->kbd.xkb_compose_state, sym);
+    xkb_compose_state_feed(term->wl.kbd.xkb_compose_state, sym);
     enum xkb_compose_status compose_status = xkb_compose_state_get_status(
-        term->kbd.xkb_compose_state);
+        term->wl.kbd.xkb_compose_state);
 
     if (compose_status == XKB_COMPOSE_COMPOSING)
         return;
 
     xkb_mod_mask_t mods = xkb_state_serialize_mods(
-        term->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
-    //xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(term->kbd.xkb_state, key);
+        term->wl.kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
+    //xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(term->wl.kbd.xkb_state, key);
     xkb_mod_mask_t consumed = 0x0;
     xkb_mod_mask_t significant = ctrl | alt | shift | meta;
     xkb_mod_mask_t effective_mods = mods & ~consumed & significant;
@@ -188,7 +188,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 #if 0
     for (size_t i = 0; i < 32; i++) {
         if (mods & (1 << i)) {
-            LOG_INFO("%s", xkb_keymap_mod_get_name(term->kbd.xkb_keymap, i));
+            LOG_INFO("%s", xkb_keymap_mod_get_name(term->wl.kbd.xkb_keymap, i));
         }
     }
 #endif
@@ -200,10 +200,10 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     bool found_map = false;
 
     enum modifier keymap_mods = MOD_NONE;
-    keymap_mods |= term->kbd.shift ? MOD_SHIFT : MOD_NONE;
-    keymap_mods |= term->kbd.alt ? MOD_ALT : MOD_NONE;
-    keymap_mods |= term->kbd.ctrl ? MOD_CTRL : MOD_NONE;
-    keymap_mods |= term->kbd.meta ? MOD_META : MOD_NONE;
+    keymap_mods |= term->wl.kbd.shift ? MOD_SHIFT : MOD_NONE;
+    keymap_mods |= term->wl.kbd.alt ? MOD_ALT : MOD_NONE;
+    keymap_mods |= term->wl.kbd.ctrl ? MOD_CTRL : MOD_NONE;
+    keymap_mods |= term->wl.kbd.meta ? MOD_META : MOD_NONE;
 
     if (effective_mods == shift) {
         if (sym == XKB_KEY_Page_Up) {
@@ -268,11 +268,11 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
         if (compose_status == XKB_COMPOSE_COMPOSED) {
             count = xkb_compose_state_get_utf8(
-                term->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
-            xkb_compose_state_reset(term->kbd.xkb_compose_state);
+                term->wl.kbd.xkb_compose_state, (char *)buf, sizeof(buf));
+            xkb_compose_state_reset(term->wl.kbd.xkb_compose_state);
         } else {
             count = xkb_state_key_get_utf8(
-                term->kbd.xkb_state, key, (char *)buf, sizeof(buf));
+                term->wl.kbd.xkb_state, key, (char *)buf, sizeof(buf));
         }
 
         if (count > 0) {
@@ -338,17 +338,17 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             mods_depressed, mods_latched, mods_locked, group);
 
     xkb_state_update_mask(
-        term->kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
+        term->wl.kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
 
     /* Update state of modifiers we're interrested in for e.g mouse events */
-    term->kbd.shift = xkb_state_mod_index_is_active(
-        term->kbd.xkb_state, term->kbd.mod_shift, XKB_STATE_MODS_DEPRESSED);
-    term->kbd.alt = xkb_state_mod_index_is_active(
-        term->kbd.xkb_state, term->kbd.mod_alt, XKB_STATE_MODS_DEPRESSED);
-    term->kbd.ctrl = xkb_state_mod_index_is_active(
-        term->kbd.xkb_state, term->kbd.mod_ctrl, XKB_STATE_MODS_DEPRESSED);
-    term->kbd.meta = xkb_state_mod_index_is_active(
-        term->kbd.xkb_state, term->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
+    term->wl.kbd.shift = xkb_state_mod_index_is_active(
+        term->wl.kbd.xkb_state, term->wl.kbd.mod_shift, XKB_STATE_MODS_DEPRESSED);
+    term->wl.kbd.alt = xkb_state_mod_index_is_active(
+        term->wl.kbd.xkb_state, term->wl.kbd.mod_alt, XKB_STATE_MODS_DEPRESSED);
+    term->wl.kbd.ctrl = xkb_state_mod_index_is_active(
+        term->wl.kbd.xkb_state, term->wl.kbd.mod_ctrl, XKB_STATE_MODS_DEPRESSED);
+    term->wl.kbd.meta = xkb_state_mod_index_is_active(
+        term->wl.kbd.xkb_state, term->wl.kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
 }
 
 static void
@@ -357,8 +357,8 @@ keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard,
 {
     struct terminal *term = data;
     LOG_DBG("keyboard repeat: rate=%d, delay=%d", rate, delay);
-    term->kbd.repeat.rate = rate;
-    term->kbd.repeat.delay = delay;
+    term->wl.kbd.repeat.rate = rate;
+    term->wl.kbd.repeat.delay = delay;
 }
 
 const struct wl_keyboard_listener keyboard_listener = {
@@ -430,7 +430,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 
     term_mouse_motion(
         term, term->mouse.button, term->mouse.row, term->mouse.col,
-        term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
+        term->wl.kbd.shift, term->wl.kbd.alt, term->wl.kbd.ctrl);
 }
 
 static void
@@ -467,7 +467,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
             case 2:
                 selection_mark_word(term, term->mouse.col, term->mouse.row,
-                                    term->kbd.ctrl, serial);
+                                    term->wl.kbd.ctrl, serial);
                 break;
 
             case 3:
@@ -484,7 +484,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         term->mouse.last_button = button;
         term->mouse.last_time = now;
         term_mouse_down(term, button, term->mouse.row, term->mouse.col,
-                        term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
+                        term->wl.kbd.shift, term->wl.kbd.alt, term->wl.kbd.ctrl);
         break;
     }
 
@@ -496,7 +496,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         term->mouse.button = 0; /* For motion events */
         term_mouse_up(term, button, term->mouse.row, term->mouse.col,
-                      term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
+                      term->wl.kbd.shift, term->wl.kbd.alt, term->wl.kbd.ctrl);
         break;
     }
 }
@@ -520,7 +520,7 @@ mouse_scroll(struct terminal *term, int amount)
          */
 
         xkb_keycode_t key = xkb_keymap_key_by_name(
-            term->kbd.xkb_keymap, button == BTN_BACK ? "UP" : "DOWN");
+            term->wl.kbd.xkb_keymap, button == BTN_BACK ? "UP" : "DOWN");
 
         for (int i = 0; i < amount; i++)
             keyboard_key(term, NULL, term->input_serial, 0, key - 8, XKB_KEY_DOWN);
@@ -528,7 +528,7 @@ mouse_scroll(struct terminal *term, int amount)
     } else {
         for (int i = 0; i < amount; i++)
             term_mouse_down(term, button, term->mouse.row, term->mouse.col,
-                            term->kbd.shift, term->kbd.alt, term->kbd.ctrl);
+                            term->wl.kbd.shift, term->wl.kbd.alt, term->wl.kbd.ctrl);
 
         scrollback(term, amount);
     }

@@ -492,7 +492,7 @@ fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
     struct terminal *term = data;
     uint64_t expiration_count;
     ssize_t ret = read(
-        term->kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
+        term->wl.kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
 
     if (ret < 0) {
         if (errno == EAGAIN)
@@ -502,10 +502,10 @@ fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
-    term->kbd.repeat.dont_re_repeat = true;
+    term->wl.kbd.repeat.dont_re_repeat = true;
     for (size_t i = 0; i < expiration_count; i++)
-        input_repeat(term, term->kbd.repeat.key);
-    term->kbd.repeat.dont_re_repeat = false;
+        input_repeat(term, term->wl.kbd.repeat.key);
+    term->wl.kbd.repeat.dont_re_repeat = false;
     return true;
 }
 
@@ -742,11 +742,6 @@ main(int argc, char *const *argv)
                 //.background = conf.colors.bg
             },
         },
-        .kbd = {
-            .repeat = {
-                .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK),
-            },
-        },
         .colors = {
             .default_fg = conf.colors.fg,
             .default_bg = conf.colors.bg,
@@ -788,6 +783,13 @@ main(int argc, char *const *argv)
         .normal = {.damage = tll_init(), .scroll_damage = tll_init()},
         .alt = {.damage = tll_init(), .scroll_damage = tll_init()},
         .grid = &term.normal,
+        .wl = {
+            .kbd = {
+                .repeat = {
+                    .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK),
+                },
+            },
+        },
         .render = {
             .scrollback_lines = conf.scrollback_lines,
             .workers = {
@@ -833,7 +835,7 @@ main(int argc, char *const *argv)
         goto out;
     }
 
-    if (term.flash.fd == -1 || term.blink.fd == -1 || term.kbd.repeat.fd == -1) {
+    if (term.flash.fd == -1 || term.blink.fd == -1 || term.wl.kbd.repeat.fd == -1) {
         LOG_ERR("failed to create timers");
         goto out;
     }
@@ -1108,7 +1110,7 @@ main(int argc, char *const *argv)
 
     fdm_add(fdm, wl_display_get_fd(term.wl.display), EPOLLIN, &fdm_wayl, &term);
     fdm_add(fdm, term.ptmx, EPOLLIN, &fdm_ptmx, &term);
-    fdm_add(fdm, term.kbd.repeat.fd, EPOLLIN, &fdm_repeat, &term);
+    fdm_add(fdm, term.wl.kbd.repeat.fd, EPOLLIN, &fdm_repeat, &term);
     fdm_add(fdm, term.flash.fd, EPOLLIN, &fdm_flash, &term);
     fdm_add(fdm, term.blink.fd, EPOLLIN, &fdm_blink, &term);
     fdm_add(fdm, term.delayed_render_timer.lower_fd, EPOLLIN, &fdm_delayed_render, &term);
@@ -1127,7 +1129,7 @@ out:
     if (fdm != NULL) {
         fdm_del(fdm, wl_display_get_fd(term.wl.display));
         fdm_del(fdm, term.ptmx);
-        fdm_del(fdm, term.kbd.repeat.fd);
+        fdm_del(fdm, term.wl.kbd.repeat.fd);
         fdm_del(fdm, term.flash.fd);
         fdm_del(fdm, term.blink.fd);
         fdm_del(fdm, term.delayed_render_timer.lower_fd);
@@ -1150,7 +1152,6 @@ out:
 
     shm_fini();
 
-    kbd_destroy(&term.kbd);
     wayl_win_destroy(&term.window);
     wayl_destroy(&term.wl);
 
@@ -1174,8 +1175,8 @@ out:
         close(term.flash.fd);
     if (term.blink.fd != -1)
         close(term.blink.fd);
-    if (term.kbd.repeat.fd != -1)
-        close(term.kbd.repeat.fd);
+    if (term.wl.kbd.repeat.fd != -1)
+        close(term.wl.kbd.repeat.fd);
 
     if (term.ptmx != -1)
         close(term.ptmx);
