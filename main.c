@@ -13,9 +13,7 @@
 
 #include <sys/timerfd.h>
 #include <sys/sysinfo.h>
-#include <sys/prctl.h>
 #include <sys/wait.h>
-#include <sys/time.h>
 #include <sys/epoll.h>
 
 #include <wayland-client.h>
@@ -33,12 +31,12 @@
 #include "fdm.h"
 #include "font.h"
 #include "grid.h"
+#include "render.h"
 #include "shm.h"
 #include "slave.h"
 #include "terminal.h"
 #include "tokenize.h"
 #include "version.h"
-#include "render.h"
 #include "vt.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
