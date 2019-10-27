@@ -887,6 +887,7 @@ main(int argc, char *const *argv)
     term.cell_height = (int)ceil(term.fextents.height);
     LOG_INFO("cell width=%d, height=%d", term.cell_width, term.cell_height);
 
+    term.wl.term = &term;
     term.wl.display = wl_display_connect(NULL);
     if (term.wl.display == NULL) {
         LOG_ERR("failed to connect to wayland; no compositor running?");

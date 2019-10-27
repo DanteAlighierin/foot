@@ -87,6 +87,7 @@ struct wl_window {
     tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
 };
 
+struct terminal;
 struct wayland {
     struct wl_display *display;
     struct wl_registry *registry;
@@ -124,6 +125,9 @@ struct wayland {
 
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
+
+    /* TODO: turn into a list to support multiple windows */
+    struct terminal *term;
 };
 
 /* TODO: return allocated pointer */
