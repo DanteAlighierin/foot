@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <sys/time.h>
+
 #include <wayland-client.h>
 #include <primary-selection-unstable-v1.h>
 #include <xkbcommon/xkbcommon.h>
