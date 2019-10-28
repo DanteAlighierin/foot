@@ -528,21 +528,24 @@ grid_render(struct terminal *term)
              * by the cursor, since only the final cell matters. */
             all_clean = false;
         }
-    } 
-
-    tll_foreach(term->grid->scroll_damage, it) {
-        switch (it->item.type) {
-        case DAMAGE_SCROLL:
-            grid_render_scroll(term, buf, &it->item);
-            break;
-
-        case DAMAGE_SCROLL_REVERSE:
-            grid_render_scroll_reverse(term, buf, &it->item);
-            break;
-        }
-
-        tll_remove(term->grid->scroll_damage, it);
     }
+
+    if (term->grid->view == term->grid->offset) {
+        tll_foreach(term->grid->scroll_damage, it) {
+            switch (it->item.type) {
+            case DAMAGE_SCROLL:
+                grid_render_scroll(term, buf, &it->item);
+                break;
+
+            case DAMAGE_SCROLL_REVERSE:
+                grid_render_scroll_reverse(term, buf, &it->item);
+                break;
+            }
+
+            tll_remove(term->grid->scroll_damage, it);
+        }
+    } else
+        tll_free(term->grid->scroll_damage);
 
     if (term->render.workers.count > 0) {
 
