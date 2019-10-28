@@ -212,22 +212,46 @@ struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
           int argc, char *const *argv)
 {
-    struct terminal *term = malloc(sizeof(*term));
+    int ptmx = -1;
+    int flash_fd = -1;
+    int blink_fd = -1;
+    int delay_lower_fd = -1;
+    int delay_upper_fd = -1;
+
+    struct terminal *term = NULL;
+    struct render_worker_context worker_context[conf->render_worker_count];
+
+    if ((ptmx = posix_openpt(O_RDWR | O_NOCTTY)) == -1) {
+        LOG_ERRNO("failed to open PTY");
+        goto close_fds;
+    }
+    if ((flash_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
+        LOG_ERRNO("failed to create flash timer FD");
+        goto close_fds;
+    }
+    if ((blink_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
+        LOG_ERRNO("failed to create blink timer FD");
+        goto close_fds;
+    }
+    if ((delay_lower_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1 ||
+        (delay_upper_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1)
+    {
+        LOG_ERRNO("failed to create delayed rendering timer FDs");
+        goto close_fds;
+    }
+
+    term = malloc(sizeof(*term));
     *term = (struct terminal) {
         .fdm = fdm,
         .quit = false,
-        .ptmx = posix_openpt(O_RDWR | O_NOCTTY),
+        .ptmx = ptmx,
         .cursor_keys_mode = CURSOR_KEYS_NORMAL,
         .keypad_keys_mode = KEYPAD_NUMERICAL,
         .auto_margin = true,
         .window_title_stack = tll_init(),
         .scale = 1,
-        .flash = {
-            .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK),
-        },
-        .blink = {
-            .fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK),
-        },
+        .flash = {.fd = flash_fd},
+        .blink = {.fd = blink_fd},
         .vt = {
             .state = 1,  /* STATE_GROUND */
         },
@@ -282,14 +306,13 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         },
         .delayed_render_timer = {
             .is_armed = false,
-            .lower_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC),
-            .upper_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC),
+            .lower_fd = delay_lower_fd,
+            .upper_fd = delay_upper_fd,
         },
     };
 
     LOG_INFO("using %zu rendering threads", term->render.workers.count);
 
-    struct render_worker_context worker_context[term->render.workers.count];
 
     /* Initialize 'current' colors from the default colors */
     term->colors.fg = term->colors.default_fg;
@@ -312,15 +335,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
 
         memcpy(term->colors.table, term->colors.default_table, sizeof(term->colors.table));
     }
-    if (term->ptmx == -1) {
-        LOG_ERR("failed to open pseudo terminal");
-        goto out;
-    }
-
-    if (term->flash.fd == -1 || term->blink.fd == -1) {
-        LOG_ERR("failed to create timers");
-        goto out;
-    }
 
     sem_init(&term->render.workers.start, 0, 0);
     sem_init(&term->render.workers.done, 0, 0);
@@ -340,7 +354,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
 
     if ((term->fonts[0] = font_from_name(font_names, "")) == NULL) {
         tll_free(font_names);
-        goto out;
+        goto err;
     }
 
     term->fonts[1] = font_from_name(font_names, "style=bold");
@@ -369,10 +383,9 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     term->cell_height = (int)ceil(term->fextents.height);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
-    /* Main window */
     term->window = wayl_win_init(wayl);
     if (term->window == NULL)
-        goto out;
+        goto err;
 
     term_set_window_title(term, "foot");
 
@@ -393,7 +406,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         int fork_pipe[2];
         if (pipe2(fork_pipe, O_CLOEXEC) < 0) {
             LOG_ERRNO("failed to create pipe");
-            goto out;
+            goto err;
         }
 
         term->slave = fork();
@@ -402,7 +415,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
             LOG_ERRNO("failed to fork");
             close(fork_pipe[0]);
             close(fork_pipe[1]);
-            goto out;
+            goto err;
 
         case 0:
             /* Child */
@@ -419,7 +432,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
                 shell_argv = _shell_argv;
             }
 
-            slave_spawn(term->ptmx, shell_argv, fork_pipe[1]);
+            slave_spawn(ptmx, shell_argv, fork_pipe[1]);
             assert(false);
             break;
 
@@ -435,11 +448,11 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
 
             if (ret < 0) {
                 LOG_ERRNO("failed to read from pipe");
-                goto out;
+                goto err;
             } else if (ret == sizeof(_errno)) {
                 LOG_ERRNO(
                     "%s: failed to execute", argc == 0 ? conf->shell : argv[0]);
-                goto out;
+                goto err;
             } else
                 LOG_DBG("%s: successfully started", conf->shell);
             break;
@@ -449,45 +462,59 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
 
     /* Read logic requires non-blocking mode */
     {
-        int fd_flags = fcntl(term->ptmx, F_GETFL);
+        int fd_flags = fcntl(ptmx, F_GETFL);
         if (fd_flags == -1) {
             LOG_ERRNO("failed to set non blocking mode on PTY master");
-            goto out;
+            goto err;
         }
 
-        if (fcntl(term->ptmx, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
+        if (fcntl(ptmx, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
             LOG_ERRNO("failed to set non blocking mode on PTY master");
-            goto out;
+            goto err;
         }
     }
 
-    if (!fdm_add(fdm, term->ptmx, EPOLLIN, &fdm_ptmx, term)) {
+    if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term)) {
         LOG_ERR("failed to add ptmx to FDM");
-        goto out;
+        goto err;
     }
 
-    if (!fdm_add(fdm, term->flash.fd, EPOLLIN, &fdm_flash, term)) {
+    if (!fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term)) {
         LOG_ERR("failed to add flash timer FD to FDM");
-        goto out;
+        goto err;
     }
 
-    if (!fdm_add(fdm, term->blink.fd, EPOLLIN, &fdm_blink, term)) {
+    if (!fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term)) {
         LOG_ERR("failed to add blink tiemr FD to FDM");
-        goto out;
+        goto err;
     }
 
-    if (!fdm_add(fdm, term->delayed_render_timer.lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
-        !fdm_add(fdm, term->delayed_render_timer.upper_fd, EPOLLIN, &fdm_delayed_render, term))
+    if (!fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
+        !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term))
     {
         LOG_ERR("failed to add delayed rendering timer FDs to FDM");
-        goto out;
+        goto err;
     }
 
     wayl->term = term;
     return term;
 
-out:
+err:
     term_destroy(term);
+    return NULL;
+
+close_fds:
+    if (ptmx != -1)
+        close(ptmx);
+    if (flash_fd != -1)
+        close(flash_fd);
+    if (blink_fd != -1)
+        close(blink_fd);
+    if (delay_lower_fd != -1)
+        close(delay_lower_fd);
+    if (delay_upper_fd != -1)
+        close(delay_upper_fd);
+    assert(term == NULL);
     return NULL;
 }
 
