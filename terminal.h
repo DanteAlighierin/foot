@@ -8,6 +8,8 @@
 #include <threads.h>
 #include <semaphore.h>
 
+//#include "config.h"
+#include "fdm.h"
 #include "font.h"
 #include "tllist.h"
 #include "wayland.h"
@@ -142,6 +144,8 @@ enum mouse_reporting {
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
 
 struct terminal {
+    struct fdm *fdm;
+
     pid_t slave;
     int ptmx;
     bool quit;
@@ -282,6 +286,12 @@ struct terminal {
         int upper_fd;
     } delayed_render_timer;
 };
+
+struct config;
+struct terminal *term_init(
+    const struct config *conf, struct fdm *fdm, struct wayland *wayl,
+    int argc, char *const *argv);
+int term_destroy(struct terminal *term);
 
 void term_reset(struct terminal *term, bool hard);
 
