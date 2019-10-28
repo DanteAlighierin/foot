@@ -374,6 +374,7 @@ render_worker_thread(void *_ctx)
     struct render_worker_context *ctx = _ctx;
     struct terminal *term = ctx->term;
     const int my_id = ctx->my_id;
+    free(ctx);
 
     char proc_title[16];
     snprintf(proc_title, sizeof(proc_title), "foot:render:%d", my_id);

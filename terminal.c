@@ -219,7 +219,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     int delay_upper_fd = -1;
 
     struct terminal *term = NULL;
-    struct render_worker_context worker_context[conf->render_worker_count];
+    struct render_worker_context *worker_context[conf->render_worker_count];
 
     if ((ptmx = posix_openpt(O_RDWR | O_NOCTTY)) == -1) {
         LOG_ERRNO("failed to open PTY");
@@ -343,9 +343,10 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
 
     term->render.workers.threads = calloc(term->render.workers.count, sizeof(term->render.workers.threads[0]));
     for (size_t i = 0; i < term->render.workers.count; i++) {
-        worker_context[i].term = term;
-        worker_context[i].my_id = 1 + i;
-        thrd_create(&term->render.workers.threads[i], &render_worker_thread, &worker_context[i]);
+        worker_context[i] = malloc(sizeof(*worker_context[i]));
+        worker_context[i]->term = term;
+        worker_context[i]->my_id = 1 + i;
+        thrd_create(&term->render.workers.threads[i], &render_worker_thread, worker_context[i]);
     }
 
     font_list_t font_names = tll_init();
