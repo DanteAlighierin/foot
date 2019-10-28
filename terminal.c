@@ -436,7 +436,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
                 shell_argv = _shell_argv;
             }
 
-            slave_spawn(ptmx, shell_argv, fork_pipe[1]);
+            slave_exec(ptmx, shell_argv, fork_pipe[1]);
             assert(false);
             break;
 
