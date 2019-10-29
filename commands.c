@@ -72,7 +72,7 @@ cmd_scrollback_up(struct terminal *term, int rows)
     term->grid->view = new_view;
 
     if (diff >= 0 && diff < term->rows) {
-        term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, (struct scroll_region){0, term->rows}, diff);
+        term_damage_scroll(term, DAMAGE_SCROLL_REVERSE_IN_VIEW, (struct scroll_region){0, term->rows}, diff);
         term_damage_rows_in_view(term, 0, diff - 1);
     } else
         term_damage_view(term);
@@ -142,7 +142,7 @@ cmd_scrollback_down(struct terminal *term, int rows)
     term->grid->view = new_view;
 
     if (diff >= 0 && diff < term->rows) {
-        term_damage_scroll(term, DAMAGE_SCROLL, (struct scroll_region){0, term->rows}, diff);
+        term_damage_scroll(term, DAMAGE_SCROLL_IN_VIEW, (struct scroll_region){0, term->rows}, diff);
         term_damage_rows_in_view(term, term->rows - diff, term->rows - 1);
     } else
         term_damage_view(term);

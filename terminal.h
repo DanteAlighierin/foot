@@ -129,7 +129,9 @@ struct coord {
     int row;
 };
 
-enum damage_type {DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE};
+enum damage_type {DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE,
+                  DAMAGE_SCROLL_IN_VIEW, DAMAGE_SCROLL_REVERSE_IN_VIEW};
+
 struct damage {
     enum damage_type type;
     /* DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE */

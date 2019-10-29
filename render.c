@@ -530,22 +530,29 @@ grid_render(struct terminal *term)
         }
     }
 
-    if (term->grid->view == term->grid->offset) {
-        tll_foreach(term->grid->scroll_damage, it) {
-            switch (it->item.type) {
-            case DAMAGE_SCROLL:
+    tll_foreach(term->grid->scroll_damage, it) {
+        switch (it->item.type) {
+        case DAMAGE_SCROLL:
+            if (term->grid->view == term->grid->offset)
                 grid_render_scroll(term, buf, &it->item);
-                break;
+            break;
 
-            case DAMAGE_SCROLL_REVERSE:
+        case DAMAGE_SCROLL_REVERSE:
+            if (term->grid->view == term->grid->offset)
                 grid_render_scroll_reverse(term, buf, &it->item);
-                break;
-            }
+            break;
 
-            tll_remove(term->grid->scroll_damage, it);
+        case DAMAGE_SCROLL_IN_VIEW:
+            grid_render_scroll(term, buf, &it->item);
+            break;
+
+        case DAMAGE_SCROLL_REVERSE_IN_VIEW:
+            grid_render_scroll_reverse(term, buf, &it->item);
+            break;
         }
-    } else
-        tll_free(term->grid->scroll_damage);
+
+        tll_remove(term->grid->scroll_damage, it);
+    }
 
     if (term->render.workers.count > 0) {
 
