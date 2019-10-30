@@ -356,14 +356,14 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     tll_foreach(conf->fonts, it)
         tll_push_back(font_names, it->item);
 
-    if ((term->fonts[0] = font_from_name(font_names, "")) == NULL) {
+    if ((term->fonts[0] = font_from_name(font_names, "")) == NULL ||
+        (term->fonts[1] = font_from_name(font_names, "style=bold")) == NULL ||
+        (term->fonts[2] = font_from_name(font_names, "style=italic")) == NULL ||
+        (term->fonts[3] = font_from_name(font_names, "style=bold italic")) == NULL)
+    {
         tll_free(font_names);
         goto err;
     }
-
-    term->fonts[1] = font_from_name(font_names, "style=bold");
-    term->fonts[2] = font_from_name(font_names, "style=italic");
-    term->fonts[3] = font_from_name(font_names, "style=bold italic");
 
     tll_free(font_names);
 
