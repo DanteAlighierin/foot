@@ -119,8 +119,8 @@ slave_spawn(int ptmx, int argc, char *const *argv,
             LOG_ERRNO("failed to read from pipe");
             return -1;
         } else if (ret == sizeof(_errno)) {
-            LOG_ERRNO(
-                "%s: failed to execute", argc == 0 ? conf_shell : argv[0]);
+            LOG_ERRNO_P(
+                "%s: failed to execute", _errno, argc == 0 ? conf_shell : argv[0]);
             return -1;
         } else
             LOG_DBG("%s: successfully started", conf_shell);
