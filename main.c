@@ -107,18 +107,22 @@ main(int argc, char *const *argv)
 
         case 'v':
             printf("foot version %s\n", FOOT_VERSION);
+            config_free(conf);
             return EXIT_SUCCESS;
 
         case 'h':
             print_usage(prog_name);
+            config_free(conf);
             return EXIT_SUCCESS;
 
         case ':':
             fprintf(stderr, "error: -%c: missing required argument\n", optopt);
+            config_free(conf);
             return EXIT_FAILURE;
 
         case '?':
             fprintf(stderr, "error: -%c: invalid option\n", optopt);
+            config_free(conf);
             return EXIT_FAILURE;
         }
     }
