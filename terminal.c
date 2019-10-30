@@ -227,6 +227,39 @@ initialize_color_cube(struct terminal *term)
     memcpy(term->colors.table, term->colors.default_table, sizeof(term->colors.table));
 }
 
+static bool
+initialize_render_workers(struct terminal *term)
+{
+    LOG_INFO("using %zu rendering threads", term->render.workers.count);
+
+    sem_init(&term->render.workers.start, 0, 0);
+    sem_init(&term->render.workers.done, 0, 0);
+    mtx_init(&term->render.workers.lock, mtx_plain);
+    cnd_init(&term->render.workers.cond);
+
+    term->render.workers.threads = calloc(
+        term->render.workers.count, sizeof(term->render.workers.threads[0]));
+
+    for (size_t i = 0; i < term->render.workers.count; i++) {
+        struct render_worker_context *ctx = malloc(sizeof(*ctx));
+        *ctx = (struct render_worker_context) {
+            .term = term,
+            .my_id = 1 + i,
+        };
+
+        int ret = thrd_create(
+            &term->render.workers.threads[i], &render_worker_thread, ctx);
+
+        if (ret != 0) {
+            LOG_ERRNO_P("failed to create render worker thread", ret);
+            term->render.workers.threads[i] = 0;
+            return false;
+        }
+    }
+
+    return true;
+}
+
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
           int argc, char *const *argv)
@@ -332,24 +365,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     };
 
     initialize_color_cube(term);
-
-    LOG_INFO("using %zu rendering threads", term->render.workers.count);
-    sem_init(&term->render.workers.start, 0, 0);
-    sem_init(&term->render.workers.done, 0, 0);
-    mtx_init(&term->render.workers.lock, mtx_plain);
-    cnd_init(&term->render.workers.cond);
-
-    term->render.workers.threads = calloc(
-        term->render.workers.count, sizeof(term->render.workers.threads[0]));
-
-    for (size_t i = 0; i < term->render.workers.count; i++) {
-        struct render_worker_context *ctx = malloc(sizeof(*ctx));
-        *ctx = (struct render_worker_context) {
-            .term = term,
-            .my_id = 1 + i,
-        };
-        thrd_create(&term->render.workers.threads[i], &render_worker_thread, ctx);
-    }
+    if (!initialize_render_workers(term))
+        goto err;
 
     font_list_t font_names = tll_init();
     tll_foreach(conf->fonts, it)
@@ -541,12 +558,22 @@ term_destroy(struct terminal *term)
 
     mtx_lock(&term->render.workers.lock);
     assert(tll_length(term->render.workers.queue) == 0);
-    for (size_t i = 0; i < term->render.workers.count; i++) {
+
+    /* Count livinig threads - we may get here when only some of the
+     * threads have been successfully started */
+    size_t worker_count = 0;
+    for (size_t i = 0; i < term->render.workers.count; i++, worker_count++) {
+        if (term->render.workers.threads[i] == 0)
+            break;
+    }
+
+    for (size_t i = 0; i < worker_count; i++) {
         sem_post(&term->render.workers.start);
         tll_push_back(term->render.workers.queue, -2);
     }
     cnd_broadcast(&term->render.workers.cond);
     mtx_unlock(&term->render.workers.lock);
+
     free(term->vt.osc.data);
     for (int row = 0; row < term->normal.num_rows; row++)
         grid_row_free(term->normal.rows[row]);
@@ -578,8 +605,10 @@ term_destroy(struct terminal *term)
         close(term->ptmx);
     }
 
-    for (size_t i = 0; i < term->render.workers.count; i++)
-        thrd_join(term->render.workers.threads[i], NULL);
+    for (size_t i = 0; i < term->render.workers.count; i++) {
+        if (term->render.workers.threads[i] != 0)
+            thrd_join(term->render.workers.threads[i], NULL);
+    }
     free(term->render.workers.threads);
     cnd_destroy(&term->render.workers.cond);
     mtx_destroy(&term->render.workers.lock);
