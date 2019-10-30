@@ -529,6 +529,7 @@ fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
 {
     LOG_DBG("FDM shutdown");
     struct terminal *term = data;
+    struct wayland *wayl = term->wl;
 
     fdm_del(term->fdm, fd);
     close(fd);
@@ -538,17 +539,18 @@ fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
      * trigger, meaning it should be safe to destroy the terminal.
      */
 
-    assert(term->wl->focused != term);
-    assert(term->wl->moused != term);
+    assert(wayl->focused != term);
+    assert(wayl->moused != term);
 
-    tll_foreach(term->wl->terms, it) {
+    tll_foreach(wayl->terms, it) {
         if (it->item == term) {
-            tll_remove(term->wl->terms, it);
+            tll_remove(wayl->terms, it);
             break;
         }
     }
 
-    term_destroy(term);
+    wayl->last_exit_value = term_destroy(term);
+    LOG_WARN("last-exit-value: %d", wayl->last_exit_value);
     return true;
 }
 
