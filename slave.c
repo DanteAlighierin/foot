@@ -107,7 +107,7 @@ slave_spawn(int ptmx, int argc, char *const *argv,
 
     default: {
         close(fork_pipe[1]); /* Close write end */
-        LOG_DBG("slave has PID %d", term->slave);
+        LOG_DBG("slave has PID %d", pid);
 
         int _errno;
         static_assert(sizeof(errno) == sizeof(_errno), "errno size mismatch");
@@ -123,7 +123,7 @@ slave_spawn(int ptmx, int argc, char *const *argv,
                 "%s: failed to execute", argc == 0 ? conf_shell : argv[0]);
             return -1;
         } else
-            LOG_DBG("%s: successfully started", conf->shell);
+            LOG_DBG("%s: successfully started", conf_shell);
         break;
     }
     }
