@@ -325,9 +325,7 @@ xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
     struct wayland *wayl = data;
     struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
     LOG_DBG("xdg-toplevel: close");
-
-    term->quit = true;
-    wl_display_roundtrip(wayl->display);
+    term_shutdown(term);
 }
 
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
