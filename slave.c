@@ -13,7 +13,7 @@
 #include "log.h"
 
 void
-slave_spawn(int ptmx, char *const argv[], int err_fd)
+slave_exec(int ptmx, char *const argv[], int err_fd)
 {
     int pts = -1;
     const char *pts_name = ptsname(ptmx);

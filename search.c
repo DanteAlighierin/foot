@@ -19,8 +19,8 @@
 static void
 search_cancel_keep_selection(struct terminal *term)
 {
-    wl_surface_attach(term->wl.search_surface, NULL, 0, 0);
-    wl_surface_commit(term->wl.search_surface);
+    wl_surface_attach(term->window->search_surface, NULL, 0, 0);
+    wl_surface_commit(term->window->search_surface);
 
     free(term->search.buf);
     term->search.buf = NULL;
@@ -294,13 +294,13 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
 {
     LOG_DBG("search: input: sym=%d/0x%x, mods=0x%08x", sym, sym, mods);
 
-    const xkb_mod_mask_t ctrl = 1 << term->kbd.mod_ctrl;
-    const xkb_mod_mask_t alt = 1 << term->kbd.mod_alt;
-    //const xkb_mod_mask_t shift = 1 << term->kbd.mod_shift;
-    //const xkb_mod_mask_t meta = 1 << term->kbd.mod_meta;
+    const xkb_mod_mask_t ctrl = 1 << term->wl->kbd.mod_ctrl;
+    const xkb_mod_mask_t alt = 1 << term->wl->kbd.mod_alt;
+    //const xkb_mod_mask_t shift = 1 << term->wl->kbd.mod_shift;
+    //const xkb_mod_mask_t meta = 1 << term->wl->kbd.mod_meta;
 
     enum xkb_compose_status compose_status = xkb_compose_state_get_status(
-        term->kbd.xkb_compose_state);
+        term->wl->kbd.xkb_compose_state);
 
     /* Cancel search */
     if ((mods == 0 && sym == XKB_KEY_Escape) ||
@@ -317,7 +317,7 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
 
     /* "Commit" search - copy selection to primary and cancel search */
     else if (mods == 0 && sym == XKB_KEY_Return) {
-        selection_finalize(term, term->input_serial);
+        selection_finalize(term, term->wl->input_serial);
         search_cancel_keep_selection(term);
         return;
     }
@@ -449,11 +449,11 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
 
         if (compose_status == XKB_COMPOSE_COMPOSED) {
             count = xkb_compose_state_get_utf8(
-                term->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
-            xkb_compose_state_reset(term->kbd.xkb_compose_state);
+                term->wl->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
+            xkb_compose_state_reset(term->wl->kbd.xkb_compose_state);
         } else {
             count = xkb_state_key_get_utf8(
-                term->kbd.xkb_state, key, (char *)buf, sizeof(buf));
+                term->wl->kbd.xkb_state, key, (char *)buf, sizeof(buf));
         }
 
         const char *src = (const char *)buf;

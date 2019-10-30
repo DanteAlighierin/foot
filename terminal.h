@@ -8,82 +8,14 @@
 #include <threads.h>
 #include <semaphore.h>
 
-#include <wayland-client.h>
-#include <primary-selection-unstable-v1.h>
-#include <xkbcommon/xkbcommon.h>
-#include <xkbcommon/xkbcommon-keysyms.h>
-
+//#include "config.h"
+#include "fdm.h"
 #include "font.h"
 #include "tllist.h"
+#include "wayland.h"
 
 #define likely(c) __builtin_expect(!!(c), 1)
 #define unlikely(c) __builtin_expect(!!(c), 0)
-
-struct monitor {
-    struct terminal *term;
-    struct wl_output *output;
-    struct zxdg_output_v1 *xdg;
-    char *name;
-
-    int x;
-    int y;
-
-    int width_mm;
-    int height_mm;
-
-    int width_px;
-    int height_px;
-
-    int scale;
-    float refresh;
-};
-
-struct wayland {
-    struct wl_display *display;
-    struct wl_registry *registry;
-    struct wl_compositor *compositor;
-    struct wl_subcompositor *sub_compositor;
-    struct wl_shm *shm;
-
-    struct wl_seat *seat;
-    struct wl_keyboard *keyboard;
-    struct zxdg_output_manager_v1 *xdg_output_manager;
-
-    /* Clipboard */
-    struct wl_data_device_manager *data_device_manager;
-    struct wl_data_device *data_device;
-    struct zwp_primary_selection_device_manager_v1 *primary_selection_device_manager;
-    struct zwp_primary_selection_device_v1 *primary_selection_device;
-
-    /* Cursor */
-    struct {
-        struct wl_pointer *pointer;
-        uint32_t serial;
-
-        struct wl_surface *surface;
-        struct wl_cursor_theme *theme;
-        struct wl_cursor *cursor;
-        int size;
-        char *theme_name;
-    } pointer;
-
-    /* Main window */
-    struct wl_surface *surface;
-    struct xdg_wm_base *shell;
-    struct xdg_surface *xdg_surface;
-    struct xdg_toplevel *xdg_toplevel;
-
-    struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
-    struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
-
-    /* Scrollback search */
-    struct wl_surface *search_surface;
-    struct wl_subsurface *search_sub_surface;
-
-    bool have_argb8888;
-    tll(struct monitor) monitors;  /* All available outputs */
-    tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
-};
 
 struct rgb { float r, g, b; };
 
@@ -190,33 +122,6 @@ struct vt {
     struct attributes saved_attrs;
 };
 
-struct kbd {
-    struct xkb_context *xkb;
-    struct xkb_keymap *xkb_keymap;
-    struct xkb_state *xkb_state;
-    struct xkb_compose_table *xkb_compose_table;
-    struct xkb_compose_state *xkb_compose_state;
-    struct {
-        int fd;
-
-        bool dont_re_repeat;
-        int32_t delay;
-        int32_t rate;
-        uint32_t key;
-    } repeat;
-
-    xkb_mod_index_t mod_shift;
-    xkb_mod_index_t mod_alt;
-    xkb_mod_index_t mod_ctrl;
-    xkb_mod_index_t mod_meta;
-
-    /* Enabled modifiers */
-    bool shift;
-    bool alt;
-    bool ctrl;
-    bool meta;
-};
-
 enum cursor_keys { CURSOR_KEYS_DONTCARE, CURSOR_KEYS_NORMAL, CURSOR_KEYS_APPLICATION};
 enum keypad_keys { KEYPAD_DONTCARE, KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
 enum charset { CHARSET_ASCII, CHARSET_GRAPHIC };
@@ -238,23 +143,11 @@ enum mouse_reporting {
     MOUSE_URXVT,         /* ?1015h */
 };
 
-struct clipboard {
-    struct wl_data_source *data_source;
-    struct wl_data_offer *data_offer;
-    char *text;
-    uint32_t serial;
-};
-
-struct primary {
-    struct zwp_primary_selection_source_v1 *data_source;
-    struct zwp_primary_selection_offer_v1 *data_offer;
-    char *text;
-    uint32_t serial;
-};
-
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
 
 struct terminal {
+    struct fdm *fdm;
+
     pid_t slave;
     int ptmx;
     bool quit;
@@ -288,7 +181,6 @@ struct terminal {
     } blink;
 
     struct vt vt;
-    struct kbd kbd;
 
     int scale;
     int width;  /* pixels */
@@ -314,19 +206,6 @@ struct terminal {
         uint32_t default_table[256];
     } colors;
 
-    struct {
-        int col;
-        int row;
-        int button;
-
-        int count;
-        int last_button;
-        struct timeval last_time;
-
-        /* We used a discrete axis event in the current pointer frame */
-        bool have_discrete;
-    } mouse;
-
     struct coord cursor;
     struct coord saved_cursor;
     struct coord alt_saved_cursor;
@@ -342,12 +221,9 @@ struct terminal {
         uint32_t cursor;
     } cursor_color;
 
-    uint32_t input_serial;
     struct {
         struct coord start;
         struct coord end;
-        struct clipboard clipboard;
-        struct primary primary;
     } selection;
 
     bool is_searching;
@@ -376,10 +252,11 @@ struct terminal {
         int max_x_advance;
     } fextents;
 
-    struct wayland wl;
+    struct wayland *wl;
+    struct wl_window *window;
+
     struct {
         int scrollback_lines;
-        struct wl_callback *frame_callback;
 
         struct {
             size_t count;
@@ -403,7 +280,20 @@ struct terminal {
         bool was_flashing;           /* Flash was active last time we rendered */
         bool was_searching;
     } render;
+
+    /* Temporary: for FDM */
+    struct {
+        bool is_armed;
+        int lower_fd;
+        int upper_fd;
+    } delayed_render_timer;
 };
+
+struct config;
+struct terminal *term_init(
+    const struct config *conf, struct fdm *fdm, struct wayland *wayl,
+    int argc, char *const *argv);
+int term_destroy(struct terminal *term);
 
 void term_reset(struct terminal *term, bool hard);
 

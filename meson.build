@@ -68,6 +68,7 @@ executable(
   'config.c', 'config.h',
   'commands.c', 'commands.h',
   'csi.c', 'csi.h',
+  'fdm.c', 'fdm.h',
   'font.c', 'font.h',
   'grid.c', 'grid.h',
   'input.c', 'input.h',
@@ -83,6 +84,7 @@ executable(
   'tokenize.c', 'tokenize.h',
   'tllist.h',
   'vt.c', 'vt.h',
+  'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
   dependencies: [threads, math, freetype, fontconfig, pixman, wayland_client, wayland_cursor, xkb],
   install: true)
