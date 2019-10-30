@@ -20,7 +20,6 @@
 #include "vt.h"
 #include "selection.h"
 #include "config.h"
-#include "tokenize.h"
 #include "slave.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
@@ -326,6 +325,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto close_fds;
     }
 
+    /* Initialize configure-based terminal attributes */
     term = malloc(sizeof(*term));
     *term = (struct terminal) {
         .fdm = fdm,
@@ -410,6 +410,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     term->cell_height = (int)ceil(term->fextents.height);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
+    /* Initiailze the Wayland window backend */
     if ((term->window = wayl_win_init(wayl)) == NULL)
         goto err;
 
@@ -431,63 +432,9 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     height = max(height, term->cell_height);
     render_resize(term, width, height);
 
-    {
-        int fork_pipe[2];
-        if (pipe2(fork_pipe, O_CLOEXEC) < 0) {
-            LOG_ERRNO("failed to create pipe");
-            goto err;
-        }
-
-        term->slave = fork();
-        switch (term->slave) {
-        case -1:
-            LOG_ERRNO("failed to fork");
-            close(fork_pipe[0]);
-            close(fork_pipe[1]);
-            goto err;
-
-        case 0:
-            /* Child */
-            close(fork_pipe[0]);  /* Close read end */
-
-            char **_shell_argv = NULL;
-            char *const *shell_argv = argv;
-
-            if (argc == 0) {
-                if (!tokenize_cmdline(conf->shell, &_shell_argv)) {
-                    (void)!write(fork_pipe[1], &errno, sizeof(errno));
-                    _exit(0);
-                }
-                shell_argv = _shell_argv;
-            }
-
-            slave_exec(ptmx, shell_argv, fork_pipe[1]);
-            assert(false);
-            break;
-
-        default: {
-            close(fork_pipe[1]); /* Close write end */
-            LOG_DBG("slave has PID %d", term->slave);
-
-            int _errno;
-            static_assert(sizeof(errno) == sizeof(_errno), "errno size mismatch");
-
-            ssize_t ret = read(fork_pipe[0], &_errno, sizeof(_errno));
-            close(fork_pipe[0]);
-
-            if (ret < 0) {
-                LOG_ERRNO("failed to read from pipe");
-                goto err;
-            } else if (ret == sizeof(_errno)) {
-                LOG_ERRNO(
-                    "%s: failed to execute", argc == 0 ? conf->shell : argv[0]);
-                goto err;
-            } else
-                LOG_DBG("%s: successfully started", conf->shell);
-            break;
-        }
-        }
-    }
+    /* Start the slave/client */
+    if (!slave_spawn(term->ptmx, argc, argv, conf->shell))
+        goto err;
 
     /* Read logic requires non-blocking mode */
     {

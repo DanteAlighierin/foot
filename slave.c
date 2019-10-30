@@ -1,9 +1,10 @@
 #define _XOPEN_SOURCE 500
 #include "slave.h"
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
+#include <assert.h>
 
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -12,7 +13,9 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
-void
+#include "tokenize.h"
+
+static void
 slave_exec(int ptmx, char *const argv[], int err_fd)
 {
     int pts = -1;
@@ -61,4 +64,69 @@ err:
     if (ptmx != -1)
         close(ptmx);
     _exit(errno);
+}
+
+pid_t
+slave_spawn(int ptmx, int argc, char *const *argv,
+            const char *conf_shell)
+{
+    int fork_pipe[2];
+    if (pipe2(fork_pipe, O_CLOEXEC) < 0) {
+        LOG_ERRNO("failed to create pipe");
+        return -1;
+    }
+
+    pid_t pid = fork();
+    switch (pid) {
+    case -1:
+        LOG_ERRNO("failed to fork");
+        close(fork_pipe[0]);
+        close(fork_pipe[1]);
+        return -1;
+
+    case 0:
+        /* Child */
+        close(fork_pipe[0]);  /* Close read end */
+
+        char **_shell_argv = NULL;
+        char *const *shell_argv = argv;
+
+        if (argc == 0) {
+            char *shell_copy = strdup(conf_shell);
+            if (!tokenize_cmdline(shell_copy, &_shell_argv)) {
+                free(shell_copy);
+                (void)!write(fork_pipe[1], &errno, sizeof(errno));
+                _exit(0);
+            }
+            shell_argv = _shell_argv;
+        }
+
+        slave_exec(ptmx, shell_argv, fork_pipe[1]);
+        assert(false);
+        break;
+
+    default: {
+        close(fork_pipe[1]); /* Close write end */
+        LOG_DBG("slave has PID %d", term->slave);
+
+        int _errno;
+        static_assert(sizeof(errno) == sizeof(_errno), "errno size mismatch");
+
+        ssize_t ret = read(fork_pipe[0], &_errno, sizeof(_errno));
+        close(fork_pipe[0]);
+
+        if (ret < 0) {
+            LOG_ERRNO("failed to read from pipe");
+            return -1;
+        } else if (ret == sizeof(_errno)) {
+            LOG_ERRNO(
+                "%s: failed to execute", argc == 0 ? conf_shell : argv[0]);
+            return -1;
+        } else
+            LOG_DBG("%s: successfully started", conf->shell);
+        break;
+    }
+    }
+
+    return pid;
 }

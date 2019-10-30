@@ -1,4 +1,7 @@
 #pragma once
 #include <stdbool.h>
 
-void slave_exec(int ptmx, char *const argv[], int err_fd);
+#include <sys/types.h>
+
+pid_t slave_spawn(
+    int ptmx, int argc, char *const *argv, const char *conf_shell);
