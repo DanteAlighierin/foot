@@ -304,7 +304,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     int delay_lower_fd = -1;
     int delay_upper_fd = -1;
 
-    struct terminal *term = NULL;
+    struct terminal *term = malloc(sizeof(*term));
 
     if ((ptmx = posix_openpt(O_RDWR | O_NOCTTY)) == -1) {
         LOG_ERRNO("failed to open PTY");
@@ -325,8 +325,43 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto close_fds;
     }
 
+    /* Read logic requires non-blocking mode */
+    {
+        int fd_flags = fcntl(ptmx, F_GETFL);
+        if (fd_flags == -1) {
+            LOG_ERRNO("failed to set non blocking mode on PTY master");
+            goto err;
+        }
+
+        if (fcntl(ptmx, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
+            LOG_ERRNO("failed to set non blocking mode on PTY master");
+            goto err;
+        }
+    }
+
+    if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term)) {
+        LOG_ERR("failed to add ptmx to FDM");
+        goto err;
+    }
+
+    if (!fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term)) {
+        LOG_ERR("failed to add flash timer FD to FDM");
+        goto err;
+    }
+
+    if (!fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term)) {
+        LOG_ERR("failed to add blink tiemr FD to FDM");
+        goto err;
+    }
+
+    if (!fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
+        !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term))
+    {
+        LOG_ERR("failed to add delayed rendering timer FDs to FDM");
+        goto err;
+    }
+
     /* Initialize configure-based terminal attributes */
-    term = malloc(sizeof(*term));
     *term = (struct terminal) {
         .fdm = fdm,
         .quit = false,
@@ -410,6 +445,10 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     term->cell_height = (int)ceil(term->fextents.height);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
+    /* Start the slave/client */
+    if (slave_spawn(term->ptmx, argc, argv, conf->shell) == -1)
+        goto err;
+
     /* Initiailze the Wayland window backend */
     if ((term->window = wayl_win_init(wayl)) == NULL)
         goto err;
@@ -432,46 +471,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     height = max(height, term->cell_height);
     render_resize(term, width, height);
 
-    /* Start the slave/client */
-    if (!slave_spawn(term->ptmx, argc, argv, conf->shell))
-        goto err;
-
-    /* Read logic requires non-blocking mode */
-    {
-        int fd_flags = fcntl(ptmx, F_GETFL);
-        if (fd_flags == -1) {
-            LOG_ERRNO("failed to set non blocking mode on PTY master");
-            goto err;
-        }
-
-        if (fcntl(ptmx, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
-            LOG_ERRNO("failed to set non blocking mode on PTY master");
-            goto err;
-        }
-    }
-
-    if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term)) {
-        LOG_ERR("failed to add ptmx to FDM");
-        goto err;
-    }
-
-    if (!fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term)) {
-        LOG_ERR("failed to add flash timer FD to FDM");
-        goto err;
-    }
-
-    if (!fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term)) {
-        LOG_ERR("failed to add blink tiemr FD to FDM");
-        goto err;
-    }
-
-    if (!fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
-        !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term))
-    {
-        LOG_ERR("failed to add delayed rendering timer FDs to FDM");
-        goto err;
-    }
-
     tll_push_back(wayl->terms, term);
     return term;
 
@@ -480,17 +479,27 @@ err:
     return NULL;
 
 close_fds:
-    if (ptmx != -1)
+    if (ptmx != -1) {
+        fdm_del(fdm, ptmx);
         close(ptmx);
-    if (flash_fd != -1)
+    }
+    if (flash_fd != -1) {
+        fdm_del(fdm, flash_fd);
         close(flash_fd);
-    if (blink_fd != -1)
+    }
+    if (blink_fd != -1) {
+        fdm_del(fdm, blink_fd);
         close(blink_fd);
-    if (delay_lower_fd != -1)
+    }
+    if (delay_lower_fd != -1) {
+        fdm_del(fdm, delay_lower_fd);
         close(delay_lower_fd);
-    if (delay_upper_fd != -1)
+    }
+    if (delay_upper_fd != -1) {
+        fdm_del(fdm, delay_upper_fd);
         close(delay_upper_fd);
-    assert(term == NULL);
+    }
+    free(term);
     return NULL;
 }
 
