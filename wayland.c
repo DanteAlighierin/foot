@@ -684,6 +684,9 @@ out:
 void
 wayl_win_destroy(struct wl_window *win)
 {
+    if (win == NULL)
+        return;
+
     tll_free(win->on_outputs);
     if (win->search_sub_surface != NULL)
         wl_subsurface_destroy(win->search_sub_surface);
