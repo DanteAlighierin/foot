@@ -208,6 +208,25 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
     return true;
 }
 
+static void
+initialize_color_cube(struct terminal *term)
+{
+    /* First 16 entries have already been initialized from conf */
+    for (size_t r = 0; r < 6; r++) {
+        for (size_t g = 0; g < 6; g++) {
+            for (size_t b = 0; b < 6; b++) {
+                term->colors.default_table[16 + r * 6 * 6 + g * 6 + b]
+                    = r * 51 << 16 | g * 51 << 8 | b * 51;
+            }
+        }
+    }
+
+    for (size_t i = 0; i < 24; i++)
+        term->colors.default_table[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
+
+    memcpy(term->colors.table, term->colors.default_table, sizeof(term->colors.table));
+}
+
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
           int argc, char *const *argv)
@@ -255,6 +274,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
             .state = 1,  /* STATE_GROUND */
         },
         .colors = {
+            .fg = conf->colors.fg,
+            .bg = conf->colors.bg,
             .default_fg = conf->colors.fg,
             .default_bg = conf->colors.bg,
             .default_table = {
@@ -310,31 +331,9 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         },
     };
 
+    initialize_color_cube(term);
+
     LOG_INFO("using %zu rendering threads", term->render.workers.count);
-
-
-    /* Initialize 'current' colors from the default colors */
-    term->colors.fg = term->colors.default_fg;
-    term->colors.bg = term->colors.default_bg;
-
-    /* Initialize the 256 gray-scale color cube */
-    {
-        /* First 16 entries have already been initialized from conf */
-        for (size_t r = 0; r < 6; r++) {
-            for (size_t g = 0; g < 6; g++) {
-                for (size_t b = 0; b < 6; b++) {
-                    term->colors.default_table[16 + r * 6 * 6 + g * 6 + b]
-                        = r * 51 << 16 | g * 51 << 8 | b * 51;
-                }
-            }
-        }
-
-        for (size_t i = 0; i < 24; i++)
-            term->colors.default_table[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
-
-        memcpy(term->colors.table, term->colors.default_table, sizeof(term->colors.table));
-    }
-
     sem_init(&term->render.workers.start, 0, 0);
     sem_init(&term->render.workers.done, 0, 0);
     mtx_init(&term->render.workers.lock, mtx_plain);
