@@ -472,7 +472,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto err;
     }
 
-    wayl->term = term;
+    tll_push_back(wayl->terms, term);
     return term;
 
 err:

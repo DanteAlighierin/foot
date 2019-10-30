@@ -123,8 +123,8 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 
     mon->scale = factor;
 
-    struct terminal *term = mon->wayl->term;
-    if (term != NULL) {
+    tll_foreach(mon->wayl->terms, it) {
+        struct terminal *term = it->item;
         render_resize(term, term->width / term->scale, term->height / term->scale);
         wayl_reload_cursor_theme(mon->wayl, term);
     }
@@ -394,7 +394,7 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
-    return event_count != -1 && !wayl->term->quit;
+    return event_count != -1;
 }
 
 static bool
@@ -763,14 +763,24 @@ wayl_update_cursor_surface(struct wayland *wayl, struct terminal *term)
 struct terminal *
 wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
 {
-    assert(surface == wayl->term->window->surface);
-    return wayl->term;
+    tll_foreach(wayl->terms, it) {
+        if (it->item->window->surface == surface)
+            return it->item;
+    }
+
+    assert(false);
+    return NULL;
 }
 
 struct terminal *
 wayl_terminal_from_xdg_toplevel(struct wayland *wayl,
                                 struct xdg_toplevel *toplevel)
 {
-    assert(toplevel == wayl->term->window->xdg_toplevel);
-    return wayl->term;
+    tll_foreach(wayl->terms, it) {
+        if (it->item->window->xdg_toplevel == toplevel)
+            return it->item;
+    }
+
+    assert(false);
+    return NULL;
 }

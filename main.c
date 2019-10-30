@@ -146,20 +146,22 @@ main(int argc, char *const *argv)
     if ((term = term_init(&conf, fdm, wayl, argc, argv)) == NULL)
         goto out;
 
-    while (true) {
-        wl_display_flush(term->wl->display);  /* TODO: figure out how to get rid of this */
+    while (tll_length(wayl->terms) > 0) {
+        wl_display_flush(wayl->display);  /* TODO: figure out how to get rid of this */
 
         if (!fdm_poll(fdm))
             break;
     }
 
-    if (term->quit)
-        ret = EXIT_SUCCESS;
+    ret = tll_length(wayl->terms) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
 out:
     shm_fini();
 
-    int child_ret = term_destroy(term);
+    int child_ret = EXIT_SUCCESS;
+    tll_foreach(wayl->terms, it)
+        child_ret = term_destroy(it->item);
+
     wayl_destroy(wayl);
     fdm_destroy(fdm);
     config_free(conf);

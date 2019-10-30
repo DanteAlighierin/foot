@@ -145,8 +145,7 @@ struct wayland {
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
 
-    /* TODO: turn into a list to support multiple windows */
-    struct terminal *term;
+    tll(struct terminal *) terms;
     struct terminal *focused;
     struct terminal *moused;
 };
