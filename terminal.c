@@ -446,7 +446,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
     /* Start the slave/client */
-    if (slave_spawn(term->ptmx, argc, argv, conf->shell) == -1)
+    if ((term->slave = slave_spawn(term->ptmx, argc, argv, conf->shell)) == -1)
         goto err;
 
     /* Initiailze the Wayland window backend */
