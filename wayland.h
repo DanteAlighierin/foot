@@ -148,6 +148,7 @@ struct wayland {
     tll(struct terminal *) terms;
     struct terminal *focused;
     struct terminal *moused;
+    int last_exit_value;           /* TODO: exit value from client(s)? */
 };
 
 struct wayland *wayl_init(struct fdm *fdm);
