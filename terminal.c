@@ -260,6 +260,41 @@ initialize_render_workers(struct terminal *term)
     return true;
 }
 
+static bool
+initialize_fonts(struct terminal *term, const struct config *conf)
+{
+    font_list_t font_names = tll_init();
+    tll_foreach(conf->fonts, it)
+        tll_push_back(font_names, it->item);
+
+    if ((term->fonts[0] = font_from_name(font_names, "")) == NULL ||
+        (term->fonts[1] = font_from_name(font_names, "style=bold")) == NULL ||
+        (term->fonts[2] = font_from_name(font_names, "style=italic")) == NULL ||
+        (term->fonts[3] = font_from_name(font_names, "style=bold italic")) == NULL)
+    {
+        tll_free(font_names);
+        return false;
+    }
+
+    tll_free(font_names);
+
+    FT_Face ft_face = term->fonts[0]->face;
+    int max_x_advance = ft_face->size->metrics.max_advance / 64;
+    int height = ft_face->size->metrics.height / 64;
+    int descent = ft_face->size->metrics.descender / 64;
+    int ascent = ft_face->size->metrics.ascender / 64;
+
+    term->fextents.height = height * term->fonts[0]->pixel_size_fixup;
+    term->fextents.descent = -descent * term->fonts[0]->pixel_size_fixup;
+    term->fextents.ascent = ascent * term->fonts[0]->pixel_size_fixup;
+    term->fextents.max_x_advance = max_x_advance * term->fonts[0]->pixel_size_fixup;
+
+    LOG_DBG("metrics: height: %d, descent: %d, ascent: %d, x-advance: %d",
+            height, descent, ascent, max_x_advance);
+
+    return true;
+}
+
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
           int argc, char *const *argv)
@@ -367,57 +402,31 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     initialize_color_cube(term);
     if (!initialize_render_workers(term))
         goto err;
-
-    font_list_t font_names = tll_init();
-    tll_foreach(conf->fonts, it)
-        tll_push_back(font_names, it->item);
-
-    if ((term->fonts[0] = font_from_name(font_names, "")) == NULL ||
-        (term->fonts[1] = font_from_name(font_names, "style=bold")) == NULL ||
-        (term->fonts[2] = font_from_name(font_names, "style=italic")) == NULL ||
-        (term->fonts[3] = font_from_name(font_names, "style=bold italic")) == NULL)
-    {
-        tll_free(font_names);
+    if (!initialize_fonts(term, conf))
         goto err;
-    }
 
-    tll_free(font_names);
-
-    {
-        FT_Face ft_face = term->fonts[0]->face;
-        int max_x_advance = ft_face->size->metrics.max_advance / 64;
-        int height = ft_face->size->metrics.height / 64;
-        int descent = ft_face->size->metrics.descender / 64;
-        int ascent = ft_face->size->metrics.ascender / 64;
-
-        term->fextents.height = height * term->fonts[0]->pixel_size_fixup;
-        term->fextents.descent = -descent * term->fonts[0]->pixel_size_fixup;
-        term->fextents.ascent = ascent * term->fonts[0]->pixel_size_fixup;
-        term->fextents.max_x_advance = max_x_advance * term->fonts[0]->pixel_size_fixup;
-
-        LOG_DBG("metrics: height: %d, descent: %d, ascent: %d, x-advance: %d",
-                height, descent, ascent, max_x_advance);
-    }
-
+    /* Cell dimensions are based on the font metrics. Obviously */
     term->cell_width = (int)ceil(term->fextents.max_x_advance);
     term->cell_height = (int)ceil(term->fextents.height);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
-    term->window = wayl_win_init(wayl);
-    if (term->window == NULL)
+    if ((term->window = wayl_win_init(wayl)) == NULL)
         goto err;
 
     term_set_window_title(term, "foot");
 
+    /* Try to use user-configured window dimentions */
     unsigned width = conf->width;
     unsigned height = conf->height;
 
     if (width == -1) {
+        /* No user-configuration - use 80x24 cells */
         assert(height == -1);
         width = 80 * term->cell_width;
         height = 24 * term->cell_height;
     }
 
+    /* Don't go below a single cell */
     width = max(width, term->cell_width);
     height = max(height, term->cell_height);
     render_resize(term, width, height);
