@@ -550,7 +550,6 @@ fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
     }
 
     wayl->last_exit_value = term_destroy(term);
-    LOG_WARN("last-exit-value: %d", wayl->last_exit_value);
     return true;
 }
 
