@@ -20,7 +20,6 @@
 #include "vt.h"
 #include "selection.h"
 #include "config.h"
-#include "tokenize.h"
 #include "slave.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
@@ -208,6 +207,93 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
     return true;
 }
 
+static void
+initialize_color_cube(struct terminal *term)
+{
+    /* First 16 entries have already been initialized from conf */
+    for (size_t r = 0; r < 6; r++) {
+        for (size_t g = 0; g < 6; g++) {
+            for (size_t b = 0; b < 6; b++) {
+                term->colors.default_table[16 + r * 6 * 6 + g * 6 + b]
+                    = r * 51 << 16 | g * 51 << 8 | b * 51;
+            }
+        }
+    }
+
+    for (size_t i = 0; i < 24; i++)
+        term->colors.default_table[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
+
+    memcpy(term->colors.table, term->colors.default_table, sizeof(term->colors.table));
+}
+
+static bool
+initialize_render_workers(struct terminal *term)
+{
+    LOG_INFO("using %zu rendering threads", term->render.workers.count);
+
+    sem_init(&term->render.workers.start, 0, 0);
+    sem_init(&term->render.workers.done, 0, 0);
+    mtx_init(&term->render.workers.lock, mtx_plain);
+    cnd_init(&term->render.workers.cond);
+
+    term->render.workers.threads = calloc(
+        term->render.workers.count, sizeof(term->render.workers.threads[0]));
+
+    for (size_t i = 0; i < term->render.workers.count; i++) {
+        struct render_worker_context *ctx = malloc(sizeof(*ctx));
+        *ctx = (struct render_worker_context) {
+            .term = term,
+            .my_id = 1 + i,
+        };
+
+        int ret = thrd_create(
+            &term->render.workers.threads[i], &render_worker_thread, ctx);
+
+        if (ret != 0) {
+            LOG_ERRNO_P("failed to create render worker thread", ret);
+            term->render.workers.threads[i] = 0;
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool
+initialize_fonts(struct terminal *term, const struct config *conf)
+{
+    font_list_t font_names = tll_init();
+    tll_foreach(conf->fonts, it)
+        tll_push_back(font_names, it->item);
+
+    if ((term->fonts[0] = font_from_name(font_names, "")) == NULL ||
+        (term->fonts[1] = font_from_name(font_names, "style=bold")) == NULL ||
+        (term->fonts[2] = font_from_name(font_names, "style=italic")) == NULL ||
+        (term->fonts[3] = font_from_name(font_names, "style=bold italic")) == NULL)
+    {
+        tll_free(font_names);
+        return false;
+    }
+
+    tll_free(font_names);
+
+    FT_Face ft_face = term->fonts[0]->face;
+    int max_x_advance = ft_face->size->metrics.max_advance / 64;
+    int height = ft_face->size->metrics.height / 64;
+    int descent = ft_face->size->metrics.descender / 64;
+    int ascent = ft_face->size->metrics.ascender / 64;
+
+    term->fextents.height = height * term->fonts[0]->pixel_size_fixup;
+    term->fextents.descent = -descent * term->fonts[0]->pixel_size_fixup;
+    term->fextents.ascent = ascent * term->fonts[0]->pixel_size_fixup;
+    term->fextents.max_x_advance = max_x_advance * term->fonts[0]->pixel_size_fixup;
+
+    LOG_DBG("metrics: height: %d, descent: %d, ascent: %d, x-advance: %d",
+            height, descent, ascent, max_x_advance);
+
+    return true;
+}
+
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
           int argc, char *const *argv)
@@ -239,6 +325,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto close_fds;
     }
 
+    /* Initialize configure-based terminal attributes */
     term = malloc(sizeof(*term));
     *term = (struct terminal) {
         .fdm = fdm,
@@ -255,6 +342,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
             .state = 1,  /* STATE_GROUND */
         },
         .colors = {
+            .fg = conf->colors.fg,
+            .bg = conf->colors.bg,
             .default_fg = conf->colors.fg,
             .default_bg = conf->colors.bg,
             .default_table = {
@@ -310,159 +399,42 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         },
     };
 
-    LOG_INFO("using %zu rendering threads", term->render.workers.count);
-
-
-    /* Initialize 'current' colors from the default colors */
-    term->colors.fg = term->colors.default_fg;
-    term->colors.bg = term->colors.default_bg;
-
-    /* Initialize the 256 gray-scale color cube */
-    {
-        /* First 16 entries have already been initialized from conf */
-        for (size_t r = 0; r < 6; r++) {
-            for (size_t g = 0; g < 6; g++) {
-                for (size_t b = 0; b < 6; b++) {
-                    term->colors.default_table[16 + r * 6 * 6 + g * 6 + b]
-                        = r * 51 << 16 | g * 51 << 8 | b * 51;
-                }
-            }
-        }
-
-        for (size_t i = 0; i < 24; i++)
-            term->colors.default_table[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
-
-        memcpy(term->colors.table, term->colors.default_table, sizeof(term->colors.table));
-    }
-
-    sem_init(&term->render.workers.start, 0, 0);
-    sem_init(&term->render.workers.done, 0, 0);
-    mtx_init(&term->render.workers.lock, mtx_plain);
-    cnd_init(&term->render.workers.cond);
-
-    term->render.workers.threads = calloc(
-        term->render.workers.count, sizeof(term->render.workers.threads[0]));
-
-    for (size_t i = 0; i < term->render.workers.count; i++) {
-        struct render_worker_context *ctx = malloc(sizeof(*ctx));
-        *ctx = (struct render_worker_context) {
-            .term = term,
-            .my_id = 1 + i,
-        };
-        thrd_create(&term->render.workers.threads[i], &render_worker_thread, ctx);
-    }
-
-    font_list_t font_names = tll_init();
-    tll_foreach(conf->fonts, it)
-        tll_push_back(font_names, it->item);
-
-    if ((term->fonts[0] = font_from_name(font_names, "")) == NULL) {
-        tll_free(font_names);
+    initialize_color_cube(term);
+    if (!initialize_render_workers(term))
         goto err;
-    }
+    if (!initialize_fonts(term, conf))
+        goto err;
 
-    term->fonts[1] = font_from_name(font_names, "style=bold");
-    term->fonts[2] = font_from_name(font_names, "style=italic");
-    term->fonts[3] = font_from_name(font_names, "style=bold italic");
-
-    tll_free(font_names);
-
-    {
-        FT_Face ft_face = term->fonts[0]->face;
-        int max_x_advance = ft_face->size->metrics.max_advance / 64;
-        int height = ft_face->size->metrics.height / 64;
-        int descent = ft_face->size->metrics.descender / 64;
-        int ascent = ft_face->size->metrics.ascender / 64;
-
-        term->fextents.height = height * term->fonts[0]->pixel_size_fixup;
-        term->fextents.descent = -descent * term->fonts[0]->pixel_size_fixup;
-        term->fextents.ascent = ascent * term->fonts[0]->pixel_size_fixup;
-        term->fextents.max_x_advance = max_x_advance * term->fonts[0]->pixel_size_fixup;
-
-        LOG_DBG("metrics: height: %d, descent: %d, ascent: %d, x-advance: %d",
-                height, descent, ascent, max_x_advance);
-    }
-
+    /* Cell dimensions are based on the font metrics. Obviously */
     term->cell_width = (int)ceil(term->fextents.max_x_advance);
     term->cell_height = (int)ceil(term->fextents.height);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
-    term->window = wayl_win_init(wayl);
-    if (term->window == NULL)
+    /* Initiailze the Wayland window backend */
+    if ((term->window = wayl_win_init(wayl)) == NULL)
         goto err;
 
     term_set_window_title(term, "foot");
 
+    /* Try to use user-configured window dimentions */
     unsigned width = conf->width;
     unsigned height = conf->height;
 
     if (width == -1) {
+        /* No user-configuration - use 80x24 cells */
         assert(height == -1);
         width = 80 * term->cell_width;
         height = 24 * term->cell_height;
     }
 
+    /* Don't go below a single cell */
     width = max(width, term->cell_width);
     height = max(height, term->cell_height);
     render_resize(term, width, height);
 
-    {
-        int fork_pipe[2];
-        if (pipe2(fork_pipe, O_CLOEXEC) < 0) {
-            LOG_ERRNO("failed to create pipe");
-            goto err;
-        }
-
-        term->slave = fork();
-        switch (term->slave) {
-        case -1:
-            LOG_ERRNO("failed to fork");
-            close(fork_pipe[0]);
-            close(fork_pipe[1]);
-            goto err;
-
-        case 0:
-            /* Child */
-            close(fork_pipe[0]);  /* Close read end */
-
-            char **_shell_argv = NULL;
-            char *const *shell_argv = argv;
-
-            if (argc == 0) {
-                if (!tokenize_cmdline(conf->shell, &_shell_argv)) {
-                    (void)!write(fork_pipe[1], &errno, sizeof(errno));
-                    _exit(0);
-                }
-                shell_argv = _shell_argv;
-            }
-
-            slave_exec(ptmx, shell_argv, fork_pipe[1]);
-            assert(false);
-            break;
-
-        default: {
-            close(fork_pipe[1]); /* Close write end */
-            LOG_DBG("slave has PID %d", term->slave);
-
-            int _errno;
-            static_assert(sizeof(errno) == sizeof(_errno), "errno size mismatch");
-
-            ssize_t ret = read(fork_pipe[0], &_errno, sizeof(_errno));
-            close(fork_pipe[0]);
-
-            if (ret < 0) {
-                LOG_ERRNO("failed to read from pipe");
-                goto err;
-            } else if (ret == sizeof(_errno)) {
-                LOG_ERRNO(
-                    "%s: failed to execute", argc == 0 ? conf->shell : argv[0]);
-                goto err;
-            } else
-                LOG_DBG("%s: successfully started", conf->shell);
-            break;
-        }
-        }
-    }
+    /* Start the slave/client */
+    if (!slave_spawn(term->ptmx, argc, argv, conf->shell))
+        goto err;
 
     /* Read logic requires non-blocking mode */
     {
@@ -542,12 +514,22 @@ term_destroy(struct terminal *term)
 
     mtx_lock(&term->render.workers.lock);
     assert(tll_length(term->render.workers.queue) == 0);
-    for (size_t i = 0; i < term->render.workers.count; i++) {
+
+    /* Count livinig threads - we may get here when only some of the
+     * threads have been successfully started */
+    size_t worker_count = 0;
+    for (size_t i = 0; i < term->render.workers.count; i++, worker_count++) {
+        if (term->render.workers.threads[i] == 0)
+            break;
+    }
+
+    for (size_t i = 0; i < worker_count; i++) {
         sem_post(&term->render.workers.start);
         tll_push_back(term->render.workers.queue, -2);
     }
     cnd_broadcast(&term->render.workers.cond);
     mtx_unlock(&term->render.workers.lock);
+
     free(term->vt.osc.data);
     for (int row = 0; row < term->normal.num_rows; row++)
         grid_row_free(term->normal.rows[row]);
@@ -579,8 +561,10 @@ term_destroy(struct terminal *term)
         close(term->ptmx);
     }
 
-    for (size_t i = 0; i < term->render.workers.count; i++)
-        thrd_join(term->render.workers.threads[i], NULL);
+    for (size_t i = 0; i < term->render.workers.count; i++) {
+        if (term->render.workers.threads[i] != 0)
+            thrd_join(term->render.workers.threads[i], NULL);
+    }
     free(term->render.workers.threads);
     cnd_destroy(&term->render.workers.cond);
     mtx_destroy(&term->render.workers.lock);
