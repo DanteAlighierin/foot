@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <sys/timerfd.h>
 #include <fcntl.h>
 #include <linux/input-event-codes.h>
@@ -30,12 +31,8 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
 
-    if (events & EPOLLHUP) {
-        term->quit = true;
-
-        if (!(events & EPOLLIN))
-            return false;
-    }
+    if ((events & EPOLLHUP) && !(events & EPOLLIN))
+        return term_shutdown(term);
 
     assert(events & EPOLLIN);
 
@@ -101,7 +98,10 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         }
     }
 
-    return !(events & EPOLLHUP);
+    if (events & EPOLLHUP)
+        return term_shutdown(term);
+
+    return true;
 }
 
 static bool
@@ -494,23 +494,108 @@ close_fds:
     return NULL;
 }
 
+static void
+close_fd(struct terminal *term, int *fd)
+{
+    if (*fd == -1)
+        return;
+
+    fdm_del(term->fdm, *fd);
+    close(*fd);
+    *fd = -1;
+}
+
+static void
+close_fds(struct terminal *term)
+{
+    close_fd(term, &term->delayed_render_timer.lower_fd);
+    close_fd(term, &term->delayed_render_timer.upper_fd);
+    close_fd(term, &term->blink.fd);
+    close_fd(term, &term->flash.fd);
+    close_fd(term, &term->ptmx);
+}
+
+static bool
+fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
+{
+    LOG_DBG("FDM shutdown");
+    struct terminal *term = data;
+
+    fdm_del(term->fdm, fd);
+    close(fd);
+
+    /*
+     * Now there shouldn't be any more callbacks or events that can
+     * trigger, meaning it should be safe to destroy the terminal.
+     */
+
+    assert(term->wl->focused != term);
+    assert(term->wl->moused != term);
+
+    tll_foreach(term->wl->terms, it) {
+        if (it->item == term) {
+            tll_remove(term->wl->terms, it);
+            break;
+        }
+    }
+
+    term_destroy(term);
+    return true;
+}
+
+bool
+term_shutdown(struct terminal *term)
+{
+    /* Ensure we don't get any more events */
+    close_fds(term);
+
+    /* Destroy the wayland window, and consume the trail of Wayland events */
+    wayl_win_destroy(term->window);
+    wl_display_roundtrip(term->wl->display);
+    term->window = NULL;
+
+    /*
+     * At this point, we no longer receive any more events referring to us, and it _should_ be safe to destroy ourselves now.
+     *
+     * However, in the (unlikely) event that there are events already
+     * queued up by the FDM, we delay the self-destruction to the next
+     * FDM poll iteration.
+     *
+     * This is done by opening an event FD and adding it to the FDM.
+     */
+
+    int event_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+    if (event_fd == -1) {
+        LOG_ERRNO("failed to create terminal shutdown event FD");
+        return false;
+    }
+
+    if (!fdm_add(term->fdm, event_fd, EPOLLIN, &fdm_shutdown, term)) {
+        LOG_ERR("failed to add terminal shutdown event FD to the FDM");
+        close(event_fd);
+        return false;
+    }
+
+    if (write(event_fd, &(uint64_t){1}, sizeof(uint64_t)) != sizeof(uint64_t)) {
+        LOG_ERRNO("failed to send terminal shutdown event");
+        fdm_del(term->fdm, event_fd);
+        close(event_fd);
+        return false;
+    }
+
+    return true;
+}
+
 int
 term_destroy(struct terminal *term)
 {
     if (term == NULL)
         return 0;
 
-    wayl_win_destroy(term->window);
+    close_fds(term);
 
-    if (term->delayed_render_timer.lower_fd != -1) {
-        fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
-        close(term->delayed_render_timer.lower_fd);
-    }
-
-    if (term->delayed_render_timer.upper_fd != -1) {
-        fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
-        close(term->delayed_render_timer.upper_fd);
-    }
+    if (term->window != NULL)
+        wayl_win_destroy(term->window);
 
     mtx_lock(&term->render.workers.lock);
     assert(tll_length(term->render.workers.queue) == 0);
@@ -545,21 +630,6 @@ term_destroy(struct terminal *term)
         font_destroy(term->fonts[i]);
 
     free(term->search.buf);
-
-    if (term->flash.fd != -1) {
-        fdm_del(term->fdm, term->flash.fd);
-        close(term->flash.fd);
-    }
-
-    if (term->blink.fd != -1) {
-        fdm_del(term->fdm, term->blink.fd);
-        close(term->blink.fd);
-    }
-
-    if (term->ptmx != -1) {
-        fdm_del(term->fdm, term->ptmx);
-        close(term->ptmx);
-    }
 
     for (size_t i = 0; i < term->render.workers.count; i++) {
         if (term->render.workers.threads[i] != 0)
