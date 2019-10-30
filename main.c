@@ -158,9 +158,10 @@ main(int argc, char *const *argv)
 out:
     shm_fini();
 
-    int child_ret = EXIT_SUCCESS;
     tll_foreach(wayl->terms, it)
-        child_ret = term_destroy(it->item);
+        term_destroy(it->item);
+
+    int child_ret = wayl->last_exit_value;
 
     wayl_destroy(wayl);
     fdm_destroy(fdm);
