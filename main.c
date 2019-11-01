@@ -26,14 +26,27 @@
 static void
 print_usage(const char *prog_name)
 {
-    printf("Usage: %s [OPTION]...\n", prog_name);
+    printf("Usage: %s [OPTIONS]...\n", prog_name);
     printf("\n");
     printf("Options:\n");
     printf("  -f,--font=FONT              comma separated list of fonts in fontconfig format (monospace)\n"
            "  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
            "  -g,--geometry=WIDTHxHEIGHT  set initial width and height\n"
+           "  -s,--server                 run as a server\n"
            "  -v,--version                show the version number and quit\n");
-    printf("\n");
+}
+
+struct shutdown_context {
+    struct terminal **term;
+    int exit_code;
+};
+
+static void
+term_shutdown_cb(void *data, int exit_code)
+{
+    struct shutdown_context *ctx = data;
+    *ctx->term = NULL;
+    ctx->exit_code = exit_code;
 }
 
 int
@@ -136,6 +149,7 @@ main(int argc, char *const *argv)
     struct fdm *fdm = NULL;
     struct wayland *wayl = NULL;
     struct terminal *term = NULL;
+    struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
 
     if ((fdm = fdm_init()) == NULL)
         goto out;
@@ -143,7 +157,10 @@ main(int argc, char *const *argv)
     if ((wayl = wayl_init(fdm)) == NULL)
         goto out;
 
-    if ((term = term_init(&conf, fdm, wayl, argc, argv)) == NULL)
+    if (!as_server && (term = term_init(&conf, fdm, wayl, argc, argv,
+                                        &term_shutdown_cb, &shutdown_ctx)) == NULL)
+        goto out;
+
         goto out;
 
     while (tll_length(wayl->terms) > 0) {
@@ -157,15 +174,11 @@ main(int argc, char *const *argv)
 out:
     shm_fini();
 
-    tll_foreach(wayl->terms, it)
-        term_destroy(it->item);
-
-    int child_ret = wayl->last_exit_value;
-
+    server_destroy(server);
+    term_destroy(term);
     wayl_destroy(wayl);
     fdm_destroy(fdm);
     config_free(conf);
 
-    return ret == EXIT_SUCCESS ? child_ret : ret;
-
+    return ret == EXIT_SUCCESS && !as_server ? shutdown_ctx.exit_code : ret;
 }

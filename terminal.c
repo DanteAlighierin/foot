@@ -289,7 +289,8 @@ initialize_fonts(struct terminal *term, const struct config *conf)
 
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
-          int argc, char *const *argv)
+          int argc, char *const *argv,
+          void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data)
 {
     int ptmx = -1;
     int flash_fd = -1;
@@ -411,6 +412,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
             .lower_fd = delay_lower_fd,
             .upper_fd = delay_upper_fd,
         },
+        .shutdown_cb = shutdown_cb,
+        .shutdown_data = shutdown_data,
     };
 
     initialize_color_cube(term);
@@ -484,8 +487,12 @@ fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
     assert(wayl->focused != term);
     assert(wayl->moused != term);
 
+    void (*cb)(void *, int) = term->shutdown_cb;
+    void *cb_data = term->shutdown_data;
 
     int exit_code = term_destroy(term);
+    if (cb != NULL)
+        cb(cb_data, exit_code);
 
     return true;
 }
