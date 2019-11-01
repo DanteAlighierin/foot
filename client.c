@@ -40,8 +40,14 @@ main(int argc, char *const *argv)
 
     const char *const prog_name = argv[0];
 
+    static const struct option longopts[] =  {
+        {"version",  no_argument,       0, 'v'},
+        {"help",     no_argument,       0, 'h'},
+        {NULL,       no_argument,       0,   0},
+    };
+
     while (true) {
-        int c = getopt_long(argc, argv, ":hv", NULL, NULL);
+        int c = getopt_long(argc, argv, ":hv", longopts, NULL);
         if (c == -1)
             break;
 
