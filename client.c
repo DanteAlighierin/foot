@@ -13,6 +13,7 @@
 #include <linux/un.h>
 
 #define LOG_MODULE "foot-client"
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "version.h"
 
@@ -114,6 +115,7 @@ main(int argc, char *const *argv)
         goto err;
     }
 
+    LOG_DBG("argc = %d", argc);
     if (send(fd, &argc, sizeof(argc), 0) != sizeof(argc)) {
         LOG_ERRNO("failed to send argc/argv to server");
         goto err;
@@ -121,6 +123,8 @@ main(int argc, char *const *argv)
 
     for (int i = 0; i < argc; i++) {
         uint16_t len = strlen(argv[i]);
+
+        LOG_DBG("argv[%d] = %s (%hu)", i, argv[i], len);
 
         if (send(fd, &len, sizeof(len), 0) != sizeof(len) ||
             send(fd, argv[i], len, 0) != sizeof(len))
