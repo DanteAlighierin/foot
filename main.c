@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <locale.h>
 #include <getopt.h>
+#include <signal.h>
 #include <errno.h>
 
 #include <sys/sysinfo.h>
@@ -22,6 +23,14 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
+
+static volatile sig_atomic_t aborted = 0;
+
+static void
+sig_handler(int signo)
+{
+    aborted = 1;
+}
 
 static void
 print_usage(const char *prog_name)
@@ -164,6 +173,12 @@ main(int argc, char *const *argv)
         goto out;
 
     while (tll_length(wayl->terms) > 0) {
+    const struct sigaction sa = {.sa_handler = &sig_handler};
+    if (sigaction(SIGINT, &sa, NULL) < 0 || sigaction(SIGTERM, &sa, NULL) < 0) {
+        LOG_ERRNO("failed to register signal handlers");
+        goto out;
+    }
+
 
         if (!fdm_poll(fdm))
             break;
