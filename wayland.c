@@ -556,10 +556,9 @@ wayl_destroy(struct wayland *wayl)
     if (wayl == NULL)
         return;
 
-    if (wayl->kbd.repeat.fd != 0) {
-        fdm_del(wayl->fdm, wayl->kbd.repeat.fd);
-        close(wayl->kbd.repeat.fd);
     }
+
+    fdm_del(wayl->fdm, wayl->kbd.repeat.fd);
 
     tll_foreach(wayl->monitors, it) {
         free(it->item.name);
@@ -628,7 +627,7 @@ wayl_destroy(struct wayland *wayl)
     if (wayl->registry != NULL)
         wl_registry_destroy(wayl->registry);
     if (wayl->display != NULL) {
-        fdm_del(wayl->fdm, wl_display_get_fd(wayl->display));
+        fdm_del_no_close(wayl->fdm, wl_display_get_fd(wayl->display));
         wl_display_disconnect(wayl->display);
     }
 
