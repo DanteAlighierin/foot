@@ -113,6 +113,8 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     if (recv(fd, &client->argc, sizeof(client->argc), 0) != sizeof(client->argc))
         goto shutdown;
 
+    LOG_DBG("argc = %d", client->argc);
+
     client->argv = calloc(client->argc + 1, sizeof(client->argv[0]));
     for (int i = 0; i < client->argc; i++) {
         uint16_t len;
@@ -123,6 +125,8 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         client->argv[i][len] = '\0';
         if (recv(fd, client->argv[i], len, 0) != len)
             goto shutdown;
+
+        LOG_DBG("argv[%d] = %s (%hu)", i, client->argv[i], len);
     }
 
     assert(client->term == NULL);
