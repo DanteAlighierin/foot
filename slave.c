@@ -1,5 +1,6 @@
 #define _XOPEN_SOURCE 500
 #include "slave.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -68,7 +69,7 @@ err:
 
 pid_t
 slave_spawn(int ptmx, int argc, char *const *argv,
-            const char *conf_shell)
+            const char *term_env, const char *conf_shell)
 {
     int fork_pipe[2];
     if (pipe2(fork_pipe, O_CLOEXEC) < 0) {
@@ -87,6 +88,8 @@ slave_spawn(int ptmx, int argc, char *const *argv,
     case 0:
         /* Child */
         close(fork_pipe[0]);  /* Close read end */
+
+        setenv("TERM", term_env, 1);
 
         char **_shell_argv = NULL;
         char *const *shell_argv = argv;

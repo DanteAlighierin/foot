@@ -161,7 +161,6 @@ main(int argc, char *const *argv)
     argv += optind;
 
     setlocale(LC_ALL, "");
-    setenv("TERM", conf.term, 1);
 
     struct fdm *fdm = NULL;
     struct wayland *wayl = NULL;
