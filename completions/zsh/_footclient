@@ -2,5 +2,12 @@
 
 _arguments \
     -s \
+    '(-t,--term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
     '(-v --version)'{-v,--version}'[show the version number and quit]' \
     '(-h --help)'{-h,--help}'[show help message and quit]'
+
+case ${state} in
+    terms)
+        _values 'terminal definitions' $(find /usr/share/terminfo -type f -printf "%f\n")
+        ;;
+esac

@@ -94,11 +94,21 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 {
     struct client *client = data;
     struct server *server = client->server;
+    char *term_env = NULL;
 
     if (events & EPOLLHUP)
         goto shutdown;
 
     assert(events & EPOLLIN);
+
+    uint16_t term_env_len;
+    if (recv(fd, &term_env_len, sizeof(term_env_len), 0) != sizeof(term_env_len))
+        goto shutdown;
+
+    term_env = malloc(term_env_len + 1);
+    term_env[term_env_len] = '\0';
+    if (recv(fd, term_env, term_env_len, 0) != term_env_len)
+        goto shutdown;
 
     if (recv(fd, &client->argc, sizeof(client->argc), 0) != sizeof(client->argc))
         goto shutdown;
@@ -117,7 +127,8 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     assert(client->term == NULL);
     client->term = term_init(
-        server->conf, server->fdm, server->wayl, server->conf->term,
+        server->conf, server->fdm, server->wayl,
+        term_env_len > 0 ? term_env : server->conf->term,
         client->argc, client->argv, &term_shutdown_handler, client);
 
     if (client->term == NULL) {
@@ -125,10 +136,13 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         goto shutdown;
     }
 
+    free(term_env);
     return true;
 
 shutdown:
     LOG_DBG("client FD=%d: disconnected", client->fd);
+
+    free(term_env);
 
     fdm_del(fdm, fd);
     client->fd = -1;

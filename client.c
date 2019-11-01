@@ -30,7 +30,8 @@ print_usage(const char *prog_name)
     printf("Usage: %s [OPTIONS]...\n", prog_name);
     printf("\n");
     printf("Options:\n");
-    printf("  -v,--version                show the version number and quit\n");
+    printf("  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
+           "  -v,--version                show the version number and quit\n");
 }
 
 int
@@ -41,17 +42,24 @@ main(int argc, char *const *argv)
     const char *const prog_name = argv[0];
 
     static const struct option longopts[] =  {
+        {"term",     required_argument, 0, 't'},
         {"version",  no_argument,       0, 'v'},
         {"help",     no_argument,       0, 'h'},
         {NULL,       no_argument,       0,   0},
     };
 
+    const char *term = "";
+
     while (true) {
-        int c = getopt_long(argc, argv, ":hv", longopts, NULL);
+        int c = getopt_long(argc, argv, ":t:hv", longopts, NULL);
         if (c == -1)
             break;
 
         switch (c) {
+        case 't':
+            term = optarg;
+            break;
+
         case 'v':
             printf("footclient version %s\n", FOOT_VERSION);
             return EXIT_SUCCESS;
@@ -96,6 +104,14 @@ main(int argc, char *const *argv)
             LOG_ERRNO("failed to connect (is 'foot --server' running?)");
             goto err;
         }
+    }
+
+    uint16_t term_len = strlen(term);
+    if (send(fd, &term_len, sizeof(term_len), 0) != sizeof(term_len) ||
+        send(fd, term, term_len, 0) != term_len)
+    {
+        LOG_ERRNO("failed to send TERM to server");
+        goto err;
     }
 
     if (send(fd, &argc, sizeof(argc), 0) != sizeof(argc)) {
