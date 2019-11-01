@@ -31,10 +31,8 @@ static const struct wl_buffer_listener buffer_listener = {
 };
 
 struct buffer *
-shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
+shm_get_buffer(struct wl_shm *shm, int width, int height)
 {
-    assert(copies >= 1);
-
     tll_foreach(buffers, it) {
         if (it->item.width != width || it->item.height != height)
             continue;

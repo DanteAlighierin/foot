@@ -19,6 +19,5 @@ struct buffer {
     pixman_image_t *pix;
 };
 
-struct buffer *shm_get_buffer(
-    struct wl_shm *shm, int width, int height, size_t copies);
+struct buffer *shm_get_buffer(struct wl_shm *shm, int width, int height);
 void shm_fini(void);
