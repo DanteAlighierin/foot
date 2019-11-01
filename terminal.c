@@ -468,76 +468,52 @@ close_fds:
     return NULL;
 }
 
-static void
-close_fd(struct terminal *term, int *fd)
-{
-    if (*fd == -1)
-        return;
-
-    fdm_del(term->fdm, *fd);
-    close(*fd);
-    *fd = -1;
-}
-
-static void
-close_fds(struct terminal *term)
-{
-    close_fd(term, &term->delayed_render_timer.lower_fd);
-    close_fd(term, &term->delayed_render_timer.upper_fd);
-    close_fd(term, &term->blink.fd);
-    close_fd(term, &term->flash.fd);
-    close_fd(term, &term->ptmx);
-}
-
 static bool
 fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
 {
     LOG_DBG("FDM shutdown");
     struct terminal *term = data;
-    struct wayland *wayl = term->wl;
 
+    /* Kill the event FD */
     fdm_del(term->fdm, fd);
-    close(fd);
 
-    /*
-     * Now there shouldn't be any more callbacks or events that can
-     * trigger, meaning it should be safe to destroy the terminal.
-     */
+    wayl_win_destroy(term->window);
+    term->window = NULL;
 
+    struct wayland *wayl __attribute__((unused)) = term->wl;
     assert(wayl->focused != term);
     assert(wayl->moused != term);
 
-    tll_foreach(wayl->terms, it) {
-        if (it->item == term) {
-            tll_remove(wayl->terms, it);
-            break;
-        }
-    }
 
-    wayl->last_exit_value = term_destroy(term);
+    int exit_code = term_destroy(term);
+
     return true;
 }
 
 bool
 term_shutdown(struct terminal *term)
 {
-    /* Ensure we don't get any more events */
-    close_fds(term);
+    if (term->is_shutting_down)
+        return true;
 
-    /* Destroy the wayland window, and consume the trail of Wayland events */
-    wayl_win_destroy(term->window);
-    wl_display_roundtrip(term->wl->display);
-    term->window = NULL;
+    term->is_shutting_down = true;
 
     /*
-     * At this point, we no longer receive any more events referring to us, and it _should_ be safe to destroy ourselves now.
-     *
-     * However, in the (unlikely) event that there are events already
-     * queued up by the FDM, we delay the self-destruction to the next
-     * FDM poll iteration.
-     *
-     * This is done by opening an event FD and adding it to the FDM.
+     * Close FDs then postpone self-destruction to the next poll
+     * iteration, by creating an event FD that we trigger immediately.
      */
+
+    fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
+    fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
+    fdm_del(term->fdm, term->blink.fd);
+    fdm_del(term->fdm, term->flash.fd);
+    fdm_del(term->fdm, term->ptmx);
+
+    term->delayed_render_timer.lower_fd = -1;
+    term->delayed_render_timer.upper_fd = -1;
+    term->blink.fd = -1;
+    term->flash.fd = -1;
+    term->ptmx = -1;
 
     int event_fd = eventfd(0, EFD_CLOEXEC);
     if (event_fd == -1) {
@@ -554,7 +530,6 @@ term_shutdown(struct terminal *term)
     if (write(event_fd, &(uint64_t){1}, sizeof(uint64_t)) != sizeof(uint64_t)) {
         LOG_ERRNO("failed to send terminal shutdown event");
         fdm_del(term->fdm, event_fd);
-        close(event_fd);
         return false;
     }
 
@@ -567,7 +542,18 @@ term_destroy(struct terminal *term)
     if (term == NULL)
         return 0;
 
-    close_fds(term);
+    tll_foreach(term->wl->terms, it) {
+        if (it->item == term) {
+            tll_remove(term->wl->terms, it);
+            break;
+        }
+    }
+
+    fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
+    fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
+    fdm_del(term->fdm, term->blink.fd);
+    fdm_del(term->fdm, term->flash.fd);
+    fdm_del(term->fdm, term->ptmx);
 
     if (term->window != NULL)
         wayl_win_destroy(term->window);
