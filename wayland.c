@@ -639,6 +639,7 @@ struct wl_window *
 wayl_win_init(struct wayland *wayl)
 {
     struct wl_window *win = calloc(1, sizeof(*win));
+    win->wayl = wayl;
 
     win->surface = wl_compositor_create_surface(wayl->compositor);
     if (win->surface == NULL) {
@@ -687,6 +688,25 @@ wayl_win_destroy(struct wl_window *win)
     if (win == NULL)
         return;
 
+    /*
+     * First, unmap all surfaces to trigger things like
+     * keyboard_leave() and wl_pointer_leave().
+     *
+     * This ensures we remove all references to *this* window from the
+     * global wayland struct (since it no longer has neither keyboard
+     * nor mouse focus).
+     */
+
+    /* Scrollback search */
+    wl_surface_attach(win->search_surface, NULL, 0, 0);
+    wl_surface_commit(win->search_surface);
+    wl_display_roundtrip(win->wayl->display);
+
+    /* Main window */
+    wl_surface_attach(win->surface, NULL, 0, 0);
+    wl_surface_commit(win->surface);
+    wl_display_roundtrip(win->wayl->display);
+
     tll_free(win->on_outputs);
     if (win->search_sub_surface != NULL)
         wl_subsurface_destroy(win->search_sub_surface);
@@ -702,6 +722,7 @@ wayl_win_destroy(struct wl_window *win)
         xdg_surface_destroy(win->xdg_surface);
     if (win->surface != NULL)
         wl_surface_destroy(win->surface);
+
     free(win);
 }
 

@@ -72,7 +72,9 @@ struct wl_primary {
     uint32_t serial;
 };
 
+struct wayland;
 struct wl_window {
+    struct wayland *wayl;
     struct wl_surface *surface;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
