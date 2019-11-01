@@ -10,6 +10,7 @@
 #include <pixman.h>
 
 #define LOG_MODULE "shm"
+#define LOG_ENABLE_DBG 1
 #include "log.h"
 #include "stride.h"
 #include "tllist.h"
@@ -74,6 +75,8 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, size_t copies)
 
     /* Total size */
     size = stride * height;
+    LOG_DBG("allocating a %zu KB pool", size / 1024);
+
     if (ftruncate(pool_fd, size) == -1) {
         LOG_ERRNO("failed to truncate SHM pool");
         goto err;
