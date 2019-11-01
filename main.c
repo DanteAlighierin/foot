@@ -17,6 +17,7 @@
 #include "config.h"
 #include "fdm.h"
 #include "font.h"
+#include "server.h"
 #include "shm.h"
 #include "terminal.h"
 #include "version.h"
@@ -77,10 +78,13 @@ main(int argc, char *const *argv)
         {"term",     required_argument, 0, 't'},
         {"font",     required_argument, 0, 'f'},
         {"geometry", required_argument, 0, 'g'},
+        {"server",   no_argument,       0, 's'},
         {"version",  no_argument,       0, 'v'},
         {"help",     no_argument,       0, 'h'},
         {NULL,       no_argument,       0,   0},
     };
+
+    bool as_server = false;
 
     while (true) {
         int c = getopt_long(argc, argv, ":t:f:g:vh", longopts, NULL);
@@ -127,6 +131,10 @@ main(int argc, char *const *argv)
             break;
         }
 
+        case 's':
+            as_server = true;
+            break;
+
         case 'v':
             printf("foot version %s\n", FOOT_VERSION);
             config_free(conf);
@@ -158,6 +166,7 @@ main(int argc, char *const *argv)
     struct fdm *fdm = NULL;
     struct wayland *wayl = NULL;
     struct terminal *term = NULL;
+    struct server *server = NULL;
     struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
 
     if ((fdm = fdm_init()) == NULL)
@@ -170,21 +179,24 @@ main(int argc, char *const *argv)
                                         &term_shutdown_cb, &shutdown_ctx)) == NULL)
         goto out;
 
+    if (as_server && (server = server_init(&conf, fdm, wayl)) == NULL)
         goto out;
 
-    while (tll_length(wayl->terms) > 0) {
     const struct sigaction sa = {.sa_handler = &sig_handler};
     if (sigaction(SIGINT, &sa, NULL) < 0 || sigaction(SIGTERM, &sa, NULL) < 0) {
         LOG_ERRNO("failed to register signal handlers");
         goto out;
     }
 
+    if (as_server)
+        LOG_INFO("running as server; launch terminals by running footclient");
 
+    while (!aborted && (as_server || tll_length(wayl->terms) > 0)) {
         if (!fdm_poll(fdm))
             break;
     }
 
-    ret = tll_length(wayl->terms) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+    ret = aborted || tll_length(wayl->terms) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
 out:
     shm_fini();

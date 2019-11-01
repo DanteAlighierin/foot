@@ -78,6 +78,7 @@ executable(
   'render.c', 'render.h',
   'search.c', 'search.h',
   'selection.c', 'selection.h',
+  'server.c', 'server.h',
   'shm.c', 'shm.h',
   'slave.c', 'slave.h',
   'terminal.c', 'terminal.h',
