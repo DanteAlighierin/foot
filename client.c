@@ -127,7 +127,7 @@ main(int argc, char *const *argv)
         LOG_DBG("argv[%d] = %s (%hu)", i, argv[i], len);
 
         if (send(fd, &len, sizeof(len), 0) != sizeof(len) ||
-            send(fd, argv[i], len, 0) != sizeof(len))
+            send(fd, argv[i], len, 0) != len)
         {
             LOG_ERRNO("failed to send argc/argv to server");
             goto err;
