@@ -123,8 +123,8 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 
     mon->scale = factor;
 
-    struct terminal *term = mon->wayl->term;
-    if (term != NULL) {
+    tll_foreach(mon->wayl->terms, it) {
+        struct terminal *term = it->item;
         render_resize(term, term->width / term->scale, term->height / term->scale);
         wayl_reload_cursor_theme(mon->wayl, term);
     }
@@ -325,9 +325,7 @@ xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
     struct wayland *wayl = data;
     struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
     LOG_DBG("xdg-toplevel: close");
-
-    term->quit = true;
-    wl_display_roundtrip(wayl->display);
+    term_shutdown(term);
 }
 
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
@@ -394,7 +392,7 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
-    return event_count != -1 && !wayl->term->quit;
+    return event_count != -1;
 }
 
 static bool
@@ -409,9 +407,6 @@ fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
         wayl->kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
 
     if (ret < 0) {
-        if (errno == EAGAIN)
-            return true;
-
         LOG_ERRNO("failed to read repeat key from repeat timer fd");
         return false;
     }
@@ -515,23 +510,16 @@ wayl_init(struct fdm *fdm)
         goto out;
     }
 
-    wayl->kbd.repeat.fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK);
+    /* All wayland initialization done - make it so */
+    wl_display_roundtrip(wayl->display);
+
+    wayl->kbd.repeat.fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC);
     if (wayl->kbd.repeat.fd == -1) {
         LOG_ERRNO("failed to create keyboard repeat timer FD");
         goto out;
     }
 
     int wl_fd = wl_display_get_fd(wayl->display);
-    int fd_flags = fcntl(wl_fd, F_GETFL);
-    if (fd_flags == -1) {
-        LOG_ERRNO("failed to set non blocking mode on Wayland display connection");
-        goto out;
-    }
-    if (fcntl(wl_fd, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
-        LOG_ERRNO("failed to set non blocking mode on Wayland display connection");
-        goto out;
-    }
-
     if (!fdm_add(fdm, wl_fd, EPOLLIN, &fdm_wayl, wayl)) {
         LOG_ERR("failed to register Wayland connection with the FDM");
         goto out;
@@ -542,8 +530,6 @@ wayl_init(struct fdm *fdm)
         goto out;
     }
 
-    //wl_display_dispatch_pending(wayl->display);
-    //wl_display_flush(wayl->display);
     return wayl;
 
 out:
@@ -558,10 +544,18 @@ wayl_destroy(struct wayland *wayl)
     if (wayl == NULL)
         return;
 
-    if (wayl->kbd.repeat.fd != 0) {
-        fdm_del(wayl->fdm, wayl->kbd.repeat.fd);
-        close(wayl->kbd.repeat.fd);
+    tll_foreach(wayl->terms, it) {
+        static bool have_warned = false;
+        if (!have_warned) {
+            have_warned = true;
+            LOG_WARN("there are terminals still running");
+            term_destroy(it->item);
+        }
     }
+
+    tll_free(wayl->terms);
+
+    fdm_del(wayl->fdm, wayl->kbd.repeat.fd);
 
     tll_foreach(wayl->monitors, it) {
         free(it->item.name);
@@ -630,7 +624,7 @@ wayl_destroy(struct wayland *wayl)
     if (wayl->registry != NULL)
         wl_registry_destroy(wayl->registry);
     if (wayl->display != NULL) {
-        fdm_del(wayl->fdm, wl_display_get_fd(wayl->display));
+        fdm_del_no_close(wayl->fdm, wl_display_get_fd(wayl->display));
         wl_display_disconnect(wayl->display);
     }
 
@@ -641,6 +635,7 @@ struct wl_window *
 wayl_win_init(struct wayland *wayl)
 {
     struct wl_window *win = calloc(1, sizeof(*win));
+    win->wayl = wayl;
 
     win->surface = wl_compositor_create_surface(wayl->compositor);
     if (win->surface == NULL) {
@@ -686,6 +681,28 @@ out:
 void
 wayl_win_destroy(struct wl_window *win)
 {
+    if (win == NULL)
+        return;
+
+    /*
+     * First, unmap all surfaces to trigger things like
+     * keyboard_leave() and wl_pointer_leave().
+     *
+     * This ensures we remove all references to *this* window from the
+     * global wayland struct (since it no longer has neither keyboard
+     * nor mouse focus).
+     */
+
+    /* Scrollback search */
+    wl_surface_attach(win->search_surface, NULL, 0, 0);
+    wl_surface_commit(win->search_surface);
+    wl_display_roundtrip(win->wayl->display);
+
+    /* Main window */
+    wl_surface_attach(win->surface, NULL, 0, 0);
+    wl_surface_commit(win->surface);
+    wl_display_roundtrip(win->wayl->display);
+
     tll_free(win->on_outputs);
     if (win->search_sub_surface != NULL)
         wl_subsurface_destroy(win->search_sub_surface);
@@ -701,6 +718,9 @@ wayl_win_destroy(struct wl_window *win)
         xdg_surface_destroy(win->xdg_surface);
     if (win->surface != NULL)
         wl_surface_destroy(win->surface);
+
+    wl_display_roundtrip(win->wayl->display);
+
     free(win);
 }
 
@@ -763,14 +783,24 @@ wayl_update_cursor_surface(struct wayland *wayl, struct terminal *term)
 struct terminal *
 wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
 {
-    assert(surface == wayl->term->window->surface);
-    return wayl->term;
+    tll_foreach(wayl->terms, it) {
+        if (it->item->window->surface == surface)
+            return it->item;
+    }
+
+    assert(false);
+    return NULL;
 }
 
 struct terminal *
 wayl_terminal_from_xdg_toplevel(struct wayland *wayl,
                                 struct xdg_toplevel *toplevel)
 {
-    assert(toplevel == wayl->term->window->xdg_toplevel);
-    return wayl->term;
+    tll_foreach(wayl->terms, it) {
+        if (it->item->window->xdg_toplevel == toplevel)
+            return it->item;
+    }
+
+    assert(false);
+    return NULL;
 }

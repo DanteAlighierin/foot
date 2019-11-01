@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <locale.h>
 #include <getopt.h>
+#include <signal.h>
 #include <errno.h>
 
 #include <sys/sysinfo.h>
@@ -16,6 +17,7 @@
 #include "config.h"
 #include "fdm.h"
 #include "font.h"
+#include "server.h"
 #include "shm.h"
 #include "terminal.h"
 #include "version.h"
@@ -23,17 +25,38 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+static volatile sig_atomic_t aborted = 0;
+
+static void
+sig_handler(int signo)
+{
+    aborted = 1;
+}
+
 static void
 print_usage(const char *prog_name)
 {
-    printf("Usage: %s [OPTION]...\n", prog_name);
+    printf("Usage: %s [OPTIONS]...\n", prog_name);
     printf("\n");
     printf("Options:\n");
     printf("  -f,--font=FONT              comma separated list of fonts in fontconfig format (monospace)\n"
            "  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
            "  -g,--geometry=WIDTHxHEIGHT  set initial width and height\n"
+           "  -s,--server                 run as a server\n"
            "  -v,--version                show the version number and quit\n");
-    printf("\n");
+}
+
+struct shutdown_context {
+    struct terminal **term;
+    int exit_code;
+};
+
+static void
+term_shutdown_cb(void *data, int exit_code)
+{
+    struct shutdown_context *ctx = data;
+    *ctx->term = NULL;
+    ctx->exit_code = exit_code;
 }
 
 int
@@ -55,10 +78,13 @@ main(int argc, char *const *argv)
         {"term",     required_argument, 0, 't'},
         {"font",     required_argument, 0, 'f'},
         {"geometry", required_argument, 0, 'g'},
+        {"server",   no_argument,       0, 's'},
         {"version",  no_argument,       0, 'v'},
         {"help",     no_argument,       0, 'h'},
         {NULL,       no_argument,       0,   0},
     };
+
+    bool as_server = false;
 
     while (true) {
         int c = getopt_long(argc, argv, ":t:f:g:vh", longopts, NULL);
@@ -105,6 +131,10 @@ main(int argc, char *const *argv)
             break;
         }
 
+        case 's':
+            as_server = true;
+            break;
+
         case 'v':
             printf("foot version %s\n", FOOT_VERSION);
             config_free(conf);
@@ -131,11 +161,12 @@ main(int argc, char *const *argv)
     argv += optind;
 
     setlocale(LC_ALL, "");
-    setenv("TERM", conf.term, 1);
 
     struct fdm *fdm = NULL;
     struct wayland *wayl = NULL;
     struct terminal *term = NULL;
+    struct server *server = NULL;
+    struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
 
     if ((fdm = fdm_init()) == NULL)
         goto out;
@@ -143,27 +174,37 @@ main(int argc, char *const *argv)
     if ((wayl = wayl_init(fdm)) == NULL)
         goto out;
 
-    if ((term = term_init(&conf, fdm, wayl, argc, argv)) == NULL)
+    if (!as_server && (term = term_init(&conf, fdm, wayl, conf.term, argc, argv,
+                                        &term_shutdown_cb, &shutdown_ctx)) == NULL)
         goto out;
 
-    while (true) {
-        wl_display_flush(term->wl->display);  /* TODO: figure out how to get rid of this */
+    if (as_server && (server = server_init(&conf, fdm, wayl)) == NULL)
+        goto out;
 
+    const struct sigaction sa = {.sa_handler = &sig_handler};
+    if (sigaction(SIGINT, &sa, NULL) < 0 || sigaction(SIGTERM, &sa, NULL) < 0) {
+        LOG_ERRNO("failed to register signal handlers");
+        goto out;
+    }
+
+    if (as_server)
+        LOG_INFO("running as server; launch terminals by running footclient");
+
+    while (!aborted && (as_server || tll_length(wayl->terms) > 0)) {
         if (!fdm_poll(fdm))
             break;
     }
 
-    if (term->quit)
-        ret = EXIT_SUCCESS;
+    ret = aborted || tll_length(wayl->terms) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
 out:
     shm_fini();
 
-    int child_ret = term_destroy(term);
+    server_destroy(server);
+    term_destroy(term);
     wayl_destroy(wayl);
     fdm_destroy(fdm);
     config_free(conf);
 
-    return ret == EXIT_SUCCESS ? child_ret : ret;
-
+    return ret == EXIT_SUCCESS && !as_server ? shutdown_ctx.exit_code : ret;
 }

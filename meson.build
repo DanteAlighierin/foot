@@ -78,6 +78,7 @@ executable(
   'render.c', 'render.h',
   'search.c', 'search.h',
   'selection.c', 'selection.h',
+  'server.c', 'server.h',
   'shm.c', 'shm.h',
   'slave.c', 'slave.h',
   'terminal.c', 'terminal.h',
@@ -87,6 +88,12 @@ executable(
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
   dependencies: [threads, math, freetype, fontconfig, pixman, wayland_client, wayland_cursor, xkb],
+  install: true)
+
+executable(
+  'footclient',
+  'client.c',
+  'log.c', 'log.h',
   install: true)
 
 custom_target(

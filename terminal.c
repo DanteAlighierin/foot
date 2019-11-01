@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <sys/timerfd.h>
 #include <fcntl.h>
 #include <linux/input-event-codes.h>
@@ -30,12 +31,8 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
 
-    if (events & EPOLLHUP) {
-        term->quit = true;
-
-        if (!(events & EPOLLIN))
-            return false;
-    }
+    if ((events & EPOLLHUP) && !(events & EPOLLIN))
+        return term_shutdown(term);
 
     assert(events & EPOLLIN);
 
@@ -43,9 +40,6 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     ssize_t count = read(term->ptmx, buf, sizeof(buf));
 
     if (count < 0) {
-        if (errno == EAGAIN)
-            return true;
-
         LOG_ERRNO("failed to read from pseudo terminal");
         return false;
     }
@@ -101,7 +95,10 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         }
     }
 
-    return !(events & EPOLLHUP);
+    if (events & EPOLLHUP)
+        return term_shutdown(term);
+
+    return true;
 }
 
 static bool
@@ -116,9 +113,6 @@ fdm_flash(struct fdm *fdm, int fd, int events, void *data)
         term->flash.fd, &expiration_count, sizeof(expiration_count));
 
     if (ret < 0) {
-        if (errno == EAGAIN)
-            return true;
-
         LOG_ERRNO("failed to read flash timer");
         return false;
     }
@@ -144,9 +138,6 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
         term->blink.fd, &expiration_count, sizeof(expiration_count));
 
     if (ret < 0) {
-        if (errno == EAGAIN)
-            return true;
-
         LOG_ERRNO("failed to read blink timer");
         return false;
     }
@@ -181,7 +172,8 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
         return false;
 
     struct terminal *term = data;
-    assert(term->delayed_render_timer.is_armed);
+    if (!term->delayed_render_timer.is_armed)
+        return true;
 
     uint64_t unused;
     ssize_t ret1 = 0;
@@ -192,17 +184,18 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
     if (fd == term->delayed_render_timer.upper_fd)
         ret2 = read(term->delayed_render_timer.upper_fd, &unused, sizeof(unused));
 
-    if ((ret1 < 0 || ret2 < 0) && errno != EAGAIN)
+    if ((ret1 < 0 || ret2 < 0)) {
         LOG_ERRNO("failed to read timeout timer");
-    else if (ret1 > 0 || ret2 > 0) {
-        render_refresh(term);
+        return false;
+    }
 
-        /* Reset timers */
-        term->delayed_render_timer.is_armed = false;
-        timerfd_settime(term->delayed_render_timer.lower_fd, 0, &(struct itimerspec){.it_value = {0}}, NULL);
-        timerfd_settime(term->delayed_render_timer.upper_fd, 0, &(struct itimerspec){.it_value = {0}}, NULL);
-    } else
-        assert(false);
+    render_refresh(term);
+
+    /* Reset timers */
+    struct itimerspec reset = {{0}};
+    timerfd_settime(term->delayed_render_timer.lower_fd, 0, &reset, NULL);
+    timerfd_settime(term->delayed_render_timer.upper_fd, 0, &reset, NULL);
+    term->delayed_render_timer.is_armed = false;
 
     return true;
 }
@@ -296,7 +289,8 @@ initialize_fonts(struct terminal *term, const struct config *conf)
 
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
-          int argc, char *const *argv)
+          const char *term_env, int argc, char *const *argv,
+          void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data)
 {
     int ptmx = -1;
     int flash_fd = -1;
@@ -304,29 +298,50 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     int delay_lower_fd = -1;
     int delay_upper_fd = -1;
 
-    struct terminal *term = NULL;
+    struct terminal *term = malloc(sizeof(*term));
 
     if ((ptmx = posix_openpt(O_RDWR | O_NOCTTY)) == -1) {
         LOG_ERRNO("failed to open PTY");
         goto close_fds;
     }
-    if ((flash_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
+    if ((flash_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1) {
         LOG_ERRNO("failed to create flash timer FD");
         goto close_fds;
     }
-    if ((blink_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
+    if ((blink_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1) {
         LOG_ERRNO("failed to create blink timer FD");
         goto close_fds;
     }
-    if ((delay_lower_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1 ||
-        (delay_upper_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1)
+    if ((delay_lower_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1 ||
+        (delay_upper_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1)
     {
         LOG_ERRNO("failed to create delayed rendering timer FDs");
         goto close_fds;
     }
 
+    if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term)) {
+        LOG_ERR("failed to add ptmx to FDM");
+        goto err;
+    }
+
+    if (!fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term)) {
+        LOG_ERR("failed to add flash timer FD to FDM");
+        goto err;
+    }
+
+    if (!fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term)) {
+        LOG_ERR("failed to add blink tiemr FD to FDM");
+        goto err;
+    }
+
+    if (!fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
+        !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term))
+    {
+        LOG_ERR("failed to add delayed rendering timer FDs to FDM");
+        goto err;
+    }
+
     /* Initialize configure-based terminal attributes */
-    term = malloc(sizeof(*term));
     *term = (struct terminal) {
         .fdm = fdm,
         .quit = false,
@@ -397,6 +412,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
             .lower_fd = delay_lower_fd,
             .upper_fd = delay_upper_fd,
         },
+        .shutdown_cb = shutdown_cb,
+        .shutdown_data = shutdown_data,
     };
 
     initialize_color_cube(term);
@@ -409,6 +426,10 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     term->cell_width = (int)ceil(term->fextents.max_x_advance);
     term->cell_height = (int)ceil(term->fextents.height);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
+
+    /* Start the slave/client */
+    if ((term->slave = slave_spawn(term->ptmx, argc, argv, term_env, conf->shell)) == -1)
+        goto err;
 
     /* Initiailze the Wayland window backend */
     if ((term->window = wayl_win_init(wayl)) == NULL)
@@ -432,47 +453,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     height = max(height, term->cell_height);
     render_resize(term, width, height);
 
-    /* Start the slave/client */
-    if (!slave_spawn(term->ptmx, argc, argv, conf->shell))
-        goto err;
-
-    /* Read logic requires non-blocking mode */
-    {
-        int fd_flags = fcntl(ptmx, F_GETFL);
-        if (fd_flags == -1) {
-            LOG_ERRNO("failed to set non blocking mode on PTY master");
-            goto err;
-        }
-
-        if (fcntl(ptmx, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
-            LOG_ERRNO("failed to set non blocking mode on PTY master");
-            goto err;
-        }
-    }
-
-    if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term)) {
-        LOG_ERR("failed to add ptmx to FDM");
-        goto err;
-    }
-
-    if (!fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term)) {
-        LOG_ERR("failed to add flash timer FD to FDM");
-        goto err;
-    }
-
-    if (!fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term)) {
-        LOG_ERR("failed to add blink tiemr FD to FDM");
-        goto err;
-    }
-
-    if (!fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
-        !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term))
-    {
-        LOG_ERR("failed to add delayed rendering timer FDs to FDM");
-        goto err;
-    }
-
-    wayl->term = term;
+    tll_push_back(wayl->terms, term);
     return term;
 
 err:
@@ -480,18 +461,86 @@ err:
     return NULL;
 
 close_fds:
-    if (ptmx != -1)
-        close(ptmx);
-    if (flash_fd != -1)
-        close(flash_fd);
-    if (blink_fd != -1)
-        close(blink_fd);
-    if (delay_lower_fd != -1)
-        close(delay_lower_fd);
-    if (delay_upper_fd != -1)
-        close(delay_upper_fd);
-    assert(term == NULL);
+    fdm_del(fdm, ptmx);
+    fdm_del(fdm, flash_fd);
+    fdm_del(fdm, blink_fd);
+    fdm_del(fdm, delay_lower_fd);
+    fdm_del(fdm, delay_upper_fd);
+
+    free(term);
     return NULL;
+}
+
+static bool
+fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
+{
+    LOG_DBG("FDM shutdown");
+    struct terminal *term = data;
+
+    /* Kill the event FD */
+    fdm_del(term->fdm, fd);
+
+    wayl_win_destroy(term->window);
+    term->window = NULL;
+
+    struct wayland *wayl __attribute__((unused)) = term->wl;
+    assert(wayl->focused != term);
+    assert(wayl->moused != term);
+
+    void (*cb)(void *, int) = term->shutdown_cb;
+    void *cb_data = term->shutdown_data;
+
+    int exit_code = term_destroy(term);
+    if (cb != NULL)
+        cb(cb_data, exit_code);
+
+    return true;
+}
+
+bool
+term_shutdown(struct terminal *term)
+{
+    if (term->is_shutting_down)
+        return true;
+
+    term->is_shutting_down = true;
+
+    /*
+     * Close FDs then postpone self-destruction to the next poll
+     * iteration, by creating an event FD that we trigger immediately.
+     */
+
+    fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
+    fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
+    fdm_del(term->fdm, term->blink.fd);
+    fdm_del(term->fdm, term->flash.fd);
+    fdm_del(term->fdm, term->ptmx);
+
+    term->delayed_render_timer.lower_fd = -1;
+    term->delayed_render_timer.upper_fd = -1;
+    term->blink.fd = -1;
+    term->flash.fd = -1;
+    term->ptmx = -1;
+
+    int event_fd = eventfd(0, EFD_CLOEXEC);
+    if (event_fd == -1) {
+        LOG_ERRNO("failed to create terminal shutdown event FD");
+        return false;
+    }
+
+    if (!fdm_add(term->fdm, event_fd, EPOLLIN, &fdm_shutdown, term)) {
+        LOG_ERR("failed to add terminal shutdown event FD to the FDM");
+        close(event_fd);
+        return false;
+    }
+
+    if (write(event_fd, &(uint64_t){1}, sizeof(uint64_t)) != sizeof(uint64_t)) {
+        LOG_ERRNO("failed to send terminal shutdown event");
+        fdm_del(term->fdm, event_fd);
+        return false;
+    }
+
+    return true;
 }
 
 int
@@ -500,17 +549,21 @@ term_destroy(struct terminal *term)
     if (term == NULL)
         return 0;
 
-    wayl_win_destroy(term->window);
-
-    if (term->delayed_render_timer.lower_fd != -1) {
-        fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
-        close(term->delayed_render_timer.lower_fd);
+    tll_foreach(term->wl->terms, it) {
+        if (it->item == term) {
+            tll_remove(term->wl->terms, it);
+            break;
+        }
     }
 
-    if (term->delayed_render_timer.upper_fd != -1) {
-        fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
-        close(term->delayed_render_timer.upper_fd);
-    }
+    fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
+    fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
+    fdm_del(term->fdm, term->blink.fd);
+    fdm_del(term->fdm, term->flash.fd);
+    fdm_del(term->fdm, term->ptmx);
+
+    if (term->window != NULL)
+        wayl_win_destroy(term->window);
 
     mtx_lock(&term->render.workers.lock);
     assert(tll_length(term->render.workers.queue) == 0);
@@ -545,21 +598,6 @@ term_destroy(struct terminal *term)
         font_destroy(term->fonts[i]);
 
     free(term->search.buf);
-
-    if (term->flash.fd != -1) {
-        fdm_del(term->fdm, term->flash.fd);
-        close(term->flash.fd);
-    }
-
-    if (term->blink.fd != -1) {
-        fdm_del(term->fdm, term->blink.fd);
-        close(term->blink.fd);
-    }
-
-    if (term->ptmx != -1) {
-        fdm_del(term->fdm, term->ptmx);
-        close(term->ptmx);
-    }
 
     for (size_t i = 0; i < term->render.workers.count; i++) {
         if (term->render.workers.threads[i] != 0)

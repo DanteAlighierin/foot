@@ -1,5 +1,6 @@
 #define _XOPEN_SOURCE 500
 #include "slave.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -68,7 +69,7 @@ err:
 
 pid_t
 slave_spawn(int ptmx, int argc, char *const *argv,
-            const char *conf_shell)
+            const char *term_env, const char *conf_shell)
 {
     int fork_pipe[2];
     if (pipe2(fork_pipe, O_CLOEXEC) < 0) {
@@ -87,6 +88,8 @@ slave_spawn(int ptmx, int argc, char *const *argv,
     case 0:
         /* Child */
         close(fork_pipe[0]);  /* Close read end */
+
+        setenv("TERM", term_env, 1);
 
         char **_shell_argv = NULL;
         char *const *shell_argv = argv;
@@ -107,7 +110,7 @@ slave_spawn(int ptmx, int argc, char *const *argv,
 
     default: {
         close(fork_pipe[1]); /* Close write end */
-        LOG_DBG("slave has PID %d", term->slave);
+        LOG_DBG("slave has PID %d", pid);
 
         int _errno;
         static_assert(sizeof(errno) == sizeof(_errno), "errno size mismatch");
@@ -119,11 +122,11 @@ slave_spawn(int ptmx, int argc, char *const *argv,
             LOG_ERRNO("failed to read from pipe");
             return -1;
         } else if (ret == sizeof(_errno)) {
-            LOG_ERRNO(
-                "%s: failed to execute", argc == 0 ? conf_shell : argv[0]);
+            LOG_ERRNO_P(
+                "%s: failed to execute", _errno, argc == 0 ? conf_shell : argv[0]);
             return -1;
         } else
-            LOG_DBG("%s: successfully started", conf->shell);
+            LOG_DBG("%s: successfully started", conf_shell);
         break;
     }
     }

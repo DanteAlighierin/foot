@@ -72,7 +72,9 @@ struct wl_primary {
     uint32_t serial;
 };
 
+struct wayland;
 struct wl_window {
+    struct wayland *wayl;
     struct wl_surface *surface;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
@@ -145,8 +147,7 @@ struct wayland {
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
 
-    /* TODO: turn into a list to support multiple windows */
-    struct terminal *term;
+    tll(struct terminal *) terms;
     struct terminal *focused;
     struct terminal *moused;
 };

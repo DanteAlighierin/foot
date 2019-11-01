@@ -22,6 +22,13 @@ static mtx_t ft_lock;
 
 static const size_t cache_size = 512;
 
+struct font_cache_entry {
+    uint64_t hash;
+    struct font *font;
+};
+
+static tll(struct font_cache_entry) font_cache = tll_init();
+
 static void __attribute__((constructor))
 init(void)
 {
@@ -33,6 +40,9 @@ init(void)
 static void __attribute__((destructor))
 fini(void)
 {
+    while (tll_length(font_cache) > 0)
+        font_destroy(tll_front(font_cache).font);
+
     mtx_destroy(&ft_lock);
     FT_Done_FreeType(ft_lib);
     FcFini();
@@ -275,11 +285,45 @@ from_name(const char *name, bool is_fallback)
     return font;
 }
 
+static uint64_t
+sdbm_hash(const char *s)
+{
+    uint64_t hash = 0;
+
+    for (; *s != '\0'; s++) {
+        int c = *s;
+        hash = c + (hash << 6) + (hash << 16) - hash;
+    }
+
+    return hash;
+}
+
+static uint64_t
+font_hash(font_list_t names, const char *attributes)
+{
+    uint64_t hash = 0;
+    tll_foreach(names, it)
+        hash ^= sdbm_hash(it->item);
+
+    if (attributes != NULL)
+        hash ^= sdbm_hash(attributes);
+
+    return hash;
+}
+
 struct font *
 font_from_name(font_list_t names, const char *attributes)
 {
     if (tll_length(names) == 0)
         return false;
+
+    uint64_t hash = font_hash(names, attributes);
+    tll_foreach(font_cache, it) {
+        if (it->item.hash == hash) {
+            it->item.font->ref_counter++;
+            return it->item.font;
+        }
+    }
 
     struct font *font = NULL;
 
@@ -312,6 +356,7 @@ font_from_name(font_list_t names, const char *attributes)
             font->fallbacks, ((struct font_fallback){.pattern = strdup(name)}));
     }
 
+    tll_push_back(font_cache, ((struct font_cache_entry){.hash = hash, .font = font}));
     return font;
 }
 
@@ -604,6 +649,13 @@ font_destroy(struct font *font)
 
     if (--font->ref_counter > 0)
         return;
+
+    tll_foreach(font_cache, it) {
+        if (it->item.font == font) {
+            tll_remove(font_cache, it);
+            break;
+        }
+    }
 
     free(font->name);
 

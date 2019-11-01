@@ -693,6 +693,7 @@ grid_render(struct terminal *term)
 
     if (all_clean) {
         buf->busy = false;
+        wl_display_flush(term->wl->display);
         return;
     }
 
@@ -727,6 +728,7 @@ grid_render(struct terminal *term)
     LOG_INFO("frame rendered in %lds %ldus",
              render_time.tv_sec, render_time.tv_usec);
 #endif
+    wl_display_flush(term->wl->display);
 }
 
 static void
@@ -948,9 +950,21 @@ render_resize(struct terminal *term, int width, int height)
 }
 
 void
-render_set_title(struct terminal *term, const char *title)
+render_set_title(struct terminal *term, const char *_title)
 {
+    /* TODO: figure out what the limit actually is */
+    static const size_t max_len = 100;
+
+    const char *title = _title;
+    char *copy = NULL;
+
+    if (strlen(title) > max_len) {
+        copy = strndup(_title, max_len);
+        title = copy;
+    }
+
     xdg_toplevel_set_title(term->window->xdg_toplevel, title);
+    free(copy);
 }
 
 void
