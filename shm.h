@@ -24,3 +24,5 @@ struct buffer {
 struct buffer *shm_get_buffer(
     struct wl_shm *shm, int width, int height, unsigned long cookie);
 void shm_fini(void);
+
+void shm_purge(struct wl_shm *shm, unsigned long cookie);

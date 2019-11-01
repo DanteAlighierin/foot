@@ -182,3 +182,20 @@ shm_fini(void)
         tll_remove(buffers, it);
     }
 }
+
+void
+shm_purge(struct wl_shm *shm, unsigned long cookie)
+{
+    LOG_DBG("cookie=%lx: purging all buffers", cookie);
+
+    /* Purge old buffers associated with this cookie */
+    tll_foreach(buffers, it) {
+        if (it->item.cookie != cookie)
+            continue;
+
+        assert(!it->item.busy);
+
+        buffer_destroy(&it->item);
+        tll_remove(buffers, it);
+    }
+}
