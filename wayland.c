@@ -544,7 +544,16 @@ wayl_destroy(struct wayland *wayl)
     if (wayl == NULL)
         return;
 
+    tll_foreach(wayl->terms, it) {
+        static bool have_warned = false;
+        if (!have_warned) {
+            have_warned = true;
+            LOG_WARN("there are terminals still running");
+            term_destroy(it->item);
+        }
     }
+
+    tll_free(wayl->terms);
 
     fdm_del(wayl->fdm, wayl->kbd.repeat.fd);
 
