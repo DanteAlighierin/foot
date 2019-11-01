@@ -172,7 +172,8 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
         return false;
 
     struct terminal *term = data;
-    assert(term->delayed_render_timer.is_armed);
+    if (!term->delayed_render_timer.is_armed)
+        return true;
 
     uint64_t unused;
     ssize_t ret1 = 0;
