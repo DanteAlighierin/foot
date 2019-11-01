@@ -441,10 +441,13 @@ grid_render(struct terminal *term)
     assert(term->width > 0);
     assert(term->height > 0);
 
-    struct buffer *buf = shm_get_buffer(term->wl->shm, term->width, term->height);
-    wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
-    pixman_image_t *pix = buf->pix;
+    unsigned long cookie = (uintptr_t)term;
+    struct buffer *buf = shm_get_buffer(
+        term->wl->shm, term->width, term->height, cookie);
 
+    wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
+
+    pixman_image_t *pix = buf->pix;
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
 
     /* If we resized the window, or is flashing, or just stopped flashing */
@@ -754,7 +757,8 @@ render_search_box(struct terminal *term)
     const int width = 2 * margin + max(20, term->search.len) * term->cell_width;
     const int height = 2 * margin + 1 * term->cell_height;
 
-    struct buffer *buf = shm_get_buffer(term->wl->shm, width, height);
+    unsigned long cookie = (uintptr_t)term;
+    struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
 
     /* Background - yellow on empty/match, red on mismatch */
     pixman_color_t color = color_hex_to_pixman(

@@ -10,7 +10,7 @@
 #include <pixman.h>
 
 #define LOG_MODULE "shm"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "stride.h"
 #include "tllist.h"
@@ -31,13 +31,18 @@ static const struct wl_buffer_listener buffer_listener = {
 };
 
 struct buffer *
-shm_get_buffer(struct wl_shm *shm, int width, int height)
+shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
 {
     tll_foreach(buffers, it) {
-        if (it->item.width != width || it->item.height != height)
+        if (it->item.width != width)
+            continue;
+        if (it->item.height != height)
+            continue;
+        if (it->item.cookie != cookie)
             continue;
 
         if (!it->item.busy) {
+            LOG_DBG("cookie=%lx: re-using buffer from cache", cookie);
             it->item.busy = true;
             return &it->item;
         }
@@ -73,7 +78,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height)
 
     /* Total size */
     size = stride * height;
-    LOG_DBG("allocating a %zu KB pool", size / 1024);
+    LOG_DBG("cookie=%lx: allocating new buffer: %zu KB", cookie, size / 1024);
 
     if (ftruncate(pool_fd, size) == -1) {
         LOG_ERRNO("failed to truncate SHM pool");
@@ -111,6 +116,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height)
     tll_push_back(
         buffers,
         ((struct buffer){
+            .cookie = cookie,
             .width = width,
             .height = height,
             .stride = stride,

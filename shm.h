@@ -7,6 +7,8 @@
 #include <wayland-client.h>
 
 struct buffer {
+    unsigned long cookie;
+
     int width;
     int height;
     int stride;
@@ -19,5 +21,6 @@ struct buffer {
     pixman_image_t *pix;
 };
 
-struct buffer *shm_get_buffer(struct wl_shm *shm, int width, int height);
+struct buffer *shm_get_buffer(
+    struct wl_shm *shm, int width, int height, unsigned long cookie);
 void shm_fini(void);
