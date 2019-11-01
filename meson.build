@@ -90,6 +90,12 @@ executable(
   dependencies: [threads, math, freetype, fontconfig, pixman, wayland_client, wayland_cursor, xkb],
   install: true)
 
+executable(
+  'footclient',
+  'client.c',
+  'log.c', 'log.h',
+  install: true)
+
 custom_target(
   'terminfo',
   output: 'f',

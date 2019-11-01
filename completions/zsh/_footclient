@@ -1,0 +1,6 @@
+#compdef footclient
+
+_arguments \
+    -s \
+    '(-v --version)'{-v,--version}'[show the version number and quit]' \
+    '(-h --help)'{-h,--help}'[show help message and quit]'
