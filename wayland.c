@@ -719,6 +719,8 @@ wayl_win_destroy(struct wl_window *win)
     if (win->surface != NULL)
         wl_surface_destroy(win->surface);
 
+    wl_display_roundtrip(win->wayl->display);
+
     free(win);
 }
 
