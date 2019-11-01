@@ -174,7 +174,7 @@ main(int argc, char *const *argv)
     if ((wayl = wayl_init(fdm)) == NULL)
         goto out;
 
-    if (!as_server && (term = term_init(&conf, fdm, wayl, argc, argv,
+    if (!as_server && (term = term_init(&conf, fdm, wayl, conf.term, argc, argv,
                                         &term_shutdown_cb, &shutdown_ctx)) == NULL)
         goto out;
 

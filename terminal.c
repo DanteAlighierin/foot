@@ -289,7 +289,7 @@ initialize_fonts(struct terminal *term, const struct config *conf)
 
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
-          int argc, char *const *argv,
+          const char *term_env, int argc, char *const *argv,
           void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data)
 {
     int ptmx = -1;
@@ -428,7 +428,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
     /* Start the slave/client */
-    if ((term->slave = slave_spawn(term->ptmx, argc, argv, conf->term, conf->shell)) == -1)
+    if ((term->slave = slave_spawn(term->ptmx, argc, argv, term_env, conf->shell)) == -1)
         goto err;
 
     /* Initiailze the Wayland window backend */

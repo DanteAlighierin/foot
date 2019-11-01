@@ -117,8 +117,8 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     assert(client->term == NULL);
     client->term = term_init(
-        server->conf, server->fdm, server->wayl, client->argc, client->argv,
-        &term_shutdown_handler, client);
+        server->conf, server->fdm, server->wayl, server->conf->term,
+        client->argc, client->argv, &term_shutdown_handler, client);
 
     if (client->term == NULL) {
         LOG_ERR("failed to instantiate new terminal");
