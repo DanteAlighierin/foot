@@ -693,6 +693,7 @@ grid_render(struct terminal *term)
 
     if (all_clean) {
         buf->busy = false;
+        wl_display_flush(term->wl->display);
         return;
     }
 
@@ -727,6 +728,7 @@ grid_render(struct terminal *term)
     LOG_INFO("frame rendered in %lds %ldus",
              render_time.tv_sec, render_time.tv_usec);
 #endif
+    wl_display_flush(term->wl->display);
 }
 
 static void

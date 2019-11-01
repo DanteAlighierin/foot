@@ -147,7 +147,6 @@ main(int argc, char *const *argv)
         goto out;
 
     while (tll_length(wayl->terms) > 0) {
-        wl_display_flush(wayl->display);  /* TODO: figure out how to get rid of this */
 
         if (!fdm_poll(fdm))
             break;
