@@ -18,6 +18,15 @@
 static tll(struct buffer) buffers;
 
 static void
+buffer_destroy(struct buffer *buf)
+{
+    if (buf->pix != NULL)
+        pixman_image_unref(buf->pix);
+    wl_buffer_destroy(buf->wl_buf);
+    munmap(buf->mmapped, buf->size);
+}
+
+static void
 buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
     struct buffer *buffer = data;
@@ -46,6 +55,24 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
             it->item.busy = true;
             return &it->item;
         }
+    }
+
+    /* Purge old buffers associated with this cookie */
+    tll_foreach(buffers, it) {
+        if (it->item.cookie != cookie)
+            continue;
+
+        if (it->item.busy)
+            continue;
+
+        if (it->item.width == width && it->item.height == height)
+            continue;
+
+        LOG_DBG("cookie=%lx: purging buffer (width=%d, height=%d)",
+                cookie, it->item.width, it->item.height);
+
+        buffer_destroy(&it->item);
+        tll_remove(buffers, it);
     }
 
     /*
@@ -151,13 +178,7 @@ void
 shm_fini(void)
 {
     tll_foreach(buffers, it) {
-        struct buffer *buf = &it->item;
-
-        if (buf->pix != NULL)
-            pixman_image_unref(buf->pix);
-        wl_buffer_destroy(buf->wl_buf);
-        munmap(buf->mmapped, buf->size);
-
+        buffer_destroy(&it->item);
         tll_remove(buffers, it);
     }
 }
