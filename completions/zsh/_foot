@@ -2,13 +2,19 @@
 
 _arguments \
     -s \
-    '(-v --version)'{-v,--version}'[show the version number and quit]' \
-    '(-h --help)'{-h,--help}'[show help message and quit]' \
     '(-f --font)'{-f,--font}'[font name and style in fontconfig format (monospace)]:font:->fonts' \
-    '(-g --geometry)'{-g,--geometry}'[window WIDTHxHEIGHT, in pixels (84x24 cells)]'
+    '(-t,--term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
+    '(-g --geometry)'{-g,--geometry}'[window WIDTHxHEIGHT, in pixels (84x24 cells)]' \
+    '(-s --server)'{-s,--server}'[run as server; open terminals by running footclient]' \
+    '(-v --version)'{-v,--version}'[show the version number and quit]' \
+    '(-h --help)'{-h,--help}'[show help message and quit]'
 
-case "${state}" in
+case ${state} in
     fonts)
         _values 'font families' $(fc-list : family | tr -d ' ')
+        ;;
+
+    terms)
+        _values 'terminal definitions' $(find /usr/share/terminfo -type f -printf "%f\n")
         ;;
 esac
