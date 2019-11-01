@@ -130,7 +130,8 @@ main(int argc, char *const *argv)
         }
     }
 
-    if (sigaction(SIGINT, &(struct sigaction){.sa_handler = &sig_handler}, NULL) < 0) {
+    const struct sigaction sa = {.sa_handler = &sig_handler};
+    if (sigaction(SIGINT, &sa, NULL) < 0 || sigaction(SIGTERM, &sa, NULL) < 0) {
         LOG_ERRNO("failed to register signal handlers");
         goto err;
     }
