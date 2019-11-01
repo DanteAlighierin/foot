@@ -12,8 +12,11 @@
 #define LOG_MODULE "server"
 #define LOG_ENABLE_DBG 1
 #include "log.h"
+
+#include "shm.h"
 #include "terminal.h"
 #include "tllist.h"
+#include "wayland.h"
 
 struct client;
 struct server {
@@ -82,6 +85,9 @@ static void
 term_shutdown_handler(void *data, int exit_code)
 {
     struct client *client = data;
+
+    shm_purge(client->server->wayl->shm,
+              (unsigned long)(uintptr_t)client->term);
 
     client_send_exit_code(client, exit_code);
 
