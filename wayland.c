@@ -407,9 +407,6 @@ fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
         wayl->kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
 
     if (ret < 0) {
-        if (errno == EAGAIN)
-            return true;
-
         LOG_ERRNO("failed to read repeat key from repeat timer fd");
         return false;
     }
@@ -513,26 +510,16 @@ wayl_init(struct fdm *fdm)
         goto out;
     }
 
-    wayl->kbd.repeat.fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK);
     /* All wayland initialization done - make it so */
     wl_display_roundtrip(wayl->display);
 
+    wayl->kbd.repeat.fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC);
     if (wayl->kbd.repeat.fd == -1) {
         LOG_ERRNO("failed to create keyboard repeat timer FD");
         goto out;
     }
 
     int wl_fd = wl_display_get_fd(wayl->display);
-    int fd_flags = fcntl(wl_fd, F_GETFL);
-    if (fd_flags == -1) {
-        LOG_ERRNO("failed to set non blocking mode on Wayland display connection");
-        goto out;
-    }
-    if (fcntl(wl_fd, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
-        LOG_ERRNO("failed to set non blocking mode on Wayland display connection");
-        goto out;
-    }
-
     if (!fdm_add(fdm, wl_fd, EPOLLIN, &fdm_wayl, wayl)) {
         LOG_ERR("failed to register Wayland connection with the FDM");
         goto out;

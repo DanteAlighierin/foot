@@ -310,33 +310,19 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         LOG_ERRNO("failed to open PTY");
         goto close_fds;
     }
-    if ((flash_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
+    if ((flash_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1) {
         LOG_ERRNO("failed to create flash timer FD");
         goto close_fds;
     }
-    if ((blink_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
+    if ((blink_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1) {
         LOG_ERRNO("failed to create blink timer FD");
         goto close_fds;
     }
-    if ((delay_lower_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1 ||
-        (delay_upper_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1)
+    if ((delay_lower_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1 ||
+        (delay_upper_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1)
     {
         LOG_ERRNO("failed to create delayed rendering timer FDs");
         goto close_fds;
-    }
-
-    /* Read logic requires non-blocking mode */
-    {
-        int fd_flags = fcntl(ptmx, F_GETFL);
-        if (fd_flags == -1) {
-            LOG_ERRNO("failed to set non blocking mode on PTY master");
-            goto err;
-        }
-
-        if (fcntl(ptmx, F_SETFL, fd_flags | O_NONBLOCK) == -1) {
-            LOG_ERRNO("failed to set non blocking mode on PTY master");
-            goto err;
-        }
     }
 
     if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term)) {
@@ -574,7 +560,7 @@ term_shutdown(struct terminal *term)
      * This is done by opening an event FD and adding it to the FDM.
      */
 
-    int event_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+    int event_fd = eventfd(0, EFD_CLOEXEC);
     if (event_fd == -1) {
         LOG_ERRNO("failed to create terminal shutdown event FD");
         return false;
