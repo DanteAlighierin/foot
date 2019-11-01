@@ -458,26 +458,12 @@ err:
     return NULL;
 
 close_fds:
-    if (ptmx != -1) {
-        fdm_del(fdm, ptmx);
-        close(ptmx);
-    }
-    if (flash_fd != -1) {
-        fdm_del(fdm, flash_fd);
-        close(flash_fd);
-    }
-    if (blink_fd != -1) {
-        fdm_del(fdm, blink_fd);
-        close(blink_fd);
-    }
-    if (delay_lower_fd != -1) {
-        fdm_del(fdm, delay_lower_fd);
-        close(delay_lower_fd);
-    }
-    if (delay_upper_fd != -1) {
-        fdm_del(fdm, delay_upper_fd);
-        close(delay_upper_fd);
-    }
+    fdm_del(fdm, ptmx);
+    fdm_del(fdm, flash_fd);
+    fdm_del(fdm, blink_fd);
+    fdm_del(fdm, delay_lower_fd);
+    fdm_del(fdm, delay_upper_fd);
+
     free(term);
     return NULL;
 }
