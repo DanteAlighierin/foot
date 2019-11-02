@@ -12,18 +12,18 @@
 #include "log.h"
 #include "tllist.h"
 
-struct fd {
+struct handler {
     int fd;
-    void *data;
-    fdm_handler_t handler;
+    fdm_handler_t callback;
+    void *callback_data;
     bool deleted;
 };
 
 struct fdm {
     int epoll_fd;
     bool is_polling;
-    tll(struct fd *) fds;
-    tll(struct fd *) deferred_delete;
+    tll(struct handler *) fds;
+    tll(struct handler *) deferred_delete;
 };
 
 struct fdm *
@@ -75,11 +75,11 @@ fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
     }
 #endif
 
-    struct fd *fd_data = malloc(sizeof(*fd_data));
-    *fd_data = (struct fd) {
+    struct handler *fd_data = malloc(sizeof(*fd_data));
+    *fd_data = (struct handler) {
         .fd = fd,
-        .data = data,
-        .handler = handler,
+        .callback = handler,
+        .callback_data = data,
         .deleted = false,
     };
 
@@ -165,11 +165,11 @@ fdm_poll(struct fdm *fdm)
 
     fdm->is_polling = true;
     for (int i = 0; i < ret; i++) {
-        struct fd *fd = events[i].data.ptr;
+        struct handler *fd = events[i].data.ptr;
         if (fd->deleted)
             continue;
 
-        if (!fd->handler(fdm, fd->fd, events[i].events, fd->data)) {
+        if (!fd->callback(fdm, fd->fd, events[i].events, fd->callback_data)) {
             ret = false;
             break;
         }
