@@ -353,6 +353,8 @@ server_destroy(struct server *server)
     tll_free(server->clients);
 
     fdm_del(server->fdm, server->fd);
+    if (server->sock_path != NULL)
+        unlink(server->sock_path);
     free(server->sock_path);
     free(server);
 }
