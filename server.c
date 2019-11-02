@@ -113,8 +113,10 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     term_env = malloc(term_env_len + 1);
     term_env[term_env_len] = '\0';
-    if (recv(fd, term_env, term_env_len, 0) != term_env_len)
-        goto shutdown;
+    if (term_env_len > 0) {
+        if (recv(fd, term_env, term_env_len, 0) != term_env_len)
+            goto shutdown;
+    }
 
     if (recv(fd, &client->argc, sizeof(client->argc), 0) != sizeof(client->argc))
         goto shutdown;
