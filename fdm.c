@@ -14,6 +14,7 @@
 
 struct handler {
     int fd;
+    int events;
     fdm_handler_t callback;
     void *callback_data;
     bool deleted;
@@ -78,6 +79,7 @@ fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
     struct handler *fd_data = malloc(sizeof(*fd_data));
     *fd_data = (struct handler) {
         .fd = fd,
+        .events = events,
         .callback = handler,
         .callback_data = data,
         .deleted = false,
@@ -91,7 +93,7 @@ fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
     };
 
     if (epoll_ctl(fdm->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
-        LOG_ERRNO("failed to register FD with epoll");
+        LOG_ERRNO("failed to register FD=%d with epoll", fd);
         free(fd_data);
         tll_pop_back(fdm->fds);
         return false;
@@ -139,6 +141,55 @@ bool
 fdm_del_no_close(struct fdm *fdm, int fd)
 {
     return fdm_del_internal(fdm, fd, false);
+}
+
+static bool
+event_modify(struct fdm *fdm, struct handler *fd, int new_events)
+{
+    if (new_events == fd->events)
+        return true;
+
+    struct epoll_event ev = {
+        .events = new_events,
+        .data = {.ptr = fd},
+    };
+
+    if (epoll_ctl(fdm->epoll_fd, EPOLL_CTL_MOD, fd->fd, &ev) < 0) {
+        LOG_ERRNO("failed to modify FD=%d with epoll (events 0x%08x -> 0x%08x)",
+                  fd->fd, fd->events, new_events);
+        return false;
+    }
+
+    fd->events = new_events;
+    return true;
+}
+
+bool
+fdm_event_add(struct fdm *fdm, int fd, int events)
+{
+    tll_foreach(fdm->fds, it) {
+        if (it->item->fd != fd)
+            continue;
+
+        return event_modify(fdm, it->item, it->item->events | events);
+    }
+
+    LOG_ERR("FD=%d not registered with the FDM", fd);
+    return false;
+}
+
+bool
+fdm_event_del(struct fdm *fdm, int fd, int events)
+{
+    tll_foreach(fdm->fds, it) {
+        if (it->item->fd != fd)
+            continue;
+
+        return event_modify(fdm, it->item, it->item->events & ~events);
+    }
+
+    LOG_ERR("FD=%d not registered with the FDM", fd);
+    return false;
 }
 
 bool
