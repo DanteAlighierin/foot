@@ -129,6 +129,9 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
         client->argv[i] = malloc(len + 1);
         client->argv[i][len] = '\0';
+        if (len == 0)
+            continue;
+
         if (recv(fd, client->argv[i], len, 0) != len)
             goto shutdown;
 
