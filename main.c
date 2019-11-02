@@ -59,6 +59,26 @@ term_shutdown_cb(void *data, int exit_code)
     ctx->exit_code = exit_code;
 }
 
+static bool
+initialize_fonts(const struct config *conf,  struct font *fonts[4])
+{
+    font_list_t font_names = tll_init();
+    tll_foreach(conf->fonts, it)
+        tll_push_back(font_names, it->item);
+
+    if ((fonts[0] = font_from_name(font_names, "")) == NULL ||
+        (fonts[1] = font_from_name(font_names, "style=bold")) == NULL ||
+        (fonts[2] = font_from_name(font_names, "style=italic")) == NULL ||
+        (fonts[3] = font_from_name(font_names, "style=bold italic")) == NULL)
+    {
+        tll_free(font_names);
+        return false;
+    }
+
+    tll_free(font_names);
+    return true;
+}
+
 int
 main(int argc, char *const *argv)
 {
@@ -162,11 +182,15 @@ main(int argc, char *const *argv)
 
     setlocale(LC_ALL, "");
 
+    struct font *fonts[4] = {NULL};
     struct fdm *fdm = NULL;
     struct wayland *wayl = NULL;
     struct terminal *term = NULL;
     struct server *server = NULL;
     struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
+
+    if (!initialize_fonts(&conf, fonts))
+        goto out;
 
     if ((fdm = fdm_init()) == NULL)
         goto out;
@@ -204,7 +228,10 @@ out:
     term_destroy(term);
     wayl_destroy(wayl);
     fdm_destroy(fdm);
-    config_free(conf);
 
+    for (size_t i = 0; i < sizeof(fonts) / sizeof(fonts[0]); i++)
+        font_destroy(fonts[i]);
+
+    config_free(conf);
     return ret == EXIT_SUCCESS && !as_server ? shutdown_ctx.exit_code : ret;
 }
