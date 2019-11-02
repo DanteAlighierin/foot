@@ -411,6 +411,11 @@ fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
+    if (ret == 0) {
+        /* Cancelled by other handler in *this* epoll() iteration */
+        return true;
+    }
+
     wayl->kbd.repeat.dont_re_repeat = true;
     for (size_t i = 0; i < expiration_count; i++)
         input_repeat(wayl, wayl->kbd.repeat.key);
@@ -513,7 +518,7 @@ wayl_init(struct fdm *fdm)
     /* All wayland initialization done - make it so */
     wl_display_roundtrip(wayl->display);
 
-    wayl->kbd.repeat.fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC);
+    wayl->kbd.repeat.fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK);
     if (wayl->kbd.repeat.fd == -1) {
         LOG_ERRNO("failed to create keyboard repeat timer FD");
         goto out;

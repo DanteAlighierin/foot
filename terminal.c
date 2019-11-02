@@ -117,6 +117,11 @@ fdm_flash(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
+    if (ret == 0) {
+        /* Cancelled by other handler in *this* epoll() iteration */
+        return true;
+    }
+
     LOG_DBG("flash timer expired %llu times",
             (unsigned long long)expiration_count);
 
@@ -140,6 +145,11 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
     if (ret < 0) {
         LOG_ERRNO("failed to read blink timer");
         return false;
+    }
+
+    if (ret == 0) {
+        /* Cancelled by other handler in *this* epoll() iteration */
+        return true;
     }
 
     LOG_DBG("blink timer expired %llu times",
@@ -187,6 +197,11 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
     if ((ret1 < 0 || ret2 < 0)) {
         LOG_ERRNO("failed to read timeout timer");
         return false;
+    }
+
+    if (ret1 == 0 && ret2 == 0) {
+        /* Cancelled by other handler in *this* epoll() iteration */
+        return true;
     }
 
     render_refresh(term);
@@ -304,16 +319,16 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         LOG_ERRNO("failed to open PTY");
         goto close_fds;
     }
-    if ((flash_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1) {
+    if ((flash_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
         LOG_ERRNO("failed to create flash timer FD");
         goto close_fds;
     }
-    if ((blink_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1) {
+    if ((blink_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
         LOG_ERRNO("failed to create blink timer FD");
         goto close_fds;
     }
-    if ((delay_lower_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1 ||
-        (delay_upper_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC)) == -1)
+    if ((delay_lower_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1 ||
+        (delay_upper_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1)
     {
         LOG_ERRNO("failed to create delayed rendering timer FDs");
         goto close_fds;
