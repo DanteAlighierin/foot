@@ -451,33 +451,25 @@ grid_render(struct terminal *term)
     bool all_clean = tll_length(term->grid->scroll_damage) == 0;
 
     /* If we resized the window, or is flashing, or just stopped flashing */
-    if (term->render.last_shm.buf != buf ||
+    if (term->render.last_buf != buf ||
         term->flash.active || term->render.was_flashing ||
         term->is_searching != term->render.was_searching)
     {
-        /*
-         * TODO: shm buffers may be purged, meaning our last_buf (when
-         * != buf) may point to a free:d buffer.
-         *
-         * It *shouldn't*, as long as the sizes match... but would
-         * still be good to find a better solution for this.
-         */
-        if (term->render.last_shm.buf != NULL &&
-            term->render.last_shm.width == buf->width &&
-            term->render.last_shm.height == buf->height &&
+        if (term->render.last_buf != NULL &&
+            term->render.last_buf->width == buf->width &&
+            term->render.last_buf->height == buf->height &&
             !term->flash.active &&
             !term->render.was_flashing &&
             term->is_searching == term->render.was_searching)
         {
             static bool has_warned = false;
             if (!has_warned) {
-                LOG_WARN(
-                    "it appears your Wayland compositor does not support "
-                    "buffer re-use for SHM clients; expect lower performance.");
+                LOG_WARN("it appears your Wayland compositor does not support buffer re-use for SHM clients; expect lower performance.");
                 has_warned = true;
             }
 
-            memcpy(buf->mmapped, term->render.last_shm.buf->mmapped, buf->size);
+            assert(term->render.last_buf->size == buf->size);
+            memcpy(buf->mmapped, term->render.last_buf->mmapped, buf->size);
         }
 
         else {
@@ -513,9 +505,7 @@ grid_render(struct terminal *term)
             term_damage_view(term);
         }
 
-        term->render.last_shm.buf = buf;
-        term->render.last_shm.width = buf->width;
-        term->render.last_shm.height = buf->height;
+        term->render.last_buf = buf;
         term->render.was_flashing = term->flash.active;
         term->render.was_searching = term->is_searching;
     }
