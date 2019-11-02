@@ -109,22 +109,23 @@ fdm_del_internal(struct fdm *fdm, int fd, bool close_fd)
         return true;
 
     tll_foreach(fdm->fds, it) {
-        if (it->item->fd == fd) {
-            if (epoll_ctl(fdm->epoll_fd, EPOLL_CTL_DEL, fd, NULL) < 0)
-                LOG_ERRNO("failed to unregister FD=%d from epoll", fd);
+        if (it->item->fd != fd)
+            continue;
 
-            if (close_fd)
-                close(it->item->fd);
+        if (epoll_ctl(fdm->epoll_fd, EPOLL_CTL_DEL, fd, NULL) < 0)
+            LOG_ERRNO("failed to unregister FD=%d from epoll", fd);
 
-            it->item->deleted = true;
-            if (fdm->is_polling)
-                tll_push_back(fdm->deferred_delete, it->item);
-            else
-                free(it->item);
+        if (close_fd)
+            close(it->item->fd);
 
-            tll_remove(fdm->fds, it);
-            return true;
-        }
+        it->item->deleted = true;
+        if (fdm->is_polling)
+            tll_push_back(fdm->deferred_delete, it->item);
+        else
+            free(it->item);
+
+        tll_remove(fdm->fds, it);
+        return true;
     }
 
     LOG_ERR("no such FD: %d", fd);
