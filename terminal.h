@@ -303,6 +303,7 @@ bool term_shutdown(struct terminal *term);
 int term_destroy(struct terminal *term);
 
 void term_reset(struct terminal *term, bool hard);
+bool term_to_slave(struct terminal *term, const void *data, size_t len);
 
 void term_damage_rows(struct terminal *term, int start, int end);
 void term_damage_rows_in_view(struct terminal *term, int start, int end);

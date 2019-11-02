@@ -325,7 +325,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
     case 0: {
         switch (final) {
         case 'c':
-            vt_to_slave(term, "\033[?6c", 5);
+            term_to_slave(term, "\033[?6c", 5);
             break;
 
         case 'd': {
@@ -690,7 +690,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     snprintf(reply, sizeof(reply), "\x1b[%d;%dR",
                              term->cursor.row + 1,
                              term->cursor.col + 1);
-                    vt_to_slave(term, reply, strlen(reply));
+                    term_to_slave(term, reply, strlen(reply));
                     break;
                 }
 
@@ -910,7 +910,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
              */
             char reply[32];
             snprintf(reply, sizeof(reply), "\033[?%u;2$y", param);
-            vt_to_slave(term, reply, strlen(reply));
+            term_to_slave(term, reply, strlen(reply));
             break;
         }
 
@@ -965,7 +965,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
                 }
 
-                vt_to_slave(term, "\033[>41;347;0c", 12);
+                term_to_slave(term, "\033[>41;347;0c", 12);
                 break;
             }
 

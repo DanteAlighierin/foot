@@ -768,6 +768,26 @@ term_reset(struct terminal *term, bool hard)
     term_damage_all(term);
 }
 
+bool
+term_to_slave(struct terminal *term, const void *_data, size_t len)
+{
+    const uint8_t *data = _data;
+    size_t left = len;
+
+    while (left > 0) {
+        ssize_t ret = write(term->ptmx, data, left);
+        if (ret < 0) {
+            LOG_ERRNO("failed to write to client");
+            return false;
+        }
+
+        data += ret;
+        left -= ret;
+    }
+
+    return true;
+}
+
 void
 term_damage_rows(struct terminal *term, int start, int end)
 {
@@ -1056,7 +1076,7 @@ term_focus_in(struct terminal *term)
 {
     if (!term->focus_events)
         return;
-    vt_to_slave(term, "\033[I", 3);
+    term_to_slave(term, "\033[I", 3);
 }
 
 void
@@ -1064,7 +1084,7 @@ term_focus_out(struct terminal *term)
 {
     if (!term->focus_events)
         return;
-    vt_to_slave(term, "\033[O", 3);
+    term_to_slave(term, "\033[O", 3);
 }
 
 static int
@@ -1138,7 +1158,7 @@ report_mouse_click(struct terminal *term, int encoded_button, int row, int col,
         return;
     }
 
-    vt_to_slave(term, response, strlen(response));
+    term_to_slave(term, response, strlen(response));
 }
 
 static void
