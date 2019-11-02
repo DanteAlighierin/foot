@@ -328,25 +328,12 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto close_fds;
     }
 
-    if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term)) {
-        LOG_ERR("failed to add ptmx to FDM");
-        goto err;
-    }
-
-    if (!fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term)) {
-        LOG_ERR("failed to add flash timer FD to FDM");
-        goto err;
-    }
-
-    if (!fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term)) {
-        LOG_ERR("failed to add blink tiemr FD to FDM");
-        goto err;
-    }
-
-    if (!fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
+    if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term) ||
+        !fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term) ||
+        !fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term) ||
+        !fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
         !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term))
     {
-        LOG_ERR("failed to add delayed rendering timer FDs to FDM");
         goto err;
     }
 
@@ -538,7 +525,6 @@ term_shutdown(struct terminal *term)
     }
 
     if (!fdm_add(term->fdm, event_fd, EPOLLIN, &fdm_shutdown, term)) {
-        LOG_ERR("failed to add terminal shutdown event FD to the FDM");
         close(event_fd);
         return false;
     }

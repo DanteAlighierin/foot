@@ -196,7 +196,6 @@ fdm_server(struct fdm *fdm, int fd, int events, void *data)
     };
 
     if (!fdm_add(server->fdm, client_fd, EPOLLIN, &fdm_client, client)) {
-        LOG_ERR("client FD=%d: failed to add client to FDM", client_fd);
         close(client_fd);
         free(client);
         return false;
@@ -321,10 +320,8 @@ server_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl)
         .clients = tll_init(),
     };
 
-    if (!fdm_add(fdm, fd, EPOLLIN, &fdm_server, server)) {
-        LOG_ERR("failed to add server FD to the FDM");
+    if (!fdm_add(fdm, fd, EPOLLIN, &fdm_server, server))
         goto err;
-    }
 
     return server;
 

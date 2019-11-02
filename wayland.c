@@ -522,14 +522,9 @@ wayl_init(struct fdm *fdm)
         goto out;
     }
 
-    int wl_fd = wl_display_get_fd(wayl->display);
-    if (!fdm_add(fdm, wl_fd, EPOLLIN, &fdm_wayl, wayl)) {
-        LOG_ERR("failed to register Wayland connection with the FDM");
-        goto out;
-    }
-
-    if (!fdm_add(fdm, wayl->kbd.repeat.fd, EPOLLIN, &fdm_repeat, wayl)) {
-        LOG_ERR("failed to register keyboard repeat timer with the FDM");
+    if (!fdm_add(fdm, wl_display_get_fd(wayl->display), EPOLLIN, &fdm_wayl, wayl) ||
+        !fdm_add(fdm, wayl->kbd.repeat.fd, EPOLLIN, &fdm_repeat, wayl))
+    {
         goto out;
     }
 
