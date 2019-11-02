@@ -407,13 +407,11 @@ fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
         wayl->kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
 
     if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+
         LOG_ERRNO("failed to read repeat key from repeat timer fd");
         return false;
-    }
-
-    if (ret == 0) {
-        /* Cancelled by other handler in *this* epoll() iteration */
-        return true;
     }
 
     wayl->kbd.repeat.dont_re_repeat = true;

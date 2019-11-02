@@ -113,13 +113,11 @@ fdm_flash(struct fdm *fdm, int fd, int events, void *data)
         term->flash.fd, &expiration_count, sizeof(expiration_count));
 
     if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+
         LOG_ERRNO("failed to read flash timer");
         return false;
-    }
-
-    if (ret == 0) {
-        /* Cancelled by other handler in *this* epoll() iteration */
-        return true;
     }
 
     LOG_DBG("flash timer expired %llu times",
@@ -143,13 +141,11 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
         term->blink.fd, &expiration_count, sizeof(expiration_count));
 
     if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+
         LOG_ERRNO("failed to read blink timer");
         return false;
-    }
-
-    if (ret == 0) {
-        /* Cancelled by other handler in *this* epoll() iteration */
-        return true;
     }
 
     LOG_DBG("blink timer expired %llu times",
@@ -195,13 +191,11 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
         ret2 = read(term->delayed_render_timer.upper_fd, &unused, sizeof(unused));
 
     if ((ret1 < 0 || ret2 < 0)) {
+        if (errno == EAGAIN)
+            return true;
+
         LOG_ERRNO("failed to read timeout timer");
         return false;
-    }
-
-    if (ret1 == 0 && ret2 == 0) {
-        /* Cancelled by other handler in *this* epoll() iteration */
-        return true;
     }
 
     render_refresh(term);
