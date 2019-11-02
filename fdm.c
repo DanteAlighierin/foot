@@ -149,14 +149,17 @@ fdm_poll(struct fdm *fdm)
     }
 
     struct epoll_event events[tll_length(fdm->fds)];
-    int ret = epoll_wait(fdm->epoll_fd, events, tll_length(fdm->fds), -1);
-    if (ret == -1) {
+
+    int r = epoll_wait(fdm->epoll_fd, events, tll_length(fdm->fds), -1);
+    if (r == -1) {
         if (errno == EINTR)
             return true;
 
         LOG_ERRNO("failed to epoll");
         return false;
     }
+
+    bool ret = true;
 
     fdm->is_polling = true;
     for (int i = 0; i < ret; i++) {
@@ -165,8 +168,8 @@ fdm_poll(struct fdm *fdm)
             continue;
 
         if (!fd->handler(fdm, fd->fd, events[i].events, fd->data)) {
-            fdm->is_polling = false;
-            return false;
+            ret = false;
+            break;
         }
     }
     fdm->is_polling = false;
@@ -176,5 +179,5 @@ fdm_poll(struct fdm *fdm)
         tll_remove(fdm->deferred_delete, it);
     }
 
-    return true;
+    return ret;
 }
