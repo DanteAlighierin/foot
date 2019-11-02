@@ -164,7 +164,7 @@ fdm_poll(struct fdm *fdm)
     bool ret = true;
 
     fdm->is_polling = true;
-    for (int i = 0; i < ret; i++) {
+    for (int i = 0; i < r; i++) {
         struct handler *fd = events[i].data.ptr;
         if (fd->deleted)
             continue;
