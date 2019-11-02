@@ -55,8 +55,10 @@ fdm_destroy(struct fdm *fdm)
         LOG_WARN("FD list not empty");
 
     assert(tll_length(fdm->fds) == 0);
+    assert(tll_length(fdm->deferred_delete) == 0);
 
     tll_free(fdm->fds);
+    tll_free(fdm->deferred_delete);
     close(fdm->epoll_fd);
     free(fdm);
 }
