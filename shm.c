@@ -42,22 +42,6 @@ static const struct wl_buffer_listener buffer_listener = {
 struct buffer *
 shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
 {
-    tll_foreach(buffers, it) {
-        if (it->item.width != width)
-            continue;
-        if (it->item.height != height)
-            continue;
-        if (it->item.cookie != cookie)
-            continue;
-
-        if (!it->item.busy) {
-            LOG_DBG("cookie=%lx: re-using buffer from cache", cookie);
-            it->item.busy = true;
-            it->item.purge = false;
-            return &it->item;
-        }
-    }
-
     /* Purge buffers marked for purging */
     tll_foreach(buffers, it) {
         if (it->item.cookie != cookie)
@@ -73,6 +57,22 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
 
         buffer_destroy(&it->item);
         tll_remove(buffers, it);
+    }
+
+    tll_foreach(buffers, it) {
+        if (it->item.width != width)
+            continue;
+        if (it->item.height != height)
+            continue;
+        if (it->item.cookie != cookie)
+            continue;
+
+        if (!it->item.busy) {
+            LOG_DBG("cookie=%lx: re-using buffer from cache", cookie);
+            it->item.busy = true;
+            it->item.purge = false;
+            return &it->item;
+        }
     }
 
     /* Purge old buffers associated with this cookie */
