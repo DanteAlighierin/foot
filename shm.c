@@ -53,8 +53,26 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
         if (!it->item.busy) {
             LOG_DBG("cookie=%lx: re-using buffer from cache", cookie);
             it->item.busy = true;
+            it->item.purge = false;
             return &it->item;
         }
+    }
+
+    /* Purge buffers marked for purging */
+    tll_foreach(buffers, it) {
+        if (it->item.cookie != cookie)
+            continue;
+
+        if (!it->item.purge)
+            continue;
+
+        assert(!it->item.busy);
+
+        LOG_DBG("cookie=%lx: purging buffer %p (width=%d, height=%d)",
+                cookie, &it->item, it->item.width, it->item.height);
+
+        buffer_destroy(&it->item);
+        tll_remove(buffers, it);
     }
 
     /* Purge old buffers associated with this cookie */
@@ -68,11 +86,8 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
         if (it->item.width == width && it->item.height == height)
             continue;
 
-        LOG_DBG("cookie=%lx: purging buffer (width=%d, height=%d)",
-                cookie, it->item.width, it->item.height);
-
-        buffer_destroy(&it->item);
-        tll_remove(buffers, it);
+        LOG_DBG("cookie=%lx: marking buffer %p for purging", cookie, &it->item);
+        it->item.purge = true;
     }
 
     /*

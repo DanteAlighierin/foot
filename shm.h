@@ -13,6 +13,8 @@ struct buffer {
     int height;
     int stride;
 
+    bool purge;
+
     bool busy;
     size_t size;
     void *mmapped;
