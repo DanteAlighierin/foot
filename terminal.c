@@ -552,6 +552,15 @@ term_shutdown(struct terminal *term)
     return true;
 }
 
+static volatile sig_atomic_t alarm_raised;
+
+static void
+sig_alarm(int signo)
+{
+    LOG_DBG("SIGALRM");
+    alarm_raised = 1;
+}
+
 int
 term_destroy(struct terminal *term)
 {
@@ -623,17 +632,68 @@ term_destroy(struct terminal *term)
     int ret = EXIT_SUCCESS;
 
     if (term->slave > 0) {
-        /* Note: we've closed ptmx, so the slave *should* exit... */
+        LOG_DBG("waiting for slave (PID=%u) to die", term->slave);
+
+        /*
+         * Note: we've closed ptmx, so the slave *should* exit...
+         *
+         * But, since it is possible to write clients that ignore
+         * this, we need to handle it in *some* way.
+         *
+         * So, what we do is register a SIGALRM handler, and configure
+         * a 2 second alarm. If the slave hasn't died after this time,
+         * we send it a SIGTERM, then wait another 2 seconds (using
+         * the same alarm mechanism). If it still hasn't died, we send
+         * it a SIGKILL.
+         *
+         * Note that this solution is *not* asynchronous, and any
+         * other events etc will be ignored during this time. This of
+         * course only applies to a 'foot --server' instance, where
+         * there might be other terminals running.
+         */
+        sigaction(SIGALRM, &(const struct sigaction){.sa_handler = &sig_alarm}, NULL);
+        alarm(2);
+
         int status;
-        waitpid(term->slave, &status, 0);
+        int kill_signal = SIGTERM;
+
+        while (true) {
+            int r = waitpid(term->slave, &status, 0);
+
+            if (r == term->slave)
+                break;
+
+            if (r == -1) {
+                assert(errno == EINTR);
+
+                if (alarm_raised) {
+                    LOG_DBG("slave hasn't died yet, sending: %s (%d)",
+                            kill_signal == SIGTERM ? "SIGTERM" : "SIGKILL",
+                            kill_signal);
+
+                    kill(term->slave, kill_signal);
+
+                    alarm_raised = 0;
+                    if (kill_signal != SIGKILL)
+                        alarm(2);
+
+                    kill_signal = SIGKILL;
+
+                }
+            }
+        }
+
+        /* Cancel alarm */
+        alarm(0);
+        sigaction(SIGALRM, &(const struct sigaction){.sa_handler = SIG_DFL}, NULL);
 
         ret = EXIT_FAILURE;
         if (WIFEXITED(status)) {
             ret = WEXITSTATUS(status);
-            LOG_DBG("slave exited with code %d", child_ret);
+            LOG_DBG("slave exited with code %d", ret);
         } else if (WIFSIGNALED(status)) {
             ret = WTERMSIG(status);
-            LOG_WARN("slave exited with signal %d", child_ret);
+            LOG_WARN("slave exited with signal %d (%s)", ret, strsignal(ret));
         } else {
             LOG_WARN("slave exited for unknown reason (status = 0x%08x)", status);
         }
