@@ -142,6 +142,12 @@ fdm_del_no_close(struct fdm *fdm, int fd)
 bool
 fdm_poll(struct fdm *fdm)
 {
+    assert(!fdm->is_polling && "nested calls to fdm_poll() not allowed");
+    if (fdm->is_polling) {
+        LOG_ERR("nested calls to fdm_poll() not allowed");
+        return false;
+    }
+
     struct epoll_event events[tll_length(fdm->fds)];
     int ret = epoll_wait(fdm->epoll_fd, events, tll_length(fdm->fds), -1);
     if (ret == -1) {
