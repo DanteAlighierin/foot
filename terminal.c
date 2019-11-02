@@ -627,18 +627,16 @@ term_destroy(struct terminal *term)
         int status;
         waitpid(term->slave, &status, 0);
 
-        int child_ret = EXIT_FAILURE;
+        ret = EXIT_FAILURE;
         if (WIFEXITED(status)) {
-            child_ret = WEXITSTATUS(status);
+            ret = WEXITSTATUS(status);
             LOG_DBG("slave exited with code %d", child_ret);
         } else if (WIFSIGNALED(status)) {
-            child_ret = WTERMSIG(status);
+            ret = WTERMSIG(status);
             LOG_WARN("slave exited with signal %d", child_ret);
         } else {
             LOG_WARN("slave exited for unknown reason (status = 0x%08x)", status);
         }
-
-        ret = child_ret;
     }
 
     free(term);
