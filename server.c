@@ -225,19 +225,9 @@ try_connect(const char *sock_path)
 {
     enum connect_status ret = CONNECT_ERR;
 
-    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
     if (fd == -1) {
         LOG_ERRNO("failed to create UNIX socket");
-        goto err;
-    }
-
-    /* Use non-blocking, so that we don't get stuck in connect()
-     * waiting for a timeout */
-    int flags;
-    if ((flags = fcntl(fd, F_GETFL)) < 0 ||
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK))
-    {
-        LOG_ERRNO("failed to set O_NONBLOCK");
         goto err;
     }
 
@@ -264,7 +254,7 @@ err:
 struct server *
 server_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl)
 {
-    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
     if (fd == -1) {
         LOG_ERRNO("failed to create UNIX socket");
         return NULL;
@@ -289,11 +279,6 @@ server_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl)
     }
 
     unlink(sock_path);
-
-    if (fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC) < 0) {
-        LOG_ERRNO("failed to set FD_CLOEXEC on socket");
-        goto err;
-    }
 
     struct sockaddr_un addr = {.sun_family = AF_UNIX};
     strncpy(addr.sun_path, sock_path, sizeof(addr.sun_path) - 1);
