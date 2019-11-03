@@ -122,15 +122,15 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
 
-    if (events & EPOLLOUT) {
+    if (unlikely(events & EPOLLOUT)) {
         if (!fdm_ptmx_out(fdm, fd, events, data))
             return false;
     }
 
-    if ((events & EPOLLHUP) && !(events & EPOLLIN))
+    if (unlikely((events & EPOLLHUP) && !(events & EPOLLIN)))
         return term_shutdown(term);
 
-    if (!(events & EPOLLIN))
+    if (unlikely(!(events & EPOLLIN)))
         return true;
 
     uint8_t buf[24 * 1024];
