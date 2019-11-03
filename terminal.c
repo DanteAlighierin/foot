@@ -1,5 +1,6 @@
 #include "terminal.h"
 
+#include <malloc.h>
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
@@ -796,6 +797,8 @@ term_destroy(struct terminal *term)
     }
 
     free(term);
+    if (!malloc_trim(0))
+        LOG_WARN("failed to trim memory");
     return ret;
 }
 
