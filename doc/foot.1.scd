@@ -33,6 +33,28 @@ execute (instead of the shell).
 *-t*,*--term*=_TERM_
 	Value to set the environment variable _TERM_ to. Default: _foot_.
 
+*-s*,*--server*
+	Run as a server. In this mode, a single foot instance hosts
+	multiple terminal (windows). Use *footclient(1)* to launch new
+	terminals.
+	
+	This saves some memory since for example fonts and glyph caches
+	can be shared between the terminals.
+	
+	It also saves upstart time since the config has already been
+	loaded and parsed, and most importantly, fonts have already been
+	loaded (and their glyph caches are likely to already have been
+	populated).
+
+	Each terminal will have its own rendering threads, but all Wayland
+	communication, as well as input/output to the shell, is
+	multiplexed in the main thread. Thus, this mode might result in
+	slightly worse performance when multiple terminals are under heavy
+	load.
+	
+	Also be aware that should one terminal crash, it will take all the
+	others with it.
+
 *-v*,*--version*
 	Show the version number and quit
 
