@@ -139,4 +139,4 @@ See *foot*(5)
 
 # SEE ALSO
 
-*foot*(5)
+*foot*(5), *footclient*(1)
