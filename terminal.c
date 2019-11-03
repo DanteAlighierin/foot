@@ -26,15 +26,99 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+bool
+term_to_slave(struct terminal *term, const void *_data, size_t len)
+{
+    if (tll_length(term->ptmx_buffer) > 0)
+        goto enqueue_data;
+
+    const uint8_t *data = _data;
+    size_t left = len;
+
+    while (left > 0) {
+        ssize_t ret = write(term->ptmx, data, left);
+        if (ret < 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                LOG_ERRNO("failed to write to client");
+                return false;
+            }
+
+            if (!fdm_event_add(term->fdm, term->ptmx, EPOLLOUT))
+                return false;
+
+            goto enqueue_data;
+        }
+
+        data += ret;
+        left -= ret;
+    }
+
+    return true;
+
+enqueue_data:
+    {
+        void *copy = malloc(len);
+        memcpy(copy, _data, len);
+
+        struct ptmx_buffer queued = {
+            .data = copy,
+            .len = len,
+            .idx = 0,
+        };
+        tll_push_back(term->ptmx_buffer, queued);
+    }
+
+    return true;
+}
+
+static bool
+fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct terminal *term = data;
+    assert(tll_length(term->ptmx_buffer) > 0);
+
+    tll_foreach(term->ptmx_buffer, it) {
+        const uint8_t *const data = it->item.data;
+        size_t left = it->item.len - it->item.idx;
+
+        while (left > 0) {
+            ssize_t ret = write(term->ptmx, &data[it->item.idx], left);
+            if (ret < 0) {
+                if (errno != EAGAIN && errno != EWOULDBLOCK) {
+                    LOG_ERRNO("failed to write to client");
+                    return false;
+                }
+
+                return true;
+            }
+
+            it->item.idx += ret;
+            left -= ret;
+        }
+
+        free(it->item.data);
+        tll_remove(term->ptmx_buffer, it);
+    }
+
+    fdm_event_del(term->fdm, term->ptmx, EPOLLOUT);
+    return true;
+}
+
 static bool
 fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
 
+    if (events & EPOLLOUT) {
+        if (!fdm_ptmx_out(fdm, fd, events, data))
+            return false;
+    }
+
     if ((events & EPOLLHUP) && !(events & EPOLLIN))
         return term_shutdown(term);
 
-    assert(events & EPOLLIN);
+    if (!(events & EPOLLIN))
+        return true;
 
     uint8_t buf[24 * 1024];
     ssize_t count = read(term->ptmx, buf, sizeof(buf));
@@ -328,6 +412,14 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto close_fds;
     }
 
+    int ptmx_flags;
+    if ((ptmx_flags = fcntl(ptmx, F_GETFL)) < 0 ||
+        fcntl(ptmx, F_SETFL, ptmx_flags | O_NONBLOCK) < 0)
+    {
+        LOG_ERRNO("failed to configure ptmx as non-blocking");
+        goto err;
+    }
+
     if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term) ||
         !fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term) ||
         !fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term) ||
@@ -342,6 +434,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .fdm = fdm,
         .quit = false,
         .ptmx = ptmx,
+        .ptmx_buffer = tll_init(),
         .cursor_keys_mode = CURSOR_KEYS_NORMAL,
         .keypad_keys_mode = KEYPAD_NUMERICAL,
         .auto_margin = true,
@@ -615,6 +708,10 @@ term_destroy(struct terminal *term)
     assert(tll_length(term->render.workers.queue) == 0);
     tll_free(term->render.workers.queue);
 
+    tll_foreach(term->ptmx_buffer, it)
+        free(it->item.data);
+    tll_free(term->ptmx_buffer);
+
     int ret = EXIT_SUCCESS;
 
     if (term->slave > 0) {
@@ -766,26 +863,6 @@ term_reset(struct terminal *term, bool hard)
     term->render.last_cursor.cell = NULL;
     term->render.was_flashing = false;
     term_damage_all(term);
-}
-
-bool
-term_to_slave(struct terminal *term, const void *_data, size_t len)
-{
-    const uint8_t *data = _data;
-    size_t left = len;
-
-    while (left > 0) {
-        ssize_t ret = write(term->ptmx, data, left);
-        if (ret < 0) {
-            LOG_ERRNO("failed to write to client");
-            return false;
-        }
-
-        data += ret;
-        left -= ret;
-    }
-
-    return true;
 }
 
 void

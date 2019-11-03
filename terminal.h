@@ -145,12 +145,20 @@ enum mouse_reporting {
 
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
 
+struct ptmx_buffer {
+    void *data;
+    size_t len;
+    size_t idx;
+};
+
 struct terminal {
     struct fdm *fdm;
 
     pid_t slave;
     int ptmx;
     bool quit;
+
+    tll(struct ptmx_buffer) ptmx_buffer;
 
     enum cursor_keys cursor_keys_mode;
     enum keypad_keys keypad_keys_mode;
