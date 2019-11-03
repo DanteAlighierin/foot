@@ -36,7 +36,7 @@ being important features (i.e. _"must-haves"_), that are unlikely to
 ever be supported by foot.
 
 * Tabs
-* Multiple windows
+* Graphical elements (menu, buttons etc)
 
 
 ## What does not work?
@@ -49,6 +49,17 @@ This is a list of known, but probably not all, issues:
   browser/editor_)
 
 * Reflow text on window resize
+
+* GNOME; might work, but without window decorations.
+
+  Strictly speaking, foot is at fault here; all Wayland applications
+  _must_ be able to draw their own window decorations (but foot is
+  not).
+
+  However, most people want a uniform look and feel on their desktop,
+  including the window decorations. For this reason, a Wayland
+  application can request _Server Side Decorations_ (SSD). GNOME will
+  reply with a "I here you, but sorry, I wont do that".
 
 
 ## Fonts
@@ -137,6 +148,10 @@ available:
 
   Paste from _primary_ selection
 
+* <kbd>wheel</kbd>
+
+  Scroll up/down in history
+
 
 ## Requirements
 
@@ -165,7 +180,7 @@ In addition to the dev variant of the packages above, you need:
 ### Arch Linux
 
 Use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to build
-the bundled [PKGBUILD](PKGBUILD) run `makepkg` in the source root
+the bundled [PKGBUILD](PKGBUILD) (run `makepkg` in the source root
 directory)..
 
 Note that it will do a profiling-guided build, and that this requires
