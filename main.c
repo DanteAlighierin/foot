@@ -42,7 +42,7 @@ print_usage(const char *prog_name)
     printf("  -f,--font=FONT              comma separated list of fonts in fontconfig format (monospace)\n"
            "  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
            "  -g,--geometry=WIDTHxHEIGHT  set initial width and height\n"
-           "  -s,--server                 run as a server\n"
+           "  -s,--server                 run as a server (use 'footclient' to start terminals)\n"
            "  -v,--version                show the version number and quit\n");
 }
 
