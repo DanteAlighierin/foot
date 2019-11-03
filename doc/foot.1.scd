@@ -122,6 +122,8 @@ available:
 *middle*
 	Paste from the _primary_ selection
 
+*wheel*
+	Scroll up/down in history
 
 # FONT FORMAT
 
