@@ -60,6 +60,11 @@ term_to_slave(struct terminal *term, const void *_data, size_t len)
         goto enqueue_data;
     }
 
+    /*
+     * Try a synchronous write first. If we fail to write everything,
+     * switch to asynchronous.
+     */
+
     switch (to_slave(term, _data, len, &(size_t){0})) {
     case PTMX_WRITE_REMAIN:
         if (!fdm_event_add(term->fdm, term->ptmx, EPOLLOUT))
@@ -69,6 +74,10 @@ term_to_slave(struct terminal *term, const void *_data, size_t len)
     case PTMX_WRITE_DONE: return true;
     case PTMX_WRITE_ERR:  return false;
     }
+
+    /* Shouldn't get here */
+    assert(false);
+    return false;
 
 enqueue_data:
     {
