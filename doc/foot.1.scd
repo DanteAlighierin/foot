@@ -35,7 +35,7 @@ execute (instead of the shell).
 
 *-s*,*--server*
 	Run as a server. In this mode, a single foot instance hosts
-	multiple terminal (windows). Use *footclient(1)* to launch new
+	multiple terminals (windows). Use *footclient(1)* to launch new
 	terminals.
 	
 	This saves some memory since for example fonts and glyph caches
