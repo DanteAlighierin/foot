@@ -55,7 +55,7 @@ in this order:
 # SECTION: cursor
 
 *style*
-	Configures the default cursor style, and is One of: _block_, _bar_
+	Configures the default cursor style, and is one of: _block_, _bar_
 	or _underline_. Default: _block_.
 
 *color*
