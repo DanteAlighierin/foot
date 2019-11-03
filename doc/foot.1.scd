@@ -58,6 +58,17 @@ execute (instead of the shell).
 *-v*,*--version*
 	Show the version number and quit
 
+# DESCRIPTION
+
+*foot* is a Wayland terminal emulator. Running it without arguments
+will start a new terminal window with your default shell.
+
+You can override the default shell by appending a custom command to
+the foot command line. To ensure foot does not touch the shell
+arguments, use *--*:
+
+	foot -- sh -c "echo hello world && sleep 5"
+
 # KEYBOARD SHORTCUTS
 
 The following keyboard shortcuts are available. Note that they cannot
