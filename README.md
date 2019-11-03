@@ -181,7 +181,7 @@ In addition to the dev variant of the packages above, you need:
 
 Use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to build
 the bundled [PKGBUILD](PKGBUILD) (run `makepkg` in the source root
-directory)..
+directory).
 
 Note that it will do a profiling-guided build, and that this requires
 a running wayland session since it needs to run an intermediate build
