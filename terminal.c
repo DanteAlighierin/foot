@@ -26,34 +26,49 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+enum ptmx_write_status {PTMX_WRITE_DONE, PTMX_WRITE_REMAIN, PTMX_WRITE_ERR};
+
+static enum ptmx_write_status
+to_slave(struct terminal *term, const void *_data, size_t len, size_t *idx)
+{
+    const uint8_t *const data = _data;
+    size_t left = len - *idx;
+
+    while (left > 0) {
+        ssize_t ret = write(term->ptmx, &data[*idx], left);
+
+        if (ret < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                return PTMX_WRITE_REMAIN;
+
+            LOG_ERRNO("failed to write to client");
+            return PTMX_WRITE_ERR;
+        }
+
+        *idx += ret;
+        left -= left;
+    }
+
+    return PTMX_WRITE_DONE;
+}
+
 bool
 term_to_slave(struct terminal *term, const void *_data, size_t len)
 {
-    if (tll_length(term->ptmx_buffer) > 0)
+    if (tll_length(term->ptmx_buffer) > 0) {
+        /* With a non-empty queue, EPOLLOUT has already been enabled */
         goto enqueue_data;
-
-    const uint8_t *data = _data;
-    size_t left = len;
-
-    while (left > 0) {
-        ssize_t ret = write(term->ptmx, data, left);
-        if (ret < 0) {
-            if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                LOG_ERRNO("failed to write to client");
-                return false;
-            }
-
-            if (!fdm_event_add(term->fdm, term->ptmx, EPOLLOUT))
-                return false;
-
-            goto enqueue_data;
-        }
-
-        data += ret;
-        left -= ret;
     }
 
-    return true;
+    switch (to_slave(term, _data, len, &(size_t){0})) {
+    case PTMX_WRITE_REMAIN:
+        if (!fdm_event_add(term->fdm, term->ptmx, EPOLLOUT))
+            return false;
+        goto enqueue_data;
+
+    case PTMX_WRITE_DONE: return true;
+    case PTMX_WRITE_ERR:  return false;
+    }
 
 enqueue_data:
     {
@@ -78,26 +93,15 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
     assert(tll_length(term->ptmx_buffer) > 0);
 
     tll_foreach(term->ptmx_buffer, it) {
-        const uint8_t *const data = it->item.data;
-        size_t left = it->item.len - it->item.idx;
+        switch (to_slave(term, it->item.data, it->item.len, &it->item.idx)) {
+        case PTMX_WRITE_DONE:
+            free(it->item.data);
+            tll_remove(term->ptmx_buffer, it);
+            break;
 
-        while (left > 0) {
-            ssize_t ret = write(term->ptmx, &data[it->item.idx], left);
-            if (ret < 0) {
-                if (errno != EAGAIN && errno != EWOULDBLOCK) {
-                    LOG_ERRNO("failed to write to client");
-                    return false;
-                }
-
-                return true;
-            }
-
-            it->item.idx += ret;
-            left -= ret;
+        case PTMX_WRITE_REMAIN: return true;  /* to_slave() updated it->item.idx */
+        case PTMX_WRITE_ERR:    return false;
         }
-
-        free(it->item.data);
-        tll_remove(term->ptmx_buffer, it);
     }
 
     fdm_event_del(term->fdm, term->ptmx, EPOLLOUT);
