@@ -181,6 +181,17 @@ static struct zxdg_output_v1_listener xdg_output_listener = {
     .description = xdg_output_handle_description,
 };
 
+static bool
+verify_iface_version(const char *iface, uint32_t version, uint32_t wanted)
+{
+    if (version >= wanted)
+        return true;
+
+    LOG_ERR("%s: need interface version %u, but compositor only implements %u",
+            iface, wanted, version);
+    return false;
+}
+
 static void
 handle_global(void *data, struct wl_registry *registry,
               uint32_t name, const char *interface, uint32_t version)
@@ -189,35 +200,60 @@ handle_global(void *data, struct wl_registry *registry,
     struct wayland *wayl = data;
 
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
+        const uint32_t required = 4;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
         wayl->compositor = wl_registry_bind(
-            wayl->registry, name, &wl_compositor_interface, 4);
+            wayl->registry, name, &wl_compositor_interface, required);
     }
 
     else if (strcmp(interface, wl_subcompositor_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
         wayl->sub_compositor = wl_registry_bind(
-            wayl->registry, name, &wl_subcompositor_interface, 1);
+            wayl->registry, name, &wl_subcompositor_interface, required);
     }
 
     else if (strcmp(interface, wl_shm_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
         wayl->shm = wl_registry_bind(
-            wayl->registry, name, &wl_shm_interface, 1);
+            wayl->registry, name, &wl_shm_interface, required);
         wl_shm_add_listener(wayl->shm, &shm_listener, wayl);
         wl_display_roundtrip(wayl->display);
     }
 
     else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
         wayl->shell = wl_registry_bind(
-            wayl->registry, name, &xdg_wm_base_interface, 1);
+            wayl->registry, name, &xdg_wm_base_interface, required);
         xdg_wm_base_add_listener(wayl->shell, &xdg_wm_base_listener, wayl);
     }
 
-    else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0)
+    else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
         wayl->xdg_decoration_manager = wl_registry_bind(
-            wayl->registry, name, &zxdg_decoration_manager_v1_interface, 1);
+            wayl->registry, name, &zxdg_decoration_manager_v1_interface, required);
+    }
 
     else if (strcmp(interface, wl_seat_interface.name) == 0) {
+        const uint32_t required = 5;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
         wayl->seat = wl_registry_bind(
-            wayl->registry, name, &wl_seat_interface, 5);
+            wayl->registry, name, &wl_seat_interface, required);
         wl_seat_add_listener(wayl->seat, &seat_listener, wayl);
         wl_display_roundtrip(wayl->display);
     }
@@ -228,8 +264,12 @@ handle_global(void *data, struct wl_registry *registry,
     }
 
     else if (strcmp(interface, wl_output_interface.name) == 0) {
+        const uint32_t required = 3;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
         struct wl_output *output = wl_registry_bind(
-            wayl->registry, name, &wl_output_interface, 3);
+            wayl->registry, name, &wl_output_interface, required);
 
         tll_push_back(
             wayl->monitors, ((struct monitor){.wayl = wayl, .output = output}));
@@ -237,20 +277,31 @@ handle_global(void *data, struct wl_registry *registry,
         struct monitor *mon = &tll_back(wayl->monitors);
         wl_output_add_listener(output, &output_listener, mon);
 
-        mon->xdg = zxdg_output_manager_v1_get_xdg_output(
-            wayl->xdg_output_manager, mon->output);
-        zxdg_output_v1_add_listener(mon->xdg, &xdg_output_listener, mon);
+        if (wayl->xdg_output_manager != NULL) {
+            mon->xdg = zxdg_output_manager_v1_get_xdg_output(
+                wayl->xdg_output_manager, mon->output);
+            zxdg_output_v1_add_listener(mon->xdg, &xdg_output_listener, mon);
+        }
         wl_display_roundtrip(wayl->display);
     }
 
     else if (strcmp(interface, wl_data_device_manager_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
         wayl->data_device_manager = wl_registry_bind(
-            wayl->registry, name, &wl_data_device_manager_interface, 1);
+            wayl->registry, name, &wl_data_device_manager_interface, required);
     }
 
     else if (strcmp(interface, zwp_primary_selection_device_manager_v1_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
         wayl->primary_selection_device_manager = wl_registry_bind(
-            wayl->registry, name, &zwp_primary_selection_device_manager_v1_interface, 1);
+            wayl->registry, name,
+            &zwp_primary_selection_device_manager_v1_interface, required);
     }
 }
 
@@ -425,6 +476,7 @@ wayl_init(struct fdm *fdm)
 {
     struct wayland *wayl = calloc(1, sizeof(*wayl));
     wayl->fdm = fdm;
+    wayl->kbd.repeat.fd = -1;
 
     wayl->display = wl_display_connect(NULL);
     if (wayl->display == NULL) {
@@ -445,16 +497,16 @@ wayl_init(struct fdm *fdm)
         LOG_ERR("no compositor");
         goto out;
     }
+    if (wayl->sub_compositor == NULL) {
+        LOG_ERR("no sub compositor");
+        goto out;
+    }
     if (wayl->shm == NULL) {
         LOG_ERR("no shared memory buffers interface");
         goto out;
     }
     if (wayl->shell == NULL) {
         LOG_ERR("no XDG shell interface");
-        goto out;
-    }
-    if (!wayl->have_argb8888) {
-        LOG_ERR("compositor does not support ARGB surfaces");
         goto out;
     }
     if (wayl->seat == NULL) {
@@ -466,8 +518,14 @@ wayl_init(struct fdm *fdm)
                 "(wl_data_device_manager not implemented by server)");
         goto out;
     }
+    if (!wayl->have_argb8888) {
+        LOG_ERR("compositor does not support ARGB surfaces");
+        goto out;
+    }
+
     if (wayl->primary_selection_device_manager == NULL)
         LOG_WARN("no primary selection available");
+
 
     tll_foreach(wayl->monitors, it) {
         LOG_INFO("%s: %dx%d+%dx%d (scale=%d, refresh=%.2fHz)",
@@ -552,7 +610,8 @@ wayl_destroy(struct wayland *wayl)
 
     tll_free(wayl->terms);
 
-    fdm_del(wayl->fdm, wayl->kbd.repeat.fd);
+    if (wayl->kbd.repeat.fd != -1)
+        fdm_del(wayl->fdm, wayl->kbd.repeat.fd);
 
     tll_foreach(wayl->monitors, it) {
         free(it->item.name);
