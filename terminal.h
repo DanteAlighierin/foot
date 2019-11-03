@@ -145,12 +145,20 @@ enum mouse_reporting {
 
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
 
+struct ptmx_buffer {
+    void *data;
+    size_t len;
+    size_t idx;
+};
+
 struct terminal {
     struct fdm *fdm;
 
     pid_t slave;
     int ptmx;
     bool quit;
+
+    tll(struct ptmx_buffer) ptmx_buffer;
 
     enum cursor_keys cursor_keys_mode;
     enum keypad_keys keypad_keys_mode;
@@ -303,6 +311,7 @@ bool term_shutdown(struct terminal *term);
 int term_destroy(struct terminal *term);
 
 void term_reset(struct terminal *term, bool hard);
+bool term_to_slave(struct terminal *term, const void *data, size_t len);
 
 void term_damage_rows(struct terminal *term, int start, int end);
 void term_damage_rows_in_view(struct terminal *term, int start, int end);

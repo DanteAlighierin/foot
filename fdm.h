@@ -13,4 +13,7 @@ bool fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *d
 bool fdm_del(struct fdm *fdm, int fd);
 bool fdm_del_no_close(struct fdm *fdm, int fd);
 
+bool fdm_event_add(struct fdm *fdm, int fd, int events);
+bool fdm_event_del(struct fdm *fdm, int fd, int events);
+
 bool fdm_poll(struct fdm *fdm);

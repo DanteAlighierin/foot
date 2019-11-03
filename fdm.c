@@ -14,6 +14,7 @@
 
 struct handler {
     int fd;
+    int events;
     fdm_handler_t callback;
     void *callback_data;
     bool deleted;
@@ -78,6 +79,7 @@ fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
     struct handler *fd_data = malloc(sizeof(*fd_data));
     *fd_data = (struct handler) {
         .fd = fd,
+        .events = events,
         .callback = handler,
         .callback_data = data,
         .deleted = false,
@@ -91,7 +93,7 @@ fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
     };
 
     if (epoll_ctl(fdm->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
-        LOG_ERRNO("failed to register FD with epoll");
+        LOG_ERRNO("failed to register FD=%d with epoll", fd);
         free(fd_data);
         tll_pop_back(fdm->fds);
         return false;
@@ -107,22 +109,23 @@ fdm_del_internal(struct fdm *fdm, int fd, bool close_fd)
         return true;
 
     tll_foreach(fdm->fds, it) {
-        if (it->item->fd == fd) {
-            if (epoll_ctl(fdm->epoll_fd, EPOLL_CTL_DEL, fd, NULL) < 0)
-                LOG_ERRNO("failed to unregister FD=%d from epoll", fd);
+        if (it->item->fd != fd)
+            continue;
 
-            if (close_fd)
-                close(it->item->fd);
+        if (epoll_ctl(fdm->epoll_fd, EPOLL_CTL_DEL, fd, NULL) < 0)
+            LOG_ERRNO("failed to unregister FD=%d from epoll", fd);
 
-            it->item->deleted = true;
-            if (fdm->is_polling)
-                tll_push_back(fdm->deferred_delete, it->item);
-            else
-                free(it->item);
+        if (close_fd)
+            close(it->item->fd);
 
-            tll_remove(fdm->fds, it);
-            return true;
-        }
+        it->item->deleted = true;
+        if (fdm->is_polling)
+            tll_push_back(fdm->deferred_delete, it->item);
+        else
+            free(it->item);
+
+        tll_remove(fdm->fds, it);
+        return true;
     }
 
     LOG_ERR("no such FD: %d", fd);
@@ -139,6 +142,55 @@ bool
 fdm_del_no_close(struct fdm *fdm, int fd)
 {
     return fdm_del_internal(fdm, fd, false);
+}
+
+static bool
+event_modify(struct fdm *fdm, struct handler *fd, int new_events)
+{
+    if (new_events == fd->events)
+        return true;
+
+    struct epoll_event ev = {
+        .events = new_events,
+        .data = {.ptr = fd},
+    };
+
+    if (epoll_ctl(fdm->epoll_fd, EPOLL_CTL_MOD, fd->fd, &ev) < 0) {
+        LOG_ERRNO("failed to modify FD=%d with epoll (events 0x%08x -> 0x%08x)",
+                  fd->fd, fd->events, new_events);
+        return false;
+    }
+
+    fd->events = new_events;
+    return true;
+}
+
+bool
+fdm_event_add(struct fdm *fdm, int fd, int events)
+{
+    tll_foreach(fdm->fds, it) {
+        if (it->item->fd != fd)
+            continue;
+
+        return event_modify(fdm, it->item, it->item->events | events);
+    }
+
+    LOG_ERR("FD=%d not registered with the FDM", fd);
+    return false;
+}
+
+bool
+fdm_event_del(struct fdm *fdm, int fd, int events)
+{
+    tll_foreach(fdm->fds, it) {
+        if (it->item->fd != fd)
+            continue;
+
+        return event_modify(fdm, it->item, it->item->events & ~events);
+    }
+
+    LOG_ERR("FD=%d not registered with the FDM", fd);
+    return false;
 }
 
 bool

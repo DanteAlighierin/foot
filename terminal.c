@@ -26,15 +26,103 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+enum ptmx_write_status {PTMX_WRITE_DONE, PTMX_WRITE_REMAIN, PTMX_WRITE_ERR};
+
+static enum ptmx_write_status
+to_slave(struct terminal *term, const void *_data, size_t len, size_t *idx)
+{
+    const uint8_t *const data = _data;
+    size_t left = len - *idx;
+
+    while (left > 0) {
+        ssize_t ret = write(term->ptmx, &data[*idx], left);
+
+        if (ret < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                return PTMX_WRITE_REMAIN;
+
+            LOG_ERRNO("failed to write to client");
+            return PTMX_WRITE_ERR;
+        }
+
+        *idx += ret;
+        left -= left;
+    }
+
+    return PTMX_WRITE_DONE;
+}
+
+bool
+term_to_slave(struct terminal *term, const void *_data, size_t len)
+{
+    if (tll_length(term->ptmx_buffer) > 0) {
+        /* With a non-empty queue, EPOLLOUT has already been enabled */
+        goto enqueue_data;
+    }
+
+    switch (to_slave(term, _data, len, &(size_t){0})) {
+    case PTMX_WRITE_REMAIN:
+        if (!fdm_event_add(term->fdm, term->ptmx, EPOLLOUT))
+            return false;
+        goto enqueue_data;
+
+    case PTMX_WRITE_DONE: return true;
+    case PTMX_WRITE_ERR:  return false;
+    }
+
+enqueue_data:
+    {
+        void *copy = malloc(len);
+        memcpy(copy, _data, len);
+
+        struct ptmx_buffer queued = {
+            .data = copy,
+            .len = len,
+            .idx = 0,
+        };
+        tll_push_back(term->ptmx_buffer, queued);
+    }
+
+    return true;
+}
+
+static bool
+fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct terminal *term = data;
+    assert(tll_length(term->ptmx_buffer) > 0);
+
+    tll_foreach(term->ptmx_buffer, it) {
+        switch (to_slave(term, it->item.data, it->item.len, &it->item.idx)) {
+        case PTMX_WRITE_DONE:
+            free(it->item.data);
+            tll_remove(term->ptmx_buffer, it);
+            break;
+
+        case PTMX_WRITE_REMAIN: return true;  /* to_slave() updated it->item.idx */
+        case PTMX_WRITE_ERR:    return false;
+        }
+    }
+
+    fdm_event_del(term->fdm, term->ptmx, EPOLLOUT);
+    return true;
+}
+
 static bool
 fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
 
+    if (events & EPOLLOUT) {
+        if (!fdm_ptmx_out(fdm, fd, events, data))
+            return false;
+    }
+
     if ((events & EPOLLHUP) && !(events & EPOLLIN))
         return term_shutdown(term);
 
-    assert(events & EPOLLIN);
+    if (!(events & EPOLLIN))
+        return true;
 
     uint8_t buf[24 * 1024];
     ssize_t count = read(term->ptmx, buf, sizeof(buf));
@@ -328,25 +416,20 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto close_fds;
     }
 
-    if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term)) {
-        LOG_ERR("failed to add ptmx to FDM");
+    int ptmx_flags;
+    if ((ptmx_flags = fcntl(ptmx, F_GETFL)) < 0 ||
+        fcntl(ptmx, F_SETFL, ptmx_flags | O_NONBLOCK) < 0)
+    {
+        LOG_ERRNO("failed to configure ptmx as non-blocking");
         goto err;
     }
 
-    if (!fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term)) {
-        LOG_ERR("failed to add flash timer FD to FDM");
-        goto err;
-    }
-
-    if (!fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term)) {
-        LOG_ERR("failed to add blink tiemr FD to FDM");
-        goto err;
-    }
-
-    if (!fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
+    if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term) ||
+        !fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term) ||
+        !fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term) ||
+        !fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
         !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term))
     {
-        LOG_ERR("failed to add delayed rendering timer FDs to FDM");
         goto err;
     }
 
@@ -355,6 +438,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .fdm = fdm,
         .quit = false,
         .ptmx = ptmx,
+        .ptmx_buffer = tll_init(),
         .cursor_keys_mode = CURSOR_KEYS_NORMAL,
         .keypad_keys_mode = KEYPAD_NUMERICAL,
         .auto_margin = true,
@@ -538,7 +622,6 @@ term_shutdown(struct terminal *term)
     }
 
     if (!fdm_add(term->fdm, event_fd, EPOLLIN, &fdm_shutdown, term)) {
-        LOG_ERR("failed to add terminal shutdown event FD to the FDM");
         close(event_fd);
         return false;
     }
@@ -628,6 +711,10 @@ term_destroy(struct terminal *term)
     sem_destroy(&term->render.workers.done);
     assert(tll_length(term->render.workers.queue) == 0);
     tll_free(term->render.workers.queue);
+
+    tll_foreach(term->ptmx_buffer, it)
+        free(it->item.data);
+    tll_free(term->ptmx_buffer);
 
     int ret = EXIT_SUCCESS;
 
@@ -1070,7 +1157,7 @@ term_focus_in(struct terminal *term)
 {
     if (!term->focus_events)
         return;
-    vt_to_slave(term, "\033[I", 3);
+    term_to_slave(term, "\033[I", 3);
 }
 
 void
@@ -1078,7 +1165,7 @@ term_focus_out(struct terminal *term)
 {
     if (!term->focus_events)
         return;
-    vt_to_slave(term, "\033[O", 3);
+    term_to_slave(term, "\033[O", 3);
 }
 
 static int
@@ -1152,7 +1239,7 @@ report_mouse_click(struct terminal *term, int encoded_button, int row, int col,
         return;
     }
 
-    vt_to_slave(term, response, strlen(response));
+    term_to_slave(term, response, strlen(response));
 }
 
 static void

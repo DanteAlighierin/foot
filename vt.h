@@ -6,7 +6,6 @@
 #include "terminal.h"
 
 void vt_from_slave(struct terminal *term, const uint8_t *data, size_t len);
-bool vt_to_slave(struct terminal *term, const void *data, size_t len);
 
 static inline int
 vt_param_get(const struct terminal *term, size_t idx, int default_value)

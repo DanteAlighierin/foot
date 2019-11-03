@@ -78,7 +78,7 @@ from_clipboard_cb(const char *text, size_t size, void *user)
             assert(chunk != NULL);
             assert(strlen(chunk) == 4);
 
-            vt_to_slave(term, chunk, 4);
+            term_to_slave(term, chunk, 4);
             free(chunk);
 
             ctx->idx = 0;
@@ -98,7 +98,7 @@ from_clipboard_cb(const char *text, size_t size, void *user)
     char *chunk = base64_encode((const uint8_t *)t, left / 3 * 3);
     assert(chunk != NULL);
     assert(strlen(chunk) % 4 == 0);
-    vt_to_slave(term, chunk, strlen(chunk));
+    term_to_slave(term, chunk, strlen(chunk));
     free(chunk);
 }
 
@@ -120,9 +120,9 @@ osc_from_clipboard(struct terminal *term, const char *source)
     if (src == 0)
         return;
 
-    vt_to_slave(term, "\033]52;", 5);
-    vt_to_slave(term, &src, 1);
-    vt_to_slave(term, ";", 1);
+    term_to_slave(term, "\033]52;", 5);
+    term_to_slave(term, &src, 1);
+    term_to_slave(term, ";", 1);
 
     struct clip_context ctx = {
         .term = term,
@@ -141,10 +141,10 @@ osc_from_clipboard(struct terminal *term, const char *source)
     if (ctx.idx > 0) {
         char res[4];
         base64_encode_final(ctx.buf, ctx.idx, res);
-        vt_to_slave(term, res, 4);
+        term_to_slave(term, res, 4);
     }
 
-    vt_to_slave(term, "\033\\", 2);
+    term_to_slave(term, "\033\\", 2);
 }
 
 static void
@@ -343,7 +343,7 @@ osc_dispatch(struct terminal *term)
             char reply[32];
             snprintf(reply, sizeof(reply), "\033]4;%u;rgb:%02x/%02x/%02x\033\\",
                      idx, r, g, b);
-            vt_to_slave(term, reply, strlen(reply));
+            term_to_slave(term, reply, strlen(reply));
             break;
         }
 
@@ -377,7 +377,7 @@ osc_dispatch(struct terminal *term)
                 reply, sizeof(reply), "\033]%u;rgb:%02x/%02x/%02x\033\\",
                 param, r, g, b);
 
-            vt_to_slave(term, reply, strlen(reply));
+            term_to_slave(term, reply, strlen(reply));
             break;
         }
 

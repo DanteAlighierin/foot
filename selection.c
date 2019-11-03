@@ -533,7 +533,7 @@ static void
 from_clipboard_cb(const char *data, size_t size, void *user)
 {
     struct terminal *term = user;
-    vt_to_slave(term, data, size);
+    term_to_slave(term, data, size);
 }
 
 void
@@ -544,12 +544,12 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
         return;
 
     if (term->bracketed_paste)
-        vt_to_slave(term, "\033[200~", 6);
+        term_to_slave(term, "\033[200~", 6);
 
     text_from_clipboard(term, serial, &from_clipboard_cb, term);
 
     if (term->bracketed_paste)
-        vt_to_slave(term, "\033[201~", 6);
+        term_to_slave(term, "\033[201~", 6);
 }
 
 bool
@@ -675,12 +675,12 @@ selection_from_primary(struct terminal *term)
         return;
 
     if (term->bracketed_paste)
-        vt_to_slave(term, "\033[200~", 6);
+        term_to_slave(term, "\033[200~", 6);
 
     text_from_primary(term, &from_clipboard_cb, term);
 
     if (term->bracketed_paste)
-        vt_to_slave(term, "\033[201~", 6);
+        term_to_slave(term, "\033[201~", 6);
 }
 
 #if 0
