@@ -205,6 +205,7 @@ main(int argc, char *const *argv)
     if (as_server && (server = server_init(&conf, fdm, wayl)) == NULL)
         goto out;
 
+    /* Remember to restore signals in slave */
     const struct sigaction sa = {.sa_handler = &sig_handler};
     if (sigaction(SIGINT, &sa, NULL) < 0 || sigaction(SIGTERM, &sa, NULL) < 0) {
         LOG_ERRNO("failed to register signal handlers");

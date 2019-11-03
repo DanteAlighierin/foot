@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
+#include <signal.h>
 
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -88,6 +89,18 @@ slave_spawn(int ptmx, int argc, char *const *argv,
         /* Child */
         close(fork_pipe[0]);  /* Close read end */
 
+        /* Restore signals */
+        const struct sigaction sa = {.sa_handler = SIG_DFL};
+        if (sigaction(SIGINT, &sa, NULL) < 0 ||
+            sigaction(SIGTERM, &sa, NULL) < 0 ||
+            sigaction(SIGHUP, &sa, NULL) < 0)
+        {
+            const int _errno = errno;
+            LOG_ERRNO_P("failed to restore signals", errno);
+            (void)!write(fork_pipe[1], &_errno, sizeof(_errno));
+            _exit(_errno);
+        }
+
         setenv("TERM", term_env, 1);
 
         char **_shell_argv = NULL;
@@ -134,7 +147,6 @@ slave_spawn(int ptmx, int argc, char *const *argv,
             LOG_ERRNO("failed to set FD_CLOEXEC on ptmx");
             return -1;
         }
-
         break;
     }
     }
