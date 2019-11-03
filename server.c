@@ -290,7 +290,7 @@ server_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl)
 
     unlink(sock_path);
 
-    if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | FD_CLOEXEC) < 0) {
+    if (fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC) < 0) {
         LOG_ERRNO("failed to set FD_CLOEXEC on socket");
         goto err;
     }
