@@ -211,6 +211,11 @@ main(int argc, char *const *argv)
         goto out;
     }
 
+    if (sigaction(SIGHUP, &(struct sigaction){.sa_handler = SIG_IGN}, NULL) < 0) {
+        LOG_ERRNO("failed to ignore SIGHUP");
+        goto out;
+    }
+
     if (as_server)
         LOG_INFO("running as server; launch terminals by running footclient");
 
