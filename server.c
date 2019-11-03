@@ -6,7 +6,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
-#include <fcntl.h>
 
 #include <linux/un.h>
 

@@ -6,7 +6,6 @@
 
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
-#include <fcntl.h>
 
 #include <wayland-client.h>
 #include <wayland-cursor.h>
