@@ -127,6 +127,15 @@ slave_spawn(int ptmx, int argc, char *const *argv,
             return -1;
         } else
             LOG_DBG("%s: successfully started", conf_shell);
+
+        int fd_flags;
+        if ((fd_flags = fcntl(ptmx, F_GETFD)) < 0 ||
+            fcntl(ptmx, F_SETFD, fd_flags | FD_CLOEXEC) < 0)
+        {
+            LOG_ERRNO("failed to set FD_CLOEXEC on ptmx");
+            return -1;
+        }
+
         break;
     }
     }
