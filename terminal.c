@@ -29,6 +29,22 @@
 
 enum ptmx_write_status {PTMX_WRITE_DONE, PTMX_WRITE_REMAIN, PTMX_WRITE_ERR};
 
+/*
+ * Primitive that writes data to the slave/client
+ *
+ * _data: points to the beginning of the buffer
+ * len: total size of the data buffer
+ * idx: pointer to byte offset into data buffer - writing starts here.
+ *
+ * Thus, the total amount of data to write is (len - *idx). *idx is
+ * updated such that it points to the next unwritten byte in the data
+ * buffer.
+ *
+ * I.e. if the return value is:
+ *  - PTMX_WRITE_DONE, then the *idx == len.
+ *  - PTMX_WRITE_REMAIN, then *idx < len
+ *  - PTMX_WRITE_ERR, there was an error, and no data was written
+ */
 static enum ptmx_write_status
 to_slave(struct terminal *term, const void *_data, size_t len, size_t *idx)
 {
@@ -68,6 +84,7 @@ term_to_slave(struct terminal *term, const void *_data, size_t len)
 
     switch (to_slave(term, _data, len, &(size_t){0})) {
     case PTMX_WRITE_REMAIN:
+        /* Switch to asynchronous mode; let FDM write the remaining data */
         if (!fdm_event_add(term->fdm, term->ptmx, EPOLLOUT))
             return false;
         goto enqueue_data;
@@ -81,6 +98,10 @@ term_to_slave(struct terminal *term, const void *_data, size_t len)
     return false;
 
 enqueue_data:
+    /*
+     * We're in asynchronous mode - push data to queue and let the FDM
+     * handler take care of it
+     */
     {
         void *copy = malloc(len);
         memcpy(copy, _data, len);
@@ -92,7 +113,6 @@ enqueue_data:
         };
         tll_push_back(term->ptmx_buffer, queued);
     }
-
     return true;
 }
 
@@ -100,8 +120,11 @@ static bool
 fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
+
+    /* If there is no queued data, then we shouldn't be in asynchronous mode */
     assert(tll_length(term->ptmx_buffer) > 0);
 
+    /* Don't use pop() since we may not be able to write the entire buffer */
     tll_foreach(term->ptmx_buffer, it) {
         switch (to_slave(term, it->item.data, it->item.len, &it->item.idx)) {
         case PTMX_WRITE_DONE:
@@ -114,6 +137,7 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
         }
     }
 
+    /* No more queued data, switch back to synchronous mode */
     fdm_event_del(term->fdm, term->ptmx, EPOLLOUT);
     return true;
 }
