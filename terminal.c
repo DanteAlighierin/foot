@@ -273,6 +273,7 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
     LOG_DBG("blink timer expired %llu times",
             (unsigned long long)expiration_count);
 
+    /* Invert blink state */
     term->blink.state = term->blink.state == BLINK_ON
         ? BLINK_OFF : BLINK_ON;
 

@@ -7,6 +7,8 @@
 #include <errno.h>
 #include <wctype.h>
 
+#include <sys/epoll.h>
+
 #define LOG_MODULE "selection"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
@@ -315,32 +317,76 @@ target(void *data, struct wl_data_source *wl_data_source, const char *mime_type)
     LOG_WARN("TARGET: mime-type=%s", mime_type);
 }
 
+typedef bool (*fdm_handler_t)(struct fdm *fdm, int fd, int events, void *data);
+
+struct clipboard_send {
+    char *data;
+    size_t len;
+    size_t idx;
+};
+
+static bool
+fdm_send(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct clipboard_send *ctx = data;
+    size_t left = ctx->len - ctx->idx;
+
+    while (left > 0) {
+        ssize_t count = write(fd, &ctx->data[ctx->idx], left);
+        if (count < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                return true;
+
+            /*
+             * Log error, but handle this as if it completed
+             * successfully - we don't want to terminate just because
+             * the clipboard receiver cancelled
+             */
+            LOG_ERRNO("failed to write to FD=%d", fd);
+            goto out;
+        }
+
+        LOG_DBG("async sent %zd bytes (of %zu, %zu left)",
+                count, left, left - count);
+
+        ctx->idx += count;
+        left -= count;
+    }
+
+out:
+    fdm_del(fdm, fd);
+    free(ctx->data);
+    free(ctx);
+    return true;
+}
+
 static void
 send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
      int32_t fd)
 {
-    const struct wl_clipboard *clipboard
-        = wl_data_source_get_user_data(wl_data_source);
+    struct wayland *wayl = data;
+    const struct wl_clipboard *clipboard = &wayl->clipboard;
 
     assert(clipboard != NULL);
     assert(clipboard->text != NULL);
 
-    size_t left = strlen(clipboard->text);
-    size_t idx = 0;
-
-    while (left > 0) {
-        ssize_t ret = write(fd, &clipboard->text[idx], left);
-
-        if (ret == -1 && errno != EINTR) {
-            LOG_ERRNO("failed to write to clipboard");
-            break;
-        }
-
-        left -= ret;
-        idx += ret;
+    int flags;
+    if ((flags = fcntl(fd, F_GETFL)) < 0 ||
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
+    {
+        LOG_ERRNO("failed to set O_NONBLOCK");
+        return;
     }
 
-    close(fd);
+    struct clipboard_send *ctx = malloc(sizeof(*ctx));
+    *ctx = (struct clipboard_send) {
+        .data = strdup(clipboard->text),
+        .len = strlen(clipboard->text),
+        .idx = 0,
+    };
+
+    if (!fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
+        free(ctx);
 }
 
 static void
@@ -386,28 +432,29 @@ primary_send(void *data,
              struct zwp_primary_selection_source_v1 *zwp_primary_selection_source_v1,
              const char *mime_type, int32_t fd)
 {
-    const struct wl_primary *primary
-        = zwp_primary_selection_source_v1_get_user_data(zwp_primary_selection_source_v1);
+    struct wayland *wayl = data;
+    const struct wl_primary *primary = &wayl->primary;
 
     assert(primary != NULL);
     assert(primary->text != NULL);
 
-    size_t left = strlen(primary->text);
-    size_t idx = 0;
-
-    while (left > 0) {
-        ssize_t ret = write(fd, &primary->text[idx], left);
-
-        if (ret == -1 && errno != EINTR) {
-            LOG_ERRNO("failed to write to clipboard");
-            break;
-        }
-
-        left -= ret;
-        idx += ret;
+    int flags;
+    if ((flags = fcntl(fd, F_GETFL)) < 0 ||
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
+    {
+        LOG_ERRNO("failed to set O_NONBLOCK");
+        return;
     }
 
-    close(fd);
+    struct clipboard_send *ctx = malloc(sizeof(*ctx));
+    *ctx = (struct clipboard_send) {
+        .data = strdup(primary->text),
+        .len = strlen(primary->text),
+        .idx = 0,
+    };
+
+    if (!fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
+        free(ctx);
 }
 
 static void
@@ -458,10 +505,10 @@ text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
     clipboard->text = text;
 
     /* Configure source */
+    LOG_INFO("registering listener, term=%p", term);
     wl_data_source_offer(clipboard->data_source, "text/plain;charset=utf-8");
-    wl_data_source_add_listener(clipboard->data_source, &data_source_listener, term);
+    wl_data_source_add_listener(clipboard->data_source, &data_source_listener, term->wl);
     wl_data_device_set_selection(term->wl->data_device, clipboard->data_source, serial);
-    wl_data_source_set_user_data(clipboard->data_source, clipboard);
 
     /* Needed when sending the selection to other client */
     clipboard->serial = serial;
@@ -588,9 +635,8 @@ text_to_primary(struct terminal *term, char *text, uint32_t serial)
 
     /* Configure source */
     zwp_primary_selection_source_v1_offer(primary->data_source, "text/plain;charset=utf-8");
-    zwp_primary_selection_source_v1_add_listener(primary->data_source, &primary_selection_source_listener, term);
+    zwp_primary_selection_source_v1_add_listener(primary->data_source, &primary_selection_source_listener, term->wl);
     zwp_primary_selection_device_v1_set_selection(term->wl->primary_selection_device, primary->data_source, serial);
-    zwp_primary_selection_source_v1_set_user_data(primary->data_source, primary);
 
     /* Needed when sending the selection to other client */
     primary->serial = serial;
