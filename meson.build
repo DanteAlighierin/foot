@@ -64,6 +64,7 @@ version = custom_target(
 
 executable(
   'foot',
+  'async.c', 'async.h',
   'base64.c', 'base64.h',
   'config.c', 'config.h',
   'commands.c', 'commands.h',
