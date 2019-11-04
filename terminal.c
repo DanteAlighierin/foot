@@ -17,6 +17,8 @@
 #define LOG_MODULE "terminal"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+
+#include "async.h"
 #include "grid.h"
 #include "render.h"
 #include "vt.h"
@@ -26,48 +28,6 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
-
-enum ptmx_write_status {PTMX_WRITE_DONE, PTMX_WRITE_REMAIN, PTMX_WRITE_ERR};
-
-/*
- * Primitive that writes data to the slave/client
- *
- * _data: points to the beginning of the buffer
- * len: total size of the data buffer
- * idx: pointer to byte offset into data buffer - writing starts here.
- *
- * Thus, the total amount of data to write is (len - *idx). *idx is
- * updated such that it points to the next unwritten byte in the data
- * buffer.
- *
- * I.e. if the return value is:
- *  - PTMX_WRITE_DONE, then the *idx == len.
- *  - PTMX_WRITE_REMAIN, then *idx < len
- *  - PTMX_WRITE_ERR, there was an error, and no data was written
- */
-static enum ptmx_write_status
-to_slave(struct terminal *term, const void *_data, size_t len, size_t *idx)
-{
-    const uint8_t *const data = _data;
-    size_t left = len - *idx;
-
-    while (left > 0) {
-        ssize_t ret = write(term->ptmx, &data[*idx], left);
-
-        if (ret < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                return PTMX_WRITE_REMAIN;
-
-            LOG_ERRNO("failed to write to client");
-            return PTMX_WRITE_ERR;
-        }
-
-        *idx += ret;
-        left -= left;
-    }
-
-    return PTMX_WRITE_DONE;
-}
 
 bool
 term_to_slave(struct terminal *term, const void *_data, size_t len)
@@ -82,15 +42,19 @@ term_to_slave(struct terminal *term, const void *_data, size_t len)
      * switch to asynchronous.
      */
 
-    switch (to_slave(term, _data, len, &(size_t){0})) {
-    case PTMX_WRITE_REMAIN:
+    switch (async_write(term->ptmx, _data, len, &(size_t){0})) {
+    case ASYNC_WRITE_REMAIN:
         /* Switch to asynchronous mode; let FDM write the remaining data */
         if (!fdm_event_add(term->fdm, term->ptmx, EPOLLOUT))
             return false;
         goto enqueue_data;
 
-    case PTMX_WRITE_DONE: return true;
-    case PTMX_WRITE_ERR:  return false;
+    case ASYNC_WRITE_DONE:
+        return true;
+
+    case ASYNC_WRITE_ERR:
+        LOG_ERRNO("failed to synchronously write %zu bytes to slave", len);
+        return false;
     }
 
     /* Shouldn't get here */
@@ -126,14 +90,20 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
 
     /* Don't use pop() since we may not be able to write the entire buffer */
     tll_foreach(term->ptmx_buffer, it) {
-        switch (to_slave(term, it->item.data, it->item.len, &it->item.idx)) {
-        case PTMX_WRITE_DONE:
+        switch (async_write(term->ptmx, it->item.data, it->item.len, &it->item.idx)) {
+        case ASYNC_WRITE_DONE:
             free(it->item.data);
             tll_remove(term->ptmx_buffer, it);
             break;
 
-        case PTMX_WRITE_REMAIN: return true;  /* to_slave() updated it->item.idx */
-        case PTMX_WRITE_ERR:    return false;
+        case ASYNC_WRITE_REMAIN:
+            /* to_slave() updated it->item.idx */
+            return true;
+
+        case ASYNC_WRITE_ERR:
+            LOG_ERRNO("failed to asynchronously write %zu bytes to slave",
+                      it->item.len - it->item.idx);
+            return false;
         }
     }
 
