@@ -12,8 +12,10 @@
 #define LOG_MODULE "selection"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "render.h"
+
+#include "async.h"
 #include "grid.h"
+#include "render.h"
 #include "vt.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
@@ -329,31 +331,23 @@ static bool
 fdm_send(struct fdm *fdm, int fd, int events, void *data)
 {
     struct clipboard_send *ctx = data;
-    size_t left = ctx->len - ctx->idx;
 
-    while (left > 0) {
-        ssize_t count = write(fd, &ctx->data[ctx->idx], left);
-        if (count < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                return true;
+    assert(false);
 
-            /*
-             * Log error, but handle this as if it completed
-             * successfully - we don't want to terminate just because
-             * the clipboard receiver cancelled
-             */
-            LOG_ERRNO("failed to write to FD=%d", fd);
-            goto out;
-        }
+    switch (async_write(fd, ctx->data, ctx->len, &ctx->idx)) {
+    case ASYNC_WRITE_REMAIN:
+        return true;
 
-        LOG_DBG("async sent %zd bytes (of %zu, %zu left)",
-                count, left, left - count);
+    case ASYNC_WRITE_DONE:
+        break;
 
-        ctx->idx += count;
-        left -= count;
+    case ASYNC_WRITE_ERR:
+        LOG_ERRNO(
+            "failed to asynchronously write %zu of selection data to FD=%d",
+            ctx->len - ctx->idx, fd);
+        break;
     }
 
-out:
     fdm_del(fdm, fd);
     free(ctx->data);
     free(ctx);
@@ -370,6 +364,9 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
     assert(clipboard != NULL);
     assert(clipboard->text != NULL);
 
+    const char *selection = clipboard->text;
+    const size_t len = strlen(selection);
+
     int flags;
     if ((flags = fcntl(fd, F_GETFL)) < 0 ||
         fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
@@ -378,15 +375,33 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
         return;
     }
 
-    struct clipboard_send *ctx = malloc(sizeof(*ctx));
-    *ctx = (struct clipboard_send) {
-        .data = strdup(clipboard->text),
-        .len = strlen(clipboard->text),
-        .idx = 0,
-    };
+    switch (async_write(fd, selection, len, &(size_t){0})) {
+    case ASYNC_WRITE_REMAIN: {
+        struct clipboard_send *ctx = malloc(sizeof(*ctx));
+        *ctx = (struct clipboard_send) {
+            .data = strdup(selection),
+            .len = len,
+            .idx = 0,
+        };
 
-    if (!fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
+        if (fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
+            return;
+
         free(ctx);
+        break;
+    }
+
+    case ASYNC_WRITE_DONE:
+        break;
+
+    case ASYNC_WRITE_ERR:
+        LOG_ERRNO(
+            "failed to write %zu bytes of clipboard selection data to FD=%d",
+            len, fd);
+        break;
+    }
+
+    close(fd);
 }
 
 static void
@@ -438,6 +453,9 @@ primary_send(void *data,
     assert(primary != NULL);
     assert(primary->text != NULL);
 
+    const char *selection = primary->text;
+    const size_t len = strlen(selection);
+
     int flags;
     if ((flags = fcntl(fd, F_GETFL)) < 0 ||
         fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
@@ -446,15 +464,33 @@ primary_send(void *data,
         return;
     }
 
-    struct clipboard_send *ctx = malloc(sizeof(*ctx));
-    *ctx = (struct clipboard_send) {
-        .data = strdup(primary->text),
-        .len = strlen(primary->text),
-        .idx = 0,
-    };
+    switch (async_write(fd, selection, len, &(size_t){0})) {
+    case ASYNC_WRITE_REMAIN: {
+        struct clipboard_send *ctx = malloc(sizeof(*ctx));
+        *ctx = (struct clipboard_send) {
+            .data = strdup(selection),
+            .len = len,
+            .idx = 0,
+        };
 
-    if (!fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
+        if (fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
+            return;
+
         free(ctx);
+        break;
+    }
+
+    case ASYNC_WRITE_DONE:
+        break;
+
+    case ASYNC_WRITE_ERR:
+        LOG_ERRNO(
+            "failed to write %zu bytes of primary selection data to FD=%d",
+            len, fd);
+        break;
+    }
+
+    close(fd);
 }
 
 static void
@@ -505,7 +541,6 @@ text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
     clipboard->text = text;
 
     /* Configure source */
-    LOG_INFO("registering listener, term=%p", term);
     wl_data_source_offer(clipboard->data_source, "text/plain;charset=utf-8");
     wl_data_source_add_listener(clipboard->data_source, &data_source_listener, term->wl);
     wl_data_device_set_selection(term->wl->data_device, clipboard->data_source, serial);
