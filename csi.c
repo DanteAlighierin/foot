@@ -775,6 +775,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     /* metaSendsEscape - we always send escape */
                     break;
 
+#if 0
                 case 1042:
                     LOG_WARN("unimplemented: 'urgency' window manager hint on ctrl-g");
                     break;
@@ -782,6 +783,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 case 1043:
                     LOG_WARN("unimplemented: raise window on ctrl-g");
                     break;
+#endif
 
                 case 1049:
                     if (term->grid != &term->alt) {
@@ -873,6 +875,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     LOG_WARN("unimplemented: meta does *not* send escape");
                     break;
 
+#if 0
                 case 1042:
                     /* 'urgency' window manager hint on ctrl-g */
                     break;
@@ -880,6 +883,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 case 1043:
                     /* raise window on ctrl-g */
                     break;
+#endif
 
                 case 1049:
                     if (term->grid == &term->alt) {
