@@ -407,7 +407,8 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
 static void
 cancelled(void *data, struct wl_data_source *wl_data_source)
 {
-    struct wl_clipboard *clipboard = wl_data_source_get_user_data(wl_data_source);
+    struct wayland *wayl = data;
+    struct wl_clipboard *clipboard = &wayl->clipboard;
     assert(clipboard->data_source == wl_data_source);
 
     wl_data_source_destroy(clipboard->data_source);
@@ -497,9 +498,8 @@ static void
 primary_cancelled(void *data,
                   struct zwp_primary_selection_source_v1 *zwp_primary_selection_source_v1)
 {
-    struct wl_primary *primary = zwp_primary_selection_source_v1_get_user_data(
-        zwp_primary_selection_source_v1);
-    //assert(primary->data_source == zwp_primary_selection_source_v1);
+    struct wayland *wayl = data;
+    struct wl_primary *primary = &wayl->primary;
 
     zwp_primary_selection_source_v1_destroy(primary->data_source);
     primary->data_source = NULL;
