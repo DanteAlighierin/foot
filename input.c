@@ -230,7 +230,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
         else if (sym == XKB_KEY_V) {
             selection_from_clipboard(term, serial);
-            term_reset_view(term);
+            //term_reset_view(term);
             found_map = true;
         }
 
@@ -324,7 +324,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                 term_to_slave(term, buf, count);
             }
 
-            term_reset_view(term);
+            //term_reset_view(term);
             selection_cancel(term);
         }
     }
