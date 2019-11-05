@@ -845,7 +845,7 @@ action_print(struct terminal *term, uint8_t c)
     {
         cell->wc = vt100_0[c - 0x60];
     } else {
-        //LOG_DBG("print: ASCII: %c", c);
+        // LOG_DBG("print: ASCII: %c (0x%04x)", c, c);
         cell->wc = c;
     }
 
