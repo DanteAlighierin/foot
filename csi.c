@@ -722,6 +722,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->cursor_keys_mode = CURSOR_KEYS_APPLICATION;
                     break;
 
+                case 3:
+                    LOG_WARN("unimplemented: 132 column mode (DECCOLM, %s)",
+                             csi_as_string(term, final));
+                    break;
+
                 case 5:
                     term->reverse = true;
                     term_damage_all(term);
@@ -825,8 +830,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 3:
-                    LOG_WARN("unimplemented: 132 column mode (DECCOLM, %s)",
-                             csi_as_string(term, final));
+                    /* DECCOLM - 80 column mode */
                     break;
 
                 case 4:
