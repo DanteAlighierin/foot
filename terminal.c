@@ -117,15 +117,21 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
 
-    if (unlikely(events & EPOLLOUT)) {
+    bool pollin = events & EPOLLIN;
+    bool pollout = events & EPOLLOUT;
+    bool hup = events & EPOLLHUP;
+
+    if (hup) {
+        /* TODO: should we *not* ignore pollin? */
+        return term_shutdown(term);
+    }
+
+    if (pollout) {
         if (!fdm_ptmx_out(fdm, fd, events, data))
             return false;
     }
 
-    if (unlikely((events & EPOLLHUP) && !(events & EPOLLIN)))
-        return term_shutdown(term);
-
-    if (unlikely(!(events & EPOLLIN)))
+    if (!pollin)
         return true;
 
     uint8_t buf[24 * 1024];
