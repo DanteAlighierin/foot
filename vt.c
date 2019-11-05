@@ -898,6 +898,11 @@ action(struct terminal *term, enum action _action, uint8_t c)
             break;
         }
 
+        case '\x0b':
+            /* VT - vertical tab */
+            term_cursor_down(term, 1);
+            break;
+
         case '\x0e':
             /* SO - shift out */
             term->selected_charset = 1; /* G1 */
