@@ -102,6 +102,12 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     assert(events & EPOLLIN);
 
+    if (client->term != NULL) {
+        uint8_t dummy[128];
+        read(fd, dummy, sizeof(dummy));
+        return true;
+    }
+
     uint16_t term_env_len;
     if (recv(fd, &term_env_len, sizeof(term_env_len), 0) != sizeof(term_env_len))
         goto shutdown;
