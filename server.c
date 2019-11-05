@@ -10,7 +10,7 @@
 #include <linux/un.h>
 
 #define LOG_MODULE "server"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 
 #include "shm.h"
