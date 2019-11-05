@@ -898,12 +898,12 @@ action(struct terminal *term, enum action _action, uint8_t c)
             break;
         }
 
-        case '\016':
+        case '\x0e':
             /* SO - shift out */
             term->selected_charset = 1; /* G1 */
             break;
 
-        case '\017':
+        case '\x0f':
             /* SI - shift in */
             term->selected_charset = 0; /* G0 */
             break;
