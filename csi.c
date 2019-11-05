@@ -363,6 +363,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'f':
         case 'H': {
             /* Move cursor */
             int row = min(vt_param_get(term, 0, 1), term->rows);
