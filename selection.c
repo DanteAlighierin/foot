@@ -319,8 +319,6 @@ target(void *data, struct wl_data_source *wl_data_source, const char *mime_type)
     LOG_WARN("TARGET: mime-type=%s", mime_type);
 }
 
-typedef bool (*fdm_handler_t)(struct fdm *fdm, int fd, int events, void *data);
-
 struct clipboard_send {
     char *data;
     size_t len;
