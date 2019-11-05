@@ -25,13 +25,29 @@ void selection_from_clipboard(struct terminal *term, uint32_t serial);
 void selection_to_primary(struct terminal *term, uint32_t serial);
 void selection_from_primary(struct terminal *term);
 
+/* Copy text *to* primary/clipboard */
 bool text_to_clipboard(struct terminal *term, char *text, uint32_t serial);
+bool text_to_primary(struct terminal *term, char *text, uint32_t serial);
+
+/*
+ * Copy text *from* primary/clipboard
+ *
+ * Note that these are asynchronous; they *will* return
+ * immediately. The 'cb' callback will be called 0..n times with
+ * clipboard data. When done (or on error), the 'done' callback is
+ * called.
+ *
+ * As such, keep this in mind:
+ *  - The 'user' context must not be stack allocated
+ * - Don't expect clipboard data to have been received when these
+ *   functions return (it will *never* have been received at this
+ *   point).
+ */
 void text_from_clipboard(
     struct terminal *term, uint32_t serial,
     void (*cb)(const char *data, size_t size, void *user),
     void (*done)(void *user), void *user);
 
-bool text_to_primary(struct terminal *term, char *text, uint32_t serial);
 void text_from_primary(
     struct terminal *term,
     void (*cb)(const char *data, size_t size, void *user),
