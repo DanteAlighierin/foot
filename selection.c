@@ -328,8 +328,10 @@ struct clipboard_send {
 static bool
 fdm_send(struct fdm *fdm, int fd, int events, void *data)
 {
-    struct clipboard_send *ctx = data;
+    if (events & EPOLLHUP)
+        goto done;
 
+    struct clipboard_send *ctx = data;
 
     switch (async_write(fd, ctx->data, ctx->len, &ctx->idx)) {
     case ASYNC_WRITE_REMAIN:
@@ -345,6 +347,7 @@ fdm_send(struct fdm *fdm, int fd, int events, void *data)
         break;
     }
 
+done:
     fdm_del(fdm, fd);
     free(ctx->data);
     free(ctx);
