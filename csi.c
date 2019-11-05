@@ -725,6 +725,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 case 3:
                     LOG_WARN("unimplemented: 132 column mode (DECCOLM, %s)",
                              csi_as_string(term, final));
+                    term_erase(
+                        term,
+                        &(struct coord){0, 0},
+                        &(struct coord){term->cols - 1, term->rows - 1});
                     break;
 
                 case 5:
@@ -831,6 +835,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 3:
                     /* DECCOLM - 80 column mode */
+                    term_erase(
+                        term,
+                        &(struct coord){0, 0},
+                        &(struct coord){term->cols - 1, term->rows - 1});
                     break;
 
                 case 4:
@@ -842,6 +850,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->reverse = false;
                     term_damage_all(term);
                     break;
+
+                case 6: { /* DECOM */
+                    term->origin = ORIGIN_ABSOLUTE;
+                    struct coord new_home = term_cursor_rel_to_abs(term, 0, 0);
+                    term_cursor_to(term, new_home.row, new_home.col);
+                    break;
+                }
 
                 case 7:
                     term->auto_margin = false;
