@@ -228,10 +228,10 @@ main(int argc, char *const *argv)
     ret = aborted || tll_length(wayl->terms) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
 out:
-    shm_fini();
-
     server_destroy(server);
     term_destroy(term);
+
+    shm_fini();
     wayl_destroy(wayl);
     fdm_destroy(fdm);
 
