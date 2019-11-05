@@ -330,8 +330,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'd': {
             /* VPA - vertical line position absolute */
-            int row = min(vt_param_get(term, 0, 1), term->rows);
-            term_cursor_to(term, row - 1, term->cursor.col);
+            struct coord new_cursor = term_cursor_rel_to_abs(
+                term, vt_param_get(term, 0, 1) - 1, term->cursor.col);
+            term_cursor_to(term, new_cursor.row, new_cursor.col);
             break;
         }
 
@@ -358,17 +359,20 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'G': {
             /* Cursor horizontal absolute */
-            int col = min(vt_param_get(term, 0, 1), term->cols);
-            term_cursor_to(term, term->cursor.row, col - 1);
+            struct coord new_cursor = term_cursor_rel_to_abs(
+                term, term->cursor.row, vt_param_get(term, 0, 1) - 1);
+            term_cursor_to(term, new_cursor.row, new_cursor.col);
             break;
         }
 
         case 'f':
         case 'H': {
             /* Move cursor */
-            int row = min(vt_param_get(term, 0, 1), term->rows);
-            int col = min(vt_param_get(term, 1, 1), term->cols);
-            term_cursor_to(term, row - 1, col - 1);
+            struct coord new_cursor = term_cursor_rel_to_abs(
+                term,
+                vt_param_get(term, 0, 1) - 1,
+                vt_param_get(term, 1, 1) - 1);
+            term_cursor_to(term, new_cursor.row, new_cursor.col);
             break;
         }
 
@@ -623,8 +627,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 /* 1-based */
                 term->scroll_region.start = start - 1;
                 term->scroll_region.end = end;
-
-                term_cursor_to(term, start - 1, 0);
+                term_cursor_home(term);
 
                 LOG_DBG("scroll region: %d-%d",
                         term->scroll_region.start,
@@ -684,13 +687,17 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 switch (param) {
                 case 6: {
                     /* u7 - cursor position query */
+
+                    int row = term->origin == ORIGIN_ABSOLUTE
+                        ? term->cursor.row
+                        : term->cursor.row - term->scroll_region.start;
+
                     /* TODO: we use 0-based position, while the xterm
                      * terminfo says the receiver of the reply should
                      * decrement, hence we must add 1 */
                     char reply[64];
                     snprintf(reply, sizeof(reply), "\x1b[%d;%dR",
-                             term->cursor.row + 1,
-                             term->cursor.col + 1);
+                             row + 1, term->cursor.col + 1);
                     term_to_slave(term, reply, strlen(reply));
                     break;
                 }
@@ -729,12 +736,19 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         term,
                         &(struct coord){0, 0},
                         &(struct coord){term->cols - 1, term->rows - 1});
+                    term_cursor_home(term);
                     break;
 
                 case 5:
                     term->reverse = true;
                     term_damage_all(term);
                     break;
+
+                case 6: { /* DECOM */
+                    term->origin = ORIGIN_RELATIVE;
+                    term_cursor_home(term);
+                    break;
+                }
 
                 case 7:
                     term->auto_margin = true;
@@ -839,6 +853,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         term,
                         &(struct coord){0, 0},
                         &(struct coord){term->cols - 1, term->rows - 1});
+                    term_cursor_home(term);
                     break;
 
                 case 4:
@@ -853,8 +868,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 6: { /* DECOM */
                     term->origin = ORIGIN_ABSOLUTE;
-                    struct coord new_home = term_cursor_rel_to_abs(term, 0, 0);
-                    term_cursor_to(term, new_home.row, new_home.col);
+                    term_cursor_home(term);
                     break;
                 }
 

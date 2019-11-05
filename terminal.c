@@ -486,6 +486,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
             },
             .alpha = conf->colors.alpha,
         },
+        .origin = ORIGIN_ABSOLUTE,
         .default_cursor_style = conf->cursor.style,
         .cursor_style = conf->cursor.style,
         .default_cursor_color = {
@@ -991,6 +992,30 @@ term_erase(struct terminal *term, const struct coord *start, const struct coord 
     erase_cell_range(term, grid_row(term->grid, end->row), 0, end->col);
 }
 
+struct coord
+term_cursor_rel_to_abs(const struct terminal *term, int row, int col)
+{
+    switch (term->origin) {
+    case ORIGIN_ABSOLUTE:
+        return (struct coord) {
+            .col = min(col, term->cols - 1),
+            .row = min(row, term->rows - 1),
+        };
+        break;
+
+    case ORIGIN_RELATIVE: {
+        return (struct coord) {
+            .col = min(col, term->cols - 1),
+            .row = min(row + term->scroll_region.start, term->rows - 1),
+        };
+        break;
+    }
+    }
+
+    assert(false);
+    return (struct coord){-1, -1};
+}
+
 void
 term_cursor_to(struct terminal *term, int row, int col)
 {
@@ -1003,6 +1028,13 @@ term_cursor_to(struct terminal *term, int row, int col)
     term->cursor.row = row;
 
     term->grid->cur_row = grid_row(term->grid, row);
+}
+
+void
+term_cursor_home(struct terminal *term)
+{
+    struct coord new_cursor = term_cursor_rel_to_abs(term, 0, 0);
+    term_cursor_to(term, new_cursor.row, new_cursor.col);
 }
 
 void

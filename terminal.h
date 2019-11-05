@@ -122,7 +122,8 @@ struct vt {
     struct attributes saved_attrs;
 };
 
-enum cursor_keys { CURSOR_KEYS_DONTCARE, CURSOR_KEYS_NORMAL, CURSOR_KEYS_APPLICATION};
+enum cursor_origin { ORIGIN_ABSOLUTE, ORIGIN_RELATIVE };
+enum cursor_keys { CURSOR_KEYS_DONTCARE, CURSOR_KEYS_NORMAL, CURSOR_KEYS_APPLICATION };
 enum keypad_keys { KEYPAD_DONTCARE, KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
 enum charset { CHARSET_ASCII, CHARSET_GRAPHIC };
 
@@ -214,6 +215,7 @@ struct terminal {
         uint32_t default_table[256];
     } colors;
 
+    enum cursor_origin origin;
     struct coord cursor;
     struct coord saved_cursor;
     struct coord alt_saved_cursor;
@@ -328,6 +330,8 @@ void term_damage_scroll(
 void term_erase(
     struct terminal *term, const struct coord *start, const struct coord *end);
 
+struct coord term_cursor_rel_to_abs(const struct terminal *term, int row, int col);
+void term_cursor_home(struct terminal *term);
 void term_cursor_to(struct terminal *term, int row, int col);
 void term_cursor_left(struct terminal *term, int count);
 void term_cursor_right(struct terminal *term, int count);
