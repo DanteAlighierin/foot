@@ -108,6 +108,7 @@ extract_selection(const struct terminal *term)
         start_col = 0;
     }
 
+    assert(idx > 0);
     assert(idx < buf_size);
     if (buf[idx - 1] == '\n')
         buf[idx - 1] = '\0';

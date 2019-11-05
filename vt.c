@@ -581,7 +581,7 @@ esc_as_string(struct terminal *term, uint8_t final)
 
     assert(term->vt.params.idx == 0);
 
-    c += snprintf(&msg[c], sizeof(msg) - c, "%c", final);
+    snprintf(&msg[c], sizeof(msg) - c, "%c", final);
     return msg;
 
 }

@@ -100,7 +100,7 @@ _sys_log(enum log_class log_class, const char *module,
     idx += vsnprintf(&msg[idx], required_len + 1 - idx, fmt, va);
 
     if (sys_errno != 0) {
-        idx += snprintf(
+        snprintf(
             &msg[idx], required_len + 1 - idx, ": %s", strerror(sys_errno));
     }
 

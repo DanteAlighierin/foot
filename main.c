@@ -143,6 +143,7 @@ main(int argc, char *const *argv)
             unsigned width, height;
             if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
                 fprintf(stderr, "error: invalid geometry: %s\n", optarg);
+                config_free(conf);
                 return EXIT_FAILURE;
             }
 

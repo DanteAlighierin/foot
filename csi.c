@@ -54,8 +54,8 @@ csi_as_string(struct terminal *term, uint8_t final)
                       i == term->vt.params.idx - 1 ? "" : ";");
     }
 
-    c += snprintf(&msg[c], sizeof(msg) - c, "%c (%zu parameters)",
-                  final, term->vt.params.idx);
+    snprintf(&msg[c], sizeof(msg) - c, "%c (%zu parameters)",
+             final, term->vt.params.idx);
     return msg;
 }
 
