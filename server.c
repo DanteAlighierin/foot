@@ -35,8 +35,6 @@ struct client {
     int fd;
 
     struct terminal *term;
-    int argc;
-    char **argv;
 };
 
 static void
@@ -48,12 +46,6 @@ client_destroy(struct client *client)
     if (client->term != NULL) {
         LOG_WARN("client FD=%d: terminal still alive", client->fd);
         term_destroy(client->term);
-    }
-
-    if (client->argv != NULL) {
-        for (int i = 0; i < client->argc; i++)
-            free(client->argv[i]);
-        free(client->argv);
     }
 
     if (client->fd != -1) {
@@ -100,7 +92,10 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 {
     struct client *client = data;
     struct server *server = client->server;
+
     char *term_env = NULL;
+    char **argv = NULL;
+    int argc = 0;
 
     if (events & EPOLLHUP)
         goto shutdown;
@@ -118,45 +113,51 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
             goto shutdown;
     }
 
-    if (recv(fd, &client->argc, sizeof(client->argc), 0) != sizeof(client->argc))
+    if (recv(fd, &argc, sizeof(argc), 0) != sizeof(argc))
         goto shutdown;
 
-    LOG_DBG("argc = %d", client->argc);
+    LOG_DBG("argc = %d", argc);
 
-    client->argv = calloc(client->argc + 1, sizeof(client->argv[0]));
-    for (int i = 0; i < client->argc; i++) {
+    argv = calloc(argc + 1, sizeof(argv[0]));
+    for (int i = 0; i < argc; i++) {
         uint16_t len;
         if (recv(fd, &len, sizeof(len), 0) != sizeof(len))
             goto shutdown;
 
-        client->argv[i] = malloc(len + 1);
-        client->argv[i][len] = '\0';
+        argv[i] = malloc(len + 1);
+        argv[i][len] = '\0';
         if (len == 0)
             continue;
 
-        if (recv(fd, client->argv[i], len, 0) != len)
+        if (recv(fd, argv[i], len, 0) != len)
             goto shutdown;
 
-        LOG_DBG("argv[%d] = %s (%hu)", i, client->argv[i], len);
+        LOG_DBG("argv[%d] = %s (%hu)", i, argv[i], len);
     }
 
     assert(client->term == NULL);
     client->term = term_init(
         server->conf, server->fdm, server->wayl,
         term_env_len > 0 ? term_env : server->conf->term,
-        client->argc, client->argv, &term_shutdown_handler, client);
+        argc, argv, &term_shutdown_handler, client);
 
     if (client->term == NULL) {
         LOG_ERR("failed to instantiate new terminal");
         goto shutdown;
     }
 
+    for (int i = 0; i < argc; i++)
+        free(argv[i]);
+    free(argv);
     free(term_env);
     return true;
 
 shutdown:
     LOG_DBG("client FD=%d: disconnected", client->fd);
 
+    for (int i = 0; i < argc; i++)
+        free(argv[i]);
+    free(argv);
     free(term_env);
 
     fdm_del(fdm, fd);
