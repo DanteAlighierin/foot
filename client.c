@@ -107,7 +107,26 @@ main(int argc, char *const *argv)
         }
     }
 
-    uint16_t term_len = strlen(term);
+    const uint16_t term_len = strlen(term) + 1;
+    uint32_t total_len = 0;
+
+    /* Calculate total length */
+    total_len += sizeof(term_len) + term_len;
+    total_len += sizeof(argc);
+
+    for (int i = 0; i < argc; i++) {
+        uint16_t len = strlen(argv[i]) + 1;
+        total_len += sizeof(len) + len;
+    }
+
+    LOG_DBG("term-len: %hu, argc: %d, total-len: %u",
+            term_len, argc, total_len);
+
+    if (send(fd, &total_len, sizeof(total_len), 0) != sizeof(total_len)) {
+        LOG_ERRNO("failed to send total length to server");
+        goto err;
+    }
+
     if (send(fd, &term_len, sizeof(term_len), 0) != sizeof(term_len) ||
         send(fd, term, term_len, 0) != term_len)
     {
@@ -122,7 +141,7 @@ main(int argc, char *const *argv)
     }
 
     for (int i = 0; i < argc; i++) {
-        uint16_t len = strlen(argv[i]);
+        uint16_t len = strlen(argv[i]) + 1;
 
         LOG_DBG("argv[%d] = %s (%hu)", i, argv[i], len);
 
