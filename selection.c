@@ -566,17 +566,17 @@ selection_to_clipboard(struct terminal *term, uint32_t serial)
 void
 text_from_clipboard(struct terminal *term, uint32_t serial,
                     void (*cb)(const char *data, size_t size, void *user),
-                    void *user)
+                    void (*done)(void *user), void *user)
 {
     struct wl_clipboard *clipboard = &term->wl->clipboard;
     if (clipboard->data_offer == NULL)
-        return;
+        goto done;
 
     /* Prepare a pipe the other client can write its selection to us */
     int fds[2];
     if (pipe2(fds, O_CLOEXEC) == -1) {
         LOG_ERRNO("failed to create pipe");
-        return;
+        goto done;
     }
 
     int read_fd = fds[0];
@@ -609,10 +609,15 @@ text_from_clipboard(struct terminal *term, uint32_t serial,
             }
         }
 
-        cb(text, amount, user);
+        if (cb != NULL)
+            cb(text, amount, user);
     }
 
     close(read_fd);
+
+done:
+    if (done != NULL)
+        done(user);
 }
 
 static void
@@ -620,6 +625,15 @@ from_clipboard_cb(const char *data, size_t size, void *user)
 {
     struct terminal *term = user;
     term_to_slave(term, data, size);
+}
+
+static void
+from_clipboard_done(void *user)
+{
+    struct terminal *term = user;
+
+    if (term->bracketed_paste)
+        term_to_slave(term, "\033[201~", 6);
 }
 
 void
@@ -632,10 +646,8 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
     if (term->bracketed_paste)
         term_to_slave(term, "\033[200~", 6);
 
-    text_from_clipboard(term, serial, &from_clipboard_cb, term);
-
-    if (term->bracketed_paste)
-        term_to_slave(term, "\033[201~", 6);
+    text_from_clipboard(
+        term, serial, &from_clipboard_cb, &from_clipboard_done, term);
 }
 
 bool
@@ -696,21 +708,22 @@ selection_to_primary(struct terminal *term, uint32_t serial)
 
 void
 text_from_primary(
-    struct terminal *term, void (*cb)(const char *data, size_t size, void *user),
-    void *user)
+    struct terminal *term,
+    void (*cb)(const char *data, size_t size, void *user),
+    void (*done)(void *user), void *user)
 {
     if (term->wl->primary_selection_device_manager == NULL)
-        return;
+        goto done;
 
     struct wl_primary *primary = &term->wl->primary;
     if (primary->data_offer == NULL)
-        return;
+        goto done;
 
     /* Prepare a pipe the other client can write its selection to us */
     int fds[2];
     if (pipe2(fds, O_CLOEXEC) == -1) {
         LOG_ERRNO("failed to create pipe");
-        return;
+        goto done;
     }
 
     int read_fd = fds[0];
@@ -743,10 +756,15 @@ text_from_primary(
             }
         }
 
-        cb(text, amount, user);
+        if (cb != NULL)
+            cb(text, amount, user);
     }
 
     close(read_fd);
+
+done:
+    if (done != NULL)
+        done(user);
 }
 
 void
@@ -762,10 +780,7 @@ selection_from_primary(struct terminal *term)
     if (term->bracketed_paste)
         term_to_slave(term, "\033[200~", 6);
 
-    text_from_primary(term, &from_clipboard_cb, term);
-
-    if (term->bracketed_paste)
-        term_to_slave(term, "\033[201~", 6);
+    text_from_primary(term, &from_clipboard_cb, &from_clipboard_done, term);
 }
 
 #if 0

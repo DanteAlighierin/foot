@@ -103,6 +103,22 @@ from_clipboard_cb(const char *text, size_t size, void *user)
 }
 
 static void
+from_clipboard_done(void *user)
+{
+    struct clip_context *ctx = user;
+    struct terminal *term = ctx->term;
+
+    if (ctx->idx > 0) {
+        char res[4];
+        base64_encode_final(ctx->buf, ctx->idx, res);
+        term_to_slave(term, res, 4);
+    }
+
+    term_to_slave(term, "\033\\", 2);
+    free(ctx);
+}
+
+static void
 osc_from_clipboard(struct terminal *term, const char *source)
 {
     char src = 0;
@@ -124,27 +140,20 @@ osc_from_clipboard(struct terminal *term, const char *source)
     term_to_slave(term, &src, 1);
     term_to_slave(term, ";", 1);
 
-    struct clip_context ctx = {
-        .term = term,
-    };
+    struct clip_context *ctx = malloc(sizeof(*ctx));
+    *ctx = (struct clip_context) {.term = term};
 
     switch (src) {
     case 'c':
-        text_from_clipboard(term, term->wl->input_serial, &from_clipboard_cb, &ctx);
+        text_from_clipboard(
+            term, term->wl->input_serial,
+            &from_clipboard_cb, &from_clipboard_done, ctx);
         break;
 
     case 'p':
-        text_from_primary(term, &from_clipboard_cb, &ctx);
+        text_from_primary(term, &from_clipboard_cb, &from_clipboard_done, ctx);
         break;
     }
-
-    if (ctx.idx > 0) {
-        char res[4];
-        base64_encode_final(ctx.buf, ctx.idx, res);
-        term_to_slave(term, res, 4);
-    }
-
-    term_to_slave(term, "\033\\", 2);
 }
 
 static void

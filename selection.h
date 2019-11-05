@@ -29,9 +29,10 @@ bool text_to_clipboard(struct terminal *term, char *text, uint32_t serial);
 void text_from_clipboard(
     struct terminal *term, uint32_t serial,
     void (*cb)(const char *data, size_t size, void *user),
-    void *user);
+    void (*done)(void *user), void *user);
 
 bool text_to_primary(struct terminal *term, char *text, uint32_t serial);
 void text_from_primary(
-    struct terminal *term, void (*cb)(const char *data, size_t size, void *user),
-    void *user);
+    struct terminal *term,
+    void (*cb)(const char *data, size_t size, void *user),
+    void (*dont)(void *user), void *user);
