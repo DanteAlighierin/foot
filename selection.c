@@ -563,6 +563,83 @@ selection_to_clipboard(struct terminal *term, uint32_t serial)
         free(text);
 }
 
+struct clipboard_receive {
+    /* Callback data */
+    void (*cb)(const char *data, size_t size, void *user);
+    void (*done)(void *user);
+    void *user;
+};
+
+static bool
+fdm_receive(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct clipboard_receive *ctx = data;
+
+    if ((events & EPOLLHUP) && !(events & EPOLLIN))
+        goto done;
+
+    /* Read until EOF */
+    while (true) {
+        char text[256];
+        ssize_t count = read(fd, text, sizeof(text));
+
+        if (count == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                return true;
+
+            LOG_ERRNO("failed to read clipboard data");
+            break;
+        }
+
+        if (count == 0)
+            break;
+
+        /* Replace \r\n with \n */
+        for (size_t i = 0; i < count - 1; i++) {
+            if (text[i] == '\r' && text[i + 1] == '\n') {
+                memmove(&text[i], &text[i + 1], count - i - 1);
+                count--;
+            }
+        }
+
+        ctx->cb(text, count, ctx->user);
+    }
+
+done:
+    fdm_del(fdm, fd);
+    ctx->done(ctx->user);
+    free(ctx);
+    return true;
+}
+
+static void
+begin_receive_clipboard(struct terminal *term, int read_fd,
+                        void (*cb)(const char *data, size_t size, void *user),
+                        void (*done)(void *user), void *user)
+{
+    int flags;
+    if ((flags = fcntl(read_fd, F_GETFL)) < 0 ||
+        fcntl(read_fd, F_SETFL, flags | O_NONBLOCK) < 0)
+    {
+        LOG_ERRNO("failed to set O_NONBLOCK");
+        close(read_fd);
+        return done(user);
+    }
+
+    struct clipboard_receive *ctx = malloc(sizeof(*ctx));
+    *ctx = (struct clipboard_receive) {
+        .cb = cb,
+        .done = done,
+        .user = user,
+    };
+
+    if (!fdm_add(term->fdm, read_fd, EPOLLIN, &fdm_receive, ctx)) {
+        close(read_fd);
+        free(ctx);
+        done(user);
+    }
+}
+
 void
 text_from_clipboard(struct terminal *term, uint32_t serial,
                     void (*cb)(const char *data, size_t size, void *user),
@@ -570,13 +647,13 @@ text_from_clipboard(struct terminal *term, uint32_t serial,
 {
     struct wl_clipboard *clipboard = &term->wl->clipboard;
     if (clipboard->data_offer == NULL)
-        goto done;
+        return done(user);
 
     /* Prepare a pipe the other client can write its selection to us */
     int fds[2];
     if (pipe2(fds, O_CLOEXEC) == -1) {
         LOG_ERRNO("failed to create pipe");
-        goto done;
+        return done(user);
     }
 
     int read_fd = fds[0];
@@ -590,34 +667,7 @@ text_from_clipboard(struct terminal *term, uint32_t serial,
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
 
-    /* Read until EOF */
-    while (true) {
-        char text[256];
-        ssize_t amount = read(read_fd, text, sizeof(text));
-
-        if (amount == -1) {
-            LOG_ERRNO("failed to read clipboard data: %d", errno);
-            break;
-        } else if (amount == 0)
-            break;
-
-        /* Replace \r\n with \n */
-        for (size_t i = 0; i < amount - 1; i++) {
-            if (text[i] == '\r' && text[i + 1] == '\n') {
-                memmove(&text[i], &text[i + 1], amount - i - 1);
-                amount--;
-            }
-        }
-
-        if (cb != NULL)
-            cb(text, amount, user);
-    }
-
-    close(read_fd);
-
-done:
-    if (done != NULL)
-        done(user);
+    begin_receive_clipboard(term, read_fd, cb, done, user);
 }
 
 static void
@@ -713,17 +763,17 @@ text_from_primary(
     void (*done)(void *user), void *user)
 {
     if (term->wl->primary_selection_device_manager == NULL)
-        goto done;
+        return done(user);
 
     struct wl_primary *primary = &term->wl->primary;
     if (primary->data_offer == NULL)
-        goto done;
+        return done(user);
 
     /* Prepare a pipe the other client can write its selection to us */
     int fds[2];
     if (pipe2(fds, O_CLOEXEC) == -1) {
         LOG_ERRNO("failed to create pipe");
-        goto done;
+        return done(user);
     }
 
     int read_fd = fds[0];
@@ -737,34 +787,7 @@ text_from_primary(
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
 
-    /* Read until EOF */
-    while (true) {
-        char text[256];
-        ssize_t amount = read(read_fd, text, sizeof(text));
-
-        if (amount == -1) {
-            LOG_ERRNO("failed to read clipboard data: %d", errno);
-            break;
-        } else if (amount == 0)
-            break;
-
-        /* Replace \r\n with \n */
-        for (size_t i = 0; i < amount - 1; i++) {
-            if (text[i] == '\r' && text[i + 1] == '\n') {
-                memmove(&text[i], &text[i + 1], amount - i - 1);
-                amount--;
-            }
-        }
-
-        if (cb != NULL)
-            cb(text, amount, user);
-    }
-
-    close(read_fd);
-
-done:
-    if (done != NULL)
-        done(user);
+    begin_receive_clipboard(term, read_fd, cb, done, user);
 }
 
 void
