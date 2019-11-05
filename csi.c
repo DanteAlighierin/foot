@@ -739,6 +739,12 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term_cursor_home(term);
                     break;
 
+                case 4:
+                    /* DECSCLM - Smooth scroll */
+                    LOG_WARN("unimplemented: Smooth (Slow) Scroll (DECSCLM, %s)",
+                             csi_as_string(term, final));
+                    break;
+
                 case 5:
                     term->reverse = true;
                     term_damage_all(term);
@@ -857,8 +863,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 4:
-                    LOG_WARN("unimplemented: Smooth (Slow) Scroll (DECSCLM, %s)",
-                             csi_as_string(term, final));
+                    /* DECSCLM - Jump scroll */
                     break;
 
                 case 5:
