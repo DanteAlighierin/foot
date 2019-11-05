@@ -591,95 +591,148 @@ esc_dispatch(struct terminal *term, uint8_t final)
 {
     LOG_DBG("ESC: %s", esc_as_string(term, final));
 
-    switch (final) {
-    case '7':
-        term->saved_cursor = term->cursor;
-        term->vt.saved_attrs = term->vt.attrs;
-        break;
+    switch (term->vt.private[0]) {
+    case 0:
+        switch (final) {
+        case '7':
+            term->saved_cursor = term->cursor;
+            term->vt.saved_attrs = term->vt.attrs;
+            break;
 
-    case '8':
-        term_restore_cursor(term);
-        term->vt.attrs = term->vt.saved_attrs;
-        break;
+        case '8':
+            term_restore_cursor(term);
+            term->vt.attrs = term->vt.saved_attrs;
+            break;
 
-    case 'c':
-        term_reset(term, true);
-        break;
+        case 'c':
+            term_reset(term, true);
+            break;
 
-    case 'B': {
-        /* Configure G0-G3 to use ASCII */
-        char param = term->vt.private[0] != 0 ? term->vt.private[0] : 0;
+#if 0
+        case '0': {
+            /* Configure G0-G3 to use special chars + line drawing */
+            char param = term->vt.private[0] != 0 ? term->vt.private[0] : 0;
 
-        switch (param) {
-        case '(': term->charset[0] = CHARSET_ASCII; break;
-        case ')': term->charset[1] = CHARSET_ASCII; break;
-        case '*': term->charset[2] = CHARSET_ASCII; break;
-        case '+': term->charset[3] = CHARSET_ASCII; break;
-        case 0: break;
+            switch (param) {
+            case '(': term->charset[0] = CHARSET_GRAPHIC; break;
+            case ')': term->charset[1] = CHARSET_GRAPHIC; break;
+            case '*': term->charset[2] = CHARSET_GRAPHIC; break;
+            case '+': term->charset[3] = CHARSET_GRAPHIC; break;
+            case 0: break;
+
+            default:
+                UNHANDLED();
+                break;
+            }
+            break;
+        }
+
+        case 'B': {
+            /* Configure G0-G3 to use ASCII */
+            char param = term->vt.private[0] != 0 ? term->vt.private[0] : 0;
+
+            switch (param) {
+            case '(': term->charset[0] = CHARSET_ASCII; break;
+            case ')': term->charset[1] = CHARSET_ASCII; break;
+            case '*': term->charset[2] = CHARSET_ASCII; break;
+            case '+': term->charset[3] = CHARSET_ASCII; break;
+            case 0: break;
+
+            default:
+                UNHANDLED();
+                break;
+            }
+            break;
+        }
+#endif
+        case 'D':
+            term_linefeed(term);
+            break;
+
+        case 'E':
+            term_linefeed(term);
+            term_cursor_left(term, term->cursor.col);
+            break;
+
+        case 'M':
+            term_reverse_index(term);
+            break;
+
+        case 'N':
+            /* SS2 - Single Shift 2 */
+            term->selected_charset = 2; /* G2 */
+            break;
+
+        case 'O':
+            /* SS3 - Single Shift 3 */
+            term->selected_charset = 3; /* G3 */
+            break;
+
+        case '\\':
+            /* ST - String Terminator */
+            break;
+
+        case '=':
+            term->keypad_keys_mode = KEYPAD_APPLICATION;
+            break;
+
+        case '>':
+            term->keypad_keys_mode = KEYPAD_NUMERICAL;
+            break;
 
         default:
             UNHANDLED();
             break;
         }
-        break;
-    }
+        break;  /* private[0] == 0 */
 
-    case 'D':
-        term_linefeed(term);
-        break;
-
-    case 'E':
-        term_linefeed(term);
-        term_cursor_left(term, term->cursor.col);
-        break;
-
-    case 'M':
-        term_reverse_index(term);
-        break;
-
-    case 'N':
-        /* SS2 - Single Shift 2 */
-        term->selected_charset = 2; /* G2 */
-        break;
-
-    case 'O':
-        /* SS3 - Single Shift 3 */
-        term->selected_charset = 3; /* G3 */
-        break;
-
-    case '\\':
-        /* ST - String Terminator */
-        break;
-
-    case '0': {
-        /* Configure G0-G3 to use special chars + line drawing */
-        char param = term->vt.private[0] != 0 ? term->vt.private[0] : 0;
-
-        switch (param) {
-        case '(': term->charset[0] = CHARSET_GRAPHIC; break;
-        case ')': term->charset[1] = CHARSET_GRAPHIC; break;
-        case '*': term->charset[2] = CHARSET_GRAPHIC; break;
-        case '+': term->charset[3] = CHARSET_GRAPHIC; break;
-        case 0: break;
-
-        default:
-            UNHANDLED();
+    case '(':
+    case ')':
+    case '*':
+    case '+':
+        switch (final) {
+        case '0': {
+            char priv = term->vt.private[0];
+            ssize_t idx = priv ==
+                '(' ? 0 :
+                ')' ? 1 :
+                '*' ? 2 :
+                '+' ? 3 : -1;
+            assert(idx != -1);
+            term->charset[idx] = CHARSET_GRAPHIC;
             break;
         }
-        break;
-    }
 
-    case '=':
-        term->keypad_keys_mode = KEYPAD_APPLICATION;
+        case 'B': {
+            char priv = term->vt.private[0];
+            ssize_t idx = priv ==
+                '(' ? 0 :
+                ')' ? 1 :
+                '*' ? 2 :
+                '+' ? 3 : -1;
+            assert(idx != -1);
+            term->charset[idx] = CHARSET_ASCII;
+
+            break;
+        }
+        }
         break;
 
-    case '>':
-        term->keypad_keys_mode = KEYPAD_NUMERICAL;
-        break;
+    case '#':
+        switch (final) {
+        case '8':
+            for (int r = 0; r < term->rows; r++) {
+                struct row *row = grid_row_in_view(term->grid, r);
+                for (int c = 0; c < term->cols; c++) {
+                    row->cells[c].wc = L'E';
+                    row->cells[c].attrs.clean = 0;
+                }
+                row->dirty = true;
+            }
+            break;
+        }
+        break;  /* private[0] == '#' */
 
-    default:
-        UNHANDLED();
-        break;
     }
 }
 
