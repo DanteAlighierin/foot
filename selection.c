@@ -330,7 +330,6 @@ fdm_send(struct fdm *fdm, int fd, int events, void *data)
 {
     struct clipboard_send *ctx = data;
 
-    assert(false);
 
     switch (async_write(fd, ctx->data, ctx->len, &ctx->idx)) {
     case ASYNC_WRITE_REMAIN:
