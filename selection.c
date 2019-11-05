@@ -364,6 +364,8 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
     const char *selection = clipboard->text;
     const size_t len = strlen(selection);
 
+    /* Make it NONBLOCK:ing right away - we don't want to block if the
+     * initial attempt to send the data synchronously fails */
     int flags;
     if ((flags = fcntl(fd, F_GETFL)) < 0 ||
         fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
@@ -384,6 +386,7 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
         if (fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
             return;
 
+        free(ctx->data);
         free(ctx);
         break;
     }
@@ -474,6 +477,7 @@ primary_send(void *data,
         if (fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
             return;
 
+        free(ctx->data);
         free(ctx);
         break;
     }
