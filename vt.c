@@ -722,7 +722,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
         switch (final) {
         case '8':
             for (int r = 0; r < term->rows; r++) {
-                struct row *row = grid_row_in_view(term->grid, r);
+                struct row *row = grid_row(term->grid, r);
                 for (int c = 0; c < term->cols; c++) {
                     row->cells[c].wc = L'E';
                     row->cells[c].attrs.clean = 0;
