@@ -38,37 +38,20 @@
 #define tll_length(list) (list).length
 
 /* Adds a new item to the back of the list */
-#define tll_push_back(list, new_item)                       \
-    do {                                                    \
-        __typeof__((list).head) __e = malloc(sizeof(*__e)); \
-        __e->item = (new_item);                             \
-        __e->prev = (list).tail;                            \
-        __e->next = NULL;                                   \
-        if ((list).head == NULL)                            \
-            (list).head = (list).tail = __e;                \
-        else {                                              \
-            (list).tail->next = __e;                        \
-            (list).tail = __e;                              \
-        }                                                   \
-        (list).length++;                                    \
+#define tll_push_back(list, new_item)                   \
+    do {                                                \
+        tll_insert_after(list, (list).tail, new_item);  \
+        if ((list).head == NULL)                        \
+            (list).head = (list).tail;                  \
     } while (0)
 
 /* Adds a new item to the front of the list */
-#define tll_push_front(list, new_item)                      \
-    do {                                                    \
-        __typeof__((list).head) __e = malloc(sizeof(*__e)); \
-        __e->item = (new_item);                             \
-        __e->prev = NULL;                                   \
-        __e->next = (list).head;                            \
-        if ((list).head == NULL)                            \
-            (list).head = (list).tail = __e;                \
-        else {                                              \
-            (list).head->prev = __e;                        \
-            (list).head = __e;                              \
-        }                                                   \
-        (list).length++;                                    \
+#define tll_push_front(list, new_item) \
+    do {                                                \
+        tll_insert_before(list, (list).head, new_item); \
+        if ((list).tail == NULL)                        \
+            (list).tail = (list).head;                  \
     } while (0)
-
 
 /*
  * Iterates the list. <it> is an iterator pointer. You can access the
@@ -95,6 +78,46 @@
          it != NULL;                                                    \
          it = it_prev,                                                  \
              it_prev = it_prev != NULL ? it_prev->prev : NULL)
+
+/*
+ * Inserts a new item after <it>, which is an iterator. I.e. you can
+ * only call this from inside a tll_foreach() or tll_rforeach() loop.
+ */
+#define tll_insert_after(list, it, new_item) \
+    do {                                                    \
+        __typeof__((list).head) __e = malloc(sizeof(*__e)); \
+        __e->item = (new_item);                             \
+        __e->prev = (it);                                   \
+        __e->next = (it) != NULL ? (it)->next : NULL;       \
+        if ((it) != NULL) {                                 \
+            if ((it)->next != NULL)                         \
+                (it)->next->prev = __e;                     \
+            (it)->next = __e;                               \
+        }                                                   \
+        if ((it) == (list).tail)                            \
+            (list).tail = __e;                              \
+        (list).length++;                                    \
+    } while (0)
+
+/*
+ * Inserts a new item before <it>, which is an iterator. I.e. you can
+ * only call this from inside a tll_foreach() or tll_rforeach() loop.
+ */
+#define tll_insert_before(list, it, new_item)   \
+    do {                                                    \
+        __typeof__((list).head) __e = malloc(sizeof(*__e)); \
+        __e->item = (new_item);                             \
+        __e->prev = (it) != NULL ? (it)->prev : NULL;       \
+        __e->next = (it);                                   \
+        if ((it) != NULL) {                                 \
+            if ((it)->prev != NULL)                         \
+                (it)->prev->next = __e;                     \
+            (it)->prev = __e;                               \
+        }                                                   \
+        if ((it) == (list).head)                            \
+            (list).head = __e;                              \
+        (list).length++;                                    \
+    } while (0)
 
 /*
  * Removes an entry from the list. <it> is an iterator. I.e. you can
