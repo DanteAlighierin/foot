@@ -108,6 +108,12 @@ extract_selection(const struct terminal *term)
         start_col = 0;
     }
 
+    if (idx == 0) {
+        /* Selection of empty cells only */
+        buf[idx] = '\0';
+        return buf;
+    }
+
     assert(idx > 0);
     assert(idx < buf_size);
     if (buf[idx - 1] == '\n')

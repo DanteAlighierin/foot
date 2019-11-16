@@ -357,6 +357,32 @@ csi_dispatch(struct terminal *term, uint8_t final)
             term_cursor_left(term, vt_param_get(term, 0, 1));
             break;
 
+        case 'g': {
+            int param = vt_param_get(term, 0, 0);
+            switch (param) {
+            case 0:
+                /* Clear tab stop at *current* column */
+                tll_foreach(term->tab_stops, it) {
+                    if (it->item == term->cursor.col)
+                        tll_remove(term->tab_stops, it);
+                    else if (it->item > term->cursor.col)
+                        break;
+                }
+
+                break;
+
+            case 3:
+                /* Clear *all* tabs */
+                tll_free(term->tab_stops);
+                break;
+
+            default:
+                UNHANDLED();
+                break;
+            }
+            break;
+        }
+
         case 'G': {
             /* Cursor horizontal absolute */
             struct coord new_cursor = term_cursor_rel_to_abs(
