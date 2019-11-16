@@ -1060,14 +1060,20 @@ term_cursor_right(struct terminal *term, int count)
 void
 term_cursor_up(struct terminal *term, int count)
 {
-    int move_amount = min(term->cursor.row, count);
+    int top = term->origin == ORIGIN_ABSOLUTE ? 0 : term->scroll_region.start;
+    assert(term->cursor.row >= top);
+
+    int move_amount = min(term->cursor.row - top, count);
     term_cursor_to(term, term->cursor.row - move_amount, term->cursor.col);
 }
 
 void
 term_cursor_down(struct terminal *term, int count)
 {
-    int move_amount = min(term->rows - term->cursor.row - 1, count);
+    int bottom = term->origin == ORIGIN_ABSOLUTE ? term->rows : term->scroll_region.end;
+    assert(bottom >= term->cursor.row);
+
+    int move_amount = min(bottom - term->cursor.row - 1, count);
     term_cursor_to(term, term->cursor.row + move_amount, term->cursor.col);
 }
 
