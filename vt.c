@@ -617,6 +617,17 @@ esc_dispatch(struct terminal *term, uint8_t final)
             term_cursor_left(term, term->cursor.col);
             break;
 
+        case 'H':
+            tll_foreach(term->tab_stops, it) {
+                if (it->item >= term->cursor.col) {
+                    tll_insert_before(term->tab_stops, it, term->cursor.col);
+                    break;
+                }
+            }
+
+            tll_push_back(term->tab_stops, term->cursor.col);
+            break;
+
         case 'M':
             term_reverse_index(term);
             break;
