@@ -911,6 +911,11 @@ render_resize(struct terminal *term, int width, int height)
         grid_row_free(term->alt.rows[r]);
     free(term->alt.rows);
 
+    /* Reset tab stops */
+    tll_free(term->tab_stops);
+    for (int c = 0; c < new_cols; c += 8)
+        tll_push_back(term->tab_stops, c);
+
     term->cols = new_cols;
     term->rows = new_rows;
 
