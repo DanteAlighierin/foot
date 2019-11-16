@@ -262,6 +262,8 @@ struct terminal {
         int max_x_advance;
     } fextents;
 
+    tll(int) tab_stops;
+
     struct wayland *wl;
     struct wl_window *window;
 

@@ -504,6 +504,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .normal = {.damage = tll_init(), .scroll_damage = tll_init()},
         .alt = {.damage = tll_init(), .scroll_damage = tll_init()},
         .grid = &term->normal,
+        .tab_stops = tll_init(),
         .wl = wayl,
         .render = {
             .scrollback_lines = conf->scrollback_lines,
@@ -727,6 +728,7 @@ term_destroy(struct terminal *term)
     tll_foreach(term->ptmx_buffer, it)
         free(it->item.data);
     tll_free(term->ptmx_buffer);
+    tll_free(term->tab_stops);
 
     int ret = EXIT_SUCCESS;
 
