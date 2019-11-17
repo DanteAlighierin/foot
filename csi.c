@@ -624,6 +624,22 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'I': {
+            /* CHT - Tab Forward (param is number of tab stops to move through) */
+            for (int i = 0; i < vt_param_get(term, 0, 1); i++) {
+                int new_col = term->cols - 1;
+                tll_foreach(term->tab_stops, it) {
+                    if (it->item > term->cursor.point.col) {
+                        new_col = it->item;
+                        break;
+                    }
+                }
+                assert(new_col >= term->cursor.point.col);
+                term_cursor_right(term, new_col - term->cursor.point.col);
+            }
+            break;
+        }
+
         case 'Z':
             /* CBT - Back tab (param is number of tab stops to move back through) */
             for (int i = 0; i < vt_param_get(term, 0, 1); i++) {
