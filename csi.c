@@ -358,6 +358,12 @@ csi_dispatch(struct terminal *term, uint8_t final)
             term_cursor_left(term, vt_param_get(term, 0, 1));
             break;
 
+        case 'E':
+            /* CNL - Cursor Next Line */
+            term_cursor_down(term, vt_param_get(term, 0, 1));
+            term_cursor_left(term, term->cursor.point.col);
+            break;
+
         case 'g': {
             int param = vt_param_get(term, 0, 0);
             switch (param) {
