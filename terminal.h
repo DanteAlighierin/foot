@@ -201,7 +201,7 @@ struct terminal {
     int cell_width;  /* pixels per cell, x-wise */
     int cell_height; /* pixels per cell, y-wise */
 
-    bool print_needs_wrap;
+    bool lcf;
     struct scroll_region scroll_region;
 
     struct {

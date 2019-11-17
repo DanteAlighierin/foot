@@ -855,7 +855,7 @@ term_reset(struct terminal *term, bool hard)
     term->colors.bg = term->colors.default_bg;
     for (size_t i = 0; i < 256; i++)
         term->colors.table[i] = term->colors.default_table[i];
-    term->print_needs_wrap = false;
+    term->lcf = false;
     term->cursor = (struct coord){0, 0};
     term->saved_cursor = (struct coord){0, 0};
     term->alt_saved_cursor = (struct coord){0, 0};
@@ -1024,7 +1024,7 @@ term_cursor_to(struct terminal *term, int row, int col)
     assert(row < term->rows);
     assert(col < term->cols);
 
-    term->print_needs_wrap = false;
+    term->lcf = false;
 
     term->cursor.col = col;
     term->cursor.row = row;
@@ -1045,7 +1045,7 @@ term_cursor_left(struct terminal *term, int count)
     int move_amount = min(term->cursor.col, count);
     term->cursor.col -= move_amount;
     assert(term->cursor.col >= 0);
-    term->print_needs_wrap = false;
+    term->lcf = false;
 }
 
 void
@@ -1054,7 +1054,7 @@ term_cursor_right(struct terminal *term, int count)
     int move_amount = min(term->cols - term->cursor.col - 1, count);
     term->cursor.col += move_amount;
     assert(term->cursor.col < term->cols);
-    term->print_needs_wrap = false;
+    term->lcf = false;
 }
 
 void
