@@ -9,13 +9,14 @@
 
 #include <linux/un.h>
 
+#include <tllist.h>
+
 #define LOG_MODULE "server"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
 #include "shm.h"
 #include "terminal.h"
-#include "tllist.h"
 #include "wayland.h"
 
 struct client;

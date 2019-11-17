@@ -12,6 +12,7 @@
 #include <xdg-shell.h>
 #include <xkbcommon/xkbcommon-compose.h>
 
+#include <tllist.h>
 #include <xdg-output-unstable-v1.h>
 #include <xdg-decoration-unstable-v1.h>
 
@@ -19,7 +20,6 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
-#include "tllist.h"
 #include "terminal.h"
 #include "input.h"
 #include "render.h"

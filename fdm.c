@@ -7,10 +7,11 @@
 #include <assert.h>
 #include <sys/epoll.h>
 
+#include <tllist.h>
+
 #define LOG_MODULE "fdm"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "tllist.h"
 
 struct handler {
     int fd;
