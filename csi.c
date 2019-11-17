@@ -383,6 +383,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case '`':
         case 'G': {
             /* Cursor horizontal absolute */
             struct coord new_cursor = term_cursor_rel_to_abs(
