@@ -868,9 +868,9 @@ action(struct terminal *term, enum action _action, uint8_t c)
 
         case '\x09': {
             /* HT - horizontal tab */
-            int new_col = term->cursor.point.col;
+            int new_col = term->cols - 1;
             tll_foreach(term->tab_stops, it) {
-                if (it->item >= term->cursor.point.col) {
+                if (it->item > term->cursor.point.col) {
                     new_col = it->item;
                     break;
                 }
