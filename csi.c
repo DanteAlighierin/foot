@@ -349,6 +349,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             term_cursor_down(term, vt_param_get(term, 0, 1));
             break;
 
+        case 'a':
         case 'C':
             term_cursor_right(term, vt_param_get(term, 0, 1));
             break;
