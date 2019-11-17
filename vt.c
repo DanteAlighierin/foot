@@ -614,18 +614,18 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
         case 'E':
             term_linefeed(term);
-            term_cursor_left(term, term->cursor.col);
+            term_cursor_left(term, term->cursor.point.col);
             break;
 
         case 'H':
             tll_foreach(term->tab_stops, it) {
-                if (it->item >= term->cursor.col) {
-                    tll_insert_before(term->tab_stops, it, term->cursor.col);
+                if (it->item >= term->cursor.point.col) {
+                    tll_insert_before(term->tab_stops, it, term->cursor.point.col);
                     break;
                 }
             }
 
-            tll_push_back(term->tab_stops, term->cursor.col);
+            tll_push_back(term->tab_stops, term->cursor.point.col);
             break;
 
         case 'M':
@@ -714,18 +714,18 @@ static inline void
 pre_print(struct terminal *term)
 {
     if (unlikely(term->lcf) && term->auto_margin) {
-        if (term->cursor.row == term->scroll_region.end - 1) {
+        if (term->cursor.point.row == term->scroll_region.end - 1) {
             term_scroll(term, 1);
-            term_cursor_to(term, term->cursor.row, 0);
+            term_cursor_to(term, term->cursor.point.row, 0);
         } else
-            term_cursor_to(term, term->cursor.row + 1, 0);
+            term_cursor_to(term, term->cursor.point.row + 1, 0);
     }
 }
 
 static inline void
 post_print(struct terminal *term)
 {
-    if (term->cursor.col < term->cols - 1)
+    if (term->cursor.point.col < term->cols - 1)
         term_cursor_right(term, 1);
     else
         term->lcf = true;
@@ -736,15 +736,15 @@ print_insert(struct terminal *term, int width)
 {
    if (unlikely(term->insert_mode)) {
        struct row *row = term->grid->cur_row;
-       const size_t move_count = max(0, term->cols - term->cursor.col - width);
+       const size_t move_count = max(0, term->cols - term->cursor.point.col - width);
 
        memmove(
-           &row->cells[term->cursor.col + width],
-           &row->cells[term->cursor.col],
+           &row->cells[term->cursor.point.col + width],
+           &row->cells[term->cursor.point.col],
            move_count * sizeof(struct cell));
 
        /* Mark moved cells as dirty */
-       for (size_t i = term->cursor.col + width; i < term->cols; i++)
+       for (size_t i = term->cursor.point.col + width; i < term->cols; i++)
            row->cells[i].attrs.clean = 0;
    }
 }
@@ -755,7 +755,7 @@ action_print_utf8(struct terminal *term)
     pre_print(term);
 
     struct row *row = term->grid->cur_row;
-    struct cell *cell = &row->cells[term->cursor.col];
+    struct cell *cell = &row->cells[term->cursor.point.col];
 
     /* Convert to wchar */
     mbstate_t ps = {0};
@@ -781,11 +781,11 @@ action_print_utf8(struct terminal *term)
 
     /* Advance cursor the 'additional' columns (last step is done
      * by post_print()) */
-    for (int i = 1; i < width && term->cursor.col < term->cols - 1; i++) {
+    for (int i = 1; i < width && term->cursor.point.col < term->cols - 1; i++) {
         term_cursor_right(term, 1);
 
-        assert(term->cursor.col < term->cols);
-        struct cell *cell = &row->cells[term->cursor.col];
+        assert(term->cursor.point.col < term->cols);
+        struct cell *cell = &row->cells[term->cursor.point.col];
         cell->wc = 0;
         cell->attrs.clean = 0;
     }
@@ -799,7 +799,7 @@ action_print(struct terminal *term, uint8_t c)
     pre_print(term);
 
     struct row *row = term->grid->cur_row;
-    struct cell *cell = &row->cells[term->cursor.col];
+    struct cell *cell = &row->cells[term->cursor.point.col];
 
     row->dirty = true;
     cell->attrs.clean = 0;
@@ -850,7 +850,7 @@ action(struct terminal *term, enum action _action, uint8_t c)
 
         case '\r':
             /* FF - form feed */
-            term_cursor_left(term, term->cursor.col);
+            term_cursor_left(term, term->cursor.point.col);
             break;
 
         case '\b':
@@ -866,14 +866,14 @@ action(struct terminal *term, enum action _action, uint8_t c)
 
         case '\x09': {
             /* HT - horizontal tab */
-            int new_col = term->cursor.col;
+            int new_col = term->cursor.point.col;
             tll_foreach(term->tab_stops, it) {
-                if (it->item >= term->cursor.col) {
+                if (it->item >= term->cursor.point.col) {
                     new_col = it->item;
                     break;
                 }
             }
-            term_cursor_right(term, new_col - term->cursor.col);
+            term_cursor_right(term, new_col - term->cursor.point.col);
             break;
         }
 

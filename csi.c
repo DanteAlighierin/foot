@@ -331,7 +331,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'd': {
             /* VPA - vertical line position absolute */
             struct coord new_cursor = term_cursor_rel_to_abs(
-                term, vt_param_get(term, 0, 1) - 1, term->cursor.col);
+                term, vt_param_get(term, 0, 1) - 1, term->cursor.point.col);
             term_cursor_to(term, new_cursor.row, new_cursor.col);
             break;
         }
@@ -363,9 +363,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
             case 0:
                 /* Clear tab stop at *current* column */
                 tll_foreach(term->tab_stops, it) {
-                    if (it->item == term->cursor.col)
+                    if (it->item == term->cursor.point.col)
                         tll_remove(term->tab_stops, it);
-                    else if (it->item > term->cursor.col)
+                    else if (it->item > term->cursor.point.col)
                         break;
                 }
 
@@ -386,7 +386,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'G': {
             /* Cursor horizontal absolute */
             struct coord new_cursor = term_cursor_rel_to_abs(
-                term, term->cursor.row, vt_param_get(term, 0, 1) - 1);
+                term, term->cursor.point.row, vt_param_get(term, 0, 1) - 1);
             term_cursor_to(term, new_cursor.row, new_cursor.col);
             break;
         }
@@ -411,14 +411,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 /* From cursor to end of screen */
                 term_erase(
                     term,
-                    &term->cursor,
+                    &term->cursor.point,
                     &(struct coord){term->cols - 1, term->rows - 1});
                 term->lcf = false;
                 break;
 
             case 1:
                 /* From start of screen to cursor */
-                term_erase(term, &(struct coord){0, 0}, &term->cursor);
+                term_erase(term, &(struct coord){0, 0}, &term->cursor.point);
                 term->lcf = false;
                 break;
 
@@ -469,15 +469,15 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 /* From cursor to end of line */
                 term_erase(
                     term,
-                    &term->cursor,
-                    &(struct coord){term->cols - 1, term->cursor.row});
+                    &term->cursor.point,
+                    &(struct coord){term->cols - 1, term->cursor.point.row});
                 term->lcf = false;
                 break;
 
             case 1:
                 /* From start of line to cursor */
                 term_erase(
-                    term, &(struct coord){0, term->cursor.row}, &term->cursor);
+                    term, &(struct coord){0, term->cursor.point.row}, &term->cursor.point);
                 term->lcf = false;
                 break;
 
@@ -485,8 +485,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 /* Entire line */
                 term_erase(
                     term,
-                    &(struct coord){0, term->cursor.row},
-                    &(struct coord){term->cols - 1, term->cursor.row});
+                    &(struct coord){0, term->cursor.point.row},
+                    &(struct coord){term->cols - 1, term->cursor.point.row});
                 term->lcf = false;
                 break;
 
@@ -499,36 +499,36 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 'L': {
-            if (term->cursor.row < term->scroll_region.start ||
-                term->cursor.row >= term->scroll_region.end)
+            if (term->cursor.point.row < term->scroll_region.start ||
+                term->cursor.point.row >= term->scroll_region.end)
                 break;
 
             int count = min(
                 vt_param_get(term, 0, 1),
-                term->scroll_region.end - term->cursor.row);
+                term->scroll_region.end - term->cursor.point.row);
 
             term_scroll_reverse_partial(
                 term,
                 (struct scroll_region){
-                    .start = term->cursor.row,
+                    .start = term->cursor.point.row,
                     .end = term->scroll_region.end},
                 count);
             break;
         }
 
         case 'M': {
-            if (term->cursor.row < term->scroll_region.start ||
-                term->cursor.row >= term->scroll_region.end)
+            if (term->cursor.point.row < term->scroll_region.start ||
+                term->cursor.point.row >= term->scroll_region.end)
                 break;
 
             int count = min(
                 vt_param_get(term, 0, 1),
-                term->scroll_region.end - term->cursor.row);
+                term->scroll_region.end - term->cursor.point.row);
 
             term_scroll_partial(
                 term,
                 (struct scroll_region){
-                    .start = term->cursor.row,
+                    .start = term->cursor.point.row,
                     .end = term->scroll_region.end},
                 count);
             break;
@@ -539,25 +539,25 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             /* Number of characters to delete */
             int count = min(
-                vt_param_get(term, 0, 1), term->cols - term->cursor.col);
+                vt_param_get(term, 0, 1), term->cols - term->cursor.point.col);
 
             /* Number of characters left after deletion (on current line) */
-            int remaining = term->cols - (term->cursor.col + count);
+            int remaining = term->cols - (term->cursor.point.col + count);
 
             /* 'Delete' characters by moving the remaining ones */
-            memmove(&term->grid->cur_row->cells[term->cursor.col],
-                    &term->grid->cur_row->cells[term->cursor.col + count],
+            memmove(&term->grid->cur_row->cells[term->cursor.point.col],
+                    &term->grid->cur_row->cells[term->cursor.point.col + count],
                     remaining * sizeof(term->grid->cur_row->cells[0]));
 
             for (size_t c = 0; c < remaining; c++)
-                term->grid->cur_row->cells[term->cursor.col + c].attrs.clean = 0;
+                term->grid->cur_row->cells[term->cursor.point.col + c].attrs.clean = 0;
             term->grid->cur_row->dirty = true;
 
             /* Erase the remainder of the line */
             term_erase(
                 term,
-                &(struct coord){term->cursor.col + remaining, term->cursor.row},
-                &(struct coord){term->cols - 1, term->cursor.row});
+                &(struct coord){term->cursor.point.col + remaining, term->cursor.point.row},
+                &(struct coord){term->cols - 1, term->cursor.point.row});
             term->lcf = false;
             break;
         }
@@ -567,24 +567,24 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             /* Number of characters to insert */
             int count = min(
-                vt_param_get(term, 0, 1), term->cols - term->cursor.col);
+                vt_param_get(term, 0, 1), term->cols - term->cursor.point.col);
 
             /* Characters to move */
-            int remaining = term->cols - (term->cursor.col + count);
+            int remaining = term->cols - (term->cursor.point.col + count);
 
             /* Push existing characters */
-            memmove(&term->grid->cur_row->cells[term->cursor.col + count],
-                    &term->grid->cur_row->cells[term->cursor.col],
+            memmove(&term->grid->cur_row->cells[term->cursor.point.col + count],
+                    &term->grid->cur_row->cells[term->cursor.point.col],
                     remaining * sizeof(term->grid->cur_row->cells[0]));
             for (size_t c = 0; c < remaining; c++)
-                term->grid->cur_row->cells[term->cursor.col + count + c].attrs.clean = 0;
+                term->grid->cur_row->cells[term->cursor.point.col + count + c].attrs.clean = 0;
             term->grid->cur_row->dirty = true;
 
             /* Erase (insert space characters) */
             term_erase(
                 term,
-                &term->cursor,
-                &(struct coord){term->cursor.col + count - 1, term->cursor.row});
+                &term->cursor.point,
+                &(struct coord){term->cursor.point.col + count - 1, term->cursor.point.row});
             term->lcf = false;
             break;
         }
@@ -600,21 +600,21 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'X': {
             /* Erase chars */
             int count = min(
-                vt_param_get(term, 0, 1), term->cols - term->cursor.col);
+                vt_param_get(term, 0, 1), term->cols - term->cursor.point.col);
 
             term_erase(
                 term,
-                &term->cursor,
-                &(struct coord){term->cursor.col + count - 1, term->cursor.row});
+                &term->cursor.point,
+                &(struct coord){term->cursor.point.col + count - 1, term->cursor.point.row});
             term->lcf = false;
             break;
         }
 
         case 'Z': {
             /* Back tab */
-            int col = term->cursor.col;
+            int col = term->cursor.point.col;
             col = (col - 8 + 7) / 8 * 8;
-            term_cursor_right(term, col - term->cursor.col);
+            term_cursor_right(term, col - term->cursor.point.col);
             break;
         }
 
@@ -724,15 +724,15 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     /* u7 - cursor position query */
 
                     int row = term->origin == ORIGIN_ABSOLUTE
-                        ? term->cursor.row
-                        : term->cursor.row - term->scroll_region.start;
+                        ? term->cursor.point.row
+                        : term->cursor.point.row - term->scroll_region.start;
 
                     /* TODO: we use 0-based position, while the xterm
                      * terminfo says the receiver of the reply should
                      * decrement, hence we must add 1 */
                     char reply[64];
                     snprintf(reply, sizeof(reply), "\x1b[%d;%dR",
-                             row + 1, term->cursor.col + 1);
+                             row + 1, term->cursor.point.col + 1);
                     term_to_slave(term, reply, strlen(reply));
                     break;
                 }
@@ -857,7 +857,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         term->grid = &term->alt;
                         term->saved_cursor = term->cursor;
 
-                        term_cursor_to(term, term->cursor.row, term->cursor.col);
+                        term_cursor_to(term, term->cursor.point.row, term->cursor.point.col);
 
                         tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);

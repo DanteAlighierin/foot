@@ -527,8 +527,8 @@ grid_render(struct terminal *term)
         }
         term->render.last_cursor.cell = NULL;
 
-        if (term->render.last_cursor.actual.col != term->cursor.col ||
-            term->render.last_cursor.actual.row != term->cursor.row)
+        if (term->render.last_cursor.actual.col != term->cursor.point.col ||
+            term->render.last_cursor.actual.row != term->cursor.point.row)
         {
             /* Detect cursor movement - we don't dirty cells touched
              * by the cursor, since only the final cell matters. */
@@ -647,7 +647,7 @@ grid_render(struct terminal *term)
      */
     bool cursor_is_visible = false;
     int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
-    int cursor_row = (term->grid->offset + term->cursor.row) & (term->grid->num_rows - 1);
+    int cursor_row = (term->grid->offset + term->cursor.point.row) & (term->grid->num_rows - 1);
     if (view_end >= term->grid->view) {
         /* Not wrapped */
         if (cursor_row >= term->grid->view && cursor_row <= view_end)
@@ -675,21 +675,21 @@ grid_render(struct terminal *term)
         int view_aligned_row
             = (cursor_row - term->grid->view + term->grid->num_rows) & (term->grid->num_rows - 1);
 
-        term->render.last_cursor.actual = term->cursor;
+        term->render.last_cursor.actual = term->cursor.point;
         term->render.last_cursor.in_view = (struct coord) {
-            term->cursor.col, view_aligned_row};
+            term->cursor.point.col, view_aligned_row};
 
         struct row *row = grid_row_in_view(term->grid, view_aligned_row);
-        struct cell *cell = &row->cells[term->cursor.col];
+        struct cell *cell = &row->cells[term->cursor.point.col];
 
         cell->attrs.clean = 0;
         term->render.last_cursor.cell = cell;
         int cols_updated = render_cell(
-            term, pix, cell, term->cursor.col, view_aligned_row, true);
+            term, pix, cell, term->cursor.point.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
             term->window->surface,
-            term->x_margin + term->cursor.col * term->cell_width,
+            term->x_margin + term->cursor.point.col * term->cell_width,
             term->y_margin + view_aligned_row * term->cell_height,
             cols_updated * term->cell_width, term->cell_height);
     }
@@ -949,8 +949,8 @@ render_resize(struct terminal *term, int width, int height)
 
     term_cursor_to(
         term,
-        min(term->cursor.row, term->rows - 1),
-        min(term->cursor.col, term->cols - 1));
+        min(term->cursor.point.row, term->rows - 1),
+        min(term->cursor.point.col, term->cols - 1));
 
     term->render.last_cursor.cell = NULL;
 

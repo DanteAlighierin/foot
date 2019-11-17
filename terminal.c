@@ -856,9 +856,9 @@ term_reset(struct terminal *term, bool hard)
     for (size_t i = 0; i < 256; i++)
         term->colors.table[i] = term->colors.default_table[i];
     term->lcf = false;
-    term->cursor = (struct coord){0, 0};
-    term->saved_cursor = (struct coord){0, 0};
-    term->alt_saved_cursor = (struct coord){0, 0};
+    term->cursor = (struct cursor){.point = {0, 0}};
+    term->saved_cursor = (struct cursor){.point = {0, 0}};
+    term->alt_saved_cursor = (struct cursor){.point = {0, 0}};
     term->cursor_style = term->default_cursor_style;
     term->cursor_blinking = false;
     term->cursor_color.text = term->default_cursor_color.text;
@@ -1026,8 +1026,8 @@ term_cursor_to(struct terminal *term, int row, int col)
 
     term->lcf = false;
 
-    term->cursor.col = col;
-    term->cursor.row = row;
+    term->cursor.point.col = col;
+    term->cursor.point.row = row;
 
     term->grid->cur_row = grid_row(term->grid, row);
 }
@@ -1042,18 +1042,18 @@ term_cursor_home(struct terminal *term)
 void
 term_cursor_left(struct terminal *term, int count)
 {
-    int move_amount = min(term->cursor.col, count);
-    term->cursor.col -= move_amount;
-    assert(term->cursor.col >= 0);
+    int move_amount = min(term->cursor.point.col, count);
+    term->cursor.point.col -= move_amount;
+    assert(term->cursor.point.col >= 0);
     term->lcf = false;
 }
 
 void
 term_cursor_right(struct terminal *term, int count)
 {
-    int move_amount = min(term->cols - term->cursor.col - 1, count);
-    term->cursor.col += move_amount;
-    assert(term->cursor.col < term->cols);
+    int move_amount = min(term->cols - term->cursor.point.col - 1, count);
+    term->cursor.point.col += move_amount;
+    assert(term->cursor.point.col < term->cols);
     term->lcf = false;
 }
 
@@ -1061,20 +1061,20 @@ void
 term_cursor_up(struct terminal *term, int count)
 {
     int top = term->origin == ORIGIN_ABSOLUTE ? 0 : term->scroll_region.start;
-    assert(term->cursor.row >= top);
+    assert(term->cursor.point.row >= top);
 
-    int move_amount = min(term->cursor.row - top, count);
-    term_cursor_to(term, term->cursor.row - move_amount, term->cursor.col);
+    int move_amount = min(term->cursor.point.row - top, count);
+    term_cursor_to(term, term->cursor.point.row - move_amount, term->cursor.point.col);
 }
 
 void
 term_cursor_down(struct terminal *term, int count)
 {
     int bottom = term->origin == ORIGIN_ABSOLUTE ? term->rows : term->scroll_region.end;
-    assert(bottom >= term->cursor.row);
+    assert(bottom >= term->cursor.point.row);
 
-    int move_amount = min(bottom - term->cursor.row - 1, count);
-    term_cursor_to(term, term->cursor.row + move_amount, term->cursor.col);
+    int move_amount = min(bottom - term->cursor.point.row - 1, count);
+    term_cursor_to(term, term->cursor.point.row + move_amount, term->cursor.point.col);
 }
 
 void
@@ -1113,7 +1113,7 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     }
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
-    term->grid->cur_row = grid_row(term->grid, term->cursor.row);
+    term->grid->cur_row = grid_row(term->grid, term->cursor.point.row);
 }
 
 void
@@ -1164,7 +1164,7 @@ term_scroll_reverse_partial(struct terminal *term,
     }
 
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
-    term->grid->cur_row = grid_row(term->grid, term->cursor.row);
+    term->grid->cur_row = grid_row(term->grid, term->cursor.point.row);
 }
 
 void
@@ -1176,7 +1176,7 @@ term_scroll_reverse(struct terminal *term, int rows)
 void
 term_linefeed(struct terminal *term)
 {
-    if (term->cursor.row == term->scroll_region.end - 1)
+    if (term->cursor.point.row == term->scroll_region.end - 1)
         term_scroll(term, 1);
     else
         term_cursor_down(term, 1);
@@ -1185,7 +1185,7 @@ term_linefeed(struct terminal *term)
 void
 term_reverse_index(struct terminal *term)
 {
-    if (term->cursor.row == term->scroll_region.start)
+    if (term->cursor.point.row == term->scroll_region.start)
         term_scroll_reverse(term, 1);
     else
         term_cursor_up(term, 1);
@@ -1204,8 +1204,8 @@ term_reset_view(struct terminal *term)
 void
 term_restore_cursor(struct terminal *term)
 {
-    int row = min(term->saved_cursor.row, term->rows - 1);
-    int col = min(term->saved_cursor.col, term->cols - 1);
+    int row = min(term->saved_cursor.point.row, term->rows - 1);
+    int col = min(term->saved_cursor.point.col, term->cols - 1);
     term_cursor_to(term, row, col);
 }
 

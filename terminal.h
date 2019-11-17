@@ -61,6 +61,10 @@ struct coord {
     int row;
 };
 
+struct cursor {
+    struct coord point;
+};
+
 enum damage_type {DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE,
                   DAMAGE_SCROLL_IN_VIEW, DAMAGE_SCROLL_REVERSE_IN_VIEW};
 
@@ -216,9 +220,9 @@ struct terminal {
     } colors;
 
     enum cursor_origin origin;
-    struct coord cursor;
-    struct coord saved_cursor;
-    struct coord alt_saved_cursor;
+    struct cursor cursor;
+    struct cursor saved_cursor;
+    struct cursor alt_saved_cursor;
     enum cursor_style default_cursor_style;
     enum cursor_style cursor_style;
     bool cursor_blinking;
