@@ -597,11 +597,17 @@ esc_dispatch(struct terminal *term, uint8_t final)
         case '7':
             term->saved_cursor = term->cursor;
             term->vt.saved_attrs = term->vt.attrs;
+            //term->saved_charset = term->selected_charset;
+            //for (size_t i = 0; i < 4; i++)
+            //    term->saved_charsets[i] = term->charset[i];
             break;
 
         case '8':
             term_restore_cursor(term);
             term->vt.attrs = term->vt.saved_attrs;
+            //term->selected_charset = term->saved_charset;
+            //for (size_t i = 0; i < 4; i++)
+            //    term->charset[i] = term->saved_charsets[i];
             break;
 
         case 'c':
@@ -634,12 +640,12 @@ esc_dispatch(struct terminal *term, uint8_t final)
 
         case 'N':
             /* SS2 - Single Shift 2 */
-            term->selected_charset = 2; /* G2 */
+            term->charsets.selected = 2; /* G2 */
             break;
 
         case 'O':
             /* SS3 - Single Shift 3 */
-            term->selected_charset = 3; /* G3 */
+            term->charsets.selected = 3; /* G3 */
             break;
 
         case '\\':
@@ -673,7 +679,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
                 '*' ? 2 :
                 '+' ? 3 : -1;
             assert(idx != -1);
-            term->charset[idx] = CHARSET_GRAPHIC;
+            term->charsets.set[idx] = CHARSET_GRAPHIC;
             break;
         }
 
@@ -685,7 +691,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
                 '*' ? 2 :
                 '+' ? 3 : -1;
             assert(idx != -1);
-            term->charset[idx] = CHARSET_ASCII;
+            term->charsets.set[idx] = CHARSET_ASCII;
 
             break;
         }
@@ -814,7 +820,7 @@ action_print(struct terminal *term, uint8_t c)
         L'│', L'≤', L'≥', L'π', L'≠', L'£', L'·',       /* x - ~ */
     };
 
-    if (unlikely(term->charset[term->selected_charset] == CHARSET_GRAPHIC) &&
+    if (unlikely(term->charsets.set[term->charsets.selected] == CHARSET_GRAPHIC) &&
         c >= 0x60 && c <= 0x7e)
     {
         cell->wc = vt100_0[c - 0x60];
@@ -884,12 +890,12 @@ action(struct terminal *term, enum action _action, uint8_t c)
 
         case '\x0e':
             /* SO - shift out */
-            term->selected_charset = 1; /* G1 */
+            term->charsets.selected = 1; /* G1 */
             break;
 
         case '\x0f':
             /* SI - shift in */
-            term->selected_charset = 0; /* G0 */
+            term->charsets.selected = 0; /* G0 */
             break;
 
         default:

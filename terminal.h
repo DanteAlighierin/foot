@@ -178,8 +178,11 @@ struct terminal {
     enum mouse_tracking mouse_tracking;
     enum mouse_reporting mouse_reporting;
 
-    int selected_charset;
-    enum charset charset[4]; /* G0-G3 */
+    struct {
+        int selected;
+        enum charset set[4]; /* G0-G3 */
+    } charsets;
+
     char *window_title;
     tll(char *) window_title_stack;
 

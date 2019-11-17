@@ -823,11 +823,11 @@ term_reset(struct terminal *term, bool hard)
     term->focus_events = false;
     term->mouse_tracking = MOUSE_NONE;
     term->mouse_reporting = MOUSE_NORMAL;
-    term->selected_charset = 0;
-    term->charset[0] = CHARSET_ASCII;
-    term->charset[1] = CHARSET_ASCII;
-    term->charset[2] = CHARSET_ASCII;
-    term->charset[3] = CHARSET_ASCII;
+    term->charsets.selected = 0;
+    term->charsets.set[0] = CHARSET_ASCII;
+    term->charsets.set[1] = CHARSET_ASCII;
+    term->charsets.set[2] = CHARSET_ASCII;
+    term->charsets.set[3] = CHARSET_ASCII;
     tll_free_and_free(term->window_title_stack, free);
     free(term->window_title);
     term->window_title = strdup("foot");
