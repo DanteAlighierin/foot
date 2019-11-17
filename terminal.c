@@ -1207,6 +1207,7 @@ term_restore_cursor(struct terminal *term)
     int row = min(term->saved_cursor.point.row, term->rows - 1);
     int col = min(term->saved_cursor.point.col, term->cols - 1);
     term_cursor_to(term, row, col);
+    term->cursor.lcf = term->saved_cursor.lcf;
 }
 
 void
