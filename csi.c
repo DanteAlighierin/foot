@@ -413,13 +413,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term,
                     &term->cursor.point,
                     &(struct coord){term->cols - 1, term->rows - 1});
-                term->lcf = false;
+                term->cursor.lcf = false;
                 break;
 
             case 1:
                 /* From start of screen to cursor */
                 term_erase(term, &(struct coord){0, 0}, &term->cursor.point);
-                term->lcf = false;
+                term->cursor.lcf = false;
                 break;
 
             case 2:
@@ -428,7 +428,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term,
                     &(struct coord){0, 0},
                     &(struct coord){term->cols - 1, term->rows - 1});
-                term->lcf = false;
+                term->cursor.lcf = false;
                 break;
 
             case 3: {
@@ -471,14 +471,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term,
                     &term->cursor.point,
                     &(struct coord){term->cols - 1, term->cursor.point.row});
-                term->lcf = false;
+                term->cursor.lcf = false;
                 break;
 
             case 1:
                 /* From start of line to cursor */
                 term_erase(
                     term, &(struct coord){0, term->cursor.point.row}, &term->cursor.point);
-                term->lcf = false;
+                term->cursor.lcf = false;
                 break;
 
             case 2:
@@ -487,7 +487,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term,
                     &(struct coord){0, term->cursor.point.row},
                     &(struct coord){term->cols - 1, term->cursor.point.row});
-                term->lcf = false;
+                term->cursor.lcf = false;
                 break;
 
             default:
@@ -558,7 +558,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 term,
                 &(struct coord){term->cursor.point.col + remaining, term->cursor.point.row},
                 &(struct coord){term->cols - 1, term->cursor.point.row});
-            term->lcf = false;
+            term->cursor.lcf = false;
             break;
         }
 
@@ -585,7 +585,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 term,
                 &term->cursor.point,
                 &(struct coord){term->cursor.point.col + count - 1, term->cursor.point.row});
-            term->lcf = false;
+            term->cursor.lcf = false;
             break;
         }
 
@@ -606,7 +606,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 term,
                 &term->cursor.point,
                 &(struct coord){term->cursor.point.col + count - 1, term->cursor.point.row});
-            term->lcf = false;
+            term->cursor.lcf = false;
             break;
         }
 

@@ -713,7 +713,7 @@ esc_dispatch(struct terminal *term, uint8_t final)
 static inline void
 pre_print(struct terminal *term)
 {
-    if (unlikely(term->lcf) && term->auto_margin) {
+    if (unlikely(term->cursor.lcf) && term->auto_margin) {
         if (term->cursor.point.row == term->scroll_region.end - 1) {
             term_scroll(term, 1);
             term_cursor_to(term, term->cursor.point.row, 0);
@@ -728,7 +728,7 @@ post_print(struct terminal *term)
     if (term->cursor.point.col < term->cols - 1)
         term_cursor_right(term, 1);
     else
-        term->lcf = true;
+        term->cursor.lcf = true;
 }
 
 static inline void

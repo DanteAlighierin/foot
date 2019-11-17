@@ -63,6 +63,7 @@ struct coord {
 
 struct cursor {
     struct coord point;
+    bool lcf;
 };
 
 enum damage_type {DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE,
@@ -205,7 +206,6 @@ struct terminal {
     int cell_width;  /* pixels per cell, x-wise */
     int cell_height; /* pixels per cell, y-wise */
 
-    bool lcf;
     struct scroll_region scroll_region;
 
     struct {
