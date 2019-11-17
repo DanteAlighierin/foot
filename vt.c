@@ -713,18 +713,6 @@ esc_dispatch(struct terminal *term, uint8_t final)
 }
 
 static inline void
-pre_print(struct terminal *term)
-{
-    if (unlikely(term->cursor.lcf) && term->auto_margin) {
-        if (term->cursor.point.row == term->scroll_region.end - 1) {
-            term_scroll(term, 1);
-            term_cursor_to(term, term->cursor.point.row, 0);
-        } else
-            term_cursor_to(term, term->cursor.point.row + 1, 0);
-    }
-}
-
-static inline void
 post_print(struct terminal *term)
 {
     if (term->cursor.point.col < term->cols - 1)
@@ -754,7 +742,7 @@ print_insert(struct terminal *term, int width)
 static void
 action_print_utf8(struct terminal *term)
 {
-    pre_print(term);
+    term_autowrap(term);
 
     struct row *row = term->grid->cur_row;
     struct cell *cell = &row->cells[term->cursor.point.col];
@@ -798,7 +786,7 @@ action_print_utf8(struct terminal *term)
 static void
 action_print(struct terminal *term, uint8_t c)
 {
-    pre_print(term);
+    term_autowrap(term);
 
     struct row *row = term->grid->cur_row;
     struct cell *cell = &row->cells[term->cursor.point.col];
