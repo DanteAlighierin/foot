@@ -360,6 +360,7 @@ void term_scroll_reverse_partial(
 
 void term_linefeed(struct terminal *term);
 void term_reverse_index(struct terminal *term);
+bool term_autowrap(struct terminal *term);
 
 void term_restore_cursor(struct terminal *term);
 

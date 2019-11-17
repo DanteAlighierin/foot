@@ -1192,6 +1192,21 @@ term_reverse_index(struct terminal *term)
         term_cursor_up(term, 1);
 }
 
+bool
+term_autowrap(struct terminal *term)
+{
+    if (unlikely(term->cursor.lcf) && term->auto_margin) {
+        if (term->cursor.point.row == term->scroll_region.end - 1) {
+            term_scroll(term, 1);
+            term_cursor_to(term, term->cursor.point.row, 0);
+        } else
+            term_cursor_to(term, term->cursor.point.row + 1, 0);
+
+        return true;
+    } else
+        return false;
+}
+
 void
 term_reset_view(struct terminal *term)
 {
