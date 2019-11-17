@@ -597,17 +597,13 @@ esc_dispatch(struct terminal *term, uint8_t final)
         case '7':
             term->saved_cursor = term->cursor;
             term->vt.saved_attrs = term->vt.attrs;
-            //term->saved_charset = term->selected_charset;
-            //for (size_t i = 0; i < 4; i++)
-            //    term->saved_charsets[i] = term->charset[i];
+            term->saved_charsets = term->charsets;
             break;
 
         case '8':
             term_restore_cursor(term);
             term->vt.attrs = term->vt.saved_attrs;
-            //term->selected_charset = term->saved_charset;
-            //for (size_t i = 0; i < 4; i++)
-            //    term->charset[i] = term->saved_charsets[i];
+            term->charsets = term->saved_charsets;
             break;
 
         case 'c':

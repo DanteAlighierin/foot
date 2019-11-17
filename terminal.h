@@ -184,6 +184,7 @@ struct terminal {
     enum mouse_reporting mouse_reporting;
 
     struct charsets charsets;
+    struct charsets saved_charsets; /* For save/restore cursor + attributes */
 
     char *window_title;
     tll(char *) window_title_stack;
