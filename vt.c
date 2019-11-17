@@ -875,6 +875,7 @@ action(struct terminal *term, enum action _action, uint8_t c)
                     break;
                 }
             }
+            assert(new_col >= term->cursor.point.col);
             term_cursor_right(term, new_col - term->cursor.point.col);
             break;
         }

@@ -611,13 +611,20 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        case 'Z': {
-            /* Back tab */
-            int col = term->cursor.point.col;
-            col = (col - 8 + 7) / 8 * 8;
-            term_cursor_right(term, col - term->cursor.point.col);
+        case 'Z':
+            /* CBT - Back tab (param is number of tab stops to move back through) */
+            for (int i = 0; i < vt_param_get(term, 0, 1); i++) {
+                int new_col = 0;
+                tll_rforeach(term->tab_stops, it) {
+                    if (it->item < term->cursor.point.col) {
+                        new_col = it->item;
+                        break;
+                    }
+                }
+                assert(term->cursor.point.col >= new_col);
+                term_cursor_left(term, term->cursor.point.col - new_col);
+            }
             break;
-        }
 
         case 'h':
             /* Set mode */
