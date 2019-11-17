@@ -132,6 +132,11 @@ enum cursor_keys { CURSOR_KEYS_DONTCARE, CURSOR_KEYS_NORMAL, CURSOR_KEYS_APPLICA
 enum keypad_keys { KEYPAD_DONTCARE, KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
 enum charset { CHARSET_ASCII, CHARSET_GRAPHIC };
 
+struct charsets {
+    int selected;
+    enum charset set[4]; /* G0-G3 */
+};
+
 /* *What* to report */
 enum mouse_tracking {
     MOUSE_NONE,
@@ -178,10 +183,7 @@ struct terminal {
     enum mouse_tracking mouse_tracking;
     enum mouse_reporting mouse_reporting;
 
-    struct {
-        int selected;
-        enum charset set[4]; /* G0-G3 */
-    } charsets;
+    struct charsets charsets;
 
     char *window_title;
     tll(char *) window_title_stack;
