@@ -330,9 +330,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'd': {
             /* VPA - vertical line position absolute */
-            struct coord new_cursor = term_cursor_rel_to_abs(
-                term, vt_param_get(term, 0, 1) - 1, term->cursor.point.col);
-            term_cursor_to(term, new_cursor.row, new_cursor.col);
+            int rel_row = vt_param_get(term, 0, 1) - 1;
+            int row = term_row_rel_to_abs(term, rel_row);
+            term_cursor_to(term, row, term->cursor.point.col);
             break;
         }
 
@@ -399,20 +399,18 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case '`':
         case 'G': {
             /* Cursor horizontal absolute */
-            struct coord new_cursor = term_cursor_rel_to_abs(
-                term, term->cursor.point.row, vt_param_get(term, 0, 1) - 1);
-            term_cursor_to(term, new_cursor.row, new_cursor.col);
+            int col = min(vt_param_get(term, 0, 1), term->cols) - 1;
+            term_cursor_to(term, term->cursor.point.row, col);
             break;
         }
 
         case 'f':
         case 'H': {
             /* Move cursor */
-            struct coord new_cursor = term_cursor_rel_to_abs(
-                term,
-                vt_param_get(term, 0, 1) - 1,
-                vt_param_get(term, 1, 1) - 1);
-            term_cursor_to(term, new_cursor.row, new_cursor.col);
+            int rel_row = vt_param_get(term, 0, 1) - 1;
+            int row = term_row_rel_to_abs(term, rel_row);
+            int col = min(vt_param_get(term, 1, 1), term->cols) - 1;
+            term_cursor_to(term, row, col);
             break;
         }
 

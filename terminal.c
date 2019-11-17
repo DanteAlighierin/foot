@@ -995,28 +995,19 @@ term_erase(struct terminal *term, const struct coord *start, const struct coord 
     erase_cell_range(term, grid_row(term->grid, end->row), 0, end->col);
 }
 
-struct coord
-term_cursor_rel_to_abs(const struct terminal *term, int row, int col)
+int
+term_row_rel_to_abs(const struct terminal *term, int row)
 {
     switch (term->origin) {
     case ORIGIN_ABSOLUTE:
-        return (struct coord) {
-            .col = min(col, term->cols - 1),
-            .row = min(row, term->rows - 1),
-        };
-        break;
+        return min(row, term->rows - 1);
 
-    case ORIGIN_RELATIVE: {
-        return (struct coord) {
-            .col = min(col, term->cols - 1),
-            .row = min(row + term->scroll_region.start, term->rows - 1),
-        };
-        break;
-    }
+    case ORIGIN_RELATIVE:
+        return min(row + term->scroll_region.start, term->scroll_region.end - 1);
     }
 
     assert(false);
-    return (struct coord){-1, -1};
+    return -1;
 }
 
 void
@@ -1036,8 +1027,7 @@ term_cursor_to(struct terminal *term, int row, int col)
 void
 term_cursor_home(struct terminal *term)
 {
-    struct coord new_cursor = term_cursor_rel_to_abs(term, 0, 0);
-    term_cursor_to(term, new_cursor.row, new_cursor.col);
+    term_cursor_to(term, term_row_rel_to_abs(term, 0), 0);
 }
 
 void

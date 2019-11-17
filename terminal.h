@@ -342,7 +342,7 @@ void term_damage_scroll(
 void term_erase(
     struct terminal *term, const struct coord *start, const struct coord *end);
 
-struct coord term_cursor_rel_to_abs(const struct terminal *term, int row, int col);
+int term_row_rel_to_abs(const struct terminal *term, int row);
 void term_cursor_home(struct terminal *term);
 void term_cursor_to(struct terminal *term, int row, int col);
 void term_cursor_left(struct terminal *term, int count);
