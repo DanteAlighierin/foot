@@ -154,6 +154,40 @@ available:
   Scroll up/down in history
 
 
+## Server mode
+
+When run normally, **foot** is a single-window application; if you
+want another window, start another foot process.
+
+However, foot can also be run in a _server_ mode. In this mode, one
+process hosts multiple windows. Note that this is **nothing** like
+tabs. When first started in server mode, **no** windows are available.
+
+You open new windows by running `footclient`. This is a small process
+that instructs the foot server to open a new terminal window. The
+client process remains running until the terminal window is
+closed. The exit value of the client process is that of the shell that
+was running in the terminal window.
+
+The point of this mode is **a)** reduced memory footprint - all
+terminal windows will share fonts and glyph cache, and **b)** reduced
+startup time - loading fonts and populating the glyph cache takes
+time, but in server mode it only happens once.
+
+The downside is a performance penalty; all windows' input and output
+are multiplexed in the same thread (but each window will have its own
+set of rendering threads). This means that if one window is very busy
+with, for example, producing output, then other windows will suffer.
+
+And of course, should the server process crash, **all** windows will
+be gone.
+
+Typical usage would be to start the server process (`foot --server`)
+when starting your Wayland compositor (i.e. logging in to your
+desktop), and then run `footclient` instead of `foot` whenever you
+want to launch a new terminal.
+
+
 ## Requirements
 
 ### Running
