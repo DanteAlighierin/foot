@@ -1268,10 +1268,16 @@ report_mouse_click(struct terminal *term, int encoded_button, int row, int col,
     char response[128];
 
     switch (term->mouse_reporting) {
-    case MOUSE_NORMAL:
+    case MOUSE_NORMAL: {
+        int encoded_col = 32 + col + 1;
+        int encoded_row = 32 + row + 1;
+        if (encoded_col > 255 || encoded_row > 255)
+            return;
+
         snprintf(response, sizeof(response), "\033[M%c%c%c",
-                 32 + (release ? 3 : encoded_button), 32 + col + 1, 32 + row + 1);
+                 32 + (release ? 3 : encoded_button), encoded_col, encoded_row);
         break;
+    }
 
     case MOUSE_SGR:
         snprintf(response, sizeof(response), "\033[<%d;%d;%d%c",
