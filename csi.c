@@ -855,11 +855,12 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 1005:
-                    LOG_WARN("unimplemented: UTF-8 mouse");
+                    LOG_WARN("unimplemented: mouse reporting mode: UTF-8");
                     /* term->mouse_reporting = MOUSE_UTF8; */
                     break;
 
                 case 1006:
+                    LOG_DBG("mouse reporting mode: SGR");
                     term->mouse_reporting = MOUSE_SGR;
                     break;
 
@@ -868,6 +869,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 1015:
+                    LOG_DBG("mouse reporting mode: urxvt");
                     term->mouse_reporting = MOUSE_URXVT;
                     break;
 
@@ -968,6 +970,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 case 1005:  /* MOUSE_UTF8 */
                 case 1006:  /* MOUSE_SGR */
                 case 1015:  /* MOUSE_URXVT */
+                    LOG_DBG("mouse reporting mode: legacy");
                     term->mouse_reporting = MOUSE_NORMAL;
                     break;
 
