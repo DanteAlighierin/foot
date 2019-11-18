@@ -1321,11 +1321,15 @@ term_mouse_down(struct terminal *term, int button, int row, int col,
     case MOUSE_NONE:
         break;
 
-    case MOUSE_X10:
     case MOUSE_CLICK:
     case MOUSE_DRAG:
     case MOUSE_MOTION:
         report_mouse_click(term, encoded, row, col, false);
+        break;
+
+    case MOUSE_X10:
+        /* Never enabled */
+        assert(false && "unimplemented");
         break;
     }
 }
@@ -1359,11 +1363,15 @@ term_mouse_up(struct terminal *term, int button, int row, int col,
     case MOUSE_NONE:
         break;
 
-    case MOUSE_X10:
     case MOUSE_CLICK:
     case MOUSE_DRAG:
     case MOUSE_MOTION:
         report_mouse_click(term, encoded, row, col, true);
+        break;
+
+    case MOUSE_X10:
+        /* Never enabled */
+        assert(false && "unimplemented");
         break;
     }
 }
@@ -1396,7 +1404,6 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
 
     switch (term->mouse_tracking) {
     case MOUSE_NONE:
-    case MOUSE_X10:
     case MOUSE_CLICK:
         return;
 
@@ -1407,6 +1414,11 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
 
     case MOUSE_MOTION:
         report_mouse_motion(term, encoded, row, col);
+        break;
+
+    case MOUSE_X10:
+        /* Never enabled */
+        assert(false && "unimplemented");
         break;
     }
 }
