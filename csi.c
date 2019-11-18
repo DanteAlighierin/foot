@@ -353,7 +353,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
              *  - 28   Rectangular editing.
              *  - 29   ANSI text locator (i.e., DEC Locator mode).
              */
-            const char *reply = "\033[?64;6;15;16;17;22;28c";
+            const char *reply = "\033[?62;6;15;17;22;28c";
             term_to_slave(term, reply, strlen(reply));
             break;
         }
