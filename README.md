@@ -11,6 +11,7 @@
 1. [Shortcuts](#shortcuts)
    1. [Keyboard](#keyboard)
    1. [Mouse](#mouse)
+1. [Server mode](#server-mode)
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
