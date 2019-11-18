@@ -755,6 +755,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             if (term->vt.params.idx > 0) {
                 int param = vt_param_get(term, 0, 0);
                 switch (param) {
+                case 5:
+                    /* Query device status */
+                    term_to_slave(term, "\x1b[0n", 4);  /* "Device OK" */
+                    break;
+
                 case 6: {
                     /* u7 - cursor position query */
 
