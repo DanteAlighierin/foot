@@ -19,7 +19,7 @@ debug:
     - mkdir -p bld/debug
     - cd bld/debug
     - meson --buildtype=debug ../../
-    - ninja -k0
+    - ninja -v -k0
 
 release:
   stage: build
@@ -27,4 +27,4 @@ release:
     - mkdir -p bld/release
     - cd bld/release
     - meson --buildtype=release ../../
-    - ninja -k0
+    - ninja -v -k0
