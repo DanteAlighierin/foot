@@ -1096,11 +1096,31 @@ csi_dispatch(struct terminal *term, uint8_t final)
     case '>': {
         switch (final) {
             case 'c': {
+                /* Send Device Attributes (Secondary DA) */
                 int param = vt_param_get(term, 0, 0);
                 if (param != 0) {
                     UNHANDLED();
                     break;
                 }
+
+                /*
+                 * Param 1 - terminal type:
+                 *   0 - vt100
+                 *   1 - vt220
+                 *   2 - vt240
+                 *  18 - vt330
+                 *  19 - vt340
+                 *  24 - vt320
+                 *  41 - vt420
+                 *  61 - vt510
+                 *  64 - vt520
+                 *  65 - vt525
+                 *
+                 * Param 2 - firmware version
+                 *  xterm uses its version number. We use an xterm
+                 *  version number too, since e.g. Emacs uses this to
+                 *  determine level of support.
+                 */
 
                 term_to_slave(term, "\033[>41;347;0c", 12);
                 break;
