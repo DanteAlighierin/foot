@@ -324,9 +324,39 @@ csi_dispatch(struct terminal *term, uint8_t final)
     switch (term->vt.private[0]) {
     case 0: {
         switch (final) {
-        case 'c':
-            term_to_slave(term, "\033[?6c", 5);
+        case 'c': {
+            /* Send Device Attributes (Primary DA) */
+
+            /*
+             * Responses:
+             *  - CSI?1;2c      vt100 with advanced video option
+             *  - CSI?1;0c      vt101 with no options
+             *  - CSI?6c        vt102
+             *  - CSI?62;<Ps>c  vt220
+             *  - CSI?63;<Ps>c  vt320
+             *  - CSI?64;<Ps>c  vt420
+             *
+             * Ps (response may contain multiple):
+             *  - 1    132 columns
+             *  - 2    Printer.
+             *  - 3    ReGIS graphics.
+             *  - 4    Sixel graphics.
+             *  - 6    Selective erase.
+             *  - 8    User-defined keys.
+             *  - 9    National Replacement Character sets.
+             *  - 15   Technical characters.
+             *  - 16   Locator port.
+             *  - 17   Terminal state interrogation.
+             *  - 18   User windows.
+             *  - 21   Horizontal scrolling.
+             *  - 22   ANSI color, e.g., VT525.
+             *  - 28   Rectangular editing.
+             *  - 29   ANSI text locator (i.e., DEC Locator mode).
+             */
+            const char *reply = "\033[?64;6;15;16;17;22;28c";
+            term_to_slave(term, reply, strlen(reply));
             break;
+        }
 
         case 'd': {
             /* VPA - vertical line position absolute */
