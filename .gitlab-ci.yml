@@ -20,6 +20,7 @@ debug:
     - cd bld/debug
     - meson --buildtype=debug ../../
     - ninja -v -k0
+    - ninja -v test
 
 release:
   stage: build
@@ -28,3 +29,4 @@ release:
     - cd bld/release
     - meson --buildtype=release ../../
     - ninja -v -k0
+    - ninja -v test
