@@ -27,6 +27,7 @@
 * User configurable font fallback
 * Scrollback search
 * Color emoji support
+* "Server" mode (one master process, many windows)
 
 
 ## Non-features
