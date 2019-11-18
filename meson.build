@@ -96,7 +96,7 @@ executable(
 executable(
   'footclient',
   'client.c',
-  'log.c', 'log.h',
+  'log.c', 'log.h', version,
   install: true)
 
 custom_target(
