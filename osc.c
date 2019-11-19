@@ -35,6 +35,7 @@ osc_to_clipboard(struct terminal *term, const char *target,
             break;
         }
 
+        case 's':
         case 'p': {
             char *copy = strdup(decoded);
             if (!text_to_primary(term, copy, term->wl->input_serial))
@@ -124,11 +125,8 @@ osc_from_clipboard(struct terminal *term, const char *source)
     char src = 0;
 
     for (const char *s = source; *s != '\0'; s++) {
-        if (*s == 'c') {
-            src = 'c';
-            break;
-        } else if (*s == 'p') {
-            src = 'p';
+        if (*s == 'c' || *s == 'p' || *s == 's') {
+            src = *s;
             break;
         }
     }
@@ -150,6 +148,7 @@ osc_from_clipboard(struct terminal *term, const char *source)
             &from_clipboard_cb, &from_clipboard_done, ctx);
         break;
 
+    case 's':
     case 'p':
         text_from_primary(term, &from_clipboard_cb, &from_clipboard_done, ctx);
         break;
