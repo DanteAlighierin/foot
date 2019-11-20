@@ -28,6 +28,10 @@ build() {
   ninja
 }
 
+check() {
+  ninja test
+}
+
 package_foot() {
   pkgdesc="A wayland native terminal emulator"
   depends=(
