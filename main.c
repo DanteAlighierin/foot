@@ -190,6 +190,8 @@ main(int argc, char *const *argv)
     struct server *server = NULL;
     struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
 
+    log_init(as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER);
+
     /* This ensures we keep a set of fonts in the cache */
     if (!initialize_fonts(&conf, fonts))
         goto out;
@@ -241,5 +243,6 @@ out:
         font_destroy(fonts[i]);
 
     config_free(conf);
+    log_deinit();
     return ret == EXIT_SUCCESS && !as_server ? shutdown_ctx.exit_code : ret;
 }

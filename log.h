@@ -1,6 +1,10 @@
 #pragma once
 
+enum log_facility { LOG_FACILITY_USER, LOG_FACILITY_DAEMON };
 enum log_class { LOG_CLASS_ERROR, LOG_CLASS_WARNING, LOG_CLASS_INFO, LOG_CLASS_DEBUG };
+
+void log_init(enum log_facility syslog_facility);
+void log_deinit(void);
 
 void log_msg(enum log_class log_class, const char *module,
                const char *file, int lineno,

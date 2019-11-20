@@ -13,16 +13,21 @@
 
 static bool colorize = false;
 
-static void __attribute__((constructor))
-init(void)
+void
+log_init(enum log_facility syslog_facility)
 {
+    static const int facility_map[] = {
+        [LOG_FACILITY_USER] = LOG_USER,
+        [LOG_FACILITY_DAEMON] = LOG_DAEMON,
+    };
+
     colorize = isatty(STDOUT_FILENO);
-    openlog(NULL, /*LOG_PID*/0, LOG_USER);
+    openlog(NULL, /*LOG_PID*/0, facility_map[syslog_facility]);
     setlogmask(LOG_UPTO(LOG_WARNING));
 }
 
-static void __attribute__((destructor))
-fini(void)
+void
+log_deinit(void)
 {
     closelog();
 }
