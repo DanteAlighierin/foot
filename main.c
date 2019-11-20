@@ -190,6 +190,7 @@ main(int argc, char *const *argv)
     struct server *server = NULL;
     struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
 
+    /* This ensures we keep a set of fonts in the cache */
     if (!initialize_fonts(&conf, fonts))
         goto out;
 
