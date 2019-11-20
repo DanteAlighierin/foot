@@ -441,8 +441,8 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
             }
         }
 
-        LOG_WARN("%C: no glyph found (in neither the main font, "
-                 "nor any fallback fonts)", wc);
+        LOG_DBG("%C: no glyph found (in neither the main font, "
+                "nor any fallback fonts)", wc);
     }
 
     err = FT_Load_Glyph(font->face, idx, font->load_flags);
