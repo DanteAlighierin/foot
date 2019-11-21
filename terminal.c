@@ -590,6 +590,20 @@ fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
     term->window = NULL;
 
     struct wayland *wayl __attribute__((unused)) = term->wl;
+
+    /*
+     * Normally we'd get unmapped when we destroy the Wayland
+     * above.
+     *
+     * However, it appears that under certain conditions, those events
+     * are deferred (for example, when a screen locker is active), and
+     * thus we can get here without having been unmapped.
+     */
+    if (wayl->focused == term)
+        wayl->focused = NULL;
+    if (wayl->moused == term)
+        wayl->moused = NULL;
+
     assert(wayl->focused != term);
     assert(wayl->moused != term);
 
