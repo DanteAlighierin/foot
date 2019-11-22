@@ -161,8 +161,15 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             have_warned = true;
             LOG_WARN("compositor sent keyboard_key event without first sending keyboard_enter");
         }
-        stop_repeater(wayl, -1);
-        return;
+
+        if (tll_length(wayl->terms) == 1) {
+            /* With only one terminal we *know* which one has focus */
+            term = tll_front(wayl->terms);
+        } else {
+            /* But with multiple windows we can't guess - ignore the event */
+            stop_repeater(wayl, -1);
+            return;
+        }
     }
 
     assert(term != NULL);
@@ -441,7 +448,14 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
             have_warned = true;
             LOG_WARN("compositor sent pointer_motion event without first sending pointer_enter");
         }
-        return;
+
+        if (tll_length(wayl->terms) == 1) {
+            /* With only one terminal we *know* which one has focus */
+            term = tll_front(wayl->terms);
+        } else {
+            /* But with multiple windows we can't guess - ignore the event */
+            return;
+        }
     }
 
     assert(term != NULL);
