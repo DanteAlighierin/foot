@@ -256,7 +256,12 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         }
     }
 
-    for (size_t i = 0; i < sizeof(key_map) / sizeof(key_map[0]) && !found_map; i++) {
+    if (found_map) {
+        start_repeater(wayl, key - 8);
+        return;
+    }
+
+    for (size_t i = 0; i < sizeof(key_map) / sizeof(key_map[0]); i++) {
         const struct key_map *k = &key_map[i];
         if (k->sym != sym)
             continue;
@@ -275,77 +280,75 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                 continue;
 
             term_to_slave(term, info->seq, strlen(info->seq));
-            found_map = true;
 
             term_reset_view(term);
             selection_cancel(term);
-            break;
+            start_repeater(wayl, key - 8);
+            return;
         }
     }
 
-    if (!found_map) {
-        uint8_t buf[64] = {0};
-        int count = 0;
+    uint8_t buf[64] = {0};
+    int count = 0;
 
-        if (compose_status == XKB_COMPOSE_COMPOSED) {
-            count = xkb_compose_state_get_utf8(
-                wayl->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
-            xkb_compose_state_reset(wayl->kbd.xkb_compose_state);
-        } else {
-            count = xkb_state_key_get_utf8(
-                wayl->kbd.xkb_state, key, (char *)buf, sizeof(buf));
-        }
+    if (compose_status == XKB_COMPOSE_COMPOSED) {
+        count = xkb_compose_state_get_utf8(
+            wayl->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
+        xkb_compose_state_reset(wayl->kbd.xkb_compose_state);
+    } else {
+        count = xkb_state_key_get_utf8(
+            wayl->kbd.xkb_state, key, (char *)buf, sizeof(buf));
+    }
 
-        if (count > 0) {
+    if (count > 0) {
 
 #define is_control_key(x) ((x) >= 0x40 && (x) <= 0x7f)
 #define IS_CTRL(x) ((x) < 0x20 || ((x) >= 0x7f && (x) <= 0x9f))
 
-            if ((keymap_mods & MOD_CTRL) &&
-                !is_control_key(sym) &&
-                (count == 1 && !IS_CTRL(buf[0])) &&
-                sym < 256)
-            {
-                static const int mod_param_map[32] = {
-                    [MOD_SHIFT] = 2,
-                    [MOD_ALT] = 3,
-                    [MOD_SHIFT | MOD_ALT] = 4,
-                    [MOD_CTRL] = 5,
-                    [MOD_SHIFT | MOD_CTRL] = 6,
-                    [MOD_ALT | MOD_CTRL] = 7,
-                    [MOD_SHIFT | MOD_ALT | MOD_CTRL] = 8,
-                    [MOD_META] = 9,
-                    [MOD_META | MOD_SHIFT] = 10,
-                    [MOD_META | MOD_ALT] = 11,
-                    [MOD_META | MOD_SHIFT | MOD_ALT] = 12,
-                    [MOD_META | MOD_CTRL] = 13,
-                    [MOD_META | MOD_SHIFT | MOD_CTRL] = 14,
-                    [MOD_META | MOD_ALT | MOD_CTRL] = 15,
-                    [MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL] = 16,
-                };
+        if ((keymap_mods & MOD_CTRL) &&
+            !is_control_key(sym) &&
+            (count == 1 && !IS_CTRL(buf[0])) &&
+            sym < 256)
+        {
+            static const int mod_param_map[32] = {
+                [MOD_SHIFT] = 2,
+                [MOD_ALT] = 3,
+                [MOD_SHIFT | MOD_ALT] = 4,
+                [MOD_CTRL] = 5,
+                [MOD_SHIFT | MOD_CTRL] = 6,
+                [MOD_ALT | MOD_CTRL] = 7,
+                [MOD_SHIFT | MOD_ALT | MOD_CTRL] = 8,
+                [MOD_META] = 9,
+                [MOD_META | MOD_SHIFT] = 10,
+                [MOD_META | MOD_ALT] = 11,
+                [MOD_META | MOD_SHIFT | MOD_ALT] = 12,
+                [MOD_META | MOD_CTRL] = 13,
+                [MOD_META | MOD_SHIFT | MOD_CTRL] = 14,
+                [MOD_META | MOD_ALT | MOD_CTRL] = 15,
+                [MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL] = 16,
+            };
 
-                assert(keymap_mods < sizeof(mod_param_map) / sizeof(mod_param_map[0]));
-                int modify_param = mod_param_map[keymap_mods];
-                assert(modify_param != 0);
+            assert(keymap_mods < sizeof(mod_param_map) / sizeof(mod_param_map[0]));
+            int modify_param = mod_param_map[keymap_mods];
+            assert(modify_param != 0);
 
-                char reply[1024];
-                snprintf(reply, sizeof(reply), "\x1b[27;%d;%d~", modify_param, sym);
-                term_to_slave(term, reply, strlen(reply));
-            }
-
-            else {
-                if (effective_mods & alt)
-                    term_to_slave(term, "\x1b", 1);
-
-                term_to_slave(term, buf, count);
-            }
-
-            term_reset_view(term);
-            selection_cancel(term);
+            char reply[1024];
+            snprintf(reply, sizeof(reply), "\x1b[27;%d;%d~", modify_param, sym);
+            term_to_slave(term, reply, strlen(reply));
         }
-    }
 
-    start_repeater(wayl, key - 8);
+        else {
+            if (effective_mods & alt)
+                term_to_slave(term, "\x1b", 1);
+
+            term_to_slave(term, buf, count);
+        }
+
+        term_reset_view(term);
+        selection_cancel(term);
+        start_repeater(wayl, key - 8);
+        return;
+    }
 }
 
 static void
