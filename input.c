@@ -153,6 +153,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 {
     struct wayland *wayl = data;
     struct terminal *term = wayl->focused;
+
     assert(term != NULL);
 
     const xkb_mod_mask_t ctrl = 1 << wayl->kbd.mod_ctrl;
@@ -382,7 +383,7 @@ const struct wl_keyboard_listener keyboard_listener = {
 void
 input_repeat(struct wayland *wayl, uint32_t key)
 {
-    keyboard_key(wayl, NULL, 0, 0, key, XKB_KEY_DOWN);
+    keyboard_key(wayl, NULL, wayl->input_serial, 0, key, XKB_KEY_DOWN);
 }
 
 static void
@@ -418,6 +419,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 {
     struct wayland *wayl = data;
     struct terminal *term = wayl->moused;
+
     assert(term != NULL);
 
     int x = wl_fixed_to_int(surface_x) * term->scale;
