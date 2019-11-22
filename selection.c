@@ -557,6 +557,7 @@ text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
     wl_data_device_set_selection(term->wl->data_device, clipboard->data_source, serial);
 
     /* Needed when sending the selection to other client */
+    assert(serial != 0);
     clipboard->serial = serial;
     return true;
 }
