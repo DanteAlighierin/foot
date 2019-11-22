@@ -530,7 +530,7 @@ text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
 {
     struct wl_clipboard *clipboard = &term->wl->clipboard;
 
-    if (term->wl->clipboard.data_source != NULL) {
+    if (clipboard->data_source != NULL) {
         /* Kill previous data source */
         assert(clipboard->serial != 0);
         wl_data_device_set_selection(term->wl->data_device, NULL, clipboard->serial);
