@@ -154,6 +154,17 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     struct wayland *wayl = data;
     struct terminal *term = wayl->focused;
 
+    /* Workaround buggy Sway 1.2 */
+    if (term == NULL) {
+        static bool have_warned = false;
+        if (!have_warned) {
+            have_warned = true;
+            LOG_WARN("compositor sent keyboard_key event without first sending keyboard_enter");
+        }
+        stop_repeater(wayl, -1);
+        return;
+    }
+
     assert(term != NULL);
 
     const xkb_mod_mask_t ctrl = 1 << wayl->kbd.mod_ctrl;
@@ -419,6 +430,16 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 {
     struct wayland *wayl = data;
     struct terminal *term = wayl->moused;
+
+    /* Workaround buggy Sway 1.2 */
+    if (term == NULL) {
+        static bool have_warned = false;
+        if (!have_warned) {
+            have_warned = true;
+            LOG_WARN("compositor sent pointer_motion event without first sending pointer_enter");
+        }
+        return;
+    }
 
     assert(term != NULL);
 
