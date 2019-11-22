@@ -178,6 +178,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     }
 
     key += 8;
+    bool should_repeat = xkb_keymap_key_repeats(wayl->kbd.xkb_keymap, key);
     xkb_keysym_t sym = xkb_state_key_get_one_sym(wayl->kbd.xkb_state, key);
 
 #if 0
@@ -190,8 +191,10 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     enum xkb_compose_status compose_status = xkb_compose_state_get_status(
         wayl->kbd.xkb_compose_state);
 
-    if (compose_status == XKB_COMPOSE_COMPOSING)
+    if (compose_status == XKB_COMPOSE_COMPOSING) {
+        /* TODO: goto maybe_repeat? */
         return;
+    }
 
     xkb_mod_mask_t mods = xkb_state_serialize_mods(
         wayl->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
@@ -201,7 +204,8 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     xkb_mod_mask_t effective_mods = mods & ~consumed & significant;
 
     if (term->is_searching) {
-        start_repeater(wayl, key - 8);
+        if (should_repeat)
+            start_repeater(wayl, key - 8);
         search_input(term, key, sym, effective_mods);
         return;
     }
@@ -215,10 +219,8 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 #endif
 
     LOG_DBG("sym=%u, mod=0x%08x, consumed=0x%08x, significant=0x%08x, "
-            "effective=0x%08x",
-            sym, mods, consumed, significant, effective_mods);
-
-    bool found_map = false;
+            "effective=0x%08x, repeats=%d",
+            sym, mods, consumed, significant, effective_mods, should_repeat);
 
     enum modifier keymap_mods = MOD_NONE;
     keymap_mods |= wayl->kbd.shift ? MOD_SHIFT : MOD_NONE;
@@ -229,37 +231,33 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     if (effective_mods == shift) {
         if (sym == XKB_KEY_Page_Up) {
             cmd_scrollback_up(term, term->rows);
-            found_map = true;
+            goto maybe_repeat;
         }
 
         else if (sym == XKB_KEY_Page_Down) {
             cmd_scrollback_down(term, term->rows);
-            found_map = true;
+            goto maybe_repeat;
         }
     }
 
     else if (effective_mods == (shift | ctrl)) {
         if (sym == XKB_KEY_C) {
             selection_to_clipboard(term, serial);
-            found_map = true;
+            goto maybe_repeat;
         }
 
         else if (sym == XKB_KEY_V) {
             selection_from_clipboard(term, serial);
             term_reset_view(term);
-            found_map = true;
+            goto maybe_repeat;
         }
 
         else if (sym == XKB_KEY_R) {
             search_begin(term);
-            found_map = true;
+            goto maybe_repeat;
         }
     }
 
-    if (found_map) {
-        start_repeater(wayl, key - 8);
-        return;
-    }
 
     for (size_t i = 0; i < sizeof(key_map) / sizeof(key_map[0]); i++) {
         const struct key_map *k = &key_map[i];
@@ -283,8 +281,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
             term_reset_view(term);
             selection_cancel(term);
-            start_repeater(wayl, key - 8);
-            return;
+            goto maybe_repeat;
         }
     }
 
@@ -346,9 +343,12 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
         term_reset_view(term);
         selection_cancel(term);
-        start_repeater(wayl, key - 8);
-        return;
     }
+
+maybe_repeat:
+    if (should_repeat)
+        start_repeater(wayl, key - 8);
+
 }
 
 static void
