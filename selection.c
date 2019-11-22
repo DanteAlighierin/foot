@@ -564,6 +564,9 @@ text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
 void
 selection_to_clipboard(struct terminal *term, uint32_t serial)
 {
+    if (term->selection.start.row == -1 || term->selection.end.row == -1)
+        return;
+
     /* Get selection as a string */
     char *text = extract_selection(term);
     if (!text_to_clipboard(term, text, serial))
