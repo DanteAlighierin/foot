@@ -142,8 +142,14 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
            wayl_terminal_from_surface(wayl, surface) == wayl->focused);
 
     stop_repeater(wayl, -1);
-    if (wayl->focused != NULL)
+    if (wayl->focused != NULL) {
+        /*
+         * Sway bug - under certain conditions we get a
+         * keyboard_leave() (and keyboard_key()) without first having
+         * received a keyboard_enter()
+         */
         term_focus_out(wayl->focused);
+    }
     wayl->focused = NULL;
 }
 
