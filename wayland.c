@@ -443,7 +443,7 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
     int event_count = wl_display_dispatch(wayl->display);
 
     if (events & EPOLLHUP) {
-        LOG_ERR("disconnected from Wayland");
+        LOG_WARN("disconnected from Wayland");
         return false;
     }
 
