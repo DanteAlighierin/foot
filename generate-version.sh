@@ -10,7 +10,7 @@ out_file=${3}
 # echo "source directory: ${src_dir}"
 # echo "output file:      ${out_file}"
 
-if command -v git > /dev/null; then
+if command -v git > /dev/null && git rev-parse --is-inside-work-tree 2> /dev/null; then
     workdir=$(pwd)
     cd "${src_dir}"
     git_version=$(git describe --always --tags)
