@@ -139,8 +139,11 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
     FT_Face ft_face;
     FT_Error ft_err = FT_New_Face(ft_lib, (const char *)face_file, 0, &ft_face);
     mtx_unlock(&ft_lock);
-    if (ft_err != 0)
+    if (ft_err != 0) {
         LOG_ERR("%s: failed to create FreeType face", face_file);
+        FcPatternDestroy(final_pattern);
+        return false;
+    }
 
     if ((ft_err = FT_Set_Pixel_Sizes(ft_face, 0, size)) != 0) {
         LOG_WARN("%s: failed to set character size", face_file);
