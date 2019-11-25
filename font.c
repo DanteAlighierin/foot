@@ -142,8 +142,14 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
     if (ft_err != 0)
         LOG_ERR("%s: failed to create FreeType face", face_file);
 
-    if ((ft_err = FT_Set_Char_Size(ft_face, size * 64, 0, 0, 0)) != 0)
-        LOG_WARN("failed to set character size");
+    if ((ft_err = FT_Set_Pixel_Sizes(ft_face, 0, size)) != 0) {
+        LOG_WARN("%s: failed to set character size", face_file);
+        mtx_lock(&ft_lock);
+        FT_Done_Face(ft_face);
+        mtx_unlock(&ft_lock);
+        FcPatternDestroy(final_pattern);
+        return false;
+    }
 
     FcBool fc_hinting;
     if (FcPatternGetBool(final_pattern, FC_HINTING,0,  &fc_hinting) != FcResultMatch)
