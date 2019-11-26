@@ -46,6 +46,12 @@ struct font {
     double pixel_size_fixup; /* Scale factor - should only be used with ARGB32 glyphs */
     bool bgr;  /* True for FC_RGBA_BGR and FC_RGBA_VBGR */
 
+    /* font extents */
+    int height;
+    int descent;
+    int ascent;
+    int max_x_advance;
+
     struct {
         int position;
         int thickness;

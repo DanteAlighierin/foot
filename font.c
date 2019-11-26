@@ -245,6 +245,22 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
         font->glyph_cache = calloc(cache_size, sizeof(font->glyph_cache[0]));
     }
 
+    double max_x_advance = ft_face->size->metrics.max_advance / 64.;
+    double height= ft_face->size->metrics.height / 64.;
+    double descent = ft_face->size->metrics.descender / 64.;
+    double ascent = ft_face->size->metrics.ascender / 64.;
+
+    font->height = ceil(height * font->pixel_size_fixup);
+    font->descent = ceil(-descent * font->pixel_size_fixup);
+    font->ascent = ceil(ascent * font->pixel_size_fixup);
+    font->max_x_advance = ceil(max_x_advance * font->pixel_size_fixup);
+
+    LOG_DBG("%s: size=%f, pixel-size=%f, dpi=%f, fixup-factor: %f, "
+            "line-height: %d, ascent: %d, descent: %d, x-advance: %d",
+            font->name, size, pixel_size, dpi, font->pixel_size_fixup,
+            font->height, font->ascent, font->descent,
+            font->max_x_advance);
+
     underline_strikeout_metrics(font);
     return true;
 }

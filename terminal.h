@@ -265,12 +265,6 @@ struct terminal {
     struct grid *grid;
 
     struct font *fonts[4];
-    struct {
-        int height;
-        int descent;
-        int ascent;
-        int max_x_advance;
-    } fextents;
 
     tll(int) tab_stops;
 

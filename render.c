@@ -83,19 +83,19 @@ pixman_color_dim_for_search(pixman_color_t *color)
 static inline int
 font_baseline(const struct terminal *term)
 {
-    assert(term->fextents.ascent >= 0);
-    assert(term->fextents.descent >= 0);
+    assert(term->fonts[0]->ascent >= 0);
+    assert(term->fonts[0]->descent >= 0);
 
-    int diff = term->fextents.height - (term->fextents.ascent + term->fextents.descent);
+    int diff = term->fonts[0]->height - (term->fonts[0]->ascent + term->fonts[0]->descent);
 
 #if 0
     LOG_INFO("height=%d, ascent=%d, descent=%d, diff=%d",
-             term->fextents.height,
-             term->fextents.ascent, term->fextents.descent,
+             term->fonts[0]->height,
+             term->fonts[0]->ascent, term->fonts[0]->descent,
              diff);
 #endif
 
-    return term->fextents.height - diff / 2 - term->fextents.descent;
+    return term->fonts[0]->height - diff / 2 - term->fonts[0]->descent;
 }
 
 static void
@@ -103,12 +103,12 @@ draw_bar(const struct terminal *term, pixman_image_t *pix,
          const struct font *font,
          const pixman_color_t *color, int x, int y)
 {
-    int baseline = y + font_baseline(term) - term->fextents.ascent;
+    int baseline = y + font_baseline(term) - term->fonts[0]->ascent;
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, pix, color,
         1, &(pixman_rectangle16_t){
             x, baseline,
-            font->underline.thickness, term->fextents.ascent + term->fextents.descent});
+            font->underline.thickness, term->fonts[0]->ascent + term->fonts[0]->descent});
 }
 
 static void
@@ -280,7 +280,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             if (!(cell->attrs.blink && term->blink.state == BLINK_OFF)) {
                 pixman_image_composite32(
                     PIXMAN_OP_OVER, glyph->pix, NULL, pix, 0, 0, 0, 0,
-                    x + glyph->x, y + term->fextents.ascent - glyph->y,
+                    x + glyph->x, y + term->fonts[0]->ascent - glyph->y,
                     glyph->width, glyph->height);
             }
         } else {
@@ -289,7 +289,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             pixman_image_t *src = pixman_image_create_solid_fill(&fg);
             pixman_image_composite32(
                 PIXMAN_OP_OVER, src, glyph->pix, pix, 0, 0, 0, 0,
-                x + glyph->x, y + term->fextents.ascent - glyph->y,
+                x + glyph->x, y + term->fonts[0]->ascent - glyph->y,
                 glyph->width, glyph->height);
             pixman_image_unref(src);
         }
@@ -786,7 +786,7 @@ render_search_box(struct terminal *term)
         pixman_image_t *src = pixman_image_create_solid_fill(&fg);
         pixman_image_composite32(
             PIXMAN_OP_OVER, src, glyph->pix, buf->pix, 0, 0, 0, 0,
-            x + glyph->x, y + term->fextents.ascent - glyph->y,
+            x + glyph->x, y + term->fonts[0]->ascent - glyph->y,
             glyph->width, glyph->height);
         pixman_image_unref(src);
 
