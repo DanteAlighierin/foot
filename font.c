@@ -52,15 +52,15 @@ static void
 underline_strikeout_metrics(struct font *font)
 {
     FT_Face ft_face = font->face;
-    double x_scale = ft_face->size->metrics.x_scale / 65526.;
-    double height = ft_face->size->metrics.height / 64;
-    double descent = ft_face->size->metrics.descender / 64;
+    double y_scale = ft_face->size->metrics.y_scale / 65526.;
+    double height = ft_face->size->metrics.height / 64.;
+    double descent = ft_face->size->metrics.descender / 64.;
 
-    LOG_DBG("ft: x-scale: %f, height: %f, descent: %f",
-            x_scale, height, descent);
+    LOG_DBG("ft: y-scale: %f, height: %f, descent: %f",
+            y_scale, height, descent);
 
-    font->underline.position = round(ft_face->underline_position * x_scale / 64.);
-    font->underline.thickness = ceil(ft_face->underline_thickness * x_scale / 64.);
+    font->underline.position = round(ft_face->underline_position * y_scale / 64.);
+    font->underline.thickness = ceil(ft_face->underline_thickness * y_scale / 64.);
 
     if (font->underline.position == 0.) {
         font->underline.position =  round(descent / 2.);
@@ -72,8 +72,8 @@ underline_strikeout_metrics(struct font *font)
 
     TT_OS2 *os2 = FT_Get_Sfnt_Table(ft_face, ft_sfnt_os2);
     if (os2 != NULL) {
-        font->strikeout.position = round(os2->yStrikeoutPosition * x_scale / 64.);
-        font->strikeout.thickness = ceil(os2->yStrikeoutSize * x_scale / 64.);
+        font->strikeout.position = round(os2->yStrikeoutPosition * y_scale / 64.);
+        font->strikeout.thickness = ceil(os2->yStrikeoutSize * y_scale / 64.);
     }
 
     if (font->strikeout.position == 0.) {
