@@ -367,10 +367,10 @@ initialize_fonts(struct terminal *term, const struct config *conf)
     tll_foreach(conf->fonts, it)
         tll_push_back(font_names, it->item);
 
-    if ((term->fonts[0] = font_from_name(font_names, "")) == NULL ||
-        (term->fonts[1] = font_from_name(font_names, "weight=bold")) == NULL ||
-        (term->fonts[2] = font_from_name(font_names, "slant=italic")) == NULL ||
-        (term->fonts[3] = font_from_name(font_names, "weight=bold:slant=italic")) == NULL)
+    if ((term->fonts[0] = font_from_name(font_names, "dpi=96")) == NULL ||
+        (term->fonts[1] = font_from_name(font_names, "dpi=96:weight=bold")) == NULL ||
+        (term->fonts[2] = font_from_name(font_names, "dpi=96:slant=italic")) == NULL ||
+        (term->fonts[3] = font_from_name(font_names, "dpi=96:weight=bold:slant=italic")) == NULL)
     {
         tll_free(font_names);
         return false;
