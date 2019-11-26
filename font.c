@@ -119,21 +119,15 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
         dpi = 75;
 
     double size;
-    if (FcPatternGetDouble(final_pattern, FC_PIXEL_SIZE, 0, &size)) {
-        LOG_ERR("%s: failed to get size", face_file);
+    if (FcPatternGetDouble(final_pattern, FC_SIZE, 0, &size) != FcResultMatch)
+        LOG_WARN("%s: failed to get size", face_file);
+
+    double pixel_size;
+    if (FcPatternGetDouble(final_pattern, FC_PIXEL_SIZE, 0, &pixel_size) != FcResultMatch) {
+        LOG_ERR("%s: failed to get pizel size", face_file);
         FcPatternDestroy(final_pattern);
         return false;
     }
-
-    FcBool scalable;
-    if (FcPatternGetBool(final_pattern, FC_SCALABLE, 0, &scalable) != FcResultMatch)
-        scalable = FcTrue;
-
-    double pixel_fixup;
-    if (FcPatternGetDouble(final_pattern, "pixelsizefixupfactor", 0, &pixel_fixup) != FcResultMatch)
-        pixel_fixup = 1.;
-
-    LOG_DBG("loading: %s", face_file);
 
     mtx_lock(&ft_lock);
     FT_Face ft_face;
@@ -145,7 +139,7 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
         return false;
     }
 
-    if ((ft_err = FT_Set_Pixel_Sizes(ft_face, 0, size)) != 0) {
+    if ((ft_err = FT_Set_Pixel_Sizes(ft_face, 0, pixel_size)) != 0) {
         LOG_WARN("%s: failed to set character size", face_file);
         mtx_lock(&ft_lock);
         FT_Done_Face(ft_face);
@@ -153,6 +147,50 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
         FcPatternDestroy(final_pattern);
         return false;
     }
+
+    FcBool scalable;
+    if (FcPatternGetBool(final_pattern, FC_SCALABLE, 0, &scalable) != FcResultMatch)
+        scalable = FcTrue;
+
+    FcBool outline;
+    if (FcPatternGetBool(final_pattern, FC_OUTLINE, 0, &outline) != FcResultMatch)
+        outline = FcTrue;
+
+    /* Pixel fixup - apply only to "scalable" bitmap (well, non-outline) fonts */
+    double pixel_fixup = 1.;
+    if (scalable && !outline) {
+        if (FcPatternGetDouble(final_pattern, "pixelsizefixupfactor", 0, &pixel_fixup) != FcResultMatch) {
+            /*
+             * This happens for example when the user hasn't enabled
+             * 10-scale-bitmap-fonts.conf in /etc/fonts/conf.d.
+             *
+             * What we do is estimate the scale factor using the
+             * requested pixel size and the nominal height (vertical
+             * PPEM - pixels per EM).
+             */
+            double original_pixel_size;
+            if (FcPatternGetDouble(pattern, FC_PIXEL_SIZE, 0, &original_pixel_size) != FcResultMatch) {
+                /* User didn't specify ":pixelsize=xy" */
+                double original_size;
+                if (FcPatternGetDouble(pattern, FC_SIZE, 0, &original_size) != FcResultMatch) {
+                    /* User didn't specify ":size=xy" */
+                    original_size = size;
+                }
+
+                original_pixel_size = size * dpi / 72;
+            }
+
+            pixel_fixup = original_pixel_size / ft_face->size->metrics.y_ppem;
+            LOG_DBG("estimated pixel fixup factor to %f (from pixel size: %f)",
+                    pixel_fixup, original_pixel_size);
+        }
+    }
+
+#if 0
+    LOG_DBG("FIXED SIZES: %d", ft_face->num_fixed_sizes);
+    for (int i = 0; i < ft_face->num_fixed_sizes; i++)
+        LOG_DBG("  #%d: height=%d, y_ppem=%f", i, ft_face->available_sizes[i].height, ft_face->available_sizes[i].y_ppem / 64.);
+#endif
 
     FcBool fc_hinting;
     if (FcPatternGetBool(final_pattern, FC_HINTING,0,  &fc_hinting) != FcResultMatch)
@@ -227,7 +265,7 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
     font->load_flags = load_flags | FT_LOAD_COLOR;
     font->render_flags = render_flags;
     font->is_fallback = is_fallback;
-    font->pixel_size_fixup = scalable ? pixel_fixup : 1.;
+    font->pixel_size_fixup = pixel_fixup;
     font->bgr = fc_rgba == FC_RGBA_BGR || fc_rgba == FC_RGBA_VBGR;
     font->ref_counter = 1;
     font->fc_idx = font_idx;
@@ -306,7 +344,6 @@ from_name(const char *name, bool is_fallback)
         FcPatternDestroy(pattern);
     }
 
-    LOG_DBG("instantiated: %s", font->name);
     return font;
 }
 
@@ -422,9 +459,7 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
             }
 
             if (glyph_for_wchar(it->item.font, wc, glyph)) {
-                LOG_DBG("%C: used fallback: %s (fixup = %f)",
-                        wc, it->item.font->name,
-                        it->item.font->pixel_size_fixup);
+                LOG_DBG("%C: used fallback: %s", wc, it->item.font->name);
                 return true;
             }
         }
@@ -604,20 +639,33 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
         bitmap->pixel_mode == FT_PIXEL_MODE_LCD ||
         bitmap->pixel_mode == FT_PIXEL_MODE_LCD_V);
 
+    struct pixman_transform trans;
+    pixman_transform_init_identity(&trans);
+
     if (font->pixel_size_fixup != 1.) {
-        struct pixman_transform scale;
-        pixman_transform_init_scale(
-            &scale,
-            pixman_double_to_fixed(1. / font->pixel_size_fixup),
-            pixman_double_to_fixed(1. / font->pixel_size_fixup));
-        pixman_image_set_transform(pix, &scale);
+        pixman_transform_scale(
+            &trans, NULL,
+            pixman_double_to_fixed(1.0 / font->pixel_size_fixup),
+            pixman_double_to_fixed(1.0 / font->pixel_size_fixup));
     }
+
+    /* Figure out if we can use a translate transform instead of setting x/y in glyph */
+#if 0
+    LOG_DBG("**** %f", font->face->glyph->bitmap_top * fixup - baseline);
+
+    pixman_transform_translate(
+        &trans, NULL,
+        pixman_double_to_fixed(font->face->glyph->bitmap_left),
+        pixman_double_to_fixed(-(baseline / fixup - font->face->glyph->bitmap_top)));
+#endif
+
+    pixman_image_set_transform(pix, &trans);
 
     *glyph = (struct glyph){
         .wc = wc,
         .cols = wcwidth(wc),
         .pix = pix,
-        .x = font->face->glyph->bitmap_left / font->pixel_size_fixup,
+        .x = font->face->glyph->bitmap_left * font->pixel_size_fixup,
         .y = font->face->glyph->bitmap_top * font->pixel_size_fixup,
         .width = width,
         .height = rows,
