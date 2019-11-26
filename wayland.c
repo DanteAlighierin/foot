@@ -113,6 +113,12 @@ output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
 static void
 output_done(void *data, struct wl_output *wl_output)
 {
+    struct monitor *mon = data;
+
+    int x_inches = mon->width_mm * 0.03937008;
+    int y_inches = mon->height_mm * 0.03937008;
+    mon->x_ppi = mon->width_px / x_inches;
+    mon->y_ppi = mon->height_px / y_inches;
 }
 
 static void
@@ -531,11 +537,11 @@ wayl_init(struct fdm *fdm)
     if (wayl->primary_selection_device_manager == NULL)
         LOG_WARN("no primary selection available");
 
-
     tll_foreach(wayl->monitors, it) {
-        LOG_INFO("%s: %dx%d+%dx%d (scale=%d, refresh=%.2fHz)",
+        LOG_INFO("%s: %dx%d+%dx%d (PPI=%dx%d, refresh=%.2fHz, scale=%d)",
                  it->item.name, it->item.width_px, it->item.height_px,
-                 it->item.x, it->item.y, it->item.scale, it->item.refresh);
+                 it->item.x, it->item.y, it->item.x_ppi, it->item.y_ppi,
+                 it->item.refresh, it->item.scale);
     }
 
     /* Clipboard */

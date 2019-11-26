@@ -27,6 +27,9 @@ struct monitor {
     int width_px;
     int height_px;
 
+    int x_ppi;
+    int y_ppi;
+
     int scale;
     float refresh;
 };
