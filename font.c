@@ -639,27 +639,18 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
         bitmap->pixel_mode == FT_PIXEL_MODE_LCD ||
         bitmap->pixel_mode == FT_PIXEL_MODE_LCD_V);
 
-    struct pixman_transform trans;
-    pixman_transform_init_identity(&trans);
 
     if (font->pixel_size_fixup != 1.) {
+        struct pixman_transform scale;
+        pixman_transform_init_identity(&scale);
         pixman_transform_scale(
-            &trans, NULL,
+            &scale, NULL,
             pixman_double_to_fixed(1.0 / font->pixel_size_fixup),
             pixman_double_to_fixed(1.0 / font->pixel_size_fixup));
+        pixman_image_set_transform(pix, &scale);
+        pixman_image_set_filter(pix, PIXMAN_FILTER_BEST, NULL, 0);
     }
 
-    /* Figure out if we can use a translate transform instead of setting x/y in glyph */
-#if 0
-    LOG_DBG("**** %f", font->face->glyph->bitmap_top * fixup - baseline);
-
-    pixman_transform_translate(
-        &trans, NULL,
-        pixman_double_to_fixed(font->face->glyph->bitmap_left),
-        pixman_double_to_fixed(-(baseline / fixup - font->face->glyph->bitmap_top)));
-#endif
-
-    pixman_image_set_transform(pix, &trans);
 
     *glyph = (struct glyph){
         .wc = wc,
