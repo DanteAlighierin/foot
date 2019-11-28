@@ -155,7 +155,12 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
          * received a keyboard_enter()
          */
         term_focus_out(wayl->focused);
+    } else {
+        LOG_WARN(
+            "compositor sent keyboard_leave event without a keyboard_enter "
+            "event: surface=%p", surface);
     }
+
     wayl->focused = NULL;
 }
 
@@ -450,6 +455,11 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
                  uint32_t serial, struct wl_surface *surface)
 {
     struct wayland *wayl = data;
+    if (wayl->moused == NULL) {
+        LOG_WARN(
+            "compositor sent pointer_leave event without a pointer_enter "
+            "event: surface=%p", surface);
+    }
     wayl->moused = NULL;
 }
 
