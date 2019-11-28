@@ -384,13 +384,14 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
         return;
     }
 
-    switch (async_write(fd, selection, len, &(size_t){0})) {
+    size_t async_idx = 0;
+    switch (async_write(fd, selection, len, &async_idx)) {
     case ASYNC_WRITE_REMAIN: {
         struct clipboard_send *ctx = malloc(sizeof(*ctx));
         *ctx = (struct clipboard_send) {
             .data = strdup(selection),
             .len = len,
-            .idx = 0,
+            .idx = async_idx,
         };
 
         if (fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
@@ -475,13 +476,14 @@ primary_send(void *data,
         return;
     }
 
-    switch (async_write(fd, selection, len, &(size_t){0})) {
+    size_t async_idx = 0;
+    switch (async_write(fd, selection, len, &async_idx)) {
     case ASYNC_WRITE_REMAIN: {
         struct clipboard_send *ctx = malloc(sizeof(*ctx));
         *ctx = (struct clipboard_send) {
             .data = strdup(selection),
             .len = len,
-            .idx = 0,
+            .idx = async_idx,
         };
 
         if (fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))

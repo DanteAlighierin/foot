@@ -32,6 +32,7 @@
 bool
 term_to_slave(struct terminal *term, const void *_data, size_t len)
 {
+    size_t async_idx = 0;
     if (tll_length(term->ptmx_buffer) > 0) {
         /* With a non-empty queue, EPOLLOUT has already been enabled */
         goto enqueue_data;
@@ -42,7 +43,7 @@ term_to_slave(struct terminal *term, const void *_data, size_t len)
      * switch to asynchronous.
      */
 
-    switch (async_write(term->ptmx, _data, len, &(size_t){0})) {
+    switch (async_write(term->ptmx, _data, len, &async_idx)) {
     case ASYNC_WRITE_REMAIN:
         /* Switch to asynchronous mode; let FDM write the remaining data */
         if (!fdm_event_add(term->fdm, term->ptmx, EPOLLOUT))
@@ -73,7 +74,7 @@ enqueue_data:
         struct ptmx_buffer queued = {
             .data = copy,
             .len = len,
-            .idx = 0,
+            .idx = async_idx,
         };
         tll_push_back(term->ptmx_buffer, queued);
     }
