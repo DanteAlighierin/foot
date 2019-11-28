@@ -26,27 +26,39 @@ osc_to_clipboard(struct terminal *term, const char *target,
         return;
     }
 
+    bool to_clipboard = false;
+    bool to_primary = false;
+
+    if (target[0] == '\0')
+        to_clipboard = true;
+
     for (const char *t = target; *t != '\0'; t++) {
         switch (*t) {
-        case 'c': {
-            char *copy = strdup(decoded);
-            if (!text_to_clipboard(term, copy, term->wl->input_serial))
-                free(copy);
+        case 'c':
+            to_clipboard = true;
             break;
-        }
 
         case 's':
-        case 'p': {
-            char *copy = strdup(decoded);
-            if (!text_to_primary(term, copy, term->wl->input_serial))
-                free(copy);
+        case 'p':
+            to_primary = true;
             break;
-        }
 
         default:
             LOG_WARN("unimplemented: clipboard target '%c'", *t);
             break;
         }
+    }
+
+    if (to_clipboard) {
+        char *copy = strdup(decoded);
+        if (!text_to_clipboard(term, copy, term->wl->input_serial))
+            free(copy);
+    }
+
+    if (to_primary) {
+        char *copy = strdup(decoded);
+        if (!text_to_primary(term, copy, term->wl->input_serial))
+            free(copy);
     }
 
     free(decoded);
@@ -122,13 +134,15 @@ from_clipboard_done(void *user)
 static void
 osc_from_clipboard(struct terminal *term, const char *source)
 {
-    char src = 0;
+    /* Use clipboard if no source has been specified */
+    char src = source[0] == '\0' ? 'c' : 0;
 
     for (const char *s = source; *s != '\0'; s++) {
         if (*s == 'c' || *s == 'p' || *s == 's') {
             src = *s;
             break;
-        }
+        } else
+            LOG_WARN("unimplemented: clipboard source '%c'", *s);
     }
 
     if (src == 0)
