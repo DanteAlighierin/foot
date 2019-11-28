@@ -28,6 +28,9 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+static bool wayl_reload_cursor_theme(
+    struct wayland *wayl, const struct terminal *term);
+
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
@@ -792,7 +795,45 @@ wayl_win_destroy(struct wl_window *win)
 }
 
 bool
-wayl_reload_cursor_theme(struct wayland *wayl, struct terminal *term)
+wayl_cursor_set(struct wayland *wayl, const struct terminal *term)
+{
+    if (wayl->pointer.theme == NULL)
+        return false;
+
+    if (wayl->moused != term) {
+        /* This terminal doesn't have mouse focus */
+        return true;
+    }
+
+    wayl->pointer.cursor = wl_cursor_theme_get_cursor(wayl->pointer.theme, term->xcursor);
+    if (wayl->pointer.cursor == NULL) {
+        LOG_ERR("%s: failed to load xcursor pointer '%s'",
+                wayl->pointer.theme_name, term->xcursor);
+        return false;
+    }
+
+    const int scale = term->scale;
+    struct wl_cursor_image *image = wayl->pointer.cursor->images[0];
+
+    wl_surface_attach(
+        wayl->pointer.surface, wl_cursor_image_get_buffer(image), 0, 0);
+
+    wl_pointer_set_cursor(
+        wayl->pointer.pointer, wayl->pointer.serial,
+        wayl->pointer.surface,
+        image->hotspot_x / scale, image->hotspot_y / scale);
+
+    wl_surface_damage_buffer(
+        wayl->pointer.surface, 0, 0, INT32_MAX, INT32_MAX);
+
+    wl_surface_set_buffer_scale(wayl->pointer.surface, scale);
+    wl_surface_commit(wayl->pointer.surface);
+    wl_display_roundtrip(wayl->display);
+    return true;
+}
+
+static bool
+wayl_reload_cursor_theme(struct wayland *wayl, const struct terminal *term)
 {
     if (wayl->pointer.size == 0)
         return true;
@@ -808,44 +849,14 @@ wayl_reload_cursor_theme(struct wayland *wayl, struct terminal *term)
 
     wayl->pointer.theme = wl_cursor_theme_load(
         wayl->pointer.theme_name, wayl->pointer.size * term->scale, wayl->shm);
+
     if (wayl->pointer.theme == NULL) {
         LOG_ERR("failed to load cursor theme");
         return false;
     }
 
-    wayl->pointer.cursor = wl_cursor_theme_get_cursor(
-        wayl->pointer.theme, "left_ptr");
-    assert(wayl->pointer.cursor != NULL);
-    wayl_update_cursor_surface(wayl, term);
-
-    return true;
+    return wayl_cursor_set(wayl, term);
 }
-
-void
-wayl_update_cursor_surface(struct wayland *wayl, struct terminal *term)
-{
-    if (wayl->pointer.cursor == NULL)
-        return;
-
-    const int scale = term->scale;
-    wl_surface_set_buffer_scale(wayl->pointer.surface, scale);
-
-    struct wl_cursor_image *image = wayl->pointer.cursor->images[0];
-
-    wl_surface_attach(
-        wayl->pointer.surface, wl_cursor_image_get_buffer(image), 0, 0);
-
-    wl_pointer_set_cursor(
-        wayl->pointer.pointer, wayl->pointer.serial,
-        wayl->pointer.surface,
-        image->hotspot_x / scale, image->hotspot_y / scale);
-
-    wl_surface_damage_buffer(
-        wayl->pointer.surface, 0, 0, INT32_MAX, INT32_MAX);
-
-    wl_surface_commit(wayl->pointer.surface);
-}
-
 
 struct terminal *
 wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)

@@ -875,14 +875,17 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 1000:
                     term->mouse_tracking = MOUSE_CLICK;
+                    term_xcursor_update(term);
                     break;
 
                 case 1002:
                     term->mouse_tracking = MOUSE_DRAG;
+                    term_xcursor_update(term);
                     break;
 
                 case 1003:
                     term->mouse_tracking = MOUSE_MOTION;
+                    term_xcursor_update(term);
                     break;
 
                 case 1004:
@@ -1000,6 +1003,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 case 1002:  /* MOUSE_BUTTON_EVENT */
                 case 1003:  /* MOUSE_ANY_EVENT */
                     term->mouse_tracking = MOUSE_NONE;
+                    term_xcursor_update(term);
                     break;
 
                 case 1005:  /* MOUSE_UTF8 */

@@ -240,6 +240,7 @@ struct terminal {
         uint32_t text;
         uint32_t cursor;
     } cursor_color;
+    const char *xcursor;
 
     struct {
         struct coord start;
@@ -365,6 +366,7 @@ void term_mouse_up(struct terminal *term, int button, int row, int col,
                    bool shift, bool alt, bool ctrl);
 void term_mouse_motion(struct terminal *term, int button, int row, int col,
                        bool shift, bool alt, bool ctrl);
+void term_xcursor_update(struct terminal *term);
 
 void term_set_window_title(struct terminal *term, const char *title);
 void term_flash(struct terminal *term, unsigned duration_ms);

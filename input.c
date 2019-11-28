@@ -88,6 +88,7 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wayl->focused = wayl_terminal_from_surface(wayl, surface);
     assert(wayl->focused != NULL);
     term_focus_in(wayl->focused);
+    term_xcursor_update(wayl->focused);
 }
 
 static bool
@@ -379,6 +380,8 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     xkb_state_update_mask(
         wayl->kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
 
+    bool old_shift = wayl->kbd.shift;
+
     /* Update state of modifiers we're interrested in for e.g mouse events */
     wayl->kbd.shift = xkb_state_mod_index_is_active(
         wayl->kbd.xkb_state, wayl->kbd.mod_shift, XKB_STATE_MODS_DEPRESSED);
@@ -388,6 +391,9 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         wayl->kbd.xkb_state, wayl->kbd.mod_ctrl, XKB_STATE_MODS_DEPRESSED);
     wayl->kbd.meta = xkb_state_mod_index_is_active(
         wayl->kbd.xkb_state, wayl->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
+
+    if (wayl->moused && old_shift != wayl->kbd.shift)
+        term_xcursor_update(wayl->moused);
 }
 
 static void
@@ -431,7 +437,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     wayl->mouse.col = x / term->cell_width;
     wayl->mouse.row = y / term->cell_height;
 
-    wayl_update_cursor_surface(wayl, term);
+    term_xcursor_update(term);
 }
 
 static void

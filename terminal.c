@@ -483,6 +483,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
             .text = conf->cursor.color.text,
             .cursor = conf->cursor.color.cursor,
         },
+        .xcursor = "text",
         .selection = {
             .start = {-1, -1},
             .end = {-1, -1},
@@ -1427,6 +1428,19 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
         assert(false && "unimplemented");
         break;
     }
+}
+
+void
+term_xcursor_update(struct terminal *term)
+{
+    const bool is_focused = term->wl->focused == term;
+    const char *new_cursor =
+        is_focused && selection_enabled(term) ? "text" : "left_ptr";
+
+    LOG_DBG("setting xcursor to '%s' for term=%p", new_cursor, term);
+
+    term->xcursor = new_cursor;
+    wayl_cursor_set(term->wl, term);
 }
 
 void
