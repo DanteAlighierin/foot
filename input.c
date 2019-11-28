@@ -138,8 +138,10 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 {
     struct wayland *wayl = data;
 
-    assert(wayl->focused == NULL ||
-           wayl_terminal_from_surface(wayl, surface) == wayl->focused);
+    assert(
+        wayl->focused == NULL ||
+        surface == NULL ||  /* Seen on Sway 1.2 */
+        wayl_terminal_from_surface(wayl, surface) == wayl->focused);
 
     stop_repeater(wayl, -1);
     if (wayl->focused != NULL) {
