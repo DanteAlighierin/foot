@@ -180,7 +180,7 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
             LOG_DBG("estimated pixel fixup factor to %f (from pixel size: %f)",
                     pixel_fixup, original_pixel_size);
         } else
-            pixel_fixup = 1.
+            pixel_fixup = 1.;
     }
 
 #if 0
