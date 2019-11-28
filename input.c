@@ -83,10 +83,13 @@ static void
 keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface, struct wl_array *keys)
 {
+    assert(surface != NULL);
+
     struct wayland *wayl = data;
     wayl->input_serial = serial;
     wayl->focused = wayl_terminal_from_surface(wayl, surface);
     assert(wayl->focused != NULL);
+
     term_focus_in(wayl->focused);
     term_xcursor_update(wayl->focused);
 }
@@ -426,6 +429,8 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
                  uint32_t serial, struct wl_surface *surface,
                  wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
+    assert(surface != NULL);
+
     struct wayland *wayl = data;
     struct terminal *term = wayl_terminal_from_surface(wayl, surface);
 
