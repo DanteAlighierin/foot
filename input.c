@@ -505,8 +505,25 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     struct wayland *wayl = data;
     struct terminal *term = wayl->moused;
-    assert(term != NULL);
 
+    /* Workaround buggy Sway 1.2 */
+    if (term == NULL) {
+        static bool have_warned = false;
+        if (!have_warned) {
+            have_warned = true;
+            LOG_WARN("compositor sent pointer_button event without first sending pointer_enter");
+        }
+
+        if (tll_length(wayl->terms) == 1) {
+            /* With only one terminal we *know* which one has focus */
+            term = tll_front(wayl->terms);
+        } else {
+            /* But with multiple windows we can't guess - ignore the event */
+            return;
+        }
+    }
+
+    assert(term != NULL);
     search_cancel(term);
 
     switch (state) {
