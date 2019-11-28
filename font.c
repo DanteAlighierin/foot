@@ -156,18 +156,14 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
     if (FcPatternGetBool(final_pattern, FC_OUTLINE, 0, &outline) != FcResultMatch)
         outline = FcTrue;
 
-    /* Pixel fixup - apply only to "scalable" bitmap (well, non-outline) fonts */
     double pixel_fixup = 1.;
-    if (scalable && !outline) {
-        if (FcPatternGetDouble(final_pattern, "pixelsizefixupfactor", 0, &pixel_fixup) != FcResultMatch) {
-            /*
-             * This happens for example when the user hasn't enabled
-             * 10-scale-bitmap-fonts.conf in /etc/fonts/conf.d.
-             *
-             * What we do is estimate the scale factor using the
-             * requested pixel size and the nominal height (vertical
-             * PPEM - pixels per EM).
-             */
+    if (FcPatternGetDouble(final_pattern, "pixelsizefixupfactor", 0, &pixel_fixup) != FcResultMatch) {
+        /*
+         * Force a fixup factor on scalable bitmap fonts (typically
+         * emoji fonts). The fixup factor is
+         *   requested-pixel-size / actual-pixels-size
+         */
+        if (scalable && !outline) {
             double original_pixel_size;
             if (FcPatternGetDouble(pattern, FC_PIXEL_SIZE, 0, &original_pixel_size) != FcResultMatch) {
                 /* User didn't specify ":pixelsize=xy" */
@@ -183,7 +179,8 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
             pixel_fixup = original_pixel_size / ft_face->size->metrics.y_ppem;
             LOG_DBG("estimated pixel fixup factor to %f (from pixel size: %f)",
                     pixel_fixup, original_pixel_size);
-        }
+        } else
+            pixel_fixup = 1.
     }
 
 #if 0
