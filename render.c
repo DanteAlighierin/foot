@@ -202,12 +202,25 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     bool block_cursor = has_cursor && term->cursor_style == CURSOR_BLOCK;
     bool is_selected = coord_is_selected(term, col, row);
 
-    uint32_t _fg = cell->attrs.have_fg
-        ? cell->attrs.fg
-        : !term->reverse ? term->colors.fg : term->colors.bg;
-    uint32_t _bg = cell->attrs.have_bg
-        ? cell->attrs.bg
-        : !term->reverse ? term->colors.bg : term->colors.fg;
+    uint32_t _fg = 0;
+    uint32_t _bg = 0;
+
+    if (block_cursor && term->cursor_color.text >> 31) {
+        /* User configured cursor color overrides all attributes */
+        assert(term->cursor_color.cursor >> 31);
+
+        /* Slightly ugly... reverse here, since they'll be reversed again below */
+        _fg = term->cursor_color.cursor;
+        _bg = term->cursor_color.text;
+    } else {
+        /* Use cell specific color, if set, otherwise the default colors (possible reversed) */
+        _fg = cell->attrs.have_fg
+            ? cell->attrs.fg
+            : !term->reverse ? term->colors.fg : term->colors.bg;
+        _bg = cell->attrs.have_bg
+            ? cell->attrs.bg
+            : !term->reverse ? term->colors.bg : term->colors.fg;
+    }
 
     /* If *one* is set, we reverse */
     if (block_cursor ^ cell->attrs.reverse ^ is_selected) {
@@ -225,13 +238,6 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     if (cell->attrs.dim)
         pixman_color_dim(&fg);
-
-    if (block_cursor && term->cursor_color.text >> 31) {
-        /* User configured cursor color overrides all attributes */
-        assert(term->cursor_color.cursor >> 31);
-        fg = color_hex_to_pixman(term->cursor_color.text);
-        bg = color_hex_to_pixman(term->cursor_color.cursor);
-    }
 
     if (term->is_searching && !is_selected) {
         pixman_color_dim_for_search(&fg);
