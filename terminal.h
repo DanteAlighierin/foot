@@ -141,9 +141,9 @@ struct charsets {
 enum mouse_tracking {
     MOUSE_NONE,
     MOUSE_X10,           /* ?9h */
-    MOUSE_CLICK,         /* ?1000h - report mouse clicks*/
+    MOUSE_CLICK,         /* ?1000h - report mouse clicks */
     MOUSE_DRAG,          /* ?1002h - report clicks and drag motions */
-    MOUSE_MOTION,        /* ?1003h - report clicks and motion*/
+    MOUSE_MOTION,        /* ?1003h - report clicks and motion */
 };
 
 /* *How* to report */
