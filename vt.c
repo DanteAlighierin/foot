@@ -862,8 +862,8 @@ action(struct terminal *term, enum action _action, uint8_t c)
 
         case '\x07':
             /* BEL */
-            LOG_INFO("BELL");
-            //term_flash(term, 50);
+            // LOG_INFO("BELL");
+            // term_flash(term, 50);
             break;
 
         case '\x09': {
