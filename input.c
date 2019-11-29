@@ -147,21 +147,23 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         surface == NULL ||  /* Seen on Sway 1.2 */
         wayl_terminal_from_surface(wayl, surface) == wayl->focused);
 
+    struct terminal *old_focused = wayl->focused;
+    wayl->focused = NULL;
+
     stop_repeater(wayl, -1);
-    if (wayl->focused != NULL) {
+    if (old_focused != NULL) {
         /*
          * Sway bug - under certain conditions we get a
          * keyboard_leave() (and keyboard_key()) without first having
          * received a keyboard_enter()
          */
-        term_focus_out(wayl->focused);
+        term_focus_out(old_focused);
+        term_xcursor_update(old_focused);
     } else {
         LOG_WARN(
             "compositor sent keyboard_leave event without a keyboard_enter "
             "event: surface=%p", surface);
     }
-
-    wayl->focused = NULL;
 }
 
 static void
