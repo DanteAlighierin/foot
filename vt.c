@@ -1033,7 +1033,6 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
         }
 
         const struct state_transition *transition = &states[current_state][data[i]];
-        assert(transition->action != ACTION_NONE || transition->state != STATE_SAME);
 
         if (transition->state != STATE_SAME) {
             enum action exit_action = exit_actions[current_state];
