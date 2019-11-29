@@ -31,6 +31,7 @@ search_cancel_keep_selection(struct terminal *term)
     term->search.match_len = 0;
     term->is_searching = false;
 
+    term_xcursor_update(term);
     render_refresh(term);
 }
 
@@ -46,6 +47,7 @@ search_begin(struct terminal *term)
     term->search.view_followed_offset = term->grid->view == term->grid->offset;
     term->is_searching = true;
 
+    term_xcursor_update(term);
     render_search_box(term);
     render_refresh(term);
 }
