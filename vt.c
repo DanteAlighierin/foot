@@ -953,7 +953,7 @@ action(struct terminal *term, enum action _action, uint8_t c)
         else if (term->vt.private[1] == 0)
             term->vt.private[1] = c;
         else
-            LOG_ERR("only two private/intermediate characters supported");
+            LOG_DBG("only two private/intermediate characters supported");
         break;
 
     case ACTION_ESC_DISPATCH:

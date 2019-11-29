@@ -775,7 +775,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             }
 
             default:
-                LOG_WARN("ignoring %s", csi_as_string(term, final));
+                LOG_DBG("ignoring %s", csi_as_string(term, final));
                 break;
             }
             break;
