@@ -18,8 +18,8 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
-#define UNHANDLED()     LOG_ERR("unhandled: %s", csi_as_string(term, final))
-#define UNHANDLED_SGR() LOG_ERR("unhandled: %s", csi_as_string(term, 'm'))
+#define UNHANDLED()     LOG_DBG("unhandled: %s", csi_as_string(term, final))
+#define UNHANDLED_SGR() LOG_DBG("unhandled: %s", csi_as_string(term, 'm'))
 
 static void
 sgr_reset(struct terminal *term)

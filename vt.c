@@ -14,7 +14,7 @@
 
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-#define UNHANDLED() LOG_ERR("unhandled: %s", esc_as_string(term, final))
+#define UNHANDLED() LOG_DBG("unhandled: %s", esc_as_string(term, final))
 
 /* https://vt100.net/emu/dec_ansi_parser */
 

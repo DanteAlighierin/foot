@@ -12,7 +12,7 @@
 #include "terminal.h"
 #include "vt.h"
 
-#define UNHANDLED() LOG_ERR("unhandled: OSC: %.*s", (int)term->vt.osc.idx, term->vt.osc.data)
+#define UNHANDLED() LOG_DBG("unhandled: OSC: %.*s", (int)term->vt.osc.idx, term->vt.osc.data)
 
 static void
 osc_to_clipboard(struct terminal *term, const char *target,
