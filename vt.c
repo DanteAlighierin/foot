@@ -567,6 +567,7 @@ static const enum action exit_actions[] = {
     [STATE_SOS_PM_APC_STRING] = ACTION_NONE,
 };
 
+#if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
 static const char *
 esc_as_string(struct terminal *term, uint8_t final)
 {
@@ -585,6 +586,7 @@ esc_as_string(struct terminal *term, uint8_t final)
     return msg;
 
 }
+#endif
 
 static void
 esc_dispatch(struct terminal *term, uint8_t final)
