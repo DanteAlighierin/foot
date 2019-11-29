@@ -12,6 +12,7 @@
 #include "grid.h"
 #include "osc.h"
 
+#define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
 #define UNHANDLED() LOG_DBG("unhandled: %s", esc_as_string(term, final))
@@ -717,13 +718,16 @@ esc_dispatch(struct terminal *term, uint8_t final)
 static inline void
 pre_print(struct terminal *term)
 {
-    if (unlikely(term->cursor.lcf) && term->auto_margin) {
-        if (term->cursor.point.row == term->scroll_region.end - 1) {
-            term_scroll(term, 1);
-            term_cursor_to(term, term->cursor.point.row, 0);
-        } else
-            term_cursor_to(term, term->cursor.point.row + 1, 0);
-    }
+    if (likely(!term->cursor.lcf))
+        return;
+    if (unlikely(!term->auto_margin))
+        return;
+
+    if (term->cursor.point.row == term->scroll_region.end - 1) {
+        term_scroll(term, 1);
+        term_cursor_to(term, term->cursor.point.row, 0);
+    } else
+        term_cursor_to(term, min(term->cursor.point.row + 1, term->rows - 1), 0);
 }
 
 static inline void
