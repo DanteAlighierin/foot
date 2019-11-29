@@ -857,6 +857,7 @@ term_reset(struct terminal *term, bool hard)
     term->colors.bg = term->colors.default_bg;
     for (size_t i = 0; i < 256; i++)
         term->colors.table[i] = term->colors.default_table[i];
+    term->origin = ORIGIN_ABSOLUTE;
     term->cursor.lcf = false;
     term->cursor = (struct cursor){.point = {0, 0}};
     term->saved_cursor = (struct cursor){.point = {0, 0}};
