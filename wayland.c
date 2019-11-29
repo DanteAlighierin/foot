@@ -456,6 +456,7 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
+    wl_display_flush(wayl->display);
     return event_count != -1;
 }
 
@@ -828,7 +829,6 @@ wayl_cursor_set(struct wayland *wayl, const struct terminal *term)
 
     wl_surface_set_buffer_scale(wayl->pointer.surface, scale);
     wl_surface_commit(wayl->pointer.surface);
-    wl_display_roundtrip(wayl->display);
     return true;
 }
 
