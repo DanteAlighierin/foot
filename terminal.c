@@ -1433,13 +1433,20 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
 void
 term_xcursor_update(struct terminal *term)
 {
+    const bool no_mouse_tracking = term->mouse_tracking == MOUSE_NONE;
+    const bool is_searching = term->is_searching;
     const bool is_focused = term->wl->focused == term;
-    const char *new_cursor =
-        is_focused && selection_enabled(term) ? "text" : "left_ptr";
+    const bool forced_selection = is_focused && term->wl->kbd.shift;
 
-    LOG_DBG("setting xcursor to '%s' for term=%p", new_cursor, term);
+    term->xcursor = (no_mouse_tracking || forced_selection) && !is_searching
+        ? "text" : "left_ptr";
 
-    term->xcursor = new_cursor;
+    LOG_DBG(
+        "setting xcursor to '%s' for term=%p "
+        "(is_focused=%d, tracking=%d, shift=%d, searching=%d)",
+        term->xcursor, term, is_focused, term->mouse_tracking,
+        term->wl->kbd.shift, is_searching);
+
     wayl_cursor_set(term->wl, term);
 }
 
