@@ -648,10 +648,13 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
         pixman_image_set_filter(pix, PIXMAN_FILTER_BEST, NULL, 0);
     }
 
+    int cols = wcwidth(wc);
+    if (cols < 0)
+        cols = 0;
 
     *glyph = (struct glyph){
         .wc = wc,
-        .cols = wcwidth(wc),
+        .cols = cols,
         .pix = pix,
         .x = font->face->glyph->bitmap_left * font->pixel_size_fixup,
         .y = font->face->glyph->bitmap_top * font->pixel_size_fixup,
