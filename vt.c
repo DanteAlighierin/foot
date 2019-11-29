@@ -738,19 +738,20 @@ post_print(struct terminal *term)
 static inline void
 print_insert(struct terminal *term, int width)
 {
-   if (unlikely(term->insert_mode)) {
-       struct row *row = term->grid->cur_row;
-       const size_t move_count = max(0, term->cols - term->cursor.point.col - width);
+    assert(width > 0);
+    if (unlikely(term->insert_mode)) {
+        struct row *row = term->grid->cur_row;
+        const size_t move_count = max(0, term->cols - term->cursor.point.col - width);
 
-       memmove(
-           &row->cells[term->cursor.point.col + width],
-           &row->cells[term->cursor.point.col],
-           move_count * sizeof(struct cell));
+        memmove(
+            &row->cells[term->cursor.point.col + width],
+            &row->cells[term->cursor.point.col],
+            move_count * sizeof(struct cell));
 
-       /* Mark moved cells as dirty */
-       for (size_t i = term->cursor.point.col + width; i < term->cols; i++)
-           row->cells[i].attrs.clean = 0;
-   }
+        /* Mark moved cells as dirty */
+        for (size_t i = term->cursor.point.col + width; i < term->cols; i++)
+            row->cells[i].attrs.clean = 0;
+    }
 }
 
 static void
@@ -768,7 +769,8 @@ action_print_utf8(struct terminal *term)
         wc = 0;
 
     int width = wcwidth(wc);
-    print_insert(term, width);
+    if (width > 0)
+        print_insert(term, width);
 
     row->dirty = true;
     cell->wc = wc;
