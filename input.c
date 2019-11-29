@@ -459,12 +459,17 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
                  uint32_t serial, struct wl_surface *surface)
 {
     struct wayland *wayl = data;
-    if (wayl->moused == NULL) {
+    struct terminal *old_moused = wayl->moused;
+
+    LOG_DBG("pointer-leave: surface = %p, old-moused = %p", surface, old_moused);
+
+    wayl->moused = NULL;
+    if (old_moused == NULL) {
         LOG_WARN(
             "compositor sent pointer_leave event without a pointer_enter "
             "event: surface=%p", surface);
-    }
-    wayl->moused = NULL;
+    } else
+        term_xcursor_update(old_moused);
 }
 
 static void
