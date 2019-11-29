@@ -441,6 +441,8 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     struct wayland *wayl = data;
     struct terminal *term = wayl_terminal_from_surface(wayl, surface);
 
+    LOG_DBG("pointer-enter: surface = %p, new-moused = %p", surface, term);
+
     wayl->moused = term;
 
     int x = wl_fixed_to_int(surface_x) * term->scale;
