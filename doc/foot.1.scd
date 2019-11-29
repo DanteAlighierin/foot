@@ -100,7 +100,8 @@ available:
 
 *return*
 	Finish the search and copy the current match to the primary
-	selection
+	selection. The terminal selection is kept, allowing you to press
+	*ctrl*+*shift*+*c* to copy it to the clipboard.
 
 # MOUSE SHORTCUTS
 
