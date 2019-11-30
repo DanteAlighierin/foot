@@ -175,21 +175,21 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
          *   requested-pixel-size / actual-pixels-size
          */
         if (scalable && !outline) {
-            double original_pixel_size;
-            if (FcPatternGetDouble(pattern, FC_PIXEL_SIZE, 0, &original_pixel_size) != FcResultMatch) {
+            double requested_pixel_size;
+            if (FcPatternGetDouble(pattern, FC_PIXEL_SIZE, 0, &requested_pixel_size) != FcResultMatch) {
                 /* User didn't specify ":pixelsize=xy" */
-                double original_size;
-                if (FcPatternGetDouble(pattern, FC_SIZE, 0, &original_size) != FcResultMatch) {
+                double requested_size;
+                if (FcPatternGetDouble(pattern, FC_SIZE, 0, &requested_size) != FcResultMatch) {
                     /* User didn't specify ":size=xy" */
-                    original_size = size;
+                    requested_size = size;
                 }
 
-                original_pixel_size = size * dpi / 72;
+                requested_pixel_size = size * dpi / 72;
             }
 
-            pixel_fixup = original_pixel_size / ft_face->size->metrics.y_ppem;
+            pixel_fixup = requested_pixel_size / ft_face->size->metrics.y_ppem;
             LOG_DBG("estimated pixel fixup factor to %f (from pixel size: %f)",
-                    pixel_fixup, original_pixel_size);
+                    pixel_fixup, requested_pixel_size);
         } else
             pixel_fixup = 1.;
     }
