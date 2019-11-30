@@ -83,19 +83,7 @@ pixman_color_dim_for_search(pixman_color_t *color)
 static inline int
 font_baseline(const struct terminal *term)
 {
-    assert(term->fonts[0]->ascent >= 0);
-    assert(term->fonts[0]->descent >= 0);
-
-    int diff = term->fonts[0]->height - (term->fonts[0]->ascent + term->fonts[0]->descent);
-
-#if 0
-    LOG_INFO("height=%d, ascent=%d, descent=%d, diff=%d",
-             term->fonts[0]->height,
-             term->fonts[0]->ascent, term->fonts[0]->descent,
-             diff);
-#endif
-
-    return term->fonts[0]->height - diff / 2 - term->fonts[0]->descent;
+    return term->fonts[0]->ascent;
 }
 
 static void
@@ -286,7 +274,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             if (!(cell->attrs.blink && term->blink.state == BLINK_OFF)) {
                 pixman_image_composite32(
                     PIXMAN_OP_OVER, glyph->pix, NULL, pix, 0, 0, 0, 0,
-                    x + glyph->x, y + term->fonts[0]->ascent - glyph->y,
+                    x + glyph->x, y + font_baseline(term) - glyph->y,
                     glyph->width, glyph->height);
             }
         } else {
@@ -295,7 +283,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             pixman_image_t *src = pixman_image_create_solid_fill(&fg);
             pixman_image_composite32(
                 PIXMAN_OP_OVER, src, glyph->pix, pix, 0, 0, 0, 0,
-                x + glyph->x, y + term->fonts[0]->ascent - glyph->y,
+                x + glyph->x, y + font_baseline(term) - glyph->y,
                 glyph->width, glyph->height);
             pixman_image_unref(src);
         }
@@ -792,7 +780,7 @@ render_search_box(struct terminal *term)
         pixman_image_t *src = pixman_image_create_solid_fill(&fg);
         pixman_image_composite32(
             PIXMAN_OP_OVER, src, glyph->pix, buf->pix, 0, 0, 0, 0,
-            x + glyph->x, y + term->fonts[0]->ascent - glyph->y,
+            x + glyph->x, y + font_baseline(term) - glyph->y,
             glyph->width, glyph->height);
         pixman_image_unref(src);
 
