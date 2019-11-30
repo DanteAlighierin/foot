@@ -20,7 +20,7 @@
 static FT_Library ft_lib;
 static mtx_t ft_lock;
 
-static const size_t cache_size = 512;
+static const size_t glyph_cache_size = 512;
 
 struct font_cache_entry {
     uint64_t hash;
@@ -288,7 +288,7 @@ from_font_set(FcPattern *pattern, FcFontSet *fonts, int start_idx,
         font->fc_fonts = !is_fallback ? fonts : NULL;
         font->fc_loaded_fallbacks = calloc(
             fonts->nfont, sizeof(font->fc_loaded_fallbacks[0]));
-        font->glyph_cache = calloc(cache_size, sizeof(font->glyph_cache[0]));
+        font->glyph_cache = calloc(glyph_cache_size, sizeof(font->glyph_cache[0]));
     }
 
     double max_x_advance = ft_face->size->metrics.max_advance / 64.;
@@ -433,7 +433,7 @@ font_from_name(font_list_t names, const char *attributes)
 static size_t
 hash_index(wchar_t wc)
 {
-    return wc % cache_size;
+    return wc % glyph_cache_size;
 }
 
 static bool
@@ -768,7 +768,7 @@ font_destroy(struct font *font)
         FcFontSetDestroy(font->fc_fonts);
 
 
-    for (size_t i = 0; i < cache_size && font->glyph_cache != NULL; i++) {
+    for (size_t i = 0; i < glyph_cache_size && font->glyph_cache != NULL; i++) {
         if (font->glyph_cache[i] == NULL)
             continue;
 
