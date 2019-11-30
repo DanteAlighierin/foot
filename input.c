@@ -390,8 +390,6 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     xkb_state_update_mask(
         wayl->kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
 
-    bool old_shift = wayl->kbd.shift;
-
     /* Update state of modifiers we're interrested in for e.g mouse events */
     wayl->kbd.shift = xkb_state_mod_index_is_active(
         wayl->kbd.xkb_state, wayl->kbd.mod_shift, XKB_STATE_MODS_DEPRESSED);
@@ -402,8 +400,8 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wayl->kbd.meta = xkb_state_mod_index_is_active(
         wayl->kbd.xkb_state, wayl->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
 
-    if (wayl->moused && old_shift != wayl->kbd.shift)
-        term_xcursor_update(wayl->moused);
+    if (wayl->focused)
+        term_xcursor_update(wayl->focused);
 }
 
 static void
