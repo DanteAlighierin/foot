@@ -16,6 +16,9 @@ cmd_scrollback_up(struct terminal *term, int rows)
     if (term->grid == &term->alt)
         return;
 
+    if (term->mouse_tracking != MOUSE_NONE)
+        return;
+
     rows = min(rows, term->rows);
     assert(term->grid->offset >= 0);
 
