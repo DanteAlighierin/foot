@@ -41,7 +41,7 @@ static void __attribute__((destructor))
 fini(void)
 {
     while (tll_length(font_cache) > 0)
-        font_destroy(tll_front(font_cache).font);
+        font_destroy(tll_pop_front(font_cache).font);
 
     mtx_destroy(&ft_lock);
     FT_Done_FreeType(ft_lib);
