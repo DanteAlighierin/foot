@@ -521,8 +521,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         selection_update(term, col, row);
 
     term_mouse_motion(
-        term, wayl->mouse.button, wayl->mouse.row, wayl->mouse.col,
-        wayl->kbd.shift, wayl->kbd.alt, wayl->kbd.ctrl);
+        term, wayl->mouse.button, wayl->mouse.row, wayl->mouse.col);
 }
 
 static void
@@ -594,8 +593,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         wayl->mouse.button = button; /* For motion events */
         wayl->mouse.last_button = button;
         wayl->mouse.last_time = now;
-        term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col,
-                        wayl->kbd.shift, wayl->kbd.alt, wayl->kbd.ctrl);
+        term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col);
         break;
     }
 
@@ -606,8 +604,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             selection_finalize(term, serial);
 
         wayl->mouse.button = 0; /* For motion events */
-        term_mouse_up(term, button, wayl->mouse.row, wayl->mouse.col,
-                      wayl->kbd.shift, wayl->kbd.alt, wayl->kbd.ctrl);
+        term_mouse_up(term, button, wayl->mouse.row, wayl->mouse.col);
         break;
     }
 }
@@ -648,8 +645,7 @@ mouse_scroll(struct wayland *wayl, int amount)
         keyboard_key(wayl, NULL, wayl->input_serial, 0, key - 8, XKB_KEY_UP);
     } else {
         for (int i = 0; i < amount; i++)
-            term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col,
-                            wayl->kbd.shift, wayl->kbd.alt, wayl->kbd.ctrl);
+            term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col);
 
         scrollback(term, amount);
     }

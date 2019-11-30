@@ -1322,8 +1322,7 @@ term_mouse_grabbed(const struct terminal *term)
 }
 
 void
-term_mouse_down(struct terminal *term, int button, int row, int col,
-                bool shift, bool alt, bool ctrl)
+term_mouse_down(struct terminal *term, int button, int row, int col)
 {
     if (term_mouse_grabbed(term))
         return;
@@ -1336,6 +1335,12 @@ term_mouse_down(struct terminal *term, int button, int row, int col,
     int encoded = encode_xbutton(xbutton);
     if (encoded == -1)
         return;
+
+
+    bool has_focus = term->wl->focused == term;
+    bool shift = has_focus ? term->wl->kbd.shift : false;
+    bool alt = has_focus ? term->wl->kbd.alt : false;
+    bool ctrl = has_focus ? term->wl->kbd.ctrl : false;
 
     encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
 
@@ -1357,8 +1362,7 @@ term_mouse_down(struct terminal *term, int button, int row, int col,
 }
 
 void
-term_mouse_up(struct terminal *term, int button, int row, int col,
-              bool shift, bool alt, bool ctrl)
+term_mouse_up(struct terminal *term, int button, int row, int col)
 {
     if (term_mouse_grabbed(term))
         return;
@@ -1376,6 +1380,11 @@ term_mouse_up(struct terminal *term, int button, int row, int col,
     int encoded = encode_xbutton(xbutton);
     if (encoded == -1)
         return;
+
+    bool has_focus = term->wl->focused == term;
+    bool shift = has_focus ? term->wl->kbd.shift : false;
+    bool alt = has_focus ? term->wl->kbd.alt : false;
+    bool ctrl = has_focus ? term->wl->kbd.ctrl : false;
 
     encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
 
@@ -1397,8 +1406,7 @@ term_mouse_up(struct terminal *term, int button, int row, int col,
 }
 
 void
-term_mouse_motion(struct terminal *term, int button, int row, int col,
-                  bool shift, bool alt, bool ctrl)
+term_mouse_motion(struct terminal *term, int button, int row, int col)
 {
     if (term_mouse_grabbed(term))
         return;
@@ -1416,6 +1424,11 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
             return;
     } else
         encoded = 3;  /* "released" */
+
+    bool has_focus = term->wl->focused == term;
+    bool shift = has_focus ? term->wl->kbd.shift : false;
+    bool alt = has_focus ? term->wl->kbd.alt : false;
+    bool ctrl = has_focus ? term->wl->kbd.ctrl : false;
 
     encoded += 32; /* Motion event */
     encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
