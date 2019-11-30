@@ -89,6 +89,9 @@ cmd_scrollback_down(struct terminal *term, int rows)
     if (term->grid == &term->alt)
         return;
 
+    if (term->mouse_tracking != MOUSE_NONE)
+        return;
+
     if (term->grid->view == term->grid->offset)
         return;
 
