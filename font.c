@@ -63,7 +63,7 @@ static void
 underline_strikeout_metrics(struct font *font)
 {
     FT_Face ft_face = font->face;
-    double y_scale = ft_face->size->metrics.y_scale / 65526.;
+    double y_scale = ft_face->size->metrics.y_scale / 65536.;
     double height = ft_face->size->metrics.height / 64.;
     double descent = ft_face->size->metrics.descender / 64.;
 
