@@ -70,29 +70,29 @@ underline_strikeout_metrics(struct font *font)
     LOG_DBG("ft: y-scale: %f, height: %f, descent: %f",
             y_scale, height, descent);
 
-    font->underline.position = round(ft_face->underline_position * y_scale / 64.);
-    font->underline.thickness = ceil(ft_face->underline_thickness * y_scale / 64.);
+    font->underline.position = ft_face->underline_position * y_scale / 64.;
+    font->underline.thickness = ft_face->underline_thickness * y_scale / 64.;
 
     if (font->underline.position == 0.) {
-        font->underline.position =  round(descent / 2.);
-        font->underline.thickness =  fabs(round(descent / 5.));
+        font->underline.position = descent / 2.;
+        font->underline.thickness = descent / 5.;
     }
 
-    LOG_DBG("underline: pos=%d, thick=%d",
+    LOG_DBG("underline: pos=%f, thick=%f",
             font->underline.position, font->underline.thickness);
 
     TT_OS2 *os2 = FT_Get_Sfnt_Table(ft_face, ft_sfnt_os2);
     if (os2 != NULL) {
-        font->strikeout.position = round(os2->yStrikeoutPosition * y_scale / 64.);
-        font->strikeout.thickness = ceil(os2->yStrikeoutSize * y_scale / 64.);
+        font->strikeout.position = os2->yStrikeoutPosition * y_scale / 64.;
+        font->strikeout.thickness = os2->yStrikeoutSize * y_scale / 64.;
     }
 
     if (font->strikeout.position == 0.) {
-        font->strikeout.position = round(height / 2. + descent);
+        font->strikeout.position = height / 2. + descent;
         font->strikeout.thickness = font->underline.thickness;
     }
 
-    LOG_DBG("strikeout: pos=%d, thick=%d",
+    LOG_DBG("strikeout: pos=%f, thick=%f",
             font->strikeout.position, font->strikeout.thickness);
 }
 

@@ -53,13 +53,13 @@ struct font {
     int max_x_advance;
 
     struct {
-        int position;
-        int thickness;
+        double position;
+        double thickness;
     } underline;
 
     struct {
-        int position;
-        int thickness;
+        double position;
+        double thickness;
     } strikeout;
 
     bool is_fallback;
