@@ -75,7 +75,7 @@ underline_strikeout_metrics(struct font *font)
 
     if (font->underline.position == 0.) {
         font->underline.position = descent / 2.;
-        font->underline.thickness = descent / 5.;
+        font->underline.thickness = fabs(descent / 5.);
     }
 
     LOG_DBG("underline: pos=%f, thick=%f",
