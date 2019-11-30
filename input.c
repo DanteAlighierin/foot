@@ -633,8 +633,15 @@ mouse_scroll(struct wayland *wayl, int amount)
          * "back"/"forward" to up/down keys
          */
 
-        xkb_keycode_t key = xkb_keymap_key_by_name(
-            wayl->kbd.xkb_keymap, button == BTN_BACK ? "UP" : "DOWN");
+        static xkb_keycode_t key_arrow_up = 0;
+        static xkb_keycode_t key_arrow_down = 0;
+
+        if (key_arrow_up == 0) {
+            key_arrow_up = xkb_keymap_key_by_name(wayl->kbd.xkb_keymap, "UP");
+            key_arrow_down = xkb_keymap_key_by_name(wayl->kbd.xkb_keymap, "DOWN");
+        }
+
+        xkb_keycode_t key = button == BTN_BACK ? key_arrow_up : key_arrow_down;
 
         for (int i = 0; i < amount; i++)
             keyboard_key(term, NULL, wayl->input_serial, 0, key - 8, XKB_KEY_DOWN);
