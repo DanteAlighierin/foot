@@ -366,6 +366,7 @@ void term_mouse_up(struct terminal *term, int button, int row, int col,
                    bool shift, bool alt, bool ctrl);
 void term_mouse_motion(struct terminal *term, int button, int row, int col,
                        bool shift, bool alt, bool ctrl);
+bool term_mouse_grabbed(const struct terminal *term);
 void term_xcursor_update(struct terminal *term);
 
 void term_set_window_title(struct terminal *term, const char *title);

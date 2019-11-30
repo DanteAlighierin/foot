@@ -1309,17 +1309,24 @@ report_mouse_motion(struct terminal *term, int encoded_button, int row, int col)
     report_mouse_click(term, encoded_button, row, col, false);
 }
 
+bool
+term_mouse_grabbed(const struct terminal *term)
+{
+    /*
+     * Mouse is grabbed by us, regardless of whether mouse tracking has been enabled or not.
+     */
+    return
+        term->wl->focused == term &&
+        term->wl->kbd.shift &&
+        !term->wl->kbd.alt && !term->wl->kbd.ctrl && !term->wl->kbd.meta;
+}
+
 void
 term_mouse_down(struct terminal *term, int button, int row, int col,
                 bool shift, bool alt, bool ctrl)
 {
-    if (term->wl->focused == term &&
-        term->wl->kbd.shift &&
-        !term->wl->kbd.alt && !term->wl->kbd.ctrl && !term->wl->kbd.meta)
-    {
-        /* "raw" mouse mode */
+    if (term_mouse_grabbed(term))
         return;
-    }
 
     /* Map libevent button event code to X button number */
     int xbutton = linux_mouse_button_to_x(button);
@@ -1353,13 +1360,8 @@ void
 term_mouse_up(struct terminal *term, int button, int row, int col,
               bool shift, bool alt, bool ctrl)
 {
-    if (term->wl->focused == term &&
-        term->wl->kbd.shift &&
-        !term->wl->kbd.alt && !term->wl->kbd.ctrl && !term->wl->kbd.meta)
-    {
-        /* "raw" mouse mode */
+    if (term_mouse_grabbed(term))
         return;
-    }
 
     /* Map libevent button event code to X button number */
     int xbutton = linux_mouse_button_to_x(button);
@@ -1398,13 +1400,8 @@ void
 term_mouse_motion(struct terminal *term, int button, int row, int col,
                   bool shift, bool alt, bool ctrl)
 {
-    if (term->wl->focused == term &&
-        term->wl->kbd.shift &&
-        !term->wl->kbd.alt && !term->wl->kbd.ctrl && !term->wl->kbd.meta)
-    {
-        /* "raw" mouse mode */
+    if (term_mouse_grabbed(term))
         return;
-    }
 
     int encoded = 0;
 
