@@ -21,12 +21,23 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+static bool
+selection_forced(const struct terminal *term)
+{
+    const struct wayland *wayl = term->wl;
+    return wayl->focused == term &&
+        wayl->kbd.shift &&
+        !wayl->kbd.alt &&
+        !wayl->kbd.ctrl &&
+        !wayl->kbd.meta;
+}
+
 bool
 selection_enabled(const struct terminal *term)
 {
     return
         term->mouse_tracking == MOUSE_NONE ||
-        term->wl->kbd.shift ||
+        selection_forced(term) ||
         term->is_searching;
 }
 
