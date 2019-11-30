@@ -1436,8 +1436,7 @@ term_xcursor_update(struct terminal *term)
 {
     term->xcursor =
         term->is_searching ? "left_ptr" :
-        term->mouse_tracking == MOUSE_NONE ? "text" :
-        term->wl->focused == term && term->wl->kbd.shift ? "text" :
+        selection_enabled(term) ? "text" :
         "hand2";
 
     wayl_cursor_set(term->wl, term);
