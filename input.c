@@ -644,8 +644,8 @@ mouse_scroll(struct wayland *wayl, int amount)
         xkb_keycode_t key = button == BTN_BACK ? key_arrow_up : key_arrow_down;
 
         for (int i = 0; i < amount; i++)
-            keyboard_key(term, NULL, wayl->input_serial, 0, key - 8, XKB_KEY_DOWN);
-        keyboard_key(term, NULL, wayl->input_serial, 0, key - 8, XKB_KEY_UP);
+            keyboard_key(wayl, NULL, wayl->input_serial, 0, key - 8, XKB_KEY_DOWN);
+        keyboard_key(wayl, NULL, wayl->input_serial, 0, key - 8, XKB_KEY_UP);
     } else {
         for (int i = 0; i < amount; i++)
             term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col,
