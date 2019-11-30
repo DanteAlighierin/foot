@@ -48,6 +48,17 @@ fini(void)
     FcFini();
 }
 
+static const char *
+ft_error_string(FT_Error err)
+{
+    #undef FTERRORS_H_
+    #undef __FTERRORS_H__
+    #define FT_ERRORDEF( e, v, s )  case e: return s;
+    #define FT_ERROR_START_LIST     switch (err) {
+    #define FT_ERROR_END_LIST       }
+    #include FT_ERRORS_H
+    return "unknown error";
+}
 static void
 underline_strikeout_metrics(struct font *font)
 {
@@ -441,8 +452,10 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
      * (FT_CONFIG_OPTION_SUBPIXEL_RENDERING must be defined, and isn't
      * by default) */
     FT_Error err = FT_Library_SetLcdFilter(ft_lib, font->lcd_filter);
-    if (err != 0 && err != FT_Err_Unimplemented_Feature)
+    if (err != 0 && err != FT_Err_Unimplemented_Feature) {
+        LOG_ERR("failed to set LCD filter: %s", ft_error_string(err));
         goto err;
+    }
 
     FT_UInt idx = FT_Get_Char_Index(font->face, wc);
     if (idx == 0) {
@@ -504,13 +517,16 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
 
     err = FT_Load_Glyph(font->face, idx, font->load_flags);
     if (err != 0) {
-        LOG_ERR("load failed");
+        LOG_ERR("%s: failed to load glyph #%d: %s",
+                font->name, idx, ft_error_string(err));
         goto err;
     }
 
     err = FT_Render_Glyph(font->face->glyph, font->render_flags);
-    if (err != 0)
+    if (err != 0) {
+        LOG_ERR("%s: failed to render glyph: %s", font->name, ft_error_string(err));
         goto err;
+    }
 
     assert(font->face->glyph->format == FT_GLYPH_FORMAT_BITMAP);
 
