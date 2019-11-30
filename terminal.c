@@ -29,6 +29,10 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+static const char *const XCURSOR_LEFT_PTR = "left_ptr";
+static const char *const XCURSOR_TEXT = "text";
+static const char *const XCURSOR_HAND2 = "hand2";
+
 bool
 term_to_slave(struct terminal *term, const void *_data, size_t len)
 {
@@ -1435,9 +1439,9 @@ void
 term_xcursor_update(struct terminal *term)
 {
     term->xcursor =
-        term->is_searching ? "left_ptr" :
-        selection_enabled(term) ? "text" :
-        "hand2";
+        term->is_searching ? XCURSOR_LEFT_PTR :
+        selection_enabled(term) ? XCURSOR_TEXT :
+        XCURSOR_HAND2;
 
     wayl_cursor_set(term->wl, term);
 }
