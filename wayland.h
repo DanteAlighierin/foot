@@ -132,6 +132,7 @@ struct wayland {
         struct wl_cursor *cursor;
         int size;
         char *theme_name;
+        const char *xcursor;
     } pointer;
 
     struct {

@@ -801,10 +801,18 @@ wayl_cursor_set(struct wayland *wayl, const struct terminal *term)
     if (wayl->pointer.theme == NULL)
         return false;
 
+    if (wayl->moused == NULL) {
+        wayl->pointer.xcursor = NULL;
+        return true;
+    }
+
     if (wayl->moused != term) {
         /* This terminal doesn't have mouse focus */
         return true;
     }
+
+    if (wayl->pointer.xcursor == term->xcursor)
+        return true;
 
     wayl->pointer.cursor = wl_cursor_theme_get_cursor(wayl->pointer.theme, term->xcursor);
     if (wayl->pointer.cursor == NULL) {
@@ -812,6 +820,8 @@ wayl_cursor_set(struct wayland *wayl, const struct terminal *term)
                 wayl->pointer.theme_name, term->xcursor);
         return false;
     }
+
+    wayl->pointer.xcursor = term->xcursor;
 
     const int scale = term->scale;
     struct wl_cursor_image *image = wayl->pointer.cursor->images[0];
