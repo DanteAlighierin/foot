@@ -10,7 +10,7 @@
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
 
-#include <fcft.h>
+#include <fcft/fcft.h>
 
 #define LOG_MODULE "render"
 #define LOG_ENABLE_DBG 0

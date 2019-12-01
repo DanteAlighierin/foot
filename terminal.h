@@ -9,7 +9,7 @@
 #include <semaphore.h>
 
 #include <tllist.h>
-#include <fcft.h>
+#include <fcft/fcft.h>
 
 //#include "config.h"
 #include "fdm.h"

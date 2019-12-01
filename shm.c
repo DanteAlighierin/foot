@@ -9,12 +9,12 @@
 
 #include <pixman.h>
 
+#include <fcft/stride.h>
 #include <tllist.h>
 
 #define LOG_MODULE "shm"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "stride.h"
 
 static tll(struct buffer) buffers;
 

@@ -10,7 +10,7 @@
 
 #include <sys/sysinfo.h>
 
-#include <fcft.h>
+#include <fcft/fcft.h>
 
 #define LOG_MODULE "main"
 #define LOG_ENABLE_DBG 0
