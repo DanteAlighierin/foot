@@ -673,7 +673,7 @@ glyph_for_wchar(const struct font *font, wchar_t wc, struct glyph *glyph)
         .cols = cols,
         .pix = pix,
         .x = font->face->glyph->bitmap_left * font->pixel_size_fixup,
-        .y = ceil(font->face->glyph->bitmap_top * font->pixel_size_fixup),
+        .y = font->face->glyph->bitmap_top * font->pixel_size_fixup,
         .width = width,
         .height = rows,
         .valid = true,
