@@ -69,6 +69,13 @@ else
   tllist = dependency('tllist')
 endif
 
+fcft_proj = subproject('fcft')
+if fcft_proj.found()
+  fcft = fcft_proj.get_variable('fcft')
+else
+  fcft = dependency('fcft')
+endif
+
 executable(
   'foot',
   'async.c', 'async.h',
@@ -77,7 +84,6 @@ executable(
   'commands.c', 'commands.h',
   'csi.c', 'csi.h',
   'fdm.c', 'fdm.h',
-  'font.c', 'font.h',
   'grid.c', 'grid.h',
   'input.c', 'input.h',
   'log.c', 'log.h',
@@ -95,7 +101,7 @@ executable(
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
   dependencies: [threads, math, freetype, fontconfig, pixman, wayland_client, wayland_cursor, xkb,
-                tllist],
+                tllist, fcft],
   install: true)
 
 executable(

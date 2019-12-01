@@ -1,3 +1,6 @@
 [submodule "subprojects/tllist"]
 	path = subprojects/tllist
 	url = https://codeberg.org/dnkl/tllist.git
+[submodule "subprojects/fcft"]
+	path = subprojects/fcft
+	url = https://codeberg.org/dnkl/fcft.git
