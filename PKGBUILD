@@ -4,7 +4,8 @@ pkgrel=1
 arch=('x86_64')
 url=https://codeberg.org/dnkl/foot
 license=(mit)
-makedepends=('meson' 'ninja' 'scdoc' 'python')
+makedepends=('meson' 'ninja' 'scdoc' 'python' 'ncurses')
+depends=('libxkbcommon' 'wayland' 'pixman' 'tllist>=1.0.0' 'fcft>=0.1.0')
 source=()
 
 pkgver() {
@@ -32,7 +33,6 @@ check() {
 
 package_foot() {
   pkgdesc="A wayland native terminal emulator"
-  depends=('libxkbcommon' 'wayland' 'pixman' 'tllist' 'fcft')
   optdepends=('foot-terminfo: terminfo for foot')
 
   DESTDIR="${pkgdir}/" ninja install
