@@ -32,11 +32,7 @@ check() {
 
 package_foot() {
   pkgdesc="A wayland native terminal emulator"
-  depends=(
-    'libxkbcommon'
-    'wayland'
-    'freetype2' 'fontconfig' 'pixman'
-    'tllist' 'fcft')
+  depends=('libxkbcommon' 'wayland' 'pixman' 'tllist' 'fcft')
   optdepends=('foot-terminfo: terminfo for foot')
 
   DESTDIR="${pkgdir}/" ninja install
