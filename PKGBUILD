@@ -13,7 +13,7 @@ pkgver() {
 }
 
 build() {
-  meson --prefix=/usr --buildtype=release -Db_lto=true -Dc_args="-fno-stack-protector -Wno-missing-profile" ..
+  meson --prefix=/usr --buildtype=release --wrap-mode=nofallback -Db_lto=true -Dc_args="-fno-stack-protector -Wno-missing-profile" ..
 
   meson configure -Db_pgo=generate
   ninja
