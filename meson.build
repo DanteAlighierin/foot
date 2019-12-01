@@ -62,7 +62,12 @@ version = custom_target(
   output: 'version.h',
   command: [generate_version_sh, meson.project_version(), '@SOURCE_DIR@', '@OUTPUT@'])
 
-tllist = subproject('tllist').get_variable('tllist')
+tllist_proj = subproject('tllist')
+if tllist_proj.found()
+  tllist = tllist_proj.get_variable('tllist')
+else
+  tllist = dependency('tllist')
+endif
 
 executable(
   'foot',
