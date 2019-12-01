@@ -3,8 +3,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <tllist.h>
+
 #include "terminal.h"
-#include "tllist.h"
 
 struct config {
     char *term;

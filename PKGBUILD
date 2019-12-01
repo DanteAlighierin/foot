@@ -13,18 +13,14 @@ pkgver() {
 }
 
 build() {
-  meson --prefix=/usr --buildtype=release -Db_lto=true -Dc_args="-fno-stack-protector" ..
+  meson --prefix=/usr --buildtype=release -Db_lto=true -Dc_args="-fno-stack-protector -Wno-missing-profile" ..
 
   meson configure -Db_pgo=generate
   ninja
-  ninja test
 
   tmp_file=$(mktemp)
   ./foot --term=xterm -- sh -c "../scripts/generate-alt-random-writes.py --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${tmp_file} && cat ${tmp_file}"
   rm "${tmp_file}"
-
-  # Need to execute *all* binaries... :/
-  ./footclient --version
 
   meson configure -Db_pgo=use
   ninja

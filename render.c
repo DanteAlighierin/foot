@@ -10,12 +10,13 @@
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
 
+#include <fcft.h>
+
 #define LOG_MODULE "render"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "shm.h"
 #include "grid.h"
-#include "font.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))

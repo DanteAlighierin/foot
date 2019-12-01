@@ -1,4 +1,6 @@
-[submodule "external/tllist"]
-	path = external/tllist
+[submodule "subprojects/tllist"]
+	path = subprojects/tllist
 	url = https://codeberg.org/dnkl/tllist.git
-	branch = master
+[submodule "subprojects/fcft"]
+	path = subprojects/fcft
+	url = https://codeberg.org/dnkl/fcft.git

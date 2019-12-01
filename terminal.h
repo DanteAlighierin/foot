@@ -8,10 +8,11 @@
 #include <threads.h>
 #include <semaphore.h>
 
+#include <tllist.h>
+#include <fcft.h>
+
 //#include "config.h"
 #include "fdm.h"
-#include "font.h"
-#include "tllist.h"
 #include "wayland.h"
 
 #define likely(c) __builtin_expect(!!(c), 1)

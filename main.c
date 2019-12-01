@@ -10,13 +10,14 @@
 
 #include <sys/sysinfo.h>
 
+#include <fcft.h>
+
 #define LOG_MODULE "main"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
 #include "config.h"
 #include "fdm.h"
-#include "font.h"
 #include "server.h"
 #include "shm.h"
 #include "terminal.h"

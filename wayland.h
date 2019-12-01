@@ -9,8 +9,9 @@
 #include <primary-selection-unstable-v1.h>
 #include <xkbcommon/xkbcommon.h>
 
+#include <tllist.h>
+
 #include "fdm.h"
-#include "tllist.h"
 
 struct monitor {
     struct wayland *wayl;
