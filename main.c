@@ -63,21 +63,18 @@ term_shutdown_cb(void *data, int exit_code)
 static bool
 initialize_fonts(const struct config *conf,  struct font *fonts[4])
 {
-    font_list_t font_names = tll_init();
+    const size_t count = tll_length(conf->fonts);
+    const char *names[count];
+
+    size_t i = 0;
     tll_foreach(conf->fonts, it)
-        tll_push_back(font_names, it->item);
+        names[i++] = it->item;
 
-    if ((fonts[0] = font_from_name(font_names, "dpi=96")) == NULL ||
-        (fonts[1] = font_from_name(font_names, "dpi=96:weight=bold")) == NULL ||
-        (fonts[2] = font_from_name(font_names, "dpi=96:slant=italic")) == NULL ||
-        (fonts[3] = font_from_name(font_names, "dpi=96:weight=bold:slant=italic")) == NULL)
-    {
-        tll_free(font_names);
-        return false;
-    }
-
-    tll_free(font_names);
-    return true;
+    return (
+        (fonts[0] = font_from_name(names, count, "dpi=96")) != NULL &&
+        (fonts[1] = font_from_name(names, count, "dpi=96:weight=bold")) != NULL &&
+        (fonts[2] = font_from_name(names, count, "dpi=96:slant=italic")) != NULL &&
+        (fonts[3] = font_from_name(names, count, "dpi=96:weight=bold:slant=italic")) != NULL);
 }
 
 int

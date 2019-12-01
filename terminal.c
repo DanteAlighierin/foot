@@ -368,21 +368,18 @@ initialize_render_workers(struct terminal *term)
 static bool
 initialize_fonts(struct terminal *term, const struct config *conf)
 {
-    font_list_t font_names = tll_init();
+    const size_t count = tll_length(conf->fonts);
+    const char *names[count];
+
+    size_t i = 0;
     tll_foreach(conf->fonts, it)
-        tll_push_back(font_names, it->item);
+        names[i++] = it->item;
 
-    if ((term->fonts[0] = font_from_name(font_names, "dpi=96")) == NULL ||
-        (term->fonts[1] = font_from_name(font_names, "dpi=96:weight=bold")) == NULL ||
-        (term->fonts[2] = font_from_name(font_names, "dpi=96:slant=italic")) == NULL ||
-        (term->fonts[3] = font_from_name(font_names, "dpi=96:weight=bold:slant=italic")) == NULL)
-    {
-        tll_free(font_names);
-        return false;
-    }
-
-    tll_free(font_names);
-    return true;
+    return (
+        (term->fonts[0] = font_from_name(names, count, "dpi=96")) != NULL &&
+        (term->fonts[1] = font_from_name(names, count, "dpi=96:weight=bold")) != NULL &&
+        (term->fonts[2] = font_from_name(names, count, "dpi=96:slant=italic")) != NULL &&
+        (term->fonts[3] = font_from_name(names, count, "dpi=96:weight=bold:slant=italic")) != NULL);
 }
 
 struct terminal *
