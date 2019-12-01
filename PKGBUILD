@@ -35,7 +35,8 @@ package_foot() {
   depends=(
     'libxkbcommon'
     'wayland'
-    'freetype2' 'fontconfig' 'pixman')
+    'freetype2' 'fontconfig' 'pixman'
+    'tllist' 'fcft')
   optdepends=('foot-terminfo: terminfo for foot')
 
   DESTDIR="${pkgdir}/" ninja install
