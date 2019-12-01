@@ -35,6 +35,26 @@ init(void)
     FcInit();
     FT_Init_FreeType(&ft_lib);
     mtx_init(&ft_lock, mtx_plain);
+
+#if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
+    {
+        int raw_version = FcGetVersion();
+
+        /* See FC_VERSION in <fontconfig/fontconfig.h> */
+        const int major = raw_version / 10000; raw_version %= 10000;
+        const int minor = raw_version / 100; raw_version %= 100;
+        const int patch = raw_version;
+
+        LOG_DBG("fontconfig: %d.%d.%d", major, minor, patch);
+    }
+
+    {
+        int major, minor, patch;
+        FT_Library_Version(ft_lib, &major, &minor, &patch);
+        LOG_DBG("freetype: %d.%d.%d", major, minor, patch);
+    }
+#endif
+
 }
 
 static void __attribute__((destructor))
