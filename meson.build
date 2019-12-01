@@ -62,14 +62,14 @@ version = custom_target(
   output: 'version.h',
   command: [generate_version_sh, meson.project_version(), '@SOURCE_DIR@', '@OUTPUT@'])
 
-tllist_proj = subproject('tllist')
+tllist_proj = subproject('tllist', required: false)
 if tllist_proj.found()
   tllist = tllist_proj.get_variable('tllist')
 else
   tllist = dependency('tllist')
 endif
 
-fcft_proj = subproject('fcft')
+fcft_proj = subproject('fcft', required: false)
 if fcft_proj.found()
   fcft = fcft_proj.get_variable('fcft')
 else
