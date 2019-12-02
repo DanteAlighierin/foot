@@ -318,6 +318,8 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         count = xkb_compose_state_get_utf8(
             wayl->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
         xkb_compose_state_reset(wayl->kbd.xkb_compose_state);
+    } else if (compose_status == XKB_COMPOSE_CANCELLED) {
+        goto maybe_repeat;
     } else {
         count = xkb_state_key_get_utf8(
             wayl->kbd.xkb_state, key, (char *)buf, sizeof(buf));
