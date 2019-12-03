@@ -11,11 +11,31 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "grid.h"
+#include "misc.h"
 #include "render.h"
 #include "selection.h"
 #include "shm.h"
 
 #define max(x, y) ((x) > (y) ? (x) : (y))
+
+static bool
+search_ensure_size(struct terminal *term, size_t wanted_size)
+{
+    while (wanted_size >= term->search.sz) {
+        size_t new_sz = term->search.sz == 0 ? 64 : term->search.sz * 2;
+        wchar_t *new_buf = realloc(term->search.buf, new_sz * sizeof(term->search.buf[0]));
+
+        if (new_buf == NULL) {
+            LOG_ERRNO("failed to resize search buffer");
+            return false;
+        }
+
+        term->search.buf = new_buf;
+        term->search.sz = new_sz;
+    }
+
+    return true;
+}
 
 static void
 search_cancel_keep_selection(struct terminal *term)
@@ -64,7 +84,75 @@ search_cancel(struct terminal *term)
 }
 
 static void
-search_update(struct terminal *term)
+search_update_selection(struct terminal *term,
+                        int start_row, int start_col,
+                        int end_row, int end_col)
+{
+    int old_view = term->grid->view;
+    int new_view = start_row;
+
+    /* Prevent scrolling in uninitialized rows */
+    bool all_initialized = false;
+    do {
+        all_initialized = true;
+
+        for (int i = 0; i < term->rows; i++) {
+            int row_no = (new_view + i) % term->grid->num_rows;
+            if (term->grid->rows[row_no] == NULL) {
+                all_initialized = false;
+                new_view--;
+                break;
+            }
+        }
+    } while (!all_initialized);
+
+    /* Don't scroll past scrollback history */
+    int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
+    if (end >= term->grid->offset) {
+        /* Not wrapped */
+        if (new_view >= term->grid->offset && new_view <= end)
+            new_view = term->grid->offset;
+    } else {
+        if (new_view >= term->grid->offset || new_view <= end)
+            new_view = term->grid->offset;
+    }
+
+    /* Update view */
+    term->grid->view = new_view;
+    if (new_view != old_view)
+        term_damage_view(term);
+
+    /* Selection endpoint is inclusive */
+    assert(end_col > 0);
+    end_col--;
+
+    /* Begin a new selection if the start coords changed */
+    if (start_row != term->search.match.row ||
+        start_col != term->search.match.col)
+    {
+        int selection_row = start_row - term->grid->view;
+        while (selection_row < 0)
+            selection_row += term->grid->num_rows;
+
+        assert(selection_row >= 0 &&
+               selection_row < term->grid->num_rows);
+        selection_start(term, start_col, selection_row);
+    }
+
+    /* Update selection endpoint */
+    {
+        int selection_row = end_row - term->grid->view;
+        while (selection_row < 0)
+            selection_row += term->grid->num_rows;
+
+        assert(selection_row >= 0 &&
+               selection_row < term->grid->num_rows);
+        selection_update(term, end_col, selection_row);
+    }
+}
+
+static void
+search_find_next(struct terminal *term)
 {
     bool backward = term->search.direction == SEARCH_BACKWARD;
     term->search.direction = SEARCH_BACKWARD;
@@ -106,14 +194,14 @@ search_update(struct terminal *term)
          r < term->grid->num_rows;
          backward ? ROW_DEC(start_row) : ROW_INC(start_row), r++)
     {
-        const struct row *row = term->grid->rows[start_row];
-        if (row == NULL)
-            continue;
-
         for (;
              backward ? start_col >= 0 : start_col < term->cols;
              backward ? start_col-- : start_col++)
         {
+            const struct row *row = term->grid->rows[start_row];
+            if (row == NULL)
+                continue;
+
             if (wcsncasecmp(&row->cells[start_col].wc, term->search.buf, 1) != 0)
                 continue;
 
@@ -129,10 +217,7 @@ search_update(struct terminal *term)
             size_t match_len = 0;
 
             for (size_t i = 0; i < term->search.len; i++, match_len++) {
-                if (wcsncasecmp(&row->cells[end_col].wc, &term->search.buf[i], 1) != 0)
-                    break;
-
-                if (++end_col >= term->cols) {
+                if (end_col >= term->cols) {
                     if (end_row + 1 > grid_row_absolute(term->grid, term->grid->offset + term->rows - 1)) {
                         /* Don't continue past end of the world */
                         break;
@@ -142,6 +227,11 @@ search_update(struct terminal *term)
                     end_col = 0;
                     row = term->grid->rows[end_row];
                 }
+
+                if (wcsncasecmp(&row->cells[end_col].wc, &term->search.buf[i], 1) != 0)
+                    break;
+
+                end_col++;
             }
 
             if (match_len != term->search.len) {
@@ -153,70 +243,7 @@ search_update(struct terminal *term)
              * We matched the entire buffer. Move view to ensure the
              * match is visible, create a selection and return.
              */
-
-            int old_view = term->grid->view;
-            int new_view = start_row;
-
-            /* Prevent scrolling in uninitialized rows */
-            bool all_initialized = false;
-            do {
-                all_initialized = true;
-
-                for (int i = 0; i < term->rows; i++) {
-                    int row_no = (new_view + i) % term->grid->num_rows;
-                    if (term->grid->rows[row_no] == NULL) {
-                        all_initialized = false;
-                        new_view--;
-                        break;
-                    }
-                }
-            } while (!all_initialized);
-
-            /* Don't scroll past scrollback history */
-            int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
-            if (end >= term->grid->offset) {
-                /* Not wrapped */
-                if (new_view >= term->grid->offset && new_view <= end)
-                    new_view = term->grid->offset;
-            } else {
-                if (new_view >= term->grid->offset || new_view <= end)
-                    new_view = term->grid->offset;
-            }
-
-            /* Update view */
-            term->grid->view = new_view;
-            if (new_view != old_view)
-                term_damage_view(term);
-
-            /* Selection endpoint is inclusive */
-            if (--end_col < 0) {
-                end_col = term->cols - 1;
-                start_row--;
-            }
-
-            /* Begin a new selection if the start coords changed */
-            if (start_row != term->search.match.row ||
-                start_col != term->search.match.col)
-            {
-                int selection_row = start_row - term->grid->view;
-                while (selection_row < 0)
-                    selection_row += term->grid->num_rows;
-
-                assert(selection_row >= 0 &&
-                       selection_row < term->grid->num_rows);
-                selection_start(term, start_col, selection_row);
-            }
-
-            /* Update selection endpoint */
-            {
-                int selection_row = end_row - term->grid->view;
-                while (selection_row < 0)
-                    selection_row += term->grid->num_rows;
-
-                assert(selection_row >= 0 &&
-                       selection_row < term->grid->num_rows);
-                selection_update(term, end_col, selection_row);
-            }
+            search_update_selection(term, start_row, start_col, end_row, end_col);
 
             /* Update match state */
             term->search.match.row = start_row;
@@ -235,6 +262,77 @@ search_update(struct terminal *term)
     term->search.match_len = 0;
     selection_cancel(term);
 #undef ROW_DEC
+}
+
+static void
+search_match_to_end_of_word(struct terminal *term, bool spaces_only)
+{
+    if (term->search.match_len == 0)
+        return;
+
+    assert(term->search.match.row != -1);
+    assert(term->search.match.col != -1);
+
+    int end_row = term->search.match.row;
+    int end_col = term->search.match.col;
+    size_t len = term->search.match_len;
+
+    /* Calculate end coord - note: assumed to be valid */
+    for (size_t i = 0; i < len; i++) {
+        if (++end_col >= term->cols)
+            end_row = (end_row + 1) % term->grid->num_rows;
+    }
+
+    tll(wchar_t) new_chars = tll_init();
+
+    /* Always append at least one character *if* possible */
+    bool first = true;
+
+    for (size_t r = 0;
+         r < term->grid->num_rows;
+         end_row = (end_row + 1) % term->grid->num_rows, r++)
+    {
+        const struct row *row = term->grid->rows[end_row];
+        if (row == NULL)
+            break;
+
+        bool done = false;
+        for (; end_col < term->cols; end_col++) {
+            wchar_t wc = row->cells[end_col].wc;
+            if (wc == 0 || (!first && !isword(wc, spaces_only))) {
+                done = true;
+                break;
+            }
+
+            first = false;
+            tll_push_back(new_chars, wc);
+        }
+
+        if (done)
+            break;
+    }
+
+    if (tll_length(new_chars) == 0)
+        return;
+
+    if (!search_ensure_size(term, term->search.len + tll_length(new_chars)))
+        return;
+
+    /* Keep cursor at the end, but don't move it if not */
+    bool move_cursor = term->search.cursor == term->search.len;
+
+    /* Append newly found characters to the search buffer */
+    tll_foreach(new_chars, it)
+        term->search.buf[term->search.len++] = it->item;
+    term->search.buf[term->search.len] = L'\0';
+
+    if (move_cursor)
+        term->search.cursor += tll_length(new_chars);
+
+    tll_free(new_chars);
+
+    search_update_selection(
+        term, term->search.match.row, term->search.match.col, end_row, end_col);
 }
 
 static size_t
@@ -257,7 +355,6 @@ distance_next_word(const struct terminal *term)
             break;
     }
 
-    LOG_INFO("cursor = %zu, iswspace() = %d", cursor, iswspace(term->search.buf[cursor - 1]));
     assert(cursor == term->search.len || !iswspace(term->search.buf[cursor - 1]));
 
     if (cursor < term->search.len && !iswspace(term->search.buf[cursor]))
@@ -299,7 +396,7 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
 
     const xkb_mod_mask_t ctrl = 1 << term->wl->kbd.mod_ctrl;
     const xkb_mod_mask_t alt = 1 << term->wl->kbd.mod_alt;
-    //const xkb_mod_mask_t shift = 1 << term->wl->kbd.mod_shift;
+    const xkb_mod_mask_t shift = 1 << term->wl->kbd.mod_shift;
     //const xkb_mod_mask_t meta = 1 << term->wl->kbd.mod_meta;
 
     enum xkb_compose_status compose_status = xkb_compose_state_get_status(
@@ -446,6 +543,12 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
         }
     }
 
+    else if (mods == ctrl && sym == XKB_KEY_w)
+        search_match_to_end_of_word(term, false);
+
+    else if (mods == (ctrl | shift) && sym == XKB_KEY_W)
+        search_match_to_end_of_word(term, true);
+
     else {
         uint8_t buf[64] = {0};
         int count = 0;
@@ -454,6 +557,8 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
             count = xkb_compose_state_get_utf8(
                 term->wl->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
             xkb_compose_state_reset(term->wl->kbd.xkb_compose_state);
+        } else if (compose_status == XKB_COMPOSE_CANCELLED) {
+            count = 0;
         } else {
             count = xkb_state_key_get_utf8(
                 term->wl->kbd.xkb_state, key, (char *)buf, sizeof(buf));
@@ -468,18 +573,8 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
             return;
         }
 
-        while (term->search.len + wchars >= term->search.sz) {
-            size_t new_sz = term->search.sz == 0 ? 64 : term->search.sz * 2;
-            wchar_t *new_buf = realloc(term->search.buf, new_sz * sizeof(term->search.buf[0]));
-
-            if (new_buf == NULL) {
-                LOG_ERRNO("failed to resize search buffer");
-                return;
-            }
-
-            term->search.buf = new_buf;
-            term->search.sz = new_sz;
-        }
+        if (!search_ensure_size(term, term->search.len + wchars))
+            return;
 
         assert(term->search.len + wchars < term->search.sz);
 
@@ -497,7 +592,7 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
     }
 
     LOG_DBG("search: buffer: %S", term->search.buf);
-    search_update(term);
+    search_find_next(term);
     render_refresh(term);
     render_search_box(term);
 }

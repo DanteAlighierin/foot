@@ -75,6 +75,7 @@ executable(
   'input.c', 'input.h',
   'log.c', 'log.h',
   'main.c',
+  'misc.c', 'misc.h',
   'osc.c', 'osc.h',
   'render.c', 'render.h',
   'search.c', 'search.h',
