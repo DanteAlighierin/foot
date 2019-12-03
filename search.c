@@ -314,6 +314,8 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 
         if (done)
             break;
+
+        end_col = 0;
     }
 
     if (tll_length(new_chars) == 0)
