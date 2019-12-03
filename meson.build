@@ -15,9 +15,6 @@ add_project_arguments(
   language: 'c',
 )
 
-cc = meson.get_compiler('c')
-math = cc.find_library('m')
-
 threads = dependency('threads')
 pixman = dependency('pixman-1')
 wayland_protocols = dependency('wayland-protocols')
