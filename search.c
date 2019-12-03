@@ -281,8 +281,10 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 
     /* Calculate end coord - note: assumed to be valid */
     for (size_t i = 0; i < len; i++) {
-        if (++end_col >= term->cols)
+        if (++end_col >= term->cols) {
             end_row = (end_row + 1) % term->grid->num_rows;
+            end_col = 0;
+        }
     }
 
     tll(wchar_t) new_chars = tll_init();
