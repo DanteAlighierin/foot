@@ -474,6 +474,8 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
             count = xkb_compose_state_get_utf8(
                 term->wl->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
             xkb_compose_state_reset(term->wl->kbd.xkb_compose_state);
+        } else if (compose_status == XKB_COMPOSE_CANCELLED) {
+            count = 0;
         } else {
             count = xkb_state_key_get_utf8(
                 term->wl->kbd.xkb_state, key, (char *)buf, sizeof(buf));
