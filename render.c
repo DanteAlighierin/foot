@@ -105,14 +105,11 @@ draw_underline(const struct terminal *term, pixman_image_t *pix,
                const struct font *font,
                const pixman_color_t *color, int x, int y, int cols)
 {
-    int baseline = y + font_baseline(term);
-    double width = font->underline.thickness;
-    int y_under = floor(baseline - font->underline.position + width / 2.);
-
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, pix, color,
         1, &(pixman_rectangle16_t){
-            x, y_under, cols * term->cell_width, round(max(1., width))});
+            x, y + font_baseline(term) - font->underline.position,
+            cols * term->cell_width, font->underline.thickness});
 }
 
 static void
@@ -120,14 +117,11 @@ draw_strikeout(const struct terminal *term, pixman_image_t *pix,
                const struct font *font,
                const pixman_color_t *color, int x, int y, int cols)
 {
-    int baseline = y + font_baseline(term);
-    double width = font->strikeout.thickness;
-    int y_strike = floor(baseline - font->strikeout.position + width / 2.);
-
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, pix, color,
         1, &(pixman_rectangle16_t){
-            x, y_strike, cols * term->cell_width, round(max(1., width))});
+            x, y + font_baseline(term) - font->strikeout.position,
+            cols * term->cell_width, font->strikeout.thickness});
 }
 
 static bool
