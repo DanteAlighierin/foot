@@ -124,6 +124,11 @@ available:
   of the word, or the next word if currently at a word separating
   character.
 
+* <kbd>ctrl</kbd>+<kbd>shift</kbd><kbd>w</kbd>
+
+  Same as <kbd>ctrl</kbd>+<kbd>w</kbd>, except that the only word
+  separating characters are whitespace characters.
+
 * <kbd>escape</kbd>, <kbd>ctrl</kbd>+<kbd>g</kbd>
 
   Cancel the search

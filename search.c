@@ -265,7 +265,7 @@ search_find_next(struct terminal *term)
 }
 
 static void
-search_match_to_end_of_word(struct terminal *term)
+search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 {
     if (term->search.match_len == 0)
         return;
@@ -299,7 +299,7 @@ search_match_to_end_of_word(struct terminal *term)
         bool done = false;
         for (; end_col < term->cols; end_col++) {
             wchar_t wc = row->cells[end_col].wc;
-            if (wc == 0 || (!first && !isword(wc, false))) {
+            if (wc == 0 || (!first && !isword(wc, spaces_only))) {
                 done = true;
                 break;
             }
@@ -396,7 +396,7 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
 
     const xkb_mod_mask_t ctrl = 1 << term->wl->kbd.mod_ctrl;
     const xkb_mod_mask_t alt = 1 << term->wl->kbd.mod_alt;
-    //const xkb_mod_mask_t shift = 1 << term->wl->kbd.mod_shift;
+    const xkb_mod_mask_t shift = 1 << term->wl->kbd.mod_shift;
     //const xkb_mod_mask_t meta = 1 << term->wl->kbd.mod_meta;
 
     enum xkb_compose_status compose_status = xkb_compose_state_get_status(
@@ -544,7 +544,10 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
     }
 
     else if (mods == ctrl && sym == XKB_KEY_w)
-        search_match_to_end_of_word(term);
+        search_match_to_end_of_word(term, false);
+
+    else if (mods == (ctrl | shift) && sym == XKB_KEY_W)
+        search_match_to_end_of_word(term, true);
 
     else {
         uint8_t buf[64] = {0};
