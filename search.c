@@ -123,8 +123,10 @@ search_update_selection(struct terminal *term,
         term_damage_view(term);
 
     /* Selection endpoint is inclusive */
-    assert(end_col > 0);
-    end_col--;
+    if (--end_col < 0) {
+        end_col = term->cols - 1;
+        end_row--;
+    }
 
     /* Begin a new selection if the start coords changed */
     if (start_row != term->search.match.row ||
