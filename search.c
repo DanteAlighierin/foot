@@ -194,14 +194,14 @@ search_find_next(struct terminal *term)
          r < term->grid->num_rows;
          backward ? ROW_DEC(start_row) : ROW_INC(start_row), r++)
     {
-        const struct row *row = term->grid->rows[start_row];
-        if (row == NULL)
-            continue;
-
         for (;
              backward ? start_col >= 0 : start_col < term->cols;
              backward ? start_col-- : start_col++)
         {
+            const struct row *row = term->grid->rows[start_row];
+            if (row == NULL)
+                continue;
+
             if (wcsncasecmp(&row->cells[start_col].wc, term->search.buf, 1) != 0)
                 continue;
 
