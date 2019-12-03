@@ -17,6 +17,25 @@
 
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+static bool
+search_ensure_size(struct terminal *term, size_t wanted_size)
+{
+    while (wanted_size >= term->search.sz) {
+        size_t new_sz = term->search.sz == 0 ? 64 : term->search.sz * 2;
+        wchar_t *new_buf = realloc(term->search.buf, new_sz * sizeof(term->search.buf[0]));
+
+        if (new_buf == NULL) {
+            LOG_ERRNO("failed to resize search buffer");
+            return false;
+        }
+
+        term->search.buf = new_buf;
+        term->search.sz = new_sz;
+    }
+
+    return true;
+}
+
 static void
 search_cancel_keep_selection(struct terminal *term)
 {
@@ -468,18 +487,8 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
             return;
         }
 
-        while (term->search.len + wchars >= term->search.sz) {
-            size_t new_sz = term->search.sz == 0 ? 64 : term->search.sz * 2;
-            wchar_t *new_buf = realloc(term->search.buf, new_sz * sizeof(term->search.buf[0]));
-
-            if (new_buf == NULL) {
-                LOG_ERRNO("failed to resize search buffer");
-                return;
-            }
-
-            term->search.buf = new_buf;
-            term->search.sz = new_sz;
-        }
+        if (!search_ensure_size(term, term->search.len + wchars))
+            return;
 
         assert(term->search.len + wchars < term->search.sz);
 
