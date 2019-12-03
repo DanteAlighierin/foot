@@ -88,7 +88,7 @@ executable(
   'vt.c', 'vt.h',
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
-  dependencies: [threads, math, pixman, wayland_client, wayland_cursor, xkb,
+  dependencies: [threads, pixman, wayland_client, wayland_cursor, xkb,
                 tllist, fcft],
   install: true)
 
