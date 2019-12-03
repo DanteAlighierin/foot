@@ -795,7 +795,8 @@ render_search_box(struct terminal *term)
 
     wl_subsurface_set_position(
         term->window->search_sub_surface,
-        term->width - width - margin, term->height - height - margin);
+        max(0, term->width - width - margin),
+        max(0, term->height - height - margin));
 
     wl_surface_damage_buffer(term->window->search_surface, 0, 0, width, height);
     wl_surface_attach(term->window->search_surface, buf->wl_buf, 0, 0);
