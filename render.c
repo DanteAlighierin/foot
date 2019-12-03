@@ -747,12 +747,10 @@ render_search_box(struct terminal *term)
 {
     assert(term->window->search_sub_surface != NULL);
 
-    /* TODO: at least sway allows the subsurface to extend outside the
-     * main window. Do we want that? */
     const int scale = term->scale >= 1 ? term->scale : 1;
     const int margin = scale * 3;
-    const int width = 2 * margin + max(20, term->search.len) * term->cell_width;
-    const int height = 2 * margin + 1 * term->cell_height;
+    const int width = min(term->width, 2 * margin + max(20, term->search.len) * term->cell_width);
+    const int height = min(term->height, 2 * margin + 1 * term->cell_height);
 
     unsigned long cookie = (uintptr_t)term;
     struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
