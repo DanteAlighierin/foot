@@ -84,6 +84,74 @@ search_cancel(struct terminal *term)
 }
 
 static void
+search_update_selection(struct terminal *term,
+                        int start_row, int start_col,
+                        int end_row, int end_col)
+{
+    int old_view = term->grid->view;
+    int new_view = start_row;
+
+    /* Prevent scrolling in uninitialized rows */
+    bool all_initialized = false;
+    do {
+        all_initialized = true;
+
+        for (int i = 0; i < term->rows; i++) {
+            int row_no = (new_view + i) % term->grid->num_rows;
+            if (term->grid->rows[row_no] == NULL) {
+                all_initialized = false;
+                new_view--;
+                break;
+            }
+        }
+    } while (!all_initialized);
+
+    /* Don't scroll past scrollback history */
+    int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
+    if (end >= term->grid->offset) {
+        /* Not wrapped */
+        if (new_view >= term->grid->offset && new_view <= end)
+            new_view = term->grid->offset;
+    } else {
+        if (new_view >= term->grid->offset || new_view <= end)
+            new_view = term->grid->offset;
+    }
+
+    /* Update view */
+    term->grid->view = new_view;
+    if (new_view != old_view)
+        term_damage_view(term);
+
+    /* Selection endpoint is inclusive */
+    assert(end_col > 0);
+    end_col--;
+
+    /* Begin a new selection if the start coords changed */
+    if (start_row != term->search.match.row ||
+        start_col != term->search.match.col)
+    {
+        int selection_row = start_row - term->grid->view;
+        while (selection_row < 0)
+            selection_row += term->grid->num_rows;
+
+        assert(selection_row >= 0 &&
+               selection_row < term->grid->num_rows);
+        selection_start(term, start_col, selection_row);
+    }
+
+    /* Update selection endpoint */
+    {
+        int selection_row = end_row - term->grid->view;
+        while (selection_row < 0)
+            selection_row += term->grid->num_rows;
+
+        assert(selection_row >= 0 &&
+               selection_row < term->grid->num_rows);
+        selection_update(term, end_col, selection_row);
+    }
+}
+
+static void
 search_find_next(struct terminal *term)
 {
     bool backward = term->search.direction == SEARCH_BACKWARD;
@@ -175,70 +243,7 @@ search_find_next(struct terminal *term)
              * We matched the entire buffer. Move view to ensure the
              * match is visible, create a selection and return.
              */
-
-            int old_view = term->grid->view;
-            int new_view = start_row;
-
-            /* Prevent scrolling in uninitialized rows */
-            bool all_initialized = false;
-            do {
-                all_initialized = true;
-
-                for (int i = 0; i < term->rows; i++) {
-                    int row_no = (new_view + i) % term->grid->num_rows;
-                    if (term->grid->rows[row_no] == NULL) {
-                        all_initialized = false;
-                        new_view--;
-                        break;
-                    }
-                }
-            } while (!all_initialized);
-
-            /* Don't scroll past scrollback history */
-            int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
-            if (end >= term->grid->offset) {
-                /* Not wrapped */
-                if (new_view >= term->grid->offset && new_view <= end)
-                    new_view = term->grid->offset;
-            } else {
-                if (new_view >= term->grid->offset || new_view <= end)
-                    new_view = term->grid->offset;
-            }
-
-            /* Update view */
-            term->grid->view = new_view;
-            if (new_view != old_view)
-                term_damage_view(term);
-
-            /* Selection endpoint is inclusive */
-            if (--end_col < 0) {
-                end_col = term->cols - 1;
-                start_row--;
-            }
-
-            /* Begin a new selection if the start coords changed */
-            if (start_row != term->search.match.row ||
-                start_col != term->search.match.col)
-            {
-                int selection_row = start_row - term->grid->view;
-                while (selection_row < 0)
-                    selection_row += term->grid->num_rows;
-
-                assert(selection_row >= 0 &&
-                       selection_row < term->grid->num_rows);
-                selection_start(term, start_col, selection_row);
-            }
-
-            /* Update selection endpoint */
-            {
-                int selection_row = end_row - term->grid->view;
-                while (selection_row < 0)
-                    selection_row += term->grid->num_rows;
-
-                assert(selection_row >= 0 &&
-                       selection_row < term->grid->num_rows);
-                selection_update(term, end_col, selection_row);
-            }
+            search_update_selection(term, start_row, start_col, end_row, end_col);
 
             /* Update match state */
             term->search.match.row = start_row;
@@ -324,10 +329,8 @@ search_match_to_end_of_word(struct terminal *term)
 
     tll_free(new_chars);
 
-    /* TODO: split up search_update() into one part that searches for
-     * a match, and a second part that updates the view and sets the
-     * selction. Call the latter part here */
-    search_find_next(term);
+    search_update_selection(
+        term, term->search.match.row, term->search.match.col, end_row, end_col);
 }
 
 static size_t
