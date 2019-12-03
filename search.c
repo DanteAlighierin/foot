@@ -84,7 +84,7 @@ search_cancel(struct terminal *term)
 }
 
 static void
-search_update(struct terminal *term)
+search_find_next(struct terminal *term)
 {
     bool backward = term->search.direction == SEARCH_BACKWARD;
     term->search.direction = SEARCH_BACKWARD;
@@ -327,7 +327,7 @@ search_match_to_end_of_word(struct terminal *term)
     /* TODO: split up search_update() into one part that searches for
      * a match, and a second part that updates the view and sets the
      * selction. Call the latter part here */
-    search_update(term);
+    search_find_next(term);
 }
 
 static size_t
@@ -584,7 +584,7 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
     }
 
     LOG_DBG("search: buffer: %S", term->search.buf);
-    search_update(term);
+    search_find_next(term);
     render_refresh(term);
     render_search_box(term);
 }
