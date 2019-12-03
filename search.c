@@ -273,14 +273,14 @@ search_match_to_end_of_word(struct terminal *term)
     assert(term->search.match.row != -1);
     assert(term->search.match.col != -1);
 
-    int start_row = term->search.match.row;
-    int start_col = term->search.match.col;
+    int end_row = term->search.match.row;
+    int end_col = term->search.match.col;
     size_t len = term->search.match_len;
 
     /* Calculate end coord - note: assumed to be valid */
     for (size_t i = 0; i < len; i++) {
-        if (++start_col >= term->cols)
-            start_row = (start_row + 1) % term->grid->num_rows;
+        if (++end_col >= term->cols)
+            end_row = (end_row + 1) % term->grid->num_rows;
     }
 
     tll(wchar_t) new_chars = tll_init();
@@ -290,15 +290,15 @@ search_match_to_end_of_word(struct terminal *term)
 
     for (size_t r = 0;
          r < term->grid->num_rows;
-         start_row = (start_row + 1) % term->grid->num_rows, r++)
+         end_row = (end_row + 1) % term->grid->num_rows, r++)
     {
-        const struct row *row = term->grid->rows[start_row];
+        const struct row *row = term->grid->rows[end_row];
         if (row == NULL)
             break;
 
         bool done = false;
-        for (; start_col < term->cols; start_col++) {
-            wchar_t wc = row->cells[start_col].wc;
+        for (; end_col < term->cols; end_col++) {
+            wchar_t wc = row->cells[end_col].wc;
             if (wc == 0 || (!first && !isword(wc, false))) {
                 done = true;
                 break;
@@ -318,8 +318,10 @@ search_match_to_end_of_word(struct terminal *term)
     if (!search_ensure_size(term, term->search.len + tll_length(new_chars)))
         return;
 
+    /* Keep cursor at the end, but don't move it if not */
     bool move_cursor = term->search.cursor == term->search.len;
 
+    /* Append newly found characters to the search buffer */
     tll_foreach(new_chars, it)
         term->search.buf[term->search.len++] = it->item;
     term->search.buf[term->search.len] = L'\0';
