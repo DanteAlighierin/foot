@@ -11,6 +11,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "grid.h"
+#include "misc.h"
 #include "render.h"
 #include "selection.h"
 #include "shm.h"
@@ -258,6 +259,77 @@ search_update(struct terminal *term)
 #undef ROW_DEC
 }
 
+static void
+search_match_to_end_of_word(struct terminal *term)
+{
+    if (term->search.match_len == 0)
+        return;
+
+    assert(term->search.match.row != -1);
+    assert(term->search.match.col != -1);
+
+    int start_row = term->search.match.row;
+    int start_col = term->search.match.col;
+    size_t len = term->search.match_len;
+
+    /* Calculate end coord - note: assumed to be valid */
+    for (size_t i = 0; i < len; i++) {
+        if (++start_col >= term->cols)
+            start_row = (start_row + 1) % term->grid->num_rows;
+    }
+
+    tll(wchar_t) new_chars = tll_init();
+
+    /* Always append at least one character *if* possible */
+    bool first = true;
+
+    for (size_t r = 0;
+         r < term->grid->num_rows;
+         start_row = (start_row + 1) % term->grid->num_rows, r++)
+    {
+        const struct row *row = term->grid->rows[start_row];
+        if (row == NULL)
+            break;
+
+        bool done = false;
+        for (; start_col < term->cols; start_col++) {
+            wchar_t wc = row->cells[start_col].wc;
+            if (wc == 0 || (!first && !isword(wc, false))) {
+                done = true;
+                break;
+            }
+
+            first = false;
+            tll_push_back(new_chars, wc);
+        }
+
+        if (done)
+            break;
+    }
+
+    if (tll_length(new_chars) == 0)
+        return;
+
+    if (!search_ensure_size(term, term->search.len + tll_length(new_chars)))
+        return;
+
+    bool move_cursor = term->search.cursor == term->search.len;
+
+    tll_foreach(new_chars, it)
+        term->search.buf[term->search.len++] = it->item;
+    term->search.buf[term->search.len] = L'\0';
+
+    if (move_cursor)
+        term->search.cursor += tll_length(new_chars);
+
+    tll_free(new_chars);
+
+    /* TODO: split up search_update() into one part that searches for
+     * a match, and a second part that updates the view and sets the
+     * selction. Call the latter part here */
+    search_update(term);
+}
+
 static size_t
 distance_next_word(const struct terminal *term)
 {
@@ -465,6 +537,9 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
             term->search.buf[--term->search.len] = L'\0';
         }
     }
+
+    else if (mods == ctrl && sym == XKB_KEY_w)
+        search_match_to_end_of_word(term);
 
     else {
         uint8_t buf[64] = {0};
