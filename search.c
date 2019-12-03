@@ -148,10 +148,7 @@ search_update(struct terminal *term)
             size_t match_len = 0;
 
             for (size_t i = 0; i < term->search.len; i++, match_len++) {
-                if (wcsncasecmp(&row->cells[end_col].wc, &term->search.buf[i], 1) != 0)
-                    break;
-
-                if (++end_col >= term->cols) {
+                if (end_col >= term->cols) {
                     if (end_row + 1 > grid_row_absolute(term->grid, term->grid->offset + term->rows - 1)) {
                         /* Don't continue past end of the world */
                         break;
@@ -161,6 +158,11 @@ search_update(struct terminal *term)
                     end_col = 0;
                     row = term->grid->rows[end_row];
                 }
+
+                if (wcsncasecmp(&row->cells[end_col].wc, &term->search.buf[i], 1) != 0)
+                    break;
+
+                end_col++;
             }
 
             if (match_len != term->search.len) {
