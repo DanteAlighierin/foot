@@ -466,6 +466,10 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
         }
     }
 
+    else if (mods == ctrl && sym == XKB_KEY_w) {
+        search_match_to_end_of_word(term);
+    }
+
     else {
         uint8_t buf[64] = {0};
         int count = 0;
