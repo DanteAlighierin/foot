@@ -278,7 +278,6 @@ distance_next_word(const struct terminal *term)
             break;
     }
 
-    LOG_INFO("cursor = %zu, iswspace() = %d", cursor, iswspace(term->search.buf[cursor - 1]));
     assert(cursor == term->search.len || !iswspace(term->search.buf[cursor - 1]));
 
     if (cursor < term->search.len && !iswspace(term->search.buf[cursor]))
