@@ -15,6 +15,7 @@
 
 #include "async.h"
 #include "grid.h"
+#include "misc.h"
 #include "render.h"
 #include "vt.h"
 
@@ -219,27 +220,6 @@ selection_cancel(struct terminal *term)
             max(start_row, end_row) - term->grid->view);
 
         render_refresh(term);
-    }
-}
-
-static bool
-isword(wint_t c, bool spaces_only)
-{
-    if (spaces_only)
-        return !iswspace(c);
-
-    switch (c) {
-    default: return !iswspace(c);
-
-    case L'{': case L'}':
-    case L'[': case L']':
-    case L'(': case L')':
-    case L'`':
-    case L'\'':
-    case L'"':
-    case L',': case L'.':
-    case L':': case L';':
-        return false;
     }
 }
 
