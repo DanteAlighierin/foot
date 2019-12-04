@@ -375,11 +375,24 @@ initialize_fonts(struct terminal *term, const struct config *conf)
     tll_foreach(conf->fonts, it)
         names[i++] = it->item;
 
+    /* Use highest DPI available */
+    unsigned dpi = 96;
+    tll_foreach(term->wl->monitors, it) {
+        if (it->item.y_ppi > dpi)
+            dpi = it->item.y_ppi;
+    }
+
+    char attrs0[64], attrs1[64], attrs2[64], attrs3[64];
+    snprintf(attrs0, sizeof(attrs0), "dpi=%u", dpi);
+    snprintf(attrs1, sizeof(attrs1), "dpi=%u:weight=bold", dpi);
+    snprintf(attrs2, sizeof(attrs2), "dpi=%u:slant=italic", dpi);
+    snprintf(attrs3, sizeof(attrs3), "dpi=%u:weight=bold:slant=italic", dpi);
+
     return (
-        (term->fonts[0] = font_from_name(names, count, "dpi=96")) != NULL &&
-        (term->fonts[1] = font_from_name(names, count, "dpi=96:weight=bold")) != NULL &&
-        (term->fonts[2] = font_from_name(names, count, "dpi=96:slant=italic")) != NULL &&
-        (term->fonts[3] = font_from_name(names, count, "dpi=96:weight=bold:slant=italic")) != NULL);
+        (term->fonts[0] = font_from_name(names, count, attrs0)) != NULL &&
+        (term->fonts[1] = font_from_name(names, count, attrs1)) != NULL &&
+        (term->fonts[2] = font_from_name(names, count, attrs2)) != NULL &&
+        (term->fonts[3] = font_from_name(names, count, attrs3)) != NULL);
 }
 
 struct terminal *
