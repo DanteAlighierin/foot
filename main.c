@@ -60,23 +60,6 @@ term_shutdown_cb(void *data, int exit_code)
     ctx->exit_code = exit_code;
 }
 
-static bool
-initialize_fonts(const struct config *conf,  struct font *fonts[4])
-{
-    const size_t count = tll_length(conf->fonts);
-    const char *names[count];
-
-    size_t i = 0;
-    tll_foreach(conf->fonts, it)
-        names[i++] = it->item;
-
-    return (
-        (fonts[0] = font_from_name(names, count, "dpi=96")) != NULL &&
-        (fonts[1] = font_from_name(names, count, "dpi=96:weight=bold")) != NULL &&
-        (fonts[2] = font_from_name(names, count, "dpi=96:slant=italic")) != NULL &&
-        (fonts[3] = font_from_name(names, count, "dpi=96:weight=bold:slant=italic")) != NULL);
-}
-
 int
 main(int argc, char *const *argv)
 {
@@ -181,7 +164,6 @@ main(int argc, char *const *argv)
 
     setlocale(LC_ALL, "");
 
-    struct font *fonts[4] = {NULL};
     struct fdm *fdm = NULL;
     struct wayland *wayl = NULL;
     struct terminal *term = NULL;
@@ -189,10 +171,6 @@ main(int argc, char *const *argv)
     struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
 
     log_init(as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER);
-
-    /* This ensures we keep a set of fonts in the cache */
-    if (!initialize_fonts(&conf, fonts))
-        goto out;
 
     if ((fdm = fdm_init()) == NULL)
         goto out;
@@ -236,9 +214,6 @@ out:
     shm_fini();
     wayl_destroy(wayl);
     fdm_destroy(fdm);
-
-    for (size_t i = 0; i < sizeof(fonts) / sizeof(fonts[0]); i++)
-        font_destroy(fonts[i]);
 
     config_free(conf);
     log_deinit();
