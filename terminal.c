@@ -530,7 +530,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto err;
 
     /* Cell dimensions are based on the font metrics. Obviously */
-    term->cell_width = term->fonts[0]->max_x_advance;
+    term->cell_width = term->fonts[0]->space_x_advance > 0
+        ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
     term->cell_height = term->fonts[0]->height;
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
