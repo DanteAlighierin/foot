@@ -174,8 +174,13 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "font") == 0) {
         char *copy = strdup(value);
-        for (const char *font = strtok(copy, ","); font != NULL; font = strtok(NULL, ","))
-            tll_push_back(conf->fonts, strdup(font));
+        for (const char *font = strtok(copy, ","); font != NULL; font = strtok(NULL, ",")) {
+            /* Trim spaces, strictly speaking not necessary, but looks nice :) */
+            while (*font != '\0' && isspace(*font))
+                font++;
+            if (*font != '\0')
+                tll_push_back(conf->fonts, strdup(font));
+        }
         free(copy);
     }
 
