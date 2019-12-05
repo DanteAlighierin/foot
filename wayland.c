@@ -93,6 +93,15 @@ static const struct wl_seat_listener seat_listener = {
 };
 
 static void
+output_update_ppi(struct monitor *mon)
+{
+    int x_inches = mon->width_mm * 0.03937008;
+    int y_inches = mon->height_mm * 0.03937008;
+    mon->x_ppi = mon->width_px / x_inches;
+    mon->y_ppi = mon->height_px / y_inches;
+}
+
+static void
 output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
                 int32_t physical_width, int32_t physical_height,
                 int32_t subpixel, const char *make, const char *model,
@@ -101,6 +110,10 @@ output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
     struct monitor *mon = data;
     mon->width_mm = physical_width;
     mon->height_mm = physical_height;
+    mon->inch = sqrt(pow(mon->width_mm, 2) + pow(mon->height_mm, 2)) * 0.03937008;
+    mon->make = make != NULL ? strdup(make) : NULL;
+    mon->model = model != NULL ? strdup(model) : NULL;
+    output_update_ppi(mon);
 }
 
 static void
@@ -117,12 +130,6 @@ output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
 static void
 output_done(void *data, struct wl_output *wl_output)
 {
-    struct monitor *mon = data;
-
-    int x_inches = mon->width_mm * 0.03937008;
-    int y_inches = mon->height_mm * 0.03937008;
-    mon->x_ppi = mon->width_px / x_inches;
-    mon->y_ppi = mon->height_px / y_inches;
 }
 
 static void
@@ -162,6 +169,7 @@ xdg_output_handle_logical_size(void *data, struct zxdg_output_v1 *xdg_output,
     struct monitor *mon = data;
     mon->width_px = width;
     mon->height_px = height;
+    output_update_ppi(mon);
 }
 
 static void
@@ -543,10 +551,12 @@ wayl_init(struct fdm *fdm)
         LOG_WARN("no primary selection available");
 
     tll_foreach(wayl->monitors, it) {
-        LOG_INFO("%s: %dx%d+%dx%d (PPI=%dx%d, refresh=%.2fHz, scale=%d)",
-                 it->item.name, it->item.width_px, it->item.height_px,
-                 it->item.x, it->item.y, it->item.x_ppi, it->item.y_ppi,
-                 it->item.refresh, it->item.scale);
+        LOG_INFO(
+            "%s: %dx%d+%dx%d@%dHz %s (%.2f\", PPI=%dx%d, scale=%d)",
+            it->item.name, it->item.width_px, it->item.height_px,
+            it->item.x, it->item.y, (int)round(it->item.refresh), it->item.model, it->item.inch,
+            it->item.x_ppi, it->item.y_ppi,
+            it->item.scale);
     }
 
     /* Clipboard */
@@ -635,6 +645,8 @@ wayl_destroy(struct wayland *wayl)
             zxdg_output_v1_destroy(it->item.xdg);
         if (it->item.output != NULL)
             wl_output_destroy(it->item.output);
+        free(it->item.make);
+        free(it->item.model);
         tll_remove(wayl->monitors, it);
     }
 

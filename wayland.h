@@ -33,6 +33,10 @@ struct monitor {
 
     int scale;
     float refresh;
+
+    char *make;
+    char *model;
+    float inch;  /* e.g. 24" */
 };
 
 struct kbd {
