@@ -15,6 +15,8 @@ add_project_arguments(
   language: 'c',
 )
 
+cc = meson.get_compiler('c')
+math = cc.find_library('m')
 threads = dependency('threads')
 pixman = dependency('pixman-1')
 wayland_protocols = dependency('wayland-protocols')
@@ -85,7 +87,7 @@ executable(
   'vt.c', 'vt.h',
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
-  dependencies: [threads, pixman, wayland_client, wayland_cursor, xkb,
+  dependencies: [math, threads, pixman, wayland_client, wayland_cursor, xkb,
                 tllist, fcft],
   install: true)
 
