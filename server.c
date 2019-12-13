@@ -338,7 +338,7 @@ server_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl)
         break;
 
     case CONNECT_SUCCESS:
-        LOG_ERR("foot --server already running");
+        LOG_ERR("%s is already accepting connections; is 'foot --server' already running", sock_path);
         /* FALLTHROUGH */
 
     case CONNECT_ERR:
@@ -374,6 +374,8 @@ server_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl)
 
     if (!fdm_add(fdm, fd, EPOLLIN, &fdm_server, server))
         goto err;
+
+    LOG_INFO("accepting connections on %s", sock_path);
 
     return server;
 
