@@ -40,6 +40,7 @@ print_usage(const char *prog_name)
 int
 main(int argc, char *const *argv)
 {
+    log_init(LOG_FACILITY_USER);
     int ret = EXIT_FAILURE;
 
     const char *const prog_name = argv[0];
@@ -190,5 +191,6 @@ main(int argc, char *const *argv)
 err:
     if (fd != -1)
         close(fd);
+    log_deinit();
     return ret;
 }
