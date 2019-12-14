@@ -33,7 +33,7 @@ execute (instead of the shell).
 *-t*,*--term*=_TERM_
 	Value to set the environment variable _TERM_ to. Default: _foot_.
 
-*-s*,*--server*
+*-s*,*--server*[=_PATH_]
 	Run as a server. In this mode, a single foot instance hosts
 	multiple terminals (windows). Use *footclient*(1) to launch new
 	terminals.
@@ -45,7 +45,7 @@ execute (instead of the shell).
 	loaded and parsed, and most importantly, fonts have already been
 	loaded (and their glyph caches are likely to already have been
 	populated).
-
+	
 	Each terminal will have its own rendering threads, but all Wayland
 	communication, as well as input/output to the shell, is
 	multiplexed in the main thread. Thus, this mode might result in
@@ -54,6 +54,10 @@ execute (instead of the shell).
 	
 	Also be aware that should one terminal crash, it will take all the
 	others with it.
+	
+	You may optionally override the default socket path,
+	_XDG\_RUNTIME\_DIR/foot.sock_. If you do so, you will need to use
+	the *--server-socket* option in *footclient*(1).
 
 *-v*,*--version*
 	Show the version number and quit
