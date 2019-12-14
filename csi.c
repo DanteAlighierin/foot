@@ -1258,11 +1258,17 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
             }
 
-            /* Send Device Attributes (Tertiary DA) */
+            /*
+             * Send Device Attributes (Tertiary DA)
+             *
+             * Reply format is "DCS ! | DDDDDDDD ST"
+             *
+             * D..D is the unit ID of the terminal, consisting of four
+             * hexadecimal pairs. The first pair represents the
+             * manufacturing site code. This code can be any
+             * hexadecimal value from 00 through FF.
+             */
 
-            /* Note: this is supposed to be the "unit ID". But it is
-             * unclear what the format *is*. Here I've simply copied
-             * the reply from xterm */
             term_to_slave(term, "\033P!|00000000\033\\", 14);
             break;
 
