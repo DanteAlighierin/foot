@@ -450,6 +450,18 @@ err:
     return false;
 }
 
+static char *
+get_server_socket_path(void)
+{
+    const char *xdg_runtime = getenv("XDG_RUNTIME_DIR");
+    if (xdg_runtime == NULL)
+        return strdup("/tmp/foot.sock");
+
+    char *path = malloc(strlen(xdg_runtime) + 1 + strlen("foot.sock") + 1);
+    sprintf(path, "%s/foot.sock", xdg_runtime);
+    return path;
+}
+
 bool
 config_load(struct config *conf)
 {
@@ -498,6 +510,7 @@ config_load(struct config *conf)
         },
 
         .render_worker_count = sysconf(_SC_NPROCESSORS_ONLN),
+        .server_socket_path = get_server_socket_path(),
     };
 
     char *path = get_config_path();
@@ -531,4 +544,5 @@ config_free(struct config conf)
     free(conf.term);
     free(conf.shell);
     tll_free_and_free(conf.fonts, free);
+    free(conf.server_socket_path);
 }
