@@ -27,7 +27,7 @@ struct server {
     struct wayland *wayl;
 
     int fd;
-    char *sock_path;
+    const char *sock_path;
 
     tll(struct client *) clients;
 };
@@ -273,18 +273,6 @@ fdm_server(struct fdm *fdm, int fd, int events, void *data)
     return true;
 }
 
-static char *
-get_socket_path(void)
-{
-    const char *xdg_runtime = getenv("XDG_RUNTIME_DIR");
-    if (xdg_runtime == NULL)
-        return strdup("/tmp/foot.sock");
-
-    char *path = malloc(strlen(xdg_runtime) + 1 + strlen("foot.sock") + 1);
-    sprintf(path, "%s/foot.sock", xdg_runtime);
-    return path;
-}
-
 enum connect_status {CONNECT_ERR, CONNECT_FAIL, CONNECT_SUCCESS};
 
 static enum connect_status
@@ -328,10 +316,7 @@ server_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl)
     }
 
     struct server *server = NULL;
-    char *sock_path = NULL;
-
-    if ((sock_path = get_socket_path()) == NULL)
-        goto err;
+    const char *sock_path = conf->server_socket_path;
 
     switch (try_connect(sock_path)) {
     case CONNECT_FAIL:
@@ -381,7 +366,6 @@ server_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl)
 
 err:
     free(server);
-    free(sock_path);
     if (fd != -1)
         close(fd);
     return NULL;
@@ -406,6 +390,5 @@ server_destroy(struct server *server)
     fdm_del(server->fdm, server->fd);
     if (server->sock_path != NULL)
         unlink(server->sock_path);
-    free(server->sock_path);
     free(server);
 }
