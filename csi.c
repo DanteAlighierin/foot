@@ -1129,10 +1129,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
     case '>': {
         switch (final) {
-            case 'c': {
+            case 'c':
                 /* Send Device Attributes (Secondary DA) */
-                int param = vt_param_get(term, 0, 0);
-                if (param != 0) {
+                if (vt_param_get(term, 0, 0) != 0) {
                     UNHANDLED();
                     break;
                 }
@@ -1158,7 +1157,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 term_to_slave(term, "\033[>41;347;0c", 12);
                 break;
-            }
 
         case 'm':
             if (term->vt.params.idx == 0) {
@@ -1255,6 +1253,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
     case '=': {
         switch (final) {
         case 'c':
+            if (vt_param_get(term, 0, 0) != 0) {
+                UNHANDLED();
+                break;
+            }
+
             /* Send Device Attributes (Tertiary DA) */
 
             /* Note: this is supposed to be the "unit ID". But it is
