@@ -100,7 +100,7 @@ main(int argc, char *const *argv)
     struct sockaddr_un addr = {.sun_family = AF_UNIX};
 
     if (server_socket_path != NULL) {
-        strncpy(addr.sun_path, server_socket_path, sizeof(addr.sun_path));
+        strncpy(addr.sun_path, server_socket_path, sizeof(addr.sun_path) - 1);
         if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) < 0) {
             LOG_ERR("%s: failed to connect (is 'foot --server' running?)", server_socket_path);
             goto err;
