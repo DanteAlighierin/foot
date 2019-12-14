@@ -850,6 +850,11 @@ action(struct terminal *term, enum action _action, uint8_t c)
     case ACTION_EXECUTE:
         LOG_DBG("execute: 0x%02x", c);
         switch (c) {
+
+        /*
+         * 7-bit C0 control characters
+         */
+
         case '\0':
             break;
 
@@ -902,6 +907,36 @@ action(struct terminal *term, enum action _action, uint8_t c)
             /* SI - shift in */
             term->charsets.selected = 0; /* G0 */
             break;
+
+        /*
+         * 8-bit C1 control characters
+         *
+         * We ignore these, but keep them here for reference, along
+         * with their corresponding 7-bit variants.
+         *
+         * As far as I can tell, XTerm also ignores these _when in
+         * UTF-8 mode_. Which would be the normal mode of operation
+         * these days. And since we _only_ support UTF-8...
+         */
+#if 0
+        case '\x84':  /* IND     -> ESC D */
+        case '\x85':  /* NEL     -> ESC E */
+        case '\x88':  /* Tab Set -> ESC H */
+        case '\x8d':  /* RI      -> ESC M */
+        case '\x8e':  /* SS2     -> ESC N */
+        case '\x8f':  /* SS3     -> ESC O */
+        case '\x90':  /* DCS     -> ESC P */
+        case '\x96':  /* SPA     -> ESC V */
+        case '\x97':  /* EPA     -> ESC W */
+        case '\x98':  /* SOS     -> ESC X */
+        case '\x9a':  /* DECID   -> ESC Z (obsolete form of CSI c) */
+        case '\x9b':  /* CSI     -> ESC [ */
+        case '\x9c':  /* ST      -> ESC \ */
+        case '\x9d':  /* OSC     -> ESC ] */
+        case '\x9e':  /* PM      -> ESC ^ */
+        case '\x9f':  /* APC     -> ESC _ */
+            break;
+#endif
 
         default:
             break;
