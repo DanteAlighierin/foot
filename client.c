@@ -64,6 +64,7 @@ main(int argc, char *const *argv)
         switch (c) {
         case 't':
             term = optarg;
+            break;
 
         case 's':
             server_socket_path = optarg;
