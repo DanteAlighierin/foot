@@ -57,7 +57,7 @@ main(int argc, char *const *argv)
     const char *server_socket_path = NULL;
 
     while (true) {
-        int c = getopt_long(argc, argv, ":t:hv", longopts, NULL);
+        int c = getopt_long(argc, argv, ":t:s:hv", longopts, NULL);
         if (c == -1)
             break;
 
