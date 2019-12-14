@@ -2,7 +2,8 @@
 
 _arguments \
     -s \
-    '(-t,--term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
+    '(-t --term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
+    '(-s --server-socket)'{-s,--server-socket}'[override the default path to the foot server socket (XDG_RUNTIME_DIR/foot.sock)]' \
     '(-v --version)'{-v,--version}'[show the version number and quit]' \
     '(-h --help)'{-h,--help}'[show help message and quit]'
 

@@ -38,12 +38,14 @@ static void
 print_usage(const char *prog_name)
 {
     printf("Usage: %s [OPTIONS]...\n", prog_name);
+    printf("Usage: %s [OPTIONS]... -- command\n", prog_name);
     printf("\n");
     printf("Options:\n");
     printf("  -f,--font=FONT              comma separated list of fonts in fontconfig format (monospace)\n"
            "  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
            "  -g,--geometry=WIDTHxHEIGHT  set initial width and height\n"
-           "  -s,--server                 run as a server (use 'footclient' to start terminals)\n"
+           "  -s,--server[=PATH]          run as a server (use 'footclient' to start terminals).\n"
+           "                              Without PATH, XDG_RUNTIME_DIR/foot.sock will be used.\n"
            "  -v,--version                show the version number and quit\n");
 }
 
@@ -79,7 +81,7 @@ main(int argc, char *const *argv)
         {"term",     required_argument, 0, 't'},
         {"font",     required_argument, 0, 'f'},
         {"geometry", required_argument, 0, 'g'},
-        {"server",   no_argument,       0, 's'},
+        {"server",   optional_argument, 0, 's'},
         {"version",  no_argument,       0, 'v'},
         {"help",     no_argument,       0, 'h'},
         {NULL,       no_argument,       0,   0},
@@ -88,7 +90,7 @@ main(int argc, char *const *argv)
     bool as_server = false;
 
     while (true) {
-        int c = getopt_long(argc, argv, ":t:f:g:vh", longopts, NULL);
+        int c = getopt_long(argc, argv, ":t:f:g:s::vh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -135,6 +137,10 @@ main(int argc, char *const *argv)
 
         case 's':
             as_server = true;
+            if (optarg != NULL) {
+                free(conf.server_socket_path);
+                conf.server_socket_path = strdup(optarg);
+            }
             break;
 
         case 'v':
