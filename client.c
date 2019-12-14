@@ -29,9 +29,11 @@ static void
 print_usage(const char *prog_name)
 {
     printf("Usage: %s [OPTIONS]...\n", prog_name);
+    printf("Usage: %s [OPTIONS]... -- command\n", prog_name);
     printf("\n");
     printf("Options:\n");
     printf("  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
+           "  -s,--server-socket=PATH     path to the server UNIX domain socket (default=XDG_RUNTIME_DIR/foot.sock)\n"
            "  -v,--version                show the version number and quit\n");
 }
 
@@ -43,13 +45,15 @@ main(int argc, char *const *argv)
     const char *const prog_name = argv[0];
 
     static const struct option longopts[] =  {
-        {"term",     required_argument, 0, 't'},
-        {"version",  no_argument,       0, 'v'},
-        {"help",     no_argument,       0, 'h'},
-        {NULL,       no_argument,       0,   0},
+        {"term",          required_argument, 0, 't'},
+        {"server-socket", required_argument, 0, 's'},
+        {"version",       no_argument,       0, 'v'},
+        {"help",          no_argument,       0, 'h'},
+        {NULL,            no_argument,       0,   0},
     };
 
     const char *term = "";
+    const char *server_socket_path = NULL;
 
     while (true) {
         int c = getopt_long(argc, argv, ":t:hv", longopts, NULL);
@@ -59,6 +63,9 @@ main(int argc, char *const *argv)
         switch (c) {
         case 't':
             term = optarg;
+
+        case 's':
+            server_socket_path = optarg;
             break;
 
         case 'v':
@@ -88,22 +95,33 @@ main(int argc, char *const *argv)
         goto err;
     }
 
-    bool connected = false;
     struct sockaddr_un addr = {.sun_family = AF_UNIX};
 
-    const char *xdg_runtime = getenv("XDG_RUNTIME_DIR");
-    if (xdg_runtime != NULL) {
-        snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/foot.sock", xdg_runtime);
-
-        if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == 0)
-            connected = true;
-    }
-
-    if (!connected) {
-        strncpy(addr.sun_path, "/tmp/foot.sock", sizeof(addr.sun_path) - 1);
+    if (server_socket_path != NULL) {
+        strncpy(addr.sun_path, server_socket_path, sizeof(addr.sun_path));
         if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) < 0) {
-            LOG_ERRNO("failed to connect (is 'foot --server' running?)");
+            LOG_ERR("%s: failed to connect (is 'foot --server' running?)", server_socket_path);
             goto err;
+        }
+    } else {
+        bool connected = false;
+
+        const char *xdg_runtime = getenv("XDG_RUNTIME_DIR");
+        if (xdg_runtime != NULL) {
+            snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/foot.sock", xdg_runtime);
+
+            if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == 0)
+                connected = true;
+            else
+                LOG_WARN("%s/foot.sock: failed to connect, will now try /tmp/foot.sock", xdg_runtime);
+        }
+
+        if (!connected) {
+            strncpy(addr.sun_path, "/tmp/foot.sock", sizeof(addr.sun_path) - 1);
+            if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) < 0) {
+                LOG_ERRNO("failed to connect (is 'foot --server' running?)");
+                goto err;
+            }
         }
     }
 
