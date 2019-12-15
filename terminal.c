@@ -276,6 +276,36 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
 }
 
 static bool
+fdm_cursor_blink(struct fdm *fdm, int fd, int events, void *data)
+{
+    if (events & EPOLLHUP)
+        return false;
+
+    struct terminal *term = data;
+    uint64_t expiration_count;
+    ssize_t ret = read(
+        term->cursor_blink.fd, &expiration_count, sizeof(expiration_count));
+
+    if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+
+        LOG_ERRNO("failed to read cursor blink timer");
+        return false;
+    }
+
+    LOG_DBG("cursor blink timer expired %llu times",
+            (unsigned long long)expiration_count);
+
+    /* Invert blink state */
+    term->cursor_blink.state = term->cursor_blink.state == CURSOR_BLINK_ON
+        ? CURSOR_BLINK_OFF : CURSOR_BLINK_ON;
+
+    render_refresh(term);
+    return true;
+}
+
+static bool
 fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
 {
     if (events & EPOLLHUP)
@@ -403,6 +433,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     int ptmx = -1;
     int flash_fd = -1;
     int blink_fd = -1;
+    int cursor_blink_fd = -1;
     int delay_lower_fd = -1;
     int delay_upper_fd = -1;
 
@@ -418,6 +449,10 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     }
     if ((blink_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
         LOG_ERRNO("failed to create blink timer FD");
+        goto close_fds;
+    }
+    if ((cursor_blink_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
+        LOG_ERRNO("failed to create cursor blink timer FD");
         goto close_fds;
     }
     if ((delay_lower_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1 ||
@@ -438,6 +473,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term) ||
         !fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term) ||
         !fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term) ||
+        !fdm_add(fdm, cursor_blink_fd, EPOLLIN, &fdm_cursor_blink, term) ||
         !fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
         !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term))
     {
@@ -489,6 +525,10 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .origin = ORIGIN_ABSOLUTE,
         .default_cursor_style = conf->cursor.style,
         .cursor_style = conf->cursor.style,
+        .cursor_blink = {
+            .state = CURSOR_BLINK_ON,
+            .fd = cursor_blink_fd,
+        },
         .default_cursor_color = {
             .text = conf->cursor.color.text,
             .cursor = conf->cursor.color.cursor,
@@ -572,6 +612,7 @@ close_fds:
     fdm_del(fdm, ptmx);
     fdm_del(fdm, flash_fd);
     fdm_del(fdm, blink_fd);
+    fdm_del(fdm, cursor_blink_fd);
     fdm_del(fdm, delay_lower_fd);
     fdm_del(fdm, delay_upper_fd);
 
@@ -688,6 +729,7 @@ term_destroy(struct terminal *term)
 
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
+    fdm_del(term->fdm, term->cursor_blink.fd);
     fdm_del(term->fdm, term->blink.fd);
     fdm_del(term->fdm, term->flash.fd);
     fdm_del(term->fdm, term->ptmx);
@@ -878,7 +920,7 @@ term_reset(struct terminal *term, bool hard)
     term->saved_cursor = (struct cursor){.point = {0, 0}};
     term->alt_saved_cursor = (struct cursor){.point = {0, 0}};
     term->cursor_style = term->default_cursor_style;
-    term->cursor_blinking = false;
+    term_cursor_blink_disable(term);
     term->cursor_color.text = term->default_cursor_color.text;
     term->cursor_color.cursor = term->default_cursor_color.cursor;
     selection_cancel(term);
@@ -1083,6 +1125,27 @@ term_cursor_down(struct terminal *term, int count)
 
     int move_amount = min(bottom - term->cursor.point.row - 1, count);
     term_cursor_to(term, term->cursor.point.row + move_amount, term->cursor.point.col);
+}
+
+void
+term_cursor_blink_enable(struct terminal *term)
+{
+    static const struct itimerspec timer = {
+        .it_value = {.tv_sec = 0, .tv_nsec = 500000000},
+        .it_interval = {.tv_sec = 0, .tv_nsec = 500000000},
+    };
+
+    if (timerfd_settime(term->cursor_blink.fd, 0, &timer, NULL) < 0)
+        LOG_ERRNO("failed to arm cursor blink timer");
+
+    term->cursor_blink.state = CURSOR_BLINK_ON;
+}
+
+void
+term_cursor_blink_disable(struct terminal *term)
+{
+    term->cursor_blink.state = CURSOR_BLINK_ON;
+    timerfd_settime(term->cursor_blink.fd, 0, &(struct itimerspec){{0}}, NULL);
 }
 
 void

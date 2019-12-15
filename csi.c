@@ -866,7 +866,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 12:
-                    /* Ignored */
+                    term_cursor_blink_enable(term);
                     break;
 
                 case 25:
@@ -992,7 +992,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 case 12:
-                    /* Ignored */
+                    term_cursor_blink_disable(term);
                     break;
 
                 case 25:
@@ -1224,9 +1224,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
             }
 
-            term->cursor_blinking = param == 0 || param & 1;
-            if (term->cursor_blinking)
-                LOG_WARN("unimplemented: blinking cursor");
+            if (param == 0 || param & 1)
+                term_cursor_blink_enable(term);
+            else
+                term_cursor_blink_disable(term);
             break;
         }
 

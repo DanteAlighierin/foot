@@ -184,8 +184,12 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     int x = term->x_margin + col * width;
     int y = term->y_margin + row * height;
 
-    bool block_cursor = has_cursor && term->cursor_style == CURSOR_BLOCK;
     bool is_selected = coord_is_selected(term, col, row);
+
+    bool block_cursor =
+        has_cursor &&
+        term->cursor_style == CURSOR_BLOCK &&
+        term->cursor_blink.state == CURSOR_BLINK_ON;
 
     uint32_t _fg = 0;
     uint32_t _bg = 0;
@@ -240,7 +244,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         &(pixman_rectangle16_t){x, y, cell_cols * width, height});
 
     /* Non-block cursors */
-    if (has_cursor && !block_cursor) {
+    if (has_cursor && !block_cursor && term->cursor_blink.state == CURSOR_BLINK_ON) {
         pixman_color_t cursor_color;
         if (term->cursor_color.text >> 31) {
             cursor_color = color_hex_to_pixman(term->cursor_color.cursor);
@@ -524,6 +528,15 @@ grid_render(struct terminal *term)
             /* Detect cursor movement - we don't dirty cells touched
              * by the cursor, since only the final cell matters. */
             all_clean = false;
+
+            /* Force cursor blink to ON, to avoid blinking while moving cursor */
+            term->render.last_cursor.blink_state = CURSOR_BLINK_ON;
+            term->cursor_blink.state = CURSOR_BLINK_ON;
+        }
+
+        if (term->render.last_cursor.blink_state != term->cursor_blink.state) {
+            /* Need to re-draw cursor */
+            all_clean = false;
         }
     }
 
@@ -675,6 +688,7 @@ grid_render(struct terminal *term)
 
         cell->attrs.clean = 0;
         term->render.last_cursor.cell = cell;
+        term->render.last_cursor.blink_state = term->cursor_blink.state;
         int cols_updated = render_cell(
             term, pix, cell, term->cursor.point.col, view_aligned_row, true);
 
