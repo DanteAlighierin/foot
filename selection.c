@@ -587,15 +587,23 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
         if (count == 0)
             break;
 
-        /* Replace \r\n with \n */
-        for (size_t i = 0; i < count - 1; i++) {
-            if (text[i] == '\r' && text[i + 1] == '\n') {
-                memmove(&text[i], &text[i + 1], count - i - 1);
-                count--;
+        /* Call cb while at same time replacing \r\n with \n */
+        const char *p = text;
+        size_t left = count;
+    again:
+        for (size_t i = 0; i < left - 1; i++) {
+            if (p[i] == '\r' && p[i + 1] == '\n') {
+                ctx->cb(p, i, ctx->user);
+
+                assert(i + 1 <= left);
+                p += i + 1;
+                left -= i + 1;
+                goto again;
             }
         }
 
-        ctx->cb(text, count, ctx->user);
+        ctx->cb(p, left, ctx->user);
+        left = 0;
     }
 
 done:
