@@ -130,6 +130,7 @@ fdm_del_internal(struct fdm *fdm, int fd, bool close_fd)
     }
 
     LOG_ERR("no such FD: %d", fd);
+    close(fd);
     return false;
 }
 
