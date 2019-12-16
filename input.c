@@ -203,6 +203,9 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         return;
     }
 
+    /* Prevent blinking while typing */
+    term_cursor_blink_restart(term);
+
     key += 8;
     bool should_repeat = xkb_keymap_key_repeats(wayl->kbd.xkb_keymap, key);
     xkb_keysym_t sym = xkb_state_key_get_one_sym(wayl->kbd.xkb_state, key);
