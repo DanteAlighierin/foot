@@ -685,14 +685,18 @@ term_shutdown(struct terminal *term)
      * iteration, by creating an event FD that we trigger immediately.
      */
 
+    term_cursor_blink_disable(term);
+
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
+    fdm_del(term->fdm, term->cursor_blink.fd);
     fdm_del(term->fdm, term->blink.fd);
     fdm_del(term->fdm, term->flash.fd);
     fdm_del(term->fdm, term->ptmx);
 
     term->delayed_render_timer.lower_fd = -1;
     term->delayed_render_timer.upper_fd = -1;
+    term->cursor_blink.fd = -1;
     term->blink.fd = -1;
     term->flash.fd = -1;
     term->ptmx = -1;
