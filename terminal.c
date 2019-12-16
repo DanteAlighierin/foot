@@ -275,6 +275,17 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
     return true;
 }
 
+static void
+cursor_refresh(struct terminal *term)
+{
+    if (term->is_shutting_down)
+        return;
+
+    term->grid->cur_row->cells[term->cursor.point.col].attrs.clean = 0;
+    term->grid->cur_row->dirty = true;
+    render_refresh(term);
+}
+
 static bool
 fdm_cursor_blink(struct fdm *fdm, int fd, int events, void *data)
 {
@@ -301,7 +312,7 @@ fdm_cursor_blink(struct fdm *fdm, int fd, int events, void *data)
     term->cursor_blink.state = term->cursor_blink.state == CURSOR_BLINK_ON
         ? CURSOR_BLINK_OFF : CURSOR_BLINK_ON;
 
-    render_refresh(term);
+    cursor_refresh(term);
     return true;
 }
 
@@ -526,6 +537,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .default_cursor_style = conf->cursor.style,
         .cursor_style = conf->cursor.style,
         .cursor_blink = {
+            .active = false,
             .state = CURSOR_BLINK_ON,
             .fd = cursor_blink_fd,
         },
@@ -1127,25 +1139,51 @@ term_cursor_down(struct terminal *term, int count)
     term_cursor_to(term, term->cursor.point.row + move_amount, term->cursor.point.col);
 }
 
-void
-term_cursor_blink_enable(struct terminal *term)
+static bool
+cursor_blink_start_timer(struct terminal *term)
 {
     static const struct itimerspec timer = {
         .it_value = {.tv_sec = 0, .tv_nsec = 500000000},
         .it_interval = {.tv_sec = 0, .tv_nsec = 500000000},
     };
 
-    if (timerfd_settime(term->cursor_blink.fd, 0, &timer, NULL) < 0)
+    if (timerfd_settime(term->cursor_blink.fd, 0, &timer, NULL) < 0) {
         LOG_ERRNO("failed to arm cursor blink timer");
+        return false;
+    }
 
+    return true;
+}
+
+static bool
+cursor_blink_stop_timer(struct terminal *term)
+{
+    return timerfd_settime(term->cursor_blink.fd, 0, &(struct itimerspec){{0}}, NULL) == 0;
+}
+
+void
+term_cursor_blink_enable(struct terminal *term)
+{
     term->cursor_blink.state = CURSOR_BLINK_ON;
+    term->cursor_blink.active = term->wl->focused == term
+        ? cursor_blink_start_timer(term) : true;
+    cursor_refresh(term);
 }
 
 void
 term_cursor_blink_disable(struct terminal *term)
 {
+    term->cursor_blink.active = false;
     term->cursor_blink.state = CURSOR_BLINK_ON;
-    timerfd_settime(term->cursor_blink.fd, 0, &(struct itimerspec){{0}}, NULL);
+    cursor_blink_stop_timer(term);
+    //cursor_refresh(term);  /* TODO: causes excessive flicker in Emacs */
+}
+
+void
+term_cursor_blink_restart(struct terminal *term)
+{
+    if (term->cursor_blink.active)
+        term_cursor_blink_enable(term);
 }
 
 void

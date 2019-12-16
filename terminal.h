@@ -233,6 +233,7 @@ struct terminal {
     enum cursor_style default_cursor_style;
     enum cursor_style cursor_style;
     struct {
+        bool active;
         enum { CURSOR_BLINK_ON, CURSOR_BLINK_OFF } state;
         int fd;
     } cursor_blink;
@@ -351,6 +352,7 @@ void term_cursor_up(struct terminal *term, int count);
 void term_cursor_down(struct terminal *term, int count);
 void term_cursor_blink_enable(struct terminal *term);
 void term_cursor_blink_disable(struct terminal *term);
+void term_cursor_blink_restart(struct terminal *term);
 
 void term_scroll(struct terminal *term, int rows);
 void term_scroll_reverse(struct terminal *term, int rows);
