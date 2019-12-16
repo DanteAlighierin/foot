@@ -1326,17 +1326,25 @@ term_restore_cursor(struct terminal *term)
 void
 term_focus_in(struct terminal *term)
 {
-    if (!term->focus_events)
-        return;
-    term_to_slave(term, "\033[I", 3);
+    if (term->cursor_blink.active)
+        cursor_blink_start_timer(term);
+
+    if (term->focus_events)
+        term_to_slave(term, "\033[I", 3);
+
+    cursor_refresh(term);
 }
 
 void
 term_focus_out(struct terminal *term)
 {
-    if (!term->focus_events)
-        return;
-    term_to_slave(term, "\033[O", 3);
+    if (term->cursor_blink.active)
+        cursor_blink_stop_timer(term);
+
+    if (term->focus_events)
+        term_to_slave(term, "\033[O", 3);
+
+    cursor_refresh(term);
 }
 
 static int
