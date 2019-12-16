@@ -88,6 +88,20 @@ font_baseline(const struct terminal *term)
 }
 
 static void
+draw_unfocused_block(const struct terminal *term, pixman_image_t *pix,
+                     const pixman_color_t *color, int x, int y, int cell_cols)
+{
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, pix, color, 4,
+        (pixman_rectangle16_t []){
+         {x, y, cell_cols * term->cell_width, 1},                          /* top */
+         {x, y, 1, term->cell_height},                                     /* left */
+         {x + cell_cols * term->cell_width - 1, y, 1, term->cell_height},  /* right */
+         {x, y + term->cell_height - 1, cell_cols * term->cell_width, 1},  /* bottom */
+        });
+}
+
+static void
 draw_bar(const struct terminal *term, pixman_image_t *pix,
          const struct font *font,
          const pixman_color_t *color, int x, int y)
@@ -184,10 +198,12 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     int x = term->x_margin + col * width;
     int y = term->y_margin + row * height;
 
+    bool have_focus = term->wl->focused == term;
     bool is_selected = coord_is_selected(term, col, row);
 
     bool block_cursor =
         has_cursor &&
+        have_focus &&
         term->cursor_style == CURSOR_BLOCK &&
         term->cursor_blink.state == CURSOR_BLINK_ON;
 
@@ -243,22 +259,37 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         PIXMAN_OP_SRC, pix, &bg, 1,
         &(pixman_rectangle16_t){x, y, cell_cols * width, height});
 
-    /* Non-block cursors */
-    if (has_cursor && !block_cursor && term->cursor_blink.state == CURSOR_BLINK_ON) {
+    /* Non-block cursors (including the "unfocused" cursor) */
+    if (has_cursor &&
+        !block_cursor &&
+        (term->cursor_blink.state == CURSOR_BLINK_ON || !have_focus))
+    {
         pixman_color_t cursor_color;
         if (term->cursor_color.text >> 31) {
-            cursor_color = color_hex_to_pixman(term->cursor_color.cursor);
+            cursor_color = color_hex_to_pixman(
+                is_selected ? term->cursor_color.text : term->cursor_color.cursor);
+
             if (term->is_searching)
                 pixman_color_dim(&cursor_color);
         } else
             cursor_color = fg;
 
-        if (term->cursor_style == CURSOR_BAR)
+        switch (term->cursor_style) {
+        case CURSOR_BLOCK:
+            if (!have_focus)
+                draw_unfocused_block(term, pix, &cursor_color, x, y, cell_cols);
+            break;
+
+        case CURSOR_BAR:
             draw_bar(term, pix, font, &cursor_color, x, y);
-        else if (term->cursor_style == CURSOR_UNDERLINE)
+            break;
+
+        case CURSOR_UNDERLINE:
             draw_underline(
                 term, pix, attrs_to_font(term, &cell->attrs), &cursor_color,
                 x, y, cell_cols);
+            break;
+        }
     }
 
     if (cell->attrs.blink && !term->blink.active) {
@@ -527,15 +558,6 @@ grid_render(struct terminal *term)
         {
             /* Detect cursor movement - we don't dirty cells touched
              * by the cursor, since only the final cell matters. */
-            all_clean = false;
-
-            /* Force cursor blink to ON, to avoid blinking while moving cursor */
-            term->render.last_cursor.blink_state = CURSOR_BLINK_ON;
-            term->cursor_blink.state = CURSOR_BLINK_ON;
-        }
-
-        if (term->render.last_cursor.blink_state != term->cursor_blink.state) {
-            /* Need to re-draw cursor */
             all_clean = false;
         }
     }
