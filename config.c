@@ -463,7 +463,7 @@ get_server_socket_path(void)
 }
 
 bool
-config_load(struct config *conf)
+config_load(struct config *conf, const char *conf_path)
 {
     bool ret = false;
 
@@ -513,28 +513,35 @@ config_load(struct config *conf)
         .server_socket_path = get_server_socket_path(),
     };
 
-    char *path = get_config_path();
-    if (path == NULL) {
-        /* Default conf */
-        LOG_WARN("no configuration found, using defaults");
-        ret = true;
-        goto out;
+    char *default_path = NULL;
+    if (conf_path == NULL) {
+        if ((default_path = get_config_path()) == NULL) {
+            /* Default conf */
+            LOG_WARN("no configuration found, using defaults");
+            ret = true;
+            goto out;
+        }
+
+        conf_path = default_path;
     }
 
-    LOG_DBG("loading configuration from %s", path);
+    assert(conf_path != NULL);
+    LOG_INFO("loading configuration from %s", conf_path);
 
-    FILE *f = fopen(path, "r");
+    FILE *f = fopen(conf_path, "r");
     if (f == NULL) {
-        LOG_ERR("%s: failed to open", path);
+        LOG_ERR("%s: failed to open", conf_path);
         goto out;
     }
 
-    ret = parse_config_file(f, conf, path);
+    ret = parse_config_file(f, conf, conf_path);
     fclose(f);
 
+    if (ret && tll_length(conf->fonts) == 0)
+        tll_push_back(conf->fonts, strdup("monospace"));
+
 out:
-    tll_push_back(conf->fonts, strdup("monospace"));
-    free(path);
+    free(default_path);
     return ret;
 }
 

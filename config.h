@@ -38,5 +38,5 @@ struct config {
     char *server_socket_path;
 };
 
-bool config_load(struct config *conf);
+bool config_load(struct config *conf, const char *path);
 void config_free(struct config conf);

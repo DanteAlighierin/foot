@@ -38,7 +38,8 @@ print_usage(const char *prog_name)
     printf("Usage: %s [OPTIONS]... -- command\n", prog_name);
     printf("\n");
     printf("Options:\n");
-    printf("  -f,--font=FONT              comma separated list of fonts in fontconfig format (monospace)\n"
+    printf("  -c,--config=PATH            load configuration from PATH (XDG_CONFIG_HOME/footrc)\n"
+           "  -f,--font=FONT              comma separated list of fonts in fontconfig format (monospace)\n"
            "  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
            "  -g,--geometry=WIDTHxHEIGHT  set initial width and height\n"
            "  -s,--server[=PATH]          run as a server (use 'footclient' to start terminals).\n"
@@ -68,13 +69,10 @@ main(int argc, char *const *argv)
      * don't pass this on to programs launched by us */
     unsetenv("DESKTOP_STARTUP_ID");
 
-    struct config conf = {NULL};
-    if (!config_load(&conf))
-        return ret;
-
     const char *const prog_name = argv[0];
 
     static const struct option longopts[] =  {
+        {"config",   required_argument, 0, 'c'},
         {"term",     required_argument, 0, 't'},
         {"font",     required_argument, 0, 'f'},
         {"geometry", required_argument, 0, 'g'},
@@ -84,21 +82,30 @@ main(int argc, char *const *argv)
         {NULL,       no_argument,       0,   0},
     };
 
+    const char *conf_path = NULL;
+    const char *conf_term = NULL;
+    tll(char *) conf_fonts = tll_init();
+    int conf_width = -1;
+    int conf_height = -1;
     bool as_server = false;
+    const char *conf_server_socket_path = NULL;
 
     while (true) {
-        int c = getopt_long(argc, argv, ":t:f:g:s::vh", longopts, NULL);
+        int c = getopt_long(argc, argv, ":c:tf:g:s::vh", longopts, NULL);
         if (c == -1)
             break;
 
         switch (c) {
+        case 'c':
+            conf_path = optarg;
+            break;
+
         case 't':
-            free(conf.term);
-            conf.term = strdup(optarg);
+            conf_term = optarg;
             break;
 
         case 'f':
-            tll_free_and_free(conf.fonts, free);
+            tll_free_and_free(conf_fonts, free);
             for (char *font = strtok(optarg, ","); font != NULL; font = strtok(NULL, ",")) {
 
                 /* Strip leading spaces */
@@ -115,7 +122,7 @@ main(int argc, char *const *argv)
                 if (strlen(font) == 0)
                     continue;
 
-                tll_push_back(conf.fonts, strdup(font));
+                tll_push_back(conf_fonts, strdup(font));
             }
             break;
 
@@ -123,41 +130,34 @@ main(int argc, char *const *argv)
             unsigned width, height;
             if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
                 fprintf(stderr, "error: invalid geometry: %s\n", optarg);
-                config_free(conf);
                 return EXIT_FAILURE;
             }
 
-            conf.width = width;
-            conf.height = height;
+            conf_width = width;
+            conf_height = height;
             break;
         }
 
         case 's':
             as_server = true;
-            if (optarg != NULL) {
-                free(conf.server_socket_path);
-                conf.server_socket_path = strdup(optarg);
-            }
+            if (optarg != NULL)
+                conf_server_socket_path = optarg;
             break;
 
         case 'v':
             printf("foot version %s\n", FOOT_VERSION);
-            config_free(conf);
             return EXIT_SUCCESS;
 
         case 'h':
             print_usage(prog_name);
-            config_free(conf);
             return EXIT_SUCCESS;
 
         case ':':
             fprintf(stderr, "error: -%c: missing required argument\n", optopt);
-            config_free(conf);
             return EXIT_FAILURE;
 
         case '?':
             fprintf(stderr, "error: -%c: invalid option\n", optopt);
-            config_free(conf);
             return EXIT_FAILURE;
         }
     }
@@ -168,6 +168,29 @@ main(int argc, char *const *argv)
     argv += optind;
 
     setlocale(LC_ALL, "");
+
+    struct config conf = {NULL};
+    if (!config_load(&conf, conf_path))
+        return ret;
+
+    if (conf_term != NULL) {
+        free(conf.term);
+        conf.term = strdup(conf_term);
+    }
+    if (tll_length(conf_fonts) > 0) {
+        tll_free_and_free(conf.fonts, free);
+        tll_foreach(conf_fonts, it)
+            tll_push_back(conf.fonts, it->item);
+        tll_free(conf_fonts);
+    }
+    if (conf_width > 0)
+        conf.width = conf_width;
+    if (conf_height > 0)
+        conf.height = conf_height;
+    if (conf_server_socket_path != NULL) {
+        free(conf.server_socket_path);
+        conf.server_socket_path = strdup(conf_server_socket_path);
+    }
 
     struct fdm *fdm = NULL;
     struct wayland *wayl = NULL;
