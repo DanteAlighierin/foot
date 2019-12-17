@@ -23,9 +23,6 @@
 #include "terminal.h"
 #include "version.h"
 
-#define min(x, y) ((x) < (y) ? (x) : (y))
-#define max(x, y) ((x) > (y) ? (x) : (y))
-
 static volatile sig_atomic_t aborted = 0;
 
 static void
