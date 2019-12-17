@@ -165,6 +165,8 @@ main(int argc, char *const *argv)
         }
     }
 
+    log_init(as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER, LOG_CLASS_WARNING);
+
     argc -= optind;
     argv += optind;
 
@@ -175,8 +177,6 @@ main(int argc, char *const *argv)
     struct terminal *term = NULL;
     struct server *server = NULL;
     struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
-
-    log_init(as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER);
 
     if ((fdm = fdm_init()) == NULL)
         goto out;

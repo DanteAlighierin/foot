@@ -13,17 +13,29 @@
 
 static bool colorize = false;
 
+static void __attribute__((constructor))
+init(void)
+{
+    colorize = isatty(STDOUT_FILENO);
+}
+
 void
-log_init(enum log_facility syslog_facility)
+log_init(enum log_facility syslog_facility, enum log_class syslog_level)
 {
     static const int facility_map[] = {
         [LOG_FACILITY_USER] = LOG_USER,
         [LOG_FACILITY_DAEMON] = LOG_DAEMON,
     };
 
-    colorize = isatty(STDOUT_FILENO);
+    static const int level_map[] = {
+        [LOG_CLASS_ERROR] = LOG_ERR,
+        [LOG_CLASS_WARNING] = LOG_WARNING,
+        [LOG_CLASS_INFO] = LOG_INFO,
+        [LOG_CLASS_DEBUG] = LOG_DEBUG,
+    };
+
     openlog(NULL, /*LOG_PID*/0, facility_map[syslog_facility]);
-    setlogmask(LOG_UPTO(LOG_WARNING));
+    setlogmask(LOG_UPTO(level_map[syslog_level]));
 }
 
 void
