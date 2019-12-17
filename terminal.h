@@ -296,7 +296,6 @@ struct terminal {
             struct coord actual;     /* Absolute */
             struct coord in_view;    /* Offset by view */
             struct cell *cell; /* For easy access to content */
-            int blink_state;
         } last_cursor;
 
         struct buffer *last_buf;     /* Buffer we rendered to last time */
@@ -364,6 +363,8 @@ void term_scroll_reverse_partial(
 
 void term_linefeed(struct terminal *term);
 void term_reverse_index(struct terminal *term);
+
+void term_arm_blink_timer(struct terminal *term);
 
 void term_restore_cursor(struct terminal *term);
 

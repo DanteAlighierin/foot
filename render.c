@@ -169,21 +169,6 @@ coord_is_selected(const struct terminal *term, int col, int row)
     }
 }
 
-static void
-arm_blink_timer(struct terminal *term)
-{
-    LOG_DBG("arming blink timer");
-    struct itimerspec alarm = {
-        .it_value = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
-        .it_interval = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
-    };
-
-    if (timerfd_settime(term->blink.fd, 0, &alarm, NULL) < 0)
-        LOG_ERRNO("failed to arm blink timer");
-    else
-        term->blink.active = true;
-}
-
 static int
 render_cell(struct terminal *term, pixman_image_t *pix,
             struct cell *cell, int col, int row, bool has_cursor)
@@ -292,10 +277,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         }
     }
 
-    if (cell->attrs.blink && !term->blink.active) {
-        /* First cell we see that has blink set - arm blink timer */
-        arm_blink_timer(term);
-    }
+    if (cell->attrs.blink)
+        term_arm_blink_timer(term);
 
     if (cell->wc == 0 || cell->attrs.conceal)
         return cell_cols;
@@ -638,35 +621,6 @@ grid_render(struct terminal *term)
         }
     }
 
-    if (term->blink.active) {
-        /* Check if there are still any visible blinking cells */
-        bool none_is_blinking = true;
-        for (int r = 0; r < term->rows; r++) {
-            struct row *row = grid_row_in_view(term->grid, r);
-            for (int col = 0; col < term->cols; col++) {
-                if (row->cells[col].attrs.blink) {
-                    none_is_blinking = false;
-                    break;
-                }
-            }
-        }
-
-        /* No, disarm the blink timer */
-        if (none_is_blinking) {
-            LOG_DBG("disarming blink timer");
-
-            term->blink.active = false;
-            term->blink.state = BLINK_ON;
-
-            if (timerfd_settime(
-                    term->blink.fd, 0,
-                    &(struct itimerspec){{0}}, NULL)  < 0)
-            {
-                LOG_ERRNO("failed to disarm blink timer");
-            }
-        }
-    }
-
     /*
      * Determine if we need to render a cursor or not. The cursor
      * could be hidden. Or it could have been scrolled out of view.
@@ -710,7 +664,6 @@ grid_render(struct terminal *term)
 
         cell->attrs.clean = 0;
         term->render.last_cursor.cell = cell;
-        term->render.last_cursor.blink_state = term->cursor_blink.state;
         int cols_updated = render_cell(
             term, pix, cell, term->cursor.point.col, view_aligned_row, true);
 

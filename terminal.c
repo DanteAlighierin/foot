@@ -259,6 +259,7 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
         ? BLINK_OFF : BLINK_ON;
 
     /* Scan all visible cells and mark rows with blinking cells dirty */
+    bool no_blinking_cells = true;
     for (int r = 0; r < term->rows; r++) {
         struct row *row = grid_row_in_view(term->grid, r);
         for (int col = 0; col < term->cols; col++) {
@@ -267,12 +268,41 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
             if (cell->attrs.blink) {
                 cell->attrs.clean = 0;
                 row->dirty = true;
+                no_blinking_cells = false;
             }
         }
     }
 
-    render_refresh(term);
+    if (no_blinking_cells) {
+        LOG_DBG("disarming blink timer");
+
+        term->blink.active = false;
+        term->blink.state = BLINK_ON;
+
+        static const struct itimerspec disarm = {{0}};
+        if (timerfd_settime(term->blink.fd, 0, &disarm, NULL)  < 0)
+            LOG_ERRNO("failed to disarm blink timer");
+    } else
+        render_refresh(term);
     return true;
+}
+
+void
+term_arm_blink_timer(struct terminal *term)
+{
+    if (term->blink.active)
+        return;
+
+    LOG_DBG("arming blink timer");
+    struct itimerspec alarm = {
+        .it_value = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
+        .it_interval = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
+    };
+
+    if (timerfd_settime(term->blink.fd, 0, &alarm, NULL) < 0)
+        LOG_ERRNO("failed to arm blink timer");
+    else
+        term->blink.active = true;
 }
 
 static void
