@@ -46,10 +46,10 @@ in this order:
 	Number of scrollback lines. Default: _1000_.
 
 *workers*
-	Number of threads to use for rendering. Default: the number of
-	available logical CPUs (including SMT). Note that this is not
-	always the best value. In some cases, the number of physical
-	_cores_ is better.
+	Number of threads to use for rendering. Set to 0 to disable
+	multithreading. Default: the number of available logical CPUs
+	(including SMT). Note that this is not always the best value. In
+	some cases, the number of physical _cores_ is better.
 
 
 # SECTION: cursor
