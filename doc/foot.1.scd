@@ -12,6 +12,9 @@ execute (instead of the shell).
 
 # OPTIONS
 
+*-c*,*--config*=_PATH_
+	Path to configuration file. Default: _XDG_RUNTIME_DIR/footrc_.
+
 *-f*,*--font*=_FONT_
 	Comma separated list of fonts to use, in fontconfig format (see
 	*FONT FORMAT*).
@@ -60,7 +63,7 @@ execute (instead of the shell).
 	the *--server-socket* option in *footclient*(1).
 
 *-v*,*--version*
-	Show the version number and quit
+	Show the version number and quit.
 
 # DESCRIPTION
 
