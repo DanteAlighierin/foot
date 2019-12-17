@@ -196,7 +196,8 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
                 NULL);
             term->delayed_render_timer.is_armed = true;
         }
-    }
+    } else
+        term->render.pending = true;
 
     if (events & EPOLLHUP)
         return term_shutdown(term);

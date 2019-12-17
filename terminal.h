@@ -298,6 +298,7 @@ struct terminal {
             struct cell *cell; /* For easy access to content */
         } last_cursor;
 
+        bool pending;
         struct buffer *last_buf;     /* Buffer we rendered to last time */
         bool was_flashing;           /* Flash was active last time we rendered */
         bool was_searching;

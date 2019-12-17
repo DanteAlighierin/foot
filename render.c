@@ -294,7 +294,6 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             }
         } else {
             /* Glyph surface is an alpha mask */
-            /* TODO: cache */
             pixman_image_t *src = pixman_image_create_solid_fill(&fg);
             pixman_image_composite32(
                 PIXMAN_OP_OVER, src, glyph->pix, pix, 0, 0, 0, 0,
@@ -457,7 +456,6 @@ grid_render(struct terminal *term)
     wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
 
     pixman_image_t *pix = buf->pix;
-    bool all_clean = tll_length(term->grid->scroll_damage) == 0;
 
     /* If we resized the window, or is flashing, or just stopped flashing */
     if (term->render.last_buf != buf ||
@@ -521,9 +519,12 @@ grid_render(struct terminal *term)
 
     /* Erase old cursor (if we rendered a cursor last time) */
     if (term->render.last_cursor.cell != NULL) {
+
         struct cell *cell = term->render.last_cursor.cell;
         struct coord at = term->render.last_cursor.in_view;
+        term->render.last_cursor.cell = NULL;
 
+        /* If cell already is dirty, it will be rendered anyway */
         if (cell->attrs.clean) {
             cell->attrs.clean = 0;
             render_cell(term, pix, cell, at.col, at.row, false);
@@ -533,15 +534,6 @@ grid_render(struct terminal *term)
                 term->x_margin + at.col * term->cell_width,
                 term->y_margin + at.row * term->cell_height,
                 term->cell_width, term->cell_height);
-        }
-        term->render.last_cursor.cell = NULL;
-
-        if (term->render.last_cursor.actual.col != term->cursor.point.col ||
-            term->render.last_cursor.actual.row != term->cursor.point.row)
-        {
-            /* Detect cursor movement - we don't dirty cells touched
-             * by the cursor, since only the final cell matters. */
-            all_clean = false;
         }
     }
 
@@ -589,7 +581,6 @@ grid_render(struct terminal *term)
             mtx_unlock(&term->render.workers.lock);
 
             row->dirty = false;
-            all_clean = false;
 
             wl_surface_damage_buffer(
                 term->window->surface,
@@ -610,9 +601,7 @@ grid_render(struct terminal *term)
                 continue;
 
             render_row(term, pix, row, r);
-
             row->dirty = false;
-            all_clean = false;
 
             wl_surface_damage_buffer(
                 term->window->surface,
@@ -674,12 +663,6 @@ grid_render(struct terminal *term)
             cols_updated * term->cell_width, term->cell_height);
     }
 
-    if (all_clean) {
-        buf->busy = false;
-        wl_display_flush(term->wl->display);
-        return;
-    }
-
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
         /* TODO: dim while searching */
@@ -722,7 +705,11 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     assert(term->window->frame_callback == wl_callback);
     wl_callback_destroy(wl_callback);
     term->window->frame_callback = NULL;
-    grid_render(term);
+
+    if (term->render.pending) {
+        term->render.pending = false;
+        grid_render(term);
+    }
 }
 
 void
@@ -960,4 +947,6 @@ render_refresh(struct terminal *term)
 {
     if (term->window->frame_callback == NULL)
         grid_render(term);
+    else
+        term->render.pending = true;
 }
