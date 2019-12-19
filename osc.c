@@ -298,6 +298,23 @@ parse_rgb(const char *string, uint32_t *color)
     return true;
 }
 
+#if 0
+static void
+osc_notify(struct terminal *term, char *string)
+{
+    char *ctx = NULL;
+    const char *cmd = strtok_r(string, ";", &ctx);
+    const char *title = strtok_r(NULL, ";", &ctx);
+    const char *msg = strtok_r(NULL, ";", &ctx);
+
+    LOG_DBG("cmd: \"%s\", title: \"%s\", msg: \"%s\"",
+            cmd, title, msg);
+
+    if (cmd == NULL || strcmp(cmd, "notify") != 0 || title == NULL || msg == NULL)
+        return;
+}
+#endif
+
 void
 osc_dispatch(struct terminal *term)
 {
@@ -478,6 +495,12 @@ osc_dispatch(struct terminal *term)
     case 555:
         osc_flash(term);
         break;
+
+#If 0
+    case 777:
+        osc_notify(term, string);
+        break;
+#endif
 
     default:
         UNHANDLED();
