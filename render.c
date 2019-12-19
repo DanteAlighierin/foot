@@ -538,16 +538,16 @@ grid_render(struct terminal *term)
         struct coord at = term->render.last_cursor.in_view;
         term->render.last_cursor.cell = NULL;
 
-        /* If cell already is dirty, it will be rendered anyway */
+        /* If cell is already dirty, it will be rendered anyway */
         if (cell->attrs.clean) {
             cell->attrs.clean = 0;
-            render_cell(term, pix, cell, at.col, at.row, false);
+            int cols = render_cell(term, pix, cell, at.col, at.row, false);
 
             wl_surface_damage_buffer(
                 term->window->surface,
                 term->x_margin + at.col * term->cell_width,
                 term->y_margin + at.row * term->cell_height,
-                term->cell_width, term->cell_height);
+                cols * term->cell_width, term->cell_height);
         }
     }
 
