@@ -308,9 +308,6 @@ term_arm_blink_timer(struct terminal *term)
 static void
 cursor_refresh(struct terminal *term)
 {
-    if (term->is_shutting_down)
-        return;
-
     term->grid->cur_row->cells[term->cursor.point.col].attrs.clean = 0;
     term->grid->cur_row->dirty = true;
     render_refresh(term);

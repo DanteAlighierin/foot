@@ -439,6 +439,9 @@ static const struct wl_callback_listener frame_listener = {
 void
 grid_render(struct terminal *term)
 {
+    if (term->is_shutting_down)
+        return;
+
 #define TIME_FRAME_RENDERING 0
 
 #if TIME_FRAME_RENDERING
