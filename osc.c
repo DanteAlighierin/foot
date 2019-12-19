@@ -496,7 +496,7 @@ osc_dispatch(struct terminal *term)
         osc_flash(term);
         break;
 
-#If 0
+#if 0
     case 777:
         osc_notify(term, string);
         break;
