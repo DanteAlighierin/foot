@@ -1213,8 +1213,11 @@ term_cursor_blink_disable(struct terminal *term)
 void
 term_cursor_blink_restart(struct terminal *term)
 {
-    if (term->cursor_blink.active)
-        term_cursor_blink_enable(term);
+    if (term->cursor_blink.active) {
+        term->cursor_blink.state = CURSOR_BLINK_ON;
+        term->cursor_blink.active = term->wl->focused == term
+            ? cursor_blink_start_timer(term) : true;
+    }
 }
 
 void
