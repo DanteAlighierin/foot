@@ -178,10 +178,6 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
      * very high pace, we're rate limited by the wayland
      * compositor anyway. The delay we introduce here only
      * has any effect when the renderer is idle.
-     *
-     * TODO: this adds input latency. Can we somehow hint
-     * ourselves we just received keyboard input, and in
-     * this case *not* delay rendering?
      */
     if (term->window->frame_callback == NULL) {
         /* First timeout - reset each time we receive input. */
