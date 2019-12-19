@@ -138,6 +138,66 @@ draw_strikeout(const struct terminal *term, pixman_image_t *pix,
             cols * term->cell_width, font->strikeout.thickness});
 }
 
+static void
+draw_cursor(const struct terminal *term, const struct cell *cell,
+            bool is_selected, const struct font *font,
+            pixman_image_t *pix, pixman_color_t *fg, const pixman_color_t *bg,
+            int x, int y, int cols)
+{
+    bool have_focus = term->wl->focused == term;
+
+    pixman_color_t cursor_color;
+    pixman_color_t text_color;
+
+    if (term->cursor_color.cursor >> 31) {
+        assert(term->cursor_color.text);
+
+        cursor_color = color_hex_to_pixman(term->cursor_color.cursor);
+        text_color = color_hex_to_pixman(term->cursor_color.text);
+
+        if (term->reverse ^ cell->attrs.reverse ^ is_selected) {
+            pixman_color_t swap = cursor_color;
+            cursor_color = text_color;
+            text_color = swap;
+        }
+
+        if (term->is_searching && !is_selected) {
+            pixman_color_dim_for_search(&cursor_color);
+            pixman_color_dim_for_search(&text_color);
+        }
+    } else {
+        cursor_color = *fg;
+        text_color = *bg;
+    }
+
+    switch (term->cursor_style) {
+    case CURSOR_BLOCK:
+        if (!have_focus)
+            draw_unfocused_block(term, pix, &cursor_color, x, y, cols);
+
+        else if (term->cursor_blink.state == CURSOR_BLINK_ON) {
+            *fg = text_color;
+            pixman_image_fill_rectangles(
+                PIXMAN_OP_SRC, pix, &cursor_color, 1,
+                &(pixman_rectangle16_t){x, y, cols * term->cell_width, term->cell_height});
+        }
+        break;
+
+    case CURSOR_BAR:
+        if (term->cursor_blink.state == CURSOR_BLINK_ON || !have_focus)
+            draw_bar(term, pix, font, &cursor_color, x, y);
+        break;
+
+    case CURSOR_UNDERLINE:
+        if (term->cursor_blink.state == CURSOR_BLINK_ON || !have_focus) {
+            draw_underline(
+                term, pix, attrs_to_font(term, &cell->attrs), &cursor_color,
+                x, y, cols);
+        }
+        break;
+    }
+}
+
 static bool
 coord_is_selected(const struct terminal *term, int col, int row)
 {
@@ -183,37 +243,17 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     int x = term->x_margin + col * width;
     int y = term->y_margin + row * height;
 
-    bool have_focus = term->wl->focused == term;
     bool is_selected = coord_is_selected(term, col, row);
-
-    bool block_cursor =
-        has_cursor &&
-        have_focus &&
-        term->cursor_style == CURSOR_BLOCK &&
-        term->cursor_blink.state == CURSOR_BLINK_ON;
 
     uint32_t _fg = 0;
     uint32_t _bg = 0;
 
-    if (block_cursor && term->cursor_color.text >> 31) {
-        /* User configured cursor color overrides all attributes */
-        assert(term->cursor_color.cursor >> 31);
-
-        /* Slightly ugly... reverse here, since they'll be reversed again below */
-        _fg = term->cursor_color.cursor;
-        _bg = term->cursor_color.text;
-    } else {
-        /* Use cell specific color, if set, otherwise the default colors (possible reversed) */
-        _fg = cell->attrs.have_fg
-            ? cell->attrs.fg
-            : !term->reverse ? term->colors.fg : term->colors.bg;
-        _bg = cell->attrs.have_bg
-            ? cell->attrs.bg
-            : !term->reverse ? term->colors.bg : term->colors.fg;
-    }
+    /* Use cell specific color, if set, otherwise the default colors (possible reversed) */
+    _fg = cell->attrs.have_fg ? cell->attrs.fg : term->colors.fg;
+    _bg = cell->attrs.have_bg ? cell->attrs.bg : term->colors.bg;
 
     /* If *one* is set, we reverse */
-    if (block_cursor ^ cell->attrs.reverse ^ is_selected) {
+    if (term->reverse ^ cell->attrs.reverse ^ is_selected) {
         uint32_t swap = _fg;
         _fg = _bg;
         _bg = swap;
@@ -223,8 +263,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         _fg = _bg;
 
     pixman_color_t fg = color_hex_to_pixman(_fg);
-    pixman_color_t bg = color_hex_to_pixman_with_alpha(
-        _bg, block_cursor ? 0xffff : term->colors.alpha);
+    pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
 
     if (cell->attrs.dim)
         pixman_color_dim(&fg);
@@ -244,37 +283,9 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         PIXMAN_OP_SRC, pix, &bg, 1,
         &(pixman_rectangle16_t){x, y, cell_cols * width, height});
 
-    /* Non-block cursors (including the "unfocused" cursor) */
-    if (has_cursor &&
-        !block_cursor &&
-        (term->cursor_blink.state == CURSOR_BLINK_ON || !have_focus))
-    {
-        pixman_color_t cursor_color;
-        if (term->cursor_color.text >> 31) {
-            cursor_color = color_hex_to_pixman(
-                is_selected ? term->cursor_color.text : term->cursor_color.cursor);
-
-            if (term->is_searching)
-                pixman_color_dim(&cursor_color);
-        } else
-            cursor_color = fg;
-
-        switch (term->cursor_style) {
-        case CURSOR_BLOCK:
-            if (!have_focus)
-                draw_unfocused_block(term, pix, &cursor_color, x, y, cell_cols);
-            break;
-
-        case CURSOR_BAR:
-            draw_bar(term, pix, font, &cursor_color, x, y);
-            break;
-
-        case CURSOR_UNDERLINE:
-            draw_underline(
-                term, pix, attrs_to_font(term, &cell->attrs), &cursor_color,
-                x, y, cell_cols);
-            break;
-        }
+    if (has_cursor) {
+        draw_cursor(
+            term, cell, is_selected, font, pix, &fg, &bg, x, y, cell_cols);
     }
 
     if (cell->attrs.blink)
