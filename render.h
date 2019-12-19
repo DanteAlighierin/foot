@@ -3,7 +3,7 @@
 #include "terminal.h"
 
 struct font *attrs_to_font(
-    struct terminal *term, const struct attributes *attrs);
+    const struct terminal *term, const struct attributes *attrs);
 
 void grid_render(struct terminal *term);
 void render_resize(struct terminal *term, int width, int height);

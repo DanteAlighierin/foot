@@ -22,7 +22,7 @@
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
 struct font *
-attrs_to_font(struct terminal *term, const struct attributes *attrs)
+attrs_to_font(const struct terminal *term, const struct attributes *attrs)
 {
     int idx = attrs->italic << 1 | attrs->bold;
     return term->fonts[idx];
