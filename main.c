@@ -47,6 +47,21 @@ print_usage(const char *prog_name)
            "  -v,--version                show the version number and quit\n");
 }
 
+bool
+locale_is_utf8(void)
+{
+    assert(strlen(u8"ö") == 2);
+
+    wchar_t w;
+    if (mbtowc(&w, u8"ö", 2) != 2)
+        return false;
+
+    if (w != U'ö')
+        return false;
+
+    return true;
+}
+
 struct shutdown_context {
     struct terminal **term;
     int exit_code;
@@ -167,11 +182,15 @@ main(int argc, char *const *argv)
     argc -= optind;
     argv += optind;
 
-    setlocale(LC_ALL, "");
-
     struct config conf = {NULL};
     if (!config_load(&conf, conf_path))
         return ret;
+
+    setlocale(LC_ALL, "");
+    if (!locale_is_utf8()) {
+        LOG_ERR("locale is not UTF-8");
+        return ret;
+    }
 
     if (conf_term != NULL) {
         free(conf.term);
@@ -242,6 +261,8 @@ out:
     fdm_destroy(fdm);
 
     config_free(conf);
+
+    LOG_INFO("goodbye");
     log_deinit();
     return ret == EXIT_SUCCESS && !as_server ? shutdown_ctx.exit_code : ret;
 }
