@@ -149,6 +149,9 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 
     vt_from_slave(term, buf, count);
 
+    /* Prevent blinking while typing */
+    term_cursor_blink_restart(term);
+
     /*
      * We likely need to re-render. But, we don't want to
      * do it immediately. Often, a single client operation
