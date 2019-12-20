@@ -494,7 +494,6 @@ static const struct state_transition state_dcs_passthrough[256] = {
     [0x9d]          = {                          .state = STATE_OSC_STRING},
     [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
-#endif
 
 static const struct state_transition state_sos_pm_apc_string[256] = {
     [0x00 ... 0x17] = {.action = ACTION_IGNORE},
@@ -516,6 +515,7 @@ static const struct state_transition state_sos_pm_apc_string[256] = {
     [0x9d]          = {                          .state = STATE_OSC_STRING},
     [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
+#endif
 
 #if 0
 static const struct state_transition* states[] = {
@@ -1498,6 +1498,34 @@ state_dcs_passthrough_switch(struct terminal *term, uint8_t data)
     }
 }
 
+static enum state
+state_sos_pm_apc_string_switch(struct terminal *term, uint8_t data)
+{
+    switch (data) {
+        /*              exit                                     current                                  enter                                    new state */
+    case 0x00 ... 0x17:
+    case 0x19:
+    case 0x1c ... 0x7f:                                          action(term,  ACTION_IGNORE, data);                                               return STATE_SOS_PM_APC_STRING;
+
+    /* Anywhere */
+    case 0x18:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x1a:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x1b:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_ESCAPE;
+    case 0x80 ... 0x8f:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x90:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_DCS_ENTRY;
+    case 0x91 ... 0x97:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x98:                                                                                                                                     return STATE_SOS_PM_APC_STRING;
+    case 0x99:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x9a:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x9b:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_CSI_ENTRY;
+    case 0x9c:                                                                                                                                     return STATE_GROUND;
+    case 0x9d:                                                                                            action(term, ACTION_OSC_START, data);    return STATE_OSC_STRING;
+    case 0x9e ... 0x9f:                                                                                                                            return STATE_SOS_PM_APC_STRING;
+
+    default:                                                                                                                                       return STATE_SOS_PM_APC_STRING;
+    }
+}
+
 void
 vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
 {
@@ -1529,7 +1557,7 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
         case STATE_DCS_INTERMEDIATE:    term->vt.state = current_state = state_dcs_intermediate_switch(term, data[i]); continue;
         case STATE_DCS_IGNORE:          term->vt.state = current_state = state_dcs_ignore_switch(term, data[i]); continue;
         case STATE_DCS_PASSTHROUGH:     term->vt.state = current_state = state_dcs_passthrough_switch(term, data[i]); continue;
-        case STATE_SOS_PM_APC_STRING: table = state_sos_pm_apc_string; break;
+        case STATE_SOS_PM_APC_STRING:   term->vt.state = current_state = state_sos_pm_apc_string_switch(term, data[i]); continue;
 
         case STATE_SAME:
         case STATE_UTF8_COLLECT: assert(false); break;
