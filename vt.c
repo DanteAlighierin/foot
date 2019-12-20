@@ -1095,29 +1095,29 @@ state_utf8_collect_3_switch(struct terminal *term, uint8_t data)
 void
 vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
 {
-    //LOG_DBG("input: 0x%02x", data[i]);
-    enum state current_state = term->vt.state
-;
-    for (size_t i = 0; i < len; i++) {
-        switch (current_state) {
-        case STATE_GROUND:              current_state = state_ground_switch(term, data[i]); break;
-        case STATE_ESCAPE:              current_state = state_escape_switch(term, data[i]); break;
-        case STATE_ESCAPE_INTERMEDIATE: current_state = state_escape_intermediate_switch(term, data[i]); break;
-        case STATE_CSI_ENTRY:           current_state = state_csi_entry_switch(term, data[i]); break;
-        case STATE_CSI_PARAM:           current_state = state_csi_param_switch(term, data[i]); break;
-        case STATE_CSI_INTERMEDIATE:    current_state = state_csi_intermediate_switch(term, data[i]); break;
-        case STATE_CSI_IGNORE:          current_state = state_csi_ignore_switch(term, data[i]); break;
-        case STATE_OSC_STRING:          current_state = state_osc_string_switch(term, data[i]); break;
-        case STATE_DCS_ENTRY:           current_state = state_dcs_entry_switch(term, data[i]); break;
-        case STATE_DCS_PARAM:           current_state = state_dcs_param_switch(term, data[i]); break;
-        case STATE_DCS_INTERMEDIATE:    current_state = state_dcs_intermediate_switch(term, data[i]); break;
-        case STATE_DCS_IGNORE:          current_state = state_dcs_ignore_switch(term, data[i]); break;
-        case STATE_DCS_PASSTHROUGH:     current_state = state_dcs_passthrough_switch(term, data[i]); break;
-        case STATE_SOS_PM_APC_STRING:   current_state = state_sos_pm_apc_string_switch(term, data[i]); break;
+    enum state current_state = term->vt.state;
 
-        case STATE_UTF8_COLLECT_1:      current_state = state_utf8_collect_1_switch(term, data[i]); break;
-        case STATE_UTF8_COLLECT_2:      current_state = state_utf8_collect_2_switch(term, data[i]); break;
-        case STATE_UTF8_COLLECT_3:      current_state = state_utf8_collect_3_switch(term, data[i]); break;
+    const uint8_t *p = data;
+    for (size_t i = 0; i < len; i++, p++) {
+        switch (current_state) {
+        case STATE_GROUND:              current_state = state_ground_switch(term, *p); break;
+        case STATE_ESCAPE:              current_state = state_escape_switch(term, *p); break;
+        case STATE_ESCAPE_INTERMEDIATE: current_state = state_escape_intermediate_switch(term, *p); break;
+        case STATE_CSI_ENTRY:           current_state = state_csi_entry_switch(term, *p); break;
+        case STATE_CSI_PARAM:           current_state = state_csi_param_switch(term, *p); break;
+        case STATE_CSI_INTERMEDIATE:    current_state = state_csi_intermediate_switch(term, *p); break;
+        case STATE_CSI_IGNORE:          current_state = state_csi_ignore_switch(term, *p); break;
+        case STATE_OSC_STRING:          current_state = state_osc_string_switch(term, *p); break;
+        case STATE_DCS_ENTRY:           current_state = state_dcs_entry_switch(term, *p); break;
+        case STATE_DCS_PARAM:           current_state = state_dcs_param_switch(term, *p); break;
+        case STATE_DCS_INTERMEDIATE:    current_state = state_dcs_intermediate_switch(term, *p); break;
+        case STATE_DCS_IGNORE:          current_state = state_dcs_ignore_switch(term, *p); break;
+        case STATE_DCS_PASSTHROUGH:     current_state = state_dcs_passthrough_switch(term, *p); break;
+        case STATE_SOS_PM_APC_STRING:   current_state = state_sos_pm_apc_string_switch(term, *p); break;
+
+        case STATE_UTF8_COLLECT_1:      current_state = state_utf8_collect_1_switch(term, *p); break;
+        case STATE_UTF8_COLLECT_2:      current_state = state_utf8_collect_2_switch(term, *p); break;
+        case STATE_UTF8_COLLECT_3:      current_state = state_utf8_collect_3_switch(term, *p); break;
         }
     }
 
