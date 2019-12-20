@@ -1068,33 +1068,33 @@ static enum state
 state_ground_switch(struct terminal *term, uint8_t data)
 {
     switch (data) {
-        /*  (no exit)  current                              enter                             new state */
+        /*              exit                                     current                                  enter                                    new state */
     case 0x00 ... 0x17:
     case 0x19:
-    case 0x1c ... 0x1f: action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
+    case 0x1c ... 0x1f:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
 
-    case 0x20 ... 0x7f: action(term, ACTION_PRINT, data);                                     return STATE_GROUND;
+    case 0x20 ... 0x7f:                                          action(term, ACTION_PRINT, data);                                                 return STATE_GROUND;
 
-    case 0xc0 ... 0xdf: action(term, ACTION_UTF8_2_ENTRY, data);                              return STATE_UTF8_COLLECT;
-    case 0xe0 ... 0xef: action(term, ACTION_UTF8_3_ENTRY, data);                              return STATE_UTF8_COLLECT;
-    case 0xf0 ... 0xf7: action(term, ACTION_UTF8_4_ENTRY, data);                              return STATE_UTF8_COLLECT;
+    case 0xc0 ... 0xdf:                                          action(term, ACTION_UTF8_2_ENTRY, data);                                          return STATE_UTF8_COLLECT;
+    case 0xe0 ... 0xef:                                          action(term, ACTION_UTF8_3_ENTRY, data);                                          return STATE_UTF8_COLLECT;
+    case 0xf0 ... 0xf7:                                          action(term, ACTION_UTF8_4_ENTRY, data);                                          return STATE_UTF8_COLLECT;
 
         /* Anywhere */
-    case 0x18:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x1a:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x1b:                                              action(term, ACTION_CLEAR, data); return STATE_ESCAPE;
-    case 0x80 ... 0x8f: action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x90:                                              action(term, ACTION_CLEAR, data); return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97: action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x98:                                                                                return STATE_SOS_PM_APC_STRING;
-    case 0x99:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x9a:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x9b:                                              action(term, ACTION_CLEAR, data); return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                return STATE_GROUND;
-    case 0x9d:                                              action(term, ACTION_OSC_START, data); return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                       return STATE_SOS_PM_APC_STRING;
+    case 0x18:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x1a:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x1b:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_ESCAPE;
+    case 0x80 ... 0x8f:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x90:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_DCS_ENTRY;
+    case 0x91 ... 0x97:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x98:                                                                                                                                     return STATE_SOS_PM_APC_STRING;
+    case 0x99:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x9a:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x9b:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_CSI_ENTRY;
+    case 0x9c:                                                                                                                                     return STATE_GROUND;
+    case 0x9d:                                                                                            action(term, ACTION_OSC_START, data);    return STATE_OSC_STRING;
+    case 0x9e ... 0x9f:                                                                                                                            return STATE_SOS_PM_APC_STRING;
 
-    default: return STATE_GROUND;
+    default:                                                                                                                                       return STATE_GROUND;
     }
 }
 
@@ -1102,41 +1102,41 @@ static enum state
 state_escape_switch(struct terminal *term, uint8_t data)
 {
     switch (data) {
-        /*  (no exit)  current                              enter                             new state */
+        /*              exit                                     current                                  enter                                    new state */
     case 0x00 ... 0x17:
     case 0x19:
-    case 0x1c ... 0x1f: action(term, ACTION_EXECUTE, data);                                   return STATE_ESCAPE;
+    case 0x1c ... 0x1f:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_ESCAPE;
 
-    case 0x20 ... 0x2f: action(term, ACTION_COLLECT, data);                                   return STATE_ESCAPE_INTERMEDIATE;
-    case 0x30 ... 0x4f: action(term, ACTION_ESC_DISPATCH, data);                              return STATE_GROUND;
-    case 0x50:                                              action(term, ACTION_CLEAR, data); return STATE_DCS_ENTRY;
-    case 0x51 ... 0x57: action(term, ACTION_ESC_DISPATCH, data);                              return STATE_GROUND;
-    case 0x58:                                                                                return STATE_SOS_PM_APC_STRING;
-    case 0x59:          action(term, ACTION_ESC_DISPATCH, data);                              return STATE_GROUND;
-    case 0x5a:          action(term, ACTION_ESC_DISPATCH, data);                              return STATE_GROUND;
-    case 0x5b:                                              action(term, ACTION_CLEAR, data); return STATE_CSI_ENTRY;
-    case 0x5c:          action(term, ACTION_ESC_DISPATCH, data);                              return STATE_GROUND;
-    case 0x5d:                                              action(term, ACTION_OSC_START, data); return STATE_OSC_STRING;
-    case 0x5e ... 0x5f:                                                                       return STATE_SOS_PM_APC_STRING;
-    case 0x60 ... 0x7e: action(term, ACTION_ESC_DISPATCH, data);                              return STATE_GROUND;
-    case 0x7f:          action(term, ACTION_IGNORE, data);                                    return STATE_ESCAPE;
+    case 0x20 ... 0x2f:                                          action(term, ACTION_COLLECT, data);                                               return STATE_ESCAPE_INTERMEDIATE;
+    case 0x30 ... 0x4f:                                          action(term, ACTION_ESC_DISPATCH, data);                                          return STATE_GROUND;
+    case 0x50:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_DCS_ENTRY;
+    case 0x51 ... 0x57:                                          action(term, ACTION_ESC_DISPATCH, data);                                          return STATE_GROUND;
+    case 0x58:                                                                                                                                     return STATE_SOS_PM_APC_STRING;
+    case 0x59:                                                   action(term, ACTION_ESC_DISPATCH, data);                                          return STATE_GROUND;
+    case 0x5a:                                                   action(term, ACTION_ESC_DISPATCH, data);                                          return STATE_GROUND;
+    case 0x5b:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_CSI_ENTRY;
+    case 0x5c:                                                   action(term, ACTION_ESC_DISPATCH, data);                                          return STATE_GROUND;
+    case 0x5d:                                                                                            action(term, ACTION_OSC_START, data);    return STATE_OSC_STRING;
+    case 0x5e ... 0x5f:                                                                                                                            return STATE_SOS_PM_APC_STRING;
+    case 0x60 ... 0x7e:                                          action(term, ACTION_ESC_DISPATCH, data);                                          return STATE_GROUND;
+    case 0x7f:                                                   action(term, ACTION_IGNORE, data);                                                return STATE_ESCAPE;
 
     /* Anywhere */
-    case 0x18:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x1a:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x1b:                                                                                return STATE_ESCAPE;
-    case 0x80 ... 0x8f: action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x90:                                              action(term, ACTION_CLEAR, data); return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97: action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x98:                                                                                return STATE_SOS_PM_APC_STRING;
-    case 0x99:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x9a:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x9b:                                              action(term, ACTION_CLEAR, data); return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                return STATE_GROUND;
-    case 0x9d:                                              action(term, ACTION_OSC_START, data); return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                       return STATE_SOS_PM_APC_STRING;
+    case 0x18:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x1a:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x1b:                                                                                                                                     return STATE_ESCAPE;
+    case 0x80 ... 0x8f:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x90:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_DCS_ENTRY;
+    case 0x91 ... 0x97:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x98:                                                                                                                                     return STATE_SOS_PM_APC_STRING;
+    case 0x99:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x9a:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x9b:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_CSI_ENTRY;
+    case 0x9c:                                                                                                                                     return STATE_GROUND;
+    case 0x9d:                                                                                            action(term, ACTION_OSC_START, data);    return STATE_OSC_STRING;
+    case 0x9e ... 0x9f:                                                                                                                            return STATE_SOS_PM_APC_STRING;
 
-    default:                                                                                  return STATE_ESCAPE;
+    default:                                                                                                                                       return STATE_ESCAPE;
     }
 }
 
@@ -1145,30 +1145,31 @@ state_escape_intermediate_switch(struct terminal *term, uint8_t data)
 {
     assert(false);
     switch (data) {
+        /*              exit                                     current                                  enter                                    new state */
     case 0x00 ... 0x17:
     case 0x19:
-    case 0x1c ... 0x1f: action(term, ACTION_EXECUTE, data);                                   return STATE_ESCAPE_INTERMEDIATE;
+    case 0x1c ... 0x1f:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_ESCAPE_INTERMEDIATE;
 
-    case 0x20 ... 0x2f: action(term, ACTION_COLLECT, data);                                   return STATE_ESCAPE_INTERMEDIATE;
-    case 0x30 ... 0x7e: action(term, ACTION_ESC_DISPATCH, data);                              return STATE_GROUND;
-    case 0x7f:          action(term, ACTION_IGNORE, data);                                    return STATE_ESCAPE_INTERMEDIATE;
+    case 0x20 ... 0x2f:                                          action(term, ACTION_COLLECT, data);                                               return STATE_ESCAPE_INTERMEDIATE;
+    case 0x30 ... 0x7e:                                          action(term, ACTION_ESC_DISPATCH, data);                                          return STATE_GROUND;
+    case 0x7f:                                                   action(term, ACTION_IGNORE, data);                                                return STATE_ESCAPE_INTERMEDIATE;
 
     /* Anywhere */
-    case 0x18:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x1a:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x1b:                                                                                return STATE_ESCAPE;
-    case 0x80 ... 0x8f: action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x90:                                              action(term, ACTION_CLEAR, data); return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97: action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x98:                                                                                return STATE_SOS_PM_APC_STRING;
-    case 0x99:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x9a:          action(term, ACTION_EXECUTE, data);                                   return STATE_GROUND;
-    case 0x9b:                                              action(term, ACTION_CLEAR, data); return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                return STATE_GROUND;
-    case 0x9d:                                              action(term, ACTION_OSC_START, data); return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                       return STATE_SOS_PM_APC_STRING;
+    case 0x18:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x1a:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x1b:                                                                                                                                     return STATE_ESCAPE;
+    case 0x80 ... 0x8f:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x90:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_DCS_ENTRY;
+    case 0x91 ... 0x97:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x98:                                                                                                                                     return STATE_SOS_PM_APC_STRING;
+    case 0x99:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x9a:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
+    case 0x9b:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_CSI_ENTRY;
+    case 0x9c:                                                                                                                                     return STATE_GROUND;
+    case 0x9d:                                                                                            action(term, ACTION_OSC_START, data);    return STATE_OSC_STRING;
+    case 0x9e ... 0x9f:                                                                                                                            return STATE_SOS_PM_APC_STRING;
 
-    default:                                                                                  return STATE_ESCAPE_INTERMEDIATE;
+    default:                                                                                                                                       return STATE_ESCAPE_INTERMEDIATE;
     }
 }
 
