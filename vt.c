@@ -515,6 +515,7 @@ static const struct state_transition state_sos_pm_apc_string[256] = {
     [0x9e ... 0x9f] = {                          .state = STATE_SOS_PM_APC_STRING},
 };
 
+#if 0
 static const struct state_transition* states[] = {
     [STATE_GROUND] = state_ground,
     [STATE_ESCAPE] = state_escape,
@@ -531,6 +532,7 @@ static const struct state_transition* states[] = {
     [STATE_DCS_PASSTHROUGH] = state_dcs_passthrough,
     [STATE_SOS_PM_APC_STRING] = state_sos_pm_apc_string,
 };
+#endif
 
 static const enum action entry_actions[] = {
     [STATE_SAME] = ACTION_NONE,
@@ -1075,7 +1077,30 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
             continue;
         }
 
-        const struct state_transition *transition = &states[current_state][data[i]];
+        const struct state_transition *table = NULL;
+
+        switch (current_state) {
+        case STATE_GROUND: table = state_ground; break;
+        case STATE_ESCAPE: table = state_escape; break;
+        case STATE_ESCAPE_INTERMEDIATE: table = state_escape_intermediate; break;
+        case STATE_CSI_ENTRY: table = state_csi_entry; break;
+        case STATE_CSI_PARAM: table = state_csi_param; break;
+        case STATE_CSI_INTERMEDIATE: table = state_csi_intermediate; break;
+        case STATE_CSI_IGNORE: table = state_csi_ignore; break;
+        case STATE_OSC_STRING: table = state_osc_string; break;
+        case STATE_DCS_ENTRY: table = state_dcs_entry; break;
+        case STATE_DCS_PARAM: table = state_dcs_param; break;
+        case STATE_DCS_INTERMEDIATE: table = state_dcs_intermediate; break;
+        case STATE_DCS_IGNORE: table = state_dcs_ignore; break;
+        case STATE_DCS_PASSTHROUGH: table = state_dcs_passthrough; break;
+        case STATE_SOS_PM_APC_STRING: table = state_sos_pm_apc_string; break;
+
+        case STATE_SAME:
+        case STATE_UTF8_COLLECT: assert(false); break;
+        }
+
+        assert(table != NULL);
+        const struct state_transition *transition = &table[data[i]];
 
         if (transition->state != STATE_SAME) {
             enum action exit_action = exit_actions[current_state];
