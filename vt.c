@@ -20,8 +20,6 @@
 /* https://vt100.net/emu/dec_ansi_parser */
 
 enum state {
-    STATE_SAME,       /* For state_transition */
-
     STATE_GROUND,
     STATE_ESCAPE,
     STATE_ESCAPE_INTERMEDIATE,
@@ -41,12 +39,12 @@ enum state {
 
     STATE_SOS_PM_APC_STRING,
 
-    STATE_UTF8_COLLECT,
+    STATE_UTF8_COLLECT_1,
+    STATE_UTF8_COLLECT_2,
+    STATE_UTF8_COLLECT_3,
 };
 
 enum action {
-    ACTION_NONE,      /* For state_transition */
-
     ACTION_IGNORE,
     ACTION_CLEAR,
     ACTION_EXECUTE,
@@ -68,13 +66,11 @@ enum action {
     ACTION_UTF8_2_ENTRY,
     ACTION_UTF8_3_ENTRY,
     ACTION_UTF8_4_ENTRY,
-    ACTION_UTF8_COLLECT,
     ACTION_UTF8_PRINT,
 };
 
 #if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG && 0
 static const char *const state_names[] = {
-    [STATE_SAME] = "no change",
     [STATE_GROUND] = "ground",
 
     [STATE_ESCAPE] = "escape",
@@ -95,11 +91,11 @@ static const char *const state_names[] = {
 
     [STATE_SOS_PM_APC_STRING] = "sos/pm/apc string",
 
-    [STATE_UTF8_COLLECT] = "UTF-8",
+    [STATE_UTF8_COLLECT_1] = "UTF8 collect (1 left)",
+    [STATE_UTF8_COLLECT_2] = "UTF8 collect (2 left)",
+    [STATE_UTF8_COLLECT_3] = "UTF8 collect (3 left)",
 };
-#endif
 static const char *const action_names[] __attribute__((unused)) = {
-    [ACTION_NONE] = "no action",
     [ACTION_IGNORE] = "ignore",
     [ACTION_CLEAR] = "clear",
     [ACTION_EXECUTE] = "execute",
@@ -118,15 +114,16 @@ static const char *const action_names[] __attribute__((unused)) = {
     [ACTION_UTF8_2_ENTRY] = "UTF-8 (2 chars) begin",
     [ACTION_UTF8_3_ENTRY] = "UTF-8 (3 chars) begin",
     [ACTION_UTF8_4_ENTRY] = "UTF-8 (4 chars) begin",
-    [ACTION_UTF8_COLLECT] = "UTF-8 collect",
     [ACTION_UTF8_PRINT] = "UTF-8 print",
 };
+#endif
 
+#if 0
 struct state_transition {
     enum action action;
     enum state state;
 };
-
+#endif
 #if 0
 static const struct state_transition state_anywhere[256] = {
     [0x18]          = {.action = ACTION_EXECUTE, .state = STATE_GROUND},
@@ -535,7 +532,7 @@ static const struct state_transition* states[] = {
     [STATE_SOS_PM_APC_STRING] = state_sos_pm_apc_string,
 };
 #endif
-
+#if 0
 static const enum action entry_actions[] = {
     [STATE_SAME] = ACTION_NONE,
     [STATE_GROUND] = ACTION_NONE,
@@ -571,7 +568,7 @@ static const enum action exit_actions[] = {
     [STATE_DCS_PASSTHROUGH] = ACTION_UNHOOK,
     [STATE_SOS_PM_APC_STRING] = ACTION_NONE,
 };
-
+#endif
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
 static const char *
 esc_as_string(struct terminal *term, uint8_t final)
@@ -845,9 +842,6 @@ static void
 action(struct terminal *term, enum action _action, uint8_t c)
 {
     switch (_action) {
-    case ACTION_NONE:
-        break;
-
     case ACTION_IGNORE:
         break;
 
@@ -1054,6 +1048,7 @@ action(struct terminal *term, enum action _action, uint8_t c)
         term->vt.utf8.left--;
         break;
 
+#if 0
     case ACTION_UTF8_COLLECT:
         term->vt.utf8.data[term->vt.utf8.idx++] = c;
         if (--term->vt.utf8.left == 0) {
@@ -1061,6 +1056,7 @@ action(struct terminal *term, enum action _action, uint8_t c)
             action_print_utf8(term);
         }
         break;
+#endif
     }
 }
 
@@ -1075,9 +1071,9 @@ state_ground_switch(struct terminal *term, uint8_t data)
 
     case 0x20 ... 0x7f:                                          action(term, ACTION_PRINT, data);                                                 return STATE_GROUND;
 
-    case 0xc0 ... 0xdf:                                          action(term, ACTION_UTF8_2_ENTRY, data);                                          return STATE_UTF8_COLLECT;
-    case 0xe0 ... 0xef:                                          action(term, ACTION_UTF8_3_ENTRY, data);                                          return STATE_UTF8_COLLECT;
-    case 0xf0 ... 0xf7:                                          action(term, ACTION_UTF8_4_ENTRY, data);                                          return STATE_UTF8_COLLECT;
+    case 0xc0 ... 0xdf:                                          action(term, ACTION_UTF8_2_ENTRY, data);                                          return STATE_UTF8_COLLECT_1;
+    case 0xe0 ... 0xef:                                          action(term, ACTION_UTF8_3_ENTRY, data);                                          return STATE_UTF8_COLLECT_2;
+    case 0xf0 ... 0xf7:                                          action(term, ACTION_UTF8_4_ENTRY, data);                                          return STATE_UTF8_COLLECT_3;
 
         /* Anywhere */
     case 0x18:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
@@ -1526,6 +1522,37 @@ state_sos_pm_apc_string_switch(struct terminal *term, uint8_t data)
     }
 }
 
+static enum state
+state_utf8_collect_1_switch(struct terminal *term, uint8_t data)
+{
+    term->vt.utf8.data[term->vt.utf8.idx++] = data;
+    term->vt.utf8.left--;
+
+    assert(term->vt.utf8.left == 0);
+    action(term, ACTION_UTF8_PRINT, data);
+    return STATE_GROUND;
+}
+
+static enum state
+state_utf8_collect_2_switch(struct terminal *term, uint8_t data)
+{
+    term->vt.utf8.data[term->vt.utf8.idx++] = data;
+    term->vt.utf8.left--;
+
+    assert(term->vt.utf8.left == 1);
+    return STATE_UTF8_COLLECT_1;
+}
+
+static enum state
+state_utf8_collect_3_switch(struct terminal *term, uint8_t data)
+{
+    term->vt.utf8.data[term->vt.utf8.idx++] = data;
+    term->vt.utf8.left--;
+
+    assert(term->vt.utf8.left == 2);
+    return STATE_UTF8_COLLECT_2;
+}
+
 void
 vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
 {
@@ -1533,15 +1560,15 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
     enum state current_state = term->vt.state
 ;
     for (size_t i = 0; i < len; i++) {
-
+#if 0
         if (current_state == STATE_UTF8_COLLECT) {
             action(term, ACTION_UTF8_COLLECT, data[i]);
 
             current_state = term->vt.state;
             continue;
         }
-
         const struct state_transition *table = NULL;
+#endif
 
         switch (current_state) {
         case STATE_GROUND:              term->vt.state = current_state = state_ground_switch(term, data[i]); continue;
@@ -1559,10 +1586,13 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
         case STATE_DCS_PASSTHROUGH:     term->vt.state = current_state = state_dcs_passthrough_switch(term, data[i]); continue;
         case STATE_SOS_PM_APC_STRING:   term->vt.state = current_state = state_sos_pm_apc_string_switch(term, data[i]); continue;
 
-        case STATE_SAME:
-        case STATE_UTF8_COLLECT: assert(false); break;
+        case STATE_UTF8_COLLECT_1:      term->vt.state = current_state = state_utf8_collect_1_switch(term, data[i]); continue;
+        case STATE_UTF8_COLLECT_2:      term->vt.state = current_state = state_utf8_collect_2_switch(term, data[i]); continue;
+        case STATE_UTF8_COLLECT_3:      term->vt.state = current_state = state_utf8_collect_3_switch(term, data[i]); continue;
+
         }
 
+#if 0
         assert(table != NULL);
         const struct state_transition *transition = &table[data[i]];
 
@@ -1584,5 +1614,6 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
             enum action entry_action = entry_actions[transition->state];
             action(term, entry_action, data[i]);
         }
+#endif
     }
 }
