@@ -183,7 +183,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         /* First timeout - reset each time we receive input. */
         timerfd_settime(
             term->delayed_render_timer.lower_fd, 0,
-            &(struct itimerspec){.it_value = {.tv_nsec = 1000000}},
+            &(struct itimerspec){.it_value = {.tv_nsec = 2000000}},
             NULL);
 
         /* Second timeout - only reset when we render. Set to one
@@ -191,7 +191,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         if (!term->delayed_render_timer.is_armed) {
             timerfd_settime(
                 term->delayed_render_timer.upper_fd, 0,
-                &(struct itimerspec){.it_value = {.tv_nsec = 16666666}},
+                &(struct itimerspec){.it_value = {.tv_nsec = 16666666 / 2}},
                 NULL);
             term->delayed_render_timer.is_armed = true;
         }
