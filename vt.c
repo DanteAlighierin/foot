@@ -678,7 +678,6 @@ state_escape_switch(struct terminal *term, uint8_t data)
 static enum state
 state_escape_intermediate_switch(struct terminal *term, uint8_t data)
 {
-    assert(false);
     switch (data) {
         /*              exit                                     current                                  enter                                    new state */
     case 0x00 ... 0x17:
