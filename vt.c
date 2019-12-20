@@ -1124,7 +1124,7 @@ state_escape_switch(struct terminal *term, uint8_t data)
     /* Anywhere */
     case 0x18:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
     case 0x1a:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
-    case 0x1b:                                                                                                                                     return STATE_ESCAPE;
+    case 0x1b:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_ESCAPE;
     case 0x80 ... 0x8f:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
     case 0x90:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_DCS_ENTRY;
     case 0x91 ... 0x97:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
@@ -1157,7 +1157,7 @@ state_escape_intermediate_switch(struct terminal *term, uint8_t data)
     /* Anywhere */
     case 0x18:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
     case 0x1a:                                                   action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
-    case 0x1b:                                                                                                                                     return STATE_ESCAPE;
+    case 0x1b:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_ESCAPE;
     case 0x80 ... 0x8f:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
     case 0x90:                                                                                            action(term, ACTION_CLEAR, data);        return STATE_DCS_ENTRY;
     case 0x91 ... 0x97:                                          action(term, ACTION_EXECUTE, data);                                               return STATE_GROUND;
