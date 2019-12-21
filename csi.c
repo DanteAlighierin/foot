@@ -1270,7 +1270,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
              * hexadecimal value from 00 through FF.
              */
 
-            term_to_slave(term, "\033P!|00000000\033\\", 14);
+            term_to_slave(term, "\033P!|464f4f54\033\\", 14);  /* FOOT */
             break;
 
         default:
