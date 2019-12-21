@@ -127,10 +127,15 @@ main(int argc, char *const *argv)
         }
     }
 
+    char cwd[4096];
+    getcwd(cwd, sizeof(cwd));
+    const uint16_t cwd_len = strlen(cwd) + 1;
+
     const uint16_t term_len = strlen(term) + 1;
     uint32_t total_len = 0;
 
     /* Calculate total length */
+    total_len += sizeof(cwd_len) + cwd_len;
     total_len += sizeof(term_len) + term_len;
     total_len += sizeof(argc);
 
@@ -144,6 +149,13 @@ main(int argc, char *const *argv)
 
     if (send(fd, &total_len, sizeof(total_len), 0) != sizeof(total_len)) {
         LOG_ERRNO("failed to send total length to server");
+        goto err;
+    }
+
+    if (send(fd, &cwd_len, sizeof(cwd_len), 0) != sizeof(cwd_len) ||
+        send(fd, cwd, cwd_len, 0) != cwd_len)
+    {
+        LOG_ERRNO("failed to send CWD to server");
         goto err;
     }
 
