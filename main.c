@@ -7,6 +7,7 @@
 #include <getopt.h>
 #include <signal.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <sys/sysinfo.h>
 
@@ -217,6 +218,16 @@ main(int argc, char *const *argv)
     struct server *server = NULL;
     struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
 
+    char *cwd = NULL;
+    {
+        size_t buf_len = 1024;
+        do {
+            cwd = realloc(cwd, buf_len);
+            getcwd(cwd, buf_len);
+            buf_len *= 2;
+        } while (errno == ERANGE);
+    }
+
     if ((fdm = fdm_init()) == NULL)
         goto out;
 
@@ -224,9 +235,12 @@ main(int argc, char *const *argv)
         goto out;
 
     if (!as_server && (term = term_init(
-                           &conf, fdm, wayl, conf.term, "foot", argc, argv,
-                           &term_shutdown_cb, &shutdown_ctx)) == NULL)
+                           &conf, fdm, wayl, conf.term, "foot", cwd, argc, argv,
+                           &term_shutdown_cb, &shutdown_ctx)) == NULL) {
+        free(cwd);
         goto out;
+    }
+    free(cwd);
 
     if (as_server && (server = server_init(&conf, fdm, wayl)) == NULL)
         goto out;

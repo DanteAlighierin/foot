@@ -69,7 +69,7 @@ err:
 }
 
 pid_t
-slave_spawn(int ptmx, int argc, char *const *argv,
+slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
             const char *term_env, const char *conf_shell)
 {
     int fork_pipe[2];
@@ -89,6 +89,8 @@ slave_spawn(int ptmx, int argc, char *const *argv,
     case 0:
         /* Child */
         close(fork_pipe[0]);  /* Close read end */
+
+        chdir(cwd);
 
         /* Restore signals */
         const struct sigaction sa = {.sa_handler = SIG_DFL};

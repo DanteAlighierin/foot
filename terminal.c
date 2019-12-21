@@ -465,7 +465,8 @@ initialize_fonts(struct terminal *term, const struct config *conf)
 
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
-          const char *term_env, const char *foot_exe, int argc, char *const *argv,
+          const char *term_env, const char *foot_exe, const char *cwd,
+          int argc, char *const *argv,
           void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data)
 {
     int ptmx = -1;
@@ -601,17 +602,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .shutdown_cb = shutdown_cb,
         .shutdown_data = shutdown_data,
         .foot_exe = strdup(foot_exe),
-        .cwd = NULL,
+        .cwd = strdup(cwd),
     };
-
-    {
-        size_t buf_len = 1024;
-        do {
-            term->cwd = realloc(term->cwd, buf_len);
-            getcwd(term->cwd, buf_len);
-            buf_len *= 2;
-        } while (errno == ERANGE);
-    }
 
     initialize_color_cube(term);
     if (!initialize_render_workers(term))
@@ -626,7 +618,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
     /* Start the slave/client */
-    if ((term->slave = slave_spawn(term->ptmx, argc, argv, term_env, conf->shell)) == -1)
+    if ((term->slave = slave_spawn(term->ptmx, argc, term->cwd, argv, term_env, conf->shell)) == -1)
         goto err;
 
     /* Initiailze the Wayland window backend */
