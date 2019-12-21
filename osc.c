@@ -298,6 +298,66 @@ parse_rgb(const char *string, uint32_t *color)
     return true;
 }
 
+static uint8_t
+nibble2hex(char c)
+{
+    switch (c) {
+    case '0' ... '9': return c - '0';
+    case 'a' ... 'f': return c - 'a' + 10;
+    case 'A' ... 'F': return c - 'A' + 10;
+    }
+
+    assert(false);
+    return 0;
+}
+
+static void
+osc_set_pwd(struct terminal *term, char *string)
+{
+    LOG_DBG("PWD: URI: %s", string);
+
+    if (memcmp(string, "file://", 7) != 0)
+        return;
+    string += 7;
+
+    /* Skip past hostname */
+    if ((string = strchr(string, '/')) == NULL)
+        return;
+
+    /* Decode %xx encoded characters */
+    char *pwd = malloc(strlen(string) + 1);
+    char *p = pwd;
+
+    while (true) {
+        /* Find next '%' */
+        char *next = strchr(string, '%');
+
+        if (next == NULL) {
+            strcpy(p, string);
+            break;
+        }
+
+        /* Copy everything leading up to the '%' */
+        size_t prefix_len = next - string;
+        memcpy(p, string, prefix_len);
+        p += prefix_len;
+
+        if (isxdigit(next[1]) && isxdigit(next[2])) {
+            *p++ = nibble2hex(next[1]) << 4 | nibble2hex(next[2]);
+            *p = '\0';
+            string = next + 3;
+        } else {
+            *p++ = *next;
+            *p = '\0';
+            string = next + 1;
+        }
+    }
+
+    LOG_DBG("PWD: decoded: %s", pwd);
+    free(term->cwd);
+    term->cwd = pwd;
+}
+
 #if 0
 static void
 osc_notify(struct terminal *term, char *string)
@@ -395,6 +455,11 @@ osc_dispatch(struct terminal *term)
         render_refresh(term);
         break;
     }
+
+    case 7:
+        /* Update terminal's understanding of PWD */
+        osc_set_pwd(term, string);
+        break;
 
     case 10:
     case 11: {
