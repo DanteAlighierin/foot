@@ -1672,7 +1672,7 @@ term_spawn_new(const struct terminal *term)
         if (pid2 == 0) {
             /* Child */
             close(pipe_fds[0]);
-            execl(term->foot_exe, term->foot_exe, NULL);
+            execlp(term->foot_exe, term->foot_exe, NULL);
             write(pipe_fds[1], &errno, sizeof(errno));
             _exit(errno);
         }

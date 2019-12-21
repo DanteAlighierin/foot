@@ -213,7 +213,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     client->term = term_init(
         server->conf, server->fdm, server->wayl,
         strlen(term_env) > 0 ? term_env : server->conf->term,
-        "footclient" /* TODO */, argc, argv, &term_shutdown_handler, client);
+        "footclient", argc, argv, &term_shutdown_handler, client);
 
     if (client->term == NULL) {
         LOG_ERR("failed to instantiate new terminal");

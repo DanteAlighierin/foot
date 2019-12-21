@@ -224,7 +224,7 @@ main(int argc, char *const *argv)
         goto out;
 
     if (!as_server && (term = term_init(
-                           &conf, fdm, wayl, conf.term, prog_name, argc, argv,
+                           &conf, fdm, wayl, conf.term, "foot", argc, argv,
                            &term_shutdown_cb, &shutdown_ctx)) == NULL)
         goto out;
 
