@@ -314,12 +314,14 @@ struct terminal {
     bool is_shutting_down;
     void (*shutdown_cb)(void *data, int exit_code);
     void *shutdown_data;
+
+    char *foot_exe;
 };
 
 struct config;
 struct terminal *term_init(
     const struct config *conf, struct fdm *fdm, struct wayland *wayl,
-    const char *term_env, int argc, char *const *argv,
+    const char *term_env, const char *foot_exe, int argc, char *const *argv,
     void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data);
 
 bool term_shutdown(struct terminal *term);
@@ -379,3 +381,4 @@ void term_xcursor_update(struct terminal *term);
 
 void term_set_window_title(struct terminal *term, const char *title);
 void term_flash(struct terminal *term, unsigned duration_ms);
+bool term_spawn_new(const struct terminal *term);

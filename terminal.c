@@ -465,7 +465,7 @@ initialize_fonts(struct terminal *term, const struct config *conf)
 
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
-          const char *term_env, int argc, char *const *argv,
+          const char *term_env, const char *foot_exe, int argc, char *const *argv,
           void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data)
 {
     int ptmx = -1;
@@ -600,6 +600,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         },
         .shutdown_cb = shutdown_cb,
         .shutdown_data = shutdown_data,
+        .foot_exe = strdup(foot_exe),
     };
 
     initialize_color_cube(term);
@@ -830,6 +831,7 @@ term_destroy(struct terminal *term)
         free(it->item.data);
     tll_free(term->ptmx_buffer);
     tll_free(term->tab_stops);
+    free(term->foot_exe);
 
     int ret = EXIT_SUCCESS;
 
@@ -1641,4 +1643,67 @@ term_flash(struct terminal *term, unsigned duration_ms)
     else {
         term->flash.active = true;
     }
+}
+
+bool
+term_spawn_new(const struct terminal *term)
+{
+    pid_t pid = fork();
+    if (pid < 0) {
+        LOG_ERRNO("failed to fork new terminal");
+        return false;
+    }
+
+    if (pid == 0) {
+        /* Child */
+        int pipe_fds[2] = {-1, -1};
+        if (pipe2(pipe_fds, O_CLOEXEC) < 0) {
+            LOG_ERRNO("failed to create pipe");
+            goto err;
+        }
+
+        /* Double fork */
+        pid_t pid2 = fork();
+        if (pid2 < 0) {
+            LOG_ERRNO("failed to double fork new terminal");
+            goto err;
+        }
+
+        if (pid2 == 0) {
+            /* Child */
+            close(pipe_fds[0]);
+            execl(term->foot_exe, term->foot_exe, NULL);
+            write(pipe_fds[1], &errno, sizeof(errno));
+            _exit(errno);
+        }
+
+        /* Parent */
+
+        close(pipe_fds[1]);
+
+        int _errno;
+        static_assert(sizeof(_errno) == sizeof(errno), "errno size mismatch");
+
+        ssize_t ret = read(pipe_fds[0], &_errno, sizeof(_errno));
+        close(pipe_fds[0]);
+
+        if (ret == 0)
+            _exit(0);
+        else if (ret < 0)
+            LOG_ERRNO("failed to read from pipe");
+        else {
+            LOG_ERRNO_P("%s: failed to spawn new terminal", _errno, term->foot_exe);
+            errno = _errno;
+            waitpid(pid2, NULL, 0);
+        }
+
+    err:
+        if (pipe_fds[0] != -1)
+            close(pipe_fds[0]);
+        _exit(errno);
+    }
+
+    int result;
+    waitpid(pid, &result, 0);
+    return WIFEXITED(result) && WEXITSTATUS(result) == 0;
 }

@@ -282,6 +282,11 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             search_begin(term);
             goto maybe_repeat;
         }
+
+        else if (sym == XKB_KEY_Return) {
+            term_spawn_new(term);
+            goto maybe_repeat;
+        }
     }
 
 

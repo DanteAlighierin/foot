@@ -64,6 +64,7 @@ err:
         close(pts);
     if (ptmx != -1)
         close(ptmx);
+    close(err_fd);
     _exit(errno);
 }
 

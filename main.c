@@ -223,8 +223,9 @@ main(int argc, char *const *argv)
     if ((wayl = wayl_init(fdm)) == NULL)
         goto out;
 
-    if (!as_server && (term = term_init(&conf, fdm, wayl, conf.term, argc, argv,
-                                        &term_shutdown_cb, &shutdown_ctx)) == NULL)
+    if (!as_server && (term = term_init(
+                           &conf, fdm, wayl, conf.term, prog_name, argc, argv,
+                           &term_shutdown_cb, &shutdown_ctx)) == NULL)
         goto out;
 
     if (as_server && (server = server_init(&conf, fdm, wayl)) == NULL)
