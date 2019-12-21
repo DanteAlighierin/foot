@@ -181,6 +181,12 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     const char *cwd = (const char *)p; p += cwd_len;
     LOG_DBG("CWD = %.*s", cwd_len, cwd);
 
+    if (cwd_len != strlen(cwd) + 1) {
+        LOG_ERR("CWD length mismatch: indicated = %hu, actual = %zu",
+                cwd_len - 1, strlen(cwd));
+        goto shutdown;
+    }
+
     CHECK_BUF(sizeof(uint16_t));
     uint16_t term_env_len = *(uint16_t *)p; p += sizeof(term_env_len);
 
