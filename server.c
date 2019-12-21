@@ -182,7 +182,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     LOG_DBG("CWD = %.*s", cwd_len, cwd);
 
     CHECK_BUF(sizeof(uint16_t));
-    uint16_t term_env_len = *(uint16_t *)p; p += term_env_len;
+    uint16_t term_env_len = *(uint16_t *)p; p += sizeof(term_env_len);
 
     CHECK_BUF(term_env_len);
     const char *term_env = (const char *)p; p += strlen(term_env) + 1;
