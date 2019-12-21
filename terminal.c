@@ -601,7 +601,17 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .shutdown_cb = shutdown_cb,
         .shutdown_data = shutdown_data,
         .foot_exe = strdup(foot_exe),
+        .cwd = NULL,
     };
+
+    {
+        size_t buf_len = 1024;
+        do {
+            term->cwd = realloc(term->cwd, buf_len);
+            getcwd(term->cwd, buf_len);
+            buf_len *= 2;
+        } while (errno == ERANGE);
+    }
 
     initialize_color_cube(term);
     if (!initialize_render_workers(term))
@@ -831,7 +841,9 @@ term_destroy(struct terminal *term)
         free(it->item.data);
     tll_free(term->ptmx_buffer);
     tll_free(term->tab_stops);
+
     free(term->foot_exe);
+    free(term->cwd);
 
     int ret = EXIT_SUCCESS;
 
@@ -1672,6 +1684,7 @@ term_spawn_new(const struct terminal *term)
         if (pid2 == 0) {
             /* Child */
             close(pipe_fds[0]);
+            chdir(term->cwd);
             execlp(term->foot_exe, term->foot_exe, NULL);
             write(pipe_fds[1], &errno, sizeof(errno));
             _exit(errno);

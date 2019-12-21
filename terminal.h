@@ -316,6 +316,7 @@ struct terminal {
     void *shutdown_data;
 
     char *foot_exe;
+    char *cwd;
 };
 
 struct config;
