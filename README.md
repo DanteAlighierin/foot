@@ -47,8 +47,7 @@ This is a list of known, but probably not all, issues:
 
 * Unicode combining characters
 
-  Examples: á, 👪🏼 (_may not be displayed correctly in your
-  browser/editor_)
+  Examples: á (`LATIN SMALL LETTER A` + `COMBINING ACUTE ACCENT`)
 
 * Reflow text on window resize
 
