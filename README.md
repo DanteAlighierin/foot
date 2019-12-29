@@ -273,31 +273,37 @@ you intend to install a release build of foot, in which case you might
 be interested in the compiler flags used there.
 
 First, create a build directory, and switch to it:
-
-    mkdir -p bld/debug && cd bld/debug
+```sh
+mkdir -p bld/debug && cd bld/debug
+```
 
 Second, configure the build (if you intend to install it globally, you
 might also want `--prefix=/usr`):
-
-    meson --buildtype=debug ../..
+```sh
+meson --buildtype=debug ../..
+```
 
 Three, build it:
-
-    ninja
+```sh
+ninja
+```
 
 You can now run it directly from the build directory:
-
-    ./foot
+```sh
+./foot
+```
 
 But note that it will default to `TERM=foot`, and that this terminfo
 has not been installed yet. However, most things should work with the
 `xterm-256color` terminfo:
-
-    ./foot --term xterm-256color
+```sh
+./foot --term xterm-256color
+```
 
 But, I **recommend** you install the `foot` and `foot-direct` terminfo
 files. You can either copy them manually (typically to
 `/usr/share/terminfo/f` - but this is dependens on the distro), or
 just install everything:
-
-    ninja install
+```sh
+ninja install
+```
