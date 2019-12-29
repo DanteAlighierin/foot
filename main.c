@@ -109,7 +109,7 @@ main(int argc, char *const *argv)
     const char *conf_server_socket_path = NULL;
 
     while (true) {
-        int c = getopt_long(argc, argv, ":c:tf:g:s::vh", longopts, NULL);
+        int c = getopt_long(argc, argv, "c:tf:g:s::vh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -170,12 +170,7 @@ main(int argc, char *const *argv)
             print_usage(prog_name);
             return EXIT_SUCCESS;
 
-        case ':':
-            fprintf(stderr, "error: -%c: missing required argument\n", optopt);
-            return EXIT_FAILURE;
-
         case '?':
-            fprintf(stderr, "error: -%c: invalid option\n", optopt);
             return EXIT_FAILURE;
         }
     }
