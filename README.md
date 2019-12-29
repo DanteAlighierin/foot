@@ -225,11 +225,36 @@ In addition to the dev variant of the packages above, you need:
 
 ## Installing
 
+foot makes use of a couple of libraries I have developed:
+[tllist](https://codeberg.org/dnkl/tllist) and
+[fcft](https://codeberg.org/dnkl/fcft). As such, they will most likely
+not have been installed already. You can either install them as system
+libraries, or you can build them as _subprojects_ in foot.
+
+When building foot, they will first be searched for as system
+libraries. If **found**, foot will link dynamically against them.
+
+If **not** found, they will be searched for as subprojects. In a foot
+git clone, they will be available as git _submodules_ and you can
+simply check them out with `git submodule update --init`. In this
+case, foot will link statically against them.
+
+If you have downloaded a zip/tar file, you need to manually copy the
+correct version of the library source code into the `subprojects`
+folder. If you are unsure how to do this, it might be easier to
+install them as system libraries.
+
+
 ### Arch Linux
 
 Use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to build
 the bundled [PKGBUILD](PKGBUILD) (run `makepkg` in the source root
 directory).
+
+It **requires** [tllist](https://codeberg.org/dnkl/tllist) and
+[fcft](https://codeberg.org/dnkl/fcft) to be installed as system
+libraries. If you do not want this, please edit the PKGBUILD file, or
+install manually (see [Other](#other) below).
 
 Note that it will do a profiling-guided build, and that this requires
 a running wayland session since it needs to run an intermediate build
@@ -243,4 +268,36 @@ Foot uses _meson_. If you are unfamiliar with it, the official
 starting point.
 
 I also recommend taking a look at the bundled Arch
-[PKGBUILD](PKGBUILD) file, to see how it builds foot.
+[PKGBUILD](PKGBUILD) file, to see how it builds foot. Especially so if
+you intend to install a release build of foot, in which case you might
+be interested in the compiler flags used there.
+
+First, create a build directory, and switch to it:
+
+    mkdir -p bld/debug && cd bld/debug
+
+Second, configure the build (if you intend to install it globally, you
+might also want `--prefix=/usr`):
+
+    meson --buildtype=debug ../..
+
+Three, build it:
+
+    ninja
+
+You can now run it directly from the build directory:
+
+    ./foot
+
+But note that it will default to `TERM=foot`, and that this terminfo
+has not been installed yet. However, most things should work with the
+`xterm-256color` terminfo:
+
+    ./foot --term xterm-256color
+
+But, I **recommend** you install the `foot` and `foot-direct` terminfo
+files. You can either copy them manually (typically to
+`/usr/share/terminfo/f` - but this is dependens on the distro), or
+just install everything:
+
+    ninja install
