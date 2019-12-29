@@ -35,17 +35,19 @@ sig_handler(int signo)
 static void
 print_usage(const char *prog_name)
 {
-    printf("Usage: %s [OPTIONS]...\n", prog_name);
-    printf("Usage: %s [OPTIONS]... -- command\n", prog_name);
-    printf("\n");
-    printf("Options:\n");
-    printf("  -c,--config=PATH            load configuration from PATH (XDG_CONFIG_HOME/footrc)\n"
-           "  -f,--font=FONT              comma separated list of fonts in fontconfig format (monospace)\n"
-           "  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
-           "  -g,--geometry=WIDTHxHEIGHT  set initial width and height\n"
-           "  -s,--server[=PATH]          run as a server (use 'footclient' to start terminals).\n"
-           "                              Without PATH, XDG_RUNTIME_DIR/foot.sock will be used.\n"
-           "  -v,--version                show the version number and quit\n");
+    printf(
+        "Usage: %s [OPTIONS]...\n"
+        "Usage: %s [OPTIONS]... -- command\n"
+        "\n"
+        "Options:\n"
+        "  -c,--config=PATH            load configuration from PATH (XDG_CONFIG_HOME/footrc)\n"
+        "  -f,--font=FONT              comma separated list of fonts in fontconfig format (monospace)\n"
+        "  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
+        "  -g,--geometry=WIDTHxHEIGHT  set initial width and height\n"
+        "  -s,--server[=PATH]          run as a server (use 'footclient' to start terminals).\n"
+        "                              Without PATH, XDG_RUNTIME_DIR/foot.sock will be used.\n"
+        "  -v,--version                show the version number and quit\n",
+        prog_name, prog_name);
 }
 
 bool
