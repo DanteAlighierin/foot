@@ -90,14 +90,14 @@ main(int argc, char *const *argv)
     const char *const prog_name = argv[0];
 
     static const struct option longopts[] =  {
-        {"config",   required_argument, 0, 'c'},
-        {"term",     required_argument, 0, 't'},
-        {"font",     required_argument, 0, 'f'},
-        {"geometry", required_argument, 0, 'g'},
-        {"server",   optional_argument, 0, 's'},
-        {"version",  no_argument,       0, 'v'},
-        {"help",     no_argument,       0, 'h'},
-        {NULL,       no_argument,       0,   0},
+        {"config",   required_argument, NULL, 'c'},
+        {"term",     required_argument, NULL, 't'},
+        {"font",     required_argument, NULL, 'f'},
+        {"geometry", required_argument, NULL, 'g'},
+        {"server",   optional_argument, NULL, 's'},
+        {"version",  no_argument,       NULL, 'v'},
+        {"help",     no_argument,       NULL, 'h'},
+        {NULL,       no_argument,       NULL,   0},
     };
 
     const char *conf_path = NULL;
