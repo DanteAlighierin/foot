@@ -72,44 +72,55 @@ presented(void *data,
         .tv_usec = tv_nsec / 1000,
     };
 
-    struct timeval diff = {0};
-    const char *source = NULL;
+    bool use_input = (input.tv_sec > 0 || input.tv_usec > 0) &&
+        timercmp(&presented, &input, >);
+    char msg[1024];
+    int chars = 0;
 
-    if (input.tv_sec != 0 || input.tv_usec != 0) {
+    if (use_input) {
+        struct timeval diff;
+        timersub(&commit, &input, &diff);
+        chars += snprintf(&msg[chars], sizeof(msg) - chars,
+                          "input - %luµs -> ", diff.tv_usec);
+    }
+
+    struct timeval diff;
+    timersub(&presented, &commit, &diff);
+    chars += snprintf(&msg[chars], sizeof(msg) - chars,
+                      "commit - %luµs -> ", diff.tv_usec);
+
+    if (use_input)
         timersub(&presented, &input, &diff);
-        source = "input";
-    } else if (commit.tv_sec != 0 || commit.tv_usec != 0) {
+    else
         timersub(&presented, &commit, &diff);
-        source = "commit";
+
+    chars += snprintf(&msg[chars], sizeof(msg) - chars,
+                      "presented (total: %luµs)", diff.tv_usec);
+
+    unsigned frame_count = 0;
+    if (diff.tv_sec == 0 && tll_length(term->window->on_outputs) > 0) {
+        const struct monitor *mon = tll_front(term->window->on_outputs);
+        frame_count = (double)diff.tv_usec / (1. / mon->refresh * 1000000.);
     }
 
-    if (source != NULL) {
+    presentation_statistics.total++;
+    if (frame_count >= 2)
+        presentation_statistics.two++;
+    else if (frame_count >= 1)
+        presentation_statistics.one++;
+    else
+        presentation_statistics.zero++;
 
-        unsigned frame_count = 0;
-        if (diff.tv_sec == 0 && tll_length(term->window->on_outputs) > 0) {
-            const struct monitor *mon = tll_front(term->window->on_outputs);
-            frame_count = (double)diff.tv_usec / (1. / mon->refresh * 1000000.);
-        }
+#define _log_fmt "%s (more than %u frames)"
 
-        presentation_statistics.total++;
-        if (frame_count >= 2)
-            presentation_statistics.two++;
-        else if (frame_count >= 1)
-            presentation_statistics.one++;
-        else
-            presentation_statistics.zero++;
+    if (frame_count >= 2)
+        LOG_ERR(_log_fmt, msg, frame_count);
+    else if (frame_count >= 1)
+        LOG_WARN(_log_fmt, msg, frame_count);
+    else
+        LOG_INFO(_log_fmt, msg, frame_count);
 
-        #define _log_fmt "%s to screen time: %lus %luµs (more than %u frames)"
-
-        if (frame_count >= 2)
-            LOG_ERR(_log_fmt, source, diff.tv_sec, diff.tv_usec, frame_count);
-        else if (frame_count >= 1)
-            LOG_WARN(_log_fmt, source, diff.tv_sec, diff.tv_usec, frame_count);
-        else
-            LOG_INFO(_log_fmt, source, diff.tv_sec, diff.tv_usec, frame_count);
-
-        #undef _log_fmt
-    }
+#undef _log_fmt
 
     wp_presentation_feedback_destroy(wp_presentation_feedback);
     memset(&term->render.input_time, 0, sizeof(term->render.input_time));
