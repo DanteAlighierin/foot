@@ -117,6 +117,10 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
     return true;
 }
 
+#if 0
+static struct timespec last = {0};
+#endif
+
 static bool
 fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 {
@@ -181,6 +185,22 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
      */
     if (term->window->frame_callback == NULL) {
         /* First timeout - reset each time we receive input. */
+
+#if 0
+        struct timespec now;
+
+        clock_gettime(1, &now);
+        if (last.tv_sec > 0 || last.tv_nsec > 0) {
+            struct timeval diff;
+            struct timeval l = {last.tv_sec, last.tv_nsec / 1000};
+            struct timeval n = {now.tv_sec, now.tv_nsec / 1000};
+
+            timersub(&n, &l, &diff);
+            LOG_INFO("waited %lu µs for more input", diff.tv_usec);
+        }
+        last = now;
+#endif
+
         timerfd_settime(
             term->delayed_render_timer.lower_fd, 0,
             &(struct itimerspec){.it_value = {.tv_nsec = 2000000}},
@@ -374,6 +394,10 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
         LOG_DBG("lower delay timer expired");
     else if (ret2 > 0)
         LOG_DBG("upper delay timer expired");
+
+#if 0
+    last = (struct timespec){0};
+#endif
 
     render_refresh(term);
 
