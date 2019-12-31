@@ -119,7 +119,10 @@ presented(void *data,
 static void
 discarded(void *data, struct wp_presentation_feedback *wp_presentation_feedback)
 {
+    struct terminal *term = data;
     wp_presentation_feedback_destroy(wp_presentation_feedback);
+    memset(&term->render.input_time, 0, sizeof(term->render.input_time));
+    memset(&term->render.commit_time, 0, sizeof(term->render.commit_time));
 }
 
 static const struct wp_presentation_feedback_listener presentation_feedback_listener = {
