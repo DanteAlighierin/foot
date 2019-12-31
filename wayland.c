@@ -191,7 +191,7 @@ xdg_output_handle_description(void *data, struct zxdg_output_v1 *xdg_output,
 {
 }
 
-static struct zxdg_output_v1_listener xdg_output_listener = {
+static const struct zxdg_output_v1_listener xdg_output_listener = {
     .logical_position = xdg_output_handle_logical_position,
     .logical_size = xdg_output_handle_logical_size,
     .done = xdg_output_handle_done,
