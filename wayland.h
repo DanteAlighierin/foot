@@ -100,8 +100,10 @@ struct wl_window {
     tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
 };
 
+struct config;
 struct terminal;
 struct wayland {
+    const struct config *conf;
     struct fdm *fdm;
     struct wl_display *display;
     struct wl_registry *registry;
@@ -166,7 +168,7 @@ struct wayland {
     struct terminal *moused;
 };
 
-struct wayland *wayl_init(struct fdm *fdm);
+struct wayland *wayl_init(const struct config *conf, struct fdm *fdm);
 void wayl_destroy(struct wayland *wayl);
 
 struct terminal *wayl_terminal_from_surface(

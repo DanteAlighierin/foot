@@ -21,6 +21,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
+#include "config.h"
 #include "terminal.h"
 #include "input.h"
 #include "render.h"
@@ -341,14 +342,16 @@ handle_global(void *data, struct wl_registry *registry,
     }
 
     else if (strcmp(interface, wp_presentation_interface.name) == 0) {
-        const uint32_t required = 1;
-        if (!verify_iface_version(interface, version, required))
-            return;
+        if (wayl->conf->presentation_timings) {
+            const uint32_t required = 1;
+            if (!verify_iface_version(interface, version, required))
+                return;
 
-        wayl->presentation = wl_registry_bind(
-            wayl->registry, name, &wp_presentation_interface, required);
-        wp_presentation_add_listener(
-            wayl->presentation, &presentation_listener, wayl);
+            wayl->presentation = wl_registry_bind(
+                wayl->registry, name, &wp_presentation_interface, required);
+            wp_presentation_add_listener(
+                wayl->presentation, &presentation_listener, wayl);
+        }
     }
 }
 
@@ -520,9 +523,10 @@ fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
 }
 
 struct wayland *
-wayl_init(struct fdm *fdm)
+wayl_init(const struct config *conf, struct fdm *fdm)
 {
     struct wayland *wayl = calloc(1, sizeof(*wayl));
+    wayl->conf = conf;
     wayl->fdm = fdm;
     wayl->kbd.repeat.fd = -1;
 

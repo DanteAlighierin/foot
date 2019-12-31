@@ -235,7 +235,7 @@ main(int argc, char *const *argv)
     if ((fdm = fdm_init()) == NULL)
         goto out;
 
-    if ((wayl = wayl_init(fdm)) == NULL)
+    if ((wayl = wayl_init(&conf, fdm)) == NULL)
         goto out;
 
     if (!as_server && (term = term_init(
