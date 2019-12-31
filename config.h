@@ -34,8 +34,8 @@ struct config {
     } cursor;
 
     size_t render_worker_count;
-
     char *server_socket_path;
+    bool presentation_timings;
 };
 
 bool config_load(struct config *conf, const char *path);

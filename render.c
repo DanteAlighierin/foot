@@ -9,6 +9,7 @@
 
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
+#include <presentation-time.h>
 
 #include <fcft/fcft.h>
 
@@ -20,6 +21,112 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
+
+static struct {
+    size_t total;
+    size_t zero;  /* commits presented in less than one frame interval */
+    size_t one;   /* commits presented in one frame interval */
+    size_t two;   /* commits presented in two or more frame intervals */
+} presentation_statistics = {0};
+
+static void __attribute__((destructor))
+log_presentation_statistics(void)
+{
+    if (presentation_statistics.total == 0)
+        return;
+
+    const size_t total = presentation_statistics.total;
+    LOG_INFO("presentation statistics: zero=%f%%, one=%f%%, two=%f%%",
+             100. * presentation_statistics.zero / total,
+             100. * presentation_statistics.one / total,
+             100. * presentation_statistics.two / total);
+}
+
+static void
+sync_output(void *data,
+            struct wp_presentation_feedback *wp_presentation_feedback,
+            struct wl_output *output)
+{
+}
+
+static void
+presented(void *data,
+          struct wp_presentation_feedback *wp_presentation_feedback,
+          uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec,
+          uint32_t refresh, uint32_t seq_hi, uint32_t seq_lo, uint32_t flags)
+{
+    struct terminal *term = data;
+
+    struct timeval input = {
+        .tv_sec = term->render.input_time.tv_sec,
+        .tv_usec = term->render.input_time.tv_nsec / 1000,
+    };
+
+    struct timeval commit = {
+        .tv_sec = term->render.commit_time.tv_sec,
+        .tv_usec = term->render.commit_time.tv_nsec / 1000
+    };
+
+    struct timeval presented = {
+        .tv_sec = (uint64_t)tv_sec_hi << 32 | tv_sec_lo,
+        .tv_usec = tv_nsec / 1000,
+    };
+
+    struct timeval diff = {0};
+    const char *source = NULL;
+
+    if (input.tv_sec != 0 || input.tv_usec != 0) {
+        timersub(&presented, &input, &diff);
+        source = "input";
+    } else if (commit.tv_sec != 0 || commit.tv_usec != 0) {
+        timersub(&presented, &commit, &diff);
+        source = "commit";
+    }
+
+    if (source != NULL) {
+
+        unsigned frame_count = 0;
+        if (diff.tv_sec == 0 && tll_length(term->window->on_outputs) > 0) {
+            const struct monitor *mon = tll_front(term->window->on_outputs);
+            frame_count = (double)diff.tv_usec / (1. / mon->refresh * 1000000.);
+        }
+
+        presentation_statistics.total++;
+        if (frame_count >= 2)
+            presentation_statistics.two++;
+        else if (frame_count >= 1)
+            presentation_statistics.one++;
+        else
+            presentation_statistics.zero++;
+
+        #define _log_fmt "%s to screen time: %lus %luµs (more than %u frames)"
+
+        if (frame_count >= 2)
+            LOG_ERR(_log_fmt, source, diff.tv_sec, diff.tv_usec, frame_count);
+        else if (frame_count >= 1)
+            LOG_WARN(_log_fmt, source, diff.tv_sec, diff.tv_usec, frame_count);
+        else
+            LOG_INFO(_log_fmt, source, diff.tv_sec, diff.tv_usec, frame_count);
+
+        #undef _log_fmt
+    }
+
+    wp_presentation_feedback_destroy(wp_presentation_feedback);
+    memset(&term->render.input_time, 0, sizeof(term->render.input_time));
+    memset(&term->render.commit_time, 0, sizeof(term->render.commit_time));
+}
+
+static void
+discarded(void *data, struct wp_presentation_feedback *wp_presentation_feedback)
+{
+    wp_presentation_feedback_destroy(wp_presentation_feedback);
+}
+
+static const struct wp_presentation_feedback_listener presentation_feedback_listener = {
+    .sync_output = &sync_output,
+    .presented = &presented,
+    .discarded = &discarded,
+};
 
 struct font *
 attrs_to_font(const struct terminal *term, const struct attributes *attrs)
@@ -697,6 +804,22 @@ grid_render(struct terminal *term)
     wl_callback_add_listener(term->window->frame_callback, &frame_listener, term);
 
     wl_surface_set_buffer_scale(term->window->surface, term->scale);
+
+
+    if (term->wl->presentation != NULL && term->render.presentation_timings) {
+        clock_gettime(term->wl->presentation_clock_id, &term->render.commit_time);
+
+        struct wp_presentation_feedback *feedback = wp_presentation_feedback(
+            term->wl->presentation, term->window->surface);
+
+        if (feedback == NULL) {
+            LOG_WARN("failed to create presentation feedback");
+        } else {
+            wp_presentation_feedback_add_listener(
+                feedback, &presentation_feedback_listener, term);
+        }
+    }
+
     wl_surface_commit(term->window->surface);
 
 #if TIME_FRAME_RENDERING

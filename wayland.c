@@ -199,6 +199,20 @@ static struct zxdg_output_v1_listener xdg_output_listener = {
     .description = xdg_output_handle_description,
 };
 
+static void
+clock_id(void *data, struct wp_presentation *wp_presentation, uint32_t clk_id)
+{
+    struct wayland *wayl = data;
+    wayl->presentation_clock_id = clk_id;
+
+    LOG_DBG("presentation clock ID: %u", clk_id);
+}
+
+static const struct wp_presentation_listener presentation_listener = {
+    .clock_id = &clock_id,
+};
+
+
 static bool
 verify_iface_version(const char *iface, uint32_t version, uint32_t wanted)
 {
@@ -325,6 +339,17 @@ handle_global(void *data, struct wl_registry *registry,
         wayl->primary_selection_device_manager = wl_registry_bind(
             wayl->registry, name,
             &zwp_primary_selection_device_manager_v1_interface, required);
+    }
+
+    else if (strcmp(interface, wp_presentation_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->presentation = wl_registry_bind(
+            wayl->registry, name, &wp_presentation_interface, required);
+        wp_presentation_add_listener(
+            wayl->presentation, &presentation_listener, wayl);
     }
 }
 
@@ -657,6 +682,9 @@ wayl_destroy(struct wayland *wayl)
 
     if (wayl->xdg_decoration_manager != NULL)
         zxdg_decoration_manager_v1_destroy(wayl->xdg_decoration_manager);
+
+    if (wayl->presentation != NULL)
+        wp_presentation_destroy(wayl->presentation);
 
     if (wayl->kbd.xkb_compose_state != NULL)
         xkb_compose_state_unref(wayl->kbd.xkb_compose_state);

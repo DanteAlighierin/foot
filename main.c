@@ -90,14 +90,15 @@ main(int argc, char *const *argv)
     const char *const prog_name = argv[0];
 
     static const struct option longopts[] =  {
-        {"config",   required_argument, NULL, 'c'},
-        {"term",     required_argument, NULL, 't'},
-        {"font",     required_argument, NULL, 'f'},
-        {"geometry", required_argument, NULL, 'g'},
-        {"server",   optional_argument, NULL, 's'},
-        {"version",  no_argument,       NULL, 'v'},
-        {"help",     no_argument,       NULL, 'h'},
-        {NULL,       no_argument,       NULL,   0},
+        {"config",               required_argument, NULL, 'c'},
+        {"term",                 required_argument, NULL, 't'},
+        {"font",                 required_argument, NULL, 'f'},
+        {"geometry",             required_argument, NULL, 'g'},
+        {"server",               optional_argument, NULL, 's'},
+        {"presentation-timings", no_argument,       NULL, 'p'}, /* Undocumented */
+        {"version",              no_argument,       NULL, 'v'},
+        {"help",                 no_argument,       NULL, 'h'},
+        {NULL,                   no_argument,       NULL,   0},
     };
 
     const char *conf_path = NULL;
@@ -107,9 +108,10 @@ main(int argc, char *const *argv)
     int conf_height = -1;
     bool as_server = false;
     const char *conf_server_socket_path = NULL;
+    bool presentation_timings = false;
 
     while (true) {
-        int c = getopt_long(argc, argv, "c:tf:g:s::vh", longopts, NULL);
+        int c = getopt_long(argc, argv, "c:tf:g:s::pvh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -162,6 +164,10 @@ main(int argc, char *const *argv)
                 conf_server_socket_path = optarg;
             break;
 
+        case 'p':
+            presentation_timings = true;
+            break;
+
         case 'v':
             printf("foot version %s\n", FOOT_VERSION);
             return EXIT_SUCCESS;
@@ -208,6 +214,7 @@ main(int argc, char *const *argv)
         free(conf.server_socket_path);
         conf.server_socket_path = strdup(conf_server_socket_path);
     }
+    conf.presentation_timings = presentation_timings;
 
     struct fdm *fdm = NULL;
     struct wayland *wayl = NULL;

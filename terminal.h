@@ -302,6 +302,10 @@ struct terminal {
         struct buffer *last_buf;     /* Buffer we rendered to last time */
         bool was_flashing;           /* Flash was active last time we rendered */
         bool was_searching;
+
+        bool presentation_timings;
+        struct timespec input_time;
+        struct timespec commit_time;
     } render;
 
     /* Temporary: for FDM */

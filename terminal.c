@@ -370,6 +370,11 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
+    if (ret1 > 0)
+        LOG_DBG("lower delay timer expired");
+    else if (ret2 > 0)
+        LOG_DBG("upper delay timer expired");
+
     render_refresh(term);
 
     /* Reset timers */
@@ -593,6 +598,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
                 .count = conf->render_worker_count,
                 .queue = tll_init(),
             },
+            .presentation_timings = conf->presentation_timings,
         },
         .delayed_render_timer = {
             .is_armed = false,

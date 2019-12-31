@@ -6,8 +6,10 @@
 #include <sys/time.h>
 
 #include <wayland-client.h>
-#include <primary-selection-unstable-v1.h>
 #include <xkbcommon/xkbcommon.h>
+
+#include <primary-selection-unstable-v1.h>
+#include <presentation-time.h>
 
 #include <tllist.h>
 
@@ -113,6 +115,9 @@ struct wayland {
 
     struct xdg_wm_base *shell;
     struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
+
+    struct wp_presentation *presentation;
+    uint32_t presentation_clock_id;
 
     /* Keyboard */
     struct kbd kbd;

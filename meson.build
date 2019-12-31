@@ -40,6 +40,7 @@ foreach prot : [
   wayland_protocols_datadir + '/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml',
   wayland_protocols_datadir + '/unstable/xdg-output/xdg-output-unstable-v1.xml',
   wayland_protocols_datadir + '/unstable/primary-selection/primary-selection-unstable-v1.xml',
+  wayland_protocols_datadir + '/stable/presentation-time/presentation-time.xml',
   ]
 
   wl_proto_headers += custom_target(
