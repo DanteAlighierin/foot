@@ -98,9 +98,9 @@ presented(void *data,
                       "presented (total: %luµs)", diff.tv_usec);
 
     unsigned frame_count = 0;
-    if (diff.tv_sec == 0 && tll_length(term->window->on_outputs) > 0) {
+    if (tll_length(term->window->on_outputs) > 0) {
         const struct monitor *mon = tll_front(term->window->on_outputs);
-        frame_count = (double)diff.tv_usec / (1. / mon->refresh * 1000000.);
+        frame_count = (double)(diff.tv_sec * 1000000 + diff.tv_usec) / (1. / mon->refresh * 1000000.);
     }
 
     presentation_statistics.total++;
