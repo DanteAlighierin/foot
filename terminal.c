@@ -117,7 +117,9 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
     return true;
 }
 
-#if 0
+#define PTMX_TIMING 0
+
+#if PTMX_TIMING
 static struct timespec last = {0};
 #endif
 
@@ -186,7 +188,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     if (term->window->frame_callback == NULL) {
         /* First timeout - reset each time we receive input. */
 
-#if 0
+#if PTMX_TIMING
         struct timespec now;
 
         clock_gettime(1, &now);
@@ -395,7 +397,7 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
     else if (ret2 > 0)
         LOG_DBG("upper delay timer expired");
 
-#if 0
+#if PTMX_TIMING
     last = (struct timespec){0};
 #endif
 
