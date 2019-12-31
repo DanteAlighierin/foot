@@ -81,13 +81,13 @@ presented(void *data,
         struct timeval diff;
         timersub(&commit, &input, &diff);
         chars += snprintf(&msg[chars], sizeof(msg) - chars,
-                          "input - %luµs -> ", diff.tv_usec);
+                          "input - %lu µs -> ", diff.tv_usec);
     }
 
     struct timeval diff;
     timersub(&presented, &commit, &diff);
     chars += snprintf(&msg[chars], sizeof(msg) - chars,
-                      "commit - %luµs -> ", diff.tv_usec);
+                      "commit - %lu µs -> ", diff.tv_usec);
 
     if (use_input)
         timersub(&presented, &input, &diff);
@@ -95,7 +95,7 @@ presented(void *data,
         timersub(&presented, &commit, &diff);
 
     chars += snprintf(&msg[chars], sizeof(msg) - chars,
-                      "presented (total: %luµs)", diff.tv_usec);
+                      "presented (total: %lu µs)", diff.tv_usec);
 
     unsigned frame_count = 0;
     if (tll_length(term->window->on_outputs) > 0) {
