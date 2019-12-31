@@ -204,7 +204,6 @@ clock_id(void *data, struct wp_presentation *wp_presentation, uint32_t clk_id)
 {
     struct wayland *wayl = data;
     wayl->presentation_clock_id = clk_id;
-
     LOG_DBG("presentation clock ID: %u", clk_id);
 }
 
