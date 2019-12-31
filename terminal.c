@@ -205,7 +205,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 
         timerfd_settime(
             term->delayed_render_timer.lower_fd, 0,
-            &(struct itimerspec){.it_value = {.tv_nsec = 200000}},
+            &(struct itimerspec){.it_value = {.tv_nsec = 500000}},
             NULL);
 
         /* Second timeout - only reset when we render. Set to one
