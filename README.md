@@ -46,13 +46,9 @@ ever be supported by foot.
 This is a list of known, but probably not all, issues:
 
 * Unicode combining characters
-
     Examples: á (`LATIN SMALL LETTER A` + `COMBINING ACUTE ACCENT`)
-
 * Reflow text on window resize
-
 * GNOME; might work, but without window decorations.
-
     Strictly speaking, foot is at fault here; all Wayland applications
     _must_ be able to draw their own window decorations (but foot is
     not).
