@@ -91,6 +91,8 @@ is **not** possible to define new key bindings.
 
 ### Keyboard
 
+#### Normal mode
+
 <kbd>shift</kbd>+<kbd>page up</kbd>/<kbd>page down</kbd>
 : Scroll up/down in history
 
@@ -103,10 +105,8 @@ is **not** possible to define new key bindings.
 <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>r</kbd>
 : Start a scrollback search
 
----
 
-While doing a scrollback search, the following shortcuts are
-available:
+#### Scrollback search
 
 <kbd>ctrl</kbd>+<kbd>r</kbd>
 : Search _backward_ for next match
