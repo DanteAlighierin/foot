@@ -47,20 +47,21 @@ This is a list of known, but probably not all, issues:
 
 * Unicode combining characters
 
-  Examples: á (`LATIN SMALL LETTER A` + `COMBINING ACUTE ACCENT`)
+    Examples: á (`LATIN SMALL LETTER A` + `COMBINING ACUTE ACCENT`)
 
 * Reflow text on window resize
 
 * GNOME; might work, but without window decorations.
 
-  Strictly speaking, foot is at fault here; all Wayland applications
-  _must_ be able to draw their own window decorations (but foot is
-  not).
+    Strictly speaking, foot is at fault here; all Wayland applications
+    _must_ be able to draw their own window decorations (but foot is
+    not).
 
-  However, most people want a uniform look and feel on their desktop,
-  including the window decorations. For this reason, a Wayland
-  application can request _Server Side Decorations_ (SSD). GNOME will
-  reply with a "_I hear you, but sorry, I wont do that_".
+    However, most people want a uniform look and feel on their
+    desktop, including the window decorations. For this reason, a
+    Wayland application can request _Server Side Decorations_
+    (SSD). GNOME will reply with a "_I hear you, but sorry, I wont do
+    that_".
 
 
 ## Fonts
