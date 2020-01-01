@@ -819,7 +819,6 @@ grid_render(struct terminal *term)
 
     wl_surface_set_buffer_scale(term->window->surface, term->scale);
 
-
     if (term->wl->presentation != NULL && term->render.presentation_timings) {
         clock_gettime(term->wl->presentation_clock_id, &term->render.commit_time);
 
@@ -835,6 +834,7 @@ grid_render(struct terminal *term)
     }
 
     wl_surface_commit(term->window->surface);
+    wl_display_flush(term->wl->display);
 
 #if TIME_FRAME_RENDERING
     struct timeval end_time;
@@ -845,7 +845,6 @@ grid_render(struct terminal *term)
     LOG_INFO("frame rendered in %lds %ldus",
              render_time.tv_sec, render_time.tv_usec);
 #endif
-    wl_display_flush(term->wl->display);
 }
 
 static void
