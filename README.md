@@ -10,6 +10,8 @@
 1. [Fonts](#fonts)
 1. [Shortcuts](#shortcuts)
    1. [Keyboard](#keyboard)
+      1. [Normal mode](#normal-mode)
+      1. [Scrollback search](#scrollback-search)
    1. [Mouse](#mouse)
 1. [Server mode](#server-mode)
 1. [Requirements](#requirements)
