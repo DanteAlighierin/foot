@@ -57,17 +57,20 @@ presented(void *data,
 {
     struct terminal *term = data;
 
-    struct timeval input = {
+    if (term->render.commit_time.tv_sec == 0 && term->render.commit_time.tv_nsec == 0)
+        return;
+
+    const struct timeval input = {
         .tv_sec = term->render.input_time.tv_sec,
         .tv_usec = term->render.input_time.tv_nsec / 1000,
     };
 
-    struct timeval commit = {
+    const struct timeval commit = {
         .tv_sec = term->render.commit_time.tv_sec,
-        .tv_usec = term->render.commit_time.tv_nsec / 1000
+        .tv_usec = term->render.commit_time.tv_nsec / 1000,
     };
 
-    struct timeval presented = {
+    const struct timeval presented = {
         .tv_sec = (uint64_t)tv_sec_hi << 32 | tv_sec_lo,
         .tv_usec = tv_nsec / 1000,
     };
@@ -76,6 +79,14 @@ presented(void *data,
         timercmp(&presented, &input, >);
     char msg[1024];
     int chars = 0;
+
+    if (use_input && timercmp(&presented, &input, <))
+        return;
+    else if (timercmp(&presented, &commit, <))
+        return;
+
+    LOG_DBG("commit: %lu s %lu µs, presented: %lu s %lu µs",
+            commit.tv_sec, commit.tv_usec, presented.tv_sec, presented.tv_usec);
 
     if (use_input) {
         struct timeval diff;
@@ -89,10 +100,13 @@ presented(void *data,
     chars += snprintf(&msg[chars], sizeof(msg) - chars,
                       "commit - %lu µs -> ", diff.tv_usec);
 
-    if (use_input)
+    if (use_input) {
+        assert(timercmp(&presented, &input, >));
         timersub(&presented, &input, &diff);
-    else
+    } else {
+        assert(timercmp(&presented, &commit, >));
         timersub(&presented, &commit, &diff);
+    }
 
     chars += snprintf(&msg[chars], sizeof(msg) - chars,
                       "presented (total: %lu µs)", diff.tv_usec);
