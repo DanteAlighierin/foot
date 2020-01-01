@@ -198,8 +198,11 @@ want to launch a new terminal.
 * pixman
 * wayland (_client_ and _cursor_ libraries)
 * xkbcommon
-* [tllist](https://codeberg.org/dnkl/tllist), _unless_ built as a subproject
-* [fcft](https://codeberg.org/dnkl/fcft), _unless_ built as a subproject
+* [tllist](https://codeberg.org/dnkl/tllist) [^1]
+* [fcft](https://codeberg.org/dnkl/fcft) [^1]
+
+[^1]: can also be built as subprojects, in which case they are
+    statically linked.
 
 
 ### Building
