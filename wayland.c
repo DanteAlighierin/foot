@@ -578,6 +578,10 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     if (wayl->primary_selection_device_manager == NULL)
         LOG_WARN("no primary selection available");
 
+    if (conf->presentation_timings && wayl->presentation == NULL)
+        LOG_WARN("presentation time interface not implemented by compositor; "
+                 "timings will not be available");
+
     tll_foreach(wayl->monitors, it) {
         LOG_INFO(
             "%s: %dx%d+%dx%d@%dHz %s (%.2f\", PPI=%dx%d, scale=%d)",
