@@ -60,7 +60,7 @@ This is a list of known, but probably not all, issues:
   However, most people want a uniform look and feel on their desktop,
   including the window decorations. For this reason, a Wayland
   application can request _Server Side Decorations_ (SSD). GNOME will
-  reply with a "I hear you, but sorry, I wont do that".
+  reply with a "_I hear you, but sorry, I wont do that_".
 
 
 ## Fonts
