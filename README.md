@@ -10,6 +10,8 @@
 1. [Fonts](#fonts)
 1. [Shortcuts](#shortcuts)
    1. [Keyboard](#keyboard)
+      1. [Normal mode](#normal-mode)
+      1. [Scrollback search](#scrollback-search)
    1. [Mouse](#mouse)
 1. [Server mode](#server-mode)
 1. [Requirements](#requirements)
@@ -47,20 +49,21 @@ This is a list of known, but probably not all, issues:
 
 * Unicode combining characters
 
-  Examples: á (`LATIN SMALL LETTER A` + `COMBINING ACUTE ACCENT`)
+    Examples: á (`LATIN SMALL LETTER A` + `COMBINING ACUTE ACCENT`)
 
 * Reflow text on window resize
 
 * GNOME; might work, but without window decorations.
 
-  Strictly speaking, foot is at fault here; all Wayland applications
-  _must_ be able to draw their own window decorations (but foot is
-  not).
+    Strictly speaking, foot is at fault here; all Wayland applications
+    _must_ be able to draw their own window decorations (but foot is
+    not).
 
-  However, most people want a uniform look and feel on their desktop,
-  including the window decorations. For this reason, a Wayland
-  application can request _Server Side Decorations_ (SSD). GNOME will
-  reply with a "I hear you, but sorry, I wont do that".
+    However, most people want a uniform look and feel on their
+    desktop, including the window decorations. For this reason, a
+    Wayland application can request _Server Side Decorations_
+    (SSD). GNOME will reply with a "_I hear you, but sorry, I wont do
+    that_".
 
 
 ## Fonts
@@ -90,79 +93,66 @@ is **not** possible to define new key bindings.
 
 ### Keyboard
 
-* <kbd>shift</kbd>+<kbd>page up</kbd>/<kbd>page down</kbd>
+#### Normal mode
 
-  Scroll up/down in history
+<kbd>shift</kbd>+<kbd>page up</kbd>/<kbd>page down</kbd>
+: Scroll up/down in history
 
-* <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>c</kbd>
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>c</kbd>
+: Copy selected text to the _clipboard_
 
-  Copy selected text to the _clipboard_
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>v</kbd>
+: Paste from _clipboard_
 
-* <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>v</kbd>
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>r</kbd>
+: Start a scrollback search
 
-  Paste from _clipboard_
 
-* <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>r</kbd>
+#### Scrollback search
 
-  Start a scrollback search
+<kbd>ctrl</kbd>+<kbd>r</kbd>
+: Search _backward_ for next match
 
-While doing a scrollback search, the following shortcuts are
-available:
+<kbd>ctrl</kbd>+<kbd>s</kbd>
+: Search _forward_ for next match
 
-* <kbd>ctrl</kbd>+<kbd>r</kbd>
-
-  Search _backward_ for next match
-
-* <kbd>ctrl</kbd>+<kbd>s</kbd>
-
-  Search _forward_ for next match
-
-* <kbd>ctrl</kbd>+<kbd>w</kbd>
-
-  Extend current selection (and thus the search criteria) to the end
+<kbd>ctrl</kbd>+<kbd>w</kbd>
+: Extend current selection (and thus the search criteria) to the end
   of the word, or the next word if currently at a word separating
   character.
 
-* <kbd>ctrl</kbd>+<kbd>shift</kbd><kbd>w</kbd>
-
-  Same as <kbd>ctrl</kbd>+<kbd>w</kbd>, except that the only word
+<kbd>ctrl</kbd>+<kbd>shift</kbd><kbd>w</kbd>
+: Same as <kbd>ctrl</kbd>+<kbd>w</kbd>, except that the only word
   separating characters are whitespace characters.
 
-* <kbd>escape</kbd>, <kbd>ctrl</kbd>+<kbd>g</kbd>
+<kbd>escape</kbd>, <kbd>ctrl</kbd>+<kbd>g</kbd>
+: Cancel the search
 
-  Cancel the search
-
-* <kbd>return</kbd>
-
-  Finish the search and copy the current match to the primary
+<kbd>return</kbd>
+: Finish the search and copy the current match to the primary
   selection
 
 ### Mouse
 
-* <kbd>left</kbd> - **single-click**
-
-  Drag to select; when released, the selected text is copied to the
+<kbd>left</kbd> - **single-click**
+: Drag to select; when released, the selected text is copied to the
   _primary_ selection. Note that this feature is normally **disabled**
   whenever the client has enabled _mouse tracking_, but can be forced
   by holding <kbd>shift</kbd>.
 
-* <kbd>left</kbd> - **double-click**
-
-  Selects the _word_ (separated by spaces, period, comma, parenthesis
+<kbd>left</kbd> - **double-click**
+: Selects the _word_ (separated by spaces, period, comma, parenthesis
   etc) under the pointer. Hold <kbd>ctrl</kbd> to select everything
   under the pointer up to, and until, the next space characters.
 
-* <kbd>left</kbd> - **triple-click**
+<kbd>left</kbd> - **triple-click**
+: Selects the entire row
 
-  Selects the entire row
+<kbd>middle</kbd>
+: Paste from _primary_ selection
 
-* <kbd>middle</kbd>
-
-  Paste from _primary_ selection
-
-* <kbd>wheel</kbd>
-
-  Scroll up/down in history
+<kbd>wheel</kbd>
+: Scroll up/down in history
 
 
 ## Server mode
@@ -208,8 +198,11 @@ want to launch a new terminal.
 * pixman
 * wayland (_client_ and _cursor_ libraries)
 * xkbcommon
-* [tllist](https://codeberg.org/dnkl/tllist), _unless_ built as a subproject
-* [fcft](https://codeberg.org/dnkl/fcft), _unless_ built as a subproject
+* [tllist](https://codeberg.org/dnkl/tllist) [^1]
+* [fcft](https://codeberg.org/dnkl/fcft) [^1]
+
+[^1]: can also be built as subprojects, in which case they are
+    statically linked.
 
 
 ### Building
