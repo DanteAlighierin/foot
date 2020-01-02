@@ -716,13 +716,13 @@ fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
      * are deferred (for example, when a screen locker is active), and
      * thus we can get here without having been unmapped.
      */
-    if (wayl->focused == term)
-        wayl->focused = NULL;
-    if (wayl->moused == term)
-        wayl->moused = NULL;
+    if (wayl->kbd_focus == term)
+        wayl->kbd_focus = NULL;
+    if (wayl->mouse_focus == term)
+        wayl->mouse_focus = NULL;
 
-    assert(wayl->focused != term);
-    assert(wayl->moused != term);
+    assert(wayl->kbd_focus != term);
+    assert(wayl->mouse_focus != term);
 
     void (*cb)(void *, int) = term->shutdown_cb;
     void *cb_data = term->shutdown_data;
@@ -1234,7 +1234,7 @@ void
 term_cursor_blink_enable(struct terminal *term)
 {
     term->cursor_blink.state = CURSOR_BLINK_ON;
-    term->cursor_blink.active = term->wl->focused == term
+    term->cursor_blink.active = term->wl->kbd_focus == term
         ? cursor_blink_start_timer(term) : true;
     cursor_refresh(term);
 }
@@ -1253,7 +1253,7 @@ term_cursor_blink_restart(struct terminal *term)
 {
     if (term->cursor_blink.active) {
         term->cursor_blink.state = CURSOR_BLINK_ON;
-        term->cursor_blink.active = term->wl->focused == term
+        term->cursor_blink.active = term->wl->kbd_focus == term
             ? cursor_blink_start_timer(term) : true;
     }
 }
@@ -1508,7 +1508,7 @@ term_mouse_grabbed(const struct terminal *term)
      * Mouse is grabbed by us, regardless of whether mouse tracking has been enabled or not.
      */
     return
-        term->wl->focused == term &&
+        term->wl->kbd_focus == term &&
         term->wl->kbd.shift &&
         !term->wl->kbd.alt && !term->wl->kbd.ctrl && !term->wl->kbd.meta;
 }
@@ -1529,7 +1529,7 @@ term_mouse_down(struct terminal *term, int button, int row, int col)
         return;
 
 
-    bool has_focus = term->wl->focused == term;
+    bool has_focus = term->wl->kbd_focus == term;
     bool shift = has_focus ? term->wl->kbd.shift : false;
     bool alt = has_focus ? term->wl->kbd.alt : false;
     bool ctrl = has_focus ? term->wl->kbd.ctrl : false;
@@ -1573,7 +1573,7 @@ term_mouse_up(struct terminal *term, int button, int row, int col)
     if (encoded == -1)
         return;
 
-    bool has_focus = term->wl->focused == term;
+    bool has_focus = term->wl->kbd_focus == term;
     bool shift = has_focus ? term->wl->kbd.shift : false;
     bool alt = has_focus ? term->wl->kbd.alt : false;
     bool ctrl = has_focus ? term->wl->kbd.ctrl : false;
@@ -1617,7 +1617,7 @@ term_mouse_motion(struct terminal *term, int button, int row, int col)
     } else
         encoded = 3;  /* "released" */
 
-    bool has_focus = term->wl->focused == term;
+    bool has_focus = term->wl->kbd_focus == term;
     bool shift = has_focus ? term->wl->kbd.shift : false;
     bool alt = has_focus ? term->wl->kbd.alt : false;
     bool ctrl = has_focus ? term->wl->kbd.ctrl : false;

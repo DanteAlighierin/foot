@@ -164,8 +164,8 @@ struct wayland {
     tll(struct monitor) monitors;  /* All available outputs */
 
     tll(struct terminal *) terms;
-    struct terminal *focused;
-    struct terminal *moused;
+    struct terminal *kbd_focus;
+    struct terminal *mouse_focus;
 };
 
 struct wayland *wayl_init(const struct config *conf, struct fdm *fdm);

@@ -279,7 +279,7 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
             pixman_image_t *pix, pixman_color_t *fg, const pixman_color_t *bg,
             int x, int y, int cols)
 {
-    bool have_focus = term->wl->focused == term;
+    bool have_focus = term->wl->kbd_focus == term;
 
     pixman_color_t cursor_color;
     pixman_color_t text_color;

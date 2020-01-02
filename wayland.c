@@ -849,12 +849,12 @@ wayl_cursor_set(struct wayland *wayl, const struct terminal *term)
     if (wayl->pointer.theme == NULL)
         return false;
 
-    if (wayl->moused == NULL) {
+    if (wayl->mouse_focus == NULL) {
         wayl->pointer.xcursor = NULL;
         return true;
     }
 
-    if (wayl->moused != term) {
+    if (wayl->mouse_focus != term) {
         /* This terminal doesn't have mouse focus */
         return true;
     }
