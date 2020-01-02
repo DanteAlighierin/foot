@@ -276,6 +276,7 @@ struct terminal {
 
     struct wayland *wl;
     struct wl_window *window;
+    bool visual_focus;
 
     struct {
         int scrollback_lines;
