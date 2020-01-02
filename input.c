@@ -152,14 +152,14 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
     stop_repeater(wayl, -1);
     if (old_focused != NULL) {
+        term_kbd_focus_out(old_focused);
+        term_xcursor_update(old_focused);
+    } else {
         /*
          * Sway bug - under certain conditions we get a
          * keyboard_leave() (and keyboard_key()) without first having
          * received a keyboard_enter()
          */
-        term_kbd_focus_out(old_focused);
-        term_xcursor_update(old_focused);
-    } else {
         LOG_WARN(
             "compositor sent keyboard_leave event without a keyboard_enter "
             "event: surface=%p", surface);
