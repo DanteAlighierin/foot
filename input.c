@@ -90,7 +90,7 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wayl->kbd_focus = wayl_terminal_from_surface(wayl, surface);
     assert(wayl->kbd_focus != NULL);
 
-    term_focus_in(wayl->kbd_focus);
+    term_kbd_focus_in(wayl->kbd_focus);
     term_xcursor_update(wayl->kbd_focus);
 }
 
@@ -157,7 +157,7 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
          * keyboard_leave() (and keyboard_key()) without first having
          * received a keyboard_enter()
          */
-        term_focus_out(old_focused);
+        term_kbd_focus_out(old_focused);
         term_xcursor_update(old_focused);
     } else {
         LOG_WARN(

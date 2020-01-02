@@ -378,8 +378,8 @@ void term_arm_blink_timer(struct terminal *term);
 
 void term_restore_cursor(struct terminal *term);
 
-void term_focus_in(struct terminal *term);
-void term_focus_out(struct terminal *term);
+void term_kbd_focus_in(struct terminal *term);
+void term_kbd_focus_out(struct terminal *term);
 void term_mouse_down(struct terminal *term, int button, int row, int col);
 void term_mouse_up(struct terminal *term, int button, int row, int col);
 void term_mouse_motion(struct terminal *term, int button, int row, int col);

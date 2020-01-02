@@ -1392,7 +1392,7 @@ term_restore_cursor(struct terminal *term)
 }
 
 void
-term_focus_in(struct terminal *term)
+term_kbd_focus_in(struct terminal *term)
 {
     if (term->cursor_blink.active)
         cursor_blink_start_timer(term);
@@ -1404,7 +1404,7 @@ term_focus_in(struct terminal *term)
 }
 
 void
-term_focus_out(struct terminal *term)
+term_kbd_focus_out(struct terminal *term)
 {
     if (term->cursor_blink.active)
         cursor_blink_stop_timer(term);
