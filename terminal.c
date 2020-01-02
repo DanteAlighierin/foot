@@ -1392,27 +1392,36 @@ term_restore_cursor(struct terminal *term)
 }
 
 void
-term_kbd_focus_in(struct terminal *term)
+term_visual_focus_in(struct terminal *term)
 {
+    term->visual_focus = true;
     if (term->cursor_blink.active)
         cursor_blink_start_timer(term);
+    cursor_refresh(term);
+}
 
-    if (term->focus_events)
-        term_to_slave(term, "\033[I", 3);
+void
+term_visual_focus_out(struct terminal *term)
+{
+    term->visual_focus = false;
+    if (term->cursor_blink.active)
+        cursor_blink_stop_timer(term);
 
     cursor_refresh(term);
 }
 
 void
+term_kbd_focus_in(struct terminal *term)
+{
+    if (term->focus_events)
+        term_to_slave(term, "\033[I", 3);
+}
+
+void
 term_kbd_focus_out(struct terminal *term)
 {
-    if (term->cursor_blink.active)
-        cursor_blink_stop_timer(term);
-
     if (term->focus_events)
         term_to_slave(term, "\033[O", 3);
-
-    cursor_refresh(term);
 }
 
 static int
