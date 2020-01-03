@@ -1241,7 +1241,6 @@ term_cursor_blink_enable(struct terminal *term)
     term->cursor_blink.state = CURSOR_BLINK_ON;
     term->cursor_blink.active = term->wl->kbd_focus == term
         ? cursor_blink_start_timer(term) : true;
-    cursor_refresh(term);
 }
 
 void
@@ -1250,7 +1249,6 @@ term_cursor_blink_disable(struct terminal *term)
     term->cursor_blink.active = false;
     term->cursor_blink.state = CURSOR_BLINK_ON;
     cursor_blink_stop_timer(term);
-    //cursor_refresh(term);  /* TODO: causes excessive flicker in Emacs */
 }
 
 void
@@ -1405,6 +1403,7 @@ term_visual_focus_in(struct terminal *term)
     term->visual_focus = true;
     if (term->cursor_blink.active)
         cursor_blink_start_timer(term);
+
     cursor_refresh(term);
 }
 
