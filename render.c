@@ -960,7 +960,7 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
 
 /* Move to terminal.c? */
 void
-render_resize(struct terminal *term, int width, int height)
+render_resize(struct terminal *term, int width, int height, bool refresh)
 {
     int scale = -1;
     tll_foreach(term->window->on_outputs, it) {
@@ -1083,7 +1083,8 @@ render_resize(struct terminal *term, int width, int height)
     term->render.last_cursor.cell = NULL;
 
     term_damage_view(term);
-    render_refresh(term);
+    if (refresh)
+        render_refresh(term);
 }
 
 void
