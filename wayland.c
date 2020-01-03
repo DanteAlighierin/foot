@@ -507,12 +507,12 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
 
     win->is_configured = true;
 
+    render_resize(term, win->configure.width, win->configure.height);
+
     if (win->configure.is_activated)
         term_visual_focus_in(term);
     else
         term_visual_focus_out(term);
-
-    render_resize(term, win->configure.width, win->configure.height);
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {
