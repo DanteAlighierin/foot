@@ -411,19 +411,13 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 {
     LOG_DBG("xdg-toplevel: configure: %dx%d", width, height);
 
-    bool stateless = true;
     bool is_focused = false;
 
     enum xdg_toplevel_state *state;
     wl_array_for_each(state, states) {
-        stateless = false;
-
         if (*state == XDG_TOPLEVEL_STATE_ACTIVATED)
             is_focused = true;
     }
-
-    if (stateless)
-        return;
 
     struct wayland *wayl = data;
     struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
@@ -433,7 +427,8 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     else if (!is_focused && term->visual_focus)
         term_visual_focus_out(term);
 
-    render_resize(term, width, height);
+    if (width > 0 && height > 0)
+        render_resize(term, width, height);
 }
 
 static void
