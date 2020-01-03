@@ -279,8 +279,6 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
             pixman_image_t *pix, pixman_color_t *fg, const pixman_color_t *bg,
             int x, int y, int cols)
 {
-    bool have_focus = term->wl->focused == term;
-
     pixman_color_t cursor_color;
     pixman_color_t text_color;
 
@@ -307,7 +305,7 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
 
     switch (term->cursor_style) {
     case CURSOR_BLOCK:
-        if (!have_focus)
+        if (!term->visual_focus)
             draw_unfocused_block(term, pix, &cursor_color, x, y, cols);
 
         else if (term->cursor_blink.state == CURSOR_BLINK_ON) {
@@ -319,12 +317,12 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
         break;
 
     case CURSOR_BAR:
-        if (term->cursor_blink.state == CURSOR_BLINK_ON || !have_focus)
+        if (term->cursor_blink.state == CURSOR_BLINK_ON || !term->visual_focus)
             draw_bar(term, pix, font, &cursor_color, x, y);
         break;
 
     case CURSOR_UNDERLINE:
-        if (term->cursor_blink.state == CURSOR_BLINK_ON || !have_focus) {
+        if (term->cursor_blink.state == CURSOR_BLINK_ON || !term->visual_focus) {
             draw_underline(
                 term, pix, attrs_to_font(term, &cell->attrs), &cursor_color,
                 x, y, cols);
@@ -962,7 +960,7 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
 
 /* Move to terminal.c? */
 void
-render_resize(struct terminal *term, int width, int height)
+render_resize(struct terminal *term, int width, int height, bool refresh)
 {
     int scale = -1;
     tll_foreach(term->window->on_outputs, it) {
@@ -1085,7 +1083,8 @@ render_resize(struct terminal *term, int width, int height)
     term->render.last_cursor.cell = NULL;
 
     term_damage_view(term);
-    render_refresh(term);
+    if (refresh)
+        render_refresh(term);
 }
 
 void

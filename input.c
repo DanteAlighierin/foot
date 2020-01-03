@@ -87,11 +87,11 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
     struct wayland *wayl = data;
     wayl->input_serial = serial;
-    wayl->focused = wayl_terminal_from_surface(wayl, surface);
-    assert(wayl->focused != NULL);
+    wayl->kbd_focus = wayl_terminal_from_surface(wayl, surface);
+    assert(wayl->kbd_focus != NULL);
 
-    term_focus_in(wayl->focused);
-    term_xcursor_update(wayl->focused);
+    term_kbd_focus_in(wayl->kbd_focus);
+    term_xcursor_update(wayl->kbd_focus);
 }
 
 static bool
@@ -143,23 +143,23 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     struct wayland *wayl = data;
 
     assert(
-        wayl->focused == NULL ||
+        wayl->kbd_focus == NULL ||
         surface == NULL ||  /* Seen on Sway 1.2 */
-        wayl_terminal_from_surface(wayl, surface) == wayl->focused);
+        wayl_terminal_from_surface(wayl, surface) == wayl->kbd_focus);
 
-    struct terminal *old_focused = wayl->focused;
-    wayl->focused = NULL;
+    struct terminal *old_focused = wayl->kbd_focus;
+    wayl->kbd_focus = NULL;
 
     stop_repeater(wayl, -1);
     if (old_focused != NULL) {
+        term_kbd_focus_out(old_focused);
+        term_xcursor_update(old_focused);
+    } else {
         /*
          * Sway bug - under certain conditions we get a
          * keyboard_leave() (and keyboard_key()) without first having
          * received a keyboard_enter()
          */
-        term_focus_out(old_focused);
-        term_xcursor_update(old_focused);
-    } else {
         LOG_WARN(
             "compositor sent keyboard_leave event without a keyboard_enter "
             "event: surface=%p", surface);
@@ -171,7 +171,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
              uint32_t time, uint32_t key, uint32_t state)
 {
     struct wayland *wayl = data;
-    struct terminal *term = wayl->focused;
+    struct terminal *term = wayl->kbd_focus;
 
     /* Workaround buggy Sway 1.2 */
     if (term == NULL) {
@@ -409,8 +409,8 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wayl->kbd.meta = xkb_state_mod_index_is_active(
         wayl->kbd.xkb_state, wayl->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
 
-    if (wayl->focused)
-        term_xcursor_update(wayl->focused);
+    if (wayl->kbd_focus)
+        term_xcursor_update(wayl->kbd_focus);
 }
 
 static void
@@ -450,7 +450,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 
     LOG_DBG("pointer-enter: surface = %p, new-moused = %p", surface, term);
 
-    wayl->moused = term;
+    wayl->mouse_focus = term;
 
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
@@ -466,11 +466,11 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
                  uint32_t serial, struct wl_surface *surface)
 {
     struct wayland *wayl = data;
-    struct terminal *old_moused = wayl->moused;
+    struct terminal *old_moused = wayl->mouse_focus;
 
     LOG_DBG("pointer-leave: surface = %p, old-moused = %p", surface, old_moused);
 
-    wayl->moused = NULL;
+    wayl->mouse_focus = NULL;
     if (old_moused == NULL) {
         LOG_WARN(
             "compositor sent pointer_leave event without a pointer_enter "
@@ -484,7 +484,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
                   uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
     struct wayland *wayl = data;
-    struct terminal *term = wayl->moused;
+    struct terminal *term = wayl->mouse_focus;
 
     /* Workaround buggy Sway 1.2 */
     if (term == NULL) {
@@ -540,7 +540,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     LOG_DBG("BUTTON: button=%x, state=%u", button, state);
 
     struct wayland *wayl = data;
-    struct terminal *term = wayl->moused;
+    struct terminal *term = wayl->mouse_focus;
 
     /* Workaround buggy Sway 1.2 */
     if (term == NULL) {
@@ -621,7 +621,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 static void
 mouse_scroll(struct wayland *wayl, int amount)
 {
-    struct terminal *term = wayl->moused;
+    struct terminal *term = wayl->mouse_focus;
     assert(term != NULL);
 
     int button = amount < 0 ? BTN_BACK : BTN_FORWARD;

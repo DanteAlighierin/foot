@@ -142,7 +142,9 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 
     tll_foreach(mon->wayl->terms, it) {
         struct terminal *term = it->item;
-        render_resize(term, term->width / term->scale, term->height / term->scale);
+        int scale = term->scale;
+
+        render_resize(term, term->width / scale, term->height / scale, true);
         wayl_reload_cursor_theme(mon->wayl, term);
     }
 }
@@ -368,7 +370,8 @@ surface_enter(void *data, struct wl_surface *wl_surface,
             tll_push_back(term->window->on_outputs, &it->item);
 
             /* Resize, since scale-to-use may have changed */
-            render_resize(term, term->width / term->scale, term->height / term->scale);
+            int scale = term->scale;
+            render_resize(term, term->width / scale, term->height / scale, true);
             wayl_reload_cursor_theme(wayl, term);
             return;
         }
@@ -392,7 +395,8 @@ surface_leave(void *data, struct wl_surface *wl_surface,
         tll_remove(term->window->on_outputs, it);
 
         /* Resize, since scale-to-use may have changed */
-        render_resize(term, term->width / term->scale, term->height / term->scale);
+        int scale = term->scale;
+        render_resize(term, term->width / scale, term->height / scale, true);
         wayl_reload_cursor_theme(wayl, term);
         return;
     }
@@ -409,14 +413,68 @@ static void
 xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
                        int32_t width, int32_t height, struct wl_array *states)
 {
-    LOG_DBG("xdg-toplevel: configure: %dx%d", width, height);
+    bool is_focused = false;
+#if defined(_DEBUG)
+    char state_str[2048];
+    int state_chars = 0;
 
-    if (width <= 0 || height <= 0)
-        return;
+    static const char *const strings[] = {
+        [XDG_TOPLEVEL_STATE_MAXIMIZED] = "maximized",
+        [XDG_TOPLEVEL_STATE_FULLSCREEN] = "fullscreen",
+        [XDG_TOPLEVEL_STATE_RESIZING] = "resizing",
+        [XDG_TOPLEVEL_STATE_ACTIVATED] = "activated",
+        [XDG_TOPLEVEL_STATE_TILED_LEFT] = "tiled:left",
+        [XDG_TOPLEVEL_STATE_TILED_RIGHT] = "tiled:right",
+        [XDG_TOPLEVEL_STATE_TILED_TOP] = "tiled:top",
+        [XDG_TOPLEVEL_STATE_TILED_BOTTOM] = "tiled:bottom",
+    };
+#endif
+
+    enum xdg_toplevel_state *state;
+    wl_array_for_each(state, states) {
+        switch (*state) {
+        case XDG_TOPLEVEL_STATE_ACTIVATED:
+            is_focused = true;
+            break;
+
+        case XDG_TOPLEVEL_STATE_MAXIMIZED:
+        case XDG_TOPLEVEL_STATE_FULLSCREEN:
+        case XDG_TOPLEVEL_STATE_RESIZING:
+        case XDG_TOPLEVEL_STATE_TILED_LEFT:
+        case XDG_TOPLEVEL_STATE_TILED_RIGHT:
+        case XDG_TOPLEVEL_STATE_TILED_TOP:
+        case XDG_TOPLEVEL_STATE_TILED_BOTTOM:
+            /* Ignored */
+            break;
+        }
+
+#if defined(_DEBUG)
+        if (*state >= XDG_TOPLEVEL_STATE_MAXIMIZED &&
+            *state <= XDG_TOPLEVEL_STATE_TILED_BOTTOM)
+        {
+            state_chars += snprintf(
+                &state_str[state_chars], sizeof(state_str) - state_chars,
+                "%s, ", strings[*state]);
+        }
+#endif
+    }
+
+    if (state_chars > 2)
+        state_str[state_chars - 2] = '\0';
+
+    LOG_DBG("xdg-toplevel: configure: size=%dx%d, states=%s",
+            width, height, state_str);
 
     struct wayland *wayl = data;
     struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
-    render_resize(term, width, height);
+
+    if (is_focused)
+        term_visual_focus_in(term);
+    else
+        term_visual_focus_out(term);
+
+    if (width > 0 && height > 0)
+        render_resize(term, width, height, false);
 }
 
 static void
@@ -437,8 +495,23 @@ static void
 xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
                       uint32_t serial)
 {
-    //LOG_DBG("xdg-surface: configure");
+    LOG_DBG("xdg-surface: configure");
     xdg_surface_ack_configure(xdg_surface, serial);
+
+    /*
+     * Changes done in e.g. xdg-toplevel-configure will be ignored
+     * since the 'configure' event hasn't been ack:ed yet.
+     *
+     * Unfortunately, *this* function is called *last*, meaning we
+     * have no way of acking the configure before we resize the
+     * terminal in xdg-toplevel-configure.
+     *
+     * So, refresh here, to ensure changes take effect as soon as possible.
+     */
+    struct wayland *wayl = data;
+    struct terminal *term = wayl_terminal_from_xdg_surface(wayl, xdg_surface);
+    if (term->width > 0 && term->height > 0)
+        render_refresh(term);
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {
@@ -787,8 +860,6 @@ wayl_win_init(struct wayland *wayl)
     wl_subsurface_set_desync(win->search_sub_surface);
 
     wl_surface_commit(win->surface);
-    wl_display_roundtrip(wayl->display);
-
     return win;
 
 out:
@@ -849,12 +920,12 @@ wayl_cursor_set(struct wayland *wayl, const struct terminal *term)
     if (wayl->pointer.theme == NULL)
         return false;
 
-    if (wayl->moused == NULL) {
+    if (wayl->mouse_focus == NULL) {
         wayl->pointer.xcursor = NULL;
         return true;
     }
 
-    if (wayl->moused != term) {
+    if (wayl->mouse_focus != term) {
         /* This terminal doesn't have mouse focus */
         return true;
     }
@@ -929,6 +1000,19 @@ wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
 
     assert(false);
     LOG_WARN("surface %p doesn't map to a terminal", surface);
+    return NULL;
+}
+
+struct terminal *
+wayl_terminal_from_xdg_surface(struct wayland *wayl,
+                               struct xdg_surface *surface)
+{
+    tll_foreach(wayl->terms, it) {
+        if (it->item->window->xdg_surface == surface)
+            return it->item;
+    }
+
+    assert(false);
     return NULL;
 }
 
