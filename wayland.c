@@ -850,6 +850,17 @@ wayl_win_init(struct terminal *term)
         goto out;
     }
 
+    if (term->colors.alpha == 0xffff) {
+        struct wl_region *region = wl_compositor_create_region(
+            term->wl->compositor);
+
+        if (region != NULL) {
+            wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
+            wl_surface_set_opaque_region(win->surface, region);
+            wl_region_destroy(region);
+        }
+    }
+
     wl_surface_add_listener(win->surface, &surface_listener, win);
 
     win->xdg_surface = xdg_wm_base_get_xdg_surface(wayl->shell, win->surface);
