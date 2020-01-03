@@ -98,6 +98,12 @@ struct wl_window {
     struct wl_callback *frame_callback;
 
     tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
+
+    struct {
+        bool is_activated;
+        int width;
+        int height;
+    } configure;
 };
 
 struct config;

@@ -413,7 +413,8 @@ static void
 xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
                        int32_t width, int32_t height, struct wl_array *states)
 {
-    bool is_focused = false;
+    bool is_activated = false;
+
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char state_str[2048];
     int state_chars = 0;
@@ -434,7 +435,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     wl_array_for_each(state, states) {
         switch (*state) {
         case XDG_TOPLEVEL_STATE_ACTIVATED:
-            is_focused = true;
+            is_activated = true;
             break;
 
         case XDG_TOPLEVEL_STATE_MAXIMIZED:
@@ -467,15 +468,17 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
             width, height, state_str);
 #endif
 
+    /*
+     * Changes done here are ignored until the configure event has
+     * been ack:ed in xdg_surface_configure().
+     *
+     * So, just store the config data and apply it later, in
+     * xdg_surface_configure() after we've ack:ed the event.
+     */
     struct wl_window *win = data;
-    struct terminal *term = win->term;
-
-    if (is_focused)
-        term_visual_focus_in(term);
-    else
-        term_visual_focus_out(term);
-
-    render_resize(term, width, height, false);
+    win->configure.is_activated = is_activated;
+    win->configure.width = width;
+    win->configure.height = height;
 }
 
 static void
@@ -499,21 +502,15 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     LOG_DBG("xdg-surface: configure");
     xdg_surface_ack_configure(xdg_surface, serial);
 
-    /*
-     * Changes done in e.g. xdg-toplevel-configure will be ignored
-     * since the 'configure' event hasn't been ack:ed yet.
-     *
-     * Unfortunately, *this* function is called *last*, meaning we
-     * have no way of acking the configure before we resize the
-     * terminal in xdg-toplevel-configure.
-     *
-     * So, refresh here, to ensure changes take effect as soon as possible.
-     */
     struct wl_window *win = data;
     struct terminal *term = win->term;
 
-    if (term->width > 0 && term->height > 0)
-        render_refresh(term);
+    if (win->configure.is_activated)
+        term_visual_focus_in(term);
+    else
+        term_visual_focus_out(term);
+
+    render_resize(term, win->configure.width, win->configure.height, true);
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {
