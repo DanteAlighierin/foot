@@ -219,7 +219,7 @@ struct terminal {
         uint32_t fg;
         uint32_t bg;
         uint32_t table[256];
-        double alpha;
+        uint16_t alpha;
 
         uint32_t default_fg;
         uint32_t default_bg;
