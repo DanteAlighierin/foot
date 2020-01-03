@@ -962,6 +962,9 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
 void
 render_resize(struct terminal *term, int width, int height, bool refresh)
 {
+    if (width == 0 || height == 0)
+        return;
+
     int scale = -1;
     tll_foreach(term->window->on_outputs, it) {
         if (it->item->scale > scale)

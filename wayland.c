@@ -475,8 +475,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     else
         term_visual_focus_out(term);
 
-    if (width > 0 && height > 0)
-        render_resize(term, width, height, false);
+    render_resize(term, width, height, false);
 }
 
 static void
