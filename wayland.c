@@ -467,8 +467,8 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
             width, height, state_str);
 #endif
 
-    struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
+    struct wl_window *win = data;
+    struct terminal *term = win->term;
 
     if (is_focused)
         term_visual_focus_in(term);
@@ -481,8 +481,8 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 static void
 xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
 {
-    struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
+    struct wl_window *win = data;
+    struct terminal *term = win->term;
     LOG_DBG("xdg-toplevel: close");
     term_shutdown(term);
 }
@@ -845,7 +845,7 @@ wayl_win_init(struct terminal *term)
     xdg_surface_add_listener(win->xdg_surface, &xdg_surface_listener, win);
 
     win->xdg_toplevel = xdg_surface_get_toplevel(win->xdg_surface);
-    xdg_toplevel_add_listener(win->xdg_toplevel, &xdg_toplevel_listener, wayl);
+    xdg_toplevel_add_listener(win->xdg_toplevel, &xdg_toplevel_listener, win);
 
     xdg_toplevel_set_app_id(win->xdg_toplevel, "foot");
 
@@ -855,7 +855,7 @@ wayl_win_init(struct terminal *term)
     zxdg_toplevel_decoration_v1_set_mode(
         win->xdg_toplevel_decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
     zxdg_toplevel_decoration_v1_add_listener(
-        win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, wayl);
+        win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, win);
 
     /* Scrollback search box */
     win->search_surface = wl_compositor_create_surface(wayl->compositor);
