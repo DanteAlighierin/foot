@@ -453,8 +453,23 @@ static void
 xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
                       uint32_t serial)
 {
-    //LOG_DBG("xdg-surface: configure");
+    LOG_DBG("xdg-surface: configure");
     xdg_surface_ack_configure(xdg_surface, serial);
+
+    /*
+     * Changes done in e.g. xdg-toplevel-configure will be ignored
+     * since the 'configure' event hasn't been ack:ed yet.
+     *
+     * Unfortunately, *this* function is called *last*, meaning we
+     * have no way of acking the configure before we resize the
+     * terminal in xdg-toplevel-configure.
+     *
+     * So, refresh here, to ensure changes take effect as soon as possible.
+     */
+    struct wayland *wayl = data;
+    struct terminal *term = wayl_terminal_from_xdg_surface(wayl, xdg_surface);
+    if (term->width > 0 && term->height > 0)
+        render_refresh(term);
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {
@@ -943,6 +958,19 @@ wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
 
     assert(false);
     LOG_WARN("surface %p doesn't map to a terminal", surface);
+    return NULL;
+}
+
+struct terminal *
+wayl_terminal_from_xdg_surface(struct wayland *wayl,
+                               struct xdg_surface *surface)
+{
+    tll_foreach(wayl->terms, it) {
+        if (it->item->window->xdg_surface == surface)
+            return it->item;
+    }
+
+    assert(false);
     return NULL;
 }
 
