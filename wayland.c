@@ -961,6 +961,7 @@ wayl_cursor_set(struct wayland *wayl, const struct terminal *term)
 
     wl_surface_set_buffer_scale(wayl->pointer.surface, scale);
     wl_surface_commit(wayl->pointer.surface);
+    wl_display_flush(wayl->display);
     return true;
 }
 
