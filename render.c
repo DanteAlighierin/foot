@@ -884,7 +884,7 @@ render_search_box(struct terminal *term)
     const int width = min(term->width, 2 * margin + max(20, term->search.len) * term->cell_width);
     const int height = min(term->height, 2 * margin + 1 * term->cell_height);
 
-    unsigned long cookie = (uintptr_t)term;
+    unsigned long cookie = (uintptr_t)term + 1;
     struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
 
     /* Background - yellow on empty/match, red on mismatch */
