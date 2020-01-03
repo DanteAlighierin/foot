@@ -1006,29 +1006,3 @@ wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
     LOG_WARN("surface %p doesn't map to a terminal", surface);
     return NULL;
 }
-
-struct terminal *
-wayl_terminal_from_xdg_surface(struct wayland *wayl,
-                               struct xdg_surface *surface)
-{
-    tll_foreach(wayl->terms, it) {
-        if (it->item->window->xdg_surface == surface)
-            return it->item;
-    }
-
-    assert(false);
-    return NULL;
-}
-
-struct terminal *
-wayl_terminal_from_xdg_toplevel(struct wayland *wayl,
-                                struct xdg_toplevel *toplevel)
-{
-    tll_foreach(wayl->terms, it) {
-        if (it->item->window->xdg_toplevel == toplevel)
-            return it->item;
-    }
-
-    assert(false);
-    return NULL;
-}

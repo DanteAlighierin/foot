@@ -173,10 +173,6 @@ void wayl_destroy(struct wayland *wayl);
 
 struct terminal *wayl_terminal_from_surface(
     struct wayland *wayl, struct wl_surface *surface);
-struct terminal *wayl_terminal_from_xdg_surface(
-    struct wayland *wayl, struct xdg_surface *surface);
-struct terminal *wayl_terminal_from_xdg_toplevel(
-    struct wayland *wayl, struct xdg_toplevel *toplevel);
 
 /* TODO: pass something other than 'term'? Need scale... */
 bool wayl_cursor_set(struct wayland *wayl, const struct terminal *term);
