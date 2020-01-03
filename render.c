@@ -350,16 +350,30 @@ coord_is_selected(const struct terminal *term, int col, int row)
 
     row += term->grid->view;
 
-    if (start->row == end->row) {
-        return row == start->row && col >= start->col && col <= end->col;
-    } else {
-        if (row == start->row)
-            return col >= start->col;
-        else if (row == end->row)
-            return col <= end->col;
+    switch (term->selection.kind) {
+    case SELECTION_NORMAL:
+        if (start->row == end->row) {
+            return row == start->row && col >= start->col && col <= end->col;
+        } else {
+            if (row == start->row)
+                return col >= start->col;
+            else if (row == end->row)
+                return col <= end->col;
+            else
+                return row >= start->row && row <= end->row;
+        }
+
+    case SELECTION_BLOCK:
+        if (start->col <= end->col)
+            return row >= start->row && row <= end->row &&
+                col >= start->col && col <= end->col;
         else
-            return row >= start->row && row <= end->row;
+            return row >= start->row && row <= end->row &&
+                col <= start->col && col >= end->col;
     }
+
+    assert(false);
+    return false;
 }
 
 static int
