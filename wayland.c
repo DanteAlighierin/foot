@@ -509,8 +509,9 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
      *
      * So, refresh here, to ensure changes take effect as soon as possible.
      */
-    struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_xdg_surface(wayl, xdg_surface);
+    struct wl_window *win = data;
+    struct terminal *term = win->term;
+
     if (term->width > 0 && term->height > 0)
         render_refresh(term);
 }
@@ -841,7 +842,7 @@ wayl_win_init(struct terminal *term)
     wl_surface_add_listener(win->surface, &surface_listener, win);
 
     win->xdg_surface = xdg_wm_base_get_xdg_surface(wayl->shell, win->surface);
-    xdg_surface_add_listener(win->xdg_surface, &xdg_surface_listener, wayl);
+    xdg_surface_add_listener(win->xdg_surface, &xdg_surface_listener, win);
 
     win->xdg_toplevel = xdg_surface_get_toplevel(win->xdg_surface);
     xdg_toplevel_add_listener(win->xdg_toplevel, &xdg_toplevel_listener, wayl);
