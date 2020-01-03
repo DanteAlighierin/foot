@@ -142,7 +142,9 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 
     tll_foreach(mon->wayl->terms, it) {
         struct terminal *term = it->item;
-        render_resize(term, term->width / term->scale, term->height / term->scale);
+        int scale = term->scale;
+
+        render_resize(term, term->width / scale, term->height / scale, true);
         wayl_reload_cursor_theme(mon->wayl, term);
     }
 }
@@ -368,7 +370,8 @@ surface_enter(void *data, struct wl_surface *wl_surface,
             tll_push_back(term->window->on_outputs, &it->item);
 
             /* Resize, since scale-to-use may have changed */
-            render_resize(term, term->width / term->scale, term->height / term->scale);
+            int scale = term->scale;
+            render_resize(term, term->width / scale, term->height / scale, true);
             wayl_reload_cursor_theme(wayl, term);
             return;
         }
@@ -392,7 +395,8 @@ surface_leave(void *data, struct wl_surface *wl_surface,
         tll_remove(term->window->on_outputs, it);
 
         /* Resize, since scale-to-use may have changed */
-        render_resize(term, term->width / term->scale, term->height / term->scale);
+        int scale = term->scale;
+        render_resize(term, term->width / scale, term->height / scale, true);
         wayl_reload_cursor_theme(wayl, term);
         return;
     }
@@ -428,7 +432,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
         term_visual_focus_out(term);
 
     if (width > 0 && height > 0)
-        render_resize(term, width, height);
+        render_resize(term, width, height, false);
 }
 
 static void
