@@ -414,7 +414,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
                        int32_t width, int32_t height, struct wl_array *states)
 {
     bool is_focused = false;
-#if defined(_DEBUG)
+#if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char state_str[2048];
     int state_chars = 0;
 
@@ -448,7 +448,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
             break;
         }
 
-#if defined(_DEBUG)
+#if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
         if (*state >= XDG_TOPLEVEL_STATE_MAXIMIZED &&
             *state <= XDG_TOPLEVEL_STATE_TILED_BOTTOM)
         {
@@ -459,11 +459,13 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 #endif
     }
 
+#if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     if (state_chars > 2)
         state_str[state_chars - 2] = '\0';
 
     LOG_DBG("xdg-toplevel: configure: size=%dx%d, states=%s",
             width, height, state_str);
+#endif
 
     struct wayland *wayl = data;
     struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
