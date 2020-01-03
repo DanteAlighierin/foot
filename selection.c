@@ -126,14 +126,19 @@ extract_selection(const struct terminal *term)
 }
 
 void
-selection_start(struct terminal *term, int col, int row)
+selection_start(struct terminal *term, int col, int row,
+                enum selection_kind kind)
 {
     if (!selection_enabled(term))
         return;
 
     selection_cancel(term);
 
-    LOG_DBG("selection started at %d,%d", row, col);
+    LOG_DBG("%s selection started at %d,%d",
+            kind == SELECTION_NORMAL ? "normal" :
+            kind == SELECTION_BLOCK ? "block" : "<unknown>",
+            row, col);
+    term->selection.kind = kind;
     term->selection.start = (struct coord){col, term->grid->view + row};
     term->selection.end = (struct coord){-1, -1};
 }
@@ -287,7 +292,7 @@ selection_mark_word(struct terminal *term, int col, int row, bool spaces_only,
         }
     }
 
-    selection_start(term, start.col, start.row);
+    selection_start(term, start.col, start.row, SELECTION_NORMAL);
     selection_update(term, end.col, end.row);
     selection_finalize(term, serial);
 }
@@ -295,7 +300,7 @@ selection_mark_word(struct terminal *term, int col, int row, bool spaces_only,
 void
 selection_mark_row(struct terminal *term, int row, uint32_t serial)
 {
-    selection_start(term, 0, row);
+    selection_start(term, 0, row, SELECTION_NORMAL);
     selection_update(term, term->cols - 1, row);
     selection_finalize(term, serial);
 }

@@ -157,6 +157,8 @@ enum mouse_reporting {
 
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
 
+enum selection_kind { SELECTION_NORMAL, SELECTION_BLOCK };
+
 struct ptmx_buffer {
     void *data;
     size_t len;
@@ -248,6 +250,7 @@ struct terminal {
     const char *xcursor;
 
     struct {
+        enum selection_kind kind;
         struct coord start;
         struct coord end;
     } selection;
