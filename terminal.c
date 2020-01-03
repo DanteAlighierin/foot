@@ -657,6 +657,12 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     if ((term->window = wayl_win_init(wayl)) == NULL)
         goto err;
 
+    /* Let the Wayland backend know we exist */
+    tll_push_back(wayl->terms, term);
+
+    /* Roundtrip to ensure the wayland window have been configured */
+    wl_display_roundtrip(term->wl->display);
+
     term_set_window_title(term, "foot");
 
     /* Try to use user-configured window dimentions */
@@ -675,7 +681,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     height = max(height, term->cell_height);
     render_resize(term, width, height);
 
-    tll_push_back(wayl->terms, term);
     return term;
 
 err:

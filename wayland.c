@@ -804,8 +804,6 @@ wayl_win_init(struct wayland *wayl)
     wl_subsurface_set_desync(win->search_sub_surface);
 
     wl_surface_commit(win->surface);
-    wl_display_roundtrip(wayl->display);
-
     return win;
 
 out:
