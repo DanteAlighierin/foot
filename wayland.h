@@ -99,6 +99,7 @@ struct wl_window {
 
     tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
 
+    bool is_configured;
     struct {
         bool is_activated;
         int width;

@@ -505,6 +505,8 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     struct wl_window *win = data;
     struct terminal *term = win->term;
 
+    win->is_configured = true;
+
     if (win->configure.is_activated)
         term_visual_focus_in(term);
     else

@@ -1110,6 +1110,8 @@ render_set_title(struct terminal *term, const char *_title)
 void
 render_refresh(struct terminal *term)
 {
+    assert(term->window->is_configured);
+
     if (term->window->frame_callback == NULL)
         grid_render(term);
     else
