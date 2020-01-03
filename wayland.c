@@ -413,15 +413,57 @@ static void
 xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
                        int32_t width, int32_t height, struct wl_array *states)
 {
-    LOG_DBG("xdg-toplevel: configure: %dx%d", width, height);
-
     bool is_focused = false;
+#if defined(_DEBUG)
+    char state_str[2048];
+    int state_chars = 0;
+
+    static const char *const strings[] = {
+        [XDG_TOPLEVEL_STATE_MAXIMIZED] = "maximized",
+        [XDG_TOPLEVEL_STATE_FULLSCREEN] = "fullscreen",
+        [XDG_TOPLEVEL_STATE_RESIZING] = "resizing",
+        [XDG_TOPLEVEL_STATE_ACTIVATED] = "activated",
+        [XDG_TOPLEVEL_STATE_TILED_LEFT] = "tiled:left",
+        [XDG_TOPLEVEL_STATE_TILED_RIGHT] = "tiled:right",
+        [XDG_TOPLEVEL_STATE_TILED_TOP] = "tiled:top",
+        [XDG_TOPLEVEL_STATE_TILED_BOTTOM] = "tiled:bottom",
+    };
+#endif
 
     enum xdg_toplevel_state *state;
     wl_array_for_each(state, states) {
-        if (*state == XDG_TOPLEVEL_STATE_ACTIVATED)
+        switch (*state) {
+        case XDG_TOPLEVEL_STATE_ACTIVATED:
             is_focused = true;
+            break;
+
+        case XDG_TOPLEVEL_STATE_MAXIMIZED:
+        case XDG_TOPLEVEL_STATE_FULLSCREEN:
+        case XDG_TOPLEVEL_STATE_RESIZING:
+        case XDG_TOPLEVEL_STATE_TILED_LEFT:
+        case XDG_TOPLEVEL_STATE_TILED_RIGHT:
+        case XDG_TOPLEVEL_STATE_TILED_TOP:
+        case XDG_TOPLEVEL_STATE_TILED_BOTTOM:
+            /* Ignored */
+            break;
+        }
+
+#if defined(_DEBUG)
+        if (*state >= XDG_TOPLEVEL_STATE_MAXIMIZED &&
+            *state <= XDG_TOPLEVEL_STATE_TILED_BOTTOM)
+        {
+            state_chars += snprintf(
+                &state_str[state_chars], sizeof(state_str) - state_chars,
+                "%s, ", strings[*state]);
+        }
+#endif
     }
+
+    if (state_chars > 2)
+        state_str[state_chars - 2] = '\0';
+
+    LOG_DBG("xdg-toplevel: configure: size=%dx%d, states=%s",
+            width, height, state_str);
 
     struct wayland *wayl = data;
     struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
