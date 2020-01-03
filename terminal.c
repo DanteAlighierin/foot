@@ -679,7 +679,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     /* Don't go below a single cell */
     width = max(width, term->cell_width);
     height = max(height, term->cell_height);
-    render_resize(term, width, height);
+    render_resize(term, width, height, true);
 
     return term;
 
