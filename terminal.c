@@ -665,21 +665,24 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
 
     term_set_window_title(term, "foot");
 
-    /* Try to use user-configured window dimentions */
-    unsigned width = conf->width;
-    unsigned height = conf->height;
+    if (term->width == 0 && term->height == 0) {
 
-    if (width == -1) {
-        /* No user-configuration - use 80x24 cells */
-        assert(height == -1);
-        width = 80 * term->cell_width;
-        height = 24 * term->cell_height;
+        /* Try to use user-configured window dimentions */
+        unsigned width = conf->width;
+        unsigned height = conf->height;
+
+        if (width == -1) {
+            /* No user-configuration - use 80x24 cells */
+            assert(height == -1);
+            width = 80 * term->cell_width;
+            height = 24 * term->cell_height;
+        }
+
+        /* Don't go below a single cell */
+        width = max(width, term->cell_width);
+        height = max(height, term->cell_height);
+        render_resize(term, width, height);
     }
-
-    /* Don't go below a single cell */
-    width = max(width, term->cell_width);
-    height = max(height, term->cell_height);
-    render_resize(term, width, height);
 
     return term;
 
