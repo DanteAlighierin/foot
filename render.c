@@ -960,7 +960,7 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
 
 /* Move to terminal.c? */
 void
-render_resize(struct terminal *term, int width, int height, bool refresh)
+render_resize(struct terminal *term, int width, int height)
 {
     if (width == 0 || height == 0)
         return;
@@ -1086,8 +1086,7 @@ render_resize(struct terminal *term, int width, int height, bool refresh)
     term->render.last_cursor.cell = NULL;
 
     term_damage_view(term);
-    if (refresh)
-        render_refresh(term);
+    render_refresh(term);
 }
 
 void

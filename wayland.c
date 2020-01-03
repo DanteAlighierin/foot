@@ -144,7 +144,7 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
         struct terminal *term = it->item;
         int scale = term->scale;
 
-        render_resize(term, term->width / scale, term->height / scale, true);
+        render_resize(term, term->width / scale, term->height / scale);
         wayl_reload_cursor_theme(mon->wayl, term);
     }
 }
@@ -371,7 +371,7 @@ surface_enter(void *data, struct wl_surface *wl_surface,
 
             /* Resize, since scale-to-use may have changed */
             int scale = term->scale;
-            render_resize(term, term->width / scale, term->height / scale, true);
+            render_resize(term, term->width / scale, term->height / scale);
             wayl_reload_cursor_theme(term->wl, term);
             return;
         }
@@ -396,7 +396,7 @@ surface_leave(void *data, struct wl_surface *wl_surface,
 
         /* Resize, since scale-to-use may have changed */
         int scale = term->scale;
-        render_resize(term, term->width / scale, term->height / scale, true);
+        render_resize(term, term->width / scale, term->height / scale);
         wayl_reload_cursor_theme(term->wl, term);
         return;
     }
@@ -510,7 +510,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     else
         term_visual_focus_out(term);
 
-    render_resize(term, win->configure.width, win->configure.height, true);
+    render_resize(term, win->configure.width, win->configure.height);
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {
