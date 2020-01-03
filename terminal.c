@@ -653,7 +653,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     if ((term->slave = slave_spawn(term->ptmx, argc, term->cwd, argv, term_env, conf->shell)) == -1)
         goto err;
 
-    /* Initiailze the Wayland window backend */
+    /* Initialize the Wayland window backend */
     if ((term->window = wayl_win_init(wayl)) == NULL)
         goto err;
 
