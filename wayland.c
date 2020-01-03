@@ -361,10 +361,10 @@ static void
 surface_enter(void *data, struct wl_surface *wl_surface,
               struct wl_output *wl_output)
 {
-    struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_surface(wayl, wl_surface);
+    struct wl_window *win = data;
+    struct terminal *term = win->term;
 
-    tll_foreach(wayl->monitors, it) {
+    tll_foreach(term->wl->monitors, it) {
         if (it->item.output == wl_output) {
             LOG_DBG("mapped on %s", it->item.name);
             tll_push_back(term->window->on_outputs, &it->item);
@@ -372,7 +372,7 @@ surface_enter(void *data, struct wl_surface *wl_surface,
             /* Resize, since scale-to-use may have changed */
             int scale = term->scale;
             render_resize(term, term->width / scale, term->height / scale, true);
-            wayl_reload_cursor_theme(wayl, term);
+            wayl_reload_cursor_theme(term->wl, term);
             return;
         }
     }
@@ -384,8 +384,8 @@ static void
 surface_leave(void *data, struct wl_surface *wl_surface,
               struct wl_output *wl_output)
 {
-    struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_surface(wayl, wl_surface);
+    struct wl_window *win = data;
+    struct terminal *term = win->term;
 
     tll_foreach(term->window->on_outputs, it) {
         if (it->item->output != wl_output)
@@ -397,7 +397,7 @@ surface_leave(void *data, struct wl_surface *wl_surface,
         /* Resize, since scale-to-use may have changed */
         int scale = term->scale;
         render_resize(term, term->width / scale, term->height / scale, true);
-        wayl_reload_cursor_theme(wayl, term);
+        wayl_reload_cursor_theme(term->wl, term);
         return;
     }
 
@@ -838,7 +838,7 @@ wayl_win_init(struct terminal *term)
         goto out;
     }
 
-    wl_surface_add_listener(win->surface, &surface_listener, wayl);
+    wl_surface_add_listener(win->surface, &surface_listener, win);
 
     win->xdg_surface = xdg_wm_base_get_xdg_surface(wayl->shell, win->surface);
     xdg_surface_add_listener(win->xdg_surface, &xdg_surface_listener, wayl);
