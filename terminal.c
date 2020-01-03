@@ -1399,6 +1399,9 @@ term_restore_cursor(struct terminal *term)
 void
 term_visual_focus_in(struct terminal *term)
 {
+    if (term->visual_focus)
+        return;
+
     term->visual_focus = true;
     if (term->cursor_blink.active)
         cursor_blink_start_timer(term);
@@ -1408,6 +1411,9 @@ term_visual_focus_in(struct terminal *term)
 void
 term_visual_focus_out(struct terminal *term)
 {
+    if (!term->visual_focus)
+        return;
+
     term->visual_focus = false;
     if (term->cursor_blink.active)
         cursor_blink_stop_timer(term);
