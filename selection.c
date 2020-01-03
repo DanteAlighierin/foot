@@ -663,7 +663,6 @@ text_from_clipboard(struct terminal *term, uint32_t serial,
     /* Give write-end of pipe to other client */
     wl_data_offer_receive(
         clipboard->data_offer, "text/plain;charset=utf-8", write_fd);
-    wl_display_roundtrip(term->wl->display);
 
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
@@ -783,7 +782,6 @@ text_from_primary(
     /* Give write-end of pipe to other client */
     zwp_primary_selection_offer_v1_receive(
         primary->data_offer, "text/plain;charset=utf-8", write_fd);
-    wl_display_roundtrip(term->wl->display);
 
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
