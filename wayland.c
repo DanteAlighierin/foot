@@ -422,9 +422,9 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     struct wayland *wayl = data;
     struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
 
-    if (is_focused && !term->visual_focus)
+    if (is_focused)
         term_visual_focus_in(term);
-    else if (!is_focused && term->visual_focus)
+    else
         term_visual_focus_out(term);
 
     if (width > 0 && height > 0)
