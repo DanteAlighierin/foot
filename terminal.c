@@ -659,9 +659,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
 
     /* Let the Wayland backend know we exist */
     tll_push_back(wayl->terms, term);
-
-    /* Roundtrip to ensure the wayland window have been configured */
-    wl_display_roundtrip(term->wl->display);
+    wayl_roundtrip(term->wl);
 
     term_set_window_title(term, "foot");
 

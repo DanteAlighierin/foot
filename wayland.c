@@ -559,10 +559,17 @@ static bool
 fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
 {
     struct wayland *wayl = data;
-    int event_count = wl_display_dispatch(wayl->display);
+    int event_count = 0;
+
+    if (events & EPOLLIN)
+        wl_display_read_events(wayl->display);
+
+    while (wl_display_prepare_read(wayl->display) != 0)
+        wl_display_dispatch_pending(wayl->display);
 
     if (events & EPOLLHUP) {
         LOG_WARN("disconnected from Wayland");
+        wl_display_cancel_read(wayl->display);
         return false;
     }
 
@@ -708,6 +715,11 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     wayl->kbd.repeat.fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK);
     if (wayl->kbd.repeat.fd == -1) {
         LOG_ERRNO("failed to create keyboard repeat timer FD");
+        goto out;
+    }
+
+    if (wl_display_prepare_read(wayl->display) != 0) {
+        LOG_ERRNO("failed to prepare for reading wayland events");
         goto out;
     }
 
@@ -889,12 +901,12 @@ wayl_win_destroy(struct wl_window *win)
     /* Scrollback search */
     wl_surface_attach(win->search_surface, NULL, 0, 0);
     wl_surface_commit(win->search_surface);
-    wl_display_roundtrip(win->term->wl->display);
+    wayl_roundtrip(win->term->wl);
 
     /* Main window */
     wl_surface_attach(win->surface, NULL, 0, 0);
     wl_surface_commit(win->surface);
-    wl_display_roundtrip(win->term->wl->display);
+    wayl_roundtrip(win->term->wl);
 
     tll_free(win->on_outputs);
     if (win->search_sub_surface != NULL)
@@ -912,8 +924,7 @@ wayl_win_destroy(struct wl_window *win)
     if (win->surface != NULL)
         wl_surface_destroy(win->surface);
 
-    wl_display_roundtrip(win->term->wl->display);
-
+    wayl_roundtrip(win->term->wl);
     free(win);
 }
 
@@ -1005,4 +1016,15 @@ wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
     assert(false);
     LOG_WARN("surface %p doesn't map to a terminal", surface);
     return NULL;
+}
+
+void
+wayl_roundtrip(struct wayland *wayl)
+{
+    wl_display_cancel_read(wayl->display);
+    wl_display_roundtrip(wayl->display);
+
+    while (wl_display_prepare_read(wayl->display) != 0)
+        wl_display_dispatch_pending(wayl->display);
+    wl_display_flush(wayl->display);
 }

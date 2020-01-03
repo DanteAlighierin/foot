@@ -178,6 +178,8 @@ struct wayland {
 struct wayland *wayl_init(const struct config *conf, struct fdm *fdm);
 void wayl_destroy(struct wayland *wayl);
 
+void wayl_roundtrip(struct wayland *wayl);
+
 struct terminal *wayl_terminal_from_surface(
     struct wayland *wayl, struct wl_surface *surface);
 
