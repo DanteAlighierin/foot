@@ -144,7 +144,7 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
         struct terminal *term = it->item;
         int scale = term->scale;
 
-        render_resize(term, term->width / scale, term->height / scale, true);
+        render_resize(term, term->width / scale, term->height / scale);
         wayl_reload_cursor_theme(mon->wayl, term);
     }
 }
@@ -361,18 +361,18 @@ static void
 surface_enter(void *data, struct wl_surface *wl_surface,
               struct wl_output *wl_output)
 {
-    struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_surface(wayl, wl_surface);
+    struct wl_window *win = data;
+    struct terminal *term = win->term;
 
-    tll_foreach(wayl->monitors, it) {
+    tll_foreach(term->wl->monitors, it) {
         if (it->item.output == wl_output) {
             LOG_DBG("mapped on %s", it->item.name);
             tll_push_back(term->window->on_outputs, &it->item);
 
             /* Resize, since scale-to-use may have changed */
             int scale = term->scale;
-            render_resize(term, term->width / scale, term->height / scale, true);
-            wayl_reload_cursor_theme(wayl, term);
+            render_resize(term, term->width / scale, term->height / scale);
+            wayl_reload_cursor_theme(term->wl, term);
             return;
         }
     }
@@ -384,8 +384,8 @@ static void
 surface_leave(void *data, struct wl_surface *wl_surface,
               struct wl_output *wl_output)
 {
-    struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_surface(wayl, wl_surface);
+    struct wl_window *win = data;
+    struct terminal *term = win->term;
 
     tll_foreach(term->window->on_outputs, it) {
         if (it->item->output != wl_output)
@@ -396,8 +396,8 @@ surface_leave(void *data, struct wl_surface *wl_surface,
 
         /* Resize, since scale-to-use may have changed */
         int scale = term->scale;
-        render_resize(term, term->width / scale, term->height / scale, true);
-        wayl_reload_cursor_theme(wayl, term);
+        render_resize(term, term->width / scale, term->height / scale);
+        wayl_reload_cursor_theme(term->wl, term);
         return;
     }
 
@@ -413,7 +413,8 @@ static void
 xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
                        int32_t width, int32_t height, struct wl_array *states)
 {
-    bool is_focused = false;
+    bool is_activated = false;
+
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char state_str[2048];
     int state_chars = 0;
@@ -434,7 +435,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     wl_array_for_each(state, states) {
         switch (*state) {
         case XDG_TOPLEVEL_STATE_ACTIVATED:
-            is_focused = true;
+            is_activated = true;
             break;
 
         case XDG_TOPLEVEL_STATE_MAXIMIZED:
@@ -467,22 +468,24 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
             width, height, state_str);
 #endif
 
-    struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
-
-    if (is_focused)
-        term_visual_focus_in(term);
-    else
-        term_visual_focus_out(term);
-
-    render_resize(term, width, height, false);
+    /*
+     * Changes done here are ignored until the configure event has
+     * been ack:ed in xdg_surface_configure().
+     *
+     * So, just store the config data and apply it later, in
+     * xdg_surface_configure() after we've ack:ed the event.
+     */
+    struct wl_window *win = data;
+    win->configure.is_activated = is_activated;
+    win->configure.width = width;
+    win->configure.height = height;
 }
 
 static void
 xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
 {
-    struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_xdg_toplevel(wayl, xdg_toplevel);
+    struct wl_window *win = data;
+    struct terminal *term = win->term;
     LOG_DBG("xdg-toplevel: close");
     term_shutdown(term);
 }
@@ -499,20 +502,15 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     LOG_DBG("xdg-surface: configure");
     xdg_surface_ack_configure(xdg_surface, serial);
 
-    /*
-     * Changes done in e.g. xdg-toplevel-configure will be ignored
-     * since the 'configure' event hasn't been ack:ed yet.
-     *
-     * Unfortunately, *this* function is called *last*, meaning we
-     * have no way of acking the configure before we resize the
-     * terminal in xdg-toplevel-configure.
-     *
-     * So, refresh here, to ensure changes take effect as soon as possible.
-     */
-    struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_xdg_surface(wayl, xdg_surface);
-    if (term->width > 0 && term->height > 0)
-        render_refresh(term);
+    struct wl_window *win = data;
+    struct terminal *term = win->term;
+
+    if (win->configure.is_activated)
+        term_visual_focus_in(term);
+    else
+        term_visual_focus_out(term);
+
+    render_resize(term, win->configure.width, win->configure.height);
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {
@@ -825,10 +823,12 @@ wayl_destroy(struct wayland *wayl)
 }
 
 struct wl_window *
-wayl_win_init(struct wayland *wayl)
+wayl_win_init(struct terminal *term)
 {
+    struct wayland *wayl = term->wl;
+
     struct wl_window *win = calloc(1, sizeof(*win));
-    win->wayl = wayl;
+    win->term = term;
 
     win->surface = wl_compositor_create_surface(wayl->compositor);
     if (win->surface == NULL) {
@@ -836,13 +836,13 @@ wayl_win_init(struct wayland *wayl)
         goto out;
     }
 
-    wl_surface_add_listener(win->surface, &surface_listener, wayl);
+    wl_surface_add_listener(win->surface, &surface_listener, win);
 
     win->xdg_surface = xdg_wm_base_get_xdg_surface(wayl->shell, win->surface);
-    xdg_surface_add_listener(win->xdg_surface, &xdg_surface_listener, wayl);
+    xdg_surface_add_listener(win->xdg_surface, &xdg_surface_listener, win);
 
     win->xdg_toplevel = xdg_surface_get_toplevel(win->xdg_surface);
-    xdg_toplevel_add_listener(win->xdg_toplevel, &xdg_toplevel_listener, wayl);
+    xdg_toplevel_add_listener(win->xdg_toplevel, &xdg_toplevel_listener, win);
 
     xdg_toplevel_set_app_id(win->xdg_toplevel, "foot");
 
@@ -852,7 +852,7 @@ wayl_win_init(struct wayland *wayl)
     zxdg_toplevel_decoration_v1_set_mode(
         win->xdg_toplevel_decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
     zxdg_toplevel_decoration_v1_add_listener(
-        win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, wayl);
+        win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, win);
 
     /* Scrollback search box */
     win->search_surface = wl_compositor_create_surface(wayl->compositor);
@@ -887,12 +887,12 @@ wayl_win_destroy(struct wl_window *win)
     /* Scrollback search */
     wl_surface_attach(win->search_surface, NULL, 0, 0);
     wl_surface_commit(win->search_surface);
-    wl_display_roundtrip(win->wayl->display);
+    wl_display_roundtrip(win->term->wl->display);
 
     /* Main window */
     wl_surface_attach(win->surface, NULL, 0, 0);
     wl_surface_commit(win->surface);
-    wl_display_roundtrip(win->wayl->display);
+    wl_display_roundtrip(win->term->wl->display);
 
     tll_free(win->on_outputs);
     if (win->search_sub_surface != NULL)
@@ -910,7 +910,7 @@ wayl_win_destroy(struct wl_window *win)
     if (win->surface != NULL)
         wl_surface_destroy(win->surface);
 
-    wl_display_roundtrip(win->wayl->display);
+    wl_display_roundtrip(win->term->wl->display);
 
     free(win);
 }
@@ -1001,31 +1001,5 @@ wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
 
     assert(false);
     LOG_WARN("surface %p doesn't map to a terminal", surface);
-    return NULL;
-}
-
-struct terminal *
-wayl_terminal_from_xdg_surface(struct wayland *wayl,
-                               struct xdg_surface *surface)
-{
-    tll_foreach(wayl->terms, it) {
-        if (it->item->window->xdg_surface == surface)
-            return it->item;
-    }
-
-    assert(false);
-    return NULL;
-}
-
-struct terminal *
-wayl_terminal_from_xdg_toplevel(struct wayland *wayl,
-                                struct xdg_toplevel *toplevel)
-{
-    tll_foreach(wayl->terms, it) {
-        if (it->item->window->xdg_toplevel == toplevel)
-            return it->item;
-    }
-
-    assert(false);
     return NULL;
 }

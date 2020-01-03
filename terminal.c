@@ -654,7 +654,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto err;
 
     /* Initialize the Wayland window backend */
-    if ((term->window = wayl_win_init(wayl)) == NULL)
+    if ((term->window = wayl_win_init(term)) == NULL)
         goto err;
 
     /* Let the Wayland backend know we exist */
@@ -679,7 +679,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     /* Don't go below a single cell */
     width = max(width, term->cell_width);
     height = max(height, term->cell_height);
-    render_resize(term, width, height, true);
+    render_resize(term, width, height);
 
     return term;
 
