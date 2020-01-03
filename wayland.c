@@ -825,10 +825,12 @@ wayl_destroy(struct wayland *wayl)
 }
 
 struct wl_window *
-wayl_win_init(struct wayland *wayl)
+wayl_win_init(struct terminal *term)
 {
+    struct wayland *wayl = term->wl;
+
     struct wl_window *win = calloc(1, sizeof(*win));
-    win->wayl = wayl;
+    win->term = term;
 
     win->surface = wl_compositor_create_surface(wayl->compositor);
     if (win->surface == NULL) {
@@ -887,12 +889,12 @@ wayl_win_destroy(struct wl_window *win)
     /* Scrollback search */
     wl_surface_attach(win->search_surface, NULL, 0, 0);
     wl_surface_commit(win->search_surface);
-    wl_display_roundtrip(win->wayl->display);
+    wl_display_roundtrip(win->term->wl->display);
 
     /* Main window */
     wl_surface_attach(win->surface, NULL, 0, 0);
     wl_surface_commit(win->surface);
-    wl_display_roundtrip(win->wayl->display);
+    wl_display_roundtrip(win->term->wl->display);
 
     tll_free(win->on_outputs);
     if (win->search_sub_surface != NULL)
@@ -910,7 +912,7 @@ wayl_win_destroy(struct wl_window *win)
     if (win->surface != NULL)
         wl_surface_destroy(win->surface);
 
-    wl_display_roundtrip(win->wayl->display);
+    wl_display_roundtrip(win->term->wl->display);
 
     free(win);
 }

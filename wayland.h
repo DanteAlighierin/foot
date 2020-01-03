@@ -84,7 +84,7 @@ struct wl_primary {
 
 struct wayland;
 struct wl_window {
-    struct wayland *wayl;
+    struct terminal *term;
     struct wl_surface *surface;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
@@ -181,5 +181,5 @@ struct terminal *wayl_terminal_from_xdg_toplevel(
 /* TODO: pass something other than 'term'? Need scale... */
 bool wayl_cursor_set(struct wayland *wayl, const struct terminal *term);
 
-struct wl_window *wayl_win_init(struct wayland *wayl);
+struct wl_window *wayl_win_init(struct terminal *term);
 void wayl_win_destroy(struct wl_window *win);
