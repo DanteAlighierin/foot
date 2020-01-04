@@ -45,6 +45,92 @@ selection_on_row_in_view(const struct terminal *term, int row_no)
     return row_no >= start->row && row_no <= end->row;
 }
 
+static void
+foreach_selected_normal(
+    struct terminal *term,
+    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
+    void *data)
+{
+    const struct coord *start = &term->selection.start;
+    const struct coord *end = &term->selection.end;
+
+    int start_row, end_row;
+    int start_col, end_col;
+
+    if (start->row < end->row) {
+        start_row = start->row;
+        end_row = end->row;
+        start_col = start->col;
+        end_col = end->col;
+    } else if (start->row > end->row) {
+        start_row = end->row;
+        end_row = start->row;
+        start_col = end->col;
+        end_col = start->col;
+    } else {
+        start_row = end_row = start->row;
+        start_col = min(start->col, end->col);
+        end_col = max(start->col, end->col);
+    }
+
+    for (int r = start_row; r <= end_row; r++) {
+        struct row *row = term->grid->rows[r];
+
+        for (int c = start_col;
+             c <= (r == end_row ? end_col : term->cols - 1);
+             c++)
+        {
+            cb(term, row, &row->cells[c], data);
+        }
+
+        start_col = 0;
+    }
+}
+
+static void
+foreach_selected_block(
+    struct terminal *term,
+    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
+    void *data)
+{
+    const struct coord *start = &term->selection.start;
+    const struct coord *end = &term->selection.end;
+
+    struct coord top_left = {
+        .row = min(start->row, end->row),
+        .col = min(start->col, end->col),
+    };
+
+    struct coord bottom_right = {
+        .row = max(start->row, end->row),
+        .col = max(start->col, end->col),
+    };
+
+    for (int r = top_left.row; r <= bottom_right.row; r++) {
+        struct row *row = term->grid->rows[r];
+
+        for (int c = top_left.col; c <= bottom_right.col; c++)
+            cb(term, row, &row->cells[c], data);
+    }
+}
+
+static void
+foreach_selected(
+    struct terminal *term,
+    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
+    void *data)
+{
+    switch (term->selection.kind) {
+    case SELECTION_NORMAL:
+        return foreach_selected_normal(term, cb, data);
+
+    case SELECTION_BLOCK:
+        return foreach_selected_block(term, cb, data);
+    }
+
+    assert(false);
+}
+
 static char *
 extract_selection(const struct terminal *term)
 {
@@ -143,6 +229,30 @@ selection_start(struct terminal *term, int col, int row,
     term->selection.end = (struct coord){-1, -1};
 }
 
+static void
+unmark_selected(struct terminal *term, struct row *row, struct cell *cell,
+                void *data)
+{
+    if (!cell->attrs.selected)
+        return;
+
+    row->dirty = 1;
+    cell->attrs.selected = 0;
+    cell->attrs.clean = 0;
+}
+
+static void
+mark_selected(struct terminal *term, struct row *row, struct cell *cell,
+                void *data)
+{
+    if (cell->attrs.selected)
+        return;
+
+    row->dirty = 1;
+    cell->attrs.selected = 1;
+    cell->attrs.clean = 0;
+}
+
 void
 selection_update(struct terminal *term, int col, int row)
 {
@@ -154,24 +264,16 @@ selection_update(struct terminal *term, int col, int row)
             term->selection.end.row, term->selection.end.col,
             row, col);
 
-    int start_row = term->selection.start.row;
-    int old_end_row = term->selection.end.row;
-    int new_end_row = term->grid->view + row;
+    assert(term->selection.start.row != -1);
+    assert(term->grid->view + row != -1);
 
-    assert(start_row != -1);
-    assert(new_end_row != -1);
-
-    if (old_end_row == -1)
-        old_end_row = new_end_row;
-
-    int from = min(start_row, min(old_end_row, new_end_row));
-    int to = max(start_row, max(old_end_row, new_end_row));
+    if (term->selection.end.row != -1)
+        foreach_selected(term, &unmark_selected, NULL);
 
     term->selection.end = (struct coord){col, term->grid->view + row};
 
     assert(term->selection.start.row != -1 && term->selection.end.row != -1);
-    term_damage_rows_in_view(term, from - term->grid->view, to - term->grid->view);
-
+    foreach_selected(term, &mark_selected, NULL);
     render_refresh(term);
 }
 
@@ -212,20 +314,13 @@ selection_cancel(struct terminal *term)
             term->selection.start.row, term->selection.start.col,
             term->selection.end.row, term->selection.end.col);
 
-    int start_row = term->selection.start.row;
-    int end_row = term->selection.end.row;
+    if (term->selection.start.row != -1 && term->selection.end.row != -1) {
+        foreach_selected(term, &unmark_selected, NULL);
+        render_refresh(term);
+    }
 
     term->selection.start = (struct coord){-1, -1};
     term->selection.end = (struct coord){-1, -1};
-
-    if (start_row != -1 && end_row != -1) {
-        term_damage_rows_in_view(
-            term,
-            min(start_row, end_row) - term->grid->view,
-            max(start_row, end_row) - term->grid->view);
-
-        render_refresh(term);
-    }
 }
 
 void
