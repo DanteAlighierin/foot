@@ -136,7 +136,7 @@ foreach_selected(
 }
 
 static size_t
-selection_cell_count(const struct terminal *term)
+min_bufsize_for_extraction(const struct terminal *term)
 {
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
@@ -242,7 +242,7 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
 static char *
 extract_selection(const struct terminal *term)
 {
-    const size_t max_cells = selection_cell_count(term);
+    const size_t max_cells = min_bufsize_for_extraction(term);
     const size_t buf_size = max_cells + 1;
 
     struct extract ctx = {
