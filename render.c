@@ -22,12 +22,67 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+struct renderer {
+    struct fdm *fdm;
+    struct wayland *wayl;
+};
+
 static struct {
     size_t total;
     size_t zero;  /* commits presented in less than one frame interval */
     size_t one;   /* commits presented in one frame interval */
     size_t two;   /* commits presented in two or more frame intervals */
 } presentation_statistics = {0};
+
+static void
+fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
+{
+    struct renderer *renderer = data;
+    tll_foreach(renderer->wayl->terms, it) {
+        struct terminal *term = it->item;
+
+        if (!term->render.refresh_needed)
+            continue;
+
+        assert(term->window->is_configured);
+        term->render.refresh_needed = false;
+
+        if (term->window->frame_callback == NULL) {
+            LOG_INFO("rendering immediately");
+            grid_render(term);
+        } else {
+            LOG_INFO("setting pending");
+            term->render.pending = true;
+        }
+    }
+}
+
+struct renderer *
+render_init(struct fdm *fdm, struct wayland *wayl)
+{
+    struct renderer *renderer = calloc(1, sizeof(*renderer));
+    *renderer = (struct renderer) {
+        .fdm = fdm,
+        .wayl = wayl,
+    };
+
+    if (!fdm_hook_add(fdm, &fdm_hook_refresh_pending_terminals, renderer)) {
+        LOG_ERR("failed to register FDM hook");
+        free(renderer);
+        return NULL;
+    }
+
+    return renderer;
+}
+
+void
+render_destroy(struct renderer *renderer)
+{
+    if (renderer == NULL)
+        return;
+
+    fdm_hook_del(renderer->fdm, &fdm_hook_refresh_pending_terminals);
+}
 
 static void __attribute__((destructor))
 log_presentation_statistics(void)
@@ -156,7 +211,7 @@ static const struct wp_presentation_feedback_listener presentation_feedback_list
     .discarded = &discarded,
 };
 
-struct font *
+static struct font *
 attrs_to_font(const struct terminal *term, const struct attributes *attrs)
 {
     int idx = attrs->italic << 1 | attrs->bold;
@@ -1079,10 +1134,5 @@ render_set_title(struct terminal *term, const char *_title)
 void
 render_refresh(struct terminal *term)
 {
-    assert(term->window->is_configured);
-
-    if (term->window->frame_callback == NULL)
-        grid_render(term);
-    else
-        term->render.pending = true;
+    term->render.refresh_needed = true;
 }
