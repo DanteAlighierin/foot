@@ -1,5 +1,5 @@
 pkgname=('foot' 'foot-terminfo')
-pkgver=1.0.0
+pkgver=1.0.0.r153.g6b88850
 pkgrel=1
 arch=('x86_64')
 url=https://codeberg.org/dnkl/foot
@@ -17,6 +17,7 @@ build() {
   meson --prefix=/usr --buildtype=release --wrap-mode=nofallback -Db_lto=true -Dc_args="-fno-stack-protector -Wno-missing-profile" ..
 
   meson configure -Db_pgo=generate
+  find -name "*.gcda" -delete
   ninja
 
   tmp_file=$(mktemp)
