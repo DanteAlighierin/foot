@@ -103,6 +103,15 @@ be changed.
 *ctrl*+*s*
 	Search _forward_ for the next match
 
+*ctrl*+*w*
+	Extend current selection (and thus the search criteria) to the end
+	of the word, or the next word if currently at a word separating
+	character.
+
+*ctrl*+*shift*+*w*
+	Same as *ctrl*+*w*, except that the only word separating
+	characters are whitespace characters.
+
 *escape*, *ctrl*+*g*
 	Cancel the search
 
