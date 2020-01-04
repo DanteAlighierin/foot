@@ -188,7 +188,7 @@ selection_cell_count(const struct terminal *term)
 }
 
 struct extract {
-    char *buf;
+    wchar_t *buf;
     size_t size;
     size_t idx;
     size_t empty_count;
@@ -207,7 +207,7 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
          term->selection.kind == SELECTION_BLOCK))
     {
         /* Last cell was the last column in the selection */
-        ctx->buf[ctx->idx++] = '\n';
+        ctx->buf[ctx->idx++] = L'\n';
         ctx->empty_count = 0;
     }
 
@@ -217,17 +217,12 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
     else {
         /* Replace empty cells with spaces when followed by non-empty cell */
         assert(ctx->idx + ctx->empty_count <= ctx->size);
-        memset(&ctx->buf[ctx->idx], ' ', ctx->empty_count);
-        ctx->idx += ctx->empty_count;
+        for (size_t i = 0; i < ctx->empty_count; i++)
+            ctx->buf[ctx->idx++] = L' ';
         ctx->empty_count = 0;
 
         assert(ctx->idx + 1 <= ctx->size);
-
-        mbstate_t ps = {0};
-        size_t len = wcrtomb(&ctx->buf[ctx->idx], cell->wc, &ps);
-        assert(len >= 0); /* All wchars were valid multibyte strings to begin with */
-        assert(ctx->idx + len <= ctx->size);
-        ctx->idx += len;
+        ctx->buf[ctx->idx++] = cell->wc;
     }
 
     ctx->last_row = row;
@@ -238,10 +233,10 @@ static char *
 extract_selection(const struct terminal *term)
 {
     const size_t max_cells = selection_cell_count(term);
-    const size_t buf_size = max_cells * 4 + 1;  /* Multiply by 4 to handle multibyte chars */
+    const size_t buf_size = max_cells + 1;
 
     struct extract ctx = {
-        .buf = malloc(buf_size),
+        .buf = malloc(buf_size * sizeof(wchar_t)),
         .size = buf_size,
     };
 
@@ -249,18 +244,27 @@ extract_selection(const struct terminal *term)
 
     if (ctx.idx == 0) {
         /* Selection of empty cells only */
-        ctx.buf[ctx.idx] = '\0';
-        return ctx.buf;
+        ctx.buf[ctx.idx] = L'\0';
+    } else {
+        assert(ctx.idx > 0);
+        assert(ctx.idx < ctx.size);
+        if (ctx.buf[ctx.idx - 1] == L'\n')
+            ctx.buf[ctx.idx - 1] = L'\0';
+        else
+            ctx.buf[ctx.idx] = L'\0';
     }
 
-    assert(ctx.idx > 0);
-    assert(ctx.idx < ctx.size);
-    if (ctx.buf[ctx.idx - 1] == '\n')
-        ctx.buf[ctx.idx - 1] = '\0';
-    else
-        ctx.buf[ctx.idx] = '\0';
+    size_t len = wcstombs(NULL, ctx.buf, 0);
+    if (len == (size_t)-1) {
+        LOG_ERRNO("failed to convert selection to UTF-8");
+        free(ctx.buf);
+        return NULL;
+    }
 
-    return ctx.buf;
+    char *ret = malloc(len + 1);
+    wcstombs(ret, ctx.buf, len + 1);
+    free(ctx.buf);
+    return ret;
 }
 
 void
