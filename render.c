@@ -47,13 +47,10 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         assert(term->window->is_configured);
         term->render.refresh_needed = false;
 
-        if (term->window->frame_callback == NULL) {
-            LOG_INFO("rendering immediately");
+        if (term->window->frame_callback == NULL)
             grid_render(term);
-        } else {
-            LOG_INFO("setting pending");
+        else
             term->render.pending = true;
-        }
     }
 }
 
