@@ -657,6 +657,7 @@ mouse_scroll(struct wayland *wayl, int amount)
     } else {
         for (int i = 0; i < amount; i++)
             term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col);
+        term_mouse_up(term, button, wayl->mouse.row, wayl->mouse.col);
 
         scrollback(term, amount);
     }
