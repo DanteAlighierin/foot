@@ -211,19 +211,21 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
         ctx->empty_count = 0;
     }
 
-    else if (cell->wc == 0)
+    if (cell->wc == 0) {
         ctx->empty_count++;
-
-    else {
-        /* Replace empty cells with spaces when followed by non-empty cell */
-        assert(ctx->idx + ctx->empty_count <= ctx->size);
-        for (size_t i = 0; i < ctx->empty_count; i++)
-            ctx->buf[ctx->idx++] = L' ';
-        ctx->empty_count = 0;
-
-        assert(ctx->idx + 1 <= ctx->size);
-        ctx->buf[ctx->idx++] = cell->wc;
+        ctx->last_row = row;
+        ctx->last_cell = cell;
+        return;
     }
+
+    /* Replace empty cells with spaces when followed by non-empty cell */
+    assert(ctx->idx + ctx->empty_count <= ctx->size);
+    for (size_t i = 0; i < ctx->empty_count; i++)
+        ctx->buf[ctx->idx++] = L' ';
+    ctx->empty_count = 0;
+
+    assert(ctx->idx + 1 <= ctx->size);
+    ctx->buf[ctx->idx++] = cell->wc;
 
     ctx->last_row = row;
     ctx->last_cell = cell;
