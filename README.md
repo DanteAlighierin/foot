@@ -139,7 +139,7 @@ is **not** possible to define new key bindings.
   _primary_ selection. Note that this feature is normally **disabled**
   whenever the client has enabled _mouse tracking_, but can be forced
   by holding <kbd>shift</kbd>.
-
+  
   Holding <kbd>ctrl</kbd> will create a block selection.
 
 <kbd>left</kbd> - **double-click**
