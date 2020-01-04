@@ -21,11 +21,17 @@ struct handler {
     bool deleted;
 };
 
+struct hook {
+    fdm_hook_t callback;
+    void *callback_data;
+};
+
 struct fdm {
     int epoll_fd;
     bool is_polling;
     tll(struct handler *) fds;
     tll(struct handler *) deferred_delete;
+    tll(struct hook) hooks;
 };
 
 struct fdm *
@@ -43,6 +49,7 @@ fdm_init(void)
         .is_polling = false,
         .fds = tll_init(),
         .deferred_delete = tll_init(),
+        .hooks = tll_init(),
     };
     return fdm;
 }
@@ -56,11 +63,16 @@ fdm_destroy(struct fdm *fdm)
     if (tll_length(fdm->fds) > 0)
         LOG_WARN("FD list not empty");
 
+    if (tll_length(fdm->hooks) > 0)
+        LOG_WARN("hook list not empty");
+
     assert(tll_length(fdm->fds) == 0);
     assert(tll_length(fdm->deferred_delete) == 0);
+    assert(tll_length(fdm->hooks) == 0);
 
     tll_free(fdm->fds);
     tll_free(fdm->deferred_delete);
+    tll_free(fdm->hooks);
     close(fdm->epoll_fd);
     free(fdm);
 }
@@ -196,12 +208,49 @@ fdm_event_del(struct fdm *fdm, int fd, int events)
 }
 
 bool
+fdm_hook_add(struct fdm *fdm, fdm_hook_t hook, void *data)
+{
+#if defined(_DEBUG)
+    tll_foreach(fdm->hooks, it) {
+        if (it->item.callback == hook) {
+            LOG_ERR("hook=%p already registered", hook);
+            return false;
+        }
+    }
+#endif
+
+    tll_push_back(fdm->hooks, ((struct hook){hook, data}));
+    return true;
+}
+
+bool
+fdm_hook_del(struct fdm *fdm, fdm_hook_t hook)
+{
+    tll_foreach(fdm->hooks, it) {
+        if (it->item.callback != hook)
+            continue;
+
+        tll_remove(fdm->hooks, it);
+        return true;
+    }
+
+    LOG_WARN("hook=%p not registered, hook", hook);
+    return false;
+}
+
+bool
 fdm_poll(struct fdm *fdm)
 {
     assert(!fdm->is_polling && "nested calls to fdm_poll() not allowed");
     if (fdm->is_polling) {
         LOG_ERR("nested calls to fdm_poll() not allowed");
         return false;
+    }
+
+    tll_foreach(fdm->hooks, it) {
+        LOG_DBG("executing hook %p(fdm=%p, data=%p)",
+                it->item.callback, fdm, it->item.callback_data);
+        it->item.callback(fdm, it->item.callback_data);
     }
 
     struct epoll_event events[tll_length(fdm->fds)];
