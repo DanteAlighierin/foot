@@ -1,9 +1,12 @@
 #pragma once
 
 #include "terminal.h"
+#include "fdm.h"
+#include "wayland.h"
 
-struct font *attrs_to_font(
-    const struct terminal *term, const struct attributes *attrs);
+struct renderer;
+struct renderer *render_init(struct fdm *fdm, struct wayland *wayl);
+void render_destroy(struct renderer *renderer);
 
 void grid_render(struct terminal *term);
 void render_resize(struct terminal *term, int width, int height);

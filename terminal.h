@@ -283,6 +283,7 @@ struct terminal {
     bool visual_focus;
 
     struct {
+        bool refresh_needed;
         int scrollback_lines;
 
         struct {

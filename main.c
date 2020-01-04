@@ -19,6 +19,7 @@
 
 #include "config.h"
 #include "fdm.h"
+#include "render.h"
 #include "server.h"
 #include "shm.h"
 #include "terminal.h"
@@ -218,6 +219,7 @@ main(int argc, char *const *argv)
 
     struct fdm *fdm = NULL;
     struct wayland *wayl = NULL;
+    struct renderer *renderer = NULL;
     struct terminal *term = NULL;
     struct server *server = NULL;
     struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
@@ -236,6 +238,9 @@ main(int argc, char *const *argv)
         goto out;
 
     if ((wayl = wayl_init(&conf, fdm)) == NULL)
+        goto out;
+
+    if ((renderer = render_init(fdm, wayl)) == NULL)
         goto out;
 
     if (!as_server && (term = term_init(
@@ -276,6 +281,7 @@ out:
     term_destroy(term);
 
     shm_fini();
+    render_destroy(renderer);
     wayl_destroy(wayl);
     fdm_destroy(fdm);
 
