@@ -32,7 +32,7 @@
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
 static bool wayl_reload_cursor_theme(
-    struct wayland *wayl, const struct terminal *term);
+    struct wayland *wayl, struct terminal *term);
 
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
@@ -769,6 +769,9 @@ wayl_destroy(struct wayland *wayl)
         tll_remove(wayl->monitors, it);
     }
 
+    if (wayl->pointer.xcursor_callback != NULL)
+        wl_callback_destroy(wayl->pointer.xcursor_callback);
+
     if (wayl->xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);
     if (wayl->shell != NULL)
@@ -940,56 +943,8 @@ wayl_win_destroy(struct wl_window *win)
     free(win);
 }
 
-bool
-wayl_cursor_set(struct wayland *wayl, const struct terminal *term)
-{
-    if (wayl->pointer.theme == NULL)
-        return false;
-
-    if (wayl->mouse_focus == NULL) {
-        wayl->pointer.xcursor = NULL;
-        return true;
-    }
-
-    if (wayl->mouse_focus != term) {
-        /* This terminal doesn't have mouse focus */
-        return true;
-    }
-
-    if (wayl->pointer.xcursor == term->xcursor)
-        return true;
-
-    wayl->pointer.cursor = wl_cursor_theme_get_cursor(wayl->pointer.theme, term->xcursor);
-    if (wayl->pointer.cursor == NULL) {
-        LOG_ERR("%s: failed to load xcursor pointer '%s'",
-                wayl->pointer.theme_name, term->xcursor);
-        return false;
-    }
-
-    wayl->pointer.xcursor = term->xcursor;
-
-    const int scale = term->scale;
-    struct wl_cursor_image *image = wayl->pointer.cursor->images[0];
-
-    wl_surface_attach(
-        wayl->pointer.surface, wl_cursor_image_get_buffer(image), 0, 0);
-
-    wl_pointer_set_cursor(
-        wayl->pointer.pointer, wayl->pointer.serial,
-        wayl->pointer.surface,
-        image->hotspot_x / scale, image->hotspot_y / scale);
-
-    wl_surface_damage_buffer(
-        wayl->pointer.surface, 0, 0, INT32_MAX, INT32_MAX);
-
-    wl_surface_set_buffer_scale(wayl->pointer.surface, scale);
-    wl_surface_commit(wayl->pointer.surface);
-    wayl_flush(wayl);
-    return true;
-}
-
 static bool
-wayl_reload_cursor_theme(struct wayland *wayl, const struct terminal *term)
+wayl_reload_cursor_theme(struct wayland *wayl, struct terminal *term)
 {
     if (wayl->pointer.size == 0)
         return true;
@@ -1011,7 +966,7 @@ wayl_reload_cursor_theme(struct wayland *wayl, const struct terminal *term)
         return false;
     }
 
-    return wayl_cursor_set(wayl, term);
+    return render_xcursor_set(term);
 }
 
 struct terminal *

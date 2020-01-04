@@ -1674,7 +1674,7 @@ term_xcursor_update(struct terminal *term)
         selection_enabled(term) ? XCURSOR_TEXT :
         XCURSOR_HAND2;
 
-    wayl_cursor_set(term->wl, term);
+    render_xcursor_set(term);
 }
 
 void

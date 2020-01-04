@@ -152,6 +152,9 @@ struct wayland {
         int size;
         char *theme_name;
         const char *xcursor;
+
+        const struct terminal *pending_terminal;
+        struct wl_callback *xcursor_callback;
     } pointer;
 
     struct {
@@ -183,9 +186,6 @@ void wayl_roundtrip(struct wayland *wayl);
 
 struct terminal *wayl_terminal_from_surface(
     struct wayland *wayl, struct wl_surface *surface);
-
-/* TODO: pass something other than 'term'? Need scale... */
-bool wayl_cursor_set(struct wayland *wayl, const struct terminal *term);
 
 struct wl_window *wayl_win_init(struct terminal *term);
 void wayl_win_destroy(struct wl_window *win);

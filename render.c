@@ -34,25 +34,7 @@ static struct {
     size_t two;   /* commits presented in two or more frame intervals */
 } presentation_statistics = {0};
 
-static void
-fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
-{
-    struct renderer *renderer = data;
-    tll_foreach(renderer->wayl->terms, it) {
-        struct terminal *term = it->item;
-
-        if (!term->render.refresh_needed)
-            continue;
-
-        assert(term->window->is_configured);
-        term->render.refresh_needed = false;
-
-        if (term->window->frame_callback == NULL)
-            grid_render(term);
-        else
-            term->render.pending = true;
-    }
-}
+static void fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data);
 
 struct renderer *
 render_init(struct fdm *fdm, struct wayland *wayl)
@@ -601,7 +583,7 @@ static const struct wl_callback_listener frame_listener = {
     .done = &frame_callback,
 };
 
-void
+static void
 grid_render(struct terminal *term)
 {
     if (term->is_shutting_down)
@@ -1110,6 +1092,102 @@ render_resize(struct terminal *term, int width, int height)
     render_refresh(term);
 }
 
+static void xcursor_callback(
+    void *data, struct wl_callback *wl_callback, uint32_t callback_data);
+
+static const struct wl_callback_listener xcursor_listener = {
+    .done = &xcursor_callback,
+};
+
+static void
+render_xcursor_update(struct wayland *wayl, const struct terminal *term)
+{
+    wayl->pointer.pending_terminal = NULL;
+
+    /* If called from a frame callback, we may no longer have mouse focus */
+    if (wayl->mouse_focus != term)
+        return;
+
+    wayl->pointer.cursor = wl_cursor_theme_get_cursor(wayl->pointer.theme, term->xcursor);
+    if (wayl->pointer.cursor == NULL) {
+        LOG_ERR("%s: failed to load xcursor pointer '%s'",
+                wayl->pointer.theme_name, term->xcursor);
+        return;
+    }
+
+    wayl->pointer.xcursor = term->xcursor;
+
+    const int scale = term->scale;
+    struct wl_cursor_image *image = wayl->pointer.cursor->images[0];
+
+    wl_surface_attach(
+        wayl->pointer.surface, wl_cursor_image_get_buffer(image), 0, 0);
+
+    wl_pointer_set_cursor(
+        wayl->pointer.pointer, wayl->pointer.serial,
+        wayl->pointer.surface,
+        image->hotspot_x / scale, image->hotspot_y / scale);
+
+    wl_surface_damage_buffer(
+        wayl->pointer.surface, 0, 0, INT32_MAX, INT32_MAX);
+
+    wl_surface_set_buffer_scale(wayl->pointer.surface, scale);
+
+    assert(wayl->pointer.xcursor_callback == NULL);
+    wayl->pointer.xcursor_callback = wl_surface_frame(wayl->pointer.surface);
+    wl_callback_add_listener(wayl->pointer.xcursor_callback, &xcursor_listener, wayl);
+
+    wl_surface_commit(wayl->pointer.surface);
+    wayl_flush(wayl);
+}
+
+static void
+render_xcursor_refresh(struct wayland *wayl)
+{
+    if (wayl->pointer.pending_terminal == NULL)
+        return;
+
+    if (wayl->pointer.xcursor_callback == NULL)
+        render_xcursor_update(wayl, wayl->pointer.pending_terminal);
+    else {
+        /* Frame callback will call render_xcursor_update() */
+    }
+}
+
+static void
+xcursor_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
+{
+    struct wayland *wayl = data;
+
+    assert(wayl->pointer.xcursor_callback == wl_callback);
+    wl_callback_destroy(wl_callback);
+    wayl->pointer.xcursor_callback = NULL;
+
+    render_xcursor_refresh(wayl);
+}
+
+static void
+fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
+{
+    struct renderer *renderer = data;
+    tll_foreach(renderer->wayl->terms, it) {
+        struct terminal *term = it->item;
+
+        if (!term->render.refresh_needed)
+            continue;
+
+        assert(term->window->is_configured);
+        term->render.refresh_needed = false;
+
+        if (term->window->frame_callback == NULL)
+            grid_render(term);
+        else
+            term->render.pending = true;
+    }
+
+    render_xcursor_refresh(renderer->wayl);
+}
+
 void
 render_set_title(struct terminal *term, const char *_title)
 {
@@ -1132,4 +1210,31 @@ void
 render_refresh(struct terminal *term)
 {
     term->render.refresh_needed = true;
+}
+
+bool
+render_xcursor_set(struct terminal *term)
+{
+    struct wayland *wayl = term->wl;
+
+    if (wayl->pointer.theme == NULL)
+        return false;
+
+    if (wayl->mouse_focus == NULL) {
+        wayl->pointer.xcursor = NULL;
+        wayl->pointer.pending_terminal = NULL;
+        return true;
+    }
+
+    if (wayl->mouse_focus != term) {
+        /* This terminal doesn't have mouse focus */
+        return true;
+    }
+
+    if (wayl->pointer.xcursor == term->xcursor)
+        return true;
+
+    /* FDM hook takes care of actual rendering */
+    wayl->pointer.pending_terminal = term;
+    return true;
 }
