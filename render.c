@@ -211,7 +211,7 @@ static const struct wp_presentation_feedback_listener presentation_feedback_list
     .discarded = &discarded,
 };
 
-struct font *
+static struct font *
 attrs_to_font(const struct terminal *term, const struct attributes *attrs)
 {
     int idx = attrs->italic << 1 | attrs->bold;
