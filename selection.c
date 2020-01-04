@@ -135,84 +135,132 @@ foreach_selected(
     assert(false);
 }
 
-static char *
-extract_selection(const struct terminal *term)
+static size_t
+selection_cell_count(const struct terminal *term)
 {
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
 
-    assert(start->row <= end->row);
+    switch (term->selection.kind) {
+    case SELECTION_NONE:
+        return 0;
 
-    size_t max_cells = 0;
-    if (start->row == end->row) {
-        assert(start->col <= end->col);
-        max_cells = end->col - start->col + 1;
-    } else {
-        max_cells = term->cols - start->col;
-        max_cells += term->cols * (end->row - start->row - 1);
-        max_cells += end->col + 1;
-    }
+    case SELECTION_NORMAL:
+        if (term->selection.end.row == -1)
+            return 0;
 
-    const size_t buf_size = max_cells * 4 + 1;
-    char *buf = malloc(buf_size);
-    int idx = 0;
+        assert(term->selection.start.row != -1);
 
-    int start_col = start->col;
-    for (int r = start->row; r <= end->row; r++) {
-        const struct row *row = grid_row_in_view(term->grid, r - term->grid->view);
-        if (row == NULL)
-            continue;
-
-        /*
-         * Trailing empty cells are never included in the selection.
-         *
-         * Empty cells between non-empty cells however are replaced
-         * with spaces.
-         */
-
-        for (int col = start_col, empty_count = 0;
-             col <= (r == end->row ? end->col : term->cols - 1);
-             col++)
-        {
-            const struct cell *cell = &row->cells[col];
-
-            if (cell->wc == 0) {
-                empty_count++;
-                if (col == term->cols - 1)
-                    buf[idx++] = '\n';
-                continue;
-            }
-
-            assert(idx + empty_count <= buf_size);
-            memset(&buf[idx], ' ', empty_count);
-            idx += empty_count;
-            empty_count = 0;
-
-            assert(idx + 1 <= buf_size);
-
-            mbstate_t ps = {0};
-            size_t len = wcrtomb(&buf[idx], cell->wc, &ps);
-            assert(len >= 0); /* All wchars were valid multibyte strings to begin with */
-            idx += len;
+        if (start->row > end->row) {
+            const struct coord *tmp = start;
+            start = end;
+            end = tmp;
         }
 
-        start_col = 0;
+        if (start->row == end->row)
+            return end->col - start->col + 1;
+        else {
+            size_t cells = term->cols - start->col;
+            cells += term->cols * (end->row - start->row - 1);
+            cells += end->col + 1;
+            return cells;
+        }
+
+    case SELECTION_BLOCK: {
+        struct coord top_left = {
+            .row = min(start->row, end->row),
+            .col = min(start->col, end->col),
+        };
+
+        struct coord bottom_right = {
+            .row = max(start->row, end->row),
+            .col = max(start->col, end->col),
+        };
+
+        int cols = bottom_right.col - top_left.col + 1;
+        int rows = bottom_right.row - top_left.row + 1;
+        return rows * cols;
+    }
     }
 
-    if (idx == 0) {
+    assert(false);
+    return 0;
+}
+
+struct extract {
+    char *buf;
+    size_t size;
+    size_t idx;
+    size_t empty_count;
+    struct row *last_row;
+    struct cell *last_cell;
+};
+
+static void
+extract_one(struct terminal *term, struct row *row, struct cell *cell,
+            void *data)
+{
+    struct extract *ctx = data;
+
+    if (ctx->last_row != NULL && row != ctx->last_row &&
+        ((term->selection.kind == SELECTION_NORMAL && ctx->last_cell->wc == 0) ||
+         term->selection.kind == SELECTION_BLOCK))
+    {
+        /* Last cell was the last column in the selection */
+        ctx->buf[ctx->idx++] = '\n';
+        ctx->empty_count = 0;
+    }
+
+    else if (cell->wc == 0)
+        ctx->empty_count++;
+
+    else {
+        /* Replace empty cells with spaces when followed by non-empty cell */
+        assert(ctx->idx + ctx->empty_count <= ctx->size);
+        memset(&ctx->buf[ctx->idx], ' ', ctx->empty_count);
+        ctx->idx += ctx->empty_count;
+        ctx->empty_count = 0;
+
+        assert(ctx->idx + 1 <= ctx->size);
+
+        mbstate_t ps = {0};
+        size_t len = wcrtomb(&ctx->buf[ctx->idx], cell->wc, &ps);
+        assert(len >= 0); /* All wchars were valid multibyte strings to begin with */
+        assert(ctx->idx + len <= ctx->size);
+        ctx->idx += len;
+    }
+
+    ctx->last_row = row;
+    ctx->last_cell = cell;
+}
+
+static char *
+extract_selection(const struct terminal *term)
+{
+    const size_t max_cells = selection_cell_count(term);
+    const size_t buf_size = max_cells * 4 + 1;  /* Multiply by 4 to handle multibyte chars */
+
+    struct extract ctx = {
+        .buf = malloc(buf_size),
+        .size = buf_size,
+    };
+
+    foreach_selected((struct terminal *)term, &extract_one, &ctx);
+
+    if (ctx.idx == 0) {
         /* Selection of empty cells only */
-        buf[idx] = '\0';
-        return buf;
+        ctx.buf[ctx.idx] = '\0';
+        return ctx.buf;
     }
 
-    assert(idx > 0);
-    assert(idx < buf_size);
-    if (buf[idx - 1] == '\n')
-        buf[idx - 1] = '\0';
+    assert(ctx.idx > 0);
+    assert(ctx.idx < ctx.size);
+    if (ctx.buf[ctx.idx - 1] == '\n')
+        ctx.buf[ctx.idx - 1] = '\0';
     else
-        buf[idx] = '\0';
+        ctx.buf[ctx.idx] = '\0';
 
-    return buf;
+    return ctx.buf;
 }
 
 void
