@@ -26,12 +26,16 @@ struct hook {
     void *callback_data;
 };
 
+typedef tll(struct hook) hooks_t;
+
 struct fdm {
     int epoll_fd;
     bool is_polling;
     tll(struct handler *) fds;
     tll(struct handler *) deferred_delete;
-    tll(struct hook) hooks;
+    hooks_t hooks_low;
+    hooks_t hooks_normal;
+    hooks_t hooks_high;
 };
 
 struct fdm *
@@ -49,7 +53,9 @@ fdm_init(void)
         .is_polling = false,
         .fds = tll_init(),
         .deferred_delete = tll_init(),
-        .hooks = tll_init(),
+        .hooks_low = tll_init(),
+        .hooks_normal = tll_init(),
+        .hooks_high = tll_init(),
     };
     return fdm;
 }
@@ -63,16 +69,24 @@ fdm_destroy(struct fdm *fdm)
     if (tll_length(fdm->fds) > 0)
         LOG_WARN("FD list not empty");
 
-    if (tll_length(fdm->hooks) > 0)
+    if (tll_length(fdm->hooks_low) > 0 ||
+        tll_length(fdm->hooks_normal) > 0 ||
+        tll_length(fdm->hooks_high) > 0)
+    {
         LOG_WARN("hook list not empty");
+    }
 
     assert(tll_length(fdm->fds) == 0);
     assert(tll_length(fdm->deferred_delete) == 0);
-    assert(tll_length(fdm->hooks) == 0);
+    assert(tll_length(fdm->hooks_low) == 0);
+    assert(tll_length(fdm->hooks_normal) == 0);
+    assert(tll_length(fdm->hooks_high) == 0);
 
     tll_free(fdm->fds);
     tll_free(fdm->deferred_delete);
-    tll_free(fdm->hooks);
+    tll_free(fdm->hooks_low);
+    tll_free(fdm->hooks_normal);
+    tll_free(fdm->hooks_high);
     close(fdm->epoll_fd);
     free(fdm);
 }
@@ -207,11 +221,27 @@ fdm_event_del(struct fdm *fdm, int fd, int events)
     return false;
 }
 
-bool
-fdm_hook_add(struct fdm *fdm, fdm_hook_t hook, void *data)
+static hooks_t *
+hook_priority_to_list(struct fdm *fdm, enum fdm_hook_priority priority)
 {
+    switch (priority) {
+    case FDM_HOOK_PRIORITY_LOW:    return &fdm->hooks_low;
+    case FDM_HOOK_PRIORITY_NORMAL: return &fdm->hooks_normal;
+    case FDM_HOOK_PRIORITY_HIGH:   return &fdm->hooks_high;
+    }
+
+    assert(false);
+    return NULL;
+}
+
+bool
+fdm_hook_add(struct fdm *fdm, fdm_hook_t hook, void *data,
+             enum fdm_hook_priority priority)
+{
+    hooks_t *hooks = hook_priority_to_list(fdm, priority);
+
 #if defined(_DEBUG)
-    tll_foreach(fdm->hooks, it) {
+    tll_foreach(*hooks, it) {
         if (it->item.callback == hook) {
             LOG_ERR("hook=%p already registered", hook);
             return false;
@@ -219,18 +249,20 @@ fdm_hook_add(struct fdm *fdm, fdm_hook_t hook, void *data)
     }
 #endif
 
-    tll_push_back(fdm->hooks, ((struct hook){hook, data}));
+    tll_push_back(*hooks, ((struct hook){hook, data}));
     return true;
 }
 
 bool
-fdm_hook_del(struct fdm *fdm, fdm_hook_t hook)
+fdm_hook_del(struct fdm *fdm, fdm_hook_t hook, enum fdm_hook_priority priority)
 {
-    tll_foreach(fdm->hooks, it) {
+    hooks_t *hooks = hook_priority_to_list(fdm, priority);
+
+    tll_foreach(*hooks, it) {
         if (it->item.callback != hook)
             continue;
 
-        tll_remove(fdm->hooks, it);
+        tll_remove(*hooks, it);
         return true;
     }
 
@@ -247,8 +279,18 @@ fdm_poll(struct fdm *fdm)
         return false;
     }
 
-    tll_foreach(fdm->hooks, it) {
-        LOG_DBG("executing hook %p(fdm=%p, data=%p)",
+    tll_foreach(fdm->hooks_high, it) {
+        LOG_DBG("executing high priority hook %p(fdm=%p, data=%p)",
+                it->item.callback, fdm, it->item.callback_data);
+        it->item.callback(fdm, it->item.callback_data);
+    }
+    tll_foreach(fdm->hooks_normal, it) {
+        LOG_DBG("executing normal priority hook %p(fdm=%p, data=%p)",
+                it->item.callback, fdm, it->item.callback_data);
+        it->item.callback(fdm, it->item.callback_data);
+    }
+    tll_foreach(fdm->hooks_low, it) {
+        LOG_DBG("executing low priority hook %p(fdm=%p, data=%p)",
                 it->item.callback, fdm, it->item.callback_data);
         it->item.callback(fdm, it->item.callback_data);
     }

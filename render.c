@@ -45,7 +45,9 @@ render_init(struct fdm *fdm, struct wayland *wayl)
         .wayl = wayl,
     };
 
-    if (!fdm_hook_add(fdm, &fdm_hook_refresh_pending_terminals, renderer)) {
+    if (!fdm_hook_add(fdm, &fdm_hook_refresh_pending_terminals, renderer,
+                      FDM_HOOK_PRIORITY_NORMAL))
+    {
         LOG_ERR("failed to register FDM hook");
         free(renderer);
         return NULL;
@@ -60,7 +62,8 @@ render_destroy(struct renderer *renderer)
     if (renderer == NULL)
         return;
 
-    fdm_hook_del(renderer->fdm, &fdm_hook_refresh_pending_terminals);
+    fdm_hook_del(renderer->fdm, &fdm_hook_refresh_pending_terminals,
+                 FDM_HOOK_PRIORITY_NORMAL);
 }
 
 static void __attribute__((destructor))
