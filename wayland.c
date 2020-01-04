@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <poll.h>
 
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
@@ -573,7 +574,7 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
-    wl_display_flush(wayl->display);
+    wayl_flush(wayl);
     return event_count != -1;
 }
 
@@ -983,7 +984,7 @@ wayl_cursor_set(struct wayland *wayl, const struct terminal *term)
 
     wl_surface_set_buffer_scale(wayl->pointer.surface, scale);
     wl_surface_commit(wayl->pointer.surface);
-    wl_display_flush(wayl->display);
+    wayl_flush(wayl);
     return true;
 }
 
@@ -1030,6 +1031,46 @@ wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
 }
 
 void
+wayl_flush(struct wayland *wayl)
+{
+    while (true) {
+        int r = wl_display_flush(wayl->display);
+        if (r >= 0)
+            return;
+
+        if (errno == EINTR)
+            continue;
+
+        if (errno != EAGAIN) {
+            LOG_ERRNO("failed to flush wayland socket");
+            return;
+        }
+
+        struct pollfd fds[] = {
+            {.fd = wl_display_get_fd(wayl->display), .events = POLLOUT}
+        };
+
+        while (true) {
+            r = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
+
+            if (r < 0) {
+                if (errno == EINTR)
+                    continue;
+
+                LOG_ERRNO("failed to poll");
+                return;
+            }
+
+            if (fds[0].revents & POLLHUP)
+                return;
+
+            assert(fds[0].revents & POLLOUT);
+            break;
+        }
+    }
+}
+
+void
 wayl_roundtrip(struct wayland *wayl)
 {
     wl_display_cancel_read(wayl->display);
@@ -1037,5 +1078,5 @@ wayl_roundtrip(struct wayland *wayl)
 
     while (wl_display_prepare_read(wayl->display) != 0)
         wl_display_dispatch_pending(wayl->display);
-    wl_display_flush(wayl->display);
+    wayl_flush(wayl);
 }

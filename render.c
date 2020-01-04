@@ -867,7 +867,7 @@ grid_render(struct terminal *term)
     }
 
     wl_surface_commit(term->window->surface);
-    wl_display_flush(term->wl->display);
+    wayl_flush(term->wl);
 
 #if TIME_FRAME_RENDERING
     struct timeval end_time;
