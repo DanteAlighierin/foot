@@ -556,6 +556,13 @@ static const struct wl_registry_listener registry_listener = {
     .global_remove = &handle_global_remove,
 };
 
+static void
+fdm_hook(struct fdm *fdm, void *data)
+{
+    struct wayland *wayl = data;
+    wayl_flush(wayl);
+}
+
 static bool
 fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
 {
@@ -574,7 +581,6 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
-    wayl_flush(wayl);
     return event_count != -1;
 }
 
@@ -730,6 +736,11 @@ wayl_init(const struct config *conf, struct fdm *fdm)
         goto out;
     }
 
+    if (!fdm_hook_add(fdm, &fdm_hook, wayl, FDM_HOOK_PRIORITY_LOW)) {
+        LOG_ERR("failed to add FDM hook");
+        goto out;
+    }
+
     return wayl;
 
 out:
@@ -754,6 +765,8 @@ wayl_destroy(struct wayland *wayl)
     }
 
     tll_free(wayl->terms);
+
+    fdm_hook_del(wayl->fdm, &fdm_hook, FDM_HOOK_PRIORITY_LOW);
 
     if (wayl->kbd.repeat.fd != -1)
         fdm_del(wayl->fdm, wayl->kbd.repeat.fd);

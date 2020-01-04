@@ -852,7 +852,6 @@ grid_render(struct terminal *term)
     }
 
     wl_surface_commit(term->window->surface);
-    wayl_flush(term->wl);
 
 #if TIME_FRAME_RENDERING
     struct timeval end_time;
@@ -1141,7 +1140,6 @@ render_xcursor_update(struct wayland *wayl, const struct terminal *term)
     wl_callback_add_listener(wayl->pointer.xcursor_callback, &xcursor_listener, wayl);
 
     wl_surface_commit(wayl->pointer.surface);
-    wayl_flush(wayl);
 }
 
 static void
