@@ -1004,22 +1004,30 @@ wayl_flush(struct wayland *wayl)
 {
     while (true) {
         int r = wl_display_flush(wayl->display);
-        if (r >= 0)
+        if (r >= 0) {
+            /* Most likely code path - the flush succeed */
             return;
+        }
 
-        if (errno == EINTR)
+        if (errno == EINTR) {
+            /* Unlikely */
             continue;
+        }
 
         if (errno != EAGAIN) {
             LOG_ERRNO("failed to flush wayland socket");
             return;
         }
 
-        struct pollfd fds[] = {
-            {.fd = wl_display_get_fd(wayl->display), .events = POLLOUT}
-        };
+        /* Socket buffer is full - need to wait for it to become
+           writeable again */
+        assert(errno == EAGAIN);
 
         while (true) {
+            struct pollfd fds[] = {
+                {.fd = wl_display_get_fd(wayl->display), .events = POLLOUT},
+            };
+
             r = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
 
             if (r < 0) {
