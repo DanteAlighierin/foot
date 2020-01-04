@@ -136,8 +136,8 @@ is **not** possible to define new key bindings.
 
 <kbd>left</kbd> - **single-click**
 : Drag to select; when released, the selected text is copied to the
-  _primary_ selection. _Note_: disabled when client has enabled _mouse
-  tracking_.
+  _primary_ selection. This feature is **disabled** when client has
+  enabled _mouse tracking_.
 : Holding <kbd>shift</kbd> enables selection in mouse tracking enabled
   clients.
 : Holding <kbd>ctrl</kbd> will create a block selection.
