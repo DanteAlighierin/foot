@@ -45,97 +45,275 @@ selection_on_row_in_view(const struct terminal *term, int row_no)
     return row_no >= start->row && row_no <= end->row;
 }
 
-static char *
-extract_selection(const struct terminal *term)
+static void
+foreach_selected_normal(
+    struct terminal *term,
+    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
+    void *data)
 {
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
 
-    assert(start->row <= end->row);
+    int start_row, end_row;
+    int start_col, end_col;
 
-    size_t max_cells = 0;
-    if (start->row == end->row) {
-        assert(start->col <= end->col);
-        max_cells = end->col - start->col + 1;
+    if (start->row < end->row) {
+        start_row = start->row;
+        end_row = end->row;
+        start_col = start->col;
+        end_col = end->col;
+    } else if (start->row > end->row) {
+        start_row = end->row;
+        end_row = start->row;
+        start_col = end->col;
+        end_col = start->col;
     } else {
-        max_cells = term->cols - start->col;
-        max_cells += term->cols * (end->row - start->row - 1);
-        max_cells += end->col + 1;
+        start_row = end_row = start->row;
+        start_col = min(start->col, end->col);
+        end_col = max(start->col, end->col);
     }
 
-    const size_t buf_size = max_cells * 4 + 1;
-    char *buf = malloc(buf_size);
-    int idx = 0;
+    for (int r = start_row; r <= end_row; r++) {
+        struct row *row = term->grid->rows[r];
 
-    int start_col = start->col;
-    for (int r = start->row; r <= end->row; r++) {
-        const struct row *row = grid_row_in_view(term->grid, r - term->grid->view);
-        if (row == NULL)
-            continue;
-
-        /*
-         * Trailing empty cells are never included in the selection.
-         *
-         * Empty cells between non-empty cells however are replaced
-         * with spaces.
-         */
-
-        for (int col = start_col, empty_count = 0;
-             col <= (r == end->row ? end->col : term->cols - 1);
-             col++)
+        for (int c = start_col;
+             c <= (r == end_row ? end_col : term->cols - 1);
+             c++)
         {
-            const struct cell *cell = &row->cells[col];
-
-            if (cell->wc == 0) {
-                empty_count++;
-                if (col == term->cols - 1)
-                    buf[idx++] = '\n';
-                continue;
-            }
-
-            assert(idx + empty_count <= buf_size);
-            memset(&buf[idx], ' ', empty_count);
-            idx += empty_count;
-            empty_count = 0;
-
-            assert(idx + 1 <= buf_size);
-
-            mbstate_t ps = {0};
-            size_t len = wcrtomb(&buf[idx], cell->wc, &ps);
-            assert(len >= 0); /* All wchars were valid multibyte strings to begin with */
-            idx += len;
+            cb(term, row, &row->cells[c], data);
         }
 
         start_col = 0;
     }
+}
 
-    if (idx == 0) {
-        /* Selection of empty cells only */
-        buf[idx] = '\0';
-        return buf;
+static void
+foreach_selected_block(
+    struct terminal *term,
+    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
+    void *data)
+{
+    const struct coord *start = &term->selection.start;
+    const struct coord *end = &term->selection.end;
+
+    struct coord top_left = {
+        .row = min(start->row, end->row),
+        .col = min(start->col, end->col),
+    };
+
+    struct coord bottom_right = {
+        .row = max(start->row, end->row),
+        .col = max(start->col, end->col),
+    };
+
+    for (int r = top_left.row; r <= bottom_right.row; r++) {
+        struct row *row = term->grid->rows[r];
+
+        for (int c = top_left.col; c <= bottom_right.col; c++)
+            cb(term, row, &row->cells[c], data);
+    }
+}
+
+static void
+foreach_selected(
+    struct terminal *term,
+    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
+    void *data)
+{
+    switch (term->selection.kind) {
+    case SELECTION_NORMAL:
+        return foreach_selected_normal(term, cb, data);
+
+    case SELECTION_BLOCK:
+        return foreach_selected_block(term, cb, data);
+
+    case SELECTION_NONE:
+        assert(false);
+        return;
     }
 
-    assert(idx > 0);
-    assert(idx < buf_size);
-    if (buf[idx - 1] == '\n')
-        buf[idx - 1] = '\0';
-    else
-        buf[idx] = '\0';
+    assert(false);
+}
 
-    return buf;
+static size_t
+min_bufsize_for_extraction(const struct terminal *term)
+{
+    const struct coord *start = &term->selection.start;
+    const struct coord *end = &term->selection.end;
+
+    switch (term->selection.kind) {
+    case SELECTION_NONE:
+        return 0;
+
+    case SELECTION_NORMAL:
+        if (term->selection.end.row == -1)
+            return 0;
+
+        assert(term->selection.start.row != -1);
+
+        if (start->row > end->row) {
+            const struct coord *tmp = start;
+            start = end;
+            end = tmp;
+        }
+
+        if (start->row == end->row)
+            return end->col - start->col + 1;
+        else {
+            size_t cells = 0;
+
+            /* Add one extra column on each row, for \n */
+
+            cells += term->cols - start->col + 1;
+            cells += (term->cols + 1) * (end->row - start->row - 1);
+            cells += end->col + 1 + 1;
+            return cells;
+        }
+
+    case SELECTION_BLOCK: {
+        struct coord top_left = {
+            .row = min(start->row, end->row),
+            .col = min(start->col, end->col),
+        };
+
+        struct coord bottom_right = {
+            .row = max(start->row, end->row),
+            .col = max(start->col, end->col),
+        };
+
+        /* Add one extra column on each row, for \n */
+        int cols = bottom_right.col - top_left.col + 1 + 1;
+        int rows = bottom_right.row - top_left.row + 1;
+        return rows * cols;
+    }
+    }
+
+    assert(false);
+    return 0;
+}
+
+struct extract {
+    wchar_t *buf;
+    size_t size;
+    size_t idx;
+    size_t empty_count;
+    struct row *last_row;
+    struct cell *last_cell;
+};
+
+static void
+extract_one(struct terminal *term, struct row *row, struct cell *cell,
+            void *data)
+{
+    struct extract *ctx = data;
+
+    if (ctx->last_row != NULL && row != ctx->last_row &&
+        ((term->selection.kind == SELECTION_NORMAL && ctx->last_cell->wc == 0) ||
+         term->selection.kind == SELECTION_BLOCK))
+    {
+        /* Last cell was the last column in the selection */
+        ctx->buf[ctx->idx++] = L'\n';
+        ctx->empty_count = 0;
+    }
+
+    if (cell->wc == 0) {
+        ctx->empty_count++;
+        ctx->last_row = row;
+        ctx->last_cell = cell;
+        return;
+    }
+
+    /* Replace empty cells with spaces when followed by non-empty cell */
+    assert(ctx->idx + ctx->empty_count <= ctx->size);
+    for (size_t i = 0; i < ctx->empty_count; i++)
+        ctx->buf[ctx->idx++] = L' ';
+    ctx->empty_count = 0;
+
+    assert(ctx->idx + 1 <= ctx->size);
+    ctx->buf[ctx->idx++] = cell->wc;
+
+    ctx->last_row = row;
+    ctx->last_cell = cell;
+}
+
+static char *
+extract_selection(const struct terminal *term)
+{
+    const size_t max_cells = min_bufsize_for_extraction(term);
+    const size_t buf_size = max_cells + 1;
+
+    struct extract ctx = {
+        .buf = malloc(buf_size * sizeof(wchar_t)),
+        .size = buf_size,
+    };
+
+    foreach_selected((struct terminal *)term, &extract_one, &ctx);
+
+    if (ctx.idx == 0) {
+        /* Selection of empty cells only */
+        ctx.buf[ctx.idx] = L'\0';
+    } else {
+        assert(ctx.idx > 0);
+        assert(ctx.idx < ctx.size);
+        if (ctx.buf[ctx.idx - 1] == L'\n')
+            ctx.buf[ctx.idx - 1] = L'\0';
+        else
+            ctx.buf[ctx.idx] = L'\0';
+    }
+
+    size_t len = wcstombs(NULL, ctx.buf, 0);
+    if (len == (size_t)-1) {
+        LOG_ERRNO("failed to convert selection to UTF-8");
+        free(ctx.buf);
+        return NULL;
+    }
+
+    char *ret = malloc(len + 1);
+    wcstombs(ret, ctx.buf, len + 1);
+    free(ctx.buf);
+    return ret;
 }
 
 void
-selection_start(struct terminal *term, int col, int row)
+selection_start(struct terminal *term, int col, int row,
+                enum selection_kind kind)
 {
     if (!selection_enabled(term))
         return;
 
     selection_cancel(term);
 
-    LOG_DBG("selection started at %d,%d", row, col);
+    LOG_DBG("%s selection started at %d,%d",
+            kind == SELECTION_NORMAL ? "normal" :
+            kind == SELECTION_BLOCK ? "block" : "<unknown>",
+            row, col);
+    term->selection.kind = kind;
     term->selection.start = (struct coord){col, term->grid->view + row};
     term->selection.end = (struct coord){-1, -1};
+}
+
+static void
+unmark_selected(struct terminal *term, struct row *row, struct cell *cell,
+                void *data)
+{
+    if (!cell->attrs.selected)
+        return;
+
+    row->dirty = 1;
+    cell->attrs.selected = 0;
+    cell->attrs.clean = 0;
+}
+
+static void
+mark_selected(struct terminal *term, struct row *row, struct cell *cell,
+                void *data)
+{
+    if (cell->attrs.selected)
+        return;
+
+    row->dirty = 1;
+    cell->attrs.selected = 1;
+    cell->attrs.clean = 0;
 }
 
 void
@@ -149,24 +327,16 @@ selection_update(struct terminal *term, int col, int row)
             term->selection.end.row, term->selection.end.col,
             row, col);
 
-    int start_row = term->selection.start.row;
-    int old_end_row = term->selection.end.row;
-    int new_end_row = term->grid->view + row;
+    assert(term->selection.start.row != -1);
+    assert(term->grid->view + row != -1);
 
-    assert(start_row != -1);
-    assert(new_end_row != -1);
-
-    if (old_end_row == -1)
-        old_end_row = new_end_row;
-
-    int from = min(start_row, min(old_end_row, new_end_row));
-    int to = max(start_row, max(old_end_row, new_end_row));
+    if (term->selection.end.row != -1)
+        foreach_selected(term, &unmark_selected, NULL);
 
     term->selection.end = (struct coord){col, term->grid->view + row};
 
     assert(term->selection.start.row != -1 && term->selection.end.row != -1);
-    term_damage_rows_in_view(term, from - term->grid->view, to - term->grid->view);
-
+    foreach_selected(term, &mark_selected, NULL);
     render_refresh(term);
 }
 
@@ -207,20 +377,14 @@ selection_cancel(struct terminal *term)
             term->selection.start.row, term->selection.start.col,
             term->selection.end.row, term->selection.end.col);
 
-    int start_row = term->selection.start.row;
-    int end_row = term->selection.end.row;
-
-    term->selection.start = (struct coord){-1, -1};
-    term->selection.end = (struct coord){-1, -1};
-
-    if (start_row != -1 && end_row != -1) {
-        term_damage_rows_in_view(
-            term,
-            min(start_row, end_row) - term->grid->view,
-            max(start_row, end_row) - term->grid->view);
-
+    if (term->selection.start.row != -1 && term->selection.end.row != -1) {
+        foreach_selected(term, &unmark_selected, NULL);
         render_refresh(term);
     }
+
+    term->selection.kind = SELECTION_NONE;
+    term->selection.start = (struct coord){-1, -1};
+    term->selection.end = (struct coord){-1, -1};
 }
 
 void
@@ -287,7 +451,7 @@ selection_mark_word(struct terminal *term, int col, int row, bool spaces_only,
         }
     }
 
-    selection_start(term, start.col, start.row);
+    selection_start(term, start.col, start.row, SELECTION_NORMAL);
     selection_update(term, end.col, end.row);
     selection_finalize(term, serial);
 }
@@ -295,7 +459,7 @@ selection_mark_word(struct terminal *term, int col, int row, bool spaces_only,
 void
 selection_mark_row(struct terminal *term, int row, uint32_t serial)
 {
-    selection_start(term, 0, row);
+    selection_start(term, 0, row, SELECTION_NORMAL);
     selection_update(term, term->cols - 1, row);
     selection_finalize(term, serial);
 }

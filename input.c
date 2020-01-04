@@ -581,7 +581,9 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         if (button == BTN_LEFT) {
             switch (wayl->mouse.count) {
             case 1:
-                selection_start(term, wayl->mouse.col, wayl->mouse.row);
+                selection_start(
+                    term, wayl->mouse.col, wayl->mouse.row,
+                    wayl->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
                 break;
 
             case 2:

@@ -275,12 +275,13 @@ draw_strikeout(const struct terminal *term, pixman_image_t *pix,
 
 static void
 draw_cursor(const struct terminal *term, const struct cell *cell,
-            bool is_selected, const struct font *font,
-            pixman_image_t *pix, pixman_color_t *fg, const pixman_color_t *bg,
-            int x, int y, int cols)
+            const struct font *font, pixman_image_t *pix, pixman_color_t *fg,
+            const pixman_color_t *bg, int x, int y, int cols)
 {
     pixman_color_t cursor_color;
     pixman_color_t text_color;
+
+    bool is_selected = cell->attrs.selected;
 
     if (term->cursor_color.cursor >> 31) {
         assert(term->cursor_color.text);
@@ -331,37 +332,6 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
     }
 }
 
-static bool
-coord_is_selected(const struct terminal *term, int col, int row)
-{
-    if (term->selection.start.col == -1 || term->selection.end.col == -1)
-        return false;
-
-    const struct coord *start = &term->selection.start;
-    const struct coord *end = &term->selection.end;
-
-    if (start->row > end->row || (start->row == end->row && start->col > end->col)) {
-        const struct coord *tmp = start;
-        start = end;
-        end = tmp;
-    }
-
-    assert(start->row <= end->row);
-
-    row += term->grid->view;
-
-    if (start->row == end->row) {
-        return row == start->row && col >= start->col && col <= end->col;
-    } else {
-        if (row == start->row)
-            return col >= start->col;
-        else if (row == end->row)
-            return col <= end->col;
-        else
-            return row >= start->row && row <= end->row;
-    }
-}
-
 static int
 render_cell(struct terminal *term, pixman_image_t *pix,
             struct cell *cell, int col, int row, bool has_cursor)
@@ -376,7 +346,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     int x = term->x_margin + col * width;
     int y = term->y_margin + row * height;
 
-    bool is_selected = coord_is_selected(term, col, row);
+    //bool is_selected = coord_is_selected(term, col, row);
+    bool is_selected = cell->attrs.selected;
 
     uint32_t _fg = 0;
     uint32_t _bg = 0;
@@ -416,10 +387,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         PIXMAN_OP_SRC, pix, &bg, 1,
         &(pixman_rectangle16_t){x, y, cell_cols * width, height});
 
-    if (has_cursor) {
-        draw_cursor(
-            term, cell, is_selected, font, pix, &fg, &bg, x, y, cell_cols);
-    }
+    if (has_cursor)
+        draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
 
     if (cell->attrs.blink)
         term_arm_blink_timer(term);

@@ -41,7 +41,8 @@ struct attributes {
     uint32_t clean:1;
     uint32_t have_fg:1;
     uint32_t have_bg:1;
-    uint32_t reserved:5;
+    uint32_t selected:1;
+    uint32_t reserved:4;
     uint32_t bg:24;
 };
 static_assert(sizeof(struct attributes) == 8, "bad size");
@@ -157,6 +158,8 @@ enum mouse_reporting {
 
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
 
+enum selection_kind { SELECTION_NONE, SELECTION_NORMAL, SELECTION_BLOCK };
+
 struct ptmx_buffer {
     void *data;
     size_t len;
@@ -248,6 +251,7 @@ struct terminal {
     const char *xcursor;
 
     struct {
+        enum selection_kind kind;
         struct coord start;
         struct coord end;
     } selection;

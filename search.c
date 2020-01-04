@@ -138,7 +138,7 @@ search_update_selection(struct terminal *term,
 
         assert(selection_row >= 0 &&
                selection_row < term->grid->num_rows);
-        selection_start(term, start_col, selection_row);
+        selection_start(term, start_col, selection_row, SELECTION_NORMAL);
     }
 
     /* Update selection endpoint */
