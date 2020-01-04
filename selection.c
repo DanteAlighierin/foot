@@ -162,14 +162,11 @@ min_bufsize_for_extraction(const struct terminal *term)
         else {
             size_t cells = 0;
 
-            /* First row; start of selection to end of row */
-            cells += term->cols - start->col;
+            /* Add one extra column on each row, for \n */
 
-            /* Full rows; add one extra column for \n */
+            cells += term->cols - start->col + 1;
             cells += (term->cols + 1) * (end->row - start->row - 1);
-
-            /* Final row; start of row to end of selection */
-            cells += end->col + 1;
+            cells += end->col + 1 + 1;
             return cells;
         }
 
@@ -184,7 +181,7 @@ min_bufsize_for_extraction(const struct terminal *term)
             .col = max(start->col, end->col),
         };
 
-        /* Add one extra column for \n */
+        /* Add one extra column on each row, for \n */
         int cols = bottom_right.col - top_left.col + 1 + 1;
         int rows = bottom_right.row - top_left.row + 1;
         return rows * cols;
