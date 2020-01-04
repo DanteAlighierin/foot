@@ -81,6 +81,8 @@ arguments, use *--*:
 The following keyboard shortcuts are available. Note that they cannot
 be changed.
 
+## NORMAL MODE
+
 *shift*+*page up*/*page down*
 	Scroll up/down in history
 
@@ -93,8 +95,7 @@ be changed.
 *ctrl*+*shift*+*r*
 	Start a scrollback search
 
-While doing a scrollback search, the following shortcuts are
-available:
+## SCROLLBACK SEARCH
 
 *ctrl*+*r*
 	Search _backward_ for the next match
