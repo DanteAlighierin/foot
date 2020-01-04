@@ -283,9 +283,10 @@ struct terminal {
     bool visual_focus;
 
     struct {
-        bool refresh_needed;
-        int scrollback_lines;
+        bool refresh_needed;  /* Terminal needs to be re-rendered, as soon-as-possible */
+        int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
 
+        /* Render threads + synchronization primitives */
         struct {
             size_t count;
             sem_t start;
@@ -304,7 +305,7 @@ struct terminal {
             struct cell *cell; /* For easy access to content */
         } last_cursor;
 
-        bool pending;
+        bool pending;                /* Need to re-render again, after next frame-callback */
         struct buffer *last_buf;     /* Buffer we rendered to last time */
         bool was_flashing;           /* Flash was active last time we rendered */
         bool was_searching;
