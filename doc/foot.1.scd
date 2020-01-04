@@ -127,6 +127,8 @@ be changed.
 	_primary_ selection. Note that this feature is normally
 	*disabled* whenever the client has enabled _mouse tracking_, but
 	can be forced by holding *shift*.
+	
+	Holding *ctrl* will create a block selection.
 
 *left*, double-click
 	Selects the _word_ (separated by spaces, period, comma,
