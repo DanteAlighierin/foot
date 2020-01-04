@@ -1045,6 +1045,10 @@ wayl_roundtrip(struct wayland *wayl)
     wl_display_cancel_read(wayl->display);
     wl_display_roundtrip(wayl->display);
 
+    /* I suspect the roundtrip above clears the pending queue, and
+     * that prepare_read() will always succeed in the first call. But,
+     * better safe than sorry... */
+
     while (wl_display_prepare_read(wayl->display) != 0)
         wl_display_dispatch_pending(wayl->display);
     wayl_flush(wayl);
