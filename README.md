@@ -140,6 +140,8 @@ is **not** possible to define new key bindings.
   whenever the client has enabled _mouse tracking_, but can be forced
   by holding <kbd>shift</kbd>.
 
+  Holding <kbd>ctrl</kbd> will create a block selection.
+
 <kbd>left</kbd> - **double-click**
 : Selects the _word_ (separated by spaces, period, comma, parenthesis
   etc) under the pointer. Hold <kbd>ctrl</kbd> to select everything
