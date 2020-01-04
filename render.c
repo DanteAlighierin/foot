@@ -64,6 +64,8 @@ render_destroy(struct renderer *renderer)
 
     fdm_hook_del(renderer->fdm, &fdm_hook_refresh_pending_terminals,
                  FDM_HOOK_PRIORITY_NORMAL);
+
+    free(renderer);
 }
 
 static void __attribute__((destructor))
