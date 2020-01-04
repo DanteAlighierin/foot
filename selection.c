@@ -126,6 +126,10 @@ foreach_selected(
 
     case SELECTION_BLOCK:
         return foreach_selected_block(term, cb, data);
+
+    case SELECTION_NONE:
+        assert(false);
+        return;
     }
 
     assert(false);
@@ -319,6 +323,7 @@ selection_cancel(struct terminal *term)
         render_refresh(term);
     }
 
+    term->selection.kind = SELECTION_NONE;
     term->selection.start = (struct coord){-1, -1};
     term->selection.end = (struct coord){-1, -1};
 }

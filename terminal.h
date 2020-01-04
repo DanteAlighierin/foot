@@ -158,7 +158,7 @@ enum mouse_reporting {
 
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
 
-enum selection_kind { SELECTION_NORMAL, SELECTION_BLOCK };
+enum selection_kind { SELECTION_NONE, SELECTION_NORMAL, SELECTION_BLOCK };
 
 struct ptmx_buffer {
     void *data;
