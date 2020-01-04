@@ -160,8 +160,15 @@ selection_cell_count(const struct terminal *term)
         if (start->row == end->row)
             return end->col - start->col + 1;
         else {
-            size_t cells = term->cols - start->col;
-            cells += term->cols * (end->row - start->row - 1);
+            size_t cells = 0;
+
+            /* First row; start of selection to end of row */
+            cells += term->cols - start->col;
+
+            /* Full rows; add one extra column for \n */
+            cells += (term->cols + 1) * (end->row - start->row - 1);
+
+            /* Final row; start of row to end of selection */
             cells += end->col + 1;
             return cells;
         }
@@ -177,7 +184,8 @@ selection_cell_count(const struct terminal *term)
             .col = max(start->col, end->col),
         };
 
-        int cols = bottom_right.col - top_left.col + 1;
+        /* Add one extra column for \n */
+        int cols = bottom_right.col - top_left.col + 1 + 1;
         int rows = bottom_right.row - top_left.row + 1;
         return rows * cols;
     }
