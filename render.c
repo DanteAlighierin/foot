@@ -1106,8 +1106,6 @@ static const struct wl_callback_listener xcursor_listener = {
 static void
 render_xcursor_update(struct wayland *wayl, const struct terminal *term)
 {
-    wayl->pointer.pending_terminal = NULL;
-
     /* If called from a frame callback, we may no longer have mouse focus */
     if (wayl->mouse_focus != term)
         return;
@@ -1145,19 +1143,6 @@ render_xcursor_update(struct wayland *wayl, const struct terminal *term)
 }
 
 static void
-render_xcursor_refresh(struct wayland *wayl)
-{
-    if (wayl->pointer.pending_terminal == NULL)
-        return;
-
-    if (wayl->pointer.xcursor_callback == NULL)
-        render_xcursor_update(wayl, wayl->pointer.pending_terminal);
-    else {
-        /* Frame callback will call render_xcursor_update() */
-    }
-}
-
-static void
 xcursor_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
 {
     struct wayland *wayl = data;
@@ -1166,13 +1151,18 @@ xcursor_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_
     wl_callback_destroy(wl_callback);
     wayl->pointer.xcursor_callback = NULL;
 
-    render_xcursor_refresh(wayl);
+    if (wayl->pointer.pending_terminal != NULL) {
+        render_xcursor_update(wayl, wayl->pointer.pending_terminal);
+        wayl->pointer.pending_terminal = NULL;
+    }
 }
 
 static void
 fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
 {
     struct renderer *renderer = data;
+    struct wayland *wayl = renderer->wayl;
+
     tll_foreach(renderer->wayl->terms, it) {
         struct terminal *term = it->item;
 
@@ -1184,11 +1174,20 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
 
         if (term->window->frame_callback == NULL)
             grid_render(term);
-        else
+        else {
+            /* Tells the frame callback to render again */
             term->render.pending = true;
+        }
     }
 
-    render_xcursor_refresh(renderer->wayl);
+    if (wayl->pointer.pending_terminal != NULL) {
+        if (wayl->pointer.xcursor_callback == NULL) {
+            render_xcursor_update(wayl, wayl->pointer.pending_terminal);
+            wayl->pointer.pending_terminal = NULL;
+        } else {
+            /* Frame callback will call render_xcursor_update() */
+        }
+    }
 }
 
 void
