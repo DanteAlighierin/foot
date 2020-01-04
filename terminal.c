@@ -1530,7 +1530,7 @@ term_mouse_grabbed(const struct terminal *term)
     return
         term->wl->kbd_focus == term &&
         term->wl->kbd.shift &&
-        !term->wl->kbd.alt && !term->wl->kbd.ctrl && !term->wl->kbd.meta;
+        !term->wl->kbd.alt && /*!term->wl->kbd.ctrl &&*/ !term->wl->kbd.meta;
 }
 
 void
