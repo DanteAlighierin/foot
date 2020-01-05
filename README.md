@@ -267,7 +267,14 @@ I also recommend taking a look at the bundled Arch
 you intend to install a release build of foot, in which case you might
 be interested in the compiler flags used there.
 
-First, create a build directory, and switch to it:
+If you have not installed [tllist](https://codeberg.org/dnkl/tllist)
+and [fcft](https://codeberg.org/dnkl/fcft) as system libraries, check
+them out as git submodules:
+```sh
+git submodule update --init
+```
+
+To build, first, create a build directory, and switch to it:
 ```sh
 mkdir -p bld/debug && cd bld/debug
 ```
