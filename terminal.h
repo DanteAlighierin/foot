@@ -310,6 +310,8 @@ struct terminal {
         bool was_flashing;           /* Flash was active last time we rendered */
         bool was_searching;
 
+        size_t search_offset;
+
         bool presentation_timings;
         struct timespec input_time;
         struct timespec commit_time;
