@@ -899,6 +899,7 @@ render_search_box(struct terminal *term)
         2 * margin + 1 * term->cell_height);
 
     const size_t visible_chars = (width - 2 * margin) / term->cell_width;
+    size_t glyph_offset = term->render.search_glyph_offset;
 
     unsigned long cookie = (uintptr_t)term + 1;
     struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
@@ -917,17 +918,16 @@ render_search_box(struct terminal *term)
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
-    if (term->search.cursor < term->render.search_offset ||
-        term->search.cursor >= term->render.search_offset + visible_chars + 2)
+    if (term->search.cursor < glyph_offset ||
+        term->search.cursor >= glyph_offset + visible_chars + 2)
     {
         /* Make sure cursor is always visible */
-        term->render.search_offset = term->search.cursor;
+        term->render.search_glyph_offset = glyph_offset = term->search.cursor;
     }
 
     /* Text (what the user entered - *not* match(es)) */
-    for (size_t i = term->render.search_offset;
-         i < term->search.len &&
-             i - term->render.search_offset < visible_chars + 1;
+    for (size_t i = glyph_offset;
+         i < term->search.len && i - glyph_offset < visible_chars + 1;
          i++)
     {
         if (i == term->search.cursor)

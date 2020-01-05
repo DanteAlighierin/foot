@@ -51,7 +51,7 @@ search_cancel_keep_selection(struct terminal *term)
     term->search.match = (struct coord){-1, -1};
     term->search.match_len = 0;
     term->is_searching = false;
-    term->render.search_offset = 0;
+    term->render.search_glyph_offset = 0;
 
     term_xcursor_update(term);
     render_refresh(term);
