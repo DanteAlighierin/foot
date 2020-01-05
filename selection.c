@@ -74,7 +74,9 @@ foreach_selected_normal(
     }
 
     for (int r = start_row; r <= end_row; r++) {
-        struct row *row = term->grid->rows[r];
+        size_t real_r = r & (term->grid->num_rows - 1);
+        struct row *row = term->grid->rows[real_r];
+        assert(row != NULL);
 
         for (int c = start_col;
              c <= (r == end_row ? end_col : term->cols - 1);
@@ -107,7 +109,9 @@ foreach_selected_block(
     };
 
     for (int r = top_left.row; r <= bottom_right.row; r++) {
-        struct row *row = term->grid->rows[r];
+        size_t real_r = r & (term->grid->num_rows - 1);
+        struct row *row = term->grid->rows[real_r];
+        assert(row != NULL);
 
         for (int c = top_left.col; c <= bottom_right.col; c++)
             cb(term, row, &row->cells[c], data);
