@@ -886,10 +886,19 @@ render_search_box(struct terminal *term)
 {
     assert(term->window->search_sub_surface != NULL);
 
+    const size_t wanted_visible_chars = max(20, term->search.len);
+
     const int scale = term->scale >= 1 ? term->scale : 1;
-    const int margin = scale * 3;
-    const int width = min(term->width, 2 * margin + max(20, term->search.len) * term->cell_width);
-    const int height = min(term->height, 2 * margin + 1 * term->cell_height);
+    const size_t margin = scale * 3;
+
+    const size_t width = min(
+        term->width - 2 * margin,
+        2 * margin + wanted_visible_chars * term->cell_width);
+    const size_t height = min(
+        term->height - 2 * margin,
+        2 * margin + 1 * term->cell_height);
+
+    const size_t visible_chars = (width - 2 * margin) / term->cell_width;
 
     unsigned long cookie = (uintptr_t)term + 1;
     struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
@@ -908,8 +917,19 @@ render_search_box(struct terminal *term)
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
+    if (term->search.cursor < term->render.search_offset ||
+        term->search.cursor >= term->render.search_offset + visible_chars + 2)
+    {
+        /* Make sure cursor is always visible */
+        term->render.search_offset = term->search.cursor;
+    }
+
     /* Text (what the user entered - *not* match(es)) */
-    for (size_t i = 0; i < term->search.len; i++) {
+    for (size_t i = term->render.search_offset;
+         i < term->search.len &&
+             i - term->render.search_offset < visible_chars + 1;
+         i++)
+    {
         if (i == term->search.cursor)
             draw_bar(term, buf->pix, font, &fg, x, y);
 
@@ -932,8 +952,8 @@ render_search_box(struct terminal *term)
 
     wl_subsurface_set_position(
         term->window->search_sub_surface,
-        max(0, term->width - width - margin),
-        max(0, term->height - height - margin));
+        max(0, (int32_t)term->width - width - margin),
+        max(0, (int32_t)term->height - height - margin));
 
     wl_surface_damage_buffer(term->window->search_surface, 0, 0, width, height);
     wl_surface_attach(term->window->search_surface, buf->wl_buf, 0, 0);
