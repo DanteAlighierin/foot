@@ -385,7 +385,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     int x = term->x_margin + col * width;
     int y = term->y_margin + row * height;
 
-    //bool is_selected = coord_is_selected(term, col, row);
+    assert(cell->attrs.selected == 0 || cell->attrs.selected == 1);
     bool is_selected = cell->attrs.selected;
 
     uint32_t _fg = 0;

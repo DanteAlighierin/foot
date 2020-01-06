@@ -47,12 +47,12 @@ selection_on_row_in_view(const struct terminal *term, int row_no)
 
 static void
 foreach_selected_normal(
-    struct terminal *term,
+    struct terminal *term, struct coord _start, struct coord _end,
     void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
     void *data)
 {
-    const struct coord *start = &term->selection.start;
-    const struct coord *end = &term->selection.end;
+    const struct coord *start = &_start;
+    const struct coord *end = &_end;
 
     int start_row, end_row;
     int start_col, end_col;
@@ -91,12 +91,12 @@ foreach_selected_normal(
 
 static void
 foreach_selected_block(
-    struct terminal *term,
+    struct terminal *term, struct coord _start, struct coord _end,
     void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
     void *data)
 {
-    const struct coord *start = &term->selection.start;
-    const struct coord *end = &term->selection.end;
+    const struct coord *start = &_start;
+    const struct coord *end = &_end;
 
     struct coord top_left = {
         .row = min(start->row, end->row),
@@ -120,16 +120,16 @@ foreach_selected_block(
 
 static void
 foreach_selected(
-    struct terminal *term,
+    struct terminal *term, struct coord start, struct coord end,
     void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
     void *data)
 {
     switch (term->selection.kind) {
     case SELECTION_NORMAL:
-        return foreach_selected_normal(term, cb, data);
+        return foreach_selected_normal(term, start, end, cb, data);
 
     case SELECTION_BLOCK:
-        return foreach_selected_block(term, cb, data);
+        return foreach_selected_block(term, start, end, cb, data);
 
     case SELECTION_NONE:
         assert(false);
@@ -251,7 +251,9 @@ extract_selection(const struct terminal *term)
         .size = buf_size,
     };
 
-    foreach_selected((struct terminal *)term, &extract_one, &ctx);
+    foreach_selected(
+        (struct terminal *)term, term->selection.start, term->selection.end,
+        &extract_one, &ctx);
 
     if (ctx.idx == 0) {
         /* Selection of empty cells only */
@@ -300,8 +302,10 @@ static void
 unmark_selected(struct terminal *term, struct row *row, struct cell *cell,
                 void *data)
 {
-    if (!cell->attrs.selected)
+    if (cell->attrs.selected == 0 || (cell->attrs.selected & 2)) {
+        /* Ignore if already deselected, or if premarked for updated selection */
         return;
+    }
 
     row->dirty = 1;
     cell->attrs.selected = 0;
@@ -309,11 +313,21 @@ unmark_selected(struct terminal *term, struct row *row, struct cell *cell,
 }
 
 static void
-mark_selected(struct terminal *term, struct row *row, struct cell *cell,
-                void *data)
+premark_selected(struct terminal *term, struct row *row, struct cell *cell,
+              void *data)
 {
-    if (cell->attrs.selected)
+    /* Tell unmark to leave this be */
+    cell->attrs.selected |= 2;
+}
+
+static void
+mark_selected(struct terminal *term, struct row *row, struct cell *cell,
+              void *data)
+{
+    if (cell->attrs.selected & 1) {
+        cell->attrs.selected = 1;  /* Clear the pre-mark bit */
         return;
+    }
 
     row->dirty = 1;
     cell->attrs.selected = 1;
@@ -334,13 +348,26 @@ selection_update(struct terminal *term, int col, int row)
     assert(term->selection.start.row != -1);
     assert(term->grid->view + row != -1);
 
-    if (term->selection.end.row != -1)
-        foreach_selected(term, &unmark_selected, NULL);
+    struct coord new_end = {col, term->grid->view + row};
 
-    term->selection.end = (struct coord){col, term->grid->view + row};
+    /* Premark all cells that *will* be selected */
+    foreach_selected(
+        term, term->selection.start, new_end, &premark_selected, NULL);
 
+    if (term->selection.end.row != -1) {
+        /* Unmark previous selection, ignoring cells that are part of
+         * the new selection */
+        foreach_selected(term, term->selection.start, term->selection.end,
+                         &unmark_selected, NULL);
+    }
+
+    term->selection.end = new_end;
     assert(term->selection.start.row != -1 && term->selection.end.row != -1);
-    foreach_selected(term, &mark_selected, NULL);
+
+    /* Mark new selection */
+    foreach_selected(
+        term, term->selection.start, term->selection.end, &mark_selected, NULL);
+
     render_refresh(term);
 }
 
@@ -382,7 +409,9 @@ selection_cancel(struct terminal *term)
             term->selection.end.row, term->selection.end.col);
 
     if (term->selection.start.row != -1 && term->selection.end.row != -1) {
-        foreach_selected(term, &unmark_selected, NULL);
+        foreach_selected(
+            term, term->selection.start, term->selection.end,
+            &unmark_selected, NULL);
         render_refresh(term);
     }
 
