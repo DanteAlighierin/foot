@@ -376,9 +376,6 @@ static const struct zwp_primary_selection_source_v1_listener primary_selection_s
 void
 selection_finalize(struct terminal *term, uint32_t serial)
 {
-    if (!selection_enabled(term))
-        return;
-
     if (term->selection.start.row == -1 || term->selection.end.row == -1)
         return;
 
