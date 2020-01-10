@@ -769,7 +769,7 @@ term_shutdown(struct terminal *term)
     term->flash.fd = -1;
     term->ptmx = -1;
 
-    int event_fd = eventfd(0, EFD_CLOEXEC);
+    int event_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     if (event_fd == -1) {
         LOG_ERRNO("failed to create terminal shutdown event FD");
         return false;
