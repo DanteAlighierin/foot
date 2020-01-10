@@ -730,7 +730,7 @@ wayl_init(const struct config *conf, struct fdm *fdm)
         goto out;
     }
 
-    wayl->kbd.repeat.fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK);
+    wayl->kbd.repeat.fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
     if (wayl->kbd.repeat.fd == -1) {
         LOG_ERRNO("failed to create keyboard repeat timer FD");
         goto out;

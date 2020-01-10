@@ -513,20 +513,20 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         LOG_ERRNO("failed to open PTY");
         goto close_fds;
     }
-    if ((flash_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
+    if ((flash_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
         LOG_ERRNO("failed to create flash timer FD");
         goto close_fds;
     }
-    if ((blink_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
+    if ((blink_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
         LOG_ERRNO("failed to create blink timer FD");
         goto close_fds;
     }
-    if ((cursor_blink_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
+    if ((cursor_blink_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
         LOG_ERRNO("failed to create cursor blink timer FD");
         goto close_fds;
     }
-    if ((delay_lower_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1 ||
-        (delay_upper_fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK)) == -1)
+    if ((delay_lower_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1 ||
+        (delay_upper_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1)
     {
         LOG_ERRNO("failed to create delayed rendering timer FDs");
         goto close_fds;
