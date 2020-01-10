@@ -720,6 +720,12 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     /* All wayland initialization done - make it so */
     wl_display_roundtrip(wayl->display);
 
+    int wl_fd = wl_display_get_fd(wayl->display);
+    if (fcntl(wl_fd, F_SETFL, fcntl(wl_fd, F_GETFL) | O_NONBLOCK) < 0) {
+        LOG_ERRNO("failed to make Wayland socket non-blocking");
+        goto out;
+    }
+
     wayl->kbd.repeat.fd = timerfd_create(CLOCK_BOOTTIME, TFD_CLOEXEC | TFD_NONBLOCK);
     if (wayl->kbd.repeat.fd == -1) {
         LOG_ERRNO("failed to create keyboard repeat timer FD");
