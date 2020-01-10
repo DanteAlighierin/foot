@@ -13,7 +13,7 @@
       1. [Normal mode](#normal-mode)
       1. [Scrollback search](#scrollback-search)
    1. [Mouse](#mouse)
-1. [Server mode](#server-mode)
+1. [Server (daemon) mode](#server-daemon-mode)
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
@@ -157,7 +157,7 @@ is **not** possible to define new key bindings.
 : Scroll up/down in history
 
 
-## Server mode
+## Server (daemon) mode
 
 When run normally, **foot** is a single-window application; if you
 want another window, start another foot process.
