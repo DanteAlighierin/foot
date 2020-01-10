@@ -276,7 +276,7 @@ fdm_hook_del(struct fdm *fdm, fdm_hook_t hook, enum fdm_hook_priority priority)
         return true;
     }
 
-    LOG_WARN("hook=%p not registered, hook", hook);
+    LOG_WARN("hook=%p not registered", hook);
     return false;
 }
 
