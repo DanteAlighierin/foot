@@ -152,21 +152,21 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         return true;  /* Let FDM trigger again when we have more data */
     }
 
-    while (client->buffer.left > 0) {
-        /* Keep filling our buffer of initialization data */
-        ssize_t count = recv(
-            fd, &client->buffer.data[client->buffer.idx], client->buffer.left, 0);
+    /* Keep filling our buffer of initialization data */
+    ssize_t count = recv(
+        fd, &client->buffer.data[client->buffer.idx], client->buffer.left, 0);
 
-        if (count < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                return true;
+    if (count < 0) {
+        LOG_ERRNO("failed to read");
+        goto shutdown;
+    }
 
-            LOG_ERRNO("failed to read");
-            goto shutdown;
-        }
+    client->buffer.idx += count;
+    client->buffer.left -= count;
 
-        client->buffer.idx += count;
-        client->buffer.left -= count;
+    if (client->buffer.left > 0) {
+        /* Not done yet */
+        return true;
     }
 
     /* All initialization data received - time to instantiate a terminal! */
@@ -288,7 +288,7 @@ fdm_server(struct fdm *fdm, int fd, int events, void *data)
         .fd = client_fd,
     };
 
-    if (!fdm_add(server->fdm, client_fd, EPOLLIN | EPOLLET, &fdm_client, client)) {
+    if (!fdm_add(server->fdm, client_fd, EPOLLIN, &fdm_client, client)) {
         close(client_fd);
         free(client);
         return false;
