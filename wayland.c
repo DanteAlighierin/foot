@@ -570,7 +570,10 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
     int event_count = 0;
 
     if (events & EPOLLIN) {
-        wl_display_read_events(wayl->display);
+        if (wl_display_read_events(wayl->display) < 0) {
+            LOG_ERRNO("failed to read events from the Wayland socket");
+            return false;
+        }
 
         while (wl_display_prepare_read(wayl->display) != 0)
             wl_display_dispatch_pending(wayl->display);
