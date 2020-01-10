@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <poll.h>
+#include <fcntl.h>
 
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
