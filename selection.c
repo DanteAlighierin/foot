@@ -568,7 +568,7 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
             .idx = async_idx,
         };
 
-        if (fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
+        if (fdm_add(wayl->fdm, fd, EPOLLOUT | EPOLLET, &fdm_send, ctx))
             return;
 
         free(ctx->data);
@@ -660,7 +660,7 @@ primary_send(void *data,
             .idx = async_idx,
         };
 
-        if (fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
+        if (fdm_add(wayl->fdm, fd, EPOLLOUT | EPOLLET, &fdm_send, ctx))
             return;
 
         free(ctx->data);
@@ -828,7 +828,7 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
         .user = user,
     };
 
-    if (!fdm_add(term->fdm, read_fd, EPOLLIN, &fdm_receive, ctx)) {
+    if (!fdm_add(term->fdm, read_fd, EPOLLIN | EPOLLET, &fdm_receive, ctx)) {
         close(read_fd);
         free(ctx);
         done(user);
