@@ -38,7 +38,7 @@ term_to_slave(struct terminal *term, const void *_data, size_t len)
 {
     size_t async_idx = 0;
     if (tll_length(term->ptmx_buffer) > 0) {
-        /* With a non-empty queue, EPOLLOUT has already been enabled */
+        /* Append to queue, FDM handler will send it */
         goto enqueue_data;
     }
 
@@ -49,9 +49,6 @@ term_to_slave(struct terminal *term, const void *_data, size_t len)
 
     switch (async_write(term->ptmx, _data, len, &async_idx)) {
     case ASYNC_WRITE_REMAIN:
-        /* Switch to asynchronous mode; let FDM write the remaining data */
-        if (!fdm_event_add(term->fdm, term->ptmx, EPOLLOUT))
-            return false;
         goto enqueue_data;
 
     case ASYNC_WRITE_DONE:
@@ -90,8 +87,8 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
 
-    /* If there is no queued data, then we shouldn't be in asynchronous mode */
-    assert(tll_length(term->ptmx_buffer) > 0);
+    if (tll_length(term->ptmx_buffer) == 0)
+        return true;
 
     /* Don't use pop() since we may not be able to write the entire buffer */
     tll_foreach(term->ptmx_buffer, it) {
@@ -112,8 +109,6 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
         }
     }
 
-    /* No more queued data, switch back to synchronous mode */
-    fdm_event_del(term->fdm, term->ptmx, EPOLLOUT);
     return true;
 }
 
@@ -145,15 +140,20 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     if (!pollin)
         return true;
 
-    uint8_t buf[24 * 1024];
-    ssize_t count = read(term->ptmx, buf, sizeof(buf));
+    while (true) {
+        uint8_t buf[24 * 1024];
+        ssize_t count = read(term->ptmx, buf, sizeof(buf));
 
-    if (count < 0) {
-        LOG_ERRNO("failed to read from pseudo terminal");
-        return false;
+        if (count < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK)
+                break;
+
+            LOG_ERRNO("failed to read from pseudo terminal");
+            return false;
+        }
+
+        vt_from_slave(term, buf, count);
     }
-
-    vt_from_slave(term, buf, count);
 
     /* Prevent blinking while typing */
     term_cursor_blink_restart(term);
@@ -540,7 +540,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto err;
     }
 
-    if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term) ||
+    if (!fdm_add(fdm, ptmx, EPOLLIN | EPOLLOUT | EPOLLET, &fdm_ptmx, term) ||
         !fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term) ||
         !fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term) ||
         !fdm_add(fdm, cursor_blink_fd, EPOLLIN, &fdm_cursor_blink, term) ||
