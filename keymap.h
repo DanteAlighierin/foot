@@ -271,6 +271,12 @@ static const struct key_data key_kp_left[] = {
     {MOD_ANY,            CURSOR_KEYS_APPLICATION, KEYPAD_DONTCARE, "\033OD"},
 };
 
+static const struct key_data key_kp_begin[] = {
+    DEFAULT_MODS_FOR_SINGLE(E),
+    {MOD_ANY,            CURSOR_KEYS_NORMAL,      KEYPAD_DONTCARE, "\033[E"},
+    {MOD_ANY,            CURSOR_KEYS_APPLICATION, KEYPAD_DONTCARE, "\033OE"},
+};
+
 static const struct key_data key_kp_home[] = {
     DEFAULT_MODS_FOR_SINGLE(H),
     {MOD_ANY,            CURSOR_KEYS_NORMAL,      KEYPAD_DONTCARE, "\033[H"},
@@ -398,6 +404,7 @@ static const struct key_map key_map[] = {
     {XKB_KEY_KP_Down,   ALEN(key_kp_down),   key_kp_down},
     {XKB_KEY_KP_Right,  ALEN(key_kp_right),  key_kp_right},
     {XKB_KEY_KP_Left,   ALEN(key_kp_left),   key_kp_left},
+    {XKB_KEY_KP_Begin,  ALEN(key_kp_begin),  key_kp_begin},
     {XKB_KEY_KP_Home,   ALEN(key_kp_home),   key_kp_home},
     {XKB_KEY_KP_End,    ALEN(key_kp_end),    key_kp_end},
     {XKB_KEY_KP_Insert, ALEN(key_kp_insert), key_kp_insert},
