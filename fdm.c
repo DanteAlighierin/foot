@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
+#include <fcntl.h>
+
 #include <sys/epoll.h>
 
 #include <tllist.h>
@@ -95,9 +97,17 @@ bool
 fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
 {
 #if defined(_DEBUG)
+    int flags = fcntl(fd, F_GETFL);
+    if (!(flags & O_NONBLOCK)) {
+        LOG_ERR("FD=%d is in blocking mode", fd);
+        assert(false);
+        return false;
+    }
+
     tll_foreach(fdm->fds, it) {
         if (it->item->fd == fd) {
             LOG_ERR("FD=%d already registered", fd);
+            assert(false);
             return false;
         }
     }
