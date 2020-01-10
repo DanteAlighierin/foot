@@ -124,8 +124,21 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
          * data.
          */
         uint32_t total_len;
-        if (recv(fd, &total_len, sizeof(total_len), 0) != sizeof(total_len)) {
+        ssize_t count = recv(fd, &total_len, sizeof(total_len), 0);
+        if (count < 0) {
             LOG_ERRNO("failed to read total length");
+            goto shutdown;
+        }
+
+        if (count != sizeof(total_len)) {
+            LOG_ERR("client did not send setup packet size");
+            goto shutdown;
+        }
+
+        const uint32_t max_size = 128 * 1024;
+        if (total_len > max_size) {
+            LOG_ERR("client wants to send too large setup packet (%u > %u)",
+                    total_len, max_size);
             goto shutdown;
         }
 
@@ -262,7 +275,7 @@ fdm_server(struct fdm *fdm, int fd, int events, void *data)
     struct sockaddr_un addr;
     socklen_t addr_size = sizeof(addr);
     int client_fd = accept4(
-        server->fd, (struct sockaddr *)&addr, &addr_size, SOCK_CLOEXEC);
+        server->fd, (struct sockaddr *)&addr, &addr_size, SOCK_CLOEXEC | SOCK_NONBLOCK);
 
     if (client_fd == -1) {
         LOG_ERRNO("failed to accept client connection");
@@ -322,7 +335,7 @@ err:
 struct server *
 server_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl)
 {
-    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
     if (fd == -1) {
         LOG_ERRNO("failed to create UNIX socket");
         return NULL;
