@@ -330,6 +330,7 @@ static const struct key_data key_kp_pagedown[] = {
     {MOD_META  | MOD_ALT | MOD_CTRL,            CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O15"#sym}, \
     {MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_APPLICATION, "\033O16"#sym}
 
+static const struct key_data key_kp_enter[] = {DEFAULT_MODS_FOR_KP(M)};
 static const struct key_data key_kp_divide[] = {DEFAULT_MODS_FOR_KP(o)};
 static const struct key_data key_kp_multiply[] = {DEFAULT_MODS_FOR_KP(j)};
 static const struct key_data key_kp_subtract[] = {DEFAULT_MODS_FOR_KP(m)};
@@ -411,6 +412,7 @@ static const struct key_map key_map[] = {
     {XKB_KEY_KP_Delete, ALEN(key_kp_delete), key_kp_delete},
     {XKB_KEY_KP_Page_Up,ALEN(key_kp_pageup), key_kp_pageup},
     {XKB_KEY_KP_Page_Down, ALEN(key_kp_pagedown), key_kp_pagedown},
+    {XKB_KEY_KP_Enter,  ALEN(key_kp_enter),  key_kp_enter},
     {XKB_KEY_KP_Divide, ALEN(key_kp_divide), key_kp_divide},
     {XKB_KEY_KP_Multiply,ALEN(key_kp_multiply), key_kp_multiply},
     {XKB_KEY_KP_Subtract,ALEN(key_kp_subtract), key_kp_subtract},
