@@ -276,7 +276,7 @@ popd
 
 To build, first, create a build directory, and switch to it:
 ```sh
-mkdir -p bld/debug && cd bld/debug
+mkdir -p bld/release && cd bld/release
 ```
 
 Second, configure[^2] the build (if you intend to install it globally, you
