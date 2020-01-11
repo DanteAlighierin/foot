@@ -166,6 +166,39 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     }
 }
 
+
+static bool
+keymap_lookup(struct terminal *term, xkb_keysym_t sym, enum modifier mods)
+{
+    for (size_t i = 0; i < sizeof(key_map) / sizeof(key_map[0]); i++) {
+        const struct key_map *k = &key_map[i];
+        if (k->sym != sym)
+            continue;
+
+        for (size_t j = 0; j < k->count; j++) {
+            const struct key_data *info = &k->data[j];
+            if (info->modifiers != MOD_ANY && info->modifiers != mods)
+                continue;
+
+            if (info->cursor_keys_mode != CURSOR_KEYS_DONTCARE &&
+                info->cursor_keys_mode != term->cursor_keys_mode)
+                continue;
+
+            if (info->keypad_keys_mode != KEYPAD_DONTCARE &&
+                info->keypad_keys_mode != term->keypad_keys_mode)
+                continue;
+
+            term_to_slave(term, info->seq, strlen(info->seq));
+
+            term_reset_view(term);
+            selection_cancel(term);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void
 keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
              uint32_t time, uint32_t key, uint32_t state)
@@ -290,31 +323,8 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     }
 
 
-    for (size_t i = 0; i < sizeof(key_map) / sizeof(key_map[0]); i++) {
-        const struct key_map *k = &key_map[i];
-        if (k->sym != sym)
-            continue;
-
-        for (size_t j = 0; j < k->count; j++) {
-            const struct key_data *info = &k->data[j];
-            if (info->modifiers != MOD_ANY && info->modifiers != keymap_mods)
-                continue;
-
-            if (info->cursor_keys_mode != CURSOR_KEYS_DONTCARE &&
-                info->cursor_keys_mode != term->cursor_keys_mode)
-                continue;
-
-            if (info->keypad_keys_mode != KEYPAD_DONTCARE &&
-                info->keypad_keys_mode != term->keypad_keys_mode)
-                continue;
-
-            term_to_slave(term, info->seq, strlen(info->seq));
-
-            term_reset_view(term);
-            selection_cancel(term);
-            goto maybe_repeat;
-        }
-    }
+    if (keymap_lookup(term, sym, keymap_mods))
+        goto maybe_repeat;
 
     uint8_t buf[64] = {0};
     int count = 0;
