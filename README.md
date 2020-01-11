@@ -279,11 +279,15 @@ To build, first, create a build directory, and switch to it:
 mkdir -p bld/debug && cd bld/debug
 ```
 
-Second, configure the build (if you intend to install it globally, you
+Second, configure[^2] the build (if you intend to install it globally, you
 might also want `--prefix=/usr`):
 ```sh
-meson --buildtype=debug ../..
+meson --buildtype=release ../..
 ```
+
+[^2]: for advanced users: a profile guided build will have
+    significantly better performance; take a look at
+    [PKDBUILD](PKGBUILD) to see how this can be done.
 
 Three, build it:
 ```sh
