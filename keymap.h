@@ -1,6 +1,5 @@
 #pragma once
 
-#include <stdbool.h>
 #include <xkbcommon/xkbcommon.h>
 
 #include "terminal.h"
@@ -19,12 +18,6 @@ struct key_data {
     enum cursor_keys cursor_keys_mode;
     enum keypad_keys keypad_keys_mode;
     const char *seq;
-};
-
-struct key_map {
-    xkb_keysym_t sym;
-    size_t count;
-    const struct key_data *data;
 };
 
 static const struct key_data key_escape[] = {
@@ -348,85 +341,3 @@ static const struct key_data key_kp_8[] = {DEFAULT_MODS_FOR_KP(x)};
 static const struct key_data key_kp_9[] = {DEFAULT_MODS_FOR_KP(y)};
 
 #undef DEFAULT_MODS_FOR_KP
-
-#define ALEN(a) (sizeof(a) / sizeof(a[0]))
-static const struct key_map key_map[] = {
-    {XKB_KEY_Escape,    ALEN(key_escape),    key_escape},
-    {XKB_KEY_Return,    ALEN(key_return),    key_return},
-    {XKB_KEY_Tab,       ALEN(key_tab),       key_tab},
-    {XKB_KEY_ISO_Left_Tab, ALEN(key_backtab),   key_backtab},
-    {XKB_KEY_BackSpace, ALEN(key_backspace), key_backspace},
-    {XKB_KEY_Up,        ALEN(key_up),        key_up},
-    {XKB_KEY_Down,      ALEN(key_down),      key_down},
-    {XKB_KEY_Right,     ALEN(key_right),     key_right},
-    {XKB_KEY_Left,      ALEN(key_left),      key_left},
-    {XKB_KEY_Home,      ALEN(key_home),      key_home},
-    {XKB_KEY_End,       ALEN(key_end),       key_end},
-    {XKB_KEY_Insert,    ALEN(key_insert),    key_insert},
-    {XKB_KEY_Delete,    ALEN(key_delete),    key_delete},
-    {XKB_KEY_Page_Up,   ALEN(key_pageup),    key_pageup},
-    {XKB_KEY_Page_Down, ALEN(key_pagedown),  key_pagedown},
-    {XKB_KEY_F1,        ALEN(key_f1),        key_f1},
-    {XKB_KEY_F2,        ALEN(key_f2),        key_f2},
-    {XKB_KEY_F3,        ALEN(key_f3),        key_f3},
-    {XKB_KEY_F4,        ALEN(key_f4),        key_f4},
-    {XKB_KEY_F5,        ALEN(key_f5),        key_f5},
-    {XKB_KEY_F6,        ALEN(key_f6),        key_f6},
-    {XKB_KEY_F7,        ALEN(key_f7),        key_f7},
-    {XKB_KEY_F8,        ALEN(key_f8),        key_f8},
-    {XKB_KEY_F9,        ALEN(key_f9),        key_f9},
-    {XKB_KEY_F10,       ALEN(key_f10),       key_f10},
-    {XKB_KEY_F11,       ALEN(key_f11),       key_f11},
-    {XKB_KEY_F12,       ALEN(key_f12),       key_f12},
-    {XKB_KEY_F13,       ALEN(key_f13),       key_f13},
-    {XKB_KEY_F14,       ALEN(key_f14),       key_f14},
-    {XKB_KEY_F15,       ALEN(key_f15),       key_f15},
-    {XKB_KEY_F16,       ALEN(key_f16),       key_f16},
-    {XKB_KEY_F17,       ALEN(key_f17),       key_f17},
-    {XKB_KEY_F18,       ALEN(key_f18),       key_f18},
-    {XKB_KEY_F19,       ALEN(key_f19),       key_f19},
-    {XKB_KEY_F20,       ALEN(key_f20),       key_f20},
-    {XKB_KEY_F21,       ALEN(key_f21),       key_f21},
-    {XKB_KEY_F22,       ALEN(key_f22),       key_f22},
-    {XKB_KEY_F23,       ALEN(key_f23),       key_f23},
-    {XKB_KEY_F24,       ALEN(key_f24),       key_f24},
-    {XKB_KEY_F25,       ALEN(key_f25),       key_f25},
-    {XKB_KEY_F26,       ALEN(key_f26),       key_f26},
-    {XKB_KEY_F27,       ALEN(key_f27),       key_f27},
-    {XKB_KEY_F28,       ALEN(key_f28),       key_f28},
-    {XKB_KEY_F29,       ALEN(key_f29),       key_f29},
-    {XKB_KEY_F30,       ALEN(key_f30),       key_f30},
-    {XKB_KEY_F31,       ALEN(key_f31),       key_f31},
-    {XKB_KEY_F32,       ALEN(key_f32),       key_f32},
-    {XKB_KEY_F33,       ALEN(key_f33),       key_f33},
-    {XKB_KEY_F34,       ALEN(key_f34),       key_f34},
-    {XKB_KEY_F35,       ALEN(key_f35),       key_f35},
-    {XKB_KEY_KP_Up,     ALEN(key_kp_up),     key_kp_up},
-    {XKB_KEY_KP_Down,   ALEN(key_kp_down),   key_kp_down},
-    {XKB_KEY_KP_Right,  ALEN(key_kp_right),  key_kp_right},
-    {XKB_KEY_KP_Left,   ALEN(key_kp_left),   key_kp_left},
-    {XKB_KEY_KP_Begin,  ALEN(key_kp_begin),  key_kp_begin},
-    {XKB_KEY_KP_Home,   ALEN(key_kp_home),   key_kp_home},
-    {XKB_KEY_KP_End,    ALEN(key_kp_end),    key_kp_end},
-    {XKB_KEY_KP_Insert, ALEN(key_kp_insert), key_kp_insert},
-    {XKB_KEY_KP_Delete, ALEN(key_kp_delete), key_kp_delete},
-    {XKB_KEY_KP_Page_Up,ALEN(key_kp_pageup), key_kp_pageup},
-    {XKB_KEY_KP_Page_Down, ALEN(key_kp_pagedown), key_kp_pagedown},
-    {XKB_KEY_KP_Enter,  ALEN(key_kp_enter),  key_kp_enter},
-    {XKB_KEY_KP_Divide, ALEN(key_kp_divide), key_kp_divide},
-    {XKB_KEY_KP_Multiply,ALEN(key_kp_multiply), key_kp_multiply},
-    {XKB_KEY_KP_Subtract,ALEN(key_kp_subtract), key_kp_subtract},
-    {XKB_KEY_KP_Add,    ALEN(key_kp_add), key_kp_add},
-    {XKB_KEY_KP_Separator,ALEN(key_kp_separator), key_kp_separator},
-    {XKB_KEY_KP_0,      ALEN(key_kp_0), key_kp_0},
-    {XKB_KEY_KP_1,      ALEN(key_kp_1), key_kp_1},
-    {XKB_KEY_KP_2,      ALEN(key_kp_2), key_kp_2},
-    {XKB_KEY_KP_3,      ALEN(key_kp_3), key_kp_3},
-    {XKB_KEY_KP_4,      ALEN(key_kp_4), key_kp_4},
-    {XKB_KEY_KP_5,      ALEN(key_kp_5), key_kp_5},
-    {XKB_KEY_KP_6,      ALEN(key_kp_6), key_kp_6},
-    {XKB_KEY_KP_7,      ALEN(key_kp_7), key_kp_7},
-    {XKB_KEY_KP_8,      ALEN(key_kp_8), key_kp_8},
-    {XKB_KEY_KP_9,      ALEN(key_kp_9), key_kp_9},
-};
-#undef ALEN
