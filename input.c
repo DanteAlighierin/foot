@@ -166,34 +166,120 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     }
 }
 
+static const struct key_data *
+keymap_data(xkb_keysym_t sym, size_t *count)
+{
+#define ALEN(a) (sizeof(a) / sizeof(a[0]))
+    switch (sym) {
+    case XKB_KEY_Escape:       *count = ALEN(key_escape);       return key_escape;
+    case XKB_KEY_Return:       *count = ALEN(key_return);       return key_return;
+    case XKB_KEY_Tab:          *count = ALEN(key_tab);          return key_tab;
+    case XKB_KEY_ISO_Left_Tab: *count = ALEN(key_backtab);      return key_backtab;
+    case XKB_KEY_BackSpace:    *count = ALEN(key_backspace);    return key_backspace;
+    case XKB_KEY_Up:           *count = ALEN(key_up);           return key_up;
+    case XKB_KEY_Down:         *count = ALEN(key_down);         return key_down;
+    case XKB_KEY_Right:        *count = ALEN(key_right);        return key_right;
+    case XKB_KEY_Left:         *count = ALEN(key_left);         return key_left;
+    case XKB_KEY_Home:         *count = ALEN(key_home);         return key_home;
+    case XKB_KEY_End:          *count = ALEN(key_end);          return key_end;
+    case XKB_KEY_Insert:       *count = ALEN(key_insert);       return key_insert;
+    case XKB_KEY_Delete:       *count = ALEN(key_delete);       return key_delete;
+    case XKB_KEY_Page_Up:      *count = ALEN(key_pageup);       return key_pageup;
+    case XKB_KEY_Page_Down:    *count = ALEN(key_pagedown);     return key_pagedown;
+    case XKB_KEY_F1:           *count = ALEN(key_f1);           return key_f1;
+    case XKB_KEY_F2:           *count = ALEN(key_f2);           return key_f2;
+    case XKB_KEY_F3:           *count = ALEN(key_f3);           return key_f3;
+    case XKB_KEY_F4:           *count = ALEN(key_f4);           return key_f4;
+    case XKB_KEY_F5:           *count = ALEN(key_f5);           return key_f5;
+    case XKB_KEY_F6:           *count = ALEN(key_f6);           return key_f6;
+    case XKB_KEY_F7:           *count = ALEN(key_f7);           return key_f7;
+    case XKB_KEY_F8:           *count = ALEN(key_f8);           return key_f8;
+    case XKB_KEY_F9:           *count = ALEN(key_f9);           return key_f9;
+    case XKB_KEY_F10:          *count = ALEN(key_f10);          return key_f10;
+    case XKB_KEY_F11:          *count = ALEN(key_f11);          return key_f11;
+    case XKB_KEY_F12:          *count = ALEN(key_f12);          return key_f12;
+    case XKB_KEY_F13:          *count = ALEN(key_f13);          return key_f13;
+    case XKB_KEY_F14:          *count = ALEN(key_f14);          return key_f14;
+    case XKB_KEY_F15:          *count = ALEN(key_f15);          return key_f15;
+    case XKB_KEY_F16:          *count = ALEN(key_f16);          return key_f16;
+    case XKB_KEY_F17:          *count = ALEN(key_f17);          return key_f17;
+    case XKB_KEY_F18:          *count = ALEN(key_f18);          return key_f18;
+    case XKB_KEY_F19:          *count = ALEN(key_f19);          return key_f19;
+    case XKB_KEY_F20:          *count = ALEN(key_f20);          return key_f20;
+    case XKB_KEY_F21:          *count = ALEN(key_f21);          return key_f21;
+    case XKB_KEY_F22:          *count = ALEN(key_f22);          return key_f22;
+    case XKB_KEY_F23:          *count = ALEN(key_f23);          return key_f23;
+    case XKB_KEY_F24:          *count = ALEN(key_f24);          return key_f24;
+    case XKB_KEY_F25:          *count = ALEN(key_f25);          return key_f25;
+    case XKB_KEY_F26:          *count = ALEN(key_f26);          return key_f26;
+    case XKB_KEY_F27:          *count = ALEN(key_f27);          return key_f27;
+    case XKB_KEY_F28:          *count = ALEN(key_f28);          return key_f28;
+    case XKB_KEY_F29:          *count = ALEN(key_f29);          return key_f29;
+    case XKB_KEY_F30:          *count = ALEN(key_f30);          return key_f30;
+    case XKB_KEY_F31:          *count = ALEN(key_f31);          return key_f31;
+    case XKB_KEY_F32:          *count = ALEN(key_f32);          return key_f32;
+    case XKB_KEY_F33:          *count = ALEN(key_f33);          return key_f33;
+    case XKB_KEY_F34:          *count = ALEN(key_f34);          return key_f34;
+    case XKB_KEY_F35:          *count = ALEN(key_f35);          return key_f35;
+    case XKB_KEY_KP_Up:        *count = ALEN(key_kp_up);        return key_kp_up;
+    case XKB_KEY_KP_Down:      *count = ALEN(key_kp_down);      return key_kp_down;
+    case XKB_KEY_KP_Right:     *count = ALEN(key_kp_right);     return key_kp_right;
+    case XKB_KEY_KP_Left:      *count = ALEN(key_kp_left);      return key_kp_left;
+    case XKB_KEY_KP_Begin:     *count = ALEN(key_kp_begin);     return key_kp_begin;
+    case XKB_KEY_KP_Home:      *count = ALEN(key_kp_home);      return key_kp_home;
+    case XKB_KEY_KP_End:       *count = ALEN(key_kp_end);       return key_kp_end;
+    case XKB_KEY_KP_Insert:    *count = ALEN(key_kp_insert);    return key_kp_insert;
+    case XKB_KEY_KP_Delete:    *count = ALEN(key_kp_delete);    return key_kp_delete;
+    case XKB_KEY_KP_Page_Up:   *count = ALEN(key_kp_pageup);    return key_kp_pageup;
+    case XKB_KEY_KP_Page_Down: *count = ALEN(key_kp_pagedown);  return key_kp_pagedown;
+    case XKB_KEY_KP_Enter:     *count = ALEN(key_kp_enter);     return key_kp_enter;
+    case XKB_KEY_KP_Divide:    *count = ALEN(key_kp_divide);    return key_kp_divide;
+    case XKB_KEY_KP_Multiply:  *count = ALEN(key_kp_multiply);  return key_kp_multiply;
+    case XKB_KEY_KP_Subtract:  *count = ALEN(key_kp_subtract);  return key_kp_subtract;
+    case XKB_KEY_KP_Add:       *count = ALEN(key_kp_add);       return key_kp_add;
+    case XKB_KEY_KP_Separator: *count = ALEN(key_kp_separator); return key_kp_separator;
+    case XKB_KEY_KP_0:         *count = ALEN(key_kp_0);         return key_kp_0;
+    case XKB_KEY_KP_1:         *count = ALEN(key_kp_1);         return key_kp_1;
+    case XKB_KEY_KP_2:         *count = ALEN(key_kp_2);         return key_kp_2;
+    case XKB_KEY_KP_3:         *count = ALEN(key_kp_3);         return key_kp_3;
+    case XKB_KEY_KP_4:         *count = ALEN(key_kp_4);         return key_kp_4;
+    case XKB_KEY_KP_5:         *count = ALEN(key_kp_5);         return key_kp_5;
+    case XKB_KEY_KP_6:         *count = ALEN(key_kp_6);         return key_kp_6;
+    case XKB_KEY_KP_7:         *count = ALEN(key_kp_7);         return key_kp_7;
+    case XKB_KEY_KP_8:         *count = ALEN(key_kp_8);         return key_kp_8;
+    case XKB_KEY_KP_9:         *count = ALEN(key_kp_9);         return key_kp_9;
+    }
+
+    #undef ALEN
+    return NULL;
+}
 
 static bool
 keymap_lookup(struct terminal *term, xkb_keysym_t sym, enum modifier mods)
 {
-    for (size_t i = 0; i < sizeof(key_map) / sizeof(key_map[0]); i++) {
-        const struct key_map *k = &key_map[i];
-        if (k->sym != sym)
+    size_t count;
+    const struct key_data *info = keymap_data(sym, &count);
+
+    if (info == NULL)
+        return false;
+
+    for (size_t j = 0; j < count; j++) {
+        if (info[j].modifiers != MOD_ANY && info[j].modifiers != mods)
             continue;
 
-        for (size_t j = 0; j < k->count; j++) {
-            const struct key_data *info = &k->data[j];
-            if (info->modifiers != MOD_ANY && info->modifiers != mods)
-                continue;
+        if (info[j].cursor_keys_mode != CURSOR_KEYS_DONTCARE &&
+            info[j].cursor_keys_mode != term->cursor_keys_mode)
+            continue;
 
-            if (info->cursor_keys_mode != CURSOR_KEYS_DONTCARE &&
-                info->cursor_keys_mode != term->cursor_keys_mode)
-                continue;
+        if (info[j].keypad_keys_mode != KEYPAD_DONTCARE &&
+            info[j].keypad_keys_mode != term->keypad_keys_mode)
+            continue;
 
-            if (info->keypad_keys_mode != KEYPAD_DONTCARE &&
-                info->keypad_keys_mode != term->keypad_keys_mode)
-                continue;
+        term_to_slave(term, info[j].seq, strlen(info[j].seq));
 
-            term_to_slave(term, info->seq, strlen(info->seq));
-
-            term_reset_view(term);
-            selection_cancel(term);
-            return true;
-        }
+        term_reset_view(term);
+        selection_cancel(term);
+        return true;
     }
 
     return false;
