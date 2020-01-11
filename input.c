@@ -167,7 +167,7 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 }
 
 static const struct key_data *
-keymap_data(xkb_keysym_t sym, size_t *count)
+keymap_data_for_sym(xkb_keysym_t sym, size_t *count)
 {
 #define ALEN(a) (sizeof(a) / sizeof(a[0]))
     switch (sym) {
@@ -254,14 +254,14 @@ keymap_data(xkb_keysym_t sym, size_t *count)
     return NULL;
 }
 
-static bool
+static const struct key_data *
 keymap_lookup(struct terminal *term, xkb_keysym_t sym, enum modifier mods)
 {
     size_t count;
-    const struct key_data *info = keymap_data(sym, &count);
+    const struct key_data *info = keymap_data_for_sym(sym, &count);
 
     if (info == NULL)
-        return false;
+        return NULL;
 
     for (size_t j = 0; j < count; j++) {
         if (info[j].modifiers != MOD_ANY && info[j].modifiers != mods)
@@ -275,14 +275,10 @@ keymap_lookup(struct terminal *term, xkb_keysym_t sym, enum modifier mods)
             info[j].keypad_keys_mode != term->keypad_keys_mode)
             continue;
 
-        term_to_slave(term, info[j].seq, strlen(info[j].seq));
-
-        term_reset_view(term);
-        selection_cancel(term);
-        return true;
+        return &info[j];
     }
 
-    return false;
+    return NULL;
 }
 
 static void
@@ -408,9 +404,14 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         }
     }
 
+    const struct key_data *keymap = keymap_lookup(term, sym, keymap_mods);
+    if (keymap != NULL) {
+        term_to_slave(term, keymap->seq, strlen(keymap->seq));
 
-    if (keymap_lookup(term, sym, keymap_mods))
+        term_reset_view(term);
+        selection_cancel(term);
         goto maybe_repeat;
+    }
 
     uint8_t buf[64] = {0};
     int count = 0;
