@@ -229,15 +229,10 @@ libraries, or you can build them as _subprojects_ in foot.
 When building foot, they will first be searched for as system
 libraries. If **found**, foot will link dynamically against them.
 
-If **not** found, they will be searched for as subprojects. In a foot
-git clone, they will be available as git _submodules_ and you can
-simply check them out with `git submodule update --init`. In this
-case, foot will link statically against them.
-
-If you have downloaded a zip/tar file, you need to manually copy the
-correct version of the library source code into the `subprojects`
-folder. If you are unsure how to do this, it might be easier to
-install them as system libraries.
+If **not** found, they will be searched for as subprojects. In this
+case you need to create the `subprojects` directory and clone
+https://codeberg.org/dnkl/fcft.git and
+https://codeberg.org/dnkl/tllist.git (see [Other](#other) below).
 
 
 ### Arch Linux
@@ -268,10 +263,15 @@ you intend to install a release build of foot, in which case you might
 be interested in the compiler flags used there.
 
 If you have not installed [tllist](https://codeberg.org/dnkl/tllist)
-and [fcft](https://codeberg.org/dnkl/fcft) as system libraries, check
-them out as git submodules:
+and [fcft](https://codeberg.org/dnkl/fcft) as system libraries, clone
+them into the `subprojects` directory:
+
 ```sh
-git submodule update --init
+mkdir -p subprojects
+pushd subprojects
+git clone https://codeberg.org/dnkl/tllist.git
+git clone https://codeberg.org/dnkl/fcft.git
+popd
 ```
 
 To build, first, create a build directory, and switch to it:
