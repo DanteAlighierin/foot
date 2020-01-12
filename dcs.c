@@ -8,6 +8,8 @@
 static void
 bsu(struct terminal *term)
 {
+    /* https://gitlab.com/gnachman/iterm2/-/wikis/synchronized-updates-spec */
+
     LOG_WARN("untested: BSU - Begin Synchronized Update (params: %.*s)",
             (int)term->vt.dcs.idx, term->vt.dcs.data);
 
@@ -18,6 +20,8 @@ bsu(struct terminal *term)
 static void
 esu(struct terminal *term)
 {
+    /* https://gitlab.com/gnachman/iterm2/-/wikis/synchronized-updates-spec */
+
     LOG_WARN("untested: ESU - Begin Synchronized Update (params: %.*s)",
             (int)term->vt.dcs.idx, term->vt.dcs.data);
 
