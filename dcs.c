@@ -67,7 +67,8 @@ void
 dcs_put(struct terminal *term, uint8_t c)
 {
     LOG_DBG("PUT: %c", c);
-    ensure_size(term, term->vt.dcs.idx + 1);
+    if (!ensure_size(term, term->vt.dcs.idx + 1))
+        return;
     term->vt.dcs.data[term->vt.dcs.idx++] = c;
 }
 
