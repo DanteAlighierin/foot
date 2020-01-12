@@ -1193,7 +1193,7 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         if (!term->render.refresh_needed)
             continue;
 
-        if (term->render.refresh_prohibited)
+        if (term->render.application_synchronized_updates)
             continue;
 
         assert(term->window->is_configured);
@@ -1244,19 +1244,19 @@ render_refresh(struct terminal *term)
 void
 render_disable_refresh(struct terminal *term)
 {
-    if (term->render.refresh_prohibited)
+    if (term->render.application_synchronized_updates)
         return;
 
-    term->render.refresh_prohibited = true;
+    term->render.application_synchronized_updates = true;
 }
 
 void
 render_enable_refresh(struct terminal *term)
 {
-    if (!term->render.refresh_prohibited)
+    if (!term->render.application_synchronized_updates)
         return;
 
-    term->render.refresh_prohibited = false;
+    term->render.application_synchronized_updates = false;
 }
 
 bool

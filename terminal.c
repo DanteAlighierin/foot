@@ -186,7 +186,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
      * has any effect when the renderer is idle.
      */
     if (term->window->frame_callback == NULL) {
-        if (term->render.refresh_prohibited) {
+        if (term->render.application_synchronized_updates) {
             timerfd_settime(
                 term->delayed_render_timer.lower_fd, 0,
                 &(struct itimerspec){{0}}, NULL);
