@@ -1016,7 +1016,7 @@ render_resize(struct terminal *term, int width, int height)
         return;
 
     /* Cancel an application initiated "Synchronized Update" */
-    render_enable_refresh(term);
+    render_disable_application_synchronized_updates(term);
 
     term->width = width;
     term->height = height;
@@ -1242,7 +1242,7 @@ render_refresh(struct terminal *term)
 }
 
 void
-render_disable_refresh(struct terminal *term)
+render_enable_application_synchronized_updates(struct terminal *term)
 {
     if (term->render.application_synchronized_updates)
         return;
@@ -1251,7 +1251,7 @@ render_disable_refresh(struct terminal *term)
 }
 
 void
-render_enable_refresh(struct terminal *term)
+render_disable_application_synchronized_updates(struct terminal *term)
 {
     if (!term->render.application_synchronized_updates)
         return;
