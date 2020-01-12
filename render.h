@@ -11,6 +11,8 @@ void render_destroy(struct renderer *renderer);
 void render_resize(struct terminal *term, int width, int height);
 void render_set_title(struct terminal *term, const char *title);
 void render_refresh(struct terminal *term);
+void render_disable_refresh(struct terminal *term);
+void render_enable_refresh(struct terminal *term);
 bool render_xcursor_set(struct terminal *term);
 
 void render_search_box(struct terminal *term);

@@ -1015,6 +1015,9 @@ render_resize(struct terminal *term, int width, int height)
     if (width == term->width && height == term->height && scale == term->scale)
         return;
 
+    /* Cancel an application initiated "Synchronized Update" */
+    render_enable_refresh(term);
+
     term->width = width;
     term->height = height;
     term->scale = scale;
@@ -1190,6 +1193,9 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         if (!term->render.refresh_needed)
             continue;
 
+        if (term->render.refresh_prohibited)
+            continue;
+
         assert(term->window->is_configured);
         term->render.refresh_needed = false;
 
@@ -1233,6 +1239,24 @@ void
 render_refresh(struct terminal *term)
 {
     term->render.refresh_needed = true;
+}
+
+void
+render_disable_refresh(struct terminal *term)
+{
+    if (term->render.refresh_prohibited)
+        return;
+
+    term->render.refresh_prohibited = true;
+}
+
+void
+render_enable_refresh(struct terminal *term)
+{
+    if (!term->render.refresh_prohibited)
+        return;
+
+    term->render.refresh_prohibited = false;
 }
 
 bool
