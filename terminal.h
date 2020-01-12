@@ -292,6 +292,11 @@ struct terminal {
         bool refresh_needed;  /* Terminal needs to be re-rendered, as soon-as-possible */
         int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
 
+        struct {
+            bool enabled;
+            int timer_fd;
+        } application_synchronized_updates;
+
         /* Render threads + synchronization primitives */
         struct {
             size_t count;
@@ -405,3 +410,6 @@ void term_xcursor_update(struct terminal *term);
 void term_set_window_title(struct terminal *term, const char *title);
 void term_flash(struct terminal *term, unsigned duration_ms);
 bool term_spawn_new(const struct terminal *term);
+
+void term_enable_application_synchronized_updates(struct terminal *term);
+void term_disable_application_synchronized_updates(struct terminal *term);

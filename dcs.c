@@ -8,17 +8,19 @@
 static void
 bsu(struct terminal *term)
 {
-    LOG_WARN("unimplemented: BSU - Begin Synchronized Update (params: %.*s)",
-             (int)term->vt.dcs.idx, term->vt.dcs.data);
-    abort();
+    LOG_DBG("BSU - Begin Synchronized Update (params: %.*s)",
+            (int)term->vt.dcs.idx, term->vt.dcs.data);
+
+    term_enable_application_synchronized_updates(term);
 }
 
 static void
 esu(struct terminal *term)
 {
-    LOG_WARN("unimplemented: ESU - Begin Synchronized Update (params: %.*s)",
-             (int)term->vt.dcs.idx, term->vt.dcs.data);
-    abort();
+    LOG_DBG("ESU - Begin Synchronized Update (params: %.*s)",
+            (int)term->vt.dcs.idx, term->vt.dcs.data);
+
+    term_disable_application_synchronized_updates(term);
 }
 
 void

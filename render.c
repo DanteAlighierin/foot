@@ -1015,6 +1015,9 @@ render_resize(struct terminal *term, int width, int height)
     if (width == term->width && height == term->height && scale == term->scale)
         return;
 
+    /* Cancel an application initiated "Synchronized Update" */
+    term_disable_application_synchronized_updates(term);
+
     term->width = width;
     term->height = height;
     term->scale = scale;
@@ -1188,6 +1191,9 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         struct terminal *term = it->item;
 
         if (!term->render.refresh_needed)
+            continue;
+
+        if (term->render.application_synchronized_updates.enabled)
             continue;
 
         assert(term->window->is_configured);
