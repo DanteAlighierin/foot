@@ -13,7 +13,7 @@ bsu(struct terminal *term)
     LOG_WARN("untested: BSU - Begin Synchronized Update (params: %.*s)",
             (int)term->vt.dcs.idx, term->vt.dcs.data);
 
-    term_enable_application_synchronized_updates(term);
+    term_enable_app_sync_updates(term);
     abort();
 }
 
@@ -25,7 +25,7 @@ esu(struct terminal *term)
     LOG_WARN("untested: ESU - Begin Synchronized Update (params: %.*s)",
             (int)term->vt.dcs.idx, term->vt.dcs.data);
 
-    term_disable_application_synchronized_updates(term);
+    term_disable_app_sync_updates(term);
     abort();
 }
 

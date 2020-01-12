@@ -186,7 +186,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
      * has any effect when the renderer is idle.
      */
     if (term->window->frame_callback == NULL) {
-        if (term->render.application_synchronized_updates.enabled)
+        if (term->render.app_sync_updates.enabled)
             term->render.refresh_needed = true;
 
         else {
@@ -418,7 +418,7 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
 }
 
 static bool
-fdm_application_synchronized_updates_timeout(
+fdm_app_sync_updates_timeout(
     struct fdm *fdm, int fd, int events, void *data)
 {
     if (events & EPOLLHUP)
@@ -426,7 +426,7 @@ fdm_application_synchronized_updates_timeout(
 
     struct terminal *term = data;
     uint64_t unused;
-    ssize_t ret = read(term->render.application_synchronized_updates.timer_fd,
+    ssize_t ret = read(term->render.app_sync_updates.timer_fd,
                        &unused, sizeof(unused));
 
     if (ret < 0) {
@@ -436,7 +436,7 @@ fdm_application_synchronized_updates_timeout(
         return false;
     }
 
-    term_disable_application_synchronized_updates(term);
+    term_disable_app_sync_updates(term);
     return true;
 }
 
@@ -534,7 +534,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     int cursor_blink_fd = -1;
     int delay_lower_fd = -1;
     int delay_upper_fd = -1;
-    int application_synchronized_updates_fd = -1;
+    int app_sync_updates_fd = -1;
 
     struct terminal *term = malloc(sizeof(*term));
 
@@ -561,7 +561,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto close_fds;
     }
 
-    if ((application_synchronized_updates_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1)
+    if ((app_sync_updates_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1)
     {
         LOG_ERRNO("failed to create application synchronized updates timer FD");
         goto close_fds;
@@ -581,7 +581,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         !fdm_add(fdm, cursor_blink_fd, EPOLLIN, &fdm_cursor_blink, term) ||
         !fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
         !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term) ||
-        !fdm_add(fdm, application_synchronized_updates_fd, EPOLLIN, &fdm_application_synchronized_updates_timeout, term))
+        !fdm_add(fdm, app_sync_updates_fd, EPOLLIN, &fdm_app_sync_updates_timeout, term))
     {
         goto err;
     }
@@ -656,7 +656,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .wl = wayl,
         .render = {
             .scrollback_lines = conf->scrollback_lines,
-            .application_synchronized_updates.timer_fd = application_synchronized_updates_fd,
+            .app_sync_updates.timer_fd = app_sync_updates_fd,
             .workers = {
                 .count = conf->render_worker_count,
                 .queue = tll_init(),
@@ -732,7 +732,7 @@ close_fds:
     fdm_del(fdm, cursor_blink_fd);
     fdm_del(fdm, delay_lower_fd);
     fdm_del(fdm, delay_upper_fd);
-    fdm_del(fdm, application_synchronized_updates_fd);
+    fdm_del(fdm, app_sync_updates_fd);
 
     free(term);
     return NULL;
@@ -793,7 +793,7 @@ term_shutdown(struct terminal *term)
 
     term_cursor_blink_disable(term);
 
-    fdm_del(term->fdm, term->render.application_synchronized_updates.timer_fd);
+    fdm_del(term->fdm, term->render.app_sync_updates.timer_fd);
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
     fdm_del(term->fdm, term->cursor_blink.fd);
@@ -801,7 +801,7 @@ term_shutdown(struct terminal *term)
     fdm_del(term->fdm, term->flash.fd);
     fdm_del(term->fdm, term->ptmx);
 
-    term->render.application_synchronized_updates.timer_fd = -1;
+    term->render.app_sync_updates.timer_fd = -1;
     term->delayed_render_timer.lower_fd = -1;
     term->delayed_render_timer.upper_fd = -1;
     term->cursor_blink.fd = -1;
@@ -851,7 +851,7 @@ term_destroy(struct terminal *term)
         }
     }
 
-    fdm_del(term->fdm, term->render.application_synchronized_updates.timer_fd);
+    fdm_del(term->fdm, term->render.app_sync_updates.timer_fd);
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
     fdm_del(term->fdm, term->cursor_blink.fd);
@@ -1807,12 +1807,12 @@ term_spawn_new(const struct terminal *term)
 }
 
 void
-term_enable_application_synchronized_updates(struct terminal *term)
+term_enable_app_sync_updates(struct terminal *term)
 {
-    term->render.application_synchronized_updates.enabled = true;
+    term->render.app_sync_updates.enabled = true;
 
     if (timerfd_settime(
-            term->render.application_synchronized_updates.timer_fd, 0,
+            term->render.app_sync_updates.timer_fd, 0,
             &(struct itimerspec){.it_value = {.tv_sec = 1}}, NULL) < 0)
     {
         LOG_ERR("failed to arm timer for application synchronized updates");
@@ -1828,15 +1828,15 @@ term_enable_application_synchronized_updates(struct terminal *term)
 }
 
 void
-term_disable_application_synchronized_updates(struct terminal *term)
+term_disable_app_sync_updates(struct terminal *term)
 {
-    if (!term->render.application_synchronized_updates.enabled)
+    if (!term->render.app_sync_updates.enabled)
         return;
 
-    term->render.application_synchronized_updates.enabled = false;
+    term->render.app_sync_updates.enabled = false;
 
     /* Reset timers */
     timerfd_settime(
-        term->render.application_synchronized_updates.timer_fd, 0,
+        term->render.app_sync_updates.timer_fd, 0,
         &(struct itimerspec){{0}}, NULL);
 }
