@@ -186,36 +186,48 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
      * has any effect when the renderer is idle.
      */
     if (term->window->frame_callback == NULL) {
-        /* First timeout - reset each time we receive input. */
-
-#if PTMX_TIMING
-        struct timespec now;
-
-        clock_gettime(1, &now);
-        if (last.tv_sec > 0 || last.tv_nsec > 0) {
-            struct timeval diff;
-            struct timeval l = {last.tv_sec, last.tv_nsec / 1000};
-            struct timeval n = {now.tv_sec, now.tv_nsec / 1000};
-
-            timersub(&n, &l, &diff);
-            LOG_INFO("waited %lu µs for more input", diff.tv_usec);
-        }
-        last = now;
-#endif
-
-        timerfd_settime(
-            term->delayed_render_timer.lower_fd, 0,
-            &(struct itimerspec){.it_value = {.tv_nsec = 500000}},
-            NULL);
-
-        /* Second timeout - only reset when we render. Set to one
-         * frame (assuming 60Hz) */
-        if (!term->delayed_render_timer.is_armed) {
+        if (term->render.refresh_prohibited) {
+            timerfd_settime(
+                term->delayed_render_timer.lower_fd, 0,
+                &(struct itimerspec){{0}}, NULL);
             timerfd_settime(
                 term->delayed_render_timer.upper_fd, 0,
-                &(struct itimerspec){.it_value = {.tv_nsec = 16666666 / 2}},
+                &(struct itimerspec){{0}}, NULL);
+            term->render.refresh_needed = true;
+        }
+
+        else {
+            /* First timeout - reset each time we receive input. */
+
+#if PTMX_TIMING
+            struct timespec now;
+
+            clock_gettime(1, &now);
+            if (last.tv_sec > 0 || last.tv_nsec > 0) {
+                struct timeval diff;
+                struct timeval l = {last.tv_sec, last.tv_nsec / 1000};
+                struct timeval n = {now.tv_sec, now.tv_nsec / 1000};
+
+                timersub(&n, &l, &diff);
+                LOG_INFO("waited %lu µs for more input", diff.tv_usec);
+            }
+            last = now;
+#endif
+
+            timerfd_settime(
+                term->delayed_render_timer.lower_fd, 0,
+                &(struct itimerspec){.it_value = {.tv_nsec = 500000}},
                 NULL);
-            term->delayed_render_timer.is_armed = true;
+
+            /* Second timeout - only reset when we render. Set to one
+             * frame (assuming 60Hz) */
+            if (!term->delayed_render_timer.is_armed) {
+                timerfd_settime(
+                    term->delayed_render_timer.upper_fd, 0,
+                    &(struct itimerspec){.it_value = {.tv_nsec = 16666666 / 2}},
+                    NULL);
+                term->delayed_render_timer.is_armed = true;
+            }
         }
     } else
         term->render.pending = true;
