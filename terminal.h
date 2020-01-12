@@ -125,6 +125,12 @@ struct vt {
         size_t idx;
         size_t left;
     } utf8;
+    struct {
+        uint8_t *data;
+        size_t size;
+        size_t idx;
+        void (*unhook_handler)(struct terminal *term);
+    } dcs;
     struct attributes attrs;
     struct attributes saved_attrs;
 };
