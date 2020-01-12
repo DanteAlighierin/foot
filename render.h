@@ -15,9 +15,6 @@ bool render_xcursor_set(struct terminal *term);
 
 void render_search_box(struct terminal *term);
 
-void render_enable_application_synchronized_updates(struct terminal *term);
-void render_disable_application_synchronized_updates(struct terminal *term);
-
 struct render_worker_context {
     int my_id;
     struct terminal *term;

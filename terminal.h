@@ -410,3 +410,6 @@ void term_xcursor_update(struct terminal *term);
 void term_set_window_title(struct terminal *term, const char *title);
 void term_flash(struct terminal *term, unsigned duration_ms);
 bool term_spawn_new(const struct terminal *term);
+
+void term_enable_application_synchronized_updates(struct terminal *term);
+void term_disable_application_synchronized_updates(struct terminal *term);

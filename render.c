@@ -1016,7 +1016,7 @@ render_resize(struct terminal *term, int width, int height)
         return;
 
     /* Cancel an application initiated "Synchronized Update" */
-    render_disable_application_synchronized_updates(term);
+    term_disable_application_synchronized_updates(term);
 
     term->width = width;
     term->height = height;
@@ -1239,36 +1239,6 @@ void
 render_refresh(struct terminal *term)
 {
     term->render.refresh_needed = true;
-}
-
-void
-render_enable_application_synchronized_updates(struct terminal *term)
-{
-    if (term->render.application_synchronized_updates.enabled)
-        return;
-
-    term->render.application_synchronized_updates.enabled = true;
-
-    if (timerfd_settime(
-            term->render.application_synchronized_updates.timer_fd, 0,
-            &(struct itimerspec){.it_value = {.tv_sec = 1}}, NULL) < 0)
-    {
-        LOG_ERR("failed to arm timer for application synchronized updates");
-    }
-}
-
-void
-render_disable_application_synchronized_updates(struct terminal *term)
-{
-    if (!term->render.application_synchronized_updates.enabled)
-        return;
-
-    term->render.application_synchronized_updates.enabled = false;
-
-    /* Reset timers */
-    timerfd_settime(
-        term->render.application_synchronized_updates.timer_fd, 0,
-        &(struct itimerspec){{0}}, NULL);
 }
 
 bool

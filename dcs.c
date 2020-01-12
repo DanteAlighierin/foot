@@ -3,7 +3,6 @@
 #define LOG_MODULE "dcs"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "render.h"
 #include "vt.h"
 
 static void
@@ -12,7 +11,7 @@ bsu(struct terminal *term)
     LOG_DBG("BSU - Begin Synchronized Update (params: %.*s)",
             (int)term->vt.dcs.idx, term->vt.dcs.data);
 
-    render_enable_application_synchronized_updates(term);
+    term_enable_application_synchronized_updates(term);
 }
 
 static void
@@ -21,7 +20,7 @@ esu(struct terminal *term)
     LOG_DBG("ESU - Begin Synchronized Update (params: %.*s)",
             (int)term->vt.dcs.idx, term->vt.dcs.data);
 
-    render_disable_application_synchronized_updates(term);
+    term_disable_application_synchronized_updates(term);
 }
 
 void
