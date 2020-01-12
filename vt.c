@@ -9,6 +9,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "csi.h"
+#include "dcs.h"
 #include "grid.h"
 #include "osc.h"
 
@@ -482,16 +483,19 @@ action_osc_put(struct terminal *term, uint8_t c)
 static void
 action_hook(struct terminal *term, uint8_t c)
 {
+    dcs_hook(term, c);
 }
 
 static void
 action_unhook(struct terminal *term, uint8_t c)
 {
+    dcs_unhook(term);
 }
 
 static void
 action_put(struct terminal *term, uint8_t c)
 {
+    dcs_put(term, c);
 }
 
 static void
