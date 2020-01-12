@@ -23,7 +23,7 @@ void
 dcs_hook(struct terminal *term, uint8_t final)
 {
     LOG_DBG("hook: %c (intermediate(s): %.2s, param=%d)", final, term->vt.private,
-            vt_param_get(term, 0, 127));
+            vt_param_get(term, 0, 0));
 
     assert(term->vt.dcs.data == NULL);
     assert(term->vt.dcs.size == 0);
