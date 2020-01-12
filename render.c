@@ -1097,8 +1097,8 @@ render_resize(struct terminal *term, int width, int height)
               &(struct winsize){
                   .ws_row = term->rows,
                   .ws_col = term->cols,
-                  .ws_xpixel = term->width,
-                  .ws_ypixel = term->height}) == -1)
+                  .ws_xpixel = term->cols * term->cell_width,
+                  .ws_ypixel = term->rows * term->cell_height}) == -1)
     {
         LOG_ERRNO("TIOCSWINSZ");
     }
