@@ -1193,7 +1193,7 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         if (!term->render.refresh_needed)
             continue;
 
-        if (term->render.application_synchronized_updates)
+        if (term->render.application_synchronized_updates.enabled)
             continue;
 
         assert(term->window->is_configured);
@@ -1244,19 +1244,31 @@ render_refresh(struct terminal *term)
 void
 render_enable_application_synchronized_updates(struct terminal *term)
 {
-    if (term->render.application_synchronized_updates)
+    if (term->render.application_synchronized_updates.enabled)
         return;
 
-    term->render.application_synchronized_updates = true;
+    term->render.application_synchronized_updates.enabled = true;
+
+    if (timerfd_settime(
+            term->render.application_synchronized_updates.timer_fd, 0,
+            &(struct itimerspec){.it_value = {.tv_sec = 1}}, NULL) < 0)
+    {
+        LOG_ERR("failed to arm timer for application synchronized updates");
+    }
 }
 
 void
 render_disable_application_synchronized_updates(struct terminal *term)
 {
-    if (!term->render.application_synchronized_updates)
+    if (!term->render.application_synchronized_updates.enabled)
         return;
 
-    term->render.application_synchronized_updates = false;
+    term->render.application_synchronized_updates.enabled = false;
+
+    /* Reset timers */
+    timerfd_settime(
+        term->render.application_synchronized_updates.timer_fd, 0,
+        &(struct itimerspec){{0}}, NULL);
 }
 
 bool

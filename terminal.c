@@ -186,7 +186,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
      * has any effect when the renderer is idle.
      */
     if (term->window->frame_callback == NULL) {
-        if (term->render.application_synchronized_updates) {
+        if (term->render.application_synchronized_updates.enabled) {
             timerfd_settime(
                 term->delayed_render_timer.lower_fd, 0,
                 &(struct itimerspec){{0}}, NULL);
@@ -424,6 +424,29 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
     return true;
 }
 
+static bool
+fdm_application_synchronized_updates_timeout(
+    struct fdm *fdm, int fd, int events, void *data)
+{
+    if (events & EPOLLHUP)
+        return false;
+
+    struct terminal *term = data;
+    uint64_t unused;
+    ssize_t ret = read(term->render.application_synchronized_updates.timer_fd,
+                       &unused, sizeof(unused));
+
+    if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+        LOG_ERRNO("failed to read application synchronized updates timeout timer");
+        return false;
+    }
+
+    render_disable_application_synchronized_updates(term);
+    return true;
+}
+
 static void
 initialize_color_cube(struct terminal *term)
 {
@@ -518,6 +541,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     int cursor_blink_fd = -1;
     int delay_lower_fd = -1;
     int delay_upper_fd = -1;
+    int application_synchronized_updates_fd = -1;
 
     struct terminal *term = malloc(sizeof(*term));
 
@@ -544,6 +568,12 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto close_fds;
     }
 
+    if ((application_synchronized_updates_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1)
+    {
+        LOG_ERRNO("failed to create application synchronized updates timer FD");
+        goto close_fds;
+    }
+
     int ptmx_flags;
     if ((ptmx_flags = fcntl(ptmx, F_GETFL)) < 0 ||
         fcntl(ptmx, F_SETFL, ptmx_flags | O_NONBLOCK) < 0)
@@ -557,7 +587,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         !fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term) ||
         !fdm_add(fdm, cursor_blink_fd, EPOLLIN, &fdm_cursor_blink, term) ||
         !fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
-        !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term))
+        !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term) ||
+        !fdm_add(fdm, application_synchronized_updates_fd, EPOLLIN, &fdm_application_synchronized_updates_timeout, term))
     {
         goto err;
     }
@@ -632,6 +663,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .wl = wayl,
         .render = {
             .scrollback_lines = conf->scrollback_lines,
+            .application_synchronized_updates.timer_fd = application_synchronized_updates_fd,
             .workers = {
                 .count = conf->render_worker_count,
                 .queue = tll_init(),
@@ -707,6 +739,7 @@ close_fds:
     fdm_del(fdm, cursor_blink_fd);
     fdm_del(fdm, delay_lower_fd);
     fdm_del(fdm, delay_upper_fd);
+    fdm_del(fdm, application_synchronized_updates_fd);
 
     free(term);
     return NULL;
@@ -767,6 +800,7 @@ term_shutdown(struct terminal *term)
 
     term_cursor_blink_disable(term);
 
+    fdm_del(term->fdm, term->render.application_synchronized_updates.timer_fd);
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
     fdm_del(term->fdm, term->cursor_blink.fd);
@@ -774,6 +808,7 @@ term_shutdown(struct terminal *term)
     fdm_del(term->fdm, term->flash.fd);
     fdm_del(term->fdm, term->ptmx);
 
+    term->render.application_synchronized_updates.timer_fd = -1;
     term->delayed_render_timer.lower_fd = -1;
     term->delayed_render_timer.upper_fd = -1;
     term->cursor_blink.fd = -1;
@@ -823,6 +858,7 @@ term_destroy(struct terminal *term)
         }
     }
 
+    fdm_del(term->fdm, term->render.application_synchronized_updates.timer_fd);
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
     fdm_del(term->fdm, term->cursor_blink.fd);

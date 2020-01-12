@@ -292,7 +292,11 @@ struct terminal {
         bool refresh_needed;  /* Terminal needs to be re-rendered, as soon-as-possible */
         int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
 
-        bool application_synchronized_updates;
+        struct {
+            bool enabled;
+            int timer_fd;
+        } application_synchronized_updates;
+
         /* Render threads + synchronization primitives */
         struct {
             size_t count;
