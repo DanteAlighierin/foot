@@ -1809,9 +1809,6 @@ term_spawn_new(const struct terminal *term)
 void
 term_enable_application_synchronized_updates(struct terminal *term)
 {
-    if (term->render.application_synchronized_updates.enabled)
-        return;
-
     term->render.application_synchronized_updates.enabled = true;
 
     if (timerfd_settime(
