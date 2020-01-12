@@ -186,15 +186,8 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
      * has any effect when the renderer is idle.
      */
     if (term->window->frame_callback == NULL) {
-        if (term->render.application_synchronized_updates.enabled) {
-            timerfd_settime(
-                term->delayed_render_timer.lower_fd, 0,
-                &(struct itimerspec){{0}}, NULL);
-            timerfd_settime(
-                term->delayed_render_timer.upper_fd, 0,
-                &(struct itimerspec){{0}}, NULL);
+        if (term->render.application_synchronized_updates.enabled)
             term->render.refresh_needed = true;
-        }
 
         else {
             /* First timeout - reset each time we receive input. */
@@ -1827,6 +1820,14 @@ term_enable_application_synchronized_updates(struct terminal *term)
     {
         LOG_ERR("failed to arm timer for application synchronized updates");
     }
+
+    /* Disarm delayed rendering timers */
+    timerfd_settime(
+        term->delayed_render_timer.lower_fd, 0,
+        &(struct itimerspec){{0}}, NULL);
+    timerfd_settime(
+        term->delayed_render_timer.upper_fd, 0,
+        &(struct itimerspec){{0}}, NULL);
 }
 
 void
