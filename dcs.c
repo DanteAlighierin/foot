@@ -10,6 +10,7 @@ bsu(struct terminal *term)
 {
     LOG_WARN("unimplemented: BSU - Begin Synchronized Update (params: %.*s)",
              (int)term->vt.dcs.idx, term->vt.dcs.data);
+    abort();
 }
 
 static void
@@ -17,6 +18,7 @@ esu(struct terminal *term)
 {
     LOG_WARN("unimplemented: ESU - Begin Synchronized Update (params: %.*s)",
              (int)term->vt.dcs.idx, term->vt.dcs.data);
+    abort();
 }
 
 void
