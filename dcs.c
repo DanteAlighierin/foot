@@ -3,22 +3,24 @@
 #define LOG_MODULE "dcs"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "render.h"
 #include "vt.h"
 
 static void
 bsu(struct terminal *term)
 {
-    LOG_WARN("unimplemented: BSU - Begin Synchronized Update (params: %.*s)",
-             (int)term->vt.dcs.idx, term->vt.dcs.data);
-    abort();
+    LOG_DBG("BSU - Begin Synchronized Update (params: %.*s)",
+            (int)term->vt.dcs.idx, term->vt.dcs.data);
+
+    render_disable_refresh(term);
 }
 
 static void
 esu(struct terminal *term)
 {
-    LOG_WARN("unimplemented: ESU - Begin Synchronized Update (params: %.*s)",
-             (int)term->vt.dcs.idx, term->vt.dcs.data);
-    abort();
+    LOG_DBG("ESU - Begin Synchronized Update (params: %.*s)",
+            (int)term->vt.dcs.idx, term->vt.dcs.data);
+    render_enable_refresh(term);
 }
 
 void
