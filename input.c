@@ -79,7 +79,11 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     close(fd);
 }
 
-static void
+static void keyboard_key(
+    void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
+    uint32_t time, uint32_t key, uint32_t state);
+
+    static void
 keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface, struct wl_array *keys)
 {
@@ -92,6 +96,10 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
     term_kbd_focus_in(wayl->kbd_focus);
     term_xcursor_update(wayl->kbd_focus);
+
+    uint32_t *key;
+    wl_array_for_each(key, keys)
+        keyboard_key(data, wl_keyboard, serial, 0, *key, XKB_KEY_DOWN);
 }
 
 static bool
