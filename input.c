@@ -151,6 +151,11 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wayl->kbd_focus = NULL;
 
     stop_repeater(wayl, -1);
+    wayl->kbd.shift = false;;
+    wayl->kbd.alt = false;;
+    wayl->kbd.ctrl = false;;
+    wayl->kbd.meta = false;;
+
     if (old_focused != NULL) {
         term_kbd_focus_out(old_focused);
         term_xcursor_update(old_focused);
