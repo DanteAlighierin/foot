@@ -14,8 +14,8 @@ before_script:
   - apk add wayland-dev wayland-protocols
   - apk add git
   - mkdir -p subprojects && cd subprojects
-  - git checkout https://codeberg.org/dnkl/tllist.git
-  - git checkout https://codeberg.org/dnkl/fcft.git
+  - git clone https://codeberg.org/dnkl/tllist.git
+  - git clone https://codeberg.org/dnkl/fcft.git
   - cd ..
 
 debug:
