@@ -12,6 +12,10 @@ before_script:
   - apk add musl-dev linux-headers meson ninja gcc scdoc ncurses
   - apk add libxkbcommon-dev pixman-dev freetype-dev fontconfig-dev
   - apk add wayland-dev wayland-protocols
+  - mkdir -p subprojects && pushd subprojects
+  - git checkout https://codeberg.org/dnkl/tllist.git
+  - git checkout https://codeberg.org/dnkl/fcft.git
+  - popd
 
 debug:
   stage: build
