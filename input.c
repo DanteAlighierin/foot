@@ -155,6 +155,7 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wayl->kbd.alt = false;;
     wayl->kbd.ctrl = false;;
     wayl->kbd.meta = false;;
+    xkb_compose_state_reset(wayl->kbd.xkb_compose_state);
 
     if (old_focused != NULL) {
         term_kbd_focus_out(old_focused);
