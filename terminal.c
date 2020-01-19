@@ -515,23 +515,11 @@ initialize_fonts(struct terminal *term, const struct config *conf)
     snprintf(attrs2, sizeof(attrs2), "dpi=%u:slant=italic", dpi);
     snprintf(attrs3, sizeof(attrs3), "dpi=%u:weight=bold:slant=italic", dpi);
 
-    bool ret = (
+    return (
         (term->fonts[0] = font_from_name(names, count, attrs0)) != NULL &&
         (term->fonts[1] = font_from_name(names, count, attrs1)) != NULL &&
         (term->fonts[2] = font_from_name(names, count, attrs2)) != NULL &&
         (term->fonts[3] = font_from_name(names, count, attrs3)) != NULL);
-
-    LOG_DBG("%s subpixel antialiasing", conf->colors.alpha == 0xffff
-            ? "enabling" : "disabling");
-
-    if (conf->colors.alpha == 0xffff) {
-        font_enable_subpixel_antialias(term->fonts[0]);
-        font_enable_subpixel_antialias(term->fonts[1]);
-        font_enable_subpixel_antialias(term->fonts[2]);
-        font_enable_subpixel_antialias(term->fonts[3]);
-    }
-
-    return ret;
 }
 
 struct terminal *

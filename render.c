@@ -418,7 +418,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     struct font *font = attrs_to_font(term, &cell->attrs);
     const struct glyph *glyph = cell->wc != 0
-        ? font_glyph_for_wc(font, cell->wc) : NULL;
+        ? font_glyph_for_wc(font, cell->wc, term->colors.alpha == 0xffff)
+        : NULL;
 
     int cell_cols = glyph != NULL ? max(1, glyph->cols) : 1;
 
@@ -934,7 +935,7 @@ render_search_box(struct terminal *term)
         if (i == term->search.cursor)
             draw_bar(term, buf->pix, font, &fg, x, y);
 
-        const struct glyph *glyph = font_glyph_for_wc(font, term->search.buf[i]);
+        const struct glyph *glyph = font_glyph_for_wc(font, term->search.buf[i], true);
         if (glyph == NULL)
             continue;
 
