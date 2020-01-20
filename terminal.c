@@ -652,6 +652,10 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .normal = {.damage = tll_init(), .scroll_damage = tll_init()},
         .alt = {.damage = tll_init(), .scroll_damage = tll_init()},
         .grid = &term->normal,
+        .meta = {
+            .esc_prefix = true,
+            .eight_bit = true,
+        },
         .tab_stops = tll_init(),
         .wl = wayl,
         .render = {
@@ -1031,6 +1035,9 @@ term_reset(struct terminal *term, bool hard)
         term_restore_cursor(term);
         selection_cancel(term);
     }
+
+    term->meta.esc_prefix = true;
+    term->meta.eight_bit = true;
 
     if (!hard)
         return;

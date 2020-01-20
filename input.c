@@ -451,44 +451,82 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 #define is_control_key(x) ((x) >= 0x40 && (x) <= 0x7f)
 #define IS_CTRL(x) ((x) < 0x20 || ((x) >= 0x7f && (x) <= 0x9f))
 
-            if ((keymap_mods & MOD_CTRL) &&
-                !is_control_key(sym) &&
-                (count == 1 && !IS_CTRL(buf[0])) &&
-                sym < 256)
-            {
-                static const int mod_param_map[32] = {
-                    [MOD_SHIFT] = 2,
-                    [MOD_ALT] = 3,
-                    [MOD_SHIFT | MOD_ALT] = 4,
-                    [MOD_CTRL] = 5,
-                    [MOD_SHIFT | MOD_CTRL] = 6,
-                    [MOD_ALT | MOD_CTRL] = 7,
-                    [MOD_SHIFT | MOD_ALT | MOD_CTRL] = 8,
-                    [MOD_META] = 9,
-                    [MOD_META | MOD_SHIFT] = 10,
-                    [MOD_META | MOD_ALT] = 11,
-                    [MOD_META | MOD_SHIFT | MOD_ALT] = 12,
-                    [MOD_META | MOD_CTRL] = 13,
-                    [MOD_META | MOD_SHIFT | MOD_CTRL] = 14,
-                    [MOD_META | MOD_ALT | MOD_CTRL] = 15,
-                    [MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL] = 16,
-                };
+    if ((keymap_mods & MOD_CTRL) &&
+        !is_control_key(sym) &&
+        (count == 1 && !IS_CTRL(buf[0])) &&
+        sym < 256)
+    {
+        static const int mod_param_map[32] = {
+            [MOD_SHIFT] = 2,
+            [MOD_ALT] = 3,
+            [MOD_SHIFT | MOD_ALT] = 4,
+            [MOD_CTRL] = 5,
+            [MOD_SHIFT | MOD_CTRL] = 6,
+            [MOD_ALT | MOD_CTRL] = 7,
+            [MOD_SHIFT | MOD_ALT | MOD_CTRL] = 8,
+            [MOD_META] = 9,
+            [MOD_META | MOD_SHIFT] = 10,
+            [MOD_META | MOD_ALT] = 11,
+            [MOD_META | MOD_SHIFT | MOD_ALT] = 12,
+            [MOD_META | MOD_CTRL] = 13,
+            [MOD_META | MOD_SHIFT | MOD_CTRL] = 14,
+            [MOD_META | MOD_ALT | MOD_CTRL] = 15,
+            [MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL] = 16,
+        };
 
-                assert(keymap_mods < sizeof(mod_param_map) / sizeof(mod_param_map[0]));
-                int modify_param = mod_param_map[keymap_mods];
-                assert(modify_param != 0);
+        assert(keymap_mods < sizeof(mod_param_map) / sizeof(mod_param_map[0]));
+        int modify_param = mod_param_map[keymap_mods];
+        assert(modify_param != 0);
 
-                char reply[1024];
-                snprintf(reply, sizeof(reply), "\x1b[27;%d;%d~", modify_param, sym);
-                term_to_slave(term, reply, strlen(reply));
+        char reply[1024];
+        snprintf(reply, sizeof(reply), "\x1b[27;%d;%d~", modify_param, sym);
+        term_to_slave(term, reply, strlen(reply));
+    }
+
+    else {
+        if (effective_mods & alt) {
+            /*
+             * When the alt modifier is pressed, we do one out of three things:
+             *
+             *  1. we prefix the output bytes with ESC
+             *  2. we set the 8:th bit in the output byte
+             *  3. we ignore the alt modifier
+             *
+             * #1 is configured with \E[?1036, and is on by default
+             *
+             * If #1 has been disabled, we use #2, *if* it's a single
+             * byte we're emitting. Since this is an UTF-8 terminal,
+             * we then UTF8-encode the 8-bit character. #2 is
+             * configured with \E[?1034, and is on by default.
+             *
+             * Lastly, if both #1 and #2 have been disabled, the alt
+             * modifier is ignored.
+             */
+            if (term->meta.esc_prefix) {
+                term_to_slave(term, "\x1b", 1);
+                term_to_slave(term, buf, count);
+            }
+
+            else if (term->meta.eight_bit && count == 1) {
+                const wchar_t wc = 0x80 | buf[0];
+
+                char utf8[8];
+                mbstate_t ps = {0};
+                size_t chars = wcrtomb(utf8, wc, &ps);
+
+                if (chars != (size_t)-1)
+                    term_to_slave(term, utf8, chars);
+                else
+                    term_to_slave(term, buf, count);
             }
 
             else {
-                if (effective_mods & alt)
-                    term_to_slave(term, "\x1b", 1);
-
+                /* Alt ignored */
                 term_to_slave(term, buf, count);
             }
+        } else
+            term_to_slave(term, buf, count);
+    }
 
     clock_gettime(
         term->wl->presentation_clock_id, &term->render.input_time);

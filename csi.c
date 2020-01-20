@@ -927,8 +927,16 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->mouse_reporting = MOUSE_URXVT;
                     break;
 
+                case 1034:
+                    /* smm */
+                    LOG_DBG("enabling 8-bit meta mode");
+                    term->meta.eight_bit = true;
+                    break;
+
                 case 1036:
-                    /* metaSendsEscape - we always send escape */
+                    /* metaSendsEscape */
+                    LOG_DBG("enabling meta-sends-escape");
+                    term->meta.esc_prefix = true;
                     break;
 
 #if 0
@@ -1037,9 +1045,16 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->alt_scrolling = false;
                     break;
 
+                case 1034:
+                    /* rmm */
+                    LOG_DBG("disabling 8-bit meta mode");
+                    term->meta.eight_bit = false;
+                    break;
+
                 case 1036:
-                    /* metaSendsEscape - we always send escape */
-                    LOG_WARN("unimplemented: meta does *not* send escape");
+                    /* metaSendsEscape */
+                    LOG_DBG("disabling  meta-sends-escape");
+                    term->meta.esc_prefix = false;
                     break;
 
 #if 0

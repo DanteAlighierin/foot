@@ -283,6 +283,11 @@ struct terminal {
 
     struct font *fonts[4];
 
+    struct {
+        bool esc_prefix;
+        bool eight_bit;
+    } meta;
+
     tll(int) tab_stops;
 
     struct wayland *wl;
