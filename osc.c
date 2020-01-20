@@ -502,6 +502,27 @@ osc_dispatch(struct terminal *term)
     }
 
     case 12: /* Set cursor color */
+
+        /* Client queried for current value */
+        if (strlen(string) == 1 && string[0] == '?') {
+            uint8_t r = (term->cursor_color.text >> 16) & 0xff;
+            uint8_t g = (term->cursor_color.text >>  8) & 0xff;
+            uint8_t b = (term->cursor_color.text >>  0) & 0xff;
+
+            char reply[32];
+            snprintf(reply, sizeof(reply), "\033]12;rgb:%02x/%02x/%02x\033\\", r, g, b);
+            term_to_slave(term, reply, strlen(reply));
+            break;
+        }
+
+        uint32_t color;
+        if (string[0] == '#' ? !parse_legacy_color(string, &color) : !parse_rgb(string, &color))
+            break;
+
+        LOG_INFO("change cursor color to %06x", color);
+
+        term->cursor_color.cursor = 1 << 31 | color;
+        render_refresh(term);
         break;
 
     case 30:  /* Set tab title */
@@ -554,6 +575,13 @@ osc_dispatch(struct terminal *term)
     case 111: /* Reset default text background color */
         LOG_DBG("resetting background");
         term->colors.bg = term->colors.default_bg;
+        render_refresh(term);
+        break;
+
+    case 112:
+        LOG_DBG("resetting cursor color");
+        term->cursor_color.text = term->default_cursor_color.text;
+        term->cursor_color.cursor = term->default_cursor_color.cursor;
         render_refresh(term);
         break;
 
