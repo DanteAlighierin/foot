@@ -324,6 +324,22 @@ csi_dispatch(struct terminal *term, uint8_t final)
     switch (term->vt.private[0]) {
     case 0: {
         switch (final) {
+        case 'b':
+            if (term->vt.last_printed != 0) {
+                /*
+                 * Note: we never reset 'last-printed'. According to
+                 * ECMA-48, the behaviour is undefined if REP was
+                 * _not_ preceeded by a graphical character.
+                 */
+                int count = vt_param_get(term, 0, 1);
+                LOG_DBG("REP: '%C' %d times", term->vt.last_printed, count);
+
+                const int width = wcwidth(term->vt.last_printed);
+                for (int i = 0; i < count; i++)
+                    term_print(term, term->vt.last_printed, width);
+            }
+            break;
+
         case 'c': {
             /* Send Device Attributes (Primary DA) */
 

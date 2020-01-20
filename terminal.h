@@ -110,6 +110,7 @@ struct vt_param {
 
 struct vt {
     int state;  /* enum state */
+    wchar_t last_printed;
     struct {
         struct vt_param v[16];
         size_t idx;
