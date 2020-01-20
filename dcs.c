@@ -85,7 +85,6 @@ dcs_put(struct terminal *term, uint8_t c)
 void
 dcs_unhook(struct terminal *term)
 {
-    assert(term->vt.dcs.unhook_handler != NULL);
     if (term->vt.dcs.unhook_handler != NULL)
         term->vt.dcs.unhook_handler(term);
 
