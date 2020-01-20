@@ -323,10 +323,10 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
     bool is_selected = cell->attrs.selected;
 
     if (term->cursor_color.cursor >> 31) {
-        assert(term->cursor_color.text);
-
         cursor_color = color_hex_to_pixman(term->cursor_color.cursor);
-        text_color = color_hex_to_pixman(term->cursor_color.text);
+        text_color = color_hex_to_pixman(
+            term->cursor_color.text >> 31
+            ? term->cursor_color.text : term->colors.bg);
 
         if (term->reverse ^ cell->attrs.reverse ^ is_selected) {
             pixman_color_t swap = cursor_color;
