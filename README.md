@@ -14,6 +14,7 @@
       1. [Scrollback search](#scrollback-search)
    1. [Mouse](#mouse)
 1. [Server (daemon) mode](#server-daemon-mode)
+1. [Alt/meta](#alt-meta)
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
@@ -189,6 +190,23 @@ Typical usage would be to start the server process (`foot --server`)
 when starting your Wayland compositor (i.e. logging in to your
 desktop), and then run `footclient` instead of `foot` whenever you
 want to launch a new terminal.
+
+
+## Alt/meta
+
+By default, foot prefixes _Meta characters_ with ESC. This corresponds
+to XTerm's `metaSendsEscape` option set to `true`.
+
+This can be disabled programatically with `\E[?1036l` (and enabled
+again with `\E[?1036h`).
+
+When disabled, foot will instead set the 8:th bit of meta character
+and then UTF-8 encode it. This corresponds to XTerm's `eightBitMeta`
+option set to `true`.
+
+This can also be disabled programatically with `rmm` (_reset meta
+mode_, `\E[?1034l`), and enabled again with `smm` (_set meta mode_,
+'\E[?1034h`).
 
 
 ## Requirements
