@@ -382,6 +382,8 @@ void term_cursor_blink_enable(struct terminal *term);
 void term_cursor_blink_disable(struct terminal *term);
 void term_cursor_blink_restart(struct terminal *term);
 
+void term_print(struct terminal *term, wchar_t wc, int width);
+
 void term_scroll(struct terminal *term, int rows);
 void term_scroll_reverse(struct terminal *term, int rows);
 

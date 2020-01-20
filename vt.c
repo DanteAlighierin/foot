@@ -94,49 +94,6 @@ esc_as_string(struct terminal *term, uint8_t final)
 }
 #endif
 
-static inline void
-pre_print(struct terminal *term)
-{
-    if (likely(!term->cursor.lcf))
-        return;
-    if (unlikely(!term->auto_margin))
-        return;
-
-    if (term->cursor.point.row == term->scroll_region.end - 1) {
-        term_scroll(term, 1);
-        term_cursor_to(term, term->cursor.point.row, 0);
-    } else
-        term_cursor_to(term, min(term->cursor.point.row + 1, term->rows - 1), 0);
-}
-
-static inline void
-post_print(struct terminal *term)
-{
-    if (term->cursor.point.col < term->cols - 1)
-        term_cursor_right(term, 1);
-    else
-        term->cursor.lcf = true;
-}
-
-static inline void
-print_insert(struct terminal *term, int width)
-{
-    assert(width > 0);
-    if (unlikely(term->insert_mode)) {
-        struct row *row = term->grid->cur_row;
-        const size_t move_count = max(0, term->cols - term->cursor.point.col - width);
-
-        memmove(
-            &row->cells[term->cursor.point.col + width],
-            &row->cells[term->cursor.point.col],
-            move_count * sizeof(struct cell));
-
-        /* Mark moved cells as dirty */
-        for (size_t i = term->cursor.point.col + width; i < term->cols; i++)
-            row->cells[i].attrs.clean = 0;
-    }
-}
-
 static void
 action_ignore(struct terminal *term)
 {
@@ -252,16 +209,6 @@ action_execute(struct terminal *term, uint8_t c)
 static void
 action_print(struct terminal *term, uint8_t c)
 {
-    pre_print(term);
-
-    struct row *row = term->grid->cur_row;
-    struct cell *cell = &row->cells[term->cursor.point.col];
-
-    row->dirty = true;
-    cell->attrs.clean = 0;
-
-    print_insert(term, 1);
-
     /* 0x60 - 0x7e */
     static const wchar_t vt100_0[] = {
         L'◆', L'▒', L'␉', L'␌', L'␍', L'␊', L'°', L'±', /* ` - g */
@@ -273,14 +220,10 @@ action_print(struct terminal *term, uint8_t c)
     if (unlikely(term->charsets.set[term->charsets.selected] == CHARSET_GRAPHIC) &&
         c >= 0x60 && c <= 0x7e)
     {
-        cell->wc = vt100_0[c - 0x60];
+        term_print(term, vt100_0[c - 0x60], 1);
     } else {
-        // LOG_DBG("print: ASCII: %c (0x%04x)", c, c);
-        cell->wc = c;
+        term_print(term, c, 1);
     }
-
-    cell->attrs = term->vt.attrs;
-    post_print(term);
 }
 
 static void
@@ -528,46 +471,17 @@ action_utf8_4_entry(struct terminal *term, uint8_t c)
 static void
 action_utf8_print(struct terminal *term, uint8_t c)
 {
-    pre_print(term);
-
-    struct row *row = term->grid->cur_row;
-    struct cell *cell = &row->cells[term->cursor.point.col];
-
     /* Convert to wchar */
     mbstate_t ps = {0};
     wchar_t wc;
     if (mbrtowc(&wc, (const char *)term->vt.utf8.data, term->vt.utf8.idx, &ps) < 0)
         wc = 0;
 
-    int width = wcwidth(wc);
-    if (width > 0)
-        print_insert(term, width);
-
-    row->dirty = true;
-    cell->wc = wc;
-    cell->attrs.clean = 0;
-    cell->attrs = term->vt.attrs;
-
     /* Reset VT utf8 state */
     term->vt.utf8.idx = 0;
 
-    if (width <= 0) {
-        /* Skip post_print() below - i.e. don't advance cursor */
-        return;
-    }
-
-    /* Advance cursor the 'additional' columns (last step is done
-     * by post_print()) */
-    for (int i = 1; i < width && term->cursor.point.col < term->cols - 1; i++) {
-        term_cursor_right(term, 1);
-
-        assert(term->cursor.point.col < term->cols);
-        struct cell *cell = &row->cells[term->cursor.point.col];
-        cell->wc = 0;
-        cell->attrs.clean = 0;
-    }
-
-    post_print(term);
+    int width = wcwidth(wc);
+    term_print(term, wc, width);
 }
 
 static enum state

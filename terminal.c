@@ -1840,3 +1840,78 @@ term_disable_app_sync_updates(struct terminal *term)
         term->render.app_sync_updates.timer_fd, 0,
         &(struct itimerspec){{0}}, NULL);
 }
+
+static inline void
+print_linewrap(struct terminal *term)
+{
+    if (likely(!term->cursor.lcf)) {
+        /* Not and end of line */
+        return;
+    }
+
+    if (unlikely(!term->auto_margin)) {
+        /* Auto-wrap disabled */
+        return;
+    }
+
+    if (term->cursor.point.row == term->scroll_region.end - 1) {
+        term_scroll(term, 1);
+        term_cursor_to(term, term->cursor.point.row, 0);
+    } else
+        term_cursor_to(term, min(term->cursor.point.row + 1, term->rows - 1), 0);
+}
+
+static inline void
+print_insert(struct terminal *term, int width)
+{
+    assert(width > 0);
+
+    if (unlikely(term->insert_mode)) {
+        struct row *row = term->grid->cur_row;
+        const size_t move_count = max(0, term->cols - term->cursor.point.col - width);
+
+        memmove(
+            &row->cells[term->cursor.point.col + width],
+            &row->cells[term->cursor.point.col],
+            move_count * sizeof(struct cell));
+
+        /* Mark moved cells as dirty */
+        for (size_t i = term->cursor.point.col + width; i < term->cols; i++)
+            row->cells[i].attrs.clean = 0;
+    }
+}
+
+void
+term_print(struct terminal *term, wchar_t wc, int width)
+{
+    if (unlikely(width <= 0))
+        return;
+
+    struct row *row = term->grid->cur_row;
+    struct cell *cell = &row->cells[term->cursor.point.col];
+
+    print_linewrap(term);
+    print_insert(term, width);
+
+    cell->wc = term->vt.last_printed = wc;
+    cell->attrs = term->vt.attrs;
+
+    row->dirty = true;
+    cell->attrs.clean = 0;
+
+    /* Advance cursor the 'additional' columns while dirty:ing the cells */
+    for (int i = 1; i < width && term->cursor.point.col < term->cols - 1; i++) {
+        term_cursor_right(term, 1);
+
+        assert(term->cursor.point.col < term->cols);
+        struct cell *cell = &row->cells[term->cursor.point.col];
+        cell->wc = 0;
+        cell->attrs.clean = 0;
+    }
+
+    /* Advance cursor */
+    if (term->cursor.point.col < term->cols - 1)
+        term_cursor_right(term, 1);
+    else
+        term->cursor.lcf = true;
+}
