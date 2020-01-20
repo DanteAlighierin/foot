@@ -600,7 +600,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .flash = {.fd = flash_fd},
         .blink = {.fd = blink_fd},
         .vt = {
-            .state = 1,  /* STATE_GROUND */
+            .state = 0,  /* STATE_GROUND */
         },
         .colors = {
             .fg = conf->colors.fg,
@@ -1024,7 +1024,7 @@ term_reset(struct terminal *term, bool hard)
 
     free(term->vt.osc.data);
     memset(&term->vt, 0, sizeof(term->vt));
-    term->vt.state = 1; /* GROUND */
+    term->vt.state = 0; /* GROUND */
 
     if (term->grid == &term->alt) {
         term->grid = &term->normal;
