@@ -13,7 +13,7 @@ execute (instead of the shell).
 # OPTIONS
 
 *-c*,*--config*=_PATH_
-	Path to configuration file. Default: _XDG_RUNTIME_DIR/footrc_.
+	Path to configuration file. Default: *XDG_RUNTIME_DIR/footrc*.
 
 *-f*,*--font*=_FONT_
 	Comma separated list of fonts to use, in fontconfig format (see
@@ -34,7 +34,7 @@ execute (instead of the shell).
 	Set initial window width and height.
 
 *-t*,*--term*=_TERM_
-	Value to set the environment variable _TERM_ to. Default: _foot_.
+	Value to set the environment variable *TERM* to. Default: *foot*.
 
 *-s*,*--server*[=_PATH_]
 	Run as a server. In this mode, a single foot instance hosts
@@ -59,7 +59,7 @@ execute (instead of the shell).
 	others with it.
 	
 	You may optionally override the default socket path,
-	_XDG\_RUNTIME\_DIR/foot.sock_. If you do so, you will need to use
+	*XDG\_RUNTIME\_DIR/foot.sock*. If you do so, you will need to use
 	the *--server-socket* option in *footclient*(1).
 
 *-v*,*--version*
