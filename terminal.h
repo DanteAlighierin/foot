@@ -331,7 +331,6 @@ struct terminal {
 
         bool presentation_timings;
         struct timespec input_time;
-        struct timespec commit_time;
     } render;
 
     /* Temporary: for FDM */

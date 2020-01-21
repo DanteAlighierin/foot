@@ -88,63 +88,59 @@ sync_output(void *data,
 {
 }
 
+struct presentation_context {
+    struct terminal *term;
+    struct timeval input;
+    struct timeval commit;
+};
+
 static void
 presented(void *data,
           struct wp_presentation_feedback *wp_presentation_feedback,
           uint32_t tv_sec_hi, uint32_t tv_sec_lo, uint32_t tv_nsec,
           uint32_t refresh, uint32_t seq_hi, uint32_t seq_lo, uint32_t flags)
 {
-    struct terminal *term = data;
-
-    if (term->render.commit_time.tv_sec == 0 && term->render.commit_time.tv_nsec == 0)
-        return;
-
-    const struct timeval input = {
-        .tv_sec = term->render.input_time.tv_sec,
-        .tv_usec = term->render.input_time.tv_nsec / 1000,
-    };
-
-    const struct timeval commit = {
-        .tv_sec = term->render.commit_time.tv_sec,
-        .tv_usec = term->render.commit_time.tv_nsec / 1000,
-    };
+    struct presentation_context *ctx = data;
+    struct terminal *term = ctx->term;
+    const struct timeval *input = &ctx->input;
+    const struct timeval *commit = &ctx->commit;
 
     const struct timeval presented = {
         .tv_sec = (uint64_t)tv_sec_hi << 32 | tv_sec_lo,
         .tv_usec = tv_nsec / 1000,
     };
 
-    bool use_input = (input.tv_sec > 0 || input.tv_usec > 0) &&
-        timercmp(&presented, &input, >);
+    bool use_input = (input->tv_sec > 0 || input->tv_usec > 0) &&
+        timercmp(&presented, input, >);
     char msg[1024];
     int chars = 0;
 
-    if (use_input && timercmp(&presented, &input, <))
+    if (use_input && timercmp(&presented, input, <))
         return;
-    else if (timercmp(&presented, &commit, <))
+    else if (timercmp(&presented, commit, <))
         return;
 
     LOG_DBG("commit: %lu s %lu µs, presented: %lu s %lu µs",
-            commit.tv_sec, commit.tv_usec, presented.tv_sec, presented.tv_usec);
+            commit->tv_sec, commit->tv_usec, presented.tv_sec, presented.tv_usec);
 
     if (use_input) {
         struct timeval diff;
-        timersub(&commit, &input, &diff);
+        timersub(commit, input, &diff);
         chars += snprintf(&msg[chars], sizeof(msg) - chars,
                           "input - %lu µs -> ", diff.tv_usec);
     }
 
     struct timeval diff;
-    timersub(&presented, &commit, &diff);
+    timersub(&presented, commit, &diff);
     chars += snprintf(&msg[chars], sizeof(msg) - chars,
                       "commit - %lu µs -> ", diff.tv_usec);
 
     if (use_input) {
-        assert(timercmp(&presented, &input, >));
-        timersub(&presented, &input, &diff);
+        assert(timercmp(&presented, input, >));
+        timersub(&presented, input, &diff);
     } else {
-        assert(timercmp(&presented, &commit, >));
-        timersub(&presented, &commit, &diff);
+        assert(timercmp(&presented, commit, >));
+        timersub(&presented, commit, &diff);
     }
 
     chars += snprintf(&msg[chars], sizeof(msg) - chars,
@@ -176,17 +172,15 @@ presented(void *data,
 #undef _log_fmt
 
     wp_presentation_feedback_destroy(wp_presentation_feedback);
-    memset(&term->render.input_time, 0, sizeof(term->render.input_time));
-    memset(&term->render.commit_time, 0, sizeof(term->render.commit_time));
+    free(ctx);
 }
 
 static void
 discarded(void *data, struct wp_presentation_feedback *wp_presentation_feedback)
 {
-    struct terminal *term = data;
+    struct presentation_context *ctx = data;
     wp_presentation_feedback_destroy(wp_presentation_feedback);
-    memset(&term->render.input_time, 0, sizeof(term->render.input_time));
-    memset(&term->render.commit_time, 0, sizeof(term->render.commit_time));
+    free(ctx);
 }
 
 static const struct wp_presentation_feedback_listener presentation_feedback_listener = {
@@ -842,7 +836,8 @@ grid_render(struct terminal *term)
     wl_surface_set_buffer_scale(term->window->surface, term->scale);
 
     if (term->wl->presentation != NULL && term->render.presentation_timings) {
-        clock_gettime(term->wl->presentation_clock_id, &term->render.commit_time);
+        struct timespec commit_time;
+        clock_gettime(term->wl->presentation_clock_id, &commit_time);
 
         struct wp_presentation_feedback *feedback = wp_presentation_feedback(
             term->wl->presentation, term->window->surface);
@@ -850,8 +845,20 @@ grid_render(struct terminal *term)
         if (feedback == NULL) {
             LOG_WARN("failed to create presentation feedback");
         } else {
+            struct presentation_context *ctx = malloc(sizeof(*ctx));
+            *ctx = (struct presentation_context){
+                .term = term,
+                .input.tv_sec = term->render.input_time.tv_sec,
+                .input.tv_usec = term->render.input_time.tv_nsec / 1000,
+                .commit.tv_sec = commit_time.tv_sec,
+                .commit.tv_usec = commit_time.tv_nsec / 1000,
+            };
+
             wp_presentation_feedback_add_listener(
-                feedback, &presentation_feedback_listener, term);
+                feedback, &presentation_feedback_listener, ctx);
+
+            term->render.input_time.tv_sec = 0;
+            term->render.input_time.tv_nsec = 0;
         }
     }
 

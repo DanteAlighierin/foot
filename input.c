@@ -528,12 +528,13 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             term_to_slave(term, buf, count);
     }
 
-    clock_gettime(
-        term->wl->presentation_clock_id, &term->render.input_time);
     term_reset_view(term);
     selection_cancel(term);
 
 maybe_repeat:
+    clock_gettime(
+        term->wl->presentation_clock_id, &term->render.input_time);
+
     if (should_repeat)
         start_repeater(wayl, key - 8);
 
