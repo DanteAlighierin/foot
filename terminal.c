@@ -1894,11 +1894,12 @@ term_print(struct terminal *term, wchar_t wc, int width)
     if (unlikely(width <= 0))
         return;
 
-    struct row *row = term->grid->cur_row;
-    struct cell *cell = &row->cells[term->cursor.point.col];
-
     print_linewrap(term);
     print_insert(term, width);
+
+    /* *Must* get current cell *after* linewrap+insert */
+    struct row *row = term->grid->cur_row;
+    struct cell *cell = &row->cells[term->cursor.point.col];
 
     cell->wc = term->vt.last_printed = wc;
     cell->attrs = term->vt.attrs;
