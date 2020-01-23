@@ -474,7 +474,10 @@ action_utf8_print(struct terminal *term, uint8_t c)
     /* Convert to wchar */
     mbstate_t ps = {0};
     wchar_t wc;
-    if (mbrtowc(&wc, (const char *)term->vt.utf8.data, term->vt.utf8.idx, &ps) < 0)
+    size_t count = mbrtowc(
+        &wc, (const char *)term->vt.utf8.data, term->vt.utf8.idx, &ps);
+
+    if ((ssize_t)count < 0)
         wc = 0;
 
     /* Reset VT utf8 state */
