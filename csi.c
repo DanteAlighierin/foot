@@ -894,6 +894,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term_xcursor_update(term);
                     break;
 
+                case 1001:
+                    LOG_WARN("unimplemented: highlight mouse tracking");
+                    break;
+
                 case 1002:
                     term->mouse_tracking = MOUSE_DRAG;
                     term_xcursor_update(term);
@@ -1021,6 +1025,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 25:
                     term->hide_cursor = true;
+                    break;
+
+                case 1001:
+                    /* Highlight mouse tracking */
                     break;
 
                 case 1000:  /* MOUSE_NORMAL */
