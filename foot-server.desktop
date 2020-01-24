@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Exec=foot --server
+Icon=terminal
+Terminal=false
+Categories=System;TerminalEmulator;
+
+Name=Foot Server
+GenericName=Terminal
+Comment=A wayland native terminal emulator
