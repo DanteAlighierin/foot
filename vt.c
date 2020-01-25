@@ -606,7 +606,7 @@ state_csi_entry_switch(struct terminal *term, uint8_t data)
 
     case 0x20 ... 0x2f:                                  action_collect(term, data);                                       return STATE_CSI_INTERMEDIATE;
     case 0x30 ... 0x39:                                  action_param(term, data);                                         return STATE_CSI_PARAM;
-    case 0x3a ... 0x3b:                                                                                                    return STATE_CSI_PARAM;
+    case 0x3a ... 0x3b:                                  action_param(term, data);                                         return STATE_CSI_PARAM;
     case 0x3c ... 0x3f:                                  action_collect(term, data);                                       return STATE_CSI_PARAM;
     case 0x40 ... 0x7e:                                  action_csi_dispatch(term, data);                                  return STATE_GROUND;
     case 0x7f:                                           action_ignore(term);                                              return STATE_CSI_ENTRY;
