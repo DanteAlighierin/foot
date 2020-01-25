@@ -14,7 +14,6 @@ bsu(struct terminal *term)
             (int)term->vt.dcs.idx, term->vt.dcs.data);
 
     term_enable_app_sync_updates(term);
-    abort();
 }
 
 static void
@@ -26,7 +25,6 @@ esu(struct terminal *term)
             (int)term->vt.dcs.idx, term->vt.dcs.data);
 
     term_disable_app_sync_updates(term);
-    abort();
 }
 
 void
