@@ -21,7 +21,7 @@ esu(struct terminal *term)
 {
     /* https://gitlab.com/gnachman/iterm2/-/wikis/synchronized-updates-spec */
 
-    LOG_DBG("untested: ESU - Begin Synchronized Update (params: %.*s)",
+    LOG_DBG("untested: ESU - End Synchronized Update (params: %.*s)",
             (int)term->vt.dcs.idx, term->vt.dcs.data);
 
     term_disable_app_sync_updates(term);
