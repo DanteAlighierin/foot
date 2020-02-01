@@ -761,9 +761,65 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 't': {
-            unsigned param = vt_param_get(term, 0, 0);
+            /*
+             * Window operations
+             */
+
+            const unsigned param = vt_param_get(term, 0, 0);
 
             switch (param) {
+            case 1: LOG_WARN("unimplemented: de-iconify"); break;
+            case 2: LOG_WARN("unimplemented: iconify"); break;
+            case 3: LOG_WARN("unimplemented: move window to pixel position"); break;
+            case 4: LOG_WARN("unimplemented: resize window in pixels"); break;
+            case 5: LOG_WARN("unimplemented: raise window to front of stack"); break;
+            case 6: LOG_WARN("unimplemented: raise window to back of stack"); break;
+            case 7: LOG_WARN("unimplemented: refresh window"); break;
+            case 8: LOG_WARN("unimplemented: resize window in chars"); break;
+            case 9: LOG_WARN("unimplemented: maximize/unmaximize window"); break;
+            case 10: LOG_WARN("unimplemented: to/from full screen"); break;
+            case 11: LOG_WARN("unimplemented: report if window is iconified"); break;
+            case 13: LOG_WARN("unimplemented: report window position"); break;
+            case 15: LOG_WARN("unimplemented: report screen size in pixels"); break;
+            case 19: LOG_WARN("unimplemented: report screen size in chars"); break;
+            case 20: LOG_WARN("unimplemented: report icon label"); break;
+            case 21: LOG_WARN("unimplemented: report window title"); break;
+            case 24: LOG_WARN("unimplemented: resize window (DECSLPP)"); break;
+
+            case 14: { /* report window size in pixels */
+                const int x_margin = term->x_margin;
+                const int y_margin = term->y_margin;
+                const int cell_width = term->cols * term->cell_width;
+                const int cell_height = term->rows * term->cell_height;
+
+                /* right+bottom margins */
+                const int r_margin = term->width - cell_width - x_margin;
+                const int b_margin = term->height - cell_height - y_margin;
+
+                char reply[64];
+                snprintf(reply, sizeof(reply), "\033[4;%d;%dt",
+                         term->height - y_margin - b_margin,
+                         term->width - x_margin - r_margin);
+                term_to_slave(term, reply, strlen(reply));
+                break;
+            }
+
+            case 16: { /* report cell size in pixels */
+                char reply[64];
+                snprintf(reply, sizeof(reply), "\033[6;%d;%dt",
+                         term->cell_height, term->cell_width);
+                term_to_slave(term, reply, strlen(reply));
+                break;
+            }
+
+            case 18: { /* window size in chars */
+                char reply[64];
+                snprintf(reply, sizeof(reply), "\033[8;%d;%dt",
+                         term->rows, term->cols);
+                term_to_slave(term, reply, strlen(reply));
+                break;
+            }
+
             case 22: { /* push window title */
                 /* 0 - icon + title, 1 - icon, 2 - title */
                 unsigned what = vt_param_get(term, 1, 0);
