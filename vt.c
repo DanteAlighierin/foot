@@ -236,24 +236,88 @@ action_param(struct terminal *term, uint8_t c)
         term->vt.params.idx = 1;
     }
 
+    assert(term->vt.params.idx > 0);
+
+    const size_t max_params
+        = sizeof(term->vt.params.v) / sizeof(term->vt.params.v[0]);
+    const size_t max_sub_params
+        = sizeof(term->vt.params.v[0].sub.value) / sizeof(term->vt.params.v[0].sub.value[0]);
+
+    /* New parameter */
     if (c == ';') {
+        if (unlikely(term->vt.params.idx >= max_params))
+            goto excess_params;
+
         struct vt_param *param = &term->vt.params.v[term->vt.params.idx++];
         param->value = 0;
         param->sub.idx = 0;
-    } else if (c == ':') {
-        struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
-        param->sub.value[param->sub.idx++] = 0;
-    } else {
-        assert(term->vt.params.idx >= 0);
-        struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
+    }
 
-        unsigned *value = param->sub.idx > 0
-            ? &param->sub.value[param->sub.idx - 1]
-            : &param->value;
+    /* New sub-parameter */
+    else if (c == ':') {
+        if (unlikely(term->vt.params.idx - 1 >= max_params))
+            goto excess_params;
+
+        struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
+        if (unlikely(param->sub.idx >= max_sub_params))
+            goto excess_sub_params;
+
+        param->sub.value[param->sub.idx++] = 0;
+    }
+
+    /* New digit for current parameter/sub-parameter */
+    else {
+        if (unlikely(term->vt.params.idx - 1 >= max_params))
+            goto excess_params;
+
+        struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
+        unsigned *value;
+
+        if (param->sub.idx > 0) {
+            if (unlikely(param->sub.idx - 1 >= max_sub_params))
+                goto excess_sub_params;
+            value = &param->sub.value[param->sub.idx - 1];
+        } else
+            value = &param->value;
 
         *value *= 10;
         *value += c - '0';
     }
+
+#if defined(_DEBUG)
+    /* The rest of the code assumes 'idx' *never* points outside the array */
+    assert(term->vt.params.idx <= max_params);
+    for (size_t i = 0; i < term->vt.params.idx; i++)
+        assert(term->vt.params.v[i].sub.idx <= max_sub_params);
+#endif
+
+    return;
+
+excess_params:
+    {
+        static bool have_warned = false;
+        if (!have_warned) {
+            have_warned = true;
+            LOG_WARN(
+                "unsupported: escape with more than %zu parameters "
+                "(will not warn again)",
+                sizeof(term->vt.params.v) / sizeof(term->vt.params.v[0]));
+        }
+    }
+    return;
+
+excess_sub_params:
+    {
+        static bool have_warned = false;
+        if (!have_warned) {
+            have_warned = true;
+            LOG_WARN(
+                "unsupported: escape with more than %zu sub-parameters "
+                "(will not warn again)",
+                sizeof(term->vt.params.v[0].sub.value) / sizeof(term->vt.params.v[0].sub.value[0]));
+        }
+    }
+    return;
 }
 
 static void
