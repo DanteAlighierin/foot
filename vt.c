@@ -259,7 +259,7 @@ action_param(struct terminal *term, uint8_t c)
 static void
 action_collect(struct terminal *term, uint8_t c)
 {
-    LOG_DBG("collect");
+    LOG_DBG("collect: %c", c);
     if (term->vt.private[0] == 0)
         term->vt.private[0] = c;
     else if (term->vt.private[1] == 0)
