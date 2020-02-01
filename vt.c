@@ -265,7 +265,7 @@ action_collect(struct terminal *term, uint8_t c)
     else if (term->vt.private[1] == 0)
         term->vt.private[1] = c;
     else
-        LOG_DBG("only two private/intermediate characters supported");
+        LOG_WARN("only two private/intermediate characters supported");
 }
 
 static void
