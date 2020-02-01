@@ -18,8 +18,8 @@
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
-#define UNHANDLED()     LOG_DBG("unhandled: %s", csi_as_string(term, final))
-#define UNHANDLED_SGR() LOG_DBG("unhandled: %s", csi_as_string(term, 'm'))
+#define UNHANDLED()        LOG_DBG("unhandled: %s", csi_as_string(term, final, -1))
+#define UNHANDLED_SGR(idx) LOG_DBG("unhandled: %s", csi_as_string(term, 'm', idx))
 
 static void
 sgr_reset(struct terminal *term)
@@ -30,7 +30,7 @@ sgr_reset(struct terminal *term)
 }
 
 static const char *
-csi_as_string(struct terminal *term, uint8_t final)
+csi_as_string(struct terminal *term, uint8_t final, int idx)
 {
     static char msg[1024];
     int c = snprintf(msg, sizeof(msg), "CSI: ");
@@ -41,7 +41,10 @@ csi_as_string(struct terminal *term, uint8_t final)
         c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private[i]);
     }
 
-    for (size_t i = 0; i < term->vt.params.idx; i++){
+    for (size_t i = idx >= 0 ? idx : 0;
+         i < (idx >= 0 ? idx + 1 : term->vt.params.idx);
+         i++)
+    {
         c += snprintf(&msg[c], sizeof(msg) - c, "%u",
                       term->vt.params.v[i].value);
 
@@ -55,7 +58,7 @@ csi_as_string(struct terminal *term, uint8_t final)
     }
 
     snprintf(&msg[c], sizeof(msg) - c, "%c (%hhu parameters)",
-             final, term->vt.params.idx);
+             final, idx >= 0 ? 1 : term->vt.params.idx);
     return msg;
 }
 
@@ -143,7 +146,7 @@ csi_sgr(struct terminal *term)
                 case 0:   /* Implementation defined - we map it to '2' */
                 case 2: { /* RGB - 38:2:2:<r>:<g>:<b> */
                     if (param->sub.idx < 5) {
-                        UNHANDLED_SGR();
+                        UNHANDLED_SGR(i);
                         break;
                     }
 
@@ -161,7 +164,7 @@ csi_sgr(struct terminal *term)
 
                 case 5: { /* Indexed - 38:2:5:<idx> */
                     if (param->sub.idx < 3) {
-                        UNHANDLED_SGR();
+                        UNHANDLED_SGR(i);
                         break;
                     }
 
@@ -174,14 +177,14 @@ csi_sgr(struct terminal *term)
                 case 1: /* Transparent */
                 case 3: /* CMY */
                 case 4: /* CMYK */
-                    UNHANDLED_SGR();
+                    UNHANDLED_SGR(i);
                     break;
                 }
             }
 
             /* Unrecognized */
             else
-                UNHANDLED_SGR();
+                UNHANDLED_SGR(i);
 
             break;
         }
@@ -238,7 +241,7 @@ csi_sgr(struct terminal *term)
                 case 0:   /* Implementation defined - we map it to '2' */
                 case 2: { /* RGB - 48:2:2:<r>:<g>:<b> */
                     if (param->sub.idx < 5) {
-                        UNHANDLED_SGR();
+                        UNHANDLED_SGR(i);
                         break;
                     }
 
@@ -256,7 +259,7 @@ csi_sgr(struct terminal *term)
 
                 case 5: { /* Indexed - 48:2:5:<idx> */
                     if (param->sub.idx < 3) {
-                        UNHANDLED_SGR();
+                        UNHANDLED_SGR(i);
                         break;
                     }
 
@@ -269,13 +272,13 @@ csi_sgr(struct terminal *term)
                 case 1: /* Transparent */
                 case 3: /* CMY */
                 case 4: /* CMYK */
-                    UNHANDLED_SGR();
+                    UNHANDLED_SGR(i);
                     break;
                 }
             }
 
             else
-                UNHANDLED_SGR();
+                UNHANDLED_SGR(i);
 
             break;
         }
@@ -310,7 +313,7 @@ csi_sgr(struct terminal *term)
             break;
 
         default:
-            UNHANDLED_SGR();
+            UNHANDLED_SGR(i);
             break;
         }
     }
@@ -319,7 +322,7 @@ csi_sgr(struct terminal *term)
 void
 csi_dispatch(struct terminal *term, uint8_t final)
 {
-    LOG_DBG("%s", csi_as_string(term, final));
+    LOG_DBG("%s", csi_as_string(term, final, -1));
 
     switch (term->vt.private[0]) {
     case 0: {
@@ -847,7 +850,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             }
 
             default:
-                LOG_DBG("ignoring %s", csi_as_string(term, final));
+                LOG_DBG("ignoring %s", csi_as_string(term, final, -1));
                 break;
             }
             break;
@@ -908,7 +911,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 3:
                     LOG_WARN("unimplemented: 132 column mode (DECCOLM, %s)",
-                             csi_as_string(term, final));
+                             csi_as_string(term, final, i));
                     term_erase(
                         term,
                         &(struct coord){0, 0},
@@ -919,7 +922,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 case 4:
                     /* DECSCLM - Smooth scroll */
                     LOG_WARN("unimplemented: Smooth (Slow) Scroll (DECSCLM, %s)",
-                             csi_as_string(term, final));
+                             csi_as_string(term, final, i));
                     break;
 
                 case 5:
@@ -1194,7 +1197,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     LOG_WARN(
                         "unimplemented: %s "
                         "(save 'highlight mouse tracking' mode)",
-                        csi_as_string(term, final));
+                        csi_as_string(term, final, i));
                     break;
 #endif
 
@@ -1213,7 +1216,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     LOG_WARN(
                         "unimplemented: %s "
                         "(restore 'highlight mouse tracking' mode)",
-                        csi_as_string(term, final));
+                        csi_as_string(term, final, i));
                     break;
 #endif
 
@@ -1291,7 +1294,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 default:
                     LOG_WARN("invalid resource %d in %s",
-                             resource, csi_as_string(term, final));
+                             resource, csi_as_string(term, final, -1));
                     break;
                 }
             }
