@@ -100,7 +100,7 @@ struct grid {
 
 struct vt_subparams {
     unsigned value[16];
-    size_t idx;
+    uint8_t idx;
 };
 
 struct vt_param {
@@ -113,7 +113,7 @@ struct vt {
     wchar_t last_printed;
     struct {
         struct vt_param v[16];
-        size_t idx;
+        uint8_t idx;
     } params;
     char private[2];
     struct {
@@ -123,8 +123,8 @@ struct vt {
     } osc;
     struct {
         uint8_t data[4];
-        size_t idx;
-        size_t left;
+        uint8_t idx;
+        uint8_t left;
     } utf8;
     struct {
         uint8_t *data;

@@ -42,11 +42,11 @@ csi_as_string(struct terminal *term, uint8_t final)
     }
 
     for (size_t i = 0; i < term->vt.params.idx; i++){
-        c += snprintf(&msg[c], sizeof(msg) - c, "%d",
+        c += snprintf(&msg[c], sizeof(msg) - c, "%u",
                       term->vt.params.v[i].value);
 
         for (size_t j = 0; j < term->vt.params.v[i].sub.idx; j++) {
-            c += snprintf(&msg[c], sizeof(msg) - c, ":%d",
+            c += snprintf(&msg[c], sizeof(msg) - c, ":%u",
                           term->vt.params.v[i].sub.value[j]);
         }
 
@@ -54,7 +54,7 @@ csi_as_string(struct terminal *term, uint8_t final)
                       i == term->vt.params.idx - 1 ? "" : ";");
     }
 
-    snprintf(&msg[c], sizeof(msg) - c, "%c (%zu parameters)",
+    snprintf(&msg[c], sizeof(msg) - c, "%c (%hhu parameters)",
              final, term->vt.params.idx);
     return msg;
 }
