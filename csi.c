@@ -881,6 +881,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     term->auto_margin = true;
                     break;
 
+                case 9:
+                    LOG_WARN("unimplemented: X10 mouse tracking mode");
+                    /* term->mouse_tracking = MOUSE_X10; */
+                    break;
+
                 case 12:
                     term_cursor_blink_enable(term);
                     break;
@@ -1031,6 +1036,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     /* Highlight mouse tracking */
                     break;
 
+                case 9:     /* MOUSE_X10 */
                 case 1000:  /* MOUSE_NORMAL */
                 case 1002:  /* MOUSE_BUTTON_EVENT */
                 case 1003:  /* MOUSE_ANY_EVENT */
