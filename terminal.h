@@ -340,6 +340,7 @@ struct terminal {
         int upper_fd;
     } delayed_render_timer;
 
+    bool hold_at_exit;
     bool is_shutting_down;
     void (*shutdown_cb)(void *data, int exit_code);
     void *shutdown_data;

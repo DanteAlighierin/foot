@@ -36,6 +36,7 @@ struct config {
     size_t render_worker_count;
     char *server_socket_path;
     bool presentation_timings;
+    bool hold_at_exit;
 };
 
 bool config_load(struct config *conf, const char *path);

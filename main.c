@@ -47,6 +47,7 @@ print_usage(const char *prog_name)
         "  -g,--geometry=WIDTHxHEIGHT  set initial width and height\n"
         "  -s,--server[=PATH]          run as a server (use 'footclient' to start terminals).\n"
         "                              Without PATH, XDG_RUNTIME_DIR/foot.sock will be used.\n"
+        "     --hold                   remain open after child process exits\n"
         "  -v,--version                show the version number and quit\n",
         prog_name, prog_name);
 }
@@ -96,6 +97,7 @@ main(int argc, char *const *argv)
         {"font",                 required_argument, NULL, 'f'},
         {"geometry",             required_argument, NULL, 'g'},
         {"server",               optional_argument, NULL, 's'},
+        {"hold",                 no_argument,       NULL, 'H'},
         {"presentation-timings", no_argument,       NULL, 'p'}, /* Undocumented */
         {"version",              no_argument,       NULL, 'v'},
         {"help",                 no_argument,       NULL, 'h'},
@@ -110,6 +112,7 @@ main(int argc, char *const *argv)
     bool as_server = false;
     const char *conf_server_socket_path = NULL;
     bool presentation_timings = false;
+    bool hold = false;
 
     while (true) {
         int c = getopt_long(argc, argv, "c:tf:g:s::pvh", longopts, NULL);
@@ -169,6 +172,10 @@ main(int argc, char *const *argv)
             presentation_timings = true;
             break;
 
+        case 'H':
+            hold = true;
+            break;
+
         case 'v':
             printf("foot version %s\n", FOOT_VERSION);
             return EXIT_SUCCESS;
@@ -216,6 +223,7 @@ main(int argc, char *const *argv)
         conf.server_socket_path = strdup(conf_server_socket_path);
     }
     conf.presentation_timings = presentation_timings;
+    conf.hold_at_exit = hold;
 
     struct fdm *fdm = NULL;
     struct wayland *wayl = NULL;

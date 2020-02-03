@@ -36,6 +36,11 @@ static const char *const XCURSOR_HAND2 = "hand2";
 bool
 term_to_slave(struct terminal *term, const void *_data, size_t len)
 {
+    if (term->ptmx < 0) {
+        /* We're probably in "hold" */
+        return false;
+    }
+
     size_t async_idx = 0;
     if (tll_length(term->ptmx_buffer) > 0) {
         /* With a non-empty queue, EPOLLOUT has already been enabled */
@@ -128,25 +133,22 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
 
-    bool pollin = events & EPOLLIN;
-    bool pollout = events & EPOLLOUT;
-    bool hup = events & EPOLLHUP;
-
-    if (hup) {
-        /* TODO: should we *not* ignore pollin? */
-        return term_shutdown(term);
-    }
+    const bool pollin = events & EPOLLIN;
+    const bool pollout = events & EPOLLOUT;
+    const bool hup = events & EPOLLHUP;
 
     if (pollout) {
         if (!fdm_ptmx_out(fdm, fd, events, data))
             return false;
     }
 
+#if 0
     if (!pollin)
         return true;
+#endif
 
     uint8_t buf[24 * 1024];
-    ssize_t count = read(term->ptmx, buf, sizeof(buf));
+    ssize_t count = pollin ? read(term->ptmx, buf, sizeof(buf)) : 0;
 
     if (count < 0) {
         LOG_ERRNO("failed to read from pseudo terminal");
@@ -225,9 +227,14 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     } else
         term->render.pending = true;
 
-    if (events & EPOLLHUP)
-        return term_shutdown(term);
-
+    if (hup) {
+        if (term->hold_at_exit) {
+            fdm_del(fdm, fd);
+            term->ptmx = -1;
+            return true;
+        } else
+            return term_shutdown(term);
+    }
     return true;
 }
 
@@ -672,6 +679,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
             .lower_fd = delay_lower_fd,
             .upper_fd = delay_upper_fd,
         },
+        .hold_at_exit = conf->hold_at_exit,
         .shutdown_cb = shutdown_cb,
         .shutdown_data = shutdown_data,
         .foot_exe = strdup(foot_exe),

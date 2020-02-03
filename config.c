@@ -511,6 +511,8 @@ config_load(struct config *conf, const char *conf_path)
 
         .render_worker_count = sysconf(_SC_NPROCESSORS_ONLN),
         .server_socket_path = get_server_socket_path(),
+        .presentation_timings = false,
+        .hold_at_exit = false,
     };
 
     char *default_path = NULL;

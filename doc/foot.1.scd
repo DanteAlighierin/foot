@@ -62,6 +62,9 @@ execute (instead of the shell).
 	*XDG\_RUNTIME\_DIR/foot.sock*. If you do so, you will need to use
 	the *--server-socket* option in *footclient*(1).
 
+*--hold*
+	Remain open after child process exits.
+
 *-v*,*--version*
 	Show the version number and quit.
 

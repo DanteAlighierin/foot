@@ -7,6 +7,7 @@ _arguments \
     '(-t --term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
     '(-g --geometry)'{-g,--geometry}'[window WIDTHxHEIGHT, in pixels (80x24 cells)]:geometry:()' \
     '(-s --server)'{-s,--server}'[run as server; open terminals by running footclient]:server:_files' \
+    '--hold[remain open after child process exits]:hold:()' \
     '(-v --version)'{-v,--version}'[show the version number and quit]' \
     '(-h --help)'{-h,--help}'[show help message and quit]'
 
