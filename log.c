@@ -16,7 +16,7 @@ static bool colorize = false;
 static void __attribute__((constructor))
 init(void)
 {
-    colorize = isatty(STDOUT_FILENO);
+    colorize = isatty(STDERR_FILENO);
 }
 
 void
@@ -59,24 +59,24 @@ _log(enum log_class log_class, const char *module, const char *file, int lineno,
 
     char clr[16];
     snprintf(clr, sizeof(clr), "\e[%dm", class_clr);
-    printf("%s%s%s: ", colorize ? clr : "", class, colorize ? "\e[0m" : "");
+    fprintf(stderr, "%s%s%s: ", colorize ? clr : "", class, colorize ? "\e[0m" : "");
 
     if (colorize)
-        printf("\e[2m");
+        fprintf(stderr, "\e[2m");
 #if defined(_DEBUG)
-    printf("%s:%d: ", file, lineno);
+    fprintf(stderr, "%s:%d: ", file, lineno);
 #else
-    printf("%s: ", module);
+    fprintf(stderr, "%s: ", module);
 #endif
     if (colorize)
-        printf("\e[0m");
+        fprintf(stderr, "\e[0m");
 
-    vprintf(fmt, va);
+    vfprintf(stderr, fmt, va);
 
     if (sys_errno != 0)
-        printf(": %s", strerror(sys_errno));
+        fprintf(stderr, ": %s", strerror(sys_errno));
 
-    printf("\n");
+    fprintf(stderr, "\n");
 }
 
 static void
