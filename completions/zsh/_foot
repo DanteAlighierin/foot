@@ -8,6 +8,7 @@ _arguments \
     '(-g --geometry)'{-g,--geometry}'[window WIDTHxHEIGHT, in pixels (80x24 cells)]:geometry:()' \
     '(-s --server)'{-s,--server}'[run as server; open terminals by running footclient]:server:_files' \
     '--hold[remain open after child process exits]' \
+    '(-p --print-pid)'{-p,--print-pid}'[print PID to this file or FD when up and running (server mode only)]:pidfile:_files' \
     '(-v --version)'{-v,--version}'[show the version number and quit]' \
     '(-h --help)'{-h,--help}'[show help message and quit]'
 

@@ -65,6 +65,13 @@ execute (instead of the shell).
 *--hold*
 	Remain open after child process exits.
 
+*-p*,*--print-pid*=_FILE_|_FD_
+	Print PID to this file, or FD, when successfully started. The file
+	(or FD) is closed immediately after writing the PID. When a _FILE_
+	as been specified, the file is unlinked when yambar exits.
+
+	This option can only be used in combination with *-s*,*--server*.
+
 *-v*,*--version*
 	Show the version number and quit.
 

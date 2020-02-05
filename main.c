@@ -9,7 +9,9 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include <sys/types.h>
 #include <sys/sysinfo.h>
+#include <fcntl.h>
 
 #include <fcft/fcft.h>
 
@@ -41,14 +43,15 @@ print_usage(const char *prog_name)
         "Usage: %s [OPTIONS]... -- command\n"
         "\n"
         "Options:\n"
-        "  -c,--config=PATH            load configuration from PATH (XDG_CONFIG_HOME/footrc)\n"
-        "  -f,--font=FONT              comma separated list of fonts in fontconfig format (monospace)\n"
-        "  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
-        "  -g,--geometry=WIDTHxHEIGHT  set initial width and height\n"
-        "  -s,--server[=PATH]          run as a server (use 'footclient' to start terminals).\n"
-        "                              Without PATH, XDG_RUNTIME_DIR/foot.sock will be used.\n"
-        "     --hold                   remain open after child process exits\n"
-        "  -v,--version                show the version number and quit\n",
+        "  -c,--config=PATH                      load configuration from PATH (XDG_CONFIG_HOME/footrc)\n"
+        "  -f,--font=FONT                        comma separated list of fonts in fontconfig format (monospace)\n"
+        "  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
+        "  -g,--geometry=WIDTHxHEIGHT            set initial width and height\n"
+        "  -s,--server[=PATH]                    run as a server (use 'footclient' to start terminals).\n"
+        "                                        Without PATH, XDG_RUNTIME_DIR/foot.sock will be used.\n"
+        "     --hold                             remain open after child process exits\n"
+        "  -p,--print-pid=FILE|FD                print PID to file or FD (only applicable in server mode)\n"
+        "  -v,--version                          show the version number and quit\n",
         prog_name, prog_name);
 }
 
@@ -80,6 +83,43 @@ term_shutdown_cb(void *data, int exit_code)
     ctx->exit_code = exit_code;
 }
 
+static bool
+print_pid(const char *pid_file, bool *unlink_at_exit)
+{
+    LOG_DBG("printing PID to %s", pid_file);
+
+    errno = 0;
+    char *end;
+    int pid_fd = strtoul(pid_file, &end, 10);
+
+    if (errno != 0 || *end != '\0') {
+        if ((pid_fd = open(pid_file,
+                           O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC,
+                           S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) < 0) {
+            LOG_ERRNO("%s: failed to open", pid_file);
+            return false;
+        } else
+            *unlink_at_exit = true;
+    }
+
+    if (pid_fd >= 0) {
+        char pid[32];
+        snprintf(pid, sizeof(pid), "%u\n", getpid());
+
+        ssize_t bytes = write(pid_fd, pid, strlen(pid));
+        close(pid_fd);
+
+        if (bytes < 0) {
+            LOG_ERRNO("failed to write PID to FD=%u", pid_fd);
+            return false;
+        }
+
+        LOG_DBG("wrote %zd bytes to FD=%d", bytes, pid_fd);
+        return true;
+    } else
+        return false;
+}
+
 int
 main(int argc, char *const *argv)
 {
@@ -98,7 +138,8 @@ main(int argc, char *const *argv)
         {"geometry",             required_argument, NULL, 'g'},
         {"server",               optional_argument, NULL, 's'},
         {"hold",                 no_argument,       NULL, 'H'},
-        {"presentation-timings", no_argument,       NULL, 'p'}, /* Undocumented */
+        {"presentation-timings", no_argument,       NULL, 'P'}, /* Undocumented */
+        {"print-pid",            required_argument, NULL, 'p'},
         {"version",              no_argument,       NULL, 'v'},
         {"help",                 no_argument,       NULL, 'h'},
         {NULL,                   no_argument,       NULL,   0},
@@ -113,6 +154,8 @@ main(int argc, char *const *argv)
     const char *conf_server_socket_path = NULL;
     bool presentation_timings = false;
     bool hold = false;
+    bool unlink_pid_file = false;
+    const char *pid_file = NULL;
 
     while (true) {
         int c = getopt_long(argc, argv, "c:tf:g:s::pvh", longopts, NULL);
@@ -168,12 +211,16 @@ main(int argc, char *const *argv)
                 conf_server_socket_path = optarg;
             break;
 
-        case 'p':
+        case 'P':
             presentation_timings = true;
             break;
 
         case 'H':
             hold = true;
+            break;
+
+        case 'p':
+            pid_file = optarg;
             break;
 
         case 'v':
@@ -277,6 +324,11 @@ main(int argc, char *const *argv)
     if (as_server)
         LOG_INFO("running as server; launch terminals by running footclient");
 
+    if (as_server && pid_file != NULL) {
+        if (!print_pid(pid_file, &unlink_pid_file))
+            goto out;
+    }
+
     while (!aborted && (as_server || tll_length(wayl->terms) > 0)) {
         if (!fdm_poll(fdm))
             break;
@@ -294,6 +346,9 @@ out:
     fdm_destroy(fdm);
 
     config_free(conf);
+
+    if (unlink_pid_file)
+        unlink(pid_file);
 
     LOG_INFO("goodbye");
     log_deinit();
