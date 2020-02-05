@@ -147,18 +147,25 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         return true;
 #endif
 
-    uint8_t buf[24 * 1024];
-    ssize_t count = pollin ? read(term->ptmx, buf, sizeof(buf)) : 0;
-
-    if (count < 0) {
-        LOG_ERRNO("failed to read from pseudo terminal");
-        return false;
-    }
-
-    vt_from_slave(term, buf, count);
-
     /* Prevent blinking while typing */
     term_cursor_blink_restart(term);
+
+    uint8_t buf[24 * 1024];
+    ssize_t count = sizeof(buf);
+
+    const size_t max_iterations = 1024;
+
+    for (size_t i = 0; i < max_iterations && pollin && count == sizeof(buf); i++) {
+        assert(pollin);
+        count = read(term->ptmx, buf, sizeof(buf));
+
+        if (count < 0) {
+            LOG_ERRNO("failed to read from pseudo terminal");
+            return false;
+        }
+
+        vt_from_slave(term, buf, count);
+    }
 
     /*
      * We likely need to re-render. But, we don't want to
