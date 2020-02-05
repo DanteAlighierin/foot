@@ -153,7 +153,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     uint8_t buf[24 * 1024];
     ssize_t count = sizeof(buf);
 
-    const size_t max_iterations = 1024;
+    const size_t max_iterations = 10;
 
     for (size_t i = 0; i < max_iterations && pollin && count == sizeof(buf); i++) {
         assert(pollin);
