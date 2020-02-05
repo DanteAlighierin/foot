@@ -168,15 +168,15 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     }
 
     /*
-     * We likely need to re-render. But, we don't want to
-     * do it immediately. Often, a single client operation
-     * is done through multiple writes. Many times, we're
-     * so fast that we render mid-operation frames.
+     * We likely need to re-render. But, we don't want to do it
+     * immediately. Often, a single client update is done through
+     * multiple writes. This could lead to us rendering one frame with
+     * "intermediate" state.
      *
      * For example, we might end up rendering a frame
      * where the client just erased a line, while in the
      * next frame, the client wrote to the same line. This
-     * causes screen "flashes".
+     * causes screen "flickering".
      *
      * Mitigate by always incuring a small delay before
      * rendering the next frame. This gives the client
