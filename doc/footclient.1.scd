@@ -18,6 +18,9 @@ execute (instead of the shell).
 *-s*,*--server-socket*=_PATH_
 	Connect to _PATH_ instead of _XDG\_RUNTIME\_DIR/foot.sock_.
 
+*-l*,*--log-colorize*=[{*never*,*always*,*auto*}]
+	Enables or disables colorization of log output on stderr.
+
 *-v*,*--version*
 	Show the version number and quit
 

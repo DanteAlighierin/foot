@@ -12,15 +12,11 @@
 #include <syslog.h>
 
 static bool colorize = false;
-
-static void __attribute__((constructor))
-init(void)
-{
-    colorize = isatty(STDERR_FILENO);
-}
+static bool do_syslog = true;
 
 void
-log_init(enum log_facility syslog_facility, enum log_class syslog_level)
+log_init(enum log_colorize _colorize, bool _do_syslog,
+         enum log_facility syslog_facility, enum log_class syslog_level)
 {
     static const int facility_map[] = {
         [LOG_FACILITY_USER] = LOG_USER,
@@ -34,14 +30,20 @@ log_init(enum log_facility syslog_facility, enum log_class syslog_level)
         [LOG_CLASS_DEBUG] = LOG_DEBUG,
     };
 
-    openlog(NULL, /*LOG_PID*/0, facility_map[syslog_facility]);
-    setlogmask(LOG_UPTO(level_map[syslog_level]));
+    colorize = _colorize == LOG_COLORIZE_NEVER ? false : _colorize == LOG_COLORIZE_ALWAYS ? true : isatty(STDERR_FILENO);
+    do_syslog = _do_syslog;
+
+    if (do_syslog) {
+        openlog(NULL, /*LOG_PID*/0, facility_map[syslog_facility]);
+        setlogmask(LOG_UPTO(level_map[syslog_level]));
+    }
 }
 
 void
 log_deinit(void)
 {
-    closelog();
+    if (do_syslog)
+        closelog();
 }
 
 static void
@@ -85,6 +87,9 @@ _sys_log(enum log_class log_class, const char *module,
          int lineno __attribute__((unused)),
          const char *fmt, int sys_errno, va_list va)
 {
+    if (!do_syslog)
+        return;
+
     /* Map our log level to syslog's level */
     int level = -1;
     switch (log_class) {

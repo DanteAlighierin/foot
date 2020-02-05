@@ -32,15 +32,15 @@ print_usage(const char *prog_name)
     printf("Usage: %s [OPTIONS]... -- command\n", prog_name);
     printf("\n");
     printf("Options:\n");
-    printf("  -t,--term=TERM              value to set the environment variable TERM to (foot)\n"
-           "  -s,--server-socket=PATH     path to the server UNIX domain socket (default=XDG_RUNTIME_DIR/foot.sock)\n"
-           "  -v,--version                show the version number and quit\n");
+    printf("  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
+           "  -s,--server-socket=PATH               path to the server UNIX domain socket (default=XDG_RUNTIME_DIR/foot.sock)\n"
+           "  -l,--log-colorize=[never|always|auto] enable/disable colorization of log output on stderr\n"
+           "  -v,--version                          show the version number and quit\n");
 }
 
 int
 main(int argc, char *const *argv)
 {
-    log_init(LOG_FACILITY_USER, LOG_CLASS_WARNING);
     int ret = EXIT_FAILURE;
 
     const char *const prog_name = argv[0];
@@ -48,6 +48,7 @@ main(int argc, char *const *argv)
     static const struct option longopts[] =  {
         {"term",          required_argument, 0, 't'},
         {"server-socket", required_argument, 0, 's'},
+        {"log-colorize",  optional_argument, NULL, 'l'},
         {"version",       no_argument,       0, 'v'},
         {"help",          no_argument,       0, 'h'},
         {NULL,            no_argument,       0,   0},
@@ -55,9 +56,10 @@ main(int argc, char *const *argv)
 
     const char *term = "";
     const char *server_socket_path = NULL;
+    enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
 
     while (true) {
-        int c = getopt_long(argc, argv, ":t:s:hv", longopts, NULL);
+        int c = getopt_long(argc, argv, ":t:s:l::hv", longopts, NULL);
         if (c == -1)
             break;
 
@@ -68,6 +70,19 @@ main(int argc, char *const *argv)
 
         case 's':
             server_socket_path = optarg;
+            break;
+
+        case 'l':
+            if (optarg == NULL || strcmp(optarg, "auto") == 0)
+                log_colorize = LOG_COLORIZE_AUTO;
+            else if (strcmp(optarg, "never") == 0)
+                log_colorize = LOG_COLORIZE_NEVER;
+            else if (strcmp(optarg, "always") == 0)
+                log_colorize = LOG_COLORIZE_ALWAYS;
+            else {
+                fprintf(stderr, "%s: argument must be one of 'never', 'always' or 'auto'\n", optarg);
+                return EXIT_FAILURE;
+            }
             break;
 
         case 'v':
@@ -90,6 +105,8 @@ main(int argc, char *const *argv)
 
     argc -= optind;
     argv += optind;
+
+    log_init(log_colorize, false, LOG_FACILITY_USER, LOG_CLASS_WARNING);
 
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd == -1) {

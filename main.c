@@ -51,6 +51,8 @@ print_usage(const char *prog_name)
         "                                        Without PATH, XDG_RUNTIME_DIR/foot.sock will be used.\n"
         "     --hold                             remain open after child process exits\n"
         "  -p,--print-pid=FILE|FD                print PID to file or FD (only applicable in server mode)\n"
+        "  -l,--log-colorize=[never|always|auto] enable/disable colorization of log output on stderr\n"
+        "  -s,--log-no-syslog                    disable syslog logging (only applicable in server mode)\n"
         "  -v,--version                          show the version number and quit\n",
         prog_name, prog_name);
 }
@@ -140,6 +142,8 @@ main(int argc, char *const *argv)
         {"hold",                 no_argument,       NULL, 'H'},
         {"presentation-timings", no_argument,       NULL, 'P'}, /* Undocumented */
         {"print-pid",            required_argument, NULL, 'p'},
+        {"log-colorize",         optional_argument, NULL, 'l'},
+        {"log-no-syslog",        no_argument,       NULL, 'S'},
         {"version",              no_argument,       NULL, 'v'},
         {"help",                 no_argument,       NULL, 'h'},
         {NULL,                   no_argument,       NULL,   0},
@@ -156,9 +160,11 @@ main(int argc, char *const *argv)
     bool hold = false;
     bool unlink_pid_file = false;
     const char *pid_file = NULL;
+    enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
+    bool log_syslog = true;
 
     while (true) {
-        int c = getopt_long(argc, argv, "c:tf:g:s::pvh", longopts, NULL);
+        int c = getopt_long(argc, argv, "c:tf:g:s::Pp:l::Svh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -223,6 +229,23 @@ main(int argc, char *const *argv)
             pid_file = optarg;
             break;
 
+        case 'l':
+            if (optarg == NULL || strcmp(optarg, "auto") == 0)
+                log_colorize = LOG_COLORIZE_AUTO;
+            else if (strcmp(optarg, "never") == 0)
+                log_colorize = LOG_COLORIZE_NEVER;
+            else if (strcmp(optarg, "always") == 0)
+                log_colorize = LOG_COLORIZE_ALWAYS;
+            else {
+                fprintf(stderr, "%s: argument must be one of 'never', 'always' or 'auto'\n", optarg);
+                return EXIT_FAILURE;
+            }
+            break;
+
+        case 'S':
+            log_syslog = false;
+            break;
+
         case 'v':
             printf("foot version %s\n", FOOT_VERSION);
             return EXIT_SUCCESS;
@@ -236,7 +259,8 @@ main(int argc, char *const *argv)
         }
     }
 
-    log_init(as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER, LOG_CLASS_WARNING);
+    log_init(log_colorize, as_server && log_syslog,
+             as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER, LOG_CLASS_WARNING);
 
     argc -= optind;
     argv += optind;
