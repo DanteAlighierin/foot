@@ -507,7 +507,8 @@ initialize_render_workers(struct terminal *term)
 }
 
 static bool
-initialize_fonts(struct terminal *term, const struct config *conf)
+initialize_fonts(const struct terminal *term, const struct config *conf,
+                 struct font *fonts[static 4])
 {
     const size_t count = tll_length(conf->fonts);
     const char *names[count];
@@ -529,11 +530,21 @@ initialize_fonts(struct terminal *term, const struct config *conf)
     snprintf(attrs2, sizeof(attrs2), "dpi=%u:slant=italic", dpi);
     snprintf(attrs3, sizeof(attrs3), "dpi=%u:weight=bold:slant=italic", dpi);
 
-    return (
-        (term->fonts[0] = font_from_name(count, names, attrs0)) != NULL &&
-        (term->fonts[1] = font_from_name(count, names, attrs1)) != NULL &&
-        (term->fonts[2] = font_from_name(count, names, attrs2)) != NULL &&
-        (term->fonts[3] = font_from_name(count, names, attrs3)) != NULL);
+    fonts[0] = fonts[1] = fonts[2] = fonts[3] = NULL;
+    bool ret =
+        (fonts[0] = font_from_name(count, names, attrs0)) != NULL &&
+        (fonts[1] = font_from_name(count, names, attrs1)) != NULL &&
+        (fonts[2] = font_from_name(count, names, attrs2)) != NULL &&
+        (fonts[3] = font_from_name(count, names, attrs3)) != NULL;
+
+    if (!ret) {
+        for (size_t i = 0; i < 4; i++) {
+            font_destroy(fonts[i]);
+            fonts[i] = NULL;
+        }
+    }
+
+    return ret;
 }
 
 struct terminal *
@@ -697,7 +708,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     initialize_color_cube(term);
     if (!initialize_render_workers(term))
         goto err;
-    if (!initialize_fonts(term, conf))
+    if (!initialize_fonts(term, conf, term->fonts))
         goto err;
 
     /* Cell dimensions are based on the font metrics. Obviously */
@@ -1141,6 +1152,26 @@ void
 term_font_size_decrease(struct terminal *term)
 {
     term_font_size_adjust(term, -1.);
+}
+
+void
+term_font_size_reset(struct terminal *term)
+{
+    struct font *fonts[4];
+    if (!initialize_fonts(term, term->conf, fonts))
+        return;
+
+    for (size_t i = 0; i < 4; i++) {
+        font_destroy(term->fonts[i]);
+        term->fonts[i] = fonts[i];
+    }
+
+    term->cell_width = term->fonts[0]->space_x_advance > 0
+        ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
+    term->cell_height = term->fonts[0]->height;
+    LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
+
+    render_resize_force(term, term->width, term->height);
 }
 
 void
