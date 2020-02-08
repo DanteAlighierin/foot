@@ -1123,7 +1123,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         min(term->cursor.point.col, term->cols - 1));
 
     term->render.last_cursor.cell = NULL;
-
+    tll_free(term->normal.scroll_damage);
+    tll_free(term->alt.scroll_damage);
     term->render.last_buf = NULL;
     term_damage_view(term);
     render_refresh(term);
