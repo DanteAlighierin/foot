@@ -603,6 +603,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     /* Initialize configure-based terminal attributes */
     *term = (struct terminal) {
         .fdm = fdm,
+        .conf = conf,
         .quit = false,
         .ptmx = ptmx,
         .ptmx_buffer = tll_init(),
@@ -1097,6 +1098,49 @@ term_reset(struct terminal *term, bool hard)
     term->render.last_cursor.cell = NULL;
     term->render.was_flashing = false;
     term_damage_all(term);
+}
+
+static void
+term_font_size_adjust(struct terminal *term, double amount)
+{
+    struct font *fonts[4] = {
+        font_size_adjust(term->fonts[0], amount),
+        font_size_adjust(term->fonts[1], amount),
+        font_size_adjust(term->fonts[2], amount),
+        font_size_adjust(term->fonts[3], amount),
+    };
+
+    if (fonts[0] == NULL || fonts[1] == NULL ||
+        fonts[2] == NULL || fonts[3] == NULL)
+    {
+        for (size_t i = 0; i < 4; i++)
+            font_destroy(fonts[i]);
+        return;
+    }
+
+    for (size_t i = 0; i < 4; i++) {
+        font_destroy(term->fonts[i]);
+        term->fonts[i] = fonts[i];
+    }
+
+    term->cell_width = term->fonts[0]->space_x_advance > 0
+        ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
+    term->cell_height = term->fonts[0]->height;
+    LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
+
+    render_resize_force(term, term->width, term->height);
+}
+
+void
+term_font_size_increase(struct terminal *term)
+{
+    term_font_size_adjust(term, 1.);
+}
+
+void
+term_font_size_decrease(struct terminal *term)
+{
+    term_font_size_adjust(term, -1.);
 }
 
 void
