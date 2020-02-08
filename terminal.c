@@ -1112,6 +1112,24 @@ term_reset(struct terminal *term, bool hard)
 }
 
 static void
+term_set_fonts(struct terminal *term, struct font *fonts[static 4])
+{
+    for (size_t i = 0; i < 4; i++) {
+        assert(fonts[i] != NULL);
+
+        font_destroy(term->fonts[i]);
+        term->fonts[i] = fonts[i];
+    }
+
+    term->cell_width = term->fonts[0]->space_x_advance > 0
+        ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
+    term->cell_height = term->fonts[0]->height;
+    LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
+
+    render_resize_force(term, term->width, term->height);
+}
+
+static void
 term_font_size_adjust(struct terminal *term, double amount)
 {
     struct font *fonts[4] = {
@@ -1129,17 +1147,7 @@ term_font_size_adjust(struct terminal *term, double amount)
         return;
     }
 
-    for (size_t i = 0; i < 4; i++) {
-        font_destroy(term->fonts[i]);
-        term->fonts[i] = fonts[i];
-    }
-
-    term->cell_width = term->fonts[0]->space_x_advance > 0
-        ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
-    term->cell_height = term->fonts[0]->height;
-    LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
-
-    render_resize_force(term, term->width, term->height);
+    term_set_fonts(term, fonts);
 }
 
 void
@@ -1161,17 +1169,7 @@ term_font_size_reset(struct terminal *term)
     if (!initialize_fonts(term, term->conf, fonts))
         return;
 
-    for (size_t i = 0; i < 4; i++) {
-        font_destroy(term->fonts[i]);
-        term->fonts[i] = fonts[i];
-    }
-
-    term->cell_width = term->fonts[0]->space_x_advance > 0
-        ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
-    term->cell_height = term->fonts[0]->height;
-    LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
-
-    render_resize_force(term, term->width, term->height);
+    term_set_fonts(term, fonts);
 }
 
 void
