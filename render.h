@@ -9,6 +9,8 @@ struct renderer *render_init(struct fdm *fdm, struct wayland *wayl);
 void render_destroy(struct renderer *renderer);
 
 void render_resize(struct terminal *term, int width, int height);
+void render_resize_force(struct terminal *term, int width, int height);
+
 void render_set_title(struct terminal *term, const char *title);
 void render_refresh(struct terminal *term);
 bool render_xcursor_set(struct terminal *term);

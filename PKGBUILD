@@ -5,7 +5,7 @@ arch=('x86_64')
 url=https://codeberg.org/dnkl/foot
 license=(mit)
 makedepends=('meson' 'ninja' 'scdoc' 'python' 'ncurses' 'wayland-protocols' 'tllist>=1.0.0')
-depends=('libxkbcommon' 'wayland' 'pixman' 'fcft>=1.1.0')
+depends=('libxkbcommon' 'wayland' 'pixman' 'fcft>=1.1.1')
 source=()
 
 pkgver() {

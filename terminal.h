@@ -175,10 +175,17 @@ struct ptmx_buffer {
 
 struct terminal {
     struct fdm *fdm;
+    const struct config *conf;
 
     pid_t slave;
     int ptmx;
     bool quit;
+
+    struct grid normal;
+    struct grid alt;
+    struct grid *grid;
+
+    struct font *fonts[4];
 
     tll(struct ptmx_buffer) ptmx_buffer;
 
@@ -277,12 +284,6 @@ struct terminal {
         size_t match_len;
     } search;
 
-    struct grid normal;
-    struct grid alt;
-    struct grid *grid;
-
-    struct font *fonts[4];
-
     struct {
         bool esc_prefix;
         bool eight_bit;
@@ -361,6 +362,10 @@ int term_destroy(struct terminal *term);
 
 void term_reset(struct terminal *term, bool hard);
 bool term_to_slave(struct terminal *term, const void *data, size_t len);
+
+void term_font_size_increase(struct terminal *term);
+void term_font_size_decrease(struct terminal *term);
+void term_font_size_reset(struct terminal *term);
 
 void term_damage_rows(struct terminal *term, int start, int end);
 void term_damage_rows_in_view(struct terminal *term, int start, int end);

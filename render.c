@@ -995,10 +995,10 @@ reflow(struct row **new_grid, int new_cols, int new_rows,
 }
 
 /* Move to terminal.c? */
-void
-render_resize(struct terminal *term, int width, int height)
+static void
+maybe_resize(struct terminal *term, int width, int height, bool force)
 {
-    if (width == 0 || height == 0)
+    if (!force && (width == 0 || height == 0))
         return;
 
     int scale = -1;
@@ -1015,12 +1015,12 @@ render_resize(struct terminal *term, int width, int height)
     width *= scale;
     height *= scale;
 
-    if (width == 0 && height == 0) {
+    if (!force && width == 0 && height == 0) {
         /* Assume we're not fully up and running yet */
         return;
     }
 
-    if (width == term->width && height == term->height && scale == term->scale)
+    if (!force && width == term->width && height == term->height && scale == term->scale)
         return;
 
     /* Cancel an application initiated "Synchronized Update" */
@@ -1123,9 +1123,23 @@ render_resize(struct terminal *term, int width, int height)
         min(term->cursor.point.col, term->cols - 1));
 
     term->render.last_cursor.cell = NULL;
-
+    tll_free(term->normal.scroll_damage);
+    tll_free(term->alt.scroll_damage);
+    term->render.last_buf = NULL;
     term_damage_view(term);
     render_refresh(term);
+}
+
+void
+render_resize(struct terminal *term, int width, int height)
+{
+    return maybe_resize(term, width, height, false);
+}
+
+void
+render_resize_force(struct terminal *term, int width, int height)
+{
+    return maybe_resize(term, width, height, true);
 }
 
 static void xcursor_callback(

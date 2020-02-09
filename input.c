@@ -385,6 +385,23 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         }
     }
 
+    else if (effective_mods == ctrl) {
+        if (sym == XKB_KEY_plus || sym == XKB_KEY_KP_Add) {
+            term_font_size_increase(term);
+            goto maybe_repeat;
+        }
+
+        else if (sym == XKB_KEY_minus || sym == XKB_KEY_KP_Subtract) {
+            term_font_size_decrease(term);
+            goto maybe_repeat;
+        }
+
+        else if (sym == XKB_KEY_0 || sym == XKB_KEY_equal || sym == XKB_KEY_KP_Equal || sym == XKB_KEY_KP_0) {
+            term_font_size_reset(term);
+            goto maybe_repeat;
+        }
+    }
+
     else if (effective_mods == (shift | ctrl)) {
         if (sym == XKB_KEY_C) {
             selection_to_clipboard(term, serial);
