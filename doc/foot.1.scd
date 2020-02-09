@@ -112,6 +112,15 @@ be changed.
 *ctrl*+*shift*+*r*
 	Start a scrollback search
 
+*ctrl*+*+*
+	Increase font size by 1pt
+
+*ctrl*+*-*
+	Decrease font size by 1pt
+
+*ctrl*+*0*, *ctrl*+*=*
+	Reset font size
+
 ## SCROLLBACK SEARCH
 
 *ctrl*+*r*
