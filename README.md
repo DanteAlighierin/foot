@@ -108,6 +108,15 @@ is **not** possible to define new key bindings.
 <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>r</kbd>
 : Start a scrollback search
 
+<kbd>ctrl</kbd>+<kbd>+</kbd>
+: Increase font size by 1pt
+
+<kbd>ctrl</kbd>+<kbd>-</kbd>
+: Decrease font size by 1pt
+
+<kbd>ctrl</kbd>+<kbd>0</kbd>, <kbd>ctrl</kbd>+<kbd>=</kbd>
+: Reset font size
+
 
 #### Scrollback search
 
