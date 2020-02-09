@@ -538,6 +538,7 @@ initialize_fonts(const struct terminal *term, const struct config *conf,
         (fonts[3] = font_from_name(count, names, attrs3)) != NULL;
 
     if (!ret) {
+        LOG_ERR("failed to load primary fonts");
         for (size_t i = 0; i < 4; i++) {
             font_destroy(fonts[i]);
             fonts[i] = NULL;
