@@ -978,11 +978,11 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
     int new_row_idx = 0;
 
     struct row *new_row = new_grid[new_row_idx];
-    if (new_row == NULL) {
-        new_row = grid_row_alloc(new_cols, true);
-        new_row->dirty = true;
-        new_grid[new_row_idx] = new_row;
-    }
+
+    assert(new_row == NULL);
+    new_row = grid_row_alloc(new_cols, true);
+    new_row->dirty = true;
+    new_grid[new_row_idx] = new_row;
 
     /* Start at the beginning of the old grid's scrollback. That is,
      * at the output that is *oldest* */
