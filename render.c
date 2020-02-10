@@ -970,28 +970,106 @@ render_search_box(struct terminal *term)
     wl_surface_commit(term->window->search_surface);
 }
 
-static void
-reflow(struct row **new_grid, int new_cols, int new_rows,
-       struct row *const *old_grid, int old_cols, int old_rows)
+static int
+reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
+       struct row *const *old_grid, int old_cols, int old_rows, int offset)
 {
-    /* TODO: actually reflow */
-    for (int r = 0; r < min(new_rows, old_rows); r++) {
-        size_t copy_cols = min(new_cols, old_cols);
-        size_t clear_cols = new_cols - copy_cols;
+    int new_col_idx = 0;
+    int new_row_idx = 0;
 
-        if (old_grid[r] == NULL)
+    struct row *new_row = new_grid[new_row_idx];
+    if (new_row == NULL) {
+        new_row = grid_row_alloc(new_cols, true);
+        new_row->dirty = true;
+        new_grid[new_row_idx] = new_row;
+    }
+
+    /* Start at the beginning of the old grid's scrollback. That is,
+     * at the output that is *oldest* */
+    offset += term->rows;
+
+    /*
+     * Walk the old grid
+     */
+    for (int r = 0; r < old_rows; r++) {
+
+        /* Unallocated (empty) rows we can simply skip */
+        const struct row *old_row = old_grid[(offset + r) & (old_rows - 1)];
+        if (old_row == NULL)
             continue;
 
-        if (new_grid[r] == NULL)
-            new_grid[r] = grid_row_alloc(new_cols, false);
+        /*
+         * Keep track of empty cells. If the old line ends with a
+         * string of empty cells, we don't need to, nor do we want to,
+         * add those to the new line. However, if there are non-empty
+         * cells *after* the string of empty cells, we need to emit
+         * the empty cells too. And that may trigger linebreaks
+         */
+        int empty_count = 0;
 
-        struct cell *new_cells = new_grid[r]->cells;
-        const struct cell *old_cells = old_grid[r]->cells;
+        /* Walk current line of the old grid */
+        for (int c = 0; c < old_cols; c++) {
+            const struct cell *old_cell = &old_row->cells[c];
 
-        new_grid[r]->dirty = old_grid[r]->dirty;
-        memcpy(new_cells, old_cells, copy_cols * sizeof(new_cells[0]));
-        memset(&new_cells[copy_cols], 0, clear_cols * sizeof(new_cells[0]));
+            if (old_cell->wc == 0) {
+                empty_count++;
+                continue;
+            }
+
+            assert(old_cell->wc != 0);
+
+            /* Non-empty cell. Emit preceeding string of empty cells,
+             * and possibly line break for current cell */
+
+            for (int i = 0; i < empty_count + 1; i++) {
+                if (new_col_idx >= new_cols) {
+                    new_col_idx = 0;
+                    new_row_idx = (new_row_idx + 1) & (new_rows - 1);
+
+                    new_row = new_grid[new_row_idx];
+                    if (new_row == NULL) {
+                        new_row = grid_row_alloc(new_cols, true);
+                        new_row->dirty = true;
+                        new_grid[new_row_idx] = new_row;
+                    }
+                }
+
+                new_row->cells[new_col_idx].attrs.clean = 1;
+                new_row->cells[new_col_idx++] = (struct cell){0};
+            }
+
+            empty_count = 0;
+            new_col_idx--;
+
+            assert(new_row != NULL);
+            assert(new_col_idx >= 0);
+            assert(new_col_idx < new_cols);
+
+            /* Copy current cell */
+            new_row->cells[new_col_idx].attrs.clean = 1;
+            new_row->cells[new_col_idx++] = *old_cell;
+        }
+
+        /*
+         * If last cell of the old grid's line if empty, then we
+         * insert a linebreak in the new grid's line too. Unless, the
+         * *entire* old line was empty.
+         */
+
+        if (empty_count < old_cols && old_row->cells[old_cols - 1].wc == 0) {
+            new_col_idx = 0;
+            new_row_idx = (new_row_idx + 1) & (new_rows - 1);
+
+            new_row = new_grid[new_row_idx];
+            if (new_row == NULL) {
+                new_row = grid_row_alloc(new_cols, true);
+                new_row->dirty = true;
+                new_grid[new_row_idx] = new_row;
+            }
+        }
     }
+
+    return new_row_idx;
 }
 
 /* Move to terminal.c? */
@@ -1045,31 +1123,52 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->x_margin = (term->width - new_cols * term->cell_width) / 2;
     term->y_margin = (term->height - new_rows * term->cell_height) / 2;
 
-    term->normal.offset %= new_normal_grid_rows;
-    term->normal.view %= new_normal_grid_rows;
-
-    term->alt.offset %= new_alt_grid_rows;
-    term->alt.view %= new_alt_grid_rows;
-
-    /* Allocate new 'normal' grid */
+    /* Allocate new 'normal' and 'alt' grids */
     struct row **normal = calloc(new_normal_grid_rows, sizeof(normal[0]));
-    for (int r = 0; r < new_rows; r++) {
-        size_t real_r = (term->normal.view + r) & (new_normal_grid_rows - 1);
-        normal[real_r] = grid_row_alloc(new_cols, true);
-    }
-
-    /* Allocate new 'alt' grid */
     struct row **alt = calloc(new_alt_grid_rows, sizeof(alt[0]));
-    for (int r = 0; r < new_rows; r++)  {
-        int real_r = (term->alt.view + r) & (new_alt_grid_rows - 1);
-        alt[real_r] = grid_row_alloc(new_cols, true);
-    }
 
     /* Reflow content */
-    reflow(normal, new_cols, new_normal_grid_rows,
-           term->normal.rows, old_cols, old_normal_grid_rows);
-    reflow(alt, new_cols, new_alt_grid_rows,
-           term->alt.rows, old_cols, old_alt_grid_rows);
+    int last_normal_row = reflow(
+        term, normal, new_cols, new_normal_grid_rows,
+        term->normal.rows, old_cols, old_normal_grid_rows, term->normal.offset);
+    int last_alt_row = reflow(
+        term, alt, new_cols, new_alt_grid_rows,
+        term->alt.rows, old_cols, old_alt_grid_rows, term->alt.offset);
+
+    /* Re-set current row pointers */
+    term->normal.cur_row = normal[last_normal_row];
+    term->alt.cur_row = alt[last_alt_row];
+
+    /* Reset offset such that the last copied row ends up at the
+     * bottom of the screen */
+    term->normal.offset = last_normal_row - new_rows;
+    term->alt.offset = last_alt_row - new_rows;
+
+    /* Can't have negative offsets, so wrap 'em */
+    while (term->normal.offset < 0)
+        term->normal.offset += new_normal_grid_rows;
+    while (term->alt.offset < 0)
+        term->alt.offset += new_alt_grid_rows;
+
+    /* Make sure offset doesn't point to empty line */
+    while (normal[term->normal.offset] == NULL)
+        term->normal.offset = (term->normal.offset + 1) & (new_normal_grid_rows - 1);
+    while (alt[term->alt.offset] == NULL)
+        term->alt.offset = (term->alt.offset + 1) & (new_alt_grid_rows - 1);
+
+    term->normal.view = term->normal.offset;
+    term->alt.view = term->alt.offset;
+
+    /* Make sure all visible lines have been allocated */
+    for (int r = 0; r < new_rows; r++) {
+        int idx = (term->normal.offset + r) & (new_normal_grid_rows - 1);
+        if (normal[idx] == NULL)
+            normal[idx] = grid_row_alloc(new_cols, true);
+
+        idx = (term->alt.offset + r) & (new_alt_grid_rows - 1);
+        if (alt[idx] == NULL)
+            alt[idx] = grid_row_alloc(new_cols, true);
+    }
 
     /* Free old 'normal' grid */
     for (int r = 0; r < term->normal.num_rows; r++)
@@ -1117,9 +1216,15 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     if (term->scroll_region.end >= old_rows)
         term->scroll_region.end = term->rows;
 
+    /* Position cursor at the last copied row */
+    /* TODO: can we do better? */
+    int cursor_row = term->grid == &term->normal
+        ? last_normal_row - term->normal.offset - 1
+        : last_alt_row - term->alt.offset - 1;
+
     term_cursor_to(
         term,
-        min(term->cursor.point.row, term->rows - 1),
+        min(max(cursor_row, 0), term->rows - 1),
         min(term->cursor.point.col, term->cols - 1));
 
     term->render.last_cursor.cell = NULL;
