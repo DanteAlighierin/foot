@@ -1221,8 +1221,12 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     /* Position cursor at the last copied row */
     /* TODO: can we do better? */
     int cursor_row = term->grid == &term->normal
-        ? last_normal_row - term->normal.offset - 1
-        : last_alt_row - term->alt.offset - 1;
+        ? last_normal_row - term->normal.offset
+        : last_alt_row - term->alt.offset;
+
+    while (cursor_row < 0)
+        cursor_row += term->grid->num_rows;
+    cursor_row--;
 
     term_cursor_to(
         term,
