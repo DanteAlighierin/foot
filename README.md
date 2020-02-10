@@ -52,8 +52,6 @@ This is a list of known, but probably not all, issues:
 
     Examples: á (`LATIN SMALL LETTER A` + `COMBINING ACUTE ACCENT`)
 
-* Reflow text on window resize
-
 * GNOME; might work, but without window decorations.
 
     Strictly speaking, foot is at fault here; all Wayland applications
