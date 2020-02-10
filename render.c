@@ -1034,8 +1034,7 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
                     }
                 }
 
-                new_row->cells[new_col_idx].attrs.clean = 1;
-                new_row->cells[new_col_idx++] = (struct cell){0};
+                new_col_idx++;
             }
 
             empty_count = 0;
