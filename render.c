@@ -1229,9 +1229,10 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         cursor_row += term->grid->num_rows;
     cursor_row--;
 
+    assert(cursor_row < term->rows);
     term_cursor_to(
         term,
-        min(max(cursor_row, 0), term->rows - 1),
+        max(cursor_row, 0),
         min(term->cursor.point.col, term->cols - 1));
 
     term->render.last_cursor.cell = NULL;
