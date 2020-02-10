@@ -128,7 +128,7 @@ action_execute(struct terminal *term, uint8_t c)
 
     case '\r':
         /* FF - form feed */
-        term_cursor_left(term, term->cursor.point.col);
+        term_formfeed(term);
         break;
 
     case '\b':
@@ -361,8 +361,8 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 'E':
+            term_formfeed(term);
             term_linefeed(term);
-            term_cursor_left(term, term->cursor.point.col);
             break;
 
         case 'H':

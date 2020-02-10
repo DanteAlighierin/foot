@@ -42,7 +42,8 @@ struct attributes {
     uint32_t have_fg:1;
     uint32_t have_bg:1;
     uint32_t selected:2;
-    uint32_t reserved:3;
+    uint32_t linefeed:1;
+    uint32_t reserved:2;
     uint32_t bg:24;
 };
 static_assert(sizeof(struct attributes) == 8, "bad size");
@@ -403,6 +404,7 @@ void term_scroll_partial(
 void term_scroll_reverse_partial(
     struct terminal *term, struct scroll_region region, int rows);
 
+void term_formfeed(struct terminal *term);
 void term_linefeed(struct terminal *term);
 void term_reverse_index(struct terminal *term);
 

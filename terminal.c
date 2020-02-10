@@ -1495,6 +1495,14 @@ term_scroll_reverse(struct terminal *term, int rows)
 }
 
 void
+term_formfeed(struct terminal *term)
+{
+    if (term->cursor.point.col > 0)
+        term->grid->cur_row->cells[term->cursor.point.col - 1].attrs.linefeed = 1;
+    term_cursor_left(term, term->cursor.point.col);
+}
+
+void
 term_linefeed(struct terminal *term)
 {
     if (term->cursor.point.row == term->scroll_region.end - 1)

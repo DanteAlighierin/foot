@@ -1055,7 +1055,10 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
          * *entire* old line was empty.
          */
 
-        if (empty_count < old_cols && old_row->cells[old_cols - 1].wc == 0) {
+        if (empty_count < old_cols &&
+            (old_row->cells[old_cols - 1].wc == 0 ||
+             old_row->cells[old_cols - 1].attrs.linefeed))
+        {
             new_col_idx = 0;
             new_row_idx = (new_row_idx + 1) & (new_rows - 1);
 
