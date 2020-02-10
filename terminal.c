@@ -1153,13 +1153,13 @@ term_font_size_adjust(struct terminal *term, double amount)
 void
 term_font_size_increase(struct terminal *term)
 {
-    term_font_size_adjust(term, 1.);
+    term_font_size_adjust(term, 0.5);
 }
 
 void
 term_font_size_decrease(struct terminal *term)
 {
-    term_font_size_adjust(term, -1.);
+    term_font_size_adjust(term, -0.5);
 }
 
 void
