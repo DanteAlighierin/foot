@@ -1154,13 +1154,13 @@ term_font_size_adjust(struct terminal *term, double amount)
 void
 term_font_size_increase(struct terminal *term)
 {
-    term_font_size_adjust(term, 1.);
+    term_font_size_adjust(term, 0.5);
 }
 
 void
 term_font_size_decrease(struct terminal *term)
 {
-    term_font_size_adjust(term, -1.);
+    term_font_size_adjust(term, -0.5);
 }
 
 void
@@ -1493,6 +1493,14 @@ void
 term_scroll_reverse(struct terminal *term, int rows)
 {
     term_scroll_reverse_partial(term, term->scroll_region, rows);
+}
+
+void
+term_formfeed(struct terminal *term)
+{
+    if (term->cursor.point.col > 0)
+        term->grid->cur_row->cells[term->cursor.point.col - 1].attrs.linefeed = 1;
+    term_cursor_left(term, term->cursor.point.col);
 }
 
 void

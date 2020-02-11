@@ -52,8 +52,6 @@ This is a list of known, but probably not all, issues:
 
     Examples: á (`LATIN SMALL LETTER A` + `COMBINING ACUTE ACCENT`)
 
-* Reflow text on window resize
-
 * GNOME; might work, but without window decorations.
 
     Strictly speaking, foot is at fault here; all Wayland applications
@@ -108,13 +106,13 @@ is **not** possible to define new key bindings.
 <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>r</kbd>
 : Start a scrollback search
 
-<kbd>ctrl</kbd>+<kbd>+</kbd>
+<kbd>ctrl</kbd>+<kbd>+</kbd>, <kbd>ctrl</kbd>+<kbd>=</kbd>
 : Increase font size by 1pt
 
 <kbd>ctrl</kbd>+<kbd>-</kbd>
 : Decrease font size by 1pt
 
-<kbd>ctrl</kbd>+<kbd>0</kbd>, <kbd>ctrl</kbd>+<kbd>=</kbd>
+<kbd>ctrl</kbd>+<kbd>0</kbd>
 : Reset font size
 
 
