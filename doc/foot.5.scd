@@ -37,7 +37,8 @@ in this order:
 
 *shell*
 	Executable to launch. Typically a shell. Default: the user's
-	default shell (as specified in _/etc/passwd_).
+	default shell (as specified in _/etc/passwd_). You can also pass
+	arguments. For example "/bin/bash --login".
 
 *term*
 	Value to set the environment variable *TERM* to. Default: _foot_.
