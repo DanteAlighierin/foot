@@ -1229,15 +1229,15 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     while (cursor_row < 0)
         cursor_row += term->grid->num_rows;
 
-#if 0
-    if (term->cursor.point.col < term->cols - 1)
+    /* Heuristic to prevent a new prompt from being printed a new line */
+    if (term->cursor.point.col > 0)
         cursor_row--;
-#endif
+    else if (cursor_row >= term->rows)
+        term_linefeed(term);
 
-    assert(cursor_row < term->rows);
     term_cursor_to(
         term,
-        max(cursor_row, 0),
+        min(max(cursor_row, 0), term->rows - 1),
         min(term->cursor.point.col, term->cols - 1));
 
     term->render.last_cursor.cell = NULL;
