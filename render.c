@@ -1057,7 +1057,7 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
          */
 
         if (empty_count < old_cols &&
-            r < old_rows - 1 &&
+            //r < old_rows - 1 &&
             (old_row->cells[old_cols - 1].wc == 0 ||
              old_row->cells[old_cols - 1].attrs.linefeed))
         {
@@ -1230,15 +1230,19 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         cursor_row += term->grid->num_rows;
 
     /* Heuristic to prevent a new prompt from being printed a new line */
+    bool do_linefeed = false;
     if (term->cursor.point.col > 0)
         cursor_row--;
     else if (cursor_row >= term->rows)
-        term_linefeed(term);
+            do_linefeed = true;
 
     term_cursor_to(
         term,
         min(max(cursor_row, 0), term->rows - 1),
         min(term->cursor.point.col, term->cols - 1));
+
+    if (do_linefeed)
+        term_linefeed(term);
 
     term->render.last_cursor.cell = NULL;
     tll_free(term->normal.scroll_damage);
