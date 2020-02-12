@@ -1057,6 +1057,7 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
          */
 
         if (empty_count < old_cols &&
+            r < old_rows - 1 &&
             (old_row->cells[old_cols - 1].wc == 0 ||
              old_row->cells[old_cols - 1].attrs.linefeed))
         {
@@ -1228,8 +1229,10 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     while (cursor_row < 0)
         cursor_row += term->grid->num_rows;
 
+#if 0
     if (term->cursor.point.col < term->cols - 1)
         cursor_row--;
+#endif
 
     assert(cursor_row < term->rows);
     term_cursor_to(
