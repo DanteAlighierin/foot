@@ -1227,7 +1227,9 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     while (cursor_row < 0)
         cursor_row += term->grid->num_rows;
-    cursor_row--;
+
+    if (term->cursor.point.col < term->cols - 1)
+        cursor_row--;
 
     assert(cursor_row < term->rows);
     term_cursor_to(
