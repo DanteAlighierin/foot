@@ -1051,7 +1051,7 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
         }
 
         /*
-         * If last cell of the old grid's line if empty, then we
+         * If last cell of the old grid's line is empty, then we
          * insert a linebreak in the new grid's line too. Unless, the
          * *entire* old line was empty.
          */
