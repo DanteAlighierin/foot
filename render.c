@@ -1029,10 +1029,11 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
                     new_row = new_grid[new_row_idx];
                     if (new_row == NULL) {
                         new_row = grid_row_alloc(new_cols, true);
-                        new_row->dirty = true;
                         new_grid[new_row_idx] = new_row;
                     } else
                         memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0]));
+
+                    new_row->dirty = true;
                 }
 
                 new_col_idx++;
@@ -1067,9 +1068,10 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
             new_row = new_grid[new_row_idx];
             if (new_row == NULL) {
                 new_row = grid_row_alloc(new_cols, true);
-                new_row->dirty = true;
                 new_grid[new_row_idx] = new_row;
             }
+
+            new_row->dirty = true;
         }
     }
 
