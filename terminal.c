@@ -1090,8 +1090,8 @@ term_reset(struct terminal *term, bool hard)
     term->normal.offset = term->normal.view = 0;
     term->alt.offset = term->alt.view = 0;
     for (size_t i = 0; i < term->rows; i++) {
-        memset(grid_row_and_alloc(&term->normal, i)->cells, 0, term->cols * sizeof(struct cell));
-        memset(grid_row_and_alloc(&term->alt, i)->cells, 0, term->cols * sizeof(struct cell));
+        term->normal.rows[i] = grid_row_alloc(term->cols, true);
+        term->alt.rows[i] = grid_row_alloc(term->cols, true);
     }
     for (size_t i = term->rows; i < term->normal.num_rows; i++) {
         grid_row_free(term->normal.rows[i]);
