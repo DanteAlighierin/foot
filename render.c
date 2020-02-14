@@ -1130,6 +1130,11 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->x_margin = (term->width - new_cols * term->cell_width) / 2;
     term->y_margin = (term->height - new_rows * term->cell_height) / 2;
 
+    if (old_rows == new_rows && old_cols == new_cols) {
+        /* Skip reflow if grid layout hasn't changed */
+        goto done;
+    }
+
     /* Allocate new 'normal' and 'alt' grids */
     struct row **normal = calloc(new_normal_grid_rows, sizeof(normal[0]));
     struct row **alt = calloc(new_alt_grid_rows, sizeof(alt[0]));
@@ -1250,6 +1255,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->render.last_cursor.cell = NULL;
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);
+
+done:
     term->render.last_buf = NULL;
     term_damage_view(term);
     render_refresh(term);
