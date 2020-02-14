@@ -213,7 +213,7 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
 
     if (ctx->last_row != NULL && row != ctx->last_row &&
         ((term->selection.kind == SELECTION_NORMAL &&
-          (ctx->last_cell->wc == 0 || ctx->last_cell->attrs.linefeed)) ||
+          ctx->last_row->linebreak) ||
          term->selection.kind == SELECTION_BLOCK))
     {
         /* Last cell was the last column in the selection */

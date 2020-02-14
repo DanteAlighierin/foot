@@ -28,6 +28,7 @@ grid_row_alloc(int cols, bool initialize)
 {
     struct row *row = malloc(sizeof(*row));
     row->dirty = false;
+    row->linebreak = false;
 
     if (initialize) {
         row->cells = calloc(cols, sizeof(row->cells[0]));

@@ -1253,6 +1253,7 @@ static inline void
 erase_line(struct terminal *term, struct row *row)
 {
     erase_cell_range(term, row, 0, term->cols - 1);
+    row->linebreak = false;
 }
 
 void
@@ -1498,17 +1499,13 @@ term_scroll_reverse(struct terminal *term, int rows)
 void
 term_formfeed(struct terminal *term)
 {
-    int col = term->cursor.point.col;
-    if (!term->cursor.lcf)
-        col--;
-    if (col >= 0)
-        term->grid->cur_row->cells[col].attrs.linefeed = 1;
     term_cursor_left(term, term->cursor.point.col);
 }
 
 void
 term_linefeed(struct terminal *term)
 {
+    term->grid->cur_row->linebreak = true;
     if (term->cursor.point.row == term->scroll_region.end - 1)
         term_scroll(term, 1);
     else
