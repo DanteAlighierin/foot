@@ -96,6 +96,31 @@ static const struct wl_seat_listener seat_listener = {
 };
 
 static void
+update_term_for_output_change(struct terminal *term)
+{
+    render_resize(term, term->width / term->scale, term->height / term->scale);
+    term_font_dpi_changed(term);
+    wayl_reload_cursor_theme(term->wl, term);
+}
+
+static void
+update_terms_on_monitor(struct monitor *mon)
+{
+    struct wayland *wayl = mon->wayl;
+
+    tll_foreach(wayl->terms, it) {
+        struct terminal *term = it->item;
+
+        tll_foreach(term->window->on_outputs, it2) {
+            if (it2->item == mon) {
+                update_term_for_output_change(term);
+                break;
+            }
+        }
+    }
+}
+
+static void
 output_update_ppi(struct monitor *mon)
 {
     int x_inches = mon->width_mm * 0.03937008;
@@ -128,27 +153,22 @@ output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
 
     struct monitor *mon = data;
     mon->refresh = (float)refresh / 1000;
+    mon->width_px = width;
+    mon->height_px = height;
 }
 
 static void
 output_done(void *data, struct wl_output *wl_output)
 {
+    struct monitor *mon = data;
+    update_terms_on_monitor(mon);
 }
 
 static void
 output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 {
     struct monitor *mon = data;
-
     mon->scale = factor;
-
-    tll_foreach(mon->wayl->terms, it) {
-        struct terminal *term = it->item;
-        int scale = term->scale;
-
-        render_resize(term, term->width / scale, term->height / scale);
-        wayl_reload_cursor_theme(mon->wayl, term);
-    }
 }
 
 static const struct wl_output_listener output_listener = {
@@ -171,10 +191,6 @@ static void
 xdg_output_handle_logical_size(void *data, struct zxdg_output_v1 *xdg_output,
                                int32_t width, int32_t height)
 {
-    struct monitor *mon = data;
-    mon->width_px = width;
-    mon->height_px = height;
-    output_update_ppi(mon);
 }
 
 static void
@@ -370,11 +386,7 @@ surface_enter(void *data, struct wl_surface *wl_surface,
         if (it->item.output == wl_output) {
             LOG_DBG("mapped on %s", it->item.name);
             tll_push_back(term->window->on_outputs, &it->item);
-
-            /* Resize, since scale-to-use may have changed */
-            int scale = term->scale;
-            render_resize(term, term->width / scale, term->height / scale);
-            wayl_reload_cursor_theme(term->wl, term);
+            update_term_for_output_change(term);
             return;
         }
     }
@@ -395,11 +407,7 @@ surface_leave(void *data, struct wl_surface *wl_surface,
 
         LOG_DBG("unmapped from %s", it->item->name);
         tll_remove(term->window->on_outputs, it);
-
-        /* Resize, since scale-to-use may have changed */
-        int scale = term->scale;
-        render_resize(term, term->width / scale, term->height / scale);
-        wayl_reload_cursor_theme(term->wl, term);
+        update_term_for_output_change(term);
         return;
     }
 

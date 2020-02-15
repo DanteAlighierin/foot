@@ -507,8 +507,54 @@ initialize_render_workers(struct terminal *term)
 }
 
 static bool
-initialize_fonts(const struct terminal *term, const struct config *conf,
-                 struct font *fonts[static 4])
+term_set_fonts(struct terminal *term, struct font *fonts[static 4])
+{
+    for (size_t i = 0; i < 4; i++) {
+        assert(fonts[i] != NULL);
+
+        font_destroy(term->fonts[i]);
+        term->fonts[i] = fonts[i];
+    }
+
+    term->cell_width = term->fonts[0]->space_x_advance > 0
+        ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
+    term->cell_height = term->fonts[0]->height;
+    LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
+
+    render_resize_force(term, term->width, term->height);
+    return true;
+}
+
+static unsigned
+get_font_dpi(const struct terminal *term)
+{
+    /* Use highest DPI from outputs we're mapped on */
+    unsigned dpi = 0;
+    assert(term->window != NULL);
+    tll_foreach(term->window->on_outputs, it) {
+        if (it->item->y_ppi > dpi)
+            dpi = it->item->y_ppi;
+    }
+
+    /* If we're not mapped, use DPI from first monitor. Hopefully this is where we'll get mapped later... */
+    if (dpi == 0) {
+        tll_foreach(term->wl->monitors, it) {
+            dpi = it->item.y_ppi;
+            break;
+        }
+    }
+
+    if (dpi == 0) {
+        /* No monitors? */
+        dpi = 96;
+    }
+
+    return dpi;
+}
+
+static bool
+load_fonts_from_conf(const struct terminal *term, const struct config *conf,
+                     struct font *fonts[static 4])
 {
     const size_t count = tll_length(conf->fonts);
     const char *names[count];
@@ -517,18 +563,11 @@ initialize_fonts(const struct terminal *term, const struct config *conf,
     tll_foreach(conf->fonts, it)
         names[i++] = it->item;
 
-    /* Use highest DPI available */
-    unsigned dpi = 96;
-    tll_foreach(term->wl->monitors, it) {
-        if (it->item.y_ppi > dpi)
-            dpi = it->item.y_ppi;
-    }
-
     char attrs0[64], attrs1[64], attrs2[64], attrs3[64];
-    snprintf(attrs0, sizeof(attrs0), "dpi=%u", dpi);
-    snprintf(attrs1, sizeof(attrs1), "dpi=%u:weight=bold", dpi);
-    snprintf(attrs2, sizeof(attrs2), "dpi=%u:slant=italic", dpi);
-    snprintf(attrs3, sizeof(attrs3), "dpi=%u:weight=bold:slant=italic", dpi);
+    snprintf(attrs0, sizeof(attrs0), "dpi=%u", term->font_dpi);
+    snprintf(attrs1, sizeof(attrs1), "dpi=%u:weight=bold", term->font_dpi);
+    snprintf(attrs2, sizeof(attrs2), "dpi=%u:slant=italic", term->font_dpi);
+    snprintf(attrs3, sizeof(attrs3), "dpi=%u:weight=bold:slant=italic", term->font_dpi);
 
     fonts[0] = fonts[1] = fonts[2] = fonts[3] = NULL;
     bool ret =
@@ -619,6 +658,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .quit = false,
         .ptmx = ptmx,
         .ptmx_buffer = tll_init(),
+        .font_dpi = 0,
+        .font_adjustments = 0,
         .cursor_keys_mode = CURSOR_KEYS_NORMAL,
         .keypad_keys_mode = KEYPAD_NUMERICAL,
         .auto_margin = true,
@@ -706,20 +747,15 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .cwd = strdup(cwd),
     };
 
+    /* Guess scale; we're not mapped yet, so we don't know on which
+     * output we'll be. Pick highest scale we find for now */
+    tll_foreach(term->wl->monitors, it) {
+        if (it->item.scale > term->scale)
+            term->scale = it->item.scale;
+    }
+
     initialize_color_cube(term);
     if (!initialize_render_workers(term))
-        goto err;
-    if (!initialize_fonts(term, conf, term->fonts))
-        goto err;
-
-    /* Cell dimensions are based on the font metrics. Obviously */
-    term->cell_width = term->fonts[0]->space_x_advance > 0
-        ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
-    term->cell_height = term->fonts[0]->height;
-    LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
-
-    /* Start the slave/client */
-    if ((term->slave = slave_spawn(term->ptmx, argc, term->cwd, argv, term_env, conf->shell)) == -1)
         goto err;
 
     /* Initialize the Wayland window backend */
@@ -729,8 +765,20 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     /* Let the Wayland backend know we exist */
     tll_push_back(wayl->terms, term);
     wayl_roundtrip(term->wl);
-
     term_set_window_title(term, "foot");
+
+    /* Load fonts */
+#if 0
+    struct font *fonts[4];
+    if (!load_fonts_from_conf(term, conf, fonts))
+        goto err;
+    term_set_fonts(term, fonts);
+#endif
+    term_font_dpi_changed(term);
+
+    /* Start the slave/client */
+    if ((term->slave = slave_spawn(term->ptmx, argc, term->cwd, argv, term_env, conf->shell)) == -1)
+        goto err;
 
     if (term->width == 0 && term->height == 0) {
 
@@ -1112,25 +1160,7 @@ term_reset(struct terminal *term, bool hard)
     term_damage_all(term);
 }
 
-static void
-term_set_fonts(struct terminal *term, struct font *fonts[static 4])
-{
-    for (size_t i = 0; i < 4; i++) {
-        assert(fonts[i] != NULL);
-
-        font_destroy(term->fonts[i]);
-        term->fonts[i] = fonts[i];
-    }
-
-    term->cell_width = term->fonts[0]->space_x_advance > 0
-        ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
-    term->cell_height = term->fonts[0]->height;
-    LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
-
-    render_resize_force(term, term->width, term->height);
-}
-
-static void
+static bool
 term_font_size_adjust(struct terminal *term, double amount)
 {
     struct font *fonts[4] = {
@@ -1145,32 +1175,90 @@ term_font_size_adjust(struct terminal *term, double amount)
     {
         for (size_t i = 0; i < 4; i++)
             font_destroy(fonts[i]);
-        return;
+        return false;
     }
 
     term_set_fonts(term, fonts);
+    return true;
 }
 
-void
+bool
 term_font_size_increase(struct terminal *term)
 {
-    term_font_size_adjust(term, 0.5);
+    if (!term_font_size_adjust(term, 0.5))
+        return false;
+
+    term->font_adjustments++;
+    return true;
 }
 
-void
+bool
 term_font_size_decrease(struct terminal *term)
 {
-    term_font_size_adjust(term, -0.5);
+    if (!term_font_size_adjust(term, -0.5))
+        return false;
+
+    term->font_adjustments--;
+    return true;
 }
 
-void
+bool
 term_font_size_reset(struct terminal *term)
 {
     struct font *fonts[4];
-    if (!initialize_fonts(term, term->conf, fonts))
-        return;
+    if (!load_fonts_from_conf(term, term->conf, fonts))
+        return false;
 
     term_set_fonts(term, fonts);
+    term->font_adjustments = 0;
+    return true;
+}
+
+bool
+term_font_dpi_changed(struct terminal *term)
+{
+    unsigned dpi = get_font_dpi(term);
+    if (dpi == term->font_dpi)
+        return true;
+
+    LOG_DBG("DPI changed (%u -> %u): reloading fonts", term->font_dpi, dpi);
+    term->font_dpi = dpi;
+
+    struct font *fonts[4];
+    if (!load_fonts_from_conf(term, term->conf, fonts))
+        return false;
+
+    if (term->font_adjustments == 0)
+        return term_set_fonts(term, fonts);
+
+    /* User has adjusted the font size run-time, re-apply */
+
+    double amount = term->font_adjustments * 0.5;
+
+    struct font *adjusted_fonts[4] = {
+        font_size_adjust(fonts[0], amount),
+        font_size_adjust(fonts[1], amount),
+        font_size_adjust(fonts[2], amount),
+        font_size_adjust(fonts[3], amount),
+    };
+
+    if (adjusted_fonts[0] == NULL || adjusted_fonts[1] == NULL ||
+        adjusted_fonts[2] == NULL || adjusted_fonts[3] == NULL)
+    {
+        for (size_t i = 0; i < 4; i++)
+            font_destroy(adjusted_fonts[i]);
+
+        /* At least use the newly re-loaded default fonts */
+        term->font_adjustments = 0;
+        return term_set_fonts(term, fonts);
+    } else {
+        for (size_t i = 0; i < 4; i++)
+            font_destroy(fonts[i]);
+        return term_set_fonts(term, adjusted_fonts);
+    }
+
+    assert(false);
+    return false;
 }
 
 void

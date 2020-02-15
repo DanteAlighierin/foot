@@ -187,6 +187,8 @@ struct terminal {
     struct grid *grid;
 
     struct font *fonts[4];
+    int font_dpi;
+    int font_adjustments;
 
     tll(struct ptmx_buffer) ptmx_buffer;
 
@@ -364,9 +366,10 @@ int term_destroy(struct terminal *term);
 void term_reset(struct terminal *term, bool hard);
 bool term_to_slave(struct terminal *term, const void *data, size_t len);
 
-void term_font_size_increase(struct terminal *term);
-void term_font_size_decrease(struct terminal *term);
-void term_font_size_reset(struct terminal *term);
+bool term_font_size_increase(struct terminal *term);
+bool term_font_size_decrease(struct terminal *term);
+bool term_font_size_reset(struct terminal *term);
+bool term_font_dpi_changed(struct terminal *term);
 
 void term_damage_rows(struct terminal *term, int start, int end);
 void term_damage_rows_in_view(struct terminal *term, int start, int end);
