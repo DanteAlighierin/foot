@@ -164,7 +164,7 @@ main(int argc, char *const *argv)
     bool log_syslog = true;
 
     while (true) {
-        int c = getopt_long(argc, argv, "c:tf:g:s::Pp:l::Svh", longopts, NULL);
+        int c = getopt_long(argc, argv, "c:t:f:g:s::Pp:l::Svh", longopts, NULL);
         if (c == -1)
             break;
 
