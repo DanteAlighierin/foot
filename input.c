@@ -641,6 +641,14 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
 
     LOG_DBG("pointer-leave: surface = %p, old-moused = %p", surface, old_moused);
 
+    if (wayl->pointer.xcursor_callback != NULL) {
+        /* A cursor frame callback may never be called if the pointer leaves our surface */
+        wl_callback_destroy(wayl->pointer.xcursor_callback);
+        wayl->pointer.xcursor_callback = NULL;
+        wayl->pointer.pending_terminal = NULL;
+        wayl->pointer.xcursor = NULL;
+    }
+
     wayl->mouse_focus = NULL;
     if (old_moused == NULL) {
         LOG_WARN(
