@@ -16,8 +16,10 @@
 #define LOG_MODULE "render"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "shm.h"
+#include "config.h"
 #include "grid.h"
+#include "selection.h"
+#include "shm.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -981,7 +983,6 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
 
     assert(new_row == NULL);
     new_row = grid_row_alloc(new_cols, true);
-    new_row->dirty = true;
     new_grid[new_row_idx] = new_row;
 
     /* Start at the beginning of the old grid's scrollback. That is,
@@ -1009,20 +1010,33 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
 
         /* Walk current line of the old grid */
         for (int c = 0; c < old_cols; c++) {
-            const struct cell *old_cell = &old_row->cells[c];
-
-            if (old_cell->wc == 0) {
+            if (old_row->cells[c].wc == 0) {
                 empty_count++;
                 continue;
             }
 
-            assert(old_cell->wc != 0);
-
-            /* Non-empty cell. Emit preceeding string of empty cells,
-             * and possibly line break for current cell */
+            int old_cols_left = old_cols - c;
+            int cols_needed = empty_count + old_cols_left;
+            int new_cols_left = new_cols - new_col_idx;
+            if (new_cols_left < cols_needed && new_cols_left >= old_cols_left)
+                empty_count = max(0, empty_count - (cols_needed - new_cols_left));
 
             for (int i = 0; i < empty_count + 1; i++) {
+                const struct cell *old_cell = &old_row->cells[c - empty_count + i];
+
+                /* Out of columns on current row in new grid? */
                 if (new_col_idx >= new_cols) {
+                    /*
+                     * If last cell on last row and first cell on new
+                     * row are non-empty, wrap the line, otherwise
+                     * insert a hard line break.
+                     */
+                    if (new_row->cells[new_cols - 1].wc == 0 ||
+                        old_cell->wc == 0)
+                    {
+                        new_row->linebreak = true;
+                    }
+
                     new_col_idx = 0;
                     new_row_idx = (new_row_idx + 1) & (new_rows - 1);
 
@@ -1030,38 +1044,27 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
                     if (new_row == NULL) {
                         new_row = grid_row_alloc(new_cols, true);
                         new_grid[new_row_idx] = new_row;
-                    } else
+                    } else {
                         memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0]));
-
-                    new_row->dirty = true;
+                        new_row->linebreak = false;
+                    }
                 }
 
+                assert(new_row != NULL);
+                assert(new_col_idx >= 0);
+                assert(new_col_idx < new_cols);
+
+                new_row->cells[new_col_idx] = *old_cell;
+                new_row->cells[new_col_idx].attrs.clean = 1;
                 new_col_idx++;
             }
 
             empty_count = 0;
-            new_col_idx--;
-
-            assert(new_row != NULL);
-            assert(new_col_idx >= 0);
-            assert(new_col_idx < new_cols);
-
-            /* Copy current cell */
-            new_row->cells[new_col_idx].attrs.clean = 1;
-            new_row->cells[new_col_idx++] = *old_cell;
         }
 
-        /*
-         * If last cell of the old grid's line is empty, then we
-         * insert a linebreak in the new grid's line too. Unless, the
-         * *entire* old line was empty.
-         */
+        if (old_row->linebreak) {
+            new_row->linebreak = true;
 
-        if (empty_count < old_cols &&
-            //r < old_rows - 1 &&
-            (old_row->cells[old_cols - 1].wc == 0 ||
-             old_row->cells[old_cols - 1].attrs.linefeed))
-        {
             new_col_idx = 0;
             new_row_idx = (new_row_idx + 1) & (new_rows - 1);
 
@@ -1069,10 +1072,10 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
             if (new_row == NULL) {
                 new_row = grid_row_alloc(new_cols, true);
                 new_grid[new_row_idx] = new_row;
-            } else
+            } else {
                 memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0]));
-
-            new_row->dirty = true;
+                new_row->linebreak = false;
+            }
         }
     }
 
@@ -1107,6 +1110,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     if (!force && width == term->width && height == term->height && scale == term->scale)
         return;
+
+    selection_cancel(term);
 
     /* Cancel an application initiated "Synchronized Update" */
     term_disable_app_sync_updates(term);
@@ -1153,8 +1158,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     /* Reset offset such that the last copied row ends up at the
      * bottom of the screen */
-    term->normal.offset = last_normal_row - new_rows;
-    term->alt.offset = last_alt_row - new_rows;
+    term->normal.offset = last_normal_row - new_rows + 1;
+    term->alt.offset = last_alt_row - new_rows + 1;
 
     /* Can't have negative offsets, so wrap 'em */
     while (term->normal.offset < 0)
@@ -1168,6 +1173,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     while (alt[term->alt.offset] == NULL)
         term->alt.offset = (term->alt.offset + 1) & (new_alt_grid_rows - 1);
 
+    /* TODO: try to keep old view */
     term->normal.view = term->normal.offset;
     term->alt.view = term->alt.offset;
 
@@ -1237,20 +1243,13 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     while (cursor_row < 0)
         cursor_row += term->grid->num_rows;
 
-    /* Heuristic to prevent a new prompt from being printed a new line */
-    bool do_linefeed = false;
-    if (term->cursor.point.col > 0)
-        cursor_row--;
-    else if (cursor_row >= term->rows)
-            do_linefeed = true;
+    assert(cursor_row >= 0);
+    assert(cursor_row < term->rows);
 
     term_cursor_to(
         term,
-        min(max(cursor_row, 0), term->rows - 1),
+        cursor_row,
         min(term->cursor.point.col, term->cols - 1));
-
-    if (do_linefeed)
-        term_linefeed(term);
 
     term->render.last_cursor.cell = NULL;
     tll_free(term->normal.scroll_damage);

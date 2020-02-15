@@ -42,8 +42,7 @@ struct attributes {
     uint32_t have_fg:1;
     uint32_t have_bg:1;
     uint32_t selected:2;
-    uint32_t linefeed:1;
-    uint32_t reserved:2;
+    uint32_t reserved:3;
     uint32_t bg:24;
 };
 static_assert(sizeof(struct attributes) == 8, "bad size");
@@ -84,6 +83,7 @@ struct damage {
 struct row {
     struct cell *cells;
     bool dirty;
+    bool linebreak;
 };
 
 struct grid {
