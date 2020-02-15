@@ -473,6 +473,8 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     if (state_chars > 2)
         state_str[state_chars - 2] = '\0';
+    else
+        state_str[0] = '\0';
 
     LOG_DBG("xdg-toplevel: configure: size=%dx%d, states=%s",
             width, height, state_str);
