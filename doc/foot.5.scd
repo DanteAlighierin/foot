@@ -33,7 +33,12 @@ in this order:
 	Default: _monospace_.
 
 *geometry*
-	Initial window width and height, on the form _WIDTHxHEIGHT_.
+	Initial window width and height in pixels, on the form
+	_WIDTHxHEIGHT_.
+
+*pad*
+	Padding between border and glyphs, in pixels, on the form
+	_X-PADxY-PAD_.
 
 *shell*
 	Executable to launch. Typically a shell. Default: the user's
