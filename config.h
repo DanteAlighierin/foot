@@ -12,6 +12,8 @@ struct config {
     char *shell;
     unsigned width;
     unsigned height;
+    unsigned pad_x;
+    unsigned pad_y;
 
     tll(char *) fonts;
 

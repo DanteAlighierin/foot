@@ -172,6 +172,19 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->height = height;
     }
 
+    else if (strcmp(key, "pad") == 0) {
+        unsigned x, y;
+        if (sscanf(value, "%ux%u", &x, &y) != 2) {
+            LOG_ERR(
+                "%s: %d: expected PAD_XxPAD_Y, where both are positive integers: %s",
+                path, lineno, value);
+            return false;
+        }
+
+        conf->pad_x = x;
+        conf->pad_y = y;
+    }
+
     else if (strcmp(key, "font") == 0) {
         char *copy = strdup(value);
         for (const char *font = strtok(copy, ","); font != NULL; font = strtok(NULL, ",")) {
@@ -472,6 +485,8 @@ config_load(struct config *conf, const char *conf_path)
         .shell = get_shell(),
         .width = -1,
         .height = -1,
+        .pad_x = 2,
+        .pad_y = 2,
         .fonts = tll_init(),
         .scrollback_lines = 1000,
 
