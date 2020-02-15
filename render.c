@@ -1105,6 +1105,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     if (!force && width == term->width && height == term->height && scale == term->scale)
         return;
 
+    selection_cancel(term);
+
     /* Cancel an application initiated "Synchronized Update" */
     term_disable_app_sync_updates(term);
 
