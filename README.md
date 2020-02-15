@@ -15,6 +15,7 @@
    1. [Mouse](#mouse)
 1. [Server (daemon) mode](#server-daemon-mode)
 1. [Alt/meta](#alt-meta)
+1. [Font DPI](#font-dpi)
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
@@ -29,6 +30,8 @@
 * Wayland native
 * DE agnostic
 * User configurable font fallback
+* On-the-fly font resize
+* On-the-fly DPI font size adjustment
 * Scrollback search
 * Color emoji support
 * "Server" mode (one master process, many windows)
@@ -214,6 +217,36 @@ option set to `true`.
 This can also be disabled programatically with `rmm` (_reset meta
 mode_, `\E[?1034l`), and enabled again with `smm` (_set meta mode_,
 '\E[?1034h`).
+
+
+## Font DPI
+
+Font sizes are apparently a complex thing. Many applications use a
+fixed DPI of 96. They may also multiply it with the monitor's scale
+factor.
+
+This results in fonts with different **physical** sizes (i.e. if
+measured by a ruler) when rendered on screens with different DPI
+values. Even if the configured font size is the same.
+
+This is not how it is meant to be. Fonts are measured in _point sizes_
+**for a reason**; a given point size should have the same height on
+all mediums, be it printers or monitors, regardless of their DPI.
+
+Foot will always use the monitor's physical DPI value. Scale factors
+are irrelevant (well, they affect e.g. padding, but not the font
+size). This means the glyphs rendered by foot should always have the
+same physical height, regardless of monitor.
+
+Foot will re-size the fonts on-the-fly when the window is moved
+between screens with different DPIs values. If the window covers
+multiple screens, with different DPIs, the highest DPI will be used.
+
+_Tip_: QT applications can be configured to work this way too, by
+exporting the environment variable `QT_WAYLAND_FORCE_DPI=physical`.
+
+_Note_: if you configure **pixelsize**, rather than **size**, then DPI
+changes will **not** change the font size. Pixels are always pixels.
 
 
 ## Requirements
