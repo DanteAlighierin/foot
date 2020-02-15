@@ -155,6 +155,7 @@ output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
     mon->refresh = (float)refresh / 1000;
     mon->width_px = width;
     mon->height_px = height;
+    output_update_ppi(mon);
 }
 
 static void
