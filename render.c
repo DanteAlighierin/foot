@@ -1150,8 +1150,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     /* Reset offset such that the last copied row ends up at the
      * bottom of the screen */
-    term->normal.offset = last_normal_row - new_rows;
-    term->alt.offset = last_alt_row - new_rows;
+    term->normal.offset = last_normal_row - new_rows + 1;
+    term->alt.offset = last_alt_row - new_rows + 1;
 
     /* Can't have negative offsets, so wrap 'em */
     while (term->normal.offset < 0)
@@ -1165,6 +1165,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     while (alt[term->alt.offset] == NULL)
         term->alt.offset = (term->alt.offset + 1) & (new_alt_grid_rows - 1);
 
+    /* TODO: try to keep old view */
     term->normal.view = term->normal.offset;
     term->alt.view = term->alt.offset;
 
@@ -1234,13 +1235,13 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     while (cursor_row < 0)
         cursor_row += term->grid->num_rows;
 
+    assert(cursor_row >= 0);
+    assert(cursor_row < term->rows);
+
     term_cursor_to(
         term,
-        min(max(cursor_row, 0), term->rows - 1),
+        cursor_row,
         min(term->cursor.point.col, term->cols - 1));
-
-    if (cursor_row >= term->rows)
-        term_linefeed(term);
 
     term->render.last_cursor.cell = NULL;
     tll_free(term->normal.scroll_damage);
