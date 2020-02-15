@@ -1122,16 +1122,30 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     const int scrollback_lines = term->render.scrollback_lines;
 
+    /* Screen rows/cols before resize */
     const int old_cols = term->cols;
     const int old_rows = term->rows;
+
+    /* Grid rows/cols before resize */
     const int old_normal_grid_rows = term->normal.num_rows;
     const int old_alt_grid_rows = term->alt.num_rows;
 
-    const int new_cols = term->width / term->cell_width;
-    const int new_rows = term->height / term->cell_height;
+    /* Padding */
+    const int pad_x = term->width > 2 * scale * term->conf->pad_x ? scale * term->conf->pad_x : 0;
+    const int pad_y = term->height > 2 * scale * term->conf->pad_y ? scale * term->conf->pad_y : 0;
+
+    /* Screen rows/cols after resize */
+    const int new_cols = max((term->width - 2 * pad_x) / term->cell_width, 1);
+    const int new_rows = max((term->height - 2 * pad_y) / term->cell_height, 1);
+
+    /* Grid rows/cols after resize */
     const int new_normal_grid_rows = 1 << (32 - __builtin_clz(new_rows + scrollback_lines - 1));
     const int new_alt_grid_rows = 1 << (32  - __builtin_clz(new_rows));
 
+    assert(new_cols >= 1);
+    assert(new_rows >= 1);
+
+    /* Margins */
     term->x_margin = (term->width - new_cols * term->cell_width) / 2;
     term->y_margin = (term->height - new_rows * term->cell_height) / 2;
 
