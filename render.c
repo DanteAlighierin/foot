@@ -972,116 +972,6 @@ render_search_box(struct terminal *term)
     wl_surface_commit(term->window->search_surface);
 }
 
-static int
-reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
-       struct row *const *old_grid, int old_cols, int old_rows, int offset)
-{
-    int new_col_idx = 0;
-    int new_row_idx = 0;
-
-    struct row *new_row = new_grid[new_row_idx];
-
-    assert(new_row == NULL);
-    new_row = grid_row_alloc(new_cols, true);
-    new_grid[new_row_idx] = new_row;
-
-    /* Start at the beginning of the old grid's scrollback. That is,
-     * at the output that is *oldest* */
-    offset += term->rows;
-
-    /*
-     * Walk the old grid
-     */
-    for (int r = 0; r < old_rows; r++) {
-
-        /* Unallocated (empty) rows we can simply skip */
-        const struct row *old_row = old_grid[(offset + r) & (old_rows - 1)];
-        if (old_row == NULL)
-            continue;
-
-        /*
-         * Keep track of empty cells. If the old line ends with a
-         * string of empty cells, we don't need to, nor do we want to,
-         * add those to the new line. However, if there are non-empty
-         * cells *after* the string of empty cells, we need to emit
-         * the empty cells too. And that may trigger linebreaks
-         */
-        int empty_count = 0;
-
-        /* Walk current line of the old grid */
-        for (int c = 0; c < old_cols; c++) {
-            if (old_row->cells[c].wc == 0) {
-                empty_count++;
-                continue;
-            }
-
-            int old_cols_left = old_cols - c;
-            int cols_needed = empty_count + old_cols_left;
-            int new_cols_left = new_cols - new_col_idx;
-            if (new_cols_left < cols_needed && new_cols_left >= old_cols_left)
-                empty_count = max(0, empty_count - (cols_needed - new_cols_left));
-
-            for (int i = 0; i < empty_count + 1; i++) {
-                const struct cell *old_cell = &old_row->cells[c - empty_count + i];
-
-                /* Out of columns on current row in new grid? */
-                if (new_col_idx >= new_cols) {
-                    /*
-                     * If last cell on last row and first cell on new
-                     * row are non-empty, wrap the line, otherwise
-                     * insert a hard line break.
-                     */
-                    if (new_row->cells[new_cols - 1].wc == 0 ||
-                        old_cell->wc == 0)
-                    {
-                        new_row->linebreak = true;
-                    }
-
-                    new_col_idx = 0;
-                    new_row_idx = (new_row_idx + 1) & (new_rows - 1);
-
-                    new_row = new_grid[new_row_idx];
-                    if (new_row == NULL) {
-                        new_row = grid_row_alloc(new_cols, true);
-                        new_grid[new_row_idx] = new_row;
-                    } else {
-                        memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0]));
-                        new_row->linebreak = false;
-                    }
-                }
-
-                assert(new_row != NULL);
-                assert(new_col_idx >= 0);
-                assert(new_col_idx < new_cols);
-
-                new_row->cells[new_col_idx] = *old_cell;
-                new_row->cells[new_col_idx].attrs.clean = 1;
-                new_col_idx++;
-            }
-
-            empty_count = 0;
-        }
-
-        if (old_row->linebreak) {
-            new_row->linebreak = true;
-
-            new_col_idx = 0;
-            new_row_idx = (new_row_idx + 1) & (new_rows - 1);
-
-            new_row = new_grid[new_row_idx];
-            if (new_row == NULL) {
-                new_row = grid_row_alloc(new_cols, true);
-                new_grid[new_row_idx] = new_row;
-            } else {
-                memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0]));
-                new_row->linebreak = false;
-            }
-        }
-    }
-
-    return new_row_idx;
-}
-
 /* Move to terminal.c? */
 static void
 maybe_resize(struct terminal *term, int width, int height, bool force)
@@ -1126,10 +1016,6 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     const int old_cols = term->cols;
     const int old_rows = term->rows;
 
-    /* Grid rows/cols before resize */
-    const int old_normal_grid_rows = term->normal.num_rows;
-    const int old_alt_grid_rows = term->alt.num_rows;
-
     /* Padding */
     const int pad_x = term->width > 2 * scale * term->conf->pad_x ? scale * term->conf->pad_x : 0;
     const int pad_y = term->height > 2 * scale * term->conf->pad_y ? scale * term->conf->pad_y : 0;
@@ -1149,68 +1035,16 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->x_margin = (term->width - new_cols * term->cell_width) / 2;
     term->y_margin = (term->height - new_rows * term->cell_height) / 2;
 
-    if (old_rows == new_rows && old_cols == new_cols) {
-        /* Skip reflow if grid layout hasn't changed */
-        goto done;
+    if (new_cols == old_cols && new_rows == old_rows) {
+        LOG_DBG("grid layout unaffected; skipping reflow");
+        goto damage_view;
     }
 
-    /* Allocate new 'normal' and 'alt' grids */
-    struct row **normal = calloc(new_normal_grid_rows, sizeof(normal[0]));
-    struct row **alt = calloc(new_alt_grid_rows, sizeof(alt[0]));
-
-    /* Reflow content */
-    int last_normal_row = reflow(
-        term, normal, new_cols, new_normal_grid_rows,
-        term->normal.rows, old_cols, old_normal_grid_rows, term->normal.offset);
-    int last_alt_row = reflow(
-        term, alt, new_cols, new_alt_grid_rows,
-        term->alt.rows, old_cols, old_alt_grid_rows, term->alt.offset);
-
-    /* Re-set current row pointers */
-    term->normal.cur_row = normal[last_normal_row];
-    term->alt.cur_row = alt[last_alt_row];
-
-    /* Reset offset such that the last copied row ends up at the
-     * bottom of the screen */
-    term->normal.offset = last_normal_row - new_rows + 1;
-    term->alt.offset = last_alt_row - new_rows + 1;
-
-    /* Can't have negative offsets, so wrap 'em */
-    while (term->normal.offset < 0)
-        term->normal.offset += new_normal_grid_rows;
-    while (term->alt.offset < 0)
-        term->alt.offset += new_alt_grid_rows;
-
-    /* Make sure offset doesn't point to empty line */
-    while (normal[term->normal.offset] == NULL)
-        term->normal.offset = (term->normal.offset + 1) & (new_normal_grid_rows - 1);
-    while (alt[term->alt.offset] == NULL)
-        term->alt.offset = (term->alt.offset + 1) & (new_alt_grid_rows - 1);
-
-    /* TODO: try to keep old view */
-    term->normal.view = term->normal.offset;
-    term->alt.view = term->alt.offset;
-
-    /* Make sure all visible lines have been allocated */
-    for (int r = 0; r < new_rows; r++) {
-        int idx = (term->normal.offset + r) & (new_normal_grid_rows - 1);
-        if (normal[idx] == NULL)
-            normal[idx] = grid_row_alloc(new_cols, true);
-
-        idx = (term->alt.offset + r) & (new_alt_grid_rows - 1);
-        if (alt[idx] == NULL)
-            alt[idx] = grid_row_alloc(new_cols, true);
-    }
-
-    /* Free old 'normal' grid */
-    for (int r = 0; r < term->normal.num_rows; r++)
-        grid_row_free(term->normal.rows[r]);
-    free(term->normal.rows);
-
-    /* Free old 'alt' grid */
-    for (int r = 0; r < term->alt.num_rows; r++)
-        grid_row_free(term->alt.rows[r]);
-    free(term->alt.rows);
+    /* Reflow grids */
+    int last_normal_row = grid_reflow(
+        &term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows);
+    int last_alt_row = grid_reflow(
+        &term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows);
 
     /* Reset tab stops */
     tll_free(term->tab_stops);
@@ -1219,13 +1053,6 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     term->cols = new_cols;
     term->rows = new_rows;
-
-    term->normal.rows = normal;
-    term->normal.num_rows = new_normal_grid_rows;
-    term->normal.num_cols = new_cols;
-    term->alt.rows = alt;
-    term->alt.num_rows = new_alt_grid_rows;
-    term->alt.num_cols = new_cols;
 
     LOG_INFO("resize: %dx%d, grid: cols=%d, rows=%d (x-margin=%d, y-margin=%d)",
              term->width, term->height, term->cols, term->rows,
@@ -1266,10 +1093,10 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         min(term->cursor.point.col, term->cols - 1));
 
     term->render.last_cursor.cell = NULL;
+
+damage_view:
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);
-
-done:
     term->render.last_buf = NULL;
     term_damage_view(term);
     render_refresh(term);
