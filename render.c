@@ -16,8 +16,10 @@
 #define LOG_MODULE "render"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "shm.h"
+#include "config.h"
 #include "grid.h"
+#include "selection.h"
+#include "shm.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -981,7 +983,6 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
 
     assert(new_row == NULL);
     new_row = grid_row_alloc(new_cols, true);
-    new_row->dirty = true;
     new_grid[new_row_idx] = new_row;
 
     /* Start at the beginning of the old grid's scrollback. That is,
@@ -1032,7 +1033,6 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
                     } else
                         memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0]));
 
-                    new_row->dirty = true;
                 }
 
                 assert(new_row != NULL);
@@ -1069,7 +1069,6 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
             } else
                 memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0]));
 
-            new_row->dirty = true;
         }
     }
 
