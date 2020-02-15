@@ -153,6 +153,8 @@ output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
 
     struct monitor *mon = data;
     mon->refresh = (float)refresh / 1000;
+    mon->width_px = width;
+    mon->height_px = height;
 }
 
 static void
@@ -189,10 +191,6 @@ static void
 xdg_output_handle_logical_size(void *data, struct zxdg_output_v1 *xdg_output,
                                int32_t width, int32_t height)
 {
-    struct monitor *mon = data;
-    mon->width_px = width;
-    mon->height_px = height;
-    output_update_ppi(mon);
 }
 
 static void
