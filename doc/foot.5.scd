@@ -38,7 +38,7 @@ in this order:
 
 *pad*
 	Padding between border and glyphs, in pixels, on the form
-	_X-PADxY-PAD_.
+	_XxY_ (-padding).
 
 *shell*
 	Executable to launch. Typically a shell. Default: the user's
