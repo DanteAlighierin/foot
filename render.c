@@ -1022,7 +1022,21 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
                 empty_count = max(0, empty_count - (cols_needed - new_cols_left));
 
             for (int i = 0; i < empty_count + 1; i++) {
+                const struct cell *old_cell = &old_row->cells[c - empty_count + i];
+
+                /* Out of columns on current row in new grid? */
                 if (new_col_idx >= new_cols) {
+                    /*
+                     * If last cell on last row and first cell on new
+                     * row are non-empty, wrap the line, otherwise
+                     * insert a hard line break.
+                     */
+                    if (new_row->cells[new_cols - 1].wc == 0 ||
+                        old_cell->wc == 0)
+                    {
+                        new_row->linebreak = true;
+                    }
+
                     new_col_idx = 0;
                     new_row_idx = (new_row_idx + 1) & (new_rows - 1);
 
@@ -1039,15 +1053,6 @@ reflow(struct terminal *term, struct row **new_grid, int new_cols, int new_rows,
                 assert(new_row != NULL);
                 assert(new_col_idx >= 0);
                 assert(new_col_idx < new_cols);
-
-                const struct cell *old_cell = &old_row->cells[c - empty_count + i];
-
-                if (new_col_idx == 0 && new_row_idx > 0 &&
-                    (new_grid[new_row_idx - 1]->cells[new_cols - 1].wc == 0 ||
-                     old_cell->wc == 0))
-                {
-                    new_grid[new_row_idx - 1]->linebreak = true;
-                }
 
                 new_row->cells[new_col_idx] = *old_cell;
                 new_row->cells[new_col_idx].attrs.clean = 1;
