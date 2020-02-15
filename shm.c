@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <linux/memfd.h>
+#include <fcntl.h>
 
 #include <pixman.h>
 
@@ -123,9 +124,19 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
     size = stride * height;
     LOG_DBG("cookie=%lx: allocating new buffer: %zu KB", cookie, size / 1024);
 
-    if (ftruncate(pool_fd, size) == -1) {
-        LOG_ERRNO("failed to truncate SHM pool");
-        goto err;
+    int err = posix_fallocate(pool_fd, 0, size);
+    if (err != 0) {
+        static bool failure_logged = false;
+
+        if (!failure_logged) {
+            failure_logged = true;
+            LOG_ERRNO_P("failed to fallocate", err);
+        }
+
+        if (ftruncate(pool_fd, size) == -1) {
+            LOG_ERRNO("failed to truncate SHM pool");
+            goto err;
+        }
     }
 
     mmapped = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool_fd, 0);
