@@ -15,7 +15,7 @@
    1. [Mouse](#mouse)
 1. [Server (daemon) mode](#server-daemon-mode)
 1. [Alt/meta](#alt-meta)
-1. [Font DPI](#font-dpi)
+1. [DPI and font size](#dpi-and-font-size)
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
@@ -219,7 +219,7 @@ mode_, `\E[?1034l`), and enabled again with `smm` (_set meta mode_,
 '\E[?1034h`).
 
 
-## Font DPI
+## DPI and font size
 
 Font sizes are apparently a complex thing. Many applications use a
 fixed DPI of 96. They may also multiply it with the monitor's scale
