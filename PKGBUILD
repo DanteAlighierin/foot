@@ -14,7 +14,7 @@ pkgver() {
 }
 
 build() {
-  meson --prefix=/usr --buildtype=release --wrap-mode=nofallback -Db_lto=true -Dc_args="-fno-stack-protector -Wno-missing-profile -fstrict-aliasing -Wstrict-aliasing" ..
+  meson --prefix=/usr --buildtype=release --wrap-mode=nofallback -Db_lto=true ..
 
   meson configure -Db_pgo=generate
   find -name "*.gcda" -delete
