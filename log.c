@@ -65,11 +65,7 @@ _log(enum log_class log_class, const char *module, const char *file, int lineno,
 
     if (colorize)
         fprintf(stderr, "\e[2m");
-#if defined(_DEBUG)
     fprintf(stderr, "%s:%d: ", file, lineno);
-#else
-    fprintf(stderr, "%s: ", module);
-#endif
     if (colorize)
         fprintf(stderr, "\e[0m");
 
