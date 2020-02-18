@@ -27,6 +27,7 @@
 ## Features
 
 * Fast (**TODO** insert benchmark results here)
+* Lightweight, both on-disk and in-memory
 * Wayland native
 * DE agnostic
 * User configurable font fallback
