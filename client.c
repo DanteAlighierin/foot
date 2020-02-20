@@ -33,6 +33,7 @@ print_usage(const char *prog_name)
     printf("\n");
     printf("Options:\n");
     printf("  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
+           "     --login-shell                      start shell as a login shell\n"
            "  -s,--server-socket=PATH               path to the server UNIX domain socket (default=XDG_RUNTIME_DIR/foot.sock)\n"
            "  -l,--log-colorize=[never|always|auto] enable/disable colorization of log output on stderr\n"
            "  -v,--version                          show the version number and quit\n");
@@ -47,6 +48,7 @@ main(int argc, char *const *argv)
 
     static const struct option longopts[] =  {
         {"term",          required_argument, 0, 't'},
+        {"login-shell",   no_argument,       0, 'L'},
         {"server-socket", required_argument, 0, 's'},
         {"log-colorize",  optional_argument, NULL, 'l'},
         {"version",       no_argument,       0, 'v'},
@@ -57,6 +59,7 @@ main(int argc, char *const *argv)
     const char *term = "";
     const char *server_socket_path = NULL;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
+    bool login_shell = false;
 
     while (true) {
         int c = getopt_long(argc, argv, ":t:s:l::hv", longopts, NULL);
@@ -66,6 +69,10 @@ main(int argc, char *const *argv)
         switch (c) {
         case 't':
             term = optarg;
+            break;
+
+        case 'L':
+            login_shell = true;
             break;
 
         case 's':
@@ -154,6 +161,7 @@ main(int argc, char *const *argv)
     /* Calculate total length */
     total_len += sizeof(cwd_len) + cwd_len;
     total_len += sizeof(term_len) + term_len;
+    total_len += sizeof(uint8_t);  /* login_shell */
     total_len += sizeof(argc);
 
     for (int i = 0; i < argc; i++) {
@@ -180,6 +188,11 @@ main(int argc, char *const *argv)
         send(fd, term, term_len, 0) != term_len)
     {
         LOG_ERRNO("failed to send TERM to server");
+        goto err;
+    }
+
+    if (send(fd, &(uint8_t){login_shell}, sizeof(uint8_t), 0) != sizeof(uint8_t)) {
+        LOG_ERRNO("failed to send login-shell");
         goto err;
     }
 

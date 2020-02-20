@@ -159,6 +159,14 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->shell = strdup(value);
     }
 
+    else if (strcmp(key, "login-shell") == 0) {
+        conf->login_shell = (
+            strcasecmp(value, "on") == 0 ||
+            strcasecmp(value, "true") == 0 ||
+            strcasecmp(value, "yes") == 0) ||
+            strtoul(value, NULL, 0) > 0;
+    }
+
     else if (strcmp(key, "geometry") == 0) {
         unsigned width, height;
         if (sscanf(value, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {

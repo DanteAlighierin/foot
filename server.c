@@ -213,6 +213,9 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         goto shutdown;
     }
 
+    CHECK_BUF(sizeof(uint8_t));
+    const uint8_t login_shell = *(const uint8_t *)p; p += sizeof(login_shell);
+
     CHECK_BUF(sizeof(argc));
     argc = *(int *)p; p += sizeof(argc);
     argv = calloc(argc + 1, sizeof(argv[0]));
@@ -238,7 +241,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     client->term = term_init(
         server->conf, server->fdm, server->wayl,
-        strlen(term_env) > 0 ? term_env : server->conf->term,
+        strlen(term_env) > 0 ? term_env : server->conf->term, login_shell,
         "footclient", cwd, argc, argv, &term_shutdown_handler, client);
 
     if (client->term == NULL) {
