@@ -1961,9 +1961,13 @@ term_spawn_new(const struct terminal *term)
         if (pid2 == 0) {
             /* Child */
             close(pipe_fds[0]);
-            chdir(term->cwd);
-            execlp(term->foot_exe, term->foot_exe, NULL);
-            write(pipe_fds[1], &errno, sizeof(errno));
+            if (chdir(term->cwd) < 0 ||
+                execlp(term->foot_exe, term->foot_exe, NULL) < 0)
+            {
+                (void)!write(pipe_fds[1], &errno, sizeof(errno));
+                _exit(errno);
+            }
+            assert(false);
             _exit(errno);
         }
 
