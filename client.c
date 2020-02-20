@@ -33,6 +33,7 @@ print_usage(const char *prog_name)
     printf("\n");
     printf("Options:\n");
     printf("  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
+           "     --login-shell                      start shell as a login shell\n"
            "  -s,--server-socket=PATH               path to the server UNIX domain socket (default=XDG_RUNTIME_DIR/foot.sock)\n"
            "  -l,--log-colorize=[never|always|auto] enable/disable colorization of log output on stderr\n"
            "  -v,--version                          show the version number and quit\n");
@@ -47,6 +48,7 @@ main(int argc, char *const *argv)
 
     static const struct option longopts[] =  {
         {"term",          required_argument, 0, 't'},
+        {"login-shell",   no_argument,       0, 'L'},
         {"server-socket", required_argument, 0, 's'},
         {"log-colorize",  optional_argument, NULL, 'l'},
         {"version",       no_argument,       0, 'v'},
@@ -57,6 +59,7 @@ main(int argc, char *const *argv)
     const char *term = "";
     const char *server_socket_path = NULL;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
+    bool login_shell = false;
 
     while (true) {
         int c = getopt_long(argc, argv, ":t:s:l::hv", longopts, NULL);
@@ -66,6 +69,10 @@ main(int argc, char *const *argv)
         switch (c) {
         case 't':
             term = optarg;
+            break;
+
+        case 'L':
+            login_shell = true;
             break;
 
         case 's':
