@@ -15,6 +15,9 @@ execute (instead of the shell).
 *-t*,*--term*=_TERM_
 	Value to set the environment variable _TERM_ to. Default: _foot_.
 
+*--login-shell*
+	Start a login shell, by prepending a '-' to argv[0].
+
 *-s*,*--server-socket*=_PATH_
 	Connect to _PATH_ instead of _XDG\_RUNTIME\_DIR/foot.sock_.
 

@@ -36,6 +36,9 @@ execute (instead of the shell).
 *-t*,*--term*=_TERM_
 	Value to set the environment variable *TERM* to. Default: *foot*.
 
+*--login-shell*
+	Start a login shell, by prepending a '-' to argv[0].
+
 *-s*,*--server*[=_PATH_]
 	Run as a server. In this mode, a single foot instance hosts
 	multiple terminals (windows). Use *footclient*(1) to launch new
