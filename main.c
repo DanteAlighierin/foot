@@ -314,10 +314,14 @@ main(int argc, char *const *argv)
 
     char *cwd = NULL;
     {
+        errno = 0;
         size_t buf_len = 1024;
         do {
             cwd = realloc(cwd, buf_len);
-            getcwd(cwd, buf_len);
+            if (getcwd(cwd, buf_len) == NULL && errno != ERANGE) {
+                LOG_ERRNO("failed to get current working directory");
+                goto out;
+            }
             buf_len *= 2;
         } while (errno == ERANGE);
     }
