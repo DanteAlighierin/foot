@@ -103,7 +103,12 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         /* Child */
         close(fork_pipe[0]);  /* Close read end */
 
-        chdir(cwd);
+        if (chdir(cwd) < 0) {
+            const int _errno = errno;
+            LOG_ERRNO("failed to change working directory");
+            (void)!write(fork_pipe[1], &_errno, sizeof(_errno));
+            _exit(_errno);
+        }
 
         /* Restore signals */
         const struct sigaction sa = {.sa_handler = SIG_DFL};
