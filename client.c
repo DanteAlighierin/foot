@@ -151,8 +151,19 @@ main(int argc, char *const *argv)
         }
     }
 
-    char cwd[4096];
-    getcwd(cwd, sizeof(cwd));
+    char *cwd = NULL;
+    {
+        errno = 0;
+        size_t buf_len = 1024;
+        do {
+            cwd = realloc(cwd, buf_len);
+            if (getcwd(cwd, buf_len) == NULL && errno != ERANGE) {
+                LOG_ERRNO("failed to get current working directory");
+                goto err;
+            }
+            buf_len *= 2;
+        } while (errno == ERANGE);
+    }
     const uint16_t cwd_len = strlen(cwd) + 1;
 
     const uint16_t term_len = strlen(term) + 1;
@@ -232,6 +243,7 @@ main(int argc, char *const *argv)
         ret = exit_code;
 
 err:
+    free(cwd);
     if (fd != -1)
         close(fd);
     log_deinit();
