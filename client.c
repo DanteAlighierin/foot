@@ -115,6 +115,9 @@ main(int argc, char *const *argv)
 
     log_init(log_colorize, false, LOG_FACILITY_USER, LOG_CLASS_WARNING);
 
+    /* malloc:ed and needs to be in scope of all goto's */
+    char *cwd = NULL;
+
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd == -1) {
         LOG_ERRNO("failed to create socket");
@@ -151,7 +154,6 @@ main(int argc, char *const *argv)
         }
     }
 
-    char *cwd = NULL;
     {
         errno = 0;
         size_t buf_len = 1024;
