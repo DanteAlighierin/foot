@@ -286,6 +286,8 @@ main(int argc, char *const *argv)
         free(conf.term);
         conf.term = strdup(conf_term);
     }
+    if (login_shell)
+        conf.login_shell = true;
     if (tll_length(conf_fonts) > 0) {
         tll_free_and_free(conf.fonts, free);
         tll_foreach(conf_fonts, it)
