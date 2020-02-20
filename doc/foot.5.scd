@@ -43,7 +43,10 @@ in this order:
 *shell*
 	Executable to launch. Typically a shell. Default: the user's
 	default shell (as specified in _/etc/passwd_). You can also pass
-	arguments. For example "/bin/bash --login".
+	arguments. For example "/bin/bash --norc".
+
+*login-shell*
+	Start a login shell, by prepending a '-' to argv[0].
 
 *term*
 	Value to set the environment variable *TERM* to. Default: _foot_.
