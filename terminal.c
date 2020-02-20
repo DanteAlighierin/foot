@@ -589,8 +589,8 @@ load_fonts_from_conf(const struct terminal *term, const struct config *conf,
 
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
-          const char *term_env, const char *foot_exe, const char *cwd,
-          int argc, char *const *argv,
+          const char *term_env, bool login_shell, const char *foot_exe,
+          const char *cwd, int argc, char *const *argv,
           void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data)
 {
     int ptmx = -1;
@@ -777,7 +777,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     term_font_dpi_changed(term);
 
     /* Start the slave/client */
-    if ((term->slave = slave_spawn(term->ptmx, argc, term->cwd, argv, term_env, conf->shell)) == -1)
+    if ((term->slave = slave_spawn(term->ptmx, argc, term->cwd, argv, term_env, conf->shell, login_shell)) == -1)
         goto err;
 
     if (term->width == 0 && term->height == 0) {

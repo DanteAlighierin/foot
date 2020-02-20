@@ -161,6 +161,7 @@ main(int argc, char *const *argv)
     /* Calculate total length */
     total_len += sizeof(cwd_len) + cwd_len;
     total_len += sizeof(term_len) + term_len;
+    total_len += sizeof(uint8_t);  /* login_shell */
     total_len += sizeof(argc);
 
     for (int i = 0; i < argc; i++) {
@@ -187,6 +188,11 @@ main(int argc, char *const *argv)
         send(fd, term, term_len, 0) != term_len)
     {
         LOG_ERRNO("failed to send TERM to server");
+        goto err;
+    }
+
+    if (send(fd, &(uint8_t){login_shell}, sizeof(uint8_t), 0) != sizeof(uint8_t)) {
+        LOG_ERRNO("failed to send login-shell");
         goto err;
     }
 

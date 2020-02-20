@@ -17,7 +17,7 @@
 #include "tokenize.h"
 
 static void
-slave_exec(int ptmx, char *const argv[], int err_fd)
+slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell)
 {
     int pts = -1;
     const char *pts_name = ptsname(ptmx);
@@ -56,7 +56,20 @@ slave_exec(int ptmx, char *const argv[], int err_fd)
     close(pts);
     pts = -1;
 
-    execvp(argv[0], argv);
+    const char *file;
+    if (login_shell) {
+        file = strdup(argv[0]);
+
+        char *arg0 = malloc(strlen(argv[0]) + 1 + 1);
+        arg0[0] = '-';
+        arg0[1] = '\0';
+        strcat(arg0, argv[0]);
+
+        argv[0] = arg0;
+    } else
+        file = argv[0];
+
+    execvp(file, argv);
 
 err:
     (void)!write(err_fd, &errno, sizeof(errno));
@@ -70,7 +83,7 @@ err:
 
 pid_t
 slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
-            const char *term_env, const char *conf_shell)
+            const char *term_env, const char *conf_shell, bool login_shell)
 {
     int fork_pipe[2];
     if (pipe2(fork_pipe, O_CLOEXEC) < 0) {
@@ -107,7 +120,7 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         setenv("TERM", term_env, 1);
 
         char **_shell_argv = NULL;
-        char *const *shell_argv = argv;
+        char **shell_argv = NULL;
 
         if (argc == 0) {
             char *shell_copy = strdup(conf_shell);
@@ -117,9 +130,17 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
                 _exit(0);
             }
             shell_argv = _shell_argv;
+        } else {
+            size_t count = 0;
+            for (; argv[count] != NULL; count++)
+                ;
+            shell_argv = malloc((count + 1) * sizeof(shell_argv[0]));
+            for (size_t i = 0; i < count; i++)
+                shell_argv[i] = argv[i];
+            shell_argv[count] = NULL;
         }
 
-        slave_exec(ptmx, shell_argv, fork_pipe[1]);
+        slave_exec(ptmx, shell_argv, fork_pipe[1], login_shell);
         assert(false);
         break;
 
