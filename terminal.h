@@ -131,6 +131,7 @@ struct vt {
         uint8_t *data;
         size_t size;
         size_t idx;
+        void (*put_handler)(struct terminal *term, uint8_t c);
         void (*unhook_handler)(struct terminal *term);
     } dcs;
     struct attributes attrs;
@@ -343,6 +344,22 @@ struct terminal {
         int lower_fd;
         int upper_fd;
     } delayed_render_timer;
+
+    struct {
+        enum { SIXEL_SIXEL, SIXEL_REPEAT, SIXEL_RASTER, SIXEL_COLOR, SIXEL_COLOR_SPEC} state;
+        int row;
+        int col;
+        int color_idx;
+        int max_col;
+        unsigned params[4];
+        uint32_t *palette;
+        uint32_t *image;
+
+        unsigned int param;
+        unsigned param_idx;
+
+        pixman_image_t *pix;
+    } sixel;
 
     bool hold_at_exit;
     bool is_shutting_down;

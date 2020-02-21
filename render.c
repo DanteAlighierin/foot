@@ -816,6 +816,27 @@ grid_render(struct terminal *term)
             cols_updated * term->cell_width, term->cell_height);
     }
 
+    if (term->sixel.pix != NULL) {
+        pixman_image_composite(
+            PIXMAN_OP_SRC,
+            term->sixel.pix,
+            NULL,
+            pix,
+            0, 0,
+            0, 0,
+            0, 0,
+            term->sixel.max_col,
+            term->sixel.row * 6);
+        wl_surface_damage_buffer(
+            term->window->surface,
+            0, 0, term->sixel.max_col, term->sixel.row * 6);
+
+        pixman_image_unref(term->sixel.pix);
+        free(term->sixel.image);
+        term->sixel.pix = NULL;
+        term->sixel.image = NULL;
+    }
+
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
         /* TODO: dim while searching */
