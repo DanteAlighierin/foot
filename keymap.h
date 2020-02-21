@@ -28,9 +28,24 @@ static const struct key_data key_return[] = {
     {MOD_ANY,   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\r"},
 };
 
+/* Tab isn't covered by the regular "modifyOtherKeys" handling */
 static const struct key_data key_tab[] = {
-    {MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;5;9~"},  /* TODO: this is my own hack... */
-    {MOD_ANY,  CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\t"},
+    {MOD_SHIFT,                                 CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;2;9~"},
+    {MOD_ALT,                                   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;3;9~"},
+    {MOD_SHIFT | MOD_ALT,                       CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;4;9~"},
+    {MOD_CTRL,                                  CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;5;9~"},
+    {MOD_SHIFT | MOD_CTRL,                      CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;6;9~"},
+    {MOD_ALT | MOD_CTRL,                        CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;7;9~"},
+    {MOD_SHIFT | MOD_ALT | MOD_CTRL,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;8;9~"},
+    {MOD_META,                                  CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;9;9~"},
+    {MOD_META | MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;10;9~"},
+    {MOD_META | MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;11;9~"},
+    {MOD_META | MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;12;9~"},
+    {MOD_META | MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;13;9~"},
+    {MOD_META | MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;14;9~"},
+    {MOD_META | MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;15;9~"},
+    {MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;16;9~"},
+    {MOD_ANY,                                   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\t"},
 };
 
 static const struct key_data key_backtab[] = {
