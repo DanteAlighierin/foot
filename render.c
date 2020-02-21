@@ -520,6 +520,78 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
 }
 
 static void
+render_sixel(struct terminal *term, pixman_image_t *pix, const struct sixel *sixel)
+{
+    int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
+    int first_visible_row = -1;
+
+    if (view_end >= term->grid->view) {
+        /* Not wrapped */
+        for (size_t i = sixel->pos.row;
+             i < sixel->pos.row + (sixel->height + term->cell_height - 1) / term->cell_height;
+             i++)
+        {
+            int row = i & (term->grid->num_rows - 1);
+            if (row >= term->grid->view && row <= view_end) {
+                first_visible_row = i;
+                break;
+            }
+        }
+    } else {
+        /* Wrapped */
+        for (size_t i = sixel->pos.row;
+             i < sixel->pos.row + (sixel->height + term->cell_height - 1) / term->cell_height;
+             i++)
+        {
+            int row = i & (term->grid->num_rows - 1);
+            if (row >= term->grid->view || row <= view_end) {
+                first_visible_row = i;
+                break;
+            }
+        }
+    }
+
+    if (first_visible_row < 0)
+        return;
+
+    const int first_img_row = first_visible_row - sixel->pos.row;
+    const int row = first_visible_row & (term->grid->num_rows - 1);
+    const int view_aligned =
+        (row - term->grid->view + term->grid->num_rows) & (term->grid->num_rows - 1);
+
+    const int x = term->x_margin + sixel->pos.col * term->cell_width;
+    const int y = max(term->y_margin, term->y_margin + view_aligned * term->cell_height);
+
+    const int width = min(sixel->width, term->width - x - term->x_margin);
+    const int height = min(
+        sixel->height - first_img_row * term->cell_height,
+        term->height - y - term->y_margin);
+
+    //LOG_INFO("x=%d, y=%d, width=%d, height=%d", x, y, width, height);
+
+    pixman_image_composite(
+        PIXMAN_OP_SRC,
+        sixel->pix,
+        NULL,
+        pix,
+        0, first_img_row * term->cell_height,
+        0, 0,
+        x, y,
+        width, height);
+
+    wl_surface_damage_buffer(
+        term->window->surface,
+        x, y, width, height);
+}
+
+static void
+render_sixel_images(struct terminal *term, pixman_image_t *pix)
+{
+    tll_foreach(term->sixel_images, it)
+        render_sixel(term, pix, &it->item);
+}
+
+static void
 render_row(struct terminal *term, pixman_image_t *pix, struct row *row, int row_no)
 {
     for (int col = term->cols - 1; col >= 0; col--)
@@ -816,67 +888,7 @@ grid_render(struct terminal *term)
             cols_updated * term->cell_width, term->cell_height);
     }
 
-    tll_foreach(term->sixel_images, it) {
-        int first_visible_row = -1;
-
-        if (view_end >= term->grid->view) {
-            /* Not wrapped */
-            for (size_t i = it->item.pos.row;
-                 i < it->item.pos.row + (it->item.height + term->cell_height - 1) / term->cell_height;
-                 i++)
-            {
-                int row = i & (term->grid->num_rows - 1);
-                if (row >= term->grid->view && row <= view_end) {
-                    first_visible_row = i;
-                    break;
-                }
-            }
-        } else {
-            /* Wrapped */
-            for (size_t i = it->item.pos.row;
-                 i < it->item.pos.row + (it->item.height + term->cell_height - 1) / term->cell_height;
-                 i++)
-            {
-                int row = i & (term->grid->num_rows - 1);
-                if (row >= term->grid->view || row <= view_end) {
-                    first_visible_row = i;
-                    break;
-                }
-            }
-        }
-
-        if (first_visible_row < 0)
-            continue;
-
-        const int first_img_row = first_visible_row - it->item.pos.row;
-        const int row = first_visible_row & (term->grid->num_rows - 1);
-        const int view_aligned =
-            (row - term->grid->view + term->grid->num_rows) & (term->grid->num_rows - 1);
-
-        const int x = term->x_margin + it->item.pos.col * term->cell_width;
-        const int y = max(term->y_margin, term->y_margin + view_aligned * term->cell_height);
-
-        const int width = min(it->item.width, term->width - x - term->x_margin);
-        const int height = min(
-            it->item.height - first_img_row * term->cell_height,
-            term->height - y - term->y_margin);
-
-        //LOG_INFO("x=%d, y=%d, width=%d, height=%d", x, y, width, height);
-
-        pixman_image_composite(
-            PIXMAN_OP_SRC,
-            it->item.pix,
-            NULL,
-            pix,
-            0, first_img_row * term->cell_height,
-            0, 0,
-            x, y,
-            width, height);
-
-        wl_surface_damage_buffer(
-            term->window->surface,
-            x, y, width, height);
-    }
+    render_sixel_images(term, pix);
 
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
