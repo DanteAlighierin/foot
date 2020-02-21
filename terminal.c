@@ -740,6 +740,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
             .lower_fd = delay_lower_fd,
             .upper_fd = delay_upper_fd,
         },
+        .sixel_images = tll_init(),
         .hold_at_exit = conf->hold_at_exit,
         .shutdown_cb = shutdown_cb,
         .shutdown_data = shutdown_data,
@@ -992,6 +993,12 @@ term_destroy(struct terminal *term)
         free(it->item.data);
     tll_free(term->ptmx_buffer);
     tll_free(term->tab_stops);
+
+    tll_foreach(term->sixel_images, it) {
+        pixman_image_unref(it->item.pix);
+        free(it->item.data);
+    }
+    tll_free(term->sixel_images);
 
     free(term->foot_exe);
     free(term->cwd);
@@ -1521,6 +1528,21 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
         erase_line(term, grid_row_and_alloc(term->grid, r));
         if (selection_on_row_in_view(term, r))
             selection_cancel(term);
+
+
+        tll_foreach(term->sixel_images, it) {
+            /* Make it simple - remove the entire image if it starts
+             * getting scrolled out */
+
+            int img_top_row = it->item.pos.row & (term->grid->num_rows - 1);
+            int new_row = (term->grid->offset + r) & (term->grid->num_rows - 1);
+
+            if (img_top_row == new_row) {
+                pixman_image_unref(it->item.pix);
+                free(it->item.data);
+                tll_remove(term->sixel_images, it);
+            }
+        }
     }
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
@@ -1572,6 +1594,23 @@ term_scroll_reverse_partial(struct terminal *term,
         erase_line(term, grid_row_and_alloc(term->grid, r));
         if (selection_on_row_in_view(term, r))
             selection_cancel(term);
+
+        tll_foreach(term->sixel_images, it) {
+            /* Make it simple - remove the entire image if it starts
+             * getting scrolled out */
+
+            /* TODO: untested */
+
+            int img_rows = (it->item.height + term->cell_height - 1) / term->cell_height;
+            int img_bottom_row = (it->item.pos.row + img_rows) & (term->grid->num_rows - 1);
+            int new_row = (term->grid->offset + r) & (term->grid->num_rows - 1);
+
+            if (img_bottom_row == new_row) {
+                pixman_image_unref(it->item.pix);
+                free(it->item.data);
+                tll_remove(term->sixel_images, it);
+            }
+        }
     }
 
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);

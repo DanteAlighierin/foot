@@ -175,6 +175,14 @@ struct ptmx_buffer {
     size_t idx;
 };
 
+struct sixel {
+    void *data;
+    pixman_image_t *pix;
+    int width;
+    int height;
+    struct coord pos;
+};
+
 struct terminal {
     struct fdm *fdm;
     const struct config *conf;
@@ -357,9 +365,9 @@ struct terminal {
 
         unsigned int param;
         unsigned param_idx;
-
-        pixman_image_t *pix;
     } sixel;
+
+    tll(struct sixel) sixel_images;
 
     bool hold_at_exit;
     bool is_shutting_down;

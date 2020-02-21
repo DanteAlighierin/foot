@@ -18,23 +18,8 @@ static size_t count;
 void
 sixel_init(struct terminal *term)
 {
-    if (term->sixel.pix != NULL) {
-        pixman_image_unref(term->sixel.pix);
-        free(term->sixel.image);
-        term->sixel.pix = NULL;
-        term->sixel.image = NULL;
-    }
-
     assert(term->sixel.palette == NULL);
     assert(term->sixel.image == NULL);
-
-    if (term->sixel.image != NULL) {
-        if (term->sixel.pix != NULL) {
-            pixman_image_unref(term->sixel.pix);
-            term->sixel.pix = NULL;
-        }
-        free(term->sixel.image);
-    }
 
     term->sixel.state = SIXEL_SIXEL;
     term->sixel.row = 0;
@@ -58,28 +43,39 @@ sixel_unhook(struct terminal *term)
     free(term->sixel.palette);
     term->sixel.palette = NULL;
 
-    if (term->sixel.pix != NULL)
-        pixman_image_unref(term->sixel.pix);
-
     LOG_DBG("generating %dx%d pixman image", term->sixel.row * 6, term->sixel.max_col);
 
-    if (term->sixel.col > 0) {
+    if (term->sixel.col >= 0) {
         if (term->sixel.col > term->sixel.max_col)
             term->sixel.max_col = term->sixel.col;
         term->sixel.row++;
         term->sixel.col = 0;
     }
 
-    term->sixel.pix = pixman_image_create_bits_no_clear(
+    struct sixel image = {
+        .data = term->sixel.image,
+        .width = term->sixel.max_col,
+        .height = term->sixel.row * 6,
+        .pos = (struct coord){term->cursor.point.col, term->grid->offset + term->cursor.point.row},
+    };
+
+    image.pix = pixman_image_create_bits_no_clear(
         PIXMAN_a8r8g8b8,
-        term->sixel.max_col,
-        term->sixel.row * 6,
+        image.width, image.height,
         term->sixel.image,
         IMAGE_WIDTH * sizeof(uint32_t));
 
-    size_t lines = max(1, term->sixel.row * 6 / term->cell_height);
+    tll_push_back(term->sixel_images, image);
+
+    term->sixel.image = NULL;
+    term->sixel.max_col = 0;
+    term->sixel.col = 0;
+    term->sixel.row = 0;
+
+    const size_t lines = (image.height + term->cell_height - 1) / term->cell_height;
     for (size_t i = 0; i < lines; i++)
         term_linefeed(term);
+    term_formfeed(term);
     render_refresh(term);
 }
 
@@ -101,7 +97,7 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
         sixel >>= 1;
         if (bit) {
             size_t idx = (term->sixel.row * 6 + i) * IMAGE_WIDTH + term->sixel.col;
-            term->sixel.image[idx] = 0x00 << 24 | color;
+            term->sixel.image[idx] = term->colors.alpha / 256 << 24 | color;
         }
     }
 
