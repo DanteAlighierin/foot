@@ -66,6 +66,14 @@ sixel_unhook(struct terminal *term)
         term->sixel.image,
         IMAGE_WIDTH * sizeof(uint32_t));
 
+    tll_foreach(term->sixel_images, it) {
+        if (it->item.pos.row == image.pos.row) {
+            pixman_image_unref(it->item.pix);
+            free(it->item.data);
+            tll_remove(term->sixel_images, it);
+        }
+    }
+
     tll_push_back(term->sixel_images, image);
 
     term->sixel.image = NULL;
