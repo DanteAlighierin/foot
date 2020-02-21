@@ -180,6 +180,7 @@ struct sixel {
     pixman_image_t *pix;
     int width;
     int height;
+    int rows;
     struct coord pos;
 };
 

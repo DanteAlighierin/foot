@@ -1601,8 +1601,7 @@ term_scroll_reverse_partial(struct terminal *term,
 
             /* TODO: untested */
 
-            int img_rows = (it->item.height + term->cell_height - 1) / term->cell_height;
-            int img_bottom_row = (it->item.pos.row + img_rows) & (term->grid->num_rows - 1);
+            int img_bottom_row = (it->item.pos.row + it->item.rows) & (term->grid->num_rows - 1);
             int new_row = (term->grid->offset + r) & (term->grid->num_rows - 1);
 
             if (img_bottom_row == new_row) {

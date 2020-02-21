@@ -520,30 +520,23 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
 }
 
 static void
-render_sixel(struct terminal *term, pixman_image_t *pix, const struct sixel *sixel)
+render_sixel(struct terminal *term, pixman_image_t *pix,
+             const struct sixel *sixel)
 {
     int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
     int first_visible_row = -1;
 
-    if (view_end >= term->grid->view) {
-        /* Not wrapped */
-        for (size_t i = sixel->pos.row;
-             i < sixel->pos.row + (sixel->height + term->cell_height - 1) / term->cell_height;
-             i++)
-        {
-            int row = i & (term->grid->num_rows - 1);
+    for (size_t i = sixel->pos.row; i < sixel->pos.row + sixel->rows; i++) {
+        int row = i & (term->grid->num_rows - 1);
+
+        if (view_end >= term->grid->view) {
+            /* Not wrapped */
             if (row >= term->grid->view && row <= view_end) {
                 first_visible_row = i;
                 break;
             }
-        }
-    } else {
-        /* Wrapped */
-        for (size_t i = sixel->pos.row;
-             i < sixel->pos.row + (sixel->height + term->cell_height - 1) / term->cell_height;
-             i++)
-        {
-            int row = i & (term->grid->num_rows - 1);
+        } else {
+            /* Wrapped */
             if (row >= term->grid->view || row <= view_end) {
                 first_visible_row = i;
                 break;
@@ -554,20 +547,30 @@ render_sixel(struct terminal *term, pixman_image_t *pix, const struct sixel *six
     if (first_visible_row < 0)
         return;
 
+    /* First visible (0 based) row of the image */
     const int first_img_row = first_visible_row - sixel->pos.row;
+
+    /* Map first visible line to current grid view */
     const int row = first_visible_row & (term->grid->num_rows - 1);
     const int view_aligned =
         (row - term->grid->view + term->grid->num_rows) & (term->grid->num_rows - 1);
 
+    /* Translate row/column to x/y pixel values */
     const int x = term->x_margin + sixel->pos.col * term->cell_width;
-    const int y = max(term->y_margin, term->y_margin + view_aligned * term->cell_height);
+    const int y = max(
+        term->y_margin, term->y_margin + view_aligned * term->cell_height);
 
+    /* Width/height, in pixels - and don't touch the window margins */
     const int width = min(sixel->width, term->width - x - term->x_margin);
     const int height = min(
         sixel->height - first_img_row * term->cell_height,
         term->height - y - term->y_margin);
 
-    //LOG_INFO("x=%d, y=%d, width=%d, height=%d", x, y, width, height);
+    /* Verify we're not stepping outside the grid */
+    assert(x >= term->x_margin);
+    assert(y >= term->y_margin);
+    assert(x + width <= term->width - term->x_margin);
+    assert(y + height <= term->height - term->y_margin);
 
     pixman_image_composite(
         PIXMAN_OP_SRC,
@@ -579,9 +582,7 @@ render_sixel(struct terminal *term, pixman_image_t *pix, const struct sixel *six
         x, y,
         width, height);
 
-    wl_surface_damage_buffer(
-        term->window->surface,
-        x, y, width, height);
+    wl_surface_damage_buffer(term->window->surface, x, y, width, height);
 }
 
 static void

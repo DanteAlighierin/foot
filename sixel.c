@@ -56,6 +56,7 @@ sixel_unhook(struct terminal *term)
         .data = term->sixel.image,
         .width = term->sixel.max_col,
         .height = term->sixel.row * 6,
+        .rows = (term->sixel.row * 6 + term->cell_height - 1) / term->cell_height,
         .pos = (struct coord){term->cursor.point.col, term->grid->offset + term->cursor.point.row},
     };
 
