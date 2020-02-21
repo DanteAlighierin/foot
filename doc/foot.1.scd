@@ -199,6 +199,17 @@ This can also be disabled programatically with *rmm* (Reset Meta Mode,
 *\E[?1034l*), and enabled again with *smm* (Set Meta Mode,
 *\E[?1034h*).
 
+# BACKSPACE
+
+Foot transmits DEL (*^?*) on backspace. This corresponds to XTerm's
+*backarrowKey* option set to *false*, and to DECBKM being _reset_.
+
+To instead transmit BS (*^H*), press *ctrl*+*backspace*.
+
+Note that foot does *not* implement DECBKM, and that the behavior
+described above *cannot* be changed.
+
+Finally, pressing *alt* will prefix the transmitted byte with ESC.
 
 # CONFIGURATION
 

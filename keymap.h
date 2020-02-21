@@ -38,9 +38,22 @@ static const struct key_data key_backtab[] = {
 };
 
 static const struct key_data key_backspace[] = {
-    {MOD_ALT, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x7f"},
-    {MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x7f"},
-    {MOD_ANY, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\x7f"},
+    {MOD_SHIFT,                                 CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\x7f"},
+    {MOD_ALT,                                   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x7f"}, 
+    {MOD_SHIFT | MOD_ALT,                       CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x7f"}, 
+    {MOD_CTRL,                                  CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\x08"}, 
+    {MOD_SHIFT | MOD_CTRL,                      CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\x08"}, 
+    {MOD_ALT | MOD_CTRL,                        CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x08"}, 
+    {MOD_SHIFT | MOD_ALT | MOD_CTRL,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x08"}, 
+    {MOD_META,                                  CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\x7f"}, 
+    {MOD_META | MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\x7f"},
+    {MOD_META | MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x7f"},
+    {MOD_META | MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x7f"},
+    {MOD_META | MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\x08"},
+    {MOD_META | MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\x08"},
+    {MOD_META | MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x08"},
+    {MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x08"},
+    {MOD_ANY,                                   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\x7f"},
 };
 
 #define DEFAULT_MODS_FOR_SINGLE(sym)                                    \

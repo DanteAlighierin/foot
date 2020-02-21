@@ -15,6 +15,7 @@
    1. [Mouse](#mouse)
 1. [Server (daemon) mode](#server-daemon-mode)
 1. [Alt/meta](#alt-meta)
+1. [Backspace](#backspace)
 1. [DPI and font size](#dpi-and-font-size)
 1. [Requirements](#requirements)
    1. [Running](#running)
@@ -218,6 +219,22 @@ option set to `true`.
 This can also be disabled programatically with `rmm` (_reset meta
 mode_, `\E[?1034l`), and enabled again with `smm` (_set meta mode_,
 '\E[?1034h`).
+
+
+## Backspace
+
+Foot transmits DEL (`^?`) on <kbd>backspace</kbd>. This corresponds to
+XTerm's `backarrowKey` option set to `false`, and to DECBKM being
+_reset_.
+
+To instead transmit BS (`^H`), press
+<kbd>ctrl</kbd>+<kbd>backspace</kbd>.
+
+Note that foot does **not** implement DECBKM, and that the behavior
+described above **cannot** be changed.
+
+Finally, pressing <kbd>alt</kbd> will prefix the transmitted byte with
+ESC.
 
 
 ## DPI and font size
