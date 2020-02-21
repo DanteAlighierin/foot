@@ -45,12 +45,10 @@ sixel_unhook(struct terminal *term)
 
     LOG_DBG("generating %dx%d pixman image", term->sixel.row * 6, term->sixel.max_col);
 
-    if (term->sixel.col >= 0) {
-        if (term->sixel.col > term->sixel.max_col)
-            term->sixel.max_col = term->sixel.col;
-        term->sixel.row++;
-        term->sixel.col = 0;
-    }
+    if (term->sixel.col > term->sixel.max_col)
+        term->sixel.max_col = term->sixel.col;
+    term->sixel.row++;
+    term->sixel.col = 0;
 
     struct sixel image = {
         .data = term->sixel.image,
