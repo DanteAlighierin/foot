@@ -38,12 +38,20 @@ sixel_init(struct terminal *term)
 }
 
 void
+sixel_destroy(struct sixel *sixel)
+{
+    pixman_image_unref(sixel->pix);
+    free(sixel->data);
+
+    sixel->pix = NULL;
+    sixel->data = NULL;
+}
+
+void
 sixel_unhook(struct terminal *term)
 {
     free(term->sixel.palette);
     term->sixel.palette = NULL;
-
-    LOG_DBG("generating %dx%d pixman image", term->sixel.row * 6, term->sixel.max_col);
 
     if (term->sixel.col > term->sixel.max_col)
         term->sixel.max_col = term->sixel.col;
@@ -58,6 +66,8 @@ sixel_unhook(struct terminal *term)
         .pos = (struct coord){term->cursor.point.col, term->grid->offset + term->cursor.point.row},
     };
 
+    LOG_DBG("generating %dx%d pixman image", image.width, image.height);
+
     image.pix = pixman_image_create_bits_no_clear(
         PIXMAN_a8r8g8b8,
         image.width, image.height,
@@ -66,8 +76,7 @@ sixel_unhook(struct terminal *term)
 
     tll_foreach(term->sixel_images, it) {
         if (it->item.pos.row == image.pos.row) {
-            pixman_image_unref(it->item.pix);
-            free(it->item.data);
+            sixel_destroy(&it->item);
             tll_remove(term->sixel_images, it);
         }
     }

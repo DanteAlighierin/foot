@@ -19,12 +19,13 @@
 #include "log.h"
 
 #include "async.h"
+#include "config.h"
 #include "grid.h"
 #include "render.h"
-#include "vt.h"
 #include "selection.h"
-#include "config.h"
+#include "sixel.h"
 #include "slave.h"
+#include "vt.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -994,10 +995,8 @@ term_destroy(struct terminal *term)
     tll_free(term->ptmx_buffer);
     tll_free(term->tab_stops);
 
-    tll_foreach(term->sixel_images, it) {
-        pixman_image_unref(it->item.pix);
-        free(it->item.data);
-    }
+    tll_foreach(term->sixel_images, it)
+        sixel_destroy(&it->item);
     tll_free(term->sixel_images);
 
     free(term->foot_exe);
@@ -1538,8 +1537,7 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
             int new_row = (term->grid->offset + r) & (term->grid->num_rows - 1);
 
             if (img_top_row == new_row) {
-                pixman_image_unref(it->item.pix);
-                free(it->item.data);
+                sixel_destroy(&it->item);
                 tll_remove(term->sixel_images, it);
             }
         }
@@ -1605,8 +1603,7 @@ term_scroll_reverse_partial(struct terminal *term,
             int new_row = (term->grid->offset + r) & (term->grid->num_rows - 1);
 
             if (img_bottom_row == new_row) {
-                pixman_image_unref(it->item.pix);
-                free(it->item.data);
+                sixel_destroy(&it->item);
                 tll_remove(term->sixel_images, it);
             }
         }
