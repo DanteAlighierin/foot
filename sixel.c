@@ -58,6 +58,9 @@ sixel_delete_at_cursor(struct terminal *term)
     const int row = term->grid->offset + term->cursor.point.row;
 
     tll_foreach(term->sixel_images, it) {
+        if (it->item.grid != term->grid)
+            continue;
+
         const int start = it->item.pos.row;
         const int end = start + it->item.rows;
 
