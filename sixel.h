@@ -9,6 +9,7 @@ void sixel_put(struct terminal *term, uint8_t c);
 void sixel_unhook(struct terminal *term);
 
 void sixel_destroy(struct sixel *sixel);
+void sixel_purge_at_cursor(struct terminal *term);
 
 void sixel_colors_report_current(struct terminal *term);
 void sixel_colors_reset(struct terminal *term);

@@ -39,6 +39,8 @@ sixel_init(struct terminal *term)
 
     count = 0;
 
+    sixel_purge_at_cursor(term);
+
     /* TODO: default palette */
 }
 
@@ -50,6 +52,22 @@ sixel_destroy(struct sixel *sixel)
 
     sixel->pix = NULL;
     sixel->data = NULL;
+}
+
+void
+sixel_purge_at_cursor(struct terminal *term)
+{
+    const int row = term->grid->offset + term->cursor.point.row;
+
+    tll_foreach(term->sixel_images, it) {
+        const int start = it->item.pos.row;
+        const int end = start + it->item.rows;
+
+        if (row >= start && row < end) {
+            sixel_destroy(&it->item);
+            tll_remove(term->sixel_images, it);
+        }
+    }
 }
 
 void
@@ -73,13 +91,6 @@ sixel_unhook(struct terminal *term)
         image.width, image.height,
         term->sixel.image.data,
         term->sixel.image.width * sizeof(uint32_t));
-
-    tll_foreach(term->sixel_images, it) {
-        if (it->item.pos.row == image.pos.row) {
-            sixel_destroy(&it->item);
-            tll_remove(term->sixel_images, it);
-        }
-    }
 
     tll_push_back(term->sixel_images, image);
 
