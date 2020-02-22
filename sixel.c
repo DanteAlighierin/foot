@@ -39,8 +39,6 @@ sixel_init(struct terminal *term)
 
     count = 0;
 
-    sixel_purge_at_cursor(term);
-
     /* TODO: default palette */
 }
 
@@ -75,6 +73,8 @@ sixel_unhook(struct terminal *term)
 {
     free(term->sixel.palette);
     term->sixel.palette = NULL;
+
+    sixel_purge_at_cursor(term);
 
     struct sixel image = {
         .data = term->sixel.image.data,
