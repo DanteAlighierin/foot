@@ -181,6 +181,7 @@ struct sixel {
     int width;
     int height;
     int rows;
+    const struct grid *grid;
     struct coord pos;
 };
 

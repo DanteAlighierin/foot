@@ -81,6 +81,7 @@ sixel_unhook(struct terminal *term)
         .width = term->sixel.image.width,
         .height = term->sixel.image.height,
         .rows = (term->sixel.image.height + term->cell_height - 1) / term->cell_height,
+        .grid = term->grid,
         .pos = (struct coord){term->cursor.point.col, term->grid->offset + term->cursor.point.row},
     };
 
