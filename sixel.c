@@ -34,7 +34,7 @@ sixel_init(struct terminal *term)
     term->sixel.image.height = 6;
 
     for (size_t i = 0; i < 1 * 6; i++)
-        term->sixel.image.data[i] = term->colors.alpha / 256 << 24 | term->sixel.palette[0];
+        term->sixel.image.data[i] = term->colors.alpha / 256 << 24 | term->colors.bg;
 
     count = 0;
 
@@ -132,7 +132,7 @@ resize(struct terminal *term, int new_width, int new_height)
             memcpy(&new_data[r * new_width], &old_data[r * old_width], old_width * sizeof(uint32_t));
 
             for (int c = old_width; c < new_width; c++)
-                new_data[r * new_width + c] = term->colors.alpha / 256 << 24 | term->sixel.palette[0];
+                new_data[r * new_width + c] = term->colors.alpha / 256 << 24 | term->colors.bg;
         }
         free(old_data);
     }
@@ -140,7 +140,7 @@ resize(struct terminal *term, int new_width, int new_height)
     /* Initialize new rows to background color */
     for (int r = old_height; r < new_height; r++) {
         for (int c = 0; c < new_width; c++)
-            new_data[r * new_width + c] = term->colors.alpha / 256 << 24 | term->sixel.palette[0];
+            new_data[r * new_width + c] = term->colors.alpha / 256 << 24 | term->colors.bg;
     }
 
     assert(new_data != NULL);
