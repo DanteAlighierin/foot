@@ -362,7 +362,12 @@ struct terminal {
         int max_col;
         unsigned params[4];
         uint32_t *palette;
-        uint32_t *image;
+
+        struct {
+            uint32_t *data;
+            int width;
+            int height;
+        } image;
 
         unsigned int param;
         unsigned param_idx;

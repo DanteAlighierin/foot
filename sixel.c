@@ -10,8 +10,6 @@
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
 static const size_t COLOR_COUNT = 1024;
-static const size_t IMAGE_WIDTH = 800;
-static const size_t IMAGE_HEIGHT = 800;
 
 static size_t count;
 
@@ -19,7 +17,7 @@ void
 sixel_init(struct terminal *term)
 {
     assert(term->sixel.palette == NULL);
-    assert(term->sixel.image == NULL);
+    assert(term->sixel.image.data == NULL);
 
     term->sixel.state = SIXEL_SIXEL;
     term->sixel.row = 0;
@@ -30,7 +28,9 @@ sixel_init(struct terminal *term)
     term->sixel.param_idx = 0;
     memset(term->sixel.params, 0, sizeof(term->sixel.params));
     term->sixel.palette = calloc(COLOR_COUNT, sizeof(term->sixel.palette[0]));
-    term->sixel.image = calloc(IMAGE_WIDTH * IMAGE_HEIGHT, sizeof(term->sixel.image[0]));
+    term->sixel.image.data = calloc(1 * 6, sizeof(term->sixel.image.data[0]));
+    term->sixel.image.width = 1;
+    term->sixel.image.height = 6;
 
     count = 0;
 
@@ -59,7 +59,7 @@ sixel_unhook(struct terminal *term)
     term->sixel.col = 0;
 
     struct sixel image = {
-        .data = term->sixel.image,
+        .data = term->sixel.image.data,
         .width = term->sixel.max_col,
         .height = term->sixel.row * 6,
         .rows = (term->sixel.row * 6 + term->cell_height - 1) / term->cell_height,
@@ -71,8 +71,8 @@ sixel_unhook(struct terminal *term)
     image.pix = pixman_image_create_bits_no_clear(
         PIXMAN_a8r8g8b8,
         image.width, image.height,
-        term->sixel.image,
-        IMAGE_WIDTH * sizeof(uint32_t));
+        term->sixel.image.data,
+        term->sixel.image.width * sizeof(uint32_t));
 
     tll_foreach(term->sixel_images, it) {
         if (it->item.pos.row == image.pos.row) {
@@ -83,7 +83,9 @@ sixel_unhook(struct terminal *term)
 
     tll_push_back(term->sixel_images, image);
 
-    term->sixel.image = NULL;
+    term->sixel.image.data = NULL;
+    term->sixel.image.width = 0;
+    term->sixel.image.height = 0;
     term->sixel.max_col = 0;
     term->sixel.col = 0;
     term->sixel.row = 0;
@@ -95,25 +97,79 @@ sixel_unhook(struct terminal *term)
     render_refresh(term);
 }
 
+static bool
+resize(struct terminal *term, int new_width, int new_height)
+{
+    LOG_DBG("resizing image: %dx%d -> %dx%d",
+            term->sixel.image.width, term->sixel.image.height,
+            new_width, new_height);
+
+    uint32_t *old_data = term->sixel.image.data;
+    const int old_width = term->sixel.image.width;
+    const int old_height = term->sixel.image.height;
+
+    assert(new_width >= old_width);
+    assert(new_height >= old_height);
+
+    uint32_t *new_data = NULL;
+
+    if (new_width == old_width) {
+        /* Width (and thus stride) is the same, so we can simply
+         * re-alloc the existing buffer */
+
+        new_data = realloc(old_data, new_width * new_height * sizeof(uint32_t));
+        if (new_data == NULL) {
+            LOG_ERRNO("failed to reallocate sixel image buffer");
+            return false;
+        }
+
+        assert(new_height > old_height);
+        memset(&new_data[old_height * new_width], 0, (new_height - old_height) * new_width * sizeof(uint32_t));
+    } else {
+        /* Width (and thus stride) change - need to allocate a new buffer */
+        assert(new_width > old_width);
+        new_data = malloc(new_width * new_height * sizeof(uint32_t));
+
+        /* Copy old rows, and zero-initialize the tail of each row */
+        for (int r = 0; r < old_height; r++) {
+            memcpy(&new_data[r * new_width], &old_data[r * old_width], old_width * sizeof(uint32_t));
+            memset(&new_data[r * new_width + old_width], 0, (new_width - old_width) * sizeof(uint32_t));
+        }
+
+        /* Zero-initiailize new rows */
+        for (int r = old_height; r < new_height; r++)
+            memset(&new_data[r * new_width], 0, new_width * sizeof(uint32_t));
+
+        free(old_data);
+    }
+
+    assert(new_data != NULL);
+    term->sixel.image.data = new_data;
+    term->sixel.image.width = new_width;
+    term->sixel.image.height = new_height;
+
+    return true;
+}
+
 static void
 sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 {
-    LOG_DBG("adding sixel %02hhx using color 0x%06x", sixel, color);
-    if (term->sixel.col >= IMAGE_WIDTH) {
-        LOG_WARN("column outside image width");
-        return;
-    }
-    if (term->sixel.row >= IMAGE_HEIGHT) {
-        LOG_WARN("row outside image height");
-        return;
+    //LOG_DBG("adding sixel %02hhx using color 0x%06x", sixel, color);
+
+    if (term->sixel.col >= term->sixel.image.width ||
+        term->sixel.row * 6 >= term->sixel.image.height)
+    {
+        resize(term,
+               max(term->sixel.max_col, term->sixel.col + 1),
+               (term->sixel.row + 1) * 6);
     }
 
-    for (int i = 0; i < 6; i++) {
-        int bit = sixel & 1;
-        sixel >>= 1;
-        if (bit) {
-            size_t idx = (term->sixel.row * 6 + i) * IMAGE_WIDTH + term->sixel.col;
-            term->sixel.image[idx] = term->colors.alpha / 256 << 24 | color;
+    for (int i = 0; i < 6; i++, sixel >>= 1) {
+        if (sixel & 1) {
+            size_t pixel_row = term->sixel.row * 6 + i;
+            size_t stride = term->sixel.image.width;
+            size_t idx = pixel_row * stride + term->sixel.col;
+            term->sixel.image.data[idx] = term->colors.alpha / 256 << 24 | color;
         }
     }
 
@@ -176,7 +232,8 @@ sixel_repeat(struct terminal *term, uint8_t c)
         term->sixel.param *= 10;
         term->sixel.param += c - '0';
     } else {
-        LOG_DBG("repeating '%c' %u times", c, term->sixel.param);
+        //LOG_DBG("repeating '%c' %u times", c, term->sixel.param);
+
         term->sixel.state = SIXEL_SIXEL;
         for (unsigned i = 0; i < term->sixel.param; i++)
             sixel_sixel(term, c);
