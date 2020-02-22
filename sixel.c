@@ -53,7 +53,7 @@ sixel_destroy(struct sixel *sixel)
 }
 
 void
-sixel_purge_at_cursor(struct terminal *term)
+sixel_delete_at_cursor(struct terminal *term)
 {
     const int row = term->grid->offset + term->cursor.point.row;
 
@@ -74,7 +74,7 @@ sixel_unhook(struct terminal *term)
     free(term->sixel.palette);
     term->sixel.palette = NULL;
 
-    sixel_purge_at_cursor(term);
+    sixel_delete_at_cursor(term);
 
     struct sixel image = {
         .data = term->sixel.image.data,
