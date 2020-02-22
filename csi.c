@@ -1151,6 +1151,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);
 
+                        /* Delete all sixel images on the alt screen */
+                        tll_foreach(term->sixel_images, it) {
+                            if (it->item.grid == &term->alt) {
+                                sixel_destroy(&it->item);
+                                tll_remove(term->sixel_images, it);
+                            }
+                        }
+
                         term_damage_all(term);
                     }
                     break;
