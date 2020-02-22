@@ -117,6 +117,8 @@ executable(
   'selection.c', 'selection.h',
   'server.c', 'server.h',
   'shm.c', 'shm.h',
+  'sixel.c', 'sixel.h',
+  'sixel-hls.c', 'sixel-hls.h',
   'slave.c', 'slave.h',
   'terminal.c', 'terminal.h',
   'tokenize.c', 'tokenize.h',

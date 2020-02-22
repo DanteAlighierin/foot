@@ -3,6 +3,7 @@
 #define LOG_MODULE "dcs"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "sixel.h"
 #include "vt.h"
 
 static void
@@ -35,9 +36,20 @@ dcs_hook(struct terminal *term, uint8_t final)
 
     assert(term->vt.dcs.data == NULL);
     assert(term->vt.dcs.size == 0);
+    assert(term->vt.dcs.put_handler == NULL);
     assert(term->vt.dcs.unhook_handler == NULL);
 
     switch (term->vt.private[0]) {
+    case 0:
+        switch (final) {
+        case 'q':
+            sixel_init(term);
+            term->vt.dcs.put_handler = &sixel_put;
+            term->vt.dcs.unhook_handler = &sixel_unhook;
+            break;
+        }
+        break;
+
     case '=':
         switch (final) {
         case 's':
@@ -75,9 +87,13 @@ void
 dcs_put(struct terminal *term, uint8_t c)
 {
     LOG_DBG("PUT: %c", c);
-    if (!ensure_size(term, term->vt.dcs.idx + 1))
-        return;
-    term->vt.dcs.data[term->vt.dcs.idx++] = c;
+    if (term->vt.dcs.put_handler != NULL)
+        term->vt.dcs.put_handler(term, c);
+    else {
+        if (!ensure_size(term, term->vt.dcs.idx + 1))
+            return;
+        term->vt.dcs.data[term->vt.dcs.idx++] = c;
+    }
 }
 
 void
@@ -87,6 +103,7 @@ dcs_unhook(struct terminal *term)
         term->vt.dcs.unhook_handler(term);
 
     term->vt.dcs.unhook_handler = NULL;
+    term->vt.dcs.put_handler = NULL;
 
     free(term->vt.dcs.data);
     term->vt.dcs.data = NULL;

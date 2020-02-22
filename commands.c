@@ -55,6 +55,9 @@ cmd_scrollback_up(struct terminal *term, int rows)
             new_view = end + 1;
     }
 
+    while (term->grid->rows[new_view] == NULL)
+        new_view = (new_view + 1) % term->grid->num_rows;
+
 #if defined(_DEBUG)
     for (int r = 0; r < term->rows; r++)
         assert(term->grid->rows[(new_view + r) % term->grid->num_rows] != NULL);

@@ -37,6 +37,10 @@
 * Scrollback search
 * Color emoji support
 * "Server" mode (one master process, many windows)
+* [Sixel image support](https://en.wikipedia.org/wiki/Sixel)
+
+  ![wow](doc/sixel-wow.png "Sixel screenshot")
+
 
 
 ## Non-features

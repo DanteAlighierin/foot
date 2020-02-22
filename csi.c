@@ -15,6 +15,7 @@
 #include "grid.h"
 #include "vt.h"
 #include "selection.h"
+#include "sixel.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
@@ -372,7 +373,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
              *  - 28   Rectangular editing.
              *  - 29   ANSI text locator (i.e., DEC Locator mode).
              */
-            const char *reply = "\033[?62;6;15;17;22c";
+            const char *reply = "\033[?62;4;6;15;17;22c";
             term_to_slave(term, reply, strlen(reply));
             break;
         }
@@ -1226,6 +1227,32 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 }
             }
             break;
+
+        case 'S': {
+            unsigned target = vt_param_get(term, 0, 0);
+            unsigned operation = vt_param_get(term, 1, 0);
+
+            switch (target) {
+            case 1:
+                switch (operation) {
+                case 1: sixel_colors_report_current(term); break;
+                case 2: sixel_colors_reset(term); break;
+                case 3: sixel_colors_set(term, vt_param_get(term, 2, 0)); break;
+                case 4: sixel_colors_report_max(term);
+                }
+                break;
+
+            case 2:
+                switch (operation) {
+                case 1: sixel_geometry_report_current(term); break;
+                case 2: sixel_geometry_reset(term); break;
+                case 3: sixel_geometry_set(term, vt_param_get(term, 2, 0), vt_param_get(term, 3, 0)); break;
+                case 4: sixel_geometry_report_max(term);
+                }
+                break;
+            }
+            break;
+        }
 
         default:
             UNHANDLED();

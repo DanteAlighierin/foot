@@ -131,6 +131,7 @@ struct vt {
         uint8_t *data;
         size_t size;
         size_t idx;
+        void (*put_handler)(struct terminal *term, uint8_t c);
         void (*unhook_handler)(struct terminal *term);
     } dcs;
     struct attributes attrs;
@@ -172,6 +173,15 @@ struct ptmx_buffer {
     void *data;
     size_t len;
     size_t idx;
+};
+
+struct sixel {
+    void *data;
+    pixman_image_t *pix;
+    int width;
+    int height;
+    int rows;
+    struct coord pos;
 };
 
 struct terminal {
@@ -343,6 +353,37 @@ struct terminal {
         int lower_fd;
         int upper_fd;
     } delayed_render_timer;
+
+    struct {
+        enum {
+            SIXEL_DECSIXEL,  /* DECSIXEL body part ", $, -, ? ... ~ */
+            SIXEL_DECGRA,    /* DECGRA Set Raster Attributes " Pan; Pad; Ph; Pv */
+            SIXEL_DECGRI,    /* DECGRI Graphics Repeat Introducer ! Pn Ch */
+            SIXEL_DECGCI,    /* DECGCI Graphics Color Introducer # Pc; Pu; Px; Py; Pz */        
+        } state;
+
+        struct coord pos;    /* Current sixel coordinate */
+        int color_idx;       /* Current palette index */
+        int max_col;         /* Largest column index we've seen (aka the image width) */
+        uint32_t *palette;   /* Color palette */
+
+        struct {
+            uint32_t *data;  /* Raw image data, in ARGB */
+            int width;       /* Image width, in pixels */
+            int height;      /* Image height, in pixels */
+        } image;
+
+        unsigned params[5];  /* Collected parmaeters, for RASTER, COLOR_SPEC */
+        unsigned param;      /* Currently collecting parameter, for RASTER, COLOR_SPEC and REPEAT */
+        unsigned param_idx;  /* Parameters seen */
+
+        /* Application configurable */
+        unsigned palette_size;  /* Number of colors in palette */
+        unsigned max_width;     /* Maximum image width, in pixels */
+        unsigned max_height;    /* Maximum image height, in pixels */
+    } sixel;
+
+    tll(struct sixel) sixel_images;
 
     bool hold_at_exit;
     bool is_shutting_down;

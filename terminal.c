@@ -19,12 +19,13 @@
 #include "log.h"
 
 #include "async.h"
+#include "config.h"
 #include "grid.h"
 #include "render.h"
-#include "vt.h"
 #include "selection.h"
-#include "config.h"
+#include "sixel.h"
 #include "slave.h"
+#include "vt.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -740,6 +741,10 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
             .lower_fd = delay_lower_fd,
             .upper_fd = delay_upper_fd,
         },
+        .sixel = {
+            .palette_size = SIXEL_MAX_COLORS,
+        },
+        .sixel_images = tll_init(),
         .hold_at_exit = conf->hold_at_exit,
         .shutdown_cb = shutdown_cb,
         .shutdown_data = shutdown_data,
@@ -993,6 +998,10 @@ term_destroy(struct terminal *term)
     tll_free(term->ptmx_buffer);
     tll_free(term->tab_stops);
 
+    tll_foreach(term->sixel_images, it)
+        sixel_destroy(&it->item);
+    tll_free(term->sixel_images);
+
     free(term->foot_exe);
     free(term->cwd);
 
@@ -1114,6 +1123,10 @@ term_reset(struct terminal *term, bool hard)
 
     term->meta.esc_prefix = true;
     term->meta.eight_bit = true;
+
+    tll_foreach(term->sixel_images, it)
+        sixel_destroy(&it->item);
+    tll_free(term->sixel_images);
 
     if (!hard)
         return;
@@ -1521,6 +1534,20 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
         erase_line(term, grid_row_and_alloc(term->grid, r));
         if (selection_on_row_in_view(term, r))
             selection_cancel(term);
+
+
+        tll_foreach(term->sixel_images, it) {
+            /* Make it simple - remove the entire image if it starts
+             * getting scrolled out */
+
+            int img_top_row = it->item.pos.row & (term->grid->num_rows - 1);
+            int new_row = (term->grid->offset + r) & (term->grid->num_rows - 1);
+
+            if (img_top_row == new_row) {
+                sixel_destroy(&it->item);
+                tll_remove(term->sixel_images, it);
+            }
+        }
     }
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
@@ -1572,6 +1599,21 @@ term_scroll_reverse_partial(struct terminal *term,
         erase_line(term, grid_row_and_alloc(term->grid, r));
         if (selection_on_row_in_view(term, r))
             selection_cancel(term);
+
+        tll_foreach(term->sixel_images, it) {
+            /* Make it simple - remove the entire image if it starts
+             * getting scrolled out */
+
+            /* TODO: untested */
+
+            int img_bottom_row = (it->item.pos.row + it->item.rows) & (term->grid->num_rows - 1);
+            int new_row = (term->grid->offset + r) & (term->grid->num_rows - 1);
+
+            if (img_bottom_row == new_row) {
+                sixel_destroy(&it->item);
+                tll_remove(term->sixel_images, it);
+            }
+        }
     }
 
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
@@ -2085,6 +2127,8 @@ term_print(struct terminal *term, wchar_t wc, int width)
 
     print_linewrap(term);
     print_insert(term, width);
+
+    sixel_purge_at_cursor(term);
 
     /* *Must* get current cell *after* linewrap+insert */
     struct row *row = term->grid->cur_row;
