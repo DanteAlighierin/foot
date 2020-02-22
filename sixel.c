@@ -57,16 +57,11 @@ sixel_unhook(struct terminal *term)
     free(term->sixel.palette);
     term->sixel.palette = NULL;
 
-    if (term->sixel.pos.col > term->sixel.max_col)
-        term->sixel.max_col = term->sixel.pos.col;
-    term->sixel.pos.row++;
-    term->sixel.pos.col = 0;
-
     struct sixel image = {
         .data = term->sixel.image.data,
-        .width = term->sixel.max_col,
-        .height = term->sixel.pos.row * 6,
-        .rows = (term->sixel.pos.row * 6 + term->cell_height - 1) / term->cell_height,
+        .width = term->sixel.image.width,
+        .height = term->sixel.image.height,
+        .rows = (term->sixel.image.height + term->cell_height - 1) / term->cell_height,
         .pos = (struct coord){term->cursor.point.col, term->grid->offset + term->cursor.point.row},
     };
 
@@ -93,8 +88,7 @@ sixel_unhook(struct terminal *term)
     term->sixel.max_col = 0;
     term->sixel.pos = (struct coord){0, 0};
 
-    const size_t lines = (image.height + term->cell_height - 1) / term->cell_height;
-    for (size_t i = 0; i < lines; i++)
+    for (size_t i = 0; i < image.rows; i++)
         term_linefeed(term);
     term_formfeed(term);
     render_refresh(term);
