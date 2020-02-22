@@ -190,9 +190,9 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 
         int height = max(
             term->sixel.image.height,
-            (term->sixel.pos.row + 1) * 6))
+            (term->sixel.pos.row + 1) * 6);
 
-        resize(term, width, height);;
+        resize(term, width, height);
     }
 
     for (int i = 0; i < 6; i++, sixel >>= 1) {
