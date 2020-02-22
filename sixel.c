@@ -29,9 +29,12 @@ sixel_init(struct terminal *term)
     term->sixel.param_idx = 0;
     memset(term->sixel.params, 0, sizeof(term->sixel.params));
     term->sixel.palette = calloc(COLOR_COUNT, sizeof(term->sixel.palette[0]));
-    term->sixel.image.data = calloc(1 * 6, sizeof(term->sixel.image.data[0]));
+    term->sixel.image.data = malloc(1 * 6 * sizeof(term->sixel.image.data[0]));
     term->sixel.image.width = 1;
     term->sixel.image.height = 6;
+
+    for (size_t i = 0; i < 1 * 6; i++)
+        term->sixel.image.data[i] = term->colors.alpha / 256 << 24 | term->sixel.palette[0];
 
     count = 0;
 
@@ -124,23 +127,26 @@ resize(struct terminal *term, int new_width, int new_height)
         }
 
         assert(new_height > old_height);
-        memset(&new_data[old_height * new_width], 0, (new_height - old_height) * new_width * sizeof(uint32_t));
+
     } else {
         /* Width (and thus stride) change - need to allocate a new buffer */
         assert(new_width > old_width);
         new_data = malloc(new_width * new_height * sizeof(uint32_t));
 
-        /* Copy old rows, and zero-initialize the tail of each row */
+        /* Copy old rows, and initialize new columns to background color */
         for (int r = 0; r < old_height; r++) {
             memcpy(&new_data[r * new_width], &old_data[r * old_width], old_width * sizeof(uint32_t));
-            memset(&new_data[r * new_width + old_width], 0, (new_width - old_width) * sizeof(uint32_t));
+
+            for (int c = old_width; c < new_width; c++)
+                new_data[r * new_width + c] = term->colors.alpha / 256 << 24 | term->sixel.palette[0];
         }
-
-        /* Zero-initiailize new rows */
-        for (int r = old_height; r < new_height; r++)
-            memset(&new_data[r * new_width], 0, new_width * sizeof(uint32_t));
-
         free(old_data);
+    }
+
+    /* Initialize new rows to background color */
+    for (int r = old_height; r < new_height; r++) {
+        for (int c = 0; c < new_width; c++)
+            new_data[r * new_width + c] = term->colors.alpha / 256 << 24 | term->sixel.palette[0];
     }
 
     assert(new_data != NULL);
