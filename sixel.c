@@ -6,6 +6,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "render.h"
+#include "sixel-hls.h"
 
 #define ALEN(v) (sizeof(v) / sizeof(v[0]))
 #define max(x, y) ((x) > (y) ? (x) : (y))
@@ -346,8 +347,10 @@ decgci(struct terminal *term, uint8_t c)
 
             switch (format) {
             case 1: { /* HLS */
-                LOG_ERR("HLS color format not implemented");
-                assert(false && "HLS color format not implemented");
+                uint32_t rgb = hls_to_rgb(c1, c2, c3);
+                LOG_DBG("setting palette #%d = HLS %hhu/%hhu/%hhu (0x%06x)",
+                        term->sixel.color_idx, c1, c2, c3, rgb);
+                term->sixel.palette[term->sixel.color_idx] = rgb;
                 break;
             }
 
