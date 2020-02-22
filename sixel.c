@@ -97,6 +97,7 @@ sixel_unhook(struct terminal *term)
 static unsigned
 max_width(const struct terminal *term)
 {
+    /* foot extension - treat 0 to mean current terminal size */
     return term->sixel.max_width == 0
         ? term->cols * term->cell_width
         : term->sixel.max_width;
@@ -105,6 +106,7 @@ max_width(const struct terminal *term)
 static unsigned
 max_height(const struct terminal *term)
 {
+    /* foot extension - treat 0 to mean current terminal size */
     return term->sixel.max_height == 0
         ? term->rows * term->cell_height
         : term->sixel.max_height;
