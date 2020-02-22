@@ -1121,6 +1121,10 @@ term_reset(struct terminal *term, bool hard)
     term->meta.esc_prefix = true;
     term->meta.eight_bit = true;
 
+    tll_foreach(term->sixel_images, it)
+        sixel_destroy(&it->item);
+    tll_free(term->sixel_images);
+
     if (!hard)
         return;
 
