@@ -14,3 +14,8 @@ void sixel_colors_report_current(struct terminal *term);
 void sixel_colors_reset(struct terminal *term);
 void sixel_colors_set(struct terminal *term, unsigned count);
 void sixel_colors_report_max(struct terminal *term);
+
+void sixel_geometry_report_current(struct terminal *term);
+void sixel_geometry_reset(struct terminal *term);
+void sixel_geometry_set(struct terminal *term, unsigned width, unsigned height);
+void sixel_geometry_report_max(struct terminal *term);

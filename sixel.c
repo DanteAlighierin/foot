@@ -94,6 +94,22 @@ sixel_unhook(struct terminal *term)
     render_refresh(term);
 }
 
+static unsigned
+max_width(const struct terminal *term)
+{
+    return term->sixel.max_width == 0
+        ? term->cols * term->cell_width
+        : term->sixel.max_width;
+}
+
+static unsigned
+max_height(const struct terminal *term)
+{
+    return term->sixel.max_height == 0
+        ? term->rows * term->cell_height
+        : term->sixel.max_height;
+}
+
 static bool
 resize(struct terminal *term, int new_width, int new_height)
 {
@@ -156,8 +172,14 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 {
     //LOG_DBG("adding sixel %02hhx using color 0x%06x", sixel, color);
 
+    if (term->sixel.pos.col >= max_width(term) ||
+        term->sixel.pos.row * 6 + 5 >= max_height(term))
+    {
+        return;
+    }
+
     if (term->sixel.pos.col >= term->sixel.image.width ||
-        term->sixel.pos.row * 6 >= term->sixel.image.height)
+        term->sixel.pos.row * 6 + 5 >= term->sixel.image.height)
     {
         resize(term,
                max(term->sixel.max_col, term->sixel.pos.col + 1),
@@ -174,7 +196,6 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
     }
 
     assert(sixel == 0);
-
     term->sixel.pos.col++;
 }
 
@@ -260,8 +281,11 @@ decgra(struct terminal *term, uint8_t c)
         LOG_DBG("pan=%u, pad=%u (aspect ratio = %u), size=%ux%u",
                 pan, pad, pan / pad, ph, pv);
 
-        if (ph >= term->sixel.image.height && pv >= term->sixel.image.width)
+        if (ph >= term->sixel.image.height && pv >= term->sixel.image.width &&
+            ph <= max_height(term) && pv <= max_width(term))
+        {
             resize(term, ph, pv);
+        }
 
         term->sixel.state = SIXEL_DECSIXEL;
         sixel_put(term, c);
@@ -365,6 +389,7 @@ sixel_colors_report_current(struct terminal *term)
     char reply[24];
     snprintf(reply, sizeof(reply), "\033[?1;0;%uS", term->sixel.palette_size);
     term_to_slave(term, reply, strlen(reply));
+    LOG_DBG("query response for current color count: %u", term->sixel.palette_size);
 }
 
 void
@@ -388,4 +413,48 @@ sixel_colors_report_max(struct terminal *term)
     char reply[24];
     snprintf(reply, sizeof(reply), "\033[?1;0;%uS", SIXEL_MAX_COLORS);
     term_to_slave(term, reply, strlen(reply));
+    LOG_DBG("query response for max color count: %u", SIXEL_MAX_COLORS);
+}
+
+void
+sixel_geometry_report_current(struct terminal *term)
+{
+    char reply[64];
+    snprintf(reply, sizeof(reply), "\033[?2;0;%u;%uS",
+             max_width(term), max_height(term));
+    term_to_slave(term, reply, strlen(reply));
+
+    LOG_DBG("query response for current sixel geometry: %ux%u",
+            max_width(term), max_height(term));
+}
+
+void
+sixel_geometry_reset(struct terminal *term)
+{
+    term->sixel.max_width = 0;
+    term->sixel.max_height = 0;
+    LOG_DBG("sixel geometry reset to %ux%u", max_width(term), max_height(term));
+}
+
+void
+sixel_geometry_set(struct terminal *term, unsigned width, unsigned height)
+{
+    term->sixel.max_width = width;
+    term->sixel.max_height = height;
+    LOG_DBG("sixel geometry set to %ux%u",
+            term->sixel.max_width, term->sixel.max_height);
+}
+
+void
+sixel_geometry_report_max(struct terminal *term)
+{
+    unsigned max_width = term->cols * term->cell_width;
+    unsigned max_height = term->rows * term->cell_height;
+
+    char reply[64];
+    snprintf(reply, sizeof(reply), "\033[?2;0;%u;%uS", max_width, max_height);
+    term_to_slave(term, reply, strlen(reply));
+
+    LOG_DBG("query response for max sixel geometry: %ux%u",
+            max_width, max_height);
 }

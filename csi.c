@@ -1243,11 +1243,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
 
             case 2:
+                switch (operation) {
+                case 1: sixel_geometry_report_current(term); break;
+                case 2: sixel_geometry_reset(term); break;
+                case 3: sixel_geometry_set(term, vt_param_get(term, 2, 0), vt_param_get(term, 3, 0)); break;
+                case 4: sixel_geometry_report_max(term);
+                }
                 break;
-
-            case 3:
-                break;
-
             }
             break;
         }

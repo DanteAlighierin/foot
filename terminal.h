@@ -378,7 +378,9 @@ struct terminal {
         unsigned param_idx;  /* Parameters seen */
 
         /* Application configurable */
-        unsigned palette_size;
+        unsigned palette_size;  /* Number of colors in palette */
+        unsigned max_width;     /* Maximum image width, in pixels */
+        unsigned max_height;    /* Maximum image height, in pixels */
     } sixel;
 
     tll(struct sixel) sixel_images;
