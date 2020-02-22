@@ -355,7 +355,7 @@ struct terminal {
     } delayed_render_timer;
 
     struct {
-        enum { SIXEL_SIXEL, SIXEL_REPEAT, SIXEL_RASTER, SIXEL_COLOR, SIXEL_COLOR_SPEC} state;
+        enum { SIXEL_GROUND, SIXEL_REPEAT, SIXEL_RASTER, SIXEL_COLOR, SIXEL_COLOR_SPEC} state;
         int row;
         int col;
         int color_idx;

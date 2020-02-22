@@ -19,7 +19,7 @@ sixel_init(struct terminal *term)
     assert(term->sixel.palette == NULL);
     assert(term->sixel.image.data == NULL);
 
-    term->sixel.state = SIXEL_SIXEL;
+    term->sixel.state = SIXEL_GROUND;
     term->sixel.row = 0;
     term->sixel.col = 0;
     term->sixel.color_idx = 0;
@@ -234,7 +234,7 @@ sixel_repeat(struct terminal *term, uint8_t c)
     } else {
         //LOG_DBG("repeating '%c' %u times", c, term->sixel.param);
 
-        term->sixel.state = SIXEL_SIXEL;
+        term->sixel.state = SIXEL_GROUND;
         for (unsigned i = 0; i < term->sixel.param; i++)
             sixel_sixel(term, c);
     }
@@ -268,7 +268,7 @@ sixel_raster(struct terminal *term, uint8_t c)
         switch (c) {
         case '#': term->sixel.state = SIXEL_COLOR; break;
         case ';': term->sixel.state = SIXEL_RASTER; break;
-        default:  term->sixel.state = SIXEL_SIXEL; sixel_sixel(term, c); break;
+        default:  term->sixel.state = SIXEL_GROUND; sixel_sixel(term, c); break;
         }
     }
 }
@@ -291,7 +291,7 @@ sixel_color(struct terminal *term, uint8_t c)
         switch (c) {
         case '#': term->sixel.state = SIXEL_COLOR; break;
         case ';': term->sixel.state = SIXEL_COLOR_SPEC; break;
-        default:  term->sixel.state = SIXEL_SIXEL; sixel_sixel(term, c); break;
+        default:  term->sixel.state = SIXEL_GROUND; sixel_sixel(term, c); break;
         }
     }
 }
@@ -331,7 +331,7 @@ sixel_color_spec(struct terminal *term, uint8_t c)
         switch (c) {
         case '#': term->sixel.state = SIXEL_COLOR; break;
         case ';': term->sixel.state = SIXEL_COLOR_SPEC; break;
-        default:  term->sixel.state = SIXEL_SIXEL; sixel_sixel(term, c); break;
+        default:  term->sixel.state = SIXEL_GROUND; sixel_sixel(term, c); break;
         }
     }
 }
@@ -347,7 +347,7 @@ sixel_put(struct terminal *term, uint8_t c)
     }
 
     switch (term->sixel.state) {
-    case SIXEL_SIXEL: sixel_sixel(term, c); break;
+    case SIXEL_GROUND: sixel_sixel(term, c); break;
     case SIXEL_REPEAT: sixel_repeat(term, c); break;
     case SIXEL_RASTER: sixel_raster(term, c); break;
     case SIXEL_COLOR: sixel_color(term, c); break;
