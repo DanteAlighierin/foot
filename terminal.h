@@ -376,6 +376,9 @@ struct terminal {
         unsigned params[5];  /* Collected parmaeters, for RASTER, COLOR_SPEC */
         unsigned param;      /* Currently collecting parameter, for RASTER, COLOR_SPEC and REPEAT */
         unsigned param_idx;  /* Parameters seen */
+
+        /* Application configurable */
+        unsigned palette_size;
     } sixel;
 
     tll(struct sixel) sixel_images;

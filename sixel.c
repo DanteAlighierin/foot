@@ -11,7 +11,6 @@
 #define max(x, y) ((x) > (y) ? (x) : (y))
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
-static const size_t COLOR_COUNT = 1024;
 
 static size_t count;
 
@@ -20,6 +19,7 @@ sixel_init(struct terminal *term)
 {
     assert(term->sixel.palette == NULL);
     assert(term->sixel.image.data == NULL);
+    assert(term->sixel.palette_size <= SIXEL_MAX_COLORS);
 
     term->sixel.state = SIXEL_DECSIXEL;
     term->sixel.pos = (struct coord){0, 0};
@@ -28,7 +28,7 @@ sixel_init(struct terminal *term)
     term->sixel.param = 0;
     term->sixel.param_idx = 0;
     memset(term->sixel.params, 0, sizeof(term->sixel.params));
-    term->sixel.palette = calloc(COLOR_COUNT, sizeof(term->sixel.palette[0]));
+    term->sixel.palette = calloc(term->sixel.palette_size, sizeof(term->sixel.palette[0]));
     term->sixel.image.data = malloc(1 * 6 * sizeof(term->sixel.image.data[0]));
     term->sixel.image.width = 1;
     term->sixel.image.height = 6;
@@ -309,10 +309,8 @@ decgci(struct terminal *term, uint8_t c)
 
         int nparams = term->sixel.param_idx;
 
-        if (nparams > 0) {
-            /* Add one, as we use idx==0 for background color (TODO) */
-            term->sixel.color_idx = min(1 + term->sixel.params[0], COLOR_COUNT - 1);
-        }
+        if (nparams > 0)
+            term->sixel.color_idx = min(term->sixel.params[0], term->sixel.palette_size - 1);
 
         if (nparams > 4) {
             unsigned format = term->sixel.params[1];
@@ -359,4 +357,35 @@ sixel_put(struct terminal *term, uint8_t c)
     }
 
     count++;
+}
+
+void
+sixel_colors_report_current(struct terminal *term)
+{
+    char reply[24];
+    snprintf(reply, sizeof(reply), "\033[?1;0;%uS", term->sixel.palette_size);
+    term_to_slave(term, reply, strlen(reply));
+}
+
+void
+sixel_colors_reset(struct terminal *term)
+{
+    term->sixel.palette_size = SIXEL_MAX_COLORS;
+    LOG_DBG("sixel palette size reset to %u", SIXEL_MAX_COLORS);
+}
+
+void
+sixel_colors_set(struct terminal *term, unsigned count)
+{
+    unsigned new_palette_size = min(max(2, count), SIXEL_MAX_COLORS);
+    term->sixel.palette_size = new_palette_size;
+    LOG_DBG("sixel palette size set to %u", new_palette_size);
+}
+
+void
+sixel_colors_report_max(struct terminal *term)
+{
+    char reply[24];
+    snprintf(reply, sizeof(reply), "\033[?1;0;%uS", SIXEL_MAX_COLORS);
+    term_to_slave(term, reply, strlen(reply));
 }

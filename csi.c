@@ -15,6 +15,7 @@
 #include "grid.h"
 #include "vt.h"
 #include "selection.h"
+#include "sixel.h"
 
 #define min(x, y) ((x) < (y) ? (x) : (y))
 
@@ -1226,6 +1227,30 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 }
             }
             break;
+
+        case 'S': {
+            unsigned target = vt_param_get(term, 0, 0);
+            unsigned operation = vt_param_get(term, 1, 0);
+
+            switch (target) {
+            case 1:
+                switch (operation) {
+                case 1: sixel_colors_report_current(term); break;
+                case 2: sixel_colors_reset(term); break;
+                case 3: sixel_colors_set(term, vt_param_get(term, 2, 0)); break;
+                case 4: sixel_colors_report_max(term);
+                }
+                break;
+
+            case 2:
+                break;
+
+            case 3:
+                break;
+
+            }
+            break;
+        }
 
         default:
             UNHANDLED();
