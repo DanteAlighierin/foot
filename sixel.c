@@ -7,7 +7,9 @@
 #include "log.h"
 #include "render.h"
 
+#define ALEN(v) (sizeof(v) / sizeof(v[0]))
 #define max(x, y) ((x) > (y) ? (x) : (y))
+#define min(x, y) ((x) < (y) ? (x) : (y))
 
 static const size_t COLOR_COUNT = 1024;
 
@@ -19,7 +21,7 @@ sixel_init(struct terminal *term)
     assert(term->sixel.palette == NULL);
     assert(term->sixel.image.data == NULL);
 
-    term->sixel.state = SIXEL_GROUND;
+    term->sixel.state = SIXEL_DECSIXEL;
     term->sixel.pos = (struct coord){0, 0};
     term->sixel.color_idx = 0;
     term->sixel.max_col = 0;
@@ -177,17 +179,23 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 }
 
 static void
-sixel_sixel(struct terminal *term, uint8_t c)
+decsixel(struct terminal *term, uint8_t c)
 {
     switch (c) {
     case '"':
-        term->sixel.state = SIXEL_RASTER;
+        term->sixel.state = SIXEL_DECGRA;
+        term->sixel.param = 0;
+        term->sixel.param_idx = 0;
+        break;
+
+    case '!':
+        term->sixel.state = SIXEL_DECGRI;
         term->sixel.param = 0;
         term->sixel.param_idx = 0;
         break;
 
     case '#':
-        term->sixel.state = SIXEL_COLOR;
+        term->sixel.state = SIXEL_DECGCI;
         term->sixel.color_idx = 0;
         term->sixel.param = 0;
         term->sixel.param_idx = 0;
@@ -206,115 +214,118 @@ sixel_sixel(struct terminal *term, uint8_t c)
         term->sixel.pos.col = 0;
         break;
 
-    case '!':
-        term->sixel.state = SIXEL_REPEAT;
-        term->sixel.param = 0;
-        term->sixel.param_idx = 0;
+    case '?'...'~':
+        sixel_add(term, term->sixel.palette[term->sixel.color_idx], c - 63);
+        break;
+
+    case ' ':
+    case '\n':
+    case '\r':
         break;
 
     default:
-        if (c < '?' || c > '~') {
-            LOG_ERR("invalid sixel charactwer: '%c' at idx=%zu", c, count);
-            return;
-        }
-
-        sixel_add(term, term->sixel.palette[term->sixel.color_idx], c - 63);
+        LOG_WARN("invalid sixel charactwer: '%c' at idx=%zu", c, count);
         break;
     }
 }
 
 static void
-sixel_repeat(struct terminal *term, uint8_t c)
+decgra(struct terminal *term, uint8_t c)
 {
-    if (c >= '0' && c <= '9') {
+    switch (c) {
+    case '0'...'9':
         term->sixel.param *= 10;
         term->sixel.param += c - '0';
-    } else {
+        break;
+
+    case ';':
+        if (term->sixel.param_idx < ALEN(term->sixel.params))
+            term->sixel.params[term->sixel.param_idx++] = term->sixel.param;
+        term->sixel.param = 0;
+        break;
+
+    default: {
+        if (term->sixel.param_idx < ALEN(term->sixel.params))
+            term->sixel.params[term->sixel.param_idx++] = term->sixel.param;
+
+        int nparams = term->sixel.param_idx;
+        unsigned pan = nparams > 0 ? term->sixel.params[0] : 0;
+        unsigned pad = nparams > 1 ? term->sixel.params[1] : 0;
+        unsigned ph = nparams > 2 ? term->sixel.params[2] : 0;
+        unsigned pv = nparams > 3 ? term->sixel.params[3] : 0;
+
+        pan = pan > 0 ? pan : 1;
+        pad = pad > 0 ? pad : 1;
+
+        LOG_DBG("pan=%u, pad=%u (aspect ratio = %u), size=%ux%u",
+                pan, pad, pan / pad, ph, pv);
+
+        if (ph >= term->sixel.image.height && pv >= term->sixel.image.width)
+            resize(term, ph, pv);
+
+        term->sixel.state = SIXEL_DECSIXEL;
+        sixel_put(term, c);
+        break;
+    }
+    }
+}
+
+static void
+decgri(struct terminal *term, uint8_t c)
+{
+    switch (c) {
+    case '0'...'9':
+        term->sixel.param *= 10;
+        term->sixel.param += c - '0';
+        break;
+
+    default:
         //LOG_DBG("repeating '%c' %u times", c, term->sixel.param);
-
-        term->sixel.state = SIXEL_GROUND;
         for (unsigned i = 0; i < term->sixel.param; i++)
-            sixel_sixel(term, c);
+            decsixel(term, c);
+        term->sixel.state = SIXEL_DECSIXEL;
+        break;
     }
 }
 
 static void
-sixel_raster(struct terminal *term, uint8_t c)
+decgci(struct terminal *term, uint8_t c)
 {
-    if (c >= '0' && c <= '9') {
+    switch (c) {
+    case '0'...'9':
         term->sixel.param *= 10;
         term->sixel.param += c - '0';
-    } else {
-        if (term->sixel.param_idx < sizeof(term->sixel.params) / sizeof(term->sixel.params[0]))
+        break;
+
+    case ';':
+        if (term->sixel.param_idx < ALEN(term->sixel.params))
+            term->sixel.params[term->sixel.param_idx++] = term->sixel.param;
+        term->sixel.param = 0;
+        break;
+
+    default: {
+        if (term->sixel.param_idx < ALEN(term->sixel.params))
             term->sixel.params[term->sixel.param_idx++] = term->sixel.param;
 
-        term->sixel.param = 0;
+        int nparams = term->sixel.param_idx;
 
-        if (c != ';') {
-            unsigned pan __attribute__((unused)) = term->sixel.params[0];
-            unsigned pad __attribute__((unused)) = term->sixel.params[1];
-            unsigned ph __attribute__((unused)) = term->sixel.params[2];
-            unsigned pv __attribute__((unused)) = term->sixel.params[3];
+        if (nparams > 0)
+            term->sixel.color_idx = min(1 + term->sixel.params[0], COLOR_COUNT - 1);
 
-            LOG_DBG("pan=%u, pad=%u (aspect ratio = %u), size=%ux%u",
-                    pan, pad, pan / pad, ph, pv);
+        if (nparams > 4) {
+            unsigned format = term->sixel.params[1];
+            unsigned c1 = term->sixel.params[2];
+            unsigned c2 = term->sixel.params[3];
+            unsigned c3 = term->sixel.params[4];
 
-            if (ph >= term->sixel.image.height && pv >= term->sixel.image.width)
-                resize(term, ph, pv);
-        }
-
-        switch (c) {
-        case '#': term->sixel.state = SIXEL_COLOR; break;
-        case ';': term->sixel.state = SIXEL_RASTER; break;
-        default:  term->sixel.state = SIXEL_GROUND; sixel_sixel(term, c); break;
-        }
-    }
-}
-
-static void
-sixel_color(struct terminal *term, uint8_t c)
-{
-    if (c >= '0' && c <= '9') {
-        term->sixel.param *= 10;
-        term->sixel.param += c - '0';
-    } else {
-        if (term->sixel.param < COLOR_COUNT)
-            term->sixel.color_idx = term->sixel.param;
-        else
-            term->sixel.color_idx = 0;
-
-        term->sixel.param_idx = 0;
-        term->sixel.param = 0;
-
-        switch (c) {
-        case '#': term->sixel.state = SIXEL_COLOR; break;
-        case ';': term->sixel.state = SIXEL_COLOR_SPEC; break;
-        default:  term->sixel.state = SIXEL_GROUND; sixel_sixel(term, c); break;
-        }
-    }
-}
-
-static void
-sixel_color_spec(struct terminal *term, uint8_t c)
-{
-    if (c >= '0' && c <= '9') {
-        term->sixel.param *= 10;
-        term->sixel.param += c - '0';
-    } else {
-        if (term->sixel.param_idx < sizeof(term->sixel.params) / sizeof(term->sixel.params[0]))
-            term->sixel.params[term->sixel.param_idx++] = term->sixel.param;
-
-        term->sixel.param = 0;
-
-        if (c != ';') {
-            unsigned format = term->sixel.params[0];
-            unsigned c1 = term->sixel.params[1];
-            unsigned c2 = term->sixel.params[2];
-            unsigned c3 = term->sixel.params[3];
-
-            if (format == 1) {
+            switch (format) {
+            case 1: { /* HLS */
+                LOG_ERR("HLS color format not implemented");
                 assert(false && "HLS color format not implemented");
-            } else {
+                break;
+            }
+
+            case 2: {  /* RGB */
                 uint8_t r = 255 * c1 / 100;
                 uint8_t g = 255 * c2 / 100;
                 uint8_t b = 255 * c3 / 100;
@@ -323,32 +334,27 @@ sixel_color_spec(struct terminal *term, uint8_t c)
                         term->sixel.color_idx, r, g, b);
 
                 term->sixel.palette[term->sixel.color_idx] = r << 16 | g << 8 | b;
+                break;
+            }
             }
         }
 
-        switch (c) {
-        case '#': term->sixel.state = SIXEL_COLOR; break;
-        case ';': term->sixel.state = SIXEL_COLOR_SPEC; break;
-        default:  term->sixel.state = SIXEL_GROUND; sixel_sixel(term, c); break;
-        }
+        term->sixel.state = SIXEL_DECSIXEL;
+        sixel_put(term, c);
+        break;
+    }
     }
 }
 
 void
 sixel_put(struct terminal *term, uint8_t c)
 {
-    count++;
-    switch (c) {
-    case ' ': return;
-    case '\n': return;
-    case '\r': return;
+    switch (term->sixel.state) {
+    case SIXEL_DECSIXEL: decsixel(term, c); break;
+    case SIXEL_DECGRA: decgra(term, c); break;
+    case SIXEL_DECGRI: decgri(term, c); break;
+    case SIXEL_DECGCI: decgci(term, c); break;
     }
 
-    switch (term->sixel.state) {
-    case SIXEL_GROUND: sixel_sixel(term, c); break;
-    case SIXEL_REPEAT: sixel_repeat(term, c); break;
-    case SIXEL_RASTER: sixel_raster(term, c); break;
-    case SIXEL_COLOR: sixel_color(term, c); break;
-    case SIXEL_COLOR_SPEC: sixel_color_spec(term, c); break;
-    }
+    count++;
 }

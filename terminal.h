@@ -355,7 +355,12 @@ struct terminal {
     } delayed_render_timer;
 
     struct {
-        enum { SIXEL_GROUND, SIXEL_REPEAT, SIXEL_RASTER, SIXEL_COLOR, SIXEL_COLOR_SPEC} state;
+        enum {
+            SIXEL_DECSIXEL,  /* DECSIXEL body part ", $, -, ? ... ~ */
+            SIXEL_DECGRA,    /* DECGRA Set Raster Attributes " Pan; Pad; Ph; Pv */
+            SIXEL_DECGRI,    /* DECGRI Graphics Repeat Introducer ! Pn Ch */
+            SIXEL_DECGCI,    /* DECGCI Graphics Color Introducer # Pc; Pu; Px; Py; Pz */        
+        } state;
 
         struct coord pos;    /* Current sixel coordinate */
         int color_idx;       /* Current palette index */
@@ -368,8 +373,8 @@ struct terminal {
             int height;      /* Image height, in pixels */
         } image;
 
-        unsigned params[4];  /* Collected parmaeters, for RASTER, COLOR_SPEC */
-        unsigned int param;  /* Currently collecting parameter, for RASTER, COLOR_SPEC and REPEAT */
+        unsigned params[5];  /* Collected parmaeters, for RASTER, COLOR_SPEC */
+        unsigned param;      /* Currently collecting parameter, for RASTER, COLOR_SPEC and REPEAT */
         unsigned param_idx;  /* Parameters seen */
     } sixel;
 
