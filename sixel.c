@@ -309,8 +309,10 @@ decgci(struct terminal *term, uint8_t c)
 
         int nparams = term->sixel.param_idx;
 
-        if (nparams > 0)
+        if (nparams > 0) {
+            /* Add one, as we use idx==0 for background color (TODO) */
             term->sixel.color_idx = min(1 + term->sixel.params[0], COLOR_COUNT - 1);
+        }
 
         if (nparams > 4) {
             unsigned format = term->sixel.params[1];
