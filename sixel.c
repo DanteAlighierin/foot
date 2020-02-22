@@ -20,8 +20,7 @@ sixel_init(struct terminal *term)
     assert(term->sixel.image.data == NULL);
 
     term->sixel.state = SIXEL_GROUND;
-    term->sixel.row = 0;
-    term->sixel.col = 0;
+    term->sixel.pos = (struct coord){0, 0};
     term->sixel.color_idx = 0;
     term->sixel.max_col = 0;
     term->sixel.param = 0;
@@ -53,16 +52,16 @@ sixel_unhook(struct terminal *term)
     free(term->sixel.palette);
     term->sixel.palette = NULL;
 
-    if (term->sixel.col > term->sixel.max_col)
-        term->sixel.max_col = term->sixel.col;
-    term->sixel.row++;
-    term->sixel.col = 0;
+    if (term->sixel.pos.col > term->sixel.max_col)
+        term->sixel.max_col = term->sixel.pos.col;
+    term->sixel.pos.row++;
+    term->sixel.pos.col = 0;
 
     struct sixel image = {
         .data = term->sixel.image.data,
         .width = term->sixel.max_col,
-        .height = term->sixel.row * 6,
-        .rows = (term->sixel.row * 6 + term->cell_height - 1) / term->cell_height,
+        .height = term->sixel.pos.row * 6,
+        .rows = (term->sixel.pos.row * 6 + term->cell_height - 1) / term->cell_height,
         .pos = (struct coord){term->cursor.point.col, term->grid->offset + term->cursor.point.row},
     };
 
@@ -87,8 +86,7 @@ sixel_unhook(struct terminal *term)
     term->sixel.image.width = 0;
     term->sixel.image.height = 0;
     term->sixel.max_col = 0;
-    term->sixel.col = 0;
-    term->sixel.row = 0;
+    term->sixel.pos = (struct coord){0, 0};
 
     const size_t lines = (image.height + term->cell_height - 1) / term->cell_height;
     for (size_t i = 0; i < lines; i++)
@@ -156,26 +154,26 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 {
     //LOG_DBG("adding sixel %02hhx using color 0x%06x", sixel, color);
 
-    if (term->sixel.col >= term->sixel.image.width ||
-        term->sixel.row * 6 >= term->sixel.image.height)
+    if (term->sixel.pos.col >= term->sixel.image.width ||
+        term->sixel.pos.row * 6 >= term->sixel.image.height)
     {
         resize(term,
-               max(term->sixel.max_col, term->sixel.col + 1),
-               (term->sixel.row + 1) * 6);
+               max(term->sixel.max_col, term->sixel.pos.col + 1),
+               (term->sixel.pos.row + 1) * 6);
     }
 
     for (int i = 0; i < 6; i++, sixel >>= 1) {
         if (sixel & 1) {
-            size_t pixel_row = term->sixel.row * 6 + i;
+            size_t pixel_row = term->sixel.pos.row * 6 + i;
             size_t stride = term->sixel.image.width;
-            size_t idx = pixel_row * stride + term->sixel.col;
+            size_t idx = pixel_row * stride + term->sixel.pos.col;
             term->sixel.image.data[idx] = term->colors.alpha / 256 << 24 | color;
         }
     }
 
     assert(sixel == 0);
 
-    term->sixel.col++;
+    term->sixel.pos.col++;
 }
 
 static void
@@ -196,16 +194,16 @@ sixel_sixel(struct terminal *term, uint8_t c)
         break;
 
     case '$':
-        if (term->sixel.col > term->sixel.max_col)
-            term->sixel.max_col = term->sixel.col;
-        term->sixel.col = 0;
+        if (term->sixel.pos.col > term->sixel.max_col)
+            term->sixel.max_col = term->sixel.pos.col;
+        term->sixel.pos.col = 0;
         break;
 
     case '-':
-        if (term->sixel.col > term->sixel.max_col)
-            term->sixel.max_col = term->sixel.col;
-        term->sixel.row++;
-        term->sixel.col = 0;
+        if (term->sixel.pos.col > term->sixel.max_col)
+            term->sixel.max_col = term->sixel.pos.col;
+        term->sixel.pos.row++;
+        term->sixel.pos.col = 0;
         break;
 
     case '!':

@@ -356,21 +356,21 @@ struct terminal {
 
     struct {
         enum { SIXEL_GROUND, SIXEL_REPEAT, SIXEL_RASTER, SIXEL_COLOR, SIXEL_COLOR_SPEC} state;
-        int row;
-        int col;
-        int color_idx;
-        int max_col;
-        unsigned params[4];
-        uint32_t *palette;
+
+        struct coord pos;    /* Current sixel coordinate */
+        int color_idx;       /* Current palette index */
+        int max_col;         /* Largest column index we've seen (aka the image width) */
+        uint32_t *palette;   /* Color palette */
 
         struct {
-            uint32_t *data;
-            int width;
-            int height;
+            uint32_t *data;  /* Raw image data, in ARGB */
+            int width;       /* Image width, in pixels */
+            int height;      /* Image height, in pixels */
         } image;
 
-        unsigned int param;
-        unsigned param_idx;
+        unsigned params[4];  /* Collected parmaeters, for RASTER, COLOR_SPEC */
+        unsigned int param;  /* Currently collecting parameter, for RASTER, COLOR_SPEC and REPEAT */
+        unsigned param_idx;  /* Parameters seen */
     } sixel;
 
     tll(struct sixel) sixel_images;
