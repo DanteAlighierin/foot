@@ -260,6 +260,7 @@ sixel_raster(struct terminal *term, uint8_t c)
 
             LOG_DBG("pan=%u, pad=%u (aspect ratio = %u), size=%ux%u",
                     pan, pad, pan / pad, ph, pv);
+            resize(term, ph, pv);
         }
 
         switch (c) {
