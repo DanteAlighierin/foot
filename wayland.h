@@ -91,6 +91,13 @@ struct wl_window {
 
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
 
+    bool use_csd;
+
+    struct {
+        struct wl_surface *surface[5];
+        struct wl_subsurface *sub_surface[5];
+    } csd;
+
     /* Scrollback search */
     struct wl_surface *search_surface;
     struct wl_subsurface *search_sub_surface;

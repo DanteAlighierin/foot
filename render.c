@@ -38,6 +38,10 @@ static struct {
 
 static void fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data);
 
+#define shm_cookie_grid(term) ((unsigned long)((uintptr_t)term + 0))
+#define shm_cookie_search(term) ((unsigned long)((uintptr_t)term + 1))
+#define shm_cookie_csd(term, n) ((unsigned long)((uintptr_t)term + 2 + (n)))
+
 struct renderer *
 render_init(struct fdm *fdm, struct wayland *wayl)
 {
@@ -655,6 +659,45 @@ render_worker_thread(void *_ctx)
     return -1;
 }
 
+static void
+render_csd(struct terminal *term)
+{
+    LOG_INFO("rendering CSD");
+
+    const int border_width = 2 * term->scale;
+    const int title_height = 20 * term->scale;
+
+    const int geom[5][4] = {
+        {-border_width, -title_height, term->width + 2 * border_width, title_height},
+    };
+
+    for (size_t i = 0; i < 1; i++) {
+        const int x = geom[i][0];
+        const int y = geom[i][1];
+        const int width = geom[i][2];
+        const int height = geom[i][3];
+
+        unsigned long cookie = shm_cookie_csd(term, 0);
+        struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
+
+        pixman_color_t color = color_hex_to_pixman(0xffffff);
+        pixman_image_t *src = pixman_image_create_solid_fill(&color);
+
+        pixman_image_fill_rectangles(
+            PIXMAN_OP_SRC, buf->pix, &color, 1,
+            &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
+        pixman_image_unref(src);
+
+        wl_subsurface_set_position(
+            term->window->csd.sub_surface[i], x, y);
+
+        wl_surface_attach(term->window->csd.surface[i], buf->wl_buf, 0, 0);
+        wl_surface_damage_buffer(term->window->csd.surface[i], 0, 0, buf->width, buf->height);
+        wl_surface_set_buffer_scale(term->window->csd.surface[i], term->scale);
+        wl_surface_commit(term->window->csd.surface[i]);
+    }
+}
+
 static void frame_callback(
     void *data, struct wl_callback *wl_callback, uint32_t callback_data);
 
@@ -675,10 +718,13 @@ grid_render(struct terminal *term)
     gettimeofday(&start_time, NULL);
 #endif
 
+    if (term->window->use_csd)
+        render_csd(term);
+
     assert(term->width > 0);
     assert(term->height > 0);
 
-    unsigned long cookie = (uintptr_t)term;
+    unsigned long cookie = shm_cookie_grid(term);
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, term->width, term->height, cookie);
 
@@ -990,7 +1036,7 @@ render_search_box(struct terminal *term)
     const size_t visible_chars = (width - 2 * margin) / term->cell_width;
     size_t glyph_offset = term->render.search_glyph_offset;
 
-    unsigned long cookie = (uintptr_t)term + 1;
+    unsigned long cookie = shm_cookie_search(term);
     struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
 
     /* Background - yellow on empty/match, red on mismatch */

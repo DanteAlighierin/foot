@@ -20,7 +20,7 @@
 #include <xdg-decoration-unstable-v1.h>
 
 #define LOG_MODULE "wayland"
-#define LOG_ENABLE_DBG 0
+#define LOG_ENABLE_DBG 1
 #include "log.h"
 
 #include "config.h"
@@ -537,13 +537,17 @@ xdg_toplevel_decoration_configure(void *data,
                                   struct zxdg_toplevel_decoration_v1 *zxdg_toplevel_decoration_v1,
                                   uint32_t mode)
 {
+    struct wl_window *win = data;
+
     switch (mode) {
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
-        LOG_ERR("unimplemented: client-side decorations");
+        LOG_DBG("using client-side decorations");
+        win->use_csd = true;
         break;
 
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
         LOG_DBG("using server-side decorations");
+        win->use_csd = false;
         break;
 
     default:
@@ -918,6 +922,12 @@ wayl_win_init(struct terminal *term)
     zxdg_toplevel_decoration_v1_add_listener(
         win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, win);
 
+    for (size_t i = 0; i < 5; i++) {
+        win->csd.surface[i] = wl_compositor_create_surface(wayl->compositor);
+        win->csd.sub_surface[i] = wl_subcompositor_get_subsurface(
+            wayl->sub_compositor, win->csd.surface[i], win->surface);
+    }
+
     /* Scrollback search box */
     win->search_surface = wl_compositor_create_surface(wayl->compositor);
     win->search_sub_surface = wl_subcompositor_get_subsurface(
@@ -951,14 +961,29 @@ wayl_win_destroy(struct wl_window *win)
     /* Scrollback search */
     wl_surface_attach(win->search_surface, NULL, 0, 0);
     wl_surface_commit(win->search_surface);
+
+    /* CSD */
+    for (size_t i = 0; i < 5; i++) {
+        wl_surface_attach(win->csd.surface[i], NULL, 0, 0);
+        wl_surface_commit(win->csd.surface[i]);
+    }
+
     wayl_roundtrip(win->term->wl);
 
-    /* Main window */
+        /* Main window */
     wl_surface_attach(win->surface, NULL, 0, 0);
     wl_surface_commit(win->surface);
     wayl_roundtrip(win->term->wl);
 
     tll_free(win->on_outputs);
+
+    for (size_t i = 0; i < 5; i++) {
+        if (win->csd.sub_surface[i] != NULL)
+            wl_subsurface_destroy(win->csd.sub_surface[i]);
+        if (win->csd.surface[i] != NULL)
+            wl_surface_destroy(win->csd.surface[i]);
+    }
+
     if (win->search_sub_surface != NULL)
         wl_subsurface_destroy(win->search_sub_surface);
     if (win->search_surface != NULL)
