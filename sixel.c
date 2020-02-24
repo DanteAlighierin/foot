@@ -52,23 +52,81 @@ sixel_destroy(struct sixel *sixel)
     sixel->data = NULL;
 }
 
-void
-sixel_delete_at_cursor(struct terminal *term)
+static void
+sixel_erase(struct terminal *term, struct sixel *sixel)
 {
-    const int row = term->grid->offset + term->cursor.point.row;
+    for (int i = 0; i < sixel->rows; i++) {
+        int r = (sixel->pos.row + i) & (term->grid->num_rows - 1);
+
+        struct row *row = term->grid->rows[r];
+        row->dirty = true;
+
+        for (int c = 0; c < term->grid->num_cols; c++)
+            row->cells[c].attrs.clean = 0;
+    }
+
+    sixel_destroy(sixel);
+}
+
+void
+sixel_delete_at_row(struct terminal *term, int _row)
+{
+    if (likely(tll_length(term->sixel_images) == 0))
+        return;
 
     tll_foreach(term->sixel_images, it) {
-        if (it->item.grid != term->grid)
+        struct sixel *six = &it->item;
+
+        if (six->grid != term->grid)
             continue;
 
-        const int start = it->item.pos.row;
-        const int end = start + it->item.rows;
+        const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
+        const int six_start = six->pos.row;
+        const int six_end = six_start + six->rows - 1;
 
-        if (row >= start && row < end) {
-            sixel_destroy(&it->item);
+        if (row >= six_start && row <= six_end) {
+            sixel_erase(term, six);
             tll_remove(term->sixel_images, it);
         }
     }
+}
+
+void
+sixel_delete_in_range(struct terminal *term, int _start, int _end)
+{
+    assert(_end >= _start);
+
+    if (likely(tll_length(term->sixel_images) == 0))
+        return;
+
+    if (_start == _end)
+        return sixel_delete_at_row(term, _start);
+
+    tll_foreach(term->sixel_images, it) {
+        struct sixel *six = &it->item;
+
+        if (six->grid != term->grid)
+            continue;
+
+        const int start = (term->grid->offset + _start) & (term->grid->num_rows - 1);
+        const int end = start + (_end - _start);
+        const int six_start = six->pos.row;
+        const int six_end = six_start + six->rows - 1;
+
+        if ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
+            (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
+            (start >= six_start && end <= six_end))      /* Fully within sixel range */
+        {
+            sixel_erase(term, six);
+            tll_remove(term->sixel_images, it);
+        }
+    }
+}
+
+void
+sixel_delete_at_cursor(struct terminal *term)
+{
+    sixel_delete_at_row(term, term->cursor.point.row);
 }
 
 void
@@ -85,7 +143,9 @@ sixel_unhook(struct terminal *term)
         .height = term->sixel.image.height,
         .rows = (term->sixel.image.height + term->cell_height - 1) / term->cell_height,
         .grid = term->grid,
-        .pos = (struct coord){term->cursor.point.col, term->grid->offset + term->cursor.point.row},
+        .pos = (struct coord){
+            term->cursor.point.col,
+            (term->grid->offset + term->cursor.point.row) & (term->grid->num_rows - 1)},
     };
 
     LOG_DBG("generating %dx%d pixman image", image.width, image.height);
@@ -95,8 +155,6 @@ sixel_unhook(struct terminal *term)
         image.width, image.height,
         term->sixel.image.data,
         term->sixel.image.width * sizeof(uint32_t));
-
-    tll_push_back(term->sixel_images, image);
 
     term->sixel.image.data = NULL;
     term->sixel.image.width = 0;
@@ -108,6 +166,8 @@ sixel_unhook(struct terminal *term)
         term_linefeed(term);
     term_formfeed(term);
     render_refresh(term);
+
+    tll_push_back(term->sixel_images, image);
 }
 
 static unsigned
@@ -421,16 +481,19 @@ sixel_colors_report_current(struct terminal *term)
 void
 sixel_colors_reset(struct terminal *term)
 {
-    term->sixel.palette_size = SIXEL_MAX_COLORS;
     LOG_DBG("sixel palette size reset to %u", SIXEL_MAX_COLORS);
+    term->sixel.palette_size = SIXEL_MAX_COLORS;
+    sixel_colors_report_current(term);
 }
 
 void
 sixel_colors_set(struct terminal *term, unsigned count)
 {
     unsigned new_palette_size = min(max(2, count), SIXEL_MAX_COLORS);
-    term->sixel.palette_size = new_palette_size;
     LOG_DBG("sixel palette size set to %u", new_palette_size);
+
+    term->sixel.palette_size = new_palette_size;
+    sixel_colors_report_current(term);
 }
 
 void
@@ -457,18 +520,19 @@ sixel_geometry_report_current(struct terminal *term)
 void
 sixel_geometry_reset(struct terminal *term)
 {
+    LOG_DBG("sixel geometry reset to %ux%u", max_width(term), max_height(term));
     term->sixel.max_width = 0;
     term->sixel.max_height = 0;
-    LOG_DBG("sixel geometry reset to %ux%u", max_width(term), max_height(term));
+    sixel_geometry_report_current(term);
 }
 
 void
 sixel_geometry_set(struct terminal *term, unsigned width, unsigned height)
 {
+    LOG_DBG("sixel geometry set to %ux%u", width, height);
     term->sixel.max_width = width;
     term->sixel.max_height = height;
-    LOG_DBG("sixel geometry set to %ux%u",
-            term->sixel.max_width, term->sixel.max_height);
+    sixel_geometry_report_current(term);
 }
 
 void

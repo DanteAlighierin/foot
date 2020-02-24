@@ -687,8 +687,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
-    int col = (x - term->x_margin) / term->cell_width;
-    int row = (y - term->y_margin) / term->cell_height;
+    int col = (x - term->margins.left) / term->cell_width;
+    int row = (y - term->margins.top) / term->cell_height;
 
     if (col < 0 || row < 0 || col >= term->cols || row >= term->rows)
         return;

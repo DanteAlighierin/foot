@@ -791,19 +791,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
             case 24: LOG_WARN("unimplemented: resize window (DECSLPP)"); break;
 
             case 14: { /* report window size in pixels */
-                const int x_margin = term->x_margin;
-                const int y_margin = term->y_margin;
-                const int cell_width = term->cols * term->cell_width;
-                const int cell_height = term->rows * term->cell_height;
-
-                /* right+bottom margins */
-                const int r_margin = term->width - cell_width - x_margin;
-                const int b_margin = term->height - cell_height - y_margin;
-
                 char reply[64];
                 snprintf(reply, sizeof(reply), "\033[4;%d;%dt",
-                         term->height - y_margin - b_margin,
-                         term->width - x_margin - r_margin);
+                         term->height - term->margins.top - term->margins.bottom,
+                         term->width - term->margins.left - term->margins.right);
                 term_to_slave(term, reply, strlen(reply));
                 break;
             }
