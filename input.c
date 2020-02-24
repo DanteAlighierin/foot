@@ -716,6 +716,9 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 
     assert(term != NULL);
 
+    if (term->active_surface != TERM_SURF_GRID)
+        return;
+
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
@@ -771,6 +774,10 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     }
 
     assert(term != NULL);
+
+    if (term->active_surface != TERM_SURF_GRID)
+        return;
+
     search_cancel(term);
 
     switch (state) {
