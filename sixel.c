@@ -156,8 +156,6 @@ sixel_unhook(struct terminal *term)
         term->sixel.image.data,
         term->sixel.image.width * sizeof(uint32_t));
 
-    tll_push_back(term->sixel_images, image);
-
     term->sixel.image.data = NULL;
     term->sixel.image.width = 0;
     term->sixel.image.height = 0;
@@ -168,6 +166,8 @@ sixel_unhook(struct terminal *term)
         term_linefeed(term);
     term_formfeed(term);
     render_refresh(term);
+
+    tll_push_back(term->sixel_images, image);
 }
 
 static unsigned

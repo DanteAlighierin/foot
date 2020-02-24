@@ -1366,6 +1366,7 @@ term_erase(struct terminal *term, const struct coord *start, const struct coord 
     if (start->row == end->row) {
         struct row *row = grid_row(term->grid, start->row);
         erase_cell_range(term, row, start->col, end->col);
+        sixel_delete_at_row(term, start->row);
         return;
     }
 
@@ -1378,6 +1379,7 @@ term_erase(struct terminal *term, const struct coord *start, const struct coord 
         erase_line(term, grid_row(term->grid, r));
 
     erase_cell_range(term, grid_row(term->grid, end->row), 0, end->col);
+    sixel_delete_in_range(term, start->row, end->row);
 }
 
 int
