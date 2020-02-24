@@ -664,15 +664,15 @@ render_csd(struct terminal *term)
 {
     LOG_INFO("rendering CSD");
 
-    const int border_width = 2 * term->scale;
+    const int border_width = 1 * term->scale;
     const int title_height = 20 * term->scale;
 
     const int geom[5][4] = {
         {0, -title_height, term->width, title_height},
-        {-border_width, -title_height - border_width, term->width + 2 * border_width, border_width},
-        {-border_width, -title_height - border_width, border_width, term->height + title_height + 2 * border_width},
-        {term->width, -title_height - border_width, border_width, term->height + title_height + 2 * border_width},
-        {-border_width, term->height, term->width + 2 * border_width, border_width},
+        {-border_width, -title_height - border_width, border_width, term->height + title_height + 2 * border_width},  /* left */
+        {term->width, -title_height - border_width, border_width, term->height + title_height + 2 * border_width},    /* right */
+        {-border_width, -title_height - border_width, term->width + 2 * border_width, border_width},                  /* top */
+        {-border_width, term->height, term->width + 2 * border_width, border_width},                                  /* bottom */
     };
 
     for (size_t i = 0; i < 5; i++) {
