@@ -237,8 +237,12 @@ struct terminal {
     int scale;
     int width;  /* pixels */
     int height; /* pixels */
-    int x_margin;
-    int y_margin;
+    struct {
+        int left;
+        int right;
+        int top;
+        int bottom;
+    } margins;
     int cols;   /* number of columns */
     int rows;   /* number of rows */
     int cell_width;  /* pixels per cell, x-wise */
