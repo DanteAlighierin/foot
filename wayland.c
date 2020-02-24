@@ -1033,11 +1033,8 @@ struct terminal *
 wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
 {
     tll_foreach(wayl->terms, it) {
-        if (it->item->window->surface == surface ||
-            it->item->window->search_surface == surface)
-        {
+        if (term_surface_kind(it->item, surface) != TERM_SURF_NONE)
             return it->item;
-        }
     }
 
     assert(false);
