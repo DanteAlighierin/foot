@@ -143,7 +143,9 @@ sixel_unhook(struct terminal *term)
         .height = term->sixel.image.height,
         .rows = (term->sixel.image.height + term->cell_height - 1) / term->cell_height,
         .grid = term->grid,
-        .pos = (struct coord){term->cursor.point.col, term->grid->offset + term->cursor.point.row},
+        .pos = (struct coord){
+            term->cursor.point.col,
+            (term->grid->offset + term->cursor.point.row) & (term->grid->num_rows - 1)},
     };
 
     LOG_DBG("generating %dx%d pixman image", image.width, image.height);
