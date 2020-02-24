@@ -52,23 +52,81 @@ sixel_destroy(struct sixel *sixel)
     sixel->data = NULL;
 }
 
-void
-sixel_delete_at_cursor(struct terminal *term)
+static void
+sixel_erase(struct terminal *term, struct sixel *sixel)
 {
-    const int row = term->grid->offset + term->cursor.point.row;
+    for (int i = 0; i < sixel->rows; i++) {
+        int r = (sixel->pos.row + i) & (term->grid->num_rows - 1);
+
+        struct row *row = term->grid->rows[r];
+        row->dirty = true;
+
+        for (int c = 0; c < term->grid->num_cols; c++)
+            row->cells[c].attrs.clean = 0;
+    }
+
+    sixel_destroy(sixel);
+}
+
+void
+sixel_delete_at_row(struct terminal *term, int _row)
+{
+    if (likely(tll_length(term->sixel_images) == 0))
+        return;
 
     tll_foreach(term->sixel_images, it) {
-        if (it->item.grid != term->grid)
+        struct sixel *six = &it->item;
+
+        if (six->grid != term->grid)
             continue;
 
-        const int start = it->item.pos.row;
-        const int end = start + it->item.rows;
+        const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
+        const int six_start = six->pos.row;
+        const int six_end = six_start + six->rows - 1;
 
-        if (row >= start && row < end) {
-            sixel_destroy(&it->item);
+        if (row >= six_start && row <= six_end) {
+            sixel_erase(term, six);
             tll_remove(term->sixel_images, it);
         }
     }
+}
+
+void
+sixel_delete_in_range(struct terminal *term, int _start, int _end)
+{
+    assert(_end >= _start);
+
+    if (likely(tll_length(term->sixel_images) == 0))
+        return;
+
+    if (_start == _end)
+        return sixel_delete_at_row(term, _start);
+
+    tll_foreach(term->sixel_images, it) {
+        struct sixel *six = &it->item;
+
+        if (six->grid != term->grid)
+            continue;
+
+        const int start = (term->grid->offset + _start) & (term->grid->num_rows - 1);
+        const int end = start + (_end - _start);
+        const int six_start = six->pos.row;
+        const int six_end = six_start + six->rows - 1;
+
+        if ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
+            (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
+            (start >= six_start && end <= six_end))      /* Fully within sixel range */
+        {
+            sixel_erase(term, six);
+            tll_remove(term->sixel_images, it);
+        }
+    }
+}
+
+void
+sixel_delete_at_cursor(struct terminal *term)
+{
+    sixel_delete_at_row(term, term->cursor.point.row);
 }
 
 void
