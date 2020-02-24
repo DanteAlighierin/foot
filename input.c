@@ -626,10 +626,40 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
-    wayl->mouse.col = x / term->cell_width;
-    wayl->mouse.row = y / term->cell_height;
+    switch ((term->active_surface = term_surface_kind(term, surface))) {
+    case TERM_SURF_NONE:
+        assert(false);
+        break;
 
-    term_xcursor_update(term);
+    case TERM_SURF_GRID:
+        wayl->mouse.col = x / term->cell_width;
+        wayl->mouse.row = y / term->cell_height;
+        term_xcursor_update(term);
+        break;
+
+    case TERM_SURF_SEARCH:
+        term_xcursor_update(term);
+        break;
+
+    case TERM_SURF_TITLE:
+        term->xcursor = "left_ptr";
+        render_xcursor_set(term);
+        break;
+
+    case TERM_SURF_BORDER_LEFT:
+    case TERM_SURF_BORDER_RIGHT:
+        term->xcursor = "size_hor";
+        render_xcursor_set(term);
+        break;
+
+    case TERM_SURF_BORDER_TOP:
+    case TERM_SURF_BORDER_BOTTOM:
+        term->xcursor = "size_ver";
+        render_xcursor_set(term);
+        break;
+    }
+
+
 }
 
 static void
