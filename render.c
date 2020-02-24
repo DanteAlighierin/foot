@@ -668,10 +668,14 @@ render_csd(struct terminal *term)
     const int title_height = 20 * term->scale;
 
     const int geom[5][4] = {
-        {-border_width, -title_height, term->width + 2 * border_width, title_height},
+        {0, -title_height, term->width, title_height},
+        {-border_width, -title_height - border_width, term->width + 2 * border_width, border_width},
+        {-border_width, -title_height - border_width, border_width, term->height + title_height + 2 * border_width},
+        {term->width, -title_height - border_width, border_width, term->height + title_height + 2 * border_width},
+        {-border_width, term->height, term->width + 2 * border_width, border_width},
     };
 
-    for (size_t i = 0; i < 1; i++) {
+    for (size_t i = 0; i < 5; i++) {
         const int x = geom[i][0];
         const int y = geom[i][1];
         const int width = geom[i][2];
@@ -680,7 +684,7 @@ render_csd(struct terminal *term)
         unsigned long cookie = shm_cookie_csd(term, 0);
         struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
 
-        pixman_color_t color = color_hex_to_pixman(0xffffff);
+        pixman_color_t color = color_hex_to_pixman(i == 0 ? 0xffffff : 0xff0000);
         pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
         pixman_image_fill_rectangles(
