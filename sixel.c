@@ -481,16 +481,19 @@ sixel_colors_report_current(struct terminal *term)
 void
 sixel_colors_reset(struct terminal *term)
 {
-    term->sixel.palette_size = SIXEL_MAX_COLORS;
     LOG_DBG("sixel palette size reset to %u", SIXEL_MAX_COLORS);
+    term->sixel.palette_size = SIXEL_MAX_COLORS;
+    sixel_colors_report_current(term);
 }
 
 void
 sixel_colors_set(struct terminal *term, unsigned count)
 {
     unsigned new_palette_size = min(max(2, count), SIXEL_MAX_COLORS);
-    term->sixel.palette_size = new_palette_size;
     LOG_DBG("sixel palette size set to %u", new_palette_size);
+
+    term->sixel.palette_size = new_palette_size;
+    sixel_colors_report_current(term);
 }
 
 void
@@ -517,18 +520,19 @@ sixel_geometry_report_current(struct terminal *term)
 void
 sixel_geometry_reset(struct terminal *term)
 {
+    LOG_DBG("sixel geometry reset to %ux%u", max_width(term), max_height(term));
     term->sixel.max_width = 0;
     term->sixel.max_height = 0;
-    LOG_DBG("sixel geometry reset to %ux%u", max_width(term), max_height(term));
+    sixel_geometry_report_current(term);
 }
 
 void
 sixel_geometry_set(struct terminal *term, unsigned width, unsigned height)
 {
+    LOG_DBG("sixel geometry set to %ux%u", width, height);
     term->sixel.max_width = width;
     term->sixel.max_height = height;
-    LOG_DBG("sixel geometry set to %ux%u",
-            term->sixel.max_width, term->sixel.max_height);
+    sixel_geometry_report_current(term);
 }
 
 void
