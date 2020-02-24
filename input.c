@@ -684,8 +684,10 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         LOG_WARN(
             "compositor sent pointer_leave event without a pointer_enter "
             "event: surface=%p", surface);
-    } else
+    } else {
+        old_moused->active_surface = TERM_SURF_NONE;
         term_xcursor_update(old_moused);
+    }
 }
 
 static void
