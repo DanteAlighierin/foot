@@ -185,6 +185,17 @@ struct sixel {
     struct coord pos;
 };
 
+enum term_surface {
+    TERM_SURF_NONE,
+    TERM_SURF_GRID,
+    TERM_SURF_SEARCH,
+    TERM_SURF_TITLE,
+    TERM_SURF_BORDER_LEFT,
+    TERM_SURF_BORDER_RIGHT,
+    TERM_SURF_BORDER_TOP,
+    TERM_SURF_BORDER_BOTTOM,
+};
+
 struct terminal {
     struct fdm *fdm;
     const struct config *conf;
@@ -312,6 +323,7 @@ struct terminal {
     struct wayland *wl;
     struct wl_window *window;
     bool visual_focus;
+    enum term_surface active_surface;
 
     struct {
         bool refresh_needed;  /* Terminal needs to be re-rendered, as soon-as-possible */
@@ -477,3 +489,6 @@ bool term_spawn_new(const struct terminal *term);
 
 void term_enable_app_sync_updates(struct terminal *term);
 void term_disable_app_sync_updates(struct terminal *term);
+
+enum term_surface term_surface_kind(
+    const struct terminal *term, const struct wl_surface *surface);

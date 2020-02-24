@@ -2133,3 +2133,24 @@ term_print(struct terminal *term, wchar_t wc, int width)
     else
         term->cursor.lcf = true;
 }
+
+enum term_surface
+term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
+{
+    if (surface == term->window->surface)
+        return TERM_SURF_GRID;
+    else if (surface == term->window->search_surface)
+        return TERM_SURF_SEARCH;
+    else if (surface == term->window->csd.surface[0])
+        return TERM_SURF_TITLE;
+    else if (surface == term->window->csd.surface[1])
+        return TERM_SURF_BORDER_LEFT;
+    else if (surface == term->window->csd.surface[2])
+        return TERM_SURF_BORDER_RIGHT;
+    else if (surface == term->window->csd.surface[3])
+        return TERM_SURF_BORDER_TOP;
+    else if (surface == term->window->csd.surface[4])
+        return TERM_SURF_BORDER_BOTTOM;
+    else
+        return TERM_SURF_NONE;
+}
