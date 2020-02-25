@@ -1117,7 +1117,7 @@ render_search_box(struct terminal *term)
 static bool
 maybe_resize(struct terminal *term, int width, int height, bool force)
 {
-    if (!force && (width == 0 || height == 0))
+    if (term->cell_width == 0 && term->cell_height == 0)
         return false;
 
     int scale = -1;
@@ -1131,13 +1131,13 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         scale = 1;
     }
 
+    if (width == 0 && height == 0) {
+        width = term->conf->width;
+        height = term->conf->height;
+    }
+
     width *= scale;
     height *= scale;
-
-    if (!force && width == 0 && height == 0) {
-        /* Assume we're not fully up and running yet */
-        return false;
-    }
 
     /* Scaled CSD border + title bar sizes */
     const int csd_border = term->window->use_csd ? csd_border_size * scale : 0;

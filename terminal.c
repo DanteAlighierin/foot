@@ -773,29 +773,12 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     term_set_window_title(term, "foot");
 
     /* Load fonts */
-#if 0
-    struct font *fonts[4];
-    if (!load_fonts_from_conf(term, conf, fonts))
-        goto err;
-    term_set_fonts(term, fonts);
-#endif
     term_font_dpi_changed(term);
 
     /* Start the slave/client */
     if ((term->slave = slave_spawn(term->ptmx, argc, term->cwd, argv, term_env, conf->shell, login_shell)) == -1)
         goto err;
 
-    if (term->width == 0 && term->height == 0) {
-
-        /* Try to use user-configured window dimentions */
-        unsigned width = conf->width;
-        unsigned height = conf->height;
-
-        /* Don't go below a single cell */
-        width = max(width, term->cell_width);
-        height = max(height, term->cell_height);
-        render_resize(term, width, height);
-    }
 
     return term;
 
