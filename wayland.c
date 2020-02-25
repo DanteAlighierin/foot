@@ -947,6 +947,7 @@ wayl_win_init(struct terminal *term)
         win->csd.surface[i] = wl_compositor_create_surface(wayl->compositor);
         win->csd.sub_surface[i] = wl_subcompositor_get_subsurface(
             wayl->sub_compositor, win->csd.surface[i], win->surface);
+        wl_subsurface_set_sync(win->csd.sub_surface[i]);
     }
 
     /* Scrollback search box */
