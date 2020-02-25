@@ -902,6 +902,7 @@ wayl_win_init(struct terminal *term)
 
     struct wl_window *win = calloc(1, sizeof(*win));
     win->term = term;
+    win->use_csd = true;
 
     win->surface = wl_compositor_create_surface(wayl->compositor);
     if (win->surface == NULL) {
