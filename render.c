@@ -740,9 +740,6 @@ grid_render(struct terminal *term)
     gettimeofday(&start_time, NULL);
 #endif
 
-    if (term->window->use_csd)
-        render_csd(term);
-
     assert(term->width > 0);
     assert(term->height > 0);
 
@@ -1244,6 +1241,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 damage_view:
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);
+    render_csd(term);
     term->render.last_buf = NULL;
     term_damage_view(term);
     render_refresh(term);
