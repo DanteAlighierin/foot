@@ -491,8 +491,8 @@ config_load(struct config *conf, const char *conf_path)
     *conf = (struct config) {
         .term = strdup("foot"),
         .shell = get_shell(),
-        .width = -1,
-        .height = -1,
+        .width = 800,
+        .height = 600,
         .pad_x = 2,
         .pad_y = 2,
         .fonts = tll_init(),

@@ -2,7 +2,7 @@
 
 # font=monospace
 # scrollback=1000
-# geometry=500x300
+# geometry=800x600
 # pad=2x2
 # shell=<user's default shell (from /etc/passwd)> (you may need to override if you need a login shell)
 # term=foot

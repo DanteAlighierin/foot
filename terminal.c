@@ -791,13 +791,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         unsigned width = conf->width;
         unsigned height = conf->height;
 
-        if (width == -1) {
-            /* No user-configuration - use 80x24 cells */
-            assert(height == -1);
-            width = 80 * term->cell_width;
-            height = 24 * term->cell_height;
-        }
-
         /* Don't go below a single cell */
         width = max(width, term->cell_width);
         height = max(height, term->cell_height);
