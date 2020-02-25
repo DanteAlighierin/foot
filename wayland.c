@@ -513,19 +513,28 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
                       uint32_t serial)
 {
     LOG_DBG("xdg-surface: configure");
-    xdg_surface_ack_configure(xdg_surface, serial);
 
     struct wl_window *win = data;
     struct terminal *term = win->term;
 
     win->is_configured = true;
 
-    render_resize(term, win->configure.width, win->configure.height);
+    xdg_surface_ack_configure(xdg_surface, serial);
+    bool resized = render_resize(term, win->configure.width, win->configure.height);
 
     if (win->configure.is_activated)
         term_visual_focus_in(term);
     else
         term_visual_focus_out(term);
+
+    if (!resized) {
+        /*
+         * kwin seems to need a commit for each configure ack, or it
+         * will get stuck. Since we'll get a "real" commit soon if we
+         * resized, only commit here if size did *not* change
+         */
+        wl_surface_commit(win->surface);
+    }
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {
