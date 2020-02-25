@@ -1139,6 +1139,27 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         return;
     }
 
+    /* Scaled CSD border + title bar sizes */
+    const int csd_border = term->window->use_csd ? csd_border_size * scale : 0;
+    const int csd_title = term->window->use_csd ? csd_title_size * scale : 0;
+    const int csd_x = 2 * csd_border;
+    const int csd_y = 2 * csd_border + csd_title;
+
+    /* Padding */
+    const int pad_x = scale * term->conf->pad_x;
+    const int pad_y = scale * term->conf->pad_y;
+
+    /* Don't shrink grid too much */
+    const int min_cols = 20;
+    const int min_rows = 4;
+
+    /* Minimum window size */
+    const int min_width = csd_x + 2 * pad_x + min_cols * term->cell_width;
+    const int min_height = csd_y + 2 * pad_y + min_rows * term->cell_height;
+
+    width = max(width, min_width);
+    height = max(height, min_height);
+
     if (!force && width == term->width && height == term->height && scale == term->scale)
         return;
 
@@ -1157,13 +1178,9 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     const int old_cols = term->cols;
     const int old_rows = term->rows;
 
-    /* Padding */
-    const int pad_x = term->width > 2 * scale * term->conf->pad_x ? scale * term->conf->pad_x : 0;
-    const int pad_y = term->height > 2 * scale * term->conf->pad_y ? scale * term->conf->pad_y : 0;
-
     /* Screen rows/cols after resize */
-    const int new_cols = max((term->width - 2 * pad_x) / term->cell_width, 1);
-    const int new_rows = max((term->height - 2 * pad_y) / term->cell_height, 1);
+    const int new_cols = (term->width - 2 * pad_x - csd_x) / term->cell_width;
+    const int new_rows = (term->height - 2 * pad_y - csd_y) / term->cell_height;
 
     /* Grid rows/cols after resize */
     const int new_normal_grid_rows = 1 << (32 - __builtin_clz(new_rows + scrollback_lines - 1));
@@ -1173,10 +1190,15 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     assert(new_rows >= 1);
 
     /* Margins */
-    term->margins.left = (term->width - new_cols * term->cell_width) / 2;
-    term->margins.top = (term->height - new_rows * term->cell_height) / 2;
+    term->margins.left = csd_border + (term->width - csd_x - new_cols * term->cell_width) / 2;
+    term->margins.top = csd_border + csd_title + (term->height - csd_y - new_rows * term->cell_height) / 2;
     term->margins.right = term->width - new_cols * term->cell_width - term->margins.left;
     term->margins.bottom = term->height - new_rows * term->cell_height - term->margins.top;
+
+    assert(term->margins.left >= csd_border + pad_x);
+    assert(term->margins.right >= csd_border + pad_x);
+    assert(term->margins.top >= csd_border + csd_title + pad_y);
+    assert(term->margins.bottom >= csd_border + pad_y);
 
     if (new_cols == old_cols && new_rows == old_rows) {
         LOG_DBG("grid layout unaffected; skipping reflow");
@@ -1239,6 +1261,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->render.last_cursor.cell = NULL;
 
 damage_view:
+    xdg_toplevel_set_min_size(term->window->xdg_toplevel, min_width / scale, min_height / scale);
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);
     render_csd(term);
