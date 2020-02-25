@@ -82,6 +82,9 @@ struct wl_primary {
     uint32_t serial;
 };
 
+extern const int csd_border_size;
+extern const int csd_title_size;
+
 struct wayland;
 struct wl_window {
     struct terminal *term;

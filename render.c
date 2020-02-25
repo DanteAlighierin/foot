@@ -24,6 +24,9 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+const int csd_border_size = 5;
+const int csd_title_size = 20;
+
 struct renderer {
     struct fdm *fdm;
     struct wayland *wayl;
