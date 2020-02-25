@@ -956,6 +956,11 @@ wayl_win_init(struct terminal *term)
         wayl->sub_compositor, win->search_surface, win->surface);
     wl_subsurface_set_desync(win->search_sub_surface);
 
+    struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
+    wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
+    wl_surface_set_opaque_region(win->search_surface, region);
+    wl_region_destroy(region);
+
     wl_surface_commit(win->surface);
     return win;
 
