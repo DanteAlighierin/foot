@@ -15,6 +15,8 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon-compose.h>
 
+#include <xdg-shell.h>
+
 #define LOG_MODULE "input"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
@@ -647,14 +649,28 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_BORDER_LEFT:
+        if (y < 10)
+            term->xcursor = "top_left_corner";
+        else
+            term->xcursor = "left_side";
+        render_xcursor_set(term);
+        break;
+
     case TERM_SURF_BORDER_RIGHT:
-        term->xcursor = "size_hor";
+        term->xcursor = "right_side";
         render_xcursor_set(term);
         break;
 
     case TERM_SURF_BORDER_TOP:
+        if (x < 10)
+            term->xcursor = "top_left_corner";
+        else
+            term->xcursor = "top_side";
+        render_xcursor_set(term);
+        break;
+
     case TERM_SURF_BORDER_BOTTOM:
-        term->xcursor = "size_ver";
+        term->xcursor = "bottom_side";
         render_xcursor_set(term);
         break;
     }
@@ -716,11 +732,32 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 
     assert(term != NULL);
 
-    if (term->active_surface != TERM_SURF_GRID)
-        return;
-
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
+
+    switch (term->active_surface) {
+    case TERM_SURF_NONE:
+    case TERM_SURF_GRID:
+    case TERM_SURF_SEARCH:
+    case TERM_SURF_TITLE:
+        break;
+
+    case TERM_SURF_BORDER_LEFT:
+        if (y < 10)
+            term->xcursor = "top_left_corner";
+        else
+            term->xcursor = "left_side";
+        render_xcursor_set(term);
+        break;
+
+    case TERM_SURF_BORDER_RIGHT:
+    case TERM_SURF_BORDER_TOP:
+    case TERM_SURF_BORDER_BOTTOM:
+        break;
+    }
+
+    if (term->active_surface != TERM_SURF_GRID)
+        return;
 
     int col = (x - term->margins.left) / term->cell_width;
     int row = (y - term->margins.top) / term->cell_height;
@@ -774,6 +811,37 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     }
 
     assert(term != NULL);
+
+    switch (term->active_surface) {
+    case TERM_SURF_NONE:
+        assert(false);
+        break;
+
+    case TERM_SURF_TITLE:
+        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+            xdg_toplevel_move(term->window->xdg_toplevel, term->wl->seat, serial);
+        return;
+
+    case TERM_SURF_BORDER_LEFT:
+    case TERM_SURF_BORDER_RIGHT:
+    case TERM_SURF_BORDER_TOP:
+    case TERM_SURF_BORDER_BOTTOM: {
+        static const int map[] = {
+            [TERM_SURF_BORDER_LEFT] = XDG_TOPLEVEL_RESIZE_EDGE_LEFT,
+            [TERM_SURF_BORDER_RIGHT] = XDG_TOPLEVEL_RESIZE_EDGE_RIGHT,
+            [TERM_SURF_BORDER_TOP] = XDG_TOPLEVEL_RESIZE_EDGE_TOP,
+            [TERM_SURF_BORDER_BOTTOM] = XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM,
+        };
+        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+            xdg_toplevel_resize(term->window->xdg_toplevel, term->wl->seat, serial, map[term->active_surface]);
+        return;
+    }
+
+    case TERM_SURF_GRID:
+    case TERM_SURF_SEARCH:
+        break;
+    }
+
 
     if (term->active_surface != TERM_SURF_GRID)
         return;
