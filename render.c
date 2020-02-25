@@ -1040,8 +1040,11 @@ render_search_box(struct terminal *term)
 
     const size_t wanted_visible_chars = max(20, term->search.len);
 
-    const int scale = term->scale >= 1 ? term->scale : 1;
-    const size_t margin = scale * 3;
+    assert(term->scale >= 1);
+    const int scale = term->scale;
+
+    const int csd = term->window->use_csd ? csd_border_size * scale : 0;
+    const size_t margin = csd + 3 * scale;
 
     const size_t width = min(
         term->width - 2 * margin,
@@ -1102,14 +1105,15 @@ render_search_box(struct terminal *term)
     if (term->search.cursor >= term->search.len)
         draw_bar(term, buf->pix, font, &fg, x, y);
 
+    wl_surface_attach(term->window->search_surface, buf->wl_buf, 0, 0);
+    wl_surface_damage_buffer(term->window->search_surface, 0, 0, width, height);
+    wl_surface_set_buffer_scale(term->window->search_surface, scale);
+
     wl_subsurface_set_position(
         term->window->search_sub_surface,
         max(0, (int32_t)term->width - width - margin),
         max(0, (int32_t)term->height - height - margin));
 
-    wl_surface_damage_buffer(term->window->search_surface, 0, 0, width, height);
-    wl_surface_attach(term->window->search_surface, buf->wl_buf, 0, 0);
-    wl_surface_set_buffer_scale(term->window->search_surface, scale);
     wl_surface_commit(term->window->search_surface);
 }
 
