@@ -662,32 +662,44 @@ render_worker_thread(void *_ctx)
     return -1;
 }
 
-static void
+void
 render_csd(struct terminal *term)
 {
-    LOG_INFO("rendering CSD");
+    if (!term->window->use_csd)
+        return;
 
-    const int border_width = 1 * term->scale;
-    const int title_height = 20 * term->scale;
+    const int border_width = csd_border_size * term->scale;
+    const int title_height = csd_title_size * term->scale;
 
     const int geom[5][4] = {
-        {0, -title_height, term->width, title_height},
-        {-border_width, -title_height - border_width, border_width, term->height + title_height + 2 * border_width},  /* left */
-        {term->width, -title_height - border_width, border_width, term->height + title_height + 2 * border_width},    /* right */
-        {-border_width, -title_height - border_width, term->width + 2 * border_width, border_width},                  /* top */
-        {-border_width, term->height, term->width + 2 * border_width, border_width},                                  /* bottom */
+        /*                        X,                           Y,                          WIDTH,       HEIGHT */
+        {              border_width,                border_width, term->width - 2 * border_width, title_height}, /* title */
+        {                         0,                border_width,                   border_width, term->height - 2 * border_width}, /* left */
+        {term->width - border_width,                border_width,                   border_width, term->height - 2 * border_width}, /* right */
+        {                         0,                           0,                    term->width, border_width}, /* top */
+        {                         0, term->height - border_width,                    term->width, border_width}, /* bottom */
     };
 
-    for (size_t i = 0; i < 5; i++) {
+    struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
+    if (region != NULL)
+        wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
+
+    for (size_t i = 0; i < sizeof(geom) / sizeof(geom[0]); i++) {
+        struct wl_surface *surf = term->window->csd.surface[i];
+        struct wl_subsurface *sub = term->window->csd.sub_surface[i];
+
         const int x = geom[i][0];
         const int y = geom[i][1];
         const int width = geom[i][2];
         const int height = geom[i][3];
 
-        unsigned long cookie = shm_cookie_csd(term, 0);
+        unsigned long cookie = shm_cookie_csd(term, i);
         struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
 
-        pixman_color_t color = color_hex_to_pixman(i == 0 ? 0xffffff : 0xff0000);
+        pixman_color_t color = color_hex_to_pixman(term->colors.fg);
+        if (!term->visual_focus)
+            pixman_color_dim(&color);
+
         pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
         pixman_image_fill_rectangles(
@@ -695,14 +707,17 @@ render_csd(struct terminal *term)
             &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
         pixman_image_unref(src);
 
-        wl_subsurface_set_position(
-            term->window->csd.sub_surface[i], x, y);
+        wl_subsurface_set_position(sub, x, y);
 
-        wl_surface_attach(term->window->csd.surface[i], buf->wl_buf, 0, 0);
-        wl_surface_damage_buffer(term->window->csd.surface[i], 0, 0, buf->width, buf->height);
-        wl_surface_set_buffer_scale(term->window->csd.surface[i], term->scale);
-        wl_surface_commit(term->window->csd.surface[i]);
+        wl_surface_attach(surf, buf->wl_buf, 0, 0);
+        wl_surface_set_opaque_region(surf, region);
+        wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
+        wl_surface_set_buffer_scale(surf, term->scale);
+        wl_surface_commit(surf);
     }
+
+    if (region != NULL)
+        wl_region_destroy(region);
 }
 
 static void frame_callback(

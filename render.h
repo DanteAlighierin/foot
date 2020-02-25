@@ -16,6 +16,7 @@ void render_refresh(struct terminal *term);
 bool render_xcursor_set(struct terminal *term);
 
 void render_search_box(struct terminal *term);
+void render_csd(struct terminal *term);
 
 struct render_worker_context {
     int my_id;
