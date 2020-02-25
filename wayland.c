@@ -554,6 +554,13 @@ xdg_toplevel_decoration_configure(void *data,
         LOG_ERR("unimplemented: unknown XDG toplevel decoration mode: %u", mode);
         break;
     }
+
+    if (win->is_configured) {
+        struct terminal *term = win->term;
+        int scale = term->scale;
+
+        render_resize_force(term, term->width / scale, term->height / scale);
+    }
 }
 
 static const struct zxdg_toplevel_decoration_v1_listener xdg_toplevel_decoration_listener = {
