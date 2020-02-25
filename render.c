@@ -1114,11 +1114,11 @@ render_search_box(struct terminal *term)
 }
 
 /* Move to terminal.c? */
-static void
+static bool
 maybe_resize(struct terminal *term, int width, int height, bool force)
 {
     if (!force && (width == 0 || height == 0))
-        return;
+        return false;
 
     int scale = -1;
     tll_foreach(term->window->on_outputs, it) {
@@ -1136,7 +1136,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     if (!force && width == 0 && height == 0) {
         /* Assume we're not fully up and running yet */
-        return;
+        return false;
     }
 
     /* Scaled CSD border + title bar sizes */
@@ -1161,7 +1161,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     height = max(height, min_height);
 
     if (!force && width == term->width && height == term->height && scale == term->scale)
-        return;
+        return false;
 
     selection_cancel(term);
 
@@ -1261,22 +1261,24 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->render.last_cursor.cell = NULL;
 
 damage_view:
-    xdg_toplevel_set_min_size(term->window->xdg_toplevel, min_width / scale, min_height / scale);
+    xdg_toplevel_set_min_size(
+        term->window->xdg_toplevel, min_width / scale, min_height / scale);
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);
     render_csd(term);
     term->render.last_buf = NULL;
     term_damage_view(term);
     render_refresh(term);
+    return true;
 }
 
-void
+bool
 render_resize(struct terminal *term, int width, int height)
 {
     return maybe_resize(term, width, height, false);
 }
 
-void
+bool
 render_resize_force(struct terminal *term, int width, int height)
 {
     return maybe_resize(term, width, height, true);
