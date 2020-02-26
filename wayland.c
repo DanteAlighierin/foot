@@ -531,9 +531,14 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
          * sub-surfaces. Thus, since our resize code assumes the size
          * to resize to is the main window only, adjust the size here,
          * to account for the CSDs.
+         *
+         * Of course this does *not* apply when we position the CSDs
+         * *inside* the main surface.
          */
+#if FOOT_CSD_OUTSIDE
         width -= 2 * csd_border_size * win->term->scale;
         height -= (2 * csd_border_size + csd_title_size) * win->term->scale;
+#endif
     }
 
     win->configure.is_activated = is_activated;
