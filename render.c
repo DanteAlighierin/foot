@@ -1174,7 +1174,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     const int csd_title = 0;
 #else
     const int csd_border = term->window->use_csd == CSD_YES ? csd_border_size * scale : 0;
-    const int csd_title = term->window->use_csd == CSD_YES ? ? csd_title_size * scale : 0;
+    const int csd_title = term->window->use_csd == CSD_YES ? csd_title_size * scale : 0;
 #endif
 
     const int csd_x = 2 * csd_border;
