@@ -618,12 +618,8 @@ xdg_toplevel_decoration_configure(void *data,
         break;
     }
 
-    if (win->is_configured) {
-        struct terminal *term = win->term;
-        int scale = term->scale;
-
-        render_resize_force(term, term->width / scale, term->height / scale);
-    }
+    if (win->is_configured)
+        render_csd(win->term);
 }
 
 static const struct zxdg_toplevel_decoration_v1_listener xdg_toplevel_decoration_listener = {
