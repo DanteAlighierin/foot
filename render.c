@@ -1225,8 +1225,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     assert(new_rows >= 1);
 
     /* Margins */
-    term->margins.left = csd_border + (term->width - csd_x - new_cols * term->cell_width) / 2;
-    term->margins.top = csd_border + csd_title + (term->height - csd_y - new_rows * term->cell_height) / 2;
+    term->margins.left = csd_border + pad_x;
+    term->margins.top = csd_border + csd_title + pad_y;
     term->margins.right = term->width - new_cols * term->cell_width - term->margins.left;
     term->margins.bottom = term->height - new_rows * term->cell_height - term->margins.top;
 
