@@ -82,7 +82,7 @@ struct wl_primary {
     uint32_t serial;
 };
 
-#define FOOT_CSD_OUTSIDE 1
+#define FOOT_CSD_OUTSIDE 0
 extern const int csd_border_size;
 extern const int csd_title_size;
 
