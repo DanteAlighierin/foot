@@ -426,6 +426,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
                        int32_t width, int32_t height, struct wl_array *states)
 {
     bool is_activated = false;
+    bool is_resizing = false;
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char state_str[2048];
@@ -450,9 +451,12 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
             is_activated = true;
             break;
 
+        case XDG_TOPLEVEL_STATE_RESIZING:
+            is_resizing = true;
+            break;
+
         case XDG_TOPLEVEL_STATE_MAXIMIZED:
         case XDG_TOPLEVEL_STATE_FULLSCREEN:
-        case XDG_TOPLEVEL_STATE_RESIZING:
         case XDG_TOPLEVEL_STATE_TILED_LEFT:
         case XDG_TOPLEVEL_STATE_TILED_RIGHT:
         case XDG_TOPLEVEL_STATE_TILED_TOP:
@@ -490,6 +494,20 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
      * xdg_surface_configure() after we've ack:ed the event.
      */
     struct wl_window *win = data;
+
+    if (win->use_csd == CSD_YES && width != 0 && height != 0) {
+        /*
+         * The size received here is the *total* window size.
+         *
+         * This *includes* the (negatively positioned) CSD
+         * sub-surfaces. Thus, since our resize code assumes the size
+         * to resize to is the main window only, adjust the size here,
+         * to account for the CSDs.
+         */
+        width -= 2 * csd_border_size * win->term->scale;
+        height -= (2 * csd_border_size + csd_title_size) * win->term->scale;
+    }
+
     win->configure.is_activated = is_activated;
     win->configure.width = width;
     win->configure.height = height;
