@@ -820,6 +820,18 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_TITLE:
         if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
             xdg_toplevel_move(term->window->xdg_toplevel, term->wl->seat, serial);
+        else if (button == BTN_RIGHT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+            if (term->window->is_maximized) {
+                LOG_INFO("UNsetting maximized");
+                xdg_toplevel_unset_maximized(term->window->xdg_toplevel);
+            } else {
+                LOG_INFO("setting maximized");
+                xdg_toplevel_set_maximized(term->window->xdg_toplevel);
+            }
+        } else if (button == BTN_MIDDLE && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+            LOG_INFO("setting minimized");
+            xdg_toplevel_set_minimized(term->window->xdg_toplevel);
+        }
         return;
 
     case TERM_SURF_BORDER_LEFT:
