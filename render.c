@@ -1163,6 +1163,11 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     if (width == 0 && height == 0) {
         width = term->conf->width;
         height = term->conf->height;
+
+#if FOOT_CSD_OUTSIDE
+        width -= 2 * csd_border_size;
+        height -= 2 * csd_border_size + csd_title_size;
+#endif
     }
 
     width *= scale;
