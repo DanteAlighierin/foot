@@ -87,7 +87,7 @@ struct wl_primary {
  * correctly. When this define is 0, we instead position the CSD
  * sub-surfaces inside the main surface, and offset the grid content
  * accordingly. */
-#define FOOT_CSD_OUTSIDE 0
+#define FOOT_CSD_OUTSIDE 1
 extern const int csd_border_size;
 extern const int csd_title_size;
 
