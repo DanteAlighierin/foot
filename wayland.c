@@ -551,12 +551,12 @@ xdg_toplevel_decoration_configure(void *data,
     switch (mode) {
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
         LOG_DBG("using client-side decorations");
-        win->use_csd = true;
+        win->use_csd = CSD_YES;
         break;
 
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
         LOG_DBG("using server-side decorations");
-        win->use_csd = false;
+        win->use_csd = CSD_NO;
         break;
 
     default:
@@ -902,7 +902,7 @@ wayl_win_init(struct terminal *term)
 
     struct wl_window *win = calloc(1, sizeof(*win));
     win->term = term;
-    win->use_csd = true;
+    win->use_csd = CSD_UNKNOWN;
 
     win->surface = wl_compositor_create_surface(wayl->compositor);
     if (win->surface == NULL) {

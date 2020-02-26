@@ -82,6 +82,7 @@ struct wl_primary {
     uint32_t serial;
 };
 
+#define FOOT_CSD_OUTSIDE 1
 extern const int csd_border_size;
 extern const int csd_title_size;
 
@@ -94,7 +95,7 @@ struct wl_window {
 
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
 
-    bool use_csd;
+    enum {CSD_UNKNOWN, CSD_NO, CSD_YES } use_csd;
 
     struct {
         struct wl_surface *surface[5];

@@ -665,59 +665,74 @@ render_worker_thread(void *_ctx)
 void
 render_csd(struct terminal *term)
 {
-    if (!term->window->use_csd)
-        return;
+    switch (term->window->use_csd) {
+    case CSD_UNKNOWN:
+    case CSD_NO:
+        break;
 
-    const int border_width = csd_border_size * term->scale;
-    const int title_height = csd_title_size * term->scale;
+    case CSD_YES: {
+        const int border_width = csd_border_size * term->scale;
+        const int title_height = csd_title_size * term->scale;
 
-    const int geom[5][4] = {
-        /*                        X,                           Y,                          WIDTH,       HEIGHT */
-        {              border_width,                border_width, term->width - 2 * border_width, title_height}, /* title */
-        {                         0,                border_width,                   border_width, term->height - 2 * border_width}, /* left */
-        {term->width - border_width,                border_width,                   border_width, term->height - 2 * border_width}, /* right */
-        {                         0,                           0,                    term->width, border_width}, /* top */
-        {                         0, term->height - border_width,                    term->width, border_width}, /* bottom */
-    };
+        const int geom[5][4] = {
+            /*                        X,                           Y,                          WIDTH,       HEIGHT */
+#if FOOT_CSD_OUTSIDE
+            {             0,                -title_height,                    term->width,                title_height}, /* title */
+            { -border_width,                -title_height,                   border_width, title_height + term->height}, /* left */
+            {   term->width,                -title_height,                   border_width, title_height + term->height}, /* right */
+            { -border_width, -title_height - border_width, term->width + 2 * border_width,                border_width}, /* top */
+            { -border_width,                 term->height, term->width + 2 * border_width,                border_width}, /* bottom */
+#else
+            {              border_width,                border_width, term->width - 2 * border_width,                    title_height}, /* title */
+            {                         0,                border_width,                   border_width, term->height - 2 * border_width}, /* left */
+            {term->width - border_width,                border_width,                   border_width, term->height - 2 * border_width}, /* right */
+            {                         0,                           0,                    term->width,                    border_width}, /* top */
+            {                         0, term->height - border_width,                    term->width,                    border_width}, /* bottom */
+#endif
+        };
 
-    struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
-    if (region != NULL)
-        wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
+        struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
+        if (region != NULL)
+            wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
 
-    for (size_t i = 0; i < sizeof(geom) / sizeof(geom[0]); i++) {
-        struct wl_surface *surf = term->window->csd.surface[i];
-        struct wl_subsurface *sub = term->window->csd.sub_surface[i];
+        for (size_t i = 0; i < sizeof(geom) / sizeof(geom[0]); i++) {
+            struct wl_surface *surf = term->window->csd.surface[i];
+            struct wl_subsurface *sub = term->window->csd.sub_surface[i];
 
-        const int x = geom[i][0];
-        const int y = geom[i][1];
-        const int width = geom[i][2];
-        const int height = geom[i][3];
+            const int x = geom[i][0];
+            const int y = geom[i][1];
+            const int width = geom[i][2];
+            const int height = geom[i][3];
 
-        unsigned long cookie = shm_cookie_csd(term, i);
-        struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
+            unsigned long cookie = shm_cookie_csd(term, i);
+            struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
 
-        pixman_color_t color = color_hex_to_pixman(term->colors.fg);
-        if (!term->visual_focus)
-            pixman_color_dim(&color);
+            pixman_color_t color = color_hex_to_pixman(term->colors.fg);
+            if (!term->visual_focus)
+                pixman_color_dim(&color);
 
-        pixman_image_t *src = pixman_image_create_solid_fill(&color);
+            pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
-        pixman_image_fill_rectangles(
-            PIXMAN_OP_SRC, buf->pix, &color, 1,
-            &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
-        pixman_image_unref(src);
+            pixman_image_fill_rectangles(
+                PIXMAN_OP_SRC, buf->pix, &color, 1,
+                &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
+            pixman_image_unref(src);
 
-        wl_subsurface_set_position(sub, x, y);
+            wl_subsurface_set_position(sub, x, y);
 
-        wl_surface_attach(surf, buf->wl_buf, 0, 0);
-        wl_surface_set_opaque_region(surf, region);
-        wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
-        wl_surface_set_buffer_scale(surf, term->scale);
-        wl_surface_commit(surf);
+            wl_surface_attach(surf, buf->wl_buf, 0, 0);
+            wl_surface_set_opaque_region(surf, region);
+            wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
+            wl_surface_set_buffer_scale(surf, term->scale);
+            wl_surface_commit(surf);
+        }
+
+        if (region != NULL)
+            wl_region_destroy(region);
+
+        break;
     }
-
-    if (region != NULL)
-        wl_region_destroy(region);
+    }
 }
 
 static void frame_callback(
@@ -1043,7 +1058,11 @@ render_search_box(struct terminal *term)
     assert(term->scale >= 1);
     const int scale = term->scale;
 
-    const int csd = term->window->use_csd ? csd_border_size * scale : 0;
+#if FOOT_CSD_OUTSIDE
+    const int csd = 0;
+#else
+    const int csd = term->window->use_csd == CSD_YES ? csd_border_size * scale : 0;
+#endif
     const size_t margin = csd + 3 * scale;
 
     const size_t width = min(
@@ -1144,8 +1163,14 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     height *= scale;
 
     /* Scaled CSD border + title bar sizes */
-    const int csd_border = term->window->use_csd ? csd_border_size * scale : 0;
-    const int csd_title = term->window->use_csd ? csd_title_size * scale : 0;
+#if FOOT_CSD_OUTSIDE
+    const int csd_border = 0;
+    const int csd_title = 0;
+#else
+    const int csd_border = term->window->use_csd == CSD_YES ? csd_border_size * scale : 0;
+    const int csd_title = term->window->use_csd == CSD_YES ? ? csd_title_size * scale : 0;
+#endif
+
     const int csd_x = 2 * csd_border;
     const int csd_y = 2 * csd_border + csd_title;
 

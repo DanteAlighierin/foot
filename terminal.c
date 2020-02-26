@@ -1633,14 +1633,18 @@ term_visual_focus_in(struct terminal *term)
     if (term->cursor_blink.active)
         cursor_blink_start_timer(term);
 
-#if 1
-    for (int i = 0; i < 5; i++)
-        wl_subsurface_set_desync(term->window->csd.sub_surface[i]);
+#if 1  /* Weston seems to be buggy with synchronized CSDs */
+    if (term->window->use_csd == CSD_YES) {
+        for (int i = 0; i < 5; i++)
+            wl_subsurface_set_desync(term->window->csd.sub_surface[i]);
+    }
 #endif
     render_csd(term);
 #if 1
-    for (int i = 0; i < 5; i++)
-        wl_subsurface_set_sync(term->window->csd.sub_surface[i]);
+    if (term->window->use_csd == CSD_YES) {
+        for (int i = 0; i < 5; i++)
+            wl_subsurface_set_sync(term->window->csd.sub_surface[i]);
+    }
 #endif
     cursor_refresh(term);
 }
@@ -1656,13 +1660,17 @@ term_visual_focus_out(struct terminal *term)
         cursor_blink_stop_timer(term);
 
 #if 1
-    for (int i = 0; i < 5; i++)
-        wl_subsurface_set_desync(term->window->csd.sub_surface[i]);
+    if (term->window->use_csd == CSD_YES) {
+        for (int i = 0; i < 5; i++)
+            wl_subsurface_set_desync(term->window->csd.sub_surface[i]);
+    }
 #endif
     render_csd(term);
 #if 1
-    for (int i = 0; i < 5; i++)
-        wl_subsurface_set_sync(term->window->csd.sub_surface[i]);
+    if (term->window->use_csd == CSD_YES) {
+        for (int i = 0; i < 5; i++)
+            wl_subsurface_set_sync(term->window->csd.sub_surface[i]);
+    }
 #endif
     cursor_refresh(term);
 }
