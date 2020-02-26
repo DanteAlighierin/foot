@@ -671,6 +671,9 @@ render_csd(struct terminal *term)
         break;
 
     case CSD_YES: {
+        if (term->window->is_fullscreen)
+            return;
+
         const int border_width = csd_border_size * term->scale;
         const int title_height = csd_title_size * term->scale;
 

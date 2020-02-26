@@ -37,6 +37,39 @@ static bool wayl_reload_cursor_theme(
     struct wayland *wayl, struct terminal *term);
 
 static void
+csd_instantiate(struct wl_window *win)
+{
+    struct wayland *wayl = win->term->wl;
+    assert(wayl != NULL);
+
+    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
+        assert(win->csd.surface[i] == NULL);
+        assert(win->csd.sub_surface[i] == NULL);
+
+        win->csd.surface[i] = wl_compositor_create_surface(wayl->compositor);
+        win->csd.sub_surface[i] = wl_subcompositor_get_subsurface(
+            wayl->sub_compositor, win->csd.surface[i], win->surface);
+
+        wl_subsurface_set_sync(win->csd.sub_surface[i]);
+        wl_surface_commit(win->csd.surface[i]);
+    }
+}
+
+static void
+csd_destroy(struct wl_window *win)
+{
+    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
+        if (win->csd.sub_surface[i] != NULL)
+            wl_subsurface_destroy(win->csd.sub_surface[i]);
+        if (win->csd.surface[i] != NULL)
+            wl_surface_destroy(win->csd.surface[i]);
+
+        win->csd.surface[i] = NULL;
+        win->csd.sub_surface[i] = NULL;
+    }
+}
+
+static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
     struct wayland *wayl = data;
@@ -426,7 +459,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
                        int32_t width, int32_t height, struct wl_array *states)
 {
     bool is_activated = false;
-    bool is_resizing = false;
+    bool is_fullscreen = false;
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char state_str[2048];
@@ -447,16 +480,11 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     enum xdg_toplevel_state *state;
     wl_array_for_each(state, states) {
         switch (*state) {
-        case XDG_TOPLEVEL_STATE_ACTIVATED:
-            is_activated = true;
-            break;
+        case XDG_TOPLEVEL_STATE_ACTIVATED:   is_activated = true; break;
+        case XDG_TOPLEVEL_STATE_FULLSCREEN: is_fullscreen = true; break;
 
         case XDG_TOPLEVEL_STATE_RESIZING:
-            is_resizing = true;
-            break;
-
         case XDG_TOPLEVEL_STATE_MAXIMIZED:
-        case XDG_TOPLEVEL_STATE_FULLSCREEN:
         case XDG_TOPLEVEL_STATE_TILED_LEFT:
         case XDG_TOPLEVEL_STATE_TILED_RIGHT:
         case XDG_TOPLEVEL_STATE_TILED_TOP:
@@ -495,7 +523,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
      */
     struct wl_window *win = data;
 
-    if (win->use_csd == CSD_YES && width != 0 && height != 0) {
+    if (!is_fullscreen && win->use_csd == CSD_YES && width != 0 && height != 0) {
         /*
          * The size received here is the *total* window size.
          *
@@ -509,6 +537,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     }
 
     win->configure.is_activated = is_activated;
+    win->configure.is_fullscreen = is_fullscreen;
     win->configure.width = width;
     win->configure.height = height;
 }
@@ -538,6 +567,14 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
 
     win->is_configured = true;
 
+    if (win->is_fullscreen != win->configure.is_fullscreen && win->use_csd == CSD_YES) {
+        if (win->configure.is_fullscreen)
+            csd_destroy(win);
+        else
+            csd_instantiate(win);
+        win->is_fullscreen = win->configure.is_fullscreen;
+    }
+
     xdg_surface_ack_configure(xdg_surface, serial);
     bool resized = render_resize(term, win->configure.width, win->configure.height);
 
@@ -559,39 +596,6 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
 static const struct xdg_surface_listener xdg_surface_listener = {
     .configure = &xdg_surface_configure,
 };
-
-static void
-csd_instantiate(struct wl_window *win)
-{
-    struct wayland *wayl = win->term->wl;
-    assert(wayl != NULL);
-
-    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
-        assert(win->csd.surface[i] == NULL);
-        assert(win->csd.sub_surface[i] == NULL);
-
-        win->csd.surface[i] = wl_compositor_create_surface(wayl->compositor);
-        win->csd.sub_surface[i] = wl_subcompositor_get_subsurface(
-            wayl->sub_compositor, win->csd.surface[i], win->surface);
-
-        wl_subsurface_set_sync(win->csd.sub_surface[i]);
-        wl_surface_commit(win->csd.surface[i]);
-    }
-}
-
-static void
-csd_destroy(struct wl_window *win)
-{
-    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
-        if (win->csd.sub_surface[i] != NULL)
-            wl_subsurface_destroy(win->csd.sub_surface[i]);
-        if (win->csd.surface[i] != NULL)
-            wl_surface_destroy(win->csd.surface[i]);
-
-        win->csd.surface[i] = NULL;
-        win->csd.sub_surface[i] = NULL;
-    }
-}
 
 static void
 xdg_toplevel_decoration_configure(void *data,
