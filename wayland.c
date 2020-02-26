@@ -460,6 +460,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 {
     bool is_activated = false;
     bool is_fullscreen = false;
+    bool is_maximized = false;
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char state_str[2048];
@@ -480,11 +481,11 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     enum xdg_toplevel_state *state;
     wl_array_for_each(state, states) {
         switch (*state) {
-        case XDG_TOPLEVEL_STATE_ACTIVATED:   is_activated = true; break;
+        case XDG_TOPLEVEL_STATE_ACTIVATED:  is_activated = true; break;
         case XDG_TOPLEVEL_STATE_FULLSCREEN: is_fullscreen = true; break;
+        case XDG_TOPLEVEL_STATE_MAXIMIZED:  is_maximized = true; break;
 
         case XDG_TOPLEVEL_STATE_RESIZING:
-        case XDG_TOPLEVEL_STATE_MAXIMIZED:
         case XDG_TOPLEVEL_STATE_TILED_LEFT:
         case XDG_TOPLEVEL_STATE_TILED_RIGHT:
         case XDG_TOPLEVEL_STATE_TILED_TOP:
@@ -543,6 +544,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
 
     win->configure.is_activated = is_activated;
     win->configure.is_fullscreen = is_fullscreen;
+    win->configure.is_maximized = is_maximized;
     win->configure.width = width;
     win->configure.height = height;
 }
@@ -571,6 +573,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     struct terminal *term = win->term;
 
     win->is_configured = true;
+    win->is_maximized = win->configure.is_maximized;
 
     if (win->is_fullscreen != win->configure.is_fullscreen && win->use_csd == CSD_YES) {
         if (win->configure.is_fullscreen)

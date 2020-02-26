@@ -112,9 +112,11 @@ struct wl_window {
 
     bool is_configured;
     bool is_fullscreen;
+    bool is_maximized;
     struct {
         bool is_activated;
         bool is_fullscreen;
+        bool is_maximized;
         int width;
         int height;
     } configure;
