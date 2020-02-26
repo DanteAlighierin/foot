@@ -40,8 +40,14 @@ search_ensure_size(struct terminal *term, size_t wanted_size)
 static void
 search_cancel_keep_selection(struct terminal *term)
 {
-    wl_surface_attach(term->window->search_surface, NULL, 0, 0);
-    wl_surface_commit(term->window->search_surface);
+    struct wl_window *win = term->window;
+    if (win->search_sub_surface != NULL)
+        wl_subsurface_destroy(win->search_sub_surface);
+    if (win->search_surface != NULL)
+        wl_surface_destroy(win->search_surface);
+
+    win->search_surface = NULL;
+    win->search_sub_surface = NULL;
 
     free(term->search.buf);
     term->search.buf = NULL;
@@ -64,6 +70,19 @@ search_begin(struct terminal *term)
 
     search_cancel_keep_selection(term);
     selection_cancel(term);
+
+    /* On-demand instantiate wayland surface */
+    struct wl_window *win = term->window;
+    struct wayland *wayl = term->wl;
+    win->search_surface = wl_compositor_create_surface(wayl->compositor);
+    win->search_sub_surface = wl_subcompositor_get_subsurface(
+        wayl->sub_compositor, win->search_surface, win->surface);
+    wl_subsurface_set_desync(win->search_sub_surface);
+
+    struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
+    wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
+    wl_surface_set_opaque_region(win->search_surface, region);
+    wl_region_destroy(region);
 
     term->search.original_view = term->grid->view;
     term->search.view_followed_offset = term->grid->view == term->grid->offset;

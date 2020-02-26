@@ -29,6 +29,7 @@
 #include "render.h"
 #include "selection.h"
 
+#define ALEN(v) (sizeof(v) / sizeof(v[0]))
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
@@ -542,6 +543,39 @@ static const struct xdg_surface_listener xdg_surface_listener = {
 };
 
 static void
+csd_instantiate(struct wl_window *win)
+{
+    struct wayland *wayl = win->term->wl;
+    assert(wayl != NULL);
+
+    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
+        assert(win->csd.surface[i] == NULL);
+        assert(win->csd.sub_surface[i] == NULL);
+
+        win->csd.surface[i] = wl_compositor_create_surface(wayl->compositor);
+        win->csd.sub_surface[i] = wl_subcompositor_get_subsurface(
+            wayl->sub_compositor, win->csd.surface[i], win->surface);
+
+        wl_subsurface_set_sync(win->csd.sub_surface[i]);
+        wl_surface_commit(win->csd.surface[i]);
+    }
+}
+
+static void
+csd_destroy(struct wl_window *win)
+{
+    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
+        if (win->csd.sub_surface[i] != NULL)
+            wl_subsurface_destroy(win->csd.sub_surface[i]);
+        if (win->csd.surface[i] != NULL)
+            wl_surface_destroy(win->csd.surface[i]);
+
+        win->csd.surface[i] = NULL;
+        win->csd.sub_surface[i] = NULL;
+    }
+}
+
+static void
 xdg_toplevel_decoration_configure(void *data,
                                   struct zxdg_toplevel_decoration_v1 *zxdg_toplevel_decoration_v1,
                                   uint32_t mode)
@@ -552,11 +586,13 @@ xdg_toplevel_decoration_configure(void *data,
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
         LOG_DBG("using client-side decorations");
         win->use_csd = CSD_YES;
+        csd_instantiate(win);
         break;
 
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
         LOG_DBG("using server-side decorations");
         win->use_csd = CSD_NO;
+        csd_destroy(win);
         break;
 
     default:
@@ -941,25 +977,11 @@ wayl_win_init(struct terminal *term)
 #endif
         zxdg_toplevel_decoration_v1_add_listener(
             win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, win);
+    } else {
+        /* No decoration manager - thus we *must* draw our own decorations */
+        win->use_csd = CSD_YES;
+        csd_instantiate(win);
     }
-
-    for (size_t i = 0; i < 5; i++) {
-        win->csd.surface[i] = wl_compositor_create_surface(wayl->compositor);
-        win->csd.sub_surface[i] = wl_subcompositor_get_subsurface(
-            wayl->sub_compositor, win->csd.surface[i], win->surface);
-        wl_subsurface_set_sync(win->csd.sub_surface[i]);
-    }
-
-    /* Scrollback search box */
-    win->search_surface = wl_compositor_create_surface(wayl->compositor);
-    win->search_sub_surface = wl_subcompositor_get_subsurface(
-        wayl->sub_compositor, win->search_surface, win->surface);
-    wl_subsurface_set_desync(win->search_sub_surface);
-
-    struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
-    wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
-    wl_surface_set_opaque_region(win->search_surface, region);
-    wl_region_destroy(region);
 
     wl_surface_commit(win->surface);
     return win;
@@ -986,13 +1008,17 @@ wayl_win_destroy(struct wl_window *win)
      */
 
     /* Scrollback search */
-    wl_surface_attach(win->search_surface, NULL, 0, 0);
-    wl_surface_commit(win->search_surface);
+    if (win->search_surface != NULL) {
+        wl_surface_attach(win->search_surface, NULL, 0, 0);
+        wl_surface_commit(win->search_surface);
+    }
 
     /* CSD */
-    for (size_t i = 0; i < 5; i++) {
-        wl_surface_attach(win->csd.surface[i], NULL, 0, 0);
-        wl_surface_commit(win->csd.surface[i]);
+    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
+        if (win->csd.surface[i] != NULL) {
+            wl_surface_attach(win->csd.surface[i], NULL, 0, 0);
+            wl_surface_commit(win->csd.surface[i]);
+        }
     }
 
     wayl_roundtrip(win->term->wl);
@@ -1004,13 +1030,7 @@ wayl_win_destroy(struct wl_window *win)
 
     tll_free(win->on_outputs);
 
-    for (size_t i = 0; i < 5; i++) {
-        if (win->csd.sub_surface[i] != NULL)
-            wl_subsurface_destroy(win->csd.sub_surface[i]);
-        if (win->csd.surface[i] != NULL)
-            wl_surface_destroy(win->csd.surface[i]);
-    }
-
+    csd_destroy(win);
     if (win->search_sub_surface != NULL)
         wl_subsurface_destroy(win->search_sub_surface);
     if (win->search_surface != NULL)
