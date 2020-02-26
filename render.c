@@ -1140,6 +1140,9 @@ render_search_box(struct terminal *term)
 static bool
 maybe_resize(struct terminal *term, int width, int height, bool force)
 {
+    if (!term->window->is_configured)
+        return false;
+
     if (term->cell_width == 0 && term->cell_height == 0)
         return false;
 
