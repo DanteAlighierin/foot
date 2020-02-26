@@ -630,8 +630,18 @@ xdg_toplevel_decoration_configure(void *data,
         break;
     }
 
-    if (win->is_configured)
+    if (win->is_configured) {
+#if FOOT_CSD_OUTSIDE
         render_csd(win->term);
+#else
+        /* TODO: we could increase the width/height to account for the
+         * CSDs. This would increase the window size, but keep the
+         * grid size fixed */
+        struct terminal *term = win->term;
+        int scale = term->scale;
+        render_resize_force(term, term->width / scale, term->height / scale);
+#endif
+    }
 }
 
 static const struct zxdg_toplevel_decoration_v1_listener xdg_toplevel_decoration_listener = {
