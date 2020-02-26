@@ -1160,16 +1160,6 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         scale = 1;
     }
 
-    if (width == 0 && height == 0) {
-        width = term->conf->width;
-        height = term->conf->height;
-
-#if FOOT_CSD_OUTSIDE
-        width -= 2 * csd_border_size;
-        height -= 2 * csd_border_size + csd_title_size;
-#endif
-    }
-
     width *= scale;
     height *= scale;
 
@@ -1181,6 +1171,27 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     const int csd_border = term->window->use_csd == CSD_YES ? csd_border_size * scale : 0;
     const int csd_title = term->window->use_csd == CSD_YES ? csd_title_size * scale : 0;
 #endif
+
+    if (width == 0 && height == 0) {
+        /*
+         * The compositor is letting us choose the size
+         *
+         * If we have a "last" used size - use that. Otherwise, use
+         * the size from the user configuration.
+         */
+        if (term->unmaximized_width != 0 && term->unmaximized_height != 0) {
+            width = term->unmaximized_width;
+            height = term->unmaximized_height;
+        } else {
+            width = term->conf->width * scale;
+            height = term->conf->height * scale;
+
+#if FOOT_CSD_OUTSIDE
+            width -= 2 * csd_border;
+            height -= 2 * csd_border + csd_title;
+#endif
+        }
+    }
 
     const int csd_x = 2 * csd_border;
     const int csd_y = 2 * csd_border + csd_title;
@@ -1301,6 +1312,11 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->render.last_cursor.cell = NULL;
 
 damage_view:
+    if (!term->window->is_maximized) {
+        term->unmaximized_width = term->width;
+        term->unmaximized_height = term->height;
+    }
+
     xdg_toplevel_set_min_size(
         term->window->xdg_toplevel, min_width / scale, min_height / scale);
     tll_free(term->normal.scroll_damage);
