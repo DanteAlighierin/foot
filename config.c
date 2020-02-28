@@ -562,10 +562,10 @@ config_load(struct config *conf, const char *conf_path)
     ret = parse_config_file(f, conf, conf_path);
     fclose(f);
 
+out:
     if (ret && tll_length(conf->fonts) == 0)
         tll_push_back(conf->fonts, strdup("monospace"));
 
-out:
     free(default_path);
     return ret;
 }
