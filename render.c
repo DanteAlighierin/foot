@@ -218,6 +218,9 @@ color_hex_to_rgb(uint32_t color)
 static inline pixman_color_t
 color_hex_to_pixman_with_alpha(uint32_t color, uint16_t alpha)
 {
+    if (alpha == 0)
+        return (pixman_color_t){0, 0, 0, 0};
+
     int alpha_div = 0xffff / alpha;
     return (pixman_color_t){
         .red =   ((color >> 16 & 0xff) | (color >> 8 & 0xff00)) / alpha_div,
