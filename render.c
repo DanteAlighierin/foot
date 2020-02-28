@@ -723,9 +723,12 @@ render_csd(struct terminal *term)
             }
 
             unsigned long cookie = shm_cookie_csd(term, i);
-            struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
+            struct buffer *buf = shm_get_buffer(
+                term->wl->shm, width, height, cookie);
 
-            pixman_color_t color = color_hex_to_pixman(term->colors.fg);
+            pixman_color_t color = color_hex_to_pixman_with_alpha(
+                i == 0 ? term->colors.fg : 0x0, i == 0 ? 0xffff : 0x0);
+
             if (!term->visual_focus)
                 pixman_color_dim(&color);
 
@@ -739,7 +742,7 @@ render_csd(struct terminal *term)
             wl_subsurface_set_position(sub, x, y);
 
             wl_surface_attach(surf, buf->wl_buf, 0, 0);
-            wl_surface_set_opaque_region(surf, region);
+            //wl_surface_set_opaque_region(surf, region);
             wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
             wl_surface_set_buffer_scale(surf, term->scale);
             wl_surface_commit(surf);
