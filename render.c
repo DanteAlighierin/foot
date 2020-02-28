@@ -683,7 +683,12 @@ render_csd(struct terminal *term)
 
         const int title_height = csd_title_size * term->scale;
 
-        const int geom[5][4] = {
+        const struct {
+            int x;
+            int y;
+            int width;
+            int height;
+        } geom[] = {
             /*                        X,                           Y,                          WIDTH,       HEIGHT */
 #if FOOT_CSD_OUTSIDE
             {             0,                -title_height,                    term->width,                title_height}, /* title */
@@ -708,10 +713,10 @@ render_csd(struct terminal *term)
             struct wl_surface *surf = term->window->csd.surface[i];
             struct wl_subsurface *sub = term->window->csd.sub_surface[i];
 
-            const int x = geom[i][0];
-            const int y = geom[i][1];
-            const int width = geom[i][2];
-            const int height = geom[i][3];
+            const int x = geom[i].x;
+            const int y = geom[i].y;
+            const int width = geom[i].width;
+            const int height = geom[i].height;
 
             if (width == 0 || height == 0) {
                 /* CSD borders aren't rendered in maximized mode */
