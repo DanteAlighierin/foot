@@ -1198,13 +1198,24 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
             width = term->unmaximized_width;
             height = term->unmaximized_height;
         } else {
-            width = term->conf->width * scale;
-            height = term->conf->height * scale;
+            width = term->conf->width;
+            height = term->conf->height;
 
-#if FOOT_CSD_OUTSIDE
-            width -= 2 * csd_border;
-            height -= 2 * csd_border + csd_title;
-#endif
+            if (term->window->use_csd == CSD_YES) {
+                assert(!term->window->is_fullscreen);
+
+                /* Account for CSDs, to make actual window size match
+                 * the configured size */
+                if (!term->window->is_maximized) {
+                    width -= 2 * csd_border_size;
+                    height -= 2 * csd_border_size + csd_title_size;
+                } else {
+                    height -= csd_title_size;
+                }
+            }
+
+            width *= scale;
+            height *= scale;
         }
     }
 
