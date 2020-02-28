@@ -773,7 +773,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     term_set_window_title(term, "foot");
 
     /* Load fonts */
-    term_font_dpi_changed(term);
+    if (!term_font_dpi_changed(term))
+        goto err;
 
     /* Start the slave/client */
     if ((term->slave = slave_spawn(term->ptmx, argc, term->cwd, argv, term_env, conf->shell, login_shell)) == -1)
