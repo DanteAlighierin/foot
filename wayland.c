@@ -595,11 +595,41 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     else
         term_visual_focus_out(term);
 
-    if (!resized) {
+    static bool desktop_is_gnome = false;
+    static bool desktop_is_initialized = false;
+
+    if (!desktop_is_initialized) {
+        const char *current_desktop = getenv("XDG_CURRENT_DESKTOP");
+
+        desktop_is_gnome = current_desktop != NULL &&
+            strcasestr(current_desktop, "gnome") != NULL;
+
+        if (desktop_is_gnome)
+            LOG_WARN("applying wl_surface_commit() workaround for mutter");
+
+        desktop_is_initialized = true;
+    }
+
+    if (desktop_is_gnome) {
         /*
-         * kwin seems to need a commit for each configure ack, or it
-         * will get stuck. Since we'll get a "real" commit soon if we
-         * resized, only commit here if size did *not* change
+         * Resizing the window under mutter causes the "other" side to
+         * jump back and forth, *even* if we re-render and commit a
+         * properly resized frame immediately.
+         *
+         * For that reason, the code path below also does not work,
+         * since in case we *did* resize, it appears the commit
+         * happens "too late" after the ack.
+         *
+         * Finally, doing this on any other compositor breaks the CSD
+         * synchronization with the main surface. Hence we only do
+         * this when running under mutter.
+         */
+        wl_surface_commit(win->surface);
+    } else if (!resized) {
+        /*
+         * If we didn't resize, we won't be commit a new surface
+         * anytime soon. Some compositors require a commit in
+         * combination with an ack - make them happy.
          */
         wl_surface_commit(win->surface);
     }
