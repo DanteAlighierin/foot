@@ -677,7 +677,10 @@ render_csd(struct terminal *term)
         if (term->window->is_fullscreen)
             return;
 
-        const int border_width = csd_border_size * term->scale;
+        /* Only title bar is rendered in maximized mode */
+        const int border_width = !term->window->is_maximized
+            ? csd_border_size * term->scale : 0;
+
         const int title_height = csd_title_size * term->scale;
 
         const int geom[5][4] = {
@@ -709,6 +712,15 @@ render_csd(struct terminal *term)
             const int y = geom[i][1];
             const int width = geom[i][2];
             const int height = geom[i][3];
+
+            if (width == 0 || height == 0) {
+                /* CSD borders aren't rendered in maximized mode */
+                assert(term->window->is_maximized);
+                wl_subsurface_set_position(sub, 0, 0);
+                wl_surface_attach(surf, NULL, 0, 0);
+                wl_surface_commit(surf);
+                continue;
+            }
 
             unsigned long cookie = shm_cookie_csd(term, i);
             struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
