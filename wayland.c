@@ -1007,10 +1007,8 @@ wayl_win_init(struct terminal *term)
     if (wayl->xdg_decoration_manager != NULL) {
         win->xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
             wayl->xdg_decoration_manager, win->xdg_toplevel);
-#if 0  /* Let compositor choose */
         zxdg_toplevel_decoration_v1_set_mode(
             win->xdg_toplevel_decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
-#endif
         zxdg_toplevel_decoration_v1_add_listener(
             win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, win);
     } else {
