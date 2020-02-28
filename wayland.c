@@ -537,8 +537,12 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
          * *inside* the main surface.
          */
 #if FOOT_CSD_OUTSIDE
-        width -= 2 * csd_border_size * win->term->scale;
-        height -= (2 * csd_border_size + csd_title_size) * win->term->scale;
+        if (!is_maximized) {
+            width -= 2 * csd_border_size;
+            height -= 2 * csd_border_size + csd_title_size;
+        } else {
+            height -= csd_title_size;
+        }
 #endif
     }
 
@@ -630,17 +634,21 @@ xdg_toplevel_decoration_configure(void *data,
         break;
     }
 
-    if (win->is_configured) {
-#if FOOT_CSD_OUTSIDE
-        render_csd(win->term);
-#else
-        /* TODO: we could increase the width/height to account for the
-         * CSDs. This would increase the window size, but keep the
-         * grid size fixed */
+    if (win->is_configured && win->use_csd == CSD_YES) {
         struct terminal *term = win->term;
         int scale = term->scale;
-        render_resize_force(term, term->width / scale, term->height / scale);
+
+        int width = term->width / scale;
+        int height = term->height / scale;
+
+#if FOOT_CSD_OUTSIDE
+        if (!term->window->is_maximized) {
+            width -= 2 * csd_border_size;
+            height -= 2 * csd_border_size + csd_title_size;
+        } else
+            height -= csd_title_size;
 #endif
+        render_resize_force(term, width, height);
     }
 }
 
