@@ -1015,6 +1015,7 @@ wayl_win_init(struct terminal *term)
         /* No decoration manager - thus we *must* draw our own decorations */
         win->use_csd = CSD_YES;
         csd_instantiate(win);
+        LOG_WARN("no decoration manager available - using CSDs unconditionally");
     }
 
     wl_surface_commit(win->surface);
