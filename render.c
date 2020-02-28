@@ -1299,10 +1299,10 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->cols = new_cols;
     term->rows = new_rows;
 
-    LOG_INFO("resize: %dx%d, grid: cols=%d, rows=%d "
-             "(left-margin=%d, right-margin=%d, top-margin=%d, bottom-margin=%d)",
-             term->width, term->height, term->cols, term->rows,
-             term->margins.left, term->margins.right, term->margins.top, term->margins.bottom);
+    LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d "
+            "(left-margin=%d, right-margin=%d, top-margin=%d, bottom-margin=%d)",
+            term->width, term->height, term->cols, term->rows,
+            term->margins.left, term->margins.right, term->margins.top, term->margins.bottom);
 
     /* Signal TIOCSWINSZ */
     if (ioctl(term->ptmx, TIOCSWINSZ,
