@@ -105,6 +105,7 @@ struct wl_window {
     struct {
         struct wl_surface *surface[5];
         struct wl_subsurface *sub_surface[5];
+        int x, y;
     } csd;
 
     /* Scrollback search */

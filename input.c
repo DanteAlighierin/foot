@@ -611,6 +611,63 @@ input_repeat(struct wayland *wayl, uint32_t key)
     keyboard_key(wayl, NULL, wayl->input_serial, 0, key, XKB_KEY_DOWN);
 }
 
+static bool
+is_top_left(const struct terminal *term, int x, int y)
+{
+    return (
+        (term->active_surface == TERM_SURF_BORDER_LEFT && y < 10 * term->scale) ||
+        (term->active_surface == TERM_SURF_BORDER_TOP && x < (10 + csd_border_size) * term->scale));
+}
+
+static bool
+is_top_right(const struct terminal *term, int x, int y)
+{
+    return (
+        (term->active_surface == TERM_SURF_BORDER_RIGHT && y < 10 * term->scale) ||
+        (term->active_surface == TERM_SURF_BORDER_TOP && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale));
+}
+
+static bool
+is_bottom_left(const struct terminal *term, int x, int y)
+{
+    return (
+        (term->active_surface == TERM_SURF_BORDER_LEFT && y > csd_title_size * term->scale + term->height) ||
+        (term->active_surface == TERM_SURF_BORDER_BOTTOM && x < (10 + csd_border_size) * term->scale));
+}
+
+static bool
+is_bottom_right(const struct terminal *term, int x, int y)
+{
+    return (
+        (term->active_surface == TERM_SURF_BORDER_RIGHT && y > csd_title_size * term->scale + term->height) ||
+        (term->active_surface == TERM_SURF_BORDER_BOTTOM && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale));
+}
+
+static const char *
+xcursor_for_csd_border(struct terminal *term, int x, int y)
+{
+    if (is_top_left(term, x, y))
+        return "top_left_corner";
+    else if (is_top_right(term, x, y))
+        return "top_right_corner";
+    else if (is_bottom_left(term, x, y))
+        return "bottom_left_corner";
+    else if (is_bottom_right(term, x, y))
+        return "bottom_right_corner";
+    else if (term->active_surface == TERM_SURF_BORDER_LEFT)
+        return "left_side";
+    else if (term->active_surface == TERM_SURF_BORDER_RIGHT)
+        return "right_side";
+    else if (term->active_surface == TERM_SURF_BORDER_TOP)
+        return "top_side";
+    else if (term->active_surface == TERM_SURF_BORDER_BOTTOM)
+        return"bottom_side";
+    else {
+        assert(false);
+        return NULL;
+    }
+}
+
 static void
 wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
                  uint32_t serial, struct wl_surface *surface,
@@ -643,34 +700,16 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
         term_xcursor_update(term);
         break;
 
+    case TERM_SURF_BORDER_LEFT:
+    case TERM_SURF_BORDER_RIGHT:
+    case TERM_SURF_BORDER_TOP:
+    case TERM_SURF_BORDER_BOTTOM:
+        term->xcursor = xcursor_for_csd_border(term, x, y);
+        render_xcursor_set(term);
+        break;
+
     case TERM_SURF_TITLE:
         term->xcursor = "left_ptr";
-        render_xcursor_set(term);
-        break;
-
-    case TERM_SURF_BORDER_LEFT:
-        if (y < 10)
-            term->xcursor = "top_left_corner";
-        else
-            term->xcursor = "left_side";
-        render_xcursor_set(term);
-        break;
-
-    case TERM_SURF_BORDER_RIGHT:
-        term->xcursor = "right_side";
-        render_xcursor_set(term);
-        break;
-
-    case TERM_SURF_BORDER_TOP:
-        if (x < 10)
-            term->xcursor = "top_left_corner";
-        else
-            term->xcursor = "top_side";
-        render_xcursor_set(term);
-        break;
-
-    case TERM_SURF_BORDER_BOTTOM:
-        term->xcursor = "bottom_side";
         render_xcursor_set(term);
         break;
     }
@@ -735,6 +774,9 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
+    term->window->csd.x = x;
+    term->window->csd.y = y;
+
     switch (term->active_surface) {
     case TERM_SURF_NONE:
     case TERM_SURF_GRID:
@@ -743,16 +785,11 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_BORDER_LEFT:
-        if (y < 10)
-            term->xcursor = "top_left_corner";
-        else
-            term->xcursor = "left_side";
-        render_xcursor_set(term);
-        break;
-
     case TERM_SURF_BORDER_RIGHT:
     case TERM_SURF_BORDER_TOP:
     case TERM_SURF_BORDER_BOTTOM:
+        term->xcursor = xcursor_for_csd_border(term, x, y);
+        render_xcursor_set(term);
         break;
     }
 
@@ -844,8 +881,27 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             [TERM_SURF_BORDER_TOP] = XDG_TOPLEVEL_RESIZE_EDGE_TOP,
             [TERM_SURF_BORDER_BOTTOM] = XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM,
         };
-        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
-            xdg_toplevel_resize(term->window->xdg_toplevel, term->wl->seat, serial, map[term->active_surface]);
+
+        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+            int resize_type;
+
+            int x = term->window->csd.x;
+            int y = term->window->csd.y;
+
+            if (is_top_left(term, x, y))
+                resize_type = XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT;
+            else if (is_top_right(term, x, y))
+                resize_type = XDG_TOPLEVEL_RESIZE_EDGE_TOP_RIGHT;
+            else if (is_bottom_left(term, x, y))
+                resize_type = XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_LEFT;
+            else if (is_bottom_right(term, x, y))
+                resize_type = XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT;
+            else
+                resize_type = map[term->active_surface];
+
+            xdg_toplevel_resize(
+                term->window->xdg_toplevel, term->wl->seat, serial, resize_type);
+        }
         return;
     }
 
