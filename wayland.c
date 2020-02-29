@@ -133,6 +133,9 @@ static const struct wl_seat_listener seat_listener = {
 static void
 update_term_for_output_change(struct terminal *term)
 {
+    if (tll_length(term->window->on_outputs) == 0)
+        return;
+
     render_resize(term, term->width / term->scale, term->height / term->scale);
     term_font_dpi_changed(term);
     wayl_reload_cursor_theme(term->wl, term);
