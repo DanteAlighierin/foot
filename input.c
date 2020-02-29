@@ -758,6 +758,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 {
     struct wayland *wayl = data;
     struct terminal *term = wayl->mouse_focus;
+    struct wl_window *win = term->window;
 
     /* Workaround buggy Sway 1.2 */
     if (term == NULL) {
@@ -787,7 +788,17 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     switch (term->active_surface) {
     case TERM_SURF_NONE:
     case TERM_SURF_SEARCH:
+        break;
+
     case TERM_SURF_TITLE:
+        /* We've started a 'move' timer, but user started dragging
+         * right away - abort the timer and initiate the actual move
+         * right away */
+        if (wayl->mouse.button == BTN_LEFT && win->csd.move_timeout_fd != -1) {
+            fdm_del(wayl->fdm, win->csd.move_timeout_fd);
+            win->csd.move_timeout_fd = -1;
+            xdg_toplevel_move(win->xdg_toplevel, wayl->seat, win->csd.serial);
+        }
         break;
 
     case TERM_SURF_BORDER_LEFT:
@@ -920,6 +931,14 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                     LOG_ERRNO("failed to configure XDG toplevel move timer FD");
                     close(fd);
                 }
+            }
+        }
+
+        else if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
+            struct wl_window *win = term->window;
+            if (win->csd.move_timeout_fd != -1) {
+                fdm_del(wayl->fdm, win->csd.move_timeout_fd);
+                win->csd.move_timeout_fd = -1;
             }
         }
         return;
