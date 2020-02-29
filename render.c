@@ -744,7 +744,7 @@ render_csd(struct terminal *term)
                 &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
             pixman_image_unref(src);
 
-            wl_subsurface_set_position(sub, x, y);
+            wl_subsurface_set_position(sub, x / term->scale, y / term->scale);
 
             wl_surface_attach(surf, buf->wl_buf, 0, 0);
             //wl_surface_set_opaque_region(surf, region);
@@ -1156,8 +1156,8 @@ render_search_box(struct terminal *term)
 
     wl_subsurface_set_position(
         term->window->search_sub_surface,
-        max(0, (int32_t)term->width - width - margin),
-        max(0, (int32_t)term->height - height - margin));
+        max(0, (int32_t)term->width - width - margin) / scale,
+        max(0, (int32_t)term->height - height - margin) / scale);
 
     wl_surface_commit(term->window->search_surface);
 }
