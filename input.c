@@ -734,6 +734,9 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         wayl->pointer.xcursor = NULL;
     }
 
+    /* Reset mouse state */
+    memset(&wayl->mouse, 0, sizeof(wayl->mouse));
+
     wayl->mouse_focus = NULL;
     if (old_moused == NULL) {
         LOG_WARN(
