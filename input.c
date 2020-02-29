@@ -849,6 +849,28 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     assert(term != NULL);
 
+    /* Update double/triple click state */
+    if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+        /* Time since last click */
+        struct timeval now, since_last;
+        gettimeofday(&now, NULL);
+        timersub(&now, &wayl->mouse.last_time, &since_last);
+
+        /* Double- or triple click? */
+        if (button == wayl->mouse.last_button &&
+            since_last.tv_sec == 0 &&
+            since_last.tv_usec <= 300 * 1000)
+        {
+            wayl->mouse.count++;
+        } else
+            wayl->mouse.count = 1;
+
+        wayl->mouse.button = button; /* For motion events */
+        wayl->mouse.last_button = button;
+        wayl->mouse.last_time = now;
+    } else
+        wayl->mouse.button = 0; /* For motion events */
+
     switch (term->active_surface) {
     case TERM_SURF_NONE:
         assert(false);
@@ -910,28 +932,12 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         break;
     }
 
-
-    if (term->active_surface != TERM_SURF_GRID)
-        return;
+    assert(term->active_surface == TERM_SURF_GRID);
 
     search_cancel(term);
 
     switch (state) {
     case WL_POINTER_BUTTON_STATE_PRESSED: {
-        /* Time since last click */
-        struct timeval now, since_last;
-        gettimeofday(&now, NULL);
-        timersub(&now, &wayl->mouse.last_time, &since_last);
-
-        /* Double- or triple click? */
-        if (button == wayl->mouse.last_button &&
-            since_last.tv_sec == 0 &&
-            since_last.tv_usec <= 300 * 1000)
-        {
-            wayl->mouse.count++;
-        } else
-            wayl->mouse.count = 1;
-
         if (button == BTN_LEFT) {
             switch (wayl->mouse.count) {
             case 1:
@@ -955,9 +961,6 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             selection_cancel(term);
         }
 
-        wayl->mouse.button = button; /* For motion events */
-        wayl->mouse.last_button = button;
-        wayl->mouse.last_time = now;
         term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col);
         break;
     }
@@ -968,7 +971,6 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         else
             selection_finalize(term, serial);
 
-        wayl->mouse.button = 0; /* For motion events */
         term_mouse_up(term, button, wayl->mouse.row, wayl->mouse.col);
         break;
     }
