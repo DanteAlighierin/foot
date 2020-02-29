@@ -91,6 +91,15 @@ struct wl_primary {
 extern const int csd_border_size;
 extern const int csd_title_size;
 
+enum csd_surface {
+    CSD_SURF_TITLE,
+    CSD_SURF_LEFT,
+    CSD_SURF_RIGHT,
+    CSD_SURF_TOP,
+    CSD_SURF_BOTTOM,
+    CSD_SURF_COUNT,
+};
+
 struct wayland;
 struct wl_window {
     struct terminal *term;

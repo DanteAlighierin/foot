@@ -1641,7 +1641,8 @@ term_visual_focus_in(struct terminal *term)
             wl_subsurface_set_desync(term->window->csd.sub_surface[i]);
     }
 #endif
-    render_csd(term);
+    //render_csd(term);
+    render_csd_title(term);
 #if 1
     if (term->window->use_csd == CSD_YES) {
         for (int i = 0; i < ALEN(term->window->csd.surface); i++)
@@ -1667,7 +1668,8 @@ term_visual_focus_out(struct terminal *term)
             wl_subsurface_set_desync(term->window->csd.sub_surface[i]);
     }
 #endif
-    render_csd(term);
+    //render_csd(term);
+    render_csd_title(term);
 #if 1
     if (term->window->use_csd == CSD_YES) {
         for (int i = 0; i < ALEN(term->window->csd.surface); i++)

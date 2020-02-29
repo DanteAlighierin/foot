@@ -43,7 +43,7 @@ static void fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data);
 
 #define shm_cookie_grid(term) ((unsigned long)((uintptr_t)term + 0))
 #define shm_cookie_search(term) ((unsigned long)((uintptr_t)term + 1))
-#define shm_cookie_csd(term, n) ((unsigned long)((uintptr_t)term + 2 + (n)))
+#define shm_cookie_csd(term, n) ((unsigned long)((uintptr_t)term + 2 + (n)))  /* Should be placed last */
 
 struct renderer *
 render_init(struct fdm *fdm, struct wayland *wayl)
@@ -665,100 +665,149 @@ render_worker_thread(void *_ctx)
     return -1;
 }
 
+struct csd_data {
+    enum csd_surface idx;
+    int x;
+    int y;
+    int width;
+    int height;
+};
+
+static const struct csd_data *
+get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
+{
+    assert(term->window->use_csd == CSD_YES);
+
+    /* Only title bar is rendered in maximized mode */
+    const int border_width = !term->window->is_maximized
+        ? csd_border_size * term->scale : 0;
+
+    const int title_height = !term->window->is_fullscreen
+        ? csd_title_size * term->scale : 0;
+
+    const struct csd_data csd_data[] = {
+        /* SURF IDX,                   X,                           Y,                          WIDTH,       HEIGHT */
+#if FOOT_CSD_OUTSIDE
+        {CSD_SURF_TITLE,              0,                -title_height,                    term->width,                title_height},
+        {CSD_SURF_LEFT,   -border_width,                -title_height,                   border_width, title_height + term->height},
+        {CSD_SURF_RIGHT  ,  term->width,                -title_height,                   border_width, title_height + term->height},
+        {CSD_SURF_TOP,    -border_width, -title_height - border_width, term->width + 2 * border_width,                border_width},
+        {CSD_SURF_BOTTOM, -border_width,                 term->height, term->width + 2 * border_width,                border_width},
+#else
+        {CSD_SURF_TITLE,               border_width,                border_width, term->width - 2 * border_width,                    title_height},
+        {CSD_SURF_LEFT,                           0,                border_width,                   border_width, term->height - 2 * border_width},
+        {CSD_SURF_RIGHT, term->width - border_width,                border_width,                   border_width, term->height - 2 * border_width},
+        {CSD_SURF_TOP,                            0,                           0,                    term->width,                    border_width},
+        {CSD_SURF_BOTTOM,                         0, term->height - border_width,                    term->width,                    border_width},
+#endif
+    };
+
+    const struct csd_data *ret = &csd_data[surf_idx];
+    assert(ret->idx == surf_idx);
+    return ret;
+}
+
+static void
+render_csd_part(struct terminal *term,
+                struct wl_surface *surf, struct buffer *buf,
+                int width, int height, pixman_color_t *color)
+{
+    assert(term->window->use_csd == CSD_YES);
+
+    pixman_image_t *src = pixman_image_create_solid_fill(color);
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, color, 1,
+        &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
+    pixman_image_unref(src);
+
+    wl_surface_attach(surf, buf->wl_buf, 0, 0);
+    wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
+    wl_surface_set_buffer_scale(surf, term->scale);
+    wl_surface_commit(surf);
+}
+
+void
+render_csd_title(struct terminal *term)
+{
+    if (term->window->use_csd != CSD_YES)
+        return;
+
+    const struct csd_data *info = get_csd_data(term, CSD_SURF_TITLE);
+    struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE];
+
+    unsigned long cookie = shm_cookie_csd(term, CSD_SURF_TITLE);
+    struct buffer *buf = shm_get_buffer(
+        term->wl->shm, info->width, info->height, cookie);
+
+    pixman_color_t color = color_hex_to_pixman(term->colors.fg);
+
+    if (!term->visual_focus)
+        pixman_color_dim(&color);
+
+    struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
+    if (region != NULL) {
+        wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
+        wl_surface_set_opaque_region(surf, region);
+        wl_region_destroy(region);
+    }
+
+    render_csd_part(term, surf, buf, info->width, info->height, &color);
+}
+
+static void
+render_csd_border(struct terminal *term, enum csd_surface surf_idx)
+{
+    assert(surf_idx >= CSD_SURF_LEFT && surf_idx <= CSD_SURF_BOTTOM);
+
+    if (term->window->use_csd != CSD_YES)
+        return;
+
+    const struct csd_data *info = get_csd_data(term, surf_idx);
+    struct wl_surface *surf = term->window->csd.surface[surf_idx];
+
+    unsigned long cookie = shm_cookie_csd(term, surf_idx);
+    struct buffer *buf = shm_get_buffer(
+        term->wl->shm, info->width, info->height, cookie);
+
+    pixman_color_t color = color_hex_to_pixman_with_alpha(0, 0);
+
+    if (!term->visual_focus)
+        pixman_color_dim(&color);
+    render_csd_part(term, surf, buf, info->width, info->height, &color);
+}
+
 void
 render_csd(struct terminal *term)
 {
-    switch (term->window->use_csd) {
-    case CSD_UNKNOWN:
-    case CSD_NO:
-        break;
+    if (term->window->use_csd != CSD_YES)
+        return;
 
-    case CSD_YES: {
-        if (term->window->is_fullscreen)
-            return;
+    for (size_t i = 0; i < CSD_SURF_COUNT; i++) {
+        const struct csd_data *info = get_csd_data(term, i);
+        const int x = info->x;
+        const int y = info->y;
+        const int width = info->width;
+        const int height = info->height;
 
-        /* Only title bar is rendered in maximized mode */
-        const int border_width = !term->window->is_maximized
-            ? csd_border_size * term->scale : 0;
+        struct wl_surface *surf = term->window->csd.surface[i];
+        struct wl_subsurface *sub = term->window->csd.sub_surface[i];
 
-        const int title_height = csd_title_size * term->scale;
-
-        const struct {
-            int x;
-            int y;
-            int width;
-            int height;
-        } geom[] = {
-            /*                        X,                           Y,                          WIDTH,       HEIGHT */
-#if FOOT_CSD_OUTSIDE
-            {             0,                -title_height,                    term->width,                title_height}, /* title */
-            { -border_width,                -title_height,                   border_width, title_height + term->height}, /* left */
-            {   term->width,                -title_height,                   border_width, title_height + term->height}, /* right */
-            { -border_width, -title_height - border_width, term->width + 2 * border_width,                border_width}, /* top */
-            { -border_width,                 term->height, term->width + 2 * border_width,                border_width}, /* bottom */
-#else
-            {              border_width,                border_width, term->width - 2 * border_width,                    title_height}, /* title */
-            {                         0,                border_width,                   border_width, term->height - 2 * border_width}, /* left */
-            {term->width - border_width,                border_width,                   border_width, term->height - 2 * border_width}, /* right */
-            {                         0,                           0,                    term->width,                    border_width}, /* top */
-            {                         0, term->height - border_width,                    term->width,                    border_width}, /* bottom */
-#endif
-        };
-
-        struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
-        if (region != NULL)
-            wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
-
-        for (size_t i = 0; i < sizeof(geom) / sizeof(geom[0]); i++) {
-            struct wl_surface *surf = term->window->csd.surface[i];
-            struct wl_subsurface *sub = term->window->csd.sub_surface[i];
-
-            const int x = geom[i].x;
-            const int y = geom[i].y;
-            const int width = geom[i].width;
-            const int height = geom[i].height;
-
-            if (width == 0 || height == 0) {
-                /* CSD borders aren't rendered in maximized mode */
-                assert(term->window->is_maximized);
-                wl_subsurface_set_position(sub, 0, 0);
-                wl_surface_attach(surf, NULL, 0, 0);
-                wl_surface_commit(surf);
-                continue;
-            }
-
-            unsigned long cookie = shm_cookie_csd(term, i);
-            struct buffer *buf = shm_get_buffer(
-                term->wl->shm, width, height, cookie);
-
-            pixman_color_t color = color_hex_to_pixman_with_alpha(
-                i == 0 ? term->colors.fg : 0x0, i == 0 ? 0xffff : 0x0);
-
-            if (!term->visual_focus)
-                pixman_color_dim(&color);
-
-            pixman_image_t *src = pixman_image_create_solid_fill(&color);
-
-            pixman_image_fill_rectangles(
-                PIXMAN_OP_SRC, buf->pix, &color, 1,
-                &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
-            pixman_image_unref(src);
-
-            wl_subsurface_set_position(sub, x / term->scale, y / term->scale);
-
-            wl_surface_attach(surf, buf->wl_buf, 0, 0);
-            //wl_surface_set_opaque_region(surf, region);
-            wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
-            wl_surface_set_buffer_scale(surf, term->scale);
+        if (width == 0 || height == 0) {
+            /* CSD borders aren't rendered in maximized mode */
+            assert(term->window->is_maximized);
+            wl_subsurface_set_position(sub, 0, 0);
+            wl_surface_attach(surf, NULL, 0, 0);
             wl_surface_commit(surf);
+            continue;
         }
 
-        if (region != NULL)
-            wl_region_destroy(region);
+        wl_subsurface_set_position(sub, x / term->scale, y / term->scale);
+    }
 
-        break;
-    }
-    }
+    render_csd_title(term);
+    for (size_t i = CSD_SURF_LEFT; i <= CSD_SURF_BOTTOM; i++)
+        render_csd_border(term, i);
 }
 
 static void frame_callback(
