@@ -588,8 +588,8 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
             csd_destroy(win);
         else
             csd_instantiate(win);
-        win->is_fullscreen = win->configure.is_fullscreen;
     }
+    win->is_fullscreen = win->configure.is_fullscreen;
 
     xdg_surface_ack_configure(xdg_surface, serial);
     bool resized = render_resize(term, win->configure.width, win->configure.height);
