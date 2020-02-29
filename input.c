@@ -96,7 +96,6 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wayl->input_serial = serial;
 
     term_kbd_focus_in(wayl->kbd_focus);
-    term_xcursor_update(wayl->kbd_focus);
 }
 
 static bool
@@ -163,10 +162,9 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wayl->kbd.meta = false;;
     xkb_compose_state_reset(wayl->kbd.xkb_compose_state);
 
-    if (old_focused != NULL) {
+    if (old_focused != NULL)
         term_kbd_focus_out(old_focused);
-        term_xcursor_update(old_focused);
-    } else {
+    else {
         /*
          * Sway bug - under certain conditions we get a
          * keyboard_leave() (and keyboard_key()) without first having
