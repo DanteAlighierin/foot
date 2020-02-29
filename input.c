@@ -676,7 +676,8 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     assert(surface != NULL);
 
     struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_surface(wayl, surface);
+    struct wl_window *win = wl_surface_get_user_data(surface);
+    struct terminal *term = win->term;
 
     LOG_DBG("pointer-enter: surface = %p, new-moused = %p", surface, term);
 
@@ -743,6 +744,11 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
             "compositor sent pointer_leave event without a pointer_enter "
             "event: surface=%p", surface);
     } else {
+        if (surface != NULL) {
+            /* Sway 1.4 sends this event with a NULL surface when we destroy the window */
+            const struct wl_window *win = wl_surface_get_user_data(surface);
+            assert(old_moused == win->term);
+        }
         old_moused->active_surface = TERM_SURF_NONE;
         term_xcursor_update(old_moused);
     }

@@ -51,6 +51,7 @@ csd_instantiate(struct wl_window *win)
             wayl->sub_compositor, win->csd.surface[i], win->surface);
 
         wl_subsurface_set_sync(win->csd.sub_surface[i]);
+        wl_surface_set_user_data(win->csd.surface[i], win);
         wl_surface_commit(win->csd.surface[i]);
     }
 }

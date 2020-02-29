@@ -75,6 +75,8 @@ search_begin(struct terminal *term)
     struct wl_window *win = term->window;
     struct wayland *wayl = term->wl;
     win->search_surface = wl_compositor_create_surface(wayl->compositor);
+    wl_surface_set_user_data(win->search_surface, term->window);
+
     win->search_sub_surface = wl_subcompositor_get_subsurface(
         wayl->sub_compositor, win->search_surface, win->surface);
     wl_subsurface_set_desync(win->search_sub_surface);
