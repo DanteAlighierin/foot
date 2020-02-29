@@ -27,6 +27,7 @@
 #include "slave.h"
 #include "vt.h"
 
+#define ALEN(v) (sizeof(v) / sizeof(v[0]))
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
@@ -1636,14 +1637,14 @@ term_visual_focus_in(struct terminal *term)
 
 #if 1  /* Weston seems to be buggy with synchronized CSDs */
     if (term->window->use_csd == CSD_YES) {
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < ALEN(term->window->csd.surface); i++)
             wl_subsurface_set_desync(term->window->csd.sub_surface[i]);
     }
 #endif
     render_csd(term);
 #if 1
     if (term->window->use_csd == CSD_YES) {
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < ALEN(term->window->csd.surface); i++)
             wl_subsurface_set_sync(term->window->csd.sub_surface[i]);
     }
 #endif
@@ -1662,14 +1663,14 @@ term_visual_focus_out(struct terminal *term)
 
 #if 1
     if (term->window->use_csd == CSD_YES) {
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < ALEN(term->window->csd.surface); i++)
             wl_subsurface_set_desync(term->window->csd.sub_surface[i]);
     }
 #endif
     render_csd(term);
 #if 1
     if (term->window->use_csd == CSD_YES) {
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < ALEN(term->window->csd.surface); i++)
             wl_subsurface_set_sync(term->window->csd.sub_surface[i]);
     }
 #endif
