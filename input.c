@@ -689,10 +689,6 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
     switch ((term->active_surface = term_surface_kind(term, surface))) {
-    case TERM_SURF_NONE:
-        assert(false);
-        break;
-
     case TERM_SURF_GRID:
         wayl->mouse.col = x / term->cell_width;
         wayl->mouse.row = y / term->cell_height;
@@ -700,7 +696,9 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_SEARCH:
-        term_xcursor_update(term);
+    case TERM_SURF_TITLE:
+        term->xcursor = "left_ptr";
+        render_xcursor_set(term);
         break;
 
     case TERM_SURF_BORDER_LEFT:
@@ -711,13 +709,10 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
         render_xcursor_set(term);
         break;
 
-    case TERM_SURF_TITLE:
-        term->xcursor = "left_ptr";
-        render_xcursor_set(term);
+    case TERM_SURF_NONE:
+        assert(false);
         break;
     }
-
-
 }
 
 static void
@@ -785,12 +780,11 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
-    term->window->csd.x = x;
-    term->window->csd.y = y;
+    wayl->mouse.x = x;
+    wayl->mouse.y = y;
 
     switch (term->active_surface) {
     case TERM_SURF_NONE:
-    case TERM_SURF_GRID:
     case TERM_SURF_SEARCH:
     case TERM_SURF_TITLE:
         break;
@@ -802,34 +796,34 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         term->xcursor = xcursor_for_csd_border(term, x, y);
         render_xcursor_set(term);
         break;
-    }
 
-    if (term->active_surface != TERM_SURF_GRID)
-        return;
+    case TERM_SURF_GRID: {
+        int col = (x - term->margins.left) / term->cell_width;
+        int row = (y - term->margins.top) / term->cell_height;
 
-    int col = (x - term->margins.left) / term->cell_width;
-    int row = (y - term->margins.top) / term->cell_height;
+        if (col < 0 || row < 0 || col >= term->cols || row >= term->rows)
+            return;
 
-    if (col < 0 || row < 0 || col >= term->cols || row >= term->rows)
-        return;
+        bool update_selection = wayl->mouse.button == BTN_LEFT;
+        bool update_selection_early = term->selection.end.row == -1;
 
-    bool update_selection = wayl->mouse.button == BTN_LEFT;
-    bool update_selection_early = term->selection.end.row == -1;
+        if (update_selection && update_selection_early)
+            selection_update(term, col, row);
 
-    if (update_selection && update_selection_early)
-        selection_update(term, col, row);
+        if (col == wayl->mouse.col && row == wayl->mouse.row)
+            break;
 
-    if (col == wayl->mouse.col && row == wayl->mouse.row)
-        return;
+        wayl->mouse.col = col;
+        wayl->mouse.row = row;
 
-    wayl->mouse.col = col;
-    wayl->mouse.row = row;
+        if (update_selection && !update_selection_early)
+            selection_update(term, col, row);
 
-    if (update_selection && !update_selection_early)
-        selection_update(term, col, row);
-
-    term_mouse_motion(
+        term_mouse_motion(
         term, wayl->mouse.button, wayl->mouse.row, wayl->mouse.col);
+        break;
+    }
+    }
 }
 
 static bool
@@ -896,10 +890,6 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         wayl->mouse.button = 0; /* For motion events */
 
     switch (term->active_surface) {
-    case TERM_SURF_NONE:
-        assert(false);
-        break;
-
     case TERM_SURF_TITLE:
         if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
 
@@ -947,8 +937,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
             int resize_type;
 
-            int x = term->window->csd.x;
-            int y = term->window->csd.y;
+            int x = wayl->mouse.x;
+            int y = wayl->mouse.y;
 
             if (is_top_left(term, x, y))
                 resize_type = XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT;
@@ -967,52 +957,60 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         return;
     }
 
-    case TERM_SURF_GRID:
     case TERM_SURF_SEARCH:
         break;
-    }
 
-    assert(term->active_surface == TERM_SURF_GRID);
+    case TERM_SURF_GRID: {
+        search_cancel(term);
 
-    search_cancel(term);
+        switch (state) {
+        case WL_POINTER_BUTTON_STATE_PRESSED: {
+            if (button == BTN_LEFT) {
+                switch (wayl->mouse.count) {
+                case 1:
+                    selection_start(
+                        term, wayl->mouse.col, wayl->mouse.row,
+                        wayl->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
+                    break;
 
-    switch (state) {
-    case WL_POINTER_BUTTON_STATE_PRESSED: {
-        if (button == BTN_LEFT) {
-            switch (wayl->mouse.count) {
-            case 1:
-                selection_start(
-                    term, wayl->mouse.col, wayl->mouse.row,
-                    wayl->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
-                break;
+                case 2:
+                    selection_mark_word(term, wayl->mouse.col, wayl->mouse.row,
+                                        wayl->kbd.ctrl, serial);
+                    break;
 
-            case 2:
-                selection_mark_word(term, wayl->mouse.col, wayl->mouse.row,
-                                    wayl->kbd.ctrl, serial);
-                break;
-
-            case 3:
-                selection_mark_row(term, wayl->mouse.row, serial);
-                break;
+                case 3:
+                    selection_mark_row(term, wayl->mouse.row, serial);
+                    break;
+                }
+            } else {
+                if (wayl->mouse.count == 1 && button == BTN_MIDDLE &&
+                    selection_enabled(term))
+                {
+                    selection_from_primary(term);
+                }
+                selection_cancel(term);
             }
-        } else {
-            if (wayl->mouse.count == 1 && button == BTN_MIDDLE && selection_enabled(term))
-                selection_from_primary(term);
-            selection_cancel(term);
+
+            term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col);
+            break;
         }
 
-        term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col);
+        case WL_POINTER_BUTTON_STATE_RELEASED:
+            if (button != BTN_LEFT || term->selection.end.col == -1)
+                selection_cancel(term);
+            else
+                selection_finalize(term, serial);
+
+            term_mouse_up(term, button, wayl->mouse.row, wayl->mouse.col);
+            break;
+        }
         break;
     }
 
-    case WL_POINTER_BUTTON_STATE_RELEASED:
-        if (button != BTN_LEFT || term->selection.end.col == -1)
-            selection_cancel(term);
-        else
-            selection_finalize(term, serial);
-
-        term_mouse_up(term, button, wayl->mouse.row, wayl->mouse.col);
+    case TERM_SURF_NONE:
+        assert(false);
         break;
+
     }
 }
 
