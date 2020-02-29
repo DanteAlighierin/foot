@@ -1119,7 +1119,7 @@ render_search_box(struct terminal *term)
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
     if (term->search.cursor < glyph_offset ||
-        term->search.cursor >= glyph_offset + visible_chars + 2)
+        term->search.cursor >= glyph_offset + visible_chars + 1)
     {
         /* Make sure cursor is always visible */
         term->render.search_glyph_offset = glyph_offset = term->search.cursor;
@@ -1127,7 +1127,7 @@ render_search_box(struct terminal *term)
 
     /* Text (what the user entered - *not* match(es)) */
     for (size_t i = glyph_offset;
-         i < term->search.len && i - glyph_offset < visible_chars + 1;
+         i < term->search.len && i - glyph_offset < visible_chars;
          i++)
     {
         if (i == term->search.cursor)
