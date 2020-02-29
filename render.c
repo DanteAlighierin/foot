@@ -1353,12 +1353,18 @@ damage_view:
 
     xdg_toplevel_set_min_size(
         term->window->xdg_toplevel, min_width / scale, min_height / scale);
+
+    render_csd(term);
+    if (term->is_searching)
+        render_search_box(term);
+
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);
-    render_csd(term);
+
     term->render.last_buf = NULL;
     term_damage_view(term);
     render_refresh(term);
+
     return true;
 }
 
