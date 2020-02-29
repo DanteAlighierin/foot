@@ -1150,19 +1150,6 @@ wayl_reload_cursor_theme(struct wayland *wayl, struct terminal *term)
     return render_xcursor_set(term);
 }
 
-struct terminal *
-wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
-{
-    tll_foreach(wayl->terms, it) {
-        if (term_surface_kind(it->item, surface) != TERM_SURF_NONE)
-            return it->item;
-    }
-
-    assert(false);
-    LOG_WARN("surface %p doesn't map to a terminal", surface);
-    return NULL;
-}
-
 void
 wayl_flush(struct wayland *wayl)
 {

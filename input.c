@@ -88,9 +88,11 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     assert(surface != NULL);
 
     struct wayland *wayl = data;
+    struct wl_window *win = wl_surface_get_user_data(surface);
+    struct terminal *term = win->term;
+
+    wayl->kbd_focus = term;
     wayl->input_serial = serial;
-    wayl->kbd_focus = wayl_terminal_from_surface(wayl, surface);
-    assert(wayl->kbd_focus != NULL);
 
     term_kbd_focus_in(wayl->kbd_focus);
     term_xcursor_update(wayl->kbd_focus);
@@ -147,7 +149,8 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     assert(
         wayl->kbd_focus == NULL ||
         surface == NULL ||  /* Seen on Sway 1.2 */
-        wayl_terminal_from_surface(wayl, surface) == wayl->kbd_focus);
+        ((const struct wl_window *)wl_surface_get_user_data(surface))->term == wayl->kbd_focus
+        );
 
     struct terminal *old_focused = wayl->kbd_focus;
     wayl->kbd_focus = NULL;

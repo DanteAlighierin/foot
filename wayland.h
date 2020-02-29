@@ -205,8 +205,5 @@ void wayl_destroy(struct wayland *wayl);
 void wayl_flush(struct wayland *wayl);
 void wayl_roundtrip(struct wayland *wayl);
 
-struct terminal *wayl_terminal_from_surface(
-    struct wayland *wayl, struct wl_surface *surface);
-
 struct wl_window *wayl_win_init(struct terminal *term);
 void wayl_win_destroy(struct wl_window *win);
