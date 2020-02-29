@@ -1346,7 +1346,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->render.last_cursor.cell = NULL;
 
 damage_view:
-    if (!term->window->is_maximized) {
+    if (!term->window->is_maximized && !term->window->is_fullscreen) {
         term->unmaximized_width = term->width;
         term->unmaximized_height = term->height;
     }
