@@ -106,6 +106,9 @@ struct wl_window {
         struct wl_surface *surface[5];
         struct wl_subsurface *sub_surface[5];
         int x, y;
+
+        int move_timeout_fd;
+        uint32_t serial;
     } csd;
 
     /* Scrollback search */

@@ -1014,6 +1014,7 @@ wayl_win_init(struct terminal *term)
     struct wl_window *win = calloc(1, sizeof(*win));
     win->term = term;
     win->use_csd = CSD_UNKNOWN;
+    win->csd.move_timeout_fd = -1;
 
     win->surface = wl_compositor_create_surface(wayl->compositor);
     if (win->surface == NULL) {
@@ -1071,6 +1072,9 @@ wayl_win_destroy(struct wl_window *win)
 {
     if (win == NULL)
         return;
+
+    if (win->csd.move_timeout_fd != -1)
+        close(win->csd.move_timeout_fd);
 
     /*
      * First, unmap all surfaces to trigger things like

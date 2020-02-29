@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
+#include <sys/epoll.h>
 
 #include <linux/input-event-codes.h>
 
@@ -833,6 +834,19 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         term, wayl->mouse.button, wayl->mouse.row, wayl->mouse.col);
 }
 
+static bool
+fdm_csd_move(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct wl_window *win = data;
+    struct wayland *wayl = win->term->wl;
+
+    fdm_del(fdm, fd);
+    win->csd.move_timeout_fd = -1;
+
+    xdg_toplevel_move(win->xdg_toplevel, wayl->seat, win->csd.serial);
+    return true;
+}
+
 static void
 wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                   uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
@@ -891,16 +905,33 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_TITLE:
         if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
 
+            struct wl_window *win = term->window;
+
             /* Toggle maximized state on double-click */
             if (button == BTN_LEFT && wayl->mouse.count == 2) {
-                if (term->window->is_maximized)
-                    xdg_toplevel_unset_maximized(term->window->xdg_toplevel);
+                if (win->is_maximized)
+                    xdg_toplevel_unset_maximized(win->xdg_toplevel);
                 else
-                    xdg_toplevel_set_maximized(term->window->xdg_toplevel);
+                    xdg_toplevel_set_maximized(win->xdg_toplevel);
             }
 
-            else if (button == BTN_LEFT)
-                xdg_toplevel_move(term->window->xdg_toplevel, term->wl->seat, serial);
+            else if (button == BTN_LEFT && win->csd.move_timeout_fd == -1) {
+                const struct itimerspec timeout = {
+                    .it_value = {.tv_nsec = 100000000},
+                };
+
+                int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+                if (fd >= 0 &&
+                    timerfd_settime(fd, 0, &timeout, NULL) == 0 &&
+                    fdm_add(wayl->fdm, fd, EPOLLIN, &fdm_csd_move, win))
+                {
+                    win->csd.move_timeout_fd = fd;
+                    win->csd.serial = serial;
+                } else {
+                    LOG_ERRNO("failed to configure XDG toplevel move timer FD");
+                    close(fd);
+                }
+            }
         }
         return;
 
