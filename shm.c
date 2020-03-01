@@ -133,7 +133,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
 
         if (!failure_logged) {
             failure_logged = true;
-            LOG_ERRNO_P("failed to fallocate", err);
+            LOG_ERRNO_P("failed to fallocate %zu bytes", err, size);
         }
 
         if (ftruncate(pool_fd, size) == -1) {
