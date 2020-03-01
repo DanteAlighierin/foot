@@ -947,7 +947,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_BORDER_RIGHT:
     case TERM_SURF_BORDER_TOP:
     case TERM_SURF_BORDER_BOTTOM: {
-        static const int map[] = {
+        static const enum xdg_toplevel_resize_edge map[] = {
             [TERM_SURF_BORDER_LEFT] = XDG_TOPLEVEL_RESIZE_EDGE_LEFT,
             [TERM_SURF_BORDER_RIGHT] = XDG_TOPLEVEL_RESIZE_EDGE_RIGHT,
             [TERM_SURF_BORDER_TOP] = XDG_TOPLEVEL_RESIZE_EDGE_TOP,
@@ -955,7 +955,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         };
 
         if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
-            int resize_type;
+            enum xdg_toplevel_resize_edge resize_type;
 
             int x = wayl->mouse.x;
             int y = wayl->mouse.y;
