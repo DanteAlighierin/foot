@@ -1146,14 +1146,15 @@ render_search_box(struct terminal *term)
 #endif
     const size_t margin = csd + 3 * scale;
 
-    const size_t width = min(
+    const size_t width = term->width - 2 * margin;
+    const size_t visible_width = min(
         term->width - 2 * margin,
         2 * margin + wanted_visible_chars * term->cell_width);
     const size_t height = min(
         term->height - 2 * margin,
         2 * margin + 1 * term->cell_height);
 
-    const size_t visible_chars = (width - 2 * margin) / term->cell_width;
+    const size_t visible_chars = (visible_width - 2 * margin) / term->cell_width;
     size_t glyph_offset = term->render.search_glyph_offset;
 
     unsigned long cookie = shm_cookie_search(term);
@@ -1166,10 +1167,15 @@ render_search_box(struct terminal *term)
 
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix, &color,
-        1, &(pixman_rectangle16_t){0, 0, width, height});
+        1, &(pixman_rectangle16_t){width - visible_width, 0, visible_width, height});
+
+    pixman_color_t transparent = color_hex_to_pixman_with_alpha(0, 0);
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &transparent,
+        1, &(pixman_rectangle16_t){0, 0, width - visible_width, height});
 
     struct font *font = term->fonts[0];
-    int x = margin;
+    int x = width - visible_width + margin;
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
@@ -1205,14 +1211,14 @@ render_search_box(struct terminal *term)
     if (term->search.cursor >= term->search.len)
         draw_bar(term, buf->pix, font, &fg, x, y);
 
+    wl_subsurface_set_position(
+        term->window->search_sub_surface,
+        margin / scale,
+        max(0, (int32_t)term->height - height - margin) / scale);
+
     wl_surface_attach(term->window->search_surface, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(term->window->search_surface, 0, 0, width, height);
     wl_surface_set_buffer_scale(term->window->search_surface, scale);
-
-    wl_subsurface_set_position(
-        term->window->search_sub_surface,
-        max(0, (int32_t)term->width - width - margin) / scale,
-        max(0, (int32_t)term->height - height - margin) / scale);
 
     wl_surface_commit(term->window->search_surface);
 }
