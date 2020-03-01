@@ -21,6 +21,7 @@
 #include "async.h"
 #include "config.h"
 #include "grid.h"
+#include "quirks.h"
 #include "render.h"
 #include "selection.h"
 #include "sixel.h"
@@ -1625,6 +1626,26 @@ term_restore_cursor(struct terminal *term)
     term->cursor.lcf = term->saved_cursor.lcf;
 }
 
+static void
+quirk_weston_csd_on(struct terminal *term)
+{
+    if (term->window->use_csd != CSD_YES)
+        return;
+
+    for (int i = 0; i < ALEN(term->window->csd.surface); i++)
+        quirk_weston_subsurface_desync_on(term->window->csd.sub_surface[i]);
+}
+
+static void
+quirk_weston_csd_off(struct terminal *term)
+{
+    if (term->window->use_csd != CSD_YES)
+        return;
+
+    for (int i = 0; i < ALEN(term->window->csd.surface); i++)
+        quirk_weston_subsurface_desync_off(term->window->csd.sub_surface[i]);
+}
+
 void
 term_visual_focus_in(struct terminal *term)
 {
@@ -1635,20 +1656,10 @@ term_visual_focus_in(struct terminal *term)
     if (term->cursor_blink.active)
         cursor_blink_start_timer(term);
 
-#if 1  /* Weston seems to be buggy with synchronized CSDs */
-    if (term->window->use_csd == CSD_YES) {
-        for (int i = 0; i < ALEN(term->window->csd.surface); i++)
-            wl_subsurface_set_desync(term->window->csd.sub_surface[i]);
-    }
-#endif
-    //render_csd(term);
-    render_csd_title(term);
-#if 1
-    if (term->window->use_csd == CSD_YES) {
-        for (int i = 0; i < ALEN(term->window->csd.surface); i++)
-            wl_subsurface_set_sync(term->window->csd.sub_surface[i]);
-    }
-#endif
+    quirk_weston_csd_on(term);
+    render_csd(term);
+    quirk_weston_csd_off(term);
+
     cursor_refresh(term);
 }
 
@@ -1662,20 +1673,10 @@ term_visual_focus_out(struct terminal *term)
     if (term->cursor_blink.active)
         cursor_blink_stop_timer(term);
 
-#if 1
-    if (term->window->use_csd == CSD_YES) {
-        for (int i = 0; i < ALEN(term->window->csd.surface); i++)
-            wl_subsurface_set_desync(term->window->csd.sub_surface[i]);
-    }
-#endif
-    //render_csd(term);
-    render_csd_title(term);
-#if 1
-    if (term->window->use_csd == CSD_YES) {
-        for (int i = 0; i < ALEN(term->window->csd.surface); i++)
-            wl_subsurface_set_sync(term->window->csd.sub_surface[i]);
-    }
-#endif
+    quirk_weston_csd_on(term);
+    render_csd(term);
+    quirk_weston_csd_off(term);
+
     cursor_refresh(term);
 }
 
