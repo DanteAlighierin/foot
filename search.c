@@ -621,6 +621,6 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
 
     LOG_DBG("search: buffer: %S", term->search.buf);
     search_find_next(term);
-    render_refresh(term);
     render_search_box(term);
+    render_refresh(term);
 }
