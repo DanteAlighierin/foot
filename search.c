@@ -79,12 +79,12 @@ search_begin(struct terminal *term)
 
     win->search_sub_surface = wl_subcompositor_get_subsurface(
         wayl->sub_compositor, win->search_surface, win->surface);
-    wl_subsurface_set_desync(win->search_sub_surface);
 
     struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
     wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
     wl_surface_set_opaque_region(win->search_surface, region);
     wl_region_destroy(region);
+    wl_subsurface_set_sync(win->search_sub_surface);
 
     term->search.original_view = term->grid->view;
     term->search.view_followed_offset = term->grid->view == term->grid->offset;

@@ -18,6 +18,7 @@
 #include "log.h"
 #include "config.h"
 #include "grid.h"
+#include "quirks.h"
 #include "selection.h"
 #include "shm.h"
 
@@ -1211,6 +1212,8 @@ render_search_box(struct terminal *term)
     if (term->search.cursor >= term->search.len)
         draw_bar(term, buf->pix, font, &fg, x, y);
 
+    quirk_weston_subsurface_desync_on(term->window->search_sub_surface);
+
     /* TODO: this is only necessary on a window resize */
     wl_subsurface_set_position(
         term->window->search_sub_surface,
@@ -1229,6 +1232,7 @@ render_search_box(struct terminal *term)
     }
 
     wl_surface_commit(term->window->search_surface);
+    quirk_weston_subsurface_desync_off(term->window->search_sub_surface);
 }
 
 /* Move to terminal.c? */

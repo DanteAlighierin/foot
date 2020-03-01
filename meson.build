@@ -112,6 +112,7 @@ executable(
   'main.c',
   'misc.c', 'misc.h',
   'osc.c', 'osc.h',
+  'quirks.c', 'quirks.h',
   'render.c', 'render.h',
   'search.c', 'search.h',
   'selection.c', 'selection.h',

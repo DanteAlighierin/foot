@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-void
-quirk_weston_subsurface_desync(struct wl_subsurface *sub)
+static bool
+is_weston(void)
 {
     /*
      * On weston (8.0), synchronized subsurfaces aren't updated
@@ -19,7 +19,6 @@ quirk_weston_subsurface_desync(struct wl_subsurface *sub)
      * since it would defeat the purpose of having the subsurface
      * synchronized in the first place).
      */
-
     static bool is_weston = false;
     static bool initialized = false;
 
@@ -28,8 +27,23 @@ quirk_weston_subsurface_desync(struct wl_subsurface *sub)
         is_weston = getenv("WESTON_CONFIG_FILE") != NULL;
     }
 
-    if (!is_weston)
+    return is_weston;
+}
+
+void
+quirk_weston_subsurface_desync_on(struct wl_subsurface *sub)
+{
+    if (!is_weston())
         return;
 
     wl_subsurface_set_desync(sub);
+}
+
+void
+quirk_weston_subsurface_desync_off(struct wl_subsurface *sub)
+{
+    if (!is_weston())
+        return;
+
+    wl_subsurface_set_sync(sub);
 }
