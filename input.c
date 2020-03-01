@@ -917,7 +917,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
             else if (button == BTN_LEFT && win->csd.move_timeout_fd == -1) {
                 const struct itimerspec timeout = {
-                    .it_value = {.tv_nsec = 100000000},
+                    .it_value = {.tv_nsec = 200000000},
                 };
 
                 int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
