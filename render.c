@@ -666,14 +666,13 @@ render_worker_thread(void *_ctx)
 }
 
 struct csd_data {
-    enum csd_surface idx;
     int x;
     int y;
     int width;
     int height;
 };
 
-static const struct csd_data *
+static struct csd_data
 get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
 {
     assert(term->window->use_csd == CSD_YES);
@@ -685,26 +684,33 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
     const int title_height = !term->window->is_fullscreen
         ? csd_title_size * term->scale : 0;
 
-    const struct csd_data csd_data[] = {
-        /* SURF IDX,                   X,                           Y,                          WIDTH,       HEIGHT */
 #if FOOT_CSD_OUTSIDE
-        {CSD_SURF_TITLE,              0,                -title_height,                    term->width,                title_height},
-        {CSD_SURF_LEFT,   -border_width,                -title_height,                   border_width, title_height + term->height},
-        {CSD_SURF_RIGHT  ,  term->width,                -title_height,                   border_width, title_height + term->height},
-        {CSD_SURF_TOP,    -border_width, -title_height - border_width, term->width + 2 * border_width,                border_width},
-        {CSD_SURF_BOTTOM, -border_width,                 term->height, term->width + 2 * border_width,                border_width},
-#else
-        {CSD_SURF_TITLE,               border_width,                border_width, term->width - 2 * border_width,                    title_height},
-        {CSD_SURF_LEFT,                           0,                border_width,                   border_width, term->height - 2 * border_width},
-        {CSD_SURF_RIGHT, term->width - border_width,                border_width,                   border_width, term->height - 2 * border_width},
-        {CSD_SURF_TOP,                            0,                           0,                    term->width,                    border_width},
-        {CSD_SURF_BOTTOM,                         0, term->height - border_width,                    term->width,                    border_width},
-#endif
-    };
+    switch (surf_idx) {
+    case CSD_SURF_TITLE:  return (struct csd_data){            0,                -title_height,                    term->width,                title_height};
+    case CSD_SURF_LEFT:   return (struct csd_data){-border_width,                -title_height,                   border_width, title_height + term->height};
+    case CSD_SURF_RIGHT:  return (struct csd_data){  term->width,                -title_height,                   border_width, title_height + term->height};
+    case CSD_SURF_TOP:    return (struct csd_data){-border_width, -title_height - border_width, term->width + 2 * border_width,                border_width};
+    case CSD_SURF_BOTTOM: return (struct csd_data){-border_width,                 term->height, term->width + 2 * border_width,                border_width};
 
-    const struct csd_data *ret = &csd_data[surf_idx];
-    assert(ret->idx == surf_idx);
-    return ret;
+    case CSD_SURF_COUNT:
+        assert(false);
+        return (struct csd_data){0};
+    }
+#else
+    switch (surf_idx) {
+    case CSD_SURF_TITLE: return (struct csd_data){              border_width,                border_width, term->width - 2 * border_width,                    title_height};
+    case CSD_SURF_LEFT:  return (struct csd_data){                         0,                border_width,                   border_width, term->height - 2 * border_width};
+    case CSD_SURF_RIGHT: return (struct csd_data){term->width - border_width,                border_width,                   border_width, term->height - 2 * border_width};
+    case CSD_SURF_TOP:   return (struct csd_data){                         0,                           0,                    term->width,                    border_width};
+
+    case CSD_SURF_COUNT:
+        assert(false);
+        return (struct csd_data){0};
+    }
+#endif
+
+    assert(false);
+    return (struct csd_data){0};
 }
 
 static void
@@ -733,12 +739,12 @@ render_csd_title(struct terminal *term)
     if (term->window->use_csd != CSD_YES)
         return;
 
-    const struct csd_data *info = get_csd_data(term, CSD_SURF_TITLE);
+    struct csd_data info = get_csd_data(term, CSD_SURF_TITLE);
     struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE];
 
     unsigned long cookie = shm_cookie_csd(term, CSD_SURF_TITLE);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, info->width, info->height, cookie);
+        term->wl->shm, info.width, info.height, cookie);
 
     pixman_color_t color = color_hex_to_pixman(term->colors.fg);
 
@@ -752,7 +758,7 @@ render_csd_title(struct terminal *term)
         wl_region_destroy(region);
     }
 
-    render_csd_part(term, surf, buf, info->width, info->height, &color);
+    render_csd_part(term, surf, buf, info.width, info.height, &color);
 }
 
 static void
@@ -763,18 +769,18 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
     if (term->window->use_csd != CSD_YES)
         return;
 
-    const struct csd_data *info = get_csd_data(term, surf_idx);
+    struct csd_data info = get_csd_data(term, surf_idx);
     struct wl_surface *surf = term->window->csd.surface[surf_idx];
 
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, info->width, info->height, cookie);
+        term->wl->shm, info.width, info.height, cookie);
 
     pixman_color_t color = color_hex_to_pixman_with_alpha(0, 0);
 
     if (!term->visual_focus)
         pixman_color_dim(&color);
-    render_csd_part(term, surf, buf, info->width, info->height, &color);
+    render_csd_part(term, surf, buf, info.width, info.height, &color);
 }
 
 void
@@ -784,11 +790,11 @@ render_csd(struct terminal *term)
         return;
 
     for (size_t i = 0; i < CSD_SURF_COUNT; i++) {
-        const struct csd_data *info = get_csd_data(term, i);
-        const int x = info->x;
-        const int y = info->y;
-        const int width = info->width;
-        const int height = info->height;
+        struct csd_data info = get_csd_data(term, i);
+        const int x = info.x;
+        const int y = info.y;
+        const int width = info.width;
+        const int height = info.height;
 
         struct wl_surface *surf = term->window->csd.surface[i];
         struct wl_subsurface *sub = term->window->csd.sub_surface[i];
