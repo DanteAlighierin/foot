@@ -1211,6 +1211,7 @@ render_search_box(struct terminal *term)
     if (term->search.cursor >= term->search.len)
         draw_bar(term, buf->pix, font, &fg, x, y);
 
+    /* TODO: this is only necessary on a window resize */
     wl_subsurface_set_position(
         term->window->search_sub_surface,
         margin / scale,
