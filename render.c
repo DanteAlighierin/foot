@@ -743,6 +743,8 @@ render_csd_title(struct terminal *term)
     struct csd_data info = get_csd_data(term, CSD_SURF_TITLE);
     struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE];
 
+    assert(info.width > 0 && info.height > 0);
+
     unsigned long cookie = shm_cookie_csd(term, CSD_SURF_TITLE);
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, info.width, info.height, cookie);
@@ -772,6 +774,9 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 
     struct csd_data info = get_csd_data(term, surf_idx);
     struct wl_surface *surf = term->window->csd.surface[surf_idx];
+
+    if (info.width == 0 || info.height == 0)
+        return;
 
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
