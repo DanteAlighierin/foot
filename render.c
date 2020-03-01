@@ -1220,6 +1220,13 @@ render_search_box(struct terminal *term)
     wl_surface_damage_buffer(term->window->search_surface, 0, 0, width, height);
     wl_surface_set_buffer_scale(term->window->search_surface, scale);
 
+    struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
+    if (region != NULL) {
+        wl_region_add(region, width - visible_width, 0, visible_width, height);
+        wl_surface_set_opaque_region(term->window->search_surface, region);
+        wl_region_destroy(region);
+    }
+
     wl_surface_commit(term->window->search_surface);
 }
 
