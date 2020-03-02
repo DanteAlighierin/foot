@@ -707,6 +707,15 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
 }
 
 static void
+csd_commit(struct terminal *term, struct wl_surface *surf, struct buffer *buf)
+{
+    wl_surface_attach(surf, buf->wl_buf, 0, 0);
+    wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
+    wl_surface_set_buffer_scale(surf, term->scale);
+    wl_surface_commit(surf);
+}
+
+static void
 render_csd_part(struct terminal *term,
                 struct wl_surface *surf, struct buffer *buf,
                 int width, int height, pixman_color_t *color)
@@ -719,11 +728,6 @@ render_csd_part(struct terminal *term,
         PIXMAN_OP_SRC, buf->pix, color, 1,
         &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
     pixman_image_unref(src);
-
-    wl_surface_attach(surf, buf->wl_buf, 0, 0);
-    wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
-    wl_surface_set_buffer_scale(surf, term->scale);
-    wl_surface_commit(surf);
 }
 
 void
@@ -754,6 +758,7 @@ render_csd_title(struct terminal *term)
         pixman_color_dim(&color);
 
     render_csd_part(term, surf, buf, info.width, info.height, &color);
+    csd_commit(term, surf, buf);
 }
 
 static void
@@ -786,6 +791,58 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
     if (!term->visual_focus)
         pixman_color_dim(&color);
     render_csd_part(term, surf, buf, info.width, info.height, &color);
+    csd_commit(term, surf, buf);
+}
+
+static void
+render_csd_button_minimize(struct terminal *term, struct buffer *buf)
+{
+    pixman_color_t color = color_hex_to_pixman(0);
+    pixman_image_t *src = pixman_image_create_solid_fill(&color);
+
+    int x_margin = (term->conf->csd.button_width * 1 / 4) * term->scale;
+    int y_margin = (term->conf->csd.title_height * 4 / 6) * term->scale;
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &color, 1,
+        &(pixman_rectangle16_t){x_margin, y_margin, buf->width - 2 * x_margin, 1 * term->scale});
+
+    pixman_image_unref(src);
+}
+
+static void
+render_csd_button_maximize(struct terminal *term, struct buffer *buf)
+{
+    pixman_color_t color = color_hex_to_pixman(0);
+    pixman_image_t *src = pixman_image_create_solid_fill(&color);
+
+    int x_margin = (term->conf->csd.button_width * 1 / 4) * term->scale;
+    int y_margin = (term->conf->csd.title_height * 2 / 6) * term->scale;
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &color, 1,
+        &(pixman_rectangle16_t){x_margin, y_margin, buf->width - 2 * x_margin, 2 * term->scale});
+
+    pixman_image_unref(src);
+}
+
+static void
+render_csd_button_close(struct terminal *term, struct buffer *buf)
+{
+    pixman_color_t color = color_hex_to_pixman(0);
+    pixman_image_t *src = pixman_image_create_solid_fill(&color);
+
+    int min_length = min(buf->width, buf->height);
+    int length = min_length / 2;
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &color, 2,
+        (pixman_rectangle16_t[]){
+            {(buf->width - length) / 2, buf->height / 2, length, 1 * term->scale},
+            {buf->width / 2, (buf->height - length) / 2, 1 * term->scale, length},
+        });
+
+    pixman_image_unref(src);
 }
 
 void
@@ -853,6 +910,19 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
     if (!term->visual_focus)
         pixman_color_dim(&color);
     render_csd_part(term, surf, buf, info.width, info.height, &color);
+
+    switch (surf_idx) {
+    case CSD_SURF_MINIMIZE: render_csd_button_minimize(term, buf); break;
+    case CSD_SURF_MAXIMIZE: render_csd_button_maximize(term, buf); break;
+    case CSD_SURF_CLOSE:    render_csd_button_close(term, buf); break;
+        break;
+
+    default:
+        assert(false);
+        break;
+    }
+
+    csd_commit(term, surf, buf);
 }
 
 void
