@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#define LOG_MODULE "quirks"
+#define LOG_ENABLE_DBG 0
+#include "log.h"
+
 static bool
 is_weston(void)
 {
@@ -25,6 +29,8 @@ is_weston(void)
     if (!initialized) {
         initialized = true;
         is_weston = getenv("WESTON_CONFIG_FILE") != NULL;
+        if (is_weston)
+            LOG_WARN("applying wl_subsurface_set_desync() workaround for weston");
     }
 
     return is_weston;
