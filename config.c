@@ -44,15 +44,19 @@ static const uint32_t default_bright[] = {
 static char *
 get_shell(void)
 {
-    struct passwd *passwd = getpwuid(getuid());
-    if (passwd == NULL) {
-        LOG_ERRNO("failed to lookup user");
-        return NULL;
+    const char *shell = getenv("SHELL");
+
+    if (shell == NULL) {
+        struct passwd *passwd = getpwuid(getuid());
+        if (passwd == NULL) {
+            LOG_ERRNO("failed to lookup user");
+            return NULL;
+        }
+
+        shell = passwd->pw_shell;
     }
 
-    const char *shell = passwd->pw_shell;
     LOG_DBG("user's shell: %s", shell);
-
     return strdup(shell);
 }
 

@@ -4,7 +4,7 @@
 # scrollback=1000
 # geometry=800x600
 # pad=2x2
-# shell=<user's default shell (from /etc/passwd)> (you may need to override if you need a login shell)
+# shell=$SHELL (if set, otherwise user's default shell from /etc/passwd)
 # term=foot
 # login-shell=no
 # workers=<number of logical CPUs>

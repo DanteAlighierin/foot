@@ -41,9 +41,10 @@ in this order:
 	_XxY_ (-padding).
 
 *shell*
-	Executable to launch. Typically a shell. Default: the user's
-	default shell (as specified in _/etc/passwd_). You can also pass
-	arguments. For example "/bin/bash --norc".
+	Executable to launch. Typically a shell. Default: _$SHELL_ if set,
+	otherwise the user's default shell (as specified in
+	_/etc/passwd_). You can also pass arguments. For example
+	"/bin/bash --norc".
 
 *login-shell*
 	Start a login shell, by prepending a '-' to argv[0]. Default: _no_.
