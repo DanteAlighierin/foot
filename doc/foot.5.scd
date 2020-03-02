@@ -64,6 +64,9 @@ in this order:
 
 # SECTION: cursor
 
+This section controls the cursor style and color. Note that
+applications can change these runtime.
+
 *style*
 	Configures the default cursor style, and is one of: _block_, _bar_
 	or _underline_. Default: _block_.
@@ -76,6 +79,9 @@ in this order:
 	foreground color.
 
 # SECTION: colors
+
+This section controls the 16 ANSI colors and the default foreground
+and background colors. Note that applications can change these runtime.
 
 *foreground*
 	Default RRGGBB foreground color. This is the color used when no
