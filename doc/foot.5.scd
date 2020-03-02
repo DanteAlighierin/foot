@@ -98,6 +98,37 @@ in this order:
 	Background translucency. A value in the range 0.0-1.0, where 0.0
 	means completely transparent, and 1.0 is opaque. Default: _1.0_.
 
+# SECTION: csd
+
+This section controls the look of the _CSDs_ (Client Side
+Decorations). Note that the default is to *not* use CSDs, but instead
+to use _SSDs_ (Server Side Decorations) when the compositor supports
+it.
+
+*preferred*
+	Which type of window decorations to prefer: *client* (CSD) or
+	*server* (SSD). Note that this is only a hint to the
+	compositor. Depending on the compositor's configuration and
+	capabilities, it may not have any effect. Default: _server_.
+
+*titlebar*
+	Height, in pixels (but subject to output scaling), of the
+	titlebar, not including the window border. Default: _26_.
+
+*border*
+	Width, in pixels (but subject to output scaling), of the
+	borders. Default: _5_.
+
+*titlebar-color*
+	Titlebar AARRGGBB color. Note that unlike the other color values,
+	the *titlebar-color* value also has an _alpha_ component. Default:
+	use the default _foreground_ color.
+
+*border-color*
+	Border AARRGGBB color. Note that unlike the other color values,
+	the *border-color* value also has an _alpha_ component. Default:
+	_transparent_.
+
 # FONT FORMAT
 
 The font is specified in FontConfig syntax. That is, a colon-separated

@@ -25,9 +25,6 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
-const int csd_border_size = 5;
-const int csd_title_size = 26;
-
 struct renderer {
     struct fdm *fdm;
     struct wayland *wayl;
@@ -680,12 +677,11 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
 
     /* Only title bar is rendered in maximized mode */
     const int border_width = !term->window->is_maximized
-        ? csd_border_size * term->scale : 0;
+        ? term->conf->csd.border_width * term->scale : 0;
 
     const int title_height = !term->window->is_fullscreen
-        ? csd_title_size * term->scale : 0;
+        ? term->conf->csd.title_height * term->scale : 0;
 
-#if FOOT_CSD_OUTSIDE
     switch (surf_idx) {
     case CSD_SURF_TITLE:  return (struct csd_data){            0,                -title_height,                    term->width,                title_height};
     case CSD_SURF_LEFT:   return (struct csd_data){-border_width,                -title_height,                   border_width, title_height + term->height};
@@ -697,18 +693,6 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
         assert(false);
         return (struct csd_data){0};
     }
-#else
-    switch (surf_idx) {
-    case CSD_SURF_TITLE: return (struct csd_data){              border_width,                border_width, term->width - 2 * border_width,                    title_height};
-    case CSD_SURF_LEFT:  return (struct csd_data){                         0,                border_width,                   border_width, term->height - 2 * border_width};
-    case CSD_SURF_RIGHT: return (struct csd_data){term->width - border_width,                border_width,                   border_width, term->height - 2 * border_width};
-    case CSD_SURF_TOP:   return (struct csd_data){                         0,                           0,                    term->width,                    border_width};
-
-    case CSD_SURF_COUNT:
-        assert(false);
-        return (struct csd_data){0};
-    }
-#endif
 
     assert(false);
     return (struct csd_data){0};
@@ -749,17 +733,17 @@ render_csd_title(struct terminal *term)
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, info.width, info.height, cookie);
 
-    pixman_color_t color = color_hex_to_pixman(term->colors.fg);
+    uint32_t _color = term->colors.fg;
+    uint16_t alpha = 0xffff;
 
+    if (term->conf->csd.color.title_set) {
+        _color = term->conf->csd.color.title;
+        alpha = _color >> 24 | (_color >> 24 << 8);
+    }
+
+    pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
     if (!term->visual_focus)
         pixman_color_dim(&color);
-
-    struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
-    if (region != NULL) {
-        wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
-        wl_surface_set_opaque_region(surf, region);
-        wl_region_destroy(region);
-    }
 
     render_csd_part(term, surf, buf, info.width, info.height, &color);
 }
@@ -782,8 +766,15 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, info.width, info.height, cookie);
 
-    pixman_color_t color = color_hex_to_pixman_with_alpha(0, 0);
+    uint32_t _color = 0;
+    uint16_t alpha = 0;
 
+    if (term->conf->csd.color.border_set) {
+        _color = term->conf->csd.color.border;
+        alpha = _color >> 24 | (_color >> 24 << 8);
+    }
+
+    pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
     if (!term->visual_focus)
         pixman_color_dim(&color);
     render_csd_part(term, surf, buf, info.width, info.height, &color);
@@ -1145,12 +1136,7 @@ render_search_box(struct terminal *term)
     assert(term->scale >= 1);
     const int scale = term->scale;
 
-#if FOOT_CSD_OUTSIDE
-    const int csd = 0;
-#else
-    const int csd = term->window->use_csd == CSD_YES ? csd_border_size * scale : 0;
-#endif
-    const size_t margin = csd + 3 * scale;
+    const size_t margin = 3 * scale;
 
     const size_t width = term->width - 2 * margin;
     const size_t visible_width = min(
@@ -1264,15 +1250,6 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     width *= scale;
     height *= scale;
 
-    /* Scaled CSD border + title bar sizes */
-#if FOOT_CSD_OUTSIDE
-    const int csd_border = 0;
-    const int csd_title = 0;
-#else
-    const int csd_border = term->window->use_csd == CSD_YES ? csd_border_size * scale : 0;
-    const int csd_title = term->window->use_csd == CSD_YES ? csd_title_size * scale : 0;
-#endif
-
     if (width == 0 && height == 0) {
         /*
          * The compositor is letting us choose the size
@@ -1293,10 +1270,10 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
                 /* Account for CSDs, to make actual window size match
                  * the configured size */
                 if (!term->window->is_maximized) {
-                    width -= 2 * csd_border_size;
-                    height -= 2 * csd_border_size + csd_title_size;
+                    width -= 2 * term->conf->csd.border_width;
+                    height -= 2 * term->conf->csd.border_width + term->conf->csd.title_height;
                 } else {
-                    height -= csd_title_size;
+                    height -= term->conf->csd.title_height;
                 }
             }
 
@@ -1305,23 +1282,22 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         }
     }
 
-    const int csd_x = 2 * csd_border;
-    const int csd_y = 2 * csd_border + csd_title;
-
-    /* Padding */
-    const int pad_x = scale * term->conf->pad_x;
-    const int pad_y = scale * term->conf->pad_y;
-
     /* Don't shrink grid too much */
     const int min_cols = 20;
     const int min_rows = 4;
 
     /* Minimum window size */
-    const int min_width = csd_x + 2 * pad_x + min_cols * term->cell_width;
-    const int min_height = csd_y + 2 * pad_y + min_rows * term->cell_height;
+    const int min_width = min_cols * term->cell_width;
+    const int min_height = min_rows * term->cell_height;
 
     width = max(width, min_width);
     height = max(height, min_height);
+
+    /* Padding */
+    const int max_pad_x = (width - min_width) / 2;
+    const int max_pad_y = (height - min_height) / 2;
+    const int pad_x = min(max_pad_x, scale * term->conf->pad_x);
+    const int pad_y = min(max_pad_y, scale * term->conf->pad_y);
 
     if (!force && width == term->width && height == term->height && scale == term->scale)
         return false;
@@ -1342,8 +1318,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     const int old_rows = term->rows;
 
     /* Screen rows/cols after resize */
-    const int new_cols = (term->width - 2 * pad_x - csd_x) / term->cell_width;
-    const int new_rows = (term->height - 2 * pad_y - csd_y) / term->cell_height;
+    const int new_cols = (term->width - 2 * pad_x) / term->cell_width;
+    const int new_rows = (term->height - 2 * pad_y) / term->cell_height;
 
     /* Grid rows/cols after resize */
     const int new_normal_grid_rows = 1 << (32 - __builtin_clz(new_rows + scrollback_lines - 1));
@@ -1353,15 +1329,15 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     assert(new_rows >= 1);
 
     /* Margins */
-    term->margins.left = csd_border + pad_x;
-    term->margins.top = csd_border + csd_title + pad_y;
+    term->margins.left = pad_x;
+    term->margins.top = pad_y;
     term->margins.right = term->width - new_cols * term->cell_width - term->margins.left;
     term->margins.bottom = term->height - new_rows * term->cell_height - term->margins.top;
 
-    assert(term->margins.left >= csd_border + pad_x);
-    assert(term->margins.right >= csd_border + pad_x);
-    assert(term->margins.top >= csd_border + csd_title + pad_y);
-    assert(term->margins.bottom >= csd_border + pad_y);
+    assert(term->margins.left >= pad_x);
+    assert(term->margins.right >= pad_x);
+    assert(term->margins.top >= pad_y);
+    assert(term->margins.bottom >= pad_y);
 
     if (new_cols == old_cols && new_rows == old_rows) {
         LOG_DBG("grid layout unaffected; skipping reflow");

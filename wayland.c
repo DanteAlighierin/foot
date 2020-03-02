@@ -536,18 +536,14 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
          * sub-surfaces. Thus, since our resize code assumes the size
          * to resize to is the main window only, adjust the size here,
          * to account for the CSDs.
-         *
-         * Of course this does *not* apply when we position the CSDs
-         * *inside* the main surface.
          */
-#if FOOT_CSD_OUTSIDE
+        const struct config *conf = win->term->conf;
         if (!is_maximized) {
-            width -= 2 * csd_border_size;
-            height -= 2 * csd_border_size + csd_title_size;
+            width -= 2 * conf->csd.border_width;
+            height -= 2 * conf->csd.border_width + conf->csd.title_height;
         } else {
-            height -= csd_title_size;
+            height -= conf->csd.title_height;
         }
-#endif
     }
 
     win->configure.is_activated = is_activated;
@@ -670,18 +666,18 @@ xdg_toplevel_decoration_configure(void *data,
 
     if (win->is_configured && win->use_csd == CSD_YES) {
         struct terminal *term = win->term;
-        int scale = term->scale;
+        const struct config *conf = term->conf;
 
+        int scale = term->scale;
         int width = term->width / scale;
         int height = term->height / scale;
 
-#if FOOT_CSD_OUTSIDE
         if (!term->window->is_maximized) {
-            width -= 2 * csd_border_size;
-            height -= 2 * csd_border_size + csd_title_size;
+            width -= 2 * conf->csd.border_width;
+            height -= 2 * conf->csd.border_width + conf->csd.title_height;
         } else
-            height -= csd_title_size;
-#endif
+            height -= conf->csd.title_height;
+
         render_resize_force(term, width, height);
     }
 }
@@ -1013,6 +1009,7 @@ struct wl_window *
 wayl_win_init(struct terminal *term)
 {
     struct wayland *wayl = term->wl;
+    const struct config *conf = wayl->conf;
 
     struct wl_window *win = calloc(1, sizeof(*win));
     win->term = term;
@@ -1050,8 +1047,16 @@ wayl_win_init(struct terminal *term)
     if (wayl->xdg_decoration_manager != NULL) {
         win->xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
             wayl->xdg_decoration_manager, win->xdg_toplevel);
+
+        LOG_INFO("preferring %s decorations",
+                 conf->csd.preferred == CONF_CSD_PREFER_SERVER ? "SSD" : "CSD");
+
         zxdg_toplevel_decoration_v1_set_mode(
-            win->xdg_toplevel_decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
+            win->xdg_toplevel_decoration,
+            (conf->csd.preferred == CONF_CSD_PREFER_SERVER
+             ? ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE
+             : ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE));
+
         zxdg_toplevel_decoration_v1_add_listener(
             win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, win);
     } else {

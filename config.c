@@ -133,7 +133,7 @@ str_to_double(const char *s, double *res)
 }
 
 static bool
-str_to_color(const char *s, uint32_t *color, const char *path, int lineno)
+str_to_color(const char *s, uint32_t *color, bool allow_alpha, const char *path, int lineno)
 {
     unsigned long value;
     if (!str_to_ulong(s, 16, &value)) {
@@ -141,7 +141,12 @@ str_to_color(const char *s, uint32_t *color, const char *path, int lineno)
         return false;
     }
 
-    *color = value & 0xffffff;
+    if (!allow_alpha && (value & 0xff000000) != 0) {
+        LOG_ERR("%s:%d: color value must not have an alpha component", path, lineno);
+        return false;
+    }
+
+    *color = value;
     return true;
 }
 
@@ -273,7 +278,7 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
     }
 
     uint32_t color_value;
-    if (!str_to_color(value, &color_value, path, lineno))
+    if (!str_to_color(value, &color_value, false, path, lineno))
         return false;
 
     *color = color_value;
@@ -305,8 +310,8 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
 
         uint32_t text_color, cursor_color;
         if (text == NULL || cursor == NULL ||
-            !str_to_color(text, &text_color, path, lineno) ||
-            !str_to_color(cursor, &cursor_color, path, lineno))
+            !str_to_color(text, &text_color, false, path, lineno) ||
+            !str_to_color(cursor, &cursor_color, false, path, lineno))
         {
             LOG_ERR("%s:%d: invalid cursor colors: %s", path, lineno, value);
             free(value_copy);
@@ -327,12 +332,73 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
 }
 
 static bool
+parse_section_csd(const char *key, const char *value, struct config *conf,
+                     const char *path, unsigned lineno)
+{
+    if (strcmp(key, "preferred") == 0) {
+        if (strcmp(value, "server") == 0)
+            conf->csd.preferred = CONF_CSD_PREFER_SERVER;
+        else if (strcmp(value, "client") == 0)
+            conf->csd.preferred = CONF_CSD_PREFER_CLIENT;
+        else {
+            LOG_ERR("%s:%d: expected either 'server' or 'client'", path, lineno);
+            return false;
+        }
+    }
+
+    else if (strcmp(key, "titlebar-color") == 0) {
+        uint32_t color;
+        if (!str_to_color(value, &color, true, path, lineno)) {
+            LOG_ERR("%s:%d: invalid titlebar-color: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->csd.color.title_set = true;
+        conf->csd.color.title = color;
+    }
+
+    else if (strcmp(key, "border-color") == 0) {
+        uint32_t color;
+        if (!str_to_color(value, &color, true, path, lineno)) {
+            LOG_ERR("%s:%d: invalid border-color: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->csd.color.border_set = true;
+        conf->csd.color.border = color;
+    }
+
+    else if (strcmp(key, "titlebar") == 0) {
+        unsigned long pixels;
+        if (!str_to_ulong(value, 10, &pixels)) {
+            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->csd.title_height = pixels;
+    }
+
+    else if (strcmp(key, "border") == 0) {
+        unsigned long pixels;
+        if (!str_to_ulong(value, 10, &pixels)) {
+            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->csd.border_width = pixels;
+    }
+
+    return true;
+}
+
+static bool
 parse_config_file(FILE *f, struct config *conf, const char *path)
 {
     enum section {
         SECTION_MAIN,
         SECTION_COLORS,
         SECTION_CURSOR,
+        SECTION_CSD,
     } section = SECTION_MAIN;
 
     /* Function pointer, called for each key/value line */
@@ -345,6 +411,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         [SECTION_MAIN] = &parse_section_main,
         [SECTION_COLORS] = &parse_section_colors,
         [SECTION_CURSOR] = &parse_section_cursor,
+        [SECTION_CSD] = &parse_section_csd,
     };
 
 #if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
@@ -352,6 +419,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         [SECTION_MAIN] = "main",
         [SECTION_COLORS] = "colors",
         [SECTION_CURSOR] = "cursor",
+        [SECTION_CSD] = "csd",
     };
 #endif
 
@@ -408,6 +476,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
                 section = SECTION_COLORS;
             else if (strcmp(&line[1], "cursor") == 0)
                 section = SECTION_CURSOR;
+            else if (strcmp(&line[1], "csd") == 0)
+                section = SECTION_CSD;
             else {
                 LOG_ERR("%s:%d: invalid section name: %s", path, lineno, &line[1]);
                 goto err;
@@ -529,6 +599,16 @@ config_load(struct config *conf, const char *conf_path)
             .color = {
                 .text = 0,
                 .cursor = 0,
+            },
+        },
+
+        .csd = {
+            .preferred = CONF_CSD_PREFER_SERVER,
+            .title_height = 26,
+            .border_width = 5,
+            .color = {
+                .title_set = false,
+                .border_set = false,
             },
         },
 

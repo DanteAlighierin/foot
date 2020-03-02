@@ -33,3 +33,10 @@
 # bright6=b3ffff
 # bright7=ffffff
 # alpha=1.0
+
+[csd]
+# preferred=server
+# titlebar=26
+# border=5
+# titlebar-color=<foreground color>
+# border-color=00000000

@@ -82,15 +82,6 @@ struct wl_primary {
     uint32_t serial;
 };
 
-/* I'd prefer to position the CSD sub-surfaces outside the main
- * surface. Unfortunately, a lot of compositors doesn't handle this
- * correctly. When this define is 0, we instead position the CSD
- * sub-surfaces inside the main surface, and offset the grid content
- * accordingly. */
-#define FOOT_CSD_OUTSIDE 1
-extern const int csd_border_size;
-extern const int csd_title_size;
-
 enum csd_surface {
     CSD_SURF_TITLE,
     CSD_SURF_LEFT,

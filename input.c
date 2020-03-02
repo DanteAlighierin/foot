@@ -21,6 +21,7 @@
 #define LOG_MODULE "input"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "config.h"
 #include "commands.h"
 #include "keymap.h"
 #include "render.h"
@@ -616,6 +617,7 @@ input_repeat(struct wayland *wayl, uint32_t key)
 static bool
 is_top_left(const struct terminal *term, int x, int y)
 {
+    int csd_border_size = term->conf->csd.border_width;
     return (
         (term->active_surface == TERM_SURF_BORDER_LEFT && y < 10 * term->scale) ||
         (term->active_surface == TERM_SURF_BORDER_TOP && x < (10 + csd_border_size) * term->scale));
@@ -624,6 +626,7 @@ is_top_left(const struct terminal *term, int x, int y)
 static bool
 is_top_right(const struct terminal *term, int x, int y)
 {
+    int csd_border_size = term->conf->csd.border_width;
     return (
         (term->active_surface == TERM_SURF_BORDER_RIGHT && y < 10 * term->scale) ||
         (term->active_surface == TERM_SURF_BORDER_TOP && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale));
@@ -632,6 +635,8 @@ is_top_right(const struct terminal *term, int x, int y)
 static bool
 is_bottom_left(const struct terminal *term, int x, int y)
 {
+    int csd_title_size = term->conf->csd.title_height;
+    int csd_border_size = term->conf->csd.border_width;
     return (
         (term->active_surface == TERM_SURF_BORDER_LEFT && y > csd_title_size * term->scale + term->height) ||
         (term->active_surface == TERM_SURF_BORDER_BOTTOM && x < (10 + csd_border_size) * term->scale));
@@ -640,6 +645,8 @@ is_bottom_left(const struct terminal *term, int x, int y)
 static bool
 is_bottom_right(const struct terminal *term, int x, int y)
 {
+    int csd_title_size = term->conf->csd.title_height;
+    int csd_border_size = term->conf->csd.border_width;
     return (
         (term->active_surface == TERM_SURF_BORDER_RIGHT && y > csd_title_size * term->scale + term->height) ||
         (term->active_surface == TERM_SURF_BORDER_BOTTOM && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale));
@@ -648,22 +655,14 @@ is_bottom_right(const struct terminal *term, int x, int y)
 static const char *
 xcursor_for_csd_border(struct terminal *term, int x, int y)
 {
-    if (is_top_left(term, x, y))
-        return "top_left_corner";
-    else if (is_top_right(term, x, y))
-        return "top_right_corner";
-    else if (is_bottom_left(term, x, y))
-        return "bottom_left_corner";
-    else if (is_bottom_right(term, x, y))
-        return "bottom_right_corner";
-    else if (term->active_surface == TERM_SURF_BORDER_LEFT)
-        return "left_side";
-    else if (term->active_surface == TERM_SURF_BORDER_RIGHT)
-        return "right_side";
-    else if (term->active_surface == TERM_SURF_BORDER_TOP)
-        return "top_side";
-    else if (term->active_surface == TERM_SURF_BORDER_BOTTOM)
-        return"bottom_side";
+    if (is_top_left(term, x, y))                              return "top_left_corner";
+    else if (is_top_right(term, x, y))                        return "top_right_corner";
+    else if (is_bottom_left(term, x, y))                      return "bottom_left_corner";
+    else if (is_bottom_right(term, x, y))                     return "bottom_right_corner";
+    else if (term->active_surface == TERM_SURF_BORDER_LEFT)   return "left_side";
+    else if (term->active_surface == TERM_SURF_BORDER_RIGHT)  return "right_side";
+    else if (term->active_surface == TERM_SURF_BORDER_TOP)    return "top_side";
+    else if (term->active_surface == TERM_SURF_BORDER_BOTTOM) return"bottom_side";
     else {
         assert(false);
         return NULL;
