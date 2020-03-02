@@ -152,7 +152,7 @@ component.
 	Maximize button's AARRGGBB color. Default: _ff00ff00_.
 
 *button-close-color*
-	Close button's AARRGGBB color. Default: _ffff0000_.
+	Close button's AARRGGBB color. Default: _ffff3030_.
 
 # FONT FORMAT
 

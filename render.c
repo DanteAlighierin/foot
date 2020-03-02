@@ -885,7 +885,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
         break;
 
     case CSD_SURF_CLOSE:
-        _color = 0xffff0000;
+        _color = 0xffff3030;
         is_set = &term->conf->csd.color.close_set;
         conf_color = &term->conf->csd.color.close;
         is_active = term->active_surface == TERM_SURF_BUTTON_CLOSE;
