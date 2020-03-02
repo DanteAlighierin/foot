@@ -146,7 +146,7 @@ component.
 	minimize/maximize/close buttons. Default: _22_.
 
 *button-minimize-color*
-	Minimize button's AARRGGBB color. Default: _ff0000ff_.
+	Minimize button's AARRGGBB color. Default: _ff1e90ff_.
 
 *button-maximize-color*
 	Maximize button's AARRGGBB color. Default: _ff00ff00_.
