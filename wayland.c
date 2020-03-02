@@ -648,13 +648,13 @@ xdg_toplevel_decoration_configure(void *data,
 
     switch (mode) {
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
-        LOG_DBG("using client-side decorations");
+        LOG_INFO("using CSD decorations");
         win->use_csd = CSD_YES;
         csd_instantiate(win);
         break;
 
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
-        LOG_DBG("using server-side decorations");
+        LOG_INFO("using SSD decorations");
         win->use_csd = CSD_NO;
         csd_destroy(win);
         break;
