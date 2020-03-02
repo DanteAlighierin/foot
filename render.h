@@ -19,6 +19,7 @@ bool render_xcursor_set(struct terminal *term);
 void render_search_box(struct terminal *term);
 void render_csd(struct terminal *term);
 void render_csd_title(struct terminal *term);
+void render_csd_button(struct terminal *term, enum csd_surface surf_idx);
 
 struct render_worker_context {
     int my_id;

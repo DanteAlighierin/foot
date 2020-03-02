@@ -88,6 +88,9 @@ enum csd_surface {
     CSD_SURF_RIGHT,
     CSD_SURF_TOP,
     CSD_SURF_BOTTOM,
+    CSD_SURF_MINIMIZE,
+    CSD_SURF_MAXIMIZE,
+    CSD_SURF_CLOSE,
     CSD_SURF_COUNT,
 };
 
@@ -103,8 +106,8 @@ struct wl_window {
     enum {CSD_UNKNOWN, CSD_NO, CSD_YES } use_csd;
 
     struct {
-        struct wl_surface *surface[5];
-        struct wl_subsurface *sub_surface[5];
+        struct wl_surface *surface[CSD_SURF_COUNT];
+        struct wl_subsurface *sub_surface[CSD_SURF_COUNT];
         int move_timeout_fd;
         uint32_t serial;
     } csd;

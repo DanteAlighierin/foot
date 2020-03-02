@@ -47,8 +47,12 @@ csd_instantiate(struct wl_window *win)
         assert(win->csd.sub_surface[i] == NULL);
 
         win->csd.surface[i] = wl_compositor_create_surface(wayl->compositor);
+
+        struct wl_surface *parent = i < CSD_SURF_MINIMIZE
+            ? win->surface : win->csd.surface[CSD_SURF_TITLE];
+
         win->csd.sub_surface[i] = wl_subcompositor_get_subsurface(
-            wayl->sub_compositor, win->csd.surface[i], win->surface);
+            wayl->sub_compositor, win->csd.surface[i], parent);
 
         wl_subsurface_set_sync(win->csd.sub_surface[i]);
         wl_surface_set_user_data(win->csd.surface[i], win);

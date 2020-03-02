@@ -24,6 +24,7 @@
 #include "config.h"
 #include "commands.h"
 #include "keymap.h"
+#include "quirks.h"
 #include "render.h"
 #include "search.h"
 #include "selection.h"
@@ -708,6 +709,28 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
         render_xcursor_set(term);
         break;
 
+    case TERM_SURF_BUTTON_MINIMIZE:
+    case TERM_SURF_BUTTON_MAXIMIZE:
+    case TERM_SURF_BUTTON_CLOSE: {
+        enum csd_surface idx =
+            term->active_surface == TERM_SURF_BUTTON_MINIMIZE ? CSD_SURF_MINIMIZE :
+            term->active_surface == TERM_SURF_BUTTON_MAXIMIZE ? CSD_SURF_MAXIMIZE :
+            CSD_SURF_CLOSE;
+
+        quirk_weston_subsurface_desync_on(term->window->csd.sub_surface[CSD_SURF_TITLE]);
+        quirk_weston_subsurface_desync_on(term->window->csd.sub_surface[idx]);
+
+        render_csd_button(term, idx);
+
+        quirk_weston_subsurface_desync_off(term->window->csd.sub_surface[idx]);
+        quirk_weston_subsurface_desync_off(term->window->csd.sub_surface[CSD_SURF_TITLE]);
+        wl_surface_commit(win->surface);
+
+        term->xcursor = "left_ptr";
+        render_xcursor_set(term);
+        break;
+    }
+
     case TERM_SURF_NONE:
         assert(false);
         break;
@@ -746,8 +769,43 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
                 = wl_surface_get_user_data(surface);
             assert(old_moused == win->term);
         }
+
+        enum term_surface active_surface = old_moused->active_surface;
+
         old_moused->active_surface = TERM_SURF_NONE;
         term_xcursor_update(old_moused);
+
+        switch (active_surface) {
+        case TERM_SURF_BUTTON_MINIMIZE:
+        case TERM_SURF_BUTTON_MAXIMIZE:
+        case TERM_SURF_BUTTON_CLOSE: {
+            enum csd_surface idx =
+                active_surface == TERM_SURF_BUTTON_MINIMIZE ? CSD_SURF_MINIMIZE :
+                active_surface == TERM_SURF_BUTTON_MAXIMIZE ? CSD_SURF_MAXIMIZE :
+                CSD_SURF_CLOSE;
+
+            quirk_weston_subsurface_desync_on(old_moused->window->csd.sub_surface[CSD_SURF_TITLE]);
+            quirk_weston_subsurface_desync_on(old_moused->window->csd.sub_surface[idx]);
+
+            render_csd_button(old_moused, idx);
+
+            quirk_weston_subsurface_desync_off(old_moused->window->csd.sub_surface[idx]);
+            quirk_weston_subsurface_desync_off(old_moused->window->csd.sub_surface[CSD_SURF_TITLE]);
+            wl_surface_commit(old_moused->window->surface);
+            break;
+        }
+
+        case TERM_SURF_NONE:
+        case TERM_SURF_GRID:
+        case TERM_SURF_SEARCH:
+        case TERM_SURF_TITLE:
+        case TERM_SURF_BORDER_LEFT:
+        case TERM_SURF_BORDER_RIGHT:
+        case TERM_SURF_BORDER_TOP:
+        case TERM_SURF_BORDER_BOTTOM:
+            break;
+        }
+
     }
 }
 
@@ -787,6 +845,9 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     switch (term->active_surface) {
     case TERM_SURF_NONE:
     case TERM_SURF_SEARCH:
+    case TERM_SURF_BUTTON_MINIMIZE:
+    case TERM_SURF_BUTTON_MAXIMIZE:
+    case TERM_SURF_BUTTON_CLOSE:
         break;
 
     case TERM_SURF_TITLE:
@@ -975,6 +1036,26 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         }
         return;
     }
+
+    case TERM_SURF_BUTTON_MINIMIZE:
+        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+            xdg_toplevel_set_minimized(term->window->xdg_toplevel);
+        break;
+
+    case TERM_SURF_BUTTON_MAXIMIZE:
+        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+            if (term->window->is_maximized)
+                xdg_toplevel_unset_maximized(term->window->xdg_toplevel);
+            else
+                xdg_toplevel_set_maximized(term->window->xdg_toplevel);
+        }
+        break;
+
+    case TERM_SURF_BUTTON_CLOSE:
+        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+            term_shutdown(term);
+            //LOG_ERR("unimplemented: terminate");
+        break;
 
     case TERM_SURF_SEARCH:
         break;

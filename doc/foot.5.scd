@@ -83,6 +83,10 @@ applications can change these runtime.
 This section controls the 16 ANSI colors and the default foreground
 and background colors. Note that applications can change these runtime.
 
+The colors are in RRGGBB format. That is, they do *not* have an alpha
+component. You can configure the background transparency with the
+_alpha_ option.
+
 *foreground*
 	Default RRGGBB foreground color. This is the color used when no
 	ANSI color is being used. Default: _dcdccc_.
@@ -112,29 +116,43 @@ Decorations). Note that the default is to *not* use CSDs, but instead
 to use _SSDs_ (Server Side Decorations) when the compositor supports
 it.
 
+Note that unlike the colors defined in the _colors_ section, the color
+values here are in AARRGGBB format. I.e. they contain an alpha
+component.
+
 *preferred*
 	Which type of window decorations to prefer: *client* (CSD) or
 	*server* (SSD). Note that this is only a hint to the
 	compositor. Depending on the compositor's configuration and
 	capabilities, it may not have any effect. Default: _server_.
 
-*titlebar*
+*titlebar-size*
 	Height, in pixels (but subject to output scaling), of the
 	titlebar, not including the window border. Default: _26_.
 
-*border*
+*border-width*
 	Width, in pixels (but subject to output scaling), of the
 	borders. Default: _5_.
 
 *titlebar-color*
-	Titlebar AARRGGBB color. Note that unlike the other color values,
-	the *titlebar-color* value also has an _alpha_ component. Default:
-	use the default _foreground_ color.
+	Titlebar AARRGGBB color. Default: use the default _foreground_
+	color.
 
 *border-color*
-	Border AARRGGBB color. Note that unlike the other color values,
-	the *border-color* value also has an _alpha_ component. Default:
-	_transparent_.
+	Border AARRGGBB color. Default: _transparent_.
+
+*button-width*
+	Width, in pixels (but subject to output scaling), of the
+	minimize/maximize/close buttons. Default: _22_.
+
+*button-minimize-color*
+	Minimize button's AARRGGBB color. Default: _ff0000ff_.
+
+*button-maximize-color*
+	Maximize button's AARRGGBB color. Default: _ff00ff00_.
+
+*button-close-color*
+	Close button's AARRGGBB color. Default: _ffff0000_.
 
 # FONT FORMAT
 

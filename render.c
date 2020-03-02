@@ -682,12 +682,20 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
     const int title_height = !term->window->is_fullscreen
         ? term->conf->csd.title_height * term->scale : 0;
 
+    const int button_width = !term->window->is_fullscreen
+        ? term->conf->csd.button_width * term->scale : 0;
+
     switch (surf_idx) {
     case CSD_SURF_TITLE:  return (struct csd_data){            0,                -title_height,                    term->width,                title_height};
     case CSD_SURF_LEFT:   return (struct csd_data){-border_width,                -title_height,                   border_width, title_height + term->height};
     case CSD_SURF_RIGHT:  return (struct csd_data){  term->width,                -title_height,                   border_width, title_height + term->height};
     case CSD_SURF_TOP:    return (struct csd_data){-border_width, -title_height - border_width, term->width + 2 * border_width,                border_width};
     case CSD_SURF_BOTTOM: return (struct csd_data){-border_width,                 term->height, term->width + 2 * border_width,                border_width};
+
+    /* Positioned relative to CSD_SURF_TITLE */
+    case CSD_SURF_MINIMIZE: return (struct csd_data){term->width - 3 * button_width, 0, button_width, title_height};
+    case CSD_SURF_MAXIMIZE: return (struct csd_data){term->width - 2 * button_width, 0, button_width, title_height};
+    case CSD_SURF_CLOSE:    return (struct csd_data){term->width - 1 * button_width, 0, button_width, title_height};
 
     case CSD_SURF_COUNT:
         assert(false);
@@ -781,6 +789,73 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 }
 
 void
+render_csd_button(struct terminal *term, enum csd_surface surf_idx)
+{
+    assert(surf_idx >= CSD_SURF_MINIMIZE);
+
+    if (term->window->use_csd != CSD_YES)
+        return;
+
+    struct csd_data info = get_csd_data(term, surf_idx);
+    struct wl_surface *surf = term->window->csd.surface[surf_idx];
+
+    if (info.width == 0 || info.height == 0)
+        return;
+
+    unsigned long cookie = shm_cookie_csd(term, surf_idx);
+    struct buffer *buf = shm_get_buffer(
+        term->wl->shm, info.width, info.height, cookie);
+
+    uint32_t _color;
+    uint16_t alpha = 0xffff;
+    bool is_active = false;
+    const bool *is_set = NULL;
+    const uint32_t *conf_color = NULL;
+
+    switch (surf_idx) {
+    case CSD_SURF_MINIMIZE:
+        _color = 0xff0000ff;
+        is_set = &term->conf->csd.color.minimize_set;
+        conf_color = &term->conf->csd.color.minimize;
+        is_active = term->active_surface == TERM_SURF_BUTTON_MINIMIZE;
+        break;
+
+    case CSD_SURF_MAXIMIZE:
+        _color = 0xff00ff00;
+        is_set = &term->conf->csd.color.maximize_set;
+        conf_color = &term->conf->csd.color.maximize;
+        is_active = term->active_surface == TERM_SURF_BUTTON_MAXIMIZE;
+        break;
+
+    case CSD_SURF_CLOSE:
+        _color = 0xffff0000;
+        is_set = &term->conf->csd.color.close_set;
+        conf_color = &term->conf->csd.color.close;
+        is_active = term->active_surface == TERM_SURF_BUTTON_CLOSE;
+        break;
+
+    default:
+        assert(false);
+        break;
+    }
+
+    if (is_active) {
+        if (*is_set) {
+            _color = *conf_color;
+            alpha = _color >> 24 | (_color >> 24 << 8);
+        }
+    } else {
+        _color = 0;
+        alpha = 0;
+    }
+
+    pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
+    if (!term->visual_focus)
+        pixman_color_dim(&color);
+    render_csd_part(term, surf, buf, info.width, info.height, &color);
+}
+
+void
 render_csd(struct terminal *term)
 {
     if (term->window->use_csd != CSD_YES)
@@ -798,7 +873,7 @@ render_csd(struct terminal *term)
 
         if (width == 0 || height == 0) {
             /* CSD borders aren't rendered in maximized mode */
-            assert(term->window->is_maximized);
+            assert(term->window->is_maximized || term->window->is_fullscreen);
             wl_subsurface_set_position(sub, 0, 0);
             wl_surface_attach(surf, NULL, 0, 0);
             wl_surface_commit(surf);
@@ -811,6 +886,8 @@ render_csd(struct terminal *term)
     render_csd_title(term);
     for (size_t i = CSD_SURF_LEFT; i <= CSD_SURF_BOTTOM; i++)
         render_csd_border(term, i);
+    for (size_t i = CSD_SURF_MINIMIZE; i < CSD_SURF_COUNT; i++)
+        render_csd_button(term, i);
 }
 
 static void frame_callback(

@@ -2149,16 +2149,22 @@ term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
         return TERM_SURF_GRID;
     else if (surface == term->window->search_surface)
         return TERM_SURF_SEARCH;
-    else if (surface == term->window->csd.surface[0])
+    else if (surface == term->window->csd.surface[CSD_SURF_TITLE])
         return TERM_SURF_TITLE;
-    else if (surface == term->window->csd.surface[1])
+    else if (surface == term->window->csd.surface[CSD_SURF_LEFT])
         return TERM_SURF_BORDER_LEFT;
-    else if (surface == term->window->csd.surface[2])
+    else if (surface == term->window->csd.surface[CSD_SURF_RIGHT])
         return TERM_SURF_BORDER_RIGHT;
-    else if (surface == term->window->csd.surface[3])
+    else if (surface == term->window->csd.surface[CSD_SURF_TOP])
         return TERM_SURF_BORDER_TOP;
-    else if (surface == term->window->csd.surface[4])
+    else if (surface == term->window->csd.surface[CSD_SURF_BOTTOM])
         return TERM_SURF_BORDER_BOTTOM;
+    else if (surface == term->window->csd.surface[CSD_SURF_MINIMIZE])
+        return TERM_SURF_BUTTON_MINIMIZE;
+    else if (surface == term->window->csd.surface[CSD_SURF_MAXIMIZE])
+        return TERM_SURF_BUTTON_MAXIMIZE;
+    else if (surface == term->window->csd.surface[CSD_SURF_CLOSE])
+        return TERM_SURF_BUTTON_CLOSE;
     else
         return TERM_SURF_NONE;
 }
