@@ -878,7 +878,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
         break;
 
     case CSD_SURF_MAXIMIZE:
-        _color = 0xff00ff00;
+        _color = 0xff30ff30;
         is_set = &term->conf->csd.color.maximize_set;
         conf_color = &term->conf->csd.color.maximize;
         is_active = term->active_surface == TERM_SURF_BUTTON_MAXIMIZE;

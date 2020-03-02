@@ -149,7 +149,7 @@ component.
 	Minimize button's AARRGGBB color. Default: _ff1e90ff_.
 
 *button-maximize-color*
-	Maximize button's AARRGGBB color. Default: _ff00ff00_.
+	Maximize button's AARRGGBB color. Default: _ff30ff30_.
 
 *button-close-color*
 	Close button's AARRGGBB color. Default: _ffff3030_.
