@@ -428,21 +428,20 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 #endif
 
     unsigned lineno = 0;
+
     char *_line = NULL;
+    size_t count = 0;
 
     while (true) {
         errno = 0;
         lineno++;
 
-        _line = NULL;
-        size_t count = 0;
         ssize_t ret = getline(&_line, &count, f);
 
         if (ret < 0) {
-            free(_line);
             if (errno != 0) {
                 LOG_ERRNO("failed to read from configuration");
-                return false;
+                goto err;
             }
             break;
         }
@@ -461,10 +460,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         }
 
         /* Empty line, or comment */
-        if (line[0] == '\0' || line[0] == '#') {
-            free(_line);
+        if (line[0] == '\0' || line[0] == '#')
             continue;
-        }
 
         /* Check for new section */
         if (line[0] == '[') {
@@ -487,7 +484,6 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
                 goto err;
             }
 
-            free(_line);
             continue;
         }
 
@@ -510,7 +506,6 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
                 goto err;
             }
 
-            free(_line);
             continue;
         }
 
@@ -521,10 +516,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
             assert(!isspace(*(value + strlen(value) - 1)));
         }
 
-        if (key[0] == '#') {
-            free(_line);
+        if (key[0] == '#')
             continue;
-        }
 
         LOG_DBG("section=%s, key='%s', value='%s'",
                 section_names[section], key, value);
@@ -534,10 +527,9 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 
         if (!section_parser(key, value, conf, path, lineno))
             goto err;
-
-        free(_line);
     }
 
+    free(_line);
     return true;
 
 err:
