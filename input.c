@@ -585,7 +585,7 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wayl->kbd.meta = xkb_state_mod_index_is_active(
         wayl->kbd.xkb_state, wayl->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
 
-    if (wayl->kbd_focus)
+    if (wayl->kbd_focus && wayl->kbd_focus->active_surface == TERM_SURF_GRID)
         term_xcursor_update(wayl->kbd_focus);
 }
 
