@@ -736,6 +736,9 @@ render_csd_title(struct terminal *term)
     if (term->window->use_csd != CSD_YES)
         return;
 
+    if (term->is_shutting_down)
+        return;
+
     struct csd_data info = get_csd_data(term, CSD_SURF_TITLE);
     struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE];
 
@@ -756,7 +759,6 @@ render_csd_title(struct terminal *term)
     pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
     if (!term->visual_focus)
         pixman_color_dim(&color);
-
     render_csd_part(term, surf, buf, info.width, info.height, &color);
     csd_commit(term, surf, buf);
 }
@@ -843,6 +845,9 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
     if (term->window->use_csd != CSD_YES)
         return;
 
+    if (term->is_shutting_down)
+        return;
+
     struct csd_data info = get_csd_data(term, surf_idx);
     struct wl_surface *surf = term->window->csd.surface[surf_idx];
 
@@ -919,6 +924,9 @@ void
 render_csd(struct terminal *term)
 {
     if (term->window->use_csd != CSD_YES)
+        return;
+
+    if (term->is_shutting_down)
         return;
 
     for (size_t i = 0; i < CSD_SURF_COUNT; i++) {
