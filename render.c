@@ -942,6 +942,9 @@ render_csd(struct terminal *term)
         struct wl_surface *surf = term->window->csd.surface[i];
         struct wl_subsurface *sub = term->window->csd.sub_surface[i];
 
+        assert(surf != NULL);
+        assert(sub != NULL);
+
         if (width == 0 || height == 0) {
             /* CSD borders aren't rendered in maximized mode */
             assert(term->window->is_maximized || term->window->is_fullscreen);
