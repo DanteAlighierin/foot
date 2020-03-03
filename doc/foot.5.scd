@@ -126,23 +126,16 @@ component.
 	compositor. Depending on the compositor's configuration and
 	capabilities, it may not have any effect. Default: _server_.
 
-*titlebar-size*
-	Height, in pixels (but subject to output scaling), of the
-	titlebar, not including the window border. Default: _26_.
+*size*
+	Height, in pixels (subject to output scaling), of the
+	titlebar. Default: _26_.
 
-*border-width*
-	Width, in pixels (but subject to output scaling), of the
-	borders. Default: _5_.
-
-*titlebar-color*
+*color*
 	Titlebar AARRGGBB color. Default: use the default _foreground_
 	color.
 
-*border-color*
-	Border AARRGGBB color. Default: _transparent_.
-
 *button-width*
-	Width, in pixels (but subject to output scaling), of the
+	Width, in pixels (subject to output scaling), of the
 	minimize/maximize/close buttons. Default: _22_.
 
 *button-minimize-color*

@@ -350,7 +350,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
         }
     }
 
-    else if (strcmp(key, "titlebar-color") == 0) {
+    else if (strcmp(key, "color") == 0) {
         uint32_t color;
         if (!str_to_color(value, &color, true, path, lineno)) {
             LOG_ERR("%s:%d: invalid titlebar-color: %s", path, lineno, value);
@@ -361,18 +361,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
         conf->csd.color.title = color;
     }
 
-    else if (strcmp(key, "border-color") == 0) {
-        uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno)) {
-            LOG_ERR("%s:%d: invalid border-color: %s", path, lineno, value);
-            return false;
-        }
-
-        conf->csd.color.border_set = true;
-        conf->csd.color.border = color;
-    }
-
-    else if (strcmp(key, "titlebar-size") == 0) {
+    else if (strcmp(key, "size") == 0) {
         unsigned long pixels;
         if (!str_to_ulong(value, 10, &pixels)) {
             LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
@@ -380,16 +369,6 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
         }
 
         conf->csd.title_height = pixels;
-    }
-
-    else if (strcmp(key, "border-width") == 0) {
-        unsigned long pixels;
-        if (!str_to_ulong(value, 10, &pixels)) {
-            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
-            return false;
-        }
-
-        conf->csd.border_width = pixels;
     }
 
     else if (strcmp(key, "button-width") == 0) {
@@ -645,10 +624,6 @@ config_load(struct config *conf, const char *conf_path)
             .title_height = 26,
             .border_width = 5,
             .button_width = 22,
-            .color = {
-                .title_set = false,
-                .border_set = false,
-            },
         },
 
         .render_worker_count = sysconf(_SC_NPROCESSORS_ONLN),

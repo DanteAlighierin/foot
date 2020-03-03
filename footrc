@@ -36,10 +36,8 @@
 
 [csd]
 # preferred=server
-# titlebar-size=26
-# border-width=5
-# titlebar-color=<foreground color>
-# border-color=00000000
+# size=26
+# color=<foreground color>
 # button-width=22
 # button-minimize-color=ff0000ff
 # button-maximize-color=ff00ff00

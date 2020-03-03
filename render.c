@@ -779,17 +779,7 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, info.width, info.height, cookie);
 
-    uint32_t _color = 0;
-    uint16_t alpha = 0;
-
-    if (term->conf->csd.color.border_set) {
-        _color = term->conf->csd.color.border;
-        alpha = _color >> 24 | (_color >> 24 << 8);
-    }
-
-    pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
-    if (!term->visual_focus)
-        pixman_color_dim(&color);
+    pixman_color_t color = color_hex_to_pixman_with_alpha(0, 0);
     render_csd_part(term, surf, buf, info.width, info.height, &color);
     csd_commit(term, surf, buf);
 }

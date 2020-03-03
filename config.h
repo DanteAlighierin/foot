@@ -45,12 +45,10 @@ struct config {
 
         struct {
             bool title_set;
-            bool border_set;
             bool minimize_set;
             bool maximize_set;
             bool close_set;
             uint32_t title;
-            uint32_t border;
             uint32_t minimize;
             uint32_t maximize;
             uint32_t close;
