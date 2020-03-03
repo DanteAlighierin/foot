@@ -957,11 +957,11 @@ render_csd(struct terminal *term)
         wl_subsurface_set_position(sub, x / term->scale, y / term->scale);
     }
 
-    render_csd_title(term);
     for (size_t i = CSD_SURF_LEFT; i <= CSD_SURF_BOTTOM; i++)
         render_csd_border(term, i);
-    for (size_t i = CSD_SURF_MINIMIZE; i < CSD_SURF_COUNT; i++)
+    for (size_t i = CSD_SURF_MINIMIZE; i <= CSD_SURF_CLOSE; i++)
         render_csd_button(term, i);
+    render_csd_title(term);
 }
 
 static void frame_callback(
