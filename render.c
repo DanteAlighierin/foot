@@ -1573,7 +1573,7 @@ damage_view:
             -title_height,
             term->width / term->scale,
             term->height / term->scale + title_height);
-
+    }
 
     if (term->is_searching)
         render_search_box(term);
