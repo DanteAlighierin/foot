@@ -1416,16 +1416,9 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
             height = term->conf->height;
 
             if (term->window->use_csd == CSD_YES) {
+                /* Take CSD title bar into account */
                 assert(!term->window->is_fullscreen);
-
-                /* Account for CSDs, to make actual window size match
-                 * the configured size */
-                if (!term->window->is_maximized) {
-                    width -= 2 * term->conf->csd.border_width;
-                    height -= 2 * term->conf->csd.border_width + term->conf->csd.title_height;
-                } else {
-                    height -= term->conf->csd.title_height;
-                }
+                height -= term->conf->csd.title_height;
             }
 
             width *= scale;
@@ -1556,10 +1549,27 @@ damage_view:
         term->unmaximized_height = term->height;
     }
 
+    render_csd(term);
+
+#if 0
+    /* TODO: doesn't include CSD title bar */
     xdg_toplevel_set_min_size(
         term->window->xdg_toplevel, min_width / scale, min_height / scale);
+#endif
 
-    render_csd(term);
+    {
+        bool title_shown = !term->window->is_fullscreen &&
+            term->window->use_csd == CSD_YES;
+
+        int title_height = title_shown ? term->conf->csd.title_height : 0;
+        xdg_surface_set_window_geometry(
+            term->window->xdg_surface,
+            0,
+            -title_height,
+            term->width / term->scale,
+            term->height / term->scale + title_height);
+
+
     if (term->is_searching)
         render_search_box(term);
 

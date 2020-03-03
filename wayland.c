@@ -540,24 +540,14 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
      */
     struct wl_window *win = data;
 
-    if (!is_fullscreen && win->use_csd == CSD_YES && width != 0 && height != 0) {
+    if (!is_fullscreen && win->use_csd == CSD_YES && width > 0 && height > 0) {
         /*
-         * The size received here is the *total* window size.
-         *
-         * This *includes* the (negatively positioned) CSD
-         * sub-surfaces. Thus, since our resize code assumes the size
-         * to resize to is the main window only, adjust the size here,
-         * to account for the CSDs.
+         * We include the CSD title bar in our window geometry. Thus,
+         * the height we call render_resize() with must be adjusted,
+         * since it expects the size to refer to the main grid only.
          */
-        const struct config *conf = win->term->conf;
-        if (!is_maximized) {
-            width -= 2 * conf->csd.border_width;
-            height -= 2 * conf->csd.border_width + conf->csd.title_height;
-        } else {
-            height -= conf->csd.title_height;
-        }
+        height -= win->term->conf->csd.title_height;
     }
-
     win->configure.is_activated = is_activated;
     win->configure.is_fullscreen = is_fullscreen;
     win->configure.is_maximized = is_maximized;
@@ -607,37 +597,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     else
         term_visual_focus_out(term);
 
-    static bool desktop_is_gnome = false;
-    static bool desktop_is_initialized = false;
-
-    if (!desktop_is_initialized) {
-        const char *current_desktop = getenv("XDG_CURRENT_DESKTOP");
-
-        desktop_is_gnome = current_desktop != NULL &&
-            strcasestr(current_desktop, "gnome") != NULL;
-
-        if (desktop_is_gnome)
-            LOG_WARN("applying wl_surface_commit() workaround for mutter");
-
-        desktop_is_initialized = true;
-    }
-
-    if (desktop_is_gnome) {
-        /*
-         * Resizing the window under mutter causes the "other" side to
-         * jump back and forth, *even* if we re-render and commit a
-         * properly resized frame immediately.
-         *
-         * For that reason, the code path below also does not work,
-         * since in case we *did* resize, it appears the commit
-         * happens "too late" after the ack.
-         *
-         * Finally, doing this on any other compositor breaks the CSD
-         * synchronization with the main surface. Hence we only do
-         * this when running under mutter.
-         */
-        wl_surface_commit(win->surface);
-    } else if (!resized) {
+    if (!resized) {
         /*
          * If we didn't resize, we won't be commit a new surface
          * anytime soon. Some compositors require a commit in
@@ -678,18 +638,13 @@ xdg_toplevel_decoration_configure(void *data,
 
     if (win->is_configured && win->use_csd == CSD_YES) {
         struct terminal *term = win->term;
-        const struct config *conf = term->conf;
 
         int scale = term->scale;
         int width = term->width / scale;
         int height = term->height / scale;
 
-        if (!term->window->is_maximized) {
-            width -= 2 * conf->csd.border_width;
-            height -= 2 * conf->csd.border_width + conf->csd.title_height;
-        } else
-            height -= conf->csd.title_height;
-
+        /* Take CSD title bar into account */
+        height -= term->conf->csd.title_height;
         render_resize_force(term, width, height);
     }
 }
