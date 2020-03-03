@@ -39,7 +39,6 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
 
     char *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
 
-    /* TODO: free old context + keymap */
     if (wayl->kbd.xkb_compose_state != NULL) {
         xkb_compose_state_unref(wayl->kbd.xkb_compose_state);
         wayl->kbd.xkb_compose_state = NULL;
@@ -711,25 +710,15 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 
     case TERM_SURF_BUTTON_MINIMIZE:
     case TERM_SURF_BUTTON_MAXIMIZE:
-    case TERM_SURF_BUTTON_CLOSE: {
-        enum csd_surface idx =
-            term->active_surface == TERM_SURF_BUTTON_MINIMIZE ? CSD_SURF_MINIMIZE :
-            term->active_surface == TERM_SURF_BUTTON_MAXIMIZE ? CSD_SURF_MAXIMIZE :
-            CSD_SURF_CLOSE;
-
-        quirk_weston_subsurface_desync_on(term->window->csd.sub_surface[CSD_SURF_TITLE]);
-        quirk_weston_subsurface_desync_on(term->window->csd.sub_surface[idx]);
-
-        render_csd_button(term, idx);
-
-        quirk_weston_subsurface_desync_off(term->window->csd.sub_surface[idx]);
-        quirk_weston_subsurface_desync_off(term->window->csd.sub_surface[CSD_SURF_TITLE]);
-        wl_surface_commit(win->surface);
+    case TERM_SURF_BUTTON_CLOSE:
+        quirk_weston_csd_on(term);
+        render_csd(term);
+        quirk_weston_csd_off(term);
+        render_refresh(term);
 
         term->xcursor = "left_ptr";
         render_xcursor_set(term);
         break;
-    }
 
     case TERM_SURF_NONE:
         assert(false);
@@ -778,22 +767,15 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         switch (active_surface) {
         case TERM_SURF_BUTTON_MINIMIZE:
         case TERM_SURF_BUTTON_MAXIMIZE:
-        case TERM_SURF_BUTTON_CLOSE: {
-            enum csd_surface idx =
-                active_surface == TERM_SURF_BUTTON_MINIMIZE ? CSD_SURF_MINIMIZE :
-                active_surface == TERM_SURF_BUTTON_MAXIMIZE ? CSD_SURF_MAXIMIZE :
-                CSD_SURF_CLOSE;
+        case TERM_SURF_BUTTON_CLOSE:
+            if (old_moused->is_shutting_down)
+                break;
 
-            quirk_weston_subsurface_desync_on(old_moused->window->csd.sub_surface[CSD_SURF_TITLE]);
-            quirk_weston_subsurface_desync_on(old_moused->window->csd.sub_surface[idx]);
-
-            render_csd_button(old_moused, idx);
-
-            quirk_weston_subsurface_desync_off(old_moused->window->csd.sub_surface[idx]);
-            quirk_weston_subsurface_desync_off(old_moused->window->csd.sub_surface[CSD_SURF_TITLE]);
-            wl_surface_commit(old_moused->window->surface);
+            quirk_weston_csd_on(old_moused);
+            render_csd(old_moused);
+            quirk_weston_csd_off(old_moused);
+            render_refresh(old_moused);
             break;
-        }
 
         case TERM_SURF_NONE:
         case TERM_SURF_GRID:
@@ -1054,7 +1036,6 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_BUTTON_CLOSE:
         if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
             term_shutdown(term);
-            //LOG_ERR("unimplemented: terminate");
         break;
 
     case TERM_SURF_SEARCH:
