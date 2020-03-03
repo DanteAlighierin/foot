@@ -994,6 +994,9 @@ grid_render(struct terminal *term)
     wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
 
     pixman_image_t *pix = buf->pix;
+    pixman_region16_t clip;
+    pixman_region_init_rect(&clip, term->margins.left, term->margins.top, term->cols * term->cell_width, term->rows * term->cell_height);
+    pixman_image_set_clip_region(pix, &clip);
 
     /* If we resized the window, or is flashing, or just stopped flashing */
     if (term->render.last_buf != buf ||
@@ -1027,6 +1030,7 @@ grid_render(struct terminal *term)
             if (term->is_searching)
                 pixman_color_dim(&bg);
 
+            pixman_image_set_clip_region(pix, NULL);
             pixman_image_fill_rectangles(
                 PIXMAN_OP_SRC, pix, &bg, 4,
                 (pixman_rectangle16_t[]){
@@ -1034,6 +1038,7 @@ grid_render(struct terminal *term)
                 {0, 0, term->margins.left, term->height},          /* Left */
                 {rmargin, 0, term->margins.right, term->height},   /* Right */
                 {0, bmargin, term->width, term->margins.bottom}}); /* Bottom */
+            pixman_image_set_clip_region(pix, &clip);
 
             wl_surface_damage_buffer(
                 term->window->surface, 0, 0, term->width, term->margins.top);
