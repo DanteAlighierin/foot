@@ -929,6 +929,9 @@ render_csd(struct terminal *term)
     if (term->is_shutting_down)
         return;
 
+    if (term->window->is_fullscreen)
+        return;
+
     for (size_t i = 0; i < CSD_SURF_COUNT; i++) {
         struct csd_data info = get_csd_data(term, i);
         const int x = info.x;
