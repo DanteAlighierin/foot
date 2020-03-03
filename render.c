@@ -830,8 +830,8 @@ render_csd_button_close(struct terminal *term, struct buffer *buf)
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix, &color, 2,
         (pixman_rectangle16_t[]){
-            {(buf->width - length) / 2, buf->height / 2, length, 1 * term->scale},
-            {buf->width / 2, (buf->height - length) / 2, 1 * term->scale, length},
+            {(buf->width - length - term->scale) / 2, (buf->height - term->scale) / 2, length, 1 * term->scale},
+            {(buf->width - term->scale) / 2, (buf->height - length - term->scale) / 2, 1 * term->scale, length},
         });
 
     pixman_image_unref(src);
