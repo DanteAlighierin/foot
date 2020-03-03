@@ -1627,26 +1627,6 @@ term_restore_cursor(struct terminal *term)
     term->cursor.lcf = term->saved_cursor.lcf;
 }
 
-static void
-quirk_weston_csd_on(struct terminal *term)
-{
-    if (term->window->use_csd != CSD_YES)
-        return;
-
-    for (int i = 0; i < ALEN(term->window->csd.surface); i++)
-        quirk_weston_subsurface_desync_on(term->window->csd.sub_surface[i]);
-}
-
-static void
-quirk_weston_csd_off(struct terminal *term)
-{
-    if (term->window->use_csd != CSD_YES)
-        return;
-
-    for (int i = 0; i < ALEN(term->window->csd.surface); i++)
-        quirk_weston_subsurface_desync_off(term->window->csd.sub_surface[i]);
-}
-
 void
 term_visual_focus_in(struct terminal *term)
 {
