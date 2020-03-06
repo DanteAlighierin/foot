@@ -16,15 +16,18 @@ pkgver() {
 build() {
   meson --prefix=/usr --buildtype=release --wrap-mode=nofallback -Db_lto=true ..
 
-  meson configure -Db_pgo=generate
-  find -name "*.gcda" -delete
-  ninja
+  if [[ -v WAYLAND_DISPLAY ]]; then
+    meson configure -Db_pgo=generate
+    find -name "*.gcda" -delete
+    ninja
 
-  tmp_file=$(mktemp)
-  ./foot --config /dev/null --term=xterm -- sh -c "../scripts/generate-alt-random-writes.py --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${tmp_file} && cat ${tmp_file}"
-  rm "${tmp_file}"
+    tmp_file=$(mktemp)
+    ./foot --config /dev/null --term=xterm -- sh -c "../scripts/generate-alt-random-writes.py --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${tmp_file} && cat ${tmp_file}"
+    rm "${tmp_file}"
 
-  meson configure -Db_pgo=use
+    meson configure -Db_pgo=use
+  fi
+
   ninja
 }
 
