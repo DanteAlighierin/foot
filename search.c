@@ -86,8 +86,7 @@ search_begin(struct terminal *term)
     term->is_searching = true;
 
     term_xcursor_update(term);
-    render_search_box(term);
-    render_refresh(term);
+    render_refresh_search(term);
 }
 
 void
@@ -616,6 +615,5 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
 
     LOG_DBG("search: buffer: %S", term->search.buf);
     search_find_next(term);
-    render_search_box(term);
-    render_refresh(term);
+    render_refresh_search(term);
 }

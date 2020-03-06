@@ -730,14 +730,10 @@ render_csd_part(struct terminal *term,
     pixman_image_unref(src);
 }
 
-void
+static void
 render_csd_title(struct terminal *term)
 {
-    if (term->window->use_csd != CSD_YES)
-        return;
-
-    if (term->is_shutting_down)
-        return;
+    assert(term->window->use_csd == CSD_YES);
 
     struct csd_data info = get_csd_data(term, CSD_SURF_TITLE);
     struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE];
@@ -766,10 +762,8 @@ render_csd_title(struct terminal *term)
 static void
 render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 {
+    assert(term->window->use_csd == CSD_YES);
     assert(surf_idx >= CSD_SURF_LEFT && surf_idx <= CSD_SURF_BOTTOM);
-
-    if (term->window->use_csd != CSD_YES)
-        return;
 
     struct csd_data info = get_csd_data(term, surf_idx);
     struct wl_surface *surf = term->window->csd.surface[surf_idx];
@@ -934,16 +928,11 @@ render_csd_button_close(struct terminal *term, struct buffer *buf)
     pixman_image_unref(src);
 }
 
-void
+static void
 render_csd_button(struct terminal *term, enum csd_surface surf_idx)
 {
-    assert(surf_idx >= CSD_SURF_MINIMIZE);
-
-    if (term->window->use_csd != CSD_YES)
-        return;
-
-    if (term->is_shutting_down)
-        return;
+    assert(term->window->use_csd == CSD_YES);
+    assert(surf_idx >= CSD_SURF_MINIMIZE && surf_idx <= CSD_SURF_CLOSE);
 
     struct csd_data info = get_csd_data(term, surf_idx);
     struct wl_surface *surf = term->window->csd.surface[surf_idx];
@@ -1017,14 +1006,10 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
     csd_commit(term, surf, buf);
 }
 
-void
+static void
 render_csd(struct terminal *term)
 {
-    if (term->window->use_csd != CSD_YES)
-        return;
-
-    if (term->is_shutting_down)
-        return;
+    assert(term->window->use_csd == CSD_YES);
 
     if (term->window->is_fullscreen)
         return;
@@ -1365,21 +1350,6 @@ grid_render(struct terminal *term)
 }
 
 static void
-frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
-{
-    struct terminal *term = data;
-
-    assert(term->window->frame_callback == wl_callback);
-    wl_callback_destroy(wl_callback);
-    term->window->frame_callback = NULL;
-
-    if (term->render.pending) {
-        term->render.pending = false;
-        grid_render(term);
-    }
-}
-
-void
 render_search_box(struct terminal *term)
 {
     assert(term->window->search_sub_surface != NULL);
@@ -1477,6 +1447,38 @@ render_search_box(struct terminal *term)
 
     wl_surface_commit(term->window->search_surface);
     quirk_weston_subsurface_desync_off(term->window->search_sub_surface);
+}
+
+static void
+frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
+{
+    struct terminal *term = data;
+
+    assert(term->window->frame_callback == wl_callback);
+    wl_callback_destroy(wl_callback);
+    term->window->frame_callback = NULL;
+
+    if (term->render.pending.csd) {
+        term->render.pending.csd = false;
+
+        if (term->window->use_csd == CSD_YES) {
+            quirk_weston_csd_on(term);
+            render_csd(term);
+            quirk_weston_csd_off(term);
+        }
+    }
+
+    if (term->render.pending.search) {
+        term->render.pending.search = false;
+
+        if (term->is_searching)
+            render_search_box(term);
+    }
+
+    if (term->render.pending.grid) {
+        term->render.pending.grid = false;
+        grid_render(term);
+    }
 }
 
 /* Move to terminal.c? */
@@ -1651,8 +1653,6 @@ damage_view:
         term->unmaximized_height = term->height;
     }
 
-    render_csd(term);
-
 #if 0
     /* TODO: doesn't include CSD title bar */
     xdg_toplevel_set_min_size(
@@ -1672,14 +1672,13 @@ damage_view:
             term->height / term->scale + title_height);
     }
 
-    if (term->is_searching)
-        render_search_box(term);
-
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);
 
     term->render.last_buf = NULL;
     term_damage_view(term);
+    render_refresh_csd(term);
+    render_refresh_search(term);
     render_refresh(term);
 
     return true;
@@ -1767,20 +1766,50 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
     tll_foreach(renderer->wayl->terms, it) {
         struct terminal *term = it->item;
 
-        if (!term->render.refresh_needed)
+        if (!term->render.refresh.grid &&
+            !term->render.refresh.csd &&
+            !term->render.refresh.search)
+        {
             continue;
+        }
 
-        if (term->render.app_sync_updates.enabled)
+        if (term->render.app_sync_updates.enabled &&
+            !term->render.refresh.csd &&
+            !term->render.refresh.search)
+        {
             continue;
+        }
+
+        if (term->render.refresh.csd || term->render.refresh.search) {
+             /* Force update of parent surface */
+            term->render.refresh.grid = true;
+        }
 
         assert(term->window->is_configured);
-        term->render.refresh_needed = false;
 
-        if (term->window->frame_callback == NULL)
-            grid_render(term);
-        else {
+        bool grid = term->render.refresh.grid;
+        bool csd = term->render.refresh.csd;
+        bool search = term->render.refresh.search;
+
+        term->render.refresh.grid = false;
+        term->render.refresh.csd = false;
+        term->render.refresh.search = false;
+
+        if (term->window->frame_callback == NULL) {
+            if (csd && term->window->use_csd == CSD_YES) {
+                quirk_weston_csd_on(term);
+                render_csd(term);
+                quirk_weston_csd_off(term);
+            }
+            if (search)
+                render_search_box(term);
+            if (grid)
+                grid_render(term);
+        } else {
             /* Tells the frame callback to render again */
-            term->render.pending = true;
+            term->render.pending.grid = grid;
+            term->render.pending.csd = csd;
+            term->render.pending.search = search;
         }
     }
 
@@ -1815,7 +1844,21 @@ render_set_title(struct terminal *term, const char *_title)
 void
 render_refresh(struct terminal *term)
 {
-    term->render.refresh_needed = true;
+    term->render.refresh.grid = true;
+}
+
+void
+render_refresh_csd(struct terminal *term)
+{
+    if (term->window->use_csd == CSD_YES)
+        term->render.refresh.csd = true;
+}
+
+void
+render_refresh_search(struct terminal *term)
+{
+    if (term->is_searching)
+        term->render.refresh.search = true;
 }
 
 bool

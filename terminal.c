@@ -199,7 +199,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
      */
     if (term->window->frame_callback == NULL) {
         if (term->render.app_sync_updates.enabled)
-            term->render.refresh_needed = true;
+            term->render.refresh.grid = true;
 
         else {
             /* First timeout - reset each time we receive input. */
@@ -235,7 +235,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
             }
         }
     } else
-        term->render.pending = true;
+        term->render.pending.grid = true;
 
     if (hup) {
         if (term->hold_at_exit) {
@@ -1637,10 +1637,7 @@ term_visual_focus_in(struct terminal *term)
     if (term->cursor_blink.active)
         cursor_blink_start_timer(term);
 
-    quirk_weston_csd_on(term);
-    render_csd(term);
-    quirk_weston_csd_off(term);
-
+    render_refresh_csd(term);
     cursor_refresh(term);
 }
 
@@ -1654,10 +1651,7 @@ term_visual_focus_out(struct terminal *term)
     if (term->cursor_blink.active)
         cursor_blink_stop_timer(term);
 
-    quirk_weston_csd_on(term);
-    render_csd(term);
-    quirk_weston_csd_off(term);
-
+    render_refresh_csd(term);
     cursor_refresh(term);
 }
 

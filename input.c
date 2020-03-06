@@ -711,13 +711,9 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_BUTTON_MINIMIZE:
     case TERM_SURF_BUTTON_MAXIMIZE:
     case TERM_SURF_BUTTON_CLOSE:
-        quirk_weston_csd_on(term);
-        render_csd(term);
-        quirk_weston_csd_off(term);
-        render_refresh(term);
-
         term->xcursor = "left_ptr";
         render_xcursor_set(term);
+        render_refresh_csd(term);
         break;
 
     case TERM_SURF_NONE:
@@ -771,10 +767,7 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
             if (old_moused->is_shutting_down)
                 break;
 
-            quirk_weston_csd_on(old_moused);
-            render_csd(old_moused);
-            quirk_weston_csd_off(old_moused);
-            render_refresh(old_moused);
+            render_refresh_csd(old_moused);
             break;
 
         case TERM_SURF_NONE:

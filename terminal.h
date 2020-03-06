@@ -331,7 +331,20 @@ struct terminal {
     enum term_surface active_surface;
 
     struct {
-        bool refresh_needed;  /* Terminal needs to be re-rendered, as soon-as-possible */
+        /* Scheduled for rendering, as soon-as-possible */
+        struct {
+            bool grid;
+            bool csd;
+            bool search;
+        } refresh;
+
+        /* Scheduled for rendering, in the next frame callback */
+        struct {
+            bool grid;
+            bool csd;
+            bool search;
+        } pending;
+
         int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
 
         struct {
@@ -358,7 +371,6 @@ struct terminal {
             struct cell *cell; /* For easy access to content */
         } last_cursor;
 
-        bool pending;                /* Need to re-render again, after next frame-callback */
         struct buffer *last_buf;     /* Buffer we rendered to last time */
         bool was_flashing;           /* Flash was active last time we rendered */
         bool was_searching;
