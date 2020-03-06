@@ -106,10 +106,10 @@ define new key bindings.
 : Start a scrollback search
 
 <kbd>ctrl</kbd>+<kbd>+</kbd>, <kbd>ctrl</kbd>+<kbd>=</kbd>
-: Increase font size by 1pt
+: Increase font size by 0,5pt
 
 <kbd>ctrl</kbd>+<kbd>-</kbd>
-: Decrease font size by 1pt
+: Decrease font size by 0,5pt
 
 <kbd>ctrl</kbd>+<kbd>0</kbd>
 : Reset font size
