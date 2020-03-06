@@ -211,7 +211,7 @@ option set to `true`.
 
 This can also be disabled programatically with `rmm` (_reset meta
 mode_, `\E[?1034l`), and enabled again with `smm` (_set meta mode_,
-'\E[?1034h`).
+`\E[?1034h`).
 
 
 ## Backspace
