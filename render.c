@@ -789,15 +789,117 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 static void
 render_csd_button_minimize(struct terminal *term, struct buffer *buf)
 {
-    pixman_color_t color = color_hex_to_pixman(0);
+    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
     pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
-    int x_margin = (term->conf->csd.button_width * 1 / 4) * term->scale;
-    int y_margin = (term->conf->csd.title_height * 4 / 6) * term->scale;
+    const int max_height = buf->height / 2;
+    const int max_width = buf->width / 2;
+
+    int width = max_width;
+    int height = max_width / 2;
+
+    if (height > max_height) {
+        height = max_height;
+        width = height * 2;
+    }
+
+    assert(width <= max_width);
+    assert(height <= max_height);
+
+    int x_margin = (buf->width - width) / 2.;
+    int y_margin = (buf->height - height) / 2.;
+
+    pixman_triangle_t tri = {
+        .p1 = {
+            .x = pixman_int_to_fixed(x_margin),
+            .y = pixman_int_to_fixed(y_margin),
+        },
+        .p2 = {
+            .x = pixman_int_to_fixed(x_margin + width),
+            .y = pixman_int_to_fixed(y_margin),
+        },
+        .p3 = {
+            .x = pixman_int_to_fixed(buf->width / 2),
+            .y = pixman_int_to_fixed(y_margin + height),
+        },
+    };
+
+    pixman_composite_triangles(
+        PIXMAN_OP_OVER, src, buf->pix, PIXMAN_a1,
+        0, 0, 0, 0, 1, &tri);
+    pixman_image_unref(src);
+}
+
+static void
+render_csd_button_maximize_maximized(
+    struct terminal *term, struct buffer *buf)
+{
+    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
+    pixman_image_t *src = pixman_image_create_solid_fill(&color);
+
+    const int max_height = buf->height / 3;
+    const int max_width = buf->width / 3;
+
+    int width = min(max_height, max_width);
+    int thick = 1 * term->scale;
+
+    const int x_margin = (buf->width - width) / 2;
+    const int y_margin = (buf->height - width) / 2;
 
     pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix, &color, 1,
-        &(pixman_rectangle16_t){x_margin, y_margin, buf->width - 2 * x_margin, 1 * term->scale});
+        PIXMAN_OP_SRC, buf->pix, &color, 4,
+        (pixman_rectangle16_t[]){
+            {x_margin, y_margin, width, thick},
+            {x_margin, y_margin + thick, thick, width - 2 * thick},
+            {x_margin + width - thick, y_margin + thick, thick, width - 2 * thick},
+            {x_margin, y_margin + width - thick, width, thick}});
+
+    pixman_image_unref(src);
+
+}
+
+static void
+render_csd_button_maximize_window(
+    struct terminal *term, struct buffer *buf)
+{
+    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
+    pixman_image_t *src = pixman_image_create_solid_fill(&color);
+
+    const int max_height = buf->height / 2;
+    const int max_width = buf->width / 2;
+
+    int width = max_width;
+    int height = max_width / 2;
+
+    if (height > max_height) {
+        height = max_height;
+        width = height * 2;
+    }
+
+    assert(width <= max_width);
+    assert(height <= max_height);
+
+    int x_margin = (buf->width - width) / 2.;
+    int y_margin = (buf->height - height) / 2.;
+
+    pixman_triangle_t tri = {
+        .p1 = {
+            .x = pixman_int_to_fixed(buf->width / 2),
+            .y = pixman_int_to_fixed(y_margin),
+        },
+        .p2 = {
+            .x = pixman_int_to_fixed(x_margin),
+            .y = pixman_int_to_fixed(y_margin + height),
+        },
+        .p3 = {
+            .x = pixman_int_to_fixed(x_margin + width),
+            .y = pixman_int_to_fixed(y_margin + height),
+        },
+    };
+
+    pixman_composite_triangles(
+        PIXMAN_OP_OVER, src, buf->pix, PIXMAN_a1,
+        0, 0, 0, 0, 1, &tri);
 
     pixman_image_unref(src);
 }
@@ -805,34 +907,29 @@ render_csd_button_minimize(struct terminal *term, struct buffer *buf)
 static void
 render_csd_button_maximize(struct terminal *term, struct buffer *buf)
 {
-    pixman_color_t color = color_hex_to_pixman(0);
-    pixman_image_t *src = pixman_image_create_solid_fill(&color);
-
-    int x_margin = (term->conf->csd.button_width * 1 / 4) * term->scale;
-    int y_margin = (term->conf->csd.title_height * 2 / 6) * term->scale;
-
-    pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix, &color, 1,
-        &(pixman_rectangle16_t){x_margin, y_margin, buf->width - 2 * x_margin, 2 * term->scale});
-
-    pixman_image_unref(src);
+    if (term->window->is_maximized)
+        render_csd_button_maximize_maximized(term, buf);
+    else
+        render_csd_button_maximize_window(term, buf);
 }
 
 static void
 render_csd_button_close(struct terminal *term, struct buffer *buf)
 {
-    pixman_color_t color = color_hex_to_pixman(0);
+    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
     pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
-    int min_length = min(buf->width, buf->height);
-    int length = min_length / 2;
+    const int max_height = buf->height / 3;
+    const int max_width = buf->width / 3;
+
+    int width = min(max_height, max_width);
+
+    const int x_margin = (buf->width - width) / 2;
+    const int y_margin = (buf->height - width) / 2;
 
     pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix, &color, 2,
-        (pixman_rectangle16_t[]){
-            {(buf->width - length - term->scale) / 2, (buf->height - term->scale) / 2, length, 1 * term->scale},
-            {(buf->width - term->scale) / 2, (buf->height - length - term->scale) / 2, 1 * term->scale, length},
-        });
+        PIXMAN_OP_SRC, buf->pix, &color, 1,
+        &(pixman_rectangle16_t){x_margin, y_margin, width, width});
 
     pixman_image_unref(src);
 }
