@@ -1,4 +1,4 @@
-pkgname=('foot' 'foot-terminfo')
+pkgname=('foot-git' 'foot-terminfo-git')
 pkgver=1.2.1
 pkgrel=1
 arch=('x86_64')
@@ -35,17 +35,21 @@ check() {
   ninja test
 }
 
-package_foot() {
+package_foot-git() {
   pkgdesc="A wayland native terminal emulator"
   optdepends=('foot-terminfo: terminfo for foot')
+  conflicts=('foot')
+  provides=('foot')
 
   DESTDIR="${pkgdir}/" ninja install
   rm -rf "${pkgdir}/usr/share/terminfo"
 }
 
-package_foot-terminfo() {
+package_foot-terminfo-git() {
   pkgdesc="Terminfo files for the foot terminal emulator"
   depends=('ncurses')
+  conflicts=('foot-terminfo')
+  provides=('foot-terminfo')
 
   install -dm 755 "${pkgdir}/usr/share/terminfo/f/"
   cp f/* "${pkgdir}/usr/share/terminfo/f/"
