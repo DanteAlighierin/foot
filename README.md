@@ -84,7 +84,8 @@ fonts, _then_ fontconfig's list is used.
 ## Shortcuts
 
 At the moment, all shortcuts are hard coded and cannot be changed
-(this is planned for a later release).. It is **not** possible to
+(this is planned for a later release - see
+https://codeberg.org/dnkl/foot/issues/1). It is **not** possible to
 define new key bindings.
 
 
