@@ -309,8 +309,10 @@ https://codeberg.org/dnkl/tllist.git (see [Other](#other) below).
 
 Install from AUR:
 
-* [foot](https://aur.archlinux.org/packages/foot/)+[foot-terminfo](https://aur.archlinux.org/packages/foot-terminfo/)
-* [foot-git](https://aur.archlinux.org/packages/foot-git/)+[foot-terminfo-git](https://aur.archlinux.org/packages/foot-terminfo-git/)
+* [foot](https://aur.archlinux.org/packages/foot/) +
+  [foot-terminfo](https://aur.archlinux.org/packages/foot-terminfo/)
+* [foot-git](https://aur.archlinux.org/packages/foot-git/) +
+  [foot-terminfo-git](https://aur.archlinux.org/packages/foot-terminfo-git/)
 
 Or use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to
 build the bundled [PKGBUILD](PKGBUILD) (run `makepkg` in the source
