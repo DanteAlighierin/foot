@@ -318,7 +318,8 @@ Or use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to
 build the bundled [PKGBUILD](PKGBUILD) (run `makepkg` in the source
 root directory).
 
-It **requires** [tllist](https://codeberg.org/dnkl/tllist) and
+Unlike the AUR packages, the bundled PKGBUILD **requires**
+[tllist](https://codeberg.org/dnkl/tllist) and
 [fcft](https://codeberg.org/dnkl/fcft) to be installed as system
 libraries. If you do not want this, please edit the PKGBUILD file, or
 install manually (see [Other](#other) below).
