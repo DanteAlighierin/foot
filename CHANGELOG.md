@@ -8,6 +8,11 @@
 ### Fixed
 ### Security
 
+## 1.2.1
+
+### Fixed
+* Building AUR package
+
 
 ## 1.2.0
 
