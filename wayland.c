@@ -106,12 +106,10 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
     if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
         if (wayl->keyboard == NULL) {
             wayl->keyboard = wl_seat_get_keyboard(wl_seat);
-            LOG_INFO("got KBD %p", wayl->keyboard);
             wl_keyboard_add_listener(wayl->keyboard, &keyboard_listener, wayl);
         }
     } else {
         if (wayl->keyboard != NULL) {
-            LOG_INFO("releasing KBD %p", wayl->keyboard);
             wl_keyboard_release(wayl->keyboard);
             wayl->keyboard = NULL;
         }
@@ -120,12 +118,10 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
     if (caps & WL_SEAT_CAPABILITY_POINTER) {
         if (wayl->pointer.pointer == NULL) {
             wayl->pointer.pointer = wl_seat_get_pointer(wl_seat);
-            LOG_INFO("got pointer %p", wayl->pointer.pointer);
             wl_pointer_add_listener(wayl->pointer.pointer, &pointer_listener, wayl);
         }
     } else {
         if (wayl->pointer.pointer != NULL) {
-            LOG_INFO("releasing pointer %p", wayl->pointer.pointer);
             wl_pointer_release(wayl->pointer.pointer);
             wayl->pointer.pointer = NULL;
         }
