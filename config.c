@@ -623,7 +623,7 @@ config_load(struct config *conf, const char *conf_path)
             .preferred = CONF_CSD_PREFER_SERVER,
             .title_height = 26,
             .border_width = 5,
-            .button_width = 22,
+            .button_width = 26,
         },
 
         .render_worker_count = sysconf(_SC_NPROCESSORS_ONLN),

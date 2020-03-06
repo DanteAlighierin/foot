@@ -136,7 +136,7 @@ component.
 
 *button-width*
 	Width, in pixels (subject to output scaling), of the
-	minimize/maximize/close buttons. Default: _22_.
+	minimize/maximize/close buttons. Default: _26_.
 
 *button-minimize-color*
 	Minimize button's AARRGGBB color. Default: _ff1e90ff_.

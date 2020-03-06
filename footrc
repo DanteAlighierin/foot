@@ -38,7 +38,7 @@
 # preferred=server
 # size=26
 # color=<foreground color>
-# button-width=22
+# button-width=26
 # button-minimize-color=ff0000ff
 # button-maximize-color=ff00ff00
 # button-close-color=ffff0000
