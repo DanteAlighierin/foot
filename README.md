@@ -307,9 +307,14 @@ https://codeberg.org/dnkl/tllist.git (see [Other](#other) below).
 
 ### Arch Linux
 
-Use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to build
-the bundled [PKGBUILD](PKGBUILD) (run `makepkg` in the source root
-directory).
+Install from AUR:
+
+* (foot)[https://aur.archlinux.org/packages/foot/]+(foot-terminfo)[https://aur.archlinux.org/packages/foot-terminfo/]
+* (foot-git)[https://aur.archlinux.org/packages/foot-git/]+(foot-terminfo-git)[https://aur.archlinux.org/packages/foot-terminfo-git/]
+
+Or use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to
+build the bundled [PKGBUILD](PKGBUILD) (run `makepkg` in the source
+root directory).
 
 It **requires** [tllist](https://codeberg.org/dnkl/tllist) and
 [fcft](https://codeberg.org/dnkl/fcft) to be installed as system
