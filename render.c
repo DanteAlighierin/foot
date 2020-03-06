@@ -748,7 +748,7 @@ render_csd_title(struct terminal *term)
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, info.width, info.height, cookie);
 
-    uint32_t _color = term->colors.fg;
+    uint32_t _color = term->colors.default_fg;
     uint16_t alpha = 0xffff;
 
     if (term->conf->csd.color.title_set) {
