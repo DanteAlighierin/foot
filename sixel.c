@@ -59,6 +59,11 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
         int r = (sixel->pos.row + i) & (term->grid->num_rows - 1);
 
         struct row *row = term->grid->rows[r];
+        if (row == NULL) {
+            /* A resize/reflow may cause row to now be unallocated */
+            continue;
+        }
+
         row->dirty = true;
 
         for (int c = 0; c < term->grid->num_cols; c++)
