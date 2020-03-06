@@ -1015,7 +1015,7 @@ wayl_win_init(struct terminal *term)
         win->xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
             wayl->xdg_decoration_manager, win->xdg_toplevel);
 
-        LOG_INFO("preferring %s decorations",
+        LOG_INFO("requesting %s decorations",
                  conf->csd.preferred == CONF_CSD_PREFER_SERVER ? "SSD" : "CSD");
 
         zxdg_toplevel_decoration_v1_set_mode(
