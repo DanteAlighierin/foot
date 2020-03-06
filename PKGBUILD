@@ -1,5 +1,5 @@
 pkgname=('foot' 'foot-terminfo')
-pkgver=1.1.0
+pkgver=1.2.0
 pkgrel=1
 arch=('x86_64')
 url=https://codeberg.org/dnkl/foot

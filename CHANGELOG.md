@@ -1,6 +1,15 @@
 # Changelog
 
 ## Unreleased
+### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+
+
+## 1.2.0
 
 ### Added
 * Run-time text resize using ctrl-+, ctrl+- and ctrl+0
@@ -30,9 +39,5 @@
 * Logging to print to stderr, not stdout
 * Backspace now emits DEL (^?), and ctrl+backspace emits BS (^H)
 
-### Deprecated
 ### Removed
 * '28' from DA response
-
-### Fixed
-### Security
