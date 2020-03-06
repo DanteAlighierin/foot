@@ -40,8 +40,14 @@ search_ensure_size(struct terminal *term, size_t wanted_size)
 static void
 search_cancel_keep_selection(struct terminal *term)
 {
-    wl_surface_attach(term->window->search_surface, NULL, 0, 0);
-    wl_surface_commit(term->window->search_surface);
+    struct wl_window *win = term->window;
+    if (win->search_sub_surface != NULL)
+        wl_subsurface_destroy(win->search_sub_surface);
+    if (win->search_surface != NULL)
+        wl_surface_destroy(win->search_surface);
+
+    win->search_surface = NULL;
+    win->search_sub_surface = NULL;
 
     free(term->search.buf);
     term->search.buf = NULL;
@@ -65,13 +71,22 @@ search_begin(struct terminal *term)
     search_cancel_keep_selection(term);
     selection_cancel(term);
 
+    /* On-demand instantiate wayland surface */
+    struct wl_window *win = term->window;
+    struct wayland *wayl = term->wl;
+    win->search_surface = wl_compositor_create_surface(wayl->compositor);
+    wl_surface_set_user_data(win->search_surface, term->window);
+
+    win->search_sub_surface = wl_subcompositor_get_subsurface(
+        wayl->sub_compositor, win->search_surface, win->surface);
+    wl_subsurface_set_sync(win->search_sub_surface);
+
     term->search.original_view = term->grid->view;
     term->search.view_followed_offset = term->grid->view == term->grid->offset;
     term->is_searching = true;
 
     term_xcursor_update(term);
-    render_search_box(term);
-    render_refresh(term);
+    render_refresh_search(term);
 }
 
 void
@@ -600,6 +615,5 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
 
     LOG_DBG("search: buffer: %S", term->search.buf);
     search_find_next(term);
-    render_refresh(term);
-    render_search_box(term);
+    render_refresh_search(term);
 }

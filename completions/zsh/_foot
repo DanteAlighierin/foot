@@ -6,7 +6,7 @@ _arguments \
     '(-f --font)'{-f,--font}'[font name and style in fontconfig format (monospace)]:font:->fonts' \
     '(-t --term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
     '--login-shell[start shell as a login shell]' \
-    '(-g --geometry)'{-g,--geometry}'[window WIDTHxHEIGHT, in pixels (80x24 cells)]:geometry:()' \
+    '(-g --geometry)'{-g,--geometry}'[window WIDTHxHEIGHT, in pixels (700x50)]:geometry:()' \
     '(-s --server)'{-s,--server}'[run as server; open terminals by running footclient]:server:_files' \
     '--hold[remain open after child process exits]' \
     '(-p --print-pid)'{-p,--print-pid}'[print PID to this file or FD when up and running (server mode only)]:pidfile:_files' \

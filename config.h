@@ -36,6 +36,25 @@ struct config {
         } color;
     } cursor;
 
+    struct {
+        enum { CONF_CSD_PREFER_SERVER, CONF_CSD_PREFER_CLIENT } preferred;
+
+        int title_height;
+        int border_width;
+        int button_width;
+
+        struct {
+            bool title_set;
+            bool minimize_set;
+            bool maximize_set;
+            bool close_set;
+            uint32_t title;
+            uint32_t minimize;
+            uint32_t maximize;
+            uint32_t close;
+        } color;
+    } csd;
+
     size_t render_worker_count;
     char *server_socket_path;
     bool presentation_timings;

@@ -185,6 +185,20 @@ struct sixel {
     struct coord pos;
 };
 
+enum term_surface {
+    TERM_SURF_NONE,
+    TERM_SURF_GRID,
+    TERM_SURF_SEARCH,
+    TERM_SURF_TITLE,
+    TERM_SURF_BORDER_LEFT,
+    TERM_SURF_BORDER_RIGHT,
+    TERM_SURF_BORDER_TOP,
+    TERM_SURF_BORDER_BOTTOM,
+    TERM_SURF_BUTTON_MINIMIZE,
+    TERM_SURF_BUTTON_MAXIMIZE,
+    TERM_SURF_BUTTON_CLOSE,
+};
+
 struct terminal {
     struct fdm *fdm;
     const struct config *conf;
@@ -237,6 +251,8 @@ struct terminal {
     int scale;
     int width;  /* pixels */
     int height; /* pixels */
+    int unmaximized_width;  /* last unmaximized size, pixels */
+    int unmaximized_height; /*  last unmaximized size, pixels */
     struct {
         int left;
         int right;
@@ -312,9 +328,23 @@ struct terminal {
     struct wayland *wl;
     struct wl_window *window;
     bool visual_focus;
+    enum term_surface active_surface;
 
     struct {
-        bool refresh_needed;  /* Terminal needs to be re-rendered, as soon-as-possible */
+        /* Scheduled for rendering, as soon-as-possible */
+        struct {
+            bool grid;
+            bool csd;
+            bool search;
+        } refresh;
+
+        /* Scheduled for rendering, in the next frame callback */
+        struct {
+            bool grid;
+            bool csd;
+            bool search;
+        } pending;
+
         int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
 
         struct {
@@ -341,7 +371,6 @@ struct terminal {
             struct cell *cell; /* For easy access to content */
         } last_cursor;
 
-        bool pending;                /* Need to re-render again, after next frame-callback */
         struct buffer *last_buf;     /* Buffer we rendered to last time */
         bool was_flashing;           /* Flash was active last time we rendered */
         bool was_searching;
@@ -477,3 +506,6 @@ bool term_spawn_new(const struct terminal *term);
 
 void term_enable_app_sync_updates(struct terminal *term);
 void term_disable_app_sync_updates(struct terminal *term);
+
+enum term_surface term_surface_kind(
+    const struct terminal *term, const struct wl_surface *surface);

@@ -61,18 +61,6 @@ This is a list of known, but probably not all, issues:
 
     Examples: á (`LATIN SMALL LETTER A` + `COMBINING ACUTE ACCENT`)
 
-* GNOME; might work, but without window decorations.
-
-    Strictly speaking, foot is at fault here; all Wayland applications
-    _must_ be able to draw their own window decorations (but foot is
-    not).
-
-    However, most people want a uniform look and feel on their
-    desktop, including the window decorations. For this reason, a
-    Wayland application can request _Server Side Decorations_
-    (SSD). GNOME will reply with a "_I hear you, but sorry, I wont do
-    that_".
-
 
 ## Fonts
 

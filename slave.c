@@ -1,7 +1,9 @@
 #include "slave.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
@@ -15,6 +17,52 @@
 #include "log.h"
 
 #include "tokenize.h"
+
+static bool
+is_valid_shell(const char *shell)
+{
+    FILE *f = fopen("/etc/shells", "r");
+    if (f == NULL)
+        goto err;
+
+    char *_line = NULL;
+    size_t count = 0;
+
+    while (true) {
+        errno = 0;
+        ssize_t ret = getline(&_line, &count, f);
+
+        if (ret < 0) {
+            free(_line);
+            break;
+        }
+
+        char *line = _line;
+        {
+            while (isspace(*line))
+                line++;
+            if (line[0] != '\0') {
+                char *end = line + strlen(line) - 1;
+                while (isspace(*end))
+                    end--;
+                *(end + 1) = '\0';
+            }
+        }
+
+        if (line[0] == '#')
+            continue;
+
+        if (strcmp(line, shell) == 0) {
+            fclose(f);
+            return true;
+        }
+    }
+
+err:
+    if (f != NULL)
+        fclose(f);
+    return false;
+}
 
 static void
 slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell)
@@ -144,6 +192,9 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
                 shell_argv[i] = argv[i];
             shell_argv[count] = NULL;
         }
+
+        if (is_valid_shell(shell_argv[0]))
+            setenv("SHELL", shell_argv[0], 1);
 
         slave_exec(ptmx, shell_argv, fork_pipe[1], login_shell);
         assert(false);

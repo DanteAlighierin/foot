@@ -60,7 +60,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
     const int old_rows = grid->num_rows;
     const int old_cols = grid->num_cols;
 
-    assert(old_rows != new_rows || old_cols != new_cols);
+    //assert(old_rows != new_rows || old_cols != new_cols);
 
     int new_col_idx = 0;
     int new_row_idx = 0;

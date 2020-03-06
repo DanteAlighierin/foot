@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
+#include <sys/epoll.h>
 
 #include <linux/input-event-codes.h>
 
@@ -15,11 +16,15 @@
 #include <xkbcommon/xkbcommon-keysyms.h>
 #include <xkbcommon/xkbcommon-compose.h>
 
+#include <xdg-shell.h>
+
 #define LOG_MODULE "input"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "config.h"
 #include "commands.h"
 #include "keymap.h"
+#include "quirks.h"
 #include "render.h"
 #include "search.h"
 #include "selection.h"
@@ -34,7 +39,6 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
 
     char *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
 
-    /* TODO: free old context + keymap */
     if (wayl->kbd.xkb_compose_state != NULL) {
         xkb_compose_state_unref(wayl->kbd.xkb_compose_state);
         wayl->kbd.xkb_compose_state = NULL;
@@ -86,12 +90,13 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     assert(surface != NULL);
 
     struct wayland *wayl = data;
+    struct wl_window *win = wl_surface_get_user_data(surface);
+    struct terminal *term = win->term;
+
+    wayl->kbd_focus = term;
     wayl->input_serial = serial;
-    wayl->kbd_focus = wayl_terminal_from_surface(wayl, surface);
-    assert(wayl->kbd_focus != NULL);
 
     term_kbd_focus_in(wayl->kbd_focus);
-    term_xcursor_update(wayl->kbd_focus);
 }
 
 static bool
@@ -145,7 +150,8 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     assert(
         wayl->kbd_focus == NULL ||
         surface == NULL ||  /* Seen on Sway 1.2 */
-        wayl_terminal_from_surface(wayl, surface) == wayl->kbd_focus);
+        ((const struct wl_window *)wl_surface_get_user_data(surface))->term == wayl->kbd_focus
+        );
 
     struct terminal *old_focused = wayl->kbd_focus;
     wayl->kbd_focus = NULL;
@@ -157,10 +163,9 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wayl->kbd.meta = false;;
     xkb_compose_state_reset(wayl->kbd.xkb_compose_state);
 
-    if (old_focused != NULL) {
+    if (old_focused != NULL)
         term_kbd_focus_out(old_focused);
-        term_xcursor_update(old_focused);
-    } else {
+    else {
         /*
          * Sway bug - under certain conditions we get a
          * keyboard_leave() (and keyboard_key()) without first having
@@ -580,7 +585,7 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     wayl->kbd.meta = xkb_state_mod_index_is_active(
         wayl->kbd.xkb_state, wayl->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
 
-    if (wayl->kbd_focus)
+    if (wayl->kbd_focus && wayl->kbd_focus->active_surface == TERM_SURF_GRID)
         term_xcursor_update(wayl->kbd_focus);
 }
 
@@ -609,6 +614,61 @@ input_repeat(struct wayland *wayl, uint32_t key)
     keyboard_key(wayl, NULL, wayl->input_serial, 0, key, XKB_KEY_DOWN);
 }
 
+static bool
+is_top_left(const struct terminal *term, int x, int y)
+{
+    int csd_border_size = term->conf->csd.border_width;
+    return (
+        (term->active_surface == TERM_SURF_BORDER_LEFT && y < 10 * term->scale) ||
+        (term->active_surface == TERM_SURF_BORDER_TOP && x < (10 + csd_border_size) * term->scale));
+}
+
+static bool
+is_top_right(const struct terminal *term, int x, int y)
+{
+    int csd_border_size = term->conf->csd.border_width;
+    return (
+        (term->active_surface == TERM_SURF_BORDER_RIGHT && y < 10 * term->scale) ||
+        (term->active_surface == TERM_SURF_BORDER_TOP && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale));
+}
+
+static bool
+is_bottom_left(const struct terminal *term, int x, int y)
+{
+    int csd_title_size = term->conf->csd.title_height;
+    int csd_border_size = term->conf->csd.border_width;
+    return (
+        (term->active_surface == TERM_SURF_BORDER_LEFT && y > csd_title_size * term->scale + term->height) ||
+        (term->active_surface == TERM_SURF_BORDER_BOTTOM && x < (10 + csd_border_size) * term->scale));
+}
+
+static bool
+is_bottom_right(const struct terminal *term, int x, int y)
+{
+    int csd_title_size = term->conf->csd.title_height;
+    int csd_border_size = term->conf->csd.border_width;
+    return (
+        (term->active_surface == TERM_SURF_BORDER_RIGHT && y > csd_title_size * term->scale + term->height) ||
+        (term->active_surface == TERM_SURF_BORDER_BOTTOM && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale));
+}
+
+static const char *
+xcursor_for_csd_border(struct terminal *term, int x, int y)
+{
+    if (is_top_left(term, x, y))                              return "top_left_corner";
+    else if (is_top_right(term, x, y))                        return "top_right_corner";
+    else if (is_bottom_left(term, x, y))                      return "bottom_left_corner";
+    else if (is_bottom_right(term, x, y))                     return "bottom_right_corner";
+    else if (term->active_surface == TERM_SURF_BORDER_LEFT)   return "left_side";
+    else if (term->active_surface == TERM_SURF_BORDER_RIGHT)  return "right_side";
+    else if (term->active_surface == TERM_SURF_BORDER_TOP)    return "top_side";
+    else if (term->active_surface == TERM_SURF_BORDER_BOTTOM) return"bottom_side";
+    else {
+        assert(false);
+        return NULL;
+    }
+}
+
 static void
 wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
                  uint32_t serial, struct wl_surface *surface,
@@ -617,7 +677,8 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     assert(surface != NULL);
 
     struct wayland *wayl = data;
-    struct terminal *term = wayl_terminal_from_surface(wayl, surface);
+    struct wl_window *win = wl_surface_get_user_data(surface);
+    struct terminal *term = win->term;
 
     LOG_DBG("pointer-enter: surface = %p, new-moused = %p", surface, term);
 
@@ -626,10 +687,39 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
-    wayl->mouse.col = x / term->cell_width;
-    wayl->mouse.row = y / term->cell_height;
+    switch ((term->active_surface = term_surface_kind(term, surface))) {
+    case TERM_SURF_GRID:
+        wayl->mouse.col = x / term->cell_width;
+        wayl->mouse.row = y / term->cell_height;
+        term_xcursor_update(term);
+        break;
 
-    term_xcursor_update(term);
+    case TERM_SURF_SEARCH:
+    case TERM_SURF_TITLE:
+        term->xcursor = "left_ptr";
+        render_xcursor_set(term);
+        break;
+
+    case TERM_SURF_BORDER_LEFT:
+    case TERM_SURF_BORDER_RIGHT:
+    case TERM_SURF_BORDER_TOP:
+    case TERM_SURF_BORDER_BOTTOM:
+        term->xcursor = xcursor_for_csd_border(term, x, y);
+        render_xcursor_set(term);
+        break;
+
+    case TERM_SURF_BUTTON_MINIMIZE:
+    case TERM_SURF_BUTTON_MAXIMIZE:
+    case TERM_SURF_BUTTON_CLOSE:
+        term->xcursor = "left_ptr";
+        render_xcursor_set(term);
+        render_refresh_csd(term);
+        break;
+
+    case TERM_SURF_NONE:
+        assert(false);
+        break;
+    }
 }
 
 static void
@@ -649,13 +739,49 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         wayl->pointer.xcursor = NULL;
     }
 
+    /* Reset mouse state */
+    memset(&wayl->mouse, 0, sizeof(wayl->mouse));
+
     wayl->mouse_focus = NULL;
     if (old_moused == NULL) {
         LOG_WARN(
             "compositor sent pointer_leave event without a pointer_enter "
             "event: surface=%p", surface);
-    } else
+    } else {
+        if (surface != NULL) {
+            /* Sway 1.4 sends this event with a NULL surface when we destroy the window */
+            const struct wl_window *win __attribute__((unused))
+                = wl_surface_get_user_data(surface);
+            assert(old_moused == win->term);
+        }
+
+        enum term_surface active_surface = old_moused->active_surface;
+
+        old_moused->active_surface = TERM_SURF_NONE;
         term_xcursor_update(old_moused);
+
+        switch (active_surface) {
+        case TERM_SURF_BUTTON_MINIMIZE:
+        case TERM_SURF_BUTTON_MAXIMIZE:
+        case TERM_SURF_BUTTON_CLOSE:
+            if (old_moused->is_shutting_down)
+                break;
+
+            render_refresh_csd(old_moused);
+            break;
+
+        case TERM_SURF_NONE:
+        case TERM_SURF_GRID:
+        case TERM_SURF_SEARCH:
+        case TERM_SURF_TITLE:
+        case TERM_SURF_BORDER_LEFT:
+        case TERM_SURF_BORDER_RIGHT:
+        case TERM_SURF_BORDER_TOP:
+        case TERM_SURF_BORDER_BOTTOM:
+            break;
+        }
+
+    }
 }
 
 static void
@@ -664,6 +790,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 {
     struct wayland *wayl = data;
     struct terminal *term = wayl->mouse_focus;
+    struct wl_window *win = term->window;
 
     /* Workaround buggy Sway 1.2 */
     if (term == NULL) {
@@ -687,29 +814,76 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
-    int col = (x - term->margins.left) / term->cell_width;
-    int row = (y - term->margins.top) / term->cell_height;
+    wayl->mouse.x = x;
+    wayl->mouse.y = y;
 
-    if (col < 0 || row < 0 || col >= term->cols || row >= term->rows)
-        return;
+    switch (term->active_surface) {
+    case TERM_SURF_NONE:
+    case TERM_SURF_SEARCH:
+    case TERM_SURF_BUTTON_MINIMIZE:
+    case TERM_SURF_BUTTON_MAXIMIZE:
+    case TERM_SURF_BUTTON_CLOSE:
+        break;
 
-    bool update_selection = wayl->mouse.button == BTN_LEFT;
-    bool update_selection_early = term->selection.end.row == -1;
+    case TERM_SURF_TITLE:
+        /* We've started a 'move' timer, but user started dragging
+         * right away - abort the timer and initiate the actual move
+         * right away */
+        if (wayl->mouse.button == BTN_LEFT && win->csd.move_timeout_fd != -1) {
+            fdm_del(wayl->fdm, win->csd.move_timeout_fd);
+            win->csd.move_timeout_fd = -1;
+            xdg_toplevel_move(win->xdg_toplevel, wayl->seat, win->csd.serial);
+        }
+        break;
 
-    if (update_selection && update_selection_early)
-        selection_update(term, col, row);
+    case TERM_SURF_BORDER_LEFT:
+    case TERM_SURF_BORDER_RIGHT:
+    case TERM_SURF_BORDER_TOP:
+    case TERM_SURF_BORDER_BOTTOM:
+        term->xcursor = xcursor_for_csd_border(term, x, y);
+        render_xcursor_set(term);
+        break;
 
-    if (col == wayl->mouse.col && row == wayl->mouse.row)
-        return;
+    case TERM_SURF_GRID: {
+        int col = (x - term->margins.left) / term->cell_width;
+        int row = (y - term->margins.top) / term->cell_height;
 
-    wayl->mouse.col = col;
-    wayl->mouse.row = row;
+        if (col < 0 || row < 0 || col >= term->cols || row >= term->rows)
+            return;
 
-    if (update_selection && !update_selection_early)
-        selection_update(term, col, row);
+        bool update_selection = wayl->mouse.button == BTN_LEFT;
+        bool update_selection_early = term->selection.end.row == -1;
 
-    term_mouse_motion(
+        if (update_selection && update_selection_early)
+            selection_update(term, col, row);
+
+        if (col == wayl->mouse.col && row == wayl->mouse.row)
+            break;
+
+        wayl->mouse.col = col;
+        wayl->mouse.row = row;
+
+        if (update_selection && !update_selection_early)
+            selection_update(term, col, row);
+
+        term_mouse_motion(
         term, wayl->mouse.button, wayl->mouse.row, wayl->mouse.col);
+        break;
+    }
+    }
+}
+
+static bool
+fdm_csd_move(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct wl_window *win = data;
+    struct wayland *wayl = win->term->wl;
+
+    fdm_del(fdm, fd);
+    win->csd.move_timeout_fd = -1;
+
+    xdg_toplevel_move(win->xdg_toplevel, wayl->seat, win->csd.serial);
+    return true;
 }
 
 static void
@@ -739,10 +913,9 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     }
 
     assert(term != NULL);
-    search_cancel(term);
 
-    switch (state) {
-    case WL_POINTER_BUTTON_STATE_PRESSED: {
+    /* Update double/triple click state */
+    if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
         /* Time since last click */
         struct timeval now, since_last;
         gettimeofday(&now, NULL);
@@ -757,45 +930,161 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         } else
             wayl->mouse.count = 1;
 
-        if (button == BTN_LEFT) {
-            switch (wayl->mouse.count) {
-            case 1:
-                selection_start(
-                    term, wayl->mouse.col, wayl->mouse.row,
-                    wayl->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
-                break;
-
-            case 2:
-                selection_mark_word(term, wayl->mouse.col, wayl->mouse.row,
-                                    wayl->kbd.ctrl, serial);
-                break;
-
-            case 3:
-                selection_mark_row(term, wayl->mouse.row, serial);
-                break;
-            }
-        } else {
-            if (wayl->mouse.count == 1 && button == BTN_MIDDLE && selection_enabled(term))
-                selection_from_primary(term);
-            selection_cancel(term);
-        }
-
         wayl->mouse.button = button; /* For motion events */
         wayl->mouse.last_button = button;
         wayl->mouse.last_time = now;
-        term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col);
+    } else
+        wayl->mouse.button = 0; /* For motion events */
+
+    switch (term->active_surface) {
+    case TERM_SURF_TITLE:
+        if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+
+            struct wl_window *win = term->window;
+
+            /* Toggle maximized state on double-click */
+            if (button == BTN_LEFT && wayl->mouse.count == 2) {
+                if (win->is_maximized)
+                    xdg_toplevel_unset_maximized(win->xdg_toplevel);
+                else
+                    xdg_toplevel_set_maximized(win->xdg_toplevel);
+            }
+
+            else if (button == BTN_LEFT && win->csd.move_timeout_fd == -1) {
+                const struct itimerspec timeout = {
+                    .it_value = {.tv_nsec = 200000000},
+                };
+
+                int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+                if (fd >= 0 &&
+                    timerfd_settime(fd, 0, &timeout, NULL) == 0 &&
+                    fdm_add(wayl->fdm, fd, EPOLLIN, &fdm_csd_move, win))
+                {
+                    win->csd.move_timeout_fd = fd;
+                    win->csd.serial = serial;
+                } else {
+                    LOG_ERRNO("failed to configure XDG toplevel move timer FD");
+                    close(fd);
+                }
+            }
+        }
+
+        else if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
+            struct wl_window *win = term->window;
+            if (win->csd.move_timeout_fd != -1) {
+                fdm_del(wayl->fdm, win->csd.move_timeout_fd);
+                win->csd.move_timeout_fd = -1;
+            }
+        }
+        return;
+
+    case TERM_SURF_BORDER_LEFT:
+    case TERM_SURF_BORDER_RIGHT:
+    case TERM_SURF_BORDER_TOP:
+    case TERM_SURF_BORDER_BOTTOM: {
+        static const enum xdg_toplevel_resize_edge map[] = {
+            [TERM_SURF_BORDER_LEFT] = XDG_TOPLEVEL_RESIZE_EDGE_LEFT,
+            [TERM_SURF_BORDER_RIGHT] = XDG_TOPLEVEL_RESIZE_EDGE_RIGHT,
+            [TERM_SURF_BORDER_TOP] = XDG_TOPLEVEL_RESIZE_EDGE_TOP,
+            [TERM_SURF_BORDER_BOTTOM] = XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM,
+        };
+
+        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+            enum xdg_toplevel_resize_edge resize_type;
+
+            int x = wayl->mouse.x;
+            int y = wayl->mouse.y;
+
+            if (is_top_left(term, x, y))
+                resize_type = XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT;
+            else if (is_top_right(term, x, y))
+                resize_type = XDG_TOPLEVEL_RESIZE_EDGE_TOP_RIGHT;
+            else if (is_bottom_left(term, x, y))
+                resize_type = XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_LEFT;
+            else if (is_bottom_right(term, x, y))
+                resize_type = XDG_TOPLEVEL_RESIZE_EDGE_BOTTOM_RIGHT;
+            else
+                resize_type = map[term->active_surface];
+
+            xdg_toplevel_resize(
+                term->window->xdg_toplevel, term->wl->seat, serial, resize_type);
+        }
+        return;
+    }
+
+    case TERM_SURF_BUTTON_MINIMIZE:
+        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+            xdg_toplevel_set_minimized(term->window->xdg_toplevel);
+        break;
+
+    case TERM_SURF_BUTTON_MAXIMIZE:
+        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+            if (term->window->is_maximized)
+                xdg_toplevel_unset_maximized(term->window->xdg_toplevel);
+            else
+                xdg_toplevel_set_maximized(term->window->xdg_toplevel);
+        }
+        break;
+
+    case TERM_SURF_BUTTON_CLOSE:
+        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+            term_shutdown(term);
+        break;
+
+    case TERM_SURF_SEARCH:
+        break;
+
+    case TERM_SURF_GRID: {
+        search_cancel(term);
+
+        switch (state) {
+        case WL_POINTER_BUTTON_STATE_PRESSED: {
+            if (button == BTN_LEFT) {
+                switch (wayl->mouse.count) {
+                case 1:
+                    selection_start(
+                        term, wayl->mouse.col, wayl->mouse.row,
+                        wayl->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
+                    break;
+
+                case 2:
+                    selection_mark_word(term, wayl->mouse.col, wayl->mouse.row,
+                                        wayl->kbd.ctrl, serial);
+                    break;
+
+                case 3:
+                    selection_mark_row(term, wayl->mouse.row, serial);
+                    break;
+                }
+            } else {
+                if (wayl->mouse.count == 1 && button == BTN_MIDDLE &&
+                    selection_enabled(term))
+                {
+                    selection_from_primary(term);
+                }
+                selection_cancel(term);
+            }
+
+            term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col);
+            break;
+        }
+
+        case WL_POINTER_BUTTON_STATE_RELEASED:
+            if (button != BTN_LEFT || term->selection.end.col == -1)
+                selection_cancel(term);
+            else
+                selection_finalize(term, serial);
+
+            term_mouse_up(term, button, wayl->mouse.row, wayl->mouse.col);
+            break;
+        }
         break;
     }
 
-    case WL_POINTER_BUTTON_STATE_RELEASED:
-        if (button != BTN_LEFT || term->selection.end.col == -1)
-            selection_cancel(term);
-        else
-            selection_finalize(term, serial);
-
-        wayl->mouse.button = 0; /* For motion events */
-        term_mouse_up(term, button, wayl->mouse.row, wayl->mouse.col);
+    case TERM_SURF_NONE:
+        assert(false);
         break;
+
     }
 }
 

@@ -2,9 +2,9 @@
 
 # font=monospace
 # scrollback=1000
-# geometry=500x300
+# geometry=700x500
 # pad=2x2
-# shell=<user's default shell (from /etc/passwd)> (you may need to override if you need a login shell)
+# shell=$SHELL (if set, otherwise user's default shell from /etc/passwd)
 # term=foot
 # login-shell=no
 # workers=<number of logical CPUs>
@@ -14,6 +14,7 @@
 # color=111111 dcdccc
 
 [colors]
+# alpha=1.0
 # foreground=dcdccc
 # background=111111
 # regular0=222222
@@ -32,4 +33,12 @@
 # bright5=fcace3
 # bright6=b3ffff
 # bright7=ffffff
-# alpha=1.0
+
+[csd]
+# preferred=server
+# size=26
+# color=<foreground color>
+# button-width=26
+# button-minimize-color=ff0000ff
+# button-maximize-color=ff00ff00
+# button-close-color=ffff0000

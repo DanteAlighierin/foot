@@ -21,12 +21,14 @@
 #include "async.h"
 #include "config.h"
 #include "grid.h"
+#include "quirks.h"
 #include "render.h"
 #include "selection.h"
 #include "sixel.h"
 #include "slave.h"
 #include "vt.h"
 
+#define ALEN(v) (sizeof(v) / sizeof(v[0]))
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
@@ -197,7 +199,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
      */
     if (term->window->frame_callback == NULL) {
         if (term->render.app_sync_updates.enabled)
-            term->render.refresh_needed = true;
+            term->render.refresh.grid = true;
 
         else {
             /* First timeout - reset each time we receive input. */
@@ -233,7 +235,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
             }
         }
     } else
-        term->render.pending = true;
+        term->render.pending.grid = true;
 
     if (hup) {
         if (term->hold_at_exit) {
@@ -519,7 +521,8 @@ term_set_fonts(struct terminal *term, struct font *fonts[static 4])
 
     term->cell_width = term->fonts[0]->space_x_advance > 0
         ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
-    term->cell_height = term->fonts[0]->height;
+    term->cell_height = max(term->fonts[0]->height,
+                            term->fonts[0]->ascent + term->fonts[0]->descent);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
     render_resize_force(term, term->width, term->height);
@@ -773,36 +776,13 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     term_set_window_title(term, "foot");
 
     /* Load fonts */
-#if 0
-    struct font *fonts[4];
-    if (!load_fonts_from_conf(term, conf, fonts))
+    if (!term_font_dpi_changed(term))
         goto err;
-    term_set_fonts(term, fonts);
-#endif
-    term_font_dpi_changed(term);
 
     /* Start the slave/client */
     if ((term->slave = slave_spawn(term->ptmx, argc, term->cwd, argv, term_env, conf->shell, login_shell)) == -1)
         goto err;
 
-    if (term->width == 0 && term->height == 0) {
-
-        /* Try to use user-configured window dimentions */
-        unsigned width = conf->width;
-        unsigned height = conf->height;
-
-        if (width == -1) {
-            /* No user-configuration - use 80x24 cells */
-            assert(height == -1);
-            width = 80 * term->cell_width;
-            height = 24 * term->cell_height;
-        }
-
-        /* Don't go below a single cell */
-        width = max(width, term->cell_width);
-        height = max(height, term->cell_height);
-        render_resize(term, width, height);
-    }
 
     return term;
 
@@ -1657,6 +1637,7 @@ term_visual_focus_in(struct terminal *term)
     if (term->cursor_blink.active)
         cursor_blink_start_timer(term);
 
+    render_refresh_csd(term);
     cursor_refresh(term);
 }
 
@@ -1670,6 +1651,7 @@ term_visual_focus_out(struct terminal *term)
     if (term->cursor_blink.active)
         cursor_blink_stop_timer(term);
 
+    render_refresh_csd(term);
     cursor_refresh(term);
 }
 
@@ -2132,4 +2114,31 @@ term_print(struct terminal *term, wchar_t wc, int width)
         term_cursor_right(term, 1);
     else
         term->cursor.lcf = true;
+}
+
+enum term_surface
+term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
+{
+    if (surface == term->window->surface)
+        return TERM_SURF_GRID;
+    else if (surface == term->window->search_surface)
+        return TERM_SURF_SEARCH;
+    else if (surface == term->window->csd.surface[CSD_SURF_TITLE])
+        return TERM_SURF_TITLE;
+    else if (surface == term->window->csd.surface[CSD_SURF_LEFT])
+        return TERM_SURF_BORDER_LEFT;
+    else if (surface == term->window->csd.surface[CSD_SURF_RIGHT])
+        return TERM_SURF_BORDER_RIGHT;
+    else if (surface == term->window->csd.surface[CSD_SURF_TOP])
+        return TERM_SURF_BORDER_TOP;
+    else if (surface == term->window->csd.surface[CSD_SURF_BOTTOM])
+        return TERM_SURF_BORDER_BOTTOM;
+    else if (surface == term->window->csd.surface[CSD_SURF_MINIMIZE])
+        return TERM_SURF_BUTTON_MINIMIZE;
+    else if (surface == term->window->csd.surface[CSD_SURF_MAXIMIZE])
+        return TERM_SURF_BUTTON_MAXIMIZE;
+    else if (surface == term->window->csd.surface[CSD_SURF_CLOSE])
+        return TERM_SURF_BUTTON_CLOSE;
+    else
+        return TERM_SURF_NONE;
 }

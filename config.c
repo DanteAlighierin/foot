@@ -44,15 +44,19 @@ static const uint32_t default_bright[] = {
 static char *
 get_shell(void)
 {
-    struct passwd *passwd = getpwuid(getuid());
-    if (passwd == NULL) {
-        LOG_ERRNO("failed to lookup user");
-        return NULL;
+    const char *shell = getenv("SHELL");
+
+    if (shell == NULL) {
+        struct passwd *passwd = getpwuid(getuid());
+        if (passwd == NULL) {
+            LOG_ERRNO("failed to lookup user");
+            return NULL;
+        }
+
+        shell = passwd->pw_shell;
     }
 
-    const char *shell = passwd->pw_shell;
     LOG_DBG("user's shell: %s", shell);
-
     return strdup(shell);
 }
 
@@ -133,7 +137,7 @@ str_to_double(const char *s, double *res)
 }
 
 static bool
-str_to_color(const char *s, uint32_t *color, const char *path, int lineno)
+str_to_color(const char *s, uint32_t *color, bool allow_alpha, const char *path, int lineno)
 {
     unsigned long value;
     if (!str_to_ulong(s, 16, &value)) {
@@ -141,7 +145,12 @@ str_to_color(const char *s, uint32_t *color, const char *path, int lineno)
         return false;
     }
 
-    *color = value & 0xffffff;
+    if (!allow_alpha && (value & 0xff000000) != 0) {
+        LOG_ERR("%s:%d: color value must not have an alpha component", path, lineno);
+        return false;
+    }
+
+    *color = value;
     return true;
 }
 
@@ -273,7 +282,7 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
     }
 
     uint32_t color_value;
-    if (!str_to_color(value, &color_value, path, lineno))
+    if (!str_to_color(value, &color_value, false, path, lineno))
         return false;
 
     *color = color_value;
@@ -305,8 +314,8 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
 
         uint32_t text_color, cursor_color;
         if (text == NULL || cursor == NULL ||
-            !str_to_color(text, &text_color, path, lineno) ||
-            !str_to_color(cursor, &cursor_color, path, lineno))
+            !str_to_color(text, &text_color, false, path, lineno) ||
+            !str_to_color(cursor, &cursor_color, false, path, lineno))
         {
             LOG_ERR("%s:%d: invalid cursor colors: %s", path, lineno, value);
             free(value_copy);
@@ -327,12 +336,94 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
 }
 
 static bool
+parse_section_csd(const char *key, const char *value, struct config *conf,
+                     const char *path, unsigned lineno)
+{
+    if (strcmp(key, "preferred") == 0) {
+        if (strcmp(value, "server") == 0)
+            conf->csd.preferred = CONF_CSD_PREFER_SERVER;
+        else if (strcmp(value, "client") == 0)
+            conf->csd.preferred = CONF_CSD_PREFER_CLIENT;
+        else {
+            LOG_ERR("%s:%d: expected either 'server' or 'client'", path, lineno);
+            return false;
+        }
+    }
+
+    else if (strcmp(key, "color") == 0) {
+        uint32_t color;
+        if (!str_to_color(value, &color, true, path, lineno)) {
+            LOG_ERR("%s:%d: invalid titlebar-color: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->csd.color.title_set = true;
+        conf->csd.color.title = color;
+    }
+
+    else if (strcmp(key, "size") == 0) {
+        unsigned long pixels;
+        if (!str_to_ulong(value, 10, &pixels)) {
+            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->csd.title_height = pixels;
+    }
+
+    else if (strcmp(key, "button-width") == 0) {
+        unsigned long pixels;
+        if (!str_to_ulong(value, 10, &pixels)) {
+            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->csd.button_width = pixels;
+    }
+
+    else if (strcmp(key, "button-minimize-color") == 0) {
+        uint32_t color;
+        if (!str_to_color(value, &color, true, path, lineno)) {
+            LOG_ERR("%s:%d: invalid button-minimize-color: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->csd.color.minimize_set = true;
+        conf->csd.color.minimize = color;
+    }
+
+    else if (strcmp(key, "button-maximize-color") == 0) {
+        uint32_t color;
+        if (!str_to_color(value, &color, true, path, lineno)) {
+            LOG_ERR("%s:%d: invalid button-maximize-color: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->csd.color.maximize_set = true;
+        conf->csd.color.maximize = color;
+    }
+
+    else if (strcmp(key, "button-close-color") == 0) {
+        uint32_t color;
+        if (!str_to_color(value, &color, true, path, lineno)) {
+            LOG_ERR("%s:%d: invalid button-close-color: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->csd.color.close_set = true;
+        conf->csd.color.close = color;
+    }
+    return true;
+}
+
+static bool
 parse_config_file(FILE *f, struct config *conf, const char *path)
 {
     enum section {
         SECTION_MAIN,
         SECTION_COLORS,
         SECTION_CURSOR,
+        SECTION_CSD,
     } section = SECTION_MAIN;
 
     /* Function pointer, called for each key/value line */
@@ -345,6 +436,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         [SECTION_MAIN] = &parse_section_main,
         [SECTION_COLORS] = &parse_section_colors,
         [SECTION_CURSOR] = &parse_section_cursor,
+        [SECTION_CSD] = &parse_section_csd,
     };
 
 #if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
@@ -352,25 +444,25 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         [SECTION_MAIN] = "main",
         [SECTION_COLORS] = "colors",
         [SECTION_CURSOR] = "cursor",
+        [SECTION_CSD] = "csd",
     };
 #endif
 
     unsigned lineno = 0;
+
     char *_line = NULL;
+    size_t count = 0;
 
     while (true) {
         errno = 0;
         lineno++;
 
-        _line = NULL;
-        size_t count = 0;
         ssize_t ret = getline(&_line, &count, f);
 
         if (ret < 0) {
-            free(_line);
             if (errno != 0) {
                 LOG_ERRNO("failed to read from configuration");
-                return false;
+                goto err;
             }
             break;
         }
@@ -389,10 +481,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         }
 
         /* Empty line, or comment */
-        if (line[0] == '\0' || line[0] == '#') {
-            free(_line);
+        if (line[0] == '\0' || line[0] == '#')
             continue;
-        }
 
         /* Check for new section */
         if (line[0] == '[') {
@@ -408,12 +498,13 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
                 section = SECTION_COLORS;
             else if (strcmp(&line[1], "cursor") == 0)
                 section = SECTION_CURSOR;
+            else if (strcmp(&line[1], "csd") == 0)
+                section = SECTION_CSD;
             else {
                 LOG_ERR("%s:%d: invalid section name: %s", path, lineno, &line[1]);
                 goto err;
             }
 
-            free(_line);
             continue;
         }
 
@@ -436,7 +527,6 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
                 goto err;
             }
 
-            free(_line);
             continue;
         }
 
@@ -447,10 +537,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
             assert(!isspace(*(value + strlen(value) - 1)));
         }
 
-        if (key[0] == '#') {
-            free(_line);
+        if (key[0] == '#')
             continue;
-        }
 
         LOG_DBG("section=%s, key='%s', value='%s'",
                 section_names[section], key, value);
@@ -460,10 +548,9 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 
         if (!section_parser(key, value, conf, path, lineno))
             goto err;
-
-        free(_line);
     }
 
+    free(_line);
     return true;
 
 err:
@@ -491,8 +578,8 @@ config_load(struct config *conf, const char *conf_path)
     *conf = (struct config) {
         .term = strdup("foot"),
         .shell = get_shell(),
-        .width = -1,
-        .height = -1,
+        .width = 700,
+        .height = 500,
         .pad_x = 2,
         .pad_y = 2,
         .fonts = tll_init(),
@@ -532,6 +619,13 @@ config_load(struct config *conf, const char *conf_path)
             },
         },
 
+        .csd = {
+            .preferred = CONF_CSD_PREFER_SERVER,
+            .title_height = 26,
+            .border_width = 5,
+            .button_width = 26,
+        },
+
         .render_worker_count = sysconf(_SC_NPROCESSORS_ONLN),
         .server_socket_path = get_server_socket_path(),
         .presentation_timings = false,
@@ -562,10 +656,10 @@ config_load(struct config *conf, const char *conf_path)
     ret = parse_config_file(f, conf, conf_path);
     fclose(f);
 
+out:
     if (ret && tll_length(conf->fonts) == 0)
         tll_push_back(conf->fonts, strdup("monospace"));
 
-out:
     free(default_path);
     return ret;
 }

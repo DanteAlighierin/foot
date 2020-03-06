@@ -29,11 +29,50 @@
 #include "render.h"
 #include "selection.h"
 
+#define ALEN(v) (sizeof(v) / sizeof(v[0]))
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
 static bool wayl_reload_cursor_theme(
     struct wayland *wayl, struct terminal *term);
+
+static void
+csd_instantiate(struct wl_window *win)
+{
+    struct wayland *wayl = win->term->wl;
+    assert(wayl != NULL);
+
+    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
+        assert(win->csd.surface[i] == NULL);
+        assert(win->csd.sub_surface[i] == NULL);
+
+        win->csd.surface[i] = wl_compositor_create_surface(wayl->compositor);
+
+        struct wl_surface *parent = i < CSD_SURF_MINIMIZE
+            ? win->surface : win->csd.surface[CSD_SURF_TITLE];
+
+        win->csd.sub_surface[i] = wl_subcompositor_get_subsurface(
+            wayl->sub_compositor, win->csd.surface[i], parent);
+
+        wl_subsurface_set_sync(win->csd.sub_surface[i]);
+        wl_surface_set_user_data(win->csd.surface[i], win);
+        wl_surface_commit(win->csd.surface[i]);
+    }
+}
+
+static void
+csd_destroy(struct wl_window *win)
+{
+    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
+        if (win->csd.sub_surface[i] != NULL)
+            wl_subsurface_destroy(win->csd.sub_surface[i]);
+        if (win->csd.surface[i] != NULL)
+            wl_surface_destroy(win->csd.surface[i]);
+
+        win->csd.surface[i] = NULL;
+        win->csd.sub_surface[i] = NULL;
+    }
+}
 
 static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
@@ -64,24 +103,28 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
 {
     struct wayland *wayl = data;
 
-    if (wayl->keyboard != NULL) {
-        wl_keyboard_release(wayl->keyboard);
-        wayl->keyboard = NULL;
-    }
-
-    if (wayl->pointer.pointer != NULL) {
-        wl_pointer_release(wayl->pointer.pointer);
-        wayl->pointer.pointer = NULL;
-    }
-
     if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
-        wayl->keyboard = wl_seat_get_keyboard(wl_seat);
-        wl_keyboard_add_listener(wayl->keyboard, &keyboard_listener, wayl);
+        if (wayl->keyboard == NULL) {
+            wayl->keyboard = wl_seat_get_keyboard(wl_seat);
+            wl_keyboard_add_listener(wayl->keyboard, &keyboard_listener, wayl);
+        }
+    } else {
+        if (wayl->keyboard != NULL) {
+            wl_keyboard_release(wayl->keyboard);
+            wayl->keyboard = NULL;
+        }
     }
 
     if (caps & WL_SEAT_CAPABILITY_POINTER) {
-        wayl->pointer.pointer = wl_seat_get_pointer(wl_seat);
-        wl_pointer_add_listener(wayl->pointer.pointer, &pointer_listener, wayl);
+        if (wayl->pointer.pointer == NULL) {
+            wayl->pointer.pointer = wl_seat_get_pointer(wl_seat);
+            wl_pointer_add_listener(wayl->pointer.pointer, &pointer_listener, wayl);
+        }
+    } else {
+        if (wayl->pointer.pointer != NULL) {
+            wl_pointer_release(wayl->pointer.pointer);
+            wayl->pointer.pointer = NULL;
+        }
     }
 }
 
@@ -98,6 +141,9 @@ static const struct wl_seat_listener seat_listener = {
 static void
 update_term_for_output_change(struct terminal *term)
 {
+    if (tll_length(term->window->on_outputs) == 0)
+        return;
+
     render_resize(term, term->width / term->scale, term->height / term->scale);
     term_font_dpi_changed(term);
     wayl_reload_cursor_theme(term->wl, term);
@@ -322,7 +368,7 @@ handle_global(void *data, struct wl_registry *registry,
     }
 
     else if (strcmp(interface, wl_output_interface.name) == 0) {
-        const uint32_t required = 3;
+        const uint32_t required = 2;
         if (!verify_iface_version(interface, version, required))
             return;
 
@@ -425,6 +471,8 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
                        int32_t width, int32_t height, struct wl_array *states)
 {
     bool is_activated = false;
+    bool is_fullscreen = false;
+    bool is_maximized = false;
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char state_str[2048];
@@ -445,12 +493,10 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     enum xdg_toplevel_state *state;
     wl_array_for_each(state, states) {
         switch (*state) {
-        case XDG_TOPLEVEL_STATE_ACTIVATED:
-            is_activated = true;
-            break;
+        case XDG_TOPLEVEL_STATE_ACTIVATED:  is_activated = true; break;
+        case XDG_TOPLEVEL_STATE_FULLSCREEN: is_fullscreen = true; break;
+        case XDG_TOPLEVEL_STATE_MAXIMIZED:  is_maximized = true; break;
 
-        case XDG_TOPLEVEL_STATE_MAXIMIZED:
-        case XDG_TOPLEVEL_STATE_FULLSCREEN:
         case XDG_TOPLEVEL_STATE_RESIZING:
         case XDG_TOPLEVEL_STATE_TILED_LEFT:
         case XDG_TOPLEVEL_STATE_TILED_RIGHT:
@@ -489,7 +535,18 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
      * xdg_surface_configure() after we've ack:ed the event.
      */
     struct wl_window *win = data;
+
+    if (!is_fullscreen && win->use_csd == CSD_YES && width > 0 && height > 0) {
+        /*
+         * We include the CSD title bar in our window geometry. Thus,
+         * the height we call render_resize() with must be adjusted,
+         * since it expects the size to refer to the main grid only.
+         */
+        height -= win->term->conf->csd.title_height;
+    }
     win->configure.is_activated = is_activated;
+    win->configure.is_fullscreen = is_fullscreen;
+    win->configure.is_maximized = is_maximized;
     win->configure.width = width;
     win->configure.height = height;
 }
@@ -513,19 +570,37 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
                       uint32_t serial)
 {
     LOG_DBG("xdg-surface: configure");
-    xdg_surface_ack_configure(xdg_surface, serial);
 
     struct wl_window *win = data;
     struct terminal *term = win->term;
 
     win->is_configured = true;
+    win->is_maximized = win->configure.is_maximized;
 
-    render_resize(term, win->configure.width, win->configure.height);
+    if (win->is_fullscreen != win->configure.is_fullscreen && win->use_csd == CSD_YES) {
+        if (win->configure.is_fullscreen)
+            csd_destroy(win);
+        else
+            csd_instantiate(win);
+    }
+    win->is_fullscreen = win->configure.is_fullscreen;
+
+    xdg_surface_ack_configure(xdg_surface, serial);
+    bool resized = render_resize(term, win->configure.width, win->configure.height);
 
     if (win->configure.is_activated)
         term_visual_focus_in(term);
     else
         term_visual_focus_out(term);
+
+    if (!resized) {
+        /*
+         * If we didn't resize, we won't be commit a new surface
+         * anytime soon. Some compositors require a commit in
+         * combination with an ack - make them happy.
+         */
+        wl_surface_commit(win->surface);
+    }
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {
@@ -537,18 +612,36 @@ xdg_toplevel_decoration_configure(void *data,
                                   struct zxdg_toplevel_decoration_v1 *zxdg_toplevel_decoration_v1,
                                   uint32_t mode)
 {
+    struct wl_window *win = data;
+
     switch (mode) {
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
-        LOG_ERR("unimplemented: client-side decorations");
+        LOG_INFO("using CSD decorations");
+        win->use_csd = CSD_YES;
+        csd_instantiate(win);
         break;
 
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
-        LOG_DBG("using server-side decorations");
+        LOG_INFO("using SSD decorations");
+        win->use_csd = CSD_NO;
+        csd_destroy(win);
         break;
 
     default:
         LOG_ERR("unimplemented: unknown XDG toplevel decoration mode: %u", mode);
         break;
+    }
+
+    if (win->is_configured && win->use_csd == CSD_YES) {
+        struct terminal *term = win->term;
+
+        int scale = term->scale;
+        int width = term->width / scale;
+        int height = term->height / scale;
+
+        /* Take CSD title bar into account */
+        height -= term->conf->csd.title_height;
+        render_resize_force(term, width, height);
     }
 }
 
@@ -879,9 +972,12 @@ struct wl_window *
 wayl_win_init(struct terminal *term)
 {
     struct wayland *wayl = term->wl;
+    const struct config *conf = wayl->conf;
 
     struct wl_window *win = calloc(1, sizeof(*win));
     win->term = term;
+    win->use_csd = CSD_UNKNOWN;
+    win->csd.move_timeout_fd = -1;
 
     win->surface = wl_compositor_create_surface(wayl->compositor);
     if (win->surface == NULL) {
@@ -911,18 +1007,27 @@ wayl_win_init(struct terminal *term)
     xdg_toplevel_set_app_id(win->xdg_toplevel, "foot");
 
     /* Request server-side decorations */
-    win->xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
-        wayl->xdg_decoration_manager, win->xdg_toplevel);
-    zxdg_toplevel_decoration_v1_set_mode(
-        win->xdg_toplevel_decoration, ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE);
-    zxdg_toplevel_decoration_v1_add_listener(
-        win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, win);
+    if (wayl->xdg_decoration_manager != NULL) {
+        win->xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
+            wayl->xdg_decoration_manager, win->xdg_toplevel);
 
-    /* Scrollback search box */
-    win->search_surface = wl_compositor_create_surface(wayl->compositor);
-    win->search_sub_surface = wl_subcompositor_get_subsurface(
-        wayl->sub_compositor, win->search_surface, win->surface);
-    wl_subsurface_set_desync(win->search_sub_surface);
+        LOG_INFO("requesting %s decorations",
+                 conf->csd.preferred == CONF_CSD_PREFER_SERVER ? "SSD" : "CSD");
+
+        zxdg_toplevel_decoration_v1_set_mode(
+            win->xdg_toplevel_decoration,
+            (conf->csd.preferred == CONF_CSD_PREFER_SERVER
+             ? ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE
+             : ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE));
+
+        zxdg_toplevel_decoration_v1_add_listener(
+            win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, win);
+    } else {
+        /* No decoration manager - thus we *must* draw our own decorations */
+        win->use_csd = CSD_YES;
+        csd_instantiate(win);
+        LOG_WARN("no decoration manager available - using CSDs unconditionally");
+    }
 
     wl_surface_commit(win->surface);
     return win;
@@ -939,6 +1044,9 @@ wayl_win_destroy(struct wl_window *win)
     if (win == NULL)
         return;
 
+    if (win->csd.move_timeout_fd != -1)
+        close(win->csd.move_timeout_fd);
+
     /*
      * First, unmap all surfaces to trigger things like
      * keyboard_leave() and wl_pointer_leave().
@@ -949,16 +1057,29 @@ wayl_win_destroy(struct wl_window *win)
      */
 
     /* Scrollback search */
-    wl_surface_attach(win->search_surface, NULL, 0, 0);
-    wl_surface_commit(win->search_surface);
+    if (win->search_surface != NULL) {
+        wl_surface_attach(win->search_surface, NULL, 0, 0);
+        wl_surface_commit(win->search_surface);
+    }
+
+    /* CSD */
+    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
+        if (win->csd.surface[i] != NULL) {
+            wl_surface_attach(win->csd.surface[i], NULL, 0, 0);
+            wl_surface_commit(win->csd.surface[i]);
+        }
+    }
+
     wayl_roundtrip(win->term->wl);
 
-    /* Main window */
+        /* Main window */
     wl_surface_attach(win->surface, NULL, 0, 0);
     wl_surface_commit(win->surface);
     wayl_roundtrip(win->term->wl);
 
     tll_free(win->on_outputs);
+
+    csd_destroy(win);
     if (win->search_sub_surface != NULL)
         wl_subsurface_destroy(win->search_sub_surface);
     if (win->search_surface != NULL)
@@ -1002,22 +1123,6 @@ wayl_reload_cursor_theme(struct wayland *wayl, struct terminal *term)
     }
 
     return render_xcursor_set(term);
-}
-
-struct terminal *
-wayl_terminal_from_surface(struct wayland *wayl, struct wl_surface *surface)
-{
-    tll_foreach(wayl->terms, it) {
-        if (it->item->window->surface == surface ||
-            it->item->window->search_surface == surface)
-        {
-            return it->item;
-        }
-    }
-
-    assert(false);
-    LOG_WARN("surface %p doesn't map to a terminal", surface);
-    return NULL;
 }
 
 void

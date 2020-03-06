@@ -82,6 +82,18 @@ struct wl_primary {
     uint32_t serial;
 };
 
+enum csd_surface {
+    CSD_SURF_TITLE,
+    CSD_SURF_LEFT,
+    CSD_SURF_RIGHT,
+    CSD_SURF_TOP,
+    CSD_SURF_BOTTOM,
+    CSD_SURF_MINIMIZE,
+    CSD_SURF_MAXIMIZE,
+    CSD_SURF_CLOSE,
+    CSD_SURF_COUNT,
+};
+
 struct wayland;
 struct wl_window {
     struct terminal *term;
@@ -90,6 +102,15 @@ struct wl_window {
     struct xdg_toplevel *xdg_toplevel;
 
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
+
+    enum {CSD_UNKNOWN, CSD_NO, CSD_YES } use_csd;
+
+    struct {
+        struct wl_surface *surface[CSD_SURF_COUNT];
+        struct wl_subsurface *sub_surface[CSD_SURF_COUNT];
+        int move_timeout_fd;
+        uint32_t serial;
+    } csd;
 
     /* Scrollback search */
     struct wl_surface *search_surface;
@@ -100,8 +121,12 @@ struct wl_window {
     tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
 
     bool is_configured;
+    bool is_fullscreen;
+    bool is_maximized;
     struct {
         bool is_activated;
+        bool is_fullscreen;
+        bool is_maximized;
         int width;
         int height;
     } configure;
@@ -158,6 +183,8 @@ struct wayland {
     } pointer;
 
     struct {
+        int x;
+        int y;
         int col;
         int row;
         int button;
@@ -183,9 +210,6 @@ void wayl_destroy(struct wayland *wayl);
 
 void wayl_flush(struct wayland *wayl);
 void wayl_roundtrip(struct wayland *wayl);
-
-struct terminal *wayl_terminal_from_surface(
-    struct wayland *wayl, struct wl_surface *surface);
 
 struct wl_window *wayl_win_init(struct terminal *term);
 void wayl_win_destroy(struct wl_window *win);

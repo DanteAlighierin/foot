@@ -31,7 +31,7 @@ execute (instead of the shell).
 	Default: _monospace_.
 
 *-g*,*--geometry*=_WIDTHxHEIGHT_
-	Set initial window width and height.
+	Set initial window width and height. Default: *700x500*.
 
 *-t*,*--term*=_TERM_
 	Value to set the environment variable *TERM* to. Default: *foot*.

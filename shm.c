@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 #include <assert.h>
+#include <errno.h>
 
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -124,13 +125,15 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
     size = stride * height;
     LOG_DBG("cookie=%lx: allocating new buffer: %zu KB", cookie, size / 1024);
 
-    int err = posix_fallocate(pool_fd, 0, size);
+    int err = EINTR;
+    while (err == EINTR)
+        err = posix_fallocate(pool_fd, 0, size);
     if (err != 0) {
         static bool failure_logged = false;
 
         if (!failure_logged) {
             failure_logged = true;
-            LOG_ERRNO_P("failed to fallocate", err);
+            LOG_ERRNO_P("failed to fallocate %zu bytes", err, size);
         }
 
         if (ftruncate(pool_fd, size) == -1) {

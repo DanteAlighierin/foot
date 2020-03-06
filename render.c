@@ -18,6 +18,7 @@
 #include "log.h"
 #include "config.h"
 #include "grid.h"
+#include "quirks.h"
 #include "selection.h"
 #include "shm.h"
 
@@ -37,6 +38,10 @@ static struct {
 } presentation_statistics = {0};
 
 static void fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data);
+
+#define shm_cookie_grid(term) ((unsigned long)((uintptr_t)term + 0))
+#define shm_cookie_search(term) ((unsigned long)((uintptr_t)term + 1))
+#define shm_cookie_csd(term, n) ((unsigned long)((uintptr_t)term + 2 + (n)))  /* Should be placed last */
 
 struct renderer *
 render_init(struct fdm *fdm, struct wayland *wayl)
@@ -211,6 +216,9 @@ color_hex_to_rgb(uint32_t color)
 static inline pixman_color_t
 color_hex_to_pixman_with_alpha(uint32_t color, uint16_t alpha)
 {
+    if (alpha == 0)
+        return (pixman_color_t){0, 0, 0, 0};
+
     int alpha_div = 0xffff / alpha;
     return (pixman_color_t){
         .red =   ((color >> 16 & 0xff) | (color >> 8 & 0xff00)) / alpha_div,
@@ -655,6 +663,389 @@ render_worker_thread(void *_ctx)
     return -1;
 }
 
+struct csd_data {
+    int x;
+    int y;
+    int width;
+    int height;
+};
+
+static struct csd_data
+get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
+{
+    assert(term->window->use_csd == CSD_YES);
+
+    /* Only title bar is rendered in maximized mode */
+    const int border_width = !term->window->is_maximized
+        ? term->conf->csd.border_width * term->scale : 0;
+
+    const int title_height = !term->window->is_fullscreen
+        ? term->conf->csd.title_height * term->scale : 0;
+
+    const int button_width = !term->window->is_fullscreen
+        ? term->conf->csd.button_width * term->scale : 0;
+
+    switch (surf_idx) {
+    case CSD_SURF_TITLE:  return (struct csd_data){            0,                -title_height,                    term->width,                title_height};
+    case CSD_SURF_LEFT:   return (struct csd_data){-border_width,                -title_height,                   border_width, title_height + term->height};
+    case CSD_SURF_RIGHT:  return (struct csd_data){  term->width,                -title_height,                   border_width, title_height + term->height};
+    case CSD_SURF_TOP:    return (struct csd_data){-border_width, -title_height - border_width, term->width + 2 * border_width,                border_width};
+    case CSD_SURF_BOTTOM: return (struct csd_data){-border_width,                 term->height, term->width + 2 * border_width,                border_width};
+
+    /* Positioned relative to CSD_SURF_TITLE */
+    case CSD_SURF_MINIMIZE: return (struct csd_data){term->width - 3 * button_width, 0, button_width, title_height};
+    case CSD_SURF_MAXIMIZE: return (struct csd_data){term->width - 2 * button_width, 0, button_width, title_height};
+    case CSD_SURF_CLOSE:    return (struct csd_data){term->width - 1 * button_width, 0, button_width, title_height};
+
+    case CSD_SURF_COUNT:
+        assert(false);
+        return (struct csd_data){0};
+    }
+
+    assert(false);
+    return (struct csd_data){0};
+}
+
+static void
+csd_commit(struct terminal *term, struct wl_surface *surf, struct buffer *buf)
+{
+    wl_surface_attach(surf, buf->wl_buf, 0, 0);
+    wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
+    wl_surface_set_buffer_scale(surf, term->scale);
+    wl_surface_commit(surf);
+}
+
+static void
+render_csd_part(struct terminal *term,
+                struct wl_surface *surf, struct buffer *buf,
+                int width, int height, pixman_color_t *color)
+{
+    assert(term->window->use_csd == CSD_YES);
+
+    pixman_image_t *src = pixman_image_create_solid_fill(color);
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, color, 1,
+        &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
+    pixman_image_unref(src);
+}
+
+static void
+render_csd_title(struct terminal *term)
+{
+    assert(term->window->use_csd == CSD_YES);
+
+    struct csd_data info = get_csd_data(term, CSD_SURF_TITLE);
+    struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE];
+
+    assert(info.width > 0 && info.height > 0);
+
+    unsigned long cookie = shm_cookie_csd(term, CSD_SURF_TITLE);
+    struct buffer *buf = shm_get_buffer(
+        term->wl->shm, info.width, info.height, cookie);
+
+    uint32_t _color = term->colors.default_fg;
+    uint16_t alpha = 0xffff;
+
+    if (term->conf->csd.color.title_set) {
+        _color = term->conf->csd.color.title;
+        alpha = _color >> 24 | (_color >> 24 << 8);
+    }
+
+    pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
+    if (!term->visual_focus)
+        pixman_color_dim(&color);
+    render_csd_part(term, surf, buf, info.width, info.height, &color);
+    csd_commit(term, surf, buf);
+}
+
+static void
+render_csd_border(struct terminal *term, enum csd_surface surf_idx)
+{
+    assert(term->window->use_csd == CSD_YES);
+    assert(surf_idx >= CSD_SURF_LEFT && surf_idx <= CSD_SURF_BOTTOM);
+
+    struct csd_data info = get_csd_data(term, surf_idx);
+    struct wl_surface *surf = term->window->csd.surface[surf_idx];
+
+    if (info.width == 0 || info.height == 0)
+        return;
+
+    unsigned long cookie = shm_cookie_csd(term, surf_idx);
+    struct buffer *buf = shm_get_buffer(
+        term->wl->shm, info.width, info.height, cookie);
+
+    pixman_color_t color = color_hex_to_pixman_with_alpha(0, 0);
+    render_csd_part(term, surf, buf, info.width, info.height, &color);
+    csd_commit(term, surf, buf);
+}
+
+static void
+render_csd_button_minimize(struct terminal *term, struct buffer *buf)
+{
+    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
+    pixman_image_t *src = pixman_image_create_solid_fill(&color);
+
+    const int max_height = buf->height / 2;
+    const int max_width = buf->width / 2;
+
+    int width = max_width;
+    int height = max_width / 2;
+
+    if (height > max_height) {
+        height = max_height;
+        width = height * 2;
+    }
+
+    assert(width <= max_width);
+    assert(height <= max_height);
+
+    int x_margin = (buf->width - width) / 2.;
+    int y_margin = (buf->height - height) / 2.;
+
+    pixman_triangle_t tri = {
+        .p1 = {
+            .x = pixman_int_to_fixed(x_margin),
+            .y = pixman_int_to_fixed(y_margin),
+        },
+        .p2 = {
+            .x = pixman_int_to_fixed(x_margin + width),
+            .y = pixman_int_to_fixed(y_margin),
+        },
+        .p3 = {
+            .x = pixman_int_to_fixed(buf->width / 2),
+            .y = pixman_int_to_fixed(y_margin + height),
+        },
+    };
+
+    pixman_composite_triangles(
+        PIXMAN_OP_OVER, src, buf->pix, PIXMAN_a1,
+        0, 0, 0, 0, 1, &tri);
+    pixman_image_unref(src);
+}
+
+static void
+render_csd_button_maximize_maximized(
+    struct terminal *term, struct buffer *buf)
+{
+    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
+    pixman_image_t *src = pixman_image_create_solid_fill(&color);
+
+    const int max_height = buf->height / 3;
+    const int max_width = buf->width / 3;
+
+    int width = min(max_height, max_width);
+    int thick = 1 * term->scale;
+
+    const int x_margin = (buf->width - width) / 2;
+    const int y_margin = (buf->height - width) / 2;
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &color, 4,
+        (pixman_rectangle16_t[]){
+            {x_margin, y_margin, width, thick},
+            {x_margin, y_margin + thick, thick, width - 2 * thick},
+            {x_margin + width - thick, y_margin + thick, thick, width - 2 * thick},
+            {x_margin, y_margin + width - thick, width, thick}});
+
+    pixman_image_unref(src);
+
+}
+
+static void
+render_csd_button_maximize_window(
+    struct terminal *term, struct buffer *buf)
+{
+    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
+    pixman_image_t *src = pixman_image_create_solid_fill(&color);
+
+    const int max_height = buf->height / 2;
+    const int max_width = buf->width / 2;
+
+    int width = max_width;
+    int height = max_width / 2;
+
+    if (height > max_height) {
+        height = max_height;
+        width = height * 2;
+    }
+
+    assert(width <= max_width);
+    assert(height <= max_height);
+
+    int x_margin = (buf->width - width) / 2.;
+    int y_margin = (buf->height - height) / 2.;
+
+    pixman_triangle_t tri = {
+        .p1 = {
+            .x = pixman_int_to_fixed(buf->width / 2),
+            .y = pixman_int_to_fixed(y_margin),
+        },
+        .p2 = {
+            .x = pixman_int_to_fixed(x_margin),
+            .y = pixman_int_to_fixed(y_margin + height),
+        },
+        .p3 = {
+            .x = pixman_int_to_fixed(x_margin + width),
+            .y = pixman_int_to_fixed(y_margin + height),
+        },
+    };
+
+    pixman_composite_triangles(
+        PIXMAN_OP_OVER, src, buf->pix, PIXMAN_a1,
+        0, 0, 0, 0, 1, &tri);
+
+    pixman_image_unref(src);
+}
+
+static void
+render_csd_button_maximize(struct terminal *term, struct buffer *buf)
+{
+    if (term->window->is_maximized)
+        render_csd_button_maximize_maximized(term, buf);
+    else
+        render_csd_button_maximize_window(term, buf);
+}
+
+static void
+render_csd_button_close(struct terminal *term, struct buffer *buf)
+{
+    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
+    pixman_image_t *src = pixman_image_create_solid_fill(&color);
+
+    const int max_height = buf->height / 3;
+    const int max_width = buf->width / 3;
+
+    int width = min(max_height, max_width);
+
+    const int x_margin = (buf->width - width) / 2;
+    const int y_margin = (buf->height - width) / 2;
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &color, 1,
+        &(pixman_rectangle16_t){x_margin, y_margin, width, width});
+
+    pixman_image_unref(src);
+}
+
+static void
+render_csd_button(struct terminal *term, enum csd_surface surf_idx)
+{
+    assert(term->window->use_csd == CSD_YES);
+    assert(surf_idx >= CSD_SURF_MINIMIZE && surf_idx <= CSD_SURF_CLOSE);
+
+    struct csd_data info = get_csd_data(term, surf_idx);
+    struct wl_surface *surf = term->window->csd.surface[surf_idx];
+
+    if (info.width == 0 || info.height == 0)
+        return;
+
+    unsigned long cookie = shm_cookie_csd(term, surf_idx);
+    struct buffer *buf = shm_get_buffer(
+        term->wl->shm, info.width, info.height, cookie);
+
+    uint32_t _color;
+    uint16_t alpha = 0xffff;
+    bool is_active = false;
+    const bool *is_set = NULL;
+    const uint32_t *conf_color = NULL;
+
+    switch (surf_idx) {
+    case CSD_SURF_MINIMIZE:
+        _color = 0xff1e90ff;
+        is_set = &term->conf->csd.color.minimize_set;
+        conf_color = &term->conf->csd.color.minimize;
+        is_active = term->active_surface == TERM_SURF_BUTTON_MINIMIZE;
+        break;
+
+    case CSD_SURF_MAXIMIZE:
+        _color = 0xff30ff30;
+        is_set = &term->conf->csd.color.maximize_set;
+        conf_color = &term->conf->csd.color.maximize;
+        is_active = term->active_surface == TERM_SURF_BUTTON_MAXIMIZE;
+        break;
+
+    case CSD_SURF_CLOSE:
+        _color = 0xffff3030;
+        is_set = &term->conf->csd.color.close_set;
+        conf_color = &term->conf->csd.color.close;
+        is_active = term->active_surface == TERM_SURF_BUTTON_CLOSE;
+        break;
+
+    default:
+        assert(false);
+        break;
+    }
+
+    if (is_active) {
+        if (*is_set) {
+            _color = *conf_color;
+            alpha = _color >> 24 | (_color >> 24 << 8);
+        }
+    } else {
+        _color = 0;
+        alpha = 0;
+    }
+
+    pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
+    if (!term->visual_focus)
+        pixman_color_dim(&color);
+    render_csd_part(term, surf, buf, info.width, info.height, &color);
+
+    switch (surf_idx) {
+    case CSD_SURF_MINIMIZE: render_csd_button_minimize(term, buf); break;
+    case CSD_SURF_MAXIMIZE: render_csd_button_maximize(term, buf); break;
+    case CSD_SURF_CLOSE:    render_csd_button_close(term, buf); break;
+        break;
+
+    default:
+        assert(false);
+        break;
+    }
+
+    csd_commit(term, surf, buf);
+}
+
+static void
+render_csd(struct terminal *term)
+{
+    assert(term->window->use_csd == CSD_YES);
+
+    if (term->window->is_fullscreen)
+        return;
+
+    for (size_t i = 0; i < CSD_SURF_COUNT; i++) {
+        struct csd_data info = get_csd_data(term, i);
+        const int x = info.x;
+        const int y = info.y;
+        const int width = info.width;
+        const int height = info.height;
+
+        struct wl_surface *surf = term->window->csd.surface[i];
+        struct wl_subsurface *sub = term->window->csd.sub_surface[i];
+
+        assert(surf != NULL);
+        assert(sub != NULL);
+
+        if (width == 0 || height == 0) {
+            /* CSD borders aren't rendered in maximized mode */
+            assert(term->window->is_maximized || term->window->is_fullscreen);
+            wl_subsurface_set_position(sub, 0, 0);
+            wl_surface_attach(surf, NULL, 0, 0);
+            wl_surface_commit(surf);
+            continue;
+        }
+
+        wl_subsurface_set_position(sub, x / term->scale, y / term->scale);
+    }
+
+    for (size_t i = CSD_SURF_LEFT; i <= CSD_SURF_BOTTOM; i++)
+        render_csd_border(term, i);
+    for (size_t i = CSD_SURF_MINIMIZE; i <= CSD_SURF_CLOSE; i++)
+        render_csd_button(term, i);
+    render_csd_title(term);
+}
+
 static void frame_callback(
     void *data, struct wl_callback *wl_callback, uint32_t callback_data);
 
@@ -678,13 +1069,16 @@ grid_render(struct terminal *term)
     assert(term->width > 0);
     assert(term->height > 0);
 
-    unsigned long cookie = (uintptr_t)term;
+    unsigned long cookie = shm_cookie_grid(term);
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, term->width, term->height, cookie);
 
     wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
 
     pixman_image_t *pix = buf->pix;
+    pixman_region16_t clip;
+    pixman_region_init_rect(&clip, term->margins.left, term->margins.top, term->cols * term->cell_width, term->rows * term->cell_height);
+    pixman_image_set_clip_region(pix, &clip);
 
     /* If we resized the window, or is flashing, or just stopped flashing */
     if (term->render.last_buf != buf ||
@@ -718,6 +1112,7 @@ grid_render(struct terminal *term)
             if (term->is_searching)
                 pixman_color_dim(&bg);
 
+            pixman_image_set_clip_region(pix, NULL);
             pixman_image_fill_rectangles(
                 PIXMAN_OP_SRC, pix, &bg, 4,
                 (pixman_rectangle16_t[]){
@@ -725,6 +1120,7 @@ grid_render(struct terminal *term)
                 {0, 0, term->margins.left, term->height},          /* Left */
                 {rmargin, 0, term->margins.right, term->height},   /* Right */
                 {0, bmargin, term->width, term->margins.bottom}}); /* Bottom */
+            pixman_image_set_clip_region(pix, &clip);
 
             wl_surface_damage_buffer(
                 term->window->surface, 0, 0, term->width, term->margins.top);
@@ -954,41 +1350,29 @@ grid_render(struct terminal *term)
 }
 
 static void
-frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
-{
-    struct terminal *term = data;
-
-    assert(term->window->frame_callback == wl_callback);
-    wl_callback_destroy(wl_callback);
-    term->window->frame_callback = NULL;
-
-    if (term->render.pending) {
-        term->render.pending = false;
-        grid_render(term);
-    }
-}
-
-void
 render_search_box(struct terminal *term)
 {
     assert(term->window->search_sub_surface != NULL);
 
     const size_t wanted_visible_chars = max(20, term->search.len);
 
-    const int scale = term->scale >= 1 ? term->scale : 1;
-    const size_t margin = scale * 3;
+    assert(term->scale >= 1);
+    const int scale = term->scale;
 
-    const size_t width = min(
+    const size_t margin = 3 * scale;
+
+    const size_t width = term->width - 2 * margin;
+    const size_t visible_width = min(
         term->width - 2 * margin,
         2 * margin + wanted_visible_chars * term->cell_width);
     const size_t height = min(
         term->height - 2 * margin,
         2 * margin + 1 * term->cell_height);
 
-    const size_t visible_chars = (width - 2 * margin) / term->cell_width;
+    const size_t visible_chars = (visible_width - 2 * margin) / term->cell_width;
     size_t glyph_offset = term->render.search_glyph_offset;
 
-    unsigned long cookie = (uintptr_t)term + 1;
+    unsigned long cookie = shm_cookie_search(term);
     struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
 
     /* Background - yellow on empty/match, red on mismatch */
@@ -998,15 +1382,20 @@ render_search_box(struct terminal *term)
 
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix, &color,
-        1, &(pixman_rectangle16_t){0, 0, width, height});
+        1, &(pixman_rectangle16_t){width - visible_width, 0, visible_width, height});
+
+    pixman_color_t transparent = color_hex_to_pixman_with_alpha(0, 0);
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &transparent,
+        1, &(pixman_rectangle16_t){0, 0, width - visible_width, height});
 
     struct font *font = term->fonts[0];
-    int x = margin;
+    int x = width - visible_width + margin;
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
     if (term->search.cursor < glyph_offset ||
-        term->search.cursor >= glyph_offset + visible_chars + 2)
+        term->search.cursor >= glyph_offset + visible_chars + 1)
     {
         /* Make sure cursor is always visible */
         term->render.search_glyph_offset = glyph_offset = term->search.cursor;
@@ -1014,7 +1403,7 @@ render_search_box(struct terminal *term)
 
     /* Text (what the user entered - *not* match(es)) */
     for (size_t i = glyph_offset;
-         i < term->search.len && i - glyph_offset < visible_chars + 1;
+         i < term->search.len && i - glyph_offset < visible_chars;
          i++)
     {
         if (i == term->search.cursor)
@@ -1037,23 +1426,70 @@ render_search_box(struct terminal *term)
     if (term->search.cursor >= term->search.len)
         draw_bar(term, buf->pix, font, &fg, x, y);
 
+    quirk_weston_subsurface_desync_on(term->window->search_sub_surface);
+
+    /* TODO: this is only necessary on a window resize */
     wl_subsurface_set_position(
         term->window->search_sub_surface,
-        max(0, (int32_t)term->width - width - margin),
-        max(0, (int32_t)term->height - height - margin));
+        margin / scale,
+        max(0, (int32_t)term->height - height - margin) / scale);
 
-    wl_surface_damage_buffer(term->window->search_surface, 0, 0, width, height);
     wl_surface_attach(term->window->search_surface, buf->wl_buf, 0, 0);
+    wl_surface_damage_buffer(term->window->search_surface, 0, 0, width, height);
     wl_surface_set_buffer_scale(term->window->search_surface, scale);
+
+    struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
+    if (region != NULL) {
+        wl_region_add(region, width - visible_width, 0, visible_width, height);
+        wl_surface_set_opaque_region(term->window->search_surface, region);
+        wl_region_destroy(region);
+    }
+
     wl_surface_commit(term->window->search_surface);
+    quirk_weston_subsurface_desync_off(term->window->search_sub_surface);
+}
+
+static void
+frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
+{
+    struct terminal *term = data;
+
+    assert(term->window->frame_callback == wl_callback);
+    wl_callback_destroy(wl_callback);
+    term->window->frame_callback = NULL;
+
+    if (term->render.pending.csd) {
+        term->render.pending.csd = false;
+
+        if (term->window->use_csd == CSD_YES) {
+            quirk_weston_csd_on(term);
+            render_csd(term);
+            quirk_weston_csd_off(term);
+        }
+    }
+
+    if (term->render.pending.search) {
+        term->render.pending.search = false;
+
+        if (term->is_searching)
+            render_search_box(term);
+    }
+
+    if (term->render.pending.grid) {
+        term->render.pending.grid = false;
+        grid_render(term);
+    }
 }
 
 /* Move to terminal.c? */
-static void
+static bool
 maybe_resize(struct terminal *term, int width, int height, bool force)
 {
-    if (!force && (width == 0 || height == 0))
-        return;
+    if (!term->window->is_configured)
+        return false;
+
+    if (term->cell_width == 0 && term->cell_height == 0)
+        return false;
 
     int scale = -1;
     tll_foreach(term->window->on_outputs, it) {
@@ -1069,13 +1505,50 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     width *= scale;
     height *= scale;
 
-    if (!force && width == 0 && height == 0) {
-        /* Assume we're not fully up and running yet */
-        return;
+    if (width == 0 && height == 0) {
+        /*
+         * The compositor is letting us choose the size
+         *
+         * If we have a "last" used size - use that. Otherwise, use
+         * the size from the user configuration.
+         */
+        if (term->unmaximized_width != 0 && term->unmaximized_height != 0) {
+            width = term->unmaximized_width;
+            height = term->unmaximized_height;
+        } else {
+            width = term->conf->width;
+            height = term->conf->height;
+
+            if (term->window->use_csd == CSD_YES) {
+                /* Take CSD title bar into account */
+                assert(!term->window->is_fullscreen);
+                height -= term->conf->csd.title_height;
+            }
+
+            width *= scale;
+            height *= scale;
+        }
     }
 
+    /* Don't shrink grid too much */
+    const int min_cols = 20;
+    const int min_rows = 4;
+
+    /* Minimum window size */
+    const int min_width = min_cols * term->cell_width;
+    const int min_height = min_rows * term->cell_height;
+
+    width = max(width, min_width);
+    height = max(height, min_height);
+
+    /* Padding */
+    const int max_pad_x = (width - min_width) / 2;
+    const int max_pad_y = (height - min_height) / 2;
+    const int pad_x = min(max_pad_x, scale * term->conf->pad_x);
+    const int pad_y = min(max_pad_y, scale * term->conf->pad_y);
+
     if (!force && width == term->width && height == term->height && scale == term->scale)
-        return;
+        return false;
 
     selection_cancel(term);
 
@@ -1092,13 +1565,9 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     const int old_cols = term->cols;
     const int old_rows = term->rows;
 
-    /* Padding */
-    const int pad_x = term->width > 2 * scale * term->conf->pad_x ? scale * term->conf->pad_x : 0;
-    const int pad_y = term->height > 2 * scale * term->conf->pad_y ? scale * term->conf->pad_y : 0;
-
     /* Screen rows/cols after resize */
-    const int new_cols = max((term->width - 2 * pad_x) / term->cell_width, 1);
-    const int new_rows = max((term->height - 2 * pad_y) / term->cell_height, 1);
+    const int new_cols = (term->width - 2 * pad_x) / term->cell_width;
+    const int new_rows = (term->height - 2 * pad_y) / term->cell_height;
 
     /* Grid rows/cols after resize */
     const int new_normal_grid_rows = 1 << (32 - __builtin_clz(new_rows + scrollback_lines - 1));
@@ -1108,10 +1577,15 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     assert(new_rows >= 1);
 
     /* Margins */
-    term->margins.left = (term->width - new_cols * term->cell_width) / 2;
-    term->margins.top = (term->height - new_rows * term->cell_height) / 2;
+    term->margins.left = pad_x;
+    term->margins.top = pad_y;
     term->margins.right = term->width - new_cols * term->cell_width - term->margins.left;
     term->margins.bottom = term->height - new_rows * term->cell_height - term->margins.top;
+
+    assert(term->margins.left >= pad_x);
+    assert(term->margins.right >= pad_x);
+    assert(term->margins.top >= pad_y);
+    assert(term->margins.bottom >= pad_y);
 
     if (new_cols == old_cols && new_rows == old_rows) {
         LOG_DBG("grid layout unaffected; skipping reflow");
@@ -1132,10 +1606,10 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->cols = new_cols;
     term->rows = new_rows;
 
-    LOG_INFO("resize: %dx%d, grid: cols=%d, rows=%d "
-             "(left-margin=%d, right-margin=%d, top-margin=%d, bottom-margin=%d)",
-             term->width, term->height, term->cols, term->rows,
-             term->margins.left, term->margins.right, term->margins.top, term->margins.bottom);
+    LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d "
+            "(left-margin=%d, right-margin=%d, top-margin=%d, bottom-margin=%d)",
+            term->width, term->height, term->cols, term->rows,
+            term->margins.left, term->margins.right, term->margins.top, term->margins.bottom);
 
     /* Signal TIOCSWINSZ */
     if (ioctl(term->ptmx, TIOCSWINSZ,
@@ -1174,20 +1648,49 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->render.last_cursor.cell = NULL;
 
 damage_view:
+    if (!term->window->is_maximized && !term->window->is_fullscreen) {
+        term->unmaximized_width = term->width;
+        term->unmaximized_height = term->height;
+    }
+
+#if 0
+    /* TODO: doesn't include CSD title bar */
+    xdg_toplevel_set_min_size(
+        term->window->xdg_toplevel, min_width / scale, min_height / scale);
+#endif
+
+    {
+        bool title_shown = !term->window->is_fullscreen &&
+            term->window->use_csd == CSD_YES;
+
+        int title_height = title_shown ? term->conf->csd.title_height : 0;
+        xdg_surface_set_window_geometry(
+            term->window->xdg_surface,
+            0,
+            -title_height,
+            term->width / term->scale,
+            term->height / term->scale + title_height);
+    }
+
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);
+
     term->render.last_buf = NULL;
     term_damage_view(term);
+    render_refresh_csd(term);
+    render_refresh_search(term);
     render_refresh(term);
+
+    return true;
 }
 
-void
+bool
 render_resize(struct terminal *term, int width, int height)
 {
     return maybe_resize(term, width, height, false);
 }
 
-void
+bool
 render_resize_force(struct terminal *term, int width, int height)
 {
     return maybe_resize(term, width, height, true);
@@ -1263,20 +1766,50 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
     tll_foreach(renderer->wayl->terms, it) {
         struct terminal *term = it->item;
 
-        if (!term->render.refresh_needed)
+        if (!term->render.refresh.grid &&
+            !term->render.refresh.csd &&
+            !term->render.refresh.search)
+        {
             continue;
+        }
 
-        if (term->render.app_sync_updates.enabled)
+        if (term->render.app_sync_updates.enabled &&
+            !term->render.refresh.csd &&
+            !term->render.refresh.search)
+        {
             continue;
+        }
+
+        if (term->render.refresh.csd || term->render.refresh.search) {
+             /* Force update of parent surface */
+            term->render.refresh.grid = true;
+        }
 
         assert(term->window->is_configured);
-        term->render.refresh_needed = false;
 
-        if (term->window->frame_callback == NULL)
-            grid_render(term);
-        else {
+        bool grid = term->render.refresh.grid;
+        bool csd = term->render.refresh.csd;
+        bool search = term->render.refresh.search;
+
+        term->render.refresh.grid = false;
+        term->render.refresh.csd = false;
+        term->render.refresh.search = false;
+
+        if (term->window->frame_callback == NULL) {
+            if (csd && term->window->use_csd == CSD_YES) {
+                quirk_weston_csd_on(term);
+                render_csd(term);
+                quirk_weston_csd_off(term);
+            }
+            if (search)
+                render_search_box(term);
+            if (grid)
+                grid_render(term);
+        } else {
             /* Tells the frame callback to render again */
-            term->render.pending = true;
+            term->render.pending.grid = grid;
+            term->render.pending.csd = csd;
+            term->render.pending.search = search;
         }
     }
 
@@ -1311,7 +1844,21 @@ render_set_title(struct terminal *term, const char *_title)
 void
 render_refresh(struct terminal *term)
 {
-    term->render.refresh_needed = true;
+    term->render.refresh.grid = true;
+}
+
+void
+render_refresh_csd(struct terminal *term)
+{
+    if (term->window->use_csd == CSD_YES)
+        term->render.refresh.csd = true;
+}
+
+void
+render_refresh_search(struct terminal *term)
+{
+    if (term->is_searching)
+        term->render.refresh.search = true;
 }
 
 bool
