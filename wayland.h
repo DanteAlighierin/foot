@@ -42,10 +42,16 @@ struct monitor {
 };
 
 enum binding_action {
+    BIND_ACTION_SCROLLBACK_UP,
+    BIND_ACTION_SCROLLBACK_DOWN,
     BIND_ACTION_CLIPBOARD_COPY,
     BIND_ACTION_CLIPBOARD_PASTE,
     BIND_ACTION_PRIMARY_PASTE,
     BIND_ACTION_SEARCH_START,
+    BIND_ACTION_FONT_SIZE_UP,
+    BIND_ACTION_FONT_SIZE_DOWN,
+    BIND_ACTION_FONT_SIZE_RESET,
+    BIND_ACTION_SPAWN_TERMINAL,
     BIND_ACTION_COUNT,
 };
 
@@ -54,6 +60,7 @@ struct key_binding {
     xkb_keysym_t sym;
     enum binding_action action;
 };
+typedef tll(struct key_binding) key_binding_list_t;
 
 struct kbd {
     struct xkb_context *xkb;
@@ -81,7 +88,9 @@ struct kbd {
     bool ctrl;
     bool meta;
 
-    tll(struct key_binding) key_bindings;
+    struct {
+        key_binding_list_t key;
+    } bindings;
 };
 
 struct wl_clipboard {

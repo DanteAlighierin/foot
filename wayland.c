@@ -911,7 +911,7 @@ wayl_destroy(struct wayland *wayl)
     if (wayl->presentation != NULL)
         wp_presentation_destroy(wayl->presentation);
 
-    tll_free(wayl->kbd.key_bindings);
+    tll_free(wayl->kbd.bindings.key);
     if (wayl->kbd.xkb_compose_state != NULL)
         xkb_compose_state_unref(wayl->kbd.xkb_compose_state);
     if (wayl->kbd.xkb_compose_table != NULL)

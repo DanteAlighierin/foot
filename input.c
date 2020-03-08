@@ -36,6 +36,14 @@ execute_binding(struct terminal *term, enum binding_action action,
                 uint32_t serial)
 {
     switch (action) {
+    case BIND_ACTION_SCROLLBACK_UP:
+        cmd_scrollback_up(term, term->rows);
+        break;
+
+    case BIND_ACTION_SCROLLBACK_DOWN:
+        cmd_scrollback_down(term, term->rows);
+        break;
+
     case BIND_ACTION_CLIPBOARD_COPY:
         selection_to_clipboard(term, serial);
         break;
@@ -54,10 +62,85 @@ execute_binding(struct terminal *term, enum binding_action action,
         search_begin(term);
         break;
 
+    case BIND_ACTION_FONT_SIZE_UP:
+        term_font_size_increase(term);
+        break;
+
+    case BIND_ACTION_FONT_SIZE_DOWN:
+        term_font_size_decrease(term);
+        break;
+
+    case BIND_ACTION_FONT_SIZE_RESET:
+        term_font_size_reset(term);
+        break;
+
+    case BIND_ACTION_SPAWN_TERMINAL:
+        term_spawn_new(term);
+        break;
+
     case BIND_ACTION_COUNT:
         assert(false);
         break;
     }
+}
+
+static bool
+parse_key_binding_for_action(
+    struct xkb_keymap *keymap, enum binding_action action,
+    const char *combos, key_binding_list_t *bindings)
+{
+    if (combos == NULL)
+        return true;
+
+    xkb_mod_mask_t mod_mask = 0;
+    xkb_keysym_t sym = 0;
+
+    char *copy = strdup(combos);
+
+    for (char *save1 = NULL, *combo = strtok_r(copy, " ", &save1);
+         combo != NULL;
+         combo = strtok_r(NULL, " ", &save1))
+    {
+        LOG_DBG("%s", combo);
+        for (char *save2 = NULL, *key = strtok_r(combo, "+", &save2),
+                 *next_key = strtok_r(NULL, "+", &save2);
+             key != NULL;
+             key = next_key, next_key = strtok_r(NULL, "+", &save2))
+        {
+            if (next_key != NULL) {
+                /* Modifier */
+                xkb_mod_index_t mod = xkb_keymap_mod_get_index(keymap, key);
+
+                if (mod == -1) {
+                    LOG_ERR("%s: not a valid modifier name", key);
+                    free(copy);
+                    return false;
+                }
+
+                mod_mask |= 1 << mod;
+                LOG_DBG("MOD: %d - %s", mod, key);
+            } else {
+                /* Symbol */
+                sym = xkb_keysym_from_name(key, 0);
+            }
+        }
+
+        LOG_DBG("action=%zu: mods=0x%08x, sym=%d", i, mod_mask, sym);
+
+        assert(sym != 0);
+        if (bindings != NULL) {
+            const struct key_binding binding = {
+                .mods = mod_mask,
+                .sym = sym,
+                .action = action,
+            };
+
+            tll_push_back(*bindings, binding);
+        }
+    }
+
+    free(copy);
+    return true;
 }
 
 static void
@@ -88,7 +171,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         xkb_context_unref(wayl->kbd.xkb);
         wayl->kbd.xkb = NULL;
     }
-    tll_free(wayl->kbd.key_bindings);
+    tll_free(wayl->kbd.bindings.key);
 
     wayl->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     wayl->kbd.xkb_keymap = xkb_keymap_new_from_string(
@@ -113,45 +196,8 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     close(fd);
 
     for (size_t i = 0; i < BIND_ACTION_COUNT; i++) {
-        const char *combo = wayl->conf->bindings.key[i];
-
-        if (combo == NULL)
-            continue;
-
-        xkb_mod_mask_t mod_mask = 0;
-        xkb_keysym_t sym = 0;
-
-        char *copy = strdup(combo);
-
-        for (char *p = strtok(copy, "+"), *n = strtok(NULL, "+");
-             p != NULL;
-             p = n, n = strtok(NULL, "+"))
-        {
-            if (n != NULL) {
-                /* Modifier */
-                xkb_mod_index_t mod = xkb_keymap_mod_get_index(
-                    wayl->kbd.xkb_keymap, p);
-
-                if (mod == -1) {
-                    LOG_ERR("%s: not a valid modifier name", p);
-                    continue;
-                }
-
-                mod_mask |= 1 << mod;
-                LOG_DBG("MOD: %d - %s", mod, p);
-            } else {
-                /* Symbol */
-                sym = xkb_keysym_from_name(p, 0);
-            }
-        }
-
-        free(copy);
-
-        assert(sym != 0);
-
-        /* TODO: convert to DBG */
-        LOG_INFO("binding: %s -> mods=0x%08x, sym=%d", combo, mod_mask, sym);
-        tll_push_back(wayl->kbd.key_bindings, ((struct key_binding){mod_mask, sym, i}));
+        const char *combos = wayl->conf->bindings.key[i];
+        parse_key_binding_for_action(wayl->kbd.xkb_keymap, i, combos, &wayl->kbd.bindings.key);
     }
 }
 
@@ -446,49 +492,12 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             "effective=0x%08x, repeats=%d",
             sym, mods, consumed, significant, effective_mods, should_repeat);
 
-    tll_foreach(wayl->kbd.key_bindings, it) {
+    /*
+     * User configurable bindings
+     */
+    tll_foreach(wayl->kbd.bindings.key, it) {
         if (it->item.mods == effective_mods && it->item.sym == sym) {
             execute_binding(term, it->item.action, serial);
-            goto maybe_repeat;
-        }
-    }
-
-    /*
-     * Builtin shortcuts
-     */
-
-    if (effective_mods == shift) {
-        if (sym == XKB_KEY_Page_Up) {
-            cmd_scrollback_up(term, term->rows);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_Page_Down) {
-            cmd_scrollback_down(term, term->rows);
-            goto maybe_repeat;
-        }
-    }
-
-    else if (effective_mods == ctrl) {
-        if (sym == XKB_KEY_equal || sym == XKB_KEY_plus || sym == XKB_KEY_KP_Add) {
-            term_font_size_increase(term);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_minus || sym == XKB_KEY_KP_Subtract) {
-            term_font_size_decrease(term);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_0 || sym == XKB_KEY_KP_Equal || sym == XKB_KEY_KP_0) {
-            term_font_size_reset(term);
-            goto maybe_repeat;
-        }
-    }
-
-    else if (effective_mods == (shift | ctrl)) {
-        if (sym == XKB_KEY_Return) {
-            term_spawn_new(term);
             goto maybe_repeat;
         }
     }

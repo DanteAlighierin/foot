@@ -621,9 +621,15 @@ config_load(struct config *conf, const char *conf_path)
 
         .bindings = {
             .key = {
+                [BIND_ACTION_SCROLLBACK_UP] = strdup("Shift+Page_Up"),
+                [BIND_ACTION_SCROLLBACK_DOWN] = strdup("Shift+Page_Down"),
                 [BIND_ACTION_CLIPBOARD_COPY] = strdup("Control+Shift+C"),
                 [BIND_ACTION_CLIPBOARD_PASTE] = strdup("Control+Shift+V"),
                 [BIND_ACTION_SEARCH_START] = strdup("Control+Shift+R"),
+                [BIND_ACTION_FONT_SIZE_UP] = strdup("Control+plus Control+equal Control+KP_Add"),
+                [BIND_ACTION_FONT_SIZE_DOWN] = strdup("Control+minus Control+KP_Subtract"),
+                [BIND_ACTION_FONT_SIZE_RESET] = strdup("Control+0 Control+KP_0"),
+                [BIND_ACTION_SPAWN_TERMINAL] = strdup("Control+Shift+Return"),
             },
             .mouse = {
                 [BIND_ACTION_PRIMARY_PASTE] = strdup("BTN_MIDDLE"),
