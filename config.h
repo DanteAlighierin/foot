@@ -37,6 +37,20 @@ struct config {
     } cursor;
 
     struct {
+        /* Bindings for "normal" mode */
+        char *key[BIND_ACTION_COUNT];
+        char *mouse[BIND_ACTION_COUNT];
+
+        /*
+         * Special modes
+         */
+
+        /* While searching (not - action to *start* a search is in the
+         * 'key' bindings above */
+        char *search[BIND_ACTION_COUNT];
+    } bindings;
+
+    struct {
         enum { CONF_CSD_PREFER_SERVER, CONF_CSD_PREFER_CLIENT } preferred;
 
         int title_height;

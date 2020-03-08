@@ -32,6 +32,35 @@
 #include "vt.h"
 
 static void
+execute_binding(struct terminal *term, enum binding_action action,
+                uint32_t serial)
+{
+    switch (action) {
+    case BIND_ACTION_CLIPBOARD_COPY:
+        selection_to_clipboard(term, serial);
+        break;
+
+    case BIND_ACTION_CLIPBOARD_PASTE:
+        selection_from_clipboard(term, serial);
+        term_reset_view(term);
+        break;
+
+    case BIND_ACTION_PRIMARY_PASTE:
+        LOG_ERR("unimplemented");
+        assert(false);
+        break;
+
+    case BIND_ACTION_SEARCH_START:
+        search_begin(term);
+        break;
+
+    case BIND_ACTION_COUNT:
+        assert(false);
+        break;
+    }
+}
+
+static void
 keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
                 uint32_t format, int32_t fd, uint32_t size)
 {
@@ -59,6 +88,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         xkb_context_unref(wayl->kbd.xkb);
         wayl->kbd.xkb = NULL;
     }
+    tll_free(wayl->kbd.key_bindings);
 
     wayl->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     wayl->kbd.xkb_keymap = xkb_keymap_new_from_string(
@@ -81,6 +111,48 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
 
     munmap(map_str, size);
     close(fd);
+
+    for (size_t i = 0; i < BIND_ACTION_COUNT; i++) {
+        const char *combo = wayl->conf->bindings.key[i];
+
+        if (combo == NULL)
+            continue;
+
+        xkb_mod_mask_t mod_mask = 0;
+        xkb_keysym_t sym = 0;
+
+        char *copy = strdup(combo);
+
+        for (char *p = strtok(copy, "+"), *n = strtok(NULL, "+");
+             p != NULL;
+             p = n, n = strtok(NULL, "+"))
+        {
+            if (n != NULL) {
+                /* Modifier */
+                xkb_mod_index_t mod = xkb_keymap_mod_get_index(
+                    wayl->kbd.xkb_keymap, p);
+
+                if (mod == -1) {
+                    LOG_ERR("%s: not a valid modifier name", p);
+                    continue;
+                }
+
+                mod_mask |= 1 << mod;
+                LOG_DBG("MOD: %d - %s", mod, p);
+            } else {
+                /* Symbol */
+                sym = xkb_keysym_from_name(p, 0);
+            }
+        }
+
+        free(copy);
+
+        assert(sym != 0);
+
+        /* TODO: convert to DBG */
+        LOG_INFO("binding: %s -> mods=0x%08x, sym=%d", combo, mod_mask, sym);
+        tll_push_back(wayl->kbd.key_bindings, ((struct key_binding){mod_mask, sym, i}));
+    }
 }
 
 static void
@@ -374,6 +446,13 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             "effective=0x%08x, repeats=%d",
             sym, mods, consumed, significant, effective_mods, should_repeat);
 
+    tll_foreach(wayl->kbd.key_bindings, it) {
+        if (it->item.mods == effective_mods && it->item.sym == sym) {
+            execute_binding(term, it->item.action, serial);
+            goto maybe_repeat;
+        }
+    }
+
     /*
      * Builtin shortcuts
      */
@@ -408,23 +487,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     }
 
     else if (effective_mods == (shift | ctrl)) {
-        if (sym == XKB_KEY_C) {
-            selection_to_clipboard(term, serial);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_V) {
-            selection_from_clipboard(term, serial);
-            term_reset_view(term);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_R) {
-            search_begin(term);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_Return) {
+        if (sym == XKB_KEY_Return) {
             term_spawn_new(term);
             goto maybe_repeat;
         }

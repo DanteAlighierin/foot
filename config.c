@@ -619,6 +619,19 @@ config_load(struct config *conf, const char *conf_path)
             },
         },
 
+        .bindings = {
+            .key = {
+                [BIND_ACTION_CLIPBOARD_COPY] = strdup("Control+Shift+C"),
+                [BIND_ACTION_CLIPBOARD_PASTE] = strdup("Control+Shift+V"),
+                [BIND_ACTION_SEARCH_START] = strdup("Control+Shift+R"),
+            },
+            .mouse = {
+                [BIND_ACTION_PRIMARY_PASTE] = strdup("BTN_MIDDLE"),
+            },
+            .search = {
+            },
+        },
+
         .csd = {
             .preferred = CONF_CSD_PREFER_SERVER,
             .title_height = 26,
@@ -671,4 +684,10 @@ config_free(struct config conf)
     free(conf.shell);
     tll_free_and_free(conf.fonts, free);
     free(conf.server_socket_path);
+
+    for (size_t i = 0; i < BIND_ACTION_COUNT; i++) {
+        free(conf.bindings.key[i]);
+        free(conf.bindings.mouse[i]);
+        free(conf.bindings.search[i]);
+    }
 }
