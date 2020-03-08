@@ -31,9 +31,9 @@
 #include "terminal.h"
 #include "vt.h"
 
-static void
-execute_binding(struct terminal *term, enum binding_action action,
-                uint32_t serial)
+void
+input_execute_binding(struct terminal *term, enum binding_action action,
+                      uint32_t serial)
 {
     switch (action) {
     case BIND_ACTION_SCROLLBACK_UP:
@@ -196,8 +196,13 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     close(fd);
 
     for (size_t i = 0; i < BIND_ACTION_COUNT; i++) {
-        const char *combos = wayl->conf->bindings.key[i];
-        parse_key_binding_for_action(wayl->kbd.xkb_keymap, i, combos, &wayl->kbd.bindings.key);
+        parse_key_binding_for_action(
+            wayl->kbd.xkb_keymap, i,
+            wayl->conf->bindings.key[i], &wayl->kbd.bindings.key);
+
+        parse_key_binding_for_action(
+            wayl->kbd.xkb_keymap, i,
+            wayl->conf->bindings.search[i], &wayl->kbd.bindings.search);
     }
 }
 
@@ -476,7 +481,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     if (term->is_searching) {
         if (should_repeat)
             start_repeater(wayl, key - 8);
-        search_input(term, key, sym, effective_mods);
+        search_input(term, key, sym, effective_mods, serial);
         return;
     }
 
@@ -497,7 +502,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
      */
     tll_foreach(wayl->kbd.bindings.key, it) {
         if (it->item.mods == effective_mods && it->item.sym == sym) {
-            execute_binding(term, it->item.action, serial);
+            input_execute_binding(term, it->item.action, serial);
             goto maybe_repeat;
         }
     }

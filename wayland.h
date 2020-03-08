@@ -90,6 +90,7 @@ struct kbd {
 
     struct {
         key_binding_list_t key;
+        key_binding_list_t search;
     } bindings;
 };
 

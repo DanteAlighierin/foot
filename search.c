@@ -11,6 +11,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "grid.h"
+#include "input.h"
 #include "misc.h"
 #include "render.h"
 #include "selection.h"
@@ -412,7 +413,8 @@ distance_prev_word(const struct terminal *term)
 }
 
 void
-search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask_t mods)
+search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
+             xkb_mod_mask_t mods, uint32_t serial)
 {
     LOG_DBG("search: input: sym=%d/0x%x, mods=0x%08x", sym, sym, mods);
 
@@ -423,6 +425,16 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym, xkb_mod_mask
 
     enum xkb_compose_status compose_status = xkb_compose_state_get_status(
         term->wl->kbd.xkb_compose_state);
+
+    /*
+     * User configurable bindings
+     */
+    tll_foreach(term->wl->kbd.bindings.search, it) {
+        if (it->item.mods == mods && it->item.sym == sym) {
+            input_execute_binding(term, it->item.action, serial);
+            return;
+        }
+    }
 
     /* Cancel search */
     if ((mods == 0 && sym == XKB_KEY_Escape) ||
