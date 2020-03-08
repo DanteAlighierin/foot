@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import argparse
 import enum
-import shutil
+import fcntl
+import struct
 import sys
+import termios
 
 
 class ColorVariant(enum.IntEnum):
@@ -25,9 +27,11 @@ def main():
     opts = parser.parse_args()
     out = opts.out if opts.out is not None else sys.stdout
 
-    term_size = shutil.get_terminal_size()
-    lines = term_size.lines
-    cols = term_size.columns
+    lines, cols, _, _ = struct.unpack(
+        'HHHH',
+        fcntl.ioctl(sys.stdout.fileno(),
+                    termios.TIOCGWINSZ,
+                    struct.pack('HHHH', 0, 0, 0, 0)))
 
     # Number of characters to write to screen
     count = 256 * 1024**1
