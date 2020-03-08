@@ -413,6 +413,12 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
         conf->csd.color.close_set = true;
         conf->csd.color.close = color;
     }
+
+    else {
+        LOG_WARN("%s:%u: invalid key: %s", path, lineno, key);
+        return false;
+    }
+
     return true;
 }
 
