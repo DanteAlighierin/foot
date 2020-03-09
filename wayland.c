@@ -727,6 +727,11 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     wayl->fdm = fdm;
     wayl->kbd.repeat.fd = -1;
 
+    if (!fdm_hook_add(fdm, &fdm_hook, wayl, FDM_HOOK_PRIORITY_LOW)) {
+        LOG_ERR("failed to add FDM hook");
+        goto out;
+    }
+
     wayl->display = wl_display_connect(NULL);
     if (wayl->display == NULL) {
         LOG_ERR("failed to connect to wayland; no compositor running?");
@@ -848,11 +853,6 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     if (!fdm_add(fdm, wl_display_get_fd(wayl->display), EPOLLIN, &fdm_wayl, wayl) ||
         !fdm_add(fdm, wayl->kbd.repeat.fd, EPOLLIN, &fdm_repeat, wayl))
     {
-        goto out;
-    }
-
-    if (!fdm_hook_add(fdm, &fdm_hook, wayl, FDM_HOOK_PRIORITY_LOW)) {
-        LOG_ERR("failed to add FDM hook");
         goto out;
     }
 
