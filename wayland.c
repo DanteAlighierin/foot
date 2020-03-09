@@ -727,6 +727,11 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     wayl->fdm = fdm;
     wayl->kbd.repeat.fd = -1;
 
+    if (!fdm_hook_add(fdm, &fdm_hook, wayl, FDM_HOOK_PRIORITY_LOW)) {
+        LOG_ERR("failed to add FDM hook");
+        goto out;
+    }
+
     wayl->display = wl_display_connect(NULL);
     if (wayl->display == NULL) {
         LOG_ERR("failed to connect to wayland; no compositor running?");
@@ -775,9 +780,10 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     if (wayl->primary_selection_device_manager == NULL)
         LOG_WARN("no primary selection available");
 
-    if (conf->presentation_timings && wayl->presentation == NULL)
-        LOG_WARN("presentation time interface not implemented by compositor; "
-                 "timings will not be available");
+    if (conf->presentation_timings && wayl->presentation == NULL) {
+        LOG_ERR("presentation time interface not implemented by compositor");
+        goto out;
+    }
 
     tll_foreach(wayl->monitors, it) {
         LOG_INFO(
@@ -848,11 +854,6 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     if (!fdm_add(fdm, wl_display_get_fd(wayl->display), EPOLLIN, &fdm_wayl, wayl) ||
         !fdm_add(fdm, wayl->kbd.repeat.fd, EPOLLIN, &fdm_repeat, wayl))
     {
-        goto out;
-    }
-
-    if (!fdm_hook_add(fdm, &fdm_hook, wayl, FDM_HOOK_PRIORITY_LOW)) {
-        LOG_ERR("failed to add FDM hook");
         goto out;
     }
 

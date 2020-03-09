@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Exec=foot --server
-Icon=terminal
+Icon=utilities-terminal
 Terminal=false
 Categories=System;TerminalEmulator;
 
