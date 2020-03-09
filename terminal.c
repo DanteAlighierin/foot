@@ -770,14 +770,14 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     if ((term->window = wayl_win_init(term)) == NULL)
         goto err;
 
-    /* Let the Wayland backend know we exist */
-    tll_push_back(wayl->terms, term);
-    wayl_roundtrip(term->wl);
-    term_set_window_title(term, "foot");
-
     /* Load fonts */
     if (!term_font_dpi_changed(term))
         goto err;
+
+    term_set_window_title(term, "foot");
+
+    /* Let the Wayland backend know we exist */
+    tll_push_back(wayl->terms, term);
 
     /* Start the slave/client */
     if ((term->slave = slave_spawn(term->ptmx, argc, term->cwd, argv, term_env, conf->shell, login_shell)) == -1)
