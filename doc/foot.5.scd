@@ -147,6 +147,53 @@ component.
 *button-close-color*
 	Close button's AARRGGBB color. Default: _ffff3030_.
 
+# SECTION: key-bindings
+
+This section lets you override the default key bindings.
+
+The general format is *action*=*combo1*...*comboN*. That is, each
+action may have one or more key combinations, space separated. Each
+combination is on the form *mod1*+*mod2*+*key*. The names of the
+modifiers and the key *must* be a valid XKB key name.
+
+Note that if *Shift* is one of the modifiers, the _key_ *must* be in
+upper case.
+
+Note that _Alt_ is usually called *Mod1*.
+
+*scrollback-up*
+	Scrolls up/back in history. Default: _Shift+Page_Up_.
+
+*scrollback-down*
+	Scroll down/forward in history. Default: _Shift+Page_Down_.
+
+*clipboard-copy*
+	Copies the current selection into the _clipboard_. Default: _Control+Shift+C_.
+
+*clipboard-paste*
+	Pastes from the _clipboard_. Default: _Control+Shift+V_.
+
+*primary-paste*
+	Pastes from the _primary selection_. Default: not bound (to a
+	_key_, see *mouse-bindings*).
+
+*search-start*
+	Starts a scrollback/history search. Default: _Control+Shift+R_.
+
+*font-increase*
+	Increases the font size by 0.5pt. Default: _Control+plus
+	Control+equal Control+KP\_Add_.
+
+*font-decrease*
+	Decreases the font size by 0.5pt. Default: _Control+minus
+	Control+KP\_Subtract_.
+
+*font-reset*
+	Resets the font size to the default. Default: _Control+0 Control+KP\_0_.
+
+*spawn-terminal*
+	Spawns a new terminal. Default: _Control+Shift+Return_.
+
 # FONT FORMAT
 
 The font is specified in FontConfig syntax. That is, a colon-separated
