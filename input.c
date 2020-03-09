@@ -84,8 +84,8 @@ input_execute_binding(struct terminal *term, enum binding_action action,
     }
 }
 
-static bool
-parse_key_binding_for_action(
+bool
+input_parse_key_binding_for_action(
     struct xkb_keymap *keymap, enum binding_action action,
     const char *combos, key_binding_list_t *bindings)
 {
@@ -196,11 +196,11 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     close(fd);
 
     for (size_t i = 0; i < BIND_ACTION_COUNT; i++) {
-        parse_key_binding_for_action(
+        input_parse_key_binding_for_action(
             wayl->kbd.xkb_keymap, i,
             wayl->conf->bindings.key[i], &wayl->kbd.bindings.key);
 
-        parse_key_binding_for_action(
+        input_parse_key_binding_for_action(
             wayl->kbd.xkb_keymap, i,
             wayl->conf->bindings.search[i], &wayl->kbd.bindings.search);
     }
