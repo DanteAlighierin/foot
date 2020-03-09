@@ -98,10 +98,12 @@ arguments, use *--*:
 
 # KEYBOARD SHORTCUTS
 
-The following keyboard shortcuts are available. Note that they cannot
-be changed.
+The following keyboard shortcuts are available.
 
 ## NORMAL MODE
+
+Note that these are just the defaults; they can be changed in the
+*footrc*, see *foot*(5).
 
 *shift*+*page up*/*page down*
 	Scroll up/down in history
