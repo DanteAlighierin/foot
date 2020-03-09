@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.2
+
+### Changed
+* Changed icon name in `foot.desktop` and `foot-server.desktop` from
+  _terminal_ to _utilities-terminal_.
+* `XDG_SESSION_ID` is now included in the server/daemon default socket
+  path.
+
+
 ## 1.2.1
 
 ### Fixed
