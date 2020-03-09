@@ -12,9 +12,15 @@
 #include <assert.h>
 #include <errno.h>
 
+#include <xkbcommon/xkbcommon.h>
+
 #define LOG_MODULE "config"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "input.h"
+#include "wayland.h"
+
+#define ALEN(v) (sizeof(v) / sizeof(v[0]))
 
 static const uint32_t default_foreground = 0xdcdccc;
 static const uint32_t default_background = 0x111111;
@@ -39,6 +45,19 @@ static const uint32_t default_bright[] = {
     0xfcace3,
     0xb3ffff,
     0xffffff,
+};
+
+static const char *binding_action_map[] = {
+    [BIND_ACTION_SCROLLBACK_UP] = "scrollback-up",
+    [BIND_ACTION_SCROLLBACK_DOWN] = "scrollback-down",
+    [BIND_ACTION_CLIPBOARD_COPY] = "clipboard-copy",
+    [BIND_ACTION_CLIPBOARD_PASTE] = "clipboard-paste",
+    [BIND_ACTION_PRIMARY_PASTE] = "primary-paste",
+    [BIND_ACTION_SEARCH_START] = "search-start",
+    [BIND_ACTION_FONT_SIZE_UP] = "font-increase",
+    [BIND_ACTION_FONT_SIZE_DOWN] = "font-decrease",
+    [BIND_ACTION_FONT_SIZE_RESET] = "font-reset",
+    [BIND_ACTION_SPAWN_TERMINAL] = "spawn-terminal",
 };
 
 static char *
@@ -423,6 +442,39 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 }
 
 static bool
+parse_section_key_bindings(const char *key, const char *value, struct config *conf,
+                           const char *path, unsigned lineno)
+{
+    for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
+        if (strcmp(key, binding_action_map[action]) != 0)
+            continue;
+
+        struct xkb_context *ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+        struct xkb_keymap *keymap = xkb_keymap_new_from_names(
+            ctx, &(struct xkb_rule_names){0}, XKB_KEYMAP_COMPILE_NO_FLAGS);
+
+        bool valid_combo = input_parse_key_binding_for_action(keymap, action, value, NULL);
+
+        xkb_keymap_unref(keymap);
+        xkb_context_unref(ctx);
+
+        if (!valid_combo) {
+            LOG_ERR("%s:%d: invalid key combination: %s", path, lineno, value);
+            return false;
+        }
+
+        free(conf->bindings.key[action]);
+        conf->bindings.key[action] = strdup(value);
+        return true;
+    }
+
+
+    LOG_WARN("%s:%u: invalid key: %s", path, lineno, key);
+    return false;
+
+}
+
+static bool
 parse_config_file(FILE *f, struct config *conf, const char *path)
 {
     enum section {
@@ -430,6 +482,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         SECTION_COLORS,
         SECTION_CURSOR,
         SECTION_CSD,
+        SECTION_KEY_BINDINGS,
+        SECTION_COUNT,
     } section = SECTION_MAIN;
 
     /* Function pointer, called for each key/value line */
@@ -437,22 +491,18 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         const char *key, const char *value, struct config *conf,
         const char *path, unsigned lineno);
 
-    /* Maps sections to line parser functions */
-    static const parser_fun_t section_parser_map[] = {
-        [SECTION_MAIN] = &parse_section_main,
-        [SECTION_COLORS] = &parse_section_colors,
-        [SECTION_CURSOR] = &parse_section_cursor,
-        [SECTION_CSD] = &parse_section_csd,
+    static const struct {
+        parser_fun_t fun;
+        const char *name;
+    } section_info[] = {
+        [SECTION_MAIN] =         {&parse_section_main, "main"},
+        [SECTION_COLORS] =       {&parse_section_colors, "colors"},
+        [SECTION_CURSOR] =       {&parse_section_cursor, "cursor"},
+        [SECTION_CSD] =          {&parse_section_csd, "csd"},
+        [SECTION_KEY_BINDINGS] = {&parse_section_key_bindings, "key-bindings"},
     };
 
-#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
-    static const char *const section_names[] = {
-        [SECTION_MAIN] = "main",
-        [SECTION_COLORS] = "colors",
-        [SECTION_CURSOR] = "cursor",
-        [SECTION_CSD] = "csd",
-    };
-#endif
+    static_assert(ALEN(section_info) == SECTION_COUNT, "section info array size mismatch");
 
     unsigned lineno = 0;
 
@@ -500,17 +550,19 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 
             *end = '\0';
 
-            if (strcmp(&line[1], "colors") == 0)
-                section = SECTION_COLORS;
-            else if (strcmp(&line[1], "cursor") == 0)
-                section = SECTION_CURSOR;
-            else if (strcmp(&line[1], "csd") == 0)
-                section = SECTION_CSD;
-            else {
+            section = SECTION_COUNT;
+            for (enum section i = 0; i < SECTION_COUNT; i++) {
+                if (strcmp(&line[1], section_info[i].name) == 0) {
+                    section = i;
+                }
+            }
+
+            if (section == SECTION_COUNT) {
                 LOG_ERR("%s:%d: invalid section name: %s", path, lineno, &line[1]);
                 goto err;
             }
 
+            /* Process next line */
             continue;
         }
 
@@ -549,7 +601,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         LOG_DBG("section=%s, key='%s', value='%s'",
                 section_names[section], key, value);
 
-        parser_fun_t section_parser = section_parser_map[section];
+        parser_fun_t section_parser = section_info[section].fun;
         assert(section_parser != NULL);
 
         if (!section_parser(key, value, conf, path, lineno))
