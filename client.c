@@ -135,10 +135,13 @@ main(int argc, char *const *argv)
     } else {
         bool connected = false;
 
+        const char *xdg_session_id = getenv("XDG_SESSION_ID");
         const char *xdg_runtime = getenv("XDG_RUNTIME_DIR");
         if (xdg_runtime != NULL) {
-            snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/foot.sock", xdg_runtime);
+            if (xdg_session_id == NULL)
+                xdg_session_id = "<no-session>";
 
+            snprintf(addr.sun_path, sizeof(addr.sun_path), "%s/foot-%s.sock", xdg_runtime, xdg_session_id);
             if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == 0)
                 connected = true;
             else
