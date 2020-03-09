@@ -125,7 +125,7 @@ parse_key_binding_for_action(
             }
         }
 
-        LOG_DBG("action=%zu: mods=0x%08x, sym=%d", i, mod_mask, sym);
+        LOG_DBG("action=%u: mods=0x%08x, sym=%d", action, mod_mask, sym);
 
         assert(sym != 0);
         if (bindings != NULL) {
