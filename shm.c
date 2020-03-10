@@ -144,7 +144,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
 
     mmapped = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool_fd, 0);
     if (mmapped == MAP_FAILED) {
-        LOG_ERR("failed to mmap SHM backing memory file");
+        LOG_ERRNO("failed to mmap SHM backing memory file");
         goto err;
     }
 
