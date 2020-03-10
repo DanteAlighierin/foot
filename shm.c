@@ -6,6 +6,7 @@
 
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <linux/mman.h>
 #include <linux/memfd.h>
 #include <fcntl.h>
 
@@ -142,7 +143,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
         }
     }
 
-    mmapped = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool_fd, 0);
+    mmapped = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_UNINITIALIZED, pool_fd, 0);
     if (mmapped == MAP_FAILED) {
         LOG_ERRNO("failed to mmap SHM backing memory file");
         goto err;
