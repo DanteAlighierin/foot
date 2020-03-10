@@ -105,7 +105,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
      */
 
     int pool_fd = -1;
-    void *mmapped = NULL;
+    void *mmapped = MAP_FAILED;
     size_t size = 0;
 
     struct wl_shm_pool *pool = NULL;
@@ -199,7 +199,7 @@ err:
         wl_shm_pool_destroy(pool);
     if (pool_fd != -1)
         close(pool_fd);
-    if (mmapped != NULL)
+    if (mmapped != MAP_FAILED)
         munmap(mmapped, size);
 
     return NULL;
