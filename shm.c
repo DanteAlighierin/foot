@@ -202,6 +202,8 @@ err:
     if (mmapped != MAP_FAILED)
         munmap(mmapped, size);
 
+    /* We don't handle this */
+    abort();
     return NULL;
 }
 
