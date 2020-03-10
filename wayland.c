@@ -279,7 +279,6 @@ static const struct wp_presentation_listener presentation_listener = {
     .clock_id = &clock_id,
 };
 
-
 static bool
 verify_iface_version(const char *iface, uint32_t version, uint32_t wanted)
 {

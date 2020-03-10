@@ -6,6 +6,7 @@
 
 #include <sys/types.h>
 #include <sys/mman.h>
+#include <linux/mman.h>
 #include <linux/memfd.h>
 #include <fcntl.h>
 
@@ -104,7 +105,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
      */
 
     int pool_fd = -1;
-    void *mmapped = NULL;
+    void *mmapped = MAP_FAILED;
     size_t size = 0;
 
     struct wl_shm_pool *pool = NULL;
@@ -142,9 +143,9 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
         }
     }
 
-    mmapped = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, pool_fd, 0);
+    mmapped = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_UNINITIALIZED, pool_fd, 0);
     if (mmapped == MAP_FAILED) {
-        LOG_ERR("failed to mmap SHM backing memory file");
+        LOG_ERRNO("failed to mmap SHM backing memory file");
         goto err;
     }
 
@@ -163,7 +164,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
 
     /* We use the entire pool for our single buffer */
     wl_shm_pool_destroy(pool); pool = NULL;
-    close(pool_fd);
+    close(pool_fd); pool_fd = -1;
 
     /* One pixman image for each worker thread (do we really need multiple?) */
     pix = pixman_image_create_bits_no_clear(
@@ -198,9 +199,11 @@ err:
         wl_shm_pool_destroy(pool);
     if (pool_fd != -1)
         close(pool_fd);
-    if (mmapped != NULL)
+    if (mmapped != MAP_FAILED)
         munmap(mmapped, size);
 
+    /* We don't handle this */
+    abort();
     return NULL;
 }
 

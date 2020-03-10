@@ -2,10 +2,20 @@
 
 ## Unreleased
 ### Added
+
 ### Changed
+* Changed icon name in `foot.desktop` and `foot-server.desktop` from
+  _terminal_ to _utilities-terminal_.
+* `XDG_SESSION_ID` is now included in the server/daemon default socket
+  path.
+
 ### Deprecated
 ### Removed
+
 ### Fixed
+* Window size doubling when moving window between outputs with
+  different scaling factors (https://codeberg.org/dnkl/foot/issues/3).
+
 ### Security
 
 ## 1.2.1

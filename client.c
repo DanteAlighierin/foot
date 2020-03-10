@@ -34,7 +34,7 @@ print_usage(const char *prog_name)
     printf("Options:\n");
     printf("  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
            "     --login-shell                      start shell as a login shell\n"
-           "  -s,--server-socket=PATH               path to the server UNIX domain socket (default=XDG_RUNTIME_DIR/foot.sock)\n"
+           "  -s,--server-socket=PATH               path to the server UNIX domain socket (default=$XDG_RUNTIME_DIR/foot-$XDG_SESSION_ID.sock)\n"
            "  -l,--log-colorize=[never|always|auto] enable/disable colorization of log output on stderr\n"
            "  -v,--version                          show the version number and quit\n");
 }
@@ -145,7 +145,7 @@ main(int argc, char *const *argv)
             if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == 0)
                 connected = true;
             else
-                LOG_WARN("%s/foot.sock: failed to connect, will now try /tmp/foot.sock", xdg_runtime);
+                LOG_WARN("%s: failed to connect, will now try /tmp/foot.sock", addr.sun_path);
         }
 
         if (!connected) {
