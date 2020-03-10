@@ -145,7 +145,7 @@ main(int argc, char *const *argv)
             if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == 0)
                 connected = true;
             else
-                LOG_WARN("%s/foot.sock: failed to connect, will now try /tmp/foot.sock", xdg_runtime);
+                LOG_WARN("%s: failed to connect, will now try /tmp/foot.sock", addr.sun_path);
         }
 
         if (!connected) {
