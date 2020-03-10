@@ -164,7 +164,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
 
     /* We use the entire pool for our single buffer */
     wl_shm_pool_destroy(pool); pool = NULL;
-    close(pool_fd);
+    close(pool_fd); pool_fd = -1;
 
     /* One pixman image for each worker thread (do we really need multiple?) */
     pix = pixman_image_create_bits_no_clear(
