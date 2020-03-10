@@ -8,6 +8,10 @@
 * `XDG_SESSION_ID` is now included in the server/daemon default socket
   path.
 
+### Fixed
+* Window size doubling when moving window between outputs with
+  different scaling factors (https://codeberg.org/dnkl/foot/issues/3).
+
 
 ## 1.2.1
 
