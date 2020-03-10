@@ -11,7 +11,11 @@
 
 ### Deprecated
 ### Removed
+
 ### Fixed
+* Window size doubling when moving window between outputs with
+  different scaling factors (https://codeberg.org/dnkl/foot/issues/3).
+
 ### Security
 
 ## 1.2.1
