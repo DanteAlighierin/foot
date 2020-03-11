@@ -169,10 +169,16 @@ update_terms_on_monitor(struct monitor *mon)
 static void
 output_update_ppi(struct monitor *mon)
 {
-    int x_inches = mon->width_mm * 0.03937008;
-    int y_inches = mon->height_mm * 0.03937008;
-    mon->x_ppi = mon->width_px / x_inches;
-    mon->y_ppi = mon->height_px / y_inches;
+    if (mon->dim.mm.width == 0 || mon->dim.mm.height == 0)
+        return;
+
+    int x_inches = mon->dim.mm.width * 0.03937008;
+    int y_inches = mon->dim.mm.height * 0.03937008;
+    mon->ppi.real.x = mon->dim.px_real.width / x_inches;
+    mon->ppi.real.y = mon->dim.px_real.height / y_inches;
+
+    mon->ppi.scaled.x = mon->dim.px_scaled.width / x_inches;
+    mon->ppi.scaled.y = mon->dim.px_scaled.height / y_inches;
 }
 
 static void
@@ -182,9 +188,9 @@ output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
                 int32_t transform)
 {
     struct monitor *mon = data;
-    mon->width_mm = physical_width;
-    mon->height_mm = physical_height;
-    mon->inch = sqrt(pow(mon->width_mm, 2) + pow(mon->height_mm, 2)) * 0.03937008;
+    mon->dim.mm.width = physical_width;
+    mon->dim.mm.height = physical_height;
+    mon->inch = sqrt(pow(mon->dim.mm.width, 2) + pow(mon->dim.mm.height, 2)) * 0.03937008;
     mon->make = make != NULL ? strdup(make) : NULL;
     mon->model = model != NULL ? strdup(model) : NULL;
     output_update_ppi(mon);
@@ -199,8 +205,8 @@ output_mode(void *data, struct wl_output *wl_output, uint32_t flags,
 
     struct monitor *mon = data;
     mon->refresh = (float)refresh / 1000;
-    mon->width_px = width;
-    mon->height_px = height;
+    mon->dim.px_real.width = width;
+    mon->dim.px_real.height = height;
     output_update_ppi(mon);
 }
 
@@ -238,6 +244,10 @@ static void
 xdg_output_handle_logical_size(void *data, struct zxdg_output_v1 *xdg_output,
                                int32_t width, int32_t height)
 {
+    struct monitor *mon = data;
+    mon->dim.px_scaled.width = width;
+    mon->dim.px_scaled.height = height;
+    output_update_ppi(mon);
 }
 
 static void
@@ -781,11 +791,12 @@ wayl_init(const struct config *conf, struct fdm *fdm)
 
     tll_foreach(wayl->monitors, it) {
         LOG_INFO(
-            "%s: %dx%d+%dx%d@%dHz %s (%.2f\", PPI=%dx%d, scale=%d)",
-            it->item.name, it->item.width_px, it->item.height_px,
-            it->item.x, it->item.y, (int)round(it->item.refresh), it->item.model, it->item.inch,
-            it->item.x_ppi, it->item.y_ppi,
-            it->item.scale);
+            "%s: %dx%d+%dx%d@%dHz %s %.2f\" scale=%d PPI=%dx%d (physical) PPI=%dx%d (logical)",
+            it->item.name, it->item.dim.px_real.width, it->item.dim.px_real.height,
+            it->item.x, it->item.y, (int)round(it->item.refresh),
+            it->item.model, it->item.inch, it->item.scale,
+            it->item.ppi.real.x, it->item.ppi.real.y,
+            it->item.ppi.scaled.x, it->item.ppi.scaled.y);
     }
 
     /* Clipboard */

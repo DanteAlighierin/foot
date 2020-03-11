@@ -532,18 +532,39 @@ term_set_fonts(struct terminal *term, struct font *fonts[static 4])
 static unsigned
 get_font_dpi(const struct terminal *term)
 {
+    /*
+     * Use output's DPI to scale font. This is to ensure the font has
+     * the same physical height (if measured by a ruler) regardless of
+     * monitor.
+     *
+     * Conceptually, we use the physical monitor specs to calculate
+     * the DPI, and we ignore the output's scaling factor.
+     *
+     * However, to deal with fractional scaling, where we're told to
+     * render at e.g. 2x, but are then downscaled by the compositor to
+     * e.g. 1.25, we use the scaled DPI value multiplied by the scale
+     * factor instead.
+     *
+     * For integral scaling factors the resulting DPI is the same as
+     * if we had used the physical DPI.
+     *
+     * For fractional scaling factors we'll get a DPI *larger* than
+     * the physical DPI, that ends up being right when later
+     * downscaled by the compositor.
+     */
+
     /* Use highest DPI from outputs we're mapped on */
     unsigned dpi = 0;
     assert(term->window != NULL);
     tll_foreach(term->window->on_outputs, it) {
-        if (it->item->y_ppi > dpi)
-            dpi = it->item->y_ppi;
+        if (it->item->ppi.scaled.y > dpi)
+            dpi = it->item->ppi.scaled.y * term->scale;
     }
 
     /* If we're not mapped, use DPI from first monitor. Hopefully this is where we'll get mapped later... */
     if (dpi == 0) {
         tll_foreach(term->wl->monitors, it) {
-            dpi = it->item.y_ppi;
+            dpi = it->item.ppi.scaled.y * term->scale;
             break;
         }
     }
