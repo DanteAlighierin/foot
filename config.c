@@ -450,6 +450,47 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 }
 
 static bool
+verify_key_combo(const struct config *conf, const char *combo, const char *path, unsigned lineno)
+{
+    for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
+        if (conf->bindings.key[action] == NULL)
+            continue;
+
+        char *copy = strdup(conf->bindings.key[action]);
+
+        for (char *save = NULL, *collision = strtok_r(copy, " ", &save);
+             collision != NULL;
+             collision = strtok_r(NULL, " ", &save))
+        {
+            if (strcmp(combo, collision) == 0) {
+                LOG_ERR("%s:%d: %s already mapped to %s", path, lineno, combo, binding_action_map[action]);
+                free(copy);
+                return false;
+            }
+        }
+
+        free(copy);
+    }
+
+    struct xkb_context *ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    struct xkb_keymap *keymap = xkb_keymap_new_from_names(
+        ctx, &(struct xkb_rule_names){0}, XKB_KEYMAP_COMPILE_NO_FLAGS);
+
+    bool valid_combo = input_parse_key_binding_for_action(
+        keymap, BIND_ACTION_NONE, combo, NULL);
+
+    xkb_keymap_unref(keymap);
+    xkb_context_unref(ctx);
+
+    if (!valid_combo) {
+        LOG_ERR("%s:%d: invalid key combination: %s", path, lineno, combo);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
 parse_section_key_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
@@ -461,18 +502,13 @@ parse_section_key_bindings(
         if (strcmp(key, binding_action_map[action]) != 0)
             continue;
 
-        struct xkb_context *ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-        struct xkb_keymap *keymap = xkb_keymap_new_from_names(
-            ctx, &(struct xkb_rule_names){0}, XKB_KEYMAP_COMPILE_NO_FLAGS);
+        if (strcmp(value, "NONE") == 0) {
+            free(conf->bindings.key[action]);
+            conf->bindings.key[action] = NULL;
+            return true;
+        }
 
-        bool valid_combo = input_parse_key_binding_for_action(
-            keymap, action, value, NULL);
-
-        xkb_keymap_unref(keymap);
-        xkb_context_unref(ctx);
-
-        if (!valid_combo) {
-            LOG_ERR("%s:%d: invalid key combination: %s", path, lineno, value);
+        if (!verify_key_combo(conf, value, path, lineno)) {
             return false;
         }
 

@@ -161,6 +161,12 @@ upper case.
 
 Note that *Alt* is usually called *Mod1*.
 
+A key combination can only be mapped to *one* action. Lets say you
+want to bind *Control*+*Shift*+*R* to *fullscreen*. Since this is the
+default shortcut for *search-start*, you first need to unmap the
+default binding. This can be done by setting _action_=*NONE*;
+e.g. *search-start*=*NONE*.
+
 *scrollback-up*
 	Scrolls up/back in history. Default: _Shift+Page_Up_.
 
