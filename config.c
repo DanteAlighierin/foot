@@ -258,7 +258,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else {
-        LOG_WARN("%s:%u: invalid key: %s", path, lineno, key);
+        LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
         return false;
     }
 
@@ -440,7 +440,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
     }
 
     else {
-        LOG_WARN("%s:%u: invalid key: %s", path, lineno, key);
+        LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
         return false;
     }
 
@@ -474,8 +474,7 @@ parse_section_key_bindings(const char *key, const char *value, struct config *co
         return true;
     }
 
-
-    LOG_WARN("%s:%u: invalid key: %s", path, lineno, key);
+    LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
     return false;
 
 }
