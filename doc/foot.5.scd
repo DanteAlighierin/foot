@@ -157,7 +157,8 @@ combination is on the form _mod1_+_mod2_+_key_. The names of the
 modifiers and the key *must* be a valid XKB key name.
 
 Note that if *Shift* is one of the modifiers, the _key_ *must* be in
-upper case.
+upper case. For example, *Control*+*Shift*+*v* will never trigger -
+*Control*+*Shift*+*V* is the correct way to write it.
 
 Note that *Alt* is usually called *Mod1*.
 
