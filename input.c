@@ -87,6 +87,8 @@ input_execute_binding(struct terminal *term, enum binding_action action,
         break;
 
     case BIND_ACTION_MAXIMIZE:
+        if (term->window->is_fullscreen)
+            xdg_toplevel_unset_fullscreen(term->window->xdg_toplevel);
         if (term->window->is_maximized)
             xdg_toplevel_unset_maximized(term->window->xdg_toplevel);
         else
