@@ -203,6 +203,18 @@ Note that _Alt_ is usually called *Mod1*.
 *fullscreen*
 	Toggles the fullscreen state. Default: _not bound_.
 
+# SECTION: mouse-bindings
+
+This section lets you override the default mouse bindings.
+
+The general format is *action*=*BTN\_<name>*, where *BTN\_<name>* is
+the name of the event code (e.g. *BTN\_LEFT*, *BTN\_RIGHT*). You can
+find the event names using *libinput debug-events*.
+
+*primary-paste*
+	Pastes from the _primary selection_. Default: _BTN_MIDDLE_.
+
+
 # FONT FORMAT
 
 The font is specified in FontConfig syntax. That is, a colon-separated

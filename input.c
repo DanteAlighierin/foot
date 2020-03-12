@@ -31,6 +31,8 @@
 #include "terminal.h"
 #include "vt.h"
 
+#define ALEN(v) (sizeof(v) / sizeof(v[0]))
+
 void
 input_execute_binding(struct terminal *term, enum binding_action action,
                       uint32_t serial)
@@ -54,8 +56,7 @@ input_execute_binding(struct terminal *term, enum binding_action action,
         break;
 
     case BIND_ACTION_PRIMARY_PASTE:
-        LOG_ERR("unimplemented");
-        assert(false);
+        selection_from_primary(term);
         break;
 
     case BIND_ACTION_SEARCH_START:
@@ -321,7 +322,6 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 static const struct key_data *
 keymap_data_for_sym(xkb_keysym_t sym, size_t *count)
 {
-#define ALEN(a) (sizeof(a) / sizeof(a[0]))
     switch (sym) {
     case XKB_KEY_Escape:       *count = ALEN(key_escape);       return key_escape;
     case XKB_KEY_Return:       *count = ALEN(key_return);       return key_return;
@@ -402,7 +402,6 @@ keymap_data_for_sym(xkb_keysym_t sym, size_t *count)
     case XKB_KEY_KP_9:         *count = ALEN(key_kp_9);         return key_kp_9;
     }
 
-    #undef ALEN
     return NULL;
 }
 
@@ -1151,11 +1150,24 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                     selection_mark_row(term, wayl->mouse.row, serial);
                     break;
                 }
-            } else {
-                if (wayl->mouse.count == 1 && button == BTN_MIDDLE &&
-                    selection_enabled(term))
-                {
-                    selection_from_primary(term);
+            }
+
+            else {
+                for (size_t i = 0; i < ALEN(wayl->conf->bindings.mouse); i++) {
+                    const struct mouse_binding *binding =
+                        &wayl->conf->bindings.mouse[i];
+
+                    if (binding->button != button) {
+                        /* Wrong button */
+                        continue;
+                    }
+
+                    if  (binding->count != wayl->mouse.count) {
+                        /* Not correct click count */
+                        continue;
+                    }
+
+                    input_execute_binding(term, binding->action, serial);
                 }
                 selection_cancel(term);
             }

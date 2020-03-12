@@ -56,3 +56,6 @@
 # # minimize=<not bound>
 # # maximize=<not bound>
 # # fullscreen=<not bound>
+
+[mouse-bindings]
+# primary-paste=BTN_MIDDLE

@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <errno.h>
 
+#include <linux/input-event-codes.h>
 #include <xkbcommon/xkbcommon.h>
 
 #define LOG_MODULE "config"
@@ -448,8 +449,9 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 }
 
 static bool
-parse_section_key_bindings(const char *key, const char *value, struct config *conf,
-                           const char *path, unsigned lineno)
+parse_section_key_bindings(
+    const char *key, const char *value, struct config *conf,
+    const char *path, unsigned lineno)
 {
     for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
         if (strcmp(key, binding_action_map[action]) != 0)
@@ -459,7 +461,8 @@ parse_section_key_bindings(const char *key, const char *value, struct config *co
         struct xkb_keymap *keymap = xkb_keymap_new_from_names(
             ctx, &(struct xkb_rule_names){0}, XKB_KEYMAP_COMPILE_NO_FLAGS);
 
-        bool valid_combo = input_parse_key_binding_for_action(keymap, action, value, NULL);
+        bool valid_combo = input_parse_key_binding_for_action(
+            keymap, action, value, NULL);
 
         xkb_keymap_unref(keymap);
         xkb_context_unref(ctx);
@@ -480,6 +483,43 @@ parse_section_key_bindings(const char *key, const char *value, struct config *co
 }
 
 static bool
+parse_section_mouse_bindings(
+    const char *key, const char *value, struct config *conf,
+    const char *path, unsigned lineno)
+{
+    for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
+        if (strcmp(key, binding_action_map[action]) != 0)
+            continue;
+
+        const char *map[] = {
+            [BTN_LEFT] = "BTN_LEFT",
+            [BTN_RIGHT] = "BTN_RIGHT",
+            [BTN_MIDDLE] = "BTN_MIDDLE",
+            [BTN_SIDE] = "BTN_SIDE",
+            [BTN_EXTRA] = "BTN_EXTRA",
+            [BTN_FORWARD] = "BTN_FORWARD",
+            [BTN_BACK] = "BTN_BACK",
+            [BTN_TASK] = "BTN_TASK",
+        };
+
+        for (size_t i = 0; i < ALEN(map); i++) {
+            if (map[i] == NULL || strcmp(map[i], value) != 0)
+                continue;
+
+            conf->bindings.mouse[action] = (struct mouse_binding){i, 1, action};
+            return true;
+        }
+
+        LOG_ERR("%s:%d: invalid mouse button: %s", path, lineno, value);
+        return false;
+
+    }
+
+    LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+    return false;
+}
+
+static bool
 parse_config_file(FILE *f, struct config *conf, const char *path)
 {
     enum section {
@@ -488,6 +528,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         SECTION_CURSOR,
         SECTION_CSD,
         SECTION_KEY_BINDINGS,
+        SECTION_MOUSE_BINDINGS,
         SECTION_COUNT,
     } section = SECTION_MAIN;
 
@@ -500,11 +541,12 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         parser_fun_t fun;
         const char *name;
     } section_info[] = {
-        [SECTION_MAIN] =         {&parse_section_main, "main"},
-        [SECTION_COLORS] =       {&parse_section_colors, "colors"},
-        [SECTION_CURSOR] =       {&parse_section_cursor, "cursor"},
-        [SECTION_CSD] =          {&parse_section_csd, "csd"},
-        [SECTION_KEY_BINDINGS] = {&parse_section_key_bindings, "key-bindings"},
+        [SECTION_MAIN] =           {&parse_section_main, "main"},
+        [SECTION_COLORS] =         {&parse_section_colors, "colors"},
+        [SECTION_CURSOR] =         {&parse_section_cursor, "cursor"},
+        [SECTION_CSD] =            {&parse_section_csd, "csd"},
+        [SECTION_KEY_BINDINGS] =   {&parse_section_key_bindings, "key-bindings"},
+        [SECTION_MOUSE_BINDINGS] = {&parse_section_mouse_bindings, "mouse-bindings"},
     };
 
     static_assert(ALEN(section_info) == SECTION_COUNT, "section info array size mismatch");
@@ -699,7 +741,7 @@ config_load(struct config *conf, const char *conf_path)
                 [BIND_ACTION_SPAWN_TERMINAL] = strdup("Control+Shift+Return"),
             },
             .mouse = {
-                [BIND_ACTION_PRIMARY_PASTE] = strdup("BTN_MIDDLE"),
+                [BIND_ACTION_PRIMARY_PASTE] = {BTN_MIDDLE, 1, BIND_ACTION_PRIMARY_PASTE},
             },
             .search = {
             },
@@ -760,7 +802,6 @@ config_free(struct config conf)
 
     for (size_t i = 0; i < BIND_ACTION_COUNT; i++) {
         free(conf.bindings.key[i]);
-        free(conf.bindings.mouse[i]);
         free(conf.bindings.search[i]);
     }
 }

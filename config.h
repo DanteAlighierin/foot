@@ -39,7 +39,7 @@ struct config {
     struct {
         /* Bindings for "normal" mode */
         char *key[BIND_ACTION_COUNT];
-        char *mouse[BIND_ACTION_COUNT];
+        struct mouse_binding mouse[BIND_ACTION_COUNT];
 
         /*
          * Special modes

@@ -65,6 +65,12 @@ struct key_binding {
 };
 typedef tll(struct key_binding) key_binding_list_t;
 
+struct mouse_binding {
+    uint32_t button;
+    int count;
+    enum binding_action action;
+};
+
 struct kbd {
     struct xkb_context *xkb;
     struct xkb_keymap *xkb_keymap;
