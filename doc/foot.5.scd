@@ -151,15 +151,15 @@ component.
 
 This section lets you override the default key bindings.
 
-The general format is *action*=*combo1*...*comboN*. That is, each
+The general format is _action_=_combo1_..._comboN_. That is, each
 action may have one or more key combinations, space separated. Each
-combination is on the form *mod1*+*mod2*+*key*. The names of the
+combination is on the form _mod1_+_mod2_+_key_. The names of the
 modifiers and the key *must* be a valid XKB key name.
 
 Note that if *Shift* is one of the modifiers, the _key_ *must* be in
 upper case.
 
-Note that _Alt_ is usually called *Mod1*.
+Note that *Alt* is usually called *Mod1*.
 
 *scrollback-up*
 	Scrolls up/back in history. Default: _Shift+Page_Up_.
@@ -207,9 +207,15 @@ Note that _Alt_ is usually called *Mod1*.
 
 This section lets you override the default mouse bindings.
 
-The general format is *action*=*BTN\_<name>*, where *BTN\_<name>* is
+The general format is _action_=_BTN\_<name>_, where _BTN\_<name>_ is
 the name of the event code (e.g. *BTN\_LEFT*, *BTN\_RIGHT*). You can
 find the event names using *libinput debug-events*.
+
+A button can only be mapped to *one* action. Lets say you want to bind
+*BTN\_MIDDLE* to *fullscreen*. Since *BTN\_MIDDLE* is the default
+binding for *primary-paste*, you first need to unmap the default
+binding. This can be done by setting _action_=*NONE*;
+e.g. *primary-paste*=*NONE*.
 
 *primary-paste*
 	Pastes from the _primary selection_. Default: _BTN_MIDDLE_.

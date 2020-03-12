@@ -38,6 +38,9 @@ input_execute_binding(struct terminal *term, enum binding_action action,
                       uint32_t serial)
 {
     switch (action) {
+    case BIND_ACTION_NONE:
+        break;
+
     case BIND_ACTION_SCROLLBACK_UP:
         cmd_scrollback_up(term, term->rows);
         break;
@@ -1168,6 +1171,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                     }
 
                     input_execute_binding(term, binding->action, serial);
+                    break;
                 }
                 selection_cancel(term);
             }

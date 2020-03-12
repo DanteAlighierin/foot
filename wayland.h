@@ -42,6 +42,7 @@ struct monitor {
 };
 
 enum binding_action {
+    BIND_ACTION_NONE,
     BIND_ACTION_SCROLLBACK_UP,
     BIND_ACTION_SCROLLBACK_DOWN,
     BIND_ACTION_CLIPBOARD_COPY,

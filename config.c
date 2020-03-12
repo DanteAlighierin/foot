@@ -49,6 +49,7 @@ static const uint32_t default_bright[] = {
 };
 
 static const char *binding_action_map[] = {
+    [BIND_ACTION_NONE] = NULL,
     [BIND_ACTION_SCROLLBACK_UP] = "scrollback-up",
     [BIND_ACTION_SCROLLBACK_DOWN] = "scrollback-down",
     [BIND_ACTION_CLIPBOARD_COPY] = "clipboard-copy",
@@ -454,6 +455,9 @@ parse_section_key_bindings(
     const char *path, unsigned lineno)
 {
     for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
+        if (binding_action_map[action] == NULL)
+            continue;
+
         if (strcmp(key, binding_action_map[action]) != 0)
             continue;
 
@@ -488,8 +492,16 @@ parse_section_mouse_bindings(
     const char *path, unsigned lineno)
 {
     for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
+        if (binding_action_map[action] == NULL)
+            continue;
+
         if (strcmp(key, binding_action_map[action]) != 0)
             continue;
+
+        if (strcmp(value, "NONE") == 0) {
+            conf->bindings.mouse[action] = (struct mouse_binding){0, 0, BIND_ACTION_NONE};
+            return true;
+        }
 
         const char *map[] = {
             [BTN_LEFT] = "BTN_LEFT",
@@ -506,7 +518,19 @@ parse_section_mouse_bindings(
             if (map[i] == NULL || strcmp(map[i], value) != 0)
                 continue;
 
-            conf->bindings.mouse[action] = (struct mouse_binding){i, 1, action};
+            const int count = 1;
+
+            /* Make sure button isn't already mapped to another action */
+            for (enum binding_action j = 0; j < BIND_ACTION_COUNT; j++) {
+                const struct mouse_binding *collision = &conf->bindings.mouse[j];
+                if (collision->button == i && collision->count == count) {
+                    LOG_ERR("%s:%d: %s already mapped to %s", path, lineno,
+                            value, binding_action_map[collision->action]);
+                    return false;
+                }
+            }
+
+            conf->bindings.mouse[action] = (struct mouse_binding){i, count, action};
             return true;
         }
 
