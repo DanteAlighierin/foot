@@ -273,8 +273,10 @@ main(int argc, char *const *argv)
     argv += optind;
 
     struct config conf = {NULL};
-    if (!config_load(&conf, conf_path))
+    if (!config_load(&conf, conf_path)) {
+        config_free(conf);
         return ret;
+    }
 
     setlocale(LC_ALL, "");
     if (!locale_is_utf8()) {

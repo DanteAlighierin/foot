@@ -12,9 +12,16 @@
 #include <assert.h>
 #include <errno.h>
 
+#include <linux/input-event-codes.h>
+#include <xkbcommon/xkbcommon.h>
+
 #define LOG_MODULE "config"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "input.h"
+#include "wayland.h"
+
+#define ALEN(v) (sizeof(v) / sizeof(v[0]))
 
 static const uint32_t default_foreground = 0xdcdccc;
 static const uint32_t default_background = 0x111111;
@@ -40,6 +47,26 @@ static const uint32_t default_bright[] = {
     0xb3ffff,
     0xffffff,
 };
+
+static const char *binding_action_map[] = {
+    [BIND_ACTION_NONE] = NULL,
+    [BIND_ACTION_SCROLLBACK_UP] = "scrollback-up",
+    [BIND_ACTION_SCROLLBACK_DOWN] = "scrollback-down",
+    [BIND_ACTION_CLIPBOARD_COPY] = "clipboard-copy",
+    [BIND_ACTION_CLIPBOARD_PASTE] = "clipboard-paste",
+    [BIND_ACTION_PRIMARY_PASTE] = "primary-paste",
+    [BIND_ACTION_SEARCH_START] = "search-start",
+    [BIND_ACTION_FONT_SIZE_UP] = "font-increase",
+    [BIND_ACTION_FONT_SIZE_DOWN] = "font-decrease",
+    [BIND_ACTION_FONT_SIZE_RESET] = "font-reset",
+    [BIND_ACTION_SPAWN_TERMINAL] = "spawn-terminal",
+    [BIND_ACTION_MINIMIZE] = "minimize",
+    [BIND_ACTION_MAXIMIZE] = "maximize",
+    [BIND_ACTION_FULLSCREEN] = "fullscreen",
+};
+
+static_assert(ALEN(binding_action_map) == BIND_ACTION_COUNT,
+              "binding action map size mismatch");
 
 static char *
 get_shell(void)
@@ -238,7 +265,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else {
-        LOG_WARN("%s:%u: invalid key: %s", path, lineno, key);
+        LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
         return false;
     }
 
@@ -420,11 +447,141 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
     }
 
     else {
-        LOG_WARN("%s:%u: invalid key: %s", path, lineno, key);
+        LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
         return false;
     }
 
     return true;
+}
+
+static bool
+verify_key_combo(const struct config *conf, const char *combo, const char *path, unsigned lineno)
+{
+    for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
+        if (conf->bindings.key[action] == NULL)
+            continue;
+
+        char *copy = strdup(conf->bindings.key[action]);
+
+        for (char *save = NULL, *collision = strtok_r(copy, " ", &save);
+             collision != NULL;
+             collision = strtok_r(NULL, " ", &save))
+        {
+            if (strcmp(combo, collision) == 0) {
+                LOG_ERR("%s:%d: %s already mapped to %s", path, lineno, combo, binding_action_map[action]);
+                free(copy);
+                return false;
+            }
+        }
+
+        free(copy);
+    }
+
+    struct xkb_context *ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    struct xkb_keymap *keymap = xkb_keymap_new_from_names(
+        ctx, &(struct xkb_rule_names){0}, XKB_KEYMAP_COMPILE_NO_FLAGS);
+
+    bool valid_combo = input_parse_key_binding_for_action(
+        keymap, BIND_ACTION_NONE, combo, NULL);
+
+    xkb_keymap_unref(keymap);
+    xkb_context_unref(ctx);
+
+    if (!valid_combo) {
+        LOG_ERR("%s:%d: invalid key combination: %s", path, lineno, combo);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+parse_section_key_bindings(
+    const char *key, const char *value, struct config *conf,
+    const char *path, unsigned lineno)
+{
+    for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
+        if (binding_action_map[action] == NULL)
+            continue;
+
+        if (strcmp(key, binding_action_map[action]) != 0)
+            continue;
+
+        if (strcmp(value, "NONE") == 0) {
+            free(conf->bindings.key[action]);
+            conf->bindings.key[action] = NULL;
+            return true;
+        }
+
+        if (!verify_key_combo(conf, value, path, lineno)) {
+            return false;
+        }
+
+        free(conf->bindings.key[action]);
+        conf->bindings.key[action] = strdup(value);
+        return true;
+    }
+
+    LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+    return false;
+
+}
+
+static bool
+parse_section_mouse_bindings(
+    const char *key, const char *value, struct config *conf,
+    const char *path, unsigned lineno)
+{
+    for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
+        if (binding_action_map[action] == NULL)
+            continue;
+
+        if (strcmp(key, binding_action_map[action]) != 0)
+            continue;
+
+        if (strcmp(value, "NONE") == 0) {
+            conf->bindings.mouse[action] = (struct mouse_binding){0, 0, BIND_ACTION_NONE};
+            return true;
+        }
+
+        const char *map[] = {
+            [BTN_LEFT] = "BTN_LEFT",
+            [BTN_RIGHT] = "BTN_RIGHT",
+            [BTN_MIDDLE] = "BTN_MIDDLE",
+            [BTN_SIDE] = "BTN_SIDE",
+            [BTN_EXTRA] = "BTN_EXTRA",
+            [BTN_FORWARD] = "BTN_FORWARD",
+            [BTN_BACK] = "BTN_BACK",
+            [BTN_TASK] = "BTN_TASK",
+        };
+
+        for (size_t i = 0; i < ALEN(map); i++) {
+            if (map[i] == NULL || strcmp(map[i], value) != 0)
+                continue;
+
+            const int count = 1;
+
+            /* Make sure button isn't already mapped to another action */
+            for (enum binding_action j = 0; j < BIND_ACTION_COUNT; j++) {
+                const struct mouse_binding *collision = &conf->bindings.mouse[j];
+                if (collision->button == i && collision->count == count) {
+                    LOG_ERR("%s:%d: %s already mapped to %s", path, lineno,
+                            value, binding_action_map[collision->action]);
+                    return false;
+                }
+            }
+
+            conf->bindings.mouse[action] = (struct mouse_binding){i, count, action};
+            return true;
+        }
+
+        LOG_ERR("%s:%d: invalid mouse button: %s", path, lineno, value);
+        return false;
+
+    }
+
+    LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+    return false;
 }
 
 static bool
@@ -435,6 +592,9 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         SECTION_COLORS,
         SECTION_CURSOR,
         SECTION_CSD,
+        SECTION_KEY_BINDINGS,
+        SECTION_MOUSE_BINDINGS,
+        SECTION_COUNT,
     } section = SECTION_MAIN;
 
     /* Function pointer, called for each key/value line */
@@ -442,22 +602,19 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         const char *key, const char *value, struct config *conf,
         const char *path, unsigned lineno);
 
-    /* Maps sections to line parser functions */
-    static const parser_fun_t section_parser_map[] = {
-        [SECTION_MAIN] = &parse_section_main,
-        [SECTION_COLORS] = &parse_section_colors,
-        [SECTION_CURSOR] = &parse_section_cursor,
-        [SECTION_CSD] = &parse_section_csd,
+    static const struct {
+        parser_fun_t fun;
+        const char *name;
+    } section_info[] = {
+        [SECTION_MAIN] =           {&parse_section_main, "main"},
+        [SECTION_COLORS] =         {&parse_section_colors, "colors"},
+        [SECTION_CURSOR] =         {&parse_section_cursor, "cursor"},
+        [SECTION_CSD] =            {&parse_section_csd, "csd"},
+        [SECTION_KEY_BINDINGS] =   {&parse_section_key_bindings, "key-bindings"},
+        [SECTION_MOUSE_BINDINGS] = {&parse_section_mouse_bindings, "mouse-bindings"},
     };
 
-#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
-    static const char *const section_names[] = {
-        [SECTION_MAIN] = "main",
-        [SECTION_COLORS] = "colors",
-        [SECTION_CURSOR] = "cursor",
-        [SECTION_CSD] = "csd",
-    };
-#endif
+    static_assert(ALEN(section_info) == SECTION_COUNT, "section info array size mismatch");
 
     unsigned lineno = 0;
 
@@ -505,17 +662,19 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 
             *end = '\0';
 
-            if (strcmp(&line[1], "colors") == 0)
-                section = SECTION_COLORS;
-            else if (strcmp(&line[1], "cursor") == 0)
-                section = SECTION_CURSOR;
-            else if (strcmp(&line[1], "csd") == 0)
-                section = SECTION_CSD;
-            else {
+            section = SECTION_COUNT;
+            for (enum section i = 0; i < SECTION_COUNT; i++) {
+                if (strcmp(&line[1], section_info[i].name) == 0) {
+                    section = i;
+                }
+            }
+
+            if (section == SECTION_COUNT) {
                 LOG_ERR("%s:%d: invalid section name: %s", path, lineno, &line[1]);
                 goto err;
             }
 
+            /* Process next line */
             continue;
         }
 
@@ -554,7 +713,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         LOG_DBG("section=%s, key='%s', value='%s'",
                 section_names[section], key, value);
 
-        parser_fun_t section_parser = section_parser_map[section];
+        parser_fun_t section_parser = section_info[section].fun;
         assert(section_parser != NULL);
 
         if (!section_parser(key, value, conf, path, lineno))
@@ -634,6 +793,25 @@ config_load(struct config *conf, const char *conf_path)
             },
         },
 
+        .bindings = {
+            .key = {
+                [BIND_ACTION_SCROLLBACK_UP] = strdup("Shift+Page_Up"),
+                [BIND_ACTION_SCROLLBACK_DOWN] = strdup("Shift+Page_Down"),
+                [BIND_ACTION_CLIPBOARD_COPY] = strdup("Control+Shift+C"),
+                [BIND_ACTION_CLIPBOARD_PASTE] = strdup("Control+Shift+V"),
+                [BIND_ACTION_SEARCH_START] = strdup("Control+Shift+R"),
+                [BIND_ACTION_FONT_SIZE_UP] = strdup("Control+plus Control+equal Control+KP_Add"),
+                [BIND_ACTION_FONT_SIZE_DOWN] = strdup("Control+minus Control+KP_Subtract"),
+                [BIND_ACTION_FONT_SIZE_RESET] = strdup("Control+0 Control+KP_0"),
+                [BIND_ACTION_SPAWN_TERMINAL] = strdup("Control+Shift+Return"),
+            },
+            .mouse = {
+                [BIND_ACTION_PRIMARY_PASTE] = {BTN_MIDDLE, 1, BIND_ACTION_PRIMARY_PASTE},
+            },
+            .search = {
+            },
+        },
+
         .csd = {
             .preferred = CONF_CSD_PREFER_SERVER,
             .title_height = 26,
@@ -686,4 +864,9 @@ config_free(struct config conf)
     free(conf.shell);
     tll_free_and_free(conf.fonts, free);
     free(conf.server_socket_path);
+
+    for (size_t i = 0; i < BIND_ACTION_COUNT; i++) {
+        free(conf.bindings.key[i]);
+        free(conf.bindings.search[i]);
+    }
 }

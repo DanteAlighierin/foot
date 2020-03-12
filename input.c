@@ -31,6 +31,140 @@
 #include "terminal.h"
 #include "vt.h"
 
+#define ALEN(v) (sizeof(v) / sizeof(v[0]))
+
+void
+input_execute_binding(struct terminal *term, enum binding_action action,
+                      uint32_t serial)
+{
+    switch (action) {
+    case BIND_ACTION_NONE:
+        break;
+
+    case BIND_ACTION_SCROLLBACK_UP:
+        cmd_scrollback_up(term, term->rows);
+        break;
+
+    case BIND_ACTION_SCROLLBACK_DOWN:
+        cmd_scrollback_down(term, term->rows);
+        break;
+
+    case BIND_ACTION_CLIPBOARD_COPY:
+        selection_to_clipboard(term, serial);
+        break;
+
+    case BIND_ACTION_CLIPBOARD_PASTE:
+        selection_from_clipboard(term, serial);
+        term_reset_view(term);
+        break;
+
+    case BIND_ACTION_PRIMARY_PASTE:
+        selection_from_primary(term);
+        break;
+
+    case BIND_ACTION_SEARCH_START:
+        search_begin(term);
+        break;
+
+    case BIND_ACTION_FONT_SIZE_UP:
+        term_font_size_increase(term);
+        break;
+
+    case BIND_ACTION_FONT_SIZE_DOWN:
+        term_font_size_decrease(term);
+        break;
+
+    case BIND_ACTION_FONT_SIZE_RESET:
+        term_font_size_reset(term);
+        break;
+
+    case BIND_ACTION_SPAWN_TERMINAL:
+        term_spawn_new(term);
+        break;
+
+    case BIND_ACTION_MINIMIZE:
+        xdg_toplevel_set_minimized(term->window->xdg_toplevel);
+        break;
+
+    case BIND_ACTION_MAXIMIZE:
+        if (term->window->is_maximized)
+            xdg_toplevel_unset_maximized(term->window->xdg_toplevel);
+        else
+            xdg_toplevel_set_maximized(term->window->xdg_toplevel);
+        break;
+
+    case BIND_ACTION_FULLSCREEN:
+        if (term->window->is_fullscreen)
+            xdg_toplevel_unset_fullscreen(term->window->xdg_toplevel);
+        else
+            xdg_toplevel_set_fullscreen(term->window->xdg_toplevel, NULL);
+        break;
+
+    case BIND_ACTION_COUNT:
+        assert(false);
+        break;
+    }
+}
+
+bool
+input_parse_key_binding_for_action(
+    struct xkb_keymap *keymap, enum binding_action action,
+    const char *combos, key_binding_list_t *bindings)
+{
+    if (combos == NULL)
+        return true;
+
+    xkb_mod_mask_t mod_mask = 0;
+    xkb_keysym_t sym = 0;
+
+    char *copy = strdup(combos);
+
+    for (char *save1 = NULL, *combo = strtok_r(copy, " ", &save1);
+         combo != NULL;
+         combo = strtok_r(NULL, " ", &save1))
+    {
+        LOG_DBG("%s", combo);
+        for (char *save2 = NULL, *key = strtok_r(combo, "+", &save2),
+                 *next_key = strtok_r(NULL, "+", &save2);
+             key != NULL;
+             key = next_key, next_key = strtok_r(NULL, "+", &save2))
+        {
+            if (next_key != NULL) {
+                /* Modifier */
+                xkb_mod_index_t mod = xkb_keymap_mod_get_index(keymap, key);
+
+                if (mod == -1) {
+                    LOG_ERR("%s: not a valid modifier name", key);
+                    free(copy);
+                    return false;
+                }
+
+                mod_mask |= 1 << mod;
+                LOG_DBG("MOD: %d - %s", mod, key);
+            } else {
+                /* Symbol */
+                sym = xkb_keysym_from_name(key, 0);
+            }
+        }
+
+        LOG_DBG("action=%u: mods=0x%08x, sym=%d", action, mod_mask, sym);
+
+        assert(sym != 0);
+        if (bindings != NULL) {
+            const struct key_binding binding = {
+                .mods = mod_mask,
+                .sym = sym,
+                .action = action,
+            };
+
+            tll_push_back(*bindings, binding);
+        }
+    }
+
+    free(copy);
+    return true;
+}
+
 static void
 keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
                 uint32_t format, int32_t fd, uint32_t size)
@@ -59,6 +193,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         xkb_context_unref(wayl->kbd.xkb);
         wayl->kbd.xkb = NULL;
     }
+    tll_free(wayl->kbd.bindings.key);
 
     wayl->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     wayl->kbd.xkb_keymap = xkb_keymap_new_from_string(
@@ -81,6 +216,16 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
 
     munmap(map_str, size);
     close(fd);
+
+    for (size_t i = 0; i < BIND_ACTION_COUNT; i++) {
+        input_parse_key_binding_for_action(
+            wayl->kbd.xkb_keymap, i,
+            wayl->conf->bindings.key[i], &wayl->kbd.bindings.key);
+
+        input_parse_key_binding_for_action(
+            wayl->kbd.xkb_keymap, i,
+            wayl->conf->bindings.search[i], &wayl->kbd.bindings.search);
+    }
 }
 
 static void
@@ -180,7 +325,6 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 static const struct key_data *
 keymap_data_for_sym(xkb_keysym_t sym, size_t *count)
 {
-#define ALEN(a) (sizeof(a) / sizeof(a[0]))
     switch (sym) {
     case XKB_KEY_Escape:       *count = ALEN(key_escape);       return key_escape;
     case XKB_KEY_Return:       *count = ALEN(key_return);       return key_return;
@@ -261,7 +405,6 @@ keymap_data_for_sym(xkb_keysym_t sym, size_t *count)
     case XKB_KEY_KP_9:         *count = ALEN(key_kp_9);         return key_kp_9;
     }
 
-    #undef ALEN
     return NULL;
 }
 
@@ -358,7 +501,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     if (term->is_searching) {
         if (should_repeat)
             start_repeater(wayl, key - 8);
-        search_input(term, key, sym, effective_mods);
+        search_input(term, key, sym, effective_mods, serial);
         return;
     }
 
@@ -375,57 +518,11 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             sym, mods, consumed, significant, effective_mods, should_repeat);
 
     /*
-     * Builtin shortcuts
+     * User configurable bindings
      */
-
-    if (effective_mods == shift) {
-        if (sym == XKB_KEY_Page_Up) {
-            cmd_scrollback_up(term, term->rows);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_Page_Down) {
-            cmd_scrollback_down(term, term->rows);
-            goto maybe_repeat;
-        }
-    }
-
-    else if (effective_mods == ctrl) {
-        if (sym == XKB_KEY_equal || sym == XKB_KEY_plus || sym == XKB_KEY_KP_Add) {
-            term_font_size_increase(term);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_minus || sym == XKB_KEY_KP_Subtract) {
-            term_font_size_decrease(term);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_0 || sym == XKB_KEY_KP_Equal || sym == XKB_KEY_KP_0) {
-            term_font_size_reset(term);
-            goto maybe_repeat;
-        }
-    }
-
-    else if (effective_mods == (shift | ctrl)) {
-        if (sym == XKB_KEY_C) {
-            selection_to_clipboard(term, serial);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_V) {
-            selection_from_clipboard(term, serial);
-            term_reset_view(term);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_R) {
-            search_begin(term);
-            goto maybe_repeat;
-        }
-
-        else if (sym == XKB_KEY_Return) {
-            term_spawn_new(term);
+    tll_foreach(wayl->kbd.bindings.key, it) {
+        if (it->item.mods == effective_mods && it->item.sym == sym) {
+            input_execute_binding(term, it->item.action, serial);
             goto maybe_repeat;
         }
     }
@@ -1056,11 +1153,25 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                     selection_mark_row(term, wayl->mouse.row, serial);
                     break;
                 }
-            } else {
-                if (wayl->mouse.count == 1 && button == BTN_MIDDLE &&
-                    selection_enabled(term))
-                {
-                    selection_from_primary(term);
+            }
+
+            else {
+                for (size_t i = 0; i < ALEN(wayl->conf->bindings.mouse); i++) {
+                    const struct mouse_binding *binding =
+                        &wayl->conf->bindings.mouse[i];
+
+                    if (binding->button != button) {
+                        /* Wrong button */
+                        continue;
+                    }
+
+                    if  (binding->count != wayl->mouse.count) {
+                        /* Not correct click count */
+                        continue;
+                    }
+
+                    input_execute_binding(term, binding->action, serial);
+                    break;
                 }
                 selection_cancel(term);
             }

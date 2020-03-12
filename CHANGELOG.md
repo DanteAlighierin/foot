@@ -2,6 +2,8 @@
 
 ## Unreleased
 ### Added
+* User configurable key- and mouse bindings. See `man 5 foot` and the
+  example `footrc` (https://codeberg.org/dnkl/foot/issues/1)
 
 ### Changed
 * Changed icon name in `foot.desktop` and `foot-server.desktop` from

@@ -147,6 +147,89 @@ component.
 *button-close-color*
 	Close button's AARRGGBB color. Default: _ffff3030_.
 
+# SECTION: key-bindings
+
+This section lets you override the default key bindings.
+
+The general format is _action_=_combo1_..._comboN_. That is, each
+action may have one or more key combinations, space separated. Each
+combination is on the form _mod1_+_mod2_+_key_. The names of the
+modifiers and the key *must* be a valid XKB key name.
+
+Note that if *Shift* is one of the modifiers, the _key_ *must* be in
+upper case. For example, *Control*+*Shift*+*v* will never trigger -
+*Control*+*Shift*+*V* is the correct way to write it.
+
+Note that *Alt* is usually called *Mod1*.
+
+A key combination can only be mapped to *one* action. Lets say you
+want to bind *Control*+*Shift*+*R* to *fullscreen*. Since this is the
+default shortcut for *search-start*, you first need to unmap the
+default binding. This can be done by setting _action_=*NONE*;
+e.g. *search-start*=*NONE*.
+
+*scrollback-up*
+	Scrolls up/back in history. Default: _Shift+Page_Up_.
+
+*scrollback-down*
+	Scroll down/forward in history. Default: _Shift+Page_Down_.
+
+*clipboard-copy*
+	Copies the current selection into the _clipboard_. Default: _Control+Shift+C_.
+
+*clipboard-paste*
+	Pastes from the _clipboard_. Default: _Control+Shift+V_.
+
+*primary-paste*
+	Pastes from the _primary selection_. Default: not bound (to a
+	_key_, see *mouse-bindings*).
+
+*search-start*
+	Starts a scrollback/history search. Default: _Control+Shift+R_.
+
+*font-increase*
+	Increases the font size by 0.5pt. Default: _Control+plus
+	Control+equal Control+KP\_Add_.
+
+*font-decrease*
+	Decreases the font size by 0.5pt. Default: _Control+minus
+	Control+KP\_Subtract_.
+
+*font-reset*
+	Resets the font size to the default. Default: _Control+0 Control+KP\_0_.
+
+*spawn-terminal*
+	Spawns a new terminal. Default: _Control+Shift+Return_.
+
+*minimize*
+	Minimizes the window. Default: _not bound_.
+
+*maximize*
+	Toggle the maximized state. Default: _not bound_.
+
+*fullscreen*
+	Toggles the fullscreen state. Default: _not bound_.
+
+# SECTION: mouse-bindings
+
+This section lets you override the default mouse bindings.
+
+The general format is _action_=_BTN\_<name>_, where _BTN\_<name>_ is
+the name of the event code (e.g. *BTN\_LEFT*, *BTN\_RIGHT*). You can
+find the event names using *libinput debug-events*.
+
+A button can only be mapped to *one* action. Lets say you want to bind
+*BTN\_MIDDLE* to *fullscreen*. Since *BTN\_MIDDLE* is the default
+binding for *primary-paste*, you first need to unmap the default
+binding. This can be done by setting _action_=*NONE*;
+e.g. *primary-paste*=*NONE*.
+
+All actions listed under *key-bindings* can be user here as well.
+
+*primary-paste*
+	Pastes from the _primary selection_. Default: _BTN_MIDDLE_.
+
+
 # FONT FORMAT
 
 The font is specified in FontConfig syntax. That is, a colon-separated
