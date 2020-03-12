@@ -138,6 +138,15 @@ get_config_path(void)
 }
 
 static bool
+str_to_bool(const char *s)
+{
+    return strcasecmp(s, "on") == 0 ||
+        strcasecmp(s, "true") == 0 ||
+        strcasecmp(s, "yes") == 0 ||
+        strtoul(s, NULL, 0) > 0;
+}
+
+static bool
 str_to_ulong(const char *s, int base, unsigned long *res)
 {
     if (s == NULL)
@@ -196,11 +205,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "login-shell") == 0) {
-        conf->login_shell = (
-            strcasecmp(value, "on") == 0 ||
-            strcasecmp(value, "true") == 0 ||
-            strcasecmp(value, "yes") == 0) ||
-            strtoul(value, NULL, 0) > 0;
+        conf->login_shell = str_to_bool(value);
     }
 
     else if (strcmp(key, "geometry") == 0) {
