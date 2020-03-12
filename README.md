@@ -83,10 +83,8 @@ fonts, _then_ fontconfig's list is used.
 
 ## Shortcuts
 
-At the moment, all shortcuts are hard coded and cannot be changed
-(this is planned for a later release - see
-https://codeberg.org/dnkl/foot/issues/1). It is **not** possible to
-define new key bindings.
+These are the default shortcuts. See `man 5 foot` and the example
+`footrc` to see how these can be changed.
 
 
 ### Keyboard
