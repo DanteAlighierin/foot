@@ -224,6 +224,8 @@ binding for *primary-paste*, you first need to unmap the default
 binding. This can be done by setting _action_=*NONE*;
 e.g. *primary-paste*=*NONE*.
 
+All actions listed under *key-bindings* can be user here as well.
+
 *primary-paste*
 	Pastes from the _primary selection_. Default: _BTN_MIDDLE_.
 
