@@ -61,6 +61,8 @@ quirk_weston_csd_on(struct terminal *term)
 {
     if (term->window->use_csd != CSD_YES)
         return;
+    if (term->window->is_fullscreen)
+        return;
 
     for (int i = 0; i < ALEN(term->window->csd.surface); i++)
         quirk_weston_subsurface_desync_on(term->window->csd.sub_surface[i]);
@@ -70,6 +72,8 @@ void
 quirk_weston_csd_off(struct terminal *term)
 {
     if (term->window->use_csd != CSD_YES)
+        return;
+    if (term->window->is_fullscreen)
         return;
 
     for (int i = 0; i < ALEN(term->window->csd.surface); i++)
