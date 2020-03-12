@@ -58,7 +58,13 @@ static const char *binding_action_map[] = {
     [BIND_ACTION_FONT_SIZE_DOWN] = "font-decrease",
     [BIND_ACTION_FONT_SIZE_RESET] = "font-reset",
     [BIND_ACTION_SPAWN_TERMINAL] = "spawn-terminal",
+    [BIND_ACTION_MINIMIZE] = "minimize",
+    [BIND_ACTION_MAXIMIZE] = "maximize",
+    [BIND_ACTION_FULLSCREEN] = "fullscreen",
 };
+
+static_assert(ALEN(binding_action_map) == BIND_ACTION_COUNT,
+              "binding action map size mismatch");
 
 static char *
 get_shell(void)

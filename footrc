@@ -53,3 +53,6 @@
 # font-decrease=Control+minus Control+KP_Subtract
 # font-reset=Control+0 Control+KP_0
 # spawn-terminal=Control+Shift+Return
+# # minimize=<not bound>
+# # maximize=<not bound>
+# # fullscreen=<not bound>

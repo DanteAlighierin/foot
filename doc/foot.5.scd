@@ -194,6 +194,15 @@ Note that _Alt_ is usually called *Mod1*.
 *spawn-terminal*
 	Spawns a new terminal. Default: _Control+Shift+Return_.
 
+*minimize*
+	Minimizes the window. Default: _not bound_.
+
+*maximize*
+	Toggle the maximized state. Default: _not bound_.
+
+*fullscreen*
+	Toggles the fullscreen state. Default: _not bound_.
+
 # FONT FORMAT
 
 The font is specified in FontConfig syntax. That is, a colon-separated

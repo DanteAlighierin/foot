@@ -78,6 +78,24 @@ input_execute_binding(struct terminal *term, enum binding_action action,
         term_spawn_new(term);
         break;
 
+    case BIND_ACTION_MINIMIZE:
+        xdg_toplevel_set_minimized(term->window->xdg_toplevel);
+        break;
+
+    case BIND_ACTION_MAXIMIZE:
+        if (term->window->is_maximized)
+            xdg_toplevel_unset_maximized(term->window->xdg_toplevel);
+        else
+            xdg_toplevel_set_maximized(term->window->xdg_toplevel);
+        break;
+
+    case BIND_ACTION_FULLSCREEN:
+        if (term->window->is_fullscreen)
+            xdg_toplevel_unset_fullscreen(term->window->xdg_toplevel);
+        else
+            xdg_toplevel_set_fullscreen(term->window->xdg_toplevel, NULL);
+        break;
+
     case BIND_ACTION_COUNT:
         assert(false);
         break;
