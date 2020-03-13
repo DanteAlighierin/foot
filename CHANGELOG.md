@@ -18,6 +18,8 @@
 * Window size doubling when moving window between outputs with
   different scaling factors (https://codeberg.org/dnkl/foot/issues/3).
 * Sixel images moved or deleted on window resize.
+* Font being too small on monitors with fractional scaling
+  (https://codeberg.org/dnkl/foot/issues/5).
 
 ### Security
 

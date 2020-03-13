@@ -24,14 +24,39 @@ struct monitor {
     int x;
     int y;
 
-    int width_mm;
-    int height_mm;
+    struct {
+        /* Physical size, in mm */
+        struct {
+            int width;
+            int height;
+        } mm;
 
-    int width_px;
-    int height_px;
+        /* Physical size, in pixels */
+        struct {
+            int width;
+            int height;
+        } px_real;
 
-    int x_ppi;
-    int y_ppi;
+        /* Scaled size, in pixels */
+        struct {
+            int width;
+            int height;
+        } px_scaled;
+    } dim;
+
+    struct {
+        /* PPI, based on physical size */
+        struct {
+            int x;
+            int y;
+        } real;
+
+        /* PPI, logical, based on scaled size */
+        struct {
+            int x;
+            int y;
+        } scaled;
+    } ppi;
 
     int scale;
     float refresh;
