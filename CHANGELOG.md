@@ -17,6 +17,7 @@
 ### Fixed
 * Window size doubling when moving window between outputs with
   different scaling factors (https://codeberg.org/dnkl/foot/issues/3).
+* Sixel images moved or deleted on window resize.
 
 ### Security
 

@@ -531,9 +531,6 @@ static void
 render_sixel(struct terminal *term, pixman_image_t *pix,
              const struct sixel *sixel)
 {
-    if (sixel->grid != term->grid)
-        return;
-
     int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
     int first_visible_row = -1;
 
@@ -599,7 +596,7 @@ render_sixel(struct terminal *term, pixman_image_t *pix,
 static void
 render_sixel_images(struct terminal *term, pixman_image_t *pix)
 {
-    tll_foreach(term->sixel_images, it)
+    tll_foreach(term->grid->sixel_images, it)
         render_sixel(term, pix, &it->item);
 }
 

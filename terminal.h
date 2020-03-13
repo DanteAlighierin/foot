@@ -86,6 +86,15 @@ struct row {
     bool linebreak;
 };
 
+struct sixel {
+    void *data;
+    pixman_image_t *pix;
+    int width;
+    int height;
+    int rows;
+    struct coord pos;
+};
+
 struct grid {
     int num_rows;
     int num_cols;
@@ -97,6 +106,7 @@ struct grid {
 
     tll(struct damage) damage;
     tll(struct damage) scroll_damage;
+    tll(struct sixel) sixel_images;
 };
 
 struct vt_subparams {
@@ -173,16 +183,6 @@ struct ptmx_buffer {
     void *data;
     size_t len;
     size_t idx;
-};
-
-struct sixel {
-    void *data;
-    pixman_image_t *pix;
-    int width;
-    int height;
-    int rows;
-    const struct grid *grid;
-    struct coord pos;
 };
 
 enum term_surface {
@@ -416,8 +416,6 @@ struct terminal {
         unsigned max_width;     /* Maximum image width, in pixels */
         unsigned max_height;    /* Maximum image height, in pixels */
     } sixel;
-
-    tll(struct sixel) sixel_images;
 
     bool hold_at_exit;
     bool is_shutting_down;

@@ -76,14 +76,11 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
 void
 sixel_delete_at_row(struct terminal *term, int _row)
 {
-    if (likely(tll_length(term->sixel_images) == 0))
+    if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
 
-    tll_foreach(term->sixel_images, it) {
+    tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
-
-        if (six->grid != term->grid)
-            continue;
 
         const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
         const int six_start = six->pos.row;
@@ -91,7 +88,7 @@ sixel_delete_at_row(struct terminal *term, int _row)
 
         if (row >= six_start && row <= six_end) {
             sixel_erase(term, six);
-            tll_remove(term->sixel_images, it);
+            tll_remove(term->grid->sixel_images, it);
         }
     }
 }
@@ -101,17 +98,14 @@ sixel_delete_in_range(struct terminal *term, int _start, int _end)
 {
     assert(_end >= _start);
 
-    if (likely(tll_length(term->sixel_images) == 0))
+    if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
 
     if (_start == _end)
         return sixel_delete_at_row(term, _start);
 
-    tll_foreach(term->sixel_images, it) {
+    tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
-
-        if (six->grid != term->grid)
-            continue;
 
         const int start = (term->grid->offset + _start) & (term->grid->num_rows - 1);
         const int end = start + (_end - _start);
@@ -123,7 +117,7 @@ sixel_delete_in_range(struct terminal *term, int _start, int _end)
             (start >= six_start && end <= six_end))      /* Fully within sixel range */
         {
             sixel_erase(term, six);
-            tll_remove(term->sixel_images, it);
+            tll_remove(term->grid->sixel_images, it);
         }
     }
 }
@@ -147,7 +141,6 @@ sixel_unhook(struct terminal *term)
         .width = term->sixel.image.width,
         .height = term->sixel.image.height,
         .rows = (term->sixel.image.height + term->cell_height - 1) / term->cell_height,
-        .grid = term->grid,
         .pos = (struct coord){
             term->cursor.point.col,
             (term->grid->offset + term->cursor.point.row) & (term->grid->num_rows - 1)},
@@ -172,7 +165,7 @@ sixel_unhook(struct terminal *term)
     term_formfeed(term);
     render_refresh(term);
 
-    tll_push_back(term->sixel_images, image);
+    tll_push_back(term->grid->sixel_images, image);
 }
 
 static unsigned

@@ -721,8 +721,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
             .start = {-1, -1},
             .end = {-1, -1},
         },
-        .normal = {.damage = tll_init(), .scroll_damage = tll_init()},
-        .alt = {.damage = tll_init(), .scroll_damage = tll_init()},
+        .normal = {.damage = tll_init(), .scroll_damage = tll_init(), .sixel_images = tll_init()},
+        .alt = {.damage = tll_init(), .scroll_damage = tll_init(), .sixel_images = tll_init()},
         .grid = &term->normal,
         .meta = {
             .esc_prefix = true,
@@ -747,7 +747,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .sixel = {
             .palette_size = SIXEL_MAX_COLORS,
         },
-        .sixel_images = tll_init(),
         .hold_at_exit = conf->hold_at_exit,
         .shutdown_cb = shutdown_cb,
         .shutdown_data = shutdown_data,
@@ -978,9 +977,12 @@ term_destroy(struct terminal *term)
     tll_free(term->ptmx_buffer);
     tll_free(term->tab_stops);
 
-    tll_foreach(term->sixel_images, it)
+    tll_foreach(term->normal.sixel_images, it)
         sixel_destroy(&it->item);
-    tll_free(term->sixel_images);
+    tll_free(term->normal.sixel_images);
+    tll_foreach(term->alt.sixel_images, it)
+        sixel_destroy(&it->item);
+    tll_free(term->alt.sixel_images);
 
     free(term->foot_exe);
     free(term->cwd);
@@ -1104,9 +1106,12 @@ term_reset(struct terminal *term, bool hard)
     term->meta.esc_prefix = true;
     term->meta.eight_bit = true;
 
-    tll_foreach(term->sixel_images, it)
+    tll_foreach(term->normal.sixel_images, it)
         sixel_destroy(&it->item);
-    tll_free(term->sixel_images);
+    tll_free(term->normal.sixel_images);
+    tll_foreach(term->alt.sixel_images, it)
+        sixel_destroy(&it->item);
+    tll_free(term->alt.sixel_images);
 
     if (!hard)
         return;

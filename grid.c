@@ -6,6 +6,7 @@
 #define LOG_MODULE "grid"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "sixel.h"
 
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
@@ -76,6 +77,8 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
      * at the output that is *oldest* */
     int offset = grid->offset + old_screen_rows;
 
+    tll(struct sixel) new_sixels = tll_init();
+
     /*
      * Walk the old grid
      */
@@ -85,6 +88,28 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
         const struct row *old_row = old_grid[(offset + r) & (old_rows - 1)];
         if (old_row == NULL)
             continue;
+
+        /*
+         * Update 'row' in all sixels that *begin* at current row
+         *
+         * Since we might end up pushing the sixel down, we can't
+         * simply update the row inline - we'd then end up pushing the
+         * sixel down again, when we reach the next 'old'
+         * row. Instead, copy the sixel (with 'row' updated), to a
+         * temporary list and remove the original sixel.
+         *
+         * After we've reflowed the grid we'll move the sixels back to
+         * the "real" sixel list.
+         */
+        tll_foreach(grid->sixel_images, it) {
+            if (it->item.pos.row == ((offset + r) & (old_rows - 1))) {
+                struct sixel six = it->item;
+                six.pos.row = new_row_idx;
+
+                tll_push_back(new_sixels, six);
+                tll_remove(grid->sixel_images, it);
+            }
+        }
 
         /*
          * Keep track of empty cells. If the old line ends with a
@@ -190,6 +215,16 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
     grid->rows = new_grid;
     grid->num_rows = new_rows;
     grid->num_cols = new_cols;
+
+    /* Destroy any non-moved sixels */
+    tll_foreach(grid->sixel_images, it)
+        sixel_destroy(&it->item);
+    tll_free(grid->sixel_images);
+
+    /* Move updated sixels back */
+    tll_foreach(new_sixels, it)
+        tll_push_back(grid->sixel_images, it->item);
+    tll_free(new_sixels);
 
     return new_row_idx;
 }
