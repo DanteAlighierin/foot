@@ -453,24 +453,6 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     struct wayland *wayl = data;
     struct terminal *term = wayl->kbd_focus;
 
-    /* Workaround buggy Sway 1.2 */
-    if (term == NULL) {
-        static bool have_warned = false;
-        if (!have_warned) {
-            have_warned = true;
-            LOG_WARN("compositor sent keyboard_key event without first sending keyboard_enter");
-        }
-
-        if (tll_length(wayl->terms) == 1) {
-            /* With only one terminal we *know* which one has focus */
-            term = tll_front(wayl->terms);
-        } else {
-            /* But with multiple windows we can't guess - ignore the event */
-            stop_repeater(wayl, -1);
-            return;
-        }
-    }
-
     assert(term != NULL);
 
     const xkb_mod_mask_t ctrl = 1 << wayl->kbd.mod_ctrl;
@@ -908,23 +890,6 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     LOG_DBG("pointer_motion: pointer=%p, x=%d, y=%d", wl_pointer,
             wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y));
 
-    /* Workaround buggy Sway 1.2 */
-    if (term == NULL) {
-        static bool have_warned = false;
-        if (!have_warned) {
-            have_warned = true;
-            LOG_WARN("compositor sent pointer_motion event without first sending pointer_enter");
-        }
-
-        if (tll_length(wayl->terms) == 1) {
-            /* With only one terminal we *know* which one has focus */
-            term = tll_front(wayl->terms);
-        } else {
-            /* But with multiple windows we can't guess - ignore the event */
-            return;
-        }
-    }
-
     assert(term != NULL);
 
     int x = wl_fixed_to_int(surface_x) * term->scale;
@@ -1011,23 +976,6 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     struct wayland *wayl = data;
     struct terminal *term = wayl->mouse_focus;
-
-    /* Workaround buggy Sway 1.2 */
-    if (term == NULL) {
-        static bool have_warned = false;
-        if (!have_warned) {
-            have_warned = true;
-            LOG_WARN("compositor sent pointer_button event without first sending pointer_enter");
-        }
-
-        if (tll_length(wayl->terms) == 1) {
-            /* With only one terminal we *know* which one has focus */
-            term = tll_front(wayl->terms);
-        } else {
-            /* But with multiple windows we can't guess - ignore the event */
-            return;
-        }
-    }
 
     assert(term != NULL);
 
