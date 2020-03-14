@@ -171,6 +171,9 @@ static void
 keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
                 uint32_t format, int32_t fd, uint32_t size)
 {
+    LOG_DBG("keyboard_keymap: keyboard=%p (format=%u, size=%u)",
+            wl_keyboard, format, size);
+
     struct wayland *wayl = data;
 
     char *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
@@ -240,6 +243,9 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     struct wl_window *win = wl_surface_get_user_data(surface);
     struct terminal *term = win->term;
 
+    LOG_DBG("keyboard_enter: keyboard=%p, serial=%u, surface=%p",
+            wl_keyboard, serial, surface);
+
     wayl->kbd_focus = term;
     wayl->input_serial = serial;
 
@@ -293,6 +299,9 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface)
 {
     struct wayland *wayl = data;
+
+    LOG_DBG("keyboard_leave: keyboard=%p, serial=%u, surface=%p",
+            wl_keyboard, serial, surface);
 
     assert(
         wayl->kbd_focus == NULL ||
@@ -515,8 +524,10 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     }
 #endif
 
-    LOG_DBG("sym=%u, mod=0x%08x, consumed=0x%08x, significant=0x%08x, "
+    LOG_DBG("keyboard_key: keyboard=%p, serial=%u, "
+            "sym=%u, mod=0x%08x, consumed=0x%08x, significant=0x%08x, "
             "effective=0x%08x, repeats=%d",
+            wl_keyboard, serial,
             sym, mods, consumed, significant, effective_mods, should_repeat);
 
     /*
@@ -779,7 +790,8 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     struct wl_window *win = wl_surface_get_user_data(surface);
     struct terminal *term = win->term;
 
-    LOG_DBG("pointer-enter: surface = %p, new-moused = %p", surface, term);
+    LOG_DBG("pointer-enter: pointer=%p, serial=%u, surface = %p, new-moused = %p",
+            wl_pointer, serial, surface, term);
 
     wayl->mouse_focus = term;
 
@@ -828,7 +840,9 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     struct wayland *wayl = data;
     struct terminal *old_moused = wayl->mouse_focus;
 
-    LOG_DBG("pointer-leave: surface = %p, old-moused = %p", surface, old_moused);
+    LOG_DBG(
+        "pointer-leave: pointer=%p, serial=%u, surface = %p, old-moused = %p",
+        wl_pointer, serial, surface, old_moused);
 
     if (wayl->pointer.xcursor_callback != NULL) {
         /* A cursor frame callback may never be called if the pointer leaves our surface */
@@ -890,6 +904,9 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     struct wayland *wayl = data;
     struct terminal *term = wayl->mouse_focus;
     struct wl_window *win = term->window;
+
+    LOG_DBG("pointer_motion: pointer=%p, x=%d, y=%d", wl_pointer,
+            wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y));
 
     /* Workaround buggy Sway 1.2 */
     if (term == NULL) {
@@ -989,7 +1006,8 @@ static void
 wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                   uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
 {
-    LOG_DBG("BUTTON: button=%x, state=%u", button, state);
+    LOG_DBG("BUTTON: pointer=%p, serial=%u, button=%x, state=%u",
+            wl_pointer, serial, button, state);
 
     struct wayland *wayl = data;
     struct terminal *term = wayl->mouse_focus;
