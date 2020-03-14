@@ -6,23 +6,30 @@
   example `footrc` (https://codeberg.org/dnkl/foot/issues/1)
 
 ### Changed
-* Changed icon name in `foot.desktop` and `foot-server.desktop` from
-  _terminal_ to _utilities-terminal_.
-* `XDG_SESSION_ID` is now included in the server/daemon default socket
-  path.
-
 ### Deprecated
 ### Removed
 * Keyboard/pointer handler workarounds for Sway 1.2.
 
 ### Fixed
+* Sixel images moved or deleted on window resize.
+
+### Security
+
+
+## 1.2.2
+
+### Changed
+* Changed icon name in `foot.desktop` and `foot-server.desktop` from
+  _terminal_ to _utilities-terminal_.
+* `XDG_SESSION_ID` is now included in the server/daemon default socket
+  path.
+
+### Fixed
 * Window size doubling when moving window between outputs with
   different scaling factors (https://codeberg.org/dnkl/foot/issues/3).
-* Sixel images moved or deleted on window resize.
 * Font being too small on monitors with fractional scaling
   (https://codeberg.org/dnkl/foot/issues/5).
 
-### Security
 
 ## 1.2.1
 
