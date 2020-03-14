@@ -13,7 +13,7 @@
 
 ### Deprecated
 ### Removed
-* keyboard/pointer handler workarounds for Sway 1.2.
+* Keyboard/pointer handler workarounds for Sway 1.2.
 
 ### Fixed
 * Window size doubling when moving window between outputs with
