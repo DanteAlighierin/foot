@@ -2,16 +2,22 @@
 
 ## Unreleased
 ### Added
+
 * User configurable key- and mouse bindings. See `man 5 foot` and the
   example `footrc` (https://codeberg.org/dnkl/foot/issues/1)
+
 
 ### Changed
 ### Deprecated
 ### Removed
+
 * Keyboard/pointer handler workarounds for Sway 1.2.
 
+
 ### Fixed
+
 * Sixel images moved or deleted on window resize.
+
 
 ### Security
 
@@ -19,12 +25,15 @@
 ## 1.2.2
 
 ### Changed
+
 * Changed icon name in `foot.desktop` and `foot-server.desktop` from
   _terminal_ to _utilities-terminal_.
 * `XDG_SESSION_ID` is now included in the server/daemon default socket
   path.
 
+
 ### Fixed
+
 * Window size doubling when moving window between outputs with
   different scaling factors (https://codeberg.org/dnkl/foot/issues/3).
 * Font being too small on monitors with fractional scaling
@@ -34,12 +43,14 @@
 ## 1.2.1
 
 ### Fixed
+
 * Building AUR package
 
 
 ## 1.2.0
 
 ### Added
+
 * Run-time text resize using ctrl-+, ctrl+- and ctrl+0
 * Font size adjusts dynamically to outputs' DPI
 * Reflow text when resizing window
@@ -57,7 +68,9 @@
 * `--hold` command line option
 * `--print-pid=FILE|FD` command line option
 
+
 ### Changed
+
 * Subpixel antialiasing is only enabled when background is opaque
 * Meta/alt ESC prefix can now be disabled with `\E[?1036l`. In this
   mode, the 8:th bit is set and the result is UTF-8 encoded. This can
@@ -67,5 +80,7 @@
 * Logging to print to stderr, not stdout
 * Backspace now emits DEL (^?), and ctrl+backspace emits BS (^H)
 
+
 ### Removed
+
 * '28' from DA response
