@@ -272,6 +272,8 @@ main(int argc, char *const *argv)
     argc -= optind;
     argv += optind;
 
+    LOG_INFO("version: %s", FOOT_VERSION);
+
     struct config conf = {NULL};
     if (!config_load(&conf, conf_path)) {
         config_free(conf);
