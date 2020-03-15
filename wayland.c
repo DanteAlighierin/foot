@@ -851,20 +851,20 @@ wayl_init(const struct config *conf, struct fdm *fdm)
         goto out;
     }
 
+    if (!fdm_add(fdm, wayl->fd, EPOLLIN, &fdm_wayl, wayl))
+        goto out;
+
     wayl->kbd.repeat.fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
     if (wayl->kbd.repeat.fd == -1) {
         LOG_ERRNO("failed to create keyboard repeat timer FD");
         goto out;
     }
 
+    if (!fdm_add(fdm, wayl->kbd.repeat.fd, EPOLLIN, &fdm_repeat, wayl))
+        goto out;
+
     if (wl_display_prepare_read(wayl->display) != 0) {
         LOG_ERRNO("failed to prepare for reading wayland events");
-        goto out;
-    }
-
-    if (!fdm_add(fdm, wl_display_get_fd(wayl->display), EPOLLIN, &fdm_wayl, wayl) ||
-        !fdm_add(fdm, wayl->kbd.repeat.fd, EPOLLIN, &fdm_repeat, wayl))
-    {
         goto out;
     }
 
