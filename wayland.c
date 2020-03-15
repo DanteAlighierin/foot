@@ -734,6 +734,7 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     struct wayland *wayl = calloc(1, sizeof(*wayl));
     wayl->conf = conf;
     wayl->fdm = fdm;
+    wayl->fd = -1;
     wayl->kbd.repeat.fd = -1;
 
     if (!fdm_hook_add(fdm, &fdm_hook, wayl, FDM_HOOK_PRIORITY_LOW)) {
@@ -844,8 +845,8 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     /* All wayland initialization done - make it so */
     wl_display_roundtrip(wayl->display);
 
-    int wl_fd = wl_display_get_fd(wayl->display);
-    if (fcntl(wl_fd, F_SETFL, fcntl(wl_fd, F_GETFL) | O_NONBLOCK) < 0) {
+    wayl->fd = wl_display_get_fd(wayl->display);
+    if (fcntl(wayl->fd, F_SETFL, fcntl(wayl->fd, F_GETFL) | O_NONBLOCK) < 0) {
         LOG_ERRNO("failed to make Wayland socket non-blocking");
         goto out;
     }
@@ -973,8 +974,9 @@ wayl_destroy(struct wayland *wayl)
         wl_compositor_destroy(wayl->compositor);
     if (wayl->registry != NULL)
         wl_registry_destroy(wayl->registry);
+    if (wayl->fd != -1)
+        fdm_del_no_close(wayl->fdm, wayl->fd);
     if (wayl->display != NULL) {
-        fdm_del_no_close(wayl->fdm, wl_display_get_fd(wayl->display));
         wl_display_disconnect(wayl->display);
     }
 
@@ -1163,9 +1165,7 @@ wayl_flush(struct wayland *wayl)
         assert(errno == EAGAIN);
 
         while (true) {
-            struct pollfd fds[] = {
-                {.fd = wl_display_get_fd(wayl->display), .events = POLLOUT},
-            };
+            struct pollfd fds[] = {{.fd = wayl->fd, .events = POLLOUT}};
 
             r = poll(fds, sizeof(fds) / sizeof(fds[0]), -1);
 

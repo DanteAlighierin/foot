@@ -198,6 +198,9 @@ struct terminal;
 struct wayland {
     const struct config *conf;
     struct fdm *fdm;
+
+    int fd;
+
     struct wl_display *display;
     struct wl_registry *registry;
     struct wl_compositor *compositor;
