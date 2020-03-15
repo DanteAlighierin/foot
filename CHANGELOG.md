@@ -22,6 +22,12 @@
 ### Security
 
 
+## 1.2.3
+
+### Fixed
+* Forgot to version bump 1.2.2
+
+
 ## 1.2.2
 
 ### Changed
