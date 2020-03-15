@@ -17,7 +17,9 @@ _arguments \
 
 case ${state} in
     fonts)
-        _values 'font families' $(fc-list : family | tr -d ' ')
+        IFS=$'\n'
+        _values  'font families' $(fc-list : family | sed 's/,/\n/g' | sort | uniq)
+        unset IFS
         ;;
 
     terms)

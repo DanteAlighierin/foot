@@ -15,6 +15,10 @@
 
 
 ### Changed
+
+* Spaces no longer removed from zsh font name completions.
+
+
 ### Deprecated
 ### Removed
 
