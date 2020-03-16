@@ -153,6 +153,8 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     /* Prevent blinking while typing */
     term_cursor_blink_restart(term);
 
+    term->render.app_sync_updates.flipped = false;
+
     uint8_t buf[24 * 1024];
     ssize_t count = sizeof(buf);
 
@@ -198,8 +200,11 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
      * has any effect when the renderer is idle.
      */
     if (term->window->frame_callback == NULL) {
-        if (term->render.app_sync_updates.enabled)
-            term->render.refresh.grid = true;
+        if (term->render.app_sync_updates.enabled ||
+            term->render.app_sync_updates.flipped)
+        {
+            ;
+        }
 
         else {
             /* First timeout - reset each time we receive input. */
@@ -2032,6 +2037,9 @@ term_spawn_new(const struct terminal *term)
 void
 term_enable_app_sync_updates(struct terminal *term)
 {
+    if (!term->render.app_sync_updates.enabled)
+        term->render.app_sync_updates.flipped = true;
+
     term->render.app_sync_updates.enabled = true;
 
     if (timerfd_settime(
@@ -2057,6 +2065,8 @@ term_disable_app_sync_updates(struct terminal *term)
         return;
 
     term->render.app_sync_updates.enabled = false;
+    term->render.app_sync_updates.flipped = true;
+    render_refresh(term);
 
     /* Reset timers */
     timerfd_settime(
