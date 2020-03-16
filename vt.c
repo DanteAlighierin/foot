@@ -347,7 +347,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case '8':
-            term_restore_cursor(term);
+            term_restore_cursor(term, &term->saved_cursor);
             term->vt.attrs = term->vt.saved_attrs;
             term->charsets = term->saved_charsets;
             break;

@@ -761,7 +761,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 'u':
-            term_restore_cursor(term);
+            term_restore_cursor(term, &term->saved_cursor);
             break;
 
         case 't': {
@@ -1014,7 +1014,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         selection_cancel(term);
 
                         term->grid = &term->alt;
-                        term->saved_cursor = term->cursor;
+                        term->alt_saved_cursor = term->cursor;
 
                         term_cursor_to(term, term->cursor.point.row, term->cursor.point.col);
 
@@ -1137,7 +1137,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         selection_cancel(term);
 
                         term->grid = &term->normal;
-                        term_restore_cursor(term);
+                        term_restore_cursor(term, &term->alt_saved_cursor);
 
                         tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);

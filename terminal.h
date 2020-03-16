@@ -486,7 +486,7 @@ void term_reverse_index(struct terminal *term);
 
 void term_arm_blink_timer(struct terminal *term);
 
-void term_restore_cursor(struct terminal *term);
+void term_restore_cursor(struct terminal *term, const struct cursor *cursor);
 
 void term_visual_focus_in(struct terminal *term);
 void term_visual_focus_out(struct terminal *term);

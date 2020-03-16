@@ -1120,7 +1120,7 @@ term_reset(struct terminal *term, bool hard)
 
     if (term->grid == &term->alt) {
         term->grid = &term->normal;
-        term_restore_cursor(term);
+        term_restore_cursor(term, &term->alt_saved_cursor);
         selection_cancel(term);
     }
 
@@ -1645,12 +1645,12 @@ term_reset_view(struct terminal *term)
 }
 
 void
-term_restore_cursor(struct terminal *term)
+term_restore_cursor(struct terminal *term, const struct cursor *cursor)
 {
-    int row = min(term->saved_cursor.point.row, term->rows - 1);
-    int col = min(term->saved_cursor.point.col, term->cols - 1);
+    int row = min(cursor->point.row, term->rows - 1);
+    int col = min(cursor->point.col, term->cols - 1);
     term_cursor_to(term, row, col);
-    term->cursor.lcf = term->saved_cursor.lcf;
+    term->cursor.lcf = cursor->lcf;
 }
 
 void

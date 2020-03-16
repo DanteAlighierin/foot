@@ -28,6 +28,7 @@
 ### Fixed
 
 * Sixel images moved or deleted on window resize.
+* Cursor sometimes incorrectly restored on exit from alternate screen.
 
 
 ### Security
