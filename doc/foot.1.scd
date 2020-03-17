@@ -127,6 +127,11 @@ Note that these are just the defaults; they can be changed in the
 *ctrl*+*0*
 	Reset font size
 
+*ctrl*+*shift*+*n*
+	Spawn a new terminal. If the shell has been configured to emit the
+	_OSC 7_ escape sequence, the new terminal will start in the
+	current working directory.
+
 ## SCROLLBACK SEARCH
 
 *ctrl*+*r*
