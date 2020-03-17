@@ -585,6 +585,51 @@ parse_section_mouse_bindings(
 }
 
 static bool
+parse_section_tweak(
+    const char *key, const char *value, struct config *conf,
+    const char *path, unsigned lineno)
+{
+    if (strcmp(key, "delayed-render-lower") == 0) {
+        unsigned long ns;
+        if (!str_to_ulong(value, 10, &ns)) {
+            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            return false;
+        }
+
+        if (ns > 16666666) {
+            LOG_ERR("%s:%d: timeout must not exceed 16ms", path, lineno);
+            return false;
+        }
+
+        conf->tweak.delayed_render_lower_ns = ns;
+        LOG_WARN("tweak: delayed-render-lower=%lu", ns);
+    }
+
+    else if (strcmp(key, "delayed-render-upper") == 0) {
+        unsigned long ns;
+        if (!str_to_ulong(value, 10, &ns)) {
+            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            return false;
+        }
+
+        if (ns > 16666666) {
+            LOG_ERR("%s:%d: timeout must not exceed 16ms", path, lineno);
+            return false;
+        }
+
+        conf->tweak.delayed_render_upper_ns = ns;
+        LOG_WARN("tweak: delayed-render-upper=%lu", ns);
+    }
+
+    else {
+        LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
 parse_config_file(FILE *f, struct config *conf, const char *path)
 {
     enum section {
@@ -594,6 +639,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         SECTION_CSD,
         SECTION_KEY_BINDINGS,
         SECTION_MOUSE_BINDINGS,
+        SECTION_TWEAK,
         SECTION_COUNT,
     } section = SECTION_MAIN;
 
@@ -612,6 +658,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         [SECTION_CSD] =            {&parse_section_csd, "csd"},
         [SECTION_KEY_BINDINGS] =   {&parse_section_key_bindings, "key-bindings"},
         [SECTION_MOUSE_BINDINGS] = {&parse_section_mouse_bindings, "mouse-bindings"},
+        [SECTION_TWEAK] =          {&parse_section_tweak, "tweak"},
     };
 
     static_assert(ALEN(section_info) == SECTION_COUNT, "section info array size mismatch");
@@ -823,6 +870,11 @@ config_load(struct config *conf, const char *conf_path)
         .server_socket_path = get_server_socket_path(),
         .presentation_timings = false,
         .hold_at_exit = false,
+
+        .tweak = {
+            .delayed_render_lower_ns = 500000,         /* 0.5ms */
+            .delayed_render_upper_ns = 16666666 / 2,   /* half a frame period (60Hz) */
+        },
     };
 
     char *default_path = NULL;

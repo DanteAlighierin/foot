@@ -145,11 +145,6 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
             return false;
     }
 
-#if 0
-    if (!pollin)
-        return true;
-#endif
-
     /* Prevent blinking while typing */
     term_cursor_blink_restart(term);
 
@@ -220,9 +215,15 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
             last = now;
 #endif
 
+            uint64_t lower_ns = term->conf->tweak.delayed_render_lower_ns;
+            uint64_t upper_ns = term->conf->tweak.delayed_render_upper_ns;
+            assert(lower_ns < 1000000000);
+            assert(upper_ns < 1000000000);
+            assert(upper_ns > lower_ns);
+
             timerfd_settime(
                 term->delayed_render_timer.lower_fd, 0,
-                &(struct itimerspec){.it_value = {.tv_nsec = 500000}},
+                &(struct itimerspec){.it_value = {.tv_nsec = lower_ns}},
                 NULL);
 
             /* Second timeout - only reset when we render. Set to one
@@ -230,7 +231,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
             if (!term->delayed_render_timer.is_armed) {
                 timerfd_settime(
                     term->delayed_render_timer.upper_fd, 0,
-                    &(struct itimerspec){.it_value = {.tv_nsec = 16666666 / 2}},
+                    &(struct itimerspec){.it_value = {.tv_nsec = upper_ns}},
                     NULL);
                 term->delayed_render_timer.is_armed = true;
             }

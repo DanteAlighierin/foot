@@ -73,6 +73,11 @@ struct config {
     char *server_socket_path;
     bool presentation_timings;
     bool hold_at_exit;
+
+    struct {
+        uint64_t delayed_render_lower_ns;
+        uint64_t delayed_render_upper_ns;
+    } tweak;
 };
 
 bool config_load(struct config *conf, const char *path);
