@@ -112,6 +112,11 @@ These are the default shortcuts. See `man 5 foot` and the example
 <kbd>ctrl</kbd>+<kbd>0</kbd>
 : Reset font size
 
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>n</kbd>
+: Spawn a new terminal. If the shell has been configured to emit the
+  OSC 7 escape sequence, the new terminal will start in the current
+  working directory.
+
 
 #### Scrollback search
 
