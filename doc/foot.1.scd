@@ -76,7 +76,8 @@ execute (instead of the shell).
 	This option can only be used in combination with *-s*,*--server*.
 
 *-l*,*--log-colorize*=[{*never*,*always*,*auto*}]
-	Enables or disables colorization of log output on stderr.
+	Enables or disables colorization of log output on stderr. Default:
+	_auto_.
 
 *-S*,*--log-no-syslog*
 	Disables syslog logging. Logging is only done on stderr. This
