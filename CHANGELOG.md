@@ -17,6 +17,7 @@
 ### Changed
 
 * Spaces no longer removed from zsh font name completions.
+* Default key binding for _spawn-terminal_ to ctrl+shift+n.
 
 
 ### Deprecated
