@@ -34,7 +34,7 @@ in this order:
 
 *geometry*
 	Initial window width and height in pixels, on the form
-	_WIDTHxHEIGHT_.
+	_WIDTHxHEIGHT_. Default: _700x500_.
 
 *pad*
 	Padding between border and glyphs, in pixels, on the form
