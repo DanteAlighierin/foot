@@ -1486,6 +1486,9 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 static bool
 maybe_resize(struct terminal *term, int width, int height, bool force)
 {
+    if (term->is_shutting_down)
+        return false;
+
     if (!term->window->is_configured)
         return false;
 
