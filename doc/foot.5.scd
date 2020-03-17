@@ -199,7 +199,7 @@ e.g. *search-start=NONE*.
 	Resets the font size to the default. Default: _Control+0 Control+KP\_0_.
 
 *spawn-terminal*
-	Spawns a new terminal. Default: _Control+Shift+Return_.
+	Spawns a new terminal. Default: _Control+Shift+N_.
 
 *minimize*
 	Minimizes the window. Default: _not bound_.

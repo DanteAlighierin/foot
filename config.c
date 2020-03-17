@@ -850,7 +850,7 @@ config_load(struct config *conf, const char *conf_path)
                 [BIND_ACTION_FONT_SIZE_UP] = strdup("Control+plus Control+equal Control+KP_Add"),
                 [BIND_ACTION_FONT_SIZE_DOWN] = strdup("Control+minus Control+KP_Subtract"),
                 [BIND_ACTION_FONT_SIZE_RESET] = strdup("Control+0 Control+KP_0"),
-                [BIND_ACTION_SPAWN_TERMINAL] = strdup("Control+Shift+Return"),
+                [BIND_ACTION_SPAWN_TERMINAL] = strdup("Control+Shift+N"),
             },
             .mouse = {
                 [BIND_ACTION_PRIMARY_PASTE] = {BTN_MIDDLE, 1, BIND_ACTION_PRIMARY_PASTE},
