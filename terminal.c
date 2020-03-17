@@ -172,41 +172,37 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         vt_from_slave(term, buf, count);
     }
 
-    /*
-     * We likely need to re-render. But, we don't want to do it
-     * immediately. Often, a single client update is done through
-     * multiple writes. This could lead to us rendering one frame with
-     * "intermediate" state.
-     *
-     * For example, we might end up rendering a frame
-     * where the client just erased a line, while in the
-     * next frame, the client wrote to the same line. This
-     * causes screen "flickering".
-     *
-     * Mitigate by always incuring a small delay before
-     * rendering the next frame. This gives the client
-     * some time to finish the operation (and thus gives
-     * us time to receive the last writes before doing any
-     * actual rendering).
-     *
-     * We incur this delay *every* time we receive
-     * input. To ensure we don't delay rendering
-     * indefinitely, we start a second timer that is only
-     * reset when we render.
-     *
-     * Note that when the client is producing data at a
-     * very high pace, we're rate limited by the wayland
-     * compositor anyway. The delay we introduce here only
-     * has any effect when the renderer is idle.
-     */
-    if (term->window->frame_callback == NULL) {
-        if (term->render.app_sync_updates.enabled ||
-            term->render.app_sync_updates.flipped)
-        {
-            ;
-        }
-
-        else {
+    if (!term->render.app_sync_updates.enabled &&
+        !term->render.app_sync_updates.flipped)
+    {
+        /*
+         * We likely need to re-render. But, we don't want to do it
+         * immediately. Often, a single client update is done through
+         * multiple writes. This could lead to us rendering one frame with
+         * "intermediate" state.
+         *
+         * For example, we might end up rendering a frame
+         * where the client just erased a line, while in the
+         * next frame, the client wrote to the same line. This
+         * causes screen "flickering".
+         *
+         * Mitigate by always incuring a small delay before
+         * rendering the next frame. This gives the client
+         * some time to finish the operation (and thus gives
+         * us time to receive the last writes before doing any
+         * actual rendering).
+         *
+         * We incur this delay *every* time we receive
+         * input. To ensure we don't delay rendering
+         * indefinitely, we start a second timer that is only
+         * reset when we render.
+         *
+         * Note that when the client is producing data at a
+         * very high pace, we're rate limited by the wayland
+         * compositor anyway. The delay we introduce here only
+         * has any effect when the renderer is idle.
+         */
+        if (term->window->frame_callback == NULL) {
             /* First timeout - reset each time we receive input. */
 
 #if PTMX_TIMING
@@ -238,9 +234,9 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
                     NULL);
                 term->delayed_render_timer.is_armed = true;
             }
-        }
-    } else
-        term->render.pending.grid = true;
+        } else
+            term->render.pending.grid = true;
+    }
 
     if (hup) {
         if (term->hold_at_exit) {
