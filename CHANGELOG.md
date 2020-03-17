@@ -29,6 +29,7 @@
 
 * Sixel images moved or deleted on window resize.
 * Cursor sometimes incorrectly restored on exit from alternate screen.
+* 'Underline' cursor being invisible on underlined text.
 
 
 ### Security

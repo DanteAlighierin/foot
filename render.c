@@ -432,14 +432,14 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         PIXMAN_OP_SRC, pix, &bg, 1,
         &(pixman_rectangle16_t){x, y, cell_cols * width, height});
 
-    if (has_cursor)
-        draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
-
     if (cell->attrs.blink)
         term_arm_blink_timer(term);
 
+    if (has_cursor && term->cursor_style == CURSOR_BLOCK)
+        draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
+
     if (cell->wc == 0 || cell->attrs.conceal)
-        return cell_cols;
+        goto draw_cursor;
 
     if (glyph != NULL) {
         if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
@@ -471,6 +471,10 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         draw_strikeout(term, pix, attrs_to_font(term, &cell->attrs),
                        &fg, x, y, cell_cols);
     }
+
+draw_cursor:
+    if (has_cursor && term->cursor_style != CURSOR_BLOCK)
+        draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
 
     return cell_cols;
 }
