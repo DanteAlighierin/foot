@@ -199,7 +199,9 @@ e.g. *search-start=NONE*.
 	Resets the font size to the default. Default: _Control+0 Control+KP\_0_.
 
 *spawn-terminal*
-	Spawns a new terminal. Default: _Control+Shift+N_.
+	Spawns a new terminal. If the shell has been configured to emit
+	the OSC 7 escape sequence, the new terminal will start in the
+	current working directory. Default: _Control+Shift+N_.
 
 *minimize*
 	Minimizes the window. Default: _not bound_.
