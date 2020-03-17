@@ -71,7 +71,7 @@ execute (instead of the shell).
 *-p*,*--print-pid*=_FILE_|_FD_
 	Print PID to this file, or FD, when successfully started. The file
 	(or FD) is closed immediately after writing the PID. When a _FILE_
-	as been specified, the file is unlinked when yambar exits.
+	as been specified, the file is unlinked at exit.
 
 	This option can only be used in combination with *-s*,*--server*.
 
