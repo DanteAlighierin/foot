@@ -923,8 +923,14 @@ wayl_destroy(struct wayland *wayl)
     if (wayl->presentation != NULL)
         wp_presentation_destroy(wayl->presentation);
 
+    tll_foreach(wayl->kbd.bindings.key, it)
+        tll_free(it->item.key_codes);
     tll_free(wayl->kbd.bindings.key);
+
+    tll_foreach(wayl->kbd.bindings.search, it)
+        tll_free(it->item.key_codes);
     tll_free(wayl->kbd.bindings.search);
+
     if (wayl->kbd.xkb_compose_state != NULL)
         xkb_compose_state_unref(wayl->kbd.xkb_compose_state);
     if (wayl->kbd.xkb_compose_table != NULL)

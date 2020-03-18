@@ -84,9 +84,12 @@ enum binding_action {
     BIND_ACTION_COUNT,
 };
 
+typedef tll(xkb_keycode_t) xkb_keycode_list_t;
+
 struct key_binding {
     xkb_mod_mask_t mods;
     xkb_keysym_t sym;
+    xkb_keycode_list_t key_codes;
     enum binding_action action;
 };
 typedef tll(struct key_binding) key_binding_list_t;

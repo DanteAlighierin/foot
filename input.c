@@ -125,6 +125,8 @@ input_parse_key_binding_for_action(
          combo != NULL;
          combo = strtok_r(NULL, " ", &save1))
     {
+        xkb_keycode_list_t key_codes = tll_init();
+
         LOG_DBG("%s", combo);
         for (char *save2 = NULL, *key = strtok_r(combo, "+", &save2),
                  *next_key = strtok_r(NULL, "+", &save2);
@@ -152,19 +154,43 @@ input_parse_key_binding_for_action(
                             key);
                     break;
                 }
+
+                /*
+                 * Find all key codes that map to the lower case
+                 * version of the symbol.
+                 *
+                 * This allows us to match bindings in other layouts
+                 * too.
+                 */
+                xkb_keysym_t lower_sym = xkb_keysym_to_lower(sym);
+                struct xkb_state *state = xkb_state_new(keymap);
+
+                for (xkb_keycode_t code = xkb_keymap_min_keycode(keymap);
+                     code <= xkb_keymap_max_keycode(keymap);
+                     code++)
+                {
+                    if (xkb_state_key_get_one_sym(state, code) == lower_sym)
+                        tll_push_back(key_codes, code);
+                }
+
+                xkb_state_unref(state);
             }
         }
 
         LOG_DBG("action=%u: mods=0x%08x, sym=%d", action, mod_mask, sym);
 
-        if (sym == XKB_KEY_NoSymbol)
+        if (sym == XKB_KEY_NoSymbol) {
+            assert(tll_length(key_codes) == 0);
+            tll_free(key_codes);
             continue;
+        }
 
         assert(sym != 0);
         if (bindings != NULL) {
             const struct key_binding binding = {
                 .mods = mod_mask,
                 .sym = sym,
+                .key_codes = key_codes,
                 .action = action,
             };
 
@@ -207,7 +233,14 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         xkb_context_unref(wayl->kbd.xkb);
         wayl->kbd.xkb = NULL;
     }
+
+    tll_foreach(wayl->kbd.bindings.key, it)
+        tll_free(it->item.key_codes);
     tll_free(wayl->kbd.bindings.key);
+
+    tll_foreach(wayl->kbd.bindings.search, it)
+        tll_free(it->item.key_codes);
+    tll_free(wayl->kbd.bindings.search);
 
     wayl->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     wayl->kbd.xkb_keymap = xkb_keymap_new_from_string(
@@ -525,9 +558,18 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
      * User configurable bindings
      */
     tll_foreach(wayl->kbd.bindings.key, it) {
+        /* Match symbol */
         if (it->item.mods == effective_mods && it->item.sym == sym) {
             input_execute_binding(term, it->item.action, serial);
             goto maybe_repeat;
+        }
+
+        /* Match raw key code */
+        tll_foreach(it->item.key_codes, code) {
+            if (code->item == key) {
+                input_execute_binding(term, it->item.action, serial);
+                goto maybe_repeat;
+            }
         }
     }
 
