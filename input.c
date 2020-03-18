@@ -117,7 +117,7 @@ input_parse_key_binding_for_action(
         return true;
 
     xkb_mod_mask_t mod_mask = 0;
-    xkb_keysym_t sym = 0;
+    xkb_keysym_t sym = XKB_KEY_NoSymbol;
 
     char *copy = strdup(combos);
 
@@ -146,10 +146,19 @@ input_parse_key_binding_for_action(
             } else {
                 /* Symbol */
                 sym = xkb_keysym_from_name(key, 0);
+
+                if (sym == XKB_KEY_NoSymbol) {
+                    LOG_ERR("%s: key binding is not a valid XKB symbol name",
+                            key);
+                    break;
+                }
             }
         }
 
         LOG_DBG("action=%u: mods=0x%08x, sym=%d", action, mod_mask, sym);
+
+        if (sym == XKB_KEY_NoSymbol)
+            continue;
 
         assert(sym != 0);
         if (bindings != NULL) {
