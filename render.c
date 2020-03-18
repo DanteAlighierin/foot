@@ -39,10 +39,6 @@ static struct {
 
 static void fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data);
 
-#define shm_cookie_grid(term) ((unsigned long)((uintptr_t)term + 0))
-#define shm_cookie_search(term) ((unsigned long)((uintptr_t)term + 1))
-#define shm_cookie_csd(term, n) ((unsigned long)((uintptr_t)term + 2 + (n)))  /* Should be placed last */
-
 struct renderer *
 render_init(struct fdm *fdm, struct wayland *wayl)
 {
