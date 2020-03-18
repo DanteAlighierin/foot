@@ -56,8 +56,9 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
 
         assert(!it->item.busy);
 
-        LOG_DBG("cookie=%lx: purging buffer %p (width=%d, height=%d)",
-                cookie, &it->item, it->item.width, it->item.height);
+        LOG_DBG("cookie=%lx: purging buffer %p (width=%d, height=%d): %zu KB",
+                cookie, &it->item, it->item.width, it->item.height,
+                it->item.size / 1024);
 
         buffer_destroy(&it->item);
         tll_remove(buffers, it);
