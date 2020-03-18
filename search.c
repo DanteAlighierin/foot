@@ -430,8 +430,11 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
      * User configurable bindings
      */
     tll_foreach(term->wl->kbd.bindings.search, it) {
+        if (it->item.mods != mods)
+            continue;
+
         /* Match symbol */
-        if (it->item.mods == mods && it->item.sym == sym) {
+        if (it->item.sym == sym) {
             input_execute_binding(term, it->item.action, serial);
             return;
         }

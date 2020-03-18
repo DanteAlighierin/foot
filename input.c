@@ -558,8 +558,11 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
      * User configurable bindings
      */
     tll_foreach(wayl->kbd.bindings.key, it) {
+        if (it->item.mods != effective_mods)
+            continue;
+
         /* Match symbol */
-        if (it->item.mods == effective_mods && it->item.sym == sym) {
+        if (it->item.sym == sym) {
             input_execute_binding(term, it->item.action, serial);
             goto maybe_repeat;
         }
