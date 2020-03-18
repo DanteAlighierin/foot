@@ -87,8 +87,13 @@ term_shutdown_handler(void *data, int exit_code)
 {
     struct client *client = data;
 
-    shm_purge(client->server->wayl->shm,
-              (unsigned long)(uintptr_t)client->term);
+    struct wl_shm *shm = client->server->wayl->shm;
+    struct terminal *term = client->term;
+
+    shm_purge(shm, shm_cookie_grid(term));
+    shm_purge(shm, shm_cookie_search(term));
+    for (enum csd_surface surf = 0; surf < CSD_SURF_COUNT; surf++)
+        shm_purge(shm, shm_cookie_csd(term, surf));
 
     client_send_exit_code(client, exit_code);
 
