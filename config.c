@@ -507,7 +507,7 @@ parse_section_key_bindings(
         if (strcmp(key, binding_action_map[action]) != 0)
             continue;
 
-        if (strcmp(value, "NONE") == 0) {
+        if (strcasecmp(value, "none") == 0) {
             free(conf->bindings.key[action]);
             conf->bindings.key[action] = NULL;
             return true;

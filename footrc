@@ -53,9 +53,9 @@
 # font-decrease=Control+minus Control+KP_Subtract
 # font-reset=Control+0 Control+KP_0
 # spawn-terminal=Control+Shift+N
-# # minimize=<not bound>
-# # maximize=<not bound>
-# # fullscreen=<not bound>
+# minimize=none
+# maximize=none
+# fullscreen=none
 
 [mouse-bindings]
 # primary-paste=BTN_MIDDLE

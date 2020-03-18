@@ -165,8 +165,8 @@ Note that *Alt* is usually called *Mod1*.
 A key combination can only be mapped to *one* action. Lets say you
 want to bind *Control+Shift+R* to *fullscreen*. Since this is the
 default shortcut for *search-start*, you first need to unmap the
-default binding. This can be done by setting _action=NONE_;
-e.g. *search-start=NONE*.
+default binding. This can be done by setting _action=none_;
+e.g. *search-start=none*.
 
 *scrollback-up*
 	Scrolls up/back in history. Default: _Shift+Page\_Up_.
@@ -223,8 +223,8 @@ find the event names using *libinput debug-events*.
 A button can only be mapped to *one* action. Lets say you want to bind
 *BTN\_MIDDLE* to *fullscreen*. Since *BTN\_MIDDLE* is the default
 binding for *primary-paste*, you first need to unmap the default
-binding. This can be done by setting _action=NONE_;
-e.g. *primary-paste=NONE*.
+binding. This can be done by setting _action=none_;
+e.g. *primary-paste=none*.
 
 All actions listed under *key-bindings* can be user here as well.
 
