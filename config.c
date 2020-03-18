@@ -455,9 +455,10 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 }
 
 static bool
-verify_key_combo(const struct config *conf, const char *combo, const char *path, unsigned lineno)
+verify_key_combo(const struct config *conf, const char *combo, const char *path,
+                 unsigned lineno)
 {
-    for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
+    for (enum bind_action_normal action = 0; action < BIND_ACTION_COUNT; action++) {
         if (conf->bindings.key[action] == NULL)
             continue;
 
@@ -481,8 +482,7 @@ verify_key_combo(const struct config *conf, const char *combo, const char *path,
     struct xkb_keymap *keymap = xkb_keymap_new_from_names(
         ctx, &(struct xkb_rule_names){0}, XKB_KEYMAP_COMPILE_NO_FLAGS);
 
-    bool valid_combo = input_parse_key_binding_for_action(
-        keymap, BIND_ACTION_NONE, combo, NULL);
+    bool valid_combo = input_parse_key_binding(keymap, combo, NULL);
 
     xkb_keymap_unref(keymap);
     xkb_context_unref(ctx);
@@ -500,7 +500,7 @@ parse_section_key_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
+    for (enum bind_action_normal action = 0; action < BIND_ACTION_COUNT; action++) {
         if (binding_action_map[action] == NULL)
             continue;
 
@@ -532,7 +532,7 @@ parse_section_mouse_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    for (enum binding_action action = 0; action < BIND_ACTION_COUNT; action++) {
+    for (enum bind_action_normal action = 0; action < BIND_ACTION_COUNT; action++) {
         if (binding_action_map[action] == NULL)
             continue;
 
@@ -562,7 +562,7 @@ parse_section_mouse_bindings(
             const int count = 1;
 
             /* Make sure button isn't already mapped to another action */
-            for (enum binding_action j = 0; j < BIND_ACTION_COUNT; j++) {
+            for (enum bind_action_normal j = 0; j < BIND_ACTION_COUNT; j++) {
                 const struct mouse_binding *collision = &conf->bindings.mouse[j];
                 if (collision->button == i && collision->count == count) {
                     LOG_ERR("%s:%d: %s already mapped to %s", path, lineno,
@@ -856,6 +856,22 @@ config_load(struct config *conf, const char *conf_path)
                 [BIND_ACTION_PRIMARY_PASTE] = {BTN_MIDDLE, 1, BIND_ACTION_PRIMARY_PASTE},
             },
             .search = {
+                [BIND_ACTION_SEARCH_CANCEL] = strdup("Control+g Escape"),
+                [BIND_ACTION_SEARCH_COMMIT] = strdup("Return"),
+                [BIND_ACTION_SEARCH_FIND_PREV] = strdup("Control+r"),
+                [BIND_ACTION_SEARCH_FIND_NEXT] = strdup("Control+s"),
+                [BIND_ACTION_SEARCH_EDIT_LEFT] = strdup("Left Control+b"),
+                [BIND_ACTION_SEARCH_EDIT_LEFT_WORD] = strdup("Control+Left Mod1+b"),
+                [BIND_ACTION_SEARCH_EDIT_RIGHT] = strdup("Right Control+f"),
+                [BIND_ACTION_SEARCH_EDIT_RIGHT_WORD] = strdup("Control+Right Mod1+f"),
+                [BIND_ACTION_SEARCH_EDIT_HOME] = strdup("Home Control+a"),
+                [BIND_ACTION_SEARCH_EDIT_END] = strdup("End Control+e"),
+                [BIND_ACTION_SEARCH_DELETE_PREV] = strdup("BackSpace"),
+                [BIND_ACTION_SEARCH_DELETE_PREV_WORD] = strdup("Mod1+BackSpace Control+BackSpace"),
+                [BIND_ACTION_SEARCH_DELETE_NEXT] = strdup("Delete "),
+                [BIND_ACTION_SEARCH_DELETE_NEXT_WORD] = strdup("Mod1+d Control+Delete"),
+                [BIND_ACTION_SEARCH_EXTEND_WORD] = strdup("Control+w"),
+                [BIND_ACTION_SEARCH_EXTEND_WORD_WS] = strdup("Control+Shift+W"),
             },
         },
 
@@ -917,8 +933,8 @@ config_free(struct config conf)
     tll_free_and_free(conf.fonts, free);
     free(conf.server_socket_path);
 
-    for (size_t i = 0; i < BIND_ACTION_COUNT; i++) {
+    for (enum bind_action_normal i = 0; i < BIND_ACTION_COUNT; i++)
         free(conf.bindings.key[i]);
+    for (enum bind_action_search i = 0; i < BIND_ACTION_SEARCH_COUNT; i++)
         free(conf.bindings.search[i]);
-    }
 }

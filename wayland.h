@@ -66,7 +66,17 @@ struct monitor {
     float inch;  /* e.g. 24" */
 };
 
-enum binding_action {
+
+typedef tll(xkb_keycode_t) xkb_keycode_list_t;
+
+struct key_binding {
+    xkb_mod_mask_t mods;
+    xkb_keysym_t sym;
+    xkb_keycode_list_t key_codes;
+};
+typedef tll(struct key_binding) key_binding_list_t;
+
+enum bind_action_normal {
     BIND_ACTION_NONE,
     BIND_ACTION_SCROLLBACK_UP,
     BIND_ACTION_SCROLLBACK_DOWN,
@@ -84,20 +94,41 @@ enum binding_action {
     BIND_ACTION_COUNT,
 };
 
-typedef tll(xkb_keycode_t) xkb_keycode_list_t;
-
-struct key_binding {
-    xkb_mod_mask_t mods;
-    xkb_keysym_t sym;
-    xkb_keycode_list_t key_codes;
-    enum binding_action action;
+struct key_binding_normal {
+    struct key_binding bind;
+    enum bind_action_normal action;
 };
-typedef tll(struct key_binding) key_binding_list_t;
 
 struct mouse_binding {
     uint32_t button;
     int count;
-    enum binding_action action;
+    enum bind_action_normal action;
+};
+
+enum bind_action_search {
+    BIND_ACTION_SEARCH_NONE,
+    BIND_ACTION_SEARCH_CANCEL,
+    BIND_ACTION_SEARCH_COMMIT,
+    BIND_ACTION_SEARCH_FIND_PREV,
+    BIND_ACTION_SEARCH_FIND_NEXT,
+    BIND_ACTION_SEARCH_EDIT_LEFT,
+    BIND_ACTION_SEARCH_EDIT_LEFT_WORD,
+    BIND_ACTION_SEARCH_EDIT_RIGHT,
+    BIND_ACTION_SEARCH_EDIT_RIGHT_WORD,
+    BIND_ACTION_SEARCH_EDIT_HOME,
+    BIND_ACTION_SEARCH_EDIT_END,
+    BIND_ACTION_SEARCH_DELETE_PREV,
+    BIND_ACTION_SEARCH_DELETE_PREV_WORD,
+    BIND_ACTION_SEARCH_DELETE_NEXT,
+    BIND_ACTION_SEARCH_DELETE_NEXT_WORD,
+    BIND_ACTION_SEARCH_EXTEND_WORD,
+    BIND_ACTION_SEARCH_EXTEND_WORD_WS,
+    BIND_ACTION_SEARCH_COUNT,
+};
+
+struct key_binding_search {
+    struct key_binding bind;
+    enum bind_action_search action;
 };
 
 struct kbd {
@@ -127,8 +158,8 @@ struct kbd {
     bool meta;
 
     struct {
-        key_binding_list_t key;
-        key_binding_list_t search;
+        tll(struct key_binding_normal) key;
+        tll(struct key_binding_search) search;
     } bindings;
 };
 

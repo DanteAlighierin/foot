@@ -924,11 +924,11 @@ wayl_destroy(struct wayland *wayl)
         wp_presentation_destroy(wayl->presentation);
 
     tll_foreach(wayl->kbd.bindings.key, it)
-        tll_free(it->item.key_codes);
+        tll_free(it->item.bind.key_codes);
     tll_free(wayl->kbd.bindings.key);
 
     tll_foreach(wayl->kbd.bindings.search, it)
-        tll_free(it->item.key_codes);
+        tll_free(it->item.bind.key_codes);
     tll_free(wayl->kbd.bindings.search);
 
     if (wayl->kbd.xkb_compose_state != NULL)

@@ -412,63 +412,29 @@ distance_prev_word(const struct terminal *term)
     return term->search.cursor - cursor;
 }
 
-void
-search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
-             xkb_mod_mask_t mods, uint32_t serial)
+static bool
+execute_binding(struct terminal *term, enum bind_action_search action,
+                uint32_t serial)
 {
-    LOG_DBG("search: input: sym=%d/0x%x, mods=0x%08x", sym, sym, mods);
+    switch (action) {
+    case BIND_ACTION_SEARCH_NONE:
+        return false;
 
-    const xkb_mod_mask_t ctrl = 1 << term->wl->kbd.mod_ctrl;
-    const xkb_mod_mask_t alt = 1 << term->wl->kbd.mod_alt;
-    const xkb_mod_mask_t shift = 1 << term->wl->kbd.mod_shift;
-    //const xkb_mod_mask_t meta = 1 << term->wl->kbd.mod_meta;
-
-    enum xkb_compose_status compose_status = xkb_compose_state_get_status(
-        term->wl->kbd.xkb_compose_state);
-
-    /*
-     * User configurable bindings
-     */
-    tll_foreach(term->wl->kbd.bindings.search, it) {
-        if (it->item.mods != mods)
-            continue;
-
-        /* Match symbol */
-        if (it->item.sym == sym) {
-            input_execute_binding(term, it->item.action, serial);
-            return;
-        }
-
-        /* Match raw key code */
-        tll_foreach(it->item.key_codes, code) {
-            if (code->item == key) {
-                input_execute_binding(term, it->item.action, serial);
-                return;
-            }
-        }
-    }
-
-    /* Cancel search */
-    if ((mods == 0 && sym == XKB_KEY_Escape) ||
-        (mods == ctrl && sym == XKB_KEY_g))
-    {
+    case BIND_ACTION_SEARCH_CANCEL:
         if (term->search.view_followed_offset)
             term->grid->view = term->grid->offset;
         else
             term->grid->view = term->search.original_view;
         term_damage_view(term);
         search_cancel(term);
-        return;
-    }
+        return true;
 
-    /* "Commit" search - copy selection to primary and cancel search */
-    else if (mods == 0 && sym == XKB_KEY_Return) {
+    case BIND_ACTION_SEARCH_COMMIT:
         selection_finalize(term, term->wl->input_serial);
         search_cancel_keep_selection(term);
-        return;
-    }
+        return true;
 
-    else if (mods == ctrl && sym == XKB_KEY_r) {
+    case BIND_ACTION_SEARCH_FIND_PREV:
         if (term->search.match_len > 0) {
             int new_col = term->search.match.col - 1;
             int new_row = term->search.match.row;
@@ -483,9 +449,9 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
                 term->search.match.row = new_row;
             }
         }
-    }
+        return false;
 
-    else if (mods == ctrl && sym == XKB_KEY_s) {
+    case BIND_ACTION_SEARCH_FIND_NEXT:
         if (term->search.match_len > 0) {
             int new_col = term->search.match.col + 1;
             int new_row = term->search.match.row;
@@ -501,49 +467,43 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
                 term->search.direction = SEARCH_FORWARD;
             }
         }
-    }
+        return false;
 
-    else if ((mods == 0 && sym == XKB_KEY_Left) ||
-             (mods == ctrl && sym == XKB_KEY_b))
-    {
+    case BIND_ACTION_SEARCH_EDIT_LEFT:
         if (term->search.cursor > 0)
             term->search.cursor--;
-    }
+        return false;
 
-    else if ((mods == ctrl && sym == XKB_KEY_Left) ||
-             (mods == alt && sym == XKB_KEY_b))
-    {
+    case BIND_ACTION_SEARCH_EDIT_LEFT_WORD: {
         size_t diff = distance_prev_word(term);
         term->search.cursor -= diff;
         assert(term->search.cursor >= 0);
         assert(term->search.cursor <= term->search.len);
+        return false;
     }
 
-    else if ((mods == 0 && sym == XKB_KEY_Right) ||
-             (mods == ctrl && sym == XKB_KEY_f))
-    {
+    case BIND_ACTION_SEARCH_EDIT_RIGHT:
         if (term->search.cursor < term->search.len)
             term->search.cursor++;
-    }
+        return false;
 
-    else if ((mods == ctrl && sym == XKB_KEY_Right) ||
-             (mods == alt && sym == XKB_KEY_f))
-    {
+    case BIND_ACTION_SEARCH_EDIT_RIGHT_WORD: {
         size_t diff = distance_next_word(term);
         term->search.cursor += diff;
         assert(term->search.cursor >= 0);
         assert(term->search.cursor <= term->search.len);
+        return false;
     }
 
-    else if ((mods == 0 && sym == XKB_KEY_Home) ||
-             (mods == ctrl && sym == XKB_KEY_a))
+    case BIND_ACTION_SEARCH_EDIT_HOME:
         term->search.cursor = 0;
+        return false;
 
-    else if ((mods == 0 && sym == XKB_KEY_End) ||
-             (mods == ctrl && sym == XKB_KEY_e))
+    case BIND_ACTION_SEARCH_EDIT_END:
         term->search.cursor = term->search.len;
+        return false;
 
-    else if (mods == 0 && sym == XKB_KEY_BackSpace) {
+    case BIND_ACTION_SEARCH_DELETE_PREV:
         if (term->search.cursor > 0) {
             memmove(
                 &term->search.buf[term->search.cursor - 1],
@@ -552,9 +512,9 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
             term->search.cursor--;
             term->search.buf[--term->search.len] = L'\0';
         }
-    }
+        return false;
 
-    else if ((mods == alt || mods == ctrl) && sym == XKB_KEY_BackSpace) {
+    case BIND_ACTION_SEARCH_DELETE_PREV_WORD: {
         size_t diff = distance_prev_word(term);
         size_t old_cursor = term->search.cursor;
         size_t new_cursor = old_cursor - diff;
@@ -565,10 +525,20 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
 
         term->search.len -= diff;
         term->search.cursor = new_cursor;
+        return false;
     }
 
-    else if ((mods == alt && sym == XKB_KEY_d) ||
-             (mods == ctrl && sym == XKB_KEY_Delete)) {
+    case BIND_ACTION_SEARCH_DELETE_NEXT:
+        if (term->search.cursor < term->search.len) {
+            memmove(
+                &term->search.buf[term->search.cursor],
+                &term->search.buf[term->search.cursor + 1],
+                (term->search.len - term->search.cursor - 1) * sizeof(wchar_t));
+            term->search.buf[--term->search.len] = L'\0';
+        }
+        return false;
+
+    case BIND_ACTION_SEARCH_DELETE_NEXT_WORD: {
         size_t diff = distance_next_word(term);
         size_t cursor = term->search.cursor;
 
@@ -577,66 +547,98 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
                 (term->search.len - (cursor + diff)) * sizeof(wchar_t));
 
         term->search.len -= diff;
+        return false;
     }
 
-    else if (mods == 0 && sym == XKB_KEY_Delete) {
-        if (term->search.cursor < term->search.len) {
-            memmove(
-                &term->search.buf[term->search.cursor],
-                &term->search.buf[term->search.cursor + 1],
-                (term->search.len - term->search.cursor - 1) * sizeof(wchar_t));
-            term->search.buf[--term->search.len] = L'\0';
-        }
-    }
-
-    else if (mods == ctrl && sym == XKB_KEY_w)
+    case BIND_ACTION_SEARCH_EXTEND_WORD:
         search_match_to_end_of_word(term, false);
+        return false;
 
-    else if (mods == (ctrl | shift) && sym == XKB_KEY_W)
+    case BIND_ACTION_SEARCH_EXTEND_WORD_WS:
         search_match_to_end_of_word(term, true);
+        return false;
 
-    else {
-        uint8_t buf[64] = {0};
-        int count = 0;
-
-        if (compose_status == XKB_COMPOSE_COMPOSED) {
-            count = xkb_compose_state_get_utf8(
-                term->wl->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
-            xkb_compose_state_reset(term->wl->kbd.xkb_compose_state);
-        } else if (compose_status == XKB_COMPOSE_CANCELLED) {
-            count = 0;
-        } else {
-            count = xkb_state_key_get_utf8(
-                term->wl->kbd.xkb_state, key, (char *)buf, sizeof(buf));
-        }
-
-        const char *src = (const char *)buf;
-        mbstate_t ps = {0};
-        size_t wchars = mbsnrtowcs(NULL, &src, count, 0, &ps);
-
-        if (wchars == -1) {
-            LOG_ERRNO("failed to convert %.*s to wchars", count, buf);
-            return;
-        }
-
-        if (!search_ensure_size(term, term->search.len + wchars))
-            return;
-
-        assert(term->search.len + wchars < term->search.sz);
-
-        memmove(&term->search.buf[term->search.cursor + wchars],
-                &term->search.buf[term->search.cursor],
-                (term->search.len - term->search.cursor) * sizeof(wchar_t));
-
-        memset(&ps, 0, sizeof(ps));
-        mbsnrtowcs(&term->search.buf[term->search.cursor], &src, count,
-                   wchars, &ps);
-
-        term->search.len += wchars;
-        term->search.cursor += wchars;
-        term->search.buf[term->search.len] = L'\0';
+    case BIND_ACTION_SEARCH_COUNT:
+        assert(false);
+        return false;
     }
 
+    assert(false);
+    return false;
+}
+
+void
+search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
+             xkb_mod_mask_t mods, uint32_t serial)
+{
+    LOG_DBG("search: input: sym=%d/0x%x, mods=0x%08x", sym, sym, mods);
+
+    enum xkb_compose_status compose_status = xkb_compose_state_get_status(
+        term->wl->kbd.xkb_compose_state);
+
+    /* Key bindings */
+    tll_foreach(term->wl->kbd.bindings.search, it) {
+        if (it->item.bind.mods != mods)
+            continue;
+
+        /* Match symbol */
+        if (it->item.bind.sym == sym) {
+            if (!execute_binding(term, it->item.action, serial))
+                goto update_search;
+            return;
+        }
+
+        /* Match raw key code */
+        tll_foreach(it->item.bind.key_codes, code) {
+            if (code->item == key) {
+                if (!execute_binding(term, it->item.action, serial))
+                    goto update_search;
+                return;
+            }
+        }
+    }
+
+    uint8_t buf[64] = {0};
+    int count = 0;
+
+    if (compose_status == XKB_COMPOSE_COMPOSED) {
+        count = xkb_compose_state_get_utf8(
+            term->wl->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
+        xkb_compose_state_reset(term->wl->kbd.xkb_compose_state);
+    } else if (compose_status == XKB_COMPOSE_CANCELLED) {
+        count = 0;
+    } else {
+        count = xkb_state_key_get_utf8(
+            term->wl->kbd.xkb_state, key, (char *)buf, sizeof(buf));
+    }
+
+    const char *src = (const char *)buf;
+    mbstate_t ps = {0};
+    size_t wchars = mbsnrtowcs(NULL, &src, count, 0, &ps);
+
+    if (wchars == -1) {
+        LOG_ERRNO("failed to convert %.*s to wchars", count, buf);
+        return;
+    }
+
+    if (!search_ensure_size(term, term->search.len + wchars))
+        return;
+
+    assert(term->search.len + wchars < term->search.sz);
+
+    memmove(&term->search.buf[term->search.cursor + wchars],
+            &term->search.buf[term->search.cursor],
+            (term->search.len - term->search.cursor) * sizeof(wchar_t));
+
+    memset(&ps, 0, sizeof(ps));
+    mbsnrtowcs(&term->search.buf[term->search.cursor], &src, count,
+               wchars, &ps);
+
+    term->search.len += wchars;
+    term->search.cursor += wchars;
+    term->search.buf[term->search.len] = L'\0';
+
+update_search:
     LOG_DBG("search: buffer: %S", term->search.buf);
     search_find_next(term);
     render_refresh_search(term);

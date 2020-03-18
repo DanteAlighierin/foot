@@ -47,7 +47,7 @@ struct config {
 
         /* While searching (not - action to *start* a search is in the
          * 'key' bindings above */
-        char *search[BIND_ACTION_COUNT];
+        char *search[BIND_ACTION_SEARCH_COUNT];
     } bindings;
 
     struct {

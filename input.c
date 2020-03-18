@@ -33,9 +33,9 @@
 
 #define ALEN(v) (sizeof(v) / sizeof(v[0]))
 
-void
-input_execute_binding(struct terminal *term, enum binding_action action,
-                      uint32_t serial)
+static void
+execute_binding(struct terminal *term, enum bind_action_normal action,
+                uint32_t serial)
 {
     switch (action) {
     case BIND_ACTION_NONE:
@@ -109,14 +109,12 @@ input_execute_binding(struct terminal *term, enum binding_action action,
 }
 
 bool
-input_parse_key_binding_for_action(
-    struct xkb_keymap *keymap, enum binding_action action,
-    const char *combos, key_binding_list_t *bindings)
+input_parse_key_binding(struct xkb_keymap *keymap, const char *combos,
+                        key_binding_list_t *bindings)
 {
     if (combos == NULL)
         return true;
 
-    xkb_mod_mask_t mod_mask = 0;
     xkb_keysym_t sym = XKB_KEY_NoSymbol;
 
     char *copy = strdup(combos);
@@ -125,6 +123,7 @@ input_parse_key_binding_for_action(
          combo != NULL;
          combo = strtok_r(NULL, " ", &save1))
     {
+        xkb_mod_mask_t mod_mask = 0;
         xkb_keycode_list_t key_codes = tll_init();
 
         LOG_DBG("%s", combo);
@@ -177,7 +176,7 @@ input_parse_key_binding_for_action(
             }
         }
 
-        LOG_DBG("action=%u: mods=0x%08x, sym=%d", action, mod_mask, sym);
+        LOG_DBG("mods=0x%08x, sym=%d", mod_mask, sym);
 
         if (sym == XKB_KEY_NoSymbol) {
             assert(tll_length(key_codes) == 0);
@@ -191,7 +190,6 @@ input_parse_key_binding_for_action(
                 .mods = mod_mask,
                 .sym = sym,
                 .key_codes = key_codes,
-                .action = action,
             };
 
             tll_push_back(*bindings, binding);
@@ -235,11 +233,11 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     }
 
     tll_foreach(wayl->kbd.bindings.key, it)
-        tll_free(it->item.key_codes);
+        tll_free(it->item.bind.key_codes);
     tll_free(wayl->kbd.bindings.key);
 
     tll_foreach(wayl->kbd.bindings.search, it)
-        tll_free(it->item.key_codes);
+        tll_free(it->item.bind.key_codes);
     tll_free(wayl->kbd.bindings.search);
 
     wayl->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
@@ -264,14 +262,32 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     munmap(map_str, size);
     close(fd);
 
-    for (size_t i = 0; i < BIND_ACTION_COUNT; i++) {
-        input_parse_key_binding_for_action(
-            wayl->kbd.xkb_keymap, i,
-            wayl->conf->bindings.key[i], &wayl->kbd.bindings.key);
+    for (enum bind_action_normal i = 0; i < BIND_ACTION_COUNT; i++) {
+        key_binding_list_t bindings = tll_init();
+        input_parse_key_binding(
+            wayl->kbd.xkb_keymap, wayl->conf->bindings.key[i], &bindings);
 
-        input_parse_key_binding_for_action(
-            wayl->kbd.xkb_keymap, i,
-            wayl->conf->bindings.search[i], &wayl->kbd.bindings.search);
+        tll_foreach(bindings, it) {
+            tll_push_back(
+                wayl->kbd.bindings.key,
+                ((struct key_binding_normal){.bind = it->item, .action = i}));
+        }
+
+        tll_free(bindings);
+    }
+
+    for (enum bind_action_search i = 0; i < BIND_ACTION_SEARCH_COUNT; i++) {
+        key_binding_list_t bindings = tll_init();
+        input_parse_key_binding(
+            wayl->kbd.xkb_keymap, wayl->conf->bindings.search[i], &bindings);
+
+        tll_foreach(bindings, it) {
+            tll_push_back(
+                wayl->kbd.bindings.search,
+                ((struct key_binding_search){.bind = it->item, .action = i}));
+        }
+
+        tll_free(bindings);
     }
 }
 
@@ -558,19 +574,19 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
      * User configurable bindings
      */
     tll_foreach(wayl->kbd.bindings.key, it) {
-        if (it->item.mods != effective_mods)
+        if (it->item.bind.mods != effective_mods)
             continue;
 
         /* Match symbol */
-        if (it->item.sym == sym) {
-            input_execute_binding(term, it->item.action, serial);
+        if (it->item.bind.sym == sym) {
+            execute_binding(term, it->item.action, serial);
             goto maybe_repeat;
         }
 
         /* Match raw key code */
-        tll_foreach(it->item.key_codes, code) {
+        tll_foreach(it->item.bind.key_codes, code) {
             if (code->item == key) {
-                input_execute_binding(term, it->item.action, serial);
+                execute_binding(term, it->item.action, serial);
                 goto maybe_repeat;
             }
         }
@@ -1192,7 +1208,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                         continue;
                     }
 
-                    input_execute_binding(term, binding->action, serial);
+                    execute_binding(term, binding->action, serial);
                     break;
                 }
                 selection_cancel(term);
