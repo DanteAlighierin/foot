@@ -233,6 +233,12 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
         can_punch_hole_initialized = true;
         can_punch_hole = fallocate(
             pool_fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1) == 0;
+
+        if (!can_punch_hole) {
+            LOG_WARN(
+                "fallocate(FALLOC_FL_PUNCH_HOLE) not "
+                "supported (%s): expect lower performance", strerror(errno));
+        }
     }
 
     /* Push to list of available buffers, but marked as 'busy' */
@@ -324,9 +330,6 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows)
 
     /* Free unused memory */
     if (fallocate(buf->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, new_offset) < 0) {
-        LOG_ERRNO(
-            "fallocate(FALLOC_FL_PUNCH_HOLE) not "
-            "supported: expect lower performance");
         abort();
     }
 
