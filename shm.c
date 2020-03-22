@@ -25,6 +25,9 @@
 
 static tll(struct buffer) buffers;
 
+static bool can_punch_hole = false;
+static bool can_punch_hole_initialized = false;
+
 static void
 buffer_destroy(struct buffer *buf)
 {
@@ -226,6 +229,12 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
         goto err;
     }
 
+    if (!can_punch_hole_initialized) {
+        can_punch_hole_initialized = true;
+        can_punch_hole = fallocate(
+            pool_fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1) == 0;
+    }
+
     /* Push to list of available buffers, but marked as 'busy' */
     tll_push_back(
         buffers,
@@ -273,6 +282,9 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows)
     assert(buf->wl_buf);
     assert(buf->real_mmapped);
     assert(buf->fd >= 0);
+
+    if (!can_punch_hole)
+        return false;
 
     LOG_DBG("scrolling %d rows (%d bytes)", rows, rows * buf->stride);
 
