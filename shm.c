@@ -289,27 +289,7 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows)
     if (ftruncate(buf->fd, new_offset + buf->size) < 0) {
         LOG_ERRNO("failed increase memfd size from %zu -> %zu",
                   buf->offset + buf->size, new_offset + buf->size);
-
-        /* Instantiate a new buffer and copy over our content */
-        struct buffer *fresh_buf = shm_get_buffer(shm, buf->width, buf->height, buf->cookie);
-
-        memcpy(fresh_buf->mmapped,
-               (const uint8_t *)buf->mmapped + rows * buf->stride,
-               buf->size - rows * buf->stride);
-
-        buffer_destroy(buf);
-        *buf = *fresh_buf;
-
-        assert(false);
-
-        /* Mark copied buffer for deletion, but make sure we don't
-         * free any of its resources */
-        fresh_buf->pix = NULL;
-        fresh_buf->wl_buf = NULL;
-        fresh_buf->real_mmapped = MAP_FAILED;
-        fresh_buf->fd = -1;
-        fresh_buf->purge = true;
-        return true;
+        return false;
     }
 
 #if TIME_SCROLL
