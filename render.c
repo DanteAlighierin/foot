@@ -1645,6 +1645,19 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         cursor_row,
         min(term->cursor.point.col, term->cols - 1));
 
+    /* If in alt screen, update the saved 'normal' cursor too */
+    if (term->grid == &term->alt) {
+        int cursor_row = last_normal_row - term->normal.offset;
+
+        while (cursor_row < 0)
+            cursor_row += term->grid->num_rows;
+
+        term->alt_saved_cursor.lcf = false;
+        term->alt_saved_cursor.point.row = cursor_row;
+        term->alt_saved_cursor.point.col = min(
+            term->alt_saved_cursor.point.col, term->cols - 1);
+    }
+
     term->render.last_cursor.cell = NULL;
 
 damage_view:
