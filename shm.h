@@ -13,19 +13,26 @@ struct buffer {
     int height;
     int stride;
 
-    bool purge;
-
     bool busy;
-    size_t size;
-    void *mmapped;
+    size_t size;           /* Buffer size */
+    void *mmapped;         /* Raw data */
 
     struct wl_buffer *wl_buf;
     pixman_image_t *pix;
+
+    /* Internal */
+    int fd;                /* memfd */
+    void *real_mmapped;    /* Address returned from mmap */
+    size_t mmap_size;      /* Size of mmap (>= size) */
+    size_t offset;         /* Offset into memfd where data begins */
+    bool purge;            /* True if this buffer should be destroyed */
 };
 
 struct buffer *shm_get_buffer(
     struct wl_shm *shm, int width, int height, unsigned long cookie);
 void shm_fini(void);
+
+bool shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows);
 
 void shm_purge(struct wl_shm *shm, unsigned long cookie);
 
