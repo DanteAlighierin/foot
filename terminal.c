@@ -32,6 +32,8 @@
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
+#define PTMX_TIMING 0
+
 static const char *const XCURSOR_LEFT_PTR = "left_ptr";
 static const char *const XCURSOR_TEXT = "text";
 static const char *const XCURSOR_HAND2 = "hand2";
@@ -125,8 +127,6 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
     return true;
 }
 
-#define PTMX_TIMING 0
-
 #if PTMX_TIMING
 static struct timespec last = {0};
 #endif
@@ -197,9 +197,10 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
          * compositor anyway. The delay we introduce here only
          * has any effect when the renderer is idle.
          */
-        if (term->window->frame_callback == NULL) {
-            /* First timeout - reset each time we receive input. */
+        uint64_t lower_ns = term->conf->tweak.delayed_render_lower_ns;
+        uint64_t upper_ns = term->conf->tweak.delayed_render_upper_ns;
 
+        if (lower_ns > 0 && upper_ns > 0) {
 #if PTMX_TIMING
             struct timespec now;
 
@@ -215,8 +216,6 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
             last = now;
 #endif
 
-            uint64_t lower_ns = term->conf->tweak.delayed_render_lower_ns;
-            uint64_t upper_ns = term->conf->tweak.delayed_render_upper_ns;
             assert(lower_ns < 1000000000);
             assert(upper_ns < 1000000000);
             assert(upper_ns > lower_ns);
@@ -236,7 +235,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
                 term->delayed_render_timer.is_armed = true;
             }
         } else
-            term->render.pending.grid = true;
+            render_refresh(term);
     }
 
     if (hup) {
