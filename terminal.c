@@ -396,8 +396,6 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
         return false;
 
     struct terminal *term = data;
-    if (!term->delayed_render_timer.is_armed)
-        return true;
 
     uint64_t unused;
     ssize_t ret1 = 0;
@@ -410,6 +408,9 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
 
     if ((ret1 < 0 || ret2 < 0)) {
         if (errno == EAGAIN)
+            return true;
+
+        if (!term->delayed_render_timer.is_armed)
             return true;
 
         LOG_ERRNO("failed to read timeout timer");
@@ -425,13 +426,15 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
     last = (struct timespec){0};
 #endif
 
-    render_refresh(term);
-
     /* Reset timers */
     struct itimerspec reset = {{0}};
     timerfd_settime(term->delayed_render_timer.lower_fd, 0, &reset, NULL);
     timerfd_settime(term->delayed_render_timer.upper_fd, 0, &reset, NULL);
-    term->delayed_render_timer.is_armed = false;
+
+    if (term->delayed_render_timer.is_armed) {
+        term->delayed_render_timer.is_armed = false;
+        render_refresh(term);
+    }
 
     return true;
 }
