@@ -281,8 +281,15 @@ shm_fini(void)
 }
 
 bool
+shm_can_scroll(void)
+{
+    return can_punch_hole;
+}
+
+bool
 shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows)
 {
+    assert(can_punch_hole);
     assert(buf->busy);
     assert(buf->pix);
     assert(buf->wl_buf);
