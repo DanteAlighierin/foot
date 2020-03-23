@@ -64,8 +64,6 @@ instantiate_offset(struct wl_shm *shm, struct buffer *buf, size_t new_offset)
     assert(buf->wl_buf == NULL);
     assert(buf->pix == NULL);
 
-    assert(new_offset >= buf->offset);
-
     static size_t page_size = 0;
     if (page_size == 0) {
         page_size = sysconf(_SC_PAGE_SIZE);
@@ -286,10 +284,10 @@ shm_can_scroll(void)
     return can_punch_hole;
 }
 
-bool
-shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
-           int top_margin, int top_keep_rows,
-           int bottom_margin, int bottom_keep_rows)
+static bool
+shm_scroll_forward(struct wl_shm *shm, struct buffer *buf, int rows,
+                   int top_margin, int top_keep_rows,
+                   int bottom_margin, int bottom_keep_rows)
 {
     assert(can_punch_hole);
     assert(buf->busy);
@@ -365,7 +363,6 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
     LOG_INFO("PUNCH HOLE: %lds %ldus", tot.tv_sec, tot.tv_usec);
 #endif
 
-
     bool ret = instantiate_offset(shm, buf, new_offset);
 
     if (ret && bottom_keep_rows > 0) {
@@ -387,7 +384,94 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
     return ret;
 }
 
-void
+static bool
+shm_scroll_reverse(struct wl_shm *shm, struct buffer *buf, int rows,
+                   int top_margin, int top_keep_rows,
+                   int bottom_margin, int bottom_keep_rows)
+{
+    assert(rows > 0);
+
+    size_t diff = rows * buf->stride;
+    if (diff > buf->offset)
+        return false;
+
+    const size_t new_offset = buf->offset - rows * buf->stride;
+    assert(new_offset < buf->offset);
+
+#if TIME_SCROLL
+    struct timeval time0;
+    gettimeofday(&time0, NULL);
+
+    struct timeval tot;
+    struct timeval time1 = time0;
+#endif
+
+    if (bottom_keep_rows > 0) {
+        /* Copy 'bottom' region to its new location */
+        memmove(
+            (uint8_t *)buf->mmapped + buf->size - (bottom_margin + rows + bottom_keep_rows) * buf->stride,
+            (uint8_t *)buf->mmapped + buf->size - (bottom_margin + bottom_keep_rows) * buf->stride,
+            bottom_keep_rows * buf->stride);
+
+#if TIME_SCROLL
+        gettimeofday(&time1, NULL);
+        timersub(&time1, &time0, &tot);
+        LOG_INFO("memmove (bottom region): %lds %ldus", tot.tv_sec, tot.tv_usec);
+#endif
+    }
+
+    /* Destroy old objects (they point to the old offset) */
+    pixman_image_unref(buf->pix);
+    wl_buffer_destroy(buf->wl_buf);
+    munmap(buf->real_mmapped, buf->mmap_size);
+
+    buf->pix = NULL;
+    buf->wl_buf = NULL;
+    buf->real_mmapped = buf->mmapped = NULL;
+
+    if (ftruncate(buf->fd, new_offset + buf->size) < 0) {
+        abort();
+    }
+
+#if TIME_SCROLL
+    struct timeval time2;
+    gettimeofday(&time2, NULL);
+    timersub(&time2, &time1, &tot);
+    LOG_INFO("ftruncate: %lds %ldus", tot.tv_sec, tot.tv_usec);
+#endif
+
+    bool ret = instantiate_offset(shm, buf, new_offset);
+
+    if (ret && top_keep_rows > 0) {
+        /* Copy current 'top' region to its new location */
+        memmove(
+            (uint8_t *)buf->mmapped + (top_margin + 0) * buf->stride,
+            (uint8_t *)buf->mmapped + (top_margin + rows) * buf->stride,
+            top_keep_rows * buf->stride);
+
+#if TIME_SCROLL
+        struct timeval time3;
+        gettimeofday(&time3, NULL);
+        timersub(&time3, &time2, &tot);
+        LOG_INFO("memmove (top region): %lds %ldus", tot.tv_sec, tot.tv_usec);
+#endif
+    }
+
+    return ret;
+}
+
+bool
+shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
+           int top_margin, int top_keep_rows,
+           int bottom_margin, int bottom_keep_rows)
+{
+    assert(rows != 0);
+    return rows > 0
+        ? shm_scroll_forward(shm, buf, rows, top_margin, top_keep_rows, bottom_margin, bottom_keep_rows)
+        : shm_scroll_reverse(shm, buf, -rows, top_margin, top_keep_rows, bottom_margin, bottom_keep_rows);
+}
+
+    void
 shm_purge(struct wl_shm *shm, unsigned long cookie)
 {
     LOG_DBG("cookie=%lx: purging all buffers", cookie);

@@ -602,14 +602,6 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
             term->wl->shm, buf, dmg->scroll.lines * term->cell_height,
             term->margins.top, dmg->scroll.region.start * term->cell_height,
             term->margins.bottom, (term->rows - dmg->scroll.region.end) * term->cell_height);
-
-        if (!did_shm_scroll)
-            LOG_DBG("fast scroll failed");
-    } else {
-        LOG_DBG(
-            "skipping SHM scroll "
-            "(region.start=%d, bottom-region-lines=%d, term-lines=%d)",
-            dmb->scroll.region.start, scroll_region_lines, term->rows);
     }
 
     if (did_shm_scroll) {
@@ -647,26 +639,65 @@ static void
 grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
                            const struct damage *dmg)
 {
-    int src_y = term->margins.top + (dmg->scroll.region.start + 0) * term->cell_height;
-    int dst_y = term->margins.top + (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
     int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * term->cell_height;
 
-    LOG_DBG("damage: SCROLL REVERSE: %d-%d by %d lines (dst-y: %d, src-y: %d, "
-            "height: %d, stride: %d, mmap-size: %zu)",
-            dmg->scroll.region.start, dmg->scroll.region.end,
-            dmg->scroll.lines,
-            dst_y, src_y, height, buf->stride,
-            buf->size);
+    LOG_DBG(
+        "damage: SCROLL REVERSE: %d-%d by %d lines"m
+        dmg->scroll.region.start, dmg->scroll.region.end, dmg->scroll.lines);
 
-    if (height > 0) {
+    if (height <= 0)
+        return;
+
+#if TIME_SCROLL_DAMAGE
+    struct timeval start_time;
+    gettimeofday(&start_time, NULL);
+#endif
+
+    int src_y = term->margins.top + (dmg->scroll.region.start + 0) * term->cell_height;
+    int dst_y = term->margins.top + (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
+
+    bool try_shm_scroll =
+        shm_can_scroll() && (dmg->scroll.lines +
+                             dmg->scroll.region.start +
+                             (term->rows - dmg->scroll.region.end)) < term->rows / 2;
+
+    bool did_shm_scroll = false;
+
+    if (try_shm_scroll) {
+        did_shm_scroll = shm_scroll(
+            term->wl->shm, buf, -dmg->scroll.lines * term->cell_height,
+            term->margins.top, dmg->scroll.region.start * term->cell_height,
+            term->margins.bottom, (term->rows - dmg->scroll.region.end) * term->cell_height);
+    }
+
+    if (did_shm_scroll) {
+        /* Restore margins */
+        render_margin(
+            term, buf, dmg->scroll.region.start, dmg->scroll.region.start + dmg->scroll.lines,
+            true, true);
+    } else {
+        /* Fallback for when we either cannot do SHM scrolling, or it failed */
         uint8_t *raw = buf->mmapped;
         memmove(raw + dst_y * buf->stride,
                 raw + src_y * buf->stride,
                 height * buf->stride);
-
-        wl_surface_damage_buffer(
-            term->window->surface, term->margins.left, dst_y, term->width - term->margins.left - term->margins.right, height);
     }
+
+#if TIME_SCROLL_DAMAGE
+    struct timeval end_time;
+    gettimeofday(&end_time, NULL);
+
+    struct timeval memmove_time;
+    timersub(&end_time, &start_time, &memmove_time);
+    LOG_INFO("scrolled REVERSE %dKB (%d lines) using %s in %lds %ldus",
+             height * buf->stride / 1024, dmg->scroll.lines,
+             did_shm_scroll ? "SHM" : try_shm_scroll ? "memmove (SHM failed)" :  "memmove",
+             memmove_time.tv_sec, memmove_time.tv_usec);
+#endif
+
+    wl_surface_damage_buffer(
+        term->window->surface, term->margins.left, dst_y,
+        term->width - term->margins.left - term->margins.right, height);
 }
 
 static void
