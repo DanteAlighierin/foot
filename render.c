@@ -1606,7 +1606,10 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 
     if (term->render.pending.grid) {
         term->render.pending.grid = false;
-        grid_render(term);
+
+        /* TODO: need to check if this breaks GNOME/weston */
+        if (!term->delayed_render_timer.is_armed)
+            grid_render(term);
     }
 }
 
