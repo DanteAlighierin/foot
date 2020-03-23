@@ -479,18 +479,20 @@ draw_cursor:
 }
 
 static void
-render_margin(struct terminal *term, struct buffer *buf, int start_line, int end_line)
+render_margin(struct terminal *term, struct buffer *buf, int start_line, int end_line,
+              bool top, bool bottom)
 {
     /* Fill area outside the cell grid with the default background color */
-    int rmargin = term->width - term->margins.right;
-    int bmargin = term->height - term->margins.bottom;
+    const int rmargin = term->width - term->margins.right;
+    const int bmargin = term->height - term->margins.bottom;
+    const int line_count = end_line - start_line;
 
     uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
     pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
     if (term->is_searching)
         pixman_color_dim(&bg);
 
-    if (start_line == 0) {
+    if (top) {
         pixman_image_fill_rectangles(
             PIXMAN_OP_SRC, buf->pix, &bg, 1,
             &(pixman_rectangle16_t){0, 0, term->width, term->margins.top});
@@ -498,7 +500,7 @@ render_margin(struct terminal *term, struct buffer *buf, int start_line, int end
             term->window->surface, 0, 0, term->width, term->margins.top);
     }
 
-    if (end_line == term->rows) {
+    if (bottom) {
         pixman_image_fill_rectangles(
             PIXMAN_OP_SRC, buf->pix, &bg, 1,
             &(pixman_rectangle16_t){0, bmargin, term->width, term->margins.bottom});
@@ -638,7 +640,8 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
 
         /* Restore margins */
         render_margin(
-            term, buf, dmg->scroll.region.end - dmg->scroll.lines, term->rows);
+            term, buf, dmg->scroll.region.end - dmg->scroll.lines, term->rows,
+            true, true);
     }
 
     /* Fallback for when we either cannot do SHM scrolling, or it failed */
@@ -1261,7 +1264,7 @@ grid_render(struct terminal *term)
         }
 
         else {
-            render_margin(term, buf, 0, term->rows);
+            render_margin(term, buf, 0, term->rows, true, true);
             term_damage_view(term);
         }
 
