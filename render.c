@@ -624,16 +624,16 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
         if (dmg->scroll.region.end < term->rows) {
             int src = dmg->scroll.region.end - dmg->scroll.lines;
             int dst = dmg->scroll.region.end;
-            size_t amount = max(0, term->rows - dmg->scroll.region.end);
+            size_t amount = term->rows - dmg->scroll.region.end;
 
             LOG_DBG("memmoving %zu lines of scroll region", amount);
-
             assert(src >= 0);
 
             uint8_t *raw = buf->mmapped;
-            memmove(raw + dst * term->cell_height * buf->stride,
-                    raw + src * term->cell_height * buf->stride,
-                    amount * term->cell_height * buf->stride);
+            memmove(
+                raw + (term->margins.top + dst * term->cell_height) * buf->stride,
+                raw + (term->margins.top + src * term->cell_height) * buf->stride,
+                amount * term->cell_height * buf->stride);
         }
 
         /* Restore margins */
