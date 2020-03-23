@@ -509,15 +509,26 @@ render_margin(struct terminal *term, struct buffer *buf, int start_line, int end
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix, &bg, 2,
         (pixman_rectangle16_t[]){
-                {0, term->margins.top + start_line * term->cell_height,
-                 term->margins.left, (end_line - start_line) * term->cell_height},          /* Left */
-                {rmargin, term->margins.top, term->margins.right, (end_line - start_line) * term->cell_height},   /* Right */
-                    });
+            /* Left */
+            {0, term->margins.top + start_line * term->cell_height,
+             term->margins.left, line_count * term->cell_height},
 
+            /* Right */
+            {rmargin, term->margins.top + start_line * term->cell_height,
+             term->margins.right, line_count * term->cell_height},
+    });
+
+    /* Left */
     wl_surface_damage_buffer(
-        term->window->surface, 0, term->margins.top, term->margins.left, (end_line - start_line) * term->cell_height);
+        term->window->surface,
+        0, term->margins.top + start_line * term->cell_height,
+        term->margins.left, line_count * term->cell_height);
+
+    /* Right */
     wl_surface_damage_buffer(
-        term->window->surface, rmargin, term->margins.top, term->margins.right, (end_line - start_line) * term->cell_height);
+        term->window->surface,
+        rmargin, term->margins.top + start_line * term->cell_height,
+        term->margins.right, line_count * term->cell_height);
 }
 
 static void
