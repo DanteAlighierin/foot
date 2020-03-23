@@ -287,7 +287,9 @@ shm_can_scroll(void)
 }
 
 bool
-shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows)
+shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
+           int top_margin, int top_keep_rows,
+           int bottom_margin, int bottom_keep_rows)
 {
     assert(can_punch_hole);
     assert(buf->busy);
@@ -323,8 +325,24 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows)
 
     struct timeval tot;
     timersub(&time1, &time0, &tot);
-    LOG_INFO("fallocate: %lds %ldus", tot.tv_sec, tot.tv_usec);
+    LOG_INFO("ftruncate: %lds %ldus", tot.tv_sec, tot.tv_usec);
+
+    struct timeval time2 = time1;
 #endif
+
+    if (top_keep_rows > 0) {
+        /* Copy current 'top' region to its new location */
+        memmove(
+            (uint8_t *)buf->mmapped + (top_margin + rows) * buf->stride,
+            (uint8_t *)buf->mmapped + (top_margin + 0) * buf->stride,
+            top_keep_rows * buf->stride);
+
+#if TIME_SCROLL
+        gettimeofday(&time2, NULL);
+        timersub(&time2, &time1, &tot);
+        LOG_INFO("memmove (top region): %lds %ldus", tot.tv_sec, tot.tv_usec);
+#endif
+    }
 
     /* Destroy old objects (they point to the old offset) */
     pixman_image_unref(buf->pix);
@@ -341,13 +359,32 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows)
     }
 
 #if TIME_SCROLL
-    struct timeval time2;
-    gettimeofday(&time2, NULL);
-    timersub(&time2, &time1, &tot);
+    struct timeval time3;
+    gettimeofday(&time3, NULL);
+    timersub(&time3, &time2, &tot);
     LOG_INFO("PUNCH HOLE: %lds %ldus", tot.tv_sec, tot.tv_usec);
 #endif
 
-    return instantiate_offset(shm, buf, new_offset);
+
+    bool ret = instantiate_offset(shm, buf, new_offset);
+
+    if (ret && bottom_keep_rows > 0) {
+        /* Copy 'bottom' region to its new location */
+        memmove(
+            (uint8_t *)buf->mmapped + buf->size - (bottom_margin + bottom_keep_rows) * buf->stride,
+            (uint8_t *)buf->mmapped + buf->size - (bottom_margin + rows + bottom_keep_rows) * buf->stride,
+            bottom_keep_rows * buf->stride);
+
+#if TIME_SCROLL
+        struct timeval time4;
+        gettimeofday(&time4, NULL);
+
+        timersub(&time4, &time3, &tot);
+        LOG_INFO("memmove (bottom region): %lds %ldus", tot.tv_sec, tot.tv_usec);
+#endif
+    }
+
+    return ret;
 }
 
 void

@@ -33,7 +33,9 @@ struct buffer *shm_get_buffer(
 void shm_fini(void);
 
 bool shm_can_scroll(void);
-bool shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows);
+bool shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
+                int top_margin, int top_keep_rows,
+                int bottom_margin, int bottom_keep_rows);
 
 void shm_purge(struct wl_shm *shm, unsigned long cookie);
 

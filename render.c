@@ -551,7 +551,6 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
     gettimeofday(&start_time, NULL);
 #endif
 
-    uint8_t *raw = buf->mmapped;
     int dst_y = term->margins.top + (dmg->scroll.region.start + 0) * term->cell_height;
     int src_y = term->margins.top + (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
 
@@ -563,12 +562,13 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
      * memmove, while scrolling a *small* number of lines is faster
      * with SHM scrolling.
      *
-     * However, since we need to restore the bottom scrolling region
-     * when SHM scrolling, we also need to take this into account.
+     * However, since we need to restore the scrolling regions when
+     * SHM scrolling, we also need to take this into account.
      *
-     * Finally, restoring the window margins is a *huge* performance
-     * hit when scrolling a large number of lines (in addition to the
-     * sloweness of SHM scrolling as method).
+     * Finally, we also have to restore the window margins, and this
+     * is a *huge* performance hit when scrolling a large number of
+     * lines (in addition to the sloweness of SHM scrolling as
+     * method).
      *
      * So, we need to figure out when to SHM scroll, and when to
      * memmove.
@@ -597,19 +597,11 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
     //try_shm_scroll = false;
     //try_shm_scroll = true;
 
-    /* TODO: this could easily use up all stack */
-    uint8_t top_region[dmg->scroll.region.start * term->cell_height * buf->stride];
-
     if (try_shm_scroll) {
-        if (dmg->scroll.region.start > 0) {
-            /* Store a copy of the top region - we need to restore it after scrolling */
-            memcpy(top_region,
-                   (uint8_t *)buf->mmapped + term->margins.top * buf->stride,
-                   sizeof(top_region));
-        }
-
         did_shm_scroll = shm_scroll(
-            term->wl->shm, buf, dmg->scroll.lines * term->cell_height);
+            term->wl->shm, buf, dmg->scroll.lines * term->cell_height,
+            term->margins.top, dmg->scroll.region.start * term->cell_height,
+            term->margins.bottom, (term->rows - dmg->scroll.region.end) * term->cell_height);
 
         if (!did_shm_scroll)
             LOG_DBG("fast scroll failed");
@@ -620,47 +612,14 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
             dmb->scroll.region.start, scroll_region_lines, term->rows);
     }
 
-    /*
-     * When SHM scrolling succeeded, the scrolled in area is made up
-     * of newly allocated, zero-initialized memory. Thus we'll need to
-     * both copy the bottom scrolling region, and re-render the window
-     * margins.
-     *
-     * This is different from when we scroll with a simple memmove,
-     * since in that case, the scrolling region and margins are
-     * *copied*, and thus the original region+margin remains in place.
-     */
     if (did_shm_scroll) {
-
-        /* Mmap changed - update buffer pointer */
-        raw = buf->mmapped;
-
-        /* Restore top scrolling region */
-        memcpy(raw + term->margins.top * buf->stride, top_region, sizeof(top_region));
-
-        /* Restore bottom scrolling region */
-        if (dmg->scroll.region.end < term->rows) {
-            int src = dmg->scroll.region.end - dmg->scroll.lines;
-            int dst = dmg->scroll.region.end;
-            size_t amount = term->rows - dmg->scroll.region.end;
-
-            LOG_DBG("memmoving %zu lines of scroll region", amount);
-            assert(src >= 0);
-
-            memmove(
-                raw + (term->margins.top + dst * term->cell_height) * buf->stride,
-                raw + (term->margins.top + src * term->cell_height) * buf->stride,
-                amount * term->cell_height * buf->stride);
-        }
 
         /* Restore margins */
         render_margin(
             term, buf, dmg->scroll.region.end - dmg->scroll.lines, term->rows,
             true, true);
-    }
-
-    /* Fallback for when we either cannot do SHM scrolling, or it failed */
-    if (!did_shm_scroll) {
+    } else {
+        /* Fallback for when we either cannot do SHM scrolling, or it failed */
         uint8_t *raw = buf->mmapped;
         memmove(raw + dst_y * buf->stride,
                 raw + src_y * buf->stride,
