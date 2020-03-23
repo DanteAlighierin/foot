@@ -551,6 +551,7 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
     gettimeofday(&start_time, NULL);
 #endif
 
+    uint8_t *raw = buf->mmapped;
     int dst_y = term->margins.top + (dmg->scroll.region.start + 0) * term->cell_height;
     int src_y = term->margins.top + (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
 
@@ -587,15 +588,26 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
      * SHM. Otherwise use memmove.
      */
     bool try_shm_scroll =
-        dmg->scroll.region.start == 0 &&
-        dmg->scroll.lines + (term->rows - dmg->scroll.region.end) < term->rows / 2;
+        shm_can_scroll() && (dmg->scroll.lines +
+                             dmg->scroll.region.start +
+                             (term->rows - dmg->scroll.region.end)) < term->rows / 2;
 
     bool did_shm_scroll = false;
 
     //try_shm_scroll = false;
     //try_shm_scroll = true;
 
+    /* TODO: this could easily use up all stack */
+    uint8_t top_region[dmg->scroll.region.start * term->cell_height * buf->stride];
+
     if (try_shm_scroll) {
+        if (dmg->scroll.region.start > 0) {
+            /* Store a copy of the top region - we need to restore it after scrolling */
+            memcpy(top_region,
+                   (uint8_t *)buf->mmapped + term->margins.top * buf->stride,
+                   sizeof(top_region));
+        }
+
         did_shm_scroll = shm_scroll(
             term->wl->shm, buf, dmg->scroll.lines * term->cell_height);
 
@@ -620,6 +632,12 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
      */
     if (did_shm_scroll) {
 
+        /* Mmap changed - update buffer pointer */
+        raw = buf->mmapped;
+
+        /* Restore top scrolling region */
+        memcpy(raw + term->margins.top * buf->stride, top_region, sizeof(top_region));
+
         /* Restore bottom scrolling region */
         if (dmg->scroll.region.end < term->rows) {
             int src = dmg->scroll.region.end - dmg->scroll.lines;
@@ -629,7 +647,6 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
             LOG_DBG("memmoving %zu lines of scroll region", amount);
             assert(src >= 0);
 
-            uint8_t *raw = buf->mmapped;
             memmove(
                 raw + (term->margins.top + dst * term->cell_height) * buf->stride,
                 raw + (term->margins.top + src * term->cell_height) * buf->stride,
