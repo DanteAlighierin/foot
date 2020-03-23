@@ -599,18 +599,6 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
         did_shm_scroll = shm_scroll(
             term->wl->shm, buf, dmg->scroll.lines * term->cell_height);
 
-        /*
-         * When SHM scrolling succeeded, the scrolled in area is made
-         * up of newly allocated, zero-initialized memory. Thus we'll
-         * need to both copy the bottom scrolling region, and
-         * re-render the window margins.
-         *
-         * This is different from when we scroll with a simple
-         * memmove, since in that case, the scrolling region and
-         * margins are *copied*, and thus the original region+margin
-         * remains in place.
-         */
-
         if (!did_shm_scroll)
             LOG_DBG("fast scroll failed");
     } else {
@@ -620,6 +608,16 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
             dmb->scroll.region.start, scroll_region_lines, term->rows);
     }
 
+    /*
+     * When SHM scrolling succeeded, the scrolled in area is made up
+     * of newly allocated, zero-initialized memory. Thus we'll need to
+     * both copy the bottom scrolling region, and re-render the window
+     * margins.
+     *
+     * This is different from when we scroll with a simple memmove,
+     * since in that case, the scrolling region and margins are
+     * *copied*, and thus the original region+margin remains in place.
+     */
     if (did_shm_scroll) {
 
         /* Restore bottom scrolling region */
