@@ -1269,6 +1269,7 @@ grid_render(struct terminal *term)
         }
 
         else {
+            tll_free(term->grid->scroll_damage);
             render_margin(term, buf, 0, term->rows, true, true);
             term_damage_view(term);
         }
