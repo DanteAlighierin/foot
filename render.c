@@ -1440,6 +1440,7 @@ grid_render(struct terminal *term)
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
         /* TODO: dim while searching */
+        pixman_image_set_clip_region(buf->pix, NULL);
         pixman_image_fill_rectangles(
             PIXMAN_OP_OVER, buf->pix,
             &(pixman_color_t){.red=0x7fff, .green=0x7fff, .blue=0, .alpha=0x7fff},
