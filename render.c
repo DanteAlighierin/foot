@@ -1455,30 +1455,25 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     wl_callback_destroy(wl_callback);
     term->window->frame_callback = NULL;
 
-    if (term->render.pending.csd) {
-        term->render.pending.csd = false;
+    bool grid = term->render.pending.grid;
+    bool csd = term->render.pending.csd;
+    bool search = term->render.pending.search;
 
-        if (term->window->use_csd == CSD_YES) {
-            quirk_weston_csd_on(term);
-            render_csd(term);
-            quirk_weston_csd_off(term);
-        }
+    term->render.pending.grid = false;
+    term->render.pending.csd = false;
+    term->render.pending.search = false;
+
+    if (csd && term->window->use_csd == CSD_YES) {
+        quirk_weston_csd_on(term);
+        render_csd(term);
+        quirk_weston_csd_off(term);
     }
 
-    if (term->render.pending.search) {
-        term->render.pending.search = false;
+    if (search && term->is_searching)
+        render_search_box(term);
 
-        if (term->is_searching)
-            render_search_box(term);
-    }
-
-    if (term->render.pending.grid) {
-        term->render.pending.grid = false;
-
-        /* TODO: need to check if this breaks GNOME/weston */
-        if (!term->delayed_render_timer.is_armed)
-            grid_render(term);
-    }
+    if (grid && (!term->delayed_render_timer.is_armed || csd || search))
+        grid_render(term);
 }
 
 /* Move to terminal.c? */
@@ -1823,9 +1818,9 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
                 grid_render(term);
         } else {
             /* Tells the frame callback to render again */
-            term->render.pending.grid = grid;
-            term->render.pending.csd = csd;
-            term->render.pending.search = search;
+            term->render.pending.grid |= grid;
+            term->render.pending.csd |= csd;
+            term->render.pending.search |= search;
         }
     }
 
