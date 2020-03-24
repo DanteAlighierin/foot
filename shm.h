@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <sys/types.h>
 
 #include <pixman.h>
 #include <wayland-client.h>
@@ -24,7 +25,7 @@ struct buffer {
     int fd;                /* memfd */
     void *real_mmapped;    /* Address returned from mmap */
     size_t mmap_size;      /* Size of mmap (>= size) */
-    size_t offset;         /* Offset into memfd where data begins */
+    off_t offset;          /* Offset into memfd where data begins */
     bool purge;            /* True if this buffer should be destroyed */
 };
 

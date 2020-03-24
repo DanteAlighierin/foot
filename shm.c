@@ -23,13 +23,33 @@
 
 #define TIME_SCROLL 0
 
+/*
+ * Maximum memfd size allowed.
+ *
+ * On 64-bit, we could in theory use up to 2GB (wk_shm_create_pool()
+ * is limited to int32_t), since we never mmap() the entire region.
+ *
+ * The compositor is different matter - it needs to mmap() the entire
+ * range, and *keep* the mapping for as long as is has buffers
+ * referencing it (thus - always). And if we open multiple terminals,
+ * then the required address space multiples...
+ *
+ * That said, 128TB (the total amount of available user address space
+ * on 64-bit) is *a lot*; we can fit 67108864 2GB memfds into
+ * that. But, let's be conservative for now.
+ *
+ * On 32-bit the available address space is too small and SHM
+ * scrolling is disabled.
+ */
+static const off_t max_pool_size = 256 * 1024 * 1024;
+
 static tll(struct buffer) buffers;
 
 static bool can_punch_hole = false;
 static bool can_punch_hole_initialized = false;
 
 static void
-buffer_destroy(struct buffer *buf)
+buffer_destroy_dont_close(struct buffer *buf)
 {
     if (buf->pix != NULL)
         pixman_image_unref(buf->pix);
@@ -37,8 +57,20 @@ buffer_destroy(struct buffer *buf)
         wl_buffer_destroy(buf->wl_buf);
     if (buf->real_mmapped != MAP_FAILED)
         munmap(buf->real_mmapped, buf->mmap_size);
+
+    buf->pix = NULL;
+    buf->wl_buf = NULL;
+    buf->real_mmapped = NULL;
+    buf->mmapped = NULL;
+}
+
+static void
+buffer_destroy(struct buffer *buf)
+{
+    buffer_destroy_dont_close(buf);
     if (buf->fd >= 0)
         close(buf->fd);
+    buf->fd = -1;
 }
 
 static void
@@ -55,24 +87,30 @@ static const struct wl_buffer_listener buffer_listener = {
     .release = &buffer_release,
 };
 
+static size_t
+page_size(void)
+{
+    static size_t size = 0;
+    if (size == 0) {
+        size = sysconf(_SC_PAGE_SIZE);
+        if (size < 0) {
+            LOG_ERRNO("failed to get page size");
+            size = 4096;
+        }
+    }
+    assert(size > 0);
+    return size;
+}
+
 static bool
-instantiate_offset(struct wl_shm *shm, struct buffer *buf, size_t new_offset)
+instantiate_offset(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
 {
     assert(buf->fd >= 0);
     assert(buf->mmapped == NULL);
     assert(buf->real_mmapped == NULL);
     assert(buf->wl_buf == NULL);
     assert(buf->pix == NULL);
-
-    static size_t page_size = 0;
-    if (page_size == 0) {
-        page_size = sysconf(_SC_PAGE_SIZE);
-        if (page_size < 0) {
-            LOG_ERRNO("failed to get page size");
-            page_size = 4096;
-        }
-    }
-    assert(page_size > 0);
+    assert(new_offset + buf->size <= max_pool_size);
 
     void *real_mmapped = MAP_FAILED;
     void *mmapped = MAP_FAILED;
@@ -81,8 +119,8 @@ instantiate_offset(struct wl_shm *shm, struct buffer *buf, size_t new_offset)
     pixman_image_t *pix = NULL;
 
     /* mmap offset must be page aligned */
-    size_t aligned_offset = new_offset & ~(page_size - 1);
-    size_t page_offset = new_offset & (page_size - 1);
+    off_t aligned_offset = new_offset & ~(page_size() - 1);
+    size_t page_offset = new_offset & (page_size() - 1);
     size_t mmap_size = buf->size + page_offset;
 
     assert(aligned_offset <= new_offset);
@@ -222,7 +260,17 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
         goto err;
     }
 
-    if (ftruncate(pool_fd, size) == -1) {
+    /*
+     * If we can figure our if we can punch holes *before* this, we
+     * could set the initial offset to somewhere in the middle of the
+     * avaiable address space. This would allow both backward and
+     * forward scrolling without immediately needing to wrap.
+     */
+    //off_t initial_offset = (max_pool_size / 4) & ~(page_size() - 1);
+    off_t initial_offset = 0;
+    off_t memfd_size = initial_offset + size;
+
+    if (ftruncate(pool_fd, memfd_size) == -1) {
         LOG_ERRNO("failed to truncate SHM pool");
         goto err;
     }
@@ -256,7 +304,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie)
         );
 
     struct buffer *ret = &tll_back(buffers);
-    if (!instantiate_offset(shm, ret, 0))
+    if (!instantiate_offset(shm, ret, initial_offset))
         goto err;
     return ret;
 
@@ -281,7 +329,36 @@ shm_fini(void)
 bool
 shm_can_scroll(void)
 {
+#if defined(__i386__)
+    /* Not enough virtual address space in 32-bit */
+    return false;
+#else
     return can_punch_hole;
+#endif
+}
+
+static bool
+wrap_buffer(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
+{
+    off_t aligned_offset = new_offset & ~(page_size() - 1);
+    size_t page_offset = new_offset & (page_size() - 1);
+    size_t mmap_size = buf->size + page_offset;
+
+    assert(aligned_offset <= new_offset);
+    assert(mmap_size >= buf->size);
+
+    uint8_t *m = mmap(NULL, mmap_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_UNINITIALIZED, buf->fd, aligned_offset);
+    if (m == MAP_FAILED) {
+        LOG_ERRNO("failed to mmap");
+        return false;
+    }
+
+    memcpy(m + page_offset, buf->mmapped, buf->size);
+    munmap(m, mmap_size);
+
+    /* Re-instantiate pixman+wl_buffer+raw pointersw */
+    buffer_destroy_dont_close(buf);
+    return instantiate_offset(shm, buf, new_offset);
 }
 
 static bool
@@ -303,7 +380,22 @@ shm_scroll_forward(struct wl_shm *shm, struct buffer *buf, int rows,
 
     assert(rows > 0);
     assert(rows * buf->stride < buf->size);
-    const size_t new_offset = buf->offset + rows * buf->stride;
+
+    if (buf->offset + rows * buf->stride + buf->size > max_pool_size) {
+        LOG_INFO("memfd offset wrap around");
+        assert(buf->offset > buf->size);
+
+        /*
+         * Wrap around by moving the offset to the beginning of the
+         * memfd. The ftruncate() we do below takes care of trimming
+         * down the size.
+         */
+        if (!wrap_buffer(shm, buf, 0))
+            goto err;
+    }
+
+    off_t new_offset = buf->offset + rows * buf->stride;
+    assert(new_offset + buf->size <= max_pool_size);
 
 #if TIME_SCROLL
     struct timeval time0;
@@ -312,9 +404,9 @@ shm_scroll_forward(struct wl_shm *shm, struct buffer *buf, int rows,
 
     /* Increase file size */
     if (ftruncate(buf->fd, new_offset + buf->size) < 0) {
-        LOG_ERRNO("failed increase memfd size from %zu -> %zu",
+        LOG_ERRNO("failed to resize memfd from %zu -> %zu",
                   buf->offset + buf->size, new_offset + buf->size);
-        return false;
+        goto err;
     }
 
 #if TIME_SCROLL
@@ -343,18 +435,16 @@ shm_scroll_forward(struct wl_shm *shm, struct buffer *buf, int rows,
     }
 
     /* Destroy old objects (they point to the old offset) */
-    pixman_image_unref(buf->pix);
-    wl_buffer_destroy(buf->wl_buf);
-    munmap(buf->real_mmapped, buf->mmap_size);
-
-    buf->pix = NULL;
-    buf->wl_buf = NULL;
-    buf->real_mmapped = buf->mmapped = NULL;
+    buffer_destroy_dont_close(buf);
 
     /* Free unused memory */
-    if (fallocate(buf->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, new_offset) < 0) {
-        abort();
+    if (new_offset > 0 &&
+        fallocate(buf->fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, new_offset) < 0)
+    {
+        LOG_ERRNO("fallocate(FALLOC_FL_PUNCH_HOLE, 0, %lu) failed", new_offset);
+        goto err;
     }
+
 
 #if TIME_SCROLL
     struct timeval time3;
@@ -363,6 +453,7 @@ shm_scroll_forward(struct wl_shm *shm, struct buffer *buf, int rows,
     LOG_INFO("PUNCH HOLE: %lds %ldus", tot.tv_sec, tot.tv_usec);
 #endif
 
+    /* Re-instantiate pixman+wl_buffer+raw pointersw */
     bool ret = instantiate_offset(shm, buf, new_offset);
 
     if (ret && bottom_keep_rows > 0) {
@@ -382,6 +473,10 @@ shm_scroll_forward(struct wl_shm *shm, struct buffer *buf, int rows,
     }
 
     return ret;
+
+err:
+    abort();
+    return false;
 }
 
 static bool
@@ -391,12 +486,27 @@ shm_scroll_reverse(struct wl_shm *shm, struct buffer *buf, int rows,
 {
     assert(rows > 0);
 
-    size_t diff = rows * buf->stride;
-    if (diff > buf->offset)
-        return false;
+    off_t diff = rows * buf->stride;
+    if (diff > buf->offset) {
+        LOG_INFO("memfd offset reverse wrap-around");
 
-    const size_t new_offset = buf->offset - rows * buf->stride;
-    assert(new_offset < buf->offset);
+        /*
+         * Wrap around by resizing the memfd and moving the offset to
+         * the end of the file, taking care the new offset is aligned.
+         */
+
+        if (ftruncate(buf->fd, max_pool_size) < 0) {
+            LOG_ERRNO("failed to resize memfd from %zu -> %zu",
+                      buf->offset + buf->size, max_pool_size - buf->size);
+            goto err;
+        }
+
+        if (!wrap_buffer(shm, buf, (max_pool_size - buf->size) & ~(page_size() - 1)))
+            goto err;
+    }
+
+    off_t new_offset = buf->offset - diff;
+    assert(new_offset <= max_pool_size);
 
 #if TIME_SCROLL
     struct timeval time0;
@@ -421,16 +531,12 @@ shm_scroll_reverse(struct wl_shm *shm, struct buffer *buf, int rows,
     }
 
     /* Destroy old objects (they point to the old offset) */
-    pixman_image_unref(buf->pix);
-    wl_buffer_destroy(buf->wl_buf);
-    munmap(buf->real_mmapped, buf->mmap_size);
-
-    buf->pix = NULL;
-    buf->wl_buf = NULL;
-    buf->real_mmapped = buf->mmapped = NULL;
+    buffer_destroy_dont_close(buf);
 
     if (ftruncate(buf->fd, new_offset + buf->size) < 0) {
-        abort();
+        LOG_ERRNO("failed to resize memfd from %zu -> %zu",
+                  buf->offset + buf->size, new_offset + buf->size);
+        goto err;
     }
 
 #if TIME_SCROLL
@@ -440,6 +546,7 @@ shm_scroll_reverse(struct wl_shm *shm, struct buffer *buf, int rows,
     LOG_INFO("ftruncate: %lds %ldus", tot.tv_sec, tot.tv_usec);
 #endif
 
+    /* Re-instantiate pixman+wl_buffer+raw pointers */
     bool ret = instantiate_offset(shm, buf, new_offset);
 
     if (ret && top_keep_rows > 0) {
@@ -458,6 +565,10 @@ shm_scroll_reverse(struct wl_shm *shm, struct buffer *buf, int rows,
     }
 
     return ret;
+
+err:
+    abort();
+    return false;
 }
 
 bool
