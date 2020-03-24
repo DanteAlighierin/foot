@@ -1279,6 +1279,7 @@ grid_render(struct terminal *term)
         term->render.was_searching = term->is_searching;
     }
 
+    /* Set clip region to prevent cells from overflowing into the margins */
     pixman_region16_t clip;
     pixman_region_init_rect(
         &clip,
