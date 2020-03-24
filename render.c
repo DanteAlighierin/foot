@@ -1330,8 +1330,8 @@ grid_render(struct terminal *term)
         tll_remove(term->grid->scroll_damage, it);
     }
 
+    /* Reset clip region since scrolling may have instantiated a new pixman image */
     pixman_image_set_clip_region(buf->pix, &clip);
-    wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
 
     if (term->render.workers.count > 0) {
 
@@ -1485,6 +1485,8 @@ grid_render(struct terminal *term)
         }
     }
 
+    wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
+    quirk_kde_damage_before_attach(term->window->surface);
     wl_surface_commit(term->window->surface);
 
 #if TIME_FRAME_RENDERING
