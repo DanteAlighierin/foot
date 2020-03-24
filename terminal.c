@@ -409,9 +409,6 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
         if (errno == EAGAIN)
             return true;
 
-        if (!term->delayed_render_timer.is_armed)
-            return true;
-
         LOG_ERRNO("failed to read timeout timer");
         return false;
     }
@@ -421,6 +418,9 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
     else if (ret2 > 0)
         LOG_DBG("upper delay timer expired");
 
+    if (ret1 == 0 && ret2 == 0)
+        return true;
+
 #if PTMX_TIMING
     last = (struct timespec){0};
 #endif
@@ -429,12 +429,9 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
     struct itimerspec reset = {{0}};
     timerfd_settime(term->delayed_render_timer.lower_fd, 0, &reset, NULL);
     timerfd_settime(term->delayed_render_timer.upper_fd, 0, &reset, NULL);
+    term->delayed_render_timer.is_armed = false;
 
-    if (term->delayed_render_timer.is_armed) {
-        term->delayed_render_timer.is_armed = false;
-        render_refresh(term);
-    }
-
+    render_refresh(term);
     return true;
 }
 
