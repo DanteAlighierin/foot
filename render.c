@@ -1603,6 +1603,24 @@ render_search_box(struct terminal *term)
 }
 
 static void
+render_update_title(struct terminal *term)
+{
+    /* TODO: figure out what the limit actually is */
+    static const size_t max_len = 100;
+
+    const char *title = term->window_title != NULL ? term->window_title : "foot";
+    char *copy = NULL;
+
+    if (strlen(title) > max_len) {
+        copy = strndup(title, max_len);
+        title = copy;
+    }
+
+    xdg_toplevel_set_title(term->window->xdg_toplevel, title);
+    free(copy);
+}
+
+static void
 frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
 {
     struct terminal *term = data;
@@ -1614,16 +1632,21 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     bool grid = term->render.pending.grid;
     bool csd = term->render.pending.csd;
     bool search = term->render.pending.search;
+    bool title = term->render.pending.title;
 
     term->render.pending.grid = false;
     term->render.pending.csd = false;
     term->render.pending.search = false;
+    term->render.pending.title = false;
 
     if (csd && term->window->use_csd == CSD_YES) {
         quirk_weston_csd_on(term);
         render_csd(term);
         quirk_weston_csd_off(term);
     }
+
+    if (title)
+        render_update_title(term);
 
     if (search && term->is_searching)
         render_search_box(term);
@@ -1957,10 +1980,12 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         bool grid = term->render.refresh.grid;
         bool csd = term->render.refresh.csd;
         bool search = term->render.refresh.search;
+        bool title = term->render.refresh.title;
 
         term->render.refresh.grid = false;
         term->render.refresh.csd = false;
         term->render.refresh.search = false;
+        term->render.refresh.title = false;
 
         if (term->window->frame_callback == NULL) {
             if (csd && term->window->use_csd == CSD_YES) {
@@ -1968,6 +1993,8 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
                 render_csd(term);
                 quirk_weston_csd_off(term);
             }
+            if (title)
+                render_update_title(term);
             if (search)
                 render_search_box(term);
             if (grid)
@@ -1977,6 +2004,7 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
             term->render.pending.grid |= grid;
             term->render.pending.csd |= csd;
             term->render.pending.search |= search;
+            term->render.pending.title |= title;
         }
     }
 
@@ -1991,21 +2019,9 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
 }
 
 void
-render_set_title(struct terminal *term, const char *_title)
+render_refresh_title(struct terminal *term)
 {
-    /* TODO: figure out what the limit actually is */
-    static const size_t max_len = 100;
-
-    const char *title = _title;
-    char *copy = NULL;
-
-    if (strlen(title) > max_len) {
-        copy = strndup(_title, max_len);
-        title = copy;
-    }
-
-    xdg_toplevel_set_title(term->window->xdg_toplevel, title);
-    free(copy);
+    term->render.refresh.title = true;
 }
 
 void

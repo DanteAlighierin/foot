@@ -1943,7 +1943,7 @@ term_set_window_title(struct terminal *term, const char *title)
 {
     free(term->window_title);
     term->window_title = strdup(title);
-    render_set_title(term, term->window_title);
+    render_refresh_title(term);
 }
 
 void
