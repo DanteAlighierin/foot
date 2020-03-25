@@ -264,8 +264,12 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
     if (scrollable && !can_punch_hole) {
         initial_offset = 0;
         memfd_size = size;
-        ftruncate(pool_fd, memfd_size);
         scrollable = false;
+
+        if (ftruncate(pool_fd, memfd_size) < 0) {
+            LOG_ERRNO("failed to set size of SHM backing memory file");
+            goto err;
+        }
     }
 
     real_mmapped = mmap(
