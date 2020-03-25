@@ -588,9 +588,10 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
      * SHM. Otherwise use memmove.
      */
     bool try_shm_scroll =
-        shm_can_scroll() && (dmg->scroll.lines +
-                             dmg->scroll.region.start +
-                             (term->rows - dmg->scroll.region.end)) < term->rows / 2;
+        shm_can_scroll(buf) && (
+            dmg->scroll.lines +
+            dmg->scroll.region.start +
+            (term->rows - dmg->scroll.region.end)) < term->rows / 2;
 
     bool did_shm_scroll = false;
 
@@ -657,9 +658,10 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
     int dst_y = term->margins.top + (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
 
     bool try_shm_scroll =
-        shm_can_scroll() && (dmg->scroll.lines +
-                             dmg->scroll.region.start +
-                             (term->rows - dmg->scroll.region.end)) < term->rows / 2;
+        shm_can_scroll(buf) && (
+            dmg->scroll.lines +
+            dmg->scroll.region.start +
+            (term->rows - dmg->scroll.region.end)) < term->rows / 2;
 
     bool did_shm_scroll = false;
 
@@ -912,7 +914,7 @@ render_csd_title(struct terminal *term)
 
     unsigned long cookie = shm_cookie_csd(term, CSD_SURF_TITLE);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, info.width, info.height, cookie);
+        term->wl->shm, info.width, info.height, cookie, false);
 
     uint32_t _color = term->colors.default_fg;
     uint16_t alpha = 0xffff;
@@ -943,7 +945,7 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, info.width, info.height, cookie);
+        term->wl->shm, info.width, info.height, cookie, false);
 
     pixman_color_t color = color_hex_to_pixman_with_alpha(0, 0);
     render_csd_part(term, surf, buf, info.width, info.height, &color);
@@ -1112,7 +1114,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
 
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, info.width, info.height, cookie);
+        term->wl->shm, info.width, info.height, cookie, false);
 
     uint32_t _color;
     uint16_t alpha = 0xffff;
@@ -1239,7 +1241,7 @@ grid_render(struct terminal *term)
 
     unsigned long cookie = shm_cookie_grid(term);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, term->width, term->height, cookie);
+        term->wl->shm, term->width, term->height, cookie, true);
 
     pixman_image_set_clip_region(buf->pix, NULL);
 
@@ -1526,7 +1528,7 @@ render_search_box(struct terminal *term)
     size_t glyph_offset = term->render.search_glyph_offset;
 
     unsigned long cookie = shm_cookie_search(term);
-    struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
+    struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie, false);
 
     /* Background - yellow on empty/match, red on mismatch */
     pixman_color_t color = color_hex_to_pixman(
