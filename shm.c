@@ -277,6 +277,15 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
         goto err;
     }
 
+    /* Seal file - we no longer allow any kind of resizing */
+    /* TODO: wayland mmaps(PROT_WRITE), for some unknown reason, hence we cannot use F_SEAL_FUTURE_WRITE */
+    if (fcntl(pool_fd, F_ADD_SEALS,
+              F_SEAL_GROW | F_SEAL_SHRINK | /*F_SEAL_FUTURE_WRITE |*/ F_SEAL_SEAL) < 0)
+    {
+        LOG_ERRNO("failed to seal SHM backing memory file");
+        goto err;
+    }
+
     pool = wl_shm_create_pool(shm, pool_fd, memfd_size);
     if (pool == NULL) {
         LOG_ERR("failed to create SHM pool");
