@@ -2052,6 +2052,7 @@ term_enable_app_sync_updates(struct terminal *term)
     timerfd_settime(
         term->delayed_render_timer.upper_fd, 0,
         &(struct itimerspec){{0}}, NULL);
+    term->delayed_render_timer.is_armed = false;
 }
 
 void
