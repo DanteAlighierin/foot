@@ -22,6 +22,7 @@
 #include "wayland.h"
 
 #define ALEN(v) (sizeof(v) / sizeof(v[0]))
+#define min(x, y) ((x) < (y) ? (x) : (y))
 
 static const uint32_t default_foreground = 0xdcdccc;
 static const uint32_t default_background = 0x111111;
@@ -621,6 +622,18 @@ parse_section_tweak(
         LOG_WARN("tweak: delayed-render-upper=%lu", ns);
     }
 
+    else if (strcmp(key, "max-shm-pool-size-mb") == 0) {
+        unsigned long mb;
+        if (!str_to_ulong(value, 10, &mb)) {
+            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->tweak.max_shm_pool_size = min(mb * 1024 * 1024, INT32_MAX);
+        LOG_WARN("tweak: max-shm-pool-size=%lu bytes",
+                 conf->tweak.max_shm_pool_size);
+    }
+
     else {
         LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
         return false;
@@ -890,6 +903,7 @@ config_load(struct config *conf, const char *conf_path)
         .tweak = {
             .delayed_render_lower_ns = 500000,         /* 0.5ms */
             .delayed_render_upper_ns = 16666666 / 2,   /* half a frame period (60Hz) */
+            .max_shm_pool_size = 512 * 1024 * 1024,
         },
     };
 

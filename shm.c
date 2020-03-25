@@ -42,14 +42,22 @@
  *
  * On 32-bit the available address space is too small and SHM
  * scrolling is disabled.
+ *
+ * Note: this is the _default_ size. It can be overridden by calling
+ * shm_set_max_pool_size();
  */
-static const off_t max_pool_size = 512 * 1024 * 1024;
-//static const off_t max_pool_size = INT32_MAX;
+static off_t max_pool_size = 512 * 1024 * 1024;
 
 static tll(struct buffer) buffers;
 
 static bool can_punch_hole = false;
 static bool can_punch_hole_initialized = false;
+
+void
+shm_set_max_pool_size(off_t _max_pool_size)
+{
+    max_pool_size = _max_pool_size;
+}
 
 static void
 buffer_destroy_dont_close(struct buffer *buf)
@@ -78,6 +86,15 @@ buffer_destroy(struct buffer *buf)
     buf->real_mmapped = MAP_FAILED;
     buf->pool = NULL;
     buf->fd = -1;
+}
+
+void
+shm_fini(void)
+{
+    tll_foreach(buffers, it) {
+        buffer_destroy(&it->item);
+        tll_remove(buffers, it);
+    }
 }
 
 static void
@@ -244,6 +261,8 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
     off_t memfd_size = scrollable ? max_pool_size : size;
 #endif
 
+    LOG_DBG("memfd-size: %lu, initial offset: %lu", memfd_size, initial_offset);
+
     if (ftruncate(pool_fd, memfd_size) == -1) {
         LOG_ERRNO("failed to set size of SHM backing memory file");
         goto err;
@@ -331,15 +350,6 @@ err:
     /* We don't handle this */
     abort();
     return NULL;
-}
-
-void
-shm_fini(void)
-{
-    tll_foreach(buffers, it) {
-        buffer_destroy(&it->item);
-        tll_remove(buffers, it);
-    }
 }
 
 bool

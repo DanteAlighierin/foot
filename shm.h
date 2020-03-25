@@ -37,6 +37,7 @@ struct buffer *shm_get_buffer(
     struct wl_shm *shm, int width, int height, unsigned long cookie, bool scrollable);
 void shm_fini(void);
 
+void shm_set_max_pool_size(off_t max_pool_size);
 bool shm_can_scroll(const struct buffer *buf);
 bool shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
                 int top_margin, int top_keep_rows,
