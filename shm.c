@@ -133,7 +133,6 @@ instantiate_offset(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
     assert(buf->mmapped == NULL);
     assert(buf->wl_buf == NULL);
     assert(buf->pix == NULL);
-    assert(new_offset + buf->size <= max_pool_size);
 
     void *mmapped = MAP_FAILED;
     struct wl_buffer *wl_buf = NULL;
@@ -257,8 +256,8 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
     off_t initial_offset = 0;
     off_t memfd_size = size;
 #else
-    off_t initial_offset = scrollable ? (max_pool_size / 4) & ~(page_size() - 1) : 0;
-    off_t memfd_size = scrollable ? max_pool_size : size;
+    off_t initial_offset = scrollable && max_pool_size > 0 ? (max_pool_size / 4) & ~(page_size() - 1) : 0;
+    off_t memfd_size = scrollable && max_pool_size > 0 ? max_pool_size : size;
 #endif
 
     LOG_DBG("memfd-size: %lu, initial offset: %lu", memfd_size, initial_offset);
@@ -359,7 +358,7 @@ shm_can_scroll(const struct buffer *buf)
     /* Not enough virtual address space in 32-bit */
     return false;
 #else
-    return can_punch_hole && buf->scrollable;
+    return can_punch_hole && max_pool_size > 0 && buf->scrollable;
 #endif
 }
 
@@ -408,9 +407,6 @@ shm_scroll_forward(struct wl_shm *shm, struct buffer *buf, int rows,
     assert(buf->pix);
     assert(buf->wl_buf);
     assert(buf->fd >= 0);
-
-    if (!can_punch_hole)
-        return false;
 
     LOG_DBG("scrolling %d rows (%d bytes)", rows, rows * buf->stride);
 
@@ -604,6 +600,9 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
            int top_margin, int top_keep_rows,
            int bottom_margin, int bottom_keep_rows)
 {
+    if (!shm_can_scroll(buf))
+        return false;
+
     assert(rows != 0);
     return rows > 0
         ? shm_scroll_forward(shm, buf, rows, top_margin, top_keep_rows, bottom_margin, bottom_keep_rows)
