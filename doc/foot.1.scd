@@ -36,6 +36,14 @@ execute (instead of the shell).
 *-t*,*--term*=_TERM_
 	Value to set the environment variable *TERM* to. Default: *foot*.
 
+*--maximized*
+	Start in maximized mode. If both *--maximized* and *--fullscreen*
+	are specified, the _last_ one takes precedence.
+
+*--fullscreen*
+	Start in fullscreen mode. If both *--maximized* and *--fullscreen*
+	are specified, the _last_ one takes precedence.
+
 *--login-shell*
 	Start a login shell, by prepending a '-' to argv[0].
 
