@@ -225,13 +225,28 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         unsigned x, y;
         if (sscanf(value, "%ux%u", &x, &y) != 2) {
             LOG_ERR(
-                "%s: %d: expected PAD_XxPAD_Y, where both are positive integers: %s",
+                "%s:%d: expected PAD_XxPAD_Y, where both are positive integers: %s",
                 path, lineno, value);
             return false;
         }
 
         conf->pad_x = x;
         conf->pad_y = y;
+    }
+
+    else if (strcmp(key, "startup-mode") == 0) {
+        if (strcmp(value, "windowed") == 0)
+            conf->startup_mode = STARTUP_WINDOWED;
+        else if (strcmp(value, "maximized") == 0)
+            conf->startup_mode = STARTUP_MAXIMIZED;
+        else if (strcmp(value, "fullscreen") == 0)
+            conf->startup_mode = STARTUP_FULLSCREEN;
+        else {
+            LOG_ERR(
+                "%s:%d: expected either 'windowed', 'maximized' or 'fullscreen'",
+                path, lineno);
+            return false;
+        }
     }
 
     else if (strcmp(key, "font") == 0) {
@@ -803,6 +818,7 @@ config_load(struct config *conf, const char *conf_path)
         .height = 500,
         .pad_x = 2,
         .pad_y = 2,
+        .startup_mode = STARTUP_WINDOWED,
         .fonts = tll_init(),
         .scrollback_lines = 1000,
 

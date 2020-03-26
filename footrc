@@ -4,6 +4,7 @@
 # scrollback=1000
 # geometry=700x500
 # pad=2x2
+# startup-mode=windowed
 # shell=$SHELL (if set, otherwise user's default shell from /etc/passwd)
 # term=foot
 # login-shell=no
