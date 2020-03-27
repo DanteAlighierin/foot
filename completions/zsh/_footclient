@@ -3,6 +3,8 @@
 _arguments \
     -s \
     '(-t --term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
+    '--maximized[start in maximized mode]' \
+    '--fullscreen[start in fullscreen mode]' \
     '--login-shell[start shell as a login shell]' \
     '(-s --server-socket)'{-s,--server-socket}'[override the default path to the foot server socket (XDG_RUNTIME_DIR/foot.sock)]:server:_files' \
     '(-l --log-colorize)'{-l,--log-colorize}'[enable or disable colorization of log output on stderr]:logcolor:(never always auto)' \

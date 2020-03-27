@@ -360,8 +360,7 @@ main(int argc, char *const *argv)
         goto out;
 
     if (!as_server && (term = term_init(
-                           &conf, fdm, wayl, conf.term, conf.login_shell,
-                           "foot", cwd, argc, argv,
+                           &conf, fdm, wayl, "foot", cwd, argc, argv,
                            &term_shutdown_cb, &shutdown_ctx)) == NULL) {
         free(cwd);
         goto out;
