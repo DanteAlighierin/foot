@@ -15,6 +15,7 @@ struct config {
     unsigned height;
     unsigned pad_x;
     unsigned pad_y;
+    enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 
     tll(char *) fonts;
 

@@ -5,6 +5,8 @@ _arguments \
     '(-c --config)'{-c,--config}'[path to configuration file (XDG_CONFIG_HOME/footrc)]:config:_files' \
     '(-f --font)'{-f,--font}'[font name and style in fontconfig format (monospace)]:font:->fonts' \
     '(-t --term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
+    '--maximized[start in maximized mode]' \
+    '--fullscreen[start in fullscreen mode]' \
     '--login-shell[start shell as a login shell]' \
     '(-g --geometry)'{-g,--geometry}'[window WIDTHxHEIGHT, in pixels (700x50)]:geometry:()' \
     '(-s --server)'{-s,--server}'[run as server; open terminals by running footclient]:server:_files' \

@@ -42,6 +42,7 @@ struct client {
         size_t idx;
     } buffer;
 
+    struct config conf;
     struct terminal *term;
 };
 
@@ -69,6 +70,11 @@ client_destroy(struct client *client)
     }
 
     free(client->buffer.data);
+
+    /* TODO: clone server conf completely, so that we can just call
+     * conf_destroy() here */
+    free(client->conf.term);
+
     free(client);
 }
 
@@ -219,6 +225,12 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     }
 
     CHECK_BUF(sizeof(uint8_t));
+    const uint8_t maximized = *(const uint8_t *)p; p += sizeof(maximized);
+
+    CHECK_BUF(sizeof(uint8_t));
+    const uint8_t fullscreen = *(const uint8_t *)p; p += sizeof(fullscreen);
+
+    CHECK_BUF(sizeof(uint8_t));
     const uint8_t login_shell = *(const uint8_t *)p; p += sizeof(login_shell);
 
     CHECK_BUF(sizeof(argc));
@@ -244,9 +256,18 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
 #undef CHECK_BUF
 
+    client->conf = *server->conf;
+    client->conf.term = strlen(term_env) > 0
+        ? strdup(term_env) : strdup(server->conf->term);
+    client->conf.login_shell = login_shell;
+
+    if (maximized)
+        client->conf.startup_mode = STARTUP_MAXIMIZED;
+    else if (fullscreen)
+        client->conf.startup_mode = STARTUP_FULLSCREEN;
+
     client->term = term_init(
-        server->conf, server->fdm, server->wayl,
-        strlen(term_env) > 0 ? term_env : server->conf->term, login_shell,
+        &client->conf, server->fdm, server->wayl,
         "footclient", cwd, argc, argv, &term_shutdown_handler, client);
 
     if (client->term == NULL) {

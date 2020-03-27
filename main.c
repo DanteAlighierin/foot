@@ -46,6 +46,8 @@ print_usage(const char *prog_name)
         "  -c,--config=PATH                      load configuration from PATH (XDG_CONFIG_HOME/footrc)\n"
         "  -f,--font=FONT                        comma separated list of fonts in fontconfig format (monospace)\n"
         "  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
+        "     --maximized                        start in maximized mode\n"
+        "     --fullscreen                       start in fullscreen mode\n"
         "     --login-shell                      start shell as a login shell\n"
         "  -g,--geometry=WIDTHxHEIGHT            set initial width and height\n"
         "  -s,--server[=PATH]                    run as a server (use 'footclient' to start terminals).\n"
@@ -142,6 +144,8 @@ main(int argc, char *const *argv)
         {"geometry",             required_argument, NULL, 'g'},
         {"server",               optional_argument, NULL, 's'},
         {"hold",                 no_argument,       NULL, 'H'},
+        {"maximized",            no_argument,       NULL, 'm'},
+        {"fullscreen",           no_argument,       NULL, 'F'},
         {"presentation-timings", no_argument,       NULL, 'P'}, /* Undocumented */
         {"print-pid",            required_argument, NULL, 'p'},
         {"log-colorize",         optional_argument, NULL, 'l'},
@@ -161,6 +165,8 @@ main(int argc, char *const *argv)
     const char *conf_server_socket_path = NULL;
     bool presentation_timings = false;
     bool hold = false;
+    bool maximized = false;
+    bool fullscreen = false;
     bool unlink_pid_file = false;
     const char *pid_file = NULL;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
@@ -230,6 +236,16 @@ main(int argc, char *const *argv)
 
         case 'H':
             hold = true;
+            break;
+
+        case 'm':
+            maximized = true;
+            fullscreen = false;
+            break;
+
+        case 'F':
+            fullscreen = true;
+            maximized = false;
             break;
 
         case 'p':
@@ -306,6 +322,10 @@ main(int argc, char *const *argv)
         free(conf.server_socket_path);
         conf.server_socket_path = strdup(conf_server_socket_path);
     }
+    if (maximized)
+        conf.startup_mode = STARTUP_MAXIMIZED;
+    else if (fullscreen)
+        conf.startup_mode = STARTUP_FULLSCREEN;
     conf.presentation_timings = presentation_timings;
     conf.hold_at_exit = hold;
 
@@ -342,8 +362,7 @@ main(int argc, char *const *argv)
         goto out;
 
     if (!as_server && (term = term_init(
-                           &conf, fdm, wayl, conf.term, conf.login_shell,
-                           "foot", cwd, argc, argv,
+                           &conf, fdm, wayl, "foot", cwd, argc, argv,
                            &term_shutdown_cb, &shutdown_ctx)) == NULL) {
         free(cwd);
         goto out;

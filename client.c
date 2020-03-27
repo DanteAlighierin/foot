@@ -33,6 +33,8 @@ print_usage(const char *prog_name)
     printf("\n");
     printf("Options:\n");
     printf("  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
+           "     --maximized                        start in maximized mode\n"
+           "     --fullscreen                       start in fullscreen mode\n"
            "     --login-shell                      start shell as a login shell\n"
            "  -s,--server-socket=PATH               path to the server UNIX domain socket (default=$XDG_RUNTIME_DIR/foot-$XDG_SESSION_ID.sock)\n"
            "  -l,--log-colorize=[never|always|auto] enable/disable colorization of log output on stderr\n"
@@ -48,6 +50,8 @@ main(int argc, char *const *argv)
 
     static const struct option longopts[] =  {
         {"term",          required_argument, 0, 't'},
+        {"maximized",     no_argument,       0, 'm'},
+        {"fullscreen",    no_argument,       0, 'F'},
         {"login-shell",   no_argument,       0, 'L'},
         {"server-socket", required_argument, 0, 's'},
         {"log-colorize",  optional_argument, NULL, 'l'},
@@ -60,6 +64,8 @@ main(int argc, char *const *argv)
     const char *server_socket_path = NULL;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
     bool login_shell = false;
+    bool maximized = false;
+    bool fullscreen = false;
 
     while (true) {
         int c = getopt_long(argc, argv, ":t:s:l::hv", longopts, NULL);
@@ -73,6 +79,16 @@ main(int argc, char *const *argv)
 
         case 'L':
             login_shell = true;
+            break;
+
+        case ',':
+            maximized = true;
+            fullscreen = false;
+            break;
+
+        case 'F':
+            fullscreen = true;
+            maximized = false;
             break;
 
         case 's':
@@ -177,6 +193,8 @@ main(int argc, char *const *argv)
     /* Calculate total length */
     total_len += sizeof(cwd_len) + cwd_len;
     total_len += sizeof(term_len) + term_len;
+    total_len += sizeof(uint8_t);  /* maximized */
+    total_len += sizeof(uint8_t);  /* fullscreen */
     total_len += sizeof(uint8_t);  /* login_shell */
     total_len += sizeof(argc);
 
@@ -204,6 +222,16 @@ main(int argc, char *const *argv)
         send(fd, term, term_len, 0) != term_len)
     {
         LOG_ERRNO("failed to send TERM to server");
+        goto err;
+    }
+
+    if (send(fd, &(uint8_t){maximized}, sizeof(uint8_t), 0) != sizeof(uint8_t)) {
+        LOG_ERRNO("failed to send maximized");
+        goto err;
+    }
+
+    if (send(fd, &(uint8_t){fullscreen}, sizeof(uint8_t), 0) != sizeof(uint8_t)) {
+        LOG_ERRNO("failed to send fullscreen");
         goto err;
     }
 

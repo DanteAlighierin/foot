@@ -13,6 +13,7 @@
 #include <sys/timerfd.h>
 #include <fcntl.h>
 #include <linux/input-event-codes.h>
+#include <xdg-shell.h>
 
 #define LOG_MODULE "terminal"
 #define LOG_ENABLE_DBG 0
@@ -615,8 +616,7 @@ load_fonts_from_conf(const struct terminal *term, const struct config *conf,
 
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
-          const char *term_env, bool login_shell, const char *foot_exe,
-          const char *cwd, int argc, char *const *argv,
+          const char *foot_exe, const char *cwd, int argc, char *const *argv,
           void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data)
 {
     int ptmx = -1;
@@ -800,9 +800,26 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     /* Let the Wayland backend know we exist */
     tll_push_back(wayl->terms, term);
 
+    switch (conf->startup_mode) {
+    case STARTUP_WINDOWED:
+        break;
+
+    case STARTUP_MAXIMIZED:
+        xdg_toplevel_set_maximized(term->window->xdg_toplevel);
+        break;
+
+    case STARTUP_FULLSCREEN:
+        xdg_toplevel_set_fullscreen(term->window->xdg_toplevel, NULL);
+        break;
+    }
+
     /* Start the slave/client */
-    if ((term->slave = slave_spawn(term->ptmx, argc, term->cwd, argv, term_env, conf->shell, login_shell)) == -1)
+    if ((term->slave = slave_spawn(
+             term->ptmx, argc, term->cwd, argv,
+             conf->term, conf->shell, conf->login_shell)) == -1)
+    {
         goto err;
+    }
 
 
     return term;
