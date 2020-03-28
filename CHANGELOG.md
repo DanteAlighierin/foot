@@ -12,8 +12,9 @@
 
 * User configurable key- and mouse bindings. See `man 5 foot` and the
   example `footrc` (https://codeberg.org/dnkl/foot/issues/1)
-* **startup-mode** option to `footrc`, that lets you control the
-  initial window mode: _windowed_, _maximized_ or _fullscreen_.
+* **initial-window-mode** option to `footrc`, that lets you control
+  the initial mode for each newly spawned window: _windowed_,
+  _maximized_ or _fullscreen_.
 
 
 ### Changed

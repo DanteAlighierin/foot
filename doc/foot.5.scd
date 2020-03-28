@@ -40,9 +40,9 @@ in this order:
 	Padding between border and glyphs, in pixels, on the form
 	_XxY_ (-padding). Default: _2x2_.
 
-*startup-mode*
-	Initial window mode: *windowed*, *maximized* or
-	*fullscreen*. Default: _windowed_.
+*initial-window-mode*
+	Initial window mode for each newly spawned window: *windowed*,
+	*maximized* or *fullscreen*. Default: _windowed_.
 
 *shell*
 	Executable to launch. Typically a shell. Default: _$SHELL_ if set,

@@ -234,7 +234,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->pad_y = y;
     }
 
-    else if (strcmp(key, "startup-mode") == 0) {
+    else if (strcmp(key, "initial-window-mode") == 0) {
         if (strcmp(value, "windowed") == 0)
             conf->startup_mode = STARTUP_WINDOWED;
         else if (strcmp(value, "maximized") == 0)
