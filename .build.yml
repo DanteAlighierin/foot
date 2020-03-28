@@ -1,0 +1,42 @@
+image: alpine/edge
+packages:
+  - musl-dev
+  - eudev-libs
+  - eudev-dev
+  - linux-headers
+  - meson
+  - ninja
+  - gcc
+  - scdoc
+  - wayland-dev
+  - wayland-protocols
+  - wlroots-dev
+  - freetype-dev
+  - fontconfig-dev
+  - ncurses
+
+sources:
+  - https://codeberg.org/dnkl/foot
+  - https://codeberg.org/dnkl/tllist
+  - https://codeberg.org/dnkl/fcft
+
+# triggers:
+#   - action: email
+#     condition: failure
+#     to: <committer>
+
+tasks:
+  - subprojects: |
+      mkdir foot/subprojects
+      ln -s ../../tllist foot/subprojects/tllist
+      ln -s ../../fcft foot/subprojects/fcft
+  - debug: |
+      mkdir -p bld/debug
+      meson --buildtype=debug foot bld/debug
+      ninja -C bld/debug -k0
+      meson test -C bld/debug --print-errorlogs
+  - release: |
+      mkdir -p bld/release
+      meson --buildtype=minsize foot bld/release
+      ninja -C bld/release -k0
+      meson test -C bld/release --print-errorlogs
