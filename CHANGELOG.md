@@ -20,6 +20,8 @@
 
 * Spaces no longer removed from zsh font name completions.
 * Default key binding for _spawn-terminal_ to ctrl+shift+n.
+* Renderer is now much faster with interactive scrolling
+  (https://codeberg.org/dnkl/foot/issues/4)
 
 
 ### Deprecated
