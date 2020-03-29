@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 
 #define LOG_MODULE "quirks"
 #define LOG_ENABLE_DBG 0
@@ -12,19 +13,6 @@
 static bool
 is_weston(void)
 {
-    /*
-     * On weston (8.0), synchronized subsurfaces aren't updated
-     * correctly.
-
-     * They appear to render once, but after that, updates are
-     * sporadic. Sometimes they update, most of the time they
-     * don't.
-     *
-     * Adding explicit parent surface commits right after the
-     * subsurface commit doesn't help (and would be useless anyway,
-     * since it would defeat the purpose of having the subsurface
-     * synchronized in the first place).
-     */
     static bool is_weston = false;
     static bool initialized = false;
 
@@ -78,4 +66,27 @@ quirk_weston_csd_off(struct terminal *term)
 
     for (int i = 0; i < ALEN(term->window->csd.surface); i++)
         quirk_weston_subsurface_desync_off(term->window->csd.sub_surface[i]);
+}
+
+void
+quirk_kde_damage_before_attach(struct wl_surface *surface)
+{
+    static bool is_kde = false;
+    static bool initialized = false;
+
+    if (!initialized) {
+        initialized = true;
+
+        const char *cur_desktop = getenv("XDG_CURRENT_DESKTOP");
+        if (cur_desktop != NULL)
+            is_kde = strcasestr(cur_desktop, "kde") != NULL;
+
+        if (is_kde)
+            LOG_WARN("applying wl_surface_damage_buffer() workaround for KDE");
+    }
+
+    if (!is_kde)
+        return;
+
+    wl_surface_damage_buffer(surface, 0, 0, INT32_MAX, INT32_MAX);
 }

@@ -350,6 +350,8 @@ main(int argc, char *const *argv)
         } while (errno == ERANGE);
     }
 
+    shm_set_max_pool_size(conf.tweak.max_shm_pool_size);
+
     if ((fdm = fdm_init()) == NULL)
         goto out;
 

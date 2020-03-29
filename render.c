@@ -22,6 +22,9 @@
 #include "selection.h"
 #include "shm.h"
 
+#define TIME_FRAME_RENDERING 0
+#define TIME_SCROLL_DAMAGE 0
+
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
@@ -476,55 +479,227 @@ draw_cursor:
 }
 
 static void
+render_margin(struct terminal *term, struct buffer *buf, int start_line, int end_line,
+              bool top, bool bottom)
+{
+    /* Fill area outside the cell grid with the default background color */
+    const int rmargin = term->width - term->margins.right;
+    const int bmargin = term->height - term->margins.bottom;
+    const int line_count = end_line - start_line;
+
+    uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
+    pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
+    if (term->is_searching)
+        pixman_color_dim(&bg);
+
+    if (top) {
+        pixman_image_fill_rectangles(
+            PIXMAN_OP_SRC, buf->pix, &bg, 1,
+            &(pixman_rectangle16_t){0, 0, term->width, term->margins.top});
+        wl_surface_damage_buffer(
+            term->window->surface, 0, 0, term->width, term->margins.top);
+    }
+
+    if (bottom) {
+        pixman_image_fill_rectangles(
+            PIXMAN_OP_SRC, buf->pix, &bg, 1,
+            &(pixman_rectangle16_t){0, bmargin, term->width, term->margins.bottom});
+        wl_surface_damage_buffer(
+            term->window->surface, 0, bmargin, term->width, term->margins.bottom);
+    }
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &bg, 2,
+        (pixman_rectangle16_t[]){
+            /* Left */
+            {0, term->margins.top + start_line * term->cell_height,
+             term->margins.left, line_count * term->cell_height},
+
+            /* Right */
+            {rmargin, term->margins.top + start_line * term->cell_height,
+             term->margins.right, line_count * term->cell_height},
+    });
+
+    /* Left */
+    wl_surface_damage_buffer(
+        term->window->surface,
+        0, term->margins.top + start_line * term->cell_height,
+        term->margins.left, line_count * term->cell_height);
+
+    /* Right */
+    wl_surface_damage_buffer(
+        term->window->surface,
+        rmargin, term->margins.top + start_line * term->cell_height,
+        term->margins.right, line_count * term->cell_height);
+}
+
+static void
 grid_render_scroll(struct terminal *term, struct buffer *buf,
                    const struct damage *dmg)
 {
-    int dst_y = term->margins.top + (dmg->scroll.region.start + 0) * term->cell_height;
-    int src_y = term->margins.top + (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
     int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * term->cell_height;
 
-    LOG_DBG("damage: SCROLL: %d-%d by %d lines (dst-y: %d, src-y: %d, "
-            "height: %d, stride: %d, mmap-size: %zu)",
-            dmg->scroll.region.start, dmg->scroll.region.end,
-            dmg->scroll.lines,
-            dst_y, src_y, height, buf->stride,
-            buf->size);
+    LOG_DBG(
+        "damage: SCROLL: %d-%d by %d lines",
+        dmg->scroll.region.start, dmg->scroll.region.end, dmg->scroll.lines);
 
-    if (height > 0) {
+    if (height <= 0)
+        return;
+
+#if TIME_SCROLL_DAMAGE
+    struct timeval start_time;
+    gettimeofday(&start_time, NULL);
+#endif
+
+    int dst_y = term->margins.top + (dmg->scroll.region.start + 0) * term->cell_height;
+    int src_y = term->margins.top + (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
+
+    /*
+     * SHM scrolling can be *much* faster, but it depends on how many
+     * lines we're scrolling, and how much repairing we need to do.
+     *
+     * In short, scrolling a *large* number of rows is faster with a
+     * memmove, while scrolling a *small* number of lines is faster
+     * with SHM scrolling.
+     *
+     * However, since we need to restore the scrolling regions when
+     * SHM scrolling, we also need to take this into account.
+     *
+     * Finally, we also have to restore the window margins, and this
+     * is a *huge* performance hit when scrolling a large number of
+     * lines (in addition to the sloweness of SHM scrolling as
+     * method).
+     *
+     * So, we need to figure out when to SHM scroll, and when to
+     * memmove.
+     *
+     * For now, assume that the both methods perform rougly the same,
+     * given an equal number of bytes to move/allocate, and use the
+     * method that results in the least amount of bytes to touch.
+     *
+     * Since number of lines directly translates to bytes, we can
+     * simply count lines.
+     *
+     * SHM scrolling needs to first "move" (punch hole + allocate)
+     * dmg->scroll.lines number of lines, and then we need to restore
+     * the bottom scroll region.
+     *
+     * If the total number of lines is less than half the screen - use
+     * SHM. Otherwise use memmove.
+     */
+    bool try_shm_scroll =
+        shm_can_scroll(buf) && (
+            dmg->scroll.lines +
+            dmg->scroll.region.start +
+            (term->rows - dmg->scroll.region.end)) < term->rows / 2;
+
+    bool did_shm_scroll = false;
+
+    //try_shm_scroll = false;
+    //try_shm_scroll = true;
+
+    if (try_shm_scroll) {
+        did_shm_scroll = shm_scroll(
+            term->wl->shm, buf, dmg->scroll.lines * term->cell_height,
+            term->margins.top, dmg->scroll.region.start * term->cell_height,
+            term->margins.bottom, (term->rows - dmg->scroll.region.end) * term->cell_height);
+    }
+
+    if (did_shm_scroll) {
+
+        /* Restore margins */
+        render_margin(
+            term, buf, dmg->scroll.region.end - dmg->scroll.lines, term->rows,
+            true, true);
+    } else {
+        /* Fallback for when we either cannot do SHM scrolling, or it failed */
         uint8_t *raw = buf->mmapped;
         memmove(raw + dst_y * buf->stride,
                 raw + src_y * buf->stride,
                 height * buf->stride);
-
-        wl_surface_damage_buffer(
-            term->window->surface, term->margins.left, dst_y, term->width - term->margins.left - term->margins.right, height);
     }
+
+#if TIME_SCROLL_DAMAGE
+    struct timeval end_time;
+    gettimeofday(&end_time, NULL);
+
+    struct timeval memmove_time;
+    timersub(&end_time, &start_time, &memmove_time);
+    LOG_INFO("scrolled %dKB (%d lines) using %s in %lds %ldus",
+             height * buf->stride / 1024, dmg->scroll.lines,
+             did_shm_scroll ? "SHM" : try_shm_scroll ? "memmove (SHM failed)" :  "memmove",
+             memmove_time.tv_sec, memmove_time.tv_usec);
+#endif
+
+    wl_surface_damage_buffer(
+        term->window->surface, term->margins.left, dst_y,
+        term->width - term->margins.left - term->margins.right, height);
 }
 
 static void
 grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
                            const struct damage *dmg)
 {
-    int src_y = term->margins.top + (dmg->scroll.region.start + 0) * term->cell_height;
-    int dst_y = term->margins.top + (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
     int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * term->cell_height;
 
-    LOG_DBG("damage: SCROLL REVERSE: %d-%d by %d lines (dst-y: %d, src-y: %d, "
-            "height: %d, stride: %d, mmap-size: %zu)",
-            dmg->scroll.region.start, dmg->scroll.region.end,
-            dmg->scroll.lines,
-            dst_y, src_y, height, buf->stride,
-            buf->size);
+    LOG_DBG(
+        "damage: SCROLL REVERSE: %d-%d by %d lines"m
+        dmg->scroll.region.start, dmg->scroll.region.end, dmg->scroll.lines);
 
-    if (height > 0) {
+    if (height <= 0)
+        return;
+
+#if TIME_SCROLL_DAMAGE
+    struct timeval start_time;
+    gettimeofday(&start_time, NULL);
+#endif
+
+    int src_y = term->margins.top + (dmg->scroll.region.start + 0) * term->cell_height;
+    int dst_y = term->margins.top + (dmg->scroll.region.start + dmg->scroll.lines) * term->cell_height;
+
+    bool try_shm_scroll =
+        shm_can_scroll(buf) && (
+            dmg->scroll.lines +
+            dmg->scroll.region.start +
+            (term->rows - dmg->scroll.region.end)) < term->rows / 2;
+
+    bool did_shm_scroll = false;
+
+    if (try_shm_scroll) {
+        did_shm_scroll = shm_scroll(
+            term->wl->shm, buf, -dmg->scroll.lines * term->cell_height,
+            term->margins.top, dmg->scroll.region.start * term->cell_height,
+            term->margins.bottom, (term->rows - dmg->scroll.region.end) * term->cell_height);
+    }
+
+    if (did_shm_scroll) {
+        /* Restore margins */
+        render_margin(
+            term, buf, dmg->scroll.region.start, dmg->scroll.region.start + dmg->scroll.lines,
+            true, true);
+    } else {
+        /* Fallback for when we either cannot do SHM scrolling, or it failed */
         uint8_t *raw = buf->mmapped;
         memmove(raw + dst_y * buf->stride,
                 raw + src_y * buf->stride,
                 height * buf->stride);
-
-        wl_surface_damage_buffer(
-            term->window->surface, term->margins.left, dst_y, term->width - term->margins.left - term->margins.right, height);
     }
+
+#if TIME_SCROLL_DAMAGE
+    struct timeval end_time;
+    gettimeofday(&end_time, NULL);
+
+    struct timeval memmove_time;
+    timersub(&end_time, &start_time, &memmove_time);
+    LOG_INFO("scrolled REVERSE %dKB (%d lines) using %s in %lds %ldus",
+             height * buf->stride / 1024, dmg->scroll.lines,
+             did_shm_scroll ? "SHM" : try_shm_scroll ? "memmove (SHM failed)" :  "memmove",
+             memmove_time.tv_sec, memmove_time.tv_usec);
+#endif
+
+    wl_surface_damage_buffer(
+        term->window->surface, term->margins.left, dst_y,
+        term->width - term->margins.left - term->margins.right, height);
 }
 
 static void
@@ -739,7 +914,7 @@ render_csd_title(struct terminal *term)
 
     unsigned long cookie = shm_cookie_csd(term, CSD_SURF_TITLE);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, info.width, info.height, cookie);
+        term->wl->shm, info.width, info.height, cookie, false);
 
     uint32_t _color = term->colors.default_fg;
     uint16_t alpha = 0xffff;
@@ -770,7 +945,7 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, info.width, info.height, cookie);
+        term->wl->shm, info.width, info.height, cookie, false);
 
     pixman_color_t color = color_hex_to_pixman_with_alpha(0, 0);
     render_csd_part(term, surf, buf, info.width, info.height, &color);
@@ -939,7 +1114,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
 
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, info.width, info.height, cookie);
+        term->wl->shm, info.width, info.height, cookie, false);
 
     uint32_t _color;
     uint16_t alpha = 0xffff;
@@ -1056,8 +1231,6 @@ grid_render(struct terminal *term)
     if (term->is_shutting_down)
         return;
 
-#define TIME_FRAME_RENDERING 0
-
 #if TIME_FRAME_RENDERING
     struct timeval start_time;
     gettimeofday(&start_time, NULL);
@@ -1068,14 +1241,9 @@ grid_render(struct terminal *term)
 
     unsigned long cookie = shm_cookie_grid(term);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, term->width, term->height, cookie);
+        term->wl->shm, term->width, term->height, cookie, true);
 
-    wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
-
-    pixman_image_t *pix = buf->pix;
-    pixman_region16_t clip;
-    pixman_region_init_rect(&clip, term->margins.left, term->margins.top, term->cols * term->cell_width, term->rows * term->cell_height);
-    pixman_image_set_clip_region(pix, &clip);
+    pixman_image_set_clip_region(buf->pix, NULL);
 
     /* If we resized the window, or is flashing, or just stopped flashing */
     if (term->render.last_buf != buf ||
@@ -1091,7 +1259,10 @@ grid_render(struct terminal *term)
         {
             static bool has_warned = false;
             if (!has_warned) {
-                LOG_WARN("it appears your Wayland compositor does not support buffer re-use for SHM clients; expect lower performance.");
+                LOG_WARN(
+                    "it appears your Wayland compositor does not support "
+                    "buffer re-use for SHM clients; expect lower "
+                    "performance.");
                 has_warned = true;
             }
 
@@ -1100,35 +1271,8 @@ grid_render(struct terminal *term)
         }
 
         else {
-            /* Fill area outside the cell grid with the default background color */
-            int rmargin = term->width - term->margins.right;
-            int bmargin = term->height - term->margins.bottom;
-
-            uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
-            pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
-            if (term->is_searching)
-                pixman_color_dim(&bg);
-
-            pixman_image_set_clip_region(pix, NULL);
-            pixman_image_fill_rectangles(
-                PIXMAN_OP_SRC, pix, &bg, 4,
-                (pixman_rectangle16_t[]){
-                {0, 0, term->width, term->margins.top},            /* Top */
-                {0, 0, term->margins.left, term->height},          /* Left */
-                {rmargin, 0, term->margins.right, term->height},   /* Right */
-                {0, bmargin, term->width, term->margins.bottom}}); /* Bottom */
-            pixman_image_set_clip_region(pix, &clip);
-
-            wl_surface_damage_buffer(
-                term->window->surface, 0, 0, term->width, term->margins.top);
-            wl_surface_damage_buffer(
-                term->window->surface, 0, 0, term->margins.left, term->height);
-            wl_surface_damage_buffer(
-                term->window->surface, rmargin, 0, term->margins.right, term->height);
-            wl_surface_damage_buffer(
-                term->window->surface, 0, bmargin, term->width, term->margins.bottom);
-
-            /* Force a full grid refresh */
+            tll_free(term->grid->scroll_damage);
+            render_margin(term, buf, 0, term->rows, true, true);
             term_damage_view(term);
         }
 
@@ -1136,6 +1280,14 @@ grid_render(struct terminal *term)
         term->render.was_flashing = term->flash.active;
         term->render.was_searching = term->is_searching;
     }
+
+    /* Set clip region to prevent cells from overflowing into the margins */
+    pixman_region16_t clip;
+    pixman_region_init_rect(
+        &clip,
+        term->margins.left, term->margins.top,
+        term->cols * term->cell_width, term->rows * term->cell_height);
+    pixman_image_set_clip_region(buf->pix, &clip);
 
     /* Erase old cursor (if we rendered a cursor last time) */
     if (term->render.last_cursor.cell != NULL) {
@@ -1147,7 +1299,7 @@ grid_render(struct terminal *term)
         /* If cell is already dirty, it will be rendered anyway */
         if (cell->attrs.clean) {
             cell->attrs.clean = 0;
-            int cols = render_cell(term, pix, cell, at.col, at.row, false);
+            int cols = render_cell(term, buf->pix, cell, at.col, at.row, false);
 
             wl_surface_damage_buffer(
                 term->window->surface,
@@ -1180,6 +1332,9 @@ grid_render(struct terminal *term)
 
         tll_remove(term->grid->scroll_damage, it);
     }
+
+    /* Reset clip region since scrolling may have instantiated a new pixman image */
+    pixman_image_set_clip_region(buf->pix, &clip);
 
     if (term->render.workers.count > 0) {
 
@@ -1220,7 +1375,7 @@ grid_render(struct terminal *term)
             if (!row->dirty)
                 continue;
 
-            render_row(term, pix, row, r);
+            render_row(term, buf->pix, row, r);
             row->dirty = false;
 
             wl_surface_damage_buffer(
@@ -1274,7 +1429,7 @@ grid_render(struct terminal *term)
         cell->attrs.clean = 0;
         term->render.last_cursor.cell = cell;
         int cols_updated = render_cell(
-            term, pix, cell, term->cursor.point.col, view_aligned_row, true);
+            term, buf->pix, cell, term->cursor.point.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
             term->window->surface,
@@ -1283,13 +1438,14 @@ grid_render(struct terminal *term)
             cols_updated * term->cell_width, term->cell_height);
     }
 
-    render_sixel_images(term, pix);
+    render_sixel_images(term, buf->pix);
 
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
         /* TODO: dim while searching */
+        pixman_image_set_clip_region(buf->pix, NULL);
         pixman_image_fill_rectangles(
-            PIXMAN_OP_OVER, pix,
+            PIXMAN_OP_OVER, buf->pix,
             &(pixman_color_t){.red=0x7fff, .green=0x7fff, .blue=0, .alpha=0x7fff},
             1, &(pixman_rectangle16_t){0, 0, term->width, term->height});
 
@@ -1333,6 +1489,8 @@ grid_render(struct terminal *term)
         }
     }
 
+    wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
+    quirk_kde_damage_before_attach(term->window->surface);
     wl_surface_commit(term->window->surface);
 
 #if TIME_FRAME_RENDERING
@@ -1370,7 +1528,7 @@ render_search_box(struct terminal *term)
     size_t glyph_offset = term->render.search_glyph_offset;
 
     unsigned long cookie = shm_cookie_search(term);
-    struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie);
+    struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie, false);
 
     /* Background - yellow on empty/match, red on mismatch */
     pixman_color_t color = color_hex_to_pixman(
@@ -1447,6 +1605,24 @@ render_search_box(struct terminal *term)
 }
 
 static void
+render_update_title(struct terminal *term)
+{
+    /* TODO: figure out what the limit actually is */
+    static const size_t max_len = 100;
+
+    const char *title = term->window_title != NULL ? term->window_title : "foot";
+    char *copy = NULL;
+
+    if (strlen(title) > max_len) {
+        copy = strndup(title, max_len);
+        title = copy;
+    }
+
+    xdg_toplevel_set_title(term->window->xdg_toplevel, title);
+    free(copy);
+}
+
+static void
 frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
 {
     struct terminal *term = data;
@@ -1458,16 +1634,21 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     bool grid = term->render.pending.grid;
     bool csd = term->render.pending.csd;
     bool search = term->render.pending.search;
+    bool title = term->render.pending.title;
 
     term->render.pending.grid = false;
     term->render.pending.csd = false;
     term->render.pending.search = false;
+    term->render.pending.title = false;
 
     if (csd && term->window->use_csd == CSD_YES) {
         quirk_weston_csd_on(term);
         render_csd(term);
         quirk_weston_csd_off(term);
     }
+
+    if (title)
+        render_update_title(term);
 
     if (search && term->is_searching)
         render_search_box(term);
@@ -1801,10 +1982,12 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         bool grid = term->render.refresh.grid;
         bool csd = term->render.refresh.csd;
         bool search = term->render.refresh.search;
+        bool title = term->render.refresh.title;
 
         term->render.refresh.grid = false;
         term->render.refresh.csd = false;
         term->render.refresh.search = false;
+        term->render.refresh.title = false;
 
         if (term->window->frame_callback == NULL) {
             if (csd && term->window->use_csd == CSD_YES) {
@@ -1812,6 +1995,8 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
                 render_csd(term);
                 quirk_weston_csd_off(term);
             }
+            if (title)
+                render_update_title(term);
             if (search)
                 render_search_box(term);
             if (grid)
@@ -1821,6 +2006,7 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
             term->render.pending.grid |= grid;
             term->render.pending.csd |= csd;
             term->render.pending.search |= search;
+            term->render.pending.title |= title;
         }
     }
 
@@ -1835,21 +2021,9 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
 }
 
 void
-render_set_title(struct terminal *term, const char *_title)
+render_refresh_title(struct terminal *term)
 {
-    /* TODO: figure out what the limit actually is */
-    static const size_t max_len = 100;
-
-    const char *title = _title;
-    char *copy = NULL;
-
-    if (strlen(title) > max_len) {
-        copy = strndup(_title, max_len);
-        title = copy;
-    }
-
-    xdg_toplevel_set_title(term->window->xdg_toplevel, title);
-    free(copy);
+    term->render.refresh.title = true;
 }
 
 void

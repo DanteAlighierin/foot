@@ -336,6 +336,7 @@ struct terminal {
             bool grid;
             bool csd;
             bool search;
+            bool title;
         } refresh;
 
         /* Scheduled for rendering, in the next frame callback */
@@ -343,6 +344,7 @@ struct terminal {
             bool grid;
             bool csd;
             bool search;
+            bool title;
         } pending;
 
         int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */

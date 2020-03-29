@@ -1960,7 +1960,7 @@ term_set_window_title(struct terminal *term, const char *title)
 {
     free(term->window_title);
     term->window_title = strdup(title);
-    render_set_title(term, term->window_title);
+    render_refresh_title(term);
 }
 
 void
@@ -2069,6 +2069,7 @@ term_enable_app_sync_updates(struct terminal *term)
     timerfd_settime(
         term->delayed_render_timer.upper_fd, 0,
         &(struct itimerspec){{0}}, NULL);
+    term->delayed_render_timer.is_armed = false;
 }
 
 void
