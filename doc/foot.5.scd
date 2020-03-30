@@ -244,3 +244,120 @@ list of font name and font options.
 _Examples_:
 - Dina:weight=bold:slant=italic
 - Courier New:size=12
+
+# TWEAKS
+
+This section is for advanced user and describes configuration options
+that can be used to tweak foot's low-level behavior.
+
+These options are *not* included in the example configuration. You
+should not change these unless you understand what they do and note
+that changing the default values *will* print a warning when launching
+foot.
+
+When reporting bugs, please mention if, and to what, you have changed
+any of these options.
+
+*delayed-render-lower*, *delayed-render-upper*
+	These two values control the timeouts (in nanoseconds) that are
+	used to mitigate screen flicker caused by clients writing large,
+	non-atomic screen updates.
+
+	If a client splits up a screen update over multiple *write(3)*
+	calls, we may end up rendering an intermediate screen, quickly
+	followed by another frame with the final screen content. For
+	example, the client may erase part of the screen (or scroll) in
+	one write, and then write new content in one or more subsequent
+	writes. Rendering the frame when the screen has been erased, but
+	not yet filled with new content will be perceived as screen
+	flicker.
+	
+	The *real* solution to this is _Application Synchronized Updates_
+	(https://gitlab.freedesktop.org/terminal-wg/specifications/-/merge_requests/2).
+	
+	The problem with this is twofold - first, it has not yet been
+	standardized, and thus there are not many terminal emulators that
+	implement it (foot *does* implement it), and second, applications
+	must be patched to use it.
+	
+	Until this has happened, foot offers an interim workaround; an
+	attempt to mitigate the screen flicker *without* affecting neither
+	performance nor latency.
+	
+	It is based on the fact that the screen is updated at a fixed
+	interval (typically 60Hz). For us, this means it does not matter
+	if we render a new frame at the *beginning* of a frame interval,
+	or at the *end*. Thus, the goal is to introduce a delay between
+	receiving client data and rendering the resulting state, but
+	without causing a frame skip.
+	
+	While it should be possible to estimate the amount of time left
+	until the next frame, foot's algorithm is currently not that
+	advanced, but is based on statistics I guess you could say - the
+	delay we introduce is so small that the chance of pushing the
+	frame over to the next frame interval is also very small.
+	
+	Now, that was a lof of text. But what is it foot actually does?
+	
+	When receiving client data, it schedules a timer, the
+	*delayed-render-lower*. If we do not recieve any more client data
+	before the timer has run out, we render the frame. If however, we
+	do receive more data, the timer is re-scheduled. That is, each
+	time we receive client data, frame rendering is delayed another
+	*delayed-render-lower* nanoseconds.
+	
+	Now, while this works very well with most clients, it would be
+	possible to construct a malicious client that keeps writing data
+	at a slow pace. To the user, this would look like foot has frozen
+	as we never get to render a new frame. To prevent this, an upper
+	limit is set - *delayed-render-upper*. If this timer runs out, we
+	render the frame regardless of what the client is doing.
+	
+	If changing these values, note that the lower timeout *must* be
+	set lower than the upper timeout, but that this is not verified by
+	foot. Furthermore, both values must be less than 16ms (that is,
+	16000000 nanoseconds).
+	
+	You can disable the feature altoghether by setting either value to
+	0. In this case, frames are rendered "as soon as possible".
+	
+	Default: lower=_500000_ (0.5ms), upper=_8333333_ (8.3ms - half a
+	frame interval).
+
+*max-shm-pool-size-mb*
+
+	This option controls the amount of *virtual* memory used by the
+	pixmap memory to which the terminal screen content is rendered to.
+	
+	It does *not* change how much physical memory foot uses.
+	
+	Foot uses a memory mapping trick to implement fast rendering of
+	interactive (typically, but applies to "slow" scrolling in
+	general). Example: holding down the 'up' or 'down' arrow key to
+	scroll in a text editor.
+	
+	For this to work, it needs a large amount of virtual address
+	space. Again, note that this is *not* physical memory.
+	
+	On a normal x64 based computer, each process has 128TB of virtual
+	address space, and newer ones have 64PB. This is an insane amount
+	and most applications do not use anywhere near that amount.
+	
+	Each foot terminal window can allocate up to 2GB of virtual
+	address space. With 128TB of address space, that means a maximum
+	of 65536 windows in server/daemon mode (for 2GB). That should be
+	enough, yes?
+
+	However, the Wayland compositor *also* needs to allocate the same
+	amount of virtual address space. Thus, it has a slightly higher
+	chance of running out of address space since it needs to host
+	*all* running Wayland clients in the same way, at the same time.
+	
+	In the off chance that this becomes a problem for you, you can
+	reduce the amount used with this option.
+	
+	Or, for optimal performance, you can increase it to the maximum
+	allowed value, 2GB (but note that you most likely will not notice
+	any difference compared to the default value).
+	
+	Default: _512_. Maximum allowed: _2048_ (2GB).
