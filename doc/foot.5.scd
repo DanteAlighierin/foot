@@ -262,7 +262,7 @@ any of these options.
 	These two values control the timeouts (in nanoseconds) that are
 	used to mitigate screen flicker caused by clients writing large,
 	non-atomic screen updates.
-
+	
 	If a client splits up a screen update over multiple *write(3)*
 	calls, we may end up rendering an intermediate screen, quickly
 	followed by another frame with the final screen content. For
@@ -294,8 +294,8 @@ any of these options.
 	While it should be possible to estimate the amount of time left
 	until the next frame, foot's algorithm is currently not that
 	advanced, but is based on statistics I guess you could say - the
-	delay we introduce is so small that the chance of pushing the
-	frame over to the next frame interval is also very small.
+	delay we introduce is so small that the risk of pushing the frame
+	over to the next frame interval is also very small.
 	
 	Now, that was a lof of text. But what is it foot actually does?
 	
@@ -327,13 +327,13 @@ any of these options.
 *max-shm-pool-size-mb*
 
 	This option controls the amount of *virtual* memory used by the
-	pixmap memory to which the terminal screen content is rendered to.
+	pixmap memory to which the terminal screen content is rendered.
 	
 	It does *not* change how much physical memory foot uses.
 	
 	Foot uses a memory mapping trick to implement fast rendering of
-	interactive (typically, but applies to "slow" scrolling in
-	general). Example: holding down the 'up' or 'down' arrow key to
+	interactive scrolling (typically, but applies to "slow" scrolling
+	in general). Example: holding down the 'up' or 'down' arrow key to
 	scroll in a text editor.
 	
 	For this to work, it needs a large amount of virtual address
@@ -347,7 +347,7 @@ any of these options.
 	address space. With 128TB of address space, that means a maximum
 	of 65536 windows in server/daemon mode (for 2GB). That should be
 	enough, yes?
-
+	
 	However, the Wayland compositor *also* needs to allocate the same
 	amount of virtual address space. Thus, it has a slightly higher
 	chance of running out of address space since it needs to host
@@ -359,5 +359,7 @@ any of these options.
 	Or, for optimal performance, you can increase it to the maximum
 	allowed value, 2GB (but note that you most likely will not notice
 	any difference compared to the default value).
+	
+	Note: this feature is always disabled in 32-bit.
 	
 	Default: _512_. Maximum allowed: _2048_ (2GB).
