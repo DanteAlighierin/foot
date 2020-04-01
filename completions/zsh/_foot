@@ -5,7 +5,7 @@ _arguments \
     '(-c --config)'{-c,--config}'[path to configuration file (XDG_CONFIG_HOME/footrc)]:config:_files' \
     '(-f --font)'{-f,--font}'[font name and style in fontconfig format (monospace)]:font:->fonts' \
     '(-t --term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
-    '(-a --app-id)'{-a,-app-id}'[value to set the window\'s app-id to (foot)]' \
+    '(-a --app-id)'{-a,--app-id}'[value to set the app-id property on the Wayland window to (foot)]:()' \
     '--maximized[start in maximized mode]' \
     '--fullscreen[start in fullscreen mode]' \
     '--login-shell[start shell as a login shell]' \
