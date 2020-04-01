@@ -34,7 +34,11 @@ execute (instead of the shell).
 	Set initial window width and height. Default: *700x500*.
 
 *-t*,*--term*=_TERM_
-	Value to set the environment variable *TERM* to. Default: *foot*.
+	Value to set the environment variable *TERM* to. Default: _foot_.
+
+*-a*,*--app-id*=_ID_
+	Value to set the *app-id* property on the Wayland window
+	to. Default: _foot_.
 
 *--maximized*
 	Start in maximized mode. If both *--maximized* and *--fullscreen*

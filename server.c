@@ -74,6 +74,7 @@ client_destroy(struct client *client)
     /* TODO: clone server conf completely, so that we can just call
      * conf_destroy() here */
     free(client->conf.term);
+    free(client->conf.app_id);
 
     free(client);
 }
@@ -224,6 +225,19 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         goto shutdown;
     }
 
+    CHECK_BUF(sizeof(uint16_t));
+    uint16_t app_id_len = *(uint16_t *)p; p += sizeof(app_id_len);
+
+    CHECK_BUF(app_id_len);
+    const char *app_id = (const char *)p; p += app_id_len;
+    LOG_DBG("app-id = %.*s", app_id_len, app_id);
+
+    if (app_id_len != strlen(app_id) + 1) {
+        LOG_ERR("app-id length mismatch: indicated = %hu, actual = %zu",
+                app_id_len - 1, strlen(app_id));
+        goto shutdown;
+    }
+
     CHECK_BUF(sizeof(uint8_t));
     const uint8_t maximized = *(const uint8_t *)p; p += sizeof(maximized);
 
@@ -259,6 +273,8 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     client->conf = *server->conf;
     client->conf.term = strlen(term_env) > 0
         ? strdup(term_env) : strdup(server->conf->term);
+    client->conf.app_id = strlen(app_id) > 0
+        ? strdup(app_id) : strdup(server->conf->app_id);
     client->conf.login_shell = login_shell;
 
     if (maximized)

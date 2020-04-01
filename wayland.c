@@ -993,7 +993,7 @@ struct wl_window *
 wayl_win_init(struct terminal *term)
 {
     struct wayland *wayl = term->wl;
-    const struct config *conf = wayl->conf;
+    const struct config *conf = term->conf;
 
     struct wl_window *win = calloc(1, sizeof(*win));
     win->term = term;
@@ -1025,7 +1025,7 @@ wayl_win_init(struct terminal *term)
     win->xdg_toplevel = xdg_surface_get_toplevel(win->xdg_surface);
     xdg_toplevel_add_listener(win->xdg_toplevel, &xdg_toplevel_listener, win);
 
-    xdg_toplevel_set_app_id(win->xdg_toplevel, "foot");
+    xdg_toplevel_set_app_id(win->xdg_toplevel, conf->app_id);
 
     /* Request server-side decorations */
     if (wayl->xdg_decoration_manager != NULL) {

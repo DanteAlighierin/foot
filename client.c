@@ -33,6 +33,7 @@ print_usage(const char *prog_name)
     printf("\n");
     printf("Options:\n");
     printf("  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
+           "  -a,--app-id=ID                        window application ID (foot)\n"
            "     --maximized                        start in maximized mode\n"
            "     --fullscreen                       start in fullscreen mode\n"
            "     --login-shell                      start shell as a login shell\n"
@@ -49,18 +50,20 @@ main(int argc, char *const *argv)
     const char *const prog_name = argv[0];
 
     static const struct option longopts[] =  {
-        {"term",          required_argument, 0, 't'},
-        {"maximized",     no_argument,       0, 'm'},
-        {"fullscreen",    no_argument,       0, 'F'},
-        {"login-shell",   no_argument,       0, 'L'},
-        {"server-socket", required_argument, 0, 's'},
+        {"term",          required_argument, NULL, 't'},
+        {"app-id",        required_argument, NULL, 'a'},
+        {"maximized",     no_argument,       NULL, 'm'},
+        {"fullscreen",    no_argument,       NULL, 'F'},
+        {"login-shell",   no_argument,       NULL, 'L'},
+        {"server-socket", required_argument, NULL, 's'},
         {"log-colorize",  optional_argument, NULL, 'l'},
-        {"version",       no_argument,       0, 'v'},
-        {"help",          no_argument,       0, 'h'},
-        {NULL,            no_argument,       0,   0},
+        {"version",       no_argument,       NULL, 'v'},
+        {"help",          no_argument,       NULL, 'h'},
+        {NULL,            no_argument,       NULL,   0},
     };
 
     const char *term = "";
+    const char *app_id = "";
     const char *server_socket_path = NULL;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
     bool login_shell = false;
@@ -68,13 +71,17 @@ main(int argc, char *const *argv)
     bool fullscreen = false;
 
     while (true) {
-        int c = getopt_long(argc, argv, ":t:s:l::hv", longopts, NULL);
+        int c = getopt_long(argc, argv, ":t:a:s:l::hv", longopts, NULL);
         if (c == -1)
             break;
 
         switch (c) {
         case 't':
             term = optarg;
+            break;
+
+        case 'a':
+            app_id = optarg;
             break;
 
         case 'L':
@@ -186,13 +193,14 @@ main(int argc, char *const *argv)
         } while (errno == ERANGE);
     }
     const uint16_t cwd_len = strlen(cwd) + 1;
-
     const uint16_t term_len = strlen(term) + 1;
+    const uint16_t app_id_len = strlen(app_id) + 1;
     uint32_t total_len = 0;
 
     /* Calculate total length */
     total_len += sizeof(cwd_len) + cwd_len;
     total_len += sizeof(term_len) + term_len;
+    total_len += sizeof(app_id_len) + app_id_len;
     total_len += sizeof(uint8_t);  /* maximized */
     total_len += sizeof(uint8_t);  /* fullscreen */
     total_len += sizeof(uint8_t);  /* login_shell */
@@ -222,6 +230,13 @@ main(int argc, char *const *argv)
         send(fd, term, term_len, 0) != term_len)
     {
         LOG_ERRNO("failed to send TERM to server");
+        goto err;
+    }
+
+    if (send(fd, &app_id_len, sizeof(app_id_len), 0) != sizeof(app_id_len) ||
+        send(fd, app_id, app_id_len, 0) != app_id_len)
+    {
+        LOG_ERRNO("failed to send app-id to server");
         goto err;
     }
 

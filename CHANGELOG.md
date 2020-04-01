@@ -15,6 +15,10 @@
 * **initial-window-mode** option to `footrc`, that lets you control
   the initial mode for each newly spawned window: _windowed_,
   _maximized_ or _fullscreen_.
+* **app-id** option to `footrc`, that sets the _app-id_ property on
+  the Wayland window.
+* `--app-id` command line option, that sets the _app-id_ property on
+  the Wayland window.
 
 
 ### Changed

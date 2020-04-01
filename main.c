@@ -46,6 +46,7 @@ print_usage(const char *prog_name)
         "  -c,--config=PATH                      load configuration from PATH (XDG_CONFIG_HOME/footrc)\n"
         "  -f,--font=FONT                        comma separated list of fonts in fontconfig format (monospace)\n"
         "  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
+        "  -a,--app-id=ID                        window application ID (foot)\n"
         "     --maximized                        start in maximized mode\n"
         "     --fullscreen                       start in fullscreen mode\n"
         "     --login-shell                      start shell as a login shell\n"
@@ -139,6 +140,7 @@ main(int argc, char *const *argv)
     static const struct option longopts[] =  {
         {"config",               required_argument, NULL, 'c'},
         {"term",                 required_argument, NULL, 't'},
+        {"app-id",               required_argument, NULL, 'a'},
         {"login-shell",          no_argument,       NULL, 'L'},
         {"font",                 required_argument, NULL, 'f'},
         {"geometry",             required_argument, NULL, 'g'},
@@ -157,6 +159,7 @@ main(int argc, char *const *argv)
 
     const char *conf_path = NULL;
     const char *conf_term = NULL;
+    const char *conf_app_id = NULL;
     bool login_shell = false;
     tll(char *) conf_fonts = tll_init();
     int conf_width = -1;
@@ -173,7 +176,7 @@ main(int argc, char *const *argv)
     bool log_syslog = true;
 
     while (true) {
-        int c = getopt_long(argc, argv, "c:t:Lf:g:s::Pp:l::Svh", longopts, NULL);
+        int c = getopt_long(argc, argv, "c:t:a:Lf:g:s::Pp:l::Svh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -188,6 +191,10 @@ main(int argc, char *const *argv)
 
         case 'L':
             login_shell = true;
+            break;
+
+        case 'a':
+            conf_app_id = optarg;
             break;
 
         case 'f':
@@ -305,6 +312,10 @@ main(int argc, char *const *argv)
     if (conf_term != NULL) {
         free(conf.term);
         conf.term = strdup(conf_term);
+    }
+    if (conf_app_id != NULL) {
+        free(conf.app_id);
+        conf.app_id = strdup(conf_app_id);
     }
     if (login_shell)
         conf.login_shell = true;

@@ -209,6 +209,11 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->login_shell = str_to_bool(value);
     }
 
+    else if (strcmp(key, "app-id") == 0) {
+        free(conf->app_id);
+        conf->app_id = strdup(value);
+    }
+
     else if (strcmp(key, "geometry") == 0) {
         unsigned width, height;
         if (sscanf(value, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
@@ -827,6 +832,7 @@ config_load(struct config *conf, const char *conf_path)
     *conf = (struct config) {
         .term = strdup("foot"),
         .shell = get_shell(),
+        .app_id = strdup("foot"),
         .width = 700,
         .height = 500,
         .pad_x = 2,
@@ -960,6 +966,7 @@ config_free(struct config conf)
 {
     free(conf.term);
     free(conf.shell);
+    free(conf.app_id);
     tll_free_and_free(conf.fonts, free);
     free(conf.server_socket_path);
 
