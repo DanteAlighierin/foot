@@ -56,6 +56,9 @@ in this order:
 *term*
 	Value to set the environment variable *TERM* to. Default: _foot_.
 
+*title*
+	Initial window title. Default: _foot_.
+
 *app-id*
 	Value to set the *app-id* property on the Wayland window to. The
 	compositor can use this value to e.g. group multiple windows, or

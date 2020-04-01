@@ -3,6 +3,7 @@
 _arguments \
     -s \
     '(-t --term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
+    '--title[initial window title]:()' \
     '(-a --app-id)'{-a,--app-id}'[value to set the app-id property on the Wayland window to (foot)]:()' \
     '--maximized[start in maximized mode]' \
     '--fullscreen[start in fullscreen mode]' \

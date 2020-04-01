@@ -46,6 +46,7 @@ print_usage(const char *prog_name)
         "  -c,--config=PATH                      load configuration from PATH (XDG_CONFIG_HOME/footrc)\n"
         "  -f,--font=FONT                        comma separated list of fonts in fontconfig format (monospace)\n"
         "  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
+        "     --title=TITLE                      initial window title (foot)\n"
         "  -a,--app-id=ID                        window application ID (foot)\n"
         "     --maximized                        start in maximized mode\n"
         "     --fullscreen                       start in fullscreen mode\n"
@@ -140,6 +141,7 @@ main(int argc, char *const *argv)
     static const struct option longopts[] =  {
         {"config",               required_argument, NULL, 'c'},
         {"term",                 required_argument, NULL, 't'},
+        {"title",                required_argument, NULL, 'T'},
         {"app-id",               required_argument, NULL, 'a'},
         {"login-shell",          no_argument,       NULL, 'L'},
         {"font",                 required_argument, NULL, 'f'},
@@ -159,6 +161,7 @@ main(int argc, char *const *argv)
 
     const char *conf_path = NULL;
     const char *conf_term = NULL;
+    const char *conf_title = NULL;
     const char *conf_app_id = NULL;
     bool login_shell = false;
     tll(char *) conf_fonts = tll_init();
@@ -191,6 +194,10 @@ main(int argc, char *const *argv)
 
         case 'L':
             login_shell = true;
+            break;
+
+        case 'T':
+            conf_title = optarg;
             break;
 
         case 'a':
@@ -312,6 +319,10 @@ main(int argc, char *const *argv)
     if (conf_term != NULL) {
         free(conf.term);
         conf.term = strdup(conf_term);
+    }
+    if (conf_title != NULL) {
+        free(conf.title);
+        conf.title = strdup(conf_title);
     }
     if (conf_app_id != NULL) {
         free(conf.app_id);

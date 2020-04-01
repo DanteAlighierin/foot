@@ -10,6 +10,7 @@
 struct config {
     char *term;
     char *shell;
+    char *title;
     char *app_id;
     bool login_shell;
     unsigned width;

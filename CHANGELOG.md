@@ -19,7 +19,8 @@
   the Wayland window.
 * `--app-id` command line option, that sets the _app-id_ property on
   the Wayland window.
-
+* **title** option to `footrc`, that sets the initial window title.
+* `--title` command line option, that sets the initial window title.
 
 ### Changed
 

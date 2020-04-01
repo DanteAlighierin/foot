@@ -36,6 +36,9 @@ execute (instead of the shell).
 *-t*,*--term*=_TERM_
 	Value to set the environment variable *TERM* to. Default: _foot_.
 
+*--title*=_TITLE:
+	Initial window title. Default: _foot_.
+
 *-a*,*--app-id*=_ID_
 	Value to set the *app-id* property on the Wayland window
 	to. Default: _foot_.

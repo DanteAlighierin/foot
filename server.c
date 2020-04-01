@@ -74,6 +74,7 @@ client_destroy(struct client *client)
     /* TODO: clone server conf completely, so that we can just call
      * conf_destroy() here */
     free(client->conf.term);
+    free(client->conf.title);
     free(client->conf.app_id);
 
     free(client);
@@ -226,6 +227,19 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     }
 
     CHECK_BUF(sizeof(uint16_t));
+    uint16_t title_len = *(uint16_t *)p; p += sizeof(title_len);
+
+    CHECK_BUF(title_len);
+    const char *title = (const char *)p; p += title_len;
+    LOG_DBG("app-id = %.*s", title_len, title);
+
+    if (title_len != strlen(title) + 1) {
+        LOG_ERR("title length mismatch: indicated = %hu, actual = %zu",
+                title_len - 1, strlen(title));
+        goto shutdown;
+    }
+
+    CHECK_BUF(sizeof(uint16_t));
     uint16_t app_id_len = *(uint16_t *)p; p += sizeof(app_id_len);
 
     CHECK_BUF(app_id_len);
@@ -273,6 +287,8 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     client->conf = *server->conf;
     client->conf.term = strlen(term_env) > 0
         ? strdup(term_env) : strdup(server->conf->term);
+    client->conf.title = strlen(title) > 0
+        ? strdup(title) : strdup(server->conf->title);
     client->conf.app_id = strlen(app_id) > 0
         ? strdup(app_id) : strdup(server->conf->app_id);
     client->conf.login_shell = login_shell;

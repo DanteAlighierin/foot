@@ -33,6 +33,7 @@ print_usage(const char *prog_name)
     printf("\n");
     printf("Options:\n");
     printf("  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
+           "     --title=TITLE                      initial window title (foot)\n"
            "  -a,--app-id=ID                        window application ID (foot)\n"
            "     --maximized                        start in maximized mode\n"
            "     --fullscreen                       start in fullscreen mode\n"
@@ -51,6 +52,7 @@ main(int argc, char *const *argv)
 
     static const struct option longopts[] =  {
         {"term",          required_argument, NULL, 't'},
+        {"title",         required_argument, NULL, 'T'},
         {"app-id",        required_argument, NULL, 'a'},
         {"maximized",     no_argument,       NULL, 'm'},
         {"fullscreen",    no_argument,       NULL, 'F'},
@@ -63,6 +65,7 @@ main(int argc, char *const *argv)
     };
 
     const char *term = "";
+    const char *title = "";
     const char *app_id = "";
     const char *server_socket_path = NULL;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
@@ -78,6 +81,10 @@ main(int argc, char *const *argv)
         switch (c) {
         case 't':
             term = optarg;
+            break;
+
+        case 'T':
+            title = optarg;
             break;
 
         case 'a':
@@ -194,12 +201,14 @@ main(int argc, char *const *argv)
     }
     const uint16_t cwd_len = strlen(cwd) + 1;
     const uint16_t term_len = strlen(term) + 1;
+    const uint16_t title_len = strlen(title) + 1;
     const uint16_t app_id_len = strlen(app_id) + 1;
     uint32_t total_len = 0;
 
     /* Calculate total length */
     total_len += sizeof(cwd_len) + cwd_len;
     total_len += sizeof(term_len) + term_len;
+    total_len += sizeof(title_len) + title_len;
     total_len += sizeof(app_id_len) + app_id_len;
     total_len += sizeof(uint8_t);  /* maximized */
     total_len += sizeof(uint8_t);  /* fullscreen */
@@ -230,6 +239,13 @@ main(int argc, char *const *argv)
         send(fd, term, term_len, 0) != term_len)
     {
         LOG_ERRNO("failed to send TERM to server");
+        goto err;
+    }
+
+    if (send(fd, &title_len, sizeof(title_len), 0) != sizeof(title_len) ||
+        send(fd, title, title_len, 0) != title_len)
+    {
+        LOG_ERRNO("failed to send title to server");
         goto err;
     }
 
