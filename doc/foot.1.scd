@@ -36,7 +36,7 @@ execute (instead of the shell).
 *-t*,*--term*=_TERM_
 	Value to set the environment variable *TERM* to. Default: _foot_.
 
-*--title*=_TITLE:
+*--title*=_TITLE_
 	Initial window title. Default: _foot_.
 
 *-a*,*--app-id*=_ID_
