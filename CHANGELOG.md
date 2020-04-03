@@ -43,6 +43,7 @@
 * 'Underline' cursor being invisible on underlined text.
 * Restored cursor position in 'normal' screen when window was resized
   while in 'alt' screen.
+* Hostname in OSC 7 URI not being validated.
 
 
 ### Security
