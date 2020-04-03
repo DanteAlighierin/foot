@@ -305,7 +305,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
               F_SEAL_GROW | F_SEAL_SHRINK | /*F_SEAL_FUTURE_WRITE |*/ F_SEAL_SEAL) < 0)
     {
         LOG_ERRNO("failed to seal SHM backing memory file");
-        goto err;
+        /* This is not a fatal error */
     }
 
     pool = wl_shm_create_pool(shm, pool_fd, memfd_size);
