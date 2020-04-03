@@ -2,6 +2,8 @@
 
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
+#include <unistd.h>
 
 #define LOG_MODULE "osc"
 #define LOG_ENABLE_DBG 0
@@ -320,36 +322,53 @@ osc_set_pwd(struct terminal *term, char *string)
         return;
     string += 7;
 
-    /* Skip past hostname */
-    if ((string = strchr(string, '/')) == NULL)
+    const char *hostname = string;
+    char *hostname_end = strchr(string, '/');
+    if (hostname_end == NULL)
         return;
 
+    char this_host[HOST_NAME_MAX];
+    if (gethostname(this_host, sizeof(this_host)) < 0)
+        this_host[0] = '\0';
+
+    /* Ignore this CWD if the hostname isn't 'localhost' or our gethostname() */
+    size_t hostname_len = hostname_end - hostname;
+    if (strncmp(hostname, "", hostname_len) != 0 &&
+        strncmp(hostname, "localhost", hostname_len) != 0 &&
+        strncmp(hostname, this_host, hostname_len) != 0)
+    {
+        LOG_DBG("ignoring OSC 7: hostname mismatch: %.*s != %s",
+                (int)hostname_len, hostname, this_host);
+        return;
+    }
+
     /* Decode %xx encoded characters */
-    char *pwd = malloc(strlen(string) + 1);
+    const char *path = hostname_end;
+    char *pwd = malloc(strlen(path) + 1);
     char *p = pwd;
 
     while (true) {
         /* Find next '%' */
-        char *next = strchr(string, '%');
+        const char *next = strchr(path, '%');
 
         if (next == NULL) {
-            strcpy(p, string);
+            strcpy(p, path);
             break;
         }
 
         /* Copy everything leading up to the '%' */
-        size_t prefix_len = next - string;
-        memcpy(p, string, prefix_len);
+        size_t prefix_len = next - path;
+        memcpy(p, path, prefix_len);
         p += prefix_len;
 
         if (isxdigit(next[1]) && isxdigit(next[2])) {
             *p++ = nibble2hex(next[1]) << 4 | nibble2hex(next[2]);
             *p = '\0';
-            string = next + 3;
+            path = next + 3;
         } else {
             *p++ = *next;
             *p = '\0';
-            string = next + 1;
+            path = next + 1;
         }
     }
 
