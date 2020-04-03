@@ -28,6 +28,7 @@
 * Default key binding for _spawn-terminal_ to ctrl+shift+n.
 * Renderer is now much faster with interactive scrolling
   (https://codeberg.org/dnkl/foot/issues/4)
+* memfd sealing failures are no longer fatal errors.
 
 
 ### Deprecated
