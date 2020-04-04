@@ -273,20 +273,20 @@ changes will **not** change the font size. Pixels are always pixels.
 OSC, _Operating System Command_, are escape sequences that interacts
 with the terminal emulator itself. Foot implements the following OSCs:
 
-* OSC 0 - change window icon + title (but only title is actually
+* `OSC 0` - change window icon + title (but only title is actually
   supported)
-* OSC 2 - chage window title
-* OSC 4 - change color palette
-* OSC 7 - report CWD
-* OSC 10 - change (default) foreground color
-* OSC 11 - change (default) background color
-* OSC 12 - change cursor color
-* OSC 52 - copy/paste clipboard data
-* OSC 104 - reset color palette
-* OSC 110 - reset default foreground color
-* OSC 111 - reset default background color
-* OSC 112 - reset cursor color
-* OSC 555 - **foot specific** flash screen
+* `OSC 2` - chage window title
+* `OSC 4` - change color palette
+* `OSC 7` - report CWD
+* `OSC 10` - change (default) foreground color
+* `OSC 11` - change (default) background color
+* `OSC 12` - change cursor color
+* `OSC 52` - copy/paste clipboard data
+* `OSC 104` - reset color palette
+* `OSC 110` - reset default foreground color
+* `OSC 111` - reset default background color
+* `OSC 112` - reset cursor color
+* `OSC 555` - **foot specific** flash screen
 
 
 ## Requirements
