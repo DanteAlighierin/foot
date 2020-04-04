@@ -1174,7 +1174,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
-            if (button == BTN_LEFT) {
+            if (button == BTN_LEFT && wayl->mouse.count <= 3) {
                 selection_cancel(term);
 
                 switch (wayl->mouse.count) {
