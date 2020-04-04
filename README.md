@@ -1,6 +1,6 @@
 # foot
 
-**foot** is a fast Wayland terminal emulator.
+**foot** is a fast and lightweight  Wayland terminal emulator.
 
 ## Index
 
