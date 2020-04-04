@@ -1175,6 +1175,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
             if (button == BTN_LEFT) {
+                selection_cancel(term);
+
                 switch (wayl->mouse.count) {
                 case 1:
                     selection_start(
@@ -1211,7 +1213,6 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                     execute_binding(term, binding->action, serial);
                     break;
                 }
-                selection_cancel(term);
             }
 
             term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col);
@@ -1219,9 +1220,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         }
 
         case WL_POINTER_BUTTON_STATE_RELEASED:
-            if (button != BTN_LEFT || term->selection.end.col == -1)
-                selection_cancel(term);
-            else
+            if (button == BTN_LEFT && term->selection.end.col != -1)
                 selection_finalize(term, serial);
 
             term_mouse_up(term, button, wayl->mouse.row, wayl->mouse.col);
