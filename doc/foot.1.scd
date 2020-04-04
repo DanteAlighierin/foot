@@ -241,6 +241,10 @@ Finally, pressing *alt* will prefix the transmitted byte with ESC.
 
 See *foot*(5)
 
+# BUGS
+
+Please report bugs to https://codeberg.org/dnkl/foot/issues
+
 # SEE ALSO
 
 *foot*(5), *footclient*(1)
