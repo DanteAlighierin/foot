@@ -5,8 +5,6 @@
 ## Index
 
 1. [Features](#features)
-1. [Non-features](#non-features)
-1. [What does not work?](#what-does-not-work)
 1. [Fonts](#fonts)
 1. [Shortcuts](#shortcuts)
    1. [Keyboard](#keyboard)
@@ -41,26 +39,6 @@
 * [Sixel image support](https://en.wikipedia.org/wiki/Sixel)
 
   ![wow](doc/sixel-wow.png "Sixel screenshot")
-
-
-
-## Non-features
-
-This is a non-exhaustive list of things some people might consider
-being important features (i.e. _"must-haves"_), that are unlikely to
-ever be supported by foot.
-
-* Tabs
-* Graphical elements (menu, buttons etc)
-
-
-## What does not work?
-
-This is a list of known, but probably not all, issues:
-
-* Unicode combining characters
-
-    Examples: á (`LATIN SMALL LETTER A` + `COMBINING ACUTE ACCENT`)
 
 
 ## Fonts
