@@ -17,6 +17,7 @@
 1. [Alt/meta](#alt-meta)
 1. [Backspace](#backspace)
 1. [DPI and font size](#dpi-and-font-size)
+1. [Supported OSCs](#supported-oscs)
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
@@ -265,6 +266,27 @@ exporting the environment variable `QT_WAYLAND_FORCE_DPI=physical`.
 
 _Note_: if you configure **pixelsize**, rather than **size**, then DPI
 changes will **not** change the font size. Pixels are always pixels.
+
+
+## Supported OSCs
+
+OSC, _Operating System Command_, are escape sequences that interacts
+with the terminal emulator itself. Foot implements the following OSCs:
+
+* OSC 0 - change window icon + title (but only title is actually
+  supported)
+* OSC 2 - chage window title
+* OSC 4 - change color palette
+* OSC 7 - report CWD
+* OSC 10 - change (default) foreground color
+* OSC 11 - change (default) background color
+* OSC 12 - change cursor color
+* OSC 52 - copy/paste clipboard data
+* OSC 104 - reset color palette
+* OSC 110 - reset default foreground color
+* OSC 111 - reset default background color
+* OSC 112 - reset cursor color
+* OSC 555 - **foot specific** flash screen
 
 
 ## Requirements
