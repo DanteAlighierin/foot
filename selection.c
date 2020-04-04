@@ -335,6 +335,32 @@ mark_selected(struct terminal *term, struct row *row, struct cell *cell,
     cell->attrs.clean = 0;
 }
 
+static void
+selection_modify(struct terminal *term, struct coord start, struct coord end)
+{
+    assert(selection_enabled(term));
+    assert(term->selection.start.row != -1);
+    assert(start.row != -1 && start.col != -1);
+    assert(end.row != -1 && end.col != -1);
+
+    /* Premark all cells that *will* be selected */
+    foreach_selected(term, start, end, &premark_selected, NULL);
+
+    if (term->selection.end.row != -1) {
+        /* Unmark previous selection, ignoring cells that are part of
+         * the new selection */
+        foreach_selected(term, term->selection.start, term->selection.end,
+                         &unmark_selected, NULL);
+    }
+
+    term->selection.start = start;
+    term->selection.end = end;
+
+    /* Mark new selection */
+    foreach_selected(term, start, end, &mark_selected, NULL);
+    render_refresh(term);
+}
+
 void
 selection_update(struct terminal *term, int col, int row)
 {
@@ -350,26 +376,159 @@ selection_update(struct terminal *term, int col, int row)
     assert(term->grid->view + row != -1);
 
     struct coord new_end = {col, term->grid->view + row};
+    selection_modify(term, term->selection.start, new_end);
+}
 
-    /* Premark all cells that *will* be selected */
-    foreach_selected(
-        term, term->selection.start, new_end, &premark_selected, NULL);
+static void
+selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial)
+{
+    const struct coord *start = &term->selection.start;
+    const struct coord *end = &term->selection.end;
 
-    if (term->selection.end.row != -1) {
-        /* Unmark previous selection, ignoring cells that are part of
-         * the new selection */
-        foreach_selected(term, term->selection.start, term->selection.end,
-                         &unmark_selected, NULL);
+    if (start->row > end->row ||
+        (start->row == end->row && start->col > end->col))
+    {
+        const struct coord *tmp = start;
+        start = end;
+        end = tmp;
     }
 
-    term->selection.end = new_end;
-    assert(term->selection.start.row != -1 && term->selection.end.row != -1);
+    assert(start->row < end->row || start->col < end->col);
 
-    /* Mark new selection */
-    foreach_selected(
-        term, term->selection.start, term->selection.end, &mark_selected, NULL);
+    struct coord new_start, new_end;
 
-    render_refresh(term);
+    if (row < start->row || (row == start->row && col < start->col)) {
+        /* Extend selection to start *before* current start */
+        new_start = (struct coord){col, row};
+        new_end = *end;
+    }
+
+    else if (row > end->row || (row == end->row && col > end->col)) {
+        /* Extend selection to end *after* current end */
+        new_start = *start;
+        new_end = (struct coord){col, row};
+    }
+
+    else {
+        /* Shrink selection from start or end, depending on which one is closest */
+
+        const int linear = row * term->cols + col;
+
+        if (abs(linear - (start->row * term->cols + start->col)) <
+            abs(linear - (end->row * term->cols + end->col)))
+        {
+            /* Move start point */
+            new_start = (struct coord){col, row};
+            new_end = *end;
+        }
+
+        else {
+            /* Move end point */
+            new_start = *start;
+            new_end = (struct coord){col, row};
+        }
+    }
+
+    selection_modify(term, new_start, new_end);
+}
+
+static void
+selection_extend_block(struct terminal *term, int col, int row, uint32_t serial)
+{
+    const struct coord *start = &term->selection.start;
+    const struct coord *end = &term->selection.end;
+
+    struct coord top_left = {
+        .row = min(start->row, end->row),
+        .col = min(start->col, end->col),
+    };
+
+    struct coord top_right = {
+        .row = min(start->row, end->row),
+        .col = max(start->col, end->col),
+    };
+
+    struct coord bottom_left = {
+        .row = max(start->row, end->row),
+        .col = min(start->col, end->col),
+    };
+
+    struct coord bottom_right = {
+        .row = max(start->row, end->row),
+        .col = max(start->col, end->col),
+    };
+
+    struct coord new_start;
+    struct coord new_end;
+
+    if (row <= top_left.row ||
+        abs(row - top_left.row) < abs(row - bottom_left.row))
+    {
+        /* Move one of the top corners */
+
+        if (abs(col - top_left.col) < abs(col - top_right.col)) {
+            new_start = (struct coord){col, row};
+            new_end = bottom_right;
+        }
+
+        else {
+            new_start = (struct coord){col, row};
+            new_end = bottom_left;
+        }
+    }
+
+    else {
+        /* Move one of the bottom corners */
+
+        if (abs(col - bottom_left.col) < abs(col - bottom_right.col)) {
+            new_start = top_right;
+            new_end = (struct coord){col, row};
+        }
+
+        else {
+            new_start = top_left;
+            new_end = (struct coord){col, row};
+        }
+    }
+
+    selection_modify(term, new_start, new_end);
+}
+
+void
+selection_extend(struct terminal *term, int col, int row, uint32_t serial)
+{
+    if (!selection_enabled(term))
+        return;
+
+    if (term->selection.start.row == -1 || term->selection.end.row == -1) {
+        /* No existing selection */
+        return;
+    }
+
+    row += term->grid->view;
+
+    if ((row == term->selection.start.row && col == term->selection.start.col) ||
+        (row == term->selection.end.row && col == term->selection.end.col))
+    {
+        /* Extension point *is* one of the current end points */
+        return;
+    }
+
+    switch (term->selection.kind) {
+    case SELECTION_NONE:
+        assert(false);
+        return;
+
+    case SELECTION_NORMAL:
+        selection_extend_normal(term, col, row, serial);
+        break;
+
+    case SELECTION_BLOCK:
+        selection_extend_block(term, col, row, serial);
+        break;
+    }
+
+    selection_to_primary(term, serial);
 }
 
 static const struct zwp_primary_selection_source_v1_listener primary_selection_source_listener;
