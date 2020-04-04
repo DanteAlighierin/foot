@@ -286,7 +286,7 @@ with the terminal emulator itself. Foot implements the following OSCs:
 * `OSC 110` - reset default foreground color
 * `OSC 111` - reset default background color
 * `OSC 112` - reset cursor color
-* `OSC 555` - **foot specific** flash screen
+* `OSC 555` - flash screen (**foot specific**)
 
 
 ## Requirements
