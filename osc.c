@@ -430,47 +430,48 @@ osc_dispatch(struct terminal *term)
     case 4: {
         /* Set color<idx> */
 
-        /* First param - the color index */
-        unsigned idx = 0;
-        for (; *string != '\0' && *string != ';'; string++) {
-            char c = *string;
-            idx *= 10;
-            idx += c - '0';
-        }
-
-        if (idx >= 256)
-            break;
-
-        /* Next follows the color specification. For now, we only support rgb:x/y/z */
-
-        if (*string == '\0') {
-            /* No color specification */
-            break;
-        }
-
+        string--;
         assert(*string == ';');
-        string++;
 
-        /* Client queried for current value */
-        if (strlen(string) == 1 && string[0] == '?') {
-            uint32_t color = term->colors.table[idx];
-            uint8_t r = (color >> 16) & 0xff;
-            uint8_t g = (color >>  8) & 0xff;
-            uint8_t b = (color >>  0) & 0xff;
+        for (const char *s_idx = strtok(string, ";"), *s_color = strtok(NULL, ";");
+             s_idx != NULL && s_color != NULL;
+             s_idx = strtok(NULL, ";"), s_color = strtok(NULL, ";"))
+        {
+            /* Parse <idx> parameter */
+            unsigned idx = 0;
+            for (; *s_idx != '\0'; s_idx++) {
+                char c = *s_idx;
+                idx *= 10;
+                idx += c - '0';
+            }
 
-            char reply[32];
-            snprintf(reply, sizeof(reply), "\033]4;%u;rgb:%02x/%02x/%02x\033\\",
-                     idx, r, g, b);
-            term_to_slave(term, reply, strlen(reply));
-            break;
+            /* Client queried for current value */
+            if (strlen(s_color) == 1 && s_color[0] == '?') {
+                uint32_t color = term->colors.table[idx];
+                uint8_t r = (color >> 16) & 0xff;
+                uint8_t g = (color >>  8) & 0xff;
+                uint8_t b = (color >>  0) & 0xff;
+
+                char reply[32];
+                snprintf(reply, sizeof(reply), "\033]4;%u;rgb:%02x/%02x/%02x\033\\",
+                         idx, r, g, b);
+                term_to_slave(term, reply, strlen(reply));
+            }
+
+            else {
+                uint32_t color;
+                bool color_is_valid = s_color[0] == '#'
+                    ? parse_legacy_color(s_color, &color)
+                    : parse_rgb(s_color, &color);
+
+                if (!color_is_valid)
+                    continue;
+
+                LOG_DBG("change color definition for #%u to %06x", idx, color);
+                term->colors.table[idx] = color;
+            }
         }
 
-        uint32_t color;
-        if (string[0] == '#' ? !parse_legacy_color(string, &color) : !parse_rgb(string, &color))
-            break;
-
-        LOG_DBG("change color definition for #%u to %06x", idx, color);
-        term->colors.table[idx] = color;
         render_refresh(term);
         break;
     }
@@ -558,24 +559,23 @@ osc_dispatch(struct terminal *term)
             LOG_DBG("resetting all colors");
             for (size_t i = 0; i < 256; i++)
                 term->colors.table[i] = term->colors.default_table[i];
-        } else {
-            unsigned idx = 0;
+        }
 
-            for (; *string != '\0'; string++) {
-                char c = *string;
-                if (c == ';') {
-                    LOG_DBG("resetting color #%u", idx);
-                    term->colors.table[idx] = term->colors.default_table[idx];
-                    idx = 0;
-                    continue;
+        else {
+            for (const char *s_idx = strtok(string, ";");
+                 s_idx != NULL;
+                 s_idx = strtok(NULL, ";"))
+            {
+                unsigned idx = 0;
+                for (; *s_idx != '\0'; s_idx++) {
+                    char c = *s_idx;
+                    idx *= 10;
+                    idx += c - '0';
                 }
 
-                idx *= 10;
-                idx += c - '0';
+                LOG_DBG("resetting color #%u", idx);
+                term->colors.table[idx] = term->colors.default_table[idx];
             }
-
-            LOG_DBG("resetting color #%u", idx);
-            term->colors.table[idx] = term->colors.default_table[idx];
         }
 
         render_refresh(term);

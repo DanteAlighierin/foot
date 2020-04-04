@@ -46,6 +46,7 @@
 * Restored cursor position in 'normal' screen when window was resized
   while in 'alt' screen.
 * Hostname in OSC 7 URI not being validated.
+* OSC 4 with multiple `c;spec` pairs.
 
 
 ### Security
