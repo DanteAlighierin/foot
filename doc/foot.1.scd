@@ -194,6 +194,9 @@ Note that these are just the defaults; they can be changed in the
 *middle*
 	Paste from the _primary_ selection
 
+*right*
+	Extend current selection
+
 *wheel*
 	Scroll up/down in history
 
