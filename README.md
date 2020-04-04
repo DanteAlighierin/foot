@@ -22,6 +22,7 @@
 1. [Installing](#installing)
    1. [Arch Linux](#arch-linux)
    1. [Other](#other)
+1. [Bugs](#bugs)
 
 
 ## Features
@@ -397,3 +398,17 @@ just install everything:
 ```sh
 ninja install
 ```
+
+
+# BUGS
+
+Please report bugs to https://codeberg.org/dnkl/foot/issues
+
+The report should contain the following:
+
+* Which Wayland compositor (and version) you are running
+* Foot version (`foot --version`)
+* Log output from foot (start foot from another terminal)
+* If reporting a crash, please try to provide a `bt full` backtrace
+  with symbols
+* Steps to reproduce. The more details the better
