@@ -1195,6 +1195,10 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 }
             }
 
+            else if (button == BTN_RIGHT && wayl->mouse.count == 1) {
+                selection_extend(term, wayl->mouse.col, wayl->mouse.row, serial);
+            }
+
             else {
                 for (size_t i = 0; i < ALEN(wayl->conf->bindings.mouse); i++) {
                     const struct mouse_binding *binding =
