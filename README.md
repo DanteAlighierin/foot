@@ -163,6 +163,9 @@ These are the default shortcuts. See `man 5 foot` and the example
 <kbd>middle</kbd>
 : Paste from _primary_ selection
 
+<kbd>right</kbd>
+: Extend current selection
+
 <kbd>wheel</kbd>
 : Scroll up/down in history
 
