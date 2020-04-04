@@ -559,24 +559,23 @@ osc_dispatch(struct terminal *term)
             LOG_DBG("resetting all colors");
             for (size_t i = 0; i < 256; i++)
                 term->colors.table[i] = term->colors.default_table[i];
-        } else {
-            unsigned idx = 0;
+        }
 
-            for (; *string != '\0'; string++) {
-                char c = *string;
-                if (c == ';') {
-                    LOG_DBG("resetting color #%u", idx);
-                    term->colors.table[idx] = term->colors.default_table[idx];
-                    idx = 0;
-                    continue;
+        else {
+            for (const char *s_idx = strtok(string, ";");
+                 s_idx != NULL;
+                 s_idx = strtok(NULL, ";"))
+            {
+                unsigned idx = 0;
+                for (; *s_idx != '\0'; s_idx++) {
+                    char c = *s_idx;
+                    idx *= 10;
+                    idx += c - '0';
                 }
 
-                idx *= 10;
-                idx += c - '0';
+                LOG_DBG("resetting color #%u", idx);
+                term->colors.table[idx] = term->colors.default_table[idx];
             }
-
-            LOG_DBG("resetting color #%u", idx);
-            term->colors.table[idx] = term->colors.default_table[idx];
         }
 
         render_refresh(term);
