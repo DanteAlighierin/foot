@@ -505,6 +505,8 @@ selection_extend(struct terminal *term, int col, int row, uint32_t serial)
         return;
     }
 
+    row += term->grid->view;
+
     if ((row == term->selection.start.row && col == term->selection.start.col) ||
         (row == term->selection.end.row && col == term->selection.end.col))
     {
