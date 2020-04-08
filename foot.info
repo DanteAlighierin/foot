@@ -1,8 +1,8 @@
 foot|foot terminal emulator,
     use=foot+base,
     colors#256,
-    setab=\E[%?%p1%{8}%<%t4%p1%d%e%p1%{16}%<%t10%p1%{8}%-%d%e48;5;%p1%d%;m,
-    setaf=\E[%?%p1%{8}%<%t3%p1%d%e%p1%{16}%<%t9%p1%{8}%-%d%e38;5;%p1%d%;m,
+    setab=\E[%?%p1%{8}%<%t4%p1%d%e%p1%{16}%<%t10%p1%{8}%-%d%e48\:2\:5\:%p1%d%;m,
+    setaf=\E[%?%p1%{8}%<%t3%p1%d%e%p1%{16}%<%t9%p1%{8}%-%d%e38\:2\:5\:%p1%d%;m,
 
 foot-direct|foot with direct color indexing,
     use=foot+base,
