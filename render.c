@@ -202,16 +202,6 @@ attrs_to_font(const struct terminal *term, const struct attributes *attrs)
     return term->fonts[idx];
 }
 
-static inline struct rgb
-color_hex_to_rgb(uint32_t color)
-{
-    return (struct rgb){
-        ((color >> 16) & 0xff) / 255.,
-        ((color >>  8) & 0xff) / 255.,
-        ((color >>  0) & 0xff) / 255.,
-    };
-}
-
 static inline pixman_color_t
 color_hex_to_pixman_with_alpha(uint32_t color, uint16_t alpha)
 {
@@ -232,14 +222,6 @@ color_hex_to_pixman(uint32_t color)
 {
     /* Count on the compiler optimizing this */
     return color_hex_to_pixman_with_alpha(color, 0xffff);
-}
-
-static inline void
-color_dim(struct rgb *rgb)
-{
-    rgb->r /= 2.;
-    rgb->g /= 2.;
-    rgb->b /= 2.;
 }
 
 static inline void
