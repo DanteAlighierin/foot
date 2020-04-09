@@ -225,7 +225,7 @@ color_hex_to_pixman(uint32_t color)
 }
 
 static inline void
-pixman_color_dim(pixman_color_t *color)
+color_dim(pixman_color_t *color)
 {
     color->red /= 2;
     color->green /= 2;
@@ -233,7 +233,7 @@ pixman_color_dim(pixman_color_t *color)
 }
 
 static inline void
-pixman_color_dim_for_search(pixman_color_t *color)
+color_dim_for_search(pixman_color_t *color)
 {
     color->red /= 3;
     color->green /= 3;
@@ -320,8 +320,8 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
         }
 
         if (term->is_searching && !is_selected) {
-            pixman_color_dim_for_search(&cursor_color);
-            pixman_color_dim_for_search(&text_color);
+            color_dim_for_search(&cursor_color);
+            color_dim_for_search(&text_color);
         }
     } else {
         cursor_color = *fg;
@@ -394,11 +394,11 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
 
     if (cell->attrs.dim)
-        pixman_color_dim(&fg);
+        color_dim(&fg);
 
     if (term->is_searching && !is_selected) {
-        pixman_color_dim_for_search(&fg);
-        pixman_color_dim_for_search(&bg);
+        color_dim_for_search(&fg);
+        color_dim_for_search(&bg);
     }
 
     struct font *font = attrs_to_font(term, &cell->attrs);
@@ -472,7 +472,7 @@ render_margin(struct terminal *term, struct buffer *buf, int start_line, int end
     uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
     pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, term->colors.alpha);
     if (term->is_searching)
-        pixman_color_dim(&bg);
+        color_dim(&bg);
 
     if (top) {
         pixman_image_fill_rectangles(
@@ -908,7 +908,7 @@ render_csd_title(struct terminal *term)
 
     pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
     if (!term->visual_focus)
-        pixman_color_dim(&color);
+        color_dim(&color);
     render_csd_part(term, surf, buf, info.width, info.height, &color);
     csd_commit(term, surf, buf);
 }
@@ -1143,7 +1143,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
 
     pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
     if (!term->visual_focus)
-        pixman_color_dim(&color);
+        color_dim(&color);
     render_csd_part(term, surf, buf, info.width, info.height, &color);
 
     switch (surf_idx) {
