@@ -380,8 +380,8 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
             return false;
         }
 
-        conf->cursor.color.text = 1 << 31 | text_color;
-        conf->cursor.color.cursor = 1 << 31 | cursor_color;
+        conf->cursor.color.text = 1u << 31 | text_color;
+        conf->cursor.color.cursor = 1u << 31 | cursor_color;
         free(value_copy);
     }
 
