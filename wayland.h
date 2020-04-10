@@ -292,6 +292,7 @@ struct wayland {
         struct timeval last_time;
 
         /* We used a discrete axis event in the current pointer frame */
+        double axis_aggregated;
         bool have_discrete;
     } mouse;
 

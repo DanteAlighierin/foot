@@ -1295,7 +1295,18 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
     if (wayl->mouse.have_discrete)
         return;
 
-    mouse_scroll(wayl, wl_fixed_to_int(value));
+    /*
+     * Aggregate scrolled amount until we get at least 1.0
+     *
+     * Without this, very slow scrolling will never actually scroll
+     * anything.
+     */
+    wayl->mouse.axis_aggregated += wl_fixed_to_double(value);
+
+    if (fabs(wayl->mouse.axis_aggregated) >= 1.) {
+        mouse_scroll(wayl, round(wayl->mouse.axis_aggregated));
+        wayl->mouse.axis_aggregated = 0.;
+    }
 }
 
 static void
@@ -1327,6 +1338,11 @@ static void
 wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
                      uint32_t time, uint32_t axis)
 {
+    if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
+        return;
+
+    struct wayland *wayl = data;
+    wayl->mouse.axis_aggregated = 0.;
 }
 
 const struct wl_pointer_listener pointer_listener = {
