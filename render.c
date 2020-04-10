@@ -235,9 +235,9 @@ color_dim(pixman_color_t *color)
 static inline void
 color_dim_for_search(pixman_color_t *color)
 {
-    color->red /= 3;
-    color->green /= 3;
-    color->blue /= 3;
+    color->red /= 2;
+    color->green /= 2;
+    color->blue /= 2;
 }
 
 static inline int
