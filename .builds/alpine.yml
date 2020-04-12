@@ -10,7 +10,6 @@ packages:
   - scdoc
   - wayland-dev
   - wayland-protocols
-  - wlroots-dev
   - freetype-dev
   - fontconfig-dev
   - ncurses
