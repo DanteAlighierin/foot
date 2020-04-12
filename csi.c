@@ -58,7 +58,7 @@ csi_as_string(struct terminal *term, uint8_t final, int idx)
                       i == term->vt.params.idx - 1 ? "" : ";");
     }
 
-    snprintf(&msg[c], sizeof(msg) - c, "%c (%hhu parameters)",
+    snprintf(&msg[c], sizeof(msg) - c, "%c (%u parameters)",
              final, idx >= 0 ? 1 : term->vt.params.idx);
     return msg;
 }

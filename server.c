@@ -208,7 +208,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     LOG_DBG("CWD = %.*s", cwd_len, cwd);
 
     if (cwd_len != strlen(cwd) + 1) {
-        LOG_ERR("CWD length mismatch: indicated = %hu, actual = %zu",
+        LOG_ERR("CWD length mismatch: indicated = %u, actual = %zu",
                 cwd_len - 1, strlen(cwd));
         goto shutdown;
     }
@@ -221,7 +221,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     LOG_DBG("TERM = %.*s", term_env_len, term_env);
 
     if (term_env_len != strlen(term_env) + 1) {
-        LOG_ERR("TERM length mismatch: indicated = %hu, actual = %zu",
+        LOG_ERR("TERM length mismatch: indicated = %u, actual = %zu",
                 term_env_len - 1, strlen(term_env));
         goto shutdown;
     }
@@ -234,7 +234,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     LOG_DBG("app-id = %.*s", title_len, title);
 
     if (title_len != strlen(title) + 1) {
-        LOG_ERR("title length mismatch: indicated = %hu, actual = %zu",
+        LOG_ERR("title length mismatch: indicated = %u, actual = %zu",
                 title_len - 1, strlen(title));
         goto shutdown;
     }
@@ -247,7 +247,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     LOG_DBG("app-id = %.*s", app_id_len, app_id);
 
     if (app_id_len != strlen(app_id) + 1) {
-        LOG_ERR("app-id length mismatch: indicated = %hu, actual = %zu",
+        LOG_ERR("app-id length mismatch: indicated = %u, actual = %zu",
                 app_id_len - 1, strlen(app_id));
         goto shutdown;
     }
@@ -275,7 +275,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         LOG_DBG("argv[%d] = %s", i, argv[i]);
 
         if (len != strlen(argv[i]) + 1) {
-            LOG_ERR("argv[%d] length mismatch: indicated = %hu, actual = %zu",
+            LOG_ERR("argv[%d] length mismatch: indicated = %u, actual = %zu",
                     i, len - 1, strlen(argv[i]));
             goto shutdown;
         }
