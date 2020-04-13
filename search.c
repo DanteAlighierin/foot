@@ -613,7 +613,7 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
     }
 
     const char *src = (const char *)buf;
-    mbstate_t ps = {0};
+    mbstate_t ps = {};
     size_t wchars = mbsnrtowcs(NULL, &src, count, 0, &ps);
 
     if (wchars == -1) {

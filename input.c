@@ -695,7 +695,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                 const wchar_t wc = 0x80 | buf[0];
 
                 char utf8[8];
-                mbstate_t ps = {0};
+                mbstate_t ps = {};
                 size_t chars = wcrtomb(utf8, wc, &ps);
 
                 if (chars != (size_t)-1)

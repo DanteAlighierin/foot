@@ -536,7 +536,7 @@ static void
 action_utf8_print(struct terminal *term, uint8_t c)
 {
     /* Convert to wchar */
-    mbstate_t ps = {0};
+    mbstate_t ps = {};
     wchar_t wc;
     size_t count = mbrtowc(
         &wc, (const char *)term->vt.utf8.data, term->vt.utf8.idx, &ps);
