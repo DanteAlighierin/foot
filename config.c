@@ -506,7 +506,7 @@ verify_key_combo(const struct config *conf, const char *combo, const char *path,
 
     struct xkb_context *ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     struct xkb_keymap *keymap = xkb_keymap_new_from_names(
-        ctx, &(struct xkb_rule_names){0}, XKB_KEYMAP_COMPILE_NO_FLAGS);
+        ctx, &(struct xkb_rule_names){}, XKB_KEYMAP_COMPILE_NO_FLAGS);
 
     bool valid_combo = input_parse_key_binding(keymap, combo, NULL);
 

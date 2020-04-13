@@ -38,7 +38,7 @@ static struct {
     size_t zero;  /* commits presented in less than one frame interval */
     size_t one;   /* commits presented in one frame interval */
     size_t two;   /* commits presented in two or more frame intervals */
-} presentation_statistics = {0};
+} presentation_statistics = {};
 
 static void fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data);
 
@@ -853,11 +853,11 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
 
     case CSD_SURF_COUNT:
         assert(false);
-        return (struct csd_data){0};
+        return (struct csd_data){};
     }
 
     assert(false);
-    return (struct csd_data){0};
+    return (struct csd_data){};
 }
 
 static void

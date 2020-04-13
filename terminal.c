@@ -129,7 +129,7 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
 }
 
 #if PTMX_TIMING
-static struct timespec last = {0};
+static struct timespec last = {};
 #endif
 
 static bool
@@ -325,7 +325,7 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
         term->blink.active = false;
         term->blink.state = BLINK_ON;
 
-        static const struct itimerspec disarm = {{0}};
+        static const struct itimerspec disarm = {};
         if (timerfd_settime(term->blink.fd, 0, &disarm, NULL)  < 0)
             LOG_ERRNO("failed to disarm blink timer");
     } else
@@ -423,11 +423,11 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
         return true;
 
 #if PTMX_TIMING
-    last = (struct timespec){0};
+    last = (struct timespec){};
 #endif
 
     /* Reset timers */
-    struct itimerspec reset = {{0}};
+    struct itimerspec reset = {};
     timerfd_settime(term->delayed_render_timer.lower_fd, 0, &reset, NULL);
     timerfd_settime(term->delayed_render_timer.upper_fd, 0, &reset, NULL);
     term->delayed_render_timer.is_armed = false;
@@ -1502,7 +1502,7 @@ cursor_blink_start_timer(struct terminal *term)
 static bool
 cursor_blink_stop_timer(struct terminal *term)
 {
-    return timerfd_settime(term->cursor_blink.fd, 0, &(struct itimerspec){{0}}, NULL) == 0;
+    return timerfd_settime(term->cursor_blink.fd, 0, &(struct itimerspec){}, NULL) == 0;
 }
 
 void
@@ -2069,10 +2069,10 @@ term_enable_app_sync_updates(struct terminal *term)
     /* Disarm delayed rendering timers */
     timerfd_settime(
         term->delayed_render_timer.lower_fd, 0,
-        &(struct itimerspec){{0}}, NULL);
+        &(struct itimerspec){}, NULL);
     timerfd_settime(
         term->delayed_render_timer.upper_fd, 0,
-        &(struct itimerspec){{0}}, NULL);
+        &(struct itimerspec){}, NULL);
     term->delayed_render_timer.is_armed = false;
 }
 
@@ -2089,7 +2089,7 @@ term_disable_app_sync_updates(struct terminal *term)
     /* Reset timers */
     timerfd_settime(
         term->render.app_sync_updates.timer_fd, 0,
-        &(struct itimerspec){{0}}, NULL);
+        &(struct itimerspec){}, NULL);
 }
 
 static inline void

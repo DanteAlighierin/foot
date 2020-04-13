@@ -344,7 +344,7 @@ stop_repeater(struct wayland *wayl, uint32_t key)
     if (key != -1 && key != wayl->kbd.repeat.key)
         return true;
 
-    if (timerfd_settime(wayl->kbd.repeat.fd, 0, &(struct itimerspec){{0}}, NULL) < 0) {
+    if (timerfd_settime(wayl->kbd.repeat.fd, 0, &(struct itimerspec){}, NULL) < 0) {
         LOG_ERRNO("failed to disarm keyboard repeat timer");
         return false;
     }
@@ -615,7 +615,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
      * Compose, and maybe emit "normal" character
      */
 
-    uint8_t buf[64] = {0};
+    uint8_t buf[64] = {};
     int count = 0;
 
     if (compose_status == XKB_COMPOSE_COMPOSED) {

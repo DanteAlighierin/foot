@@ -598,7 +598,7 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
         }
     }
 
-    uint8_t buf[64] = {0};
+    uint8_t buf[64] = {};
     int count = 0;
 
     if (compose_status == XKB_COMPOSE_COMPOSED) {
