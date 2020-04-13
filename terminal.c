@@ -1106,6 +1106,31 @@ term_destroy(struct terminal *term)
     return ret;
 }
 
+static inline void
+erase_cell_range(struct terminal *term, struct row *row, int start, int end)
+{
+    assert(start < term->cols);
+    assert(end < term->cols);
+
+    if (unlikely(term->vt.attrs.have_bg)) {
+        for (int col = start; col <= end; col++) {
+            struct cell *c = &row->cells[col];
+            c->wc = 0;
+            c->attrs = (struct attributes){.have_bg = 1, .bg = term->vt.attrs.bg};
+        }
+    } else
+        memset(&row->cells[start], 0, (end - start + 1) * sizeof(row->cells[0]));
+
+    row->dirty = true;
+}
+
+static inline void
+erase_line(struct terminal *term, struct row *row)
+{
+    erase_cell_range(term, row, 0, term->cols - 1);
+    row->linebreak = false;
+}
+
 void
 term_reset(struct terminal *term, bool hard)
 {
@@ -1175,8 +1200,12 @@ term_reset(struct terminal *term, bool hard)
     term->normal.offset = term->normal.view = 0;
     term->alt.offset = term->alt.view = 0;
     for (size_t i = 0; i < term->rows; i++) {
-        term->normal.rows[i] = grid_row_alloc(term->cols, true);
-        term->alt.rows[i] = grid_row_alloc(term->cols, true);
+        struct row *r = grid_row_and_alloc(&term->normal, i);
+        erase_line(term, r);
+    }
+    for (size_t i = 0; i < term->rows; i++) {
+        struct row *r = grid_row_and_alloc(&term->alt, i);
+        erase_line(term, r);
     }
     for (size_t i = term->rows; i < term->normal.num_rows; i++) {
         grid_row_free(term->normal.rows[i]);
@@ -1354,31 +1383,6 @@ term_damage_scroll(struct terminal *term, enum damage_type damage_type,
         .scroll = {.region = region, .lines = lines},
     };
     tll_push_back(term->grid->scroll_damage, dmg);
-}
-
-static inline void
-erase_cell_range(struct terminal *term, struct row *row, int start, int end)
-{
-    assert(start < term->cols);
-    assert(end < term->cols);
-
-    if (unlikely(term->vt.attrs.have_bg)) {
-        for (int col = start; col <= end; col++) {
-            struct cell *c = &row->cells[col];
-            c->wc = 0;
-            c->attrs = (struct attributes){.have_bg = 1, .bg = term->vt.attrs.bg};
-        }
-    } else
-        memset(&row->cells[start], 0, (end - start + 1) * sizeof(row->cells[0]));
-
-    row->dirty = true;
-}
-
-static inline void
-erase_line(struct terminal *term, struct row *row)
-{
-    erase_cell_range(term, row, 0, term->cols - 1);
-    row->linebreak = false;
 }
 
 void

@@ -49,6 +49,7 @@
 * OSC 4 with multiple `c;spec` pairs.
 * Alt+Return to emit "ESC \r".
 * Trackpad sloooow scrolling to eventually scroll a line.
+* Memory leak in terminal reset.
 
 
 ### Security
