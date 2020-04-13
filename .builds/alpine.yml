@@ -12,6 +12,8 @@ packages:
   - wayland-protocols
   - freetype-dev
   - fontconfig-dev
+  - pixman-dev
+  - libxkbcommon-dev
   - ncurses
 
 sources:
