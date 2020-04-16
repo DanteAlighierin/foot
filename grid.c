@@ -53,7 +53,7 @@ grid_row_free(struct row *row)
     free(row);
 }
 
-int
+void
 grid_reflow(struct grid *grid, int new_rows, int new_cols,
             int old_screen_rows, int new_screen_rows)
 {
@@ -79,13 +79,26 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
     tll(struct sixel) new_sixels = tll_init();
 
+    /* Turn cursor coordinates into grid absolute coordinates */
+    struct coord cursor = grid->cursor.point;
+    struct coord new_cursor = {};
+    cursor.row += grid->offset;
+    cursor.row &= old_rows - 1;
+
+    struct coord saved_cursor = grid->saved_cursor.point;
+    struct coord new_saved_cursor = {};
+    saved_cursor.row += grid->offset;
+    saved_cursor.row &= old_rows - 1;
+
     /*
      * Walk the old grid
      */
     for (int r = 0; r < old_rows; r++) {
 
+        const size_t old_row_idx = (offset + r) & (old_rows - 1);
+
         /* Unallocated (empty) rows we can simply skip */
-        const struct row *old_row = old_grid[(offset + r) & (old_rows - 1)];
+        const struct row *old_row = old_grid[old_row_idx];
         if (old_row == NULL)
             continue;
 
@@ -102,7 +115,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
          * the "real" sixel list.
          */
         tll_foreach(grid->sixel_images, it) {
-            if (it->item.pos.row == ((offset + r) & (old_rows - 1))) {
+            if (it->item.pos.row == old_row_idx) {
                 struct sixel six = it->item;
                 six.pos.row = new_row_idx;
 
@@ -122,7 +135,13 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
         /* Walk current line of the old grid */
         for (int c = 0; c < old_cols; c++) {
-            if (old_row->cells[c].wc == 0) {
+            bool has_cursor = cursor.row == old_row_idx && cursor.col == c;
+            bool has_saved_cursor
+                = saved_cursor.row == old_row_idx && saved_cursor.col == c;
+
+            if (old_row->cells[c].wc == 0 && !has_cursor && !has_saved_cursor) {
+                assert(!has_cursor);
+                assert(!has_saved_cursor);
                 empty_count++;
                 continue;
             }
@@ -168,6 +187,12 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
                 new_row->cells[new_col_idx] = *old_cell;
                 new_row->cells[new_col_idx].attrs.clean = 1;
+
+                if (has_cursor)
+                    new_cursor = (struct coord){new_col_idx, new_row_idx};
+                if (has_saved_cursor)
+                    new_saved_cursor = (struct coord){new_col_idx, new_row_idx};
+
                 new_col_idx++;
             }
 
@@ -211,10 +236,31 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
         grid_row_free(old_grid[r]);
     free(grid->rows);
 
-    grid->cur_row = new_grid[new_row_idx];
+    grid->cur_row = new_grid[new_cursor.row];
     grid->rows = new_grid;
     grid->num_rows = new_rows;
     grid->num_cols = new_cols;
+
+    /* Convert absolute coordinates to screen relative */
+    new_cursor.row -= grid->offset;
+    while (new_cursor.row < 0)
+        new_cursor.row += grid->num_rows;
+
+    assert(new_cursor.row >= 0);
+    assert(new_cursor.row < grid->num_rows);
+
+    new_saved_cursor.row -= grid->offset;
+    while (new_saved_cursor.row < 0)
+        new_saved_cursor.row += grid->num_rows;
+
+    assert(new_saved_cursor.row >= 0);
+    assert(new_saved_cursor.row < grid->num_rows);
+
+    grid->cursor.point = new_cursor;
+    grid->saved_cursor.point = new_saved_cursor;
+
+    grid->cursor.lcf = false;
+    grid->saved_cursor.lcf = false;
 
     /* Destroy any non-moved sixels */
     tll_foreach(grid->sixel_images, it)
@@ -225,6 +271,4 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
     tll_foreach(new_sixels, it)
         tll_push_back(grid->sixel_images, it->item);
     tll_free(new_sixels);
-
-    return new_row_idx;
 }

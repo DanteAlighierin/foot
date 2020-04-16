@@ -1754,10 +1754,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     }
 
     /* Reflow grids */
-    int last_normal_row = grid_reflow(
-        &term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows);
-    int last_alt_row = grid_reflow(
-        &term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows);
+    grid_reflow(&term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows);
+    grid_reflow(&term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows);
 
     /* Reset tab stops */
     tll_free(term->tab_stops);
@@ -1788,36 +1786,6 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     if (term->scroll_region.end >= old_rows)
         term->scroll_region.end = term->rows;
-
-    /* Position cursor at the last copied row */
-    /* TODO: can we do better? */
-    int cursor_row = term->grid == &term->normal
-        ? last_normal_row - term->normal.offset
-        : last_alt_row - term->alt.offset;
-
-    while (cursor_row < 0)
-        cursor_row += term->grid->num_rows;
-
-    assert(cursor_row >= 0);
-    assert(cursor_row < term->rows);
-
-    term_cursor_to(
-        term,
-        cursor_row,
-        min(term->grid->cursor.point.col, term->cols - 1));
-
-    /* If in alt screen, update the saved 'normal' cursor too */
-    if (term->grid == &term->alt) {
-        int cursor_row = last_normal_row - term->normal.offset;
-
-        while (cursor_row < 0)
-            cursor_row += term->grid->num_rows;
-
-        term->normal.cursor.lcf = false;
-        term->normal.cursor.point.row = cursor_row;
-        term->normal.cursor.point.col = min(
-            term->normal.cursor.point.col, term->cols - 1);
-    }
 
     term->render.last_cursor.cell = NULL;
 
