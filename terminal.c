@@ -354,7 +354,7 @@ term_arm_blink_timer(struct terminal *term)
 static void
 cursor_refresh(struct terminal *term)
 {
-    term->grid->cur_row->cells[term->cursor.point.col].attrs.clean = 0;
+    term->grid->cur_row->cells[term->grid->cursor.point.col].attrs.clean = 0;
     term->grid->cur_row->dirty = true;
     render_refresh(term);
 }
@@ -1163,7 +1163,6 @@ term_reset(struct terminal *term, bool hard)
 
     if (term->grid == &term->alt) {
         term->grid = &term->normal;
-        term_restore_cursor(term, &term->alt_saved_cursor);
         selection_cancel(term);
     }
 
@@ -1188,10 +1187,12 @@ term_reset(struct terminal *term, bool hard)
     for (size_t i = 0; i < 256; i++)
         term->colors.table[i] = term->colors.default_table[i];
     term->origin = ORIGIN_ABSOLUTE;
-    term->cursor.lcf = false;
-    term->cursor = (struct cursor){.point = {0, 0}};
-    term->saved_cursor = (struct cursor){.point = {0, 0}};
-    term->alt_saved_cursor = (struct cursor){.point = {0, 0}};
+    term->normal.cursor.lcf = false;
+    term->alt.cursor.lcf = false;
+    term->normal.cursor = (struct cursor){.point = {0, 0}};
+    term->normal.saved_cursor = (struct cursor){.point = {0, 0}};
+    term->alt.cursor = (struct cursor){.point = {0, 0}};
+    term->alt.saved_cursor = (struct cursor){.point = {0, 0}};
     term->cursor_style = term->default_cursor_style;
     term_cursor_blink_disable(term);
     term->cursor_color.text = term->default_cursor_color.text;
@@ -1431,10 +1432,10 @@ term_cursor_to(struct terminal *term, int row, int col)
     assert(row < term->rows);
     assert(col < term->cols);
 
-    term->cursor.lcf = false;
+    term->grid->cursor.lcf = false;
 
-    term->cursor.point.col = col;
-    term->cursor.point.row = row;
+    term->grid->cursor.point.col = col;
+    term->grid->cursor.point.row = row;
 
     term->grid->cur_row = grid_row(term->grid, row);
 }
@@ -1448,39 +1449,39 @@ term_cursor_home(struct terminal *term)
 void
 term_cursor_left(struct terminal *term, int count)
 {
-    int move_amount = min(term->cursor.point.col, count);
-    term->cursor.point.col -= move_amount;
-    assert(term->cursor.point.col >= 0);
-    term->cursor.lcf = false;
+    int move_amount = min(term->grid->cursor.point.col, count);
+    term->grid->cursor.point.col -= move_amount;
+    assert(term->grid->cursor.point.col >= 0);
+    term->grid->cursor.lcf = false;
 }
 
 void
 term_cursor_right(struct terminal *term, int count)
 {
-    int move_amount = min(term->cols - term->cursor.point.col - 1, count);
-    term->cursor.point.col += move_amount;
-    assert(term->cursor.point.col < term->cols);
-    term->cursor.lcf = false;
+    int move_amount = min(term->cols - term->grid->cursor.point.col - 1, count);
+    term->grid->cursor.point.col += move_amount;
+    assert(term->grid->cursor.point.col < term->cols);
+    term->grid->cursor.lcf = false;
 }
 
 void
 term_cursor_up(struct terminal *term, int count)
 {
     int top = term->origin == ORIGIN_ABSOLUTE ? 0 : term->scroll_region.start;
-    assert(term->cursor.point.row >= top);
+    assert(term->grid->cursor.point.row >= top);
 
-    int move_amount = min(term->cursor.point.row - top, count);
-    term_cursor_to(term, term->cursor.point.row - move_amount, term->cursor.point.col);
+    int move_amount = min(term->grid->cursor.point.row - top, count);
+    term_cursor_to(term, term->grid->cursor.point.row - move_amount, term->grid->cursor.point.col);
 }
 
 void
 term_cursor_down(struct terminal *term, int count)
 {
     int bottom = term->origin == ORIGIN_ABSOLUTE ? term->rows : term->scroll_region.end;
-    assert(bottom >= term->cursor.point.row);
+    assert(bottom >= term->grid->cursor.point.row);
 
-    int move_amount = min(bottom - term->cursor.point.row - 1, count);
-    term_cursor_to(term, term->cursor.point.row + move_amount, term->cursor.point.col);
+    int move_amount = min(bottom - term->grid->cursor.point.row - 1, count);
+    term_cursor_to(term, term->grid->cursor.point.row + move_amount, term->grid->cursor.point.col);
 }
 
 static bool
@@ -1569,7 +1570,7 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
 
     sixel_delete_in_range(term, max(region.end - rows, region.start), region.end - 1);
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
-    term->grid->cur_row = grid_row(term->grid, term->cursor.point.row);
+    term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
 }
 
 void
@@ -1622,7 +1623,7 @@ term_scroll_reverse_partial(struct terminal *term,
 
     sixel_delete_in_range(term, region.start, min(region.start + rows, region.end) - 1);
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
-    term->grid->cur_row = grid_row(term->grid, term->cursor.point.row);
+    term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
 }
 
 void
@@ -1634,14 +1635,14 @@ term_scroll_reverse(struct terminal *term, int rows)
 void
 term_formfeed(struct terminal *term)
 {
-    term_cursor_left(term, term->cursor.point.col);
+    term_cursor_left(term, term->grid->cursor.point.col);
 }
 
 void
 term_linefeed(struct terminal *term)
 {
     term->grid->cur_row->linebreak = true;
-    if (term->cursor.point.row == term->scroll_region.end - 1)
+    if (term->grid->cursor.point.row == term->scroll_region.end - 1)
         term_scroll(term, 1);
     else
         term_cursor_down(term, 1);
@@ -1650,7 +1651,7 @@ term_linefeed(struct terminal *term)
 void
 term_reverse_index(struct terminal *term)
 {
-    if (term->cursor.point.row == term->scroll_region.start)
+    if (term->grid->cursor.point.row == term->scroll_region.start)
         term_scroll_reverse(term, 1);
     else
         term_cursor_up(term, 1);
@@ -1672,7 +1673,7 @@ term_restore_cursor(struct terminal *term, const struct cursor *cursor)
     int row = min(cursor->point.row, term->rows - 1);
     int col = min(cursor->point.col, term->cols - 1);
     term_cursor_to(term, row, col);
-    term->cursor.lcf = cursor->lcf;
+    term->grid->cursor.lcf = cursor->lcf;
 }
 
 void
@@ -2095,7 +2096,7 @@ term_disable_app_sync_updates(struct terminal *term)
 static inline void
 print_linewrap(struct terminal *term)
 {
-    if (likely(!term->cursor.lcf)) {
+    if (likely(!term->grid->cursor.lcf)) {
         /* Not and end of line */
         return;
     }
@@ -2105,11 +2106,11 @@ print_linewrap(struct terminal *term)
         return;
     }
 
-    if (term->cursor.point.row == term->scroll_region.end - 1) {
+    if (term->grid->cursor.point.row == term->scroll_region.end - 1) {
         term_scroll(term, 1);
-        term_cursor_to(term, term->cursor.point.row, 0);
+        term_cursor_to(term, term->grid->cursor.point.row, 0);
     } else
-        term_cursor_to(term, min(term->cursor.point.row + 1, term->rows - 1), 0);
+        term_cursor_to(term, min(term->grid->cursor.point.row + 1, term->rows - 1), 0);
 }
 
 static inline void
@@ -2119,15 +2120,15 @@ print_insert(struct terminal *term, int width)
 
     if (unlikely(term->insert_mode)) {
         struct row *row = term->grid->cur_row;
-        const size_t move_count = max(0, term->cols - term->cursor.point.col - width);
+        const size_t move_count = max(0, term->cols - term->grid->cursor.point.col - width);
 
         memmove(
-            &row->cells[term->cursor.point.col + width],
-            &row->cells[term->cursor.point.col],
+            &row->cells[term->grid->cursor.point.col + width],
+            &row->cells[term->grid->cursor.point.col],
             move_count * sizeof(struct cell));
 
         /* Mark moved cells as dirty */
-        for (size_t i = term->cursor.point.col + width; i < term->cols; i++)
+        for (size_t i = term->grid->cursor.point.col + width; i < term->cols; i++)
             row->cells[i].attrs.clean = 0;
     }
 }
@@ -2145,7 +2146,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
 
     /* *Must* get current cell *after* linewrap+insert */
     struct row *row = term->grid->cur_row;
-    struct cell *cell = &row->cells[term->cursor.point.col];
+    struct cell *cell = &row->cells[term->grid->cursor.point.col];
 
     cell->wc = term->vt.last_printed = wc;
     cell->attrs = term->vt.attrs;
@@ -2154,20 +2155,20 @@ term_print(struct terminal *term, wchar_t wc, int width)
     cell->attrs.clean = 0;
 
     /* Advance cursor the 'additional' columns while dirty:ing the cells */
-    for (int i = 1; i < width && term->cursor.point.col < term->cols - 1; i++) {
+    for (int i = 1; i < width && term->grid->cursor.point.col < term->cols - 1; i++) {
         term_cursor_right(term, 1);
 
-        assert(term->cursor.point.col < term->cols);
-        struct cell *cell = &row->cells[term->cursor.point.col];
+        assert(term->grid->cursor.point.col < term->cols);
+        struct cell *cell = &row->cells[term->grid->cursor.point.col];
         cell->wc = 0;
         cell->attrs.clean = 0;
     }
 
     /* Advance cursor */
-    if (term->cursor.point.col < term->cols - 1)
+    if (term->grid->cursor.point.col < term->cols - 1)
         term_cursor_right(term, 1);
     else
-        term->cursor.lcf = true;
+        term->grid->cursor.lcf = true;
 }
 
 enum term_surface

@@ -125,7 +125,7 @@ sixel_delete_in_range(struct terminal *term, int _start, int _end)
 void
 sixel_delete_at_cursor(struct terminal *term)
 {
-    sixel_delete_at_row(term, term->cursor.point.row);
+    sixel_delete_at_row(term, term->grid->cursor.point.row);
 }
 
 void
@@ -142,8 +142,8 @@ sixel_unhook(struct terminal *term)
         .height = term->sixel.image.height,
         .rows = (term->sixel.image.height + term->cell_height - 1) / term->cell_height,
         .pos = (struct coord){
-            term->cursor.point.col,
-            (term->grid->offset + term->cursor.point.row) & (term->grid->num_rows - 1)},
+            term->grid->cursor.point.col,
+            (term->grid->offset + term->grid->cursor.point.row) & (term->grid->num_rows - 1)},
     };
 
     LOG_DBG("generating %dx%d pixman image", image.width, image.height);
