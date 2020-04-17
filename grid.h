@@ -6,9 +6,11 @@
 void grid_swap_row(struct grid *grid, int row_a, int row_b, bool initialize);
 struct row *grid_row_alloc(int cols, bool initialize);
 void grid_row_free(struct row *row);
-int grid_reflow(
+void grid_reflow(
     struct grid *grid, int new_rows, int new_cols,
-    int old_screen_rows, int new_screen_rows);
+    int old_screen_rows, int new_screen_rows,
+    size_t tracking_points_count,
+    struct coord *tracking_points[static tracking_points_count]);
 
 static inline int
 grid_row_absolute(const struct grid *grid, int row_no)

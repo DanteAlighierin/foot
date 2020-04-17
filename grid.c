@@ -53,15 +53,15 @@ grid_row_free(struct row *row)
     free(row);
 }
 
-int
+void
 grid_reflow(struct grid *grid, int new_rows, int new_cols,
-            int old_screen_rows, int new_screen_rows)
+            int old_screen_rows, int new_screen_rows,
+            size_t tracking_points_count,
+            struct coord *_tracking_points[static tracking_points_count])
 {
     struct row *const *old_grid = grid->rows;
     const int old_rows = grid->num_rows;
     const int old_cols = grid->num_cols;
-
-    //assert(old_rows != new_rows || old_cols != new_cols);
 
     int new_col_idx = 0;
     int new_row_idx = 0;
@@ -79,13 +79,31 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
     tll(struct sixel) new_sixels = tll_init();
 
+    /* Turn cursor coordinates into grid absolute coordinates */
+    struct coord cursor = grid->cursor.point;
+    cursor.row += grid->offset;
+    cursor.row &= old_rows - 1;
+
+    struct coord saved_cursor = grid->saved_cursor.point;
+    saved_cursor.row += grid->offset;
+    saved_cursor.row &= old_rows - 1;
+
+    tll(struct coord *) tracking_points = tll_init();
+    tll_push_back(tracking_points, &cursor);
+    tll_push_back(tracking_points, &saved_cursor);
+
+    for (size_t i = 0; i < tracking_points_count; i++)
+        tll_push_back(tracking_points, _tracking_points[i]);
+
     /*
      * Walk the old grid
      */
     for (int r = 0; r < old_rows; r++) {
 
+        const size_t old_row_idx = (offset + r) & (old_rows - 1);
+
         /* Unallocated (empty) rows we can simply skip */
-        const struct row *old_row = old_grid[(offset + r) & (old_rows - 1)];
+        const struct row *old_row = old_grid[old_row_idx];
         if (old_row == NULL)
             continue;
 
@@ -102,7 +120,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
          * the "real" sixel list.
          */
         tll_foreach(grid->sixel_images, it) {
-            if (it->item.pos.row == ((offset + r) & (old_rows - 1))) {
+            if (it->item.pos.row == old_row_idx) {
                 struct sixel six = it->item;
                 six.pos.row = new_row_idx;
 
@@ -110,6 +128,21 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                 tll_remove(grid->sixel_images, it);
             }
         }
+
+#define line_wrap()                                                     \
+        do {                                                            \
+            new_col_idx = 0;                                            \
+            new_row_idx = (new_row_idx + 1) & (new_rows - 1);           \
+                                                                        \
+            new_row = new_grid[new_row_idx];                            \
+            if (new_row == NULL) {                                      \
+                new_row = grid_row_alloc(new_cols, true);               \
+                new_grid[new_row_idx] = new_row;                        \
+            } else {                                                    \
+                memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0])); \
+                new_row->linebreak = false;                             \
+            }                                                           \
+        } while(0)
 
         /*
          * Keep track of empty cells. If the old line ends with a
@@ -122,11 +155,23 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
         /* Walk current line of the old grid */
         for (int c = 0; c < old_cols; c++) {
-            if (old_row->cells[c].wc == 0) {
+
+            /* Check if this cell is one of the tracked cells */
+            bool is_tracking_point = false;
+            tll_foreach(tracking_points, it) {
+                if (it->item->row == old_row_idx && it->item->col == c) {
+                    is_tracking_point = true;
+                    break;
+                }
+            }
+
+            if (old_row->cells[c].wc == 0 && !is_tracking_point) {
                 empty_count++;
                 continue;
             }
 
+            /* Allow left-adjusted and right-adjusted text, with empty
+             * cells in between, to be "pushed together" */
             int old_cols_left = old_cols - c;
             int cols_needed = empty_count + old_cols_left;
             int new_cols_left = new_cols - new_col_idx;
@@ -138,6 +183,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
                 /* Out of columns on current row in new grid? */
                 if (new_col_idx >= new_cols) {
+#if 0
                     /*
                      * If last cell on last row and first cell on new
                      * row are non-empty, wrap the line, otherwise
@@ -148,18 +194,8 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                     {
                         new_row->linebreak = true;
                     }
-
-                    new_col_idx = 0;
-                    new_row_idx = (new_row_idx + 1) & (new_rows - 1);
-
-                    new_row = new_grid[new_row_idx];
-                    if (new_row == NULL) {
-                        new_row = grid_row_alloc(new_cols, true);
-                        new_grid[new_row_idx] = new_row;
-                    } else {
-                        memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0]));
-                        new_row->linebreak = false;
-                    }
+#endif
+                    line_wrap();
                 }
 
                 assert(new_row != NULL);
@@ -168,6 +204,17 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
                 new_row->cells[new_col_idx] = *old_cell;
                 new_row->cells[new_col_idx].attrs.clean = 1;
+
+                /* Translate tracking point(s) */
+                if (is_tracking_point && i >= empty_count) {
+                    tll_foreach(tracking_points, it) {
+                        if (it->item->row == old_row_idx && it->item->col == c) {
+                            it->item->row = new_row_idx;
+                            it->item->col = new_col_idx;
+                            tll_remove(tracking_points, it);
+                        }
+                    }
+                }
                 new_col_idx++;
             }
 
@@ -176,19 +223,10 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
         if (old_row->linebreak) {
             new_row->linebreak = true;
-
-            new_col_idx = 0;
-            new_row_idx = (new_row_idx + 1) & (new_rows - 1);
-
-            new_row = new_grid[new_row_idx];
-            if (new_row == NULL) {
-                new_row = grid_row_alloc(new_cols, true);
-                new_grid[new_row_idx] = new_row;
-            } else {
-                memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0]));
-                new_row->linebreak = false;
-            }
+            line_wrap();
         }
+
+#undef line_wrap
     }
 
     /* Set offset such that the last reflowed row is at the bottom */
@@ -211,10 +249,31 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
         grid_row_free(old_grid[r]);
     free(grid->rows);
 
-    grid->cur_row = new_grid[new_row_idx];
+    grid->cur_row = new_grid[cursor.row];
     grid->rows = new_grid;
     grid->num_rows = new_rows;
     grid->num_cols = new_cols;
+
+    /* Convert absolute coordinates to screen relative */
+    cursor.row -= grid->offset;
+    while (cursor.row < 0)
+        cursor.row += grid->num_rows;
+
+    assert(cursor.row >= 0);
+    assert(cursor.row < grid->num_rows);
+
+    saved_cursor.row -= grid->offset;
+    while (saved_cursor.row < 0)
+        saved_cursor.row += grid->num_rows;
+
+    assert(saved_cursor.row >= 0);
+    assert(saved_cursor.row < grid->num_rows);
+
+    grid->cursor.point = cursor;
+    grid->saved_cursor.point = saved_cursor;
+
+    grid->cursor.lcf = false;
+    grid->saved_cursor.lcf = false;
 
     /* Destroy any non-moved sixels */
     tll_foreach(grid->sixel_images, it)
@@ -226,5 +285,5 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
         tll_push_back(grid->sixel_images, it->item);
     tll_free(new_sixels);
 
-    return new_row_idx;
+    tll_free(tracking_points);
 }

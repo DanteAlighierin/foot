@@ -1373,7 +1373,7 @@ grid_render(struct terminal *term)
      */
     bool cursor_is_visible = false;
     int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
-    int cursor_row = (term->grid->offset + term->cursor.point.row) & (term->grid->num_rows - 1);
+    int cursor_row = (term->grid->offset + term->grid->cursor.point.row) & (term->grid->num_rows - 1);
     if (view_end >= term->grid->view) {
         /* Not wrapped */
         if (cursor_row >= term->grid->view && cursor_row <= view_end)
@@ -1401,21 +1401,21 @@ grid_render(struct terminal *term)
         int view_aligned_row
             = (cursor_row - term->grid->view + term->grid->num_rows) & (term->grid->num_rows - 1);
 
-        term->render.last_cursor.actual = term->cursor.point;
+        term->render.last_cursor.actual = term->grid->cursor.point;
         term->render.last_cursor.in_view = (struct coord) {
-            term->cursor.point.col, view_aligned_row};
+            term->grid->cursor.point.col, view_aligned_row};
 
         struct row *row = grid_row_in_view(term->grid, view_aligned_row);
-        struct cell *cell = &row->cells[term->cursor.point.col];
+        struct cell *cell = &row->cells[term->grid->cursor.point.col];
 
         cell->attrs.clean = 0;
         term->render.last_cursor.cell = cell;
         int cols_updated = render_cell(
-            term, buf->pix, cell, term->cursor.point.col, view_aligned_row, true);
+            term, buf->pix, cell, term->grid->cursor.point.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
             term->window->surface,
-            term->margins.left + term->cursor.point.col * term->cell_width,
+            term->margins.left + term->grid->cursor.point.col * term->cell_width,
             term->margins.top + view_aligned_row * term->cell_height,
             cols_updated * term->cell_width, term->cell_height);
     }
@@ -1711,8 +1711,6 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     if (!force && width == term->width && height == term->height && scale == term->scale)
         return false;
 
-    selection_cancel(term);
-
     /* Cancel an application initiated "Synchronized Update" */
     term_disable_app_sync_updates(term);
 
@@ -1754,10 +1752,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     }
 
     /* Reflow grids */
-    int last_normal_row = grid_reflow(
-        &term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows);
-    int last_alt_row = grid_reflow(
-        &term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows);
+    grid_reflow(&term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows, 0, NULL);
+    grid_reflow(&term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows, 0, NULL);
 
     /* Reset tab stops */
     tll_free(term->tab_stops);
@@ -1789,36 +1785,6 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     if (term->scroll_region.end >= old_rows)
         term->scroll_region.end = term->rows;
 
-    /* Position cursor at the last copied row */
-    /* TODO: can we do better? */
-    int cursor_row = term->grid == &term->normal
-        ? last_normal_row - term->normal.offset
-        : last_alt_row - term->alt.offset;
-
-    while (cursor_row < 0)
-        cursor_row += term->grid->num_rows;
-
-    assert(cursor_row >= 0);
-    assert(cursor_row < term->rows);
-
-    term_cursor_to(
-        term,
-        cursor_row,
-        min(term->cursor.point.col, term->cols - 1));
-
-    /* If in alt screen, update the saved 'normal' cursor too */
-    if (term->grid == &term->alt) {
-        int cursor_row = last_normal_row - term->normal.offset;
-
-        while (cursor_row < 0)
-            cursor_row += term->grid->num_rows;
-
-        term->alt_saved_cursor.lcf = false;
-        term->alt_saved_cursor.point.row = cursor_row;
-        term->alt_saved_cursor.point.col = min(
-            term->alt_saved_cursor.point.col, term->cols - 1);
-    }
-
     term->render.last_cursor.cell = NULL;
 
 damage_view:
@@ -1845,6 +1811,12 @@ damage_view:
             term->width / term->scale,
             term->height / term->scale + title_height);
     }
+
+    /* Make sure selection is within bounds */
+    term->selection.start.row = min(term->selection.start.row, term->rows - 1);
+    term->selection.start.col = min(term->selection.start.col, term->cols - 1);
+    term->selection.end.row = min(term->selection.end.row, term->rows - 1);
+    term->selection.end.col = min(term->selection.end.col, term->cols - 1);
 
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);

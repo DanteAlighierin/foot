@@ -101,6 +101,9 @@ struct grid {
     int offset;
     int view;
 
+    struct cursor cursor;
+    struct cursor saved_cursor;
+
     struct row **rows;
     struct row *cur_row;
 
@@ -278,9 +281,6 @@ struct terminal {
     } colors;
 
     enum cursor_origin origin;
-    struct cursor cursor;
-    struct cursor saved_cursor;
-    struct cursor alt_saved_cursor;
     enum cursor_style default_cursor_style;
     enum cursor_style cursor_style;
     struct {

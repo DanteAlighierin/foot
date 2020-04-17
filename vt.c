@@ -146,13 +146,13 @@ action_execute(struct terminal *term, uint8_t c)
         /* HT - horizontal tab */
         int new_col = term->cols - 1;
         tll_foreach(term->tab_stops, it) {
-            if (it->item > term->cursor.point.col) {
+            if (it->item > term->grid->cursor.point.col) {
                 new_col = it->item;
                 break;
             }
         }
-        assert(new_col >= term->cursor.point.col);
-        term_cursor_right(term, new_col - term->cursor.point.col);
+        assert(new_col >= term->grid->cursor.point.col);
+        term_cursor_right(term, new_col - term->grid->cursor.point.col);
         break;
     }
 
@@ -341,13 +341,13 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
     case 0:
         switch (final) {
         case '7':
-            term->saved_cursor = term->cursor;
+            term->grid->saved_cursor = term->grid->cursor;
             term->vt.saved_attrs = term->vt.attrs;
             term->saved_charsets = term->charsets;
             break;
 
         case '8':
-            term_restore_cursor(term, &term->saved_cursor);
+            term_restore_cursor(term, &term->grid->saved_cursor);
             term->vt.attrs = term->vt.saved_attrs;
             term->charsets = term->saved_charsets;
             break;
@@ -367,13 +367,13 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
 
         case 'H':
             tll_foreach(term->tab_stops, it) {
-                if (it->item >= term->cursor.point.col) {
-                    tll_insert_before(term->tab_stops, it, term->cursor.point.col);
+                if (it->item >= term->grid->cursor.point.col) {
+                    tll_insert_before(term->tab_stops, it, term->grid->cursor.point.col);
                     break;
                 }
             }
 
-            tll_push_back(term->tab_stops, term->cursor.point.col);
+            tll_push_back(term->tab_stops, term->grid->cursor.point.col);
             break;
 
         case 'M':
