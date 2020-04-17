@@ -626,7 +626,7 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
     int height = (dmg->scroll.region.end - dmg->scroll.region.start - dmg->scroll.lines) * term->cell_height;
 
     LOG_DBG(
-        "damage: SCROLL REVERSE: %d-%d by %d lines"m
+        "damage: SCROLL REVERSE: %d-%d by %d lines",
         dmg->scroll.region.start, dmg->scroll.region.end, dmg->scroll.lines);
 
     if (height <= 0)

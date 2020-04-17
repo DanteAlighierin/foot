@@ -782,22 +782,90 @@ csi_dispatch(struct terminal *term, uint8_t final)
             case 8: LOG_WARN("unimplemented: resize window in chars"); break;
             case 9: LOG_WARN("unimplemented: maximize/unmaximize window"); break;
             case 10: LOG_WARN("unimplemented: to/from full screen"); break;
-            case 11: LOG_WARN("unimplemented: report if window is iconified"); break;
-            case 13: LOG_WARN("unimplemented: report window position"); break;
-            case 15: LOG_WARN("unimplemented: report screen size in pixels"); break;
-            case 19: LOG_WARN("unimplemented: report screen size in chars"); break;
             case 20: LOG_WARN("unimplemented: report icon label"); break;
             case 21: LOG_WARN("unimplemented: report window title"); break;
             case 24: LOG_WARN("unimplemented: resize window (DECSLPP)"); break;
 
-            case 14: { /* report window size in pixels */
-                char reply[64];
-                snprintf(reply, sizeof(reply), "\033[4;%d;%dt",
-                         term->height - term->margins.top - term->margins.bottom,
-                         term->width - term->margins.left - term->margins.right);
-                term_to_slave(term, reply, strlen(reply));
+            case 11:   /* report if window is iconified */
+                /* We don't know - always report *not* iconified */
+                /* 1=not iconified, 2=iconified */
+                term_to_slave(term, "\033[1t", 4);
+                break;
+
+            case 13: { /* report window position */
+
+                /* We don't know our position - always report (0,0) */
+                int x = -1;
+                int y = -1;
+
+                switch (vt_param_get(term, 1, 0)) {
+                case 0:
+                    /* window position */
+                    x = y = 0;
+                    break;
+
+                case 2:
+                    /* text area position */
+                    x = term->margins.left;
+                    y = term->margins.top;
+                    break;
+
+                default:
+                    UNHANDLED();
+                    break;
+                }
+
+                if (x >= 0 && y >= 0) {
+                    char reply[64];
+                    snprintf(reply, sizeof(reply), "\033[3;%d;%dt", x, y);
+                    term_to_slave(term, reply, strlen(reply));
+                }
                 break;
             }
+
+            case 14: { /* report window size in pixels */
+                int width = -1;
+                int height = -1;
+
+                switch (vt_param_get(term, 1, 0)) {
+                case 0:
+                    /* text area size */
+                    width = term->width - term->margins.left - term->margins.right;
+                    height = term->height - term->margins.top - term->margins.bottom;
+                    break;
+
+                case 2:
+                    /* window size */
+                    width = term->width;
+                    height = term->height;
+                    break;
+
+                default:
+                    UNHANDLED();
+                    break;
+                }
+
+                if (width >= 0 && height >= 0) {
+                    char reply[64];
+                    snprintf(reply, sizeof(reply), "\033[4;%d;%dt", height, width);
+                    term_to_slave(term, reply, strlen(reply));
+                }
+                break;
+            }
+
+            case 15:   /* report screen size in pixels */
+                tll_foreach(term->window->on_outputs, it) {
+                    char reply[64];
+                    snprintf(reply, sizeof(reply), "\033[5;%d;%dt",
+                             it->item->dim.px_scaled.height,
+                             it->item->dim.px_scaled.width);
+                    term_to_slave(term, reply, strlen(reply));
+                    break;
+                }
+
+                if (tll_length(term->window->on_outputs) == 0)
+                    term_to_slave(term, "\033[5;0;0t", 8);
+                break;
 
             case 16: { /* report cell size in pixels */
                 char reply[64];
@@ -807,11 +875,26 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
             }
 
-            case 18: { /* window size in chars */
+            case 18: { /* text area size in chars */
                 char reply[64];
                 snprintf(reply, sizeof(reply), "\033[8;%d;%dt",
                          term->rows, term->cols);
                 term_to_slave(term, reply, strlen(reply));
+                break;
+            }
+
+            case 19: { /* report screen size in chars */
+                tll_foreach(term->window->on_outputs, it) {
+                    char reply[64];
+                    snprintf(reply, sizeof(reply), "\033[9;%d;%dt",
+                             it->item->dim.px_scaled.height / term->cell_height,
+                             it->item->dim.px_scaled.width / term->cell_width);
+                    term_to_slave(term, reply, strlen(reply));
+                    break;
+                }
+
+                if (tll_length(term->window->on_outputs) == 0)
+                    term_to_slave(term, "\033[9;0;0t", 8);
                 break;
             }
 
