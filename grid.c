@@ -79,14 +79,16 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
     /* Turn cursor coordinates into grid absolute coordinates */
     struct coord cursor = grid->cursor.point;
-    struct coord new_cursor = {};
     cursor.row += grid->offset;
     cursor.row &= old_rows - 1;
 
     struct coord saved_cursor = grid->saved_cursor.point;
-    struct coord new_saved_cursor = {};
     saved_cursor.row += grid->offset;
     saved_cursor.row &= old_rows - 1;
+
+    tll(struct coord *) tracking_points = tll_init();
+    tll_push_back(tracking_points, &cursor);
+    tll_push_back(tracking_points, &saved_cursor);
 
     /*
      * Walk the old grid
@@ -148,17 +150,23 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
         /* Walk current line of the old grid */
         for (int c = 0; c < old_cols; c++) {
-            bool has_cursor = cursor.row == old_row_idx && cursor.col == c;
-            bool has_saved_cursor
-                = saved_cursor.row == old_row_idx && saved_cursor.col == c;
 
-            if (old_row->cells[c].wc == 0 && !has_cursor && !has_saved_cursor) {
-                assert(!has_cursor);
-                assert(!has_saved_cursor);
+            /* Check if this cell is one of the tracked cells */
+            bool is_tracking_point = false;
+            tll_foreach(tracking_points, it) {
+                if (it->item->row == old_row_idx && it->item->col == c) {
+                    is_tracking_point = true;
+                    break;
+                }
+            }
+
+            if (old_row->cells[c].wc == 0 && !is_tracking_point) {
                 empty_count++;
                 continue;
             }
 
+            /* Allow left-adjusted and right-adjusted text, with empty
+             * cells in between, to be "pushed together" */
             int old_cols_left = old_cols - c;
             int cols_needed = empty_count + old_cols_left;
             int new_cols_left = new_cols - new_col_idx;
@@ -192,11 +200,16 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                 new_row->cells[new_col_idx] = *old_cell;
                 new_row->cells[new_col_idx].attrs.clean = 1;
 
-                if (has_cursor)
-                    new_cursor = (struct coord){new_col_idx, new_row_idx};
-                if (has_saved_cursor)
-                    new_saved_cursor = (struct coord){new_col_idx, new_row_idx};
-
+                /* Translate tracking point(s) */
+                if (is_tracking_point && i >= empty_count) {
+                    tll_foreach(tracking_points, it) {
+                        if (it->item->row == old_row_idx && it->item->col == c) {
+                            it->item->row = new_row_idx;
+                            it->item->col = new_col_idx;
+                            tll_remove(tracking_points, it);
+                        }
+                    }
+                }
                 new_col_idx++;
             }
 
@@ -231,28 +244,28 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
         grid_row_free(old_grid[r]);
     free(grid->rows);
 
-    grid->cur_row = new_grid[new_cursor.row];
+    grid->cur_row = new_grid[cursor.row];
     grid->rows = new_grid;
     grid->num_rows = new_rows;
     grid->num_cols = new_cols;
 
     /* Convert absolute coordinates to screen relative */
-    new_cursor.row -= grid->offset;
-    while (new_cursor.row < 0)
-        new_cursor.row += grid->num_rows;
+    cursor.row -= grid->offset;
+    while (cursor.row < 0)
+        cursor.row += grid->num_rows;
 
-    assert(new_cursor.row >= 0);
-    assert(new_cursor.row < grid->num_rows);
+    assert(cursor.row >= 0);
+    assert(cursor.row < grid->num_rows);
 
-    new_saved_cursor.row -= grid->offset;
-    while (new_saved_cursor.row < 0)
-        new_saved_cursor.row += grid->num_rows;
+    saved_cursor.row -= grid->offset;
+    while (saved_cursor.row < 0)
+        saved_cursor.row += grid->num_rows;
 
-    assert(new_saved_cursor.row >= 0);
-    assert(new_saved_cursor.row < grid->num_rows);
+    assert(saved_cursor.row >= 0);
+    assert(saved_cursor.row < grid->num_rows);
 
-    grid->cursor.point = new_cursor;
-    grid->saved_cursor.point = new_saved_cursor;
+    grid->cursor.point = cursor;
+    grid->saved_cursor.point = saved_cursor;
 
     grid->cursor.lcf = false;
     grid->saved_cursor.lcf = false;
@@ -266,4 +279,6 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
     tll_foreach(new_sixels, it)
         tll_push_back(grid->sixel_images, it->item);
     tll_free(new_sixels);
+
+    tll_free(tracking_points);
 }
