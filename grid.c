@@ -124,6 +124,21 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
             }
         }
 
+#define line_wrap()                                                     \
+        do {                                                            \
+            new_col_idx = 0;                                            \
+            new_row_idx = (new_row_idx + 1) & (new_rows - 1);           \
+                                                                        \
+            new_row = new_grid[new_row_idx];                            \
+            if (new_row == NULL) {                                      \
+                new_row = grid_row_alloc(new_cols, true);               \
+                new_grid[new_row_idx] = new_row;                        \
+            } else {                                                    \
+                memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0])); \
+                new_row->linebreak = false;                             \
+            }                                                           \
+        } while(0)
+
         /*
          * Keep track of empty cells. If the old line ends with a
          * string of empty cells, we don't need to, nor do we want to,
@@ -169,18 +184,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                         new_row->linebreak = true;
                     }
 #endif
-
-                    new_col_idx = 0;
-                    new_row_idx = (new_row_idx + 1) & (new_rows - 1);
-
-                    new_row = new_grid[new_row_idx];
-                    if (new_row == NULL) {
-                        new_row = grid_row_alloc(new_cols, true);
-                        new_grid[new_row_idx] = new_row;
-                    } else {
-                        memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0]));
-                        new_row->linebreak = false;
-                    }
+                    line_wrap();
                 }
 
                 assert(new_row != NULL);
@@ -203,19 +207,10 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
         if (old_row->linebreak) {
             new_row->linebreak = true;
-
-            new_col_idx = 0;
-            new_row_idx = (new_row_idx + 1) & (new_rows - 1);
-
-            new_row = new_grid[new_row_idx];
-            if (new_row == NULL) {
-                new_row = grid_row_alloc(new_cols, true);
-                new_grid[new_row_idx] = new_row;
-            } else {
-                memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0]));
-                new_row->linebreak = false;
-            }
+            line_wrap();
         }
+
+#undef line_wrap
     }
 
     /* Set offset such that the last reflowed row is at the bottom */
