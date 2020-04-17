@@ -30,6 +30,7 @@
 * Renderer is now much faster with interactive scrolling
   (https://codeberg.org/dnkl/foot/issues/4)
 * memfd sealing failures are no longer fatal errors.
+* Selection to no longer be cleared on resize.
 
 
 ### Deprecated
