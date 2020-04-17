@@ -1711,8 +1711,6 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     if (!force && width == term->width && height == term->height && scale == term->scale)
         return false;
 
-    selection_cancel(term);
-
     /* Cancel an application initiated "Synchronized Update" */
     term_disable_app_sync_updates(term);
 
@@ -1813,6 +1811,12 @@ damage_view:
             term->width / term->scale,
             term->height / term->scale + title_height);
     }
+
+    /* Make sure selection is within bounds */
+    term->selection.start.row = min(term->selection.start.row, term->rows - 1);
+    term->selection.start.col = min(term->selection.start.col, term->cols - 1);
+    term->selection.end.row = min(term->selection.end.row, term->rows - 1);
+    term->selection.end.col = min(term->selection.end.col, term->cols - 1);
 
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);
