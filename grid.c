@@ -157,6 +157,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
 
                 /* Out of columns on current row in new grid? */
                 if (new_col_idx >= new_cols) {
+#if 0
                     /*
                      * If last cell on last row and first cell on new
                      * row are non-empty, wrap the line, otherwise
@@ -167,6 +168,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                     {
                         new_row->linebreak = true;
                     }
+#endif
 
                     new_col_idx = 0;
                     new_row_idx = (new_row_idx + 1) & (new_rows - 1);
