@@ -1754,8 +1754,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     }
 
     /* Reflow grids */
-    grid_reflow(&term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows);
-    grid_reflow(&term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows);
+    grid_reflow(&term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows, 0, NULL);
+    grid_reflow(&term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows, 0, NULL);
 
     /* Reset tab stops */
     tll_free(term->tab_stops);

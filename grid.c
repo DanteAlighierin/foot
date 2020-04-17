@@ -55,7 +55,9 @@ grid_row_free(struct row *row)
 
 void
 grid_reflow(struct grid *grid, int new_rows, int new_cols,
-            int old_screen_rows, int new_screen_rows)
+            int old_screen_rows, int new_screen_rows,
+            size_t tracking_points_count,
+            struct coord *_tracking_points[static tracking_points_count])
 {
     struct row *const *old_grid = grid->rows;
     const int old_rows = grid->num_rows;
@@ -89,6 +91,9 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
     tll(struct coord *) tracking_points = tll_init();
     tll_push_back(tracking_points, &cursor);
     tll_push_back(tracking_points, &saved_cursor);
+
+    for (size_t i = 0; i < tracking_points_count; i++)
+        tll_push_back(tracking_points, _tracking_points[i]);
 
     /*
      * Walk the old grid
