@@ -25,7 +25,7 @@
 #define TIME_FRAME_RENDERING 0
 #define TIME_SCROLL_DAMAGE 0
 
-#define ALEN(v) (sizeof(v) / sizeof(v[0]))
+#define ALEN(v) (sizeof(v) / sizeof((v)[0]))
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
@@ -1824,12 +1824,6 @@ damage_view:
             term->width / term->scale,
             term->height / term->scale + title_height);
     }
-
-    /* Make sure selection is within bounds */
-    term->selection.start.row = min(term->selection.start.row, term->rows - 1);
-    term->selection.start.col = min(term->selection.start.col, term->cols - 1);
-    term->selection.end.row = min(term->selection.end.row, term->rows - 1);
-    term->selection.end.col = min(term->selection.end.col, term->cols - 1);
 
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);
