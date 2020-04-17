@@ -57,7 +57,7 @@ void
 grid_reflow(struct grid *grid, int new_rows, int new_cols,
             int old_screen_rows, int new_screen_rows,
             size_t tracking_points_count,
-            struct coord *_tracking_points[static tracking_points_count])
+            struct coord *const _tracking_points[static tracking_points_count])
 {
     struct row *const *old_grid = grid->rows;
     const int old_rows = grid->num_rows;

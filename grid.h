@@ -10,7 +10,7 @@ void grid_reflow(
     struct grid *grid, int new_rows, int new_cols,
     int old_screen_rows, int new_screen_rows,
     size_t tracking_points_count,
-    struct coord *tracking_points[static tracking_points_count]);
+    struct coord *const tracking_points[static tracking_points_count]);
 
 static inline int
 grid_row_absolute(const struct grid *grid, int row_no)
