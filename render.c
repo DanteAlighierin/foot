@@ -25,6 +25,7 @@
 #define TIME_FRAME_RENDERING 0
 #define TIME_SCROLL_DAMAGE 0
 
+#define ALEN(v) (sizeof(v) / sizeof(v[0]))
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
 
@@ -1751,9 +1752,21 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         goto damage_view;
     }
 
+    struct coord *const tracking_points[] = {
+        &term->selection.start,
+        &term->selection.end,
+    };
+
     /* Reflow grids */
-    grid_reflow(&term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows, 0, NULL);
-    grid_reflow(&term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows, 0, NULL);
+    grid_reflow(
+        &term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows,
+        term->grid == &term->normal ? ALEN(tracking_points) : 0,
+        term->grid == &term->normal ? tracking_points : NULL);
+
+    grid_reflow(
+        &term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows,
+        term->grid == &term->alt ? ALEN(tracking_points) : 0,
+        term->grid == &term->alt ? tracking_points : NULL);
 
     /* Reset tab stops */
     tll_free(term->tab_stops);
