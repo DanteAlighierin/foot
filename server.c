@@ -200,8 +200,10 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     uint8_t *p = client->buffer.data;
     const uint8_t *end = &client->buffer.data[client->buffer.idx];
 
-    CHECK_BUF(sizeof(uint16_t));
-    uint16_t cwd_len = *(uint16_t *)p; p += sizeof(cwd_len);
+    uint16_t cwd_len;
+    CHECK_BUF(sizeof(cwd_len));
+    memcpy(&cwd_len, p, sizeof(cwd_len));
+    p += sizeof(cwd_len);
 
     CHECK_BUF(cwd_len);
     const char *cwd = (const char *)p; p += cwd_len;
@@ -213,8 +215,10 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         goto shutdown;
     }
 
-    CHECK_BUF(sizeof(uint16_t));
-    uint16_t term_env_len = *(uint16_t *)p; p += sizeof(term_env_len);
+    uint16_t term_env_len;
+    CHECK_BUF(sizeof(term_env_len));
+    memcpy(&term_env_len, p, sizeof(term_env_len));
+    p += sizeof(term_env_len);
 
     CHECK_BUF(term_env_len);
     const char *term_env = (const char *)p; p += term_env_len;
@@ -226,8 +230,10 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         goto shutdown;
     }
 
-    CHECK_BUF(sizeof(uint16_t));
-    uint16_t title_len = *(uint16_t *)p; p += sizeof(title_len);
+    uint16_t title_len;
+    CHECK_BUF(sizeof(title_len));
+    memcpy(&title_len, p, sizeof(title_len));
+    p += sizeof(title_len);
 
     CHECK_BUF(title_len);
     const char *title = (const char *)p; p += title_len;
@@ -239,8 +245,10 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         goto shutdown;
     }
 
-    CHECK_BUF(sizeof(uint16_t));
-    uint16_t app_id_len = *(uint16_t *)p; p += sizeof(app_id_len);
+    uint16_t app_id_len;
+    CHECK_BUF(sizeof(app_id_len));
+    memcpy(&app_id_len, p, sizeof(app_id_len));
+    p += sizeof(app_id_len);
 
     CHECK_BUF(app_id_len);
     const char *app_id = (const char *)p; p += app_id_len;
@@ -262,13 +270,17 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     const uint8_t login_shell = *(const uint8_t *)p; p += sizeof(login_shell);
 
     CHECK_BUF(sizeof(argc));
-    argc = *(int *)p; p += sizeof(argc);
+    memcpy(&argc, p, sizeof(argc));
+    p += sizeof(argc);
+
     argv = calloc(argc + 1, sizeof(argv[0]));
     LOG_DBG("argc = %d", argc);
 
     for (int i = 0; i < argc; i++) {
-        CHECK_BUF(sizeof(uint16_t));
-        uint16_t len = *(uint16_t *)p; p += sizeof(len);
+        uint16_t len;
+        CHECK_BUF(sizeof(len));
+        memcpy(&len, p, sizeof(len));
+        p += sizeof(len);
 
         CHECK_BUF(len);
         argv[i] = (char *)p; p += strlen(argv[i]) + 1;
