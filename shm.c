@@ -53,6 +53,11 @@ static tll(struct buffer) buffers;
 static bool can_punch_hole = false;
 static bool can_punch_hole_initialized = false;
 
+#undef MEASURE_SHM_ALLOCS
+#if defined(MEASURE_SHM_ALLOCS)
+static size_t max_alloced = 0;
+#endif
+
 void
 shm_set_max_pool_size(off_t _max_pool_size)
 {
@@ -95,6 +100,10 @@ shm_fini(void)
         buffer_destroy(&it->item);
         tll_remove(buffers, it);
     }
+
+#if defined(MEASURE_SHM_ALLOCS) && MEASURE_SHM_ALLOCS
+    LOG_INFO("max total allocations was: %zu MB", max_alloced / 1024 / 1024);
+#endif
 }
 
 static void
@@ -336,6 +345,17 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
     struct buffer *ret = &tll_back(buffers);
     if (!instantiate_offset(shm, ret, initial_offset))
         goto err;
+
+#if defined(MEASURE_SHM_ALLOCS) && MEASURE_SHM_ALLOCS
+    {
+        size_t currently_alloced = 0;
+        tll_foreach(buffers, it)
+            currently_alloced += it->item.size;
+        if (currently_alloced > max_alloced)
+            max_alloced = currently_alloced;
+    }
+#endif
+
     return ret;
 
 err:
