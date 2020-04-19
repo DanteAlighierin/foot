@@ -254,7 +254,7 @@ with the terminal emulator itself. Foot implements the following OSCs:
 
 * `OSC 0` - change window icon + title (but only title is actually
   supported)
-* `OSC 2` - chage window title
+* `OSC 2` - change window title
 * `OSC 4` - change color palette
 * `OSC 7` - report CWD
 * `OSC 10` - change (default) foreground color
