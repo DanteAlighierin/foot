@@ -410,5 +410,5 @@ The report should contain the following:
 * Foot version (`foot --version`)
 * Log output from foot (start foot from another terminal)
 * If reporting a crash, please try to provide a `bt full` backtrace
-  with symbols
+  **with symbols** (i.e. use a debug build)
 * Steps to reproduce. The more details the better
