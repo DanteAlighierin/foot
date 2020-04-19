@@ -1532,12 +1532,18 @@ render_search_box(struct terminal *term)
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
-    if (term->search.cursor < glyph_offset ||
-        term->search.cursor >= glyph_offset + visible_chars + 1)
-    {
-        /* Make sure cursor is always visible */
+    /* Ensure cursor is visible */
+    if (term->search.cursor < glyph_offset)
         term->render.search_glyph_offset = glyph_offset = term->search.cursor;
+    else if (term->search.cursor > glyph_offset + visible_chars) {
+        term->render.search_glyph_offset = glyph_offset =
+            term->search.cursor - min(term->search.cursor, visible_chars);
     }
+
+    /* Move offset if there is free space available */
+    if (term->search.len - glyph_offset < visible_chars)
+        term->render.search_glyph_offset = glyph_offset =
+            term->search.len - min(term->search.len, visible_chars);
 
     /* Text (what the user entered - *not* match(es)) */
     for (size_t i = glyph_offset;
