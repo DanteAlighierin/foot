@@ -991,6 +991,9 @@ term_destroy(struct terminal *term)
         grid_row_free(term->alt.rows[row]);
     free(term->alt.rows);
 
+    tll_free(term->normal.scroll_damage);
+    tll_free(term->alt.scroll_damage);
+
     free(term->window_title);
     tll_free_and_free(term->window_title_stack, free);
 
