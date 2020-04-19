@@ -891,7 +891,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     char reply[64];
                     snprintf(reply, sizeof(reply), "\033[9;%d;%dt",
                              it->item->dim.px_real.height / term->cell_height / term->scale,
-                             it->item->dim.px_real.width / term->cell_width) / term->scale;
+                             it->item->dim.px_real.width / term->cell_width / term->scale);
                     term_to_slave(term, reply, strlen(reply));
                     break;
                 }
