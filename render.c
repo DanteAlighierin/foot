@@ -404,7 +404,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     struct font *font = attrs_to_font(term, &cell->attrs);
     const struct glyph *glyph = cell->wc != 0
-        ? font_glyph_for_wc(font, cell->wc, term->colors.alpha == 0xffff)
+        ? font_glyph_for_wc(font, cell->wc, term->font_subpixel)
         : NULL;
 
     int cell_cols = glyph != NULL ? max(1, glyph->cols) : 1;

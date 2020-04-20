@@ -217,6 +217,7 @@ struct terminal {
     struct font *fonts[4];
     int font_dpi;
     int font_adjustments;
+    enum subpixel_order font_subpixel;
 
     tll(struct ptmx_buffer) ptmx_buffer;
 
@@ -445,6 +446,8 @@ bool term_font_size_increase(struct terminal *term);
 bool term_font_size_decrease(struct terminal *term);
 bool term_font_size_reset(struct terminal *term);
 bool term_font_dpi_changed(struct terminal *term);
+void term_font_subpixel_changed(struct terminal *term);
+
 
 void term_damage_rows(struct terminal *term, int start, int end);
 void term_damage_rows_in_view(struct terminal *term, int start, int end);

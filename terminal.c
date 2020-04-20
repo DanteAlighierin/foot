@@ -579,6 +579,50 @@ get_font_dpi(const struct terminal *term)
     return dpi;
 }
 
+static enum subpixel_order
+get_font_subpixel(const struct terminal *term)
+{
+    if (term->colors.alpha != 0xffff) {
+        /* Can't do subpixel rendering on transparent background */
+        return FCFT_SUBPIXEL_ORDER_NONE;
+    }
+
+    enum wl_output_subpixel wl_subpixel;
+
+    /*
+     * Wayland doesn't tell us *which* part of the surface that goes
+     * on a specific output, only whether the surface is mapped to an
+     * output or not.
+     *
+     * Thus, when determining which subpixel mode to use, we can't do
+     * much but select *an* output. So, we pick the first one.
+     *
+     * If we're not mapped at all, we pick the first available
+     * monitor, and hope that's where we'll eventually get mapped.
+     *
+     * If there aren't any monitors we use the "default" subpixel
+     * mode.
+     */
+
+    if (tll_length(term->window->on_outputs) > 0)
+        wl_subpixel = tll_front(term->window->on_outputs)->subpixel;
+    else if (tll_length(term->wl->monitors) > 0)
+        wl_subpixel = tll_front(term->wl->monitors).subpixel;
+    else
+        wl_subpixel = WL_OUTPUT_SUBPIXEL_UNKNOWN;
+
+    switch (wl_subpixel) {
+    case WL_OUTPUT_SUBPIXEL_UNKNOWN:        return FCFT_SUBPIXEL_ORDER_DEFAULT;
+    case WL_OUTPUT_SUBPIXEL_NONE:           return FCFT_SUBPIXEL_ORDER_NONE;
+    case WL_OUTPUT_SUBPIXEL_HORIZONTAL_RGB: return FCFT_SUBPIXEL_ORDER_HORIZONTAL_RGB;
+    case WL_OUTPUT_SUBPIXEL_HORIZONTAL_BGR: return FCFT_SUBPIXEL_ORDER_HORIZONTAL_BGR;
+    case WL_OUTPUT_SUBPIXEL_VERTICAL_RGB:   return FCFT_SUBPIXEL_ORDER_VERTICAL_RGB;
+    case WL_OUTPUT_SUBPIXEL_VERTICAL_BGR:   return FCFT_SUBPIXEL_ORDER_VERTICAL_BGR;
+    }
+
+    return FCFT_SUBPIXEL_ORDER_DEFAULT;
+}
+
 static bool
 load_fonts_from_conf(const struct terminal *term, const struct config *conf,
                      struct font *fonts[static 4])
@@ -686,6 +730,9 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .ptmx_buffer = tll_init(),
         .font_dpi = 0,
         .font_adjustments = 0,
+        .font_subpixel = (conf->colors.alpha == 0xffff  /* Can't do subpixel rendering on transparent background */
+                          ? FCFT_SUBPIXEL_ORDER_DEFAULT
+                          : FCFT_SUBPIXEL_ORDER_NONE),
         .cursor_keys_mode = CURSOR_KEYS_NORMAL,
         .keypad_keys_mode = KEYPAD_NUMERICAL,
         .auto_margin = true,
@@ -1329,6 +1376,31 @@ term_font_dpi_changed(struct terminal *term)
 
     assert(false);
     return false;
+}
+
+void
+term_font_subpixel_changed(struct terminal *term)
+{
+    enum subpixel_order subpixel = get_font_subpixel(term);
+
+    if (term->font_subpixel == subpixel)
+        return;
+
+#if defined(_DEBUG) && LOG_ENABLE_DBG
+    static const char *const str[] = {
+        [FCFT_SUBPIXEL_ORDER_DEFAULT] = "default",
+        [FCFT_SUBPIXEL_ORDER_NONE] = "disabled",
+        [FCFT_SUBPIXEL_ORDER_HORIZONTAL_RGB] = "RGB",
+        [FCFT_SUBPIXEL_ORDER_HORIZONTAL_BGR] = "BGR",
+        [FCFT_SUBPIXEL_ORDER_VERTICAL_RGB] = "V-RGB",
+        [FCFT_SUBPIXEL_ORDER_VERTICAL_BGR] = "V-BGR",
+    };
+#endif
+
+    LOG_DBG("subpixel mode changed: %s -> %s", str[term->font_subpixel], str[subpixel]);
+    term->font_subpixel = subpixel;
+    term_damage_view(term);
+    render_refresh(term);
 }
 
 void

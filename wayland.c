@@ -146,6 +146,7 @@ update_term_for_output_change(struct terminal *term)
 
     render_resize(term, term->width / term->scale, term->height / term->scale);
     term_font_dpi_changed(term);
+    term_font_subpixel_changed(term);
     wayl_reload_cursor_theme(term->wl, term);
 }
 
@@ -193,6 +194,7 @@ output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
     mon->inch = sqrt(pow(mon->dim.mm.width, 2) + pow(mon->dim.mm.height, 2)) * 0.03937008;
     mon->make = make != NULL ? strdup(make) : NULL;
     mon->model = model != NULL ? strdup(model) : NULL;
+    mon->subpixel = subpixel;
     output_update_ppi(mon);
 }
 
