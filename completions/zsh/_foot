@@ -22,7 +22,7 @@ _arguments \
 case ${state} in
     fonts)
         IFS=$'\n'
-        _values  'font families' $(fc-list : family | sed 's/,/\n/g' | sort | uniq)
+        _values -s , 'font families' $(fc-list : family | sed 's/,/\n/g' | sort | uniq)
         unset IFS
         ;;
 
