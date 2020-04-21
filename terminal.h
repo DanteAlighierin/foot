@@ -214,10 +214,10 @@ struct terminal {
     struct grid alt;
     struct grid *grid;
 
-    struct font *fonts[4];
+    struct fcft_font *fonts[4];
     int font_dpi;
     int font_adjustments;
-    enum subpixel_order font_subpixel;
+    enum fcft_subpixel font_subpixel;
 
     tll(struct ptmx_buffer) ptmx_buffer;
 
