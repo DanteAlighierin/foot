@@ -311,6 +311,7 @@ main(int argc, char *const *argv)
     }
 
     setlocale(LC_ALL, "");
+    LOG_INFO("locale: %s", setlocale(LC_CTYPE, NULL));
     if (!locale_is_utf8()) {
         LOG_ERR("locale is not UTF-8");
         return ret;
