@@ -842,6 +842,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     if (!term_font_dpi_changed(term))
         goto err;
 
+    term->font_subpixel = get_font_subpixel(term);
+
     term_set_window_title(term, conf->title);
 
     /* Let the Wayland backend know we exist */
