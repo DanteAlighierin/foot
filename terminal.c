@@ -521,8 +521,8 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
         term->fonts[i] = fonts[i];
     }
 
-    term->cell_width = term->fonts[0]->space_x_advance > 0
-        ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
+    term->cell_width = term->fonts[0]->space_advance.x > 0
+        ? term->fonts[0]->space_advance.x : term->fonts[0]->max_advance.x;
     term->cell_height = max(term->fonts[0]->height,
                             term->fonts[0]->ascent + term->fonts[0]->descent);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
