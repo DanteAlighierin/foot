@@ -15,12 +15,10 @@
 * **initial-window-mode** option to `footrc`, that lets you control
   the initial mode for each newly spawned window: _windowed_,
   _maximized_ or _fullscreen_.
-* **app-id** option to `footrc`, that sets the _app-id_ property on
-  the Wayland window.
-* `--app-id` command line option, that sets the _app-id_ property on
-  the Wayland window.
-* **title** option to `footrc`, that sets the initial window title.
-* `--title` command line option, that sets the initial window title.
+* **app-id** option to `footrc` and `--app-id` command line option,
+  that sets the _app-id_ property on the Wayland window.
+* **title** option to `footrc` and `--title` command line option, that
+  sets the initial window title.
 * Right mouse button extends the current selection.
 * Implemented 'CSI Ps ; Ps ; Ps t' escape sequences for the following
   parameters: `11t`, `13t`, `14;2t`, `15t`, `19t`.
