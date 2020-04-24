@@ -512,17 +512,17 @@ initialize_render_workers(struct terminal *term)
 }
 
 static bool
-term_set_fonts(struct terminal *term, struct font *fonts[static 4])
+term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
 {
     for (size_t i = 0; i < 4; i++) {
         assert(fonts[i] != NULL);
 
-        font_destroy(term->fonts[i]);
+        fcft_destroy(term->fonts[i]);
         term->fonts[i] = fonts[i];
     }
 
-    term->cell_width = term->fonts[0]->space_x_advance > 0
-        ? term->fonts[0]->space_x_advance : term->fonts[0]->max_x_advance;
+    term->cell_width = term->fonts[0]->space_advance.x > 0
+        ? term->fonts[0]->space_advance.x : term->fonts[0]->max_advance.x;
     term->cell_height = max(term->fonts[0]->height,
                             term->fonts[0]->ascent + term->fonts[0]->descent);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
@@ -579,9 +579,53 @@ get_font_dpi(const struct terminal *term)
     return dpi;
 }
 
+static enum fcft_subpixel
+get_font_subpixel(const struct terminal *term)
+{
+    if (term->colors.alpha != 0xffff) {
+        /* Can't do subpixel rendering on transparent background */
+        return FCFT_SUBPIXEL_NONE;
+    }
+
+    enum wl_output_subpixel wl_subpixel;
+
+    /*
+     * Wayland doesn't tell us *which* part of the surface that goes
+     * on a specific output, only whether the surface is mapped to an
+     * output or not.
+     *
+     * Thus, when determining which subpixel mode to use, we can't do
+     * much but select *an* output. So, we pick the first one.
+     *
+     * If we're not mapped at all, we pick the first available
+     * monitor, and hope that's where we'll eventually get mapped.
+     *
+     * If there aren't any monitors we use the "default" subpixel
+     * mode.
+     */
+
+    if (tll_length(term->window->on_outputs) > 0)
+        wl_subpixel = tll_front(term->window->on_outputs)->subpixel;
+    else if (tll_length(term->wl->monitors) > 0)
+        wl_subpixel = tll_front(term->wl->monitors).subpixel;
+    else
+        wl_subpixel = WL_OUTPUT_SUBPIXEL_UNKNOWN;
+
+    switch (wl_subpixel) {
+    case WL_OUTPUT_SUBPIXEL_UNKNOWN:        return FCFT_SUBPIXEL_DEFAULT;
+    case WL_OUTPUT_SUBPIXEL_NONE:           return FCFT_SUBPIXEL_NONE;
+    case WL_OUTPUT_SUBPIXEL_HORIZONTAL_RGB: return FCFT_SUBPIXEL_HORIZONTAL_RGB;
+    case WL_OUTPUT_SUBPIXEL_HORIZONTAL_BGR: return FCFT_SUBPIXEL_HORIZONTAL_BGR;
+    case WL_OUTPUT_SUBPIXEL_VERTICAL_RGB:   return FCFT_SUBPIXEL_VERTICAL_RGB;
+    case WL_OUTPUT_SUBPIXEL_VERTICAL_BGR:   return FCFT_SUBPIXEL_VERTICAL_BGR;
+    }
+
+    return FCFT_SUBPIXEL_DEFAULT;
+}
+
 static bool
 load_fonts_from_conf(const struct terminal *term, const struct config *conf,
-                     struct font *fonts[static 4])
+                     struct fcft_font *fonts[static 4])
 {
     const size_t count = tll_length(conf->fonts);
     const char *names[count];
@@ -598,15 +642,15 @@ load_fonts_from_conf(const struct terminal *term, const struct config *conf,
 
     fonts[0] = fonts[1] = fonts[2] = fonts[3] = NULL;
     bool ret =
-        (fonts[0] = font_from_name(count, names, attrs0)) != NULL &&
-        (fonts[1] = font_from_name(count, names, attrs1)) != NULL &&
-        (fonts[2] = font_from_name(count, names, attrs2)) != NULL &&
-        (fonts[3] = font_from_name(count, names, attrs3)) != NULL;
+        (fonts[0] = fcft_from_name(count, names, attrs0)) != NULL &&
+        (fonts[1] = fcft_from_name(count, names, attrs1)) != NULL &&
+        (fonts[2] = fcft_from_name(count, names, attrs2)) != NULL &&
+        (fonts[3] = fcft_from_name(count, names, attrs3)) != NULL;
 
     if (!ret) {
         LOG_ERR("failed to load primary fonts");
         for (size_t i = 0; i < 4; i++) {
-            font_destroy(fonts[i]);
+            fcft_destroy(fonts[i]);
             fonts[i] = NULL;
         }
     }
@@ -686,6 +730,9 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .ptmx_buffer = tll_init(),
         .font_dpi = 0,
         .font_adjustments = 0,
+        .font_subpixel = (conf->colors.alpha == 0xffff  /* Can't do subpixel rendering on transparent background */
+                          ? FCFT_SUBPIXEL_DEFAULT
+                          : FCFT_SUBPIXEL_NONE),
         .cursor_keys_mode = CURSOR_KEYS_NORMAL,
         .keypad_keys_mode = KEYPAD_NUMERICAL,
         .auto_margin = true,
@@ -794,6 +841,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     /* Load fonts */
     if (!term_font_dpi_changed(term))
         goto err;
+
+    term->font_subpixel = get_font_subpixel(term);
 
     term_set_window_title(term, conf->title);
 
@@ -998,7 +1047,7 @@ term_destroy(struct terminal *term)
     tll_free_and_free(term->window_title_stack, free);
 
     for (size_t i = 0; i < sizeof(term->fonts) / sizeof(term->fonts[0]); i++)
-        font_destroy(term->fonts[i]);
+        fcft_destroy(term->fonts[i]);
 
     free(term->search.buf);
 
@@ -1233,18 +1282,18 @@ term_reset(struct terminal *term, bool hard)
 static bool
 term_font_size_adjust(struct terminal *term, double amount)
 {
-    struct font *fonts[4] = {
-        font_size_adjust(term->fonts[0], amount),
-        font_size_adjust(term->fonts[1], amount),
-        font_size_adjust(term->fonts[2], amount),
-        font_size_adjust(term->fonts[3], amount),
+    struct fcft_font *fonts[4] = {
+        fcft_size_adjust(term->fonts[0], amount),
+        fcft_size_adjust(term->fonts[1], amount),
+        fcft_size_adjust(term->fonts[2], amount),
+        fcft_size_adjust(term->fonts[3], amount),
     };
 
     if (fonts[0] == NULL || fonts[1] == NULL ||
         fonts[2] == NULL || fonts[3] == NULL)
     {
         for (size_t i = 0; i < 4; i++)
-            font_destroy(fonts[i]);
+            fcft_destroy(fonts[i]);
         return false;
     }
 
@@ -1275,7 +1324,7 @@ term_font_size_decrease(struct terminal *term)
 bool
 term_font_size_reset(struct terminal *term)
 {
-    struct font *fonts[4];
+    struct fcft_font *fonts[4];
     if (!load_fonts_from_conf(term, term->conf, fonts))
         return false;
 
@@ -1294,7 +1343,7 @@ term_font_dpi_changed(struct terminal *term)
     LOG_DBG("DPI changed (%u -> %u): reloading fonts", term->font_dpi, dpi);
     term->font_dpi = dpi;
 
-    struct font *fonts[4];
+    struct fcft_font *fonts[4];
     if (!load_fonts_from_conf(term, term->conf, fonts))
         return false;
 
@@ -1305,30 +1354,55 @@ term_font_dpi_changed(struct terminal *term)
 
     double amount = term->font_adjustments * 0.5;
 
-    struct font *adjusted_fonts[4] = {
-        font_size_adjust(fonts[0], amount),
-        font_size_adjust(fonts[1], amount),
-        font_size_adjust(fonts[2], amount),
-        font_size_adjust(fonts[3], amount),
+    struct fcft_font *adjusted_fonts[4] = {
+        fcft_size_adjust(fonts[0], amount),
+        fcft_size_adjust(fonts[1], amount),
+        fcft_size_adjust(fonts[2], amount),
+        fcft_size_adjust(fonts[3], amount),
     };
 
     if (adjusted_fonts[0] == NULL || adjusted_fonts[1] == NULL ||
         adjusted_fonts[2] == NULL || adjusted_fonts[3] == NULL)
     {
         for (size_t i = 0; i < 4; i++)
-            font_destroy(adjusted_fonts[i]);
+            fcft_destroy(adjusted_fonts[i]);
 
         /* At least use the newly re-loaded default fonts */
         term->font_adjustments = 0;
         return term_set_fonts(term, fonts);
     } else {
         for (size_t i = 0; i < 4; i++)
-            font_destroy(fonts[i]);
+            fcft_destroy(fonts[i]);
         return term_set_fonts(term, adjusted_fonts);
     }
 
     assert(false);
     return false;
+}
+
+void
+term_font_subpixel_changed(struct terminal *term)
+{
+    enum fcft_subpixel subpixel = get_font_subpixel(term);
+
+    if (term->font_subpixel == subpixel)
+        return;
+
+#if defined(_DEBUG) && LOG_ENABLE_DBG
+    static const char *const str[] = {
+        [FCFT_SUBPIXEL_ORDER_DEFAULT] = "default",
+        [FCFT_SUBPIXEL_ORDER_NONE] = "disabled",
+        [FCFT_SUBPIXEL_ORDER_HORIZONTAL_RGB] = "RGB",
+        [FCFT_SUBPIXEL_ORDER_HORIZONTAL_BGR] = "BGR",
+        [FCFT_SUBPIXEL_ORDER_VERTICAL_RGB] = "V-RGB",
+        [FCFT_SUBPIXEL_ORDER_VERTICAL_BGR] = "V-BGR",
+    };
+#endif
+
+    LOG_DBG("subpixel mode changed: %s -> %s", str[term->font_subpixel], str[subpixel]);
+    term->font_subpixel = subpixel;
+    term_damage_view(term);
+    render_refresh(term);
 }
 
 void

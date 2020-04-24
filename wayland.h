@@ -60,6 +60,7 @@ struct monitor {
 
     int scale;
     float refresh;
+    enum wl_output_subpixel subpixel;
 
     char *make;
     char *model;

@@ -33,6 +33,12 @@
   (https://codeberg.org/dnkl/foot/issues/4)
 * memfd sealing failures are no longer fatal errors.
 * Selection to no longer be cleared on resize.
+* The current monitor's subpixel order (RGB/BGR/V-RGB/V-BGR) is
+  preferred over FontConfig's `rgba` property. Only if the monitor's
+  subpixel order is `unknown` is FontConfig's `rgba` property used. If
+  the subpixel order is `none`, then grayscale antialiasing is
+  used. The subpixel order is ignored if antialiasing has been
+  disabled.
 
 
 ### Deprecated

@@ -196,7 +196,7 @@ static const struct wp_presentation_feedback_listener presentation_feedback_list
     .discarded = &discarded,
 };
 
-static struct font *
+static struct fcft_font *
 attrs_to_font(const struct terminal *term, const struct attributes *attrs)
 {
     int idx = attrs->italic << 1 | attrs->bold;
@@ -263,7 +263,7 @@ draw_unfocused_block(const struct terminal *term, pixman_image_t *pix,
 
 static void
 draw_bar(const struct terminal *term, pixman_image_t *pix,
-         const struct font *font,
+         const struct fcft_font *font,
          const pixman_color_t *color, int x, int y)
 {
     int baseline = y + font_baseline(term) - term->fonts[0]->ascent;
@@ -276,7 +276,7 @@ draw_bar(const struct terminal *term, pixman_image_t *pix,
 
 static void
 draw_underline(const struct terminal *term, pixman_image_t *pix,
-               const struct font *font,
+               const struct fcft_font *font,
                const pixman_color_t *color, int x, int y, int cols)
 {
     pixman_image_fill_rectangles(
@@ -288,7 +288,7 @@ draw_underline(const struct terminal *term, pixman_image_t *pix,
 
 static void
 draw_strikeout(const struct terminal *term, pixman_image_t *pix,
-               const struct font *font,
+               const struct fcft_font *font,
                const pixman_color_t *color, int x, int y, int cols)
 {
     pixman_image_fill_rectangles(
@@ -300,7 +300,7 @@ draw_strikeout(const struct terminal *term, pixman_image_t *pix,
 
 static void
 draw_cursor(const struct terminal *term, const struct cell *cell,
-            const struct font *font, pixman_image_t *pix, pixman_color_t *fg,
+            const struct fcft_font *font, pixman_image_t *pix, pixman_color_t *fg,
             const pixman_color_t *bg, int x, int y, int cols)
 {
     pixman_color_t cursor_color;
@@ -402,9 +402,9 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         color_dim_for_search(&bg);
     }
 
-    struct font *font = attrs_to_font(term, &cell->attrs);
-    const struct glyph *glyph = cell->wc != 0
-        ? font_glyph_for_wc(font, cell->wc, term->colors.alpha == 0xffff)
+    struct fcft_font *font = attrs_to_font(term, &cell->attrs);
+    const struct fcft_glyph *glyph = cell->wc != 0
+        ? fcft_glyph_rasterize(font, cell->wc, term->font_subpixel)
         : NULL;
 
     int cell_cols = glyph != NULL ? max(1, glyph->cols) : 1;
@@ -1527,7 +1527,7 @@ render_search_box(struct terminal *term)
         PIXMAN_OP_SRC, buf->pix, &transparent,
         1, &(pixman_rectangle16_t){0, 0, width - visible_width, height});
 
-    struct font *font = term->fonts[0];
+    struct fcft_font *font = term->fonts[0];
     int x = width - visible_width + margin;
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
@@ -1553,7 +1553,9 @@ render_search_box(struct terminal *term)
         if (i == term->search.cursor)
             draw_bar(term, buf->pix, font, &fg, x, y);
 
-        const struct glyph *glyph = font_glyph_for_wc(font, term->search.buf[i], true);
+        const struct fcft_glyph *glyph = fcft_glyph_rasterize(
+            font, term->search.buf[i], true);
+
         if (glyph == NULL)
             continue;
 
