@@ -33,12 +33,12 @@ in this order:
 	Default: _monospace_.
 
 *geometry*
-	Initial window width and height in pixels, on the form
-	_WIDTHxHEIGHT_. Default: _700x500_.
+	Initial window width and height in pixels (subject to output
+	scaling), on the form _WIDTHxHEIGHT_. Default: _700x500_.
 
 *pad*
-	Padding between border and glyphs, in pixels, on the form
-	_XxY_ (-padding). Default: _2x2_.
+	Padding between border and glyphs, in pixels (subject to output
+	scaling), on the form _XxY_. Default: _2x2_.
 
 *initial-window-mode*
 	Initial window mode for each newly spawned window: *windowed*,
