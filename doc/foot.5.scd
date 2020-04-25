@@ -255,7 +255,7 @@ _Examples_:
 
 # TWEAKS
 
-This section is for advanced user and describes configuration options
+This section is for advanced users and describes configuration options
 that can be used to tweak foot's low-level behavior.
 
 These options are *not* included in the example configuration. You
