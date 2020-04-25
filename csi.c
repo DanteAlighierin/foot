@@ -1328,6 +1328,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 case 2: sixel_colors_reset(term); break;
                 case 3: sixel_colors_set(term, vt_param_get(term, 2, 0)); break;
                 case 4: sixel_colors_report_max(term);
+                default: UNHANDLED(); break;
                 }
                 break;
 
@@ -1337,9 +1338,15 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 case 2: sixel_geometry_reset(term); break;
                 case 3: sixel_geometry_set(term, vt_param_get(term, 2, 0), vt_param_get(term, 3, 0)); break;
                 case 4: sixel_geometry_report_max(term);
+                default: UNHANDLED(); break;
                 }
                 break;
+
+            default:
+                UNHANDLED();
+                break;
             }
+
             break;
         }
 
