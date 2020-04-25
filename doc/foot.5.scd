@@ -271,8 +271,8 @@ any of these options.
 	used to mitigate screen flicker caused by clients writing large,
 	non-atomic screen updates.
 	
-	If a client splits up a screen update over multiple *write(3)*
-	calls, we may end up rendering an intermediate screen, quickly
+	If a client splits up a screen update over multiple *write*(3)
+	calls, we may end up rendering an intermediate frame, quickly
 	followed by another frame with the final screen content. For
 	example, the client may erase part of the screen (or scroll) in
 	one write, and then write new content in one or more subsequent
