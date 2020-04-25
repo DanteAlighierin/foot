@@ -20,8 +20,8 @@
 * **title** option to `footrc` and `--title` command line option, that
   sets the initial window title.
 * Right mouse button extends the current selection.
-* Implemented 'CSI Ps ; Ps ; Ps t' escape sequences for the following
-  parameters: `11t`, `13t`, `14;2t`, `15t`, `19t`.
+* `CSI Ps ; Ps ; Ps t` escape sequences for the following parameters:
+  `11t`, `13t`, `14;2t`, `15t`, `19t`.
 
 ### Changed
 
