@@ -73,11 +73,8 @@ enum damage_type {DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE,
 
 struct damage {
     enum damage_type type;
-    /* DAMAGE_SCROLL, DAMAGE_SCROLL_REVERSE */
-    struct {
-        struct scroll_region region;
-        int lines;
-    } scroll;
+    struct scroll_region region;
+    int lines;
 };
 
 struct row {

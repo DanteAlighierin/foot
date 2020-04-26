@@ -1449,16 +1449,17 @@ term_damage_scroll(struct terminal *term, enum damage_type damage_type,
         struct damage *dmg = &tll_back(term->grid->scroll_damage);
 
         if (dmg->type == damage_type &&
-            dmg->scroll.region.start == region.start &&
-            dmg->scroll.region.end == region.end)
+            dmg->region.start == region.start &&
+            dmg->region.end == region.end)
         {
-            dmg->scroll.lines += lines;
+            dmg->lines += lines;
             return;
         }
     }
     struct damage dmg = {
         .type = damage_type,
-        .scroll = {.region = region, .lines = lines},
+        .region = region,
+        .lines = lines,
     };
     tll_push_back(term->grid->scroll_damage, dmg);
 }
