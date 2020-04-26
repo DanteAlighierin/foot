@@ -3,7 +3,7 @@ project('foot', 'c',
         license: 'MIT',
         meson_version: '>=0.53.0',
         default_options: [
-          'c_std=c11',
+          'c_std=c18',
           'warning_level=1',
           'werror=true',
           'b_ndebug=if-release'])
