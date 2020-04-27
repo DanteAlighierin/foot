@@ -57,6 +57,9 @@ wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
 xkb = dependency('xkbcommon')
 
+utf8proc = dependency('libutf8proc', required: get_option('unicode-combining'))
+add_project_arguments('-DFOOT_UNICODE_COMBINING=@0@'.format(utf8proc.found()), language: 'c')
+
 tllist = dependency('tllist', version: '>=1.0.1', fallback: 'tllist')
 fcft = dependency('fcft', version: ['>=2.0.0', '<2.1.0'], fallback: 'fcft')
 
@@ -125,7 +128,7 @@ executable(
   'vt.c', 'vt.h',
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
-  dependencies: [math, threads, pixman, wayland_client, wayland_cursor, xkb,
+  dependencies: [math, threads, pixman, wayland_client, wayland_cursor, xkb, utf8proc,
                 tllist, fcft],
   install: true)
 

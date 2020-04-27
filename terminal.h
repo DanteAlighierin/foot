@@ -135,7 +135,6 @@ struct vt {
     struct {
         uint8_t data[4];
         uint8_t idx;
-        uint8_t left;
     } utf8;
     struct {
         uint8_t *data;

@@ -5,6 +5,10 @@
 #include <unistd.h>
 #include <assert.h>
 
+#if FOOT_UNICODE_COMBINING
+ #include <utf8proc.h>
+#endif
+
 #define LOG_MODULE "vt"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
@@ -105,7 +109,6 @@ action_clear(struct terminal *term)
     term->vt.params.idx = 0;
     term->vt.private[0] = 0;
     term->vt.private[1] = 0;
-    term->vt.utf8.idx = 0;
 }
 
 static void
@@ -509,27 +512,21 @@ static void
 action_utf8_2_entry(struct terminal *term, uint8_t c)
 {
     term->vt.utf8.idx = 0;
-    term->vt.utf8.left = 2;
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
-    term->vt.utf8.left--;
 }
 
 static void
 action_utf8_3_entry(struct terminal *term, uint8_t c)
 {
     term->vt.utf8.idx = 0;
-    term->vt.utf8.left = 3;
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
-    term->vt.utf8.left--;
 }
 
 static void
 action_utf8_4_entry(struct terminal *term, uint8_t c)
 {
     term->vt.utf8.idx = 0;
-    term->vt.utf8.left = 4;
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
-    term->vt.utf8.left--;
 }
 
 static void
@@ -544,11 +541,56 @@ action_utf8_print(struct terminal *term, uint8_t c)
     if ((ssize_t)count < 0)
         wc = 0;
 
-    /* Reset VT utf8 state */
-    term->vt.utf8.idx = 0;
+#if FOOT_UNICODE_COMBINING
+    /*
+     * Try to combine with the previous character.
+     *
+     * We _could_ try regardless of what 'wc' is. However, for
+     * performance reasons, we only do it when 'wc' is in a known
+     * 'combining' range.
+     *
+     * TODO:
+     *  - doesn't work when base character is multi-column (we'll only
+     *    see an empty "null" character)
+     */
 
-    int width = wcwidth(wc);
-    term_print(term, wc, width);
+    if (((wc >= 0x0300 && wc <= 0x036F) || /* diacritical marks */
+         (wc >= 0x1AB0 && wc <= 0x1AFF) || /* diacritical marks, extended */
+         (wc >= 0x1DC0 && wc <= 0x1DFF) || /* diacritical marks, supplement */
+         (wc >= 0x20D0 && wc <= 0x20FF) || /* diacritical marks, for symbols */
+         (wc >= 0xFE20 && wc <= 0xFE2F))   /* half marks */
+        && term->grid->cursor.point.col > 0)
+    {
+        int base_col = term->grid->cursor.point.col;
+        if (!term->grid->cursor.lcf)
+            base_col--;
+
+        assert(base_col >= 0 && base_col < term->cols);
+        wchar_t base = term->grid->cur_row->cells[base_col].wc;
+        int base_width = wcwidth(base);
+
+        if (base_width > 0) {
+            wchar_t composed[] = {base, wc};
+            ssize_t composed_length = utf8proc_normalize_utf32(
+                composed, sizeof(composed) / sizeof(composed[0]),
+                UTF8PROC_COMPOSE | UTF8PROC_STABLE);
+
+            LOG_DBG("composed = 0x%04x, 0x%04x (length = %zd)",
+                    composed[0], composed[1], composed_length);
+
+            if (composed_length == 1) {
+                /* Compose succeess - overwrite last cell with
+                 * combined character */
+                term->grid->cursor.point.col = base_col;
+                term->grid->cursor.lcf = false;
+                term_print(term, composed[0], wcwidth(composed[0]));
+                return;
+            }
+        }
+    }
+#endif /* FOOT_UNICODE_COMBINING */
+
+    term_print(term, wc, wcwidth(wc));
 }
 
 static enum state
@@ -1016,9 +1058,6 @@ static enum state
 state_utf8_collect_1_switch(struct terminal *term, uint8_t data)
 {
     term->vt.utf8.data[term->vt.utf8.idx++] = data;
-    term->vt.utf8.left--;
-
-    assert(term->vt.utf8.left == 0);
     action_utf8_print(term, data);
     return STATE_GROUND;
 }
@@ -1027,9 +1066,6 @@ static enum state
 state_utf8_collect_2_switch(struct terminal *term, uint8_t data)
 {
     term->vt.utf8.data[term->vt.utf8.idx++] = data;
-    term->vt.utf8.left--;
-
-    assert(term->vt.utf8.left == 1);
     return STATE_UTF8_COLLECT_1;
 }
 
@@ -1037,9 +1073,6 @@ static enum state
 state_utf8_collect_3_switch(struct terminal *term, uint8_t data)
 {
     term->vt.utf8.data[term->vt.utf8.idx++] = data;
-    term->vt.utf8.left--;
-
-    assert(term->vt.utf8.left == 2);
     return STATE_UTF8_COLLECT_2;
 }
 
