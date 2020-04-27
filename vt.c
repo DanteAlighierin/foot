@@ -109,7 +109,6 @@ action_clear(struct terminal *term)
     term->vt.params.idx = 0;
     term->vt.private[0] = 0;
     term->vt.private[1] = 0;
-    term->vt.utf8.idx = 0;
 }
 
 static void
@@ -512,21 +511,21 @@ action_put(struct terminal *term, uint8_t c)
 static void
 action_utf8_2_entry(struct terminal *term, uint8_t c)
 {
-    assert(term->vt.utf8.idx == 0);
+    term->vt.utf8.idx = 0;
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
 }
 
 static void
 action_utf8_3_entry(struct terminal *term, uint8_t c)
 {
-    assert(term->vt.utf8.idx == 0);
+    term->vt.utf8.idx = 0;
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
 }
 
 static void
 action_utf8_4_entry(struct terminal *term, uint8_t c)
 {
-    assert(term->vt.utf8.idx == 0);
+    term->vt.utf8.idx = 0;
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
 }
 
