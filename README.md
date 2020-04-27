@@ -277,6 +277,7 @@ with the terminal emulator itself. Foot implements the following OSCs:
 * pixman
 * wayland (_client_ and _cursor_ libraries)
 * xkbcommon
+* utf8proc (_optional_ - enables unicode combining)
 * [tllist](https://codeberg.org/dnkl/tllist) [^1]
 * [fcft](https://codeberg.org/dnkl/fcft) [^1]
 
