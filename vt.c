@@ -542,9 +542,6 @@ action_utf8_print(struct terminal *term, uint8_t c)
     if ((ssize_t)count < 0)
         wc = 0;
 
-    /* Reset VT utf8 state */
-    term->vt.utf8.idx = 0;
-
 #if FOOT_UNICODE_COMBINING
     /*
      * Try to combine with the previous character.
