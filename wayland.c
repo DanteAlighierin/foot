@@ -533,7 +533,7 @@ static void
 handle_global(void *data, struct wl_registry *registry,
               uint32_t name, const char *interface, uint32_t version)
 {
-    LOG_DBG("global: %s, version=%u", interface, version);
+    LOG_DBG("global: 0x%08x, interface=%s, version=%u", name, interface, version);
     struct wayland *wayl = data;
 
     if (strcmp(interface, wl_compositor_interface.name) == 0) {
@@ -614,7 +614,8 @@ handle_global(void *data, struct wl_registry *registry,
             wayl->registry, name, &wl_output_interface, required);
 
         tll_push_back(
-            wayl->monitors, ((struct monitor){.wayl = wayl, .output = output}));
+            wayl->monitors,
+            ((struct monitor){.wayl = wayl, .output = output, .wl_name = name}));
 
         struct monitor *mon = &tll_back(wayl->monitors);
         wl_output_add_listener(output, &output_listener, mon);
@@ -661,10 +662,54 @@ handle_global(void *data, struct wl_registry *registry,
 }
 
 static void
+monitor_destroy(struct monitor *mon)
+{
+    free(mon->name);
+    if (mon->xdg != NULL)
+        zxdg_output_v1_destroy(mon->xdg);
+    if (mon->output != NULL)
+        wl_output_destroy(mon->output);
+    free(mon->make);
+    free(mon->model);
+}
+
+static void
 handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 {
-    LOG_WARN("global removed: %u", name);
-    assert(false);
+    LOG_DBG("global removed: %u", name);
+
+    struct wayland *wayl = data;
+
+    /* For now, we only support removal of outputs */
+    tll_foreach(wayl->monitors, it) {
+        if (it->item.wl_name != name)
+            continue;
+
+        LOG_INFO("monitor unplugged: %s", it->item.name);
+
+        /*
+         * Update all terminals that are mapped here. On Sway 1.4,
+         * surfaces are *not* unmapped before the output is removed
+         */
+
+        tll_foreach(wayl->terms, t) {
+            tll_foreach(t->item->window->on_outputs, o) {
+                if (o->item != &it->item)
+                    continue;
+
+                /* Remove terminal from this output */
+                tll_remove(t->item->window->on_outputs, o);
+                update_term_for_output_change(t->item);
+                break;
+            }
+        }
+
+        monitor_destroy(&it->item);
+        tll_remove(wayl->monitors, it);
+        return;
+    }
+
+    LOG_WARN("unknown global removed: 0x%08x", name);
 }
 
 static const struct wl_registry_listener registry_listener = {
@@ -901,13 +946,7 @@ wayl_destroy(struct wayland *wayl)
         fdm_del(wayl->fdm, wayl->kbd.repeat.fd);
 
     tll_foreach(wayl->monitors, it) {
-        free(it->item.name);
-        if (it->item.xdg != NULL)
-            zxdg_output_v1_destroy(it->item.xdg);
-        if (it->item.output != NULL)
-            wl_output_destroy(it->item.output);
-        free(it->item.make);
-        free(it->item.model);
+        monitor_destroy(&it->item);
         tll_remove(wayl->monitors, it);
     }
 

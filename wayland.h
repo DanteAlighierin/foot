@@ -20,6 +20,7 @@ struct monitor {
     struct wl_output *output;
     struct zxdg_output_v1 *xdg;
     char *name;
+    uint32_t wl_name;
 
     int x;
     int y;
