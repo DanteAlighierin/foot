@@ -512,21 +512,21 @@ action_put(struct terminal *term, uint8_t c)
 static void
 action_utf8_2_entry(struct terminal *term, uint8_t c)
 {
-    term->vt.utf8.idx = 0;
+    assert(term->vt.utf8.idx == 0);
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
 }
 
 static void
 action_utf8_3_entry(struct terminal *term, uint8_t c)
 {
-    term->vt.utf8.idx = 0;
+    assert(term->vt.utf8.idx == 0);
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
 }
 
 static void
 action_utf8_4_entry(struct terminal *term, uint8_t c)
 {
-    term->vt.utf8.idx = 0;
+    assert(term->vt.utf8.idx == 0);
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
 }
 
