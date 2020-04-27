@@ -513,27 +513,21 @@ static void
 action_utf8_2_entry(struct terminal *term, uint8_t c)
 {
     term->vt.utf8.idx = 0;
-    term->vt.utf8.left = 2;
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
-    term->vt.utf8.left--;
 }
 
 static void
 action_utf8_3_entry(struct terminal *term, uint8_t c)
 {
     term->vt.utf8.idx = 0;
-    term->vt.utf8.left = 3;
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
-    term->vt.utf8.left--;
 }
 
 static void
 action_utf8_4_entry(struct terminal *term, uint8_t c)
 {
     term->vt.utf8.idx = 0;
-    term->vt.utf8.left = 4;
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
-    term->vt.utf8.left--;
 }
 
 static void
@@ -1068,9 +1062,6 @@ static enum state
 state_utf8_collect_1_switch(struct terminal *term, uint8_t data)
 {
     term->vt.utf8.data[term->vt.utf8.idx++] = data;
-    term->vt.utf8.left--;
-
-    assert(term->vt.utf8.left == 0);
     action_utf8_print(term, data);
     return STATE_GROUND;
 }
@@ -1079,9 +1070,6 @@ static enum state
 state_utf8_collect_2_switch(struct terminal *term, uint8_t data)
 {
     term->vt.utf8.data[term->vt.utf8.idx++] = data;
-    term->vt.utf8.left--;
-
-    assert(term->vt.utf8.left == 1);
     return STATE_UTF8_COLLECT_1;
 }
 
@@ -1089,9 +1077,6 @@ static enum state
 state_utf8_collect_3_switch(struct terminal *term, uint8_t data)
 {
     term->vt.utf8.data[term->vt.utf8.idx++] = data;
-    term->vt.utf8.left--;
-
-    assert(term->vt.utf8.left == 2);
     return STATE_UTF8_COLLECT_2;
 }
 
