@@ -1,0 +1,1 @@
+option('unicode-combining', type: 'feature', value: 'auto', description: 'Perform unicode combining')
