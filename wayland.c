@@ -303,137 +303,6 @@ verify_iface_version(const char *iface, uint32_t version, uint32_t wanted)
 }
 
 static void
-handle_global(void *data, struct wl_registry *registry,
-              uint32_t name, const char *interface, uint32_t version)
-{
-    LOG_DBG("global: %s, version=%u", interface, version);
-    struct wayland *wayl = data;
-
-    if (strcmp(interface, wl_compositor_interface.name) == 0) {
-        const uint32_t required = 4;
-        if (!verify_iface_version(interface, version, required))
-            return;
-
-        wayl->compositor = wl_registry_bind(
-            wayl->registry, name, &wl_compositor_interface, required);
-    }
-
-    else if (strcmp(interface, wl_subcompositor_interface.name) == 0) {
-        const uint32_t required = 1;
-        if (!verify_iface_version(interface, version, required))
-            return;
-
-        wayl->sub_compositor = wl_registry_bind(
-            wayl->registry, name, &wl_subcompositor_interface, required);
-    }
-
-    else if (strcmp(interface, wl_shm_interface.name) == 0) {
-        const uint32_t required = 1;
-        if (!verify_iface_version(interface, version, required))
-            return;
-
-        wayl->shm = wl_registry_bind(
-            wayl->registry, name, &wl_shm_interface, required);
-        wl_shm_add_listener(wayl->shm, &shm_listener, wayl);
-        wl_display_roundtrip(wayl->display);
-    }
-
-    else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
-        const uint32_t required = 1;
-        if (!verify_iface_version(interface, version, required))
-            return;
-
-        wayl->shell = wl_registry_bind(
-            wayl->registry, name, &xdg_wm_base_interface, required);
-        xdg_wm_base_add_listener(wayl->shell, &xdg_wm_base_listener, wayl);
-    }
-
-    else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0) {
-        const uint32_t required = 1;
-        if (!verify_iface_version(interface, version, required))
-            return;
-
-        wayl->xdg_decoration_manager = wl_registry_bind(
-            wayl->registry, name, &zxdg_decoration_manager_v1_interface, required);
-    }
-
-    else if (strcmp(interface, wl_seat_interface.name) == 0) {
-        const uint32_t required = 5;
-        if (!verify_iface_version(interface, version, required))
-            return;
-
-        wayl->seat = wl_registry_bind(
-            wayl->registry, name, &wl_seat_interface, required);
-        wl_seat_add_listener(wayl->seat, &seat_listener, wayl);
-        wl_display_roundtrip(wayl->display);
-    }
-
-    else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0) {
-        const uint32_t required = 1;
-        if (!verify_iface_version(interface, version, required))
-            return;
-
-        wayl->xdg_output_manager = wl_registry_bind(
-            wayl->registry, name, &zxdg_output_manager_v1_interface,
-            min(version, 2));
-    }
-
-    else if (strcmp(interface, wl_output_interface.name) == 0) {
-        const uint32_t required = 2;
-        if (!verify_iface_version(interface, version, required))
-            return;
-
-        struct wl_output *output = wl_registry_bind(
-            wayl->registry, name, &wl_output_interface, required);
-
-        tll_push_back(
-            wayl->monitors, ((struct monitor){.wayl = wayl, .output = output}));
-
-        struct monitor *mon = &tll_back(wayl->monitors);
-        wl_output_add_listener(output, &output_listener, mon);
-
-        if (wayl->xdg_output_manager != NULL) {
-            mon->xdg = zxdg_output_manager_v1_get_xdg_output(
-                wayl->xdg_output_manager, mon->output);
-            zxdg_output_v1_add_listener(mon->xdg, &xdg_output_listener, mon);
-        }
-        wl_display_roundtrip(wayl->display);
-    }
-
-    else if (strcmp(interface, wl_data_device_manager_interface.name) == 0) {
-        const uint32_t required = 1;
-        if (!verify_iface_version(interface, version, required))
-            return;
-
-        wayl->data_device_manager = wl_registry_bind(
-            wayl->registry, name, &wl_data_device_manager_interface, required);
-    }
-
-    else if (strcmp(interface, zwp_primary_selection_device_manager_v1_interface.name) == 0) {
-        const uint32_t required = 1;
-        if (!verify_iface_version(interface, version, required))
-            return;
-
-        wayl->primary_selection_device_manager = wl_registry_bind(
-            wayl->registry, name,
-            &zwp_primary_selection_device_manager_v1_interface, required);
-    }
-
-    else if (strcmp(interface, wp_presentation_interface.name) == 0) {
-        if (wayl->conf->presentation_timings) {
-            const uint32_t required = 1;
-            if (!verify_iface_version(interface, version, required))
-                return;
-
-            wayl->presentation = wl_registry_bind(
-                wayl->registry, name, &wp_presentation_interface, required);
-            wp_presentation_add_listener(
-                wayl->presentation, &presentation_listener, wayl);
-        }
-    }
-}
-
-static void
 surface_enter(void *data, struct wl_surface *wl_surface,
               struct wl_output *wl_output)
 {
@@ -659,6 +528,137 @@ xdg_toplevel_decoration_configure(void *data,
 static const struct zxdg_toplevel_decoration_v1_listener xdg_toplevel_decoration_listener = {
     .configure = &xdg_toplevel_decoration_configure,
 };
+
+static void
+handle_global(void *data, struct wl_registry *registry,
+              uint32_t name, const char *interface, uint32_t version)
+{
+    LOG_DBG("global: %s, version=%u", interface, version);
+    struct wayland *wayl = data;
+
+    if (strcmp(interface, wl_compositor_interface.name) == 0) {
+        const uint32_t required = 4;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->compositor = wl_registry_bind(
+            wayl->registry, name, &wl_compositor_interface, required);
+    }
+
+    else if (strcmp(interface, wl_subcompositor_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->sub_compositor = wl_registry_bind(
+            wayl->registry, name, &wl_subcompositor_interface, required);
+    }
+
+    else if (strcmp(interface, wl_shm_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->shm = wl_registry_bind(
+            wayl->registry, name, &wl_shm_interface, required);
+        wl_shm_add_listener(wayl->shm, &shm_listener, wayl);
+        wl_display_roundtrip(wayl->display);
+    }
+
+    else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->shell = wl_registry_bind(
+            wayl->registry, name, &xdg_wm_base_interface, required);
+        xdg_wm_base_add_listener(wayl->shell, &xdg_wm_base_listener, wayl);
+    }
+
+    else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->xdg_decoration_manager = wl_registry_bind(
+            wayl->registry, name, &zxdg_decoration_manager_v1_interface, required);
+    }
+
+    else if (strcmp(interface, wl_seat_interface.name) == 0) {
+        const uint32_t required = 5;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->seat = wl_registry_bind(
+            wayl->registry, name, &wl_seat_interface, required);
+        wl_seat_add_listener(wayl->seat, &seat_listener, wayl);
+        wl_display_roundtrip(wayl->display);
+    }
+
+    else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->xdg_output_manager = wl_registry_bind(
+            wayl->registry, name, &zxdg_output_manager_v1_interface,
+            min(version, 2));
+    }
+
+    else if (strcmp(interface, wl_output_interface.name) == 0) {
+        const uint32_t required = 2;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        struct wl_output *output = wl_registry_bind(
+            wayl->registry, name, &wl_output_interface, required);
+
+        tll_push_back(
+            wayl->monitors, ((struct monitor){.wayl = wayl, .output = output}));
+
+        struct monitor *mon = &tll_back(wayl->monitors);
+        wl_output_add_listener(output, &output_listener, mon);
+
+        if (wayl->xdg_output_manager != NULL) {
+            mon->xdg = zxdg_output_manager_v1_get_xdg_output(
+                wayl->xdg_output_manager, mon->output);
+            zxdg_output_v1_add_listener(mon->xdg, &xdg_output_listener, mon);
+        }
+        wl_display_roundtrip(wayl->display);
+    }
+
+    else if (strcmp(interface, wl_data_device_manager_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->data_device_manager = wl_registry_bind(
+            wayl->registry, name, &wl_data_device_manager_interface, required);
+    }
+
+    else if (strcmp(interface, zwp_primary_selection_device_manager_v1_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->primary_selection_device_manager = wl_registry_bind(
+            wayl->registry, name,
+            &zwp_primary_selection_device_manager_v1_interface, required);
+    }
+
+    else if (strcmp(interface, wp_presentation_interface.name) == 0) {
+        if (wayl->conf->presentation_timings) {
+            const uint32_t required = 1;
+            if (!verify_iface_version(interface, version, required))
+                return;
+
+            wayl->presentation = wl_registry_bind(
+                wayl->registry, name, &wp_presentation_interface, required);
+            wp_presentation_add_listener(
+                wayl->presentation, &presentation_listener, wayl);
+        }
+    }
+}
 
 static void
 handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
