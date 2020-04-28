@@ -623,6 +623,22 @@ get_font_subpixel(const struct terminal *term)
     return FCFT_SUBPIXEL_DEFAULT;
 }
 
+struct font_load_data {
+    size_t count;
+    const char **names;
+    const char *attrs;
+
+    struct fcft_font **font;
+};
+
+static int
+font_loader_thread(void *_data)
+{
+    struct font_load_data *data = _data;
+    *data->font = fcft_from_name(data->count, data->names, data->attrs);
+    return *data->font != NULL;
+}
+
 static bool
 load_fonts_from_conf(const struct terminal *term, const struct config *conf,
                      struct fcft_font *fonts[static 4])
@@ -640,14 +656,25 @@ load_fonts_from_conf(const struct terminal *term, const struct config *conf,
     snprintf(attrs2, sizeof(attrs2), "dpi=%u:slant=italic", term->font_dpi);
     snprintf(attrs3, sizeof(attrs3), "dpi=%u:weight=bold:slant=italic", term->font_dpi);
 
-    fonts[0] = fonts[1] = fonts[2] = fonts[3] = NULL;
-    bool ret =
-        (fonts[0] = fcft_from_name(count, names, attrs0)) != NULL &&
-        (fonts[1] = fcft_from_name(count, names, attrs1)) != NULL &&
-        (fonts[2] = fcft_from_name(count, names, attrs2)) != NULL &&
-        (fonts[3] = fcft_from_name(count, names, attrs3)) != NULL;
+    struct font_load_data data[4] = {
+        {count, names, attrs0, &fonts[0]},
+        {count, names, attrs1, &fonts[1]},
+        {count, names, attrs2, &fonts[2]},
+        {count, names, attrs3, &fonts[3]},
+    };
 
-    if (!ret) {
+    thrd_t tids[4];
+    for (size_t i = 0; i < 4; i++)
+        thrd_create(&tids[i], &font_loader_thread, &data[i]);
+
+    bool success = true;
+    for (size_t i = 0; i < 4; i++) {
+        int ret;
+        thrd_join(tids[i], &ret);
+        success = success && ret;
+    }
+
+    if (!success) {
         LOG_ERR("failed to load primary fonts");
         for (size_t i = 0; i < 4; i++) {
             fcft_destroy(fonts[i]);
@@ -655,7 +682,7 @@ load_fonts_from_conf(const struct terminal *term, const struct config *conf,
         }
     }
 
-    return ret;
+    return success;
 }
 
 struct terminal *
