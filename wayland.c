@@ -676,33 +676,26 @@ monitor_destroy(struct monitor *mon)
 static void
 handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 {
-    LOG_DBG("global removed: %u", name);
+    LOG_DBG("global removed: 0x%08x", name);
 
     struct wayland *wayl = data;
 
     /* For now, we only support removal of outputs */
     tll_foreach(wayl->monitors, it) {
-        if (it->item.wl_name != name)
+        struct monitor *mon = &it->item;
+
+        if (mon->wl_name != name)
             continue;
 
-        LOG_INFO("monitor unplugged: %s", it->item.name);
+        LOG_INFO("monitor unplugged: %s", mon->name);
 
         /*
          * Update all terminals that are mapped here. On Sway 1.4,
          * surfaces are *not* unmapped before the output is removed
          */
 
-        tll_foreach(wayl->terms, t) {
-            tll_foreach(t->item->window->on_outputs, o) {
-                if (o->item != &it->item)
-                    continue;
-
-                /* Remove terminal from this output */
-                tll_remove(t->item->window->on_outputs, o);
-                update_term_for_output_change(t->item);
-                break;
-            }
-        }
+        tll_foreach(wayl->terms, t)
+            surface_leave(t->item->window, NULL /* wl_surface - unused */, mon->output);
 
         monitor_destroy(&it->item);
         tll_remove(wayl->monitors, it);
