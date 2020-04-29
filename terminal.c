@@ -858,9 +858,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     }
 
     initialize_color_cube(term);
-    if (!initialize_render_workers(term))
-        goto err;
-
     /* Initialize the Wayland window backend */
     if ((term->window = wayl_win_init(term)) == NULL)
         goto err;
@@ -897,6 +894,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto err;
     }
 
+    if (!initialize_render_workers(term))
+        goto err;
 
     return term;
 
