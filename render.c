@@ -1108,21 +1108,21 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
 
     switch (surf_idx) {
     case CSD_SURF_MINIMIZE:
-        _color = 0xff1e90ff;
+        _color = term->colors.default_table[4];  /* blue */
         is_set = &term->conf->csd.color.minimize_set;
         conf_color = &term->conf->csd.color.minimize;
         is_active = term->active_surface == TERM_SURF_BUTTON_MINIMIZE;
         break;
 
     case CSD_SURF_MAXIMIZE:
-        _color = 0xff30ff30;
+        _color = term->colors.default_table[2];  /* green */
         is_set = &term->conf->csd.color.maximize_set;
         conf_color = &term->conf->csd.color.maximize;
         is_active = term->active_surface == TERM_SURF_BUTTON_MAXIMIZE;
         break;
 
     case CSD_SURF_CLOSE:
-        _color = 0xffff3030;
+        _color = term->colors.default_table[1];  /* red */
         is_set = &term->conf->csd.color.close_set;
         conf_color = &term->conf->csd.color.close;
         is_active = term->active_surface == TERM_SURF_BUTTON_CLOSE;
