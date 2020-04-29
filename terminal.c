@@ -1046,16 +1046,18 @@ term_destroy(struct terminal *term)
     /* Count livinig threads - we may get here when only some of the
      * threads have been successfully started */
     size_t worker_count = 0;
-    for (size_t i = 0; i < term->render.workers.count; i++, worker_count++) {
-        if (term->render.workers.threads[i] == 0)
-            break;
-    }
+    if (term->render.workers.threads != NULL) {
+        for (size_t i = 0; i < term->render.workers.count; i++, worker_count++) {
+            if (term->render.workers.threads[i] == 0)
+                break;
+        }
 
-    for (size_t i = 0; i < worker_count; i++) {
-        sem_post(&term->render.workers.start);
-        tll_push_back(term->render.workers.queue, -2);
+        for (size_t i = 0; i < worker_count; i++) {
+            sem_post(&term->render.workers.start);
+            tll_push_back(term->render.workers.queue, -2);
+        }
+        cnd_broadcast(&term->render.workers.cond);
     }
-    cnd_broadcast(&term->render.workers.cond);
     mtx_unlock(&term->render.workers.lock);
 
     free(term->vt.osc.data);
@@ -1077,9 +1079,11 @@ term_destroy(struct terminal *term)
 
     free(term->search.buf);
 
-    for (size_t i = 0; i < term->render.workers.count; i++) {
-        if (term->render.workers.threads[i] != 0)
-            thrd_join(term->render.workers.threads[i], NULL);
+    if (term->render.workers.threads != NULL) {
+        for (size_t i = 0; i < term->render.workers.count; i++) {
+            if (term->render.workers.threads[i] != 0)
+                thrd_join(term->render.workers.threads[i], NULL);
+        }
     }
     free(term->render.workers.threads);
     cnd_destroy(&term->render.workers.cond);
