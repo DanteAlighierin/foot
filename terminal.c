@@ -1309,25 +1309,46 @@ term_reset(struct terminal *term, bool hard)
     term_damage_all(term);
 }
 
+struct font_adjust_data {
+    struct fcft_font *font_in;
+    double amount;
+    struct fcft_font *font_out;
+};
+
+static int
+font_size_adjust_thread(void *_data)
+{
+    struct font_adjust_data *data = _data;
+    data->font_out = fcft_size_adjust(data->font_in, data->amount);
+    return data->font_out != NULL;
+}
+
 static bool
 term_font_size_adjust(struct terminal *term, double amount)
 {
-    struct fcft_font *fonts[4] = {
-        fcft_size_adjust(term->fonts[0], amount),
-        fcft_size_adjust(term->fonts[1], amount),
-        fcft_size_adjust(term->fonts[2], amount),
-        fcft_size_adjust(term->fonts[3], amount),
+    struct font_adjust_data data[4] = {
+        {term->fonts[0], amount},
+        {term->fonts[1], amount},
+        {term->fonts[2], amount},
+        {term->fonts[3], amount},
     };
 
-    if (fonts[0] == NULL || fonts[1] == NULL ||
-        fonts[2] == NULL || fonts[3] == NULL)
+    thrd_t tids[4];
+    for (size_t i = 0; i < 4; i++)
+        thrd_create(&tids[i], &font_size_adjust_thread, &data[i]);
+
+    for (size_t i = 0; i < 4; i++)
+        thrd_join(tids[i], NULL);
+
+    if (data[0].font_out == NULL || data[1].font_out == NULL ||
+        data[2].font_out == NULL || data[3].font_out == NULL)
     {
         for (size_t i = 0; i < 4; i++)
-            fcft_destroy(fonts[i]);
+            fcft_destroy(data[i].font_out);
         return false;
     }
 
-    term_set_fonts(term, fonts);
+    term_set_fonts(term, (struct fcft_font *[]){data[0].font_out, data[1].font_out, data[2].font_out, data[3].font_out});
     return true;
 }
 
