@@ -454,6 +454,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     struct wl_window *win = data;
     struct terminal *term = win->term;
 
+    bool wasnt_configured = !win->is_configured;
     win->is_configured = true;
     win->is_maximized = win->configure.is_maximized;
 
@@ -481,6 +482,9 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
          */
         wl_surface_commit(win->surface);
     }
+
+    if (wasnt_configured)
+        term_window_configured(term);
 }
 
 static const struct xdg_surface_listener xdg_surface_listener = {

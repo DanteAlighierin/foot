@@ -737,8 +737,13 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         goto err;
     }
 
-    if (!fdm_add(fdm, ptmx, EPOLLIN, &fdm_ptmx, term) ||
-        !fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term) ||
+    /*
+     * Enable all FDM callbackes *except* ptmx - we can't do that
+     * until the window has been 'configured' since we don't have a
+     * size (and thus no grid) before then.
+     */
+
+    if (!fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term) ||
         !fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term) ||
         !fdm_add(fdm, cursor_blink_fd, EPOLLIN, &fdm_cursor_blink, term) ||
         !fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
@@ -905,7 +910,7 @@ err:
     return NULL;
 
 close_fds:
-    fdm_del(fdm, ptmx);
+    close(ptmx);
     fdm_del(fdm, flash_fd);
     fdm_del(fdm, blink_fd);
     fdm_del(fdm, cursor_blink_fd);
@@ -915,6 +920,14 @@ close_fds:
 
     free(term);
     return NULL;
+}
+
+void
+term_window_configured(struct terminal *term)
+{
+    /* Enable ptmx FDM callback */
+    assert(term->window->is_configured);
+    fdm_add(term->fdm, term->ptmx, EPOLLIN, &fdm_ptmx, term);
 }
 
 static bool
@@ -978,7 +991,11 @@ term_shutdown(struct terminal *term)
     fdm_del(term->fdm, term->cursor_blink.fd);
     fdm_del(term->fdm, term->blink.fd);
     fdm_del(term->fdm, term->flash.fd);
-    fdm_del(term->fdm, term->ptmx);
+
+    if (term->window != NULL && term->window->is_configured)
+        fdm_del(term->fdm, term->ptmx);
+    else
+        close(term->ptmx);
 
     term->render.app_sync_updates.timer_fd = -1;
     term->delayed_render_timer.lower_fd = -1;
