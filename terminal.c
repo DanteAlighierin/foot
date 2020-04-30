@@ -850,6 +850,14 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .cwd = strdup(cwd),
     };
 
+    /* Start the slave/client */
+    if ((term->slave = slave_spawn(
+             term->ptmx, argc, term->cwd, argv,
+             conf->term, conf->shell, conf->login_shell)) == -1)
+    {
+        goto err;
+    }
+
     /* Guess scale; we're not mapped yet, so we don't know on which
      * output we'll be. Pick highest scale we find for now */
     tll_foreach(term->wl->monitors, it) {
@@ -858,6 +866,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     }
 
     initialize_color_cube(term);
+
     /* Initialize the Wayland window backend */
     if ((term->window = wayl_win_init(term)) == NULL)
         goto err;
@@ -884,14 +893,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     case STARTUP_FULLSCREEN:
         xdg_toplevel_set_fullscreen(term->window->xdg_toplevel, NULL);
         break;
-    }
-
-    /* Start the slave/client */
-    if ((term->slave = slave_spawn(
-             term->ptmx, argc, term->cwd, argv,
-             conf->term, conf->shell, conf->login_shell)) == -1)
-    {
-        goto err;
     }
 
     if (!initialize_render_workers(term))
