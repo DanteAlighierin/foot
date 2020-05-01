@@ -81,7 +81,7 @@ struct damage {
 struct combining_chars {
     uint8_t count;
     wchar_t chars[2];  /* This is XTerms default, but there _are_ cases where more are needed */
-};
+} __attribute__((packed));
 #endif
 
 struct row {
