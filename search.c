@@ -16,8 +16,7 @@
 #include "render.h"
 #include "selection.h"
 #include "shm.h"
-
-#define max(x, y) ((x) > (y) ? (x) : (y))
+#include "util.h"
 
 static bool
 search_ensure_size(struct terminal *term, size_t wanted_size)

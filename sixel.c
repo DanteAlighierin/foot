@@ -7,11 +7,7 @@
 #include "log.h"
 #include "render.h"
 #include "sixel-hls.h"
-
-#define ALEN(v) (sizeof(v) / sizeof(v[0]))
-#define max(x, y) ((x) > (y) ? (x) : (y))
-#define min(x, y) ((x) < (y) ? (x) : (y))
-
+#include "util.h"
 
 static size_t count;
 

@@ -6,9 +6,7 @@
 #include "terminal.h"
 #include "render.h"
 #include "grid.h"
-
-#define max(x, y) ((x) > (y) ? (x) : (y))
-#define min(x, y) ((x) < (y) ? (x) : (y))
+#include "util.h"
 
 void
 cmd_scrollback_up(struct terminal *term, int rows)

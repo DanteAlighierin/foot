@@ -17,10 +17,8 @@
 #include "grid.h"
 #include "misc.h"
 #include "render.h"
+#include "util.h"
 #include "vt.h"
-
-#define min(x, y) ((x) < (y) ? (x) : (y))
-#define max(x, y) ((x) > (y) ? (x) : (y))
 
 bool
 selection_enabled(const struct terminal *term)
@@ -48,7 +46,7 @@ selection_on_row_in_view(const struct terminal *term, int row_no)
 static void
 foreach_selected_normal(
     struct terminal *term, struct coord _start, struct coord _end,
-    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
+    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
     void *data)
 {
     const struct coord *start = &_start;
@@ -82,7 +80,7 @@ foreach_selected_normal(
              c <= (r == end_row ? end_col : term->cols - 1);
              c++)
         {
-            cb(term, row, &row->cells[c], data);
+            cb(term, row, &row->cells[c], c, data);
         }
 
         start_col = 0;
@@ -92,7 +90,7 @@ foreach_selected_normal(
 static void
 foreach_selected_block(
     struct terminal *term, struct coord _start, struct coord _end,
-    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
+    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
     void *data)
 {
     const struct coord *start = &_start;
@@ -114,14 +112,14 @@ foreach_selected_block(
         assert(row != NULL);
 
         for (int c = top_left.col; c <= bottom_right.col; c++)
-            cb(term, row, &row->cells[c], data);
+            cb(term, row, &row->cells[c], c, data);
     }
 }
 
 static void
 foreach_selected(
     struct terminal *term, struct coord start, struct coord end,
-    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, void *data),
+    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
     void *data)
 {
     switch (term->selection.kind) {
@@ -144,6 +142,12 @@ min_bufsize_for_extraction(const struct terminal *term)
 {
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
+    const size_t chars_per_cell =
+#if FOOT_UNICODE_COMBINING
+        1 + ALEN(term->grid->cur_row->comb_chars[0].chars);
+#else
+        1;
+#endif
 
     switch (term->selection.kind) {
     case SELECTION_NONE:
@@ -162,7 +166,7 @@ min_bufsize_for_extraction(const struct terminal *term)
         }
 
         if (start->row == end->row)
-            return end->col - start->col + 1;
+            return (end->col - start->col + 1) * chars_per_cell;
         else {
             size_t cells = 0;
 
@@ -171,7 +175,7 @@ min_bufsize_for_extraction(const struct terminal *term)
             cells += term->cols - start->col + 1;
             cells += (term->cols + 1) * (end->row - start->row - 1);
             cells += end->col + 1 + 1;
-            return cells;
+            return cells * chars_per_cell;
         }
 
     case SELECTION_BLOCK: {
@@ -188,7 +192,7 @@ min_bufsize_for_extraction(const struct terminal *term)
         /* Add one extra column on each row, for \n */
         int cols = bottom_right.col - top_left.col + 1 + 1;
         int rows = bottom_right.row - top_left.row + 1;
-        return rows * cols;
+        return rows * cols * chars_per_cell;
     }
     }
 
@@ -201,13 +205,13 @@ struct extract {
     size_t size;
     size_t idx;
     size_t empty_count;
-    struct row *last_row;
-    struct cell *last_cell;
+    const struct row *last_row;
+    const struct cell *last_cell;
 };
 
 static void
 extract_one(struct terminal *term, struct row *row, struct cell *cell,
-            void *data)
+            int col, void *data)
 {
     struct extract *ctx = data;
 
@@ -236,6 +240,15 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
 
     assert(ctx->idx + 1 <= ctx->size);
     ctx->buf[ctx->idx++] = cell->wc;
+
+#if FOOT_UNICODE_COMBINING
+    const struct combining_chars *comb_chars = &row->comb_chars[col];
+
+    assert(cell->wc != 0);
+    assert(ctx->idx + comb_chars->count <= ctx->size);
+    for (size_t i = 0; i < comb_chars->count; i++)
+        ctx->buf[ctx->idx++] = comb_chars->chars[i];
+#endif
 
     ctx->last_row = row;
     ctx->last_cell = cell;
@@ -301,7 +314,7 @@ selection_start(struct terminal *term, int col, int row,
 
 static void
 unmark_selected(struct terminal *term, struct row *row, struct cell *cell,
-                void *data)
+                int col, void *data)
 {
     if (cell->attrs.selected == 0 || (cell->attrs.selected & 2)) {
         /* Ignore if already deselected, or if premarked for updated selection */
@@ -315,7 +328,7 @@ unmark_selected(struct terminal *term, struct row *row, struct cell *cell,
 
 static void
 premark_selected(struct terminal *term, struct row *row, struct cell *cell,
-              void *data)
+                 int col, void *data)
 {
     /* Tell unmark to leave this be */
     cell->attrs.selected |= 2;
@@ -323,7 +336,7 @@ premark_selected(struct terminal *term, struct row *row, struct cell *cell,
 
 static void
 mark_selected(struct terminal *term, struct row *row, struct cell *cell,
-              void *data)
+              int col, void *data)
 {
     if (cell->attrs.selected & 1) {
         cell->attrs.selected = 1;  /* Clear the pre-mark bit */

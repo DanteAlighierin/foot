@@ -28,10 +28,7 @@
 #include "input.h"
 #include "render.h"
 #include "selection.h"
-
-#define ALEN(v) (sizeof(v) / sizeof(v[0]))
-#define min(x, y) ((x) < (y) ? (x) : (y))
-#define max(x, y) ((x) > (y) ? (x) : (y))
+#include "util.h"
 
 static bool wayl_reload_cursor_theme(
     struct wayland *wayl, struct terminal *term);

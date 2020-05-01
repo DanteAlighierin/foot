@@ -7,8 +7,7 @@
 #define LOG_MODULE "quirks"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-
-#define ALEN(v) (sizeof(v) / sizeof(v[0]))
+#include "util.h"
 
 static bool
 is_weston(void)

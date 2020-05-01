@@ -16,9 +16,7 @@
 #include "dcs.h"
 #include "grid.h"
 #include "osc.h"
-
-#define min(x, y) ((x) < (y) ? (x) : (y))
-#define max(x, y) ((x) > (y) ? (x) : (y))
+#include "util.h"
 
 #define UNHANDLED() LOG_DBG("unhandled: %s", esc_as_string(term, final))
 
@@ -548,10 +546,6 @@ action_utf8_print(struct terminal *term, uint8_t c)
      * We _could_ try regardless of what 'wc' is. However, for
      * performance reasons, we only do it when 'wc' is in a known
      * 'combining' range.
-     *
-     * TODO:
-     *  - doesn't work when base character is multi-column (we'll only
-     *    see an empty "null" character)
      */
 
     if (((wc >= 0x0300 && wc <= 0x036F) || /* diacritical marks */
@@ -561,31 +555,57 @@ action_utf8_print(struct terminal *term, uint8_t c)
          (wc >= 0xFE20 && wc <= 0xFE2F))   /* half marks */
         && term->grid->cursor.point.col > 0)
     {
+        const struct row *row = term->grid->cur_row;
+
         int base_col = term->grid->cursor.point.col;
         if (!term->grid->cursor.lcf)
             base_col--;
 
         assert(base_col >= 0 && base_col < term->cols);
-        wchar_t base = term->grid->cur_row->cells[base_col].wc;
+        wchar_t base = row->cells[base_col].wc;
+
+        /* Handle double-column glyphs */
+        if (base == 0 && base_col > 0) {
+            base_col--;
+            base = row->cells[base_col].wc;
+        }
+
         int base_width = wcwidth(base);
 
-        if (base_width > 0) {
+        if (base != 0 && base_width > 0) {
+
+            /*
+             * First, see if there's a pre-composed character of this
+             * combo, with the same column width as the base
+             * character. If there is, replace the base character with
+             * the pre-composed character, as that is likely to
+             * produce a better looking result.
+             */
+
             wchar_t composed[] = {base, wc};
             ssize_t composed_length = utf8proc_normalize_utf32(
-                composed, sizeof(composed) / sizeof(composed[0]),
-                UTF8PROC_COMPOSE | UTF8PROC_STABLE);
+                composed, ALEN(composed), UTF8PROC_COMPOSE | UTF8PROC_STABLE);
+            int composed_width = wcwidth(composed[0]);
 
-            LOG_DBG("composed = 0x%04x, 0x%04x (length = %zd)",
-                    composed[0], composed[1], composed_length);
-
-            if (composed_length == 1) {
-                /* Compose succeess - overwrite last cell with
-                 * combined character */
+            if (composed_length == 1 && composed_width == base_width) {
                 term->grid->cursor.point.col = base_col;
                 term->grid->cursor.lcf = false;
-                term_print(term, composed[0], wcwidth(composed[0]));
+                term_print(term, composed[0], composed_width);
                 return;
             }
+
+            struct combining_chars *comb_chars = &row->comb_chars[base_col];
+
+            if (comb_chars->count < ALEN(comb_chars->chars))
+                comb_chars->chars[comb_chars->count++] = wc;
+            else {
+                LOG_WARN("combining character overflow:");
+                LOG_WARN("  0x%04x", base);
+                for (size_t i = 0; i < comb_chars->count; i++)
+                    LOG_WARN("  0x%04x", comb_chars->chars[i]);
+                LOG_ERR("  0x%04x", wc);
+            }
+            return;
         }
     }
 #endif /* FOOT_UNICODE_COMBINING */

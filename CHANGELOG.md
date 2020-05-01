@@ -22,14 +22,12 @@
 * Right mouse button extends the current selection.
 * `CSI Ps ; Ps ; Ps t` escape sequences for the following parameters:
   `11t`, `13t`, `13;2t`, `14t`, `14;2t`, `15t`, `19t`.
-* (Optional) spport for unicode combining characters. For example,
-  `a\u0301` will be combined to `á` (`\u00e1`). Note that copying the
-  printed character to the clipboard/primary selection will copy the
-  byte `\u00e1` and **not** `\u0061\u0301`. It requires
-  [utf8proc](https://github.com/JuliaStrings/utf8proc). By default,
-  the feature is enabled if utf8proc is found. However, it can also be
-  explicitly disabled (or enabled) with `meson
-  -Dunicode-combining=enabled|disabled`)
+* Unicode combining characters. This feature is optional. By default,
+  it is enabled if
+  [utf8proc](https://github.com/JuliaStrings/utf8proc) is available,
+  but can be explicitly disabled or enabled at compile time with
+  `meson -Dunicode-combining=disabled|enabled`.
+
 
 ### Changed
 

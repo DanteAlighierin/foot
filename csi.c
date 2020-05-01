@@ -16,8 +16,7 @@
 #include "vt.h"
 #include "selection.h"
 #include "sixel.h"
-
-#define min(x, y) ((x) < (y) ? (x) : (y))
+#include "util.h"
 
 #define UNHANDLED()        LOG_DBG("unhandled: %s", csi_as_string(term, final, -1))
 #define UNHANDLED_SGR(idx) LOG_DBG("unhandled: %s", csi_as_string(term, 'm', idx))

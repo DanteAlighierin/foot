@@ -19,10 +19,8 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "input.h"
+#include "util.h"
 #include "wayland.h"
-
-#define ALEN(v) (sizeof(v) / sizeof(v[0]))
-#define min(x, y) ((x) < (y) ? (x) : (y))
 
 static const uint32_t default_foreground = 0xdcdccc;
 static const uint32_t default_background = 0x111111;

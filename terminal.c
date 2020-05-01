@@ -27,11 +27,8 @@
 #include "selection.h"
 #include "sixel.h"
 #include "slave.h"
+#include "util.h"
 #include "vt.h"
-
-#define ALEN(v) (sizeof(v) / sizeof(v[0]))
-#define min(x, y) ((x) < (y) ? (x) : (y))
-#define max(x, y) ((x) > (y) ? (x) : (y))
 
 #define PTMX_TIMING 0
 
@@ -1322,7 +1319,7 @@ term_reset(struct terminal *term, bool hard)
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.damage);
     tll_free(term->alt.scroll_damage);
-    term->render.last_cursor.cell = NULL;
+    term->render.last_cursor.row = NULL;
     term->render.was_flashing = false;
     term_damage_all(term);
 }
@@ -2297,6 +2294,10 @@ term_print(struct terminal *term, wchar_t wc, int width)
 
     cell->wc = term->vt.last_printed = wc;
     cell->attrs = term->vt.attrs;
+
+#if FOOT_UNICODE_COMBINING
+    row->comb_chars[term->grid->cursor.point.col].count = 0;
+#endif
 
     row->dirty = true;
     cell->attrs.clean = 0;

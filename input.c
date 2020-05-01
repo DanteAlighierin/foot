@@ -29,9 +29,8 @@
 #include "search.h"
 #include "selection.h"
 #include "terminal.h"
+#include "util.h"
 #include "vt.h"
-
-#define ALEN(v) (sizeof(v) / sizeof(v[0]))
 
 static void
 execute_binding(struct terminal *term, enum bind_action_normal action,
