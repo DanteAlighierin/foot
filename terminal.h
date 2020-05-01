@@ -374,7 +374,7 @@ struct terminal {
         struct {
             struct coord actual;     /* Absolute */
             struct coord in_view;    /* Offset by view */
-            struct cell *cell; /* For easy access to content */
+            struct row *row;         /* Actual row TODO: remove */
         } last_cursor;
 
         struct buffer *last_buf;     /* Buffer we rendered to last time */

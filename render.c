@@ -356,8 +356,9 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
 
 static int
 render_cell(struct terminal *term, pixman_image_t *pix,
-            struct cell *cell, int col, int row, bool has_cursor)
+            struct row *row, int col, int row_no, bool has_cursor)
 {
+    struct cell *cell = &row->cells[col];
     if (cell->attrs.clean)
         return 0;
 
@@ -366,7 +367,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     int width = term->cell_width;
     int height = term->cell_height;
     int x = term->margins.left + col * width;
-    int y = term->margins.top + row * height;
+    int y = term->margins.top + row_no * height;
 
     assert(cell->attrs.selected == 0 || cell->attrs.selected == 1);
     bool is_selected = cell->attrs.selected;
@@ -439,6 +440,26 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                 glyph->width, glyph->height);
             pixman_image_unref(src);
         }
+    }
+
+    /* Combining characters */
+    const struct combining_chars *comb_chars = &row->comb_chars[col];
+    for (size_t i = 0; i < comb_chars->count; i++) {
+        const struct fcft_glyph *g = fcft_glyph_rasterize(
+            font, comb_chars->chars[i], term->font_subpixel);
+
+        if (g == NULL)
+            continue;
+
+        pixman_image_t *src = pixman_image_create_solid_fill(&fg);
+        pixman_image_composite32(
+            PIXMAN_OP_OVER, src, g->pix, pix, 0, 0, 0, 0,
+            /* Some fonts use a negative offset, while others use a
+             * "normal" offset */
+            x + (g->x < 0 ? term->cell_width : 0) + g->x,
+            y + font_baseline(term) - g->y,
+            g->width, g->height);
+        pixman_image_unref(src);
     }
 
     /* Underline */
@@ -760,7 +781,7 @@ static void
 render_row(struct terminal *term, pixman_image_t *pix, struct row *row, int row_no)
 {
     for (int col = term->cols - 1; col >= 0; col--)
-        render_cell(term, pix, &row->cells[col], col, row_no, false);
+        render_cell(term, pix, row, col, row_no, false);
 }
 
 int
@@ -1271,16 +1292,18 @@ grid_render(struct terminal *term)
     pixman_image_set_clip_region(buf->pix, &clip);
 
     /* Erase old cursor (if we rendered a cursor last time) */
-    if (term->render.last_cursor.cell != NULL) {
+    if (term->render.last_cursor.row != NULL) {
 
-        struct cell *cell = term->render.last_cursor.cell;
+        struct row *row = term->render.last_cursor.row;
         struct coord at = term->render.last_cursor.in_view;
-        term->render.last_cursor.cell = NULL;
+        term->render.last_cursor.row = NULL;
+
+        struct cell *cell = &row->cells[at.col];
 
         /* If cell is already dirty, it will be rendered anyway */
         if (cell->attrs.clean) {
             cell->attrs.clean = 0;
-            int cols = render_cell(term, buf->pix, cell, at.col, at.row, false);
+            int cols = render_cell(term, buf->pix, row, at.col, at.row, false);
 
             wl_surface_damage_buffer(
                 term->window->surface,
@@ -1408,9 +1431,9 @@ grid_render(struct terminal *term)
         struct cell *cell = &row->cells[term->grid->cursor.point.col];
 
         cell->attrs.clean = 0;
-        term->render.last_cursor.cell = cell;
+        term->render.last_cursor.row = row;
         int cols_updated = render_cell(
-            term, buf->pix, cell, term->grid->cursor.point.col, view_aligned_row, true);
+            term, buf->pix, row, term->grid->cursor.point.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
             term->window->surface,
@@ -1804,7 +1827,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     if (term->scroll_region.end >= old_rows)
         term->scroll_region.end = term->rows;
 
-    term->render.last_cursor.cell = NULL;
+    term->render.last_cursor.row = NULL;
 
 damage_view:
     if (!term->window->is_maximized && !term->window->is_fullscreen) {

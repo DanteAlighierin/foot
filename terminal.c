@@ -1319,7 +1319,7 @@ term_reset(struct terminal *term, bool hard)
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.damage);
     tll_free(term->alt.scroll_damage);
-    term->render.last_cursor.cell = NULL;
+    term->render.last_cursor.row = NULL;
     term->render.was_flashing = false;
     term_damage_all(term);
 }
