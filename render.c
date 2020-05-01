@@ -442,7 +442,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         }
     }
 
-    #if FOOT_UNICODE_COMBINING
+#if FOOT_UNICODE_COMBINING
     /* Combining characters */
     const struct combining_chars *comb_chars = &row->comb_chars[col];
     for (size_t i = 0; i < comb_chars->count; i++) {
