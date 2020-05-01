@@ -151,3 +151,10 @@ install_data('footrc', install_dir: join_paths(get_option('datadir'), 'foot'))
 
 subdir('completions')
 subdir('doc')
+
+summary(
+  {
+    'Unicode combining': utf8proc.found(),
+  },
+  bool_yn: true
+)
