@@ -77,10 +77,16 @@ struct damage {
     int lines;
 };
 
+struct combining_chars {
+    uint8_t count;
+    wchar_t chars[5];  /* TODO: do we need this many? */
+};
+
 struct row {
     struct cell *cells;
     bool dirty;
     bool linebreak;
+    struct combining_chars *comb_chars;
 };
 
 struct sixel {

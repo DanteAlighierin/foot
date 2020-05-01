@@ -34,10 +34,13 @@ grid_row_alloc(int cols, bool initialize)
 
     if (initialize) {
         row->cells = calloc(cols, sizeof(row->cells[0]));
+        row->comb_chars = calloc(cols, sizeof(row->comb_chars[0]));
         for (size_t c = 0; c < cols; c++)
             row->cells[c].attrs.clean = 1;
-    } else
+    } else {
         row->cells = malloc(cols * sizeof(row->cells[0]));
+        row->comb_chars = malloc(cols * sizeof(row->comb_chars[0]));
+    }
 
     return row;
 }
@@ -48,6 +51,7 @@ grid_row_free(struct row *row)
     if (row == NULL)
         return;
 
+    free(row->comb_chars);
     free(row->cells);
     free(row);
 }
