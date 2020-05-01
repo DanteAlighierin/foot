@@ -21,13 +21,10 @@
 #include "quirks.h"
 #include "selection.h"
 #include "shm.h"
+#include "util.h"
 
 #define TIME_FRAME_RENDERING 0
 #define TIME_SCROLL_DAMAGE 0
-
-#define ALEN(v) (sizeof(v) / sizeof((v)[0]))
-#define min(x, y) ((x) < (y) ? (x) : (y))
-#define max(x, y) ((x) > (y) ? (x) : (y))
 
 struct renderer {
     struct fdm *fdm;

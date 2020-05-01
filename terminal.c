@@ -27,11 +27,8 @@
 #include "selection.h"
 #include "sixel.h"
 #include "slave.h"
+#include "util.h"
 #include "vt.h"
-
-#define ALEN(v) (sizeof(v) / sizeof(v[0]))
-#define min(x, y) ((x) < (y) ? (x) : (y))
-#define max(x, y) ((x) > (y) ? (x) : (y))
 
 #define PTMX_TIMING 0
 

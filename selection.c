@@ -17,10 +17,8 @@
 #include "grid.h"
 #include "misc.h"
 #include "render.h"
+#include "util.h"
 #include "vt.h"
-
-#define min(x, y) ((x) < (y) ? (x) : (y))
-#define max(x, y) ((x) > (y) ? (x) : (y))
 
 bool
 selection_enabled(const struct terminal *term)

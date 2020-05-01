@@ -7,8 +7,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "sixel.h"
-
-#define max(x, y) ((x) > (y) ? (x) : (y))
+#include "util.h"
 
 void
 grid_swap_row(struct grid *grid, int row_a, int row_b, bool initialize)

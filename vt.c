@@ -16,9 +16,7 @@
 #include "dcs.h"
 #include "grid.h"
 #include "osc.h"
-
-#define min(x, y) ((x) < (y) ? (x) : (y))
-#define max(x, y) ((x) > (y) ? (x) : (y))
+#include "util.h"
 
 #define UNHANDLED() LOG_DBG("unhandled: %s", esc_as_string(term, final))
 
