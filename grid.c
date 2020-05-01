@@ -208,6 +208,15 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                 new_row->cells[new_col_idx] = *old_cell;
                 new_row->cells[new_col_idx].attrs.clean = 1;
 
+                struct combining_chars *old_comb_chars
+                    = &old_row->comb_chars[c - empty_count + i];
+                struct combining_chars *new_comb_chars
+                    = &new_row->comb_chars[new_col_idx];
+
+                new_comb_chars->count = old_comb_chars->count;
+                for (size_t j = 0; j < ALEN(new_comb_chars->chars); j++)
+                    new_comb_chars->chars[j] = old_comb_chars->chars[j];
+
                 /* Translate tracking point(s) */
                 if (is_tracking_point && i >= empty_count) {
                     tll_foreach(tracking_points, it) {
