@@ -77,16 +77,21 @@ struct damage {
     int lines;
 };
 
+#if FOOT_UNICODE_COMBINING
 struct combining_chars {
     uint8_t count;
     wchar_t chars[2];  /* TODO: how many do we need? */
 };
+#endif
 
 struct row {
     struct cell *cells;
     bool dirty;
     bool linebreak;
+
+#if FOOT_UNICODE_COMBINING
     struct combining_chars *comb_chars;
+#endif
 };
 
 struct sixel {

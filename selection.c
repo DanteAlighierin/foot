@@ -142,8 +142,12 @@ min_bufsize_for_extraction(const struct terminal *term)
 {
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
-    const size_t chars_per_cell
-        = 1 + ALEN(term->grid->cur_row->comb_chars[0].chars);
+    const size_t chars_per_cell =
+#if FOOT_UNICODE_COMBINING
+        1 + ALEN(term->grid->cur_row->comb_chars[0].chars);
+#else
+        1;
+#endif
 
     switch (term->selection.kind) {
     case SELECTION_NONE:
@@ -237,12 +241,14 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
     assert(ctx->idx + 1 <= ctx->size);
     ctx->buf[ctx->idx++] = cell->wc;
 
+#if FOOT_UNICODE_COMBINING
     const struct combining_chars *comb_chars = &row->comb_chars[col];
 
     assert(cell->wc != 0);
     assert(ctx->idx + comb_chars->count <= ctx->size);
     for (size_t i = 0; i < comb_chars->count; i++)
         ctx->buf[ctx->idx++] = comb_chars->chars[i];
+#endif
 
     ctx->last_row = row;
     ctx->last_cell = cell;
