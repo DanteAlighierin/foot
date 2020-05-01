@@ -79,7 +79,7 @@ struct damage {
 
 struct combining_chars {
     uint8_t count;
-    wchar_t chars[5];  /* TODO: do we need this many? */
+    wchar_t chars[2];  /* TODO: how many do we need? */
 };
 
 struct row {
