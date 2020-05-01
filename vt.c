@@ -575,26 +575,34 @@ action_utf8_print(struct terminal *term, uint8_t c)
         if (base != 0 && base_width > 0) {
 
             /*
-             * First, see if there's a pre-composed character of this
-             * combo, with the same column width as the base
-             * character. If there is, replace the base character with
-             * the pre-composed character, as that is likely to
-             * produce a better looking result.
+             * If this is the *first* combining characger, see if
+             * there's a pre-composed character of this combo, with
+             * the same column width as the base character.
+             *
+             * If there is, replace the base character with the
+             * pre-composed character, as that is likely to produce a
+             * better looking result.
+             *
+             * TODO: we could perhaps remove this is we improve our
+             * positioning of the combining characters when rendering
+             * the glyph.
              */
 
-            wchar_t composed[] = {base, wc};
-            ssize_t composed_length = utf8proc_normalize_utf32(
-                composed, ALEN(composed), UTF8PROC_COMPOSE | UTF8PROC_STABLE);
-            int composed_width = wcwidth(composed[0]);
-
-            if (composed_length == 1 && composed_width == base_width) {
-                term->grid->cursor.point.col = base_col;
-                term->grid->cursor.lcf = false;
-                term_print(term, composed[0], composed_width);
-                return;
-            }
-
             struct combining_chars *comb_chars = &row->comb_chars[base_col];
+
+            if (comb_chars->count == 0) {
+                wchar_t composed[] = {base, wc};
+                ssize_t composed_length = utf8proc_normalize_utf32(
+                    composed, ALEN(composed), UTF8PROC_COMPOSE | UTF8PROC_STABLE);
+                int composed_width = wcwidth(composed[0]);
+
+                if (composed_length == 1 && composed_width == base_width) {
+                    term->grid->cursor.point.col = base_col;
+                    term->grid->cursor.lcf = false;
+                    term_print(term, composed[0], composed_width);
+                    return;
+                }
+            }
 
             if (comb_chars->count < ALEN(comb_chars->chars))
                 comb_chars->chars[comb_chars->count++] = wc;
