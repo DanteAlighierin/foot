@@ -291,9 +291,9 @@ parse_rgb(const char *string, uint32_t *color)
     }
 
     /* Re-scale to 8-bit */
-    uint8_t r = 255 * (rgb[0] / (double)((1 << (4 * digits[0])) - 1));
-    uint8_t g = 255 * (rgb[1] / (double)((1 << (4 * digits[1])) - 1));
-    uint8_t b = 255 * (rgb[2] / (double)((1 << (4 * digits[2])) - 1));
+    uint8_t r = 256 * (rgb[0] / (double)(1 << (4 * digits[0])));
+    uint8_t g = 256 * (rgb[1] / (double)(1 << (4 * digits[1])));
+    uint8_t b = 256 * (rgb[2] / (double)(1 << (4 * digits[2])));
 
     LOG_DBG("rgb: %02x%02x%02x", r, g, b);
     *color = r << 16 | g << 8 | b;
