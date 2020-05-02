@@ -525,9 +525,9 @@ osc_dispatch(struct terminal *term)
 
         /* Client queried for current value */
         if (strlen(string) == 1 && string[0] == '?') {
-            uint8_t r = (term->cursor_color.text >> 16) & 0xff;
-            uint8_t g = (term->cursor_color.text >>  8) & 0xff;
-            uint8_t b = (term->cursor_color.text >>  0) & 0xff;
+            uint8_t r = (term->cursor_color.cursor >> 16) & 0xff;
+            uint8_t g = (term->cursor_color.cursor >>  8) & 0xff;
+            uint8_t b = (term->cursor_color.cursor >>  0) & 0xff;
 
             char reply[32];
             snprintf(reply, sizeof(reply), "\033]12;rgb:%02x/%02x/%02x\033\\", r, g, b);

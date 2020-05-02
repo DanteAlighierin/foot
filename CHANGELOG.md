@@ -64,6 +64,8 @@
 * Memory leak in terminal reset.
 * Translation of cursor coordinates on resize
 * Scaling of legacy formatted color specifiers in OSC sequences.
+* `OSC 12 ?` to return the cursor color, not the cursor's text color.
+
 
 ### Security
 
