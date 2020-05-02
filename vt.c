@@ -539,22 +539,28 @@ action_utf8_print(struct terminal *term, uint8_t c)
     if ((ssize_t)count < 0)
         wc = 0;
 
-#if FOOT_UNICODE_COMBINING
-    /*
-     * Try to combine with the previous character.
-     *
-     * We _could_ try regardless of what 'wc' is. However, for
-     * performance reasons, we only do it when 'wc' is in a known
-     * 'combining' range.
-     */
+    int width = wcwidth(wc);
 
-    if (((wc >= 0x0300 && wc <= 0x036F) || /* diacritical marks */
-         (wc >= 0x1AB0 && wc <= 0x1AFF) || /* diacritical marks, extended */
-         (wc >= 0x1DC0 && wc <= 0x1DFF) || /* diacritical marks, supplement */
-         (wc >= 0x20D0 && wc <= 0x20FF) || /* diacritical marks, for symbols */
-         (wc >= 0xFE20 && wc <= 0xFE2F))   /* half marks */
-        && term->grid->cursor.point.col > 0)
-    {
+#if FOOT_UNICODE_COMBINING
+
+    /*
+     * Is this is combining character? The basic assumption is that if
+     * wcwdith() returns 0, then it *is* a combining character.
+     *
+     * We hen optimize this by ignoring all characters before 0x0300,
+     * since there aren't any zero-width characters there. This means
+     * all "normal" western characters will quickly be categorized as
+     * *not* being combining characters.
+     *
+     * TODO: xterm does more or less the same, but also filters a
+     * small subset of BIDI control characters. Should we too? I think
+     * what we have here is good enough - a control character
+     * shouldn't have a glyph associated with it, so rendering
+     * shouldn't be affected.
+     *
+     * TODO: handle line-wrap when locating the base character.
+     */
+    if (wc >= 0x0300 && width == 0 && term->grid->cursor.point.col > 0) {
         const struct row *row = term->grid->cur_row;
 
         int base_col = term->grid->cursor.point.col;
@@ -618,7 +624,7 @@ action_utf8_print(struct terminal *term, uint8_t c)
     }
 #endif /* FOOT_UNICODE_COMBINING */
 
-    term_print(term, wc, wcwidth(wc));
+    term_print(term, wc, width);
 }
 
 static enum state
