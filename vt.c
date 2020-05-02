@@ -536,8 +536,8 @@ precompose(wchar_t base, wchar_t comb)
 
     const uint64_t match = (uint64_t)base << 32 | comb;
 
-    size_t start = 0;
-    size_t end = ALEN(precompose_table) - 1;
+    ssize_t start = 0;
+    ssize_t end = ALEN(precompose_table) - 1;
 
     while (start <= end) {
         size_t middle = (start + end) / 2;
