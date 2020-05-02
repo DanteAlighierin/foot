@@ -60,7 +60,8 @@ xkb = dependency('xkbcommon')
 add_project_arguments('-DFOOT_UNICODE_MAX_COMBINING_CHARS=@0@'.format(
   get_option('unicode-max-combining-chars')), language: 'c')
 add_project_arguments('-DFOOT_UNICODE_PRECOMPOSE=@0@'.format(
-  get_option('unicode-precompose')), language: 'c')
+  get_option('unicode-max-combining-chars') > 0 and get_option('unicode-precompose')),
+  language: 'c')
 
 tllist = dependency('tllist', version: '>=1.0.1', fallback: 'tllist')
 fcft = dependency('fcft', version: ['>=2.0.0', '<2.1.0'], fallback: 'fcft')
@@ -163,7 +164,7 @@ subdir('doc')
 summary(
   {
     'Unicode max combining chars': get_option('unicode-max-combining-chars'),
-    'Unicode precompose': get_option('unicode-precompose'),
+    'Unicode precompose': get_option('unicode-max-combining-chars') > 0 and get_option('unicode-precompose'),
   },
   bool_yn: true
 )
