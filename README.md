@@ -271,10 +271,11 @@ with the terminal emulator itself. Foot implements the following OSCs:
 
 ## Unicode combining
 
-In order to handle combining characters, foot must store additional
-data for each cell. By default, foot stores at most 2 combining
-characters per cell. This adds 9 bytes of additional space to each
-cell (that's 75% more space than without combining characters).
+In order to handle combining characters (typically diacritics), foot
+must store additional data for each cell. By default, foot stores at
+most 2 combining characters per cell. This adds 9 bytes of additional
+space to each cell, or 75% more space than without combining
+characters).
 
 You can configure the maximum number of characters to store for each
 cell at **compile time** with
@@ -282,11 +283,11 @@ cell at **compile time** with
 **disables** unicode combining completely - **no** additional data is
 stored.
 
-Furthermore, in order to improve rendering of combining characters,
-foot will by default try to convert base + combining characters to a
-pre-composed character.
+Furthermore, in order to improve the looks of the rendered combined
+character,, foot will by default try to convert the base and combining
+characters to a pre-composed character.
 
-This will typically look better, since we can now render a single
+This will typically look better since we can now render a single
 glyph, the way the font designer intended it to be rendered. When
 pre-composing fails, foot will fallback to storing the combining
 character(s) separate from the base character, and will render the
