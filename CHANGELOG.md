@@ -23,7 +23,7 @@
 * `CSI Ps ; Ps ; Ps t` escape sequences for the following parameters:
   `11t`, `13t`, `13;2t`, `14t`, `14;2t`, `15t`, `19t`.
 * Unicode combining characters. This feature is compile time
-  optional. See [README.md](README.md#unicode-combining]) for details.
+  optional. See [README.md](README.md#unicode-combining) for details.
 
 ### Changed
 
