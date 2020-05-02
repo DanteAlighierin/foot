@@ -541,7 +541,10 @@ osc_dispatch(struct terminal *term)
 
         LOG_INFO("change cursor color to %06x", color);
 
-        term->cursor_color.cursor = 1 << 31 | color;
+        if (color == 0)
+            term->cursor_color.cursor = 0;  /* Invert fg/bg */
+        else
+            term->cursor_color.cursor = 1u << 31 | color;
         render_refresh(term);
         break;
 
