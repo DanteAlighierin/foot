@@ -305,8 +305,6 @@ You can disable pre-composing at **compile time** with
 * pixman
 * wayland (_client_ and _cursor_ libraries)
 * xkbcommon
-* [utf8proc](https://github.com/JuliaStrings/utf8proc) (_optional_ -
-  enables unicode combining)
 * [tllist](https://codeberg.org/dnkl/tllist) [^1]
 * [fcft](https://codeberg.org/dnkl/fcft) [^1]
 
