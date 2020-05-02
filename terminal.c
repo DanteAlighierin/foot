@@ -2295,7 +2295,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     cell->wc = term->vt.last_printed = wc;
     cell->attrs = term->vt.attrs;
 
-#if FOOT_UNICODE_COMBINING
+#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
     row->comb_chars[term->grid->cursor.point.col].count = 0;
 #endif
 

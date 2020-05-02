@@ -22,12 +22,8 @@
 * Right mouse button extends the current selection.
 * `CSI Ps ; Ps ; Ps t` escape sequences for the following parameters:
   `11t`, `13t`, `13;2t`, `14t`, `14;2t`, `15t`, `19t`.
-* Unicode combining characters. This feature is optional. By default,
-  it is enabled if
-  [utf8proc](https://github.com/JuliaStrings/utf8proc) is available,
-  but can be explicitly disabled or enabled at compile time with
-  `meson -Dunicode-combining=disabled|enabled`.
-
+* Unicode combining characters. This feature is compile time
+  optional. See [README.md](README.md#unicode-combining]) for details.
 
 ### Changed
 

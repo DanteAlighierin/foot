@@ -77,10 +77,10 @@ struct damage {
     int lines;
 };
 
-#if FOOT_UNICODE_COMBINING
+#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
 struct combining_chars {
     uint8_t count;
-    wchar_t chars[2];  /* This is XTerms default, but there _are_ cases where more are needed */
+    wchar_t chars[FOOT_UNICODE_MAX_COMBINING_CHARS];
 } __attribute__((packed));
 #endif
 
@@ -89,7 +89,7 @@ struct row {
     bool dirty;
     bool linebreak;
 
-#if FOOT_UNICODE_COMBINING
+#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
     struct combining_chars *comb_chars;
 #endif
 };

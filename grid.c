@@ -34,14 +34,14 @@ grid_row_alloc(int cols, bool initialize)
 
     if (initialize) {
         row->cells = calloc(cols, sizeof(row->cells[0]));
-#if FOOT_UNICODE_COMBINING
+#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
         row->comb_chars = calloc(cols, sizeof(row->comb_chars[0]));
 #endif
         for (size_t c = 0; c < cols; c++)
             row->cells[c].attrs.clean = 1;
     } else {
         row->cells = malloc(cols * sizeof(row->cells[0]));
-#if FOOT_UNICODE_COMBINING
+#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
         row->comb_chars = malloc(cols * sizeof(row->comb_chars[0]));
 #endif
     }
@@ -55,7 +55,7 @@ grid_row_free(struct row *row)
     if (row == NULL)
         return;
 
-#if FOOT_UNICODE_COMBINING
+#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
     free(row->comb_chars);
 #endif
     free(row->cells);
@@ -214,7 +214,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                 new_row->cells[new_col_idx] = *old_cell;
                 new_row->cells[new_col_idx].attrs.clean = 1;
 
-#if FOOT_UNICODE_COMBINING
+#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
                 struct combining_chars *old_comb_chars
                     = &old_row->comb_chars[c - empty_count + i];
                 struct combining_chars *new_comb_chars

@@ -5,10 +5,6 @@
 #include <unistd.h>
 #include <assert.h>
 
-#if FOOT_UNICODE_COMBINING
- #include <utf8proc.h>
-#endif
-
 #define LOG_MODULE "vt"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
@@ -17,6 +13,10 @@
 #include "grid.h"
 #include "osc.h"
 #include "util.h"
+
+#if FOOT_UNICODE_PRECOMPOSE
+ #include "unicode-compose-table.h"
+#endif
 
 #define UNHANDLED() LOG_DBG("unhandled: %s", esc_as_string(term, final))
 
@@ -527,6 +527,34 @@ action_utf8_4_entry(struct terminal *term, uint8_t c)
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
 }
 
+static wchar_t
+precompose(wchar_t base, wchar_t comb)
+{
+    static_assert(2 * sizeof(wchar_t) <= sizeof(uint64_t),
+                  "two wchars does not fit in an uint64_t");
+
+    const uint64_t match = (uint64_t)base << 32 | comb;
+
+    size_t start = 0;
+    size_t end = ALEN(precompose_table) - 1;
+
+    while (start <= end) {
+        size_t middle = (start + end) / 2;
+
+        const uint64_t maybe =
+            (uint64_t)precompose_table[middle].base << 32 | precompose_table[middle].comb;
+
+        if (maybe < match)
+            start = middle + 1;
+        else if (maybe > match)
+            end = middle - 1;
+        else
+            return precompose_table[middle].replacement;
+    }
+
+    return (wchar_t)-1;
+}
+
 static void
 action_utf8_print(struct terminal *term, uint8_t c)
 {
@@ -541,7 +569,7 @@ action_utf8_print(struct terminal *term, uint8_t c)
 
     int width = wcwidth(wc);
 
-#if FOOT_UNICODE_COMBINING
+#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
 
     /*
      * Is this is combining character? The basic assumption is that if
@@ -588,27 +616,22 @@ action_utf8_print(struct terminal *term, uint8_t c)
              * If there is, replace the base character with the
              * pre-composed character, as that is likely to produce a
              * better looking result.
-             *
-             * TODO: we could perhaps remove this is we improve our
-             * positioning of the combining characters when rendering
-             * the glyph.
              */
 
             struct combining_chars *comb_chars = &row->comb_chars[base_col];
 
+#if FOOT_UNICODE_PRECOMPOSE
             if (comb_chars->count == 0) {
-                wchar_t composed[] = {base, wc};
-                ssize_t composed_length = utf8proc_normalize_utf32(
-                    composed, ALEN(composed), UTF8PROC_COMPOSE | UTF8PROC_STABLE);
-                int composed_width = wcwidth(composed[0]);
-
-                if (composed_length == 1 && composed_width == base_width) {
+                wchar_t precomposed = precompose(base, wc);
+                int precomposed_width = wcwidth(precomposed);
+                if (precomposed != (wchar_t)-1 && precomposed_width == base_width) {
                     term->grid->cursor.point.col = base_col;
                     term->grid->cursor.lcf = false;
-                    term_print(term, composed[0], composed_width);
+                    term_print(term, precomposed, precomposed_width);
                     return;
                 }
             }
+#endif
 
             if (comb_chars->count < ALEN(comb_chars->chars))
                 comb_chars->chars[comb_chars->count++] = wc;
@@ -622,7 +645,7 @@ action_utf8_print(struct terminal *term, uint8_t c)
             return;
         }
     }
-#endif /* FOOT_UNICODE_COMBINING */
+#endif /* FOOT_UNICODE_MAX_COMBINING_CHARS > 0 */
 
     term_print(term, wc, width);
 }

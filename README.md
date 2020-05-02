@@ -16,6 +16,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Backspace](#backspace)
 1. [DPI and font size](#dpi-and-font-size)
 1. [Supported OSCs](#supported-oscs)
+1. [Unicode combining](#unicode-combining)
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
@@ -266,6 +267,33 @@ with the terminal emulator itself. Foot implements the following OSCs:
 * `OSC 111` - reset default background color
 * `OSC 112` - reset cursor color
 * `OSC 555` - flash screen (**foot specific**)
+
+
+## Unicode combining
+
+In order to handle combining characters, foot must store additional
+data for each cell. By default, foot stores at most 2 combining
+characters per cell. This adds 9 bytes of additional space to each
+cell (that's 75% more space than without combining characters).
+
+You can configure the maximum number of characters to store for each
+cell at **compile time** with
+`-Dunicode-max-combining-chars=<int>`. Setting this to `0`
+**disables** unicode combining completely - **no** additional data is
+stored.
+
+Furthermore, in order to improve rendering of combining characters,
+foot will by default try to convert base + combining characters to a
+pre-composed character.
+
+This will typically look better, since we can now render a single
+glyph, the way the font designer intended it to be rendered. When
+pre-composing fails, foot will fallback to storing the combining
+character(s) separate from the base character, and will render the
+final grapheme by rendering the base and combining glyphs separately.
+
+You can disable pre-composing at **compile time** with
+`-Dunicode-precompose=false`.
 
 
 ## Requirements
