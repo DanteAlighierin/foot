@@ -95,12 +95,16 @@ foreach prot : [
     command: [wscanner_prog, 'private-code', '@INPUT@', '@OUTPUT@'])
 endforeach
 
-generate_unicode_precompose_sh = files('scripts/generate-unicode-precompose.sh')
-unicode_data = custom_target(
-  'unicode-data',
-  input: 'UnicodeData.txt',
-  output: 'unicode-compose-table.h',
-  command: [generate_unicode_precompose_sh, '@INPUT@', '@OUTPUT@'])
+if get_option('unicode-max-combining-chars') > 0 and get_option('unicode-precompose')
+  generate_unicode_precompose_sh = files('scripts/generate-unicode-precompose.sh')
+  unicode_data = custom_target(
+    'unicode-data',
+    input: 'UnicodeData.txt',
+    output: 'unicode-compose-table.h',
+    command: [generate_unicode_precompose_sh, '@INPUT@', '@OUTPUT@'])
+else
+  unicode_data = []
+endif
 
 generate_version_sh = files('generate-version.sh')
 version = custom_target(

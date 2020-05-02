@@ -527,6 +527,7 @@ action_utf8_4_entry(struct terminal *term, uint8_t c)
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
 }
 
+#if FOOT_UNICODE_PRECOMPOSE
 static wchar_t
 precompose(wchar_t base, wchar_t comb)
 {
@@ -554,6 +555,7 @@ precompose(wchar_t base, wchar_t comb)
 
     return (wchar_t)-1;
 }
+#endif
 
 static void
 action_utf8_print(struct terminal *term, uint8_t c)
