@@ -63,7 +63,7 @@
 * Trackpad sloooow scrolling to eventually scroll a line.
 * Memory leak in terminal reset.
 * Translation of cursor coordinates on resize
-
+* Scaling of legacy formatted color specifiers in OSC sequences.
 
 ### Security
 

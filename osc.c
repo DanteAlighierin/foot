@@ -239,9 +239,9 @@ parse_legacy_color(const char *string, uint32_t *color)
     }
 
     /* Re-scale to 8-bit */
-    uint8_t r = 255 * (rgb[0] / 65535.);
-    uint8_t g = 255 * (rgb[1] / 65535.);
-    uint8_t b = 255 * (rgb[2] / 65535.);
+    uint8_t r = 256 * (rgb[0] / 65536.);
+    uint8_t g = 256 * (rgb[1] / 65536.);
+    uint8_t b = 256 * (rgb[2] / 65536.);
 
     LOG_DBG("legacy: %02x%02x%02x", r, g, b);
     *color = r << 16 | g << 8 | b;
