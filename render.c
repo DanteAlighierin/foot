@@ -422,6 +422,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     if (cell->wc == 0 || cell->attrs.conceal)
         goto draw_cursor;
 
+    pixman_image_t *clr_pix = pixman_image_create_solid_fill(&fg);
+
     if (glyph != NULL) {
         if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
             /* Glyph surface is a pre-rendered image (typically a color emoji...) */
@@ -433,12 +435,10 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             }
         } else {
             /* Glyph surface is an alpha mask */
-            pixman_image_t *src = pixman_image_create_solid_fill(&fg);
             pixman_image_composite32(
-                PIXMAN_OP_OVER, src, glyph->pix, pix, 0, 0, 0, 0,
+                PIXMAN_OP_OVER, clr_pix, glyph->pix, pix, 0, 0, 0, 0,
                 x + glyph->x, y + font_baseline(term) - glyph->y,
                 glyph->width, glyph->height);
-            pixman_image_unref(src);
         }
     }
 
@@ -452,17 +452,16 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         if (g == NULL)
             continue;
 
-        pixman_image_t *src = pixman_image_create_solid_fill(&fg);
         pixman_image_composite32(
-            PIXMAN_OP_OVER, src, g->pix, pix, 0, 0, 0, 0,
+            PIXMAN_OP_OVER, clr_pix, g->pix, pix, 0, 0, 0, 0,
             /* Some fonts use a negative offset, while others use a
              * "normal" offset */
             x + (g->x < 0 ? term->cell_width : 0) + g->x,
             y + font_baseline(term) - g->y,
             g->width, g->height);
-        pixman_image_unref(src);
     }
 #endif
+    pixman_image_unref(clr_pix);
 
     /* Underline */
     if (cell->attrs.underline) {
