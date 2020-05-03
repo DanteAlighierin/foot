@@ -217,6 +217,7 @@ struct terminal {
     struct grid *grid;
 
     #define COMB_CHARS_LO 0x40000000ul
+    #define COMB_CHARS_HI 0x400ffffful
     size_t composed_count;
     struct composed *composed;
 

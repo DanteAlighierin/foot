@@ -681,12 +681,19 @@ action_utf8_print(struct terminal *term, uint8_t c)
                 new_cc.combining[i] = composed->combining[i];
             new_cc.combining[wanted_count - 1] = wc;
 
-            term->composed_count++;
-            term->composed = realloc(term->composed, term->composed_count * sizeof(term->composed[0]));
-            term->composed[term->composed_count - 1] = new_cc;
+            if (term->composed_count < COMB_CHARS_HI) {
+                term->composed_count++;
+                term->composed = realloc(term->composed, term->composed_count * sizeof(term->composed[0]));
+                term->composed[term->composed_count - 1] = new_cc;
 
-            term_print(term, COMB_CHARS_LO + term->composed_count - 1, base_width);
-            return;
+                term_print(term, COMB_CHARS_LO + term->composed_count - 1, base_width);
+                return;
+            } else {
+                /* We reached our maximum number of allowed composed
+                 * character chains. Fall through here and print the
+                 * current zero-width character to the current cell */
+                LOG_WARN("maximum number of composed characters reached");
+            }
         }
     }
 
