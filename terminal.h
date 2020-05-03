@@ -77,21 +77,16 @@ struct damage {
     int lines;
 };
 
-#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
-struct combining_chars {
+struct composed {
+    wchar_t base;
+    wchar_t combining[5];
     uint8_t count;
-    wchar_t chars[FOOT_UNICODE_MAX_COMBINING_CHARS];
-} __attribute__((packed));
-#endif
+};
 
 struct row {
     struct cell *cells;
     bool dirty;
     bool linebreak;
-
-#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
-    struct combining_chars *comb_chars;
-#endif
 };
 
 struct sixel {
@@ -220,6 +215,10 @@ struct terminal {
     struct grid normal;
     struct grid alt;
     struct grid *grid;
+
+    #define COMB_CHARS_LO 0x40000000ul
+    size_t composed_count;
+    struct composed *composed;
 
     struct fcft_font *fonts[4];
     int font_dpi;

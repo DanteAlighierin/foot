@@ -822,6 +822,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
         .normal = {.damage = tll_init(), .scroll_damage = tll_init(), .sixel_images = tll_init()},
         .alt = {.damage = tll_init(), .scroll_damage = tll_init(), .sixel_images = tll_init()},
         .grid = &term->normal,
+        .composed_count = 0,
+        .composed = NULL,
         .meta = {
             .esc_prefix = true,
             .eight_bit = true,
@@ -1085,6 +1087,8 @@ term_destroy(struct terminal *term)
 
     tll_free(term->normal.scroll_damage);
     tll_free(term->alt.scroll_damage);
+
+    free(term->composed);
 
     free(term->window_title);
     tll_free_and_free(term->window_title_stack, free);
@@ -2294,10 +2298,6 @@ term_print(struct terminal *term, wchar_t wc, int width)
 
     cell->wc = term->vt.last_printed = wc;
     cell->attrs = term->vt.attrs;
-
-#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
-    row->comb_chars[term->grid->cursor.point.col].count = 0;
-#endif
 
     row->dirty = true;
     cell->attrs.clean = 0;

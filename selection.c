@@ -142,12 +142,7 @@ min_bufsize_for_extraction(const struct terminal *term)
 {
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
-    const size_t chars_per_cell =
-#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
-        1 + ALEN(term->grid->cur_row->comb_chars[0].chars);
-#else
-        1;
-#endif
+    const size_t chars_per_cell = 1 + ALEN(term->composed[0].combining);
 
     switch (term->selection.kind) {
     case SELECTION_NONE:
@@ -239,16 +234,17 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
     ctx->empty_count = 0;
 
     assert(ctx->idx + 1 <= ctx->size);
-    ctx->buf[ctx->idx++] = cell->wc;
 
-#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
-    const struct combining_chars *comb_chars = &row->comb_chars[col];
+    if (cell->wc >= COMB_CHARS_LO && cell->wc < (COMB_CHARS_LO + term->composed_count)) {
+        const struct composed *composed = &term->composed[cell->wc - COMB_CHARS_LO];
 
-    assert(cell->wc != 0);
-    assert(ctx->idx + comb_chars->count <= ctx->size);
-    for (size_t i = 0; i < comb_chars->count; i++)
-        ctx->buf[ctx->idx++] = comb_chars->chars[i];
-#endif
+        ctx->buf[ctx->idx++] = composed->base;
+
+        assert(ctx->idx + composed->count <= ctx->size);
+        for (size_t i = 0; i < composed->count; i++)
+            ctx->buf[ctx->idx++] = composed->combining[i];
+    } else
+        ctx->buf[ctx->idx++] = cell->wc;
 
     ctx->last_row = row;
     ctx->last_cell = cell;
