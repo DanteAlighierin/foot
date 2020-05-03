@@ -497,7 +497,7 @@ initialize_render_workers(struct terminal *term)
 
         int ret = thrd_create(
             &term->render.workers.threads[i], &render_worker_thread, ctx);
-        if (ret != 0) {
+        if (ret != thrd_success) {
 
             LOG_ERR("failed to create render worker thread: %s (%d)",
                     thrd_err_as_string(ret), ret);
@@ -664,7 +664,7 @@ load_fonts_from_conf(const struct terminal *term, const struct config *conf,
     thrd_t tids[4] = {};
     for (size_t i = 0; i < 4; i++) {
         int ret = thrd_create(&tids[i], &font_loader_thread, &data[i]);
-        if (ret != 0) {
+        if (ret != thrd_success) {
             LOG_ERR("failed to create font loader thread: %s (%d)",
                     thrd_err_as_string(ret), ret);
             break;
@@ -1365,7 +1365,7 @@ term_font_size_adjust(struct terminal *term, double amount)
     thrd_t tids[4] = {};
     for (size_t i = 0; i < 4; i++) {
         int ret = thrd_create(&tids[i], &font_size_adjust_thread, &data[i]);
-        if (ret != 0) {
+        if (ret != thrd_success) {
             LOG_ERR("failed to create font adjustmen thread: %s (%d)",
                     thrd_err_as_string(ret), ret);
             break;
