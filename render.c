@@ -402,9 +402,20 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     struct fcft_font *font = attrs_to_font(term, &cell->attrs);
     const struct fcft_glyph *glyph = NULL;
+    const struct composed *composed = NULL;
 
-    if (cell->wc != 0)
-        glyph = fcft_glyph_rasterize(font, cell->wc, term->font_subpixel);
+    if (cell->wc != 0) {
+        wchar_t base = cell->wc;
+
+        if (base >= COMB_CHARS_LO &&
+            base < (COMB_CHARS_LO + term->composed_count))
+        {
+            composed = &term->composed[base - COMB_CHARS_LO];
+            base = composed->base;
+        }
+
+        glyph = fcft_glyph_rasterize(font, base, term->font_subpixel);
+    }
 
     int cell_cols = glyph != NULL ? max(1, glyph->cols) : 1;
 
@@ -442,25 +453,25 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         }
     }
 
-#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
     /* Combining characters */
-    const struct combining_chars *comb_chars = &row->comb_chars[col];
-    for (size_t i = 0; i < comb_chars->count; i++) {
-        const struct fcft_glyph *g = fcft_glyph_rasterize(
-            font, comb_chars->chars[i], term->font_subpixel);
+    if (composed != NULL) {
+        for (size_t i = 0; i < composed->count; i++) {
+            const struct fcft_glyph *g = fcft_glyph_rasterize(
+                font, composed->combining[i], term->font_subpixel);
 
-        if (g == NULL)
-            continue;
+            if (g == NULL)
+                continue;
 
-        pixman_image_composite32(
-            PIXMAN_OP_OVER, clr_pix, g->pix, pix, 0, 0, 0, 0,
-            /* Some fonts use a negative offset, while others use a
-             * "normal" offset */
-            x + (g->x < 0 ? term->cell_width : 0) + g->x,
-            y + font_baseline(term) - g->y,
-            g->width, g->height);
+            pixman_image_composite32(
+                PIXMAN_OP_OVER, clr_pix, g->pix, pix, 0, 0, 0, 0,
+                /* Some fonts use a negative offset, while others use a
+                 * "normal" offset */
+                x + (g->x < 0 ? term->cell_width : 0) + g->x,
+                y + font_baseline(term) - g->y,
+                g->width, g->height);
+        }
     }
-#endif
+
     pixman_image_unref(clr_pix);
 
     /* Underline */

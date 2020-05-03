@@ -571,8 +571,6 @@ action_utf8_print(struct terminal *term, uint8_t c)
 
     int width = wcwidth(wc);
 
-#if FOOT_UNICODE_MAX_COMBINING_CHARS > 0
-
     /*
      * Is this is combining character? The basic assumption is that if
      * wcwdith() returns 0, then it *is* a combining character.
@@ -606,6 +604,15 @@ action_utf8_print(struct terminal *term, uint8_t c)
             base = row->cells[base_col].wc;
         }
 
+        const struct composed *composed =
+            (base >= COMB_CHARS_LO &&
+             base < (COMB_CHARS_LO + term->composed_count))
+            ? &term->composed[base - COMB_CHARS_LO]
+            : NULL;
+
+        if (composed != NULL)
+            base = composed->base;
+
         int base_width = wcwidth(base);
 
         if (base != 0 && base_width > 0) {
@@ -619,35 +626,76 @@ action_utf8_print(struct terminal *term, uint8_t c)
              * pre-composed character, as that is likely to produce a
              * better looking result.
              */
-
-            struct combining_chars *comb_chars = &row->comb_chars[base_col];
+            term->grid->cursor.point.col = base_col;
+            term->grid->cursor.lcf = false;
 
 #if FOOT_UNICODE_PRECOMPOSE
-            if (comb_chars->count == 0) {
+            if (composed == NULL) {
                 wchar_t precomposed = precompose(base, wc);
                 int precomposed_width = wcwidth(precomposed);
                 if (precomposed != (wchar_t)-1 && precomposed_width == base_width) {
-                    term->grid->cursor.point.col = base_col;
-                    term->grid->cursor.lcf = false;
                     term_print(term, precomposed, precomposed_width);
                     return;
                 }
             }
 #endif
 
-            if (comb_chars->count < ALEN(comb_chars->chars))
-                comb_chars->chars[comb_chars->count++] = wc;
-            else {
+            size_t wanted_count = composed != NULL ? composed->count + 1 : 1;
+            if (wanted_count > ALEN(composed->combining)) {
+                assert(composed != NULL);
+
                 LOG_WARN("combining character overflow:");
-                LOG_WARN("  0x%04x", base);
-                for (size_t i = 0; i < comb_chars->count; i++)
-                    LOG_WARN("  0x%04x", comb_chars->chars[i]);
-                LOG_ERR("  0x%04x", wc);
+                LOG_WARN("  base: 0x%04x", composed->base);
+                for (size_t i = 0; i < composed->count; i++)
+                    LOG_WARN("    cc: 0x%04x", composed->combining[i]);
+                LOG_ERR("   new: 0x%04x", wc);
+
+                /* This are going to break anyway... */
+                wanted_count--;
             }
-            return;
+
+            assert(wanted_count <= ALEN(composed->combining));
+
+            /* Look for existing combining chain */
+            for (size_t i = 0; i < term->composed_count; i++) {
+                const struct composed *cc = &term->composed[i];
+                if (cc->base != base)
+                    continue;
+
+                if (cc->count != wanted_count)
+                    continue;
+
+                if (cc->combining[wanted_count - 1] != wc)
+                    continue;
+
+                term_print(term, COMB_CHARS_LO + i, base_width);
+                return;
+            }
+
+            /* Allocate new chain */
+
+            struct composed new_cc;
+            new_cc.base = base;
+            new_cc.count = wanted_count;
+            for (size_t i = 0; i < wanted_count - 1; i++)
+                new_cc.combining[i] = composed->combining[i];
+            new_cc.combining[wanted_count - 1] = wc;
+
+            if (term->composed_count < COMB_CHARS_HI) {
+                term->composed_count++;
+                term->composed = realloc(term->composed, term->composed_count * sizeof(term->composed[0]));
+                term->composed[term->composed_count - 1] = new_cc;
+
+                term_print(term, COMB_CHARS_LO + term->composed_count - 1, base_width);
+                return;
+            } else {
+                /* We reached our maximum number of allowed composed
+                 * character chains. Fall through here and print the
+                 * current zero-width character to the current cell */
+                LOG_WARN("maximum number of composed characters reached");
+            }
         }
     }
-#endif /* FOOT_UNICODE_MAX_COMBINING_CHARS > 0 */
 
     term_print(term, wc, width);
 }

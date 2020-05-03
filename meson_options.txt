@@ -1,5 +1,2 @@
-option('unicode-max-combining-chars', type: 'integer', value: 2,
-       description: 'Maximum number of combining characters to track per cell. A value of 0 completely disables unicode combining (this reduces the runtime memory footprint)')
-
 option('unicode-precompose', type: 'boolean', value: true,
        description: 'Convert decomposed characters to precomposed. Ignored if "unicode-combining" has been disabled')
