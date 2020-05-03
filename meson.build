@@ -148,11 +148,12 @@ executable(
   'log.c', 'log.h', version,
   install: true)
 
+tic = find_program('tic', native: true)
 custom_target(
   'terminfo',
   output: 'f',
   input: 'foot.info',
-  command: ['tic', '-x', '-o', '@OUTDIR@', '-e', 'foot,foot-direct', '@INPUT@'],
+  command: [tic, '-x', '-o', '@OUTDIR@', '-e', 'foot,foot-direct', '@INPUT@'],
   install: true,
   install_dir: join_paths(get_option('datadir'), 'terminfo'))
 
