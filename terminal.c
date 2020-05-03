@@ -497,9 +497,10 @@ initialize_render_workers(struct terminal *term)
 
         int ret = thrd_create(
             &term->render.workers.threads[i], &render_worker_thread, ctx);
-
         if (ret != 0) {
-            LOG_ERRNO_P("failed to create render worker thread", ret);
+
+            LOG_ERR("failed to create render worker thread: %s (%d)",
+                    thrd_err_as_string(ret), ret);
             term->render.workers.threads[i] = 0;
             return false;
         }
@@ -660,15 +661,24 @@ load_fonts_from_conf(const struct terminal *term, const struct config *conf,
         {count, names, attrs3, &fonts[3]},
     };
 
-    thrd_t tids[4];
-    for (size_t i = 0; i < 4; i++)
-        thrd_create(&tids[i], &font_loader_thread, &data[i]);
+    thrd_t tids[4] = {};
+    for (size_t i = 0; i < 4; i++) {
+        int ret = thrd_create(&tids[i], &font_loader_thread, &data[i]);
+        if (ret != 0) {
+            LOG_ERR("failed to create font loader thread: %s (%d)",
+                    thrd_err_as_string(ret), ret);
+            break;
+        }
+    }
 
     bool success = true;
     for (size_t i = 0; i < 4; i++) {
-        int ret;
-        thrd_join(tids[i], &ret);
-        success = success && ret;
+        if (tids[i] != 0) {
+            int ret;
+            thrd_join(tids[i], &ret);
+            success = success && ret;
+        } else
+            success = false;
     }
 
     if (!success) {
@@ -1352,12 +1362,20 @@ term_font_size_adjust(struct terminal *term, double amount)
         {term->fonts[3], amount},
     };
 
-    thrd_t tids[4];
-    for (size_t i = 0; i < 4; i++)
-        thrd_create(&tids[i], &font_size_adjust_thread, &data[i]);
+    thrd_t tids[4] = {};
+    for (size_t i = 0; i < 4; i++) {
+        int ret = thrd_create(&tids[i], &font_size_adjust_thread, &data[i]);
+        if (ret != 0) {
+            LOG_ERR("failed to create font adjustmen thread: %s (%d)",
+                    thrd_err_as_string(ret), ret);
+            break;
+        }
+    }
 
-    for (size_t i = 0; i < 4; i++)
-        thrd_join(tids[i], NULL);
+    for (size_t i = 0; i < 4; i++) {
+        if (tids[i] != 0)
+            thrd_join(tids[i], NULL);
+    }
 
     if (data[0].font_out == NULL || data[1].font_out == NULL ||
         data[2].font_out == NULL || data[3].font_out == NULL)
