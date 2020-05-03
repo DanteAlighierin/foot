@@ -641,6 +641,20 @@ action_utf8_print(struct terminal *term, uint8_t c)
 #endif
 
             size_t wanted_count = composed != NULL ? composed->count + 1 : 1;
+            if (wanted_count > ALEN(composed->combining)) {
+                assert(composed != NULL);
+
+                LOG_WARN("combining character overflow:");
+                LOG_WARN("  base: 0x%04x", composed->base);
+                for (size_t i = 0; i < composed->count; i++)
+                    LOG_WARN("    cc: 0x%04x", composed->combining[i]);
+                LOG_ERR("   new: 0x%04x", wc);
+
+                /* This are going to break anyway... */
+                wanted_count--;
+            }
+
+            assert(wanted_count <= ALEN(composed->combining));
 
             /* Look for existing combining chain */
             for (size_t i = 0; i < term->composed_count; i++) {
