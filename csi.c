@@ -1452,12 +1452,18 @@ csi_dispatch(struct terminal *term, uint8_t final)
             case 6:         /* steady bar */
                 term->cursor_style = CURSOR_BAR;
                 break;
+
+            default:
+                UNHANDLED();
+                break;
             }
 
-            if (param == 0 || param & 1)
-                term_cursor_blink_enable(term);
-            else
-                term_cursor_blink_disable(term);
+            if (param <= 6) {
+                if (param == 0 || param & 1)
+                    term_cursor_blink_enable(term);
+                else
+                    term_cursor_blink_disable(term);
+            }
             break;
         }
 
