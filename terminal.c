@@ -957,8 +957,10 @@ void
 term_window_configured(struct terminal *term)
 {
     /* Enable ptmx FDM callback */
-    assert(term->window->is_configured);
-    fdm_add(term->fdm, term->ptmx, EPOLLIN, &fdm_ptmx, term);
+    if (!term->is_shutting_down) {
+        assert(term->window->is_configured);
+        fdm_add(term->fdm, term->ptmx, EPOLLIN, &fdm_ptmx, term);
+    }
 }
 
 static bool
