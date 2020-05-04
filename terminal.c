@@ -936,6 +936,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     return term;
 
 err:
+    term->is_shutting_down = true;
     term_destroy(term);
     return NULL;
 
