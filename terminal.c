@@ -480,10 +480,26 @@ initialize_render_workers(struct terminal *term)
 {
     LOG_INFO("using %zu rendering threads", term->render.workers.count);
 
-    sem_init(&term->render.workers.start, 0, 0);
-    sem_init(&term->render.workers.done, 0, 0);
-    mtx_init(&term->render.workers.lock, mtx_plain);
-    cnd_init(&term->render.workers.cond);
+    if (sem_init(&term->render.workers.start, 0, 0) < 0 ||
+        sem_init(&term->render.workers.done, 0, 0) < 0)
+    {
+        LOG_ERRNO("failed to instantiate render worker semaphores");
+        return false;
+    }
+
+    int err;
+    if ((err = mtx_init(&term->render.workers.lock, mtx_plain)) != thrd_success) {
+        LOG_ERR("failed to instantiate render worker mutex: %s (%d)",
+                thrd_err_as_string(err), err);
+        goto err_sem_destroy;
+    }
+
+    if ((err = cnd_init(&term->render.workers.cond)) != thrd_success) {
+        LOG_ERR(
+            "failed to instantiate render worker condition variable: %s (%d)",
+            thrd_err_as_string(err), err);
+        goto err_sem_destroy;
+    }
 
     term->render.workers.threads = calloc(
         term->render.workers.count, sizeof(term->render.workers.threads[0]));
@@ -507,6 +523,11 @@ initialize_render_workers(struct terminal *term)
     }
 
     return true;
+
+err_sem_destroy:
+    sem_destroy(&term->render.workers.start);
+    sem_destroy(&term->render.workers.done);
+    return false;
 }
 
 static bool
