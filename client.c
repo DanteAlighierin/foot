@@ -28,8 +28,8 @@ sig_handler(int signo)
 static void
 print_usage(const char *prog_name)
 {
-    printf("Usage: %s [OPTIONS]...\n", prog_name);
-    printf("Usage: %s [OPTIONS]... -- command\n", prog_name);
+    printf("Usage: %s [OPTIONS...]", prog_name);
+    printf("Usage: %s [OPTIONS...] [ARGS...]\n", prog_name);
     printf("\n");
     printf("Options:\n");
     printf("  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
@@ -74,7 +74,7 @@ main(int argc, char *const *argv)
     bool fullscreen = false;
 
     while (true) {
-        int c = getopt_long(argc, argv, ":t:a:s:l::hv", longopts, NULL);
+        int c = getopt_long(argc, argv, "+:t:a:s:l::hv", longopts, NULL);
         if (c == -1)
             break;
 

@@ -43,6 +43,9 @@
 * The four primary font variants (normal, bold, italic, bold italic)
   are now loaded in parallel. This speeds up both the initial startup
   time, as well as a DPI changes.
+* Command line parsing no longer tries to parse arguments following
+  the command-to-execute. This means one can now write `foot sh -c
+  true` instead of `foot -- sh -c true`.
 
 
 ### Deprecated

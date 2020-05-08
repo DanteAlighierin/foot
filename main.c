@@ -39,8 +39,8 @@ static void
 print_usage(const char *prog_name)
 {
     printf(
-        "Usage: %s [OPTIONS]...\n"
-        "Usage: %s [OPTIONS]... -- command\n"
+        "Usage: %s [OPTIONS...]\n"
+        "Usage: %s [OPTIONS...] command [ARGS...]\n"
         "\n"
         "Options:\n"
         "  -c,--config=PATH                      load configuration from PATH (XDG_CONFIG_HOME/footrc)\n"
@@ -179,7 +179,7 @@ main(int argc, char *const *argv)
     bool log_syslog = true;
 
     while (true) {
-        int c = getopt_long(argc, argv, "c:t:a:Lf:g:s::Pp:l::Svh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+c:t:a:Lf:g:s::Pp:l::Svh", longopts, NULL);
         if (c == -1)
             break;
 

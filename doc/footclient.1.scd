@@ -5,10 +5,10 @@ footclient - start new terminals in a foot server
 
 # SYNOPSIS
 *foot* [_OPTIONS_]++
-*foot* [_OPTIONS_] -- <command>
+*foot* [_OPTIONS_] <_command_> [_COMMAND OPTIONS_]
 
-All trailing (non-option) arguments are treated as a command to
-execute (instead of the shell).
+All trailing (non-option) arguments are treated as a command, and its
+arguments, to execute (instead of the default shell).
 
 # OPTIONS
 
