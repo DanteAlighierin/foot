@@ -92,17 +92,6 @@ foreach prot : [
     command: [wscanner_prog, 'private-code', '@INPUT@', '@OUTPUT@'])
 endforeach
 
-if get_option('unicode-precompose')
-  generate_unicode_precompose_sh = files('scripts/generate-unicode-precompose.sh')
-  unicode_data = custom_target(
-    'unicode-data',
-    input: 'UnicodeData.txt',
-    output: 'unicode-compose-table.h',
-    command: [generate_unicode_precompose_sh, '@INPUT@', '@OUTPUT@'])
-else
-  unicode_data = []
-endif
-
 generate_version_sh = files('generate-version.sh')
 version = custom_target(
   'generate_version',
@@ -138,7 +127,7 @@ executable(
   'tokenize.c', 'tokenize.h',
   'vt.c', 'vt.h',
   'wayland.c', 'wayland.h',
-  wl_proto_src + wl_proto_headers, version, unicode_data,
+  wl_proto_src + wl_proto_headers, version,
   dependencies: [math, threads, pixman, wayland_client, wayland_cursor, xkb, tllist, fcft],
   install: true)
 

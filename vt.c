@@ -14,10 +14,6 @@
 #include "osc.h"
 #include "util.h"
 
-#if FOOT_UNICODE_PRECOMPOSE
- #include "unicode-compose-table.h"
-#endif
-
 #define UNHANDLED() LOG_DBG("unhandled: %s", esc_as_string(term, final))
 
 /* https://vt100.net/emu/dec_ansi_parser */
@@ -527,36 +523,6 @@ action_utf8_4_entry(struct terminal *term, uint8_t c)
     term->vt.utf8.data[term->vt.utf8.idx++] = c;
 }
 
-#if FOOT_UNICODE_PRECOMPOSE
-static wchar_t
-precompose(wchar_t base, wchar_t comb)
-{
-    static_assert(2 * sizeof(wchar_t) <= sizeof(uint64_t),
-                  "two wchars does not fit in an uint64_t");
-
-    const uint64_t match = (uint64_t)base << 32 | comb;
-
-    ssize_t start = 0;
-    ssize_t end = ALEN(precompose_table) - 1;
-
-    while (start <= end) {
-        size_t middle = (start + end) / 2;
-
-        const uint64_t maybe =
-            (uint64_t)precompose_table[middle].base << 32 | precompose_table[middle].comb;
-
-        if (maybe < match)
-            start = middle + 1;
-        else if (maybe > match)
-            end = middle - 1;
-        else
-            return precompose_table[middle].replacement;
-    }
-
-    return (wchar_t)-1;
-}
-#endif
-
 static void
 action_utf8_print(struct terminal *term, uint8_t c)
 {
@@ -631,9 +597,32 @@ action_utf8_print(struct terminal *term, uint8_t c)
 
 #if FOOT_UNICODE_PRECOMPOSE
             if (composed == NULL) {
-                wchar_t precomposed = precompose(base, wc);
+                bool base_from_primary;
+                bool comb_from_primary;
+                bool pre_from_primary;
+
+                wchar_t precomposed = fcft_precompose(
+                    term->fonts[0], base, wc, &base_from_primary,
+                    &comb_from_primary, &pre_from_primary);
+
                 int precomposed_width = wcwidth(precomposed);
-                if (precomposed != (wchar_t)-1 && precomposed_width == base_width) {
+
+                /*
+                 * Only use the pre-composed character if:
+                 *
+                 *  1. we *have* a pre-composed character
+                 *  2. the width matches the base characters width
+                 *  3. it's in the primary font, OR one of the base or
+                 *     combining characters are *not* from the primary
+                 *     font
+                 */
+
+                if (precomposed != (wchar_t)-1 &&
+                    precomposed_width == base_width &&
+                    (pre_from_primary ||
+                     !base_from_primary ||
+                     !comb_from_primary))
+                {
                     term_print(term, precomposed, precomposed_width);
                     return;
                 }
