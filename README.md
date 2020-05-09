@@ -287,6 +287,11 @@ When rendering a pre-composed character, we are rendering a single
 glyph only and thus it is guaranteed to look the way the font designer
 intended it to.
 
+Note that foot currently will choose to render the decomposed form
+**if** the pre-composed character **does not** exist in the primary
+font, **and** both the decomposed characters **do**. In all other
+cases, the pre-composed character is preferred.
+
 Still, if you do not want this, you can disable pre-composing at
 **compile time** with `-Dunicode-precompose=false`.
 
