@@ -62,7 +62,7 @@ add_project_arguments('-DFOOT_UNICODE_PRECOMPOSE=@0@'.format(
   get_option('unicode-precompose')), language: 'c')
 
 tllist = dependency('tllist', version: '>=1.0.1', fallback: 'tllist')
-fcft = dependency('fcft', version: ['>=2.0.0', '<2.1.0'], fallback: 'fcft')
+fcft = dependency('fcft', version: ['>=2.1.0', '<3.0.0'], fallback: 'fcft')
 
 wayland_protocols_datadir = wayland_protocols.get_pkgconfig_variable('pkgdatadir')
 
