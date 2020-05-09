@@ -1,4 +1,4 @@
-#!/usr/bin/sh
+#!/bin/sh
 
 unicodedata_txt="${1}"
 output="${2}"
@@ -22,7 +22,7 @@ EOF
 #
 # "borrowed" from xterm/unicode/make-precompose.sh
 
-cut "${unicodedata_txt}" -d ";" -f 1,6 |
+cut -d ";" -f 1,6 "${unicodedata_txt}" |
     grep ";[0-9,A-F]" | grep " " |
     sed -e "s/ /, 0x/;s/^/{ 0x/;s/;/, 0x/;s/$/},/" |
     sed -e "s,0x\(....\)\([^0-9A-Fa-f]\),0x0\1\2,g" |
