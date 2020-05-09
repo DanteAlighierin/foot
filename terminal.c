@@ -2284,11 +2284,9 @@ term_disable_app_sync_updates(struct terminal *term)
 }
 
 static inline void
-print_linewrap(struct terminal *term, int width)
+print_linewrap(struct terminal *term)
 {
-    if (likely(!(term->grid->cursor.lcf ||
-                 term->grid->cursor.point.col + width > term->cols)))
-    {
+    if (likely(!term->grid->cursor.lcf)) {
         /* Not and end of line */
         return;
     }
@@ -2331,7 +2329,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     if (unlikely(width <= 0))
         return;
 
-    print_linewrap(term, width);
+    print_linewrap(term);
     print_insert(term, width);
 
     sixel_delete_at_cursor(term);

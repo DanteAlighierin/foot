@@ -71,7 +71,7 @@
 * `OSC 12 ?` to return the cursor color, not the cursor's text color.
 * `OSC 12;#000000` to configure the cursor to use inverted
   foreground/background colors.
-* Double-width characters line wrapping at end of line.
+
 
 ### Security
 
