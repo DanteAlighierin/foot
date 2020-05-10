@@ -5,6 +5,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 ## Index
 
 1. [Features](#features)
+1. [Why the name 'foot'?](#why-the-name-foot)
 1. [Fonts](#fonts)
 1. [Shortcuts](#shortcuts)
    1. [Keyboard](#keyboard)
@@ -41,6 +42,23 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 * [Sixel image support](https://en.wikipedia.org/wiki/Sixel)
 
   ![wow](doc/sixel-wow.png "Sixel screenshot")
+
+
+## Why the name 'foot'?
+
+I'm bad at names. Most of my projects usually start out as _foo
+something_ (for example, [yambar](https://codeberg.org/dnkl/yambar)
+was _f00bar_ for a while).
+
+So why _foot_?
+
+foo terminal -> footerm -> foot
+
+Pretty bad, I know.
+
+As a side note, if you pronounce the _foo_ part of _foot_ the same way
+you pronounce _foobar_, then _foot_ sounds a lot like the Swedish word
+_fot_, which incidentally means (you guessed it) _foot_.
 
 
 ## Fonts
