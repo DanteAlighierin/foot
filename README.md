@@ -52,7 +52,7 @@ was _f00bar_ for a while).
 
 So why _foot_?
 
-foo terminal -> footerm -> foot
+_foo terminal_ → _footerm_ → _foot_
 
 Pretty bad, I know.
 
