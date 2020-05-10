@@ -595,7 +595,6 @@ action_utf8_print(struct terminal *term, uint8_t c)
             term->grid->cursor.point.col = base_col;
             term->grid->cursor.lcf = false;
 
-#if FOOT_UNICODE_PRECOMPOSE
             if (composed == NULL) {
                 bool base_from_primary;
                 bool comb_from_primary;
@@ -627,7 +626,6 @@ action_utf8_print(struct terminal *term, uint8_t c)
                     return;
                 }
             }
-#endif
 
             size_t wanted_count = composed != NULL ? composed->count + 1 : 1;
             if (wanted_count > ALEN(composed->combining)) {

@@ -58,9 +58,6 @@ wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
 xkb = dependency('xkbcommon')
 
-add_project_arguments('-DFOOT_UNICODE_PRECOMPOSE=@0@'.format(
-  get_option('unicode-precompose')), language: 'c')
-
 tllist = dependency('tllist', version: '>=1.0.1', fallback: 'tllist')
 fcft = dependency('fcft', version: ['>=2.1.0', '<3.0.0'], fallback: 'fcft')
 
@@ -153,9 +150,9 @@ install_data('footrc', install_dir: join_paths(get_option('datadir'), 'foot'))
 subdir('completions')
 subdir('doc')
 
-summary(
-  {
-    'Unicode precompose': get_option('unicode-precompose'),
-  },
-  bool_yn: true
-)
+# summary(
+#   {
+#     '<feature>': false,
+#   },
+#   bool_yn: true
+# )
