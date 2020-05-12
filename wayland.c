@@ -464,13 +464,14 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     win->is_fullscreen = win->configure.is_fullscreen;
 
     xdg_surface_ack_configure(xdg_surface, serial);
-    bool resized = render_resize(term, win->configure.width, win->configure.height);
+    bool resized = render_resize_force(term, win->configure.width, win->configure.height);
 
     if (win->configure.is_activated)
         term_visual_focus_in(term);
     else
         term_visual_focus_out(term);
 
+    /* TODO: remove - shouldn't be necessary with render_resize_force() */
     if (!resized) {
         /*
          * If we didn't resize, we won't be commit a new surface
