@@ -1,2 +1,0 @@
-option('unicode-precompose', type: 'boolean', value: true,
-       description: 'Convert decomposed characters to precomposed. Ignored if "unicode-combining" has been disabled')

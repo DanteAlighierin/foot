@@ -13,7 +13,8 @@ is_debug_build = get_option('buildtype').startswith('debug')
 cc = meson.get_compiler('c')
 
 add_project_arguments(
-  ['-D_GNU_SOURCE=200809L'] + (is_debug_build ? ['-D_DEBUG'] : []) +
+  ['-D_POSIX_C_SOURCE=200809L', '-D_GNU_SOURCE=200809L'] +
+  (is_debug_build ? ['-D_DEBUG'] : []) +
   cc.get_supported_arguments(
     ['-fstrict-aliasing',
      '-Wstrict-aliasing',
@@ -57,11 +58,8 @@ wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
 xkb = dependency('xkbcommon')
 
-add_project_arguments('-DFOOT_UNICODE_PRECOMPOSE=@0@'.format(
-  get_option('unicode-precompose')), language: 'c')
-
 tllist = dependency('tllist', version: '>=1.0.1', fallback: 'tllist')
-fcft = dependency('fcft', version: ['>=2.0.0', '<2.1.0'], fallback: 'fcft')
+fcft = dependency('fcft', version: ['>=2.1.0', '<3.0.0'], fallback: 'fcft')
 
 wayland_protocols_datadir = wayland_protocols.get_pkgconfig_variable('pkgdatadir')
 
@@ -91,17 +89,6 @@ foreach prot : [
     input: prot,
     command: [wscanner_prog, 'private-code', '@INPUT@', '@OUTPUT@'])
 endforeach
-
-if get_option('unicode-precompose')
-  generate_unicode_precompose_sh = files('scripts/generate-unicode-precompose.sh')
-  unicode_data = custom_target(
-    'unicode-data',
-    input: 'UnicodeData.txt',
-    output: 'unicode-compose-table.h',
-    command: [generate_unicode_precompose_sh, '@INPUT@', '@OUTPUT@'])
-else
-  unicode_data = []
-endif
 
 generate_version_sh = files('generate-version.sh')
 version = custom_target(
@@ -138,7 +125,7 @@ executable(
   'tokenize.c', 'tokenize.h',
   'vt.c', 'vt.h',
   'wayland.c', 'wayland.h',
-  wl_proto_src + wl_proto_headers, version, unicode_data,
+  wl_proto_src + wl_proto_headers, version,
   dependencies: [math, threads, pixman, wayland_client, wayland_cursor, xkb, tllist, fcft],
   install: true)
 
@@ -163,9 +150,9 @@ install_data('footrc', install_dir: join_paths(get_option('datadir'), 'foot'))
 subdir('completions')
 subdir('doc')
 
-summary(
-  {
-    'Unicode precompose': get_option('unicode-precompose'),
-  },
-  bool_yn: true
-)
+# summary(
+#   {
+#     '<feature>': false,
+#   },
+#   bool_yn: true
+# )

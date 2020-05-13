@@ -17,7 +17,6 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Backspace](#backspace)
 1. [DPI and font size](#dpi-and-font-size)
 1. [Supported OSCs](#supported-oscs)
-1. [Unicode combining](#unicode-combining)
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
@@ -285,28 +284,6 @@ with the terminal emulator itself. Foot implements the following OSCs:
 * `OSC 111` - reset default background color
 * `OSC 112` - reset cursor color
 * `OSC 555` - flash screen (**foot specific**)
-
-
-## Unicode combining
-
-When the client prints Unicode combining characters, e.g `a\\u0308`
-('a' + `COMBINING DIAERESIS`), foot will be default try to create a
-pre-composed character. For example, `\\u0061\\u0308` (`a\\u0308`)
-will be transformed into `\\u00e5` (`å`).
-
-This is to improve the looks of the rendered grapheme. When rendering
-a decomposed string, `a\\u0308`, the glyphs for `a` and `\\u0308` are
-rendered independently, on top off each other. The result if often not
-optimal, with e.g. diacritics looking a bit out of place. If we are
-really unlucky, the base character and the combining characters may be
-picked from different fonts, making the result look even more awkward.
-
-When rendering a pre-composed character, we are rendering a single
-glyph only and thus it is guaranteed to look the way the font designer
-intended it to.
-
-Still, if you do not want this, you can disable pre-composing at
-**compile time** with `-Dunicode-precompose=false`.
 
 
 ## Requirements
