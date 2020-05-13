@@ -1,13 +1,14 @@
 # Changelog
 
-* [Unreleased](#unreleased)
+* [1.3.0](#1-3-0)
 * [1.2.3](#1-2-3)
 * [1.2.2](#1-2-2)
 * [1.2.1](#1-2-1)
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
+## 1.3.0
+
 ### Added
 
 * User configurable key- and mouse bindings. See `man 5 foot` and the
@@ -46,7 +47,6 @@
   true` instead of `foot -- sh -c true`.
 
 
-### Deprecated
 ### Removed
 
 * Keyboard/pointer handler workarounds for Sway 1.2.
@@ -70,9 +70,6 @@
 * `OSC 12;#000000` to configure the cursor to use inverted
   foreground/background colors.
 * Call `ioctl(TIOCSCTTY)` on the pts fd in the slave process.
-
-
-### Security
 
 
 ## 1.2.3
