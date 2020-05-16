@@ -11,6 +11,10 @@
 ## Unreleased
 
 ### Added
+
+* `Sync` to terminfo. This is a tmux extension that indicates
+  _"Synchronized Updates"_ are supported.
+
 ### Changed
 ### Deprecated
 ### Removed
