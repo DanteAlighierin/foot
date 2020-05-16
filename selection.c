@@ -389,6 +389,7 @@ selection_modify(struct terminal *term, struct coord start, struct coord end)
 void
 selection_update(struct terminal *term, int col, int row)
 {
+    if (term->selection.start.row == -1)
         return;
 
     LOG_DBG("selection updated: start = %d,%d, end = %d,%d -> %d, %d",
