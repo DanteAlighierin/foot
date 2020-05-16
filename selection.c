@@ -403,6 +403,16 @@ selection_update(struct terminal *term, int col, int row)
     selection_modify(term, term->selection.start, new_end);
 }
 
+void
+selection_dirty_cells(struct terminal *term)
+{
+    if (term->selection.start.row == -1 || term->selection.end.row == -1)
+        return;
+
+    foreach_selected(
+        term, term->selection.start, term->selection.end, &mark_selected, NULL);
+}
+
 static void
 selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial)
 {

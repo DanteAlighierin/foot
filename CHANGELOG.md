@@ -30,6 +30,7 @@
   `shift` to start a selection. This selection is now finalized only
   when the mouse button is released - not as soon as `shift` is
   released.
+* Selected cells did not appear selected if modified.
 
 
 ### Security

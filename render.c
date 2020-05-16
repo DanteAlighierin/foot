@@ -1354,6 +1354,25 @@ grid_render(struct terminal *term)
     /* Reset clip region since scrolling may have instantiated a new pixman image */
     pixman_image_set_clip_region(buf->pix, &clip);
 
+    /*
+     * Ensure selected cells have their 'selected' bit set. This is
+     * normally "automatically" true - the bit is set when the
+     * selection is made.
+     *
+     * However, if the cell is updated (printed to) while the
+     * selection is active, the 'selected' bit is cleared. Checking
+     * for this and re-setting the bit in term_print() is too
+     * expensive performance wise.
+     *
+     * Instead, we synchronize the selection bits here and now. This
+     * makes the performance impact linear to the number of selected
+     * cells rather than to the number of updated cells.
+     *
+     * (note that selection_dirty_cells() will not set the dirty flag
+     * on cells where the 'selected' bit is already set)
+     */
+    selection_dirty_cells(term);
+
     if (term->render.workers.count > 0) {
 
         term->render.workers.buf = buf;
