@@ -1756,6 +1756,11 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     sixel_delete_in_range(term, max(region.end - rows, region.start), region.end - 1);
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
+
+#if defined(_DEBUG)
+    for (int r = 0; r < term->rows; r++)
+        assert(grid_row(term->grid, r) != NULL);
+#endif
 }
 
 void
@@ -1805,6 +1810,11 @@ term_scroll_reverse_partial(struct terminal *term,
     sixel_delete_in_range(term, region.start, min(region.start + rows, region.end) - 1);
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
+
+#if defined(_DEBUG)
+    for (int r = 0; r < term->rows; r++)
+        assert(grid_row(term->grid, r) != NULL);
+#endif
 }
 
 void
