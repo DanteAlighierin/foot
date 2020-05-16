@@ -1750,13 +1750,14 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     for (int i = term->rows - 1; i >= region.end; i--)
         grid_swap_row(term->grid, i - rows, i, false);
 
+    const int begin_scrolled_in = max(region.end - rows, region.start);
+
     /* Erase scrolled in lines */
-    for (int r = max(region.end - rows, region.start); r < region.end; r++) {
+    for (int r = begin_scrolled_in; r < region.end; r++)
         erase_line(term, grid_row_and_alloc(term->grid, r));
-        //sixel_delete_at_row(term, r);
-        if (selection_on_row_in_view(term, r))
-            selection_cancel(term);
-    }
+
+    if (selection_on_rows_in_view(term, begin_scrolled_in, region.end - 1))
+        selection_cancel(term);
 
     sixel_delete_in_range(term, max(region.end - rows, region.start), region.end - 1);
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
@@ -1803,13 +1804,14 @@ term_scroll_reverse_partial(struct terminal *term,
     for (int i = 0 + rows; i < region.start + rows; i++)
         grid_swap_row(term->grid, i, i - rows, false);
 
+    const int end_scrolled_in = min(region.start + rows, region.end);
+
     /* Erase scrolled in lines */
-    for (int r = region.start; r < min(region.start + rows, region.end); r++) {
+    for (int r = region.start; r < end_scrolled_in; r++)
         erase_line(term, grid_row_and_alloc(term->grid, r));
-        //sixel_delete_at_row(term, r);
-        if (selection_on_row_in_view(term, r))
-            selection_cancel(term);
-    }
+
+    if (selection_on_rows_in_view(term, region.start, end_scrolled_in - 1))
+        selection_cancel(term);
 
     sixel_delete_in_range(term, region.start, min(region.start + rows, region.end) - 1);
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);

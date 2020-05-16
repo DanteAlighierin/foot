@@ -30,17 +30,37 @@ selection_enabled(const struct terminal *term)
 }
 
 bool
-selection_on_row_in_view(const struct terminal *term, int row_no)
+selection_on_rows_in_view(const struct terminal *term, int row_start, int row_end)
 {
+    LOG_DBG("selection: %d-%d, range: %d-%d (view=%d)",
+            term->selection.start.row, term->selection.end.row,
+            row_start, row_end, term->grid->view);
+
     if (term->selection.start.row == -1 || term->selection.end.row == -1)
         return false;
 
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
-    assert(start->row <= end->row);
 
-    row_no += term->grid->view;
-    return row_no >= start->row && row_no <= end->row;
+    if (start->row > end->row) {
+        const struct coord *tmp = start;
+        start = end;
+        end = tmp;
+    }
+
+    row_start += term->grid->view;
+    row_end += term->grid->view;
+
+    if (row_start <= start->row && row_end >= end->row) {
+        /* Row range completely encompases the selection */
+        return true;
+    }
+
+    else if (row_start >= start->row || row_end <= end->row)
+        return true;
+
+    else
+        return false;
 }
 
 static void
