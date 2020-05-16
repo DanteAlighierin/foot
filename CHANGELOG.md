@@ -24,6 +24,14 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Do not stop an ongoing selection when `shift` is released. When the
+  client application is capturing mouse events, one must hold down
+  `shift` to start a selection. This selection is now finalized only
+  when the mouse button is released - not as soon as `shift` is
+  released.
+
+
 ### Security
 
 

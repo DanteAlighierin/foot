@@ -1176,26 +1176,29 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             if (button == BTN_LEFT && wayl->mouse.count <= 3) {
                 selection_cancel(term);
 
-                switch (wayl->mouse.count) {
-                case 1:
-                    selection_start(
-                        term, wayl->mouse.col, wayl->mouse.row,
-                        wayl->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
-                    break;
+                if (selection_enabled(term)) {
+                    switch (wayl->mouse.count) {
+                    case 1:
+                        selection_start(
+                            term, wayl->mouse.col, wayl->mouse.row,
+                            wayl->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
+                        break;
 
-                case 2:
-                    selection_mark_word(term, wayl->mouse.col, wayl->mouse.row,
-                                        wayl->kbd.ctrl, serial);
-                    break;
+                    case 2:
+                        selection_mark_word(term, wayl->mouse.col, wayl->mouse.row,
+                                            wayl->kbd.ctrl, serial);
+                        break;
 
-                case 3:
-                    selection_mark_row(term, wayl->mouse.row, serial);
-                    break;
+                    case 3:
+                        selection_mark_row(term, wayl->mouse.row, serial);
+                        break;
+                    }
                 }
             }
 
             else if (button == BTN_RIGHT && wayl->mouse.count == 1) {
-                selection_extend(term, wayl->mouse.col, wayl->mouse.row, serial);
+                if (selection_enabled(term))
+                    selection_extend(term, wayl->mouse.col, wayl->mouse.row, serial);
             }
 
             else {

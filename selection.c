@@ -314,9 +314,6 @@ void
 selection_start(struct terminal *term, int col, int row,
                 enum selection_kind kind)
 {
-    if (!selection_enabled(term))
-        return;
-
     selection_cancel(term);
 
     LOG_DBG("%s selection started at %d,%d",
@@ -367,7 +364,6 @@ mark_selected(struct terminal *term, struct row *row, struct cell *cell,
 static void
 selection_modify(struct terminal *term, struct coord start, struct coord end)
 {
-    assert(selection_enabled(term));
     assert(term->selection.start.row != -1);
     assert(start.row != -1 && start.col != -1);
     assert(end.row != -1 && end.col != -1);
@@ -393,7 +389,6 @@ selection_modify(struct terminal *term, struct coord start, struct coord end)
 void
 selection_update(struct terminal *term, int col, int row)
 {
-    if (!selection_enabled(term))
         return;
 
     LOG_DBG("selection updated: start = %d,%d, end = %d,%d -> %d, %d",
@@ -401,7 +396,6 @@ selection_update(struct terminal *term, int col, int row)
             term->selection.end.row, term->selection.end.col,
             row, col);
 
-    assert(term->selection.start.row != -1);
     assert(term->grid->view + row != -1);
 
     struct coord new_end = {col, term->grid->view + row};
@@ -526,9 +520,6 @@ selection_extend_block(struct terminal *term, int col, int row, uint32_t serial)
 void
 selection_extend(struct terminal *term, int col, int row, uint32_t serial)
 {
-    if (!selection_enabled(term))
-        return;
-
     if (term->selection.start.row == -1 || term->selection.end.row == -1) {
         /* No existing selection */
         return;
@@ -587,9 +578,6 @@ selection_finalize(struct terminal *term, uint32_t serial)
 void
 selection_cancel(struct terminal *term)
 {
-    if (!selection_enabled(term))
-        return;
-
     LOG_DBG("selection cancelled: start = %d,%d end = %d,%d",
             term->selection.start.row, term->selection.start.col,
             term->selection.end.row, term->selection.end.col);
@@ -610,9 +598,6 @@ void
 selection_mark_word(struct terminal *term, int col, int row, bool spaces_only,
                     uint32_t serial)
 {
-    if (!selection_enabled(term))
-        return;
-
     selection_cancel(term);
 
     struct coord start = {col, row};
