@@ -15,7 +15,12 @@
 * `Sync` to terminfo. This is a tmux extension that indicates
   _"Synchronized Updates"_ are supported.
 
+
 ### Changed
+
+* Background transparency to only be used with the default background
+  color.
+
 ### Deprecated
 ### Removed
 ### Fixed
