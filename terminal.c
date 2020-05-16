@@ -1731,10 +1731,7 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     /* Clamp scroll amount */
     rows = min(rows, region.end - region.start);
 
-    const int begin_scrolled_in = max(region.end - rows, region.start);
-    const int end_scrolled_in = region.end;
-
-    if (selection_on_rows_in_view(term, begin_scrolled_in, end_scrolled_in - 1))
+    if (selection_on_rows_in_view(term, region.end - rows, region.end))
         selection_cancel(term);
 
     bool view_follows = term->grid->view == term->grid->offset;
@@ -1753,7 +1750,7 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
         grid_swap_row(term->grid, i - rows, i);
 
     /* Erase scrolled in lines */
-    for (int r = begin_scrolled_in; r < end_scrolled_in; r++)
+    for (int r = region.end - rows; r < region.end; r++)
         erase_line(term, grid_row_and_alloc(term->grid, r));
 
     sixel_delete_in_range(term, max(region.end - rows, region.start), region.end - 1);
@@ -1777,11 +1774,8 @@ term_scroll_reverse_partial(struct terminal *term,
     /* Clamp scroll amount */
     rows = min(rows, region.end - region.start);
 
-    /* Row numbers of "new" lines scrolled in */
-    const int start_scrolled_in = region.start;
-    const int end_scrolled_in = min(region.start + rows, region.end);
-
-    if (selection_on_rows_in_view(term, start_scrolled_in, end_scrolled_in - 1))
+    /* Does the selection cover re-used, newly scrolled in lines? */
+    if (selection_on_rows_in_view(term, region.start, region.start + rows - 1))
         selection_cancel(term);
 
     bool view_follows = term->grid->view == term->grid->offset;
@@ -1805,7 +1799,7 @@ term_scroll_reverse_partial(struct terminal *term,
         grid_swap_row(term->grid, i, i - rows);
 
     /* Erase scrolled in lines */
-    for (int r = start_scrolled_in; r < end_scrolled_in; r++)
+    for (int r = region.start; r < region.start + rows; r++)
         erase_line(term, grid_row_and_alloc(term->grid, r));
 
     sixel_delete_in_range(term, region.start, min(region.start + rows, region.end) - 1);
