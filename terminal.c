@@ -1750,11 +1750,11 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
 
     /* Top non-scrolling region. */
     for (int i = region.start - 1; i >= 0; i--)
-        grid_swap_row(term->grid, i - rows, i, false);
+        grid_swap_row(term->grid, i - rows, i);
 
     /* Bottom non-scrolling region */
     for (int i = term->rows - 1; i >= region.end; i--)
-        grid_swap_row(term->grid, i - rows, i, false);
+        grid_swap_row(term->grid, i - rows, i);
 
     /* Erase scrolled in lines */
     for (int r = begin_scrolled_in; r < end_scrolled_in; r++)
@@ -1806,11 +1806,11 @@ term_scroll_reverse_partial(struct terminal *term,
 
     /* Bottom non-scrolling region */
     for (int i = region.end + rows; i < term->rows + rows; i++)
-        grid_swap_row(term->grid, i, i - rows, false);
+        grid_swap_row(term->grid, i, i - rows);
 
     /* Top non-scrolling region */
     for (int i = 0 + rows; i < region.start + rows; i++)
-        grid_swap_row(term->grid, i, i - rows, false);
+        grid_swap_row(term->grid, i, i - rows);
 
     /* Erase scrolled in lines */
     for (int r = start_scrolled_in; r < end_scrolled_in; r++)

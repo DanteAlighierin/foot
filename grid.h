@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include "terminal.h"
 
-void grid_swap_row(struct grid *grid, int row_a, int row_b, bool initialize);
+void grid_swap_row(struct grid *grid, int row_a, int row_b);
 struct row *grid_row_alloc(int cols, bool initialize);
 void grid_row_free(struct row *row);
 void grid_reflow(

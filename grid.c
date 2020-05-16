@@ -10,7 +10,7 @@
 #include "util.h"
 
 void
-grid_swap_row(struct grid *grid, int row_a, int row_b, bool initialize)
+grid_swap_row(struct grid *grid, int row_a, int row_b)
 {
     assert(grid->offset >= 0);
     assert(row_a != row_b);
