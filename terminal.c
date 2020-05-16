@@ -1728,12 +1728,8 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     LOG_DBG("scroll: rows=%d, region.start=%d, region.end=%d",
             rows, region.start, region.end);
 
-#if 0
-    if (rows > region.end - region.start) {
-        /* For now, clamp */
-        rows = region.end - region.start;
-    }
-#endif
+    /* Clamp scroll amount */
+    rows = min(rows, region.end - region.start);
 
     const int begin_scrolled_in = max(region.end - rows, region.start);
     const int end_scrolled_in = region.end;
@@ -1778,12 +1774,8 @@ term_scroll_reverse_partial(struct terminal *term,
     LOG_DBG("scroll reverse: rows=%d, region.start=%d, region.end=%d",
             rows, region.start, region.end);
 
-#if 0
-    if (rows > region.end - region.start) {
-        /* For now, clamp */
-        rows = region.end - region.start;
-    }
-#endif
+    /* Clamp scroll amount */
+    rows = min(rows, region.end - region.start);
 
     /* Row numbers of "new" lines scrolled in */
     const int start_scrolled_in = region.start;

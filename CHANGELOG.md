@@ -23,6 +23,8 @@
 * Copy to clipboard/primary selection to insert a line break if either
   the last cell on the previous line or the first cell on the next
   line is empty.
+* Number of lines to scroll is now always clamped to the number of
+  lines in the scrolling region..
 
 ### Deprecated
 ### Removed
@@ -34,7 +36,6 @@
   when the mouse button is released - not as soon as `shift` is
   released.
 * Selected cells did not appear selected if modified.
-
 
 ### Security
 
