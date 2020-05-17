@@ -1247,6 +1247,8 @@ erase_cell_range(struct terminal *term, struct row *row, int start, int end)
     assert(start < term->cols);
     assert(end < term->cols);
 
+    row->dirty = true;
+
     if (unlikely(term->vt.attrs.have_bg)) {
         for (int col = start; col <= end; col++) {
             struct cell *c = &row->cells[col];
@@ -1255,8 +1257,6 @@ erase_cell_range(struct terminal *term, struct row *row, int start, int end)
         }
     } else
         memset(&row->cells[start], 0, (end - start + 1) * sizeof(row->cells[0]));
-
-    row->dirty = true;
 }
 
 static inline void
