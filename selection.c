@@ -30,31 +30,39 @@ selection_enabled(const struct terminal *term)
 }
 
 bool
-selection_on_rows_in_view(const struct terminal *term, int row_start, int row_end)
+selection_on_rows(const struct terminal *term, int row_start, int row_end)
 {
-    LOG_DBG("selection: %d-%d, range: %d-%d (view=%d)",
+    LOG_DBG("on rows: %d-%d, range: %d-%d (offset=%d)",
             term->selection.start.row, term->selection.end.row,
-            row_start, row_end, term->grid->view);
+            row_start, row_end, term->grid->offset);
 
-    if (term->selection.start.row == -1 || term->selection.end.row == -1)
+    if (term->selection.end.row == -1)
         return false;
+
+    assert(term->selection.start.row != -1);
+
+    row_start += term->grid->offset;
+    row_end += term->grid->offset;
 
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
 
+    if ((row_start <= start->row && row_end >= start->row) ||
+        (row_start <= end->row && row_end >= end->row))
+    {
+        /* The range crosses one of the selection boundaries */
+        return true;
+    }
+
+    /* For the last check we must ensure start <= end */
     if (start->row > end->row) {
         const struct coord *tmp = start;
         start = end;
         end = tmp;
     }
 
-    row_start += term->grid->view;
-    row_end += term->grid->view;
-
-    if ((row_start <= start->row && row_end >= start->row) ||
-        (row_start <= end->row && row_end >= end->row) ||
-        (row_start >= start->row && row_end <= end->row))
-    {
+    if (row_start >= start->row && row_end <= end->row) {
+        LOG_INFO("ON ROWS");
         return true;
     }
 

@@ -1722,6 +1722,22 @@ term_cursor_blink_restart(struct terminal *term)
     }
 }
 
+static bool
+selection_on_top_region(const struct terminal *term,
+                        struct scroll_region region)
+{
+    return region.start > 0 &&
+        selection_on_rows(term, 0, region.start - 1);
+}
+
+static bool
+selection_on_bottom_region(const struct terminal *term,
+                           struct scroll_region region)
+{
+    return region.end < term->rows &&
+        selection_on_rows(term, region.end, term->rows - 1);
+}
+
 void
 term_scroll_partial(struct terminal *term, struct scroll_region region, int rows)
 {
@@ -1731,8 +1747,32 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     /* Clamp scroll amount */
     rows = min(rows, region.end - region.start);
 
-    if (selection_on_rows_in_view(term, region.end - rows, region.end))
-        selection_cancel(term);
+    /* Cancel selections that cannot be scrolled */
+    if (term->selection.start.row != -1) {
+        if (term->selection.end.row != -1) {
+            /*
+             * Selection is (partly) inside either the top or bottom
+             * scrolling regions, or on (at least one) of the lines
+             * scrolled in (i.e. re-used lines).
+             */
+            if (selection_on_top_region(term, region) ||
+                selection_on_bottom_region(term, region) ||
+                selection_on_rows(term, region.end - rows, region.end - 1))
+            {
+                selection_cancel(term);
+            }
+        } else {
+            /*
+             * User started a selection, but didn't move the
+             * cursor.
+             *
+             * Not 100% sure this is needed for forward scrolling, but
+             * let's keep it here, for consistency with reverse
+             * scrolling.
+             */
+            selection_cancel(term);
+        }
+    }
 
     bool view_follows = term->grid->view == term->grid->offset;
     term->grid->offset += rows;
@@ -1779,9 +1819,31 @@ term_scroll_reverse_partial(struct terminal *term,
     /* Clamp scroll amount */
     rows = min(rows, region.end - region.start);
 
-    /* Does the selection cover re-used, newly scrolled in lines? */
-    if (selection_on_rows_in_view(term, region.start, region.start + rows - 1))
-        selection_cancel(term);
+    /* Cancel selections that cannot be scrolled */
+    if (term->selection.start.row != -1) {
+        if (term->selection.end.row != -1) {
+            /*
+             * Selection is (partly) inside either the top or bottom
+             * scrolling regions, or on (at least one) of the lines
+             * scrolled in (i.e. re-used lines).
+             */
+            if (selection_on_top_region(term, region) ||
+                selection_on_bottom_region(term, region) ||
+                selection_on_rows(term, region.start, region.start + rows - 1))
+            {
+                selection_cancel(term);
+            }
+        } else {
+            /*
+             * User started a selection, but didn't move the
+             * cursor.
+             *
+             * Since we're scrolling in reverse, the result may be a
+             * *huge* selection that covers empty (NULL) lines.
+             */
+            selection_cancel(term);
+        }
+    }
 
     bool view_follows = term->grid->view == term->grid->offset;
     term->grid->offset -= rows;

@@ -17,7 +17,7 @@ void selection_dirty_cells(struct terminal *term);
 void selection_cancel(struct terminal *term);
 void selection_extend(struct terminal *term, int col, int row, uint32_t serial);
 
-bool selection_on_rows_in_view(const struct terminal *term, int start, int end);
+bool selection_on_rows(const struct terminal *term, int start, int end);
 
 void selection_mark_word(struct terminal *term, int col, int row,
                          bool spaces_only, uint32_t serial);
