@@ -51,16 +51,14 @@ selection_on_rows_in_view(const struct terminal *term, int row_start, int row_en
     row_start += term->grid->view;
     row_end += term->grid->view;
 
-    if (row_start <= start->row && row_end >= end->row) {
-        /* Row range completely encompases the selection */
+    if ((row_start <= start->row && row_end >= start->row) ||
+        (row_start <= end->row && row_end >= end->row) ||
+        (row_start >= start->row && row_end <= end->row))
+    {
         return true;
     }
 
-    else if (row_start >= start->row || row_end <= end->row)
-        return true;
-
-    else
-        return false;
+    return false;
 }
 
 static void
