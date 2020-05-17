@@ -1748,8 +1748,8 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     rows = min(rows, region.end - region.start);
 
     /* Cancel selections that cannot be scrolled */
-    if (term->selection.start.row != -1) {
-        if (term->selection.end.row != -1) {
+    if (unlikely(term->selection.start.row != -1)) {
+        if (likely(term->selection.end.row != -1)) {
             /*
              * Selection is (partly) inside either the top or bottom
              * scrolling regions, or on (at least one) of the lines
@@ -1820,8 +1820,8 @@ term_scroll_reverse_partial(struct terminal *term,
     rows = min(rows, region.end - region.start);
 
     /* Cancel selections that cannot be scrolled */
-    if (term->selection.start.row != -1) {
-        if (term->selection.end.row != -1) {
+    if (unlikely(term->selection.start.row != -1)) {
+        if (likely(term->selection.end.row != -1)) {
             /*
              * Selection is (partly) inside either the top or bottom
              * scrolling regions, or on (at least one) of the lines
