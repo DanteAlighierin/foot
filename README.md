@@ -383,15 +383,22 @@ To build, first, create a build directory, and switch to it:
 mkdir -p bld/release && cd bld/release
 ```
 
-Second, configure[^2] the build (if you intend to install it globally, you
-might also want `--prefix=/usr`):
+Second, configure[^2] the build (suggested flags):
 ```sh
-meson --buildtype=release ../..
+meson --buildtype=release --prefix=/usr \
+    -Db_lto=true -Dc_args="-march=native -fno-plt" ../..
 ```
 
 [^2]: for advanced users: a profile guided build will have
     significantly better performance; take a look at
     [PKDBUILD](PKGBUILD) to see how this can be done.
+
+To instead do a debug build (for example, to be able to provide a
+meaningful backtrace when reporting a bug):
+
+```sh
+meson --buildtype=debug ../..
+```
 
 Three, build it:
 ```sh
