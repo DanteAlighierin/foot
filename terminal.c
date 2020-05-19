@@ -1748,28 +1748,16 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     assert(rows <= region.end - region.start);
 
     /* Cancel selections that cannot be scrolled */
-    if (unlikely(term->selection.start.row != -1)) {
-        if (likely(term->selection.end.row != -1)) {
-            /*
-             * Selection is (partly) inside either the top or bottom
-             * scrolling regions, or on (at least one) of the lines
-             * scrolled in (i.e. re-used lines).
-             */
-            if (selection_on_top_region(term, region) ||
-                selection_on_bottom_region(term, region) ||
-                selection_on_rows(term, region.end - rows, region.end - 1))
-            {
-                selection_cancel(term);
-            }
-        } else {
-            /*
-             * User started a selection, but didn't move the
-             * cursor.
-             *
-             * Not 100% sure this is needed for forward scrolling, but
-             * let's keep it here, for consistency with reverse
-             * scrolling.
-             */
+    if (unlikely(term->selection.end.row >= 0)) {
+        /*
+         * Selection is (partly) inside either the top or bottom
+         * scrolling regions, or on (at least one) of the lines
+         * scrolled in (i.e. re-used lines).
+         */
+        if (selection_on_top_region(term, region) ||
+            selection_on_bottom_region(term, region) ||
+            selection_on_rows(term, region.end - rows, region.end - 1))
+        {
             selection_cancel(term);
         }
     }
@@ -1778,8 +1766,10 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     term->grid->offset += rows;
     term->grid->offset &= term->grid->num_rows - 1;
 
-    if (view_follows)
+    if (view_follows) {
+        selection_view_down(term, term->grid->offset);
         term->grid->view = term->grid->offset;
+    }
 
     /* Top non-scrolling region. */
     for (int i = region.start - 1; i >= 0; i--)
@@ -1820,27 +1810,16 @@ term_scroll_reverse_partial(struct terminal *term,
     assert(rows <= region.end - region.start);
 
     /* Cancel selections that cannot be scrolled */
-    if (unlikely(term->selection.start.row != -1)) {
-        if (likely(term->selection.end.row != -1)) {
-            /*
-             * Selection is (partly) inside either the top or bottom
-             * scrolling regions, or on (at least one) of the lines
-             * scrolled in (i.e. re-used lines).
-             */
-            if (selection_on_top_region(term, region) ||
-                selection_on_bottom_region(term, region) ||
-                selection_on_rows(term, region.start, region.start + rows - 1))
-            {
-                selection_cancel(term);
-            }
-        } else {
-            /*
-             * User started a selection, but didn't move the
-             * cursor.
-             *
-             * Since we're scrolling in reverse, the result may be a
-             * *huge* selection that covers empty (NULL) lines.
-             */
+    if (unlikely(term->selection.end.row >= 0)) {
+        /*
+         * Selection is (partly) inside either the top or bottom
+         * scrolling regions, or on (at least one) of the lines
+         * scrolled in (i.e. re-used lines).
+         */
+        if (selection_on_top_region(term, region) ||
+            selection_on_bottom_region(term, region) ||
+            selection_on_rows(term, region.start, region.start + rows - 1))
+        {
             selection_cancel(term);
         }
     }
@@ -1854,8 +1833,10 @@ term_scroll_reverse_partial(struct terminal *term,
     assert(term->grid->offset >= 0);
     assert(term->grid->offset < term->grid->num_rows);
 
-    if (view_follows)
+    if (view_follows) {
+        selection_view_up(term, term->grid->offset);
         term->grid->view = term->grid->offset;
+    }
 
     /* Bottom non-scrolling region */
     for (int i = region.end + rows; i < term->rows + rows; i++)

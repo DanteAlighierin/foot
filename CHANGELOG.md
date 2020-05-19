@@ -36,8 +36,8 @@
   when the mouse button is released - not as soon as `shift` is
   released.
 * Selected cells did not appear selected if modified.
-* Very rare crash when beginning a selection at the same time the
-  terminal content was scrolled.
+* Selection handling when viewport wrapped around.
+
 
 ### Security
 

@@ -69,6 +69,34 @@ selection_on_rows(const struct terminal *term, int row_start, int row_end)
     return false;
 }
 
+void
+selection_view_up(struct terminal *term, int new_view)
+{
+    if (likely(term->selection.start.row < 0))
+        return;
+
+    if (likely(new_view < term->grid->view))
+        return;
+
+    term->selection.start.row += term->grid->num_rows;
+    if (term->selection.end.row >= 0)
+        term->selection.end.row += term->grid->num_rows;
+}
+
+void
+selection_view_down(struct terminal *term, int new_view)
+{
+    if (likely(term->selection.start.row < 0))
+        return;
+
+    if (likely(new_view > term->grid->view))
+        return;
+
+    term->selection.start.row &= term->grid->num_rows - 1;
+    if (term->selection.end.row >= 0)
+        term->selection.end.row &= term->grid->num_rows - 1;
+}
+
 static void
 foreach_selected_normal(
     struct terminal *term, struct coord _start, struct coord _end,

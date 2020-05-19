@@ -19,6 +19,9 @@ void selection_extend(struct terminal *term, int col, int row, uint32_t serial);
 
 bool selection_on_rows(const struct terminal *term, int start, int end);
 
+void selection_view_up(struct terminal *term, int new_view);
+void selection_view_down(struct terminal *term, int new_view);
+
 void selection_mark_word(struct terminal *term, int col, int row,
                          bool spaces_only, uint32_t serial);
 void selection_mark_row(struct terminal *term, int row, uint32_t serial);

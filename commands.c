@@ -3,9 +3,10 @@
 #define LOG_MODULE "commands"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "terminal.h"
-#include "render.h"
 #include "grid.h"
+#include "render.h"
+#include "selection.h"
+#include "terminal.h"
 #include "util.h"
 
 void
@@ -73,6 +74,7 @@ cmd_scrollback_up(struct terminal *term, int rows)
     else
         diff = (term->grid->num_rows - new_view) + term->grid->view;
 
+    selection_view_up(term, new_view);
     term->grid->view = new_view;
 
     if (diff >= 0 && diff < term->rows) {
@@ -146,6 +148,7 @@ cmd_scrollback_down(struct terminal *term, int rows)
     else
         diff = (term->grid->num_rows - term->grid->view) + new_view;
 
+    selection_view_down(term, new_view);
     term->grid->view = new_view;
 
     if (diff >= 0 && diff < term->rows) {
