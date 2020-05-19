@@ -36,7 +36,7 @@ selection_on_rows(const struct terminal *term, int row_start, int row_end)
             term->selection.start.row, term->selection.end.row,
             row_start, row_end, term->grid->offset);
 
-    if (term->selection.end.row == -1)
+    if (term->selection.end.row < 0)
         return false;
 
     assert(term->selection.start.row != -1);
@@ -203,7 +203,7 @@ min_bufsize_for_extraction(const struct terminal *term)
         return 0;
 
     case SELECTION_NORMAL:
-        if (term->selection.end.row == -1)
+        if (term->selection.end.row < 0)
             return 0;
 
         assert(term->selection.start.row != -1);
@@ -406,7 +406,7 @@ selection_modify(struct terminal *term, struct coord start, struct coord end)
     /* Premark all cells that *will* be selected */
     foreach_selected(term, start, end, &premark_selected, NULL);
 
-    if (term->selection.end.row != -1) {
+    if (term->selection.end.row >= 0) {
         /* Unmark previous selection, ignoring cells that are part of
          * the new selection */
         foreach_selected(term, term->selection.start, term->selection.end,
@@ -424,7 +424,7 @@ selection_modify(struct terminal *term, struct coord start, struct coord end)
 void
 selection_update(struct terminal *term, int col, int row)
 {
-    if (term->selection.start.row == -1)
+    if (term->selection.start.row < 0)
         return;
 
     LOG_DBG("selection updated: start = %d,%d, end = %d,%d -> %d, %d",
@@ -441,7 +441,7 @@ selection_update(struct terminal *term, int col, int row)
 void
 selection_dirty_cells(struct terminal *term)
 {
-    if (term->selection.start.row == -1 || term->selection.end.row == -1)
+    if (term->selection.start.row < 0 || term->selection.end.row < 0)
         return;
 
     foreach_selected(
@@ -566,7 +566,7 @@ selection_extend_block(struct terminal *term, int col, int row, uint32_t serial)
 void
 selection_extend(struct terminal *term, int col, int row, uint32_t serial)
 {
-    if (term->selection.start.row == -1 || term->selection.end.row == -1) {
+    if (term->selection.start.row < 0 || term->selection.end.row < 0) {
         /* No existing selection */
         return;
     }
@@ -602,7 +602,7 @@ static const struct zwp_primary_selection_source_v1_listener primary_selection_s
 void
 selection_finalize(struct terminal *term, uint32_t serial)
 {
-    if (term->selection.start.row == -1 || term->selection.end.row == -1)
+    if (term->selection.start.row < 0 || term->selection.end.row < 0)
         return;
 
     assert(term->selection.start.row != -1);
@@ -628,7 +628,7 @@ selection_cancel(struct terminal *term)
             term->selection.start.row, term->selection.start.col,
             term->selection.end.row, term->selection.end.col);
 
-    if (term->selection.start.row != -1 && term->selection.end.row != -1) {
+    if (term->selection.start.row >= 0 && term->selection.end.row >= 0) {
         foreach_selected(
             term, term->selection.start, term->selection.end,
             &unmark_selected, NULL);
@@ -961,7 +961,7 @@ text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
 void
 selection_to_clipboard(struct terminal *term, uint32_t serial)
 {
-    if (term->selection.start.row == -1 || term->selection.end.row == -1)
+    if (term->selection.start.row < 0 || term->selection.end.row < 0)
         return;
 
     /* Get selection as a string */
