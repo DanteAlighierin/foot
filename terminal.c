@@ -1744,8 +1744,8 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     LOG_DBG("scroll: rows=%d, region.start=%d, region.end=%d",
             rows, region.start, region.end);
 
-    /* Clamp scroll amount */
-    rows = min(rows, region.end - region.start);
+    /* Verify scroll amount has been clamped */
+    assert(rows <= region.end - region.start);
 
     /* Cancel selections that cannot be scrolled */
     if (unlikely(term->selection.start.row != -1)) {
@@ -1816,8 +1816,8 @@ term_scroll_reverse_partial(struct terminal *term,
     LOG_DBG("scroll reverse: rows=%d, region.start=%d, region.end=%d",
             rows, region.start, region.end);
 
-    /* Clamp scroll amount */
-    rows = min(rows, region.end - region.start);
+    /* Verify scroll amount has been clamped */
+    assert(rows <= region.end - region.start);
 
     /* Cancel selections that cannot be scrolled */
     if (unlikely(term->selection.start.row != -1)) {

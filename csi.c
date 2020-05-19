@@ -650,13 +650,21 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        case 'S':
-            term_scroll(term, vt_param_get(term, 0, 1));
+        case 'S': {
+            int amount = min(
+                vt_param_get(term, 0, 1),
+                term->scroll_region.end - term->scroll_region.start);
+            term_scroll(term, amount);
             break;
+        }
 
-        case 'T':
-            term_scroll_reverse(term, vt_param_get(term, 0, 1));
+        case 'T': {
+            int amount = min(
+                vt_param_get(term, 0, 1),
+                term->scroll_region.end - term->scroll_region.start);
+            term_scroll_reverse(term, amount);
             break;
+        }
 
         case 'X': {
             /* Erase chars */
