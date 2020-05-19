@@ -26,6 +26,7 @@
 * Number of lines to scroll is now always clamped to the number of
   lines in the scrolling region..
 
+
 ### Deprecated
 ### Removed
 ### Fixed
@@ -36,6 +37,8 @@
   when the mouse button is released - not as soon as `shift` is
   released.
 * Selected cells did not appear selected if modified.
+* Rare crash when scrolling and the new viewport ended up **exactly**
+  on the wrap around.
 * Selection handling when viewport wrapped around.
 
 

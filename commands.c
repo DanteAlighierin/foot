@@ -48,10 +48,10 @@ cmd_scrollback_up(struct terminal *term, int rows)
     if (end >= term->grid->offset) {
         /* Not wrapped */
         if (new_view >= term->grid->offset && new_view <= end)
-            new_view = end + 1;
+            new_view = (end + 1) % term->grid->num_rows;
     } else {
         if (new_view >= term->grid->offset || new_view <= end)
-            new_view = end + 1;
+            new_view = (end + 1) % term->grid->num_rows;
     }
 
     while (term->grid->rows[new_view] == NULL)
