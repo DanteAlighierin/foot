@@ -24,6 +24,7 @@ struct client;
 struct server {
     const struct config *conf;
     struct fdm *fdm;
+    struct reaper *reaper;
     struct wayland *wayl;
 
     int fd;
@@ -311,7 +312,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         client->conf.startup_mode = STARTUP_FULLSCREEN;
 
     client->term = term_init(
-        &client->conf, server->fdm, server->wayl,
+        &client->conf, server->fdm, server->reaper, server->wayl,
         "footclient", cwd, argc, argv, &term_shutdown_handler, client);
 
     if (client->term == NULL) {
@@ -406,7 +407,8 @@ err:
 }
 
 struct server *
-server_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl)
+server_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
+            struct wayland *wayl)
 {
     int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
     if (fd == -1) {
@@ -448,6 +450,7 @@ server_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl)
     *server = (struct server) {
         .conf = conf,
         .fdm = fdm,
+        .reaper = reaper,
         .wayl = wayl,
 
         .fd = fd,

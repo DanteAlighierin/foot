@@ -390,14 +390,14 @@ main(int argc, char *const *argv)
         goto out;
 
     if (!as_server && (term = term_init(
-                           &conf, fdm, wayl, "foot", cwd, argc, argv,
+                           &conf, fdm, reaper, wayl, "foot", cwd, argc, argv,
                            &term_shutdown_cb, &shutdown_ctx)) == NULL) {
         free(cwd);
         goto out;
     }
     free(cwd);
 
-    if (as_server && (server = server_init(&conf, fdm, wayl)) == NULL)
+    if (as_server && (server = server_init(&conf, fdm, reaper, wayl)) == NULL)
         goto out;
 
     /* Remember to restore signals in slave */

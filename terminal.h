@@ -13,6 +13,7 @@
 
 //#include "config.h"
 #include "fdm.h"
+#include "reaper.h"
 #include "wayland.h"
 
 #define likely(c) __builtin_expect(!!(c), 1)
@@ -206,6 +207,7 @@ enum term_surface {
 
 struct terminal {
     struct fdm *fdm;
+    struct reaper *reaper;
     const struct config *conf;
 
     pid_t slave;
@@ -439,8 +441,9 @@ struct terminal {
 
 struct config;
 struct terminal *term_init(
-    const struct config *conf, struct fdm *fdm, struct wayland *wayl,
-    const char *foot_exe, const char *cwd, int argc, char *const *argv,
+    const struct config *conf, struct fdm *fdm, struct reaper *reaper,
+    struct wayland *wayl, const char *foot_exe, const char *cwd,
+    int argc, char *const *argv,
     void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data);
 
 bool term_shutdown(struct terminal *term);

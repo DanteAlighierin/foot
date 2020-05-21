@@ -23,6 +23,7 @@
 #include "config.h"
 #include "grid.h"
 #include "quirks.h"
+#include "reaper.h"
 #include "render.h"
 #include "selection.h"
 #include "sixel.h"
@@ -714,8 +715,9 @@ load_fonts_from_conf(const struct terminal *term, const struct config *conf,
 }
 
 struct terminal *
-term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
-          const char *foot_exe, const char *cwd, int argc, char *const *argv,
+term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
+          struct wayland *wayl, const char *foot_exe, const char *cwd,
+          int argc, char *const *argv,
           void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data)
 {
     int ptmx = -1;
@@ -784,6 +786,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct wayland *wayl,
     /* Initialize configure-based terminal attributes */
     *term = (struct terminal) {
         .fdm = fdm,
+        .reaper = reaper,
         .conf = conf,
         .quit = false,
         .ptmx = ptmx,
@@ -2221,69 +2224,59 @@ term_flash(struct terminal *term, unsigned duration_ms)
 bool
 term_spawn_new(const struct terminal *term)
 {
+    int pipe_fds[2] = {-1, -1};
+    if (pipe2(pipe_fds, O_CLOEXEC) < 0) {
+        LOG_ERRNO("failed to create pipe");
+        goto err;
+    }
+
     pid_t pid = fork();
     if (pid < 0) {
         LOG_ERRNO("failed to fork new terminal");
-        return false;
+        goto err;
     }
 
     if (pid == 0) {
         /* Child */
-        int pipe_fds[2] = {-1, -1};
-        if (pipe2(pipe_fds, O_CLOEXEC) < 0) {
-            LOG_ERRNO("failed to create pipe");
-            goto err;
-        }
-
-        /* Double fork */
-        pid_t pid2 = fork();
-        if (pid2 < 0) {
-            LOG_ERRNO("failed to double fork new terminal");
-            goto err;
-        }
-
-        if (pid2 == 0) {
-            /* Child */
-            close(pipe_fds[0]);
-            if (chdir(term->cwd) < 0 ||
-                execlp(term->foot_exe, term->foot_exe, NULL) < 0)
-            {
-                (void)!write(pipe_fds[1], &errno, sizeof(errno));
-                _exit(errno);
-            }
-            assert(false);
+        close(pipe_fds[0]);
+        if (chdir(term->cwd) < 0 ||
+            execlp(term->foot_exe, term->foot_exe, NULL) < 0)
+        {
+            (void)!write(pipe_fds[1], &errno, sizeof(errno));
             _exit(errno);
         }
-
-        /* Parent */
-
-        close(pipe_fds[1]);
-
-        int _errno;
-        static_assert(sizeof(_errno) == sizeof(errno), "errno size mismatch");
-
-        ssize_t ret = read(pipe_fds[0], &_errno, sizeof(_errno));
-        close(pipe_fds[0]);
-
-        if (ret == 0)
-            _exit(0);
-        else if (ret < 0)
-            LOG_ERRNO("failed to read from pipe");
-        else {
-            LOG_ERRNO_P("%s: failed to spawn new terminal", _errno, term->foot_exe);
-            errno = _errno;
-            waitpid(pid2, NULL, 0);
-        }
-
-    err:
-        if (pipe_fds[0] != -1)
-            close(pipe_fds[0]);
+        assert(false);
         _exit(errno);
     }
 
-    int result;
-    waitpid(pid, &result, 0);
-    return WIFEXITED(result) && WEXITSTATUS(result) == 0;
+    /* Parent */
+    close(pipe_fds[1]);
+
+    int _errno;
+    static_assert(sizeof(_errno) == sizeof(errno), "errno size mismatch");
+
+    ssize_t ret = read(pipe_fds[0], &_errno, sizeof(_errno));
+    close(pipe_fds[0]);
+
+    if (ret == 0) {
+        reaper_add(term->reaper, pid);
+        return true;
+    } else if (ret < 0) {
+        LOG_ERRNO("failed to read from pipe");
+        return false;
+    } else {
+        LOG_ERRNO_P("%s: failed to spawn new terminal", _errno, term->foot_exe);
+        errno = _errno;
+        waitpid(pid, NULL, 0);
+        return false;
+    }
+
+err:
+    if (pipe_fds[0] != -1)
+        close(pipe_fds[0]);
+    if (pipe_fds[1] != -1)
+        close(pipe_fds[1]);
+    return false;
 }
 
 void
