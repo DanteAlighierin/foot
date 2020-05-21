@@ -166,10 +166,13 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         }
 
         /* Restore signals */
+        sigset_t mask;
+        sigemptyset(&mask);
         const struct sigaction sa = {.sa_handler = SIG_DFL};
         if (sigaction(SIGINT, &sa, NULL) < 0 ||
             sigaction(SIGTERM, &sa, NULL) < 0 ||
-            sigaction(SIGHUP, &sa, NULL) < 0)
+            sigaction(SIGHUP, &sa, NULL) < 0 ||
+            sigprocmask(SIG_SETMASK, &mask, NULL) < 0)
         {
             const int _errno = errno;
             LOG_ERRNO_P("failed to restore signals", errno);

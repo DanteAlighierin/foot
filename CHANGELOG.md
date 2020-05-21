@@ -42,6 +42,7 @@
 * Rare crash when scrolling and the new viewport ended up **exactly**
   on the wrap around.
 * Selection handling when viewport wrapped around.
+* Restore signal mask in the slave process.
 
 
 ### Security
