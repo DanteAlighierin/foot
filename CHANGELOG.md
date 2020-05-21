@@ -25,7 +25,7 @@
   line is empty.
 * Number of lines to scroll is now always clamped to the number of
   lines in the scrolling region..
-* New terminal windows spawned with `ctrl`+`shift`+`n` is no longer
+* New terminal windows spawned with `ctrl`+`shift`+`n` are no longer
   double forked.
 
 
