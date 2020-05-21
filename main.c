@@ -21,6 +21,7 @@
 
 #include "config.h"
 #include "fdm.h"
+#include "reaper.h"
 #include "render.h"
 #include "server.h"
 #include "shm.h"
@@ -353,6 +354,7 @@ main(int argc, char *const *argv)
     conf.hold_at_exit = hold;
 
     struct fdm *fdm = NULL;
+    struct reaper *reaper = NULL;
     struct wayland *wayl = NULL;
     struct renderer *renderer = NULL;
     struct terminal *term = NULL;
@@ -376,6 +378,9 @@ main(int argc, char *const *argv)
     shm_set_max_pool_size(conf.tweak.max_shm_pool_size);
 
     if ((fdm = fdm_init()) == NULL)
+        goto out;
+
+    if ((reaper = reaper_init(fdm)) == NULL)
         goto out;
 
     if ((wayl = wayl_init(&conf, fdm)) == NULL)
@@ -429,6 +434,7 @@ out:
     shm_fini();
     render_destroy(renderer);
     wayl_destroy(wayl);
+    reaper_destroy(reaper);
     fdm_destroy(fdm);
 
     config_free(conf);

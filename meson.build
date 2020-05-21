@@ -114,6 +114,7 @@ executable(
   'misc.c', 'misc.h',
   'osc.c', 'osc.h',
   'quirks.c', 'quirks.h',
+  'reaper.c', 'reaper.h',
   'render.c', 'render.h',
   'search.c', 'search.h',
   'selection.c', 'selection.h',
