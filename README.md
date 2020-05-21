@@ -313,6 +313,10 @@ In addition to the dev variant of the packages above, you need:
 * ncurses
 * scdoc
 
+A note on compilers; in general, foot runs **much** faster when
+compiled with gcc instead of clang. A profile-guided gcc build can be
+more than twice as fast as a clang build.
+
 
 ## Installing
 
