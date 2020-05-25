@@ -317,6 +317,9 @@ A note on compilers; in general, foot runs **much** faster when
 compiled with gcc instead of clang. A profile-guided gcc build can be
 more than twice as fast as a clang build.
 
+**Note** GCC 10.1 has a performance regression that affects foot. A
+GPO build is about 30-40% slower with GCC 10.1 compared with GCC 9.3.
+
 
 ## Installing
 
