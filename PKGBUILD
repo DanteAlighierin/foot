@@ -14,6 +14,7 @@ pkgver() {
 }
 
 build() {
+  export CFLAGS+=" -O3"
   meson --prefix=/usr --buildtype=release --wrap-mode=nofallback -Db_lto=true ..
 
   if [[ -v WAYLAND_DISPLAY ]]; then
