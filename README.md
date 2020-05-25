@@ -321,7 +321,9 @@ more than twice as fast as a clang build.
 foot when doing PGO builds and building with `-O2`; it is about 30-40%
 slower compared to GCC 9.3.
 
-The work around is simple: make sure you build with `-O3`.
+The work around is simple: make sure you build with `-O3`. This is the
+default with `meson --buildtype=release`, but e.g. `makepkg` can
+override it (`makepkg` uses `-O2` by default).
 
 
 ## Installing
