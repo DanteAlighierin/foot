@@ -318,7 +318,7 @@ compiled with gcc instead of clang. A profile-guided gcc build can be
 more than twice as fast as a clang build.
 
 **Note** GCC 10.1 has a performance regression that affects foot. A
-PGO build is about 30-40% slower with GCC 10.1 compared with GCC 9.3.
+PGO build is about 30-40% slower with GCC 10.1 compared to GCC 9.3.
 
 
 ## Installing
