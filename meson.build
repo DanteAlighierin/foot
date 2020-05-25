@@ -17,8 +17,7 @@ add_project_arguments(
   (is_debug_build ? ['-D_DEBUG'] : []) +
   cc.get_supported_arguments(
     ['-fstrict-aliasing',
-     '-Wstrict-aliasing',
-     '-Wno-missing-profile']),
+     '-Wstrict-aliasing']),
   language: 'c',
 )
 
