@@ -18,7 +18,6 @@ add_project_arguments(
   cc.get_supported_arguments(
     ['-fstrict-aliasing',
      '-Wstrict-aliasing',
-     '-fprofile-correction',
      '-Wno-missing-profile']),
   language: 'c',
 )
