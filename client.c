@@ -39,6 +39,7 @@ print_usage(const char *prog_name)
            "     --fullscreen                       start in fullscreen mode\n"
            "     --login-shell                      start shell as a login shell\n"
            "  -s,--server-socket=PATH               path to the server UNIX domain socket (default=$XDG_RUNTIME_DIR/foot-$XDG_SESSION_ID.sock)\n"
+           "     --hold                             remain open after child process exits\n"
            "  -l,--log-colorize=[never|always|auto] enable/disable colorization of log output on stderr\n"
            "  -v,--version                          show the version number and quit\n");
 }
@@ -58,6 +59,7 @@ main(int argc, char *const *argv)
         {"fullscreen",    no_argument,       NULL, 'F'},
         {"login-shell",   no_argument,       NULL, 'L'},
         {"server-socket", required_argument, NULL, 's'},
+        {"hold",          no_argument,       NULL, 'H'},
         {"log-colorize",  optional_argument, NULL, 'l'},
         {"version",       no_argument,       NULL, 'v'},
         {"help",          no_argument,       NULL, 'h'},
@@ -72,6 +74,7 @@ main(int argc, char *const *argv)
     bool login_shell = false;
     bool maximized = false;
     bool fullscreen = false;
+    bool hold = false;
 
     while (true) {
         int c = getopt_long(argc, argv, "+:t:a:s:l::hv", longopts, NULL);
@@ -107,6 +110,10 @@ main(int argc, char *const *argv)
 
         case 's':
             server_socket_path = optarg;
+            break;
+
+        case 'H':
+            hold = true;
             break;
 
         case 'l':
@@ -212,6 +219,7 @@ main(int argc, char *const *argv)
     total_len += sizeof(app_id_len) + app_id_len;
     total_len += sizeof(uint8_t);  /* maximized */
     total_len += sizeof(uint8_t);  /* fullscreen */
+    total_len += sizeof(uint8_t);  /* hold */
     total_len += sizeof(uint8_t);  /* login_shell */
     total_len += sizeof(argc);
 
@@ -263,6 +271,11 @@ main(int argc, char *const *argv)
 
     if (send(fd, &(uint8_t){fullscreen}, sizeof(uint8_t), 0) != sizeof(uint8_t)) {
         LOG_ERRNO("failed to send fullscreen");
+        goto err;
+    }
+
+    if (send(fd, &(uint8_t){hold}, sizeof(uint8_t), 0) != sizeof(uint8_t)) {
+        LOG_ERRNO("failed to send hold");
         goto err;
     }
 
