@@ -9,6 +9,7 @@ _arguments \
     '--fullscreen[start in fullscreen mode]' \
     '--login-shell[start shell as a login shell]' \
     '(-s --server-socket)'{-s,--server-socket}'[override the default path to the foot server socket (XDG_RUNTIME_DIR/foot.sock)]:server:_files' \
+    '--hold[remain open after child process exits]' \
     '(-l --log-colorize)'{-l,--log-colorize}'[enable or disable colorization of log output on stderr]:logcolor:(never always auto)' \
     '(-v --version)'{-v,--version}'[show the version number and quit]' \
     '(-h --help)'{-h,--help}'[show help message and quit]' \
