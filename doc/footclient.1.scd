@@ -36,6 +36,9 @@ arguments, to execute (instead of the default shell).
 *-s*,*--server-socket*=_PATH_
 	Connect to _PATH_ instead of _XDG\_RUNTIME\_DIR/foot.sock_.
 
+*--hold*
+	Remain open after child process exits.
+
 *-l*,*--log-colorize*=[{*never*,*always*,*auto*}]
 	Enables or disables colorization of log output on stderr.
 
