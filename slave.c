@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <signal.h>
+#include <termios.h>
 
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -99,6 +100,19 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell)
         goto err;
     }
 
+    {
+        struct termios flags;
+        if (tcgetattr(pts, &flags) < 0) {
+            LOG_ERRNO("failed to get terminal attributes");
+            goto err;
+        }
+
+        flags.c_iflag |= IUTF8;
+        if (tcsetattr(pts, TCSANOW, &flags) < 0) {
+            LOG_ERRNO("failed to set IUTF8 terminal attribute");
+            goto err;
+        }
+    }
 
     if (dup2(pts, STDIN_FILENO) == -1 ||
         dup2(pts, STDOUT_FILENO) == -1 ||

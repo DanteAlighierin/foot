@@ -43,6 +43,7 @@
   on the wrap around.
 * Selection handling when viewport wrapped around.
 * Restore signal mask in the slave process.
+* Set `IUTF8`.
 
 
 ### Security
