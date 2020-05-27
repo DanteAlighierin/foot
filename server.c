@@ -268,6 +268,9 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     const uint8_t fullscreen = *(const uint8_t *)p; p += sizeof(fullscreen);
 
     CHECK_BUF(sizeof(uint8_t));
+    const uint8_t hold = *(const uint8_t *)p; p += sizeof(hold);
+
+    CHECK_BUF(sizeof(uint8_t));
     const uint8_t login_shell = *(const uint8_t *)p; p += sizeof(login_shell);
 
     CHECK_BUF(sizeof(argc));
@@ -304,6 +307,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         ? strdup(title) : strdup(server->conf->title);
     client->conf.app_id = strlen(app_id) > 0
         ? strdup(app_id) : strdup(server->conf->app_id);
+    client->conf.hold_at_exit = hold;
     client->conf.login_shell = login_shell;
 
     if (maximized)

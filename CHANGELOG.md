@@ -14,6 +14,7 @@
 
 * `Sync` to terminfo. This is a tmux extension that indicates
   _"Synchronized Updates"_ are supported.
+* `--hold` command line option to `footclient`.
 
 
 ### Changed
