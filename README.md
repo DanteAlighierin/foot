@@ -466,6 +466,7 @@ paths. To do this, we will use the script
 ```sh
 foot_tmp_file=$(mktemp)
 ./foot --config=/dev/null --term=xterm sh -c "<path-to-generate-alt-ranodm-writes.py> --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${foot_tmp_file} && cat ${foot_tmp_file}"
+rm ${foot_tmp_file}
 ```
 
 If using Clang (if using GCC, just skip to the next step), now do
