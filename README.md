@@ -469,6 +469,9 @@ foot_tmp_file=$(mktemp)
 rm ${foot_tmp_file}
 ```
 
+You should see a foot window open up, with random colored text. The
+window should close after ~1-2s.
+
 If using Clang (if using GCC, just skip to the next step), now do
 (this requires _llvm_ to have been installed):
 
