@@ -486,6 +486,7 @@ meson configure -Db_pgo=use
 ninja
 ```
 
+Continue reading in [Running the new build](#running-the-new-build)
 
 #### Debug build
 
