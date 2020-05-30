@@ -435,7 +435,7 @@ note this: foot is a performance critical application that relies on
 compiler optimizations to perform well.
 
 In particular, with GCC 10.1, it is **very** important `-O3` is used
-(and not e.g. `-O2` when doing a (PGO)[#profile-guided-optimization)
+(and not e.g. `-O2` when doing a [PGO](#profile-guided-optimization)
 build.
 
 
