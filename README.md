@@ -449,15 +449,10 @@ If using Clang, make sure to add `-Wno-ignored-optimization-argument
 
 If using GCC, make sure to add `-Wno-missing-profile` to `CFLAGS`.
 
-Then, tell meson we want to _generate_ profile data:
+Then, tell meson we want to _generate_ profile data, and build:
 
 ```sh
 meson configure -Db_pgo=generate
-```
-
-Build an intermediate version of foot:
-
-```sh
 ninja
 ```
 
@@ -475,8 +470,7 @@ rm ${foot_tmp_file}
 You should see a foot window open up, with random colored text. The
 window should close after ~1-2s.
 
-If using Clang (if using GCC, just skip to the next step), now do
-(this requires _llvm_ to have been installed):
+If using Clang, now do (this requires _llvm_ to have been installed):
 
 ```sh
 llvm-profdata merge default_*profraw --output=default.profdata
