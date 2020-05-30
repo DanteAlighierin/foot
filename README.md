@@ -442,9 +442,12 @@ build.
 ##### Profile Guided Optimization
 
 First, make sure you have configured a [release](#release-build) build
-directory. If using Clang, make sure to add
-`-Wno-ignored-optimization-argument -Wno-profile-instr-out-of-date` to
-`CFLAGS`.
+directory, but:
+
+If using Clang, make sure to add `-Wno-ignored-optimization-argument
+-Wno-profile-instr-out-of-date` to `CFLAGS`.
+
+If using GCC, make sure to add `-Wno-missing-profile` to `CFLAGS`.
 
 Then, tell meson we want to _generate_ profile data:
 
