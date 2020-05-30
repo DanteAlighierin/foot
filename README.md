@@ -23,6 +23,11 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Installing](#installing)
    1. [Arch Linux](#arch-linux)
    1. [Other](#other)
+      1. [Setup](#setup)
+      1. [Release build](#release-build)
+         1. [Profile Guided Optimization](#profile-guided-optimization)
+      1. [Debug build](#debug-build)
+      1. [Running the new build](#running-the-new-build)
 1. [Bugs](#bugs)
 
 
@@ -378,6 +383,9 @@ I also recommend taking a look at the bundled Arch
 you intend to install a release build of foot, in which case you might
 be interested in the compiler flags used there.
 
+
+#### Setup
+
 If you have not installed [tllist](https://codeberg.org/dnkl/tllist)
 and [fcft](https://codeberg.org/dnkl/fcft) as system libraries, clone
 them into the `subprojects` directory:
@@ -395,27 +403,94 @@ To build, first, create a build directory, and switch to it:
 mkdir -p bld/release && cd bld/release
 ```
 
-Second, configure[^2] the build (suggested flags):
-```sh
-meson --buildtype=release --prefix=/usr \
-    -Db_lto=true -Dc_args="-march=native -fno-plt" ../..
-```
-
-[^2]: for advanced users: a profile guided build will have
-    significantly better performance; take a look at
-    [PKDBUILD](PKGBUILD) to see how this can be done.
-
-To instead do a debug build (for example, to be able to provide a
-meaningful backtrace when reporting a bug):
+#### Release build
 
 ```sh
-meson --buildtype=debug ../..
+export CFLAGS+="-O3 -march=native -fno-plt"
+meson --buildtype=release --prefix=/usr -Db_lto=true
 ```
 
-Three, build it:
+For performance reasons, I strongly recommend doing a
+[PGO](#profile-guided-optimization) (Profile Guided Optimization)
+build. This requires a running Wayland session since we will be
+executing an intermediate build of foot.
+
+If you do not want this, just build:
+
 ```sh
 ninja
 ```
+
+and then skip to [Running the new build](#running-the-new-build).
+
+**For packagers**: normally, you would configure compiler flags using
+`-Dc_args`. This however "overwrites" `CFLAGS`. `makepkg` from Arch,
+for example, uses `CFLAGS` to specify the default set of flags.
+
+Thus, we do `export CFLAGS+="..."` to at least not throw away those
+flags.
+
+When packaging, you may want to use the default `CFLAGS` only, but
+note this: foot is a performance critical application that relies on
+compiler optimizations to perform well.
+
+In particular, with GCC 10.1, it is **very** important `-O3` is used
+(and not e.g. `-O2` when doing a (PGO)[#profile-guided-optimization)
+build.
+
+
+##### Profile Guided Optimization
+
+First, make sure you have configured a [release](#release-build) build
+directory. If using Clang, make sure to add
+`-Wno-ignored-optimization-argument -Wno-profile-instr-out-of-date` to
+`CFLAGS`.
+
+Then, tell meson we want to _generate_ profile data:
+
+```sh
+meson configure -Db_pgo=generate
+```
+
+Build an intermediate version of foot:
+
+```sh
+ninja
+```
+
+Next, we need to execute the intermediate build of foot, and run a
+payload inside it that will exercise the performance critical code
+paths. To do this, we will use the script
+`scripts/generate-alt-random-writes.py`:
+
+```sh
+foot_tmp_file=$(mktemp)
+./foot --config=/dev/null --term=xterm sh -c "<path-to-generate-alt-ranodm-writes.py> --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${foot_tmp_file} && cat ${foot_tmp_file}"
+```
+
+If using Clang (if using GCC, just skip to the next step), now do
+(this requires _llvm_ to have been installed):
+
+```sh
+llvm-profdata merge default_*profraw --output=default.profdata
+```
+
+Next, tell meson to _use_ the profile data we just generated, and rebuild:
+
+```sh
+meson configure -Db_pgo=use
+ninja
+```
+
+
+#### Debug build
+
+```sh
+meson --buildtype=debug ../..
+ninja
+```
+
+#### Running the new build
 
 You can now run it directly from the build directory:
 ```sh
