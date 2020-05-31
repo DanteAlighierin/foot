@@ -503,24 +503,10 @@ action_put(struct terminal *term, uint8_t c)
 }
 
 static void
-action_utf8_2_entry(struct terminal *term, uint8_t c)
+action_utf8_entry(struct terminal *term, uint8_t c)
 {
-    term->vt.utf8.idx = 0;
-    term->vt.utf8.data[term->vt.utf8.idx++] = c;
-}
-
-static void
-action_utf8_3_entry(struct terminal *term, uint8_t c)
-{
-    term->vt.utf8.idx = 0;
-    term->vt.utf8.data[term->vt.utf8.idx++] = c;
-}
-
-static void
-action_utf8_4_entry(struct terminal *term, uint8_t c)
-{
-    term->vt.utf8.idx = 0;
-    term->vt.utf8.data[term->vt.utf8.idx++] = c;
+    term->vt.utf8.data[0] = c;
+    term->vt.utf8.idx = 1;
 }
 
 static void
@@ -698,9 +684,9 @@ state_ground_switch(struct terminal *term, uint8_t data)
 
     case 0x20 ... 0x7f:                                  action_print(term, data);                                         return STATE_GROUND;
 
-    case 0xc0 ... 0xdf:                                  action_utf8_2_entry(term, data);                                  return STATE_UTF8_COLLECT_1;
-    case 0xe0 ... 0xef:                                  action_utf8_3_entry(term, data);                                  return STATE_UTF8_COLLECT_2;
-    case 0xf0 ... 0xf7:                                  action_utf8_4_entry(term, data);                                  return STATE_UTF8_COLLECT_3;
+    case 0xc0 ... 0xdf:                                  action_utf8_entry(term, data);                                    return STATE_UTF8_COLLECT_1;
+    case 0xe0 ... 0xef:                                  action_utf8_entry(term, data);                                    return STATE_UTF8_COLLECT_2;
+    case 0xf0 ... 0xf7:                                  action_utf8_entry(term, data);                                    return STATE_UTF8_COLLECT_3;
 
     /* Anywhere */
     case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
