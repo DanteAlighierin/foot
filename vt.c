@@ -512,14 +512,8 @@ action_utf8_entry(struct terminal *term, uint8_t c)
 static void
 action_utf8_print(struct terminal *term, uint8_t c)
 {
-    /* Convert to wchar */
-    mbstate_t ps = {};
-    wchar_t wc;
-    size_t count = mbrtowc(
-        &wc, (const char *)term->vt.utf8.data, term->vt.utf8.idx, &ps);
-
-    if ((ssize_t)count < 0)
-        wc = 0;
+    wchar_t wc = 0;
+    mbtowc(&wc, (const char *)term->vt.utf8.data, term->vt.utf8.idx);
 
     int width = wcwidth(wc);
 
