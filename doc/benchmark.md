@@ -4,11 +4,13 @@
 
 All benchmarks are done using [vtebench](https://github.com/alacritty/vtebench):
 
+```sh
 vtebench -h $(tput lines) -w $(tput cols) -b 104857600 alt-screen-random-write > ~/alt-random
 vtebench -c -h $(tput lines) -w $(tput cols) -b 104857600 alt-screen-random-write > ~/alt-random-colors
 vtebench -h $(tput lines) -w $(tput cols) -b 10485760 scrolling > ~/scrolling
 vtebench -h $(tput lines) -w $(tput cols) -b 104857600 scrolling --fill-lines > ~/scrolling-filled-lines
 vtebench -h $(tput lines) -w $(tput cols) -b 10485760 unicode-random-write > ~/unicode-random
+```
 
 They were "executed" using [benchmark.py](../scripts/benchmark.py),
 which will load each file into memory, and then print it to the
