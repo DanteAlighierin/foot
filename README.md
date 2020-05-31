@@ -33,7 +33,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 
 ## Features
 
-* Fast (see [benchmarks](doc/benchmarks.md))
+* Fast (see [benchmarks](doc/benchmark.md))
 * Lightweight, in dependencies, on-disk and in-memory
 * Wayland native
 * DE agnostic
