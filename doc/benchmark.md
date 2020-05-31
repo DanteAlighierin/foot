@@ -22,8 +22,10 @@ the _mean_ and _standard deviation_ for each test.
 
 ### System
 
-CPU: i5-8250U 
-RAM: 8GB RAM 
+CPU: i5-8250U
+
+RAM: 8GB RAM
+
 Graphics: Intel UHD Graphcis 620
 
 
