@@ -47,7 +47,7 @@
 * Set `IUTF8`.
 * Selection of double-width characters. It is no longer possible to
   select half of a double-width character.
-
+* Draw hollow block cursor on top of character.
 
 ### Security
 

@@ -428,7 +428,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     if (cell->attrs.blink)
         term_arm_blink_timer(term);
 
-    if (has_cursor && term->cursor_style == CURSOR_BLOCK)
+    if (has_cursor && term->cursor_style == CURSOR_BLOCK && term->visual_focus)
         draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
 
     if (cell->wc == 0 || cell->attrs.conceal)
@@ -487,7 +487,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     }
 
 draw_cursor:
-    if (has_cursor && term->cursor_style != CURSOR_BLOCK)
+    if (has_cursor && (term->cursor_style != CURSOR_BLOCK || !term->visual_focus))
         draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
 
     return cell_cols;
