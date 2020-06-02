@@ -48,6 +48,8 @@
 * Selection of double-width characters. It is no longer possible to
   select half of a double-width character.
 * Draw hollow block cursor on top of character.
+* Set an initial `TIOCSWINSZ`. This ensures clients never reads a
+  `0x0` terminal size (https://codeberg.org/dnkl/foot/issues/20).
 
 ### Security
 
