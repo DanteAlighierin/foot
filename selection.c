@@ -355,6 +355,7 @@ selection_start(struct terminal *term, int col, int row,
             kind == SELECTION_NORMAL ? "normal" :
             kind == SELECTION_BLOCK ? "block" : "<unknown>",
             row, col);
+
     term->selection.kind = kind;
     term->selection.start = (struct coord){col, term->grid->view + row};
     term->selection.end = (struct coord){-1, -1};
@@ -434,8 +435,34 @@ selection_update(struct terminal *term, int col, int row)
 
     assert(term->grid->view + row != -1);
 
+    struct coord new_start = term->selection.start;
     struct coord new_end = {col, term->grid->view + row};
-    selection_modify(term, term->selection.start, new_end);
+
+    size_t start_row_idx = new_start.row & (term->grid->num_rows - 1);
+    size_t end_row_idx = new_end.row & (term->grid->num_rows - 1);
+    const struct row *row_start = term->grid->rows[start_row_idx];
+    const struct row *row_end = term->grid->rows[end_row_idx];
+
+    /* Handle double-width characters */
+    if (new_start.row < new_end.row ||
+        (new_start.row == new_end.row && new_start.col <= new_end.col))
+    {
+        if (new_start.col - 1 >= 0)
+            if (wcwidth(row_start->cells[new_start.col - 1].wc) > 1)
+                new_start.col--;
+        if (new_end.col + 1 < term->cols)
+            if (wcwidth(row_end->cells[new_end.col].wc) > 1)
+                new_end.col++;
+    } else {
+        if (new_end.col - 1 >= 0)
+            if (wcwidth(row_end->cells[new_end.col - 1].wc) > 1)
+                new_end.col--;
+        if (new_start.col + 1 < term->cols)
+            if (wcwidth(row_end->cells[new_start.col].wc) > 1)
+                new_start.col++;
+    }
+
+    selection_modify(term, new_start, new_end);
 }
 
 void

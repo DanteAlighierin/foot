@@ -45,6 +45,8 @@
 * Selection handling when viewport wrapped around.
 * Restore signal mask in the slave process.
 * Set `IUTF8`.
+* Selection of double-width characters. It is no longer possible to
+  select half of a double-width character.
 
 
 ### Security
