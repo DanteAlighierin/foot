@@ -50,6 +50,9 @@
 * Draw hollow block cursor on top of character.
 * Set an initial `TIOCSWINSZ`. This ensures clients never reads a
   `0x0` terminal size (https://codeberg.org/dnkl/foot/issues/20).
+* Glyphs overflowing into surrounding cells
+  (https://codeberg.org/dnkl/foot/issues/21).
+
 
 ### Security
 
