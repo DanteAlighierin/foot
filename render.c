@@ -437,39 +437,57 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     pixman_image_t *clr_pix = pixman_image_create_solid_fill(&fg);
 
     if (glyph != NULL) {
+        /*
+         * Clip to cell.
+         *
+         * What we'd really like to do here is use normal destination
+         * clipping on the pixman image. Unfortunately, that's not
+         * possible since we have multiple threads accessing the same
+         * pixman image.
+         *
+         * Instead, manually adjust the destination offsets and
+         * width/heights.
+         */
+        int glyph_x = max(x + glyph->x, x);
+        int mask_x = max(0, -glyph->x);
+        int glyph_w = min(glyph->width, glyph->cols * term->cell_width);
+
+        int glyph_y = max(y + font_baseline(term) - glyph->y, y);
+        int mask_y = max(0, -font_baseline(term) + glyph->y);
+        int glyph_h = min(glyph->height, term->cell_height);
+
         if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
             /* Glyph surface is a pre-rendered image (typically a color emoji...) */
             if (!(cell->attrs.blink && term->blink.state == BLINK_OFF)) {
                 pixman_image_composite32(
                     PIXMAN_OP_OVER, glyph->pix, NULL, pix, 0, 0, 0, 0,
-                    x + glyph->x, y + font_baseline(term) - glyph->y,
-                    glyph->width, glyph->height);
+                    glyph_x, glyph_y, glyph_w, glyph_h);
             }
         } else {
-            /* Glyph surface is an alpha mask */
             pixman_image_composite32(
-                PIXMAN_OP_OVER, clr_pix, glyph->pix, pix, 0, 0, 0, 0,
-                x + glyph->x, y + font_baseline(term) - glyph->y,
-                glyph->width, glyph->height);
-        }
-    }
+                PIXMAN_OP_OVER, clr_pix, glyph->pix, pix, 0, 0,
+                mask_x, mask_y, glyph_x, glyph_y, glyph_w, glyph_h);
 
-    /* Combining characters */
-    if (composed != NULL) {
-        for (size_t i = 0; i < composed->count; i++) {
-            const struct fcft_glyph *g = fcft_glyph_rasterize(
-                font, composed->combining[i], term->font_subpixel);
+            /* Combining characters */
+            if (composed != NULL) {
+                for (size_t i = 0; i < composed->count; i++) {
+                    const struct fcft_glyph *g = fcft_glyph_rasterize(
+                        font, composed->combining[i], term->font_subpixel);
 
-            if (g == NULL)
-                continue;
+                    if (g == NULL)
+                        continue;
 
-            pixman_image_composite32(
-                PIXMAN_OP_OVER, clr_pix, g->pix, pix, 0, 0, 0, 0,
-                /* Some fonts use a negative offset, while others use a
-                 * "normal" offset */
-                x + (g->x < 0 ? term->cell_width : 0) + g->x,
-                y + font_baseline(term) - g->y,
-                g->width, g->height);
+                    /* TODO: clip to cell */
+
+                    pixman_image_composite32(
+                        PIXMAN_OP_OVER, clr_pix, g->pix, pix, 0, 0, 0, 0,
+                        /* Some fonts use a negative offset, while others use a
+                         * "normal" offset */
+                        x + (g->x < 0 ? term->cell_width : 0) + g->x,
+                        y + font_baseline(term) - g->y,
+                        g->width, g->height);
+                }
+            }
         }
     }
 
@@ -622,7 +640,6 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
     }
 
     if (did_shm_scroll) {
-
         /* Restore margins */
         render_margin(
             term, buf, dmg->region.end - dmg->lines, term->rows,
@@ -1259,8 +1276,6 @@ grid_render(struct terminal *term)
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, term->width, term->height, cookie, true);
 
-    pixman_image_set_clip_region(buf->pix, NULL);
-
     /* If we resized the window, or is flashing, or just stopped flashing */
     if (term->render.last_buf != buf ||
         term->flash.active || term->render.was_flashing ||
@@ -1296,14 +1311,6 @@ grid_render(struct terminal *term)
         term->render.was_flashing = term->flash.active;
         term->render.was_searching = term->is_searching;
     }
-
-    /* Set clip region to prevent cells from overflowing into the margins */
-    pixman_region16_t clip;
-    pixman_region_init_rect(
-        &clip,
-        term->margins.left, term->margins.top,
-        term->cols * term->cell_width, term->rows * term->cell_height);
-    pixman_image_set_clip_region(buf->pix, &clip);
 
     /* Erase old cursor (if we rendered a cursor last time) */
     if (term->render.last_cursor.row != NULL) {
@@ -1350,9 +1357,6 @@ grid_render(struct terminal *term)
 
         tll_remove(term->grid->scroll_damage, it);
     }
-
-    /* Reset clip region since scrolling may have instantiated a new pixman image */
-    pixman_image_set_clip_region(buf->pix, &clip);
 
     /*
      * Ensure selected cells have their 'selected' bit set. This is
@@ -1480,7 +1484,6 @@ grid_render(struct terminal *term)
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
         /* TODO: dim while searching */
-        pixman_image_set_clip_region(buf->pix, NULL);
         pixman_image_fill_rectangles(
             PIXMAN_OP_OVER, buf->pix,
             &(pixman_color_t){.red=0x7fff, .green=0x7fff, .blue=0, .alpha=0x7fff},
