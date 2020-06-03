@@ -458,7 +458,7 @@ selection_update(struct terminal *term, int col, int row)
             if (wcwidth(row_end->cells[new_end.col - 1].wc) > 1)
                 new_end.col--;
         if (new_start.col + 1 < term->cols)
-            if (wcwidth(row_end->cells[new_start.col].wc) > 1)
+            if (wcwidth(row_start->cells[new_start.col].wc) > 1)
                 new_start.col++;
     }
 
