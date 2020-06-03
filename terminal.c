@@ -8,6 +8,7 @@
 
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 #include <sys/timerfd.h>
@@ -756,6 +757,13 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
     if ((app_sync_updates_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1)
     {
         LOG_ERRNO("failed to create application synchronized updates timer FD");
+        goto close_fds;
+    }
+
+    if (ioctl(ptmx, TIOCSWINSZ,
+              &(struct winsize){.ws_row = 24, .ws_col = 80}) < 0)
+    {
+        LOG_ERRNO("failed to set initial TIOCSWINSZ");
         goto close_fds;
     }
 
