@@ -437,36 +437,25 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     pixman_image_t *clr_pix = pixman_image_create_solid_fill(&fg);
 
     if (glyph != NULL) {
-        /*
-         * Clip to cell.
-         *
-         * What we'd really like to do here is use normal destination
-         * clipping on the pixman image. Unfortunately, that's not
-         * possible since we have multiple threads accessing the same
-         * pixman image.
-         *
-         * Instead, manually adjust the destination offsets and
-         * width/heights.
-         */
-        int glyph_x = max(x + glyph->x, x);
-        int mask_x = max(0, -glyph->x);
-        int glyph_w = min(glyph->width, glyph->cols * term->cell_width);
-
-        int glyph_y = max(y + font_baseline(term) - glyph->y, y);
-        int mask_y = max(0, -font_baseline(term) + glyph->y);
-        int glyph_h = min(glyph->height, term->cell_height);
+        /* Clip to cell */
+        pixman_region32_t clip;
+        pixman_region32_init_rect(
+            &clip, x, y, glyph->cols * term->cell_width, term->cell_height);
+        pixman_image_set_clip_region32(pix, &clip);
 
         if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
             /* Glyph surface is a pre-rendered image (typically a color emoji...) */
             if (!(cell->attrs.blink && term->blink.state == BLINK_OFF)) {
                 pixman_image_composite32(
                     PIXMAN_OP_OVER, glyph->pix, NULL, pix, 0, 0, 0, 0,
-                    glyph_x, glyph_y, glyph_w, glyph_h);
+                    x + glyph->x, y + font_baseline(term) - glyph->y,
+                    glyph->width, glyph->height);
             }
         } else {
             pixman_image_composite32(
-                PIXMAN_OP_OVER, clr_pix, glyph->pix, pix, 0, 0,
-                mask_x, mask_y, glyph_x, glyph_y, glyph_w, glyph_h);
+                PIXMAN_OP_OVER, clr_pix, glyph->pix, pix, 0, 0, 0, 0,
+                x + glyph->x, y + font_baseline(term) - glyph->y,
+                glyph->width, glyph->height);
 
             /* Combining characters */
             if (composed != NULL) {
@@ -476,8 +465,6 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
                     if (g == NULL)
                         continue;
-
-                    /* TODO: clip to cell */
 
                     pixman_image_composite32(
                         PIXMAN_OP_OVER, clr_pix, g->pix, pix, 0, 0, 0, 0,
@@ -489,6 +476,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                 }
             }
         }
+
+        pixman_image_set_clip_region32(pix, NULL);
     }
 
     pixman_image_unref(clr_pix);
@@ -528,7 +517,7 @@ render_margin(struct terminal *term, struct buffer *buf, int start_line, int end
 
     if (top) {
         pixman_image_fill_rectangles(
-            PIXMAN_OP_SRC, buf->pix, &bg, 1,
+            PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
             &(pixman_rectangle16_t){0, 0, term->width, term->margins.top});
         wl_surface_damage_buffer(
             term->window->surface, 0, 0, term->width, term->margins.top);
@@ -536,14 +525,14 @@ render_margin(struct terminal *term, struct buffer *buf, int start_line, int end
 
     if (bottom) {
         pixman_image_fill_rectangles(
-            PIXMAN_OP_SRC, buf->pix, &bg, 1,
+            PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
             &(pixman_rectangle16_t){0, bmargin, term->width, term->margins.bottom});
         wl_surface_damage_buffer(
             term->window->surface, 0, bmargin, term->width, term->margins.bottom);
     }
 
     pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix, &bg, 2,
+        PIXMAN_OP_SRC, buf->pix[0], &bg, 2,
         (pixman_rectangle16_t[]){
             /* Left */
             {0, term->margins.top + start_line * term->cell_height,
@@ -851,7 +840,7 @@ render_worker_thread(void *_ctx)
             switch (row_no) {
             default:
                 assert(buf != NULL);
-                render_row(term, buf->pix, grid_row_in_view(term->grid, row_no), row_no);
+                render_row(term, buf->pix[my_id], grid_row_in_view(term->grid, row_no), row_no);
                 break;
 
             case -1:
@@ -930,7 +919,7 @@ render_csd_part(struct terminal *term,
     pixman_image_t *src = pixman_image_create_solid_fill(color);
 
     pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix, color, 1,
+        PIXMAN_OP_SRC, buf->pix[0], color, 1,
         &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
     pixman_image_unref(src);
 }
@@ -947,7 +936,7 @@ render_csd_title(struct terminal *term)
 
     unsigned long cookie = shm_cookie_csd(term, CSD_SURF_TITLE);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, info.width, info.height, cookie, false);
+        term->wl->shm, info.width, info.height, cookie, false, 1);
 
     uint32_t _color = term->colors.default_fg;
     uint16_t alpha = 0xffff;
@@ -978,7 +967,7 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, info.width, info.height, cookie, false);
+        term->wl->shm, info.width, info.height, cookie, false, 1);
 
     pixman_color_t color = color_hex_to_pixman_with_alpha(0, 0);
     render_csd_part(term, surf, buf, info.width, info.height, &color);
@@ -1024,7 +1013,7 @@ render_csd_button_minimize(struct terminal *term, struct buffer *buf)
     };
 
     pixman_composite_triangles(
-        PIXMAN_OP_OVER, src, buf->pix, PIXMAN_a1,
+        PIXMAN_OP_OVER, src, buf->pix[0], PIXMAN_a1,
         0, 0, 0, 0, 1, &tri);
     pixman_image_unref(src);
 }
@@ -1046,7 +1035,7 @@ render_csd_button_maximize_maximized(
     const int y_margin = (buf->height - width) / 2;
 
     pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix, &color, 4,
+        PIXMAN_OP_SRC, buf->pix[0], &color, 4,
         (pixman_rectangle16_t[]){
             {x_margin, y_margin, width, thick},
             {x_margin, y_margin + thick, thick, width - 2 * thick},
@@ -1097,7 +1086,7 @@ render_csd_button_maximize_window(
     };
 
     pixman_composite_triangles(
-        PIXMAN_OP_OVER, src, buf->pix, PIXMAN_a1,
+        PIXMAN_OP_OVER, src, buf->pix[0], PIXMAN_a1,
         0, 0, 0, 0, 1, &tri);
 
     pixman_image_unref(src);
@@ -1127,7 +1116,7 @@ render_csd_button_close(struct terminal *term, struct buffer *buf)
     const int y_margin = (buf->height - width) / 2;
 
     pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix, &color, 1,
+        PIXMAN_OP_SRC, buf->pix[0], &color, 1,
         &(pixman_rectangle16_t){x_margin, y_margin, width, width});
 
     pixman_image_unref(src);
@@ -1147,7 +1136,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
 
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, info.width, info.height, cookie, false);
+        term->wl->shm, info.width, info.height, cookie, false, 1);
 
     uint32_t _color;
     uint16_t alpha = 0xffff;
@@ -1274,7 +1263,7 @@ grid_render(struct terminal *term)
 
     unsigned long cookie = shm_cookie_grid(term);
     struct buffer *buf = shm_get_buffer(
-        term->wl->shm, term->width, term->height, cookie, true);
+        term->wl->shm, term->width, term->height, cookie, true, 1 + term->render.workers.count);
 
     /* If we resized the window, or is flashing, or just stopped flashing */
     if (term->render.last_buf != buf ||
@@ -1324,7 +1313,7 @@ grid_render(struct terminal *term)
         /* If cell is already dirty, it will be rendered anyway */
         if (cell->attrs.clean) {
             cell->attrs.clean = 0;
-            int cols = render_cell(term, buf->pix, row, at.col, at.row, false);
+            int cols = render_cell(term, buf->pix[0], row, at.col, at.row, false);
 
             wl_surface_damage_buffer(
                 term->window->surface,
@@ -1416,7 +1405,7 @@ grid_render(struct terminal *term)
             if (!row->dirty)
                 continue;
 
-            render_row(term, buf->pix, row, r);
+            render_row(term, buf->pix[0], row, r);
             row->dirty = false;
 
             wl_surface_damage_buffer(
@@ -1470,7 +1459,7 @@ grid_render(struct terminal *term)
         cell->attrs.clean = 0;
         term->render.last_cursor.row = row;
         int cols_updated = render_cell(
-            term, buf->pix, row, term->grid->cursor.point.col, view_aligned_row, true);
+            term, buf->pix[0], row, term->grid->cursor.point.col, view_aligned_row, true);
 
         wl_surface_damage_buffer(
             term->window->surface,
@@ -1479,13 +1468,13 @@ grid_render(struct terminal *term)
             cols_updated * term->cell_width, term->cell_height);
     }
 
-    render_sixel_images(term, buf->pix);
+    render_sixel_images(term, buf->pix[0]);
 
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
         /* TODO: dim while searching */
         pixman_image_fill_rectangles(
-            PIXMAN_OP_OVER, buf->pix,
+            PIXMAN_OP_OVER, buf->pix[0],
             &(pixman_color_t){.red=0x7fff, .green=0x7fff, .blue=0, .alpha=0x7fff},
             1, &(pixman_rectangle16_t){0, 0, term->width, term->height});
 
@@ -1568,7 +1557,7 @@ render_search_box(struct terminal *term)
     size_t glyph_offset = term->render.search_glyph_offset;
 
     unsigned long cookie = shm_cookie_search(term);
-    struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie, false);
+    struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie, false, 1);
 
     /* Background - yellow on empty/match, red on mismatch */
     pixman_color_t color = color_hex_to_pixman(
@@ -1576,12 +1565,12 @@ render_search_box(struct terminal *term)
         ? term->colors.table[3] : term->colors.table[1]);
 
     pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix, &color,
+        PIXMAN_OP_SRC, buf->pix[0], &color,
         1, &(pixman_rectangle16_t){width - visible_width, 0, visible_width, height});
 
     pixman_color_t transparent = color_hex_to_pixman_with_alpha(0, 0);
     pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix, &transparent,
+        PIXMAN_OP_SRC, buf->pix[0], &transparent,
         1, &(pixman_rectangle16_t){0, 0, width - visible_width, height});
 
     struct fcft_font *font = term->fonts[0];
@@ -1608,7 +1597,7 @@ render_search_box(struct terminal *term)
          i++)
     {
         if (i == term->search.cursor)
-            draw_bar(term, buf->pix, font, &fg, x, y);
+            draw_bar(term, buf->pix[0], font, &fg, x, y);
 
         const struct fcft_glyph *glyph = fcft_glyph_rasterize(
             font, term->search.buf[i], true);
@@ -1618,7 +1607,7 @@ render_search_box(struct terminal *term)
 
         pixman_image_t *src = pixman_image_create_solid_fill(&fg);
         pixman_image_composite32(
-            PIXMAN_OP_OVER, src, glyph->pix, buf->pix, 0, 0, 0, 0,
+            PIXMAN_OP_OVER, src, glyph->pix, buf->pix[0], 0, 0, 0, 0,
             x + glyph->x, y + font_baseline(term) - glyph->y,
             glyph->width, glyph->height);
         pixman_image_unref(src);
@@ -1627,7 +1616,7 @@ render_search_box(struct terminal *term)
     }
 
     if (term->search.cursor >= term->search.len)
-        draw_bar(term, buf->pix, font, &fg, x, y);
+        draw_bar(term, buf->pix[0], font, &fg, x, y);
 
     quirk_weston_subsurface_desync_on(term->window->search_sub_surface);
 

@@ -67,11 +67,15 @@ shm_set_max_pool_size(off_t _max_pool_size)
 static void
 buffer_destroy_dont_close(struct buffer *buf)
 {
-    if (buf->pix != NULL)
-        pixman_image_unref(buf->pix);
+    if (buf->pix != NULL) {
+        for (size_t i = 0; i < buf->pix_instances; i++)
+            if (buf->pix[i] != NULL)
+                pixman_image_unref(buf->pix[i]);
+    }
     if (buf->wl_buf != NULL)
         wl_buffer_destroy(buf->wl_buf);
 
+    free(buf->pix);
     buf->pix = NULL;
     buf->wl_buf = NULL;
     buf->mmapped = NULL;
@@ -145,7 +149,7 @@ instantiate_offset(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
 
     void *mmapped = MAP_FAILED;
     struct wl_buffer *wl_buf = NULL;
-    pixman_image_t *pix = NULL;
+    pixman_image_t **pix = calloc(buf->pix_instances, sizeof(*pix));
 
     mmapped = (uint8_t *)buf->real_mmapped + new_offset;
 
@@ -157,11 +161,13 @@ instantiate_offset(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
     }
 
     /* One pixman image for each worker thread (do we really need multiple?) */
-    pix = pixman_image_create_bits_no_clear(
-        PIXMAN_a8r8g8b8, buf->width, buf->height, (uint32_t *)mmapped, buf->stride);
-    if (pix == NULL) {
-        LOG_ERR("failed to create pixman image");
-        goto err;
+    for (size_t i = 0; i < buf->pix_instances; i++) {
+        pix[i] = pixman_image_create_bits_no_clear(
+            PIXMAN_a8r8g8b8, buf->width, buf->height, (uint32_t *)mmapped, buf->stride);
+        if (pix[i] == NULL) {
+            LOG_ERR("failed to create pixman image");
+            goto err;
+        }
     }
 
     buf->offset = new_offset;
@@ -173,8 +179,12 @@ instantiate_offset(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
     return true;
 
 err:
-    if (pix != NULL)
-        pixman_image_unref(pix);
+    if (pix != NULL) {
+        for (size_t i = 0; i < buf->pix_instances; i++)
+            if (pix[i] != NULL)
+                pixman_image_unref(pix[i]);
+    }
+    free(pix);
     if (wl_buf != NULL)
         wl_buffer_destroy(wl_buf);
 
@@ -183,7 +193,7 @@ err:
 }
 
 struct buffer *
-shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, bool scrollable)
+shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, bool scrollable, size_t pix_instances)
 {
     /* Purge buffers marked for purging */
     tll_foreach(buffers, it) {
@@ -216,6 +226,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
                     cookie, &it->item);
             it->item.busy = true;
             it->item.purge = false;
+            assert(it->item.pix_instances == pix_instances);
             return &it->item;
         }
     }
@@ -333,6 +344,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
             .stride = stride,
             .busy = true,
             .size = size,
+            .pix_instances = pix_instances,
             .fd = pool_fd,
             .pool = pool,
             .scrollable = scrollable,

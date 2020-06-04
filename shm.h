@@ -19,7 +19,8 @@ struct buffer {
     void *mmapped;         /* Raw data (TODO: rename) */
 
     struct wl_buffer *wl_buf;
-    pixman_image_t *pix;
+    pixman_image_t **pix;
+    size_t pix_instances;
 
     /* Internal */
     int fd;                /* memfd */
@@ -34,7 +35,7 @@ struct buffer {
 };
 
 struct buffer *shm_get_buffer(
-    struct wl_shm *shm, int width, int height, unsigned long cookie, bool scrollable);
+    struct wl_shm *shm, int width, int height, unsigned long cookie, bool scrollable, size_t pix_instances);
 void shm_fini(void);
 
 void shm_set_max_pool_size(off_t max_pool_size);
