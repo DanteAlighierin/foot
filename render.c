@@ -418,7 +418,14 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         glyph = fcft_glyph_rasterize(font, base, term->font_subpixel);
     }
 
-    int cell_cols = glyph != NULL ? max(1, glyph->cols) : 1;
+    const int cols_left = term->cols - col;
+    int cell_cols = glyph != NULL ? max(1, min(glyph->cols, cols_left)) : 1;
+
+    pixman_region32_t clip;
+    pixman_region32_init_rect(
+        &clip, x, y,
+        cell_cols * term->cell_width, term->cell_height);
+    pixman_image_set_clip_region32(pix, &clip);
 
     /* Background */
     pixman_image_fill_rectangles(
@@ -438,11 +445,6 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     if (glyph != NULL) {
         /* Clip to cell */
-        pixman_region32_t clip;
-        pixman_region32_init_rect(
-            &clip, x, y, glyph->cols * term->cell_width, term->cell_height);
-        pixman_image_set_clip_region32(pix, &clip);
-
         if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
             /* Glyph surface is a pre-rendered image (typically a color emoji...) */
             if (!(cell->attrs.blink && term->blink.state == BLINK_OFF)) {
