@@ -779,7 +779,7 @@ render_sixel(struct terminal *term, pixman_image_t *pix,
     assert(x + width <= term->width - term->margins.right);
     assert(y + height <= term->height - term->margins.bottom);
 
-    pixman_image_composite(
+    pixman_image_composite32(
         PIXMAN_OP_SRC,
         sixel->pix,
         NULL,
