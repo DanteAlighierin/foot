@@ -479,7 +479,6 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             }
         }
 
-        pixman_image_set_clip_region32(pix, NULL);
     }
 
     pixman_image_unref(clr_pix);
@@ -499,6 +498,7 @@ draw_cursor:
     if (has_cursor && (term->cursor_style != CURSOR_BLOCK || !term->visual_focus))
         draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
 
+    pixman_image_set_clip_region32(pix, NULL);
     return cell_cols;
 }
 
