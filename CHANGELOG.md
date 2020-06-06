@@ -52,6 +52,7 @@
   `0x0` terminal size (https://codeberg.org/dnkl/foot/issues/20).
 * Glyphs overflowing into surrounding cells
   (https://codeberg.org/dnkl/foot/issues/21).
+* Sixel images being erased when printing text next to them.
 
 
 ### Security

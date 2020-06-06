@@ -1,6 +1,7 @@
 #include "sixel.h"
 
 #include <string.h>
+#include <limits.h>
 
 #define LOG_MODULE "sixel"
 #define LOG_ENABLE_DBG 0
@@ -69,8 +70,8 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
     sixel_destroy(sixel);
 }
 
-void
-sixel_delete_at_row(struct terminal *term, int _row)
+static void
+sixel_delete_at_point(struct terminal *term, int _row, int col)
 {
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
@@ -83,10 +84,20 @@ sixel_delete_at_row(struct terminal *term, int _row)
         const int six_end = six_start + six->rows - 1;
 
         if (row >= six_start && row <= six_end) {
-            sixel_erase(term, six);
-            tll_remove(term->grid->sixel_images, it);
+            const int col_end = six->pos.col + six->cols;
+
+            if (col < col_end) {
+                sixel_erase(term, six);
+                tll_remove(term->grid->sixel_images, it);
+            }
         }
     }
+}
+
+void
+sixel_delete_at_row(struct terminal *term, int _row)
+{
+    sixel_delete_at_point(term, _row, INT_MAX);
 }
 
 void
@@ -121,7 +132,8 @@ sixel_delete_in_range(struct terminal *term, int _start, int _end)
 void
 sixel_delete_at_cursor(struct terminal *term)
 {
-    sixel_delete_at_row(term, term->grid->cursor.point.row);
+    sixel_delete_at_point(
+        term, term->grid->cursor.point.row, term->grid->cursor.point.col);
 }
 
 void
@@ -137,6 +149,7 @@ sixel_unhook(struct terminal *term)
         .width = term->sixel.image.width,
         .height = term->sixel.image.height,
         .rows = (term->sixel.image.height + term->cell_height - 1) / term->cell_height,
+        .cols = (term->sixel.image.width + term->cell_width - 1) / term->cell_width,
         .pos = (struct coord){
             term->grid->cursor.point.col,
             (term->grid->offset + term->grid->cursor.point.row) & (term->grid->num_rows - 1)},

@@ -96,6 +96,7 @@ struct sixel {
     int width;
     int height;
     int rows;
+    int cols;
     struct coord pos;
 };
 
