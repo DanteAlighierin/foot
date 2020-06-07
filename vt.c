@@ -38,9 +38,12 @@ enum state {
 
     STATE_SOS_PM_APC_STRING,
 
-    STATE_UTF8_COLLECT_1,
-    STATE_UTF8_COLLECT_2,
-    STATE_UTF8_COLLECT_3,
+    STATE_UTF8_21,
+    STATE_UTF8_31,
+    STATE_UTF8_32,
+    STATE_UTF8_41,
+    STATE_UTF8_42,
+    STATE_UTF8_43,
 };
 
 #if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG && 0
@@ -65,9 +68,9 @@ static const char *const state_names[] = {
 
     [STATE_SOS_PM_APC_STRING] = "sos/pm/apc string",
 
-    [STATE_UTF8_COLLECT_1] = "UTF8 collect (1 left)",
-    [STATE_UTF8_COLLECT_2] = "UTF8 collect (2 left)",
-    [STATE_UTF8_COLLECT_3] = "UTF8 collect (3 left)",
+    [STATE_UTF8_21] = "UTF8 2-byte 1/2",
+    [STATE_UTF8_31] = "UTF8 3-byte 1/3",
+    [STATE_UTF8_32] = "UTF8 3-byte 2/3",
 };
 #endif
 
@@ -503,18 +506,8 @@ action_put(struct terminal *term, uint8_t c)
 }
 
 static void
-action_utf8_entry(struct terminal *term, uint8_t c)
+action_utf8_print(struct terminal *term, wchar_t wc)
 {
-    term->vt.utf8.data[0] = c;
-    term->vt.utf8.idx = 1;
-}
-
-static void
-action_utf8_print(struct terminal *term, uint8_t c)
-{
-    wchar_t wc = 0;
-    mbtowc(&wc, (const char *)term->vt.utf8.data, term->vt.utf8.idx);
-
     int width = wcwidth(wc);
 
     /*
@@ -667,6 +660,72 @@ action_utf8_print(struct terminal *term, uint8_t c)
     term_print(term, wc, width);
 }
 
+static void
+action_utf8_21(struct terminal *term, uint8_t c)
+{
+    // wc = ((utf8[0] & 0x1f) << 6) | (utf8[1] & 0x3f)
+    term->vt.utf8 = (c & 0x1f) << 6;
+}
+
+static void
+action_utf8_22(struct terminal *term, uint8_t c)
+{
+    // wc = ((utf8[0] & 0x1f) << 6) | (utf8[1] & 0x3f)
+    term->vt.utf8 |= c & 0x3f;
+    action_utf8_print(term, term->vt.utf8);
+}
+
+static void
+action_utf8_31(struct terminal *term, uint8_t c)
+{
+    // wc = ((utf8[0] & 0xf) << 12) | ((utf8[1] & 0x3f) << 6) | (utf8[2] & 0x3f)
+    term->vt.utf8 = (c & 0x0f) << 12;
+}
+
+static void
+action_utf8_32(struct terminal *term, uint8_t c)
+{
+    // wc = ((utf8[0] & 0xf) << 12) | ((utf8[1] & 0x3f) << 6) | (utf8[2] & 0x3f)
+    term->vt.utf8 |= (c & 0x3f) << 6;
+}
+
+static void
+action_utf8_33(struct terminal *term, uint8_t c)
+{
+    // wc = ((utf8[0] & 0xf) << 12) | ((utf8[1] & 0x3f) << 6) | (utf8[2] & 0x3f)
+    term->vt.utf8 |= c & 0x3f;
+    action_utf8_print(term, term->vt.utf8);
+}
+
+static void
+action_utf8_41(struct terminal *term, uint8_t c)
+{
+    // wc = ((utf8[0] & 7) << 18) | ((utf8[1] & 0x3f) << 12) | ((utf8[2] & 0x3f) << 6) | (utf8[3] & 0x3f);
+    term->vt.utf8 = (c & 0x07) << 18;
+}
+
+static void
+action_utf8_42(struct terminal *term, uint8_t c)
+{
+    // wc = ((utf8[0] & 7) << 18) | ((utf8[1] & 0x3f) << 12) | ((utf8[2] & 0x3f) << 6) | (utf8[3] & 0x3f);
+    term->vt.utf8 |= (c & 0x3f) << 12;
+}
+
+static void
+action_utf8_43(struct terminal *term, uint8_t c)
+{
+    // wc = ((utf8[0] & 7) << 18) | ((utf8[1] & 0x3f) << 12) | ((utf8[2] & 0x3f) << 6) | (utf8[3] & 0x3f);
+    term->vt.utf8 |= (c & 0x3f) << 6;
+}
+
+static void
+action_utf8_44(struct terminal *term, uint8_t c)
+{
+    // wc = ((utf8[0] & 7) << 18) | ((utf8[1] & 0x3f) << 12) | ((utf8[2] & 0x3f) << 6) | (utf8[3] & 0x3f);
+    term->vt.utf8 |= c & 0x3f;
+    action_utf8_print(term, term->vt.utf8);
+}
+
 static enum state
 state_ground_switch(struct terminal *term, uint8_t data)
 {
@@ -678,9 +737,9 @@ state_ground_switch(struct terminal *term, uint8_t data)
 
     case 0x20 ... 0x7f:                                  action_print(term, data);                                         return STATE_GROUND;
 
-    case 0xc0 ... 0xdf:                                  action_utf8_entry(term, data);                                    return STATE_UTF8_COLLECT_1;
-    case 0xe0 ... 0xef:                                  action_utf8_entry(term, data);                                    return STATE_UTF8_COLLECT_2;
-    case 0xf0 ... 0xf7:                                  action_utf8_entry(term, data);                                    return STATE_UTF8_COLLECT_3;
+    case 0xc2 ... 0xdf:                                  action_utf8_21(term, data);                                       return STATE_UTF8_21;
+    case 0xe0 ... 0xef:                                  action_utf8_31(term, data);                                       return STATE_UTF8_31;
+    case 0xf0 ... 0xf4:                                  action_utf8_41(term, data);                                       return STATE_UTF8_41;
 
     /* Anywhere */
     case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
@@ -1129,25 +1188,63 @@ state_sos_pm_apc_string_switch(struct terminal *term, uint8_t data)
 }
 
 static enum state
-state_utf8_collect_1_switch(struct terminal *term, uint8_t data)
+state_utf8_21_switch(struct terminal *term, uint8_t data)
 {
-    term->vt.utf8.data[term->vt.utf8.idx++] = data;
-    action_utf8_print(term, data);
-    return STATE_GROUND;
+    switch (data) {
+        /*              exit                             current                          enter                            new state */
+    case 0x80 ... 0xbf:                                  action_utf8_22(term, data);                                       return STATE_GROUND;
+    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    }
 }
 
 static enum state
-state_utf8_collect_2_switch(struct terminal *term, uint8_t data)
+state_utf8_31_switch(struct terminal *term, uint8_t data)
 {
-    term->vt.utf8.data[term->vt.utf8.idx++] = data;
-    return STATE_UTF8_COLLECT_1;
+    switch (data) {
+        /*              exit                             current                          enter                            new state */
+    case 0x80 ... 0xbf:                                  action_utf8_32(term, data);                                       return STATE_UTF8_32;
+    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    }
 }
 
 static enum state
-state_utf8_collect_3_switch(struct terminal *term, uint8_t data)
+state_utf8_32_switch(struct terminal *term, uint8_t data)
 {
-    term->vt.utf8.data[term->vt.utf8.idx++] = data;
-    return STATE_UTF8_COLLECT_2;
+    switch (data) {
+        /*              exit                             current                          enter                            new state */
+    case 0x80 ... 0xbf:                                  action_utf8_33(term, data);                                       return STATE_GROUND;
+    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    }
+}
+
+static enum state
+state_utf8_41_switch(struct terminal *term, uint8_t data)
+{
+    switch (data) {
+        /*              exit                             current                          enter                            new state */
+    case 0x80 ... 0xbf:                                  action_utf8_42(term, data);                                       return STATE_UTF8_42;
+    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    }
+}
+
+static enum state
+state_utf8_42_switch(struct terminal *term, uint8_t data)
+{
+    switch (data) {
+        /*              exit                             current                          enter                            new state */
+    case 0x80 ... 0xbf:                                  action_utf8_43(term, data);                                       return STATE_UTF8_43;
+    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    }
+}
+
+static enum state
+state_utf8_43_switch(struct terminal *term, uint8_t data)
+{
+    switch (data) {
+        /*              exit                             current                          enter                            new state */
+    case 0x80 ... 0xbf:                                  action_utf8_44(term, data);                                       return STATE_GROUND;
+    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    }
 }
 
 void
@@ -1173,9 +1270,12 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
         case STATE_DCS_PASSTHROUGH:     current_state = state_dcs_passthrough_switch(term, *p); break;
         case STATE_SOS_PM_APC_STRING:   current_state = state_sos_pm_apc_string_switch(term, *p); break;
 
-        case STATE_UTF8_COLLECT_1:      current_state = state_utf8_collect_1_switch(term, *p); break;
-        case STATE_UTF8_COLLECT_2:      current_state = state_utf8_collect_2_switch(term, *p); break;
-        case STATE_UTF8_COLLECT_3:      current_state = state_utf8_collect_3_switch(term, *p); break;
+        case STATE_UTF8_21:             current_state = state_utf8_21_switch(term, *p); break;
+        case STATE_UTF8_31:             current_state = state_utf8_31_switch(term, *p); break;
+        case STATE_UTF8_32:             current_state = state_utf8_32_switch(term, *p); break;
+        case STATE_UTF8_41:             current_state = state_utf8_41_switch(term, *p); break;
+        case STATE_UTF8_42:             current_state = state_utf8_42_switch(term, *p); break;
+        case STATE_UTF8_43:             current_state = state_utf8_43_switch(term, *p); break;
         }
     }
 
