@@ -28,6 +28,8 @@
   lines in the scrolling region..
 * New terminal windows spawned with `ctrl`+`shift`+`n` are no longer
   double forked.
+* Unicode combining character overflow errors are only logged in when
+  debug logging has been enabled.
 
 
 ### Deprecated

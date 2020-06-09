@@ -604,12 +604,13 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             if (wanted_count > ALEN(composed->combining)) {
                 assert(composed != NULL);
 
+#if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
                 LOG_WARN("combining character overflow:");
                 LOG_WARN("  base: 0x%04x", composed->base);
                 for (size_t i = 0; i < composed->count; i++)
                     LOG_WARN("    cc: 0x%04x", composed->combining[i]);
                 LOG_ERR("   new: 0x%04x", wc);
-
+#endif
                 /* This are going to break anyway... */
                 wanted_count--;
             }
