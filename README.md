@@ -29,6 +29,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
       1. [Debug build](#debug-build)
       1. [Running the new build](#running-the-new-build)
 1. [Bugs](#bugs)
+1. [Mastodon](#mastodon)
 
 
 ## Features
@@ -527,3 +528,9 @@ The report should contain the following:
 * If reporting a crash, please try to provide a `bt full` backtrace
   **with symbols** (i.e. use a debug build)
 * Steps to reproduce. The more details the better
+
+
+# Mastodon
+
+Every now and then I post foot related updates on
+[https://linuxrocks.online/@dnkl](@dnkl@linuxrocks.online)
