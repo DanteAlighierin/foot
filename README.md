@@ -533,4 +533,4 @@ The report should contain the following:
 # Mastodon
 
 Every now and then I post foot related updates on
-[https://linuxrocks.online/@dnkl](@dnkl@linuxrocks.online)
+[@dnkl@linuxrocks.online](https://linuxrocks.online/@dnkl)
