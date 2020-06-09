@@ -2353,19 +2353,20 @@ print_insert(struct terminal *term, int width)
 {
     assert(width > 0);
 
-    if (unlikely(term->insert_mode)) {
-        struct row *row = term->grid->cur_row;
-        const size_t move_count = max(0, term->cols - term->grid->cursor.point.col - width);
+    if (likely(!term->insert_mode))
+        return;
 
-        memmove(
-            &row->cells[term->grid->cursor.point.col + width],
-            &row->cells[term->grid->cursor.point.col],
-            move_count * sizeof(struct cell));
+    struct row *row = term->grid->cur_row;
+    const size_t move_count = max(0, term->cols - term->grid->cursor.point.col - width);
 
-        /* Mark moved cells as dirty */
-        for (size_t i = term->grid->cursor.point.col + width; i < term->cols; i++)
-            row->cells[i].attrs.clean = 0;
-    }
+    memmove(
+        &row->cells[term->grid->cursor.point.col + width],
+        &row->cells[term->grid->cursor.point.col],
+        move_count * sizeof(struct cell));
+
+    /* Mark moved cells as dirty */
+    for (size_t i = term->grid->cursor.point.col + width; i < term->cols; i++)
+        row->cells[i].attrs.clean = 0;
 }
 
 void
