@@ -11,6 +11,7 @@
 
 #include <sys/types.h>
 #include <sys/sysinfo.h>
+#include <sys/utsname.h>
 #include <fcntl.h>
 
 #include <fcft/fcft.h>
@@ -304,6 +305,14 @@ main(int argc, char *const *argv)
     argv += optind;
 
     LOG_INFO("version: %s", FOOT_VERSION);
+
+    {
+        struct utsname name;
+        if (uname(&name) < 0)
+            LOG_ERRNO("uname() failed");
+        else
+            LOG_INFO("arch: %s", name.machine);
+    }
 
     struct config conf = {NULL};
     if (!config_load(&conf, conf_path)) {
