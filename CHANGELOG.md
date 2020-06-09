@@ -55,6 +55,8 @@
 * Glyphs overflowing into surrounding cells
   (https://codeberg.org/dnkl/foot/issues/21).
 * Sixel images being erased when printing text next to them.
+* Crash when last rendered cursor cell had scrolled off screen and
+  `\E[J3` was executed.
 
 
 ### Security

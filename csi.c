@@ -506,6 +506,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                             continue;
                     }
 
+                    if (term->render.last_cursor.row == term->grid->rows[i])
+                        term->render.last_cursor.row = NULL;
+
                     grid_row_free(term->grid->rows[i]);
                     term->grid->rows[i] = NULL;
                 }
