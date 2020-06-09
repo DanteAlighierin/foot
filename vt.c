@@ -527,7 +527,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
      *
      * TODO: handle line-wrap when locating the base character.
      */
-    if (wc >= 0x0300 && width == 0 && term->grid->cursor.point.col > 0) {
+    if (width == 0 && wc >= 0x0300 && term->grid->cursor.point.col > 0) {
         const struct row *row = term->grid->cur_row;
 
         int base_col = term->grid->cursor.point.col;
