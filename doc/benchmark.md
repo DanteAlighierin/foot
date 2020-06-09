@@ -81,17 +81,24 @@ Scrollback=10000 lines
 | scrolling-filled-lines |            1.888s ±0.021 |   2.334s ±0.078      |  2.145s ±0.074 | 3.372s ±0.078 |  2.144s ±0.091 |
 | unicode-random         |            1.545s ±0.229 |   0.164s ±0.012 [^1] | 11.180s ±0.342 |       crashed | 11.389s ±0.269 |
 
+[^1]: [Alacritty and "unicode-random"](#alacritty-and-unicode-random)
 
-[^1]: Alacritty is actually **really** slow at rendering this (whether
-    it is fallback fonts in general, emojis, or something else, I
-    don't know). I believe the reason it finishes the benchmark so
-    quickly is because it reads from the PTY in a separate thread,
-    into a larger receive buffer which is then consumed by the main
-    thread. This allows the client program to write its output much
-    faster since it is no longer stalling on a blocked PTY. This means
-    Alacritty only needs to render a couple of frames since it can
-    reach the final VT state almost immediately. On the other hand,
-    `cat`:ing the `unicode-random` test file in an endless loop, or
-    just manually scrolling up after the benchmark is done is
-    **slow**, which besides being felt (input lag), can be seen by
-    setting `debug.render_timer = true` in `alacritty.yml`.
+
+# Alacritty and "unicode-random"
+
+Alacritty is actually **really** slow at rendering this (whether it is
+fallback fonts in general, emojis, or something else, I don't know).
+
+I believe the reason it finishes the benchmark so quickly is because
+it reads from the PTY in a separate thread, into a larger receive
+buffer which is then consumed by the main thread. This allows the
+client program to write its output much faster since it is no longer
+stalling on a blocked PTY.
+
+This means Alacritty only needs to render a couple of frames since it
+can reach the final VT state almost immediately.
+
+On the other hand, `cat`:ing the `unicode-random` test file in an
+endless loop, or just manually scrolling up after the benchmark is
+done is **slow**, which besides being felt (input lag), can be seen by
+setting `debug.render_timer = true` in `alacritty.yml`.
