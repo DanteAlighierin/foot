@@ -336,7 +336,7 @@ decsixel(struct terminal *term, uint8_t c)
         break;
 
     default:
-        LOG_WARN("invalid sixel charactwer: '%c' at idx=%zu", c, count);
+        LOG_WARN("invalid sixel character: '%c' at idx=%zu", c, count);
         break;
     }
 }
