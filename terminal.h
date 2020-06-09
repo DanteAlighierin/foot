@@ -130,6 +130,7 @@ struct vt_param {
 struct vt {
     int state;  /* enum state */
     wchar_t last_printed;
+    wchar_t utf8;
     struct {
         struct vt_param v[16];
         uint8_t idx;
@@ -140,10 +141,6 @@ struct vt {
         size_t size;
         size_t idx;
     } osc;
-    struct {
-        uint8_t data[4];
-        uint8_t idx;
-    } utf8;
     struct {
         uint8_t *data;
         size_t size;
