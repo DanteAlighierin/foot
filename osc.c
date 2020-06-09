@@ -431,6 +431,9 @@ osc_dispatch(struct terminal *term)
         /* Set color<idx> */
 
         string--;
+        if (*string != ';')
+            break;
+
         assert(*string == ';');
 
         for (const char *s_idx = strtok(string, ";"), *s_color = strtok(NULL, ";");

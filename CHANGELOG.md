@@ -57,6 +57,8 @@
 * Sixel images being erased when printing text next to them.
 * Crash when last rendered cursor cell had scrolled off screen and
   `\E[J3` was executed.
+* Assert (debug builds) when an `\e]4` OSC escape was not followed by
+  a `;`.
 
 
 ### Security
