@@ -93,9 +93,10 @@ sixel_delete_at_point(struct terminal *term, int _row, int col)
         const int six_end = six_start + six->rows - 1;
 
         if (row >= six_start && row <= six_end) {
+            const int col_start = six->pos.col;
             const int col_end = six->pos.col + six->cols;
 
-            if (col < col_end) {
+            if (col >= col_start && col < col_end) {
                 sixel_erase(term, six);
                 tll_remove(term->grid->sixel_images, it);
             }
