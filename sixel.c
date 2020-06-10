@@ -18,6 +18,13 @@ sixel_fini(struct terminal *term)
     free(term->sixel.palette);
 }
 
+static uint32_t
+color_with_alpha(const struct terminal *term, uint32_t color)
+{
+    uint16_t alpha = color == term->colors.bg ? term->colors.alpha : 0xffff;
+    return (alpha / 256u) << 24 | color;
+}
+
 void
 sixel_init(struct terminal *term)
 {
@@ -41,7 +48,7 @@ sixel_init(struct terminal *term)
     }
 
     for (size_t i = 0; i < 1 * 6; i++)
-        term->sixel.image.data[i] = term->colors.alpha / 256u << 24 | term->colors.bg;
+        term->sixel.image.data[i] = color_with_alpha(term, term->colors.bg);
 
     count = 0;
 
@@ -240,7 +247,7 @@ resize(struct terminal *term, int new_width, int new_height)
             memcpy(&new_data[r * new_width], &old_data[r * old_width], old_width * sizeof(uint32_t));
 
             for (int c = old_width; c < new_width; c++)
-                new_data[r * new_width + c] = term->colors.alpha / 256u << 24 | term->colors.bg;
+                new_data[r * new_width + c] = color_with_alpha(term, term->colors.bg);
         }
         free(old_data);
     }
@@ -248,7 +255,7 @@ resize(struct terminal *term, int new_width, int new_height)
     /* Initialize new rows to background color */
     for (int r = old_height; r < new_height; r++) {
         for (int c = 0; c < new_width; c++)
-            new_data[r * new_width + c] = term->colors.alpha / 256u << 24 | term->colors.bg;
+            new_data[r * new_width + c] = color_with_alpha(term, term->colors.bg);
     }
 
     assert(new_data != NULL);
@@ -289,7 +296,7 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
             size_t pixel_row = term->sixel.pos.row * 6 + i;
             size_t stride = term->sixel.image.width;
             size_t idx = pixel_row * stride + term->sixel.pos.col;
-            term->sixel.image.data[idx] = term->colors.alpha / 256u << 24 | color;
+            term->sixel.image.data[idx] = color_with_alpha(term, color);
         }
     }
 
