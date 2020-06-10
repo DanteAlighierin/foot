@@ -59,6 +59,8 @@
   `\E[J3` was executed.
 * Assert (debug builds) when an `\e]4` OSC escape was not followed by
   a `;`.
+* Palette re-use in sixel images. Previously, the palette was reset
+  after each image.
 
 
 ### Security

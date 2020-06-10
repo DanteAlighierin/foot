@@ -4,6 +4,8 @@
 
 #define SIXEL_MAX_COLORS 1024u
 
+void sixel_fini(struct terminal *term);
+
 void sixel_init(struct terminal *term);
 void sixel_put(struct terminal *term, uint8_t c);
 void sixel_unhook(struct terminal *term);

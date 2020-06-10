@@ -1168,6 +1168,7 @@ term_destroy(struct terminal *term)
     tll_foreach(term->alt.sixel_images, it)
         sixel_destroy(&it->item);
     tll_free(term->alt.sixel_images);
+    sixel_fini(term);
 
     free(term->foot_exe);
     free(term->cwd);

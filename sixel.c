@@ -13,9 +13,14 @@
 static size_t count;
 
 void
+sixel_fini(struct terminal *term)
+{
+    free(term->sixel.palette);
+}
+
+void
 sixel_init(struct terminal *term)
 {
-    assert(term->sixel.palette == NULL);
     assert(term->sixel.image.data == NULL);
     assert(term->sixel.palette_size <= SIXEL_MAX_COLORS);
 
@@ -26,10 +31,14 @@ sixel_init(struct terminal *term)
     term->sixel.param = 0;
     term->sixel.param_idx = 0;
     memset(term->sixel.params, 0, sizeof(term->sixel.params));
-    term->sixel.palette = calloc(term->sixel.palette_size, sizeof(term->sixel.palette[0]));
     term->sixel.image.data = malloc(1 * 6 * sizeof(term->sixel.image.data[0]));
     term->sixel.image.width = 1;
     term->sixel.image.height = 6;
+
+    if (term->sixel.palette == NULL) {
+        term->sixel.palette = calloc(
+            term->sixel.palette_size, sizeof(term->sixel.palette[0]));
+    }
 
     for (size_t i = 0; i < 1 * 6; i++)
         term->sixel.image.data[i] = term->colors.alpha / 256u << 24 | term->colors.bg;
@@ -139,9 +148,6 @@ sixel_delete_at_cursor(struct terminal *term)
 void
 sixel_unhook(struct terminal *term)
 {
-    free(term->sixel.palette);
-    term->sixel.palette = NULL;
-
     sixel_delete_at_cursor(term);
 
     struct sixel image = {
@@ -489,6 +495,10 @@ void
 sixel_colors_reset(struct terminal *term)
 {
     LOG_DBG("sixel palette size reset to %u", SIXEL_MAX_COLORS);
+
+    free(term->sixel.palette);
+    term->sixel.palette = NULL;
+
     term->sixel.palette_size = SIXEL_MAX_COLORS;
     sixel_colors_report_current(term);
 }
@@ -498,6 +508,9 @@ sixel_colors_set(struct terminal *term, unsigned count)
 {
     unsigned new_palette_size = min(max(2, count), SIXEL_MAX_COLORS);
     LOG_DBG("sixel palette size set to %u", new_palette_size);
+
+    free(term->sixel.palette);
+    term->sixel.palette = NULL;
 
     term->sixel.palette_size = new_palette_size;
     sixel_colors_report_current(term);
