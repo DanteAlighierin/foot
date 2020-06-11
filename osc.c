@@ -470,7 +470,52 @@ osc_dispatch(struct terminal *term)
                 if (!color_is_valid)
                     continue;
 
-                LOG_DBG("change color definition for #%u to %06x", idx, color);
+                LOG_DBG("change color definition for #%u from %06x to %06x",
+                        idx, term->colors.table[idx], color);
+
+                /*
+                 * Update color of already rendered cells.
+                 *
+                 * Note that we do *not* store the original palette
+                 * index. Therefor, the best we can do is compare
+                 * colors - if they match, assume "our" palette index
+                 * was the one used to render the cell.
+                 *
+                 * There are a couple of cases where this isn't necessarily true:
+                 *  - user has configured the 16 base colors with non-unique colors.
+                 *  - the client has used 24-bit escapes for colors
+                 *
+                 * In general though, if the client configures the
+                 * palette, it is very likely only using index:ed
+                 * coloring (i.e. not 24-bit direct colors), and I
+                 * hope that it is unusual with palettes where all the
+                 * colors aren't unique.
+                 *
+                 * TODO: we should update *both* grids... but that's
+                 * really really slow. Normal usage of this OSC is by
+                 * full-screen applications using the alt screen.
+                 */
+                for (size_t r = 0; r < term->grid->num_rows; r++) {
+                    struct row *row = term->grid->rows[r];
+                    if (row == NULL)
+                        continue;
+
+                    for (size_t c = 0; c < term->grid->num_cols; c++) {
+                        struct cell *cell = &row->cells[c];
+                        if (cell->attrs.have_fg && cell->attrs.fg == term->colors.table[idx]) {
+                            cell->attrs.fg = color;
+                            cell->attrs.clean = 0;
+                            row->dirty = true;
+                        }
+
+                        if (cell->attrs.have_bg && cell->attrs.bg == term->colors.table[idx]) {
+                            cell->attrs.bg = color;
+                            cell->attrs.clean = 0;
+                            row->dirty = true;
+                        }
+                    }
+                }
+
                 term->colors.table[idx] = color;
             }
         }
