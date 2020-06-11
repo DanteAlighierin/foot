@@ -63,7 +63,9 @@
   a `;`.
 * Palette re-use in sixel images. Previously, the palette was reset
   after each image.
-
+* Do not auto-resize a sixel image for which the cllent has specified
+  a size. This fixes an issue where an image would incorrectly
+  overflow into the cell row beneath.
 
 ### Security
 

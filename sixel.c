@@ -41,6 +41,7 @@ sixel_init(struct terminal *term)
     term->sixel.image.data = malloc(1 * 6 * sizeof(term->sixel.image.data[0]));
     term->sixel.image.width = 1;
     term->sixel.image.height = 6;
+    term->sixel.image.autosize = true;
 
     if (term->sixel.palette == NULL) {
         term->sixel.palette = calloc(
@@ -212,6 +213,9 @@ max_height(const struct terminal *term)
 static bool
 resize(struct terminal *term, int new_width, int new_height)
 {
+    if (!term->sixel.image.autosize)
+        return false;
+
     LOG_DBG("resizing image: %dx%d -> %dx%d",
             term->sixel.image.width, term->sixel.image.height,
             new_width, new_height);
@@ -219,6 +223,11 @@ resize(struct terminal *term, int new_width, int new_height)
     uint32_t *old_data = term->sixel.image.data;
     const int old_width = term->sixel.image.width;
     const int old_height = term->sixel.image.height;
+
+    int alloc_new_width = new_width;
+    int alloc_new_height = (new_height + 6 - 1) / 6 * 6;
+    assert(alloc_new_height >= new_height);
+    assert(alloc_new_height - new_height < 6);
 
     assert(new_width >= old_width);
     assert(new_height >= old_height);
@@ -229,7 +238,7 @@ resize(struct terminal *term, int new_width, int new_height)
         /* Width (and thus stride) is the same, so we can simply
          * re-alloc the existing buffer */
 
-        new_data = realloc(old_data, new_width * new_height * sizeof(uint32_t));
+        new_data = realloc(old_data, alloc_new_width * alloc_new_height * sizeof(uint32_t));
         if (new_data == NULL) {
             LOG_ERRNO("failed to reallocate sixel image buffer");
             return false;
@@ -240,7 +249,7 @@ resize(struct terminal *term, int new_width, int new_height)
     } else {
         /* Width (and thus stride) change - need to allocate a new buffer */
         assert(new_width > old_width);
-        new_data = malloc(new_width * new_height * sizeof(uint32_t));
+        new_data = malloc(alloc_new_width * alloc_new_height * sizeof(uint32_t));
 
         /* Copy old rows, and initialize new columns to background color */
         for (int r = 0; r < old_height; r++) {
@@ -278,7 +287,7 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
     }
 
     if (term->sixel.pos.col >= term->sixel.image.width ||
-        term->sixel.pos.row * 6 + 5 >= term->sixel.image.height)
+        term->sixel.pos.row * 6 + 5 >= (term->sixel.image.height + 6 - 1) / 6 * 6)
     {
         int width = max(
             term->sixel.image.width,
@@ -288,7 +297,8 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
             term->sixel.image.height,
             (term->sixel.pos.row + 1) * 6);
 
-        resize(term, width, height);
+        if (!resize(term, width, height))
+            return;
     }
 
     for (int i = 0; i < 6; i++, sixel >>= 1) {
@@ -389,7 +399,8 @@ decgra(struct terminal *term, uint8_t c)
         if (ph >= term->sixel.image.height && pv >= term->sixel.image.width &&
             ph <= max_height(term) && pv <= max_width(term))
         {
-            resize(term, ph, pv);
+            if (resize(term, ph, pv))
+                term->sixel.image.autosize = false;
         }
 
         term->sixel.state = SIXEL_DECSIXEL;
