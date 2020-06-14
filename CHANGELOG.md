@@ -28,10 +28,10 @@
   lines in the scrolling region..
 * New terminal windows spawned with `ctrl`+`shift`+`n` are no longer
   double forked.
-* Unicode combining character overflow errors are only logged in when
+* Unicode combining character overflow errors are only logged when
   debug logging has been enabled.
-* OSC 4 (_Set Color_) now already rendered cells in the **current**
-  grid (_normal_ or _alternate_).
+* OSC 4 (_Set Color_) now updates already rendered cells in the
+  **current** grid (_normal_ or _alternate_).
 
 
 ### Deprecated
@@ -43,7 +43,7 @@
   `shift` to start a selection. This selection is now finalized only
   when the mouse button is released - not as soon as `shift` is
   released.
-* Selected cells did not appear selected if modified.
+* Selected cells did not appear selected if programmatically modified.
 * Rare crash when scrolling and the new viewport ended up **exactly**
   on the wrap around.
 * Selection handling when viewport wrapped around.
@@ -66,6 +66,7 @@
 * Do not auto-resize a sixel image for which the cllent has specified
   a size. This fixes an issue where an image would incorrectly
   overflow into the cell row beneath.
+
 
 ### Security
 
