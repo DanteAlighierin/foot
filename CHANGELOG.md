@@ -30,8 +30,8 @@
   double forked.
 * Unicode combining character overflow errors are only logged when
   debug logging has been enabled.
-* OSC 4 (_Set Color_) now updates already rendered cells in the
-  **current** grid (_normal_ or _alternate_).
+* OSC 4 (_Set Color_) now updates already rendered cells, excluding
+  scrollback.
 
 
 ### Deprecated

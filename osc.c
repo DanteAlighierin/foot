@@ -9,6 +9,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "base64.h"
+#include "grid.h"
 #include "render.h"
 #include "selection.h"
 #include "terminal.h"
@@ -491,27 +492,30 @@ osc_dispatch(struct terminal *term)
                  * hope that it is unusual with palettes where all the
                  * colors aren't unique.
                  *
-                 * TODO: we should update *both* grids... but that's
-                 * really really slow. Normal usage of this OSC is by
-                 * full-screen applications using the alt screen.
+                 * TODO(?): for performance reasons, we only update
+                 * the current screen rows (of both
+                 * grids). I.e. scrollback is *not* updates.
                  */
-                for (size_t r = 0; r < term->grid->num_rows; r++) {
-                    struct row *row = term->grid->rows[r];
-                    if (row == NULL)
-                        continue;
+                for (size_t i = 0; i < 2; i++) {
+                    struct grid *grid = i == 0 ? &term->normal : &term->alt;
 
-                    for (size_t c = 0; c < term->grid->num_cols; c++) {
-                        struct cell *cell = &row->cells[c];
-                        if (cell->attrs.have_fg && cell->attrs.fg == term->colors.table[idx]) {
-                            cell->attrs.fg = color;
-                            cell->attrs.clean = 0;
-                            row->dirty = true;
-                        }
+                    for (size_t r = 0; r < term->rows; r++) {
+                        struct row *row = grid_row(grid, r);
+                        assert(row != NULL);
 
-                        if (cell->attrs.have_bg && cell->attrs.bg == term->colors.table[idx]) {
-                            cell->attrs.bg = color;
-                            cell->attrs.clean = 0;
-                            row->dirty = true;
+                        for (size_t c = 0; c < term->grid->num_cols; c++) {
+                            struct cell *cell = &row->cells[c];
+                            if (cell->attrs.have_fg && cell->attrs.fg == term->colors.table[idx]) {
+                                cell->attrs.fg = color;
+                                cell->attrs.clean = 0;
+                                row->dirty = true;
+                            }
+
+                            if (cell->attrs.have_bg && cell->attrs.bg == term->colors.table[idx]) {
+                                cell->attrs.bg = color;
+                                cell->attrs.clean = 0;
+                                row->dirty = true;
+                            }
                         }
                     }
                 }
