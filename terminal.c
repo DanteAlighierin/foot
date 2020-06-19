@@ -160,6 +160,9 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         count = read(term->ptmx, buf, sizeof(buf));
 
         if (count < 0) {
+            if (errno == EAGAIN)
+                return true;
+
             LOG_ERRNO("failed to read from pseudo terminal");
             return false;
         }
