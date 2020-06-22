@@ -1301,8 +1301,7 @@ term_reset(struct terminal *term, bool hard)
     term->charsets.set[3] = CHARSET_ASCII;
     term->saved_charsets = term->charsets;
     tll_free_and_free(term->window_title_stack, free);
-    free(term->window_title);
-    term->window_title = strdup("foot");
+    term_set_window_title(term, term->conf->title);
 
     term->scroll_region.start = 0;
     term->scroll_region.end = term->rows;

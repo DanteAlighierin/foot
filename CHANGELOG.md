@@ -66,6 +66,7 @@
 * Do not auto-resize a sixel image for which the cllent has specified
   a size. This fixes an issue where an image would incorrectly
   overflow into the cell row beneath.
+* Window title always being set to "foot" on reset.
 
 
 ### Security
