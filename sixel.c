@@ -154,10 +154,143 @@ sixel_delete_at_cursor(struct terminal *term)
         term, term->grid->cursor.point.row, term->grid->cursor.point.col);
 }
 
+static void
+sixel_split(struct terminal *term, struct sixel *six, int row, int col)
+{
+    assert(row >= six->pos.row);
+    assert(row < six->pos.row + six->rows);
+    assert(col >= six->pos.col);
+    assert(col < six->pos.col + six->cols);
+
+    int rel_row = row - six->pos.row;
+    int rel_col = col - six->pos.col;
+
+    if (rel_row > 0) {
+        struct sixel above = {
+            .width = six->width,
+            .height = rel_row * term->cell_height,
+            .rows = rel_row,
+            .cols = six->cols,
+            .pos = six->pos,
+        };
+        above.data = malloc(above.width * above.height * sizeof(uint32_t));
+        memcpy(above.data, six->data, above.width * above.height * sizeof(uint32_t));
+
+        above.pix = pixman_image_create_bits_no_clear(
+            PIXMAN_a8r8g8b8,
+            above.width, above.height,
+            above.data, above.width * sizeof(uint32_t));
+
+        tll_push_back(term->grid->sixel_images, above);
+    }
+
+    if (rel_row + 1 < six->rows) {
+        struct sixel below = {
+            .width = six->width,
+            .height = six->height - (rel_row + 1) * term->cell_height,
+            .rows = six->rows - (rel_row + 1),
+            .cols = six->cols,
+            .pos = (struct coord){
+                six->pos.col,
+                (six->pos.row + rel_row + 1) & (term->grid->num_rows - 1)},
+        };
+        below.data = malloc(below.width * below.height * sizeof(uint32_t));
+        memcpy(
+            below.data,
+            &((const uint32_t *)six->data)[(rel_row + 1) * term->cell_height * six->width],
+            below.width * below.height * sizeof(uint32_t));
+        below.pix = pixman_image_create_bits_no_clear(
+            PIXMAN_a8r8g8b8,
+            below.width, below.height,
+            below.data, below.width * sizeof(uint32_t));
+
+        tll_push_back(term->grid->sixel_images, below);
+    }
+
+    if (rel_col > 0) {
+        struct sixel left = {
+            .width = rel_col * term->cell_width,
+            .height = min(term->cell_height, six->height - rel_row * term->cell_height),
+            .rows = 1,
+            .cols = rel_col,
+            .pos = (struct coord){six->pos.col,
+                                  (six->pos.row + rel_row) & (term->grid->num_rows - 1)},
+        };
+        left.data = malloc(left.width * left.height * sizeof(uint32_t));
+        for (size_t i = 0; i < term->cell_height; i++)
+            memcpy(
+                &((uint32_t *)left.data)[i * left.width],
+                &((const uint32_t *)six->data)[(rel_row * term->cell_height + i) * six->width],
+                left.width * sizeof(uint32_t));
+        left.pix = pixman_image_create_bits_no_clear(
+            PIXMAN_a8r8g8b8,
+            left.width, left.height,
+            left.data, left.width * sizeof(uint32_t));
+        tll_push_back(term->grid->sixel_images, left);
+
+    }
+
+    if (rel_col + 1 < six->cols) {
+        struct sixel right = {
+            .width = six->width - (rel_col + 1) * term->cell_width,
+            .height = min(term->cell_height, six->height - rel_row * term->cell_height),
+            .rows = 1,
+            .cols = six->cols - (rel_col + 1),
+            .pos = (struct coord){six->pos.col + rel_col + 1,
+                                  (six->pos.row + rel_row) & (term->grid->num_rows - 1)},
+        };
+        right.data = malloc(right.width * right.height * sizeof(uint32_t));
+        for (size_t i = 0; i < term->cell_height; i++)
+            memcpy(
+                &((uint32_t *)right.data)[i * right.width],
+                &((const uint32_t *)six->data)[(rel_row * term->cell_height + i) * six->width + (rel_col + 1) * term->cell_width],
+                right.width * sizeof(uint32_t));
+        right.pix = pixman_image_create_bits_no_clear(
+            PIXMAN_a8r8g8b8,
+            right.width, right.height,
+            right.data, right.width * sizeof(uint32_t));
+        tll_push_back(term->grid->sixel_images, right);
+    }
+}
+
+void
+sixel_split_at_point(struct terminal *term, int _row, int col)
+{
+    if (likely(tll_length(term->grid->sixel_images) == 0))
+        return;
+
+    const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
+
+    tll_foreach(term->grid->sixel_images, it) {
+        struct sixel *six = &it->item;
+
+        const int six_start = six->pos.row;
+        const int six_end = six_start + six->rows - 1;
+
+        if (row >= six_start && row <= six_end) {
+            const int col_start = six->pos.col;
+            const int col_end = six->pos.col + six->cols;
+
+            if (col >= col_start && col < col_end) {
+                //sixel_erase(term, six);
+                sixel_split(term, six, row, col);
+                sixel_erase(term, six);
+                tll_remove(term->grid->sixel_images, it);
+            }
+        }
+    }
+}
+
+void
+sixel_split_at_cursor(struct terminal *term)
+{
+    sixel_split_at_point(term, term->grid->cursor.point.row, term->grid->cursor.point.col);
+}
+
 void
 sixel_unhook(struct terminal *term)
 {
-    sixel_delete_at_cursor(term);
+    //sixel_delete_at_cursor(term);
 
     struct sixel image = {
         .data = term->sixel.image.data,
@@ -169,6 +302,11 @@ sixel_unhook(struct terminal *term)
             term->grid->cursor.point.col,
             (term->grid->offset + term->grid->cursor.point.row) & (term->grid->num_rows - 1)},
     };
+
+    for (int row = 0; row < image.rows; row++) {
+        for (int col = 0; col < image.cols; col++)
+            sixel_split_at_point(term, term->grid->cursor.point.row + row, term->grid->cursor.point.col + col);
+    }
 
     LOG_DBG("generating %dx%d pixman image", image.width, image.height);
 
