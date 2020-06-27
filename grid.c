@@ -123,6 +123,10 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                 struct sixel six = it->item;
                 six.pos.row = new_row_idx;
 
+                /* TODO: ensure sixels don't span across the wrap-around */
+                int end __attribute__((unused)) = (six.pos.row + six.rows - 1) & (new_rows - 1);
+                assert(end >= six.pos.row);
+
                 tll_push_back(new_sixels, six);
                 tll_remove(grid->sixel_images, it);
             }
