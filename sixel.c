@@ -296,7 +296,7 @@ sixel_split_by_rectangle(struct terminal *term, int _row,
               (start <= six_end && end >= six_end) ||
               (start >= six_start || end <= six_end))) ||
             (!six_wraps && wraps &&
-             ((six_start <= start && six_end >= end) ||    /* Sixel croses region start boundary */
+             ((six_start <= start && six_end >= start) ||  /* Sixel croses region start boundary */
               (six_start <= end && six_end >= end) ||      /* Sixel crosses region end boundary */
               (six_start >= start || six_end <= end)))     /* Sixel is fully enclosed by region */
             )
