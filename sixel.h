@@ -12,13 +12,23 @@ void sixel_unhook(struct terminal *term);
 
 void sixel_destroy(struct sixel *sixel);
 
-/* Deletes all sixels that are touched by the specified row(s). Row
- * numbers are relative to the current grid aoffset */
+/*
+ * Deletes all sixels that are touched by the specified row(s). Used
+ * when scrolling, to competely remove sixels that has either
+ * completely, or partly scrolled out of history.
+ *
+ * Row numbers are relative to the current grid offset.
+ */
 void sixel_delete_in_range(struct terminal *term, int row_start, int row_end);
 void sixel_delete_at_row(struct terminal *term, int row);
 
-/* Remove sixel data from the specified location. Row numbers are
- * relative to the current grid offset */
+/*
+ * Remove sixel data from the specified location. Used when printing
+ * or erasing characters, and when emitting new sixel images, to
+ * remove sixel data that would otherwise be rendered on-top.
+ *
+ * Row numbers are relative to the current grid offset
+ */
 void sixel_overwrite_by_rectangle(
     struct terminal *term, int row, int col, int height, int width);
 void sixel_overwrite_by_row(struct terminal *term, int row, int col, int width);
