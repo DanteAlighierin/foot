@@ -15,6 +15,8 @@
 * `Sync` to terminfo. This is a tmux extension that indicates
   _"Synchronized Updates"_ are supported.
 * `--hold` command line option to `footclient`.
+* Terminfo entries `ka1`, `ka3`, `kc1` and `kc3` (upper left/right and
+  lower left/right keypad keys).
 
 
 ### Changed
