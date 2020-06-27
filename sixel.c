@@ -164,103 +164,102 @@ sixel_delete_in_range(struct terminal *term, int _start, int _end)
     }
 }
 
-void
-sixel_delete_at_cursor(struct terminal *term)
-{
-    sixel_delete_at_point(
-        term, term->grid->cursor.point.row, term->grid->cursor.point.col);
-}
-
 static void
-sixel_split(struct terminal *term, struct sixel *six, int row, int col)
+sixel_split(struct terminal *term, struct sixel *six,
+            int row, int col, int height, int width)
 {
-    assert(row >= six->pos.row);
-    assert(row < six->pos.row + six->rows);
-    assert(col >= six->pos.col);
-    assert(col < six->pos.col + six->cols);
+    int rel_above = max(row - six->pos.row, 0);
+    int rel_below = min(row + height - six->pos.row, six->rows);
+    int rel_left = max(col - six->pos.col, 0);
+    int rel_right = min(col + width - six->pos.col, six->cols);
 
-    int rel_row = row - six->pos.row;
-    int rel_col = col - six->pos.col;
+    assert(rel_above >= 0);
+    assert(rel_below >= 0);
+    assert(rel_left >= 0);
+    assert(rel_right >= 0);
 
-    if (rel_row > 0) {
+    LOG_DBG("SPLIT: six (%p): %dx%d-%dx%d, %dx%d-%dx%d, rel: above=%d, below=%d, left=%d, right=%d",
+            six, six->pos.row, six->pos.col, six->rows, six->cols,
+            row, col, height, width,
+            rel_above, rel_below, rel_left, rel_right);
+
+    if (rel_above > 0) {
         struct sixel above = {
             .width = six->width,
-            .height = rel_row * term->cell_height,
-            .rows = rel_row,
+            .height = rel_above * term->cell_height,
+            .rows = rel_above,
             .cols = six->cols,
             .pos = six->pos,
         };
         above.data = malloc(above.width * above.height * sizeof(uint32_t));
         memcpy(above.data, six->data, above.width * above.height * sizeof(uint32_t));
-
         above.pix = pixman_image_create_bits_no_clear(
             PIXMAN_a8r8g8b8,
             above.width, above.height,
             above.data, above.width * sizeof(uint32_t));
-
         tll_push_back(term->grid->sixel_images, above);
     }
 
-    if (rel_row + 1 < six->rows) {
+    if (rel_below < six->rows) {
         struct sixel below = {
             .width = six->width,
-            .height = six->height - (rel_row + 1) * term->cell_height,
-            .rows = six->rows - (rel_row + 1),
+            .height = six->height - rel_below * term->cell_height,
+            .rows = six->rows - rel_below,
             .cols = six->cols,
             .pos = (struct coord){
                 six->pos.col,
-                (six->pos.row + rel_row + 1) & (term->grid->num_rows - 1)},
+                (six->pos.row + rel_below) & (term->grid->num_rows - 1)},
         };
         below.data = malloc(below.width * below.height * sizeof(uint32_t));
         memcpy(
             below.data,
-            &((const uint32_t *)six->data)[(rel_row + 1) * term->cell_height * six->width],
+            &((const uint32_t *)six->data)[rel_below * term->cell_height * six->width],
             below.width * below.height * sizeof(uint32_t));
         below.pix = pixman_image_create_bits_no_clear(
             PIXMAN_a8r8g8b8,
             below.width, below.height,
             below.data, below.width * sizeof(uint32_t));
-
         tll_push_back(term->grid->sixel_images, below);
     }
 
-    if (rel_col > 0) {
+    if (rel_left > 0) {
         struct sixel left = {
-            .width = rel_col * term->cell_width,
-            .height = min(term->cell_height, six->height - rel_row * term->cell_height),
+            .width = rel_left * term->cell_width,
+            .height = min(term->cell_height, six->height - rel_above * term->cell_height),
             .rows = 1,
-            .cols = rel_col,
-            .pos = (struct coord){six->pos.col,
-                                  (six->pos.row + rel_row) & (term->grid->num_rows - 1)},
+            .cols = rel_left,
+            .pos = (struct coord){
+                six->pos.col,
+                (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
         };
         left.data = malloc(left.width * left.height * sizeof(uint32_t));
         for (size_t i = 0; i < term->cell_height; i++)
             memcpy(
                 &((uint32_t *)left.data)[i * left.width],
-                &((const uint32_t *)six->data)[(rel_row * term->cell_height + i) * six->width],
+                &((const uint32_t *)six->data)[(rel_above * term->cell_height + i) * six->width],
                 left.width * sizeof(uint32_t));
         left.pix = pixman_image_create_bits_no_clear(
             PIXMAN_a8r8g8b8,
             left.width, left.height,
             left.data, left.width * sizeof(uint32_t));
         tll_push_back(term->grid->sixel_images, left);
-
     }
 
-    if (rel_col + 1 < six->cols) {
+    if (rel_right < six->cols) {
         struct sixel right = {
-            .width = six->width - (rel_col + 1) * term->cell_width,
-            .height = min(term->cell_height, six->height - rel_row * term->cell_height),
+            .width = six->width - rel_right * term->cell_width,
+            .height = min(term->cell_height, six->height - rel_above * term->cell_height),
             .rows = 1,
-            .cols = six->cols - (rel_col + 1),
-            .pos = (struct coord){six->pos.col + rel_col + 1,
-                                  (six->pos.row + rel_row) & (term->grid->num_rows - 1)},
+            .cols = six->cols - rel_right,
+            .pos = (struct coord){
+                six->pos.col + rel_right,
+                (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
         };
         right.data = malloc(right.width * right.height * sizeof(uint32_t));
         for (size_t i = 0; i < term->cell_height; i++)
             memcpy(
                 &((uint32_t *)right.data)[i * right.width],
-                &((const uint32_t *)six->data)[(rel_row * term->cell_height + i) * six->width + (rel_col + 1) * term->cell_width],
+                &((const uint32_t *)six->data)[(rel_above * term->cell_height + i) * six->width + rel_right * term->cell_width],
                 right.width * sizeof(uint32_t));
         right.pix = pixman_image_create_bits_no_clear(
             PIXMAN_a8r8g8b8,
@@ -270,27 +269,46 @@ sixel_split(struct terminal *term, struct sixel *six, int row, int col)
     }
 }
 
-void
-sixel_split_at_point(struct terminal *term, int _row, int col)
+static void
+sixel_split_by_rectangle(struct terminal *term, int _row,
+                         int col, int height, int width)
 {
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
 
-    const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
+    const int start = (term->grid->offset + _row) & (term->grid->num_rows - 1);
+    const int end = (start + height - 1) & (term->grid->num_rows - 1);
+    const bool wraps = end < start;
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
 
         const int six_start = six->pos.row;
-        const int six_end = six_start + six->rows - 1;
+        const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
+        const bool six_wraps = six_end < six_start;
 
-        if (row >= six_start && row <= six_end) {
+        if ((six_wraps == wraps &&
+             ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
+              (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
+              (start >= six_start && end <= six_end))) ||  /* Fully within sixel range */
+            (six_wraps && !wraps &&
+             ((start <= six_start && end >= six_start) ||
+              (start <= six_end && end >= six_end) ||
+              (start >= six_start || end <= six_end))) ||
+            (!six_wraps && wraps &&
+             ((six_start <= start && six_end >= end) ||    /* Sixel croses region start boundary */
+              (six_start <= end && six_end >= end) ||      /* Sixel crosses region end boundary */
+              (six_start >= start || six_end <= end)))     /* Sixel is fully enclosed by region */
+            )
+        {
             const int col_start = six->pos.col;
-            const int col_end = six->pos.col + six->cols;
+            const int col_end = six->pos.col + six->cols - 1;
 
-            if (col >= col_start && col < col_end) {
-                //sixel_erase(term, six);
-                sixel_split(term, six, row, col);
+            if ((col <= col_start && col + width - 1 >= col_start) ||
+                (col <= col_end && col + width - 1 >= col_end) ||
+                (col >= col_start && col + width - 1 <= col_end))
+            {
+                sixel_split(term, six, start, col, height, width);
                 sixel_erase(term, six);
                 tll_remove(term->grid->sixel_images, it);
             }
@@ -301,14 +319,13 @@ sixel_split_at_point(struct terminal *term, int _row, int col)
 void
 sixel_split_at_cursor(struct terminal *term)
 {
-    sixel_split_at_point(term, term->grid->cursor.point.row, term->grid->cursor.point.col);
+    sixel_split_by_rectangle(
+        term, term->grid->cursor.point.row, term->grid->cursor.point.col, 1, 1);
 }
 
 void
 sixel_unhook(struct terminal *term)
 {
-    //sixel_delete_at_cursor(term);
-
     struct sixel image = {
         .data = term->sixel.image.data,
         .width = term->sixel.image.width,
@@ -320,12 +337,12 @@ sixel_unhook(struct terminal *term)
             (term->grid->offset + term->grid->cursor.point.row) & (term->grid->num_rows - 1)},
     };
 
-    for (int row = 0; row < image.rows; row++) {
-        for (int col = 0; col < image.cols; col++)
-            sixel_split_at_point(term, term->grid->cursor.point.row + row, term->grid->cursor.point.col + col);
-    }
+    sixel_split_by_rectangle(
+        term,
+        term->grid->cursor.point.row, term->grid->cursor.point.col,
+        image.rows, image.cols);
 
-    LOG_DBG("generating %dx%d pixman image", image.width, image.height);
+    LOG_DBG("generating %dx%d pixman image at %d-%d", image.width, image.height, image.pos.row, image.pos.row + image.rows);
 
     image.pix = pixman_image_create_bits_no_clear(
         PIXMAN_a8r8g8b8,
