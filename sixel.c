@@ -186,8 +186,8 @@ sixel_delete_in_range(struct terminal *term, int _start, int _end)
 }
 
 static void
-sixel_split(struct terminal *term, struct sixel *six,
-            int row, int col, int height, int width)
+sixel_overwrite(struct terminal *term, struct sixel *six,
+                int row, int col, int height, int width)
 {
     assert(row >= 0);
     assert(row + height <= term->grid->num_rows);
@@ -290,7 +290,7 @@ sixel_split(struct terminal *term, struct sixel *six,
 
 /* Row numbers are absolute */
 static void
-_sixel_split_by_rectangle(
+_sixel_overwrite_by_rectangle(
     struct terminal *term, int row, int col, int height, int width)
 {
     assert(row + height <= term->grid->num_rows);
@@ -326,7 +326,7 @@ _sixel_split_by_rectangle(
                 (col <= col_end && col + width - 1 >= col_end) ||
                 (col >= col_start && col + width - 1 <= col_end))
             {
-                sixel_split(term, six, start, col, height, width);
+                sixel_overwrite(term, six, start, col, height, width);
                 sixel_erase(term, six);
                 tll_remove(term->grid->sixel_images, it);
             }
@@ -335,7 +335,7 @@ _sixel_split_by_rectangle(
 }
 
 void
-sixel_split_by_rectangle(
+sixel_overwrite_by_rectangle(
     struct terminal *term, int row, int col, int height, int width)
 {
     if (likely(tll_length(term->grid->sixel_images) == 0))
@@ -348,15 +348,15 @@ sixel_split_by_rectangle(
     if (wraps) {
         int rows_to_wrap_around = term->grid->num_rows - start;
         assert(height - rows_to_wrap_around > 0);
-        _sixel_split_by_rectangle(term, start, col, rows_to_wrap_around, width);
-        _sixel_split_by_rectangle(term, 0, col, height - rows_to_wrap_around, width);
+        _sixel_overwrite_by_rectangle(term, start, col, rows_to_wrap_around, width);
+        _sixel_overwrite_by_rectangle(term, 0, col, height - rows_to_wrap_around, width);
     } else
-        _sixel_split_by_rectangle(term, start, col, height, width);
+        _sixel_overwrite_by_rectangle(term, start, col, height, width);
 }
 
 /* Row numbers are absolute */
 static void
-_sixel_split_by_row(struct terminal *term, int row, int col, int width)
+_sixel_overwrite_by_row(struct terminal *term, int row, int col, int width)
 {
     assert(col >= 0);
 
@@ -384,7 +384,7 @@ _sixel_split_by_row(struct terminal *term, int row, int col, int width)
                 (col <= col_end && col + width - 1 >= col_end) ||
                 (col >= col_start && col + width - 1 <= col_end))
             {
-                sixel_split(term, six, row, col, 1, width);
+                sixel_overwrite(term, six, row, col, 1, width);
                 sixel_erase(term, six);
                 tll_remove(term->grid->sixel_images, it);
             }
@@ -393,18 +393,18 @@ _sixel_split_by_row(struct terminal *term, int row, int col, int width)
 }
 
 void
-sixel_split_by_row(struct terminal *term, int row, int col, int width)
+sixel_overwrite_by_row(struct terminal *term, int row, int col, int width)
 {
-    _sixel_split_by_row(
+    _sixel_overwrite_by_row(
         term,
         (term->grid->offset + row) & (term->grid->num_rows - 1),
         col, width);
 }
 
 void
-sixel_split_at_cursor(struct terminal *term)
+sixel_overwrite_at_cursor(struct terminal *term)
 {
-    sixel_split_by_row(
+    sixel_overwrite_by_row(
         term, term->grid->cursor.point.row, term->grid->cursor.point.col, 1);
 }
 
@@ -448,7 +448,7 @@ sixel_unhook(struct terminal *term)
             .pos = (struct coord){cursor->col, cur_row},
         };
 
-        sixel_split_by_rectangle(
+        sixel_overwrite_by_rectangle(
             term, cursor->row, image.pos.col, image.rows, image.cols);
 
         LOG_DBG("generating %dx%d pixman image at %d-%d", image.width, image.height, image.pos.row, image.pos.row + image.rows);

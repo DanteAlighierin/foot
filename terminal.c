@@ -1599,7 +1599,7 @@ term_erase(struct terminal *term, const struct coord *start, const struct coord 
     if (start->row == end->row) {
         struct row *row = grid_row(term->grid, start->row);
         erase_cell_range(term, row, start->col, end->col);
-        sixel_split_by_row(term, start->row, start->col, end->col - start->col + 1);
+        sixel_overwrite_by_row(term, start->row, start->col, end->col - start->col + 1);
         return;
     }
 
@@ -1607,14 +1607,15 @@ term_erase(struct terminal *term, const struct coord *start, const struct coord 
 
     erase_cell_range(
         term, grid_row(term->grid, start->row), start->col, term->cols - 1);
-    sixel_split_by_row(term, start->row, start->col, term->cols - start->col);
+    sixel_overwrite_by_row(term, start->row, start->col, term->cols - start->col);
 
     for (int r = start->row + 1; r < end->row; r++)
         erase_line(term, grid_row(term->grid, r));
-    sixel_split_by_rectangle(term, start->row + 1, 0, end->row - start->row, term->cols);
+    sixel_overwrite_by_rectangle(
+        term, start->row + 1, 0, end->row - start->row, term->cols);
 
     erase_cell_range(term, grid_row(term->grid, end->row), 0, end->col);
-    sixel_split_by_row(term, end->row, 0, end->col + 1);
+    sixel_overwrite_by_row(term, end->row, 0, end->col + 1);
 }
 
 int
@@ -2383,7 +2384,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     print_linewrap(term);
     print_insert(term, width);
 
-    sixel_split_at_cursor(term);
+    sixel_overwrite_at_cursor(term);
 
     /* *Must* get current cell *after* linewrap+insert */
     struct row *row = term->grid->cur_row;
