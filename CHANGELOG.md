@@ -72,6 +72,8 @@
 * Text printed, or other sixel images drawn, on top of a sixel image
   no longer erases the entire image, only the part(s) covered by the
   new text or image.
+* Terminfo entry `kb2` (center keypad key); it is now set to `\EOu`
+  (which is what foot emits) instead of the incorrect value `\EOE`.
 
 
 ### Security
