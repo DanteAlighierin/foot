@@ -168,10 +168,10 @@ static void
 sixel_split(struct terminal *term, struct sixel *six,
             int row, int col, int height, int width)
 {
-    int rel_above = max(row - six->pos.row, 0);
-    int rel_below = min(row + height - six->pos.row, six->rows);
-    int rel_left = max(col - six->pos.col, 0);
-    int rel_right = min(col + width - six->pos.col, six->cols);
+    int rel_above = min(max(row - six->pos.row, 0), six->rows);
+    int rel_below = max(min(row + height - six->pos.row, six->rows), 0);
+    int rel_left = min(max(col - six->pos.col, 0), six->cols);
+    int rel_right = max(min(col + width - six->pos.col, six->cols), 0);
 
     assert(rel_above >= 0);
     assert(rel_below >= 0);
