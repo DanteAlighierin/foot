@@ -1599,6 +1599,8 @@ term_erase(struct terminal *term, const struct coord *start, const struct coord 
     if (start->row == end->row) {
         struct row *row = grid_row(term->grid, start->row);
         erase_cell_range(term, row, start->col, end->col);
+
+        /* TODO: split instead */
         sixel_delete_at_row(term, start->row);
         return;
     }
@@ -1612,6 +1614,8 @@ term_erase(struct terminal *term, const struct coord *start, const struct coord 
         erase_line(term, grid_row(term->grid, r));
 
     erase_cell_range(term, grid_row(term->grid, end->row), 0, end->col);
+
+    /* TODO: split instead */
     sixel_delete_in_range(term, start->row, end->row);
 }
 
@@ -2381,7 +2385,6 @@ term_print(struct terminal *term, wchar_t wc, int width)
     print_linewrap(term);
     print_insert(term, width);
 
-    //sixel_delete_at_cursor(term);
     sixel_split_at_cursor(term);
 
     /* *Must* get current cell *after* linewrap+insert */

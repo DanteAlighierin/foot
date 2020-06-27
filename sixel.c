@@ -118,9 +118,13 @@ sixel_delete_at_point(struct terminal *term, int row, int col)
     }
 }
 
+/* TODO: remove */
 void
 sixel_delete_at_row(struct terminal *term, int row)
 {
+    if (likely(tll_length(term->grid->sixel_images) == 0))
+        return;
+
     sixel_delete_at_point(
         term, (term->grid->offset + row) & (term->grid->num_rows - 1), -1);
 }
@@ -134,12 +138,6 @@ _sixel_delete_in_range(struct terminal *term, int start, int end)
     assert(start < term->grid->num_rows);
     assert(end >= 0);
     assert(end < term->grid->num_rows);
-
-    if (likely(tll_length(term->grid->sixel_images) == 0))
-        return;
-
-    if (start == end)
-        return sixel_delete_at_point(term, start, -1);
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
@@ -163,6 +161,15 @@ _sixel_delete_in_range(struct terminal *term, int start, int end)
 void
 sixel_delete_in_range(struct terminal *term, int _start, int _end)
 {
+    if (likely(tll_length(term->grid->sixel_images) == 0))
+        return;
+
+    if (_start == _end) {
+        /* Avoid expensive wrap calculation */
+        return sixel_delete_at_point(
+            term, (term->grid->offset + _start) & (term->grid->num_rows - 1), -1);
+    }
+
     assert(_end >= _start);
     const int lines = _end - _start + 1;
     const int start = (term->grid->offset + _start) & (term->grid->num_rows - 1);
@@ -293,9 +300,6 @@ _sixel_split_by_rectangle(
     assert(col >= 0);
     assert(col + width <= term->grid->num_cols);
 
-    if (likely(tll_length(term->grid->sixel_images) == 0))
-        return;
-
     /* We don't handle rectangle wrapping around */
     assert(row + height <= term->grid->num_rows);
 
@@ -334,6 +338,9 @@ static void
 sixel_split_by_rectangle(
     struct terminal *term, int _row, int col, int height, int width)
 {
+    if (likely(tll_length(term->grid->sixel_images) == 0))
+        return;
+
     const int start = (term->grid->offset + _row) & (term->grid->num_rows - 1);
     const int end = (start + height - 1) & (term->grid->num_rows - 1);
     const bool wraps = end < start;
