@@ -87,16 +87,15 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
     sixel_destroy(sixel);
 }
 
+/* Row numbers are absolute */
 static void
-sixel_delete_at_point(struct terminal *term, int _row, int col)
+sixel_delete_at_point(struct terminal *term, int row, int col)
 {
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
-
-        const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
         const int six_start = six->pos.row;
         const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
 
@@ -117,25 +116,23 @@ sixel_delete_at_point(struct terminal *term, int _row, int col)
 }
 
 void
-sixel_delete_at_row(struct terminal *term, int _row)
+sixel_delete_at_row(struct terminal *term, int row)
 {
-    sixel_delete_at_point(term, _row, -1);
+    sixel_delete_at_point(
+        term, (term->grid->offset + row) & (term->grid->num_rows - 1), -1);
 }
 
-void
-sixel_delete_in_range(struct terminal *term, int _start, int _end)
+/* Row numbers are absolute */
+static void
+_sixel_delete_in_range(struct terminal *term, int start, int end)
 {
-    assert(_end >= _start);
+    assert(end >= start);
 
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
 
-    if (_start == _end)
-        return sixel_delete_at_row(term, _start);
-
-    const int start = (term->grid->offset + _start) & (term->grid->num_rows - 1);
-    const int end = (start + (_end - _start)) & (term->grid->num_rows - 1);
-    const bool wraps = end < start;
+    if (start == end)
+        return sixel_delete_at_point(term, start, -1);
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
@@ -144,24 +141,38 @@ sixel_delete_in_range(struct terminal *term, int _start, int _end)
         const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
         const bool six_wraps = six_end < six_start;
 
-        if ((six_wraps == wraps &&
+        if ((!six_wraps &&
              ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
               (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
               (start >= six_start && end <= six_end))) ||  /* Fully within sixel range */
-            (six_wraps && !wraps &&
+            (six_wraps &&
              ((start <= six_start && end >= six_start) ||
               (start <= six_end && end >= six_end) ||
-              (start >= six_start || end <= six_end))) ||
-            (!six_wraps && wraps &&
-             ((six_start <= start && six_end >= end) ||    /* Sixel croses region start boundary */
-              (six_start <= end && six_end >= end) ||      /* Sixel crosses region end boundary */
-              (six_start >= start || six_end <= end)))     /* Sixel is fully enclosed by region */
+              (start >= six_start || end <= six_end)))
             )
         {
             sixel_erase(term, six);
             tll_remove(term->grid->sixel_images, it);
         }
     }
+}
+
+void
+sixel_delete_in_range(struct terminal *term, int _start, int _end)
+{
+    assert(_end >= _start);
+    const int lines = _end - _start + 1;
+    const int start = (term->grid->offset + _start) & (term->grid->num_rows - 1);
+    const int end = (start + lines - 1) & (term->grid->num_rows - 1);
+    const bool wraps = end < start;
+
+    if (wraps) {
+        int rows_to_wrap_around = term->grid->num_rows - start;
+        assert(lines - rows_to_wrap_around > 0);
+        _sixel_delete_in_range(term, start, term->grid->num_rows);
+        _sixel_delete_in_range(term, 0, lines - rows_to_wrap_around);
+    } else
+        _sixel_delete_in_range(term, start, end);
 }
 
 static void
@@ -269,36 +280,37 @@ sixel_split(struct terminal *term, struct sixel *six,
     }
 }
 
+/* Row numbers are absolute */
 static void
-sixel_split_by_rectangle(struct terminal *term, int _row,
-                         int col, int height, int width)
+_sixel_split_by_rectangle(
+    struct terminal *term, int row, int col, int height, int width)
 {
+    assert(row + height <= term->grid->num_rows);
+
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
 
-    const int start = (term->grid->offset + _row) & (term->grid->num_rows - 1);
-    const int end = (start + height - 1) & (term->grid->num_rows - 1);
-    const bool wraps = end < start;
+    /* We don't handle rectangle wrapping around */
+    assert(row + height <= term->grid->num_rows);
+
+    const int start = row;
+    const int end = row + height - 1;
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
 
         const int six_start = six->pos.row;
         const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
-        const bool six_wraps = six_end < six_start;
+        const bool six_wraps = six_end < six_start;  /* TODO: do not generate sixels that wrap around */
 
-        if ((six_wraps == wraps &&
+        if ((!six_wraps &&
              ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
               (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
               (start >= six_start && end <= six_end))) ||  /* Fully within sixel range */
-            (six_wraps && !wraps &&
+            (six_wraps &&
              ((start <= six_start && end >= six_start) ||
               (start <= six_end && end >= six_end) ||
-              (start >= six_start || end <= six_end))) ||
-            (!six_wraps && wraps &&
-             ((six_start <= start && six_end >= start) ||  /* Sixel croses region start boundary */
-              (six_start <= end && six_end >= end) ||      /* Sixel crosses region end boundary */
-              (six_start >= start || six_end <= end)))     /* Sixel is fully enclosed by region */
+              (start >= six_start || end <= six_end)))
             )
         {
             const int col_start = six->pos.col;
@@ -316,11 +328,61 @@ sixel_split_by_rectangle(struct terminal *term, int _row,
     }
 }
 
+static void
+sixel_split_by_rectangle(
+    struct terminal *term, int _row, int col, int height, int width)
+{
+    const int start = (term->grid->offset + _row) & (term->grid->num_rows - 1);
+    const int end = (start + height - 1) & (term->grid->num_rows - 1);
+    const bool wraps = end < start;
+
+    if (wraps) {
+        int rows_to_wrap_around = term->grid->num_rows - start;
+        assert(height - rows_to_wrap_around > 0);
+        _sixel_split_by_rectangle(term, start, col, rows_to_wrap_around, width);
+        _sixel_split_by_rectangle(term, 0, col, height - rows_to_wrap_around, width);
+    } else
+        _sixel_split_by_rectangle(term, start, col, height, width);
+}
+
+/* Row numbers are absolute */
+static void
+sixel_split_at_point(struct terminal *term, int row, int col)
+{
+    assert(col >= 0);
+
+    if (likely(tll_length(term->grid->sixel_images) == 0))
+        return;
+
+    tll_foreach(term->grid->sixel_images, it) {
+        struct sixel *six = &it->item;
+        const int six_start = six->pos.row;
+        const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
+
+        bool wraps = six_end < six_start;
+
+        if ((!wraps && row >= six_start && row <= six_end) ||
+            (wraps && (row >= six_start || row <= six_end)))
+        {
+            const int col_start = six->pos.col;
+            const int col_end = six->pos.col + six->cols;
+
+            if (col >= col_start && col < col_end) {
+                sixel_split(term, six, row, col, 1, 1);
+                sixel_erase(term, six);
+                tll_remove(term->grid->sixel_images, it);
+            }
+        }
+    }
+}
+
 void
 sixel_split_at_cursor(struct terminal *term)
 {
-    sixel_split_by_rectangle(
-        term, term->grid->cursor.point.row, term->grid->cursor.point.col, 1, 1);
+    sixel_split_at_point(
+        term,
+        (term->grid->offset + term->grid->cursor.point.row) & (term->grid->num_rows - 1),
+        term->grid->cursor.point.col);
 }
 
 void
@@ -338,9 +400,7 @@ sixel_unhook(struct terminal *term)
     };
 
     sixel_split_by_rectangle(
-        term,
-        term->grid->cursor.point.row, term->grid->cursor.point.col,
-        image.rows, image.cols);
+        term, term->grid->cursor.point.row, image.pos.col, image.rows, image.cols);
 
     LOG_DBG("generating %dx%d pixman image at %d-%d", image.width, image.height, image.pos.row, image.pos.row + image.rows);
 
