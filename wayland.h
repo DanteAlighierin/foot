@@ -19,7 +19,6 @@ struct monitor {
     struct wayland *wayl;
     struct wl_output *output;
     struct zxdg_output_v1 *xdg;
-    char *name;
     uint32_t wl_name;
 
     int x;
@@ -63,8 +62,14 @@ struct monitor {
     float refresh;
     enum wl_output_subpixel subpixel;
 
+    /* From wl_output */
     char *make;
     char *model;
+
+    /* From xdg_output */
+    char *name;
+    char *description;
+
     float inch;  /* e.g. 24" */
 };
 

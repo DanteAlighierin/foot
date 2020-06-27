@@ -259,13 +259,15 @@ xdg_output_handle_name(void *data, struct zxdg_output_v1 *xdg_output,
                        const char *name)
 {
     struct monitor *mon = data;
-    mon->name = strdup(name);
+    mon->name = name != NULL ? strdup(name) : NULL;
 }
 
 static void
 xdg_output_handle_description(void *data, struct zxdg_output_v1 *xdg_output,
                               const char *description)
 {
+    struct monitor *mon = data;
+    mon->description = description != NULL ? strdup(description) : NULL;
 }
 
 static const struct zxdg_output_v1_listener xdg_output_listener = {
@@ -666,13 +668,14 @@ handle_global(void *data, struct wl_registry *registry,
 static void
 monitor_destroy(struct monitor *mon)
 {
-    free(mon->name);
     if (mon->xdg != NULL)
         zxdg_output_v1_destroy(mon->xdg);
     if (mon->output != NULL)
         wl_output_destroy(mon->output);
     free(mon->make);
     free(mon->model);
+    free(mon->name);
+    free(mon->description);
 }
 
 static void
@@ -842,7 +845,8 @@ wayl_init(const struct config *conf, struct fdm *fdm)
             "%s: %dx%d+%dx%d@%dHz %s %.2f\" scale=%d PPI=%dx%d (physical) PPI=%dx%d (logical)",
             it->item.name, it->item.dim.px_real.width, it->item.dim.px_real.height,
             it->item.x, it->item.y, (int)round(it->item.refresh),
-            it->item.model, it->item.inch, it->item.scale,
+            it->item.model != NULL ? it->item.model : it->item.description,
+            it->item.inch, it->item.scale,
             it->item.ppi.real.x, it->item.ppi.real.y,
             it->item.ppi.scaled.x, it->item.ppi.scaled.y);
     }

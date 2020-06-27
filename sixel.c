@@ -87,24 +87,30 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
     sixel_destroy(sixel);
 }
 
+/* Row numbers are absolute */
 static void
-sixel_delete_at_point(struct terminal *term, int _row, int col)
+sixel_delete_at_point(struct terminal *term, int row, int col)
 {
+    assert(row >= 0);
+    assert(row < term->grid->num_rows);
+    assert(col < term->grid->num_cols);
+
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
-
-        const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
         const int six_start = six->pos.row;
-        const int six_end = six_start + six->rows - 1;
+        const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
+
+        /* We should never generate scrollback wrapping sixels */
+        assert(six_end >= six_start);
 
         if (row >= six_start && row <= six_end) {
             const int col_start = six->pos.col;
             const int col_end = six->pos.col + six->cols;
 
-            if (col >= col_start && col < col_end) {
+            if (col < 0 || (col >= col_start && col < col_end)) {
                 sixel_erase(term, six);
                 tll_remove(term->grid->sixel_images, it);
             }
@@ -113,29 +119,36 @@ sixel_delete_at_point(struct terminal *term, int _row, int col)
 }
 
 void
-sixel_delete_at_row(struct terminal *term, int _row)
+sixel_delete_at_row(struct terminal *term, int row)
 {
-    sixel_delete_at_point(term, _row, INT_MAX);
+    sixel_delete_at_point(
+        term, (term->grid->offset + row) & (term->grid->num_rows - 1), -1);
 }
 
-void
-sixel_delete_in_range(struct terminal *term, int _start, int _end)
+/* Row numbers are absolute */
+static void
+_sixel_delete_in_range(struct terminal *term, int start, int end)
 {
-    assert(_end >= _start);
+    assert(end >= start);
+    assert(start >= 0);
+    assert(start < term->grid->num_rows);
+    assert(end >= 0);
+    assert(end < term->grid->num_rows);
 
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
 
-    if (_start == _end)
-        return sixel_delete_at_row(term, _start);
+    if (start == end)
+        return sixel_delete_at_point(term, start, -1);
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
 
-        const int start = (term->grid->offset + _start) & (term->grid->num_rows - 1);
-        const int end = start + (_end - _start);
         const int six_start = six->pos.row;
-        const int six_end = six_start + six->rows - 1;
+        const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
+
+        /* We should never generate scrollback wrapping sixels */
+        assert(six_end >= six_start);
 
         if ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
             (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
@@ -148,48 +161,303 @@ sixel_delete_in_range(struct terminal *term, int _start, int _end)
 }
 
 void
-sixel_delete_at_cursor(struct terminal *term)
+sixel_delete_in_range(struct terminal *term, int _start, int _end)
 {
-    sixel_delete_at_point(
-        term, term->grid->cursor.point.row, term->grid->cursor.point.col);
+    assert(_end >= _start);
+    const int lines = _end - _start + 1;
+    const int start = (term->grid->offset + _start) & (term->grid->num_rows - 1);
+    const int end = (start + lines - 1) & (term->grid->num_rows - 1);
+    const bool wraps = end < start;
+
+    if (wraps) {
+        int rows_to_wrap_around = term->grid->num_rows - start;
+        assert(lines - rows_to_wrap_around > 0);
+        _sixel_delete_in_range(term, start, term->grid->num_rows);
+        _sixel_delete_in_range(term, 0, lines - rows_to_wrap_around);
+    } else
+        _sixel_delete_in_range(term, start, end);
+}
+
+static void
+sixel_split(struct terminal *term, struct sixel *six,
+            int row, int col, int height, int width)
+{
+    assert(row >= 0);
+    assert(row + height <= term->grid->num_rows);
+    assert(col >= 0);
+    assert(col + width <= term->grid->num_cols);
+
+    int rel_above = min(max(row - six->pos.row, 0), six->rows);
+    int rel_below = max(min(row + height - six->pos.row, six->rows), 0);
+    int rel_left = min(max(col - six->pos.col, 0), six->cols);
+    int rel_right = max(min(col + width - six->pos.col, six->cols), 0);
+
+    assert(rel_above >= 0);
+    assert(rel_below >= 0);
+    assert(rel_left >= 0);
+    assert(rel_right >= 0);
+
+    LOG_DBG("SPLIT: six (%p): %dx%d-%dx%d, %dx%d-%dx%d, rel: above=%d, below=%d, left=%d, right=%d",
+            six, six->pos.row, six->pos.col, six->rows, six->cols,
+            row, col, height, width,
+            rel_above, rel_below, rel_left, rel_right);
+
+    struct sixel imgs[4] = {};
+
+    if (rel_above > 0) {
+        imgs[0] =  (struct sixel){
+            .width = six->width,
+            .height = rel_above * term->cell_height,
+            .rows = rel_above,
+            .cols = six->cols,
+            .pos = six->pos,
+        };
+        imgs[0].data = malloc(imgs[0].width * imgs[0].height * sizeof(uint32_t));
+        memcpy(imgs[0].data, six->data, imgs[0].width * imgs[0].height * sizeof(uint32_t));
+    }
+
+    if (rel_below < six->rows) {
+        imgs[1] = (struct sixel){
+            .width = six->width,
+            .height = six->height - rel_below * term->cell_height,
+            .rows = six->rows - rel_below,
+            .cols = six->cols,
+            .pos = (struct coord){
+                six->pos.col,
+                (six->pos.row + rel_below) & (term->grid->num_rows - 1)},
+        };
+        imgs[1].data = malloc(imgs[1].width * imgs[1].height * sizeof(uint32_t));
+        memcpy(
+            imgs[1].data,
+            &((const uint32_t *)six->data)[rel_below * term->cell_height * six->width],
+            imgs[1].width * imgs[1].height * sizeof(uint32_t));
+    }
+
+    if (rel_left > 0) {
+        imgs[2] = (struct sixel){
+            .width = rel_left * term->cell_width,
+            .height = min(term->cell_height, six->height - rel_above * term->cell_height),
+            .rows = 1,
+            .cols = rel_left,
+            .pos = (struct coord){
+                six->pos.col,
+                (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
+        };
+        imgs[2].data = malloc(imgs[2].width * imgs[2].height * sizeof(uint32_t));
+        for (size_t i = 0; i < term->cell_height; i++)
+            memcpy(
+                &((uint32_t *)imgs[2].data)[i * imgs[2].width],
+                &((const uint32_t *)six->data)[(rel_above * term->cell_height + i) * six->width],
+                imgs[2].width * sizeof(uint32_t));
+    }
+
+    if (rel_right < six->cols) {
+        imgs[3] = (struct sixel){
+            .width = six->width - rel_right * term->cell_width,
+            .height = min(term->cell_height, six->height - rel_above * term->cell_height),
+            .rows = 1,
+            .cols = six->cols - rel_right,
+            .pos = (struct coord){
+                six->pos.col + rel_right,
+                (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
+        };
+        imgs[3].data = malloc(imgs[3].width * imgs[3].height * sizeof(uint32_t));
+        for (size_t i = 0; i < term->cell_height; i++)
+            memcpy(
+                &((uint32_t *)imgs[3].data)[i * imgs[3].width],
+                &((const uint32_t *)six->data)[(rel_above * term->cell_height + i) * six->width + rel_right * term->cell_width],
+                imgs[3].width * sizeof(uint32_t));
+    }
+
+    for (size_t i = 0; i < sizeof(imgs) / sizeof(imgs[0]); i++) {
+        if (imgs[i].data == NULL)
+            continue;
+
+        imgs[i].pix = pixman_image_create_bits_no_clear(
+            PIXMAN_a8r8g8b8,
+            imgs[i].width, imgs[i].height,
+            imgs[i].data, imgs[i].width * sizeof(uint32_t));
+        tll_push_front(term->grid->sixel_images, imgs[i]);
+    }
+}
+
+/* Row numbers are absolute */
+static void
+_sixel_split_by_rectangle(
+    struct terminal *term, int row, int col, int height, int width)
+{
+    assert(row + height <= term->grid->num_rows);
+
+    assert(row >= 0);
+    assert(row + height <= term->grid->num_rows);
+    assert(col >= 0);
+    assert(col + width <= term->grid->num_cols);
+
+    if (likely(tll_length(term->grid->sixel_images) == 0))
+        return;
+
+    /* We don't handle rectangle wrapping around */
+    assert(row + height <= term->grid->num_rows);
+
+    const int start = row;
+    const int end = row + height - 1;
+
+    tll_foreach(term->grid->sixel_images, it) {
+        struct sixel *six = &it->item;
+
+        const int six_start = six->pos.row;
+        const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
+
+        /* We should never generate scrollback wrapping sixels */
+        assert(six_end >= six_start);
+
+        if ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
+            (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
+            (start >= six_start && end <= six_end))      /* Fully within sixel range */
+        {
+            const int col_start = six->pos.col;
+            const int col_end = six->pos.col + six->cols - 1;
+
+            if ((col <= col_start && col + width - 1 >= col_start) ||
+                (col <= col_end && col + width - 1 >= col_end) ||
+                (col >= col_start && col + width - 1 <= col_end))
+            {
+                sixel_split(term, six, start, col, height, width);
+                sixel_erase(term, six);
+                tll_remove(term->grid->sixel_images, it);
+            }
+        }
+    }
+}
+
+static void
+sixel_split_by_rectangle(
+    struct terminal *term, int _row, int col, int height, int width)
+{
+    const int start = (term->grid->offset + _row) & (term->grid->num_rows - 1);
+    const int end = (start + height - 1) & (term->grid->num_rows - 1);
+    const bool wraps = end < start;
+
+    if (wraps) {
+        int rows_to_wrap_around = term->grid->num_rows - start;
+        assert(height - rows_to_wrap_around > 0);
+        _sixel_split_by_rectangle(term, start, col, rows_to_wrap_around, width);
+        _sixel_split_by_rectangle(term, 0, col, height - rows_to_wrap_around, width);
+    } else
+        _sixel_split_by_rectangle(term, start, col, height, width);
+}
+
+/* Row numbers are absolute */
+static void
+sixel_split_at_point(struct terminal *term, int row, int col)
+{
+    assert(col >= 0);
+
+    assert(row >= 0);
+    assert(row < term->grid->num_rows);
+    assert(col >= 0);
+    assert(col < term->grid->num_cols);
+
+    if (likely(tll_length(term->grid->sixel_images) == 0))
+        return;
+
+    tll_foreach(term->grid->sixel_images, it) {
+        struct sixel *six = &it->item;
+        const int six_start = six->pos.row;
+        const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
+
+        /* We should never generate scrollback wrapping sixels */
+        assert(six_end >= six_start);
+
+        if (row >= six_start && row <= six_end) {
+            const int col_start = six->pos.col;
+            const int col_end = six->pos.col + six->cols;
+
+            if (col >= col_start && col < col_end) {
+                sixel_split(term, six, row, col, 1, 1);
+                sixel_erase(term, six);
+                tll_remove(term->grid->sixel_images, it);
+            }
+        }
+    }
+}
+
+void
+sixel_split_at_cursor(struct terminal *term)
+{
+    sixel_split_at_point(
+        term,
+        (term->grid->offset + term->grid->cursor.point.row) & (term->grid->num_rows - 1),
+        term->grid->cursor.point.col);
 }
 
 void
 sixel_unhook(struct terminal *term)
 {
-    sixel_delete_at_cursor(term);
+    int pixel_row_idx = 0;
+    int pixel_rows_left = term->sixel.image.height;
+    const int stride = term->sixel.image.width * sizeof(uint32_t);
 
-    struct sixel image = {
-        .data = term->sixel.image.data,
-        .width = term->sixel.image.width,
-        .height = term->sixel.image.height,
-        .rows = (term->sixel.image.height + term->cell_height - 1) / term->cell_height,
-        .cols = (term->sixel.image.width + term->cell_width - 1) / term->cell_width,
-        .pos = (struct coord){
-            term->grid->cursor.point.col,
-            (term->grid->offset + term->grid->cursor.point.row) & (term->grid->num_rows - 1)},
-    };
+    /* We do not allow sixels to cross the scrollback wrap-around, as
+     * this makes intersection calculations much more complicated */
+    while (pixel_rows_left > 0) {
+        const struct coord *cursor = &term->grid->cursor.point;
 
-    LOG_DBG("generating %dx%d pixman image", image.width, image.height);
+        const int cur_row = (term->grid->offset + cursor->row) & (term->grid->num_rows - 1);
+        const int rows_avail = term->grid->num_rows - cur_row;
 
-    image.pix = pixman_image_create_bits_no_clear(
-        PIXMAN_a8r8g8b8,
-        image.width, image.height,
-        term->sixel.image.data,
-        term->sixel.image.width * sizeof(uint32_t));
+        const int pixel_rows_avail = rows_avail * term->cell_height;
+
+        const int width = term->sixel.image.width;
+        const int height = min(pixel_rows_left, pixel_rows_avail);
+
+        uint32_t *img_data;
+        if (pixel_row_idx == 0)
+            img_data = term->sixel.image.data;
+        else {
+            img_data = malloc(height * stride);
+            memcpy(
+                img_data,
+                &((uint8_t *)term->sixel.image.data)[pixel_row_idx * stride],
+                height * stride);
+        }
+
+        struct sixel image = {
+            .data = img_data,
+            .width = width,
+            .height = height,
+            .rows = (height + term->cell_height - 1) / term->cell_height,
+            .cols = (width + term->cell_width - 1) / term->cell_width,
+            .pos = (struct coord){cursor->col, cur_row},
+        };
+
+        sixel_split_by_rectangle(
+            term, cursor->row, image.pos.col, image.rows, image.cols);
+
+        LOG_DBG("generating %dx%d pixman image at %d-%d", image.width, image.height, image.pos.row, image.pos.row + image.rows);
+
+        image.pix = pixman_image_create_bits_no_clear(
+            PIXMAN_a8r8g8b8,
+            image.width, image.height,
+            img_data, stride);
+
+
+        for (size_t i = 0; i < image.rows; i++)
+            term_linefeed(term);
+        term_formfeed(term);
+        render_refresh(term);
+
+        tll_push_back(term->grid->sixel_images, image);
+
+        pixel_row_idx += height;
+        pixel_rows_left -= height;
+    }
 
     term->sixel.image.data = NULL;
     term->sixel.image.width = 0;
     term->sixel.image.height = 0;
     term->sixel.max_col = 0;
     term->sixel.pos = (struct coord){0, 0};
-
-    for (size_t i = 0; i < image.rows; i++)
-        term_linefeed(term);
-    term_formfeed(term);
-    render_refresh(term);
-
-    tll_push_back(term->grid->sixel_images, image);
 }
 
 static unsigned
