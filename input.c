@@ -461,6 +461,7 @@ keymap_data_for_sym(xkb_keysym_t sym, size_t *count)
     case XKB_KEY_KP_Subtract:  *count = ALEN(key_kp_subtract);  return key_kp_subtract;
     case XKB_KEY_KP_Add:       *count = ALEN(key_kp_add);       return key_kp_add;
     case XKB_KEY_KP_Separator: *count = ALEN(key_kp_separator); return key_kp_separator;
+    case XKB_KEY_KP_Decimal:   *count = ALEN(key_kp_decimal);   return key_kp_decimal;
     case XKB_KEY_KP_0:         *count = ALEN(key_kp_0);         return key_kp_0;
     case XKB_KEY_KP_1:         *count = ALEN(key_kp_1);         return key_kp_1;
     case XKB_KEY_KP_2:         *count = ALEN(key_kp_2);         return key_kp_2;

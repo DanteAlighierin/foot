@@ -365,6 +365,7 @@ static const struct key_data key_kp_multiply[] = {DEFAULT_MODS_FOR_KP(j)};
 static const struct key_data key_kp_subtract[] = {DEFAULT_MODS_FOR_KP(m)};
 static const struct key_data key_kp_add[] = {DEFAULT_MODS_FOR_KP(k)};
 static const struct key_data key_kp_separator[] = {DEFAULT_MODS_FOR_KP(l)};
+static const struct key_data key_kp_decimal[] = {DEFAULT_MODS_FOR_KP(n)};
 static const struct key_data key_kp_0[] = {DEFAULT_MODS_FOR_KP(p)};
 static const struct key_data key_kp_1[] = {DEFAULT_MODS_FOR_KP(q)};
 static const struct key_data key_kp_2[] = {DEFAULT_MODS_FOR_KP(r)};
