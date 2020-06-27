@@ -15,6 +15,10 @@ void sixel_destroy(struct sixel *sixel);
 /* Row numbers are relative to current grid offset */
 void sixel_delete_in_range(struct terminal *term, int row_start, int row_end);
 void sixel_delete_at_row(struct terminal *term, int row);
+
+void sixel_split_by_rectangle(
+    struct terminal *term, int row, int col, int height, int width);
+void sixel_split_by_row(struct terminal *term, int row, int col, int width);
 void sixel_split_at_cursor(struct terminal *term);
 
 void sixel_colors_report_current(struct terminal *term);

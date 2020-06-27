@@ -1599,9 +1599,7 @@ term_erase(struct terminal *term, const struct coord *start, const struct coord 
     if (start->row == end->row) {
         struct row *row = grid_row(term->grid, start->row);
         erase_cell_range(term, row, start->col, end->col);
-
-        /* TODO: split instead */
-        sixel_delete_at_row(term, start->row);
+        sixel_split_by_row(term, start->row, start->col, end->col - start->col + 1);
         return;
     }
 
@@ -1609,14 +1607,14 @@ term_erase(struct terminal *term, const struct coord *start, const struct coord 
 
     erase_cell_range(
         term, grid_row(term->grid, start->row), start->col, term->cols - 1);
+    sixel_split_by_row(term, start->row, start->col, term->cols - start->col);
 
     for (int r = start->row + 1; r < end->row; r++)
         erase_line(term, grid_row(term->grid, r));
+    sixel_split_by_rectangle(term, start->row + 1, 0, end->row - start->row, term->cols);
 
     erase_cell_range(term, grid_row(term->grid, end->row), 0, end->col);
-
-    /* TODO: split instead */
-    sixel_delete_in_range(term, start->row, end->row);
+    sixel_split_by_row(term, end->row, 0, end->col + 1);
 }
 
 int

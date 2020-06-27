@@ -334,14 +334,14 @@ _sixel_split_by_rectangle(
     }
 }
 
-static void
+void
 sixel_split_by_rectangle(
-    struct terminal *term, int _row, int col, int height, int width)
+    struct terminal *term, int row, int col, int height, int width)
 {
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
 
-    const int start = (term->grid->offset + _row) & (term->grid->num_rows - 1);
+    const int start = (term->grid->offset + row) & (term->grid->num_rows - 1);
     const int end = (start + height - 1) & (term->grid->num_rows - 1);
     const bool wraps = end < start;
 
@@ -356,14 +356,14 @@ sixel_split_by_rectangle(
 
 /* Row numbers are absolute */
 static void
-sixel_split_at_point(struct terminal *term, int row, int col)
+_sixel_split_by_row(struct terminal *term, int row, int col, int width)
 {
     assert(col >= 0);
 
     assert(row >= 0);
     assert(row < term->grid->num_rows);
     assert(col >= 0);
-    assert(col < term->grid->num_cols);
+    assert(col + width <= term->grid->num_cols);
 
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
@@ -378,10 +378,13 @@ sixel_split_at_point(struct terminal *term, int row, int col)
 
         if (row >= six_start && row <= six_end) {
             const int col_start = six->pos.col;
-            const int col_end = six->pos.col + six->cols;
+            const int col_end = six->pos.col + six->cols - 1;
 
-            if (col >= col_start && col < col_end) {
-                sixel_split(term, six, row, col, 1, 1);
+            if ((col <= col_start && col + width - 1 >= col_start) ||
+                (col <= col_end && col + width - 1 >= col_end) ||
+                (col >= col_start && col + width - 1 <= col_end))
+            {
+                sixel_split(term, six, row, col, 1, width);
                 sixel_erase(term, six);
                 tll_remove(term->grid->sixel_images, it);
             }
@@ -390,12 +393,19 @@ sixel_split_at_point(struct terminal *term, int row, int col)
 }
 
 void
+sixel_split_by_row(struct terminal *term, int row, int col, int width)
+{
+    _sixel_split_by_row(
+        term,
+        (term->grid->offset + row) & (term->grid->num_rows - 1),
+        col, width);
+}
+
+void
 sixel_split_at_cursor(struct terminal *term)
 {
-    sixel_split_at_point(
-        term,
-        (term->grid->offset + term->grid->cursor.point.row) & (term->grid->num_rows - 1),
-        term->grid->cursor.point.col);
+    sixel_split_by_row(
+        term, term->grid->cursor.point.row, term->grid->cursor.point.col, 1);
 }
 
 void
