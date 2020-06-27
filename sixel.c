@@ -197,7 +197,7 @@ sixel_split(struct terminal *term, struct sixel *six,
             PIXMAN_a8r8g8b8,
             above.width, above.height,
             above.data, above.width * sizeof(uint32_t));
-        tll_push_back(term->grid->sixel_images, above);
+        tll_push_front(term->grid->sixel_images, above);
     }
 
     if (rel_below < six->rows) {
@@ -219,7 +219,7 @@ sixel_split(struct terminal *term, struct sixel *six,
             PIXMAN_a8r8g8b8,
             below.width, below.height,
             below.data, below.width * sizeof(uint32_t));
-        tll_push_back(term->grid->sixel_images, below);
+        tll_push_front(term->grid->sixel_images, below);
     }
 
     if (rel_left > 0) {
@@ -242,7 +242,7 @@ sixel_split(struct terminal *term, struct sixel *six,
             PIXMAN_a8r8g8b8,
             left.width, left.height,
             left.data, left.width * sizeof(uint32_t));
-        tll_push_back(term->grid->sixel_images, left);
+        tll_push_front(term->grid->sixel_images, left);
     }
 
     if (rel_right < six->cols) {
@@ -265,7 +265,7 @@ sixel_split(struct terminal *term, struct sixel *six,
             PIXMAN_a8r8g8b8,
             right.width, right.height,
             right.data, right.width * sizeof(uint32_t));
-        tll_push_back(term->grid->sixel_images, right);
+        tll_push_front(term->grid->sixel_images, right);
     }
 }
 
