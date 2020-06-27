@@ -98,13 +98,17 @@ sixel_delete_at_point(struct terminal *term, int _row, int col)
 
         const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
         const int six_start = six->pos.row;
-        const int six_end = six_start + six->rows - 1;
+        const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
 
-        if (row >= six_start && row <= six_end) {
+        bool wraps = six_end < six_start;
+
+        if ((!wraps && row >= six_start && row <= six_end) ||
+            (wraps && (row >= six_start || row <= six_end)))
+        {
             const int col_start = six->pos.col;
             const int col_end = six->pos.col + six->cols;
 
-            if (col >= col_start && col < col_end) {
+            if (col < 0 || (col >= col_start && col < col_end)) {
                 sixel_erase(term, six);
                 tll_remove(term->grid->sixel_images, it);
             }
@@ -115,7 +119,7 @@ sixel_delete_at_point(struct terminal *term, int _row, int col)
 void
 sixel_delete_at_row(struct terminal *term, int _row)
 {
-    sixel_delete_at_point(term, _row, INT_MAX);
+    sixel_delete_at_point(term, _row, -1);
 }
 
 void
@@ -129,17 +133,30 @@ sixel_delete_in_range(struct terminal *term, int _start, int _end)
     if (_start == _end)
         return sixel_delete_at_row(term, _start);
 
+    const int start = (term->grid->offset + _start) & (term->grid->num_rows - 1);
+    const int end = (start + (_end - _start)) & (term->grid->num_rows - 1);
+    const bool wraps = end < start;
+
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
 
-        const int start = (term->grid->offset + _start) & (term->grid->num_rows - 1);
-        const int end = start + (_end - _start);
         const int six_start = six->pos.row;
-        const int six_end = six_start + six->rows - 1;
+        const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
+        const bool six_wraps = six_end < six_start;
 
-        if ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
-            (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
-            (start >= six_start && end <= six_end))      /* Fully within sixel range */
+        if ((six_wraps == wraps &&
+             ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
+              (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
+              (start >= six_start && end <= six_end))) ||  /* Fully within sixel range */
+            (six_wraps && !wraps &&
+             ((start <= six_start && end >= six_start) ||
+              (start <= six_end && end >= six_end) ||
+              (start >= six_start || end <= six_end))) ||
+            (!six_wraps && wraps &&
+             ((six_start <= start && six_end >= end) ||    /* Sixel croses region start boundary */
+              (six_start <= end && six_end >= end) ||      /* Sixel crosses region end boundary */
+              (six_start >= start || six_end <= end)))     /* Sixel is fully enclosed by region */
+            )
         {
             sixel_erase(term, six);
             tll_remove(term->grid->sixel_images, it);
