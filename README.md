@@ -520,7 +520,7 @@ ninja install
 # Special Thanks
 
 To [Ordoviz](https://codeberg.org/Ordoviz) for designing and
-contributing foot's [logo](icons/hicolor/scalable/apps/foot.svg).
+contributing foot's [logo](icons/hicolor/48x48/apps/foot.png).
 
 
 # BUGS
