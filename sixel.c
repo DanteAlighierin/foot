@@ -90,6 +90,25 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
 static void
 sixel_insert(struct terminal *term, struct sixel sixel)
 {
+    const int scrollback_end
+        = (term->grid->offset + term->rows) & (term->grid->num_rows - 1);
+
+    int end_row = sixel.pos.row + sixel.rows - scrollback_end;
+    while (end_row < 0)
+        end_row += term->grid->num_rows;
+
+    tll_foreach(term->grid->sixel_images, it) {
+        int e = it->item.pos.row + it->item.rows - scrollback_end;
+        e -= scrollback_end;
+        while (e < 0)
+            e += term->grid->num_rows;
+
+        if (e < end_row) {
+            tll_insert_before(term->grid->sixel_images, it, sixel);
+            return;
+        }
+    }
+
     tll_push_back(term->grid->sixel_images, sixel);
 }
 
