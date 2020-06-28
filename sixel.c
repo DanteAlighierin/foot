@@ -87,6 +87,12 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
     sixel_destroy(sixel);
 }
 
+static void
+sixel_insert(struct terminal *term, struct sixel sixel)
+{
+    tll_push_back(term->grid->sixel_images, sixel);
+}
+
 /* Row numbers are absolute */
 static void
 sixel_delete_at_point(struct terminal *term, int row, int col)
@@ -284,7 +290,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
             PIXMAN_a8r8g8b8,
             imgs[i].width, imgs[i].height,
             imgs[i].data, imgs[i].width * sizeof(uint32_t));
-        tll_push_front(term->grid->sixel_images, imgs[i]);
+        sixel_insert(term, imgs[i]);
     }
 }
 
@@ -464,7 +470,7 @@ sixel_unhook(struct terminal *term)
         term_formfeed(term);
         render_refresh(term);
 
-        tll_push_back(term->grid->sixel_images, image);
+        sixel_insert(term, image);
 
         pixel_row_idx += height;
         pixel_rows_left -= height;
