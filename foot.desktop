@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Exec=foot
-Icon=utilities-terminal
+Icon=foot
 Terminal=false
 Categories=System;TerminalEmulator;
 
