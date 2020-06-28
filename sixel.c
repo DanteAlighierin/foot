@@ -392,19 +392,28 @@ sixel_overwrite_by_rectangle(
         _sixel_overwrite_by_rectangle(term, start, col, height, width);
 }
 
-/* Row numbers are absolute */
-static void
-_sixel_overwrite_by_row(struct terminal *term, int row, int col, int width)
+/* Row numbers are relative to grid offset */
+void
+sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
 {
     assert(col >= 0);
 
-    assert(row >= 0);
-    assert(row < term->grid->num_rows);
+    assert(_row >= 0);
+    assert(_row < term->rows);
     assert(col >= 0);
     assert(col + width <= term->grid->num_cols);
 
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
+
+    const int scrollback_end
+        = (term->grid->offset + term->rows) & (term->grid->num_rows - 1);
+
+    const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
+    const int grid_relative_row
+        = (term->grid->offset + row
+           - scrollback_end
+           + term->grid->num_rows) & (term->grid->num_rows - 1);
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
@@ -413,6 +422,16 @@ _sixel_overwrite_by_row(struct terminal *term, int row, int col, int width)
 
         /* We should never generate scrollback wrapping sixels */
         assert(six_end >= six_start);
+
+        const int six_grid_relative_end
+            = (six->pos.row + six->rows - 1
+               - scrollback_end
+               + term->grid->num_rows) & (term->grid->num_rows - 1);
+
+        if (six_grid_relative_end < grid_relative_row) {
+            /* All remaining sixels are *before* "our" row */
+            break;
+        }
 
         if (row >= six_start && row <= six_end) {
             const int col_start = six->pos.col;
@@ -428,15 +447,6 @@ _sixel_overwrite_by_row(struct terminal *term, int row, int col, int width)
             }
         }
     }
-}
-
-void
-sixel_overwrite_by_row(struct terminal *term, int row, int col, int width)
-{
-    _sixel_overwrite_by_row(
-        term,
-        (term->grid->offset + row) & (term->grid->num_rows - 1),
-        col, width);
 }
 
 void
