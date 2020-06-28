@@ -795,8 +795,32 @@ render_sixel(struct terminal *term, pixman_image_t *pix,
 static void
 render_sixel_images(struct terminal *term, pixman_image_t *pix)
 {
-    tll_foreach(term->grid->sixel_images, it)
+    const int view_start = term->grid->view;
+    const int view_end = view_start + term->rows;
+
+    LOG_DBG("SIXELS: %zu images, view=%d-%d",
+            tll_length(term->grid->sixel_images), view_start, view_end);
+
+    tll_foreach(term->grid->sixel_images, it) {
+        const struct sixel *six = &it->item;
+        const int start = six->pos.row;
+        const int end = start + six->rows - 1;
+
+        /* Sixels aren't allowed to cross the wrap-around */
+        assert(end < term->grid->num_rows);
+
+        //LOG_DBG("  sixel: %d-%d", start, end);
+        if (start > view_end) {
+            /* Sixel starts after view ends, no need to try to render it */
+            continue;
+        } else if (end < view_start) {
+            /* Image ends before view starts. Since the image list is
+             * sorted, we can safely stop here */
+            break;
+        }
+
         render_sixel(term, pix, &it->item);
+    }
 }
 
 static void
