@@ -28,6 +28,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
          1. [Profile Guided Optimization](#profile-guided-optimization)
       1. [Debug build](#debug-build)
       1. [Running the new build](#running-the-new-build)
+1. [Special Thanks](#special-thanks)
 1. [Bugs](#bugs)
 1. [Mastodon](#mastodon)
 
@@ -514,6 +515,12 @@ just install everything:
 ```sh
 ninja install
 ```
+
+
+# Special Thanks
+
+To [Ordoviz](https://codeberg.org/Ordoviz) for designing and
+contributing foot's [logo](icons/hicolor/scalable/apps/foot.svg).
 
 
 # BUGS
