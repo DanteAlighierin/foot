@@ -440,10 +440,10 @@ sixel_overwrite_by_row(struct terminal *term, int row, int col, int width)
 }
 
 void
-sixel_overwrite_at_cursor(struct terminal *term)
+sixel_overwrite_at_cursor(struct terminal *term, int width)
 {
     sixel_overwrite_by_row(
-        term, term->grid->cursor.point.row, term->grid->cursor.point.col, 1);
+        term, term->grid->cursor.point.row, term->grid->cursor.point.col, width);
 }
 
 void

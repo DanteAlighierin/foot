@@ -32,7 +32,7 @@ void sixel_delete_at_row(struct terminal *term, int row);
 void sixel_overwrite_by_rectangle(
     struct terminal *term, int row, int col, int height, int width);
 void sixel_overwrite_by_row(struct terminal *term, int row, int col, int width);
-void sixel_overwrite_at_cursor(struct terminal *term);
+void sixel_overwrite_at_cursor(struct terminal *term, int width);
 
 void sixel_colors_report_current(struct terminal *term);
 void sixel_colors_reset(struct terminal *term);

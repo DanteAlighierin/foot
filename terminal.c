@@ -2384,7 +2384,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     print_linewrap(term);
     print_insert(term, width);
 
-    sixel_overwrite_at_cursor(term);
+    sixel_overwrite_at_cursor(term, width);
 
     /* *Must* get current cell *after* linewrap+insert */
     struct row *row = term->grid->cur_row;
