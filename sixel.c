@@ -87,26 +87,40 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
     sixel_destroy(sixel);
 }
 
+static int
+rebase_row(const struct terminal *term, int abs_row)
+{
+    int scrollback_start = term->grid->offset + term->rows;
+    int rebased_row = abs_row - scrollback_start + term->grid->num_rows;
+
+    rebased_row &= term->grid->num_rows - 1;
+    return rebased_row;
+}
+
+static bool
+verify_sixel_list_order(const struct terminal *term)
+{
+#if defined(_DEBUG)
+    int prev_row = INT_MAX;
+
+    tll_foreach(term->grid->sixel_images, it) {
+        int row = rebase_row(term, it->item.pos.row + it->item.rows - 1);
+        assert(row < prev_row);
+        if (row >= prev_row)
+            return false;
+        prev_row = row;
+    }
+#endif
+    return true;
+}
+
 static void
 sixel_insert(struct terminal *term, struct sixel sixel)
 {
-    const int scrollback_end
-        = (term->grid->offset + term->rows) & (term->grid->num_rows - 1);
-
-    const int end_row
-        = (sixel.pos.row + sixel.rows
-           - scrollback_end
-           + term->grid->num_rows) & (term->grid->num_rows - 1);
-    assert(end_row >= 0 && end_row < term->grid->num_rows);
+    int end_row = rebase_row(term, sixel.pos.row + sixel.rows - 1);
 
     tll_foreach(term->grid->sixel_images, it) {
-        const int e
-            = (it->item.pos.row + it->item.rows
-               - scrollback_end
-               + term->grid->num_rows) & (term->grid->num_rows - 1);
-        assert(e >= 0 && e < term->grid->num_rows);
-
-        if (e < end_row) {
+        if (rebase_row(term, it->item.pos.row + it->item.rows - 1) < end_row) {
             tll_insert_before(term->grid->sixel_images, it, sixel);
             goto out;
         }
@@ -121,106 +135,44 @@ out:
         LOG_DBG("  rows=%d+%d", it->item.pos.row, it->item.rows);
     }
 #else
-    ;
+    verify_sixel_list_order(term);
 #endif
 }
 
-/* Row numbers are absolute */
-static void
-sixel_delete_at_point(struct terminal *term, int row, int col)
-{
-    assert(row >= 0);
-    assert(row < term->grid->num_rows);
-    assert(col < term->grid->num_cols);
-
-    if (likely(tll_length(term->grid->sixel_images) == 0))
-        return;
-
-    tll_foreach(term->grid->sixel_images, it) {
-        struct sixel *six = &it->item;
-        const int six_start = six->pos.row;
-        const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
-
-        /* We should never generate scrollback wrapping sixels */
-        assert(six_end >= six_start);
-
-        if (row >= six_start && row <= six_end) {
-            const int col_start = six->pos.col;
-            const int col_end = six->pos.col + six->cols;
-
-            if (col < 0 || (col >= col_start && col < col_end)) {
-                sixel_erase(term, six);
-                tll_remove(term->grid->sixel_images, it);
-            }
-        }
-    }
-}
-
-/* TODO: remove */
 void
-sixel_delete_at_row(struct terminal *term, int row)
+sixel_scroll_up(struct terminal *term, int rows)
 {
-    if (likely(tll_length(term->grid->sixel_images) == 0))
-        return;
-
-    sixel_delete_at_point(
-        term, (term->grid->offset + row) & (term->grid->num_rows - 1), -1);
-}
-
-/* Row numbers are absolute */
-static void
-_sixel_delete_in_range(struct terminal *term, int start, int end)
-{
-    assert(end >= start);
-    assert(start >= 0);
-    assert(start < term->grid->num_rows);
-    assert(end >= 0);
-    assert(end < term->grid->num_rows);
-
-    tll_foreach(term->grid->sixel_images, it) {
+    tll_rforeach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
 
-        const int six_start = six->pos.row;
-        const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
-
-        /* We should never generate scrollback wrapping sixels */
-        assert(six_end >= six_start);
-
-        if ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
-            (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
-            (start >= six_start && end <= six_end))      /* Fully within sixel range */
-        {
-            sixel_erase(term, six);
+        int six_start = rebase_row(term, six->pos.row);
+        if (six_start < rows) {
+            sixel_destroy(six);
             tll_remove(term->grid->sixel_images, it);
-        }
+        } else
+            break;
     }
+
+    verify_sixel_list_order(term);
 }
 
 void
-sixel_delete_in_range(struct terminal *term, int _start, int _end)
+sixel_scroll_down(struct terminal *term, int rows)
 {
-    if (likely(tll_length(term->grid->sixel_images) == 0))
-        return;
+    assert(term->grid->num_rows >= rows);
 
-    if (_start == _end) {
-        /* Avoid expensive wrap calculation */
-        return sixel_delete_at_point(
-            term, (term->grid->offset + _start) & (term->grid->num_rows - 1), -1);
+    tll_foreach(term->grid->sixel_images, it) {
+        struct sixel *six = &it->item;
+
+        int six_end = rebase_row(term, six->pos.row + six->rows - 1);
+        if (six_end >= term->grid->num_rows - rows) {
+            sixel_destroy(six);
+            tll_remove(term->grid->sixel_images, it);
+        } else
+            break;
     }
 
-    assert(_end >= _start);
-    const int lines = _end - _start + 1;
-    const int start = (term->grid->offset + _start) & (term->grid->num_rows - 1);
-    const int end = (start + lines - 1) & (term->grid->num_rows - 1);
-    const bool wraps = end < start;
-
-    if (wraps) {
-        int rows_to_wrap_around = term->grid->num_rows - start;
-        assert(lines - rows_to_wrap_around > 0);
-        _sixel_delete_in_range(term, start, term->grid->num_rows);
-        _sixel_delete_in_range(term, 0, lines - rows_to_wrap_around);
-    } else
-        _sixel_delete_in_range(term, start, end);
+    verify_sixel_list_order(term);
 }
 
 static void
@@ -331,39 +283,24 @@ static void
 _sixel_overwrite_by_rectangle(
     struct terminal *term, int row, int col, int height, int width)
 {
-    assert(row + height <= term->grid->num_rows);
-
     assert(row >= 0);
     assert(row + height <= term->grid->num_rows);
     assert(col >= 0);
     assert(col + width <= term->grid->num_cols);
 
-    /* We don't handle rectangle wrapping around */
-    assert(row + height <= term->grid->num_rows);
-
     const int start = row;
     const int end = row + height - 1;
 
-    const int scrollback_end
-        = (term->grid->offset + term->rows) & (term->grid->num_rows - 1);
-
-    const int grid_relative_start
-        = (start
-           - scrollback_end
-           + term->grid->num_rows) & (term->grid->num_rows - 1);
+    const int scrollback_rel_start = rebase_row(term, start);
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
 
         const int six_start = six->pos.row;
         const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
+        const int six_scrollback_rel_end = rebase_row(term, six_end);
 
-        const int six_grid_relative_end =
-            (six_end
-             - scrollback_end
-             + + term->grid->num_rows) & (term->grid->num_rows - 1);
-
-        if (six_grid_relative_end < grid_relative_start) {
+        if (six_scrollback_rel_end < scrollback_rel_start) {
             /* All remaining sixels are *before* our rectangle */
             break;
         }
@@ -424,14 +361,8 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
 
-    const int scrollback_end
-        = (term->grid->offset + term->rows) & (term->grid->num_rows - 1);
-
     const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
-    const int grid_relative_row
-        = (term->grid->offset + row
-           - scrollback_end
-           + term->grid->num_rows) & (term->grid->num_rows - 1);
+    const int scrollback_rel_row = rebase_row(term, row);
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
@@ -441,12 +372,9 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
         /* We should never generate scrollback wrapping sixels */
         assert(six_end >= six_start);
 
-        const int six_grid_relative_end
-            = (six->pos.row + six->rows - 1
-               - scrollback_end
-               + term->grid->num_rows) & (term->grid->num_rows - 1);
+        const int six_scrollback_rel_end = rebase_row(term, six_end);
 
-        if (six_grid_relative_end < grid_relative_row) {
+        if (six_scrollback_rel_end < scrollback_rel_row) {
             /* All remaining sixels are *before* "our" row */
             break;
         }

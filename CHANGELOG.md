@@ -72,13 +72,12 @@
 * Do not auto-resize a sixel image for which the cllent has specified
   a size. This fixes an issue where an image would incorrectly
   overflow into the cell row beneath.
-* Erase scrolled out sixel image that crossed the scrollback wrap
-  around boundary.
 * Text printed, or other sixel images drawn, on top of a sixel image
   no longer erases the entire image, only the part(s) covered by the
   new text or image.
 * Sixel images being erased when printing text next to them.
 * Sixel handling when resizing window.
+* Sixel handling when scrollback wraps around.
 
 
 ### Security
