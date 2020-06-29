@@ -25,7 +25,7 @@
 
 * Background transparency to only be used with the default background
   color.
-* Copy to clipboard/primary selection to insert a line break if either
+* Copy-to-clipboard/primary-selection to insert a line break if either
   the last cell on the previous line or the first cell on the next
   line is empty.
 * Number of lines to scroll is now always clamped to the number of
