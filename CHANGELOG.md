@@ -38,6 +38,7 @@
   scrollback.
 * Mouse cursor from `hand2` to `left_ptr` when client is capturing the
   mouse.
+* Sixel images are now removed when the font size is **decreased**.
 
 
 ### Deprecated
