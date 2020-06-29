@@ -53,12 +53,12 @@
 * Rare crash when scrolling and the new viewport ended up **exactly**
   on the wrap around.
 * Selection handling when viewport wrapped around.
-* Restore signal mask in the slave process.
+* Restore signal mask in the client process.
 * Set `IUTF8`.
 * Selection of double-width characters. It is no longer possible to
   select half of a double-width character.
 * Draw hollow block cursor on top of character.
-* Set an initial `TIOCSWINSZ`. This ensures clients never reads a
+* Set an initial `TIOCSWINSZ`. This ensures clients never read a
   `0x0` terminal size (https://codeberg.org/dnkl/foot/issues/20).
 * Glyphs overflowing into surrounding cells
   (https://codeberg.org/dnkl/foot/issues/21).
