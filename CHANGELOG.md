@@ -78,6 +78,7 @@
   no longer erases the entire image, only the part(s) covered by the
   new text or image.
 * Sixel images being erased when printing text next to them.
+* Sixel handling when resizing window.
 
 
 ### Security
