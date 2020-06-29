@@ -60,24 +60,24 @@
   `0x0` terminal size (https://codeberg.org/dnkl/foot/issues/20).
 * Glyphs overflowing into surrounding cells
   (https://codeberg.org/dnkl/foot/issues/21).
-* Sixel images being erased when printing text next to them.
 * Crash when last rendered cursor cell had scrolled off screen and
   `\E[J3` was executed.
 * Assert (debug builds) when an `\e]4` OSC escape was not followed by
   a `;`.
+* Window title always being set to "foot" on reset.
+* Terminfo entry `kb2` (center keypad key); it is now set to `\EOu`
+  (which is what foot emits) instead of the incorrect value `\EOE`.
 * Palette re-use in sixel images. Previously, the palette was reset
   after each image.
 * Do not auto-resize a sixel image for which the cllent has specified
   a size. This fixes an issue where an image would incorrectly
   overflow into the cell row beneath.
-* Window title always being set to "foot" on reset.
 * Erase scrolled out sixel image that crossed the scrollback wrap
   around boundary.
 * Text printed, or other sixel images drawn, on top of a sixel image
   no longer erases the entire image, only the part(s) covered by the
   new text or image.
-* Terminfo entry `kb2` (center keypad key); it is now set to `\EOu`
-  (which is what foot emits) instead of the incorrect value `\EOE`.
+* Sixel images being erased when printing text next to them.
 
 
 ### Security
