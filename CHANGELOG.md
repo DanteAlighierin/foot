@@ -36,6 +36,8 @@
   debug logging has been enabled.
 * OSC 4 (_Set Color_) now updates already rendered cells, excluding
   scrollback.
+* Mouse cursor from `hand2` to `left_ptr` when client is capturing the
+  mouse.
 
 
 ### Deprecated

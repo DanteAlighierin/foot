@@ -36,7 +36,7 @@
 
 static const char *const XCURSOR_LEFT_PTR = "left_ptr";
 static const char *const XCURSOR_TEXT = "text";
-static const char *const XCURSOR_HAND2 = "hand2";
+//static const char *const XCURSOR_HAND2 = "hand2";
 
 bool
 term_to_slave(struct terminal *term, const void *_data, size_t len)
@@ -2204,9 +2204,9 @@ void
 term_xcursor_update(struct terminal *term)
 {
     term->xcursor =
-        term->is_searching ? XCURSOR_LEFT_PTR :
+        term->is_searching ? XCURSOR_LEFT_PTR :  /* TODO: something different? */
         selection_enabled(term) ? XCURSOR_TEXT :
-        XCURSOR_HAND2;
+        XCURSOR_LEFT_PTR;
 
     render_xcursor_set(term);
 }
