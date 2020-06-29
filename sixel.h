@@ -11,6 +11,7 @@ void sixel_put(struct terminal *term, uint8_t c);
 void sixel_unhook(struct terminal *term);
 
 void sixel_destroy(struct sixel *sixel);
+void sixel_destroy_all(struct terminal *term);
 
 void sixel_scroll_up(struct terminal *term, int rows);
 void sixel_scroll_down(struct terminal *term, int rows);

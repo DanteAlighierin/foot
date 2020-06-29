@@ -25,7 +25,7 @@
 
 * Background transparency to only be used with the default background
   color.
-* Copy to clipboard/primary selection to insert a line break if either
+* Copy-to-clipboard/primary-selection to insert a line break if either
   the last cell on the previous line or the first cell on the next
   line is empty.
 * Number of lines to scroll is now always clamped to the number of
@@ -36,6 +36,9 @@
   debug logging has been enabled.
 * OSC 4 (_Set Color_) now updates already rendered cells, excluding
   scrollback.
+* Mouse cursor from `hand2` to `left_ptr` when client is capturing the
+  mouse.
+* Sixel images are now removed when the font size is **decreased**.
 
 
 ### Deprecated
@@ -43,7 +46,7 @@
 ### Fixed
 
 * Do not stop an ongoing selection when `shift` is released. When the
-  client application is capturing mouse events, one must hold down
+  client application is capturing the mouse, one must hold down
   `shift` to start a selection. This selection is now finalized only
   when the mouse button is released - not as soon as `shift` is
   released.
@@ -51,12 +54,12 @@
 * Rare crash when scrolling and the new viewport ended up **exactly**
   on the wrap around.
 * Selection handling when viewport wrapped around.
-* Restore signal mask in the slave process.
+* Restore signal mask in the client process.
 * Set `IUTF8`.
 * Selection of double-width characters. It is no longer possible to
   select half of a double-width character.
 * Draw hollow block cursor on top of character.
-* Set an initial `TIOCSWINSZ`. This ensures clients never reads a
+* Set an initial `TIOCSWINSZ`. This ensures clients never read a
   `0x0` terminal size (https://codeberg.org/dnkl/foot/issues/20).
 * Glyphs overflowing into surrounding cells
   (https://codeberg.org/dnkl/foot/issues/21).

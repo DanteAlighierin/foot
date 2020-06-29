@@ -36,7 +36,7 @@
 
 static const char *const XCURSOR_LEFT_PTR = "left_ptr";
 static const char *const XCURSOR_TEXT = "text";
-static const char *const XCURSOR_HAND2 = "hand2";
+//static const char *const XCURSOR_HAND2 = "hand2";
 
 bool
 term_to_slave(struct terminal *term, const void *_data, size_t len)
@@ -1423,7 +1423,30 @@ term_font_size_adjust(struct terminal *term, double amount)
         return false;
     }
 
-    term_set_fonts(term, (struct fcft_font *[]){data[0].font_out, data[1].font_out, data[2].font_out, data[3].font_out});
+    const int old_cell_width = term->cell_width;
+    const int old_cell_height = term->cell_height;
+
+    if (!term_set_fonts(term, (struct fcft_font *[]){data[0].font_out, data[1].font_out, data[2].font_out, data[3].font_out}))
+        return false;
+
+    if (term->cell_width < old_cell_width ||
+        term->cell_height < old_cell_height)
+    {
+        /*
+         * The cell size has decreased.
+         *
+         * This means sixels, which we cannot resize, no longer fit
+         * into their "allocated" grid space.
+         *
+         * To be able to fit them, we would have to change the grid
+         * content. Inserting empty lines _might_ seem acceptable, but
+         * we'd also need to insert empty columns, which would break
+         * existing layout completely.
+         *
+         * So we delete them.
+         */
+        sixel_destroy_all(term);
+    }
     return true;
 }
 
@@ -2206,9 +2229,9 @@ void
 term_xcursor_update(struct terminal *term)
 {
     term->xcursor =
-        term->is_searching ? XCURSOR_LEFT_PTR :
+        term->is_searching ? XCURSOR_LEFT_PTR :  /* TODO: something different? */
         selection_enabled(term) ? XCURSOR_TEXT :
-        XCURSOR_HAND2;
+        XCURSOR_LEFT_PTR;
 
     render_xcursor_set(term);
 }

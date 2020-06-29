@@ -66,6 +66,17 @@ sixel_destroy(struct sixel *sixel)
     sixel->data = NULL;
 }
 
+void
+sixel_destroy_all(struct terminal *term)
+{
+    tll_foreach(term->normal.sixel_images, it)
+        sixel_destroy(&it->item);
+    tll_foreach(term->alt.sixel_images, it)
+        sixel_destroy(&it->item);
+    tll_free(term->normal.sixel_images);
+    tll_free(term->alt.sixel_images);
+}
+
 static void
 sixel_erase(struct terminal *term, struct sixel *sixel)
 {
