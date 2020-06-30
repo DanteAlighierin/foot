@@ -33,6 +33,7 @@ struct config {
 
     struct {
         enum cursor_style style;
+        bool blink;
         struct {
             uint32_t text;
             uint32_t cursor;

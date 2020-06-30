@@ -19,6 +19,9 @@
 * Terminfo entries for keypad keys: `ka1`, `ka2`, `ka3`, `kb1`, `kb3`,
   `kc1`, `kc2`, `kc3`, `kp5`, `kpADD`, `kpCMA`, `kpDIV`, `kpDOT`,
   `kpMUL`, `kpSUB` and `kpZRO`.
+* **blink** option to `footrc`; a boolean that lets you control
+    whether the cursor should blink or not by default. Note that
+    applications can override this.
 
 
 ### Changed
@@ -107,6 +110,7 @@
 * `CSI Ps ; Ps ; Ps t` escape sequences for the following parameters:
   `11t`, `13t`, `13;2t`, `14t`, `14;2t`, `15t`, `19t`.
 * Unicode combining characters.
+
 
 ### Changed
 

@@ -13,6 +13,7 @@
 [cursor]
 # style=block
 # color=111111 dcdccc
+# blink=no
 
 [colors]
 # alpha=1.0

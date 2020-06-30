@@ -81,7 +81,12 @@ applications can change these runtime.
 
 *style*
 	Configures the default cursor style, and is one of: _block_, _bar_
-	or _underline_. Default: _block_.
+	or _underline_. Note that this can be overridden by
+	applications. Default: _block_.
+
+*blink*
+	Boolean. Enables blinking cursor. Note that this can be overridden
+	by applications. Default: _no_.
 
 *color*
 	Two RRGGBB values specifying the foreground (text) and background

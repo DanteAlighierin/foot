@@ -296,6 +296,7 @@ struct terminal {
         enum { CURSOR_BLINK_ON, CURSOR_BLINK_OFF } state;
         int fd;
     } cursor_blink;
+    bool default_cursor_blink;
     struct {
         uint32_t text;
         uint32_t cursor;
