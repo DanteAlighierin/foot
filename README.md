@@ -5,7 +5,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 ## Index
 
 1. [Features](#features)
-1. [FAQ](#faq)
+1. [Troubleshooting](#troubleshooting)
 1. [Why the name 'foot'?](#why-the-name-foot)
 1. [Fonts](#fonts)
 1. [Shortcuts](#shortcuts)
@@ -52,9 +52,9 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
   ![wow](doc/sixel-wow.png "Sixel screenshot")
 
 
-## FAQ
+## Troubleshooting
 
-See the [wiki](https://codeberg.org/dnkl/foot/wiki#user-content-faq)
+See the [wiki](https://codeberg.org/dnkl/foot/wiki#user-content-troubleshooting)
 
 
 ## Why the name 'foot'?
