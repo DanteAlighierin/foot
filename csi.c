@@ -35,12 +35,6 @@ csi_as_string(struct terminal *term, uint8_t final, int idx)
     static char msg[1024];
     int c = snprintf(msg, sizeof(msg), "CSI: ");
 
-    for (size_t i = 0; i < sizeof(term->vt.private) / sizeof(term->vt.private[0]); i++) {
-        if (term->vt.private[i] == 0)
-            break;
-        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private[i]);
-    }
-
     for (size_t i = idx >= 0 ? idx : 0;
          i < (idx >= 0 ? idx + 1 : term->vt.params.idx);
          i++)
@@ -55,6 +49,12 @@ csi_as_string(struct terminal *term, uint8_t final, int idx)
 
         c += snprintf(&msg[c], sizeof(msg) - c, "%s",
                       i == term->vt.params.idx - 1 ? "" : ";");
+    }
+
+    for (size_t i = 0; i < sizeof(term->vt.private) / sizeof(term->vt.private[0]); i++) {
+        if (term->vt.private[i] == 0)
+            break;
+        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private[i]);
     }
 
     snprintf(&msg[c], sizeof(msg) - c, "%c (%u parameters)",
