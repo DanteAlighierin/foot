@@ -1446,12 +1446,17 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'q': {
             int param = vt_param_get(term, 0, 0);
             switch (param) {
-            case 0: case 1: /* blinking block */
-                term->cursor_style = CURSOR_BLOCK;
+            case 0: /* blinking block, but we use it to reset to configured default */
+                term->cursor_style = term->default_cursor_style;
+                if (term->default_cursor_blink)
+                    term_cursor_blink_enable(term);
+                else
+                    term_cursor_blink_disable(term);
                 break;
 
-            case 2:         /* steady block - but can be overriden in footrc */
-                term->cursor_style = term->default_cursor_style;
+            case 1:         /* blinking block */
+            case 2:         /* steady block */
+                term->cursor_style = CURSOR_BLOCK;
                 break;
 
             case 3:         /* blinking underline */
@@ -1469,8 +1474,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
             }
 
-            if (param <= 6) {
-                if (param == 0 || param & 1)
+            if (param > 0 && param <= 6) {
+                if (param & 1)
                     term_cursor_blink_enable(term);
                 else
                     term_cursor_blink_disable(term);

@@ -39,6 +39,10 @@
 * Mouse cursor from `hand2` to `left_ptr` when client is capturing the
   mouse.
 * Sixel images are now removed when the font size is **decreased**.
+* `DECSCUSR` (_Set Cursor Style_, `CSI Ps SP q`) now uses `Ps=0`
+  instead of `Ps=2` to reset the style to the user configured default
+  style. `Ps=2` now always configures a _Steady Block_ cursor.
+* `Se` terminfo capability from `\E[2 q` to `\E[ q`.
 
 
 ### Deprecated
