@@ -51,7 +51,8 @@ in this order:
 	"/bin/bash --norc".
 
 *login-shell*
-	Start a login shell, by prepending a '-' to argv[0]. Default: _no_.
+	Boolean. If enabled, the shell will be launched as a login shell,
+	by prepending a '-' to argv[0]. Default: _no_.
 
 *term*
 	Value to set the environment variable *TERM* to. Default: _foot_.
