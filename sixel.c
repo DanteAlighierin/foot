@@ -367,10 +367,13 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
     assert(_row >= 0);
     assert(_row < term->rows);
     assert(col >= 0);
-    assert(col + width <= term->grid->num_cols);
+    assert(col < term->grid->num_cols);
 
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
+
+    if (col + width > term->grid->num_cols)
+        width = term->grid->num_cols - col;
 
     const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
     const int scrollback_rel_row = rebase_row(term, row);
