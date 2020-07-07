@@ -224,7 +224,7 @@ main(int argc, char *const *argv)
                 if (strlen(font) == 0)
                     continue;
 
-                tll_push_back(conf_fonts, strdup(font));
+                tll_push_back(conf_fonts, font);
             }
             break;
 
@@ -342,9 +342,11 @@ main(int argc, char *const *argv)
     if (login_shell)
         conf.login_shell = true;
     if (tll_length(conf_fonts) > 0) {
-        tll_free_and_free(conf.fonts, free);
+        tll_foreach(conf.fonts, it)
+            config_font_destroy(&it->item);
+        tll_free(conf.fonts);
         tll_foreach(conf_fonts, it)
-            tll_push_back(conf.fonts, it->item);
+            tll_push_back(conf.fonts, config_font_parse(it->item));
         tll_free(conf_fonts);
     }
     if (conf_width > 0)

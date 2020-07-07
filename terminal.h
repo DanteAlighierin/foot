@@ -222,8 +222,8 @@ struct terminal {
     struct composed *composed;
 
     struct fcft_font *fonts[4];
+    struct config_font *font_sizes;
     int font_dpi;
-    int font_adjustments;
     enum fcft_subpixel font_subpixel;
 
     tll(struct ptmx_buffer) ptmx_buffer;

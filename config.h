@@ -7,6 +7,12 @@
 
 #include "terminal.h"
 
+struct config_font {
+    char *pattern;
+    double pt_size;
+    int px_size;
+};
+
 struct config {
     char *term;
     char *shell;
@@ -19,7 +25,7 @@ struct config {
     unsigned pad_y;
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 
-    tll(char *) fonts;
+    tll(struct config_font) fonts;
 
     int scrollback_lines;
 
@@ -87,3 +93,6 @@ struct config {
 
 bool config_load(struct config *conf, const char *path);
 void config_free(struct config conf);
+
+struct config_font config_font_parse(const char *pattern);
+void config_font_destroy(struct config_font *font);

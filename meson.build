@@ -56,6 +56,7 @@ wayland_protocols = dependency('wayland-protocols')
 wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
 xkb = dependency('xkbcommon')
+fontconfig = dependency('fontconfig')
 
 tllist = dependency('tllist', version: '>=1.0.1', fallback: 'tllist')
 fcft = dependency('fcft', version: ['>=2.1.1', '<3.0.0'], fallback: 'fcft')
@@ -126,7 +127,8 @@ executable(
   'vt.c', 'vt.h',
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
-  dependencies: [math, threads, pixman, wayland_client, wayland_cursor, xkb, tllist, fcft],
+  dependencies: [math, threads, pixman, wayland_client, wayland_cursor, xkb, fontconfig,
+                 tllist, fcft],
   install: true)
 
 executable(

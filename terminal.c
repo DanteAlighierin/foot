@@ -664,27 +664,41 @@ font_loader_thread(void *_data)
 }
 
 static bool
-load_fonts_from_conf(const struct terminal *term, const struct config *conf,
-                     struct fcft_font *fonts[static 4])
+reload_fonts(struct terminal *term)
 {
-    const size_t count = tll_length(conf->fonts);
-    const char *names[count];
+    const size_t count = tll_length(term->conf->fonts);
+    char *names[count];
 
     size_t i = 0;
-    tll_foreach(conf->fonts, it)
-        names[i++] = it->item;
+    tll_foreach(term->conf->fonts, it) {
+        bool use_px_size = term->font_sizes[i].px_size > 0;
+        char size[64];
 
-    char attrs0[64], attrs1[64], attrs2[64], attrs3[64];
+        if (use_px_size)
+            snprintf(size, sizeof(size), ":pixelsize=%d", term->font_sizes[i].px_size);
+        else
+            snprintf(size, sizeof(size), ":size=%.2f", term->font_sizes[i].pt_size);
+
+        size_t len = strlen(it->item.pattern) + strlen(size) + 1;
+        names[i] = malloc(len);
+
+        strcpy(names[i], it->item.pattern);
+        strcat(names[i], size);
+        i++;
+    }
+
+    char attrs0[256], attrs1[256], attrs2[256], attrs3[256];
     snprintf(attrs0, sizeof(attrs0), "dpi=%u", term->font_dpi);
     snprintf(attrs1, sizeof(attrs1), "dpi=%u:weight=bold", term->font_dpi);
     snprintf(attrs2, sizeof(attrs2), "dpi=%u:slant=italic", term->font_dpi);
     snprintf(attrs3, sizeof(attrs3), "dpi=%u:weight=bold:slant=italic", term->font_dpi);
 
+    struct fcft_font *fonts[4];
     struct font_load_data data[4] = {
-        {count, names, attrs0, &fonts[0]},
-        {count, names, attrs1, &fonts[1]},
-        {count, names, attrs2, &fonts[2]},
-        {count, names, attrs3, &fonts[3]},
+        {count, (const char **)names, attrs0, &fonts[0]},
+        {count, (const char **)names, attrs1, &fonts[1]},
+        {count, (const char **)names, attrs2, &fonts[2]},
+        {count, (const char **)names, attrs3, &fonts[3]},
     };
 
     thrd_t tids[4] = {};
@@ -715,7 +729,22 @@ load_fonts_from_conf(const struct terminal *term, const struct config *conf,
         }
     }
 
-    return success;
+    for (size_t i = 0; i < count; i++)
+        free(names[i]);
+
+    return success ? term_set_fonts(term, fonts) : success;
+}
+
+static bool
+load_fonts_from_conf(struct terminal *term)
+{
+    size_t i = 0;
+    tll_foreach(term->conf->fonts, it) {
+        term->font_sizes[i++] = (struct config_font){
+            .pt_size = it->item.pt_size, .px_size = it->item.px_size};
+    }
+
+    return reload_fonts(term);
 }
 
 struct terminal *
@@ -802,8 +831,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .quit = false,
         .ptmx = ptmx,
         .ptmx_buffer = tll_init(),
+        .font_sizes = malloc(sizeof(term->font_sizes[0]) * tll_length(conf->fonts)),
         .font_dpi = 0,
-        .font_adjustments = 0,
         .font_subpixel = (conf->colors.alpha == 0xffff  /* Can't do subpixel rendering on transparent background */
                           ? FCFT_SUBPIXEL_DEFAULT
                           : FCFT_SUBPIXEL_NONE),
@@ -899,6 +928,14 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .foot_exe = strdup(foot_exe),
         .cwd = strdup(cwd),
     };
+
+    {
+        size_t i = 0;
+        tll_foreach(conf->fonts, it) {
+            term->font_sizes[i++] = (struct config_font){
+                .pt_size = it->item.pt_size, .px_size = it->item.px_size};
+        }
+    }
 
     /* Start the slave/client */
     if ((term->slave = slave_spawn(
@@ -1144,6 +1181,7 @@ term_destroy(struct terminal *term)
 
     for (size_t i = 0; i < sizeof(term->fonts) / sizeof(term->fonts[0]); i++)
         fcft_destroy(term->fonts[i]);
+    free(term->font_sizes);
 
     free(term->search.buf);
 
@@ -1377,57 +1415,31 @@ term_reset(struct terminal *term, bool hard)
     term_damage_all(term);
 }
 
-struct font_adjust_data {
-    struct fcft_font *font_in;
-    double amount;
-    struct fcft_font *font_out;
-};
-
-static int
-font_size_adjust_thread(void *_data)
-{
-    struct font_adjust_data *data = _data;
-    data->font_out = fcft_size_adjust(data->font_in, data->amount);
-    return data->font_out != NULL;
-}
-
 static bool
 term_font_size_adjust(struct terminal *term, double amount)
 {
-    struct font_adjust_data data[4] = {
-        {term->fonts[0], amount},
-        {term->fonts[1], amount},
-        {term->fonts[2], amount},
-        {term->fonts[3], amount},
-    };
+    for (size_t i = 0; i < tll_length(term->conf->fonts); i++) {
+        double old_pt_size = term->font_sizes[i].pt_size;
 
-    thrd_t tids[4] = {};
-    for (size_t i = 0; i < 4; i++) {
-        int ret = thrd_create(&tids[i], &font_size_adjust_thread, &data[i]);
-        if (ret != thrd_success) {
-            LOG_ERR("failed to create font adjustmen thread: %s (%d)",
-                    thrd_err_as_string(ret), ret);
-            break;
+        /*
+         * To ensure primary and user-configured fallback fonts are
+         * resizes by the same amount, convert pixel sizes to point
+         * sizes, and to the adjustment on point sizes only.
+         */
+
+        if (term->font_sizes[i].px_size > 0) {
+            double dpi = term->font_dpi;
+            old_pt_size = term->font_sizes[i].px_size * 72. / dpi;
         }
-    }
 
-    for (size_t i = 0; i < 4; i++) {
-        if (tids[i] != 0)
-            thrd_join(tids[i], NULL);
-    }
-
-    if (data[0].font_out == NULL || data[1].font_out == NULL ||
-        data[2].font_out == NULL || data[3].font_out == NULL)
-    {
-        for (size_t i = 0; i < 4; i++)
-            fcft_destroy(data[i].font_out);
-        return false;
+        term->font_sizes[i].pt_size = old_pt_size + amount;
+        term->font_sizes[i].px_size = -1;
     }
 
     const int old_cell_width = term->cell_width;
     const int old_cell_height = term->cell_height;
 
-    if (!term_set_fonts(term, (struct fcft_font *[]){data[0].font_out, data[1].font_out, data[2].font_out, data[3].font_out}))
+    if (!reload_fonts(term))
         return false;
 
     if (term->cell_width < old_cell_width ||
@@ -1457,7 +1469,6 @@ term_font_size_increase(struct terminal *term)
     if (!term_font_size_adjust(term, 0.5))
         return false;
 
-    term->font_adjustments++;
     return true;
 }
 
@@ -1467,20 +1478,13 @@ term_font_size_decrease(struct terminal *term)
     if (!term_font_size_adjust(term, -0.5))
         return false;
 
-    term->font_adjustments--;
     return true;
 }
 
 bool
 term_font_size_reset(struct terminal *term)
 {
-    struct fcft_font *fonts[4];
-    if (!load_fonts_from_conf(term, term->conf, fonts))
-        return false;
-
-    term_set_fonts(term, fonts);
-    term->font_adjustments = 0;
-    return true;
+    return load_fonts_from_conf(term);
 }
 
 bool
@@ -1493,41 +1497,7 @@ term_font_dpi_changed(struct terminal *term)
     LOG_DBG("DPI changed (%u -> %u): reloading fonts", term->font_dpi, dpi);
     term->font_dpi = dpi;
 
-    struct fcft_font *fonts[4];
-    if (!load_fonts_from_conf(term, term->conf, fonts))
-        return false;
-
-    if (term->font_adjustments == 0)
-        return term_set_fonts(term, fonts);
-
-    /* User has adjusted the font size run-time, re-apply */
-
-    double amount = term->font_adjustments * 0.5;
-
-    struct fcft_font *adjusted_fonts[4] = {
-        fcft_size_adjust(fonts[0], amount),
-        fcft_size_adjust(fonts[1], amount),
-        fcft_size_adjust(fonts[2], amount),
-        fcft_size_adjust(fonts[3], amount),
-    };
-
-    if (adjusted_fonts[0] == NULL || adjusted_fonts[1] == NULL ||
-        adjusted_fonts[2] == NULL || adjusted_fonts[3] == NULL)
-    {
-        for (size_t i = 0; i < 4; i++)
-            fcft_destroy(adjusted_fonts[i]);
-
-        /* At least use the newly re-loaded default fonts */
-        term->font_adjustments = 0;
-        return term_set_fonts(term, fonts);
-    } else {
-        for (size_t i = 0; i < 4; i++)
-            fcft_destroy(fonts[i]);
-        return term_set_fonts(term, adjusted_fonts);
-    }
-
-    assert(false);
-    return false;
+    return reload_fonts(term);
 }
 
 void

@@ -14,6 +14,7 @@
 
 #include <linux/input-event-codes.h>
 #include <xkbcommon/xkbcommon.h>
+#include <fontconfig/fontconfig.h>
 
 #define LOG_MODULE "config"
 #define LOG_ENABLE_DBG 0
@@ -265,7 +266,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             while (*font != '\0' && isspace(*font))
                 font++;
             if (*font != '\0')
-                tll_push_back(conf->fonts, strdup(font));
+                tll_push_back(conf->fonts, config_font_parse(font));
         }
         free(copy);
     }
@@ -963,7 +964,7 @@ config_load(struct config *conf, const char *conf_path)
 
 out:
     if (ret && tll_length(conf->fonts) == 0)
-        tll_push_back(conf->fonts, strdup("monospace"));
+        tll_push_back(conf->fonts, config_font_parse("monospace"));
 
     free(default_path);
     return ret;
@@ -976,11 +977,46 @@ config_free(struct config conf)
     free(conf.shell);
     free(conf.title);
     free(conf.app_id);
-    tll_free_and_free(conf.fonts, free);
+    tll_foreach(conf.fonts, it)
+        config_font_destroy(&it->item);
+    tll_free(conf.fonts);
     free(conf.server_socket_path);
 
     for (enum bind_action_normal i = 0; i < BIND_ACTION_COUNT; i++)
         free(conf.bindings.key[i]);
     for (enum bind_action_search i = 0; i < BIND_ACTION_SEARCH_COUNT; i++)
         free(conf.bindings.search[i]);
+}
+
+struct config_font
+config_font_parse(const char *pattern)
+{
+    FcPattern *pat = FcNameParse((const FcChar8 *)pattern);
+
+    double pt_size = -1.0;
+    FcPatternGetDouble(pat, FC_SIZE, 0, &pt_size);
+    FcPatternRemove(pat, FC_SIZE, 0);
+
+    int px_size = -1;
+    FcPatternGetInteger(pat, FC_PIXEL_SIZE, 0, &px_size);
+    FcPatternRemove(pat, FC_PIXEL_SIZE, 0);
+
+    if (pt_size == -1. && px_size == -1)
+        pt_size = 8.0;
+
+    char *stripped_pattern = (char *)FcNameUnparse(pat);
+    FcPatternDestroy(pat);
+
+    return (struct config_font){
+        .pattern = stripped_pattern,
+        .pt_size = pt_size,
+        .px_size = px_size};
+}
+
+void
+config_font_destroy(struct config_font *font)
+{
+    if (font == NULL)
+        return;
+    free(font->pattern);
 }
