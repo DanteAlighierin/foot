@@ -1975,7 +1975,6 @@ term_kbd_focus_out(struct terminal *term)
         term_to_slave(term, "\033[O", 3);
 }
 
-#if 0
 static int
 linux_mouse_button_to_x(int button)
 {
@@ -1994,8 +1993,7 @@ linux_mouse_button_to_x(int button)
         return -1;
     }
 }
-#endif
-#if 0
+
 static int
 encode_xbutton(int xbutton)
 {
@@ -2020,8 +2018,7 @@ encode_xbutton(int xbutton)
         return -1;
     }
 }
-#endif
-#if 0
+
 static void
 report_mouse_click(struct terminal *term, int encoded_button, int row, int col,
                    bool release)
@@ -2057,14 +2054,13 @@ report_mouse_click(struct terminal *term, int encoded_button, int row, int col,
 
     term_to_slave(term, response, strlen(response));
 }
-#endif
-#if 0
+
 static void
 report_mouse_motion(struct terminal *term, int encoded_button, int row, int col)
 {
     report_mouse_click(term, encoded_button, row, col, false);
 }
-#endif
+
 bool
 term_mouse_grabbed(const struct terminal *term)
 {
@@ -2085,9 +2081,9 @@ term_mouse_grabbed(const struct terminal *term)
 }
 
 void
-term_mouse_down(struct terminal *term, int button, int row, int col)
+term_mouse_down(struct terminal *term, int button, int row, int col,
+                bool _shift, bool _alt, bool _ctrl)
 {
-#if 0
     if (term_mouse_grabbed(term))
         return;
 
@@ -2101,10 +2097,10 @@ term_mouse_down(struct terminal *term, int button, int row, int col)
         return;
 
 
-    bool has_focus = term->wl->kbd_focus == term;
-    bool shift = has_focus ? term->wl->kbd.shift : false;
-    bool alt = has_focus ? term->wl->kbd.alt : false;
-    bool ctrl = has_focus ? term->wl->kbd.ctrl : false;
+    bool has_focus = term_has_kbd_focus(term);
+    bool shift = has_focus ? _shift : false;
+    bool alt = has_focus ? _alt : false;
+    bool ctrl = has_focus ? _ctrl : false;
 
     encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
 
@@ -2123,13 +2119,12 @@ term_mouse_down(struct terminal *term, int button, int row, int col)
         assert(false && "unimplemented");
         break;
     }
-#endif
 }
 
 void
-term_mouse_up(struct terminal *term, int button, int row, int col)
+term_mouse_up(struct terminal *term, int button, int row, int col,
+              bool _shift, bool _alt, bool _ctrl)
 {
-#if 0
     if (term_mouse_grabbed(term))
         return;
 
@@ -2147,10 +2142,10 @@ term_mouse_up(struct terminal *term, int button, int row, int col)
     if (encoded == -1)
         return;
 
-    bool has_focus = term->wl->kbd_focus == term;
-    bool shift = has_focus ? term->wl->kbd.shift : false;
-    bool alt = has_focus ? term->wl->kbd.alt : false;
-    bool ctrl = has_focus ? term->wl->kbd.ctrl : false;
+    bool has_focus = term_has_kbd_focus(term);
+    bool shift = has_focus ? _shift : false;
+    bool alt = has_focus ? _alt : false;
+    bool ctrl = has_focus ? _ctrl : false;
 
     encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
 
@@ -2169,13 +2164,12 @@ term_mouse_up(struct terminal *term, int button, int row, int col)
         assert(false && "unimplemented");
         break;
     }
-#endif
 }
 
 void
-term_mouse_motion(struct terminal *term, int button, int row, int col)
+term_mouse_motion(struct terminal *term, int button, int row, int col,
+                  bool _shift, bool _alt, bool _ctrl)
 {
-#if 0
     if (term_mouse_grabbed(term))
         return;
 
@@ -2193,10 +2187,10 @@ term_mouse_motion(struct terminal *term, int button, int row, int col)
     } else
         encoded = 3;  /* "released" */
 
-    bool has_focus = term->wl->kbd_focus == term;
-    bool shift = has_focus ? term->wl->kbd.shift : false;
-    bool alt = has_focus ? term->wl->kbd.alt : false;
-    bool ctrl = has_focus ? term->wl->kbd.ctrl : false;
+    bool has_focus = term_has_kbd_focus(term);
+    bool shift = has_focus ? _shift : false;
+    bool alt = has_focus ? _alt : false;
+    bool ctrl = has_focus ? _ctrl : false;
 
     encoded += 32; /* Motion event */
     encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
@@ -2220,7 +2214,6 @@ term_mouse_motion(struct terminal *term, int button, int row, int col)
         assert(false && "unimplemented");
         break;
     }
-#endif
 }
 
 void

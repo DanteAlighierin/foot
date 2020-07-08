@@ -1020,7 +1020,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
             selection_update(term, col, row);
 
         term_mouse_motion(
-        term, seat->mouse.button, seat->mouse.row, seat->mouse.col);
+            term, seat->mouse.button, seat->mouse.row, seat->mouse.col,
+            seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
         break;
     }
     }
@@ -1232,7 +1233,9 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 }
             }
 
-            term_mouse_down(term, button, seat->mouse.row, seat->mouse.col);
+            term_mouse_down(
+                term, button, seat->mouse.row, seat->mouse.col,
+                seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
             break;
         }
 
@@ -1240,7 +1243,9 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             if (button == BTN_LEFT && term->selection.end.col != -1)
                 selection_finalize(term, serial);
 
-            term_mouse_up(term, button, seat->mouse.row, seat->mouse.col);
+            term_mouse_up(
+                term, button, seat->mouse.row, seat->mouse.col,
+                seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
             break;
         }
         break;
@@ -1288,9 +1293,14 @@ mouse_scroll(struct seat *seat, int amount)
             keyboard_key(seat, NULL, seat->input_serial, 0, key - 8, XKB_KEY_DOWN);
         keyboard_key(seat, NULL, seat->input_serial, 0, key - 8, XKB_KEY_UP);
     } else {
-        for (int i = 0; i < amount; i++)
-            term_mouse_down(term, button, seat->mouse.row, seat->mouse.col);
-        term_mouse_up(term, button, seat->mouse.row, seat->mouse.col);
+        for (int i = 0; i < amount; i++) {
+            term_mouse_down(
+                term, button, seat->mouse.row, seat->mouse.col,
+                seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+        }
+        term_mouse_up(
+            term, button, seat->mouse.row, seat->mouse.col,
+            seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
 
         scrollback(term, amount);
     }

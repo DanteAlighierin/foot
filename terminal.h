@@ -509,9 +509,15 @@ void term_visual_focus_out(struct terminal *term);
 bool term_has_kbd_focus(struct terminal *term);
 void term_kbd_focus_in(struct terminal *term);
 void term_kbd_focus_out(struct terminal *term);
-void term_mouse_down(struct terminal *term, int button, int row, int col);
-void term_mouse_up(struct terminal *term, int button, int row, int col);
-void term_mouse_motion(struct terminal *term, int button, int row, int col);
+void term_mouse_down(
+    struct terminal *term, int button, int row, int col,
+    bool shift, bool alt, bool ctrl);
+void term_mouse_up(
+    struct terminal *term, int button, int row, int col,
+    bool shift, bool alt, bool ctrl);
+void term_mouse_motion(
+    struct terminal *term, int button, int row, int col,
+    bool shift, bool alt, bool ctrl);
 bool term_mouse_grabbed(const struct terminal *term);
 void term_xcursor_update(struct terminal *term);
 
