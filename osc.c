@@ -52,31 +52,42 @@ osc_to_clipboard(struct terminal *term, const char *target,
         }
     }
 
-    (void)to_clipboard;
-    (void)to_primary;
-#if 0
+    /* Find a seat in which the terminal has focus */
+    struct seat *seat = NULL;
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term) {
+            seat = &it->item;
+            break;
+        }
+    }
+
+    if (seat == NULL) {
+        LOG_WARN("OSC52: client tried to write to clipboard data while window was unfocused");
+        return;
+    }
+
     if (to_clipboard) {
         char *copy = strdup(decoded);
-        if (!text_to_clipboard(term, copy, term->wl->input_serial))
+        if (!text_to_clipboard(seat, term, copy, seat->input_serial))
             free(copy);
     }
 
     if (to_primary) {
         char *copy = strdup(decoded);
-        if (!text_to_primary(term, copy, term->wl->input_serial))
+        if (!text_to_primary(seat, term, copy, seat->input_serial))
             free(copy);
     }
-#endif
+
     free(decoded);
 }
 
 struct clip_context {
+    struct seat *seat;
     struct terminal *term;
     uint8_t buf[3];
     int idx;
 };
 
-#if 0
 static void
 from_clipboard_cb(const char *text, size_t size, void *user)
 {
@@ -121,8 +132,7 @@ from_clipboard_cb(const char *text, size_t size, void *user)
     term_to_slave(term, chunk, strlen(chunk));
     free(chunk);
 }
-#endif
-#if 0
+
 static void
 from_clipboard_done(void *user)
 {
@@ -138,7 +148,7 @@ from_clipboard_done(void *user)
     term_to_slave(term, "\033\\", 2);
     free(ctx);
 }
-#endif 
+
 static void
 osc_from_clipboard(struct terminal *term, const char *source)
 {
@@ -156,27 +166,40 @@ osc_from_clipboard(struct terminal *term, const char *source)
     if (src == 0)
         return;
 
+    /* Find a seat in which the terminal has focus */
+    struct seat *seat = NULL;
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term) {
+            seat = &it->item;
+            break;
+        }
+    }
+
+    if (seat == NULL) {
+        LOG_WARN("OSC52: client tried to read clipboard data while window was unfocused");
+        return;
+    }
+
     term_to_slave(term, "\033]52;", 5);
     term_to_slave(term, &src, 1);
     term_to_slave(term, ";", 1);
 
     struct clip_context *ctx = malloc(sizeof(*ctx));
-    *ctx = (struct clip_context) {.term = term};
+    *ctx = (struct clip_context) {.seat = seat, .term = term};
 
-#if 0
     switch (src) {
     case 'c':
         text_from_clipboard(
-            term, term->wl->input_serial,
+            seat, term, seat->input_serial,
             &from_clipboard_cb, &from_clipboard_done, ctx);
         break;
 
     case 's':
     case 'p':
-        text_from_primary(term, &from_clipboard_cb, &from_clipboard_done, ctx);
+        text_from_primary(
+            seat, term, &from_clipboard_cb, &from_clipboard_done, ctx);
         break;
     }
-#endif
 }
 
 static void
