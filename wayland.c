@@ -30,8 +30,7 @@
 #include "selection.h"
 #include "util.h"
 
-static bool wayl_reload_cursor_theme(
-    struct wayland *wayl, struct terminal *term);
+static bool wayl_reload_cursor_theme(struct seat *seat, struct terminal *term);
 
 static void
 csd_instantiate(struct wl_window *win)
@@ -202,7 +201,9 @@ update_term_for_output_change(struct terminal *term)
     render_resize(term, term->width / term->scale, term->height / term->scale);
     term_font_dpi_changed(term);
     term_font_subpixel_changed(term);
-    wayl_reload_cursor_theme(term->wl, term);
+
+    tll_foreach(term->wl->seats, it)
+        wayl_reload_cursor_theme(&it->item, term);
 }
 
 static void
@@ -697,6 +698,9 @@ handle_global(void *data, struct wl_registry *registry,
         } else
             primary_selection_device = NULL;
 
+        struct wl_surface *pointer_surf
+            = wl_compositor_create_surface(wayl->compositor);
+
         tll_push_back(wayl->seats, ((struct seat){
                     .wayl = wayl,
                     .wl_seat = wl_seat,
@@ -705,6 +709,11 @@ handle_global(void *data, struct wl_registry *registry,
                         .repeat = {
                             .fd = repeat_fd,
                         },
+                    },
+                    .pointer = {
+                        .surface = pointer_surf,
+                        .size = wayl->xcursor_size,
+                        .theme_name = wayl->xcursor_theme != NULL ? strdup(wayl->xcursor_theme) : NULL,
                     },
                     .data_device = data_device,
                     .primary_selection_device = primary_selection_device,
@@ -882,6 +891,24 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     wayl->fdm = fdm;
     wayl->fd = -1;
 
+    /* XCursor */
+    const char *xcursor_theme = getenv("XCURSOR_THEME");
+    if (xcursor_theme != NULL)
+        wayl->xcursor_theme = strdup(xcursor_theme);
+    wayl->xcursor_size = 24;
+
+    {
+        const char *env_cursor_size = getenv("XCURSOR_SIZE");
+        if (env_cursor_size != NULL) {
+            unsigned size;
+            if (sscanf(env_cursor_size, "%u", &size) == 1)
+                wayl->xcursor_size = size;
+        }
+    }
+
+    LOG_INFO("cursor theme: %s, size: %u",
+             wayl->xcursor_theme, wayl->xcursor_size);
+
     if (!fdm_hook_add(fdm, &fdm_hook, wayl, FDM_HOOK_PRIORITY_LOW)) {
         LOG_ERR("failed to add FDM hook");
         goto out;
@@ -950,45 +977,7 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     }
 
 #if 0
-    /* Clipboard */
-    wayl->data_device = wl_data_device_manager_get_data_device(
-        wayl->data_device_manager, wayl->seat);
-    wl_data_device_add_listener(wayl->data_device, &data_device_listener, wayl);
-
-    /* Primary selection */
-    if (wayl->primary_selection_device_manager != NULL) {
-        wayl->primary_selection_device = zwp_primary_selection_device_manager_v1_get_device(
-            wayl->primary_selection_device_manager, wayl->seat);
-        zwp_primary_selection_device_v1_add_listener(
-            wayl->primary_selection_device, &primary_selection_device_listener, wayl);
-    }
-
-    /* Cursor */
-    unsigned cursor_size = 24;
-    const char *cursor_theme = getenv("XCURSOR_THEME");
-
-    {
-        const char *env_cursor_size = getenv("XCURSOR_SIZE");
-        if (env_cursor_size != NULL) {
-            unsigned size;
-            if (sscanf(env_cursor_size, "%u", &size) == 1)
-                cursor_size = size;
-        }
-    }
-
-    /* Note: theme is (re)loaded on scale and output changes */
-    LOG_INFO("cursor theme: %s, size: %u", cursor_theme, cursor_size);
-    wayl->pointer.size = cursor_size;
-    wayl->pointer.theme_name = cursor_theme != NULL ? strdup(cursor_theme) : NULL;
-
-    wayl->pointer.surface = wl_compositor_create_surface(wayl->compositor);
-    if (wayl->pointer.surface == NULL) {
-        LOG_ERR("failed to create cursor surface");
-        goto out;
-    }
 #endif
-    /* All wayland initialization done - make it so */
-    wl_display_roundtrip(wayl->display);
 
     wayl->fd = wl_display_get_fd(wayl->display);
     if (fcntl(wayl->fd, F_SETFL, fcntl(wayl->fd, F_GETFL) | O_NONBLOCK) < 0) {
@@ -1043,34 +1032,12 @@ wayl_destroy(struct wayland *wayl)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);
     if (wayl->shell != NULL)
         xdg_wm_base_destroy(wayl->shell);
-
     if (wayl->xdg_decoration_manager != NULL)
         zxdg_decoration_manager_v1_destroy(wayl->xdg_decoration_manager);
-
     if (wayl->presentation != NULL)
         wp_presentation_destroy(wayl->presentation);
-
-#if 0
-    if (wayl->clipboard.data_source != NULL)
-        wl_data_source_destroy(wayl->clipboard.data_source);
-    if (wayl->clipboard.data_offer != NULL)
-        wl_data_offer_destroy(wayl->clipboard.data_offer);
-    free(wayl->clipboard.text);
-    if (wayl->primary.data_source != NULL)
-        zwp_primary_selection_source_v1_destroy(wayl->primary.data_source);
-    if (wayl->primary.data_offer != NULL)
-        zwp_primary_selection_offer_v1_destroy(wayl->primary.data_offer);
-    free(wayl->primary.text);
-
-    if (wayl->data_device != NULL)
-        wl_data_device_destroy(wayl->data_device);
-#endif
     if (wayl->data_device_manager != NULL)
         wl_data_device_manager_destroy(wayl->data_device_manager);
-#if 0
-    if (wayl->primary_selection_device != NULL)
-        zwp_primary_selection_device_v1_destroy(wayl->primary_selection_device);
-#endif
     if (wayl->primary_selection_device_manager != NULL)
         zwp_primary_selection_device_manager_v1_destroy(wayl->primary_selection_device_manager);
     if (wayl->shm != NULL)
@@ -1083,10 +1050,10 @@ wayl_destroy(struct wayland *wayl)
         wl_registry_destroy(wayl->registry);
     if (wayl->fd != -1)
         fdm_del_no_close(wayl->fdm, wayl->fd);
-    if (wayl->display != NULL) {
+    if (wayl->display != NULL)
         wl_display_disconnect(wayl->display);
-    }
 
+    free(wayl->xcursor_theme);
     free(wayl);
 }
 
@@ -1222,32 +1189,29 @@ wayl_win_destroy(struct wl_window *win)
 }
 
 static bool
-wayl_reload_cursor_theme(struct wayland *wayl, struct terminal *term)
+wayl_reload_cursor_theme(struct seat *seat, struct terminal *term)
 {
-#if 0
-    if (wayl->pointer.size == 0)
+    if (seat->pointer.size == 0)
         return true;
 
-    if (wayl->pointer.theme != NULL) {
-        wl_cursor_theme_destroy(wayl->pointer.theme);
-        wayl->pointer.theme = NULL;
-        wayl->pointer.cursor = NULL;
+    if (seat->pointer.theme != NULL) {
+        wl_cursor_theme_destroy(seat->pointer.theme);
+        seat->pointer.theme = NULL;
+        seat->pointer.cursor = NULL;
     }
 
     LOG_DBG("reloading cursor theme: %s@%d",
-            wayl->pointer.theme_name, wayl->pointer.size);
+            seat->pointer.theme_name, seat->pointer.size);
 
-    wayl->pointer.theme = wl_cursor_theme_load(
-        wayl->pointer.theme_name, wayl->pointer.size * term->scale, wayl->shm);
+    seat->pointer.theme = wl_cursor_theme_load(
+        seat->pointer.theme_name, seat->pointer.size * term->scale, seat->wayl->shm);
 
-    if (wayl->pointer.theme == NULL) {
+    if (seat->pointer.theme == NULL) {
         LOG_ERR("failed to load cursor theme");
         return false;
     }
 
-    return render_xcursor_set(term);
-#endif
-    return true;
+    return render_xcursor_set(seat, term);
 }
 
 void

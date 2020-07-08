@@ -311,12 +311,14 @@ struct wayland {
     struct wp_presentation *presentation;
     uint32_t presentation_clock_id;
 
-
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
     tll(struct seat) seats;
 
     tll(struct terminal *) terms;
+
+    char *xcursor_theme;
+    unsigned xcursor_size;
 };
 
 struct wayland *wayl_init(const struct config *conf, struct fdm *fdm);

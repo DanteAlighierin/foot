@@ -2071,13 +2071,17 @@ term_mouse_grabbed(const struct terminal *term)
     /*
      * Mouse is grabbed by us, regardless of whether mouse tracking has been enabled or not.
      */
-#if 0
-    return
-        term->wl->kbd_focus == term &&
-        term->wl->kbd.shift &&
-        !term->wl->kbd.alt && /*!term->wl->kbd.ctrl &&*/ !term->wl->kbd.meta;
-#endif
-    return true;
+    tll_foreach(term->wl->seats, it) {
+        const struct seat *seat = &it->item;
+
+        if (seat->kbd_focus == term &&
+            seat->kbd.shift &&
+            !seat->kbd.alt && /*!seat->kbd.ctrl &&*/ !seat->kbd.meta)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 void
@@ -2227,7 +2231,8 @@ term_xcursor_update(struct terminal *term)
         selection_enabled(term) ? XCURSOR_TEXT :
         XCURSOR_LEFT_PTR;
 
-    render_xcursor_set(term);
+    tll_foreach(term->wl->seats, it)
+        render_xcursor_set(&it->item, term);
 }
 
 void

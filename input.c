@@ -861,7 +861,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_SEARCH:
     case TERM_SURF_TITLE:
         term->xcursor = "left_ptr";
-        render_xcursor_set(term);
+        render_xcursor_set(seat, term);
         break;
 
     case TERM_SURF_BORDER_LEFT:
@@ -869,14 +869,14 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_BORDER_TOP:
     case TERM_SURF_BORDER_BOTTOM:
         term->xcursor = xcursor_for_csd_border(term, x, y);
-        render_xcursor_set(term);
+        render_xcursor_set(seat, term);
         break;
 
     case TERM_SURF_BUTTON_MINIMIZE:
     case TERM_SURF_BUTTON_MAXIMIZE:
     case TERM_SURF_BUTTON_CLOSE:
         term->xcursor = "left_ptr";
-        render_xcursor_set(term);
+        render_xcursor_set(seat, term);
         render_refresh_csd(term);
         break;
 
@@ -994,7 +994,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_BORDER_TOP:
     case TERM_SURF_BORDER_BOTTOM:
         term->xcursor = xcursor_for_csd_border(term, x, y);
-        render_xcursor_set(term);
+        render_xcursor_set(seat, term);
         break;
 
     case TERM_SURF_GRID: {
