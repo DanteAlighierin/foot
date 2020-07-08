@@ -912,8 +912,7 @@ wayl_init(const struct config *conf, struct fdm *fdm)
         }
     }
 
-    LOG_INFO("cursor theme: %s, size: %u",
-             wayl->xcursor_theme, wayl->xcursor_size);
+    LOG_INFO("XCURSOR_THEME=%s, XCURSOR_SIZE=%u", wayl->xcursor_theme, wayl->xcursor_size);
 
     if (!fdm_hook_add(fdm, &fdm_hook, wayl, FDM_HOOK_PRIORITY_LOW)) {
         LOG_ERR("failed to add FDM hook");
