@@ -33,8 +33,8 @@
 #include "vt.h"
 
 static void
-execute_binding(struct terminal *term, enum bind_action_normal action,
-                uint32_t serial)
+execute_binding(struct seat *seat, struct terminal *term,
+                enum bind_action_normal action, uint32_t serial)
 {
     switch (action) {
     case BIND_ACTION_NONE:
@@ -49,16 +49,16 @@ execute_binding(struct terminal *term, enum bind_action_normal action,
         break;
 
     case BIND_ACTION_CLIPBOARD_COPY:
-        selection_to_clipboard(term, serial);
+        selection_to_clipboard(seat, term, serial);
         break;
 
     case BIND_ACTION_CLIPBOARD_PASTE:
-        selection_from_clipboard(term, serial);
+        selection_from_clipboard(seat, term, serial);
         term_reset_view(term);
         break;
 
     case BIND_ACTION_PRIMARY_PASTE:
-        selection_from_primary(term);
+        selection_from_primary(seat, term);
         break;
 
     case BIND_ACTION_SEARCH_START:
@@ -580,14 +580,14 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
         /* Match symbol */
         if (it->item.bind.sym == sym) {
-            execute_binding(term, it->item.action, serial);
+            execute_binding(seat, term, it->item.action, serial);
             goto maybe_repeat;
         }
 
         /* Match raw key code */
         tll_foreach(it->item.bind.key_codes, code) {
             if (code->item == key) {
-                execute_binding(term, it->item.action, serial);
+                execute_binding(seat, term, it->item.action, serial);
                 goto maybe_repeat;
             }
         }
@@ -1197,20 +1197,23 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                         break;
 
                     case 2:
-                        selection_mark_word(term, seat->mouse.col, seat->mouse.row,
-                                            seat->kbd.ctrl, serial);
+                        selection_mark_word(
+                            seat, term, seat->mouse.col, seat->mouse.row,
+                            seat->kbd.ctrl, serial);
                         break;
 
                     case 3:
-                        selection_mark_row(term, seat->mouse.row, serial);
+                        selection_mark_row(seat, term, seat->mouse.row, serial);
                         break;
                     }
                 }
             }
 
             else if (button == BTN_RIGHT && seat->mouse.count == 1) {
-                if (selection_enabled(term))
-                    selection_extend(term, seat->mouse.col, seat->mouse.row, serial);
+                if (selection_enabled(term)) {
+                    selection_extend(
+                        seat, term, seat->mouse.col, seat->mouse.row, serial);
+                }
             }
 
             else {
@@ -1228,7 +1231,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                         continue;
                     }
 
-                    execute_binding(term, binding->action, serial);
+                    execute_binding(seat, term, binding->action, serial);
                     break;
                 }
             }
@@ -1241,7 +1244,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         case WL_POINTER_BUTTON_STATE_RELEASED:
             if (button == BTN_LEFT && term->selection.end.col != -1)
-                selection_finalize(term, serial);
+                selection_finalize(seat, term, serial);
 
             term_mouse_up(
                 term, button, seat->mouse.row, seat->mouse.col,

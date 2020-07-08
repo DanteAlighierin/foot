@@ -106,6 +106,14 @@ seat_destroy(struct seat *seat)
     if (seat->pointer.xcursor_callback != NULL)
         wl_callback_destroy(seat->pointer.xcursor_callback);
 
+    if (seat->clipboard.data_source != NULL)
+        wl_data_source_destroy(seat->clipboard.data_source);
+    if (seat->clipboard.data_offer != NULL)
+        wl_data_offer_destroy(seat->clipboard.data_offer);
+    if (seat->primary.data_source != NULL)
+        zwp_primary_selection_source_v1_destroy(seat->primary.data_source);
+    if (seat->primary.data_offer != NULL)
+        zwp_primary_selection_offer_v1_destroy(seat->primary.data_offer);
     if (seat->primary_selection_device != NULL)
         zwp_primary_selection_device_v1_destroy(seat->primary_selection_device);
     if (seat->data_device != NULL)

@@ -12,28 +12,37 @@ bool selection_enabled(const struct terminal *term);
 void selection_start(
     struct terminal *term, int col, int row, enum selection_kind kind);
 void selection_update(struct terminal *term, int col, int row);
-void selection_finalize(struct terminal *term, uint32_t serial);
+void selection_finalize(
+    struct seat *seat, struct terminal *term, uint32_t serial);
 void selection_dirty_cells(struct terminal *term);
 void selection_cancel(struct terminal *term);
-void selection_extend(struct terminal *term, int col, int row, uint32_t serial);
+void selection_extend( struct seat *seat, struct terminal *term,
+                       int col, int row, uint32_t serial);
 
 bool selection_on_rows(const struct terminal *term, int start, int end);
 
 void selection_view_up(struct terminal *term, int new_view);
 void selection_view_down(struct terminal *term, int new_view);
 
-void selection_mark_word(struct terminal *term, int col, int row,
-                         bool spaces_only, uint32_t serial);
-void selection_mark_row(struct terminal *term, int row, uint32_t serial);
+void selection_mark_word(
+    struct seat *seat, struct terminal *term, int col, int row,
+    bool spaces_only, uint32_t serial);
+void selection_mark_row(
+    struct seat *seat, struct terminal *term, int row, uint32_t serial);
 
-void selection_to_clipboard(struct terminal *term, uint32_t serial);
-void selection_from_clipboard(struct terminal *term, uint32_t serial);
-void selection_to_primary(struct terminal *term, uint32_t serial);
-void selection_from_primary(struct terminal *term);
+void selection_to_clipboard(
+    struct seat *seat, struct terminal *term, uint32_t serial);
+void selection_from_clipboard(
+    struct seat *seat, struct terminal *term, uint32_t serial);
+void selection_to_primary(
+    struct seat *seat, struct terminal *term, uint32_t serial);
+void selection_from_primary(struct seat *seat, struct terminal *term);
 
 /* Copy text *to* primary/clipboard */
-bool text_to_clipboard(struct terminal *term, char *text, uint32_t serial);
-bool text_to_primary(struct terminal *term, char *text, uint32_t serial);
+bool text_to_clipboard(
+    struct seat *seat, struct terminal *term, char *text, uint32_t serial);
+bool text_to_primary(
+    struct seat *seat, struct terminal *term, char *text, uint32_t serial);
 
 /*
  * Copy text *from* primary/clipboard
@@ -50,11 +59,11 @@ bool text_to_primary(struct terminal *term, char *text, uint32_t serial);
  *   point).
  */
 void text_from_clipboard(
-    struct terminal *term, uint32_t serial,
+    struct seat *seat, struct terminal *term, uint32_t serial,
     void (*cb)(const char *data, size_t size, void *user),
     void (*done)(void *user), void *user);
 
 void text_from_primary(
-    struct terminal *term,
+    struct seat *seat, struct terminal *term,
     void (*cb)(const char *data, size_t size, void *user),
     void (*dont)(void *user), void *user);
