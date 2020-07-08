@@ -506,6 +506,7 @@ void term_restore_cursor(struct terminal *term, const struct cursor *cursor);
 
 void term_visual_focus_in(struct terminal *term);
 void term_visual_focus_out(struct terminal *term);
+bool term_has_kbd_focus(struct terminal *term);
 void term_kbd_focus_in(struct terminal *term);
 void term_kbd_focus_out(struct terminal *term);
 void term_mouse_down(struct terminal *term, int button, int row, int col);

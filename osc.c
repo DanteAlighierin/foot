@@ -52,6 +52,9 @@ osc_to_clipboard(struct terminal *term, const char *target,
         }
     }
 
+    (void)to_clipboard;
+    (void)to_primary;
+#if 0
     if (to_clipboard) {
         char *copy = strdup(decoded);
         if (!text_to_clipboard(term, copy, term->wl->input_serial))
@@ -63,7 +66,7 @@ osc_to_clipboard(struct terminal *term, const char *target,
         if (!text_to_primary(term, copy, term->wl->input_serial))
             free(copy);
     }
-
+#endif
     free(decoded);
 }
 
@@ -73,6 +76,7 @@ struct clip_context {
     int idx;
 };
 
+#if 0
 static void
 from_clipboard_cb(const char *text, size_t size, void *user)
 {
@@ -117,7 +121,8 @@ from_clipboard_cb(const char *text, size_t size, void *user)
     term_to_slave(term, chunk, strlen(chunk));
     free(chunk);
 }
-
+#endif
+#if 0
 static void
 from_clipboard_done(void *user)
 {
@@ -133,7 +138,7 @@ from_clipboard_done(void *user)
     term_to_slave(term, "\033\\", 2);
     free(ctx);
 }
-
+#endif 
 static void
 osc_from_clipboard(struct terminal *term, const char *source)
 {
@@ -158,6 +163,7 @@ osc_from_clipboard(struct terminal *term, const char *source)
     struct clip_context *ctx = malloc(sizeof(*ctx));
     *ctx = (struct clip_context) {.term = term};
 
+#if 0
     switch (src) {
     case 'c':
         text_from_clipboard(
@@ -170,6 +176,7 @@ osc_from_clipboard(struct terminal *term, const char *source)
         text_from_primary(term, &from_clipboard_cb, &from_clipboard_done, ctx);
         break;
     }
+#endif
 }
 
 static void

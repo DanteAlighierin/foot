@@ -1037,13 +1037,12 @@ fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
      * are deferred (for example, when a screen locker is active), and
      * thus we can get here without having been unmapped.
      */
-    if (wayl->kbd_focus == term)
-        wayl->kbd_focus = NULL;
-    if (wayl->mouse_focus == term)
-        wayl->mouse_focus = NULL;
-
-    assert(wayl->kbd_focus != term);
-    assert(wayl->mouse_focus != term);
+    tll_foreach(wayl->seats, it) {
+        if (it->item.kbd_focus == term)
+            it->item.kbd_focus = NULL;
+        if (it->item.mouse_focus == term)
+            it->item.mouse_focus = NULL;
+    }
 
     void (*cb)(void *, int) = term->shutdown_cb;
     void *cb_data = term->shutdown_data;
@@ -1711,7 +1710,7 @@ void
 term_cursor_blink_enable(struct terminal *term)
 {
     term->cursor_blink.state = CURSOR_BLINK_ON;
-    term->cursor_blink.active = term->wl->kbd_focus == term
+    term->cursor_blink.active = term_has_kbd_focus(term)
         ? cursor_blink_start_timer(term) : true;
 }
 
@@ -1728,7 +1727,7 @@ term_cursor_blink_restart(struct terminal *term)
 {
     if (term->cursor_blink.active) {
         term->cursor_blink.state = CURSOR_BLINK_ON;
-        term->cursor_blink.active = term->wl->kbd_focus == term
+        term->cursor_blink.active = term_has_kbd_focus(term)
             ? cursor_blink_start_timer(term) : true;
     }
 }
@@ -1951,6 +1950,17 @@ term_visual_focus_out(struct terminal *term)
     cursor_refresh(term);
 }
 
+bool
+term_has_kbd_focus(struct terminal *term)
+{
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term)
+            return true;
+    }
+
+    return false;
+}
+
 void
 term_kbd_focus_in(struct terminal *term)
 {
@@ -1965,6 +1975,7 @@ term_kbd_focus_out(struct terminal *term)
         term_to_slave(term, "\033[O", 3);
 }
 
+#if 0
 static int
 linux_mouse_button_to_x(int button)
 {
@@ -1983,7 +1994,8 @@ linux_mouse_button_to_x(int button)
         return -1;
     }
 }
-
+#endif
+#if 0
 static int
 encode_xbutton(int xbutton)
 {
@@ -2008,7 +2020,8 @@ encode_xbutton(int xbutton)
         return -1;
     }
 }
-
+#endif
+#if 0
 static void
 report_mouse_click(struct terminal *term, int encoded_button, int row, int col,
                    bool release)
@@ -2044,28 +2057,33 @@ report_mouse_click(struct terminal *term, int encoded_button, int row, int col,
 
     term_to_slave(term, response, strlen(response));
 }
-
+#endif
+#if 0
 static void
 report_mouse_motion(struct terminal *term, int encoded_button, int row, int col)
 {
     report_mouse_click(term, encoded_button, row, col, false);
 }
-
+#endif
 bool
 term_mouse_grabbed(const struct terminal *term)
 {
     /*
      * Mouse is grabbed by us, regardless of whether mouse tracking has been enabled or not.
      */
+#if 0
     return
         term->wl->kbd_focus == term &&
         term->wl->kbd.shift &&
         !term->wl->kbd.alt && /*!term->wl->kbd.ctrl &&*/ !term->wl->kbd.meta;
+#endif
+    return true;
 }
 
 void
 term_mouse_down(struct terminal *term, int button, int row, int col)
 {
+#if 0
     if (term_mouse_grabbed(term))
         return;
 
@@ -2101,11 +2119,13 @@ term_mouse_down(struct terminal *term, int button, int row, int col)
         assert(false && "unimplemented");
         break;
     }
+#endif
 }
 
 void
 term_mouse_up(struct terminal *term, int button, int row, int col)
 {
+#if 0
     if (term_mouse_grabbed(term))
         return;
 
@@ -2145,11 +2165,13 @@ term_mouse_up(struct terminal *term, int button, int row, int col)
         assert(false && "unimplemented");
         break;
     }
+#endif
 }
 
 void
 term_mouse_motion(struct terminal *term, int button, int row, int col)
 {
+#if 0
     if (term_mouse_grabbed(term))
         return;
 
@@ -2194,6 +2216,7 @@ term_mouse_motion(struct terminal *term, int button, int row, int col)
         assert(false && "unimplemented");
         break;
     }
+#endif
 }
 
 void

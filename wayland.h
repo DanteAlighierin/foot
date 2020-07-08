@@ -15,65 +15,6 @@
 
 #include "fdm.h"
 
-struct monitor {
-    struct wayland *wayl;
-    struct wl_output *output;
-    struct zxdg_output_v1 *xdg;
-    uint32_t wl_name;
-
-    int x;
-    int y;
-
-    struct {
-        /* Physical size, in mm */
-        struct {
-            int width;
-            int height;
-        } mm;
-
-        /* Physical size, in pixels */
-        struct {
-            int width;
-            int height;
-        } px_real;
-
-        /* Scaled size, in pixels */
-        struct {
-            int width;
-            int height;
-        } px_scaled;
-    } dim;
-
-    struct {
-        /* PPI, based on physical size */
-        struct {
-            int x;
-            int y;
-        } real;
-
-        /* PPI, logical, based on scaled size */
-        struct {
-            int x;
-            int y;
-        } scaled;
-    } ppi;
-
-    int scale;
-    float refresh;
-    enum wl_output_subpixel subpixel;
-
-    /* From wl_output */
-    char *make;
-    char *model;
-
-    /* From xdg_output */
-    char *name;
-    char *description;
-
-    float inch;  /* e.g. 24" */
-};
-
-
 typedef tll(xkb_keycode_t) xkb_keycode_list_t;
 
 struct key_binding {
@@ -138,38 +79,6 @@ struct key_binding_search {
     enum bind_action_search action;
 };
 
-struct kbd {
-    struct xkb_context *xkb;
-    struct xkb_keymap *xkb_keymap;
-    struct xkb_state *xkb_state;
-    struct xkb_compose_table *xkb_compose_table;
-    struct xkb_compose_state *xkb_compose_state;
-    struct {
-        int fd;
-
-        bool dont_re_repeat;
-        int32_t delay;
-        int32_t rate;
-        uint32_t key;
-    } repeat;
-
-    xkb_mod_index_t mod_shift;
-    xkb_mod_index_t mod_alt;
-    xkb_mod_index_t mod_ctrl;
-    xkb_mod_index_t mod_meta;
-
-    /* Enabled modifiers */
-    bool shift;
-    bool alt;
-    bool ctrl;
-    bool meta;
-
-    struct {
-        tll(struct key_binding_normal) key;
-        tll(struct key_binding_search) search;
-    } bindings;
-};
-
 struct wl_clipboard {
     struct wl_data_source *data_source;
     struct wl_data_offer *data_offer;
@@ -184,6 +93,91 @@ struct wl_primary {
     uint32_t serial;
 };
 
+struct seat {
+    struct wayland *wayl;
+    struct wl_seat *wl_seat;
+    uint32_t wl_name;
+    char *name;
+
+    /* Focused terminals */
+    struct terminal *kbd_focus;
+    struct terminal *mouse_focus;
+
+    /* Keyboard state */
+    struct wl_keyboard *wl_keyboard;
+    struct {
+        struct xkb_context *xkb;
+        struct xkb_keymap *xkb_keymap;
+        struct xkb_state *xkb_state;
+        struct xkb_compose_table *xkb_compose_table;
+        struct xkb_compose_state *xkb_compose_state;
+        struct {
+            int fd;
+
+            bool dont_re_repeat;
+            int32_t delay;
+            int32_t rate;
+            uint32_t key;
+        } repeat;
+
+        xkb_mod_index_t mod_shift;
+        xkb_mod_index_t mod_alt;
+        xkb_mod_index_t mod_ctrl;
+        xkb_mod_index_t mod_meta;
+
+        /* Enabled modifiers */
+        bool shift;
+        bool alt;
+        bool ctrl;
+        bool meta;
+
+        struct {
+            tll(struct key_binding_normal) key;
+            tll(struct key_binding_search) search;
+        } bindings;
+    } kbd;
+
+    /* Pointer state */
+    struct wl_pointer *wl_pointer;
+    struct {
+        uint32_t serial;
+
+        struct wl_surface *surface;
+        struct wl_cursor_theme *theme;
+        struct wl_cursor *cursor;
+        int size;
+        char *theme_name;
+        const char *xcursor;
+
+        const struct terminal *pending_terminal;
+        struct wl_callback *xcursor_callback;
+    } pointer;
+
+    struct {
+        int x;
+        int y;
+        int col;
+        int row;
+        int button;
+
+        int count;
+        int last_button;
+        struct timeval last_time;
+
+        /* We used a discrete axis event in the current pointer frame */
+        double axis_aggregated;
+        bool have_discrete;
+    } mouse;
+
+    /* Clipboard */
+    uint32_t input_serial;
+    struct wl_data_device *data_device;
+    struct zwp_primary_selection_device_v1 *primary_selection_device;
+
+    struct wl_clipboard clipboard;
+    struct wl_primary primary;
+};
+
 enum csd_surface {
     CSD_SURF_TITLE,
     CSD_SURF_LEFT,
@@ -194,6 +188,64 @@ enum csd_surface {
     CSD_SURF_MAXIMIZE,
     CSD_SURF_CLOSE,
     CSD_SURF_COUNT,
+};
+
+struct monitor {
+    struct wayland *wayl;
+    struct wl_output *output;
+    struct zxdg_output_v1 *xdg;
+    uint32_t wl_name;
+
+    int x;
+    int y;
+
+    struct {
+        /* Physical size, in mm */
+        struct {
+            int width;
+            int height;
+        } mm;
+
+        /* Physical size, in pixels */
+        struct {
+            int width;
+            int height;
+        } px_real;
+
+        /* Scaled size, in pixels */
+        struct {
+            int width;
+            int height;
+        } px_scaled;
+    } dim;
+
+    struct {
+        /* PPI, based on physical size */
+        struct {
+            int x;
+            int y;
+        } real;
+
+        /* PPI, logical, based on scaled size */
+        struct {
+            int x;
+            int y;
+        } scaled;
+    } ppi;
+
+    int scale;
+    float refresh;
+    enum wl_output_subpixel subpixel;
+
+    /* From wl_output */
+    char *make;
+    char *model;
+
+    /* From xdg_output */
+    char *name;
+    char *description;
+
+    float inch;  /* e.g. 24" */
 };
 
 struct wayland;
@@ -248,67 +300,23 @@ struct wayland {
     struct wl_subcompositor *sub_compositor;
     struct wl_shm *shm;
 
-    struct wl_seat *seat;
-    struct wl_keyboard *keyboard;
     struct zxdg_output_manager_v1 *xdg_output_manager;
 
     struct xdg_wm_base *shell;
     struct zxdg_decoration_manager_v1 *xdg_decoration_manager;
 
+    struct wl_data_device_manager *data_device_manager;
+    struct zwp_primary_selection_device_manager_v1 *primary_selection_device_manager;
+
     struct wp_presentation *presentation;
     uint32_t presentation_clock_id;
 
-    /* Keyboard */
-    struct kbd kbd;
-
-    /* Clipboard */
-    uint32_t input_serial;
-    struct wl_data_device_manager *data_device_manager;
-    struct wl_data_device *data_device;
-    struct zwp_primary_selection_device_manager_v1 *primary_selection_device_manager;
-    struct zwp_primary_selection_device_v1 *primary_selection_device;
-
-    struct wl_clipboard clipboard;
-    struct wl_primary primary;
-
-    /* Cursor */
-    struct {
-        struct wl_pointer *pointer;
-        uint32_t serial;
-
-        struct wl_surface *surface;
-        struct wl_cursor_theme *theme;
-        struct wl_cursor *cursor;
-        int size;
-        char *theme_name;
-        const char *xcursor;
-
-        const struct terminal *pending_terminal;
-        struct wl_callback *xcursor_callback;
-    } pointer;
-
-    struct {
-        int x;
-        int y;
-        int col;
-        int row;
-        int button;
-
-        int count;
-        int last_button;
-        struct timeval last_time;
-
-        /* We used a discrete axis event in the current pointer frame */
-        double axis_aggregated;
-        bool have_discrete;
-    } mouse;
 
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
+    tll(struct seat) seats;
 
     tll(struct terminal *) terms;
-    struct terminal *kbd_focus;
-    struct terminal *mouse_focus;
 };
 
 struct wayland *wayl_init(const struct config *conf, struct fdm *fdm);

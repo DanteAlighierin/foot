@@ -1938,14 +1938,15 @@ render_resize_force(struct terminal *term, int width, int height)
 {
     return maybe_resize(term, width, height, true);
 }
-
+#if 0
 static void xcursor_callback(
     void *data, struct wl_callback *wl_callback, uint32_t callback_data);
-
 static const struct wl_callback_listener xcursor_listener = {
     .done = &xcursor_callback,
 };
+#endif
 
+#if 0
 static void
 render_xcursor_update(struct wayland *wayl, const struct terminal *term)
 {
@@ -1984,7 +1985,9 @@ render_xcursor_update(struct wayland *wayl, const struct terminal *term)
 
     wl_surface_commit(wayl->pointer.surface);
 }
+#endif
 
+#if 0
 static void
 xcursor_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_data)
 {
@@ -1999,12 +2002,13 @@ xcursor_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_
         wayl->pointer.pending_terminal = NULL;
     }
 }
+#endif
 
 static void
 fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
 {
     struct renderer *renderer = data;
-    struct wayland *wayl = renderer->wayl;
+    //struct wayland *wayl = renderer->wayl;
 
     tll_foreach(renderer->wayl->terms, it) {
         struct terminal *term = it->item;
@@ -2061,6 +2065,7 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         }
     }
 
+#if 0
     if (wayl->pointer.pending_terminal != NULL) {
         if (wayl->pointer.xcursor_callback == NULL) {
             render_xcursor_update(wayl, wayl->pointer.pending_terminal);
@@ -2069,6 +2074,7 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
             /* Frame callback will call render_xcursor_update() */
         }
     }
+#endif
 }
 
 void
@@ -2100,6 +2106,7 @@ render_refresh_search(struct terminal *term)
 bool
 render_xcursor_set(struct terminal *term)
 {
+#if 0
     struct wayland *wayl = term->wl;
 
     if (wayl->pointer.theme == NULL)
@@ -2121,5 +2128,7 @@ render_xcursor_set(struct terminal *term)
 
     /* FDM hook takes care of actual rendering */
     wayl->pointer.pending_terminal = term;
+    return true;
+#endif
     return true;
 }

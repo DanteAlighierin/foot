@@ -72,6 +72,59 @@ csd_destroy(struct wl_window *win)
 }
 
 static void
+seat_destroy(struct seat *seat)
+{
+    if (seat == NULL)
+        return;
+
+    tll_foreach(seat->kbd.bindings.key, it)
+        tll_free(it->item.bind.key_codes);
+    tll_free(seat->kbd.bindings.key);
+
+    tll_foreach(seat->kbd.bindings.search, it)
+        tll_free(it->item.bind.key_codes);
+    tll_free(seat->kbd.bindings.search);
+
+    if (seat->kbd.xkb_compose_state != NULL)
+        xkb_compose_state_unref(seat->kbd.xkb_compose_state);
+    if (seat->kbd.xkb_compose_table != NULL)
+        xkb_compose_table_unref(seat->kbd.xkb_compose_table);
+    if (seat->kbd.xkb_keymap != NULL)
+        xkb_keymap_unref(seat->kbd.xkb_keymap);
+    if (seat->kbd.xkb_state != NULL)
+        xkb_state_unref(seat->kbd.xkb_state);
+    if (seat->kbd.xkb != NULL)
+        xkb_context_unref(seat->kbd.xkb);
+
+    if (seat->kbd.repeat.fd >= 0)
+        fdm_del(seat->wayl->fdm, seat->kbd.repeat.fd);
+
+    free(seat->pointer.theme_name);
+    if (seat->pointer.theme != NULL)
+        wl_cursor_theme_destroy(seat->pointer.theme);
+    if (seat->pointer.surface != NULL)
+        wl_surface_destroy(seat->pointer.surface);
+    if (seat->pointer.xcursor_callback != NULL)
+        wl_callback_destroy(seat->pointer.xcursor_callback);
+
+    if (seat->primary_selection_device != NULL)
+        zwp_primary_selection_device_v1_destroy(seat->primary_selection_device);
+    if (seat->data_device != NULL)
+        wl_data_device_destroy(seat->data_device);
+
+    if (seat->wl_keyboard != NULL)
+        wl_keyboard_destroy(seat->wl_keyboard);
+    if (seat->wl_pointer != NULL)
+        wl_pointer_destroy(seat->wl_pointer);
+    if (seat->wl_seat != NULL)
+        wl_seat_destroy(seat->wl_seat);
+
+    free(seat->clipboard.text);
+    free(seat->primary.text);
+    free(seat->name);
+}
+
+static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
     struct wayland *wayl = data;
@@ -98,29 +151,31 @@ static void
 seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
                          enum wl_seat_capability caps)
 {
-    struct wayland *wayl = data;
+    struct seat *seat = data;
+    assert(seat->wl_seat == wl_seat);
+    //struct wayland *wayl = data;
 
     if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
-        if (wayl->keyboard == NULL) {
-            wayl->keyboard = wl_seat_get_keyboard(wl_seat);
-            wl_keyboard_add_listener(wayl->keyboard, &keyboard_listener, wayl);
+        if (seat->wl_keyboard == NULL) {
+            seat->wl_keyboard = wl_seat_get_keyboard(wl_seat);
+            wl_keyboard_add_listener(seat->wl_keyboard, &keyboard_listener, seat);
         }
     } else {
-        if (wayl->keyboard != NULL) {
-            wl_keyboard_release(wayl->keyboard);
-            wayl->keyboard = NULL;
+        if (seat->wl_keyboard != NULL) {
+            wl_keyboard_release(seat->wl_keyboard);
+            seat->wl_keyboard = NULL;
         }
     }
 
     if (caps & WL_SEAT_CAPABILITY_POINTER) {
-        if (wayl->pointer.pointer == NULL) {
-            wayl->pointer.pointer = wl_seat_get_pointer(wl_seat);
-            wl_pointer_add_listener(wayl->pointer.pointer, &pointer_listener, wayl);
+        if (seat->wl_pointer == NULL) {
+            seat->wl_pointer = wl_seat_get_pointer(wl_seat);
+            wl_pointer_add_listener(seat->wl_pointer, &pointer_listener, seat);
         }
     } else {
-        if (wayl->pointer.pointer != NULL) {
-            wl_pointer_release(wayl->pointer.pointer);
-            wayl->pointer.pointer = NULL;
+        if (seat->wl_pointer != NULL) {
+            wl_pointer_release(seat->wl_pointer);
+            seat->wl_pointer = NULL;
         }
     }
 }
@@ -128,6 +183,9 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
 static void
 seat_handle_name(void *data, struct wl_seat *wl_seat, const char *name)
 {
+    struct seat *seat = data;
+    free(seat->name);
+    seat->name = strdup(name);
 }
 
 static const struct wl_seat_listener seat_listener = {
@@ -533,6 +591,32 @@ static const struct zxdg_toplevel_decoration_v1_listener xdg_toplevel_decoration
     .configure = &xdg_toplevel_decoration_configure,
 };
 
+static bool
+fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
+{
+    if (events & EPOLLHUP)
+        return false;
+
+    struct seat *seat = data;
+    uint64_t expiration_count;
+    ssize_t ret = read(
+        seat->kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
+
+    if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+
+        LOG_ERRNO("failed to read repeat key from repeat timer fd");
+        return false;
+    }
+
+    seat->kbd.repeat.dont_re_repeat = true;
+    for (size_t i = 0; i < expiration_count; i++)
+        input_repeat(seat, seat->kbd.repeat.key);
+    seat->kbd.repeat.dont_re_repeat = false;
+    return true;
+}
+
 static void
 handle_global(void *data, struct wl_registry *registry,
               uint32_t name, const char *interface, uint32_t version)
@@ -566,7 +650,6 @@ handle_global(void *data, struct wl_registry *registry,
         wayl->shm = wl_registry_bind(
             wayl->registry, name, &wl_shm_interface, required);
         wl_shm_add_listener(wayl->shm, &shm_listener, wayl);
-        wl_display_roundtrip(wayl->display);
     }
 
     else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
@@ -593,10 +676,55 @@ handle_global(void *data, struct wl_registry *registry,
         if (!verify_iface_version(interface, version, required))
             return;
 
-        wayl->seat = wl_registry_bind(
+        int repeat_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+        if (repeat_fd == -1) {
+            LOG_ERRNO("failed to create keyboard repeat timer FD");
+            return;
+        }
+
+        struct wl_seat *wl_seat = wl_registry_bind(
             wayl->registry, name, &wl_seat_interface, required);
-        wl_seat_add_listener(wayl->seat, &seat_listener, wayl);
-        wl_display_roundtrip(wayl->display);
+
+        /* Clipboard */
+        struct wl_data_device *data_device = wl_data_device_manager_get_data_device(
+            wayl->data_device_manager, wl_seat);
+
+        /* Primary selection */
+        struct zwp_primary_selection_device_v1 *primary_selection_device;
+        if (wayl->primary_selection_device_manager != NULL) {
+            primary_selection_device = zwp_primary_selection_device_manager_v1_get_device(
+                wayl->primary_selection_device_manager, wl_seat);
+        } else
+            primary_selection_device = NULL;
+
+        tll_push_back(wayl->seats, ((struct seat){
+                    .wayl = wayl,
+                    .wl_seat = wl_seat,
+                    .wl_name = name,
+                    .kbd = {
+                        .repeat = {
+                            .fd = repeat_fd,
+                        },
+                    },
+                    .data_device = data_device,
+                    .primary_selection_device = primary_selection_device,
+                    }));
+
+        struct seat *seat = &tll_back(wayl->seats);
+
+        if (!fdm_add(wayl->fdm, repeat_fd, EPOLLIN, &fdm_repeat, seat)) {
+            close(repeat_fd);
+            seat->kbd.repeat.fd = -1;
+            seat_destroy(seat);
+            return;
+        }
+
+        wl_seat_add_listener(wl_seat, &seat_listener, seat);
+        wl_data_device_add_listener(data_device, &data_device_listener, seat);
+        if (primary_selection_device != NULL) {
+            zwp_primary_selection_device_v1_add_listener(
+                primary_selection_device, &primary_selection_device_listener, seat);
+        }
     }
 
     else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0) {
@@ -629,7 +757,6 @@ handle_global(void *data, struct wl_registry *registry,
                 wayl->xdg_output_manager, mon->output);
             zxdg_output_v1_add_listener(mon->xdg, &xdg_output_listener, mon);
         }
-        wl_display_roundtrip(wayl->display);
     }
 
     else if (strcmp(interface, wl_data_device_manager_interface.name) == 0) {
@@ -747,32 +874,6 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
     return event_count != -1;
 }
 
-static bool
-fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
-{
-    if (events & EPOLLHUP)
-        return false;
-
-    struct wayland *wayl = data;
-    uint64_t expiration_count;
-    ssize_t ret = read(
-        wayl->kbd.repeat.fd, &expiration_count, sizeof(expiration_count));
-
-    if (ret < 0) {
-        if (errno == EAGAIN)
-            return true;
-
-        LOG_ERRNO("failed to read repeat key from repeat timer fd");
-        return false;
-    }
-
-    wayl->kbd.repeat.dont_re_repeat = true;
-    for (size_t i = 0; i < expiration_count; i++)
-        input_repeat(wayl, wayl->kbd.repeat.key);
-    wayl->kbd.repeat.dont_re_repeat = false;
-    return true;
-}
-
 struct wayland *
 wayl_init(const struct config *conf, struct fdm *fdm)
 {
@@ -780,7 +881,6 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     wayl->conf = conf;
     wayl->fdm = fdm;
     wayl->fd = -1;
-    wayl->kbd.repeat.fd = -1;
 
     if (!fdm_hook_add(fdm, &fdm_hook, wayl, FDM_HOOK_PRIORITY_LOW)) {
         LOG_ERR("failed to add FDM hook");
@@ -818,25 +918,23 @@ wayl_init(const struct config *conf, struct fdm *fdm)
         LOG_ERR("no XDG shell interface");
         goto out;
     }
-    if (wayl->seat == NULL) {
-        LOG_ERR("no seat available");
-        goto out;
-    }
     if (wayl->data_device_manager == NULL) {
         LOG_ERR("no clipboard available "
                 "(wl_data_device_manager not implemented by server)");
         goto out;
     }
-    if (!wayl->have_argb8888) {
-        LOG_ERR("compositor does not support ARGB surfaces");
-        goto out;
-    }
-
     if (wayl->primary_selection_device_manager == NULL)
         LOG_WARN("no primary selection available");
 
     if (conf->presentation_timings && wayl->presentation == NULL) {
         LOG_ERR("presentation time interface not implemented by compositor");
+        goto out;
+    }
+
+    wl_display_roundtrip(wayl->display);
+
+    if (!wayl->have_argb8888) {
+        LOG_ERR("compositor does not support ARGB surfaces");
         goto out;
     }
 
@@ -851,6 +949,7 @@ wayl_init(const struct config *conf, struct fdm *fdm)
             it->item.ppi.scaled.x, it->item.ppi.scaled.y);
     }
 
+#if 0
     /* Clipboard */
     wayl->data_device = wl_data_device_manager_get_data_device(
         wayl->data_device_manager, wayl->seat);
@@ -887,7 +986,7 @@ wayl_init(const struct config *conf, struct fdm *fdm)
         LOG_ERR("failed to create cursor surface");
         goto out;
     }
-
+#endif
     /* All wayland initialization done - make it so */
     wl_display_roundtrip(wayl->display);
 
@@ -898,15 +997,6 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     }
 
     if (!fdm_add(fdm, wayl->fd, EPOLLIN, &fdm_wayl, wayl))
-        goto out;
-
-    wayl->kbd.repeat.fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
-    if (wayl->kbd.repeat.fd == -1) {
-        LOG_ERRNO("failed to create keyboard repeat timer FD");
-        goto out;
-    }
-
-    if (!fdm_add(fdm, wayl->kbd.repeat.fd, EPOLLIN, &fdm_repeat, wayl))
         goto out;
 
     if (wl_display_prepare_read(wayl->display) != 0) {
@@ -941,16 +1031,13 @@ wayl_destroy(struct wayland *wayl)
 
     fdm_hook_del(wayl->fdm, &fdm_hook, FDM_HOOK_PRIORITY_LOW);
 
-    if (wayl->kbd.repeat.fd != -1)
-        fdm_del(wayl->fdm, wayl->kbd.repeat.fd);
-
-    tll_foreach(wayl->monitors, it) {
+    tll_foreach(wayl->monitors, it)
         monitor_destroy(&it->item);
-        tll_remove(wayl->monitors, it);
-    }
+    tll_free(wayl->monitors);
 
-    if (wayl->pointer.xcursor_callback != NULL)
-        wl_callback_destroy(wayl->pointer.xcursor_callback);
+    tll_foreach(wayl->seats, it)
+        seat_destroy(&it->item);
+    tll_free(wayl->seats);
 
     if (wayl->xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);
@@ -963,25 +1050,7 @@ wayl_destroy(struct wayland *wayl)
     if (wayl->presentation != NULL)
         wp_presentation_destroy(wayl->presentation);
 
-    tll_foreach(wayl->kbd.bindings.key, it)
-        tll_free(it->item.bind.key_codes);
-    tll_free(wayl->kbd.bindings.key);
-
-    tll_foreach(wayl->kbd.bindings.search, it)
-        tll_free(it->item.bind.key_codes);
-    tll_free(wayl->kbd.bindings.search);
-
-    if (wayl->kbd.xkb_compose_state != NULL)
-        xkb_compose_state_unref(wayl->kbd.xkb_compose_state);
-    if (wayl->kbd.xkb_compose_table != NULL)
-        xkb_compose_table_unref(wayl->kbd.xkb_compose_table);
-    if (wayl->kbd.xkb_keymap != NULL)
-        xkb_keymap_unref(wayl->kbd.xkb_keymap);
-    if (wayl->kbd.xkb_state != NULL)
-        xkb_state_unref(wayl->kbd.xkb_state);
-    if (wayl->kbd.xkb != NULL)
-        xkb_context_unref(wayl->kbd.xkb);
-
+#if 0
     if (wayl->clipboard.data_source != NULL)
         wl_data_source_destroy(wayl->clipboard.data_source);
     if (wayl->clipboard.data_offer != NULL)
@@ -993,25 +1062,17 @@ wayl_destroy(struct wayland *wayl)
         zwp_primary_selection_offer_v1_destroy(wayl->primary.data_offer);
     free(wayl->primary.text);
 
-    free(wayl->pointer.theme_name);
-    if (wayl->pointer.theme != NULL)
-        wl_cursor_theme_destroy(wayl->pointer.theme);
-    if (wayl->pointer.pointer != NULL)
-        wl_pointer_destroy(wayl->pointer.pointer);
-    if (wayl->pointer.surface != NULL)
-        wl_surface_destroy(wayl->pointer.surface);
-    if (wayl->keyboard != NULL)
-        wl_keyboard_destroy(wayl->keyboard);
     if (wayl->data_device != NULL)
         wl_data_device_destroy(wayl->data_device);
+#endif
     if (wayl->data_device_manager != NULL)
         wl_data_device_manager_destroy(wayl->data_device_manager);
+#if 0
     if (wayl->primary_selection_device != NULL)
         zwp_primary_selection_device_v1_destroy(wayl->primary_selection_device);
+#endif
     if (wayl->primary_selection_device_manager != NULL)
         zwp_primary_selection_device_manager_v1_destroy(wayl->primary_selection_device_manager);
-    if (wayl->seat != NULL)
-        wl_seat_destroy(wayl->seat);
     if (wayl->shm != NULL)
         wl_shm_destroy(wayl->shm);
     if (wayl->sub_compositor != NULL)
@@ -1163,6 +1224,7 @@ wayl_win_destroy(struct wl_window *win)
 static bool
 wayl_reload_cursor_theme(struct wayland *wayl, struct terminal *term)
 {
+#if 0
     if (wayl->pointer.size == 0)
         return true;
 
@@ -1184,6 +1246,8 @@ wayl_reload_cursor_theme(struct wayland *wayl, struct terminal *term)
     }
 
     return render_xcursor_set(term);
+#endif
+    return true;
 }
 
 void

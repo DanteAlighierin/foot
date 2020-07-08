@@ -624,7 +624,7 @@ selection_extend(struct terminal *term, int col, int row, uint32_t serial)
     selection_to_primary(term, serial);
 }
 
-static const struct zwp_primary_selection_source_v1_listener primary_selection_source_listener;
+//static const struct zwp_primary_selection_source_v1_listener primary_selection_source_listener;
 
 void
 selection_finalize(struct terminal *term, uint32_t serial)
@@ -741,6 +741,8 @@ selection_mark_row(struct terminal *term, int row, uint32_t serial)
     selection_finalize(term, serial);
 }
 
+
+#if 0
 static void
 target(void *data, struct wl_data_source *wl_data_source, const char *mime_type)
 {
@@ -865,7 +867,9 @@ static void
 action(void *data, struct wl_data_source *wl_data_source, uint32_t dnd_action)
 {
 }
+#endif
 
+#if 0
 static const struct wl_data_source_listener data_source_listener = {
     .target = &target,
     .send = &send,
@@ -874,7 +878,8 @@ static const struct wl_data_source_listener data_source_listener = {
     .dnd_finished = &dnd_finished,
     .action = &action,
 };
-
+#endif
+#if 0
 static void
 primary_send(void *data,
              struct zwp_primary_selection_source_v1 *zwp_primary_selection_source_v1,
@@ -942,15 +947,18 @@ primary_cancelled(void *data,
     free(primary->text);
     primary->text = NULL;
 }
+#endif
 
+#if 0
 static const struct zwp_primary_selection_source_v1_listener primary_selection_source_listener = {
     .send = &primary_send,
     .cancelled = &primary_cancelled,
 };
-
+#endif
 bool
 text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
 {
+#if 0
     struct wl_clipboard *clipboard = &term->wl->clipboard;
 
     if (clipboard->data_source != NULL) {
@@ -983,6 +991,8 @@ text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
     assert(serial != 0);
     clipboard->serial = serial;
     return true;
+#endif
+    return false;
 }
 
 void
@@ -1004,6 +1014,7 @@ struct clipboard_receive {
     void *user;
 };
 
+#if 0
 static bool
 fdm_receive(struct fdm *fdm, int fd, int events, void *data)
 {
@@ -1053,7 +1064,8 @@ done:
     free(ctx);
     return true;
 }
-
+#endif
+#if 0
 static void
 begin_receive_clipboard(struct terminal *term, int read_fd,
                         void (*cb)(const char *data, size_t size, void *user),
@@ -1081,12 +1093,13 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
         done(user);
     }
 }
-
+#endif
 void
 text_from_clipboard(struct terminal *term, uint32_t serial,
                     void (*cb)(const char *data, size_t size, void *user),
                     void (*done)(void *user), void *user)
 {
+#if 0
     struct wl_clipboard *clipboard = &term->wl->clipboard;
     if (clipboard->data_offer == NULL)
         return done(user);
@@ -1109,15 +1122,18 @@ text_from_clipboard(struct terminal *term, uint32_t serial,
     close(write_fd);
 
     begin_receive_clipboard(term, read_fd, cb, done, user);
+#endif
 }
 
+#if 0
 static void
 from_clipboard_cb(const char *data, size_t size, void *user)
 {
     struct terminal *term = user;
     term_to_slave(term, data, size);
 }
-
+#endif
+#if 0
 static void
 from_clipboard_done(void *user)
 {
@@ -1126,10 +1142,11 @@ from_clipboard_done(void *user)
     if (term->bracketed_paste)
         term_to_slave(term, "\033[201~", 6);
 }
-
+#endif
 void
 selection_from_clipboard(struct terminal *term, uint32_t serial)
 {
+#if 0
     struct wl_clipboard *clipboard = &term->wl->clipboard;
     if (clipboard->data_offer == NULL)
         return;
@@ -1139,11 +1156,13 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
 
     text_from_clipboard(
         term, serial, &from_clipboard_cb, &from_clipboard_done, term);
+#endif
 }
 
 bool
 text_to_primary(struct terminal *term, char *text, uint32_t serial)
 {
+#if 0
     if (term->wl->primary_selection_device_manager == NULL)
         return false;
 
@@ -1183,6 +1202,8 @@ text_to_primary(struct terminal *term, char *text, uint32_t serial)
     /* Needed when sending the selection to other client */
     primary->serial = serial;
     return true;
+#endif
+    return false;
 }
 
 void
@@ -1203,6 +1224,7 @@ text_from_primary(
     void (*cb)(const char *data, size_t size, void *user),
     void (*done)(void *user), void *user)
 {
+#if 0
     if (term->wl->primary_selection_device_manager == NULL)
         return done(user);
 
@@ -1228,11 +1250,13 @@ text_from_primary(
     close(write_fd);
 
     begin_receive_clipboard(term, read_fd, cb, done, user);
+#endif
 }
 
 void
 selection_from_primary(struct terminal *term)
 {
+#if 0
     if (term->wl->primary_selection_device_manager == NULL)
         return;
 
@@ -1244,6 +1268,7 @@ selection_from_primary(struct terminal *term)
         term_to_slave(term, "\033[200~", 6);
 
     text_from_primary(term, &from_clipboard_cb, &from_clipboard_done, term);
+#endif
 }
 
 #if 0
@@ -1303,6 +1328,7 @@ static void
 selection(void *data, struct wl_data_device *wl_data_device,
           struct wl_data_offer *id)
 {
+#if 0
     /* Selection offer from other client */
 
     struct wayland *wayl = data;
@@ -1315,6 +1341,7 @@ selection(void *data, struct wl_data_device *wl_data_device,
 #if 0
     if (id != NULL)
         wl_data_offer_add_listener(id, &data_offer_listener, term);
+#endif
 #endif
 }
 
@@ -1352,6 +1379,7 @@ primary_selection(void *data,
                   struct zwp_primary_selection_device_v1 *zwp_primary_selection_device,
                   struct zwp_primary_selection_offer_v1 *id)
 {
+#if 0
     /* Selection offer from other client, for primary */
 
     struct wayland *wayl = data;
@@ -1366,6 +1394,7 @@ primary_selection(void *data,
         zwp_primary_selection_offer_v1_add_listener(
             id, &primary_selection_offer_listener, term);
     }
+#endif
 #endif
 }
 

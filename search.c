@@ -18,6 +18,7 @@
 #include "shm.h"
 #include "util.h"
 
+#if 0
 static bool
 search_ensure_size(struct terminal *term, size_t wanted_size)
 {
@@ -36,6 +37,7 @@ search_ensure_size(struct terminal *term, size_t wanted_size)
 
     return true;
 }
+#endif
 
 static void
 search_cancel_keep_selection(struct terminal *term)
@@ -99,6 +101,7 @@ search_cancel(struct terminal *term)
     selection_cancel(term);
 }
 
+#if 0
 static void
 search_update_selection(struct terminal *term,
                         int start_row, int start_col,
@@ -168,7 +171,8 @@ search_update_selection(struct terminal *term,
         selection_update(term, end_col, selection_row);
     }
 }
-
+#endif
+#if 0
 static void
 search_find_next(struct terminal *term)
 {
@@ -281,7 +285,8 @@ search_find_next(struct terminal *term)
     selection_cancel(term);
 #undef ROW_DEC
 }
-
+#endif
+#if 0
 static void
 search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 {
@@ -356,7 +361,8 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
     search_update_selection(
         term, term->search.match.row, term->search.match.col, end_row, end_col);
 }
-
+#endif
+#if 0
 static size_t
 distance_next_word(const struct terminal *term)
 {
@@ -384,7 +390,8 @@ distance_next_word(const struct terminal *term)
 
     return cursor - term->search.cursor;
 }
-
+#endif
+#if 0
 static size_t
 distance_prev_word(const struct terminal *term)
 {
@@ -410,7 +417,8 @@ distance_prev_word(const struct terminal *term)
 
     return term->search.cursor - cursor;
 }
-
+#endif
+#if 0
 static bool
 execute_binding(struct terminal *term, enum bind_action_search action,
                 uint32_t serial)
@@ -429,8 +437,10 @@ execute_binding(struct terminal *term, enum bind_action_search action,
         return true;
 
     case BIND_ACTION_SEARCH_COMMIT:
+#if 0
         selection_finalize(term, term->wl->input_serial);
         search_cancel_keep_selection(term);
+#endif
         return true;
 
     case BIND_ACTION_SEARCH_FIND_PREV:
@@ -565,11 +575,13 @@ execute_binding(struct terminal *term, enum bind_action_search action,
     assert(false);
     return false;
 }
+#endif
 
 void
 search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
              xkb_mod_mask_t mods, uint32_t serial)
 {
+#if 0
     LOG_DBG("search: input: sym=%d/0x%x, mods=0x%08x", sym, sym, mods);
 
     enum xkb_compose_status compose_status = xkb_compose_state_get_status(
@@ -641,4 +653,5 @@ update_search:
     LOG_DBG("search: buffer: %S", term->search.buf);
     search_find_next(term);
     render_refresh_search(term);
+#endif
 }
