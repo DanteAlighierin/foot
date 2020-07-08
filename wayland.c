@@ -160,7 +160,10 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
 {
     struct seat *seat = data;
     assert(seat->wl_seat == wl_seat);
-    //struct wayland *wayl = data;
+
+    LOG_DBG("%s: keyboard=%s, pointer=%s", seat->name,
+            (caps & WL_SEAT_CAPABILITY_KEYBOARD) ? "yes" : "no",
+            (caps & WL_SEAT_CAPABILITY_POINTER) ? "yes" : "no");
 
     if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
         if (seat->wl_keyboard == NULL) {
