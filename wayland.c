@@ -30,8 +30,6 @@
 #include "selection.h"
 #include "util.h"
 
-static bool wayl_reload_cursor_theme(struct seat *seat, struct terminal *term);
-
 static void
 csd_instantiate(struct wl_window *win)
 {
@@ -212,9 +210,6 @@ update_term_for_output_change(struct terminal *term)
     render_resize(term, term->width / term->scale, term->height / term->scale);
     term_font_dpi_changed(term);
     term_font_subpixel_changed(term);
-
-    tll_foreach(term->wl->seats, it)
-        wayl_reload_cursor_theme(&it->item, term);
 }
 
 static void
@@ -1197,13 +1192,19 @@ wayl_win_destroy(struct wl_window *win)
     free(win);
 }
 
-static bool
-wayl_reload_cursor_theme(struct seat *seat, struct terminal *term)
+bool
+wayl_reload_xcursor_theme(struct seat *seat, int new_scale)
 {
     if (seat->pointer.size == 0)
         return true;
 
+    if (seat->pointer.theme != NULL && seat->pointer.scale == new_scale) {
+        /* We already have a theme loaded, and the scale hasn't changed */
+        return true;
+    }
+
     if (seat->pointer.theme != NULL) {
+        assert(seat->pointer.scale != new_scale);
         wl_cursor_theme_destroy(seat->pointer.theme);
         seat->pointer.theme = NULL;
         seat->pointer.cursor = NULL;
@@ -1213,14 +1214,15 @@ wayl_reload_cursor_theme(struct seat *seat, struct terminal *term)
             seat->pointer.theme_name, seat->pointer.size);
 
     seat->pointer.theme = wl_cursor_theme_load(
-        seat->pointer.theme_name, seat->pointer.size * term->scale, seat->wayl->shm);
+        seat->pointer.theme_name, seat->pointer.size * new_scale, seat->wayl->shm);
 
     if (seat->pointer.theme == NULL) {
         LOG_ERR("failed to load cursor theme");
         return false;
     }
 
-    return render_xcursor_set(seat, term);
+    seat->pointer.scale = new_scale;
+    return true;
 }
 
 void

@@ -146,6 +146,7 @@ struct seat {
         struct wl_cursor_theme *theme;
         struct wl_cursor *cursor;
         int size;
+        int scale;
         char *theme_name;
         const char *xcursor;
 
@@ -329,3 +330,5 @@ void wayl_roundtrip(struct wayland *wayl);
 
 struct wl_window *wayl_win_init(struct terminal *term);
 void wayl_win_destroy(struct wl_window *win);
+
+bool wayl_reload_xcursor_theme(struct seat *seat, int new_scale);

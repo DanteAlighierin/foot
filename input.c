@@ -846,6 +846,9 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     LOG_DBG("pointer-enter: pointer=%p, serial=%u, surface = %p, new-moused = %p",
             wl_pointer, serial, surface, term);
 
+    /* Scale may have changed */
+    wayl_reload_xcursor_theme(seat, term->scale);
+
     seat->mouse_focus = term;
 
     int x = wl_fixed_to_int(surface_x) * term->scale;
