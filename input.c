@@ -553,7 +553,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     if (term->is_searching) {
         if (should_repeat)
             start_repeater(seat, key - 8);
-        search_input(term, key, sym, effective_mods, serial);
+        search_input(seat, term, key, sym, effective_mods, serial);
         return;
     }
 

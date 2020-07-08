@@ -958,6 +958,7 @@ wayl_init(const struct config *conf, struct fdm *fdm)
         goto out;
     }
 
+    /* Trigger listeners registered when handling globals */
     wl_display_roundtrip(wayl->display);
 
     if (!wayl->have_argb8888) {
@@ -975,9 +976,6 @@ wayl_init(const struct config *conf, struct fdm *fdm)
             it->item.ppi.real.x, it->item.ppi.real.y,
             it->item.ppi.scaled.x, it->item.ppi.scaled.y);
     }
-
-#if 0
-#endif
 
     wayl->fd = wl_display_get_fd(wayl->display);
     if (fcntl(wayl->fd, F_SETFL, fcntl(wayl->fd, F_GETFL) | O_NONBLOCK) < 0) {
