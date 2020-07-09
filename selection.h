@@ -59,7 +59,7 @@ bool text_to_primary(
  *   point).
  */
 void text_from_clipboard(
-    struct seat *seat, struct terminal *term, uint32_t serial,
+    struct seat *seat, struct terminal *term,
     void (*cb)(const char *data, size_t size, void *user),
     void (*done)(void *user), void *user);
 

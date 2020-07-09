@@ -1087,7 +1087,7 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
 }
 
 void
-text_from_clipboard(struct seat *seat, struct terminal *term, uint32_t serial,
+text_from_clipboard(struct seat *seat, struct terminal *term,
                     void (*cb)(const char *data, size_t size, void *user),
                     void (*done)(void *user), void *user)
 {
@@ -1142,7 +1142,7 @@ selection_from_clipboard(struct seat *seat, struct terminal *term, uint32_t seri
         term_to_slave(term, "\033[200~", 6);
 
     text_from_clipboard(
-        seat, term, serial, &from_clipboard_cb, &from_clipboard_done, term);
+        seat, term, &from_clipboard_cb, &from_clipboard_done, term);
 }
 
 bool

@@ -68,13 +68,13 @@ osc_to_clipboard(struct terminal *term, const char *target,
 
     if (to_clipboard) {
         char *copy = strdup(decoded);
-        if (!text_to_clipboard(seat, term, copy, seat->input_serial))
+        if (!text_to_clipboard(seat, term, copy, seat->kbd.serial))
             free(copy);
     }
 
     if (to_primary) {
         char *copy = strdup(decoded);
-        if (!text_to_primary(seat, term, copy, seat->input_serial))
+        if (!text_to_primary(seat, term, copy, seat->kbd.serial))
             free(copy);
     }
 
@@ -190,8 +190,7 @@ osc_from_clipboard(struct terminal *term, const char *source)
     switch (src) {
     case 'c':
         text_from_clipboard(
-            seat, term, seat->input_serial,
-            &from_clipboard_cb, &from_clipboard_done, ctx);
+            seat, term, &from_clipboard_cb, &from_clipboard_done, ctx);
         break;
 
     case 's':

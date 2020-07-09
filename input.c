@@ -306,7 +306,7 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
     term_kbd_focus_in(term);
     seat->kbd_focus = term;
-    seat->input_serial = serial;
+    seat->kbd.serial = serial;
 }
 
 static bool
@@ -773,7 +773,7 @@ const struct wl_keyboard_listener keyboard_listener = {
 void
 input_repeat(struct seat *seat, uint32_t key)
 {
-    keyboard_key(seat, NULL, seat->input_serial, 0, key, XKB_KEY_DOWN);
+    keyboard_key(seat, NULL, seat->kbd.serial, 0, key, XKB_KEY_DOWN);
 }
 
 static bool
@@ -841,6 +841,8 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     struct seat *seat = data;
     struct wl_window *win = wl_surface_get_user_data(surface);
     struct terminal *term = win->term;
+
+    seat->pointer.serial = serial;
 
     LOG_DBG("pointer-enter: pointer=%p, serial=%u, surface = %p, new-moused = %p",
             wl_pointer, serial, surface, term);
@@ -1297,8 +1299,8 @@ mouse_scroll(struct seat *seat, int amount)
         xkb_keycode_t key = button == BTN_BACK ? key_arrow_up : key_arrow_down;
 
         for (int i = 0; i < amount; i++)
-            keyboard_key(seat, NULL, seat->input_serial, 0, key - 8, XKB_KEY_DOWN);
-        keyboard_key(seat, NULL, seat->input_serial, 0, key - 8, XKB_KEY_UP);
+            keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_DOWN);
+        keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_UP);
     } else {
         if (!term_mouse_grabbed(term, seat)) {
             for (int i = 0; i < amount; i++) {

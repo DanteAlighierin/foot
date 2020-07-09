@@ -106,6 +106,8 @@ struct seat {
     /* Keyboard state */
     struct wl_keyboard *wl_keyboard;
     struct {
+        uint32_t serial;
+
         struct xkb_context *xkb;
         struct xkb_keymap *xkb_keymap;
         struct xkb_state *xkb_state;
@@ -171,7 +173,6 @@ struct seat {
     } mouse;
 
     /* Clipboard */
-    uint32_t input_serial;
     struct wl_data_device *data_device;
     struct zwp_primary_selection_device_v1 *primary_selection_device;
 
