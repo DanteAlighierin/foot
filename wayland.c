@@ -827,7 +827,7 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 
     struct wayland *wayl = data;
 
-    /* For now, we only support removal of outputs */
+    /* Check if this is an output */
     tll_foreach(wayl->monitors, it) {
         struct monitor *mon = &it->item;
 
@@ -844,9 +844,46 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
         tll_foreach(wayl->terms, t)
             surface_leave(t->item->window, NULL /* wl_surface - unused */, mon->output);
 
-        monitor_destroy(&it->item);
+        monitor_destroy(mon);
         tll_remove(wayl->monitors, it);
         return;
+    }
+
+    /* A seat? */
+    tll_foreach(wayl->seats, it) {
+        struct seat *seat = &it->item;
+
+        if (seat->wl_name != name)
+            continue;
+
+        LOG_INFO("seat destroyed: %s", seat->name);
+
+        if (seat->kbd_focus != NULL) {
+
+            struct terminal *term = seat->kbd_focus;
+
+            /* Clear this seat's focus */
+            seat->kbd_focus = NULL;
+
+            /* Check if term is focused by *another* seat */
+            bool term_has_other_focus = false;
+            tll_foreach(wayl->seats, s) {
+                if (&s->item == seat)
+                    continue;
+
+                if (s->item.kbd_focus == term) {
+                    term_has_other_focus = true;
+                    break;
+                }
+            }
+
+            /* No other seat has it focused - tell it it was unfocused */
+            if (!term_has_other_focus)
+                term_kbd_focus_out(term);
+        }
+
+        seat_destroy(seat);
+        tll_remove(wayl->seats, it);
     }
 
     LOG_WARN("unknown global removed: 0x%08x", name);
