@@ -304,19 +304,9 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     LOG_DBG("keyboard_enter: keyboard=%p, serial=%u, surface=%p",
             wl_keyboard, serial, surface);
 
-    bool term_already_focused = false;
-    tll_foreach(seat->wayl->seats, it) {
-        if (it->item.kbd_focus == term) {
-            term_already_focused = true;
-            break;
-        }
-    }
-
+    term_kbd_focus_in(term);
     seat->kbd_focus = term;
     seat->input_serial = serial;
-
-    if (!term_already_focused)
-        term_kbd_focus_in(seat->kbd_focus);
 }
 
 static bool
@@ -386,13 +376,9 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     seat->kbd.meta = false;
     xkb_compose_state_reset(seat->kbd.xkb_compose_state);
 
-    if (old_focused != NULL) {
-        /* Tell term it's unfocused *if* no other seats still have it focused */
-        tll_foreach(seat->wayl->seats, it)
-            if (it->item.kbd_focus == old_focused)
-                return;
+    if (old_focused != NULL)
         term_kbd_focus_out(old_focused);
-    } else {
+    else {
         /*
          * Sway bug - under certain conditions we get a
          * keyboard_leave() (and keyboard_key()) without first having
