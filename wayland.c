@@ -859,27 +859,19 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
         LOG_INFO("seat destroyed: %s", seat->name);
 
         if (seat->kbd_focus != NULL) {
+            LOG_WARN("compositor destroyed seat '%s' "
+                     "without sending keyboard/pointer leave events",
+                     seat->name);
 
             struct terminal *term = seat->kbd_focus;
 
-            /* Clear this seat's focus */
-            seat->kbd_focus = NULL;
+            if (seat->wl_keyboard != NULL)
+                keyboard_listener.leave(
+                    seat, seat->wl_keyboard, -1, term->window->surface);
 
-            /* Check if term is focused by *another* seat */
-            bool term_has_other_focus = false;
-            tll_foreach(wayl->seats, s) {
-                if (&s->item == seat)
-                    continue;
-
-                if (s->item.kbd_focus == term) {
-                    term_has_other_focus = true;
-                    break;
-                }
-            }
-
-            /* No other seat has it focused - tell it it was unfocused */
-            if (!term_has_other_focus)
-                term_kbd_focus_out(term);
+            if (seat->wl_pointer != NULL)
+                pointer_listener.leave(
+                    seat, seat->wl_pointer, -1, term->window->surface);
         }
 
         seat_destroy(seat);
