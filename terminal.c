@@ -1964,6 +1964,8 @@ term_has_kbd_focus(struct terminal *term)
 void
 term_kbd_focus_in(struct terminal *term)
 {
+    assert(term_has_kbd_focus(term));
+
     if (term->focus_events)
         term_to_slave(term, "\033[I", 3);
 }
@@ -1971,6 +1973,8 @@ term_kbd_focus_in(struct terminal *term)
 void
 term_kbd_focus_out(struct terminal *term)
 {
+    assert(!term_has_kbd_focus(term));
+
     if (term->focus_events)
         term_to_slave(term, "\033[O", 3);
 }
