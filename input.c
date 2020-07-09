@@ -817,14 +817,14 @@ is_bottom_right(const struct terminal *term, int x, int y)
 static const char *
 xcursor_for_csd_border(struct terminal *term, int x, int y)
 {
-    if (is_top_left(term, x, y))                              return "top_left_corner";
-    else if (is_top_right(term, x, y))                        return "top_right_corner";
-    else if (is_bottom_left(term, x, y))                      return "bottom_left_corner";
-    else if (is_bottom_right(term, x, y))                     return "bottom_right_corner";
-    else if (term->active_surface == TERM_SURF_BORDER_LEFT)   return "left_side";
-    else if (term->active_surface == TERM_SURF_BORDER_RIGHT)  return "right_side";
-    else if (term->active_surface == TERM_SURF_BORDER_TOP)    return "top_side";
-    else if (term->active_surface == TERM_SURF_BORDER_BOTTOM) return"bottom_side";
+    if (is_top_left(term, x, y))                              return XCURSOR_TOP_LEFT_CORNER;
+    else if (is_top_right(term, x, y))                        return XCURSOR_TOP_RIGHT_CORNER;
+    else if (is_bottom_left(term, x, y))                      return XCURSOR_BOTTOM_LEFT_CORNER;
+    else if (is_bottom_right(term, x, y))                     return XCURSOR_BOTTOM_RIGHT_CORNER;
+    else if (term->active_surface == TERM_SURF_BORDER_LEFT)   return XCURSOR_LEFT_SIDE;
+    else if (term->active_surface == TERM_SURF_BORDER_RIGHT)  return XCURSOR_RIGHT_SIDE;
+    else if (term->active_surface == TERM_SURF_BORDER_TOP)    return XCURSOR_TOP_SIDE;
+    else if (term->active_surface == TERM_SURF_BORDER_BOTTOM) return XCURSOR_BOTTOM_SIDE;
     else {
         assert(false);
         return NULL;
@@ -862,23 +862,20 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 
     case TERM_SURF_SEARCH:
     case TERM_SURF_TITLE:
-        term->xcursor = "left_ptr";
-        render_xcursor_set(seat, term);
+        render_xcursor_set(seat, term, XCURSOR_LEFT_PTR);
         break;
 
     case TERM_SURF_BORDER_LEFT:
     case TERM_SURF_BORDER_RIGHT:
     case TERM_SURF_BORDER_TOP:
     case TERM_SURF_BORDER_BOTTOM:
-        term->xcursor = xcursor_for_csd_border(term, x, y);
-        render_xcursor_set(seat, term);
+        render_xcursor_set(seat, term, xcursor_for_csd_border(term, x, y));
         break;
 
     case TERM_SURF_BUTTON_MINIMIZE:
     case TERM_SURF_BUTTON_MAXIMIZE:
     case TERM_SURF_BUTTON_CLOSE:
-        term->xcursor = "left_ptr";
-        render_xcursor_set(seat, term);
+        render_xcursor_set(seat, term, XCURSOR_LEFT_PTR);
         render_refresh_csd(term);
         break;
 
@@ -903,7 +900,7 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         /* A cursor frame callback may never be called if the pointer leaves our surface */
         wl_callback_destroy(seat->pointer.xcursor_callback);
         seat->pointer.xcursor_callback = NULL;
-        seat->pointer.pending_terminal = NULL;
+        seat->pointer.xcursor_pending = false;
         seat->pointer.xcursor = NULL;
     }
 
@@ -995,8 +992,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_BORDER_RIGHT:
     case TERM_SURF_BORDER_TOP:
     case TERM_SURF_BORDER_BOTTOM:
-        term->xcursor = xcursor_for_csd_border(term, x, y);
-        render_xcursor_set(seat, term);
+        render_xcursor_set(seat, term, xcursor_for_csd_border(term, x, y));
         break;
 
     case TERM_SURF_GRID: {
@@ -1021,9 +1017,11 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         if (update_selection && !update_selection_early)
             selection_update(term, col, row);
 
-        term_mouse_motion(
-            term, seat->mouse.button, seat->mouse.row, seat->mouse.col,
-            seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+        if (!term_mouse_grabbed(term, seat)) {
+            term_mouse_motion(
+                term, seat->mouse.button, seat->mouse.row, seat->mouse.col,
+                seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+        }
         break;
     }
     }
@@ -1190,7 +1188,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             if (button == BTN_LEFT && seat->mouse.count <= 3) {
                 selection_cancel(term);
 
-                if (selection_enabled(term)) {
+                if (selection_enabled(term, seat)) {
                     switch (seat->mouse.count) {
                     case 1:
                         selection_start(
@@ -1212,7 +1210,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             }
 
             else if (button == BTN_RIGHT && seat->mouse.count == 1) {
-                if (selection_enabled(term)) {
+                if (selection_enabled(term, seat)) {
                     selection_extend(
                         seat, term, seat->mouse.col, seat->mouse.row, serial);
                 }
@@ -1238,9 +1236,11 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 }
             }
 
-            term_mouse_down(
-                term, button, seat->mouse.row, seat->mouse.col,
-                seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+            if (!term_mouse_grabbed(term, seat)) {
+                term_mouse_down(
+                    term, button, seat->mouse.row, seat->mouse.col,
+                    seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+            }
             break;
         }
 
@@ -1248,9 +1248,11 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             if (button == BTN_LEFT && term->selection.end.col != -1)
                 selection_finalize(seat, term, serial);
 
-            term_mouse_up(
-                term, button, seat->mouse.row, seat->mouse.col,
-                seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+            if (!term_mouse_grabbed(term, seat)) {
+                term_mouse_up(
+                    term, button, seat->mouse.row, seat->mouse.col,
+                    seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+            }
             break;
         }
         break;
@@ -1298,15 +1300,16 @@ mouse_scroll(struct seat *seat, int amount)
             keyboard_key(seat, NULL, seat->input_serial, 0, key - 8, XKB_KEY_DOWN);
         keyboard_key(seat, NULL, seat->input_serial, 0, key - 8, XKB_KEY_UP);
     } else {
-        for (int i = 0; i < amount; i++) {
-            term_mouse_down(
+        if (!term_mouse_grabbed(term, seat)) {
+            for (int i = 0; i < amount; i++) {
+                term_mouse_down(
+                    term, button, seat->mouse.row, seat->mouse.col,
+                    seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+            }
+            term_mouse_up(
                 term, button, seat->mouse.row, seat->mouse.col,
                 seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
         }
-        term_mouse_up(
-            term, button, seat->mouse.row, seat->mouse.col,
-            seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
-
         scrollback(term, amount);
     }
 }

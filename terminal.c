@@ -34,9 +34,17 @@
 
 #define PTMX_TIMING 0
 
-static const char *const XCURSOR_LEFT_PTR = "left_ptr";
-static const char *const XCURSOR_TEXT = "text";
-//static const char *const XCURSOR_HAND2 = "hand2";
+const char *const XCURSOR_LEFT_PTR = "left_ptr";
+const char *const XCURSOR_TEXT = "text";
+//const char *const XCURSOR_HAND2 = "hand2";
+const char *const XCURSOR_TOP_LEFT_CORNER = "top_left_corner";
+const char *const XCURSOR_TOP_RIGHT_CORNER = "top_right_corner";
+const char *const XCURSOR_BOTTOM_LEFT_CORNER = "bottom_left_corner";
+const char *const XCURSOR_BOTTOM_RIGHT_CORNER = "bottom_right_corner";
+const char *const XCURSOR_LEFT_SIDE = "left_side";
+const char *const XCURSOR_RIGHT_SIDE = "right_side";
+const char *const XCURSOR_TOP_SIDE = "top_side";
+const char *const XCURSOR_BOTTOM_SIDE = "bottom_side";
 
 bool
 term_to_slave(struct terminal *term, const void *_data, size_t len)
@@ -889,7 +897,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .text = conf->cursor.color.text,
             .cursor = conf->cursor.color.cursor,
         },
-        .xcursor = "text",
         .selection = {
             .start = {-1, -1},
             .end = {-1, -1},
@@ -2068,31 +2075,20 @@ report_mouse_motion(struct terminal *term, int encoded_button, int row, int col)
 }
 
 bool
-term_mouse_grabbed(const struct terminal *term)
+term_mouse_grabbed(const struct terminal *term, struct seat *seat)
 {
     /*
      * Mouse is grabbed by us, regardless of whether mouse tracking has been enabled or not.
      */
-    tll_foreach(term->wl->seats, it) {
-        const struct seat *seat = &it->item;
-
-        if (seat->kbd_focus == term &&
-            seat->kbd.shift &&
-            !seat->kbd.alt && /*!seat->kbd.ctrl &&*/ !seat->kbd.meta)
-        {
-            return true;
-        }
-    }
-    return false;
+    return seat->kbd_focus == term &&
+        seat->kbd.shift &&
+        !seat->kbd.alt && /*!seat->kbd.ctrl &&*/ !seat->kbd.meta;
 }
 
 void
 term_mouse_down(struct terminal *term, int button, int row, int col,
                 bool _shift, bool _alt, bool _ctrl)
 {
-    if (term_mouse_grabbed(term))
-        return;
-
     /* Map libevent button event code to X button number */
     int xbutton = linux_mouse_button_to_x(button);
     if (xbutton == -1)
@@ -2131,9 +2127,6 @@ void
 term_mouse_up(struct terminal *term, int button, int row, int col,
               bool _shift, bool _alt, bool _ctrl)
 {
-    if (term_mouse_grabbed(term))
-        return;
-
     /* Map libevent button event code to X button number */
     int xbutton = linux_mouse_button_to_x(button);
     if (xbutton == -1)
@@ -2176,9 +2169,6 @@ void
 term_mouse_motion(struct terminal *term, int button, int row, int col,
                   bool _shift, bool _alt, bool _ctrl)
 {
-    if (term_mouse_grabbed(term))
-        return;
-
     int encoded = 0;
 
     if (button != 0) {
@@ -2225,13 +2215,16 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
 void
 term_xcursor_update(struct terminal *term)
 {
-    term->xcursor =
-        term->is_searching ? XCURSOR_LEFT_PTR :  /* TODO: something different? */
-        selection_enabled(term) ? XCURSOR_TEXT :
-        XCURSOR_LEFT_PTR;
+    tll_foreach(term->wl->seats, it) {
+        struct seat *seat = &it->item;
 
-    tll_foreach(term->wl->seats, it)
-        render_xcursor_set(&it->item, term);
+        const char *xcursor
+            = term->is_searching ? XCURSOR_LEFT_PTR :  /* TODO: something different? */
+            selection_enabled(term, seat) ? XCURSOR_TEXT :
+            XCURSOR_LEFT_PTR;
+
+        render_xcursor_set(seat, term, xcursor);
+    }
 }
 
 void

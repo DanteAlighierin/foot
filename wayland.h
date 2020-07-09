@@ -148,10 +148,10 @@ struct seat {
         int size;
         int scale;
         char *theme_name;
-        const char *xcursor;
 
-        const struct terminal *pending_terminal;
+        const char *xcursor;
         struct wl_callback *xcursor_callback;
+        bool xcursor_pending;
     } pointer;
 
     struct {

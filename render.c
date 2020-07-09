@@ -1946,22 +1946,22 @@ static const struct wl_callback_listener xcursor_listener = {
 };
 
 static void
-render_xcursor_update(struct seat *seat, const struct terminal *term)
+render_xcursor_update(struct seat *seat)
 {
     /* If called from a frame callback, we may no longer have mouse focus */
-    if (seat->mouse_focus != term)
+    if (!seat->mouse_focus)
         return;
 
-    seat->pointer.cursor = wl_cursor_theme_get_cursor(seat->pointer.theme, term->xcursor);
+    seat->pointer.cursor = wl_cursor_theme_get_cursor(
+        seat->pointer.theme, seat->pointer.xcursor);
+
     if (seat->pointer.cursor == NULL) {
         LOG_ERR("%s: failed to load xcursor pointer '%s'",
-                seat->pointer.theme_name, term->xcursor);
+                seat->pointer.theme_name, seat->pointer.xcursor);
         return;
     }
 
-    seat->pointer.xcursor = term->xcursor;
-
-    const int scale = term->scale;
+    const int scale = seat->pointer.scale;
     struct wl_cursor_image *image = seat->pointer.cursor->images[0];
 
     wl_surface_attach(
@@ -1993,9 +1993,9 @@ xcursor_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_
     wl_callback_destroy(wl_callback);
     seat->pointer.xcursor_callback = NULL;
 
-    if (seat->pointer.pending_terminal != NULL) {
-        render_xcursor_update(seat, seat->pointer.pending_terminal);
-        seat->pointer.pending_terminal = NULL;
+    if (seat->pointer.xcursor_pending) {
+        render_xcursor_update(seat);
+        seat->pointer.xcursor_pending = false;
     }
 }
 
@@ -2061,10 +2061,10 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
     }
 
     tll_foreach(wayl->seats, it) {
-        if (it->item.pointer.pending_terminal != NULL) {
+        if (it->item.pointer.xcursor_pending) {
             if (it->item.pointer.xcursor_callback == NULL) {
-                render_xcursor_update(&it->item, it->item.pointer.pending_terminal);
-                it->item.pointer.pending_terminal = NULL;
+                render_xcursor_update(&it->item);
+                it->item.pointer.xcursor_pending = false;
             } else {
                 /* Frame callback will call render_xcursor_update() */
             }
@@ -2099,14 +2099,13 @@ render_refresh_search(struct terminal *term)
 }
 
 bool
-render_xcursor_set(struct seat *seat, struct terminal *term)
+render_xcursor_set(struct seat *seat, struct terminal *term, const char *xcursor)
 {
     if (seat->pointer.theme == NULL)
         return false;
 
     if (seat->mouse_focus == NULL) {
         seat->pointer.xcursor = NULL;
-        seat->pointer.pending_terminal = NULL;
         return true;
     }
 
@@ -2115,10 +2114,11 @@ render_xcursor_set(struct seat *seat, struct terminal *term)
         return true;
     }
 
-    if (seat->pointer.xcursor == term->xcursor)
+    if (seat->pointer.xcursor == xcursor)
         return true;
 
     /* FDM hook takes care of actual rendering */
-    seat->pointer.pending_terminal = term;
+    seat->pointer.xcursor_pending = true;
+    seat->pointer.xcursor = xcursor;
     return true;
 }

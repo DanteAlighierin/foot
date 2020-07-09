@@ -8,7 +8,7 @@
 extern const struct wl_data_device_listener data_device_listener;
 extern const struct zwp_primary_selection_device_v1_listener primary_selection_device_listener;
 
-bool selection_enabled(const struct terminal *term);
+bool selection_enabled(const struct terminal *term, struct seat *seat);
 void selection_start(
     struct terminal *term, int col, int row, enum selection_kind kind);
 void selection_update(struct terminal *term, int col, int row);
