@@ -1956,8 +1956,7 @@ render_xcursor_update(struct seat *seat)
         seat->pointer.theme, seat->pointer.xcursor);
 
     if (seat->pointer.cursor == NULL) {
-        LOG_ERR("%s: failed to load xcursor pointer '%s'",
-                seat->pointer.theme_name, seat->pointer.xcursor);
+        LOG_ERR("failed to load xcursor pointer '%s'", seat->pointer.xcursor);
         return;
     }
 

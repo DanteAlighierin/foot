@@ -96,7 +96,6 @@ seat_destroy(struct seat *seat)
     if (seat->kbd.repeat.fd >= 0)
         fdm_del(seat->wayl->fdm, seat->kbd.repeat.fd);
 
-    free(seat->pointer.theme_name);
     if (seat->pointer.theme != NULL)
         wl_cursor_theme_destroy(seat->pointer.theme);
     if (seat->pointer.surface != NULL)
@@ -718,8 +717,6 @@ handle_global(void *data, struct wl_registry *registry,
                     },
                     .pointer = {
                         .surface = pointer_surf,
-                        .size = wayl->xcursor_size,
-                        .theme_name = wayl->xcursor_theme != NULL ? strdup(wayl->xcursor_theme) : NULL,
                     },
                     .data_device = data_device,
                     .primary_selection_device = primary_selection_device,
@@ -926,23 +923,6 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     wayl->fdm = fdm;
     wayl->fd = -1;
 
-    /* XCursor */
-    const char *xcursor_theme = getenv("XCURSOR_THEME");
-    if (xcursor_theme != NULL)
-        wayl->xcursor_theme = strdup(xcursor_theme);
-    wayl->xcursor_size = 24;
-
-    {
-        const char *env_cursor_size = getenv("XCURSOR_SIZE");
-        if (env_cursor_size != NULL) {
-            unsigned size;
-            if (sscanf(env_cursor_size, "%u", &size) == 1)
-                wayl->xcursor_size = size;
-        }
-    }
-
-    LOG_INFO("XCURSOR_THEME=%s, XCURSOR_SIZE=%u", wayl->xcursor_theme, wayl->xcursor_size);
-
     if (!fdm_hook_add(fdm, &fdm_hook, wayl, FDM_HOOK_PRIORITY_LOW)) {
         LOG_ERR("failed to add FDM hook");
         goto out;
@@ -1085,7 +1065,6 @@ wayl_destroy(struct wayland *wayl)
     if (wayl->display != NULL)
         wl_display_disconnect(wayl->display);
 
-    free(wayl->xcursor_theme);
     free(wayl);
 }
 
@@ -1223,9 +1202,6 @@ wayl_win_destroy(struct wl_window *win)
 bool
 wayl_reload_xcursor_theme(struct seat *seat, int new_scale)
 {
-    if (seat->pointer.size == 0)
-        return true;
-
     if (seat->pointer.theme != NULL && seat->pointer.scale == new_scale) {
         /* We already have a theme loaded, and the scale hasn't changed */
         return true;
@@ -1238,11 +1214,23 @@ wayl_reload_xcursor_theme(struct seat *seat, int new_scale)
         seat->pointer.cursor = NULL;
     }
 
-    LOG_DBG("reloading cursor theme: %s@%d",
-            seat->pointer.theme_name, seat->pointer.size);
+    const char *xcursor_theme = getenv("XCURSOR_THEME");
+    int xcursor_size = 24;
+
+    {
+        const char *env_cursor_size = getenv("XCURSOR_SIZE");
+        if (env_cursor_size != NULL) {
+            unsigned size;
+            if (sscanf(env_cursor_size, "%u", &size) == 1)
+                xcursor_size = size;
+        }
+    }
+
+    LOG_INFO("cursor theme: %s, size: %u, scale: %d",
+             xcursor_theme, xcursor_size, new_scale);
 
     seat->pointer.theme = wl_cursor_theme_load(
-        seat->pointer.theme_name, seat->pointer.size * new_scale, seat->wayl->shm);
+        xcursor_theme, xcursor_size * new_scale, seat->wayl->shm);
 
     if (seat->pointer.theme == NULL) {
         LOG_ERR("failed to load cursor theme");

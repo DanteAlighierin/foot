@@ -147,9 +147,7 @@ struct seat {
         struct wl_surface *surface;
         struct wl_cursor_theme *theme;
         struct wl_cursor *cursor;
-        int size;
         int scale;
-        char *theme_name;
 
         const char *xcursor;
         struct wl_callback *xcursor_callback;
@@ -318,9 +316,6 @@ struct wayland {
     tll(struct seat) seats;
 
     tll(struct terminal *) terms;
-
-    char *xcursor_theme;
-    unsigned xcursor_size;
 };
 
 struct wayland *wayl_init(const struct config *conf, struct fdm *fdm);
