@@ -192,8 +192,12 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
             wl_pointer_release(seat->wl_pointer);
             wl_surface_destroy(seat->pointer.surface);
 
+            if (seat->pointer.theme != NULL)
+                wl_cursor_theme_destroy(seat->pointer.theme);
+
             seat->wl_pointer = NULL;
             seat->pointer.surface = NULL;
+            seat->pointer.theme = NULL;
             seat->pointer.cursor = NULL;
         }
     }
