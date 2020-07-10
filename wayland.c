@@ -176,13 +176,25 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
 
     if (caps & WL_SEAT_CAPABILITY_POINTER) {
         if (seat->wl_pointer == NULL) {
+            assert(seat->pointer.surface == NULL);
+            seat->pointer.surface = wl_compositor_create_surface(seat->wayl->compositor);
+
+            if (seat->pointer.surface == NULL) {
+                LOG_ERR("%s: failed to create pointer surface", seat->name);
+                return;
+            }
+
             seat->wl_pointer = wl_seat_get_pointer(wl_seat);
             wl_pointer_add_listener(seat->wl_pointer, &pointer_listener, seat);
         }
     } else {
         if (seat->wl_pointer != NULL) {
             wl_pointer_release(seat->wl_pointer);
+            wl_surface_destroy(seat->pointer.surface);
+
             seat->wl_pointer = NULL;
+            seat->pointer.surface = NULL;
+            seat->pointer.cursor = NULL;
         }
     }
 }
@@ -703,9 +715,6 @@ handle_global(void *data, struct wl_registry *registry,
         } else
             primary_selection_device = NULL;
 
-        struct wl_surface *pointer_surf
-            = wl_compositor_create_surface(wayl->compositor);
-
         tll_push_back(wayl->seats, ((struct seat){
                     .wayl = wayl,
                     .wl_seat = wl_seat,
@@ -714,9 +723,6 @@ handle_global(void *data, struct wl_registry *registry,
                         .repeat = {
                             .fd = repeat_fd,
                         },
-                    },
-                    .pointer = {
-                        .surface = pointer_surf,
                     },
                     .data_device = data_device,
                     .primary_selection_device = primary_selection_device,
