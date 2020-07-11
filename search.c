@@ -429,8 +429,10 @@ execute_binding(struct terminal *term, enum bind_action_search action,
         return true;
 
     case BIND_ACTION_SEARCH_COMMIT:
+#if 0
         selection_finalize(term, term->wl->input_serial);
         search_cancel_keep_selection(term);
+#endif
         return true;
 
     case BIND_ACTION_SEARCH_FIND_PREV:
@@ -567,16 +569,16 @@ execute_binding(struct terminal *term, enum bind_action_search action,
 }
 
 void
-search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
-             xkb_mod_mask_t mods, uint32_t serial)
+search_input(struct seat *seat, struct terminal *term, uint32_t key,
+             xkb_keysym_t sym, xkb_mod_mask_t mods, uint32_t serial)
 {
     LOG_DBG("search: input: sym=%d/0x%x, mods=0x%08x", sym, sym, mods);
 
     enum xkb_compose_status compose_status = xkb_compose_state_get_status(
-        term->wl->kbd.xkb_compose_state);
+        seat->kbd.xkb_compose_state);
 
     /* Key bindings */
-    tll_foreach(term->wl->kbd.bindings.search, it) {
+    tll_foreach(seat->kbd.bindings.search, it) {
         if (it->item.bind.mods != mods)
             continue;
 
@@ -602,13 +604,13 @@ search_input(struct terminal *term, uint32_t key, xkb_keysym_t sym,
 
     if (compose_status == XKB_COMPOSE_COMPOSED) {
         count = xkb_compose_state_get_utf8(
-            term->wl->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
-        xkb_compose_state_reset(term->wl->kbd.xkb_compose_state);
+            seat->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
+        xkb_compose_state_reset(seat->kbd.xkb_compose_state);
     } else if (compose_status == XKB_COMPOSE_CANCELLED) {
         count = 0;
     } else {
         count = xkb_state_key_get_utf8(
-            term->wl->kbd.xkb_state, key, (char *)buf, sizeof(buf));
+            seat->kbd.xkb_state, key, (char *)buf, sizeof(buf));
     }
 
     const char *src = (const char *)buf;

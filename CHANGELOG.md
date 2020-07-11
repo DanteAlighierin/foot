@@ -22,6 +22,7 @@
 * **blink** option to `footrc`; a boolean that lets you control
     whether the cursor should blink or not by default. Note that
     applications can override this.
+* Multi-seat support
 
 
 ### Changed

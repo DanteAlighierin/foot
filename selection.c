@@ -21,11 +21,11 @@
 #include "vt.h"
 
 bool
-selection_enabled(const struct terminal *term)
+selection_enabled(const struct terminal *term, struct seat *seat)
 {
     return
         term->mouse_tracking == MOUSE_NONE ||
-        term_mouse_grabbed(term) ||
+        term_mouse_grabbed(term, seat) ||
         term->is_searching;
 }
 
@@ -591,7 +591,8 @@ selection_extend_block(struct terminal *term, int col, int row, uint32_t serial)
 }
 
 void
-selection_extend(struct terminal *term, int col, int row, uint32_t serial)
+selection_extend(struct seat *seat, struct terminal *term,
+                 int col, int row, uint32_t serial)
 {
     if (term->selection.start.row < 0 || term->selection.end.row < 0) {
         /* No existing selection */
@@ -621,13 +622,13 @@ selection_extend(struct terminal *term, int col, int row, uint32_t serial)
         break;
     }
 
-    selection_to_primary(term, serial);
+    selection_to_primary(seat, term, serial);
 }
 
-static const struct zwp_primary_selection_source_v1_listener primary_selection_source_listener;
+//static const struct zwp_primary_selection_source_v1_listener primary_selection_source_listener;
 
 void
-selection_finalize(struct terminal *term, uint32_t serial)
+selection_finalize(struct seat *seat, struct terminal *term, uint32_t serial)
 {
     if (term->selection.start.row < 0 || term->selection.end.row < 0)
         return;
@@ -645,7 +646,7 @@ selection_finalize(struct terminal *term, uint32_t serial)
     }
 
     assert(term->selection.start.row <= term->selection.end.row);
-    selection_to_primary(term, serial);
+    selection_to_primary(seat, term, serial);
 }
 
 void
@@ -668,8 +669,8 @@ selection_cancel(struct terminal *term)
 }
 
 void
-selection_mark_word(struct terminal *term, int col, int row, bool spaces_only,
-                    uint32_t serial)
+selection_mark_word(struct seat *seat, struct terminal *term, int col, int row,
+                    bool spaces_only, uint32_t serial)
 {
     selection_cancel(term);
 
@@ -730,16 +731,18 @@ selection_mark_word(struct terminal *term, int col, int row, bool spaces_only,
 
     selection_start(term, start.col, start.row, SELECTION_NORMAL);
     selection_update(term, end.col, end.row);
-    selection_finalize(term, serial);
+    selection_finalize(seat, term, serial);
 }
 
 void
-selection_mark_row(struct terminal *term, int row, uint32_t serial)
+selection_mark_row(
+    struct seat *seat, struct terminal *term, int row, uint32_t serial)
 {
     selection_start(term, 0, row, SELECTION_NORMAL);
     selection_update(term, term->cols - 1, row);
-    selection_finalize(term, serial);
+    selection_finalize(seat, term, serial);
 }
+
 
 static void
 target(void *data, struct wl_data_source *wl_data_source, const char *mime_type)
@@ -786,8 +789,8 @@ static void
 send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
      int32_t fd)
 {
-    struct wayland *wayl = data;
-    const struct wl_clipboard *clipboard = &wayl->clipboard;
+    struct seat *seat = data;
+    const struct wl_clipboard *clipboard = &seat->clipboard;
 
     assert(clipboard != NULL);
     assert(clipboard->text != NULL);
@@ -815,7 +818,7 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
             .idx = async_idx,
         };
 
-        if (fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
+        if (fdm_add(seat->wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
             return;
 
         free(ctx->data);
@@ -839,8 +842,8 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
 static void
 cancelled(void *data, struct wl_data_source *wl_data_source)
 {
-    struct wayland *wayl = data;
-    struct wl_clipboard *clipboard = &wayl->clipboard;
+    struct seat *seat = data;
+    struct wl_clipboard *clipboard = &seat->clipboard;
     assert(clipboard->data_source == wl_data_source);
 
     wl_data_source_destroy(clipboard->data_source);
@@ -880,8 +883,8 @@ primary_send(void *data,
              struct zwp_primary_selection_source_v1 *zwp_primary_selection_source_v1,
              const char *mime_type, int32_t fd)
 {
-    struct wayland *wayl = data;
-    const struct wl_primary *primary = &wayl->primary;
+    struct seat *seat = data;
+    const struct wl_primary *primary = &seat->primary;
 
     assert(primary != NULL);
     assert(primary->text != NULL);
@@ -907,7 +910,7 @@ primary_send(void *data,
             .idx = async_idx,
         };
 
-        if (fdm_add(wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
+        if (fdm_add(seat->wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
             return;
 
         free(ctx->data);
@@ -932,8 +935,8 @@ static void
 primary_cancelled(void *data,
                   struct zwp_primary_selection_source_v1 *zwp_primary_selection_source_v1)
 {
-    struct wayland *wayl = data;
-    struct wl_primary *primary = &wayl->primary;
+    struct seat *seat = data;
+    struct wl_primary *primary = &seat->primary;
 
     zwp_primary_selection_source_v1_destroy(primary->data_source);
     primary->data_source = NULL;
@@ -949,14 +952,14 @@ static const struct zwp_primary_selection_source_v1_listener primary_selection_s
 };
 
 bool
-text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
+text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t serial)
 {
-    struct wl_clipboard *clipboard = &term->wl->clipboard;
+    struct wl_clipboard *clipboard = &seat->clipboard;
 
     if (clipboard->data_source != NULL) {
         /* Kill previous data source */
         assert(clipboard->serial != 0);
-        wl_data_device_set_selection(term->wl->data_device, NULL, clipboard->serial);
+        wl_data_device_set_selection(seat->data_device, NULL, clipboard->serial);
         wl_data_source_destroy(clipboard->data_source);
         free(clipboard->text);
 
@@ -976,8 +979,8 @@ text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
 
     /* Configure source */
     wl_data_source_offer(clipboard->data_source, "text/plain;charset=utf-8");
-    wl_data_source_add_listener(clipboard->data_source, &data_source_listener, term->wl);
-    wl_data_device_set_selection(term->wl->data_device, clipboard->data_source, serial);
+    wl_data_source_add_listener(clipboard->data_source, &data_source_listener, seat);
+    wl_data_device_set_selection(seat->data_device, clipboard->data_source, serial);
 
     /* Needed when sending the selection to other client */
     assert(serial != 0);
@@ -986,14 +989,14 @@ text_to_clipboard(struct terminal *term, char *text, uint32_t serial)
 }
 
 void
-selection_to_clipboard(struct terminal *term, uint32_t serial)
+selection_to_clipboard(struct seat *seat, struct terminal *term, uint32_t serial)
 {
     if (term->selection.start.row < 0 || term->selection.end.row < 0)
         return;
 
     /* Get selection as a string */
     char *text = extract_selection(term);
-    if (!text_to_clipboard(term, text, serial))
+    if (!text_to_clipboard(seat, term, text, serial))
         free(text);
 }
 
@@ -1003,6 +1006,7 @@ struct clipboard_receive {
     void (*done)(void *user);
     void *user;
 };
+
 
 static bool
 fdm_receive(struct fdm *fdm, int fd, int events, void *data)
@@ -1083,11 +1087,11 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
 }
 
 void
-text_from_clipboard(struct terminal *term, uint32_t serial,
+text_from_clipboard(struct seat *seat, struct terminal *term,
                     void (*cb)(const char *data, size_t size, void *user),
                     void (*done)(void *user), void *user)
 {
-    struct wl_clipboard *clipboard = &term->wl->clipboard;
+    struct wl_clipboard *clipboard = &seat->clipboard;
     if (clipboard->data_offer == NULL)
         return done(user);
 
@@ -1128,9 +1132,9 @@ from_clipboard_done(void *user)
 }
 
 void
-selection_from_clipboard(struct terminal *term, uint32_t serial)
+selection_from_clipboard(struct seat *seat, struct terminal *term, uint32_t serial)
 {
-    struct wl_clipboard *clipboard = &term->wl->clipboard;
+    struct wl_clipboard *clipboard = &seat->clipboard;
     if (clipboard->data_offer == NULL)
         return;
 
@@ -1138,24 +1142,24 @@ selection_from_clipboard(struct terminal *term, uint32_t serial)
         term_to_slave(term, "\033[200~", 6);
 
     text_from_clipboard(
-        term, serial, &from_clipboard_cb, &from_clipboard_done, term);
+        seat, term, &from_clipboard_cb, &from_clipboard_done, term);
 }
 
 bool
-text_to_primary(struct terminal *term, char *text, uint32_t serial)
+text_to_primary(struct seat *seat, struct terminal *term, char *text, uint32_t serial)
 {
     if (term->wl->primary_selection_device_manager == NULL)
         return false;
 
-    struct wl_primary *primary = &term->wl->primary;
+    struct wl_primary *primary = &seat->primary;
 
     /* TODO: somehow share code with the clipboard equivalent */
-    if (term->wl->primary.data_source != NULL) {
+    if (seat->primary.data_source != NULL) {
         /* Kill previous data source */
 
         assert(primary->serial != 0);
         zwp_primary_selection_device_v1_set_selection(
-            term->wl->primary_selection_device, NULL, primary->serial);
+            seat->primary_selection_device, NULL, primary->serial);
         zwp_primary_selection_source_v1_destroy(primary->data_source);
         free(primary->text);
 
@@ -1177,8 +1181,8 @@ text_to_primary(struct terminal *term, char *text, uint32_t serial)
 
     /* Configure source */
     zwp_primary_selection_source_v1_offer(primary->data_source, "text/plain;charset=utf-8");
-    zwp_primary_selection_source_v1_add_listener(primary->data_source, &primary_selection_source_listener, term->wl);
-    zwp_primary_selection_device_v1_set_selection(term->wl->primary_selection_device, primary->data_source, serial);
+    zwp_primary_selection_source_v1_add_listener(primary->data_source, &primary_selection_source_listener, seat);
+    zwp_primary_selection_device_v1_set_selection(seat->primary_selection_device, primary->data_source, serial);
 
     /* Needed when sending the selection to other client */
     primary->serial = serial;
@@ -1186,27 +1190,27 @@ text_to_primary(struct terminal *term, char *text, uint32_t serial)
 }
 
 void
-selection_to_primary(struct terminal *term, uint32_t serial)
+selection_to_primary(struct seat *seat, struct terminal *term, uint32_t serial)
 {
     if (term->wl->primary_selection_device_manager == NULL)
         return;
 
     /* Get selection as a string */
     char *text = extract_selection(term);
-    if (!text_to_primary(term, text, serial))
+    if (!text_to_primary(seat, term, text, serial))
         free(text);
 }
 
 void
 text_from_primary(
-    struct terminal *term,
+    struct seat *seat, struct terminal *term,
     void (*cb)(const char *data, size_t size, void *user),
     void (*done)(void *user), void *user)
 {
     if (term->wl->primary_selection_device_manager == NULL)
         return done(user);
 
-    struct wl_primary *primary = &term->wl->primary;
+    struct wl_primary *primary = &seat->primary;
     if (primary->data_offer == NULL)
         return done(user);
 
@@ -1231,19 +1235,19 @@ text_from_primary(
 }
 
 void
-selection_from_primary(struct terminal *term)
+selection_from_primary(struct seat *seat, struct terminal *term)
 {
     if (term->wl->primary_selection_device_manager == NULL)
         return;
 
-    struct wl_clipboard *clipboard = &term->wl->clipboard;
+    struct wl_clipboard *clipboard = &seat->clipboard;
     if (clipboard->data_offer == NULL)
         return;
 
     if (term->bracketed_paste)
         term_to_slave(term, "\033[200~", 6);
 
-    text_from_primary(term, &from_clipboard_cb, &from_clipboard_done, term);
+    text_from_primary(seat, term, &from_clipboard_cb, &from_clipboard_done, term);
 }
 
 #if 0
@@ -1305,8 +1309,8 @@ selection(void *data, struct wl_data_device *wl_data_device,
 {
     /* Selection offer from other client */
 
-    struct wayland *wayl = data;
-    struct wl_clipboard *clipboard = &wayl->clipboard;
+    struct seat *seat = data;
+    struct wl_clipboard *clipboard = &seat->clipboard;
 
     if (clipboard->data_offer != NULL)
         wl_data_offer_destroy(clipboard->data_offer);
@@ -1354,8 +1358,8 @@ primary_selection(void *data,
 {
     /* Selection offer from other client, for primary */
 
-    struct wayland *wayl = data;
-    struct wl_primary *primary = &wayl->primary;
+    struct seat *seat = data;
+    struct wl_primary *primary = &seat->primary;
 
     if (primary->data_offer != NULL)
         zwp_primary_selection_offer_v1_destroy(primary->data_offer);

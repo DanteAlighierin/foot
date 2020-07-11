@@ -34,9 +34,17 @@
 
 #define PTMX_TIMING 0
 
-static const char *const XCURSOR_LEFT_PTR = "left_ptr";
-static const char *const XCURSOR_TEXT = "text";
-//static const char *const XCURSOR_HAND2 = "hand2";
+const char *const XCURSOR_LEFT_PTR = "left_ptr";
+const char *const XCURSOR_TEXT = "text";
+//const char *const XCURSOR_HAND2 = "hand2";
+const char *const XCURSOR_TOP_LEFT_CORNER = "top_left_corner";
+const char *const XCURSOR_TOP_RIGHT_CORNER = "top_right_corner";
+const char *const XCURSOR_BOTTOM_LEFT_CORNER = "bottom_left_corner";
+const char *const XCURSOR_BOTTOM_RIGHT_CORNER = "bottom_right_corner";
+const char *const XCURSOR_LEFT_SIDE = "left_side";
+const char *const XCURSOR_RIGHT_SIDE = "right_side";
+const char *const XCURSOR_TOP_SIDE = "top_side";
+const char *const XCURSOR_BOTTOM_SIDE = "bottom_side";
 
 bool
 term_to_slave(struct terminal *term, const void *_data, size_t len)
@@ -889,7 +897,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .text = conf->cursor.color.text,
             .cursor = conf->cursor.color.cursor,
         },
-        .xcursor = "text",
         .selection = {
             .start = {-1, -1},
             .end = {-1, -1},
@@ -1037,13 +1044,12 @@ fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
      * are deferred (for example, when a screen locker is active), and
      * thus we can get here without having been unmapped.
      */
-    if (wayl->kbd_focus == term)
-        wayl->kbd_focus = NULL;
-    if (wayl->mouse_focus == term)
-        wayl->mouse_focus = NULL;
-
-    assert(wayl->kbd_focus != term);
-    assert(wayl->mouse_focus != term);
+    tll_foreach(wayl->seats, it) {
+        if (it->item.kbd_focus == term)
+            it->item.kbd_focus = NULL;
+        if (it->item.mouse_focus == term)
+            it->item.mouse_focus = NULL;
+    }
 
     void (*cb)(void *, int) = term->shutdown_cb;
     void *cb_data = term->shutdown_data;
@@ -1711,7 +1717,7 @@ void
 term_cursor_blink_enable(struct terminal *term)
 {
     term->cursor_blink.state = CURSOR_BLINK_ON;
-    term->cursor_blink.active = term->wl->kbd_focus == term
+    term->cursor_blink.active = term_has_kbd_focus(term)
         ? cursor_blink_start_timer(term) : true;
 }
 
@@ -1728,7 +1734,7 @@ term_cursor_blink_restart(struct terminal *term)
 {
     if (term->cursor_blink.active) {
         term->cursor_blink.state = CURSOR_BLINK_ON;
-        term->cursor_blink.active = term->wl->kbd_focus == term
+        term->cursor_blink.active = term_has_kbd_focus(term)
             ? cursor_blink_start_timer(term) : true;
     }
 }
@@ -1951,9 +1957,23 @@ term_visual_focus_out(struct terminal *term)
     cursor_refresh(term);
 }
 
+bool
+term_has_kbd_focus(struct terminal *term)
+{
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term)
+            return true;
+    }
+
+    return false;
+}
+
 void
 term_kbd_focus_in(struct terminal *term)
 {
+    if (term_has_kbd_focus(term))
+        return;
+
     if (term->focus_events)
         term_to_slave(term, "\033[I", 3);
 }
@@ -1961,6 +1981,9 @@ term_kbd_focus_in(struct terminal *term)
 void
 term_kbd_focus_out(struct terminal *term)
 {
+    if (term_has_kbd_focus(term))
+        return;
+
     if (term->focus_events)
         term_to_slave(term, "\033[O", 3);
 }
@@ -2052,23 +2075,20 @@ report_mouse_motion(struct terminal *term, int encoded_button, int row, int col)
 }
 
 bool
-term_mouse_grabbed(const struct terminal *term)
+term_mouse_grabbed(const struct terminal *term, struct seat *seat)
 {
     /*
      * Mouse is grabbed by us, regardless of whether mouse tracking has been enabled or not.
      */
-    return
-        term->wl->kbd_focus == term &&
-        term->wl->kbd.shift &&
-        !term->wl->kbd.alt && /*!term->wl->kbd.ctrl &&*/ !term->wl->kbd.meta;
+    return seat->kbd_focus == term &&
+        seat->kbd.shift &&
+        !seat->kbd.alt && /*!seat->kbd.ctrl &&*/ !seat->kbd.meta;
 }
 
 void
-term_mouse_down(struct terminal *term, int button, int row, int col)
+term_mouse_down(struct terminal *term, int button, int row, int col,
+                bool _shift, bool _alt, bool _ctrl)
 {
-    if (term_mouse_grabbed(term))
-        return;
-
     /* Map libevent button event code to X button number */
     int xbutton = linux_mouse_button_to_x(button);
     if (xbutton == -1)
@@ -2079,10 +2099,10 @@ term_mouse_down(struct terminal *term, int button, int row, int col)
         return;
 
 
-    bool has_focus = term->wl->kbd_focus == term;
-    bool shift = has_focus ? term->wl->kbd.shift : false;
-    bool alt = has_focus ? term->wl->kbd.alt : false;
-    bool ctrl = has_focus ? term->wl->kbd.ctrl : false;
+    bool has_focus = term_has_kbd_focus(term);
+    bool shift = has_focus ? _shift : false;
+    bool alt = has_focus ? _alt : false;
+    bool ctrl = has_focus ? _ctrl : false;
 
     encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
 
@@ -2104,11 +2124,9 @@ term_mouse_down(struct terminal *term, int button, int row, int col)
 }
 
 void
-term_mouse_up(struct terminal *term, int button, int row, int col)
+term_mouse_up(struct terminal *term, int button, int row, int col,
+              bool _shift, bool _alt, bool _ctrl)
 {
-    if (term_mouse_grabbed(term))
-        return;
-
     /* Map libevent button event code to X button number */
     int xbutton = linux_mouse_button_to_x(button);
     if (xbutton == -1)
@@ -2123,10 +2141,10 @@ term_mouse_up(struct terminal *term, int button, int row, int col)
     if (encoded == -1)
         return;
 
-    bool has_focus = term->wl->kbd_focus == term;
-    bool shift = has_focus ? term->wl->kbd.shift : false;
-    bool alt = has_focus ? term->wl->kbd.alt : false;
-    bool ctrl = has_focus ? term->wl->kbd.ctrl : false;
+    bool has_focus = term_has_kbd_focus(term);
+    bool shift = has_focus ? _shift : false;
+    bool alt = has_focus ? _alt : false;
+    bool ctrl = has_focus ? _ctrl : false;
 
     encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
 
@@ -2148,11 +2166,9 @@ term_mouse_up(struct terminal *term, int button, int row, int col)
 }
 
 void
-term_mouse_motion(struct terminal *term, int button, int row, int col)
+term_mouse_motion(struct terminal *term, int button, int row, int col,
+                  bool _shift, bool _alt, bool _ctrl)
 {
-    if (term_mouse_grabbed(term))
-        return;
-
     int encoded = 0;
 
     if (button != 0) {
@@ -2167,10 +2183,10 @@ term_mouse_motion(struct terminal *term, int button, int row, int col)
     } else
         encoded = 3;  /* "released" */
 
-    bool has_focus = term->wl->kbd_focus == term;
-    bool shift = has_focus ? term->wl->kbd.shift : false;
-    bool alt = has_focus ? term->wl->kbd.alt : false;
-    bool ctrl = has_focus ? term->wl->kbd.ctrl : false;
+    bool has_focus = term_has_kbd_focus(term);
+    bool shift = has_focus ? _shift : false;
+    bool alt = has_focus ? _alt : false;
+    bool ctrl = has_focus ? _ctrl : false;
 
     encoded += 32; /* Motion event */
     encoded += (shift ? 4 : 0) + (alt ? 8 : 0) + (ctrl ? 16 : 0);
@@ -2199,12 +2215,16 @@ term_mouse_motion(struct terminal *term, int button, int row, int col)
 void
 term_xcursor_update(struct terminal *term)
 {
-    term->xcursor =
-        term->is_searching ? XCURSOR_LEFT_PTR :  /* TODO: something different? */
-        selection_enabled(term) ? XCURSOR_TEXT :
-        XCURSOR_LEFT_PTR;
+    tll_foreach(term->wl->seats, it) {
+        struct seat *seat = &it->item;
 
-    render_xcursor_set(term);
+        const char *xcursor
+            = term->is_searching ? XCURSOR_LEFT_PTR :  /* TODO: something different? */
+            selection_enabled(term, seat) ? XCURSOR_TEXT :
+            XCURSOR_LEFT_PTR;
+
+        render_xcursor_set(seat, term, xcursor);
+    }
 }
 
 void

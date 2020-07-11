@@ -305,7 +305,6 @@ struct terminal {
         uint32_t text;
         uint32_t cursor;
     } cursor_color;
-    const char *xcursor;
 
     struct {
         enum selection_kind kind;
@@ -439,6 +438,18 @@ struct terminal {
     char *cwd;
 };
 
+extern const char *const XCURSOR_LEFT_PTR;
+extern const char *const XCURSOR_TEXT;
+//extern const char *const XCURSOR_HAND2;
+extern const char *const XCURSOR_TOP_LEFT_CORNER;
+extern const char *const XCURSOR_TOP_RIGHT_CORNER;
+extern const char *const XCURSOR_BOTTOM_LEFT_CORNER;
+extern const char *const XCURSOR_BOTTOM_RIGHT_CORNER;
+extern const char *const XCURSOR_LEFT_SIDE;
+extern const char *const XCURSOR_RIGHT_SIDE;
+extern const char *const XCURSOR_TOP_SIDE;
+extern const char *const XCURSOR_BOTTOM_SIDE;
+
 struct config;
 struct terminal *term_init(
     const struct config *conf, struct fdm *fdm, struct reaper *reaper,
@@ -506,12 +517,19 @@ void term_restore_cursor(struct terminal *term, const struct cursor *cursor);
 
 void term_visual_focus_in(struct terminal *term);
 void term_visual_focus_out(struct terminal *term);
+bool term_has_kbd_focus(struct terminal *term);
 void term_kbd_focus_in(struct terminal *term);
 void term_kbd_focus_out(struct terminal *term);
-void term_mouse_down(struct terminal *term, int button, int row, int col);
-void term_mouse_up(struct terminal *term, int button, int row, int col);
-void term_mouse_motion(struct terminal *term, int button, int row, int col);
-bool term_mouse_grabbed(const struct terminal *term);
+void term_mouse_down(
+    struct terminal *term, int button, int row, int col,
+    bool shift, bool alt, bool ctrl);
+void term_mouse_up(
+    struct terminal *term, int button, int row, int col,
+    bool shift, bool alt, bool ctrl);
+void term_mouse_motion(
+    struct terminal *term, int button, int row, int col,
+    bool shift, bool alt, bool ctrl);
+bool term_mouse_grabbed(const struct terminal *term, struct seat *seat);
 void term_xcursor_update(struct terminal *term);
 
 void term_set_window_title(struct terminal *term, const char *title);

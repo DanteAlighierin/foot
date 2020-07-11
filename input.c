@@ -33,8 +33,8 @@
 #include "vt.h"
 
 static void
-execute_binding(struct terminal *term, enum bind_action_normal action,
-                uint32_t serial)
+execute_binding(struct seat *seat, struct terminal *term,
+                enum bind_action_normal action, uint32_t serial)
 {
     switch (action) {
     case BIND_ACTION_NONE:
@@ -49,16 +49,16 @@ execute_binding(struct terminal *term, enum bind_action_normal action,
         break;
 
     case BIND_ACTION_CLIPBOARD_COPY:
-        selection_to_clipboard(term, serial);
+        selection_to_clipboard(seat, term, serial);
         break;
 
     case BIND_ACTION_CLIPBOARD_PASTE:
-        selection_from_clipboard(term, serial);
+        selection_from_clipboard(seat, term, serial);
         term_reset_view(term);
         break;
 
     case BIND_ACTION_PRIMARY_PASTE:
-        selection_from_primary(term);
+        selection_from_primary(seat, term);
         break;
 
     case BIND_ACTION_SEARCH_START:
@@ -206,57 +206,58 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     LOG_DBG("keyboard_keymap: keyboard=%p (format=%u, size=%u)",
             wl_keyboard, format, size);
 
-    struct wayland *wayl = data;
+    struct seat *seat = data;
+    struct wayland *wayl = seat->wayl;
 
     char *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
 
-    if (wayl->kbd.xkb_compose_state != NULL) {
-        xkb_compose_state_unref(wayl->kbd.xkb_compose_state);
-        wayl->kbd.xkb_compose_state = NULL;
+    if (seat->kbd.xkb_compose_state != NULL) {
+        xkb_compose_state_unref(seat->kbd.xkb_compose_state);
+        seat->kbd.xkb_compose_state = NULL;
     }
-    if (wayl->kbd.xkb_compose_table != NULL) {
-        xkb_compose_table_unref(wayl->kbd.xkb_compose_table);
-        wayl->kbd.xkb_compose_table = NULL;
+    if (seat->kbd.xkb_compose_table != NULL) {
+        xkb_compose_table_unref(seat->kbd.xkb_compose_table);
+        seat->kbd.xkb_compose_table = NULL;
     }
-    if (wayl->kbd.xkb_keymap != NULL) {
-        xkb_keymap_unref(wayl->kbd.xkb_keymap);
-        wayl->kbd.xkb_keymap = NULL;
+    if (seat->kbd.xkb_keymap != NULL) {
+        xkb_keymap_unref(seat->kbd.xkb_keymap);
+        seat->kbd.xkb_keymap = NULL;
     }
-    if (wayl->kbd.xkb_state != NULL) {
-        xkb_state_unref(wayl->kbd.xkb_state);
-        wayl->kbd.xkb_state = NULL;
+    if (seat->kbd.xkb_state != NULL) {
+        xkb_state_unref(seat->kbd.xkb_state);
+        seat->kbd.xkb_state = NULL;
     }
-    if (wayl->kbd.xkb != NULL) {
-        xkb_context_unref(wayl->kbd.xkb);
-        wayl->kbd.xkb = NULL;
+    if (seat->kbd.xkb != NULL) {
+        xkb_context_unref(seat->kbd.xkb);
+        seat->kbd.xkb = NULL;
     }
 
-    tll_foreach(wayl->kbd.bindings.key, it)
+    tll_foreach(seat->kbd.bindings.key, it)
         tll_free(it->item.bind.key_codes);
-    tll_free(wayl->kbd.bindings.key);
+    tll_free(seat->kbd.bindings.key);
 
-    tll_foreach(wayl->kbd.bindings.search, it)
+    tll_foreach(seat->kbd.bindings.search, it)
         tll_free(it->item.bind.key_codes);
-    tll_free(wayl->kbd.bindings.search);
+    tll_free(seat->kbd.bindings.search);
 
-    wayl->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    wayl->kbd.xkb_keymap = xkb_keymap_new_from_string(
-        wayl->kbd.xkb, map_str, XKB_KEYMAP_FORMAT_TEXT_V1,
+    seat->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    seat->kbd.xkb_keymap = xkb_keymap_new_from_string(
+        seat->kbd.xkb, map_str, XKB_KEYMAP_FORMAT_TEXT_V1,
         XKB_KEYMAP_COMPILE_NO_FLAGS);
 
     /* TODO: initialize in enter? */
-    wayl->kbd.xkb_state = xkb_state_new(wayl->kbd.xkb_keymap);
+    seat->kbd.xkb_state = xkb_state_new(seat->kbd.xkb_keymap);
 
-    wayl->kbd.mod_shift = xkb_keymap_mod_get_index(wayl->kbd.xkb_keymap, "Shift");
-    wayl->kbd.mod_alt = xkb_keymap_mod_get_index(wayl->kbd.xkb_keymap, "Mod1") ;
-    wayl->kbd.mod_ctrl = xkb_keymap_mod_get_index(wayl->kbd.xkb_keymap, "Control");
-    wayl->kbd.mod_meta = xkb_keymap_mod_get_index(wayl->kbd.xkb_keymap, "Mod4");
+    seat->kbd.mod_shift = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Shift");
+    seat->kbd.mod_alt = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Mod1") ;
+    seat->kbd.mod_ctrl = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Control");
+    seat->kbd.mod_meta = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Mod4");
 
     /* Compose (dead keys) */
-    wayl->kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
-        wayl->kbd.xkb, setlocale(LC_CTYPE, NULL), XKB_COMPOSE_COMPILE_NO_FLAGS);
-    wayl->kbd.xkb_compose_state = xkb_compose_state_new(
-        wayl->kbd.xkb_compose_table, XKB_COMPOSE_STATE_NO_FLAGS);
+    seat->kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
+        seat->kbd.xkb, setlocale(LC_CTYPE, NULL), XKB_COMPOSE_COMPILE_NO_FLAGS);
+    seat->kbd.xkb_compose_state = xkb_compose_state_new(
+        seat->kbd.xkb_compose_table, XKB_COMPOSE_STATE_NO_FLAGS);
 
     munmap(map_str, size);
     close(fd);
@@ -264,11 +265,11 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     for (enum bind_action_normal i = 0; i < BIND_ACTION_COUNT; i++) {
         key_binding_list_t bindings = tll_init();
         input_parse_key_binding(
-            wayl->kbd.xkb_keymap, wayl->conf->bindings.key[i], &bindings);
+            seat->kbd.xkb_keymap, wayl->conf->bindings.key[i], &bindings);
 
         tll_foreach(bindings, it) {
             tll_push_back(
-                wayl->kbd.bindings.key,
+                seat->kbd.bindings.key,
                 ((struct key_binding_normal){.bind = it->item, .action = i}));
         }
 
@@ -278,11 +279,11 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     for (enum bind_action_search i = 0; i < BIND_ACTION_SEARCH_COUNT; i++) {
         key_binding_list_t bindings = tll_init();
         input_parse_key_binding(
-            wayl->kbd.xkb_keymap, wayl->conf->bindings.search[i], &bindings);
+            seat->kbd.xkb_keymap, wayl->conf->bindings.search[i], &bindings);
 
         tll_foreach(bindings, it) {
             tll_push_back(
-                wayl->kbd.bindings.search,
+                seat->kbd.bindings.search,
                 ((struct key_binding_search){.bind = it->item, .action = i}));
         }
 
@@ -296,28 +297,27 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 {
     assert(surface != NULL);
 
-    struct wayland *wayl = data;
+    struct seat *seat = data;
     struct wl_window *win = wl_surface_get_user_data(surface);
     struct terminal *term = win->term;
 
     LOG_DBG("keyboard_enter: keyboard=%p, serial=%u, surface=%p",
             wl_keyboard, serial, surface);
 
-    wayl->kbd_focus = term;
-    wayl->input_serial = serial;
-
-    term_kbd_focus_in(wayl->kbd_focus);
+    term_kbd_focus_in(term);
+    seat->kbd_focus = term;
+    seat->kbd.serial = serial;
 }
 
 static bool
-start_repeater(struct wayland *wayl, uint32_t key)
+start_repeater(struct seat *seat, uint32_t key)
 {
-    if (wayl->kbd.repeat.dont_re_repeat)
+    if (seat->kbd.repeat.dont_re_repeat)
         return true;
 
     struct itimerspec t = {
-        .it_value = {.tv_sec = 0, .tv_nsec = wayl->kbd.repeat.delay * 1000000},
-        .it_interval = {.tv_sec = 0, .tv_nsec = 1000000000 / wayl->kbd.repeat.rate},
+        .it_value = {.tv_sec = 0, .tv_nsec = seat->kbd.repeat.delay * 1000000},
+        .it_interval = {.tv_sec = 0, .tv_nsec = 1000000000 / seat->kbd.repeat.rate},
     };
 
     if (t.it_value.tv_nsec >= 1000000000) {
@@ -328,23 +328,23 @@ start_repeater(struct wayland *wayl, uint32_t key)
         t.it_interval.tv_sec += t.it_interval.tv_nsec / 1000000000;
         t.it_interval.tv_nsec %= 1000000000;
     }
-    if (timerfd_settime(wayl->kbd.repeat.fd, 0, &t, NULL) < 0) {
-        LOG_ERRNO("failed to arm keyboard repeat timer");
+    if (timerfd_settime(seat->kbd.repeat.fd, 0, &t, NULL) < 0) {
+        LOG_ERRNO("%s: failed to arm keyboard repeat timer", seat->name);
         return false;
     }
 
-    wayl->kbd.repeat.key = key;
+    seat->kbd.repeat.key = key;
     return true;
 }
 
 static bool
-stop_repeater(struct wayland *wayl, uint32_t key)
+stop_repeater(struct seat *seat, uint32_t key)
 {
-    if (key != -1 && key != wayl->kbd.repeat.key)
+    if (key != -1 && key != seat->kbd.repeat.key)
         return true;
 
-    if (timerfd_settime(wayl->kbd.repeat.fd, 0, &(struct itimerspec){}, NULL) < 0) {
-        LOG_ERRNO("failed to disarm keyboard repeat timer");
+    if (timerfd_settime(seat->kbd.repeat.fd, 0, &(struct itimerspec){}, NULL) < 0) {
+        LOG_ERRNO("%s: failed to disarm keyboard repeat timer", seat->name);
         return false;
     }
 
@@ -355,26 +355,26 @@ static void
 keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface)
 {
-    struct wayland *wayl = data;
+    struct seat *seat = data;
 
     LOG_DBG("keyboard_leave: keyboard=%p, serial=%u, surface=%p",
             wl_keyboard, serial, surface);
 
     assert(
-        wayl->kbd_focus == NULL ||
+        seat->kbd_focus == NULL ||
         surface == NULL ||  /* Seen on Sway 1.2 */
-        ((const struct wl_window *)wl_surface_get_user_data(surface))->term == wayl->kbd_focus
+        ((const struct wl_window *)wl_surface_get_user_data(surface))->term == seat->kbd_focus
         );
 
-    struct terminal *old_focused = wayl->kbd_focus;
-    wayl->kbd_focus = NULL;
+    struct terminal *old_focused = seat->kbd_focus;
+    seat->kbd_focus = NULL;
 
-    stop_repeater(wayl, -1);
-    wayl->kbd.shift = false;;
-    wayl->kbd.alt = false;;
-    wayl->kbd.ctrl = false;;
-    wayl->kbd.meta = false;;
-    xkb_compose_state_reset(wayl->kbd.xkb_compose_state);
+    stop_repeater(seat, -1);
+    seat->kbd.shift = false;
+    seat->kbd.alt = false;
+    seat->kbd.ctrl = false;
+    seat->kbd.meta = false;
+    xkb_compose_state_reset(seat->kbd.xkb_compose_state);
 
     if (old_focused != NULL)
         term_kbd_focus_out(old_focused);
@@ -508,24 +508,24 @@ static void
 keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
              uint32_t time, uint32_t key, uint32_t state)
 {
-    struct wayland *wayl = data;
-    struct terminal *term = wayl->kbd_focus;
+    struct seat *seat = data;
+    struct terminal *term = seat->kbd_focus;
 
     assert(term != NULL);
 
-    const xkb_mod_mask_t ctrl = 1 << wayl->kbd.mod_ctrl;
-    const xkb_mod_mask_t alt = 1 << wayl->kbd.mod_alt;
-    const xkb_mod_mask_t shift = 1 << wayl->kbd.mod_shift;
-    const xkb_mod_mask_t meta = 1 << wayl->kbd.mod_meta;
+    const xkb_mod_mask_t ctrl = 1 << seat->kbd.mod_ctrl;
+    const xkb_mod_mask_t alt = 1 << seat->kbd.mod_alt;
+    const xkb_mod_mask_t shift = 1 << seat->kbd.mod_shift;
+    const xkb_mod_mask_t meta = 1 << seat->kbd.mod_meta;
 
     if (state == XKB_KEY_UP) {
-        stop_repeater(wayl, key);
+        stop_repeater(seat, key);
         return;
     }
 
     key += 8;
-    bool should_repeat = xkb_keymap_key_repeats(wayl->kbd.xkb_keymap, key);
-    xkb_keysym_t sym = xkb_state_key_get_one_sym(wayl->kbd.xkb_state, key);
+    bool should_repeat = xkb_keymap_key_repeats(seat->kbd.xkb_keymap, key);
+    xkb_keysym_t sym = xkb_state_key_get_one_sym(seat->kbd.xkb_state, key);
 
 #if 0
     char foo[100];
@@ -533,9 +533,9 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     LOG_INFO("%s", foo);
 #endif
 
-    xkb_compose_state_feed(wayl->kbd.xkb_compose_state, sym);
+    xkb_compose_state_feed(seat->kbd.xkb_compose_state, sym);
     enum xkb_compose_status compose_status = xkb_compose_state_get_status(
-        wayl->kbd.xkb_compose_state);
+        seat->kbd.xkb_compose_state);
 
     if (compose_status == XKB_COMPOSE_COMPOSING) {
         /* TODO: goto maybe_repeat? */
@@ -543,23 +543,23 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     }
 
     xkb_mod_mask_t mods = xkb_state_serialize_mods(
-        wayl->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
-    //xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(wayl->kbd.xkb_state, key);
+        seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
+    //xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(seat->kbd.xkb_state, key);
     xkb_mod_mask_t consumed = 0x0;
     xkb_mod_mask_t significant = ctrl | alt | shift | meta;
     xkb_mod_mask_t effective_mods = mods & ~consumed & significant;
 
     if (term->is_searching) {
         if (should_repeat)
-            start_repeater(wayl, key - 8);
-        search_input(term, key, sym, effective_mods, serial);
+            start_repeater(seat, key - 8);
+        search_input(seat, term, key, sym, effective_mods, serial);
         return;
     }
 
 #if 0
     for (size_t i = 0; i < 32; i++) {
         if (mods & (1 << i)) {
-            LOG_INFO("%s", xkb_keymap_mod_get_name(wayl->kbd.xkb_keymap, i));
+            LOG_INFO("%s", xkb_keymap_mod_get_name(seat->kbd.xkb_keymap, i));
         }
     }
 #endif
@@ -573,20 +573,20 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     /*
      * User configurable bindings
      */
-    tll_foreach(wayl->kbd.bindings.key, it) {
+    tll_foreach(seat->kbd.bindings.key, it) {
         if (it->item.bind.mods != effective_mods)
             continue;
 
         /* Match symbol */
         if (it->item.bind.sym == sym) {
-            execute_binding(term, it->item.action, serial);
+            execute_binding(seat, term, it->item.action, serial);
             goto maybe_repeat;
         }
 
         /* Match raw key code */
         tll_foreach(it->item.bind.key_codes, code) {
             if (code->item == key) {
-                execute_binding(term, it->item.action, serial);
+                execute_binding(seat, term, it->item.action, serial);
                 goto maybe_repeat;
             }
         }
@@ -597,10 +597,10 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
      */
 
     enum modifier keymap_mods = MOD_NONE;
-    keymap_mods |= wayl->kbd.shift ? MOD_SHIFT : MOD_NONE;
-    keymap_mods |= wayl->kbd.alt ? MOD_ALT : MOD_NONE;
-    keymap_mods |= wayl->kbd.ctrl ? MOD_CTRL : MOD_NONE;
-    keymap_mods |= wayl->kbd.meta ? MOD_META : MOD_NONE;
+    keymap_mods |= seat->kbd.shift ? MOD_SHIFT : MOD_NONE;
+    keymap_mods |= seat->kbd.alt ? MOD_ALT : MOD_NONE;
+    keymap_mods |= seat->kbd.ctrl ? MOD_CTRL : MOD_NONE;
+    keymap_mods |= seat->kbd.meta ? MOD_META : MOD_NONE;
 
     const struct key_data *keymap = keymap_lookup(term, sym, keymap_mods);
     if (keymap != NULL) {
@@ -620,13 +620,13 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
     if (compose_status == XKB_COMPOSE_COMPOSED) {
         count = xkb_compose_state_get_utf8(
-            wayl->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
-        xkb_compose_state_reset(wayl->kbd.xkb_compose_state);
+            seat->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
+        xkb_compose_state_reset(seat->kbd.xkb_compose_state);
     } else if (compose_status == XKB_COMPOSE_CANCELLED) {
         goto maybe_repeat;
     } else {
         count = xkb_state_key_get_utf8(
-            wayl->kbd.xkb_state, key, (char *)buf, sizeof(buf));
+            seat->kbd.xkb_state, key, (char *)buf, sizeof(buf));
     }
 
     if (count == 0)
@@ -720,7 +720,7 @@ maybe_repeat:
         term->wl->presentation_clock_id, &term->render.input_time);
 
     if (should_repeat)
-        start_repeater(wayl, key - 8);
+        start_repeater(seat, key - 8);
 
 }
 
@@ -729,36 +729,36 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                    uint32_t mods_depressed, uint32_t mods_latched,
                    uint32_t mods_locked, uint32_t group)
 {
-    struct wayland *wayl = data;
+    struct seat *seat = data;
 
     LOG_DBG("modifiers: depressed=0x%x, latched=0x%x, locked=0x%x, group=%u",
             mods_depressed, mods_latched, mods_locked, group);
 
     xkb_state_update_mask(
-        wayl->kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
+        seat->kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
 
     /* Update state of modifiers we're interrested in for e.g mouse events */
-    wayl->kbd.shift = xkb_state_mod_index_is_active(
-        wayl->kbd.xkb_state, wayl->kbd.mod_shift, XKB_STATE_MODS_DEPRESSED);
-    wayl->kbd.alt = xkb_state_mod_index_is_active(
-        wayl->kbd.xkb_state, wayl->kbd.mod_alt, XKB_STATE_MODS_DEPRESSED);
-    wayl->kbd.ctrl = xkb_state_mod_index_is_active(
-        wayl->kbd.xkb_state, wayl->kbd.mod_ctrl, XKB_STATE_MODS_DEPRESSED);
-    wayl->kbd.meta = xkb_state_mod_index_is_active(
-        wayl->kbd.xkb_state, wayl->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
+    seat->kbd.shift = xkb_state_mod_index_is_active(
+        seat->kbd.xkb_state, seat->kbd.mod_shift, XKB_STATE_MODS_DEPRESSED);
+    seat->kbd.alt = xkb_state_mod_index_is_active(
+        seat->kbd.xkb_state, seat->kbd.mod_alt, XKB_STATE_MODS_DEPRESSED);
+    seat->kbd.ctrl = xkb_state_mod_index_is_active(
+        seat->kbd.xkb_state, seat->kbd.mod_ctrl, XKB_STATE_MODS_DEPRESSED);
+    seat->kbd.meta = xkb_state_mod_index_is_active(
+        seat->kbd.xkb_state, seat->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
 
-    if (wayl->kbd_focus && wayl->kbd_focus->active_surface == TERM_SURF_GRID)
-        term_xcursor_update(wayl->kbd_focus);
+    if (seat->kbd_focus && seat->kbd_focus->active_surface == TERM_SURF_GRID)
+        term_xcursor_update(seat->kbd_focus);
 }
 
 static void
 keyboard_repeat_info(void *data, struct wl_keyboard *wl_keyboard,
                      int32_t rate, int32_t delay)
 {
-    struct wayland *wayl = data;
+    struct seat *seat = data;
     LOG_DBG("keyboard repeat: rate=%d, delay=%d", rate, delay);
-    wayl->kbd.repeat.rate = rate;
-    wayl->kbd.repeat.delay = delay;
+    seat->kbd.repeat.rate = rate;
+    seat->kbd.repeat.delay = delay;
 }
 
 const struct wl_keyboard_listener keyboard_listener = {
@@ -771,9 +771,9 @@ const struct wl_keyboard_listener keyboard_listener = {
 };
 
 void
-input_repeat(struct wayland *wayl, uint32_t key)
+input_repeat(struct seat *seat, uint32_t key)
 {
-    keyboard_key(wayl, NULL, wayl->input_serial, 0, key, XKB_KEY_DOWN);
+    keyboard_key(seat, NULL, seat->kbd.serial, 0, key, XKB_KEY_DOWN);
 }
 
 static bool
@@ -817,14 +817,14 @@ is_bottom_right(const struct terminal *term, int x, int y)
 static const char *
 xcursor_for_csd_border(struct terminal *term, int x, int y)
 {
-    if (is_top_left(term, x, y))                              return "top_left_corner";
-    else if (is_top_right(term, x, y))                        return "top_right_corner";
-    else if (is_bottom_left(term, x, y))                      return "bottom_left_corner";
-    else if (is_bottom_right(term, x, y))                     return "bottom_right_corner";
-    else if (term->active_surface == TERM_SURF_BORDER_LEFT)   return "left_side";
-    else if (term->active_surface == TERM_SURF_BORDER_RIGHT)  return "right_side";
-    else if (term->active_surface == TERM_SURF_BORDER_TOP)    return "top_side";
-    else if (term->active_surface == TERM_SURF_BORDER_BOTTOM) return"bottom_side";
+    if (is_top_left(term, x, y))                              return XCURSOR_TOP_LEFT_CORNER;
+    else if (is_top_right(term, x, y))                        return XCURSOR_TOP_RIGHT_CORNER;
+    else if (is_bottom_left(term, x, y))                      return XCURSOR_BOTTOM_LEFT_CORNER;
+    else if (is_bottom_right(term, x, y))                     return XCURSOR_BOTTOM_RIGHT_CORNER;
+    else if (term->active_surface == TERM_SURF_BORDER_LEFT)   return XCURSOR_LEFT_SIDE;
+    else if (term->active_surface == TERM_SURF_BORDER_RIGHT)  return XCURSOR_RIGHT_SIDE;
+    else if (term->active_surface == TERM_SURF_BORDER_TOP)    return XCURSOR_TOP_SIDE;
+    else if (term->active_surface == TERM_SURF_BORDER_BOTTOM) return XCURSOR_BOTTOM_SIDE;
     else {
         assert(false);
         return NULL;
@@ -838,44 +838,46 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 {
     assert(surface != NULL);
 
-    struct wayland *wayl = data;
+    struct seat *seat = data;
     struct wl_window *win = wl_surface_get_user_data(surface);
     struct terminal *term = win->term;
+
+    seat->pointer.serial = serial;
 
     LOG_DBG("pointer-enter: pointer=%p, serial=%u, surface = %p, new-moused = %p",
             wl_pointer, serial, surface, term);
 
-    wayl->mouse_focus = term;
+    /* Scale may have changed */
+    wayl_reload_xcursor_theme(seat, term->scale);
+
+    seat->mouse_focus = term;
 
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
     switch ((term->active_surface = term_surface_kind(term, surface))) {
     case TERM_SURF_GRID:
-        wayl->mouse.col = x / term->cell_width;
-        wayl->mouse.row = y / term->cell_height;
+        seat->mouse.col = x / term->cell_width;
+        seat->mouse.row = y / term->cell_height;
         term_xcursor_update(term);
         break;
 
     case TERM_SURF_SEARCH:
     case TERM_SURF_TITLE:
-        term->xcursor = "left_ptr";
-        render_xcursor_set(term);
+        render_xcursor_set(seat, term, XCURSOR_LEFT_PTR);
         break;
 
     case TERM_SURF_BORDER_LEFT:
     case TERM_SURF_BORDER_RIGHT:
     case TERM_SURF_BORDER_TOP:
     case TERM_SURF_BORDER_BOTTOM:
-        term->xcursor = xcursor_for_csd_border(term, x, y);
-        render_xcursor_set(term);
+        render_xcursor_set(seat, term, xcursor_for_csd_border(term, x, y));
         break;
 
     case TERM_SURF_BUTTON_MINIMIZE:
     case TERM_SURF_BUTTON_MAXIMIZE:
     case TERM_SURF_BUTTON_CLOSE:
-        term->xcursor = "left_ptr";
-        render_xcursor_set(term);
+        render_xcursor_set(seat, term, XCURSOR_LEFT_PTR);
         render_refresh_csd(term);
         break;
 
@@ -889,25 +891,25 @@ static void
 wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
                  uint32_t serial, struct wl_surface *surface)
 {
-    struct wayland *wayl = data;
-    struct terminal *old_moused = wayl->mouse_focus;
+    struct seat *seat = data;
+    struct terminal *old_moused = seat->mouse_focus;
 
     LOG_DBG(
         "pointer-leave: pointer=%p, serial=%u, surface = %p, old-moused = %p",
         wl_pointer, serial, surface, old_moused);
 
-    if (wayl->pointer.xcursor_callback != NULL) {
+    if (seat->pointer.xcursor_callback != NULL) {
         /* A cursor frame callback may never be called if the pointer leaves our surface */
-        wl_callback_destroy(wayl->pointer.xcursor_callback);
-        wayl->pointer.xcursor_callback = NULL;
-        wayl->pointer.pending_terminal = NULL;
-        wayl->pointer.xcursor = NULL;
+        wl_callback_destroy(seat->pointer.xcursor_callback);
+        seat->pointer.xcursor_callback = NULL;
+        seat->pointer.xcursor_pending = false;
+        seat->pointer.xcursor = NULL;
     }
 
     /* Reset mouse state */
-    memset(&wayl->mouse, 0, sizeof(wayl->mouse));
+    memset(&seat->mouse, 0, sizeof(seat->mouse));
 
-    wayl->mouse_focus = NULL;
+    seat->mouse_focus = NULL;
     if (old_moused == NULL) {
         LOG_WARN(
             "compositor sent pointer_leave event without a pointer_enter "
@@ -953,8 +955,9 @@ static void
 wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
                   uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
-    struct wayland *wayl = data;
-    struct terminal *term = wayl->mouse_focus;
+    struct seat *seat = data;
+    struct wayland *wayl = seat->wayl;
+    struct terminal *term = seat->mouse_focus;
     struct wl_window *win = term->window;
 
     LOG_DBG("pointer_motion: pointer=%p, x=%d, y=%d", wl_pointer,
@@ -965,8 +968,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
-    wayl->mouse.x = x;
-    wayl->mouse.y = y;
+    seat->mouse.x = x;
+    seat->mouse.y = y;
 
     switch (term->active_surface) {
     case TERM_SURF_NONE:
@@ -980,10 +983,10 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         /* We've started a 'move' timer, but user started dragging
          * right away - abort the timer and initiate the actual move
          * right away */
-        if (wayl->mouse.button == BTN_LEFT && win->csd.move_timeout_fd != -1) {
+        if (seat->mouse.button == BTN_LEFT && win->csd.move_timeout_fd != -1) {
             fdm_del(wayl->fdm, win->csd.move_timeout_fd);
             win->csd.move_timeout_fd = -1;
-            xdg_toplevel_move(win->xdg_toplevel, wayl->seat, win->csd.serial);
+            xdg_toplevel_move(win->xdg_toplevel, seat->wl_seat, win->csd.serial);
         }
         break;
 
@@ -991,8 +994,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_BORDER_RIGHT:
     case TERM_SURF_BORDER_TOP:
     case TERM_SURF_BORDER_BOTTOM:
-        term->xcursor = xcursor_for_csd_border(term, x, y);
-        render_xcursor_set(term);
+        render_xcursor_set(seat, term, xcursor_for_csd_border(term, x, y));
         break;
 
     case TERM_SURF_GRID: {
@@ -1002,23 +1004,26 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         if (col < 0 || row < 0 || col >= term->cols || row >= term->rows)
             return;
 
-        bool update_selection = wayl->mouse.button == BTN_LEFT;
+        bool update_selection = seat->mouse.button == BTN_LEFT;
         bool update_selection_early = term->selection.end.row == -1;
 
         if (update_selection && update_selection_early)
             selection_update(term, col, row);
 
-        if (col == wayl->mouse.col && row == wayl->mouse.row)
+        if (col == seat->mouse.col && row == seat->mouse.row)
             break;
 
-        wayl->mouse.col = col;
-        wayl->mouse.row = row;
+        seat->mouse.col = col;
+        seat->mouse.row = row;
 
         if (update_selection && !update_selection_early)
             selection_update(term, col, row);
 
-        term_mouse_motion(
-        term, wayl->mouse.button, wayl->mouse.row, wayl->mouse.col);
+        if (!term_mouse_grabbed(term, seat)) {
+            term_mouse_motion(
+                term, seat->mouse.button, seat->mouse.row, seat->mouse.col,
+                seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+        }
         break;
     }
     }
@@ -1027,13 +1032,20 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 static bool
 fdm_csd_move(struct fdm *fdm, int fd, int events, void *data)
 {
-    struct wl_window *win = data;
-    struct wayland *wayl = win->term->wl;
-
+    struct seat *seat = data;
     fdm_del(fdm, fd);
-    win->csd.move_timeout_fd = -1;
 
-    xdg_toplevel_move(win->xdg_toplevel, wayl->seat, win->csd.serial);
+    if (seat->mouse_focus == NULL) {
+        LOG_WARN(
+            "%s: CSD move timeout triggered, but seat's has no mouse focused terminal",
+            seat->name);
+        return true;
+    }
+
+    struct wl_window *win = seat->mouse_focus->window;
+
+    win->csd.move_timeout_fd = -1;
+    xdg_toplevel_move(win->xdg_toplevel, seat->wl_seat, win->csd.serial);
     return true;
 }
 
@@ -1044,8 +1056,9 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     LOG_DBG("BUTTON: pointer=%p, serial=%u, button=%x, state=%u",
             wl_pointer, serial, button, state);
 
-    struct wayland *wayl = data;
-    struct terminal *term = wayl->mouse_focus;
+    struct seat *seat = data;
+    struct wayland *wayl = seat->wayl;
+    struct terminal *term = seat->mouse_focus;
 
     assert(term != NULL);
 
@@ -1054,22 +1067,22 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         /* Time since last click */
         struct timeval now, since_last;
         gettimeofday(&now, NULL);
-        timersub(&now, &wayl->mouse.last_time, &since_last);
+        timersub(&now, &seat->mouse.last_time, &since_last);
 
         /* Double- or triple click? */
-        if (button == wayl->mouse.last_button &&
+        if (button == seat->mouse.last_button &&
             since_last.tv_sec == 0 &&
             since_last.tv_usec <= 300 * 1000)
         {
-            wayl->mouse.count++;
+            seat->mouse.count++;
         } else
-            wayl->mouse.count = 1;
+            seat->mouse.count = 1;
 
-        wayl->mouse.button = button; /* For motion events */
-        wayl->mouse.last_button = button;
-        wayl->mouse.last_time = now;
+        seat->mouse.button = button; /* For motion events */
+        seat->mouse.last_button = button;
+        seat->mouse.last_time = now;
     } else
-        wayl->mouse.button = 0; /* For motion events */
+        seat->mouse.button = 0; /* For motion events */
 
     switch (term->active_surface) {
     case TERM_SURF_TITLE:
@@ -1078,7 +1091,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             struct wl_window *win = term->window;
 
             /* Toggle maximized state on double-click */
-            if (button == BTN_LEFT && wayl->mouse.count == 2) {
+            if (button == BTN_LEFT && seat->mouse.count == 2) {
                 if (win->is_maximized)
                     xdg_toplevel_unset_maximized(win->xdg_toplevel);
                 else
@@ -1093,7 +1106,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
                 if (fd >= 0 &&
                     timerfd_settime(fd, 0, &timeout, NULL) == 0 &&
-                    fdm_add(wayl->fdm, fd, EPOLLIN, &fdm_csd_move, win))
+                    fdm_add(wayl->fdm, fd, EPOLLIN, &fdm_csd_move, seat))
                 {
                     win->csd.move_timeout_fd = fd;
                     win->csd.serial = serial;
@@ -1127,8 +1140,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
             enum xdg_toplevel_resize_edge resize_type;
 
-            int x = wayl->mouse.x;
-            int y = wayl->mouse.y;
+            int x = seat->mouse.x;
+            int y = seat->mouse.y;
 
             if (is_top_left(term, x, y))
                 resize_type = XDG_TOPLEVEL_RESIZE_EDGE_TOP_LEFT;
@@ -1142,7 +1155,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 resize_type = map[term->active_surface];
 
             xdg_toplevel_resize(
-                term->window->xdg_toplevel, term->wl->seat, serial, resize_type);
+                term->window->xdg_toplevel, seat->wl_seat, serial, resize_type);
         }
         return;
     }
@@ -1174,32 +1187,35 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
-            if (button == BTN_LEFT && wayl->mouse.count <= 3) {
+            if (button == BTN_LEFT && seat->mouse.count <= 3) {
                 selection_cancel(term);
 
-                if (selection_enabled(term)) {
-                    switch (wayl->mouse.count) {
+                if (selection_enabled(term, seat)) {
+                    switch (seat->mouse.count) {
                     case 1:
                         selection_start(
-                            term, wayl->mouse.col, wayl->mouse.row,
-                            wayl->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
+                            term, seat->mouse.col, seat->mouse.row,
+                            seat->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
                         break;
 
                     case 2:
-                        selection_mark_word(term, wayl->mouse.col, wayl->mouse.row,
-                                            wayl->kbd.ctrl, serial);
+                        selection_mark_word(
+                            seat, term, seat->mouse.col, seat->mouse.row,
+                            seat->kbd.ctrl, serial);
                         break;
 
                     case 3:
-                        selection_mark_row(term, wayl->mouse.row, serial);
+                        selection_mark_row(seat, term, seat->mouse.row, serial);
                         break;
                     }
                 }
             }
 
-            else if (button == BTN_RIGHT && wayl->mouse.count == 1) {
-                if (selection_enabled(term))
-                    selection_extend(term, wayl->mouse.col, wayl->mouse.row, serial);
+            else if (button == BTN_RIGHT && seat->mouse.count == 1) {
+                if (selection_enabled(term, seat)) {
+                    selection_extend(
+                        seat, term, seat->mouse.col, seat->mouse.row, serial);
+                }
             }
 
             else {
@@ -1212,25 +1228,33 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                         continue;
                     }
 
-                    if  (binding->count != wayl->mouse.count) {
+                    if  (binding->count != seat->mouse.count) {
                         /* Not correct click count */
                         continue;
                     }
 
-                    execute_binding(term, binding->action, serial);
+                    execute_binding(seat, term, binding->action, serial);
                     break;
                 }
             }
 
-            term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col);
+            if (!term_mouse_grabbed(term, seat)) {
+                term_mouse_down(
+                    term, button, seat->mouse.row, seat->mouse.col,
+                    seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+            }
             break;
         }
 
         case WL_POINTER_BUTTON_STATE_RELEASED:
             if (button == BTN_LEFT && term->selection.end.col != -1)
-                selection_finalize(term, serial);
+                selection_finalize(seat, term, serial);
 
-            term_mouse_up(term, button, wayl->mouse.row, wayl->mouse.col);
+            if (!term_mouse_grabbed(term, seat)) {
+                term_mouse_up(
+                    term, button, seat->mouse.row, seat->mouse.col,
+                    seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+            }
             break;
         }
         break;
@@ -1244,9 +1268,9 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 }
 
 static void
-mouse_scroll(struct wayland *wayl, int amount)
+mouse_scroll(struct seat *seat, int amount)
 {
-    struct terminal *term = wayl->mouse_focus;
+    struct terminal *term = seat->mouse_focus;
     assert(term != NULL);
 
     int button = amount < 0 ? BTN_BACK : BTN_FORWARD;
@@ -1268,20 +1292,26 @@ mouse_scroll(struct wayland *wayl, int amount)
         static xkb_keycode_t key_arrow_down = 0;
 
         if (key_arrow_up == 0) {
-            key_arrow_up = xkb_keymap_key_by_name(wayl->kbd.xkb_keymap, "UP");
-            key_arrow_down = xkb_keymap_key_by_name(wayl->kbd.xkb_keymap, "DOWN");
+            key_arrow_up = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "UP");
+            key_arrow_down = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "DOWN");
         }
 
         xkb_keycode_t key = button == BTN_BACK ? key_arrow_up : key_arrow_down;
 
         for (int i = 0; i < amount; i++)
-            keyboard_key(wayl, NULL, wayl->input_serial, 0, key - 8, XKB_KEY_DOWN);
-        keyboard_key(wayl, NULL, wayl->input_serial, 0, key - 8, XKB_KEY_UP);
+            keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_DOWN);
+        keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_UP);
     } else {
-        for (int i = 0; i < amount; i++)
-            term_mouse_down(term, button, wayl->mouse.row, wayl->mouse.col);
-        term_mouse_up(term, button, wayl->mouse.row, wayl->mouse.col);
-
+        if (!term_mouse_grabbed(term, seat)) {
+            for (int i = 0; i < amount; i++) {
+                term_mouse_down(
+                    term, button, seat->mouse.row, seat->mouse.col,
+                    seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+            }
+            term_mouse_up(
+                term, button, seat->mouse.row, seat->mouse.col,
+                seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+        }
         scrollback(term, amount);
     }
 }
@@ -1293,9 +1323,9 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
     if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
         return;
 
-    struct wayland *wayl = data;
+    struct seat *seat = data;
 
-    if (wayl->mouse.have_discrete)
+    if (seat->mouse.have_discrete)
         return;
 
     /*
@@ -1304,11 +1334,11 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
      * Without this, very slow scrolling will never actually scroll
      * anything.
      */
-    wayl->mouse.axis_aggregated += wl_fixed_to_double(value);
+    seat->mouse.axis_aggregated += wl_fixed_to_double(value);
 
-    if (fabs(wayl->mouse.axis_aggregated) >= 1.) {
-        mouse_scroll(wayl, round(wayl->mouse.axis_aggregated));
-        wayl->mouse.axis_aggregated = 0.;
+    if (fabs(seat->mouse.axis_aggregated) >= 1.) {
+        mouse_scroll(seat, round(seat->mouse.axis_aggregated));
+        seat->mouse.axis_aggregated = 0.;
     }
 }
 
@@ -1319,16 +1349,16 @@ wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
     if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
         return;
 
-    struct wayland *wayl = data;
-    wayl->mouse.have_discrete = true;
-    mouse_scroll(wayl, discrete);
+    struct seat *seat = data;
+    seat->mouse.have_discrete = true;
+    mouse_scroll(seat, discrete);
 }
 
 static void
 wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
 {
-    struct wayland *wayl = data;
-    wayl->mouse.have_discrete = false;
+    struct seat *seat = data;
+    seat->mouse.have_discrete = false;
 }
 
 static void
@@ -1344,8 +1374,8 @@ wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
     if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
         return;
 
-    struct wayland *wayl = data;
-    wayl->mouse.axis_aggregated = 0.;
+    struct seat *seat = data;
+    seat->mouse.axis_aggregated = 0.;
 }
 
 const struct wl_pointer_listener pointer_listener = {
