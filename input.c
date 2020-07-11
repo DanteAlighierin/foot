@@ -301,8 +301,8 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     struct wl_window *win = wl_surface_get_user_data(surface);
     struct terminal *term = win->term;
 
-    LOG_DBG("keyboard_enter: keyboard=%p, serial=%u, surface=%p",
-            wl_keyboard, serial, surface);
+    LOG_DBG("%s: keyboard_enter: keyboard=%p, serial=%u, surface=%p",
+            seat->name, wl_keyboard, serial, surface);
 
     term_kbd_focus_in(term);
     seat->kbd_focus = term;
@@ -895,8 +895,8 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     struct terminal *old_moused = seat->mouse_focus;
 
     LOG_DBG(
-        "pointer-leave: pointer=%p, serial=%u, surface = %p, old-moused = %p",
-        wl_pointer, serial, surface, old_moused);
+        "%s: pointer-leave: pointer=%p, serial=%u, surface = %p, old-moused = %p",
+        seat->name, wl_pointer, serial, surface, old_moused);
 
     if (seat->pointer.xcursor_callback != NULL) {
         /* A cursor frame callback may never be called if the pointer leaves our surface */
