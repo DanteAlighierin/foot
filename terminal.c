@@ -1717,7 +1717,7 @@ void
 term_cursor_blink_enable(struct terminal *term)
 {
     term->cursor_blink.state = CURSOR_BLINK_ON;
-    term->cursor_blink.active = term_has_kbd_focus(term)
+    term->cursor_blink.active = term->kbd_focus
         ? cursor_blink_start_timer(term) : true;
 }
 
@@ -1734,7 +1734,7 @@ term_cursor_blink_restart(struct terminal *term)
 {
     if (term->cursor_blink.active) {
         term->cursor_blink.state = CURSOR_BLINK_ON;
-        term->cursor_blink.active = term_has_kbd_focus(term)
+        term->cursor_blink.active = term->kbd_focus
             ? cursor_blink_start_timer(term) : true;
     }
 }
@@ -1957,18 +1957,6 @@ term_visual_focus_out(struct terminal *term)
     cursor_refresh(term);
 }
 
-bool
-term_has_kbd_focus(struct terminal *term)
-{
-    tll_foreach(term->wl->seats, it) {
-        if (it->item.kbd_focus == term)
-            return true;
-    }
-
-    return false;
-}
-#endif
-
 void
 term_kbd_focus_in(struct terminal *term)
 {
@@ -2108,7 +2096,7 @@ term_mouse_down(struct terminal *term, int button, int row, int col,
         return;
 
 
-    bool has_focus = term_has_kbd_focus(term);
+    bool has_focus = term->kbd_focus;
     bool shift = has_focus ? _shift : false;
     bool alt = has_focus ? _alt : false;
     bool ctrl = has_focus ? _ctrl : false;
@@ -2150,7 +2138,7 @@ term_mouse_up(struct terminal *term, int button, int row, int col,
     if (encoded == -1)
         return;
 
-    bool has_focus = term_has_kbd_focus(term);
+    bool has_focus = term->kbd_focus;
     bool shift = has_focus ? _shift : false;
     bool alt = has_focus ? _alt : false;
     bool ctrl = has_focus ? _ctrl : false;
@@ -2192,7 +2180,7 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
     } else
         encoded = 3;  /* "released" */
 
-    bool has_focus = term_has_kbd_focus(term);
+    bool has_focus = term->kbd_focus;
     bool shift = has_focus ? _shift : false;
     bool alt = has_focus ? _alt : false;
     bool ctrl = has_focus ? _ctrl : false;
