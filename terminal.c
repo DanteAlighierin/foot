@@ -1940,7 +1940,6 @@ term_visual_focus_in(struct terminal *term)
         cursor_blink_start_timer(term);
 
     render_refresh_csd(term);
-    cursor_refresh(term);
 }
 
 void
@@ -1954,7 +1953,6 @@ term_visual_focus_out(struct terminal *term)
         cursor_blink_stop_timer(term);
 
     render_refresh_csd(term);
-    cursor_refresh(term);
 }
 
 void
@@ -1964,6 +1962,7 @@ term_kbd_focus_in(struct terminal *term)
         return;
 
     term->kbd_focus = true;
+    cursor_refresh(term);
 
     if (term->focus_events)
         term_to_slave(term, "\033[I", 3);
@@ -1980,6 +1979,7 @@ term_kbd_focus_out(struct terminal *term)
             return;
 
     term->kbd_focus = false;
+    cursor_refresh(term);
 
     if (term->focus_events)
         term_to_slave(term, "\033[O", 3);
