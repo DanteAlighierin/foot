@@ -336,6 +336,7 @@ struct terminal {
     struct wayland *wl;
     struct wl_window *window;
     bool visual_focus;
+    bool kbd_focus;
     enum term_surface active_surface;
 
     struct {

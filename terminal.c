@@ -1967,12 +1967,15 @@ term_has_kbd_focus(struct terminal *term)
 
     return false;
 }
+#endif
 
 void
 term_kbd_focus_in(struct terminal *term)
 {
-    if (term_has_kbd_focus(term))
+    if (term->kbd_focus)
         return;
+
+    term->kbd_focus = true;
 
     if (term->focus_events)
         term_to_slave(term, "\033[I", 3);
@@ -1981,8 +1984,14 @@ term_kbd_focus_in(struct terminal *term)
 void
 term_kbd_focus_out(struct terminal *term)
 {
-    if (term_has_kbd_focus(term))
+    if (!term->kbd_focus)
         return;
+
+    tll_foreach(term->wl->seats, it)
+        if (it->item.kbd_focus == term)
+            return;
+
+    term->kbd_focus = false;
 
     if (term->focus_events)
         term_to_slave(term, "\033[O", 3);
