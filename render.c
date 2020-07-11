@@ -328,7 +328,7 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
 
     switch (term->cursor_style) {
     case CURSOR_BLOCK:
-        if (!term->visual_focus)
+        if (!term->kbd_focus)
             draw_unfocused_block(term, pix, &cursor_color, x, y, cols);
 
         else if (term->cursor_blink.state == CURSOR_BLINK_ON) {
@@ -340,12 +340,12 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
         break;
 
     case CURSOR_BAR:
-        if (term->cursor_blink.state == CURSOR_BLINK_ON || !term->visual_focus)
+        if (term->cursor_blink.state == CURSOR_BLINK_ON || !term->kbd_focus)
             draw_bar(term, pix, font, &cursor_color, x, y);
         break;
 
     case CURSOR_UNDERLINE:
-        if (term->cursor_blink.state == CURSOR_BLINK_ON || !term->visual_focus) {
+        if (term->cursor_blink.state == CURSOR_BLINK_ON || !term->kbd_focus) {
             draw_underline(
                 term, pix, attrs_to_font(term, &cell->attrs), &cursor_color,
                 x, y, cols);
@@ -435,7 +435,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     if (cell->attrs.blink)
         term_arm_blink_timer(term);
 
-    if (has_cursor && term->cursor_style == CURSOR_BLOCK && term->visual_focus)
+    if (has_cursor && term->cursor_style == CURSOR_BLOCK && term->kbd_focus)
         draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
 
     if (cell->wc == 0 || cell->attrs.conceal)
@@ -495,7 +495,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     }
 
 draw_cursor:
-    if (has_cursor && (term->cursor_style != CURSOR_BLOCK || !term->visual_focus))
+    if (has_cursor && (term->cursor_style != CURSOR_BLOCK || !term->kbd_focus))
         draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
 
     pixman_image_set_clip_region32(pix, NULL);
