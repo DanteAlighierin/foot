@@ -47,6 +47,8 @@
   instead of `Ps=2` to reset the style to the user configured default
   style. `Ps=2` now always configures a _Steady Block_ cursor.
 * `Se` terminfo capability from `\E[2 q` to `\E[ q`.
+* Hollow cursor to be drawn when window has lost _keyboard_ focus
+  rather than _visual_ focus.
 
 
 ### Deprecated
