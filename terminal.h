@@ -378,9 +378,8 @@ struct terminal {
 
         /* Last rendered cursor position */
         struct {
-            struct coord actual;     /* Absolute */
-            struct coord in_view;    /* Offset by view */
-            struct row *row;         /* Actual row TODO: remove */
+            struct row *row;
+            int col;
         } last_cursor;
 
         struct buffer *last_buf;     /* Buffer we rendered to last time */
