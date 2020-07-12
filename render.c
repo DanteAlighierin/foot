@@ -885,7 +885,7 @@ render_worker_thread(void *_ctx)
                 assert(buf != NULL);
 
                 struct row *row = grid_row_in_view(term->grid, row_no);
-                int cursor_col = cursor.row == row_no ? cursor.col : -1;
+                int cursor_col = !term->hide_cursor && cursor.row == row_no ? cursor.col : -1;
 
                 render_row(term, buf->pix[my_id], row, row_no, cursor_col);
                 break;
@@ -1463,7 +1463,7 @@ grid_render(struct terminal *term)
             cursor.row -= term->grid->view;
             cursor.row &= term->grid->num_rows - 1;
 
-            int cursor_col = cursor.row == r ? cursor.col : -1;
+            int cursor_col = !term->hide_cursor && cursor.row == r ? cursor.col : -1;
             render_row(term, buf->pix[0], row, r, cursor_col);
             row->dirty = false;
 
