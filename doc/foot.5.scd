@@ -78,7 +78,7 @@ in this order:
 # SECTION: cursor
 
 This section controls the cursor style and color. Note that
-applications can change these runtime.
+applications can change these at runtime.
 
 *style*
 	Configures the default cursor style, and is one of: _block_, _bar_
@@ -99,7 +99,8 @@ applications can change these runtime.
 # SECTION: colors
 
 This section controls the 16 ANSI colors and the default foreground
-and background colors. Note that applications can change these runtime.
+and background colors. Note that applications can change these at
+runtime.
 
 The colors are in RRGGBB format. That is, they do *not* have an alpha
 component. You can configure the background transparency with the
