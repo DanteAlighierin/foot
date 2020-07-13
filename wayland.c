@@ -546,7 +546,11 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     win->is_fullscreen = win->configure.is_fullscreen;
 
     xdg_surface_ack_configure(xdg_surface, serial);
-    bool resized = render_resize_force(term, win->configure.width, win->configure.height);
+
+    /* TODO: check with GNOME and tiling - presumably that didn't work
+     * unless we presented a *new* buffer, hence we used to do a force
+     * resize here */
+    bool resized = render_resize(term, win->configure.width, win->configure.height);
 
     if (win->configure.is_activated)
         term_visual_focus_in(term);
@@ -556,7 +560,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     /* TODO: remove - shouldn't be necessary with render_resize_force() */
     if (!resized) {
         /*
-         * If we didn't resize, we won't be commit a new surface
+         * If we didn't resize, we won't be committing a new surface
          * anytime soon. Some compositors require a commit in
          * combination with an ack - make them happy.
          */
