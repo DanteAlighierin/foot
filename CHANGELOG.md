@@ -91,6 +91,8 @@
 * Sixel images being erased when printing text next to them.
 * Sixel handling when resizing window.
 * Sixel handling when scrollback wraps around.
+* Foot now issues much fewer `wl_surface_damage_buffer()` calls
+  (https://codeberg.org/dnkl/foot/issues/35).
 
 
 ### Security
