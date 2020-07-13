@@ -1463,15 +1463,15 @@ grid_render(struct terminal *term)
             int cursor_col = cursor.row == r ? cursor.col : -1;
             render_row(term, buf->pix[0], row, r, cursor_col);
         }
+    }
 
-        if (first_dirty_row >= 0) {
-            wl_surface_damage_buffer(
-                term->window->surface,
-                term->margins.left,
-                term->margins.top + first_dirty_row * term->cell_height,
-                term->width - term->margins.left - term->margins.right,
-                (term->rows - first_dirty_row) * term->cell_height);
-        }
+    if (first_dirty_row >= 0) {
+        wl_surface_damage_buffer(
+            term->window->surface,
+            term->margins.left,
+            term->margins.top + first_dirty_row * term->cell_height,
+            term->width - term->margins.left - term->margins.right,
+            (term->rows - first_dirty_row) * term->cell_height);
     }
 
     /* Signal workers the frame is done */
