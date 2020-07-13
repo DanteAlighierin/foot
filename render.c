@@ -504,7 +504,9 @@ draw_cursor:
 
 static void
 render_margin(struct terminal *term, struct buffer *buf,
-              int start_line, int end_line)
+              int start_line, int end_line,
+              bool damage_top, bool damage_bottom,
+              bool damage_left, bool damage_right)
 {
     /* Fill area outside the cell grid with the default background color */
     const int rmargin = term->width - term->margins.right;
@@ -535,25 +537,25 @@ render_margin(struct terminal *term, struct buffer *buf,
              term->margins.right, line_count * term->cell_height},
     });
 
-    /* Top */
-    wl_surface_damage_buffer(
-        term->window->surface, 0, 0, term->width, term->margins.top);
+    if (damage_top)
+        wl_surface_damage_buffer(
+            term->window->surface, 0, 0, term->width, term->margins.top);
 
-    /* Bottom */
-    wl_surface_damage_buffer(
-        term->window->surface, 0, bmargin, term->width, term->margins.bottom);
+    if (damage_bottom)
+        wl_surface_damage_buffer(
+            term->window->surface, 0, bmargin, term->width, term->margins.bottom);
 
-    /* Left */
-    wl_surface_damage_buffer(
-        term->window->surface,
-        0, term->margins.top + start_line * term->cell_height,
-        term->margins.left, line_count * term->cell_height);
+    if (damage_left)
+        wl_surface_damage_buffer(
+            term->window->surface,
+            0, term->margins.top + start_line * term->cell_height,
+            term->margins.left, line_count * term->cell_height);
 
-    /* Right */
-    wl_surface_damage_buffer(
-        term->window->surface,
-        rmargin, term->margins.top + start_line * term->cell_height,
-        term->margins.right, line_count * term->cell_height);
+    if (damage_right)
+        wl_surface_damage_buffer(
+            term->window->surface,
+            rmargin, term->margins.top + start_line * term->cell_height,
+            term->margins.right, line_count * term->cell_height);
 }
 
 static void
@@ -631,7 +633,8 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
     if (did_shm_scroll) {
         /* Restore margins */
         render_margin(
-            term, buf, dmg->region.end - dmg->lines, term->rows);
+            term, buf, dmg->region.end - dmg->lines, term->rows,
+            true, true, true, true);
     } else {
         /* Fallback for when we either cannot do SHM scrolling, or it failed */
         uint8_t *raw = buf->mmapped;
@@ -696,7 +699,8 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
     if (did_shm_scroll) {
         /* Restore margins */
         render_margin(
-            term, buf, dmg->region.start, dmg->region.start + dmg->lines);
+            term, buf, dmg->region.start, dmg->region.start + dmg->lines,
+            true, true, true, true);
     } else {
         /* Fallback for when we either cannot do SHM scrolling, or it failed */
         uint8_t *raw = buf->mmapped;
@@ -1337,7 +1341,7 @@ grid_render(struct terminal *term)
 
         else {
             tll_free(term->grid->scroll_damage);
-            render_margin(term, buf, 0, term->rows);
+            render_margin(term, buf, 0, term->rows, true, true, true, true);
             term_damage_view(term);
         }
 
