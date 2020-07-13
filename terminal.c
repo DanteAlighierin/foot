@@ -552,6 +552,7 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
                             term->fonts[0]->ascent + term->fonts[0]->descent);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
+    /* Use force, since cell-width/height may have changed */
     render_resize_force(term, term->width / term->scale, term->height / term->scale);
     return true;
 }
