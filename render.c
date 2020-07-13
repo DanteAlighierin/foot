@@ -503,8 +503,8 @@ draw_cursor:
 }
 
 static void
-render_margin(struct terminal *term, struct buffer *buf, int start_line, int end_line,
-              bool top, bool bottom)
+render_margin(struct terminal *term, struct buffer *buf,
+              int start_line, int end_line)
 {
     /* Fill area outside the cell grid with the default background color */
     const int rmargin = term->width - term->margins.right;
@@ -517,25 +517,15 @@ render_margin(struct terminal *term, struct buffer *buf, int start_line, int end
     if (term->is_searching)
         color_dim(&bg);
 
-    if (top) {
-        pixman_image_fill_rectangles(
-            PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
-            &(pixman_rectangle16_t){0, 0, term->width, term->margins.top});
-        wl_surface_damage_buffer(
-            term->window->surface, 0, 0, term->width, term->margins.top);
-    }
-
-    if (bottom) {
-        pixman_image_fill_rectangles(
-            PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
-            &(pixman_rectangle16_t){0, bmargin, term->width, term->margins.bottom});
-        wl_surface_damage_buffer(
-            term->window->surface, 0, bmargin, term->width, term->margins.bottom);
-    }
-
     pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix[0], &bg, 2,
+        PIXMAN_OP_SRC, buf->pix[0], &bg, 4,
         (pixman_rectangle16_t[]){
+            /* Top */
+            {0, 0, term->width, term->margins.top},
+
+            /* Bottom */
+            {0, bmargin, term->width, term->margins.bottom},
+
             /* Left */
             {0, term->margins.top + start_line * term->cell_height,
              term->margins.left, line_count * term->cell_height},
@@ -544,6 +534,14 @@ render_margin(struct terminal *term, struct buffer *buf, int start_line, int end
             {rmargin, term->margins.top + start_line * term->cell_height,
              term->margins.right, line_count * term->cell_height},
     });
+
+    /* Top */
+    wl_surface_damage_buffer(
+        term->window->surface, 0, 0, term->width, term->margins.top);
+
+    /* Bottom */
+    wl_surface_damage_buffer(
+        term->window->surface, 0, bmargin, term->width, term->margins.bottom);
 
     /* Left */
     wl_surface_damage_buffer(
@@ -633,8 +631,7 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
     if (did_shm_scroll) {
         /* Restore margins */
         render_margin(
-            term, buf, dmg->region.end - dmg->lines, term->rows,
-            true, true);
+            term, buf, dmg->region.end - dmg->lines, term->rows);
     } else {
         /* Fallback for when we either cannot do SHM scrolling, or it failed */
         uint8_t *raw = buf->mmapped;
@@ -699,8 +696,7 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
     if (did_shm_scroll) {
         /* Restore margins */
         render_margin(
-            term, buf, dmg->region.start, dmg->region.start + dmg->lines,
-            true, true);
+            term, buf, dmg->region.start, dmg->region.start + dmg->lines);
     } else {
         /* Fallback for when we either cannot do SHM scrolling, or it failed */
         uint8_t *raw = buf->mmapped;
@@ -1341,7 +1337,7 @@ grid_render(struct terminal *term)
 
         else {
             tll_free(term->grid->scroll_damage);
-            render_margin(term, buf, 0, term->rows, true, true);
+            render_margin(term, buf, 0, term->rows);
             term_damage_view(term);
         }
 
