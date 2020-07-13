@@ -834,10 +834,11 @@ render_sixel_images(struct terminal *term, pixman_image_t *pix)
 }
 
 static void
-render_row(struct terminal *term, pixman_image_t *pix, struct row *row, int row_no)
+render_row(struct terminal *term, pixman_image_t *pix, struct row *row,
+           int row_no, int cursor_col)
 {
     for (int col = term->cols - 1; col >= 0; col--)
-        render_cell(term, pix, row, col, row_no, false);
+        render_cell(term, pix, row, col, row_no, cursor_col == col);
 }
 
 int
@@ -873,11 +874,22 @@ render_worker_thread(void *_ctx)
             int row_no = tll_pop_front(term->render.workers.queue);
             mtx_unlock(lock);
 
+            /* Translate offset-relative cursor row to view-relative */
+            struct coord cursor = term->grid->cursor.point;
+            cursor.row += term->grid->offset;
+            cursor.row -= term->grid->view;
+            cursor.row &= term->grid->num_rows - 1;
+
             switch (row_no) {
-            default:
+            default: {
                 assert(buf != NULL);
-                render_row(term, buf->pix[my_id], grid_row_in_view(term->grid, row_no), row_no);
+
+                struct row *row = grid_row_in_view(term->grid, row_no);
+                int cursor_col = !term->hide_cursor && cursor.row == row_no ? cursor.col : -1;
+
+                render_row(term, buf->pix[my_id], row, row_no, cursor_col);
                 break;
+            }
 
             case -1:
                 frame_done = true;
@@ -1337,28 +1349,6 @@ grid_render(struct terminal *term)
         term->render.was_searching = term->is_searching;
     }
 
-    /* Erase old cursor (if we rendered a cursor last time) */
-    if (term->render.last_cursor.row != NULL) {
-
-        struct row *row = term->render.last_cursor.row;
-        struct coord at = term->render.last_cursor.in_view;
-        term->render.last_cursor.row = NULL;
-
-        struct cell *cell = &row->cells[at.col];
-
-        /* If cell is already dirty, it will be rendered anyway */
-        if (cell->attrs.clean) {
-            cell->attrs.clean = 0;
-            int cols = render_cell(term, buf->pix[0], row, at.col, at.row, false);
-
-            wl_surface_damage_buffer(
-                term->window->surface,
-                term->margins.left + at.col * term->cell_width,
-                term->margins.top + at.row * term->cell_height,
-                cols * term->cell_width, term->cell_height);
-        }
-    }
-
     tll_foreach(term->grid->scroll_damage, it) {
         switch (it->item.type) {
         case DAMAGE_SCROLL:
@@ -1402,6 +1392,28 @@ grid_render(struct terminal *term)
      */
     selection_dirty_cells(term);
 
+    /* Mark old cursor cell as dirty, to force it to be re-rendered */
+    if (term->render.last_cursor.row != NULL) {
+        struct row *row = term->render.last_cursor.row;
+        struct cell *cell = &row->cells[term->render.last_cursor.col];
+        cell->attrs.clean = 0;
+        row->dirty = true;
+    }
+
+    /* Remember current cursor position, for the next frame */
+    term->render.last_cursor.row = grid_row(term->grid, term->grid->cursor.point.row);
+    term->render.last_cursor.col = term->grid->cursor.point.col;
+
+    /* Mark current cursor cell as dirty, to ensure it is rendered */
+    if (!term->hide_cursor) {
+        const struct coord *cursor = &term->grid->cursor.point;
+
+        struct row *row = grid_row(term->grid, cursor->row);
+        struct cell *cell = &row->cells[cursor->col];
+        cell->attrs.clean = 0;
+        row->dirty = true;
+    }
+
     if (term->render.workers.count > 0) {
 
         term->render.workers.buf = buf;
@@ -1434,6 +1446,10 @@ grid_render(struct terminal *term)
             tll_push_back(term->render.workers.queue, -1);
         cnd_broadcast(&term->render.workers.cond);
         mtx_unlock(&term->render.workers.lock);
+
+        for (size_t i = 0; i < term->render.workers.count; i++)
+            sem_wait(&term->render.workers.done);
+        term->render.workers.buf = NULL;
     } else {
         for (int r = 0; r < term->rows; r++) {
             struct row *row = grid_row_in_view(term->grid, r);
@@ -1441,7 +1457,14 @@ grid_render(struct terminal *term)
             if (!row->dirty)
                 continue;
 
-            render_row(term, buf->pix[0], row, r);
+            /* Translate offset-relative row to view-relative */
+            struct coord cursor = term->grid->cursor.point;
+            cursor.row += term->grid->offset;
+            cursor.row -= term->grid->view;
+            cursor.row &= term->grid->num_rows - 1;
+
+            int cursor_col = !term->hide_cursor && cursor.row == r ? cursor.col : -1;
+            render_row(term, buf->pix[0], row, r, cursor_col);
             row->dirty = false;
 
             wl_surface_damage_buffer(
@@ -1449,59 +1472,6 @@ grid_render(struct terminal *term)
                 term->margins.left, term->margins.top + r * term->cell_height,
                 term->width - term->margins.left - term->margins.right, term->cell_height);
         }
-    }
-
-    /*
-     * Determine if we need to render a cursor or not. The cursor
-     * could be hidden. Or it could have been scrolled out of view.
-     */
-    bool cursor_is_visible = false;
-    int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
-    int cursor_row = (term->grid->offset + term->grid->cursor.point.row) & (term->grid->num_rows - 1);
-    if (view_end >= term->grid->view) {
-        /* Not wrapped */
-        if (cursor_row >= term->grid->view && cursor_row <= view_end)
-            cursor_is_visible = true;
-    } else {
-        /* Wrapped */
-        if (cursor_row >= term->grid->view || cursor_row <= view_end)
-            cursor_is_visible = true;
-    }
-
-    /*
-     * Wait for workers to finish before we render the cursor. This is
-     * because the cursor cell might be dirty, in which case a worker
-     * will render it (but without the cursor).
-     */
-    if (term->render.workers.count > 0) {
-        for (size_t i = 0; i < term->render.workers.count; i++)
-            sem_wait(&term->render.workers.done);
-        term->render.workers.buf = NULL;
-    }
-
-    if (cursor_is_visible && !term->hide_cursor) {
-        /* Remember cursor coordinates so that we can erase it next
-         * time. Note that we need to re-align it against the view. */
-        int view_aligned_row
-            = (cursor_row - term->grid->view + term->grid->num_rows) & (term->grid->num_rows - 1);
-
-        term->render.last_cursor.actual = term->grid->cursor.point;
-        term->render.last_cursor.in_view = (struct coord) {
-            term->grid->cursor.point.col, view_aligned_row};
-
-        struct row *row = grid_row_in_view(term->grid, view_aligned_row);
-        struct cell *cell = &row->cells[term->grid->cursor.point.col];
-
-        cell->attrs.clean = 0;
-        term->render.last_cursor.row = row;
-        int cols_updated = render_cell(
-            term, buf->pix[0], row, term->grid->cursor.point.col, view_aligned_row, true);
-
-        wl_surface_damage_buffer(
-            term->window->surface,
-            term->margins.left + term->grid->cursor.point.col * term->cell_width,
-            term->margins.top + view_aligned_row * term->cell_height,
-            cols_updated * term->cell_width, term->cell_height);
     }
 
     render_sixel_images(term, buf->pix[0]);
