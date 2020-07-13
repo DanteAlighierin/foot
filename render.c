@@ -858,7 +858,6 @@ render_worker_thread(void *_ctx)
     sem_t *start = &term->render.workers.start;
     sem_t *done = &term->render.workers.done;
     mtx_t *lock = &term->render.workers.lock;
-    cnd_t *cond = &term->render.workers.cond;
 
     while (true) {
         sem_wait(start);
@@ -868,8 +867,7 @@ render_worker_thread(void *_ctx)
 
         while (!frame_done) {
             mtx_lock(lock);
-            while (tll_length(term->render.workers.queue) == 0)
-                cnd_wait(cond, lock);
+            assert(tll_length(term->render.workers.queue) > 0);
 
             int row_no = tll_pop_front(term->render.workers.queue);
             mtx_unlock(lock);
@@ -1416,6 +1414,8 @@ grid_render(struct terminal *term)
 
     if (term->render.workers.count > 0) {
 
+        mtx_lock(&term->render.workers.lock);
+
         term->render.workers.buf = buf;
         for (size_t i = 0; i < term->render.workers.count; i++)
             sem_post(&term->render.workers.start);
@@ -1428,11 +1428,7 @@ grid_render(struct terminal *term)
             if (!row->dirty)
                 continue;
 
-            mtx_lock(&term->render.workers.lock);
             tll_push_back(term->render.workers.queue, r);
-            cnd_signal(&term->render.workers.cond);
-            mtx_unlock(&term->render.workers.lock);
-
             row->dirty = false;
 
             wl_surface_damage_buffer(
@@ -1441,10 +1437,8 @@ grid_render(struct terminal *term)
                 term->width - term->margins.left - term->margins.right, term->cell_height);
         }
 
-        mtx_lock(&term->render.workers.lock);
         for (size_t i = 0; i < term->render.workers.count; i++)
             tll_push_back(term->render.workers.queue, -1);
-        cnd_broadcast(&term->render.workers.cond);
         mtx_unlock(&term->render.workers.lock);
 
         for (size_t i = 0; i < term->render.workers.count; i++)

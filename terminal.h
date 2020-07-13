@@ -369,7 +369,6 @@ struct terminal {
             size_t count;
             sem_t start;
             sem_t done;
-            cnd_t cond;
             mtx_t lock;
             tll(int) queue;
             thrd_t *threads;

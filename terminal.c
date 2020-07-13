@@ -507,13 +507,6 @@ initialize_render_workers(struct terminal *term)
         goto err_sem_destroy;
     }
 
-    if ((err = cnd_init(&term->render.workers.cond)) != thrd_success) {
-        LOG_ERR(
-            "failed to instantiate render worker condition variable: %s (%d)",
-            thrd_err_as_string(err), err);
-        goto err_sem_destroy;
-    }
-
     term->render.workers.threads = calloc(
         term->render.workers.count, sizeof(term->render.workers.threads[0]));
 
@@ -1165,7 +1158,6 @@ term_destroy(struct terminal *term)
             sem_post(&term->render.workers.start);
             tll_push_back(term->render.workers.queue, -2);
         }
-        cnd_broadcast(&term->render.workers.cond);
     }
     mtx_unlock(&term->render.workers.lock);
 
@@ -1198,7 +1190,6 @@ term_destroy(struct terminal *term)
         }
     }
     free(term->render.workers.threads);
-    cnd_destroy(&term->render.workers.cond);
     mtx_destroy(&term->render.workers.lock);
     sem_destroy(&term->render.workers.start);
     sem_destroy(&term->render.workers.done);
