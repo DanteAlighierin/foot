@@ -1030,7 +1030,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 }
 
                 case 7:
+                    /* DECAWM */
                     term->auto_margin = true;
+                    term->grid->cursor.lcf = false;
                     break;
 
                 case 9:
@@ -1175,7 +1177,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 }
 
                 case 7:
+                    /* DECAWM */
                     term->auto_margin = false;
+                    term->grid->cursor.lcf = false;
                     break;
 
                 case 12:
