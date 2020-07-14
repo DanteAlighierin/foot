@@ -212,6 +212,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     char *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
     if (map_str == MAP_FAILED) {
         LOG_ERRNO("failed to mmap keyboard keymap");
+        close(fd);
         return;
     }
 
