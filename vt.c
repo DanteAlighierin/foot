@@ -148,8 +148,10 @@ action_execute(struct terminal *term, uint8_t c)
 
     case '\n':
     case '\v':
+    case '\f':
         /* LF - \n - line feed */
         /* VT - \v - vertical tab */
+        /* FF - \f - form feed */
         term_linefeed(term);
         break;
 

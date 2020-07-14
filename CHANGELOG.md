@@ -23,6 +23,7 @@
     whether the cursor should blink or not by default. Note that
     applications can override this.
 * Multi-seat support
+* Implemented `C0::FF` (form feed)
 
 
 ### Changed
