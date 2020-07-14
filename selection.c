@@ -135,6 +135,8 @@ foreach_selected_normal(
              c++)
         {
             cb(term, row, &row->cells[c], c, data);
+            c += max(1, wcwidth(row->cells[c].wc)) - 1;
+            assert(c < term->cols);
         }
 
         start_col = 0;
@@ -165,8 +167,11 @@ foreach_selected_block(
         struct row *row = term->grid->rows[real_r];
         assert(row != NULL);
 
-        for (int c = top_left.col; c <= bottom_right.col; c++)
+        for (int c = top_left.col; c <= bottom_right.col; c++) {
             cb(term, row, &row->cells[c], c, data);
+            c += max(1, wcwidth(row->cells[c].wc)) - 1;
+            assert(c < term->cols);
+        }
     }
 }
 
