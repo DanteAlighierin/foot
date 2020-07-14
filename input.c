@@ -215,6 +215,8 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         return;
     }
 
+    while (map_str[size - 1] == '\0')
+        size--;
 
     if (seat->kbd.xkb_compose_state != NULL) {
         xkb_compose_state_unref(seat->kbd.xkb_compose_state);
@@ -246,8 +248,8 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     tll_free(seat->kbd.bindings.search);
 
     seat->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    seat->kbd.xkb_keymap = xkb_keymap_new_from_string(
-        seat->kbd.xkb, map_str, XKB_KEYMAP_FORMAT_TEXT_V1,
+    seat->kbd.xkb_keymap = xkb_keymap_new_from_buffer(
+        seat->kbd.xkb, map_str, size, XKB_KEYMAP_FORMAT_TEXT_V1,
         XKB_KEYMAP_COMPILE_NO_FLAGS);
 
     /* TODO: initialize in enter? */
