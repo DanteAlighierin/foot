@@ -2399,6 +2399,16 @@ term_print(struct terminal *term, wchar_t wc, int width)
         /* Multi-column character that doesn't fit on current line -
          * force a line wrap */
         term->grid->cursor.lcf = 1;
+
+        /*
+         * TODO: should we insert place holder values in the remaining
+         * cells?  This would allow e.g. text extraction to simply
+         * skip these, instead of trying to recognize a sequence of
+         * empty cells at the end of the line followed by a
+         * multi-column character...
+         *
+         * Might also make text reflow easier, or even more correct.
+         */
     }
 
     print_linewrap(term);
