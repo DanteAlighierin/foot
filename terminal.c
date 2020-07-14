@@ -2405,9 +2405,9 @@ term_print(struct terminal *term, wchar_t wc, int width)
 
     /* Advance cursor the 'additional' columns while dirty:ing the cells */
     for (int i = 1; i < width && term->grid->cursor.point.col < term->cols - 1; i++) {
-        term_cursor_right(term, 1);
-
+        term->grid->cursor.point.col++;
         assert(term->grid->cursor.point.col < term->cols);
+
         struct cell *cell = &row->cells[term->grid->cursor.point.col];
         cell->wc = 0;
         cell->attrs.clean = 0;
