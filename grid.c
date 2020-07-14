@@ -222,12 +222,22 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
             /* Multi-column characters are never cut in half */
             assert(c + width <= old_cols);
 
-            for (int i = 0; i < empty_count + width; i++) {
+            for (int i = 0; i < empty_count + 1; i++) {
                 const struct cell *old_cell = &old_row->cells[c - empty_count + i];
 
+                if (old_cell->wc == CELL_MULT_COL_SPACER)
+                    continue;
+
                 /* Out of columns on current row in new grid? */
-                if (new_col_idx + max(1, wcwidth(old_cell->wc)) > new_cols)
+                if (new_col_idx + max(1, wcwidth(old_cell->wc)) > new_cols) {
+                    /* Pad to end-of-line with spacers, then line-wrap */
+                    for (;new_col_idx < new_cols; new_col_idx++) {
+                        new_row->cells[new_col_idx] = (struct cell){};
+                        new_row->cells[new_col_idx].wc = CELL_MULT_COL_SPACER;
+                        new_row->cells[new_col_idx].attrs.clean = 1;
+                    }
                     line_wrap();
+                }
 
                 assert(new_row != NULL);
                 assert(new_col_idx >= 0);
@@ -247,6 +257,16 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                     }
                 }
                 new_col_idx++;
+
+                /* For multi-column characters, insert spacers in the
+                 * subsequent cells */
+                for (size_t i = 0; i < width - 1; i++) {
+                    assert(new_col_idx < new_cols);
+                    new_row->cells[new_col_idx] = (struct cell){};
+                    new_row->cells[new_col_idx].wc = CELL_MULT_COL_SPACER;
+                    new_row->cells[new_col_idx].attrs.clean = 1;
+                    new_col_idx++;
+                }
             }
 
             c += width - 1;
