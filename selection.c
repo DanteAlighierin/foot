@@ -321,8 +321,9 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
 
     assert(ctx->idx + 1 <= ctx->size);
 
-    if (cell->wc >= COMB_CHARS_LO && cell->wc < (COMB_CHARS_LO + term->composed_count)) {
-        const struct composed *composed = &term->composed[cell->wc - COMB_CHARS_LO];
+    if (cell->wc >= CELL_COMB_CHARS_LO &&
+        cell->wc < (CELL_COMB_CHARS_LO + term->composed_count)) {
+        const struct composed *composed = &term->composed[cell->wc - CELL_COMB_CHARS_LO];
 
         ctx->buf[ctx->idx++] = composed->base;
 
