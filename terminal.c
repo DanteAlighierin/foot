@@ -2427,9 +2427,10 @@ term_print(struct terminal *term, wchar_t wc, int width)
     }
 
     /* Advance cursor */
-    if (term->grid->cursor.point.col < term->cols - 1)
-        term_cursor_right(term, 1);
-    else
+    if (term->grid->cursor.point.col < term->cols - 1) {
+        term->grid->cursor.point.col++;
+        assert(!term->grid->cursor.lcf);
+    } else
         term->grid->cursor.lcf = true;
 }
 
