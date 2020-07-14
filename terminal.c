@@ -2387,6 +2387,17 @@ print_insert(struct terminal *term, int width)
         row->cells[i].attrs.clean = 0;
 }
 
+static void
+print_spacer(struct terminal *term, int col)
+{
+    struct row *row = term->grid->cur_row;
+    struct cell *cell = &row->cells[col];
+
+    cell->wc = CELL_MULT_COL_SPACER;
+    cell->attrs = term->vt.attrs;
+    cell->attrs.clean = 0;
+}
+
 void
 term_print(struct terminal *term, wchar_t wc, int width)
 {
@@ -2401,11 +2412,8 @@ term_print(struct terminal *term, wchar_t wc, int width)
     {
         /* Multi-column character that doesn't fit on current line -
          * pad with spacers */
-        for (size_t i = term->grid->cursor.point.col; i < term->cols; i++) {
-            struct cell *cell = &term->grid->cur_row->cells[i];
-            cell->wc = CELL_MULT_COL_SPACER;
-            cell->attrs.clean = 0;
-        }
+        for (size_t i = term->grid->cursor.point.col; i < term->cols; i++)
+            print_spacer(term, i);
 
         /* And force a line-wrap */
         term->grid->cursor.lcf = 1;
@@ -2427,10 +2435,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     /* Advance cursor the 'additional' columns while dirty:ing the cells */
     for (int i = 1; i < width && term->grid->cursor.point.col < term->cols - 1; i++) {
         term->grid->cursor.point.col++;
-
-        struct cell *cell = &row->cells[term->grid->cursor.point.col];
-        cell->wc = CELL_MULT_COL_SPACER;
-        cell->attrs.clean = 0;
+        print_spacer(term, term->grid->cursor.point.col);
     }
 
     /* Advance cursor */
