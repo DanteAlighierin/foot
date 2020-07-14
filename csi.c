@@ -729,6 +729,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
 
             case 20:  /* Automatic Newline Mode - LNM */
+                /* TODO: would be easy to implemented; when active
+                 * term_linefeed() would _also_ do a
+                 * term_carriage_return() */
                 LOG_WARN("unimplemented: automatic newline mode (LNM)");
                 break;
             }

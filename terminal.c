@@ -1878,7 +1878,7 @@ term_scroll_reverse(struct terminal *term, int rows)
 }
 
 void
-term_formfeed(struct terminal *term)
+term_carriage_return(struct terminal *term)
 {
     term_cursor_left(term, term->grid->cursor.point.col);
 }

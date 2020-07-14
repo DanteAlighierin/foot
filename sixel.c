@@ -469,7 +469,7 @@ sixel_unhook(struct terminal *term)
 
         for (size_t i = 0; i < image.rows; i++)
             term_linefeed(term);
-        term_formfeed(term);
+        term_carriage_return(term);
         render_refresh(term);
 
         sixel_insert(term, image);

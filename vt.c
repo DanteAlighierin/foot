@@ -157,7 +157,7 @@ action_execute(struct terminal *term, uint8_t c)
 
     case '\r':
         /* CR - carriage ret */
-        term_formfeed(term);
+        term_carriage_return(term);
         break;
 
     case '\x0e':
@@ -180,6 +180,7 @@ action_execute(struct terminal *term, uint8_t c)
          * UTF-8 mode_. Which would be the normal mode of operation
          * these days. And since we _only_ support UTF-8...
          */
+
 #if 0
     case '\x84':  /* IND     -> ESC D */
     case '\x85':  /* NEL     -> ESC E */
@@ -360,7 +361,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 'E':
-            term_formfeed(term);
+            term_carriage_return(term);
             term_linefeed(term);
             break;
 

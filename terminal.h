@@ -506,7 +506,7 @@ void term_scroll_partial(
 void term_scroll_reverse_partial(
     struct terminal *term, struct scroll_region region, int rows);
 
-void term_formfeed(struct terminal *term);
+void term_carriage_return(struct terminal *term);
 void term_linefeed(struct terminal *term);
 void term_reverse_index(struct terminal *term);
 
