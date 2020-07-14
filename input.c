@@ -210,6 +210,11 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     struct wayland *wayl = seat->wayl;
 
     char *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (map_str == MAP_FAILED) {
+        LOG_ERRNO("failed to mmap keyboard keymap");
+        return;
+    }
+
 
     if (seat->kbd.xkb_compose_state != NULL) {
         xkb_compose_state_unref(seat->kbd.xkb_compose_state);
@@ -304,6 +309,9 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     LOG_DBG("%s: keyboard_enter: keyboard=%p, serial=%u, surface=%p",
             seat->name, wl_keyboard, serial, surface);
 
+    if (seat->kbd.xkb == NULL)
+        return;
+
     term_kbd_focus_in(term);
     seat->kbd_focus = term;
     seat->kbd.serial = serial;
@@ -359,6 +367,9 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
     LOG_DBG("keyboard_leave: keyboard=%p, serial=%u, surface=%p",
             wl_keyboard, serial, surface);
+
+    if (seat->kbd.xkb == NULL)
+        return;
 
     assert(
         seat->kbd_focus == NULL ||
@@ -510,6 +521,9 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 {
     struct seat *seat = data;
     struct terminal *term = seat->kbd_focus;
+
+    if (seat->kbd.xkb == NULL)
+        return;
 
     assert(term != NULL);
 
@@ -733,6 +747,9 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
     LOG_DBG("modifiers: depressed=0x%x, latched=0x%x, locked=0x%x, group=%u",
             mods_depressed, mods_latched, mods_locked, group);
+
+    if (seat->kbd.xkb == NULL)
+        return;
 
     xkb_state_update_mask(
         seat->kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
