@@ -2393,6 +2393,9 @@ term_print(struct terminal *term, wchar_t wc, int width)
     if (unlikely(width <= 0))
         return;
 
+    print_linewrap(term);
+    print_insert(term, width);
+
     if (unlikely(width > 1) &&
         term->grid->cursor.point.col + width > term->cols)
     {
@@ -2406,10 +2409,8 @@ term_print(struct terminal *term, wchar_t wc, int width)
 
         /* And force a line-wrap */
         term->grid->cursor.lcf = 1;
+        print_linewrap(term);
     }
-
-    print_linewrap(term);
-    print_insert(term, width);
 
     sixel_overwrite_at_cursor(term, width);
 
