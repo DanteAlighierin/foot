@@ -100,6 +100,7 @@
   Column Flag_).
 * `LF` now always clears `LCF`. Previously, it only cleared it when
   the cursor was **not** at the bottom of the scrolling region.
+* `IND` and `RI` now clears `LCF`.
 
 
 ### Security
