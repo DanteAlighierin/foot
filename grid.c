@@ -221,7 +221,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                 const struct cell *old_cell = &old_row->cells[c - empty_count + i];
 
                 /* Out of columns on current row in new grid? */
-                if (new_col_idx + wcwidth(old_cell->wc) > new_cols)
+                if (new_col_idx + max(1, wcwidth(old_cell->wc)) > new_cols)
                     line_wrap();
 
                 assert(new_row != NULL);
