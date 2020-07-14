@@ -121,14 +121,10 @@ action_execute(struct terminal *term, uint8_t c)
     case '\0':
         break;
 
-    case '\n':
-        /* LF - line feed */
-        term_linefeed(term);
-        break;
-
-    case '\r':
-        /* FF - form feed */
-        term_formfeed(term);
+    case '\a':
+        /* BEL - bell */
+        // LOG_INFO("BELL");
+        // term_flash(term, 50);
         break;
 
     case '\b':
@@ -136,13 +132,7 @@ action_execute(struct terminal *term, uint8_t c)
         term_cursor_left(term, 1);
         break;
 
-    case '\x07':
-        /* BEL */
-        // LOG_INFO("BELL");
-        // term_flash(term, 50);
-        break;
-
-    case '\x09': {
+    case '\t': {
         /* HT - horizontal tab */
         int new_col = term->cols - 1;
         tll_foreach(term->tab_stops, it) {
@@ -156,9 +146,19 @@ action_execute(struct terminal *term, uint8_t c)
         break;
     }
 
-    case '\x0b':
+    case '\n':
+        /* LF - line feed */
+        term_linefeed(term);
+        break;
+
+    case '\v':
         /* VT - vertical tab */
         term_cursor_down(term, 1);
+        break;
+
+    case '\r':
+        /* CR - carriage ret */
+        term_formfeed(term);
         break;
 
     case '\x0e':
