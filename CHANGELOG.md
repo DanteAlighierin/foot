@@ -93,6 +93,8 @@
 * Sixel handling when scrollback wraps around.
 * Foot now issues much fewer `wl_surface_damage_buffer()` calls
   (https://codeberg.org/dnkl/foot/issues/35).
+* `C0::VT` to be processed as `C0::LF`. Previously, `C0::VT` would
+  only move the cursor down, but never scroll.
 
 
 ### Security
