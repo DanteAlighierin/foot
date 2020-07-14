@@ -217,7 +217,12 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
             if (new_cols_left < cols_needed && new_cols_left >= old_cols_left)
                 empty_count = max(0, empty_count - (cols_needed - new_cols_left));
 
-            for (int i = 0; i < empty_count + 1; i++) {
+            int width = max(1, wcwidth(old_row->cells[c].wc));
+
+            /* Multi-column characters are never cut in half */
+            assert(c + width <= old_cols);
+
+            for (int i = 0; i < empty_count + width; i++) {
                 const struct cell *old_cell = &old_row->cells[c - empty_count + i];
 
                 /* Out of columns on current row in new grid? */
@@ -244,6 +249,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                 new_col_idx++;
             }
 
+            c += width - 1;
             empty_count = 0;
         }
 
