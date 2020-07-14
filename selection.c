@@ -273,22 +273,7 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
         /* New row - determine if we should insert a newline or not */
 
         if (term->selection.kind == SELECTION_NORMAL) {
-            int width = max(1, wcwidth(cell->wc));
-
-            if (width > 1) {
-                /* Heuristict to handle force-wrapped multi-column
-                 * characters */
-
-                /*
-                 * TODO: maybe we should print a placeholder value to
-                 * the empty cells at the end of the line when
-                 * force-wrapping? Then extract() could simply skip
-                 * those cells
-                 */
-                ctx->empty_count -= min(width, ctx->empty_count);
-            }
-
-            else if (ctx->last_row->linebreak ||
+            if (ctx->last_row->linebreak ||
                 ctx->empty_count > 0 ||
                 cell->wc == 0)
             {
