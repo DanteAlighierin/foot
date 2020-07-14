@@ -2364,10 +2364,10 @@ print_linewrap(struct terminal *term)
 static inline void
 print_insert(struct terminal *term, int width)
 {
-    assert(width > 0);
-
     if (likely(!term->insert_mode))
         return;
+
+    assert(width > 0);
 
     struct row *row = term->grid->cur_row;
     const size_t move_count = max(0, term->cols - term->grid->cursor.point.col - width);
