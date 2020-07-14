@@ -503,8 +503,8 @@ draw_cursor:
 }
 
 static void
-render_margin(struct terminal *term, struct buffer *buf, int start_line, int end_line,
-              bool top, bool bottom)
+render_margin(struct terminal *term, struct buffer *buf,
+              int start_line, int end_line, bool apply_damage)
 {
     /* Fill area outside the cell grid with the default background color */
     const int rmargin = term->width - term->margins.right;
@@ -517,25 +517,15 @@ render_margin(struct terminal *term, struct buffer *buf, int start_line, int end
     if (term->is_searching)
         color_dim(&bg);
 
-    if (top) {
-        pixman_image_fill_rectangles(
-            PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
-            &(pixman_rectangle16_t){0, 0, term->width, term->margins.top});
-        wl_surface_damage_buffer(
-            term->window->surface, 0, 0, term->width, term->margins.top);
-    }
-
-    if (bottom) {
-        pixman_image_fill_rectangles(
-            PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
-            &(pixman_rectangle16_t){0, bmargin, term->width, term->margins.bottom});
-        wl_surface_damage_buffer(
-            term->window->surface, 0, bmargin, term->width, term->margins.bottom);
-    }
-
     pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix[0], &bg, 2,
+        PIXMAN_OP_SRC, buf->pix[0], &bg, 4,
         (pixman_rectangle16_t[]){
+            /* Top */
+            {0, 0, term->width, term->margins.top},
+
+            /* Bottom */
+            {0, bmargin, term->width, term->margins.bottom},
+
             /* Left */
             {0, term->margins.top + start_line * term->cell_height,
              term->margins.left, line_count * term->cell_height},
@@ -545,17 +535,27 @@ render_margin(struct terminal *term, struct buffer *buf, int start_line, int end
              term->margins.right, line_count * term->cell_height},
     });
 
-    /* Left */
-    wl_surface_damage_buffer(
-        term->window->surface,
-        0, term->margins.top + start_line * term->cell_height,
-        term->margins.left, line_count * term->cell_height);
+    if (apply_damage) {
+        /* Top */
+        wl_surface_damage_buffer(
+            term->window->surface, 0, 0, term->width, term->margins.top);
 
-    /* Right */
-    wl_surface_damage_buffer(
-        term->window->surface,
-        rmargin, term->margins.top + start_line * term->cell_height,
-        term->margins.right, line_count * term->cell_height);
+        /* Bottom */
+        wl_surface_damage_buffer(
+            term->window->surface, 0, bmargin, term->width, term->margins.bottom);
+
+        /* Left */
+        wl_surface_damage_buffer(
+            term->window->surface,
+            0, term->margins.top + start_line * term->cell_height,
+            term->margins.left, line_count * term->cell_height);
+
+        /* Right */
+        wl_surface_damage_buffer(
+            term->window->surface,
+            rmargin, term->margins.top + start_line * term->cell_height,
+            term->margins.right, line_count * term->cell_height);
+    }
 }
 
 static void
@@ -633,8 +633,7 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
     if (did_shm_scroll) {
         /* Restore margins */
         render_margin(
-            term, buf, dmg->region.end - dmg->lines, term->rows,
-            true, true);
+            term, buf, dmg->region.end - dmg->lines, term->rows, false);
     } else {
         /* Fallback for when we either cannot do SHM scrolling, or it failed */
         uint8_t *raw = buf->mmapped;
@@ -699,8 +698,7 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
     if (did_shm_scroll) {
         /* Restore margins */
         render_margin(
-            term, buf, dmg->region.start, dmg->region.start + dmg->lines,
-            true, true);
+            term, buf, dmg->region.start, dmg->region.start + dmg->lines, false);
     } else {
         /* Fallback for when we either cannot do SHM scrolling, or it failed */
         uint8_t *raw = buf->mmapped;
@@ -865,6 +863,15 @@ render_worker_thread(void *_ctx)
         struct buffer *buf = term->render.workers.buf;
         bool frame_done = false;
 
+        /* Translate offset-relative cursor row to view-relative */
+        struct coord cursor = {-1, -1};
+        if (!term->hide_cursor) {
+            cursor = term->grid->cursor.point;
+            cursor.row += term->grid->offset;
+            cursor.row -= term->grid->view;
+            cursor.row &= term->grid->num_rows - 1;
+        }
+
         while (!frame_done) {
             mtx_lock(lock);
             assert(tll_length(term->render.workers.queue) > 0);
@@ -872,18 +879,12 @@ render_worker_thread(void *_ctx)
             int row_no = tll_pop_front(term->render.workers.queue);
             mtx_unlock(lock);
 
-            /* Translate offset-relative cursor row to view-relative */
-            struct coord cursor = term->grid->cursor.point;
-            cursor.row += term->grid->offset;
-            cursor.row -= term->grid->view;
-            cursor.row &= term->grid->num_rows - 1;
-
             switch (row_no) {
             default: {
                 assert(buf != NULL);
 
                 struct row *row = grid_row_in_view(term->grid, row_no);
-                int cursor_col = !term->hide_cursor && cursor.row == row_no ? cursor.col : -1;
+                int cursor_col = cursor.row == row_no ? cursor.col : -1;
 
                 render_row(term, buf->pix[my_id], row, row_no, cursor_col);
                 break;
@@ -1338,7 +1339,7 @@ grid_render(struct terminal *term)
 
         else {
             tll_free(term->grid->scroll_damage);
-            render_margin(term, buf, 0, term->rows, true, true);
+            render_margin(term, buf, 0, term->rows, true);
             term_damage_view(term);
         }
 
@@ -1412,31 +1413,67 @@ grid_render(struct terminal *term)
         row->dirty = true;
     }
 
+    /* Translate offset-relative row to view-relative, unless cursor
+     * is hidden, then we just set it to -1 */
+    struct coord cursor = {-1, -1};
+    if (!term->hide_cursor) {
+        cursor = term->grid->cursor.point;
+        cursor.row += term->grid->offset;
+        cursor.row -= term->grid->view;
+        cursor.row &= term->grid->num_rows - 1;
+    }
+
     if (term->render.workers.count > 0) {
-
         mtx_lock(&term->render.workers.lock);
-
         term->render.workers.buf = buf;
         for (size_t i = 0; i < term->render.workers.count; i++)
             sem_post(&term->render.workers.start);
 
         assert(tll_length(term->render.workers.queue) == 0);
+    }
 
-        for (int r = 0; r < term->rows; r++) {
-            struct row *row = grid_row_in_view(term->grid, r);
+    int first_dirty_row = -1;
+    for (int r = 0; r < term->rows; r++) {
+        struct row *row = grid_row_in_view(term->grid, r);
 
-            if (!row->dirty)
-                continue;
-
-            tll_push_back(term->render.workers.queue, r);
-            row->dirty = false;
-
-            wl_surface_damage_buffer(
-                term->window->surface,
-                term->margins.left, term->margins.top + r * term->cell_height,
-                term->width - term->margins.left - term->margins.right, term->cell_height);
+        if (!row->dirty) {
+            if (first_dirty_row >= 0) {
+                wl_surface_damage_buffer(
+                    term->window->surface,
+                    term->margins.left,
+                    term->margins.top + first_dirty_row * term->cell_height,
+                    term->width - term->margins.left - term->margins.right,
+                    (r - first_dirty_row) * term->cell_height);
+            }
+            first_dirty_row = -1;
+            continue;
         }
 
+        if (first_dirty_row < 0)
+            first_dirty_row = r;
+
+        row->dirty = false;
+
+        if (term->render.workers.count > 0)
+            tll_push_back(term->render.workers.queue, r);
+
+        else {
+            int cursor_col = cursor.row == r ? cursor.col : -1;
+            render_row(term, buf->pix[0], row, r, cursor_col);
+        }
+    }
+
+    if (first_dirty_row >= 0) {
+        wl_surface_damage_buffer(
+            term->window->surface,
+            term->margins.left,
+            term->margins.top + first_dirty_row * term->cell_height,
+            term->width - term->margins.left - term->margins.right,
+            (term->rows - first_dirty_row) * term->cell_height);
+    }
+
+    /* Signal workers the frame is done */
+    if (term->render.workers.count > 0) {
         for (size_t i = 0; i < term->render.workers.count; i++)
             tll_push_back(term->render.workers.queue, -1);
         mtx_unlock(&term->render.workers.lock);
@@ -1444,28 +1481,6 @@ grid_render(struct terminal *term)
         for (size_t i = 0; i < term->render.workers.count; i++)
             sem_wait(&term->render.workers.done);
         term->render.workers.buf = NULL;
-    } else {
-        for (int r = 0; r < term->rows; r++) {
-            struct row *row = grid_row_in_view(term->grid, r);
-
-            if (!row->dirty)
-                continue;
-
-            /* Translate offset-relative row to view-relative */
-            struct coord cursor = term->grid->cursor.point;
-            cursor.row += term->grid->offset;
-            cursor.row -= term->grid->view;
-            cursor.row &= term->grid->num_rows - 1;
-
-            int cursor_col = !term->hide_cursor && cursor.row == r ? cursor.col : -1;
-            render_row(term, buf->pix[0], row, r, cursor_col);
-            row->dirty = false;
-
-            wl_surface_damage_buffer(
-                term->window->surface,
-                term->margins.left, term->margins.top + r * term->cell_height,
-                term->width - term->margins.left - term->margins.right, term->cell_height);
-        }
     }
 
     render_sixel_images(term, buf->pix[0]);

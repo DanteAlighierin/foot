@@ -403,10 +403,10 @@ main(int argc, char *const *argv)
     if (!as_server && (term = term_init(
                            &conf, fdm, reaper, wayl, "foot", cwd, argc, argv,
                            &term_shutdown_cb, &shutdown_ctx)) == NULL) {
-        free(cwd);
         goto out;
     }
     free(cwd);
+    cwd = NULL;
 
     if (as_server && (server = server_init(&conf, fdm, reaper, wayl)) == NULL)
         goto out;
@@ -439,6 +439,7 @@ main(int argc, char *const *argv)
     ret = aborted || tll_length(wayl->terms) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
 out:
+    free(cwd);
     server_destroy(server);
     term_destroy(term);
 
