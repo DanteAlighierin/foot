@@ -2388,6 +2388,12 @@ term_print(struct terminal *term, wchar_t wc, int width)
     if (unlikely(width <= 0))
         return;
 
+    if (term->grid->cursor.point.col + width > term->cols) {
+        /* Multi-column character that doesn't fit on current line -
+         * force a line wrap */
+        term->grid->cursor.lcf = 1;
+    }
+
     print_linewrap(term);
     print_insert(term, width);
 
