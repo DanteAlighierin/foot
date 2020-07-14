@@ -96,10 +96,10 @@
   (https://codeberg.org/dnkl/foot/issues/35).
 * `C0::VT` to be processed as `C0::LF`. Previously, `C0::VT` would
   only move the cursor down, but never scroll.
-* `HT` (_Horizontal Tab_, or `\t`) no longer clears `LCF` (_Last
+* `C0::HT` (_Horizontal Tab_, or `\t`) no longer clears `LCF` (_Last
   Column Flag_).
-* `LF` now always clears `LCF`. Previously, it only cleared it when
-  the cursor was **not** at the bottom of the scrolling region.
+* `C0::LF` now always clears `LCF`. Previously, it only cleared it
+  when the cursor was **not** at the bottom of the scrolling region.
 * `IND` and `RI` now clears `LCF`.
 * `DECAWM` not clears `LCF`.
 * A multi-column character that does not fit on the current line is
