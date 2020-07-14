@@ -96,6 +96,8 @@
   (https://codeberg.org/dnkl/foot/issues/35).
 * `C0::VT` to be processed as `C0::LF`. Previously, `C0::VT` would
   only move the cursor down, but never scroll.
+* HT (_Horizontal Tab_, or `\t`) no longer clears `LCF` (_Last Column
+  Flag_).
 
 
 ### Security

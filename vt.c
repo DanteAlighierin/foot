@@ -142,7 +142,13 @@ action_execute(struct terminal *term, uint8_t c)
             }
         }
         assert(new_col >= term->grid->cursor.point.col);
+
+        /* According to the specification, HT _should_ cancel LCF. But
+         * XTerm, and nearly all other emulators, don't. So we follow
+         * suite */
+        bool lcf = term->grid->cursor.lcf;
         term_cursor_right(term, new_col - term->grid->cursor.point.col);
+        term->grid->cursor.lcf = lcf;
         break;
     }
 
