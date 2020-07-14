@@ -2354,11 +2354,15 @@ print_linewrap(struct terminal *term)
         return;
     }
 
+    term->grid->cursor.lcf = false;
     if (term->grid->cursor.point.row == term->scroll_region.end - 1)
         term_scroll(term, 1);
-    else
-        term_cursor_down(term, 1);
-    term_cursor_left(term, term->grid->cursor.point.col);
+    else {
+        assert(term->grid->cursor.point.row < term->scroll_region.end - 1);
+        term->grid->cursor.point.row++;
+    }
+
+    term->grid->cursor.point.col = 0;
 }
 
 static inline void
