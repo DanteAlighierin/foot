@@ -2360,6 +2360,7 @@ print_linewrap(struct terminal *term)
     else {
         assert(term->grid->cursor.point.row < term->scroll_region.end - 1);
         term->grid->cursor.point.row++;
+        term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
     }
 
     term->grid->cursor.point.col = 0;
