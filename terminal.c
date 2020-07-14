@@ -2397,18 +2397,15 @@ term_print(struct terminal *term, wchar_t wc, int width)
         term->grid->cursor.point.col + width > term->cols)
     {
         /* Multi-column character that doesn't fit on current line -
-         * force a line wrap */
-        term->grid->cursor.lcf = 1;
+         * pad with spacers */
+        for (size_t i = term->grid->cursor.point.col; i < term->cols; i++) {
+            struct cell *cell = &term->grid->cur_row->cells[i];
+            cell->wc = CELL_MULT_COL_SPACER;
+            cell->attrs.clean = 0;
+        }
 
-        /*
-         * TODO: should we insert place holder values in the remaining
-         * cells?  This would allow e.g. text extraction to simply
-         * skip these, instead of trying to recognize a sequence of
-         * empty cells at the end of the line followed by a
-         * multi-column character...
-         *
-         * Might also make text reflow easier, or even more correct.
-         */
+        /* And force a line-wrap */
+        term->grid->cursor.lcf = 1;
     }
 
     print_linewrap(term);
@@ -2431,7 +2428,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
         term->grid->cursor.point.col++;
 
         struct cell *cell = &row->cells[term->grid->cursor.point.col];
-        cell->wc = 0;
+        cell->wc = CELL_MULT_COL_SPACER;
         cell->attrs.clean = 0;
     }
 

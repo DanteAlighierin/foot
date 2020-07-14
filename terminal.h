@@ -50,6 +50,8 @@ static_assert(sizeof(struct attributes) == 8, "bad size");
 
 #define CELL_COMB_CHARS_LO    0x40000000ul
 #define CELL_COMB_CHARS_HI    0x400ffffful
+#define CELL_MULT_COL_SPACER  0x40100000ul
+
 struct cell {
     wchar_t wc;
     struct attributes attrs;

@@ -134,9 +134,9 @@ foreach_selected_normal(
              c <= (r == end_row ? end_col : term->cols - 1);
              c++)
         {
+            if (row->cells[c].wc == CELL_MULT_COL_SPACER)
+                continue;
             cb(term, row, &row->cells[c], c, data);
-            c += max(1, wcwidth(row->cells[c].wc)) - 1;
-            assert(c < term->cols);
         }
 
         start_col = 0;
@@ -168,9 +168,9 @@ foreach_selected_block(
         assert(row != NULL);
 
         for (int c = top_left.col; c <= bottom_right.col; c++) {
+            if (row->cells[c].wc == CELL_MULT_COL_SPACER)
+                continue;
             cb(term, row, &row->cells[c], c, data);
-            c += max(1, wcwidth(row->cells[c].wc)) - 1;
-            assert(c < term->cols);
         }
     }
 }
