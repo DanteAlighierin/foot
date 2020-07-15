@@ -47,6 +47,7 @@ enum bind_action_normal {
 struct key_binding_normal {
     struct key_binding bind;
     enum bind_action_normal action;
+    const char *spawn;
 };
 
 struct mouse_binding {

@@ -197,7 +197,8 @@ input_parse_key_binding(struct xkb_keymap *keymap, const char *combos,
             };
 
             tll_push_back(*bindings, binding);
-        }
+        } else
+            tll_free(key_codes);
     }
 
     free(copy);
