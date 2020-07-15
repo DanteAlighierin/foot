@@ -22,6 +22,7 @@
 
 #include "async.h"
 #include "config.h"
+#include "extract.h"
 #include "grid.h"
 #include "quirks.h"
 #include "reaper.h"
@@ -2471,4 +2472,61 @@ term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
         return TERM_SURF_BUTTON_CLOSE;
     else
         return TERM_SURF_NONE;
+}
+
+static bool
+rows_to_text(const struct terminal *term, int start, int end,
+             char **text, size_t *len)
+{
+    struct extraction_context *ctx = extract_begin(SELECTION_NONE);
+    if (ctx == NULL)
+        return false;
+
+    for (size_t r = start;
+         r != ((end + 1) & (term->grid->num_rows - 1));
+         r = (r + 1) & (term->grid->num_rows - 1))
+    {
+        const struct row *row = term->grid->rows[r];
+        assert(row != NULL);
+
+        for (int c = 0; c < term->cols; c++)
+            if (!extract_one(term, row, &row->cells[c], c, ctx))
+                goto out;
+    }
+
+out:
+    return extract_finish(ctx, text, len);
+}
+
+bool
+term_scrollback_to_text(const struct terminal *term, char **text, size_t *len)
+{
+    int start = term->grid->offset + term->rows;
+    int end = term->grid->offset + term->rows - 1;
+
+    /* If scrollback isn't full yet, this may be NULL, so scan forward
+     * until we find the first non-NULL row */
+    while (term->grid->rows[start] == NULL) {
+        start++;
+        start &= term->grid->num_rows - 1;
+    }
+
+    if (end < 0)
+        end += term->grid->num_rows;
+
+    while (term->grid->rows[end] == NULL) {
+        end--;
+        if (end < 0)
+            end += term->grid->num_rows;
+    }
+
+    return rows_to_text(term, start, end, text, len);
+}
+
+bool
+term_view_to_text(const struct terminal *term, char **text, size_t *len)
+{
+    int start = grid_row_absolute_in_view(term->grid, 0);
+    int end = grid_row_absolute_in_view(term->grid, term->rows - 1);
+    return rows_to_text(term, start, end, text, len);
 }
