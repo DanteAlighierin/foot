@@ -27,7 +27,7 @@
 * **pipe-visible** and **pipe-scrollback** key bindings. These let you
   pipe either the currently visible text, or the entire scrollback to
   external tools (https://codeberg.org/dnkl/foot/issues/29). Example:
-  `pipe-visible=[sh -c "xurls | fuzzel --dmenu | xargs -r firefox] Control+Print`
+  `pipe-visible=[sh -c "xurls | bemenu | xargs -r firefox] Control+Print`
 
 
 ### Changed
