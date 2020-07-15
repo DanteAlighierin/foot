@@ -528,11 +528,21 @@ parse_section_key_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    const char *pipe_cmd = strchr(key, ':');
-    if (pipe_cmd != NULL)
-        pipe_cmd++;
+    const char *pipe_cmd = NULL;
+    size_t pipe_len = 0;
 
-    const size_t key_len = pipe_cmd != NULL ? pipe_cmd - key - 1: strlen(key);
+    if (value[0] == '[') {
+        const char *pipe_cmd_end = strrchr(value, ']');
+        if (pipe_cmd_end == NULL) {
+            LOG_ERR("%s:%d: unclosed '['", path, lineno);
+            return false;
+        }
+
+        pipe_cmd = &value[1];
+        pipe_len = pipe_cmd_end - pipe_cmd;
+
+        value = pipe_cmd_end + 1;
+    }
 
     for (enum bind_action_normal action = 0;
          action < BIND_ACTION_COUNT;
@@ -541,7 +551,7 @@ parse_section_key_bindings(
         if (binding_action_map[action] == NULL)
             continue;
 
-        if (strncmp(key, binding_action_map[action], key_len) != 0)
+        if (strcmp(key, binding_action_map[action]) != 0)
             continue;
 
         if (strcasecmp(value, "none") == 0) {
@@ -564,14 +574,15 @@ parse_section_key_bindings(
             if (it->item.action == action &&
                 ((it->item.pipe_cmd == NULL && pipe_cmd == NULL) ||
                  (it->item.pipe_cmd != NULL && pipe_cmd != NULL &&
-                  strcmp(it->item.pipe_cmd, pipe_cmd) == 0)))
+                  strncmp(it->item.pipe_cmd, pipe_cmd, pipe_len) == 0)))
             {
 
                 free(it->item.key);
                 free(it->item.pipe_cmd);
 
                 it->item.key = strdup(value);
-                it->item.pipe_cmd = pipe_cmd != NULL ? strdup(pipe_cmd) : NULL;
+                it->item.pipe_cmd = pipe_cmd != NULL
+                    ? strndup(pipe_cmd, pipe_len) : NULL;
                 already_added = true;
                 break;
             }
