@@ -10,6 +10,7 @@ struct extraction_context {
     size_t size;
     size_t idx;
     size_t empty_count;
+    bool failed;
     const struct row *last_row;
     const struct cell *last_cell;
     enum selection_kind selection_kind;
@@ -28,8 +29,17 @@ extract_begin(enum selection_kind kind)
 bool
 extract_finish(struct extraction_context *ctx, char **text, size_t *len)
 {
+    bool ret = false;
+
     if (text == NULL)
         return false;
+
+    *text = NULL;
+    if (len != NULL)
+        *len = 0;
+
+    if (ctx->failed)
+        goto out;
 
     if (ctx->idx == 0) {
         /* Selection of empty cells only */
@@ -42,8 +52,6 @@ extract_finish(struct extraction_context *ctx, char **text, size_t *len)
         else
             ctx->buf[ctx->idx] = L'\0';
     }
-
-    bool ret = false;
 
     size_t _len = wcstombs(NULL, ctx->buf, 0);
     if (_len == (size_t)-1) {
@@ -105,7 +113,7 @@ extract_one(const struct terminal *term, const struct row *row,
                 /* Row has a hard linebreak, or either last cell or
                  * current cell is empty */
                 if (!ensure_size(ctx, 1))
-                    return false;
+                    goto err;
 
                 ctx->buf[ctx->idx++] = L'\n';
                 ctx->empty_count = 0;
@@ -115,7 +123,7 @@ extract_one(const struct terminal *term, const struct row *row,
         else if (ctx->selection_kind == SELECTION_BLOCK) {
             /* Always insert a linebreak */
             if (!ensure_size(ctx, 1))
-                return false;
+                goto err;
 
             ctx->buf[ctx->idx++] = L'\n';
             ctx->empty_count = 0;
@@ -131,7 +139,7 @@ extract_one(const struct terminal *term, const struct row *row,
 
     /* Replace empty cells with spaces when followed by non-empty cell */
     if (!ensure_size(ctx, ctx->empty_count))
-        return false;
+        goto err;
 
     for (size_t i = 0; i < ctx->empty_count; i++)
         ctx->buf[ctx->idx++] = L' ';
@@ -144,7 +152,7 @@ extract_one(const struct terminal *term, const struct row *row,
             = &term->composed[cell->wc - CELL_COMB_CHARS_LO];
 
         if (!ensure_size(ctx, 1 + composed->count))
-            return false;
+            goto err;
 
         ctx->buf[ctx->idx++] = composed->base;
         for (size_t i = 0; i < composed->count; i++)
@@ -153,11 +161,15 @@ extract_one(const struct terminal *term, const struct row *row,
 
     else {
         if (!ensure_size(ctx, 1))
-            return false;
+            goto err;
         ctx->buf[ctx->idx++] = cell->wc;
     }
 
     ctx->last_row = row;
     ctx->last_cell = cell;
     return true;
+
+err:
+    ctx->failed = true;
+    return false;
 }
