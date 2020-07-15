@@ -134,8 +134,6 @@ foreach_selected_normal(
              c <= (r == end_row ? end_col : term->cols - 1);
              c++)
         {
-            if (row->cells[c].wc == CELL_MULT_COL_SPACER)
-                continue;
             cb(term, row, &row->cells[c], c, data);
         }
 
@@ -168,8 +166,6 @@ foreach_selected_block(
         assert(row != NULL);
 
         for (int c = top_left.col; c <= bottom_right.col; c++) {
-            if (row->cells[c].wc == CELL_MULT_COL_SPACER)
-                continue;
             cb(term, row, &row->cells[c], c, data);
         }
     }
@@ -268,6 +264,9 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
             int col, void *data)
 {
     struct extract *ctx = data;
+
+    if (cell->wc == CELL_MULT_COL_SPACER)
+        return;
 
     if (ctx->last_row != NULL && row != ctx->last_row) {
         /* New row - determine if we should insert a newline or not */
