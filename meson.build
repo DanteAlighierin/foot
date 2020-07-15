@@ -105,6 +105,7 @@ executable(
   'commands.c', 'commands.h',
   'csi.c', 'csi.h',
   'dcs.c', 'dcs.h',
+  'extract.c', 'extract.h',
   'fdm.c', 'fdm.h',
   'grid.c', 'grid.h',
   'input.c', 'input.h',
