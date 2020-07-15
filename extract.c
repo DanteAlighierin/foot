@@ -84,8 +84,8 @@ ensure_size(struct extraction_context *ctx, size_t additional_chars)
 }
 
 bool
-extract_one(struct terminal *term, struct row *row, struct cell *cell,
-            int col, void *context)
+extract_one(const struct terminal *term, const struct row *row,
+            const struct cell *cell, int col, void *context)
 {
     struct extraction_context *ctx = context;
 

@@ -542,3 +542,6 @@ void term_disable_app_sync_updates(struct terminal *term);
 
 enum term_surface term_surface_kind(
     const struct terminal *term, const struct wl_surface *surface);
+
+bool term_scrollback_to_text(const struct terminal *term, wchar_t **text);
+bool term_view_to_text(const struct terminal *term, wchar_t **text);
