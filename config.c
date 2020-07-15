@@ -530,11 +530,20 @@ parse_section_key_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    for (enum bind_action_normal action = 0; action < BIND_ACTION_COUNT; action++) {
+    const char *spawn = strchr(key, ':');
+    if (spawn != NULL)
+        spawn++;
+
+    const size_t key_len = spawn != NULL ? spawn - key - 1: strlen(key);
+
+    for (enum bind_action_normal action = 0;
+         action < BIND_ACTION_COUNT;
+         action++)
+    {
         if (binding_action_map[action] == NULL)
             continue;
 
-        if (strcmp(key, binding_action_map[action]) != 0)
+        if (strncmp(key, binding_action_map[action], key_len) != 0)
             continue;
 
         if (strcasecmp(value, "none") == 0) {
@@ -548,7 +557,9 @@ parse_section_key_bindings(
         }
 
         free(conf->bindings.key[action]);
+        free(conf->bindings.spawn[action]);
         conf->bindings.key[action] = strdup(value);
+        conf->bindings.spawn[action] = spawn != NULL ? strdup(spawn) : NULL;
         return true;
     }
 
@@ -984,8 +995,10 @@ config_free(struct config conf)
     tll_free(conf.fonts);
     free(conf.server_socket_path);
 
-    for (enum bind_action_normal i = 0; i < BIND_ACTION_COUNT; i++)
+    for (enum bind_action_normal i = 0; i < BIND_ACTION_COUNT; i++) {
         free(conf.bindings.key[i]);
+        free(conf.bindings.spawn[i]);
+    }
     for (enum bind_action_search i = 0; i < BIND_ACTION_SEARCH_COUNT; i++)
         free(conf.bindings.search[i]);
 }
