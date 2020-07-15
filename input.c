@@ -163,6 +163,14 @@ execute_binding(struct seat *seat, struct terminal *term,
             goto pipe_err;
         }
 
+        int stdout_fd = open("/dev/null", O_WRONLY);
+        int stderr_fd = open("/dev/null", O_WRONLY);
+
+        if (stdout_fd < 0 || stderr_fd < 0) {
+            LOG_ERRNO("failed to open /dev/null");
+            goto pipe_err;
+        }
+
         char *text;
         size_t len;
 
@@ -196,7 +204,7 @@ execute_binding(struct seat *seat, struct terminal *term,
             }
         }
 
-        if (!spawn(term->reaper, NULL, argv, pipe_fd[0], -1, -1))
+        if (!spawn(term->reaper, NULL, argv, pipe_fd[0], stdout_fd, stderr_fd))
             goto pipe_err;
 
         /* Not needed anymore */
@@ -219,6 +227,10 @@ execute_binding(struct seat *seat, struct terminal *term,
         break;
 
       pipe_err:
+        if (stdout_fd >= 0)
+            close(stdout_fd);
+        if (stderr_fd >= 0)
+            close(stderr_fd);
         if (pipe_fd[0] >= 0)
             close(pipe_fd[0]);
         if (pipe_fd[1] >= 0)
