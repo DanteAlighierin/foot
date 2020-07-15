@@ -13,7 +13,8 @@
 #include "log.h"
 
 bool
-spawn(struct reaper *reaper, const char *cwd, char *const argv[])
+spawn(struct reaper *reaper, const char *cwd, char *const argv[],
+      int stdin_fd, int stdout_fd, int stderr_fd)
 {
     int pipe_fds[2] = {-1, -1};
     if (pipe2(pipe_fds, O_CLOEXEC) < 0) {
@@ -30,8 +31,11 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[])
     if (pid == 0) {
         /* Child */
         close(pipe_fds[0]);
-        if ((cwd != NULL && chdir(cwd) < 0) ||
-            //execlp(term->foot_exe, term->foot_exe, NULL) < 0)
+
+        if ((stdin_fd >= 0 && (dup2(stdin_fd, STDIN_FILENO) < 0 || close(stdin_fd) < 0)) ||
+            (stdout_fd >= 0 && (dup2(stdout_fd, STDOUT_FILENO) < 0 || close(stdout_fd) < 0)) ||
+            (stderr_fd >= 0 && (dup2(stderr_fd, STDERR_FILENO) < 0 || close(stderr_fd) < 0)) ||
+            (cwd != NULL && chdir(cwd) < 0) ||
             execvp(argv[0], argv) < 0)
         {
             (void)!write(pipe_fds[1], &errno, sizeof(errno));

@@ -2248,7 +2248,8 @@ bool
 term_spawn_new(const struct terminal *term)
 {
     return spawn(
-        term->reaper, term->cwd, (char *const []){term->foot_exe, NULL});
+        term->reaper, term->cwd, (char *const []){term->foot_exe, NULL},
+        -1, -1, -1);
 }
 
 void
