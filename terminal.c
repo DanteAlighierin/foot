@@ -2407,7 +2407,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     print_linewrap(term);
     print_insert(term, width);
 
-    if (unlikely(width > 1) &&
+    if (unlikely(width > 1) && likely(term->auto_margin) &&
         term->grid->cursor.point.col + width > term->cols)
     {
         /* Multi-column character that doesn't fit on current line -
