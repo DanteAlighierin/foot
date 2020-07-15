@@ -30,6 +30,7 @@
 #include "selection.h"
 #include "sixel.h"
 #include "slave.h"
+#include "spawn.h"
 #include "util.h"
 #include "vt.h"
 
@@ -2246,59 +2247,8 @@ term_flash(struct terminal *term, unsigned duration_ms)
 bool
 term_spawn_new(const struct terminal *term)
 {
-    int pipe_fds[2] = {-1, -1};
-    if (pipe2(pipe_fds, O_CLOEXEC) < 0) {
-        LOG_ERRNO("failed to create pipe");
-        goto err;
-    }
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        LOG_ERRNO("failed to fork new terminal");
-        goto err;
-    }
-
-    if (pid == 0) {
-        /* Child */
-        close(pipe_fds[0]);
-        if (chdir(term->cwd) < 0 ||
-            execlp(term->foot_exe, term->foot_exe, NULL) < 0)
-        {
-            (void)!write(pipe_fds[1], &errno, sizeof(errno));
-            _exit(errno);
-        }
-        assert(false);
-        _exit(errno);
-    }
-
-    /* Parent */
-    close(pipe_fds[1]);
-
-    int _errno;
-    static_assert(sizeof(_errno) == sizeof(errno), "errno size mismatch");
-
-    ssize_t ret = read(pipe_fds[0], &_errno, sizeof(_errno));
-    close(pipe_fds[0]);
-
-    if (ret == 0) {
-        reaper_add(term->reaper, pid);
-        return true;
-    } else if (ret < 0) {
-        LOG_ERRNO("failed to read from pipe");
-        return false;
-    } else {
-        LOG_ERRNO_P("%s: failed to spawn new terminal", _errno, term->foot_exe);
-        errno = _errno;
-        waitpid(pid, NULL, 0);
-        return false;
-    }
-
-err:
-    if (pipe_fds[0] != -1)
-        close(pipe_fds[0]);
-    if (pipe_fds[1] != -1)
-        close(pipe_fds[1]);
-    return false;
+    return spawn(
+        term->reaper, term->cwd, (char *const []){term->foot_exe, NULL});
 }
 
 void

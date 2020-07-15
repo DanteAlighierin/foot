@@ -123,6 +123,7 @@ executable(
   'sixel.c', 'sixel.h',
   'sixel-hls.c', 'sixel-hls.h',
   'slave.c', 'slave.h',
+  'spawn.c', 'spawn.h',
   'terminal.c', 'terminal.h',
   'tokenize.c', 'tokenize.h',
   'vt.c', 'vt.h',
