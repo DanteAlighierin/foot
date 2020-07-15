@@ -387,10 +387,11 @@ unmark_selected(struct terminal *term, struct row *row, struct cell *cell,
         return;
     }
 
-    row->dirty = 1;
+    row->dirty = true;
     cell->attrs.selected = 0;
     cell->attrs.clean = 0;
 }
+
 
 static void
 premark_selected(struct terminal *term, struct row *row, struct cell *cell,
@@ -409,7 +410,7 @@ mark_selected(struct terminal *term, struct row *row, struct cell *cell,
         return;
     }
 
-    row->dirty = 1;
+    row->dirty = true;
     cell->attrs.selected = 1;
     cell->attrs.clean = 0;
 }
