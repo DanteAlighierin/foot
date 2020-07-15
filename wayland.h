@@ -51,9 +51,9 @@ struct key_binding_normal {
 };
 
 struct mouse_binding {
+    enum bind_action_normal action;
     uint32_t button;
     int count;
-    enum bind_action_normal action;
 };
 
 enum bind_action_search {

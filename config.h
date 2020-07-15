@@ -6,11 +6,23 @@
 #include <tllist.h>
 
 #include "terminal.h"
+#include "wayland.h"
 
 struct config_font {
     char *pattern;
     double pt_size;
     int px_size;
+};
+
+struct config_key_binding_normal {
+    enum bind_action_normal action;
+    char *key;
+    char *pipe_cmd;
+};
+
+struct config_key_binding_search {
+    enum bind_action_search action;
+    char *key;
 };
 
 struct config {
@@ -48,10 +60,8 @@ struct config {
 
     struct {
         /* Bindings for "normal" mode */
-        char *key[BIND_ACTION_COUNT];
-        char *spawn[BIND_ACTION_COUNT];
-
-        struct mouse_binding mouse[BIND_ACTION_COUNT];
+        tll(struct config_key_binding_normal) key;
+        tll(struct mouse_binding) mouse;
 
         /*
          * Special modes
@@ -59,7 +69,7 @@ struct config {
 
         /* While searching (not - action to *start* a search is in the
          * 'key' bindings above */
-        char *search[BIND_ACTION_SEARCH_COUNT];
+        tll(struct config_key_binding_search) search;
     } bindings;
 
     struct {

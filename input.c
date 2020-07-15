@@ -398,34 +398,33 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     munmap(map_str, size);
     close(fd);
 
-    for (enum bind_action_normal i = 0; i < BIND_ACTION_COUNT; i++) {
+    tll_foreach(wayl->conf->bindings.key, it) {
         key_binding_list_t bindings = tll_init();
         input_parse_key_binding(
-            seat->kbd.xkb_keymap, wayl->conf->bindings.key[i], &bindings);
+            seat->kbd.xkb_keymap, it->item.key, &bindings);
 
-        tll_foreach(bindings, it) {
+        tll_foreach(bindings, it2) {
             tll_push_back(
                 seat->kbd.bindings.key,
                 ((struct key_binding_normal){
-                    .bind = it->item,
-                    .action = i,
-                    .pipe_cmd = wayl->conf->bindings.spawn[i]}));
+                    .bind = it2->item,
+                    .action = it->item.action,
+                    .pipe_cmd = it->item.pipe_cmd}));
         }
-
         tll_free(bindings);
     }
 
-    for (enum bind_action_search i = 0; i < BIND_ACTION_SEARCH_COUNT; i++) {
+    tll_foreach(wayl->conf->bindings.search, it) {
         key_binding_list_t bindings = tll_init();
         input_parse_key_binding(
-            seat->kbd.xkb_keymap, wayl->conf->bindings.search[i], &bindings);
+            seat->kbd.xkb_keymap, it->item.key, &bindings);
 
-        tll_foreach(bindings, it) {
+        tll_foreach(bindings, it2) {
             tll_push_back(
                 seat->kbd.bindings.search,
-                ((struct key_binding_search){.bind = it->item, .action = i}));
+                ((struct key_binding_search){
+                    .bind = it2->item, .action = it->item.action}));
         }
-
         tll_free(bindings);
     }
 }
@@ -1370,9 +1369,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             }
 
             else {
-                for (size_t i = 0; i < ALEN(wayl->conf->bindings.mouse); i++) {
-                    const struct mouse_binding *binding =
-                        &wayl->conf->bindings.mouse[i];
+                tll_foreach(wayl->conf->bindings.mouse, it) {
+                    const struct mouse_binding *binding = &it->item;
 
                     if (binding->button != button) {
                         /* Wrong button */
