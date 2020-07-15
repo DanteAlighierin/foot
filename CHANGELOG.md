@@ -105,6 +105,8 @@
 * A multi-column character that does not fit on the current line is
   now printed on the next line, instead of only printing half the
   character.
+* Font size can no longer be reduced to negative values
+  (https://codeberg.org/dnkl/foot/issues/38).
 
 
 ### Security

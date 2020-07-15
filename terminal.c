@@ -1430,7 +1430,7 @@ term_font_size_adjust(struct terminal *term, double amount)
             old_pt_size = term->font_sizes[i].px_size * 72. / dpi;
         }
 
-        term->font_sizes[i].pt_size = old_pt_size + amount;
+        term->font_sizes[i].pt_size = fmax(old_pt_size + amount, 0);
         term->font_sizes[i].px_size = -1;
     }
 
