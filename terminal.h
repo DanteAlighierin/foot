@@ -381,6 +381,7 @@ struct terminal {
         struct {
             struct row *row;
             int col;
+            bool hidden;
         } last_cursor;
 
         struct buffer *last_buf;     /* Buffer we rendered to last time */

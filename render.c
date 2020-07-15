@@ -1392,7 +1392,7 @@ grid_render(struct terminal *term)
     selection_dirty_cells(term);
 
     /* Mark old cursor cell as dirty, to force it to be re-rendered */
-    if (term->render.last_cursor.row != NULL) {
+    if (term->render.last_cursor.row != NULL && !term->render.last_cursor.hidden) {
         struct row *row = term->render.last_cursor.row;
         struct cell *cell = &row->cells[term->render.last_cursor.col];
         cell->attrs.clean = 0;
@@ -1402,6 +1402,7 @@ grid_render(struct terminal *term)
     /* Remember current cursor position, for the next frame */
     term->render.last_cursor.row = grid_row(term->grid, term->grid->cursor.point.row);
     term->render.last_cursor.col = term->grid->cursor.point.col;
+    term->render.last_cursor.hidden = term->hide_cursor;
 
     /* Mark current cursor cell as dirty, to ensure it is rendered */
     if (!term->hide_cursor) {
