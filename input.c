@@ -5,10 +5,12 @@
 #include <signal.h>
 #include <threads.h>
 #include <locale.h>
+#include <errno.h>
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
+#include <fcntl.h>
 
 #include <linux/input-event-codes.h>
 
@@ -28,13 +30,54 @@
 #include "render.h"
 #include "search.h"
 #include "selection.h"
+#include "spawn.h"
 #include "terminal.h"
+#include "tokenize.h"
 #include "util.h"
 #include "vt.h"
 
+struct pipe_context {
+    char *text;
+    size_t idx;
+    size_t left;
+};
+
+static bool
+fdm_write_pipe(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct pipe_context *ctx = data;
+
+    if (events & EPOLLHUP)
+        goto pipe_closed;
+
+    assert(events & EPOLLOUT);
+    ssize_t written = write(fd, &ctx->text[ctx->idx], ctx->left);
+
+    if (written < 0) {
+        LOG_WARN("failed to write to pipe: %s", strerror(errno));
+        goto pipe_closed;
+    }
+
+    assert(written <= ctx->left);
+    ctx->idx += written;
+    ctx->left -= written;
+
+    if (ctx->left == 0)
+        goto pipe_closed;
+
+    return true;
+
+pipe_closed:
+    free(ctx->text);
+    free(ctx);
+    fdm_del(fdm, fd);
+    return true;
+}
+
 static void
 execute_binding(struct seat *seat, struct terminal *term,
-                enum bind_action_normal action, uint32_t serial)
+                enum bind_action_normal action, const char *pipe_cmd,
+                uint32_t serial)
 {
     switch (action) {
     case BIND_ACTION_NONE:
@@ -102,9 +145,88 @@ execute_binding(struct seat *seat, struct terminal *term,
         break;
 
     case BIND_ACTION_PIPE_SCROLLBACK:
-    case BIND_ACTION_PIPE_VIEW:
-        LOG_ERR("unimplemented");
+    case BIND_ACTION_PIPE_VIEW: {
+        if (pipe_cmd == NULL)
+            break;
+
+        struct pipe_context *ctx = NULL;
+
+        char *cmd = strdup(pipe_cmd);
+        char **argv = NULL;
+
+        if (!tokenize_cmdline(cmd, &argv))
+            goto pipe_err;
+
+        int pipe_fd[2] = {-1, -1};
+        if (pipe(pipe_fd) < 0) {
+            LOG_ERRNO("failed to create pipe");
+            goto pipe_err;
+        }
+
+        char *text;
+        size_t len;
+
+        bool success = action == BIND_ACTION_PIPE_SCROLLBACK
+            ? term_scrollback_to_text(term, &text, &len)
+            : term_view_to_text(term, &text, &len);
+
+        if (!success)
+            goto pipe_err;
+
+        /* Make write-end non-blocking; required by the FDM */
+        {
+            int flags = fcntl(pipe_fd[1], F_GETFL);
+            if (flags < 0 ||
+                fcntl(pipe_fd[1], F_SETFL, flags | O_NONBLOCK) < 0)
+            {
+                LOG_ERRNO("failed to make write-end of pipe non-blocking");
+                goto pipe_err;
+            }
+        }
+
+        /* Make sure write-end is closed on exec() */
+        {
+            int flags = fcntl(pipe_fd[1], F_GETFD);
+            if (flags < 0 ||
+                fcntl(pipe_fd[1], F_SETFD, flags | FD_CLOEXEC) < 0)
+            {
+                LOG_ERRNO("failed to set FD_CLOEXEC on writeend of pipe");
+                goto pipe_err;
+            }
+        }
+
+        if (!spawn(term->reaper, NULL, argv, pipe_fd[0], -1, -1))
+            goto pipe_err;
+
+        /* Not needed anymore */
+        free(argv); argv = NULL;
+        free(cmd); cmd = NULL;
+
+        /* Close read end */
+        close(pipe_fd[0]);
+
+        ctx = malloc(sizeof(*ctx));
+        *ctx = (struct pipe_context){
+            .text = text,
+            .left = len,
+        };
+
+        if (!fdm_add(term->fdm, pipe_fd[1], EPOLLOUT, &fdm_write_pipe, ctx))
+            goto pipe_err;
+
         break;
+
+      pipe_err:
+        if (pipe_fd[0] >= 0)
+            close(pipe_fd[0]);
+        if (pipe_fd[1] >= 0)
+            close(pipe_fd[1]);
+        free(text);
+        free(argv);
+        free(cmd);
+        free(ctx);
+        break;
+    }
 
     case BIND_ACTION_COUNT:
         assert(false);
@@ -284,7 +406,10 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         tll_foreach(bindings, it) {
             tll_push_back(
                 seat->kbd.bindings.key,
-                ((struct key_binding_normal){.bind = it->item, .action = i}));
+                ((struct key_binding_normal){
+                    .bind = it->item,
+                    .action = i,
+                    .pipe_cmd = wayl->conf->bindings.spawn[i]}));
         }
 
         tll_free(bindings);
@@ -602,14 +727,14 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
         /* Match symbol */
         if (it->item.bind.sym == sym) {
-            execute_binding(seat, term, it->item.action, serial);
+            execute_binding(seat, term, it->item.action, it->item.pipe_cmd, serial);
             goto maybe_repeat;
         }
 
         /* Match raw key code */
         tll_foreach(it->item.bind.key_codes, code) {
             if (code->item == key) {
-                execute_binding(seat, term, it->item.action, serial);
+                execute_binding(seat, term, it->item.action, it->item.pipe_cmd, serial);
                 goto maybe_repeat;
             }
         }
@@ -1259,7 +1384,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                         continue;
                     }
 
-                    execute_binding(seat, term, binding->action, serial);
+                    execute_binding(seat, term, binding->action, NULL, serial);
                     break;
                 }
             }
