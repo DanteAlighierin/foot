@@ -2387,32 +2387,38 @@ print_insert(struct terminal *term, int width)
         row->cells[i].attrs.clean = 0;
 }
 
+static void
+print_spacer(struct terminal *term, int col)
+{
+    struct row *row = term->grid->cur_row;
+    struct cell *cell = &row->cells[col];
+
+    cell->wc = CELL_MULT_COL_SPACER;
+    cell->attrs = term->vt.attrs;
+    cell->attrs.clean = 0;
+}
+
 void
 term_print(struct terminal *term, wchar_t wc, int width)
 {
     if (unlikely(width <= 0))
         return;
 
-    if (unlikely(width > 1) &&
+    print_linewrap(term);
+    print_insert(term, width);
+
+    if (unlikely(width > 1) && likely(term->auto_margin) &&
         term->grid->cursor.point.col + width > term->cols)
     {
         /* Multi-column character that doesn't fit on current line -
-         * force a line wrap */
+         * pad with spacers */
+        for (size_t i = term->grid->cursor.point.col; i < term->cols; i++)
+            print_spacer(term, i);
+
+        /* And force a line-wrap */
         term->grid->cursor.lcf = 1;
-
-        /*
-         * TODO: should we insert place holder values in the remaining
-         * cells?  This would allow e.g. text extraction to simply
-         * skip these, instead of trying to recognize a sequence of
-         * empty cells at the end of the line followed by a
-         * multi-column character...
-         *
-         * Might also make text reflow easier, or even more correct.
-         */
+        print_linewrap(term);
     }
-
-    print_linewrap(term);
-    print_insert(term, width);
 
     sixel_overwrite_at_cursor(term, width);
 
@@ -2429,10 +2435,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     /* Advance cursor the 'additional' columns while dirty:ing the cells */
     for (int i = 1; i < width && term->grid->cursor.point.col < term->cols - 1; i++) {
         term->grid->cursor.point.col++;
-
-        struct cell *cell = &row->cells[term->grid->cursor.point.col];
-        cell->wc = 0;
-        cell->attrs.clean = 0;
+        print_spacer(term, term->grid->cursor.point.col);
     }
 
     /* Advance cursor */

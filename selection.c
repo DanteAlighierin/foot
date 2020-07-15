@@ -134,9 +134,9 @@ foreach_selected_normal(
              c <= (r == end_row ? end_col : term->cols - 1);
              c++)
         {
+            if (row->cells[c].wc == CELL_MULT_COL_SPACER)
+                continue;
             cb(term, row, &row->cells[c], c, data);
-            c += max(1, wcwidth(row->cells[c].wc)) - 1;
-            assert(c < term->cols);
         }
 
         start_col = 0;
@@ -168,9 +168,9 @@ foreach_selected_block(
         assert(row != NULL);
 
         for (int c = top_left.col; c <= bottom_right.col; c++) {
+            if (row->cells[c].wc == CELL_MULT_COL_SPACER)
+                continue;
             cb(term, row, &row->cells[c], c, data);
-            c += max(1, wcwidth(row->cells[c].wc)) - 1;
-            assert(c < term->cols);
         }
     }
 }
@@ -273,22 +273,7 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
         /* New row - determine if we should insert a newline or not */
 
         if (term->selection.kind == SELECTION_NORMAL) {
-            int width = max(1, wcwidth(cell->wc));
-
-            if (width > 1) {
-                /* Heuristict to handle force-wrapped multi-column
-                 * characters */
-
-                /*
-                 * TODO: maybe we should print a placeholder value to
-                 * the empty cells at the end of the line when
-                 * force-wrapping? Then extract() could simply skip
-                 * those cells
-                 */
-                ctx->empty_count -= min(width, ctx->empty_count);
-            }
-
-            else if (ctx->last_row->linebreak ||
+            if (ctx->last_row->linebreak ||
                 ctx->empty_count > 0 ||
                 cell->wc == 0)
             {
@@ -321,8 +306,9 @@ extract_one(struct terminal *term, struct row *row, struct cell *cell,
 
     assert(ctx->idx + 1 <= ctx->size);
 
-    if (cell->wc >= COMB_CHARS_LO && cell->wc < (COMB_CHARS_LO + term->composed_count)) {
-        const struct composed *composed = &term->composed[cell->wc - COMB_CHARS_LO];
+    if (cell->wc >= CELL_COMB_CHARS_LO &&
+        cell->wc < (CELL_COMB_CHARS_LO + term->composed_count)) {
+        const struct composed *composed = &term->composed[cell->wc - CELL_COMB_CHARS_LO];
 
         ctx->buf[ctx->idx++] = composed->base;
 

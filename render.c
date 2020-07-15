@@ -408,10 +408,10 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     if (cell->wc != 0) {
         wchar_t base = cell->wc;
 
-        if (base >= COMB_CHARS_LO &&
-            base < (COMB_CHARS_LO + term->composed_count))
+        if (base >= CELL_COMB_CHARS_LO &&
+            base < (CELL_COMB_CHARS_LO + term->composed_count))
         {
-            composed = &term->composed[base - COMB_CHARS_LO];
+            composed = &term->composed[base - CELL_COMB_CHARS_LO];
             base = composed->base;
         }
 
@@ -438,7 +438,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     if (has_cursor && term->cursor_style == CURSOR_BLOCK && term->kbd_focus)
         draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
 
-    if (cell->wc == 0 || cell->attrs.conceal)
+    if (cell->wc == 0 || cell->wc == CELL_MULT_COL_SPACER || cell->attrs.conceal)
         goto draw_cursor;
 
     pixman_image_t *clr_pix = pixman_image_create_solid_fill(&fg);

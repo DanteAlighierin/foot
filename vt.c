@@ -550,9 +550,9 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         }
 
         const struct composed *composed =
-            (base >= COMB_CHARS_LO &&
-             base < (COMB_CHARS_LO + term->composed_count))
-            ? &term->composed[base - COMB_CHARS_LO]
+            (base >= CELL_COMB_CHARS_LO &&
+             base < (CELL_COMB_CHARS_LO + term->composed_count))
+            ? &term->composed[base - CELL_COMB_CHARS_LO]
             : NULL;
 
         if (composed != NULL)
@@ -635,7 +635,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                 if (cc->combining[wanted_count - 1] != wc)
                     continue;
 
-                term_print(term, COMB_CHARS_LO + i, base_width);
+                term_print(term, CELL_COMB_CHARS_LO + i, base_width);
                 return;
             }
 
@@ -648,12 +648,12 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                 new_cc.combining[i] = composed->combining[i];
             new_cc.combining[wanted_count - 1] = wc;
 
-            if (term->composed_count < COMB_CHARS_HI) {
+            if (term->composed_count < CELL_COMB_CHARS_HI) {
                 term->composed_count++;
                 term->composed = realloc(term->composed, term->composed_count * sizeof(term->composed[0]));
                 term->composed[term->composed_count - 1] = new_cc;
 
-                term_print(term, COMB_CHARS_LO + term->composed_count - 1, base_width);
+                term_print(term, CELL_COMB_CHARS_LO + term->composed_count - 1, base_width);
                 return;
             } else {
                 /* We reached our maximum number of allowed composed
