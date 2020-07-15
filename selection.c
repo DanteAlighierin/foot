@@ -195,6 +195,14 @@ foreach_selected(
     assert(false);
 }
 
+static bool
+extract_one_const_wrapper(struct terminal *term,
+                          struct row *row, struct cell *cell,
+                          int col, void *data)
+{
+    return extract_one(term, row, cell, col, data);
+}
+
 static char *
 extract_selection(const struct terminal *term)
 {
@@ -204,7 +212,7 @@ extract_selection(const struct terminal *term)
 
     foreach_selected(
         (struct terminal *)term, term->selection.start, term->selection.end,
-        &extract_one, ctx);
+        &extract_one_const_wrapper, ctx);
 
     char *text;
     return extract_finish(ctx, &text, NULL) ? text : NULL;
