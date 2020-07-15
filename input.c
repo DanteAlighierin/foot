@@ -101,6 +101,11 @@ execute_binding(struct seat *seat, struct terminal *term,
             xdg_toplevel_set_fullscreen(term->window->xdg_toplevel, NULL);
         break;
 
+    case BIND_ACTION_PIPE_SCROLLBACK:
+    case BIND_ACTION_PIPE_VIEW:
+        LOG_ERR("unimplemented");
+        break;
+
     case BIND_ACTION_COUNT:
         assert(false);
         break;
