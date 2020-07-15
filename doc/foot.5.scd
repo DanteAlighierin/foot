@@ -234,6 +234,23 @@ e.g. *search-start=none*.
 *fullscreen*
 	Toggles the fullscreen state. Default: _not bound_.
 
+*pipe-visible*, *pipe-scrollback*
+	Pipes the currently visible text, or the entire scrollback, to an
+	external tool. The syntax for this option is a bit special; the
+	first part of the value is the command to execute enclosed in
+	"[]", followed by the binding(s).
+	
+	You can configure multiple pipes as long as the command strings
+	are different and the key bindings are unique.
+	
+	Note that the command is *not* automatically run inside a shell;
+	use *sh -c "command line"* if you need that.
+	
+	Example:
+		*pipe-visible=[sh -c "xurls | fuzzel --dmenu | xargs -r firefox"] Control+Print*
+	
+	Default: _not bound_
+
 # SECTION: mouse-bindings
 
 This section lets you override the default mouse bindings.
