@@ -184,7 +184,8 @@ execute_binding(struct seat *seat, struct terminal *term,
             }
         }
 
-        /* Make sure write-end is closed on exec() */
+        /* Make sure write-end is closed on exec() - or the spawned
+         * program may not terminate*/
         {
             int flags = fcntl(pipe_fd[1], F_GETFD);
             if (flags < 0 ||
@@ -211,6 +212,7 @@ execute_binding(struct seat *seat, struct terminal *term,
             .left = len,
         };
 
+        /* Asynchronously write the output to the pipe */
         if (!fdm_add(term->fdm, pipe_fd[1], EPOLLOUT, &fdm_write_pipe, ctx))
             goto pipe_err;
 
