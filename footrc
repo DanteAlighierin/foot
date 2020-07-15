@@ -58,6 +58,8 @@
 # minimize=none
 # maximize=none
 # fullscreen=none
+# pipe-visible=[sh -c "xurls | bemenu | xargs -r firefox"] none
+# pipe-scrollback=[sh -c "xurls | bemenu | xargs -r firefox"] none
 
 [mouse-bindings]
 # primary-paste=BTN_MIDDLE
