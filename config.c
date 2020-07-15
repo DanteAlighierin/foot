@@ -592,7 +592,7 @@ parse_section_key_bindings(
             struct config_key_binding_normal binding = {
                 .action = action,
                 .key = strdup(value),
-                .pipe_cmd = pipe_cmd != NULL ? strdup(pipe_cmd) : NULL,
+                .pipe_cmd = pipe_cmd != NULL ? strndup(pipe_cmd, pipe_len) : NULL,
             };
             tll_push_back(conf->bindings.key, binding);
         }
