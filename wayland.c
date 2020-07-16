@@ -69,6 +69,48 @@ csd_destroy(struct wl_window *win)
 }
 
 static void
+seat_add_data_device(struct seat *seat)
+{
+    if (seat->wayl->data_device_manager == NULL)
+        return;
+
+    if (seat->data_device != NULL) {
+        /* TODO: destroy old device + clipboard data? */
+        return;
+    }
+
+    struct wl_data_device *data_device = wl_data_device_manager_get_data_device(
+        seat->wayl->data_device_manager, seat->wl_seat);
+
+    if (data_device == NULL)
+        return;
+
+    seat->data_device = data_device;
+    wl_data_device_add_listener(data_device, &data_device_listener, seat);
+}
+
+static void
+seat_add_primary_selection(struct seat *seat)
+{
+    if (seat->wayl->primary_selection_device_manager == NULL)
+        return;
+
+    if (seat->primary_selection_device != NULL)
+        return;
+
+    struct zwp_primary_selection_device_v1 *primary_selection_device
+        = zwp_primary_selection_device_manager_v1_get_device(
+            seat->wayl->primary_selection_device_manager, seat->wl_seat);
+
+    if (primary_selection_device == NULL)
+        return;
+
+    seat->primary_selection_device = primary_selection_device;
+    zwp_primary_selection_device_v1_add_listener(
+        primary_selection_device, &primary_selection_device_listener, seat);
+}
+
+static void
 seat_destroy(struct seat *seat)
 {
     if (seat == NULL)
@@ -712,16 +754,7 @@ handle_global(void *data, struct wl_registry *registry,
             wayl->registry, name, &wl_seat_interface, required);
 
         /* Clipboard */
-        struct wl_data_device *data_device = wl_data_device_manager_get_data_device(
-            wayl->data_device_manager, wl_seat);
-
         /* Primary selection */
-        struct zwp_primary_selection_device_v1 *primary_selection_device;
-        if (wayl->primary_selection_device_manager != NULL) {
-            primary_selection_device = zwp_primary_selection_device_manager_v1_get_device(
-                wayl->primary_selection_device_manager, wl_seat);
-        } else
-            primary_selection_device = NULL;
 
         tll_push_back(wayl->seats, ((struct seat){
                     .wayl = wayl,
@@ -731,10 +764,7 @@ handle_global(void *data, struct wl_registry *registry,
                         .repeat = {
                             .fd = repeat_fd,
                         },
-                    },
-                    .data_device = data_device,
-                    .primary_selection_device = primary_selection_device,
-                    }));
+                    }}));
 
         struct seat *seat = &tll_back(wayl->seats);
 
@@ -745,12 +775,9 @@ handle_global(void *data, struct wl_registry *registry,
             return;
         }
 
+        seat_add_data_device(seat);
+        seat_add_primary_selection(seat);
         wl_seat_add_listener(wl_seat, &seat_listener, seat);
-        wl_data_device_add_listener(data_device, &data_device_listener, seat);
-        if (primary_selection_device != NULL) {
-            zwp_primary_selection_device_v1_add_listener(
-                primary_selection_device, &primary_selection_device_listener, seat);
-        }
     }
 
     else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0) {
@@ -792,6 +819,9 @@ handle_global(void *data, struct wl_registry *registry,
 
         wayl->data_device_manager = wl_registry_bind(
             wayl->registry, name, &wl_data_device_manager_interface, required);
+
+        tll_foreach(wayl->seats, it)
+            seat_add_data_device(&it->item);
     }
 
     else if (strcmp(interface, zwp_primary_selection_device_manager_v1_interface.name) == 0) {
@@ -802,6 +832,9 @@ handle_global(void *data, struct wl_registry *registry,
         wayl->primary_selection_device_manager = wl_registry_bind(
             wayl->registry, name,
             &zwp_primary_selection_device_manager_v1_interface, required);
+
+        tll_foreach(wayl->seats, it)
+            seat_add_primary_selection(&it->item);
     }
 
     else if (strcmp(interface, wp_presentation_interface.name) == 0) {
