@@ -2401,8 +2401,7 @@ print_spacer(struct terminal *term, int col)
 void
 term_print(struct terminal *term, wchar_t wc, int width)
 {
-    if (unlikely(width <= 0))
-        return;
+    assert(width > 0);
 
     print_linewrap(term);
     print_insert(term, width);

@@ -663,7 +663,8 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         }
     }
 
-    term_print(term, wc, width);
+    if (width > 0)
+        term_print(term, wc, width);
 }
 
 static void
