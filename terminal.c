@@ -1432,7 +1432,7 @@ term_font_size_adjust(struct terminal *term, double amount)
             old_pt_size = term->font_sizes[i].px_size * 72. / dpi;
         }
 
-        term->font_sizes[i].pt_size = old_pt_size + amount;
+        term->font_sizes[i].pt_size = fmax(old_pt_size + amount, 0);
         term->font_sizes[i].px_size = -1;
     }
 
@@ -2307,12 +2307,15 @@ print_linewrap(struct terminal *term)
     }
 
     term->grid->cursor.lcf = false;
-    if (term->grid->cursor.point.row == term->scroll_region.end - 1)
+
+    const int row = term->grid->cursor.point.row;
+
+    if (row == term->scroll_region.end - 1)
         term_scroll(term, 1);
     else {
-        assert(term->grid->cursor.point.row < term->scroll_region.end - 1);
-        term->grid->cursor.point.row++;
-        term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
+        const int new_row = min(row + 1, term->rows - 1);
+        term->grid->cursor.point.row = new_row;
+        term->grid->cur_row = grid_row(term->grid, new_row);
     }
 
     term->grid->cursor.point.col = 0;
@@ -2353,8 +2356,7 @@ print_spacer(struct terminal *term, int col)
 void
 term_print(struct terminal *term, wchar_t wc, int width)
 {
-    if (unlikely(width <= 0))
-        return;
+    assert(width > 0);
 
     print_linewrap(term);
     print_insert(term, width);

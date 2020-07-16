@@ -113,13 +113,33 @@ verify_sixel_list_order(const struct terminal *term)
 {
 #if defined(_DEBUG)
     int prev_row = INT_MAX;
+    int prev_col = -1;
+    int prev_col_count = 0;
 
     tll_foreach(term->grid->sixel_images, it) {
         int row = rebase_row(term, it->item.pos.row + it->item.rows - 1);
-        assert(row < prev_row);
-        if (row >= prev_row)
+        int col = it->item.pos.col;
+        int col_count = it->item.cols;
+
+        assert(row <= prev_row);
+        if (row > prev_row)
             return false;
+
+        if (row == prev_row) {
+            /* Allowed to be on the same row only if their columns
+             * don't overlap */
+
+            assert(col + col_count <= prev_col ||
+                   prev_col + prev_col_count <= col);
+
+            if (!(col + col_count <= prev_col ||
+                  prev_col + prev_col_count <= col))
+                return false;
+        }
+
         prev_row = row;
+        prev_col = col;
+        prev_col_count = col_count;
     }
 #endif
     return true;

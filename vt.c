@@ -223,6 +223,8 @@ action_print(struct terminal *term, uint8_t c)
         L'│', L'≤', L'≥', L'π', L'≠', L'£', L'·',       /* x - ~ */
     };
 
+    assert(wcwidth(c) == 1);
+
     if (unlikely(term->charsets.set[term->charsets.selected] == CHARSET_GRAPHIC) &&
         c >= 0x60 && c <= 0x7e)
     {
@@ -540,14 +542,11 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         if (!term->grid->cursor.lcf)
             base_col--;
 
+        while (row->cells[base_col].wc == CELL_MULT_COL_SPACER && base_col > 0)
+            base_col--;
+
         assert(base_col >= 0 && base_col < term->cols);
         wchar_t base = row->cells[base_col].wc;
-
-        /* Handle double-column glyphs */
-        if (base == 0 && base_col > 0) {
-            base_col--;
-            base = row->cells[base_col].wc;
-        }
 
         const struct composed *composed =
             (base >= CELL_COMB_CHARS_LO &&
@@ -664,7 +663,8 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         }
     }
 
-    term_print(term, wc, width);
+    if (width > 0)
+        term_print(term, wc, width);
 }
 
 static void
@@ -742,7 +742,8 @@ state_ground_switch(struct terminal *term, uint8_t data)
     case 0x19:
     case 0x1c ... 0x1f:                                  action_execute(term, data);                                       return STATE_GROUND;
 
-    case 0x20 ... 0x7f:                                  action_print(term, data);                                         return STATE_GROUND;
+    /* modified from 0x20..0x7f to 0x20..0x7e, since 0x7f is DEL, which is a zero-width character */
+    case 0x20 ... 0x7e:                                  action_print(term, data);                                         return STATE_GROUND;
 
     case 0xc2 ... 0xdf:                                  action_utf8_21(term, data);                                       return STATE_UTF8_21;
     case 0xe0 ... 0xef:                                  action_utf8_31(term, data);                                       return STATE_UTF8_31;
