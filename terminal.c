@@ -2355,12 +2355,15 @@ print_linewrap(struct terminal *term)
     }
 
     term->grid->cursor.lcf = false;
-    if (term->grid->cursor.point.row == term->scroll_region.end - 1)
+
+    const int row = term->grid->cursor.point.row;
+
+    if (row == term->scroll_region.end - 1)
         term_scroll(term, 1);
     else {
-        assert(term->grid->cursor.point.row < term->scroll_region.end - 1);
-        term->grid->cursor.point.row++;
-        term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
+        const int new_row = min(row + 1, term->rows - 1);
+        term->grid->cursor.point.row = new_row;
+        term->grid->cur_row = grid_row(term->grid, new_row);
     }
 
     term->grid->cursor.point.col = 0;
