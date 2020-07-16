@@ -19,8 +19,6 @@
 #define likely(c) __builtin_expect(!!(c), 1)
 #define unlikely(c) __builtin_expect(!!(c), 0)
 
-struct rgb { float r, g, b; };
-
 /*
  *  Note: we want the cells to be as small as possible. Larger cells
  *  means fewer scrollback lines (or performance drops due to cache
