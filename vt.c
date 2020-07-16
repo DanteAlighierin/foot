@@ -540,14 +540,11 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         if (!term->grid->cursor.lcf)
             base_col--;
 
+        while (row->cells[base_col].wc == CELL_MULT_COL_SPACER && base_col > 0)
+            base_col--;
+
         assert(base_col >= 0 && base_col < term->cols);
         wchar_t base = row->cells[base_col].wc;
-
-        /* Handle double-column glyphs */
-        if (base == 0 && base_col > 0) {
-            base_col--;
-            base = row->cells[base_col].wc;
-        }
 
         const struct composed *composed =
             (base >= CELL_COMB_CHARS_LO &&
