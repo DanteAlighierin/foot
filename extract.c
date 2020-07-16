@@ -26,6 +26,23 @@ extract_begin(enum selection_kind kind)
     return ctx;
 }
 
+static bool
+ensure_size(struct extraction_context *ctx, size_t additional_chars)
+{
+    while (ctx->size < ctx->idx + additional_chars) {
+        size_t new_size = ctx->size == 0 ? 512 : ctx->size * 2;
+        wchar_t *new_buf = realloc(ctx->buf, new_size * sizeof(wchar_t));
+
+        if (new_buf == NULL)
+            return false;
+
+        ctx->buf = new_buf;
+        ctx->size = new_size;
+    }
+
+    assert(ctx->size >= ctx->idx + additional_chars);
+    return true;
+}
 bool
 extract_finish(struct extraction_context *ctx, char **text, size_t *len)
 {
@@ -43,6 +60,8 @@ extract_finish(struct extraction_context *ctx, char **text, size_t *len)
 
     if (ctx->idx == 0) {
         /* Selection of empty cells only */
+        if (!ensure_size(ctx, 1))
+            goto out;
         ctx->buf[ctx->idx] = L'\0';
     } else {
         assert(ctx->idx > 0);
@@ -71,24 +90,6 @@ out:
     free(ctx->buf);
     free(ctx);
     return ret;
-}
-
-static bool
-ensure_size(struct extraction_context *ctx, size_t additional_chars)
-{
-    while (ctx->size < ctx->idx + additional_chars) {
-        size_t new_size = ctx->size == 0 ? 512 : ctx->size * 2;
-        wchar_t *new_buf = realloc(ctx->buf, new_size * sizeof(wchar_t));
-
-        if (new_buf == NULL)
-            return false;
-
-        ctx->buf = new_buf;
-        ctx->size = new_size;
-    }
-
-    assert(ctx->size >= ctx->idx + additional_chars);
-    return true;
 }
 
 bool
