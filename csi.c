@@ -338,8 +338,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 LOG_DBG("REP: '%C' %d times", term->vt.last_printed, count);
 
                 const int width = wcwidth(term->vt.last_printed);
-                for (int i = 0; i < count; i++)
-                    term_print(term, term->vt.last_printed, width);
+                if (width > 0) {
+                    for (int i = 0; i < count; i++)
+                        term_print(term, term->vt.last_printed, width);
+                }
             }
             break;
 
