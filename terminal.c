@@ -22,6 +22,7 @@
 
 #include "async.h"
 #include "config.h"
+#include "extract.h"
 #include "grid.h"
 #include "quirks.h"
 #include "reaper.h"
@@ -29,6 +30,7 @@
 #include "selection.h"
 #include "sixel.h"
 #include "slave.h"
+#include "spawn.h"
 #include "util.h"
 #include "vt.h"
 
@@ -2245,59 +2247,9 @@ term_flash(struct terminal *term, unsigned duration_ms)
 bool
 term_spawn_new(const struct terminal *term)
 {
-    int pipe_fds[2] = {-1, -1};
-    if (pipe2(pipe_fds, O_CLOEXEC) < 0) {
-        LOG_ERRNO("failed to create pipe");
-        goto err;
-    }
-
-    pid_t pid = fork();
-    if (pid < 0) {
-        LOG_ERRNO("failed to fork new terminal");
-        goto err;
-    }
-
-    if (pid == 0) {
-        /* Child */
-        close(pipe_fds[0]);
-        if (chdir(term->cwd) < 0 ||
-            execlp(term->foot_exe, term->foot_exe, NULL) < 0)
-        {
-            (void)!write(pipe_fds[1], &errno, sizeof(errno));
-            _exit(errno);
-        }
-        assert(false);
-        _exit(errno);
-    }
-
-    /* Parent */
-    close(pipe_fds[1]);
-
-    int _errno;
-    static_assert(sizeof(_errno) == sizeof(errno), "errno size mismatch");
-
-    ssize_t ret = read(pipe_fds[0], &_errno, sizeof(_errno));
-    close(pipe_fds[0]);
-
-    if (ret == 0) {
-        reaper_add(term->reaper, pid);
-        return true;
-    } else if (ret < 0) {
-        LOG_ERRNO("failed to read from pipe");
-        return false;
-    } else {
-        LOG_ERRNO_P("%s: failed to spawn new terminal", _errno, term->foot_exe);
-        errno = _errno;
-        waitpid(pid, NULL, 0);
-        return false;
-    }
-
-err:
-    if (pipe_fds[0] != -1)
-        close(pipe_fds[0]);
-    if (pipe_fds[1] != -1)
-        close(pipe_fds[1]);
-    return false;
+    return spawn(
+        term->reaper, term->cwd, (char *const []){term->foot_exe, NULL},
+        -1, -1, -1);
 }
 
 void
@@ -2473,4 +2425,61 @@ term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
         return TERM_SURF_BUTTON_CLOSE;
     else
         return TERM_SURF_NONE;
+}
+
+static bool
+rows_to_text(const struct terminal *term, int start, int end,
+             char **text, size_t *len)
+{
+    struct extraction_context *ctx = extract_begin(SELECTION_NONE);
+    if (ctx == NULL)
+        return false;
+
+    for (size_t r = start;
+         r != ((end + 1) & (term->grid->num_rows - 1));
+         r = (r + 1) & (term->grid->num_rows - 1))
+    {
+        const struct row *row = term->grid->rows[r];
+        assert(row != NULL);
+
+        for (int c = 0; c < term->cols; c++)
+            if (!extract_one(term, row, &row->cells[c], c, ctx))
+                goto out;
+    }
+
+out:
+    return extract_finish(ctx, text, len);
+}
+
+bool
+term_scrollback_to_text(const struct terminal *term, char **text, size_t *len)
+{
+    int start = term->grid->offset + term->rows;
+    int end = term->grid->offset + term->rows - 1;
+
+    /* If scrollback isn't full yet, this may be NULL, so scan forward
+     * until we find the first non-NULL row */
+    while (term->grid->rows[start] == NULL) {
+        start++;
+        start &= term->grid->num_rows - 1;
+    }
+
+    if (end < 0)
+        end += term->grid->num_rows;
+
+    while (term->grid->rows[end] == NULL) {
+        end--;
+        if (end < 0)
+            end += term->grid->num_rows;
+    }
+
+    return rows_to_text(term, start, end, text, len);
+}
+
+bool
+term_view_to_text(const struct terminal *term, char **text, size_t *len)
+{
+    int start = grid_row_absolute_in_view(term->grid, 0);
+    int end = grid_row_absolute_in_view(term->grid, term->rows - 1);
+    return rows_to_text(term, start, end, text, len);
 }

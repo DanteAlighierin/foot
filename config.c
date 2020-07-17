@@ -63,6 +63,8 @@ static const char *binding_action_map[] = {
     [BIND_ACTION_MINIMIZE] = "minimize",
     [BIND_ACTION_MAXIMIZE] = "maximize",
     [BIND_ACTION_FULLSCREEN] = "fullscreen",
+    [BIND_ACTION_PIPE_SCROLLBACK] = "pipe-scrollback",
+    [BIND_ACTION_PIPE_VIEW] = "pipe-visible",
 };
 
 static_assert(ALEN(binding_action_map) == BIND_ACTION_COUNT,
@@ -483,21 +485,19 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 }
 
 static bool
-verify_key_combo(const struct config *conf, const char *combo, const char *path,
-                 unsigned lineno)
+verify_key_combo(const struct config *conf, enum bind_action_normal action,
+                 const char *combo, const char *path, unsigned lineno)
 {
-    for (enum bind_action_normal action = 0; action < BIND_ACTION_COUNT; action++) {
-        if (conf->bindings.key[action] == NULL)
-            continue;
-
-        char *copy = strdup(conf->bindings.key[action]);
+    tll_foreach(conf->bindings.key, it) {
+        char *copy = strdup(it->item.key);
 
         for (char *save = NULL, *collision = strtok_r(copy, " ", &save);
              collision != NULL;
              collision = strtok_r(NULL, " ", &save))
         {
             if (strcmp(combo, collision) == 0) {
-                LOG_ERR("%s:%d: %s already mapped to %s", path, lineno, combo, binding_action_map[action]);
+                LOG_ERR("%s:%d: %s already mapped to %s", path, lineno, combo,
+                        binding_action_map[it->item.action]);
                 free(copy);
                 return false;
             }
@@ -528,7 +528,26 @@ parse_section_key_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    for (enum bind_action_normal action = 0; action < BIND_ACTION_COUNT; action++) {
+    const char *pipe_cmd = NULL;
+    size_t pipe_len = 0;
+
+    if (value[0] == '[') {
+        const char *pipe_cmd_end = strrchr(value, ']');
+        if (pipe_cmd_end == NULL) {
+            LOG_ERR("%s:%d: unclosed '['", path, lineno);
+            return false;
+        }
+
+        pipe_cmd = &value[1];
+        pipe_len = pipe_cmd_end - pipe_cmd;
+
+        value = pipe_cmd_end + 1;
+    }
+
+    for (enum bind_action_normal action = 0;
+         action < BIND_ACTION_COUNT;
+         action++)
+    {
         if (binding_action_map[action] == NULL)
             continue;
 
@@ -536,17 +555,47 @@ parse_section_key_bindings(
             continue;
 
         if (strcasecmp(value, "none") == 0) {
-            free(conf->bindings.key[action]);
-            conf->bindings.key[action] = NULL;
+            tll_foreach(conf->bindings.key, it) {
+                if (it->item.action == action) {
+                    free(it->item.key);
+                    free(it->item.pipe_cmd);
+                    tll_remove(conf->bindings.key, it);
+                }
+            }
             return true;
         }
 
-        if (!verify_key_combo(conf, value, path, lineno)) {
+        if (!verify_key_combo(conf, action, value, path, lineno)) {
             return false;
         }
 
-        free(conf->bindings.key[action]);
-        conf->bindings.key[action] = strdup(value);
+        bool already_added = false;
+        tll_foreach(conf->bindings.key, it) {
+            if (it->item.action == action &&
+                ((it->item.pipe_cmd == NULL && pipe_cmd == NULL) ||
+                 (it->item.pipe_cmd != NULL && pipe_cmd != NULL &&
+                  strncmp(it->item.pipe_cmd, pipe_cmd, pipe_len) == 0)))
+            {
+
+                free(it->item.key);
+                free(it->item.pipe_cmd);
+
+                it->item.key = strdup(value);
+                it->item.pipe_cmd = pipe_cmd != NULL
+                    ? strndup(pipe_cmd, pipe_len) : NULL;
+                already_added = true;
+                break;
+            }
+        }
+
+        if (!already_added) {
+            struct config_key_binding_normal binding = {
+                .action = action,
+                .key = strdup(value),
+                .pipe_cmd = pipe_cmd != NULL ? strndup(pipe_cmd, pipe_len) : NULL,
+            };
+            tll_push_back(conf->bindings.key, binding);
+        }
         return true;
     }
 
@@ -568,7 +617,12 @@ parse_section_mouse_bindings(
             continue;
 
         if (strcmp(value, "NONE") == 0) {
-            conf->bindings.mouse[action] = (struct mouse_binding){0, 0, BIND_ACTION_NONE};
+            tll_foreach(conf->bindings.mouse, it) {
+                if (it->item.action == action) {
+                    tll_remove(conf->bindings.mouse, it);
+                    break;
+                }
+            }
             return true;
         }
 
@@ -590,16 +644,32 @@ parse_section_mouse_bindings(
             const int count = 1;
 
             /* Make sure button isn't already mapped to another action */
-            for (enum bind_action_normal j = 0; j < BIND_ACTION_COUNT; j++) {
-                const struct mouse_binding *collision = &conf->bindings.mouse[j];
-                if (collision->button == i && collision->count == count) {
+            tll_foreach(conf->bindings.mouse, it) {
+                if (it->item.button == i && it->item.count == count) {
                     LOG_ERR("%s:%d: %s already mapped to %s", path, lineno,
-                            value, binding_action_map[collision->action]);
+                            value, binding_action_map[it->item.action]);
                     return false;
                 }
             }
 
-            conf->bindings.mouse[action] = (struct mouse_binding){i, count, action};
+            bool already_added = false;
+            tll_foreach(conf->bindings.mouse, it) {
+                if (it->item.action == action) {
+                    it->item.button = i;
+                    it->item.count = count;
+                    already_added = true;
+                    break;
+                }
+            }
+
+            if (!already_added) {
+                struct mouse_binding binding = {
+                    .action = action,
+                    .button = i,
+                    .count = count,
+                };
+                tll_push_back(conf->bindings.mouse, binding);
+            }
             return true;
         }
 
@@ -883,42 +953,6 @@ config_load(struct config *conf, const char *conf_path)
                 .cursor = 0,
             },
         },
-
-        .bindings = {
-            .key = {
-                [BIND_ACTION_SCROLLBACK_UP] = strdup("Shift+Page_Up"),
-                [BIND_ACTION_SCROLLBACK_DOWN] = strdup("Shift+Page_Down"),
-                [BIND_ACTION_CLIPBOARD_COPY] = strdup("Control+Shift+C"),
-                [BIND_ACTION_CLIPBOARD_PASTE] = strdup("Control+Shift+V"),
-                [BIND_ACTION_SEARCH_START] = strdup("Control+Shift+R"),
-                [BIND_ACTION_FONT_SIZE_UP] = strdup("Control+plus Control+equal Control+KP_Add"),
-                [BIND_ACTION_FONT_SIZE_DOWN] = strdup("Control+minus Control+KP_Subtract"),
-                [BIND_ACTION_FONT_SIZE_RESET] = strdup("Control+0 Control+KP_0"),
-                [BIND_ACTION_SPAWN_TERMINAL] = strdup("Control+Shift+N"),
-            },
-            .mouse = {
-                [BIND_ACTION_PRIMARY_PASTE] = {BTN_MIDDLE, 1, BIND_ACTION_PRIMARY_PASTE},
-            },
-            .search = {
-                [BIND_ACTION_SEARCH_CANCEL] = strdup("Control+g Escape"),
-                [BIND_ACTION_SEARCH_COMMIT] = strdup("Return"),
-                [BIND_ACTION_SEARCH_FIND_PREV] = strdup("Control+r"),
-                [BIND_ACTION_SEARCH_FIND_NEXT] = strdup("Control+s"),
-                [BIND_ACTION_SEARCH_EDIT_LEFT] = strdup("Left Control+b"),
-                [BIND_ACTION_SEARCH_EDIT_LEFT_WORD] = strdup("Control+Left Mod1+b"),
-                [BIND_ACTION_SEARCH_EDIT_RIGHT] = strdup("Right Control+f"),
-                [BIND_ACTION_SEARCH_EDIT_RIGHT_WORD] = strdup("Control+Right Mod1+f"),
-                [BIND_ACTION_SEARCH_EDIT_HOME] = strdup("Home Control+a"),
-                [BIND_ACTION_SEARCH_EDIT_END] = strdup("End Control+e"),
-                [BIND_ACTION_SEARCH_DELETE_PREV] = strdup("BackSpace"),
-                [BIND_ACTION_SEARCH_DELETE_PREV_WORD] = strdup("Mod1+BackSpace Control+BackSpace"),
-                [BIND_ACTION_SEARCH_DELETE_NEXT] = strdup("Delete "),
-                [BIND_ACTION_SEARCH_DELETE_NEXT_WORD] = strdup("Mod1+d Control+Delete"),
-                [BIND_ACTION_SEARCH_EXTEND_WORD] = strdup("Control+w"),
-                [BIND_ACTION_SEARCH_EXTEND_WORD_WS] = strdup("Control+Shift+W"),
-            },
-        },
-
         .csd = {
             .preferred = CONF_CSD_PREFER_SERVER,
             .title_height = 26,
@@ -937,6 +971,63 @@ config_load(struct config *conf, const char *conf_path)
             .max_shm_pool_size = 512 * 1024 * 1024,
         },
     };
+
+    struct config_key_binding_normal scrollback_up =   {BIND_ACTION_SCROLLBACK_UP,   strdup("Shift+Page_Up")};
+    struct config_key_binding_normal scrollback_down = {BIND_ACTION_SCROLLBACK_DOWN, strdup("Shift+Page_Down")};
+    struct config_key_binding_normal clipboard_copy =  {BIND_ACTION_CLIPBOARD_COPY,  strdup("Control+Shift+C")};
+    struct config_key_binding_normal clipboard_paste = {BIND_ACTION_CLIPBOARD_PASTE, strdup("Control+Shift+V")};
+    struct config_key_binding_normal search_start =    {BIND_ACTION_SEARCH_START,    strdup("Control+Shift+R")};
+    struct config_key_binding_normal font_size_up =    {BIND_ACTION_FONT_SIZE_UP,    strdup("Control+plus Control+equal Control+KP_Add")};
+    struct config_key_binding_normal font_size_down =  {BIND_ACTION_FONT_SIZE_DOWN,  strdup("Control+minus Control+KP_Subtract")};
+    struct config_key_binding_normal font_size_reset = {BIND_ACTION_FONT_SIZE_RESET, strdup("Control+0 Control+KP_0")};
+    struct config_key_binding_normal spawn_terminal =  {BIND_ACTION_SPAWN_TERMINAL,  strdup("Control+Shift+N")};
+
+    tll_push_back(conf->bindings.key, scrollback_up);
+    tll_push_back(conf->bindings.key, scrollback_down);
+    tll_push_back(conf->bindings.key, clipboard_copy);
+    tll_push_back(conf->bindings.key, clipboard_paste);
+    tll_push_back(conf->bindings.key, search_start);
+    tll_push_back(conf->bindings.key, font_size_up);
+    tll_push_back(conf->bindings.key, font_size_down);
+    tll_push_back(conf->bindings.key, font_size_reset);
+    tll_push_back(conf->bindings.key, spawn_terminal);
+
+    struct mouse_binding primary_paste = {BIND_ACTION_PRIMARY_PASTE, BTN_MIDDLE, 1};
+    tll_push_back(conf->bindings.mouse, primary_paste);
+
+    struct config_key_binding_search search_cancel =          {BIND_ACTION_SEARCH_CANCEL,           strdup("Control+g Escape")};
+    struct config_key_binding_search search_commit =          {BIND_ACTION_SEARCH_COMMIT,           strdup("Return")};
+    struct config_key_binding_search search_find_prev =       {BIND_ACTION_SEARCH_FIND_PREV,        strdup("Control+r")};
+    struct config_key_binding_search search_find_next =       {BIND_ACTION_SEARCH_FIND_NEXT,        strdup("Control+s")};
+    struct config_key_binding_search search_edit_left =       {BIND_ACTION_SEARCH_EDIT_LEFT,        strdup("Left Control+b")};
+    struct config_key_binding_search search_edit_left_word =  {BIND_ACTION_SEARCH_EDIT_LEFT_WORD,   strdup("Control+Left Mod1+b")};
+    struct config_key_binding_search search_edit_right =      {BIND_ACTION_SEARCH_EDIT_RIGHT,       strdup("Right Control+f")};
+    struct config_key_binding_search search_edit_right_word = {BIND_ACTION_SEARCH_EDIT_RIGHT_WORD,  strdup("Control+Right Mod1+f")};
+    struct config_key_binding_search search_edit_home =       {BIND_ACTION_SEARCH_EDIT_HOME,        strdup("Home Control+a")};
+    struct config_key_binding_search search_edit_end =        {BIND_ACTION_SEARCH_EDIT_END,         strdup("End Control+e")};
+    struct config_key_binding_search search_del_prev =        {BIND_ACTION_SEARCH_DELETE_PREV,      strdup("BackSpace")};
+    struct config_key_binding_search search_del_prev_word =   {BIND_ACTION_SEARCH_DELETE_PREV_WORD, strdup("Mod1+BackSpace Control+BackSpace")};
+    struct config_key_binding_search search_del_next =        {BIND_ACTION_SEARCH_DELETE_NEXT,      strdup("Delete")};
+    struct config_key_binding_search search_del_next_word =   {BIND_ACTION_SEARCH_DELETE_NEXT_WORD, strdup("Mod1+d Control+Delete")};
+    struct config_key_binding_search search_ext_word =        {BIND_ACTION_SEARCH_EXTEND_WORD,      strdup("Control+w")};
+    struct config_key_binding_search search_ext_word_ws =     {BIND_ACTION_SEARCH_EXTEND_WORD_WS,   strdup("Control+Shift+W")};
+
+    tll_push_back(conf->bindings.search, search_cancel);
+    tll_push_back(conf->bindings.search, search_commit);
+    tll_push_back(conf->bindings.search, search_find_prev);
+    tll_push_back(conf->bindings.search, search_find_next);
+    tll_push_back(conf->bindings.search, search_edit_left);
+    tll_push_back(conf->bindings.search, search_edit_left_word);
+    tll_push_back(conf->bindings.search, search_edit_right);
+    tll_push_back(conf->bindings.search, search_edit_right_word);
+    tll_push_back(conf->bindings.search, search_edit_home);
+    tll_push_back(conf->bindings.search, search_edit_end);
+    tll_push_back(conf->bindings.search, search_del_prev);
+    tll_push_back(conf->bindings.search, search_del_prev_word);
+    tll_push_back(conf->bindings.search, search_del_next);
+    tll_push_back(conf->bindings.search, search_del_next_word);
+    tll_push_back(conf->bindings.search, search_ext_word);
+    tll_push_back(conf->bindings.search, search_ext_word_ws);
 
     char *default_path = NULL;
     if (conf_path == NULL) {
@@ -982,10 +1073,16 @@ config_free(struct config conf)
     tll_free(conf.fonts);
     free(conf.server_socket_path);
 
-    for (enum bind_action_normal i = 0; i < BIND_ACTION_COUNT; i++)
-        free(conf.bindings.key[i]);
-    for (enum bind_action_search i = 0; i < BIND_ACTION_SEARCH_COUNT; i++)
-        free(conf.bindings.search[i]);
+    tll_foreach(conf.bindings.key, it) {
+        free(it->item.key);
+        free(it->item.pipe_cmd);
+    }
+    tll_foreach(conf.bindings.search, it)
+        free(it->item.key);
+
+    tll_free(conf.bindings.key);
+    tll_free(conf.bindings.mouse);
+    tll_free(conf.bindings.search);
 }
 
 struct config_font

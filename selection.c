@@ -14,6 +14,7 @@
 #include "log.h"
 
 #include "async.h"
+#include "extract.h"
 #include "grid.h"
 #include "misc.h"
 #include "render.h"
@@ -100,7 +101,7 @@ selection_view_down(struct terminal *term, int new_view)
 static void
 foreach_selected_normal(
     struct terminal *term, struct coord _start, struct coord _end,
-    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
+    bool (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
     void *data)
 {
     const struct coord *start = &_start;
@@ -134,7 +135,8 @@ foreach_selected_normal(
              c <= (r == end_row ? end_col : term->cols - 1);
              c++)
         {
-            cb(term, row, &row->cells[c], c, data);
+            if (!cb(term, row, &row->cells[c], c, data))
+                return;
         }
 
         start_col = 0;
@@ -144,7 +146,7 @@ foreach_selected_normal(
 static void
 foreach_selected_block(
     struct terminal *term, struct coord _start, struct coord _end,
-    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
+    bool (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
     void *data)
 {
     const struct coord *start = &_start;
@@ -166,7 +168,8 @@ foreach_selected_block(
         assert(row != NULL);
 
         for (int c = top_left.col; c <= bottom_right.col; c++) {
-            cb(term, row, &row->cells[c], c, data);
+            if (!cb(term, row, &row->cells[c], c, data))
+                return;
         }
     }
 }
@@ -174,7 +177,7 @@ foreach_selected_block(
 static void
 foreach_selected(
     struct terminal *term, struct coord start, struct coord end,
-    void (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
+    bool (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
     void *data)
 {
     switch (term->selection.kind) {
@@ -192,173 +195,27 @@ foreach_selected(
     assert(false);
 }
 
-static size_t
-min_bufsize_for_extraction(const struct terminal *term)
+static bool
+extract_one_const_wrapper(struct terminal *term,
+                          struct row *row, struct cell *cell,
+                          int col, void *data)
 {
-    const struct coord *start = &term->selection.start;
-    const struct coord *end = &term->selection.end;
-    const size_t chars_per_cell = 1 + ALEN(term->composed[0].combining);
-
-    switch (term->selection.kind) {
-    case SELECTION_NONE:
-        return 0;
-
-    case SELECTION_NORMAL:
-        if (term->selection.end.row < 0)
-            return 0;
-
-        assert(term->selection.start.row != -1);
-
-        if (start->row > end->row) {
-            const struct coord *tmp = start;
-            start = end;
-            end = tmp;
-        }
-
-        if (start->row == end->row)
-            return (end->col - start->col + 1) * chars_per_cell;
-        else {
-            size_t cells = 0;
-
-            /* Add one extra column on each row, for \n */
-
-            cells += term->cols - start->col + 1;
-            cells += (term->cols + 1) * (end->row - start->row - 1);
-            cells += end->col + 1 + 1;
-            return cells * chars_per_cell;
-        }
-
-    case SELECTION_BLOCK: {
-        struct coord top_left = {
-            .row = min(start->row, end->row),
-            .col = min(start->col, end->col),
-        };
-
-        struct coord bottom_right = {
-            .row = max(start->row, end->row),
-            .col = max(start->col, end->col),
-        };
-
-        /* Add one extra column on each row, for \n */
-        int cols = bottom_right.col - top_left.col + 1 + 1;
-        int rows = bottom_right.row - top_left.row + 1;
-        return rows * cols * chars_per_cell;
-    }
-    }
-
-    assert(false);
-    return 0;
-}
-
-struct extract {
-    wchar_t *buf;
-    size_t size;
-    size_t idx;
-    size_t empty_count;
-    const struct row *last_row;
-    const struct cell *last_cell;
-};
-
-static void
-extract_one(struct terminal *term, struct row *row, struct cell *cell,
-            int col, void *data)
-{
-    struct extract *ctx = data;
-
-    if (cell->wc == CELL_MULT_COL_SPACER)
-        return;
-
-    if (ctx->last_row != NULL && row != ctx->last_row) {
-        /* New row - determine if we should insert a newline or not */
-
-        if (term->selection.kind == SELECTION_NORMAL) {
-            if (ctx->last_row->linebreak ||
-                ctx->empty_count > 0 ||
-                cell->wc == 0)
-            {
-                /* Row has a hard linebreak, or either last cell or
-                 * current cell is empty */
-                ctx->buf[ctx->idx++] = L'\n';
-                ctx->empty_count = 0;
-            }
-        }
-
-        else if (term->selection.kind == SELECTION_BLOCK) {
-            /* Always insert a linebreak */
-            ctx->buf[ctx->idx++] = L'\n';
-            ctx->empty_count = 0;
-        }
-    }
-
-    if (cell->wc == 0) {
-        ctx->empty_count++;
-        ctx->last_row = row;
-        ctx->last_cell = cell;
-        return;
-    }
-
-    /* Replace empty cells with spaces when followed by non-empty cell */
-    assert(ctx->idx + ctx->empty_count <= ctx->size);
-    for (size_t i = 0; i < ctx->empty_count; i++)
-        ctx->buf[ctx->idx++] = L' ';
-    ctx->empty_count = 0;
-
-    assert(ctx->idx + 1 <= ctx->size);
-
-    if (cell->wc >= CELL_COMB_CHARS_LO &&
-        cell->wc < (CELL_COMB_CHARS_LO + term->composed_count)) {
-        const struct composed *composed = &term->composed[cell->wc - CELL_COMB_CHARS_LO];
-
-        ctx->buf[ctx->idx++] = composed->base;
-
-        assert(ctx->idx + composed->count <= ctx->size);
-        for (size_t i = 0; i < composed->count; i++)
-            ctx->buf[ctx->idx++] = composed->combining[i];
-    } else
-        ctx->buf[ctx->idx++] = cell->wc;
-
-    ctx->last_row = row;
-    ctx->last_cell = cell;
+    return extract_one(term, row, cell, col, data);
 }
 
 static char *
 extract_selection(const struct terminal *term)
 {
-    const size_t max_cells = min_bufsize_for_extraction(term);
-    const size_t buf_size = max_cells + 1;
-
-    struct extract ctx = {
-        .buf = malloc(buf_size * sizeof(wchar_t)),
-        .size = buf_size,
-    };
+    struct extraction_context *ctx = extract_begin(term->selection.kind);
+    if (ctx == NULL)
+        return NULL;
 
     foreach_selected(
         (struct terminal *)term, term->selection.start, term->selection.end,
-        &extract_one, &ctx);
+        &extract_one_const_wrapper, ctx);
 
-    if (ctx.idx == 0) {
-        /* Selection of empty cells only */
-        ctx.buf[ctx.idx] = L'\0';
-    } else {
-        assert(ctx.idx > 0);
-        assert(ctx.idx < ctx.size);
-        if (ctx.buf[ctx.idx - 1] == L'\n')
-            ctx.buf[ctx.idx - 1] = L'\0';
-        else
-            ctx.buf[ctx.idx] = L'\0';
-    }
-
-    size_t len = wcstombs(NULL, ctx.buf, 0);
-    if (len == (size_t)-1) {
-        LOG_ERRNO("failed to convert selection to UTF-8");
-        free(ctx.buf);
-        return NULL;
-    }
-
-    char *ret = malloc(len + 1);
-    wcstombs(ret, ctx.buf, len + 1);
-    free(ctx.buf);
-    return ret;
+    char *text;
+    return extract_finish(ctx, &text, NULL) ? text : NULL;
 }
 
 void
@@ -377,41 +234,44 @@ selection_start(struct terminal *term, int col, int row,
     term->selection.end = (struct coord){-1, -1};
 }
 
-static void
+static bool
 unmark_selected(struct terminal *term, struct row *row, struct cell *cell,
                 int col, void *data)
 {
     if (cell->attrs.selected == 0 || (cell->attrs.selected & 2)) {
         /* Ignore if already deselected, or if premarked for updated selection */
-        return;
+        return true;
     }
 
     row->dirty = true;
     cell->attrs.selected = 0;
     cell->attrs.clean = 0;
+    return true;
 }
 
 
-static void
+static bool
 premark_selected(struct terminal *term, struct row *row, struct cell *cell,
                  int col, void *data)
 {
     /* Tell unmark to leave this be */
     cell->attrs.selected |= 2;
+    return true;
 }
 
-static void
+static bool
 mark_selected(struct terminal *term, struct row *row, struct cell *cell,
               int col, void *data)
 {
     if (cell->attrs.selected & 1) {
         cell->attrs.selected = 1;  /* Clear the pre-mark bit */
-        return;
+        return true;
     }
 
     row->dirty = true;
     cell->attrs.selected = 1;
     cell->attrs.clean = 0;
+    return true;
 }
 
 static void

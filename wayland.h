@@ -39,18 +39,21 @@ enum bind_action_normal {
     BIND_ACTION_MINIMIZE,
     BIND_ACTION_MAXIMIZE,
     BIND_ACTION_FULLSCREEN,
+    BIND_ACTION_PIPE_SCROLLBACK,
+    BIND_ACTION_PIPE_VIEW,
     BIND_ACTION_COUNT,
 };
 
 struct key_binding_normal {
     struct key_binding bind;
     enum bind_action_normal action;
+    const char *pipe_cmd;
 };
 
 struct mouse_binding {
+    enum bind_action_normal action;
     uint32_t button;
     int count;
-    enum bind_action_normal action;
 };
 
 enum bind_action_search {
