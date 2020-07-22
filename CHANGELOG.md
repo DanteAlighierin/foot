@@ -1,6 +1,6 @@
 # Changelog
 
-* [Unreleased](#unreleased)
+* [1.4.1](#1-4-1)
 * [1.4.0](#1-4-0)
 * [1.3.0](#1-3-0)
 * [1.2.3](#1-2-3)
@@ -9,12 +9,12 @@
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
-### Added
-### Deprecated
-### Removed
+## 1.4.1
+
 ### Fixed
-### Security
+
+* Compilation errors in release builds with some combinations of
+  compilers and compiler flags.
 
 
 ## 1.4.0
