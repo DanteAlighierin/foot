@@ -151,28 +151,31 @@ execute_binding(struct seat *seat, struct terminal *term,
 
         struct pipe_context *ctx = NULL;
 
+        int pipe_fd[2] = {-1, -1};
+        int stdout_fd = -1;
+        int stderr_fd = -1;
+
+        char *text = NULL;
+        size_t len = 0;
+
         char *cmd = strdup(pipe_cmd);
         char **argv = NULL;
 
         if (!tokenize_cmdline(cmd, &argv))
             goto pipe_err;
 
-        int pipe_fd[2] = {-1, -1};
         if (pipe(pipe_fd) < 0) {
             LOG_ERRNO("failed to create pipe");
             goto pipe_err;
         }
 
-        int stdout_fd = open("/dev/null", O_WRONLY);
-        int stderr_fd = open("/dev/null", O_WRONLY);
+        stdout_fd = open("/dev/null", O_WRONLY);
+        stderr_fd = open("/dev/null", O_WRONLY);
 
         if (stdout_fd < 0 || stderr_fd < 0) {
             LOG_ERRNO("failed to open /dev/null");
             goto pipe_err;
         }
-
-        char *text;
-        size_t len;
 
         bool success = action == BIND_ACTION_PIPE_SCROLLBACK
             ? term_scrollback_to_text(term, &text, &len)
