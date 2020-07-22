@@ -412,8 +412,8 @@ distance_prev_word(const struct terminal *term)
 }
 
 static bool
-execute_binding(struct terminal *term, enum bind_action_search action,
-                uint32_t serial)
+execute_binding(struct seat *seat, struct terminal *term,
+                enum bind_action_search action, uint32_t serial)
 {
     switch (action) {
     case BIND_ACTION_SEARCH_NONE:
@@ -429,10 +429,8 @@ execute_binding(struct terminal *term, enum bind_action_search action,
         return true;
 
     case BIND_ACTION_SEARCH_COMMIT:
-#if 0
-        selection_finalize(term, term->wl->input_serial);
+        selection_finalize(seat, term, serial);
         search_cancel_keep_selection(term);
-#endif
         return true;
 
     case BIND_ACTION_SEARCH_FIND_PREV:
@@ -584,7 +582,7 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
 
         /* Match symbol */
         if (it->item.bind.sym == sym) {
-            if (!execute_binding(term, it->item.action, serial))
+            if (!execute_binding(seat, term, it->item.action, serial))
                 goto update_search;
             return;
         }
@@ -592,7 +590,7 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
         /* Match raw key code */
         tll_foreach(it->item.bind.key_codes, code) {
             if (code->item == key) {
-                if (!execute_binding(term, it->item.action, serial))
+                if (!execute_binding(seat, term, it->item.action, serial))
                     goto update_search;
                 return;
             }
