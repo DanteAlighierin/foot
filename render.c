@@ -1660,8 +1660,7 @@ render_search_box(struct terminal *term)
 static void
 render_update_title(struct terminal *term)
 {
-    /* TODO: figure out what the limit actually is */
-    static const size_t max_len = 100;
+    static const size_t max_len = 2048;
 
     const char *title = term->window_title != NULL ? term->window_title : "foot";
     char *copy = NULL;

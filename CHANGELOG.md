@@ -12,6 +12,11 @@
 
 ## Unreleased
 ### Added
+### Changed
+
+* Maximum window title length from 100 to 2048.
+
+
 ### Deprecated
 ### Removed
 ### Fixed
