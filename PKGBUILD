@@ -1,11 +1,11 @@
 pkgname=('foot-git' 'foot-terminfo-git')
-pkgver=1.3.0
+pkgver=1.4.0
 pkgrel=1
 arch=('x86_64' 'aarch64')
 url=https://codeberg.org/dnkl/foot
 license=(mit)
 makedepends=('meson' 'ninja' 'scdoc' 'python' 'ncurses' 'wayland-protocols' 'tllist>=1.0.1')
-depends=('libxkbcommon' 'wayland' 'pixman' 'fontconfig' 'fcft>=2.2.0')
+depends=('libxkbcommon' 'wayland' 'pixman' 'fontconfig' 'fcft>=2.2.2')
 source=()
 
 pkgver() {
