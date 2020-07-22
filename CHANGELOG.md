@@ -1,6 +1,6 @@
 # Changelog
 
-* [Unreleased](#unreleased)
+* [1.4.0](#1-4-0)
 * [1.3.0](#1-3-0)
 * [1.2.3](#1-2-3)
 * [1.2.2](#1-2-2)
@@ -8,7 +8,7 @@
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
+## 1.4.0
 
 ### Added
 
@@ -56,8 +56,6 @@
   rather than _visual_ focus.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Do not stop an ongoing selection when `shift` is released. When the
@@ -111,9 +109,6 @@
   character.
 * Font size can no longer be reduced to negative values
   (https://codeberg.org/dnkl/foot/issues/38).
-
-
-### Security
 
 
 ## 1.3.0
