@@ -23,6 +23,8 @@
 
 * Crash when overwriting a sixel and the row being overwritten did not
   cover an entire cell.
+* Assertion failure in debug builds when overwriting a sixel image.
+
 
 ### Security
 

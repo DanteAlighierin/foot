@@ -350,9 +350,11 @@ _sixel_overwrite_by_rectangle(
                 (col <= col_end && col + width - 1 >= col_end) ||
                 (col >= col_start && col + width - 1 <= col_end))
             {
-                sixel_overwrite(term, six, start, col, height, width);
-                sixel_erase(term, six);
+                struct sixel to_be_erased = *six;
                 tll_remove(term->grid->sixel_images, it);
+
+                sixel_overwrite(term, &to_be_erased, start, col, height, width);
+                sixel_erase(term, &to_be_erased);
             }
         }
     }
@@ -421,9 +423,11 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
                 (col <= col_end && col + width - 1 >= col_end) ||
                 (col >= col_start && col + width - 1 <= col_end))
             {
-                sixel_overwrite(term, six, row, col, 1, width);
-                sixel_erase(term, six);
+                struct sixel to_be_erased = *six;
                 tll_remove(term->grid->sixel_images, it);
+
+                sixel_overwrite(term, &to_be_erased, row, col, 1, width);
+                sixel_erase(term, &to_be_erased);
             }
         }
     }
