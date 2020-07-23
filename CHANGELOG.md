@@ -1,6 +1,6 @@
 # Changelog
 
-* [Unreleased](#unreleased)
+* [1.4.2](#1.4.2)
 * [1.4.1](#1-4-1)
 * [1.4.0](#1-4-0)
 * [1.3.0](#1-3-0)
@@ -10,23 +10,18 @@
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
-### Added
+## 1.4.2
+
 ### Changed
 
 * Maximum window title length from 100 to 2048.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Crash when overwriting a sixel and the row being overwritten did not
   cover an entire cell.
 * Assertion failure in debug builds when overwriting a sixel image.
-
-
-### Security
 
 
 ## 1.4.1
