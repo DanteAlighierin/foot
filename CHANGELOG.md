@@ -20,6 +20,10 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Crash when overwriting a sixel and the row being overwritten did not
+  cover an entire cell.
+
 ### Security
 
 
