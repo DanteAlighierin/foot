@@ -1,5 +1,6 @@
 # Changelog
 
+* [Unreleased](#unreleased)
 * [1.4.2](#1.4.2)
 * [1.4.1](#1-4-1)
 * [1.4.0](#1-4-0)
@@ -8,6 +9,14 @@
 * [1.2.2](#1-2-2)
 * [1.2.1](#1-2-1)
 * [1.2.0](#1-2-0)
+
+## Unreleased
+### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
 
 
 ## 1.4.2
