@@ -272,7 +272,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
                 (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
         };
         imgs[2].data = malloc(imgs[2].width * imgs[2].height * sizeof(uint32_t));
-        for (size_t i = 0; i < term->cell_height; i++)
+        for (size_t i = 0; i < imgs[2].height; i++)
             memcpy(
                 &((uint32_t *)imgs[2].data)[i * imgs[2].width],
                 &((const uint32_t *)six->data)[(rel_above * term->cell_height + i) * six->width],
@@ -290,7 +290,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
                 (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
         };
         imgs[3].data = malloc(imgs[3].width * imgs[3].height * sizeof(uint32_t));
-        for (size_t i = 0; i < term->cell_height; i++)
+        for (size_t i = 0; i < imgs[3].height; i++)
             memcpy(
                 &((uint32_t *)imgs[3].data)[i * imgs[3].width],
                 &((const uint32_t *)six->data)[(rel_above * term->cell_height + i) * six->width + rel_right * term->cell_width],
@@ -350,9 +350,11 @@ _sixel_overwrite_by_rectangle(
                 (col <= col_end && col + width - 1 >= col_end) ||
                 (col >= col_start && col + width - 1 <= col_end))
             {
-                sixel_overwrite(term, six, start, col, height, width);
-                sixel_erase(term, six);
+                struct sixel to_be_erased = *six;
                 tll_remove(term->grid->sixel_images, it);
+
+                sixel_overwrite(term, &to_be_erased, start, col, height, width);
+                sixel_erase(term, &to_be_erased);
             }
         }
     }
@@ -421,9 +423,11 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
                 (col <= col_end && col + width - 1 >= col_end) ||
                 (col >= col_start && col + width - 1 <= col_end))
             {
-                sixel_overwrite(term, six, row, col, 1, width);
-                sixel_erase(term, six);
+                struct sixel to_be_erased = *six;
                 tll_remove(term->grid->sixel_images, it);
+
+                sixel_overwrite(term, &to_be_erased, row, col, 1, width);
+                sixel_erase(term, &to_be_erased);
             }
         }
     }
