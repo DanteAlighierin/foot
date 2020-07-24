@@ -1287,6 +1287,50 @@ render_csd(struct terminal *term)
     render_csd_title(term);
 }
 
+static void
+render_scrollback_position(struct terminal *term)
+{
+#if 0
+    if (!term->conf->show_scrollback_position)
+        return;
+#endif
+
+    /* Find absolute row number of the scrollback start */
+    int scrollback_start = term->grid->offset + term->rows;
+    while (term->grid->rows[scrollback_start & (term->grid->num_rows - 1)] == NULL)
+        scrollback_start++;
+
+    /* Rebase viewport against scrollback start (so that 0 is at
+     * the beginning of the scrollback) */
+    int rebased_view = term->grid->view - scrollback_start + term->grid->num_rows;
+    rebased_view &= term->grid->num_rows - 1;
+
+    /*
+     * How far down in the scrollback we are.
+     *
+     *    0% -> at the beginning of the scrollback
+     *  100% -> at the bottom, i.e. where new lines are inserted
+     */
+    int percentage __attribute__((unused)) =
+        rebased_view + term->rows == term->grid->num_rows
+        ? 100
+        : 100 * rebased_view / term->grid->num_rows;
+
+    int next_row_no = term->grid->view + term->rows;
+    next_row_no &= term->grid->num_rows - 1;
+
+    /* Are we at the end of the scrollback? */
+    bool at_bottom = rebased_view + term->rows == term->grid->num_rows ||
+        term->grid->rows[next_row_no] == NULL;
+
+    LOG_DBG("scrollback position: %d/%d (%d%%), at-bottom: %d",
+            rebased_view, term->grid->num_rows, percentage, at_bottom);
+
+    if (!at_bottom) {
+        /* TODO: insert rendering code here */
+    }
+}
+
 static void frame_callback(
     void *data, struct wl_callback *wl_callback, uint32_t callback_data);
 
@@ -1497,6 +1541,8 @@ grid_render(struct terminal *term)
         wl_surface_damage_buffer(
             term->window->surface, 0, 0, term->width, term->height);
     }
+
+    render_scrollback_position(term);
 
     assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
     assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
