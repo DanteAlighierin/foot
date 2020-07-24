@@ -291,6 +291,9 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->scrollback_lines = lines;
     }
 
+    else if (strcmp(key, "show-scrollback-position") == 0)
+        conf->show_scrollback_position = str_to_bool(value);
+
     else {
         LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
         return false;
@@ -918,6 +921,7 @@ config_load(struct config *conf, const char *conf_path)
         .startup_mode = STARTUP_WINDOWED,
         .fonts = tll_init(),
         .scrollback_lines = 1000,
+        .show_scrollback_position = true,
 
         .colors = {
             .fg = default_foreground,

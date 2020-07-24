@@ -68,6 +68,10 @@ in this order:
 *scrollback*
 	Number of scrollback lines. Default: _1000_.
 
+*show-scrollback-position*
+	Boolean. Enables a position indicator when the viewport is not at
+	the bottom of the scrollback history. Default: _yes_.
+
 *workers*
 	Number of threads to use for rendering. Set to 0 to disable
 	multithreading. Default: the number of available logical CPUs

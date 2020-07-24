@@ -1290,10 +1290,8 @@ render_csd(struct terminal *term)
 static void
 render_scrollback_position(struct terminal *term)
 {
-#if 0
     if (!term->conf->show_scrollback_position)
         return;
-#endif
 
     /* Find absolute row number of the scrollback start */
     int scrollback_start = term->grid->offset + term->rows;
