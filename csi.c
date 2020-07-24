@@ -373,8 +373,17 @@ csi_dispatch(struct terminal *term, uint8_t final)
              *  - 22   ANSI color, e.g., VT525.
              *  - 28   Rectangular editing.
              *  - 29   ANSI text locator (i.e., DEC Locator mode).
+             *
+             * Note: we report ourselves as a VT220, mainly to be able
+             * to pass parameters, to indiciate we support sixel, and
+             * ANSI colors.
+             *
+             * The VT level must be synchronized with the secondary DA
+             * response.
+             *
+             * Note: tertiary DA responds with "FOOT".
              */
-            const char *reply = "\033[?62;4;6;15;17;22c";
+            const char *reply = "\033[?62;4;22c";
             term_to_slave(term, reply, strlen(reply));
             break;
         }

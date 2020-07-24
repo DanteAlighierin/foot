@@ -13,6 +13,9 @@
 ## Unreleased
 ### Added
 ### Changed
+
+* Primary DA to no longer indicate support for _Selective Erase_,
+  _Technical Characters_ and _Terminal State Interrogation_.
 ### Deprecated
 ### Removed
 ### Fixed
