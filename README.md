@@ -18,6 +18,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Backspace](#backspace)
 1. [DPI and font size](#dpi-and-font-size)
 1. [Supported OSCs](#supported-oscs)
+1. [Programmatically checking if running in foot](#programmatically-checking-if-running-in-foot)
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
@@ -299,6 +300,39 @@ with the terminal emulator itself. Foot implements the following OSCs:
 * `OSC 111` - reset default background color
 * `OSC 112` - reset cursor color
 * `OSC 555` - flash screen (**foot specific**)
+
+
+## Programmatically checking if running in foot
+
+Foot does **not** set any environment variables that can be used to
+identify foot (reading `TERM` is not reliable since the user may have
+chosen to use a different terminfo).
+
+You can instead use the escape sequences to read the _Secondary_ and
+_Tertiary Device Attributes_ (secondary/tertiary DA, for short).
+
+The tertiary DA response is always `\EP!|464f4f54\E\\`. The `\EP!|` is
+the standard tertiary DA response prefix, `DCS ! |`. The trailing
+`\E\\` is of course the standard string terminator, `ST`.
+
+In the response above, the interresting part is `464f4f54`; this is
+the string _FOOT_ in hex.
+
+The secondary DA response is `\E[>1;XXYYZZ;0c`, where XXYYZZ is foot's
+major, minor and patch version numbers, in decimal, using two digits
+for each number. For example, foot-1.4.2 would respond with
+`\E[>1;010402;0c`.
+
+**Note**: not all terminal emulators implement tertiary DA. Most
+implement secondary DA, but not all. All _should_ however implement
+_Primary DA_.
+
+Thus, a safe way to query the terminal is to request the tertiary,
+secondary and primary DA all at once, in that order. All terminals
+should ignore escape sequences they do not recognize. You will have to
+parse the response (which in foot will consist of all three DA
+responses, all at once) to determine which requests the terminal
+emulator actually responded to.
 
 
 ## Requirements

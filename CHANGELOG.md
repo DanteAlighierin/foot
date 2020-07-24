@@ -12,6 +12,11 @@
 
 ## Unreleased
 ### Added
+
+* Section to [README.md](README.md) describing how to programmatically
+  identify foot.
+
+
 ### Changed
 
 * Primary DA to no longer indicate support for _Selective Erase_,
