@@ -13,10 +13,11 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "grid.h"
-#include "vt.h"
 #include "selection.h"
 #include "sixel.h"
 #include "util.h"
+#include "version.h"
+#include "vt.h"
 
 #define UNHANDLED()        LOG_DBG("unhandled: %s", csi_as_string(term, final, -1))
 #define UNHANDLED_SGR(idx) LOG_DBG("unhandled: %s", csi_as_string(term, 'm', idx))
@@ -1414,9 +1415,22 @@ csi_dispatch(struct terminal *term, uint8_t final)
                  *  xterm uses its version number. We use an xterm
                  *  version number too, since e.g. Emacs uses this to
                  *  determine level of support.
+                 *
+                 * We report ourselves as a VT220. This must be
+                 * synchronized with the primary DA respons.
+                 *
+                 * Note: tertiary DA replies with "FOOT".
                  */
 
-                term_to_slave(term, "\033[>41;347;0c", 12);
+                static_assert(FOOT_MAJOR < 100, "Major version must not exceed 99");
+                static_assert(FOOT_MINOR < 100, "Minor version must not exceed 99");
+                static_assert(FOOT_PATCH < 100, "Patch version must not exceed 99");
+
+                char reply[64];
+                snprintf(reply, sizeof(reply), "\033[>1;%02u%02u%02u;0c",
+                         FOOT_MAJOR, FOOT_MINOR, FOOT_PATCH);
+
+                term_to_slave(term, reply, strlen(reply));
                 break;
 
         case 'm':

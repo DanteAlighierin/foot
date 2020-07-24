@@ -16,6 +16,13 @@
 
 * Primary DA to no longer indicate support for _Selective Erase_,
   _Technical Characters_ and _Terminal State Interrogation_.
+* Secondary DA to report foot as a VT220 instead of a VT420.
+* Secondary DA to report foot's version number in parameter 2, the
+  _Firmware Version_. The string is made up of foot's major, minor and
+  patch version numbers, always using two digits for each version
+  number and without any other separating characters. Thus, _1.4.2_
+  would be reported as `010402` (i.e. the full response would be
+  `\E[>1;010402;0c`).
 ### Deprecated
 ### Removed
 ### Fixed
