@@ -104,8 +104,52 @@ search_update_selection(struct terminal *term,
                         int start_row, int start_col,
                         int end_row, int end_col)
 {
+    /* Selection endpoint is inclusive */
+    if (--end_col < 0) {
+        end_col = term->cols - 1;
+        end_row--;
+    }
+
+    /* Begin a new selection if the start coords changed */
+    if (start_row != term->search.match.row ||
+        start_col != term->search.match.col)
+    {
+        int selection_row = start_row - term->grid->view;
+        while (selection_row < 0)
+            selection_row += term->grid->num_rows;
+
+        assert(selection_row >= 0 &&
+               selection_row < term->grid->num_rows);
+        selection_start(term, start_col, selection_row, SELECTION_NORMAL);
+    }
+
+    /* Update selection endpoint */
+    {
+        int selection_row = end_row - term->grid->view;
+        while (selection_row < 0)
+            selection_row += term->grid->num_rows;
+
+        assert(selection_row >= 0 &&
+               selection_row < term->grid->num_rows);
+        selection_update(term, end_col, selection_row);
+    }
+
+    int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
+    if (view_end >= term->grid->view) {
+        /* Viewport does *not* wrap around */
+        if (start_row >= term->grid->view && end_row <= view_end)
+            return;
+    } else {
+        /* Viewport wraps */
+        if (start_row >= term->grid->view || end_row <= view_end)
+            return;
+    }
+
     int old_view = term->grid->view;
-    int new_view = start_row;
+    int new_view = start_row - term->rows / 2;
+
+    while (new_view < 0)
+        new_view += term->grid->num_rows;
 
     /* Prevent scrolling in uninitialized rows */
     bool all_initialized = false;
@@ -137,36 +181,6 @@ search_update_selection(struct terminal *term,
     term->grid->view = new_view;
     if (new_view != old_view)
         term_damage_view(term);
-
-    /* Selection endpoint is inclusive */
-    if (--end_col < 0) {
-        end_col = term->cols - 1;
-        end_row--;
-    }
-
-    /* Begin a new selection if the start coords changed */
-    if (start_row != term->search.match.row ||
-        start_col != term->search.match.col)
-    {
-        int selection_row = start_row - term->grid->view;
-        while (selection_row < 0)
-            selection_row += term->grid->num_rows;
-
-        assert(selection_row >= 0 &&
-               selection_row < term->grid->num_rows);
-        selection_start(term, start_col, selection_row, SELECTION_NORMAL);
-    }
-
-    /* Update selection endpoint */
-    {
-        int selection_row = end_row - term->grid->view;
-        while (selection_row < 0)
-            selection_row += term->grid->num_rows;
-
-        assert(selection_row >= 0 &&
-               selection_row < term->grid->num_rows);
-        selection_update(term, end_col, selection_row);
-    }
 }
 
 static void
@@ -184,7 +198,7 @@ search_find_next(struct terminal *term)
 
     int start_row = term->search.match.row;
     int start_col = term->search.match.col;
-    size_t len __attribute__((unused)) = term->search.match_len;
+    size_t len = term->search.match_len;
 
     assert((len == 0 && start_row == -1 && start_col == -1) ||
            (len > 0 && start_row >= 0 && start_col >= 0));

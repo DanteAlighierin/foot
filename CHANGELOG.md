@@ -23,6 +23,12 @@
   number and without any other separating characters. Thus, _1.4.2_
   would be reported as `010402` (i.e. the full response would be
   `\E[>1;010402;0c`).
+* Scrollback search to only move the viewport if the match lies
+  outside it.
+* Scrollback search to focus match, that requires a viewport change,
+  roughly in the center of the screen.
+
+
 ### Deprecated
 ### Removed
 ### Fixed
