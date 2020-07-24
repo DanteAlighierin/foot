@@ -40,7 +40,7 @@ struct config {
     tll(struct config_font) fonts;
 
     int scrollback_lines;
-    bool show_scrollback_position;
+    bool scrollback_indicator;
 
     struct {
         uint32_t fg;

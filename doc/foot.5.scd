@@ -68,7 +68,7 @@ in this order:
 *scrollback*
 	Number of scrollback lines. Default: _1000_.
 
-*show-scrollback-position*
+*scrollback-indicator*
 	Boolean. Enables a position indicator when the viewport is not at
 	the bottom of the scrollback history. Default: _yes_.
 

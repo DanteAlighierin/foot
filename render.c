@@ -1290,7 +1290,7 @@ render_csd(struct terminal *term)
 static void
 render_scrollback_position(struct terminal *term)
 {
-    if (!term->conf->show_scrollback_position)
+    if (!term->conf->scrollback_indicator)
         return;
 
     /* Find absolute row number of the scrollback start */
