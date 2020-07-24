@@ -294,6 +294,19 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "scrollback-indicator") == 0)
         conf->scrollback_indicator = str_to_bool(value);
 
+    else if (strcmp(key, "scrollback-indicator-format") == 0) {
+        if (strcmp(value, "percent") == 0)
+            conf->scrollback_indicator_format = SCROLLBACK_INDICATOR_PERCENT;
+        else if (strcmp(value, "line") == 0)
+            conf->scrollback_indicator_format = SCROLLBACK_INDICATOR_LINENO;
+        else {
+            LOG_ERR("%s:%d: 'scrollback-indicator-format must be one "
+                    "of 'percent' or 'line', not %s",
+                    path, lineno, value);
+            return false;
+        }
+    }
+
     else {
         LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
         return false;
@@ -922,6 +935,7 @@ config_load(struct config *conf, const char *conf_path)
         .fonts = tll_init(),
         .scrollback_lines = 1000,
         .scrollback_indicator = true,
+        .scrollback_indicator_format = SCROLLBACK_INDICATOR_PERCENT,
 
         .colors = {
             .fg = default_foreground,

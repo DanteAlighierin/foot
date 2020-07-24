@@ -41,6 +41,7 @@ struct config {
 
     int scrollback_lines;
     bool scrollback_indicator;
+    enum {SCROLLBACK_INDICATOR_PERCENT, SCROLLBACK_INDICATOR_LINENO} scrollback_indicator_format;
 
     struct {
         uint32_t fg;

@@ -72,6 +72,11 @@ in this order:
 	Boolean. Enables a position indicator when the viewport is not at
 	the bottom of the scrollback history. Default: _yes_.
 
+*scrollback-indicator-format*
+	Which format to use when displaying the scrollback position
+	indicator. Either _percent_ or _line_. This option is ignored if
+	*scrollback-indicator=no*. Default: _percent_.
+
 *workers*
 	Number of threads to use for rendering. Set to 0 to disable
 	multithreading. Default: the number of available logical CPUs
