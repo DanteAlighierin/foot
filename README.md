@@ -5,6 +5,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 ## Index
 
 1. [Features](#features)
+1. [Configuration](#configuration)
 1. [Troubleshooting](#troubleshooting)
 1. [Why the name 'foot'?](#why-the-name-foot)
 1. [Fonts](#fonts)
@@ -34,7 +35,6 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Bugs](#bugs)
 1. [Mastodon](#mastodon)
 
-
 ## Features
 
 * Fast (see [benchmarks](doc/benchmark.md))
@@ -52,6 +52,14 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 * [Sixel image support](https://en.wikipedia.org/wiki/Sixel)
 
   ![wow](doc/sixel-wow.png "Sixel screenshot")
+
+## Configuration
+
+**foot** can be configured by creating a file `$XDG_CONFIG_HOME/footrc` (defaulting to `~/.config/footrc`).
+A template for that can usually be found in `/usr/share/foot/footrc` or
+[here](https://codeberg.org/dnkl/foot/src/branch/master/footrc).
+
+Further information can be found in foot's manpage `foot(5)`.
 
 
 ## Troubleshooting
