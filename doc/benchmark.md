@@ -18,7 +18,7 @@ terminal. This is done **20** times for each test. Then it calculates
 the _mean_ and _standard deviation_ for each test.
 
 
-## 2020-06-05
+## 2020-07-25
 
 ### System
 
@@ -40,13 +40,13 @@ Scrollback: 10000 lines
 
 ### Results
 
-| Benchmark              | Foot (GCC+PGO) 1.3.0.r59 |      Alacritty 0.4.3 |     URxvt 9.22 |      XTerm 356 |
+| Benchmark              | Foot (GCC+PGO) 1.4.2.r14 |      Alacritty 0.4.3 |     URxvt 9.22 |      XTerm 358 |
 |------------------------|-------------------------:|---------------------:|---------------:|---------------:|
-| alt-random             |            0.450s ±0.009 |   0.905s ±0.003      |  1.151s ±0.004 | 12.906s ±0.078 |
-| alt-random-colors      |            0.451s ±0.013 |   0.931s ±0.005      |  1.192s ±0.005 | 11.858s ±0.155 |
-| scrolling              |            1.181s ±0.036 |   1.096s ±0.022      |  1.080s ±0.007 | 38.244s ±0.118 |
-| scrolling-filled-lines |            0.878s ±0.015 |   1.320s ±0.040      |  1.251s ±0.006 |  6.812s ±0.031 |
-| unicode-random         |            0.926s ±1.179 |   0.089s ±0.001 [^1] | 24.039s ±3.559 | 26.558s ±3.841 |
+| alt-random             |            0.423s ±0.014 |   0.904s ±0.006      |  1.111s ±0.003 | 12.851s ±0.087 |
+| alt-random-colors      |            0.382s ±0.005 |   0.935s ±0.005      |  1.146s ±0.007 | 11.816s ±0.088 |
+| scrolling              |            1.380s ±0.048 |   1.011s ±0.012      |  1.021s ±0.016 | 38.483s ±0.122 |
+| scrolling-filled-lines |            0.826s ±0.020 |   1.307s ±0.008      |  1.213s ±0.015 |  6.725s ±0.016 |
+| unicode-random         |            0.243s ±0.006 |   0.091s ±0.003 [^1] | 24.507s ±3.264 | 26.127s ±3.891 |
 
 
 
