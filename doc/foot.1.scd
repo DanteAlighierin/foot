@@ -214,14 +214,14 @@ _Examples_:
 By default, foot prefixes meta characters with *ESC*. This corresponds
 to XTerm's *metaSendsEscape* option set to *true*.
 
-This can be disabled programatically with *\E[?1036l* (and enabled
+This can be disabled programmatically with *\E[?1036l* (and enabled
 again with *\E[?1036h*).
 
 When disabled, foot will instead set the 8:th bit of meta character
 and then UTF-8 encode it. This corresponds to XTerm's *eightBitMeta*
 option set to *true*.
 
-This can also be disabled programatically with *rmm* (Reset Meta Mode,
+This can also be disabled programmatically with *rmm* (Reset Meta Mode,
 *\E[?1034l*), and enabled again with *smm* (Set Meta Mode,
 *\E[?1034h*).
 
