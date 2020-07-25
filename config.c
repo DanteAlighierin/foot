@@ -297,7 +297,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         else if (strcmp(value, "static") == 0)
             conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_STATIC;
         else if (strcmp(value, "moving") == 0)
-            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_MOVING;
+            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_RELATIVE;
         else {
             LOG_ERR("%s:%d: scrollback-indicator-style must be one of "
                     "'none', 'static' or 'moving'",
@@ -948,7 +948,7 @@ config_load(struct config *conf, const char *conf_path)
         .scrollback = {
             .lines = 1000,
             .indicator = {
-                .style = SCROLLBACK_INDICATOR_STYLE_MOVING,
+                .style = SCROLLBACK_INDICATOR_STYLE_RELATIVE,
                 .format = SCROLLBACK_INDICATOR_FORMAT_PERCENT,
             },
         },

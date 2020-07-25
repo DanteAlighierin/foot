@@ -70,11 +70,11 @@ in this order:
 
 *scrollback-indicator-style*
 	Configures the style of the scrollback position indicator. One of
-	*none*, *static* or *moving*. *none* disables the indicator
+	*none*, *static* or *relative*. *none* disables the indicator
 	completely. *static* always renders the indicator near the top at
-	the window, and *moving* renders the indicator at the position
+	the window, and *relative* renders the indicator at the position
 	corresponding to the current scrollback position. Default:
-	_moving_.
+	_relative_.
 
 *scrollback-indicator-format*
 	Which format to use when displaying the scrollback position

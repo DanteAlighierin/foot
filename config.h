@@ -46,7 +46,7 @@ struct config {
             enum {
                 SCROLLBACK_INDICATOR_STYLE_NONE,
                 SCROLLBACK_INDICATOR_STYLE_STATIC,
-                SCROLLBACK_INDICATOR_STYLE_MOVING
+                SCROLLBACK_INDICATOR_STYLE_RELATIVE
             } style;
 
             enum {
