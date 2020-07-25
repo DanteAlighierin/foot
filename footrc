@@ -2,6 +2,8 @@
 
 # font=monospace
 # scrollback=1000
+# scrollback-indicator-style=moving
+# scrollback-indicator-format=percent
 # geometry=700x500
 # pad=2x2
 # initial-window-mode=windowed

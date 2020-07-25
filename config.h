@@ -39,9 +39,22 @@ struct config {
 
     tll(struct config_font) fonts;
 
-    int scrollback_lines;
-    bool scrollback_indicator;
-    enum {SCROLLBACK_INDICATOR_PERCENT, SCROLLBACK_INDICATOR_LINENO} scrollback_indicator_format;
+    struct {
+        int lines;
+
+        struct {
+            enum {
+                SCROLLBACK_INDICATOR_STYLE_NONE,
+                SCROLLBACK_INDICATOR_STYLE_STATIC,
+                SCROLLBACK_INDICATOR_STYLE_MOVING
+            } style;
+
+            enum {
+                SCROLLBACK_INDICATOR_FORMAT_PERCENT,
+                SCROLLBACK_INDICATOR_FORMAT_LINENO
+            } format;
+        } indicator;
+    } scrollback;
 
     struct {
         uint32_t fg;

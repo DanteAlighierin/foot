@@ -288,21 +288,33 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
             return false;
         }
-        conf->scrollback_lines = lines;
+        conf->scrollback.lines = lines;
     }
 
-    else if (strcmp(key, "scrollback-indicator") == 0)
-        conf->scrollback_indicator = str_to_bool(value);
+    else if (strcmp(key, "scrollback-indicator") == 0) {
+        if (strcmp(value, "none") == 0)
+            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_NONE;
+        else if (strcmp(value, "static") == 0)
+            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_STATIC;
+        else if (strcmp(value, "moving") == 0)
+            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_MOVING;
+        else {
+            LOG_ERR("%s:%d: scrollback-indicator-style must be one of "
+                    "'none', 'static' or 'moving'",
+                    path, lineno);
+            return false;
+        }
+    }
 
     else if (strcmp(key, "scrollback-indicator-format") == 0) {
         if (strcmp(value, "percent") == 0)
-            conf->scrollback_indicator_format = SCROLLBACK_INDICATOR_PERCENT;
+            conf->scrollback.indicator.format = SCROLLBACK_INDICATOR_FORMAT_PERCENT;
         else if (strcmp(value, "line") == 0)
-            conf->scrollback_indicator_format = SCROLLBACK_INDICATOR_LINENO;
+            conf->scrollback.indicator.format = SCROLLBACK_INDICATOR_FORMAT_LINENO;
         else {
             LOG_ERR("%s:%d: 'scrollback-indicator-format must be one "
-                    "of 'percent' or 'line', not %s",
-                    path, lineno, value);
+                    "of 'percent' or 'line'",
+                    path, lineno);
             return false;
         }
     }
@@ -933,10 +945,13 @@ config_load(struct config *conf, const char *conf_path)
         .pad_y = 2,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = tll_init(),
-        .scrollback_lines = 1000,
-        .scrollback_indicator = true,
-        .scrollback_indicator_format = SCROLLBACK_INDICATOR_PERCENT,
-
+        .scrollback = {
+            .lines = 1000,
+            .indicator = {
+                .style = SCROLLBACK_INDICATOR_STYLE_MOVING,
+                .format = SCROLLBACK_INDICATOR_FORMAT_PERCENT,
+            },
+        },
         .colors = {
             .fg = default_foreground,
             .bg = default_background,

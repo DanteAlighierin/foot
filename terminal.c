@@ -909,7 +909,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .tab_stops = tll_init(),
         .wl = wayl,
         .render = {
-            .scrollback_lines = conf->scrollback_lines,
+            .scrollback_lines = conf->scrollback.lines,
             .app_sync_updates.timer_fd = app_sync_updates_fd,
             .workers = {
                 .count = conf->render_worker_count,

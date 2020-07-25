@@ -68,14 +68,18 @@ in this order:
 *scrollback*
 	Number of scrollback lines. Default: _1000_.
 
-*scrollback-indicator*
-	Boolean. Enables a position indicator when the viewport is not at
-	the bottom of the scrollback history. Default: _yes_.
+*scrollback-indicator-style*
+	Configures the style of the scrollback position indicator. One of
+	*none*, *static* or *moving*. *none* disables the indicator
+	completely. *static* always renders the indicator near the top at
+	the window, and *moving* renders the indicator at the position
+	corresponding to the current scrollback position. Default:
+	_moving_.
 
 *scrollback-indicator-format*
 	Which format to use when displaying the scrollback position
 	indicator. Either _percent_ or _line_. This option is ignored if
-	*scrollback-indicator=no*. Default: _percent_.
+	*scrollback-indicator-style=none*. Default: _percent_.
 
 *workers*
 	Number of threads to use for rendering. Set to 0 to disable
