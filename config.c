@@ -294,9 +294,9 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "scrollback-indicator") == 0) {
         if (strcmp(value, "none") == 0)
             conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_NONE;
-        else if (strcmp(value, "static") == 0)
-            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_STATIC;
-        else if (strcmp(value, "moving") == 0)
+        else if (strcmp(value, "fixed") == 0)
+            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_FIXED;
+        else if (strcmp(value, "relative") == 0)
             conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_RELATIVE;
         else {
             LOG_ERR("%s:%d: scrollback-indicator-style must be one of "
