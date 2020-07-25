@@ -13,7 +13,7 @@ arguments, to execute (instead of the default shell).
 # OPTIONS
 
 *-c*,*--config*=_PATH_
-	Path to configuration file. Default: *XDG_RUNTIME_DIR/footrc*.
+	Path to configuration file. Default: *XDG_CONFIG_HOME/footrc*.
 
 *-f*,*--font*=_FONT_
 	Comma separated list of fonts to use, in fontconfig format (see
