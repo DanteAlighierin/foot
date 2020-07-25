@@ -104,6 +104,58 @@ search_update_selection(struct terminal *term,
                         int start_row, int start_col,
                         int end_row, int end_col)
 {
+    bool move_viewport = true;
+
+    int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
+    if (view_end >= term->grid->view) {
+        /* Viewport does *not* wrap around */
+        if (start_row >= term->grid->view && end_row <= view_end)
+            move_viewport = false;
+    } else {
+        /* Viewport wraps */
+        if (start_row >= term->grid->view || end_row <= view_end)
+            move_viewport = false;
+    }
+
+    if (move_viewport) {
+        int old_view = term->grid->view;
+        int new_view = start_row - term->rows / 2;
+
+        while (new_view < 0)
+            new_view += term->grid->num_rows;
+
+        /* Prevent scrolling in uninitialized rows */
+        bool all_initialized = false;
+        do {
+            all_initialized = true;
+
+            for (int i = 0; i < term->rows; i++) {
+                int row_no = (new_view + i) % term->grid->num_rows;
+                if (term->grid->rows[row_no] == NULL) {
+                    all_initialized = false;
+                    new_view--;
+                    break;
+                }
+            }
+        } while (!all_initialized);
+
+        /* Don't scroll past scrollback history */
+        int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
+        if (end >= term->grid->offset) {
+            /* Not wrapped */
+            if (new_view >= term->grid->offset && new_view <= end)
+                new_view = term->grid->offset;
+        } else {
+            if (new_view >= term->grid->offset || new_view <= end)
+                new_view = term->grid->offset;
+        }
+
+        /* Update view */
+        term->grid->view = new_view;
+        if (new_view != old_view)
+            term_damage_view(term);
+    }
+
     /* Selection endpoint is inclusive */
     if (--end_col < 0) {
         end_col = term->cols - 1;
@@ -133,54 +185,6 @@ search_update_selection(struct terminal *term,
                selection_row < term->grid->num_rows);
         selection_update(term, end_col, selection_row);
     }
-
-    int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
-    if (view_end >= term->grid->view) {
-        /* Viewport does *not* wrap around */
-        if (start_row >= term->grid->view && end_row <= view_end)
-            return;
-    } else {
-        /* Viewport wraps */
-        if (start_row >= term->grid->view || end_row <= view_end)
-            return;
-    }
-
-    int old_view = term->grid->view;
-    int new_view = start_row - term->rows / 2;
-
-    while (new_view < 0)
-        new_view += term->grid->num_rows;
-
-    /* Prevent scrolling in uninitialized rows */
-    bool all_initialized = false;
-    do {
-        all_initialized = true;
-
-        for (int i = 0; i < term->rows; i++) {
-            int row_no = (new_view + i) % term->grid->num_rows;
-            if (term->grid->rows[row_no] == NULL) {
-                all_initialized = false;
-                new_view--;
-                break;
-            }
-        }
-    } while (!all_initialized);
-
-    /* Don't scroll past scrollback history */
-    int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
-    if (end >= term->grid->offset) {
-        /* Not wrapped */
-        if (new_view >= term->grid->offset && new_view <= end)
-            new_view = term->grid->offset;
-    } else {
-        if (new_view >= term->grid->offset || new_view <= end)
-            new_view = term->grid->offset;
-    }
-
-    /* Update view */
-    term->grid->view = new_view;
-    if (new_view != old_view)
-        term_damage_view(term);
 }
 
 static void

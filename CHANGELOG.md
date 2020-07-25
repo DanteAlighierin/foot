@@ -40,6 +40,10 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Crash in scrollback search
+
+
 ### Security
 
 
