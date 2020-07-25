@@ -45,6 +45,10 @@
 
 
 ### Security
+### Contributors
+
+* [birger](https://codeberg.org/birger)
+* [cherti](https://codeberg.org/cherti)
 
 
 ## 1.4.2
