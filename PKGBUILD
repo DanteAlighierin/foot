@@ -42,6 +42,7 @@ check() {
 
 package_foot-git() {
   pkgdesc="A wayland native terminal emulator"
+  changelog=CHANGELOG.md
   optdepends=('foot-terminfo: terminfo for foot')
   conflicts=('foot')
   provides=('foot')
