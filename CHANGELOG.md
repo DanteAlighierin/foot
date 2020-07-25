@@ -15,6 +15,9 @@
 
 * Section to [README.md](README.md) describing how to programmatically
   identify foot.
+* [LICENSE](LICENSE), [README.md](README.md) and
+  [CHANGELOG.md](CHANGELOG.md) are now installed to
+  `${datadir}/doc/foot`.
 
 
 ### Changed
