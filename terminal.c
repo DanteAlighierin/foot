@@ -587,14 +587,14 @@ get_font_dpi(const struct terminal *term)
     double dpi = 0.0;
     assert(term->window != NULL);
     tll_foreach(term->window->on_outputs, it) {
-        if (it->item->ppi.scaled.y > dpi)
-            dpi = it->item->ppi.scaled.y * term->scale;
+        if (it->item->dpi > dpi)
+            dpi = it->item->dpi;
     }
 
     /* If we're not mapped, use DPI from first monitor. Hopefully this is where we'll get mapped later... */
     if (dpi == 0.) {
         tll_foreach(term->wl->monitors, it) {
-            dpi = it->item.ppi.scaled.y * term->scale;
+            dpi = it->item.dpi;
             break;
         }
     }
