@@ -300,7 +300,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_RELATIVE;
         else {
             LOG_ERR("%s:%d: scrollback-indicator-style must be one of "
-                    "'none', 'static' or 'moving'",
+                    "'none', 'fixed' or 'moving'",
                     path, lineno);
             return false;
         }
