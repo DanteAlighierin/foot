@@ -1303,8 +1303,6 @@ render_scrollback_position(struct terminal *term)
 
             win->scrollback_indicator_surface = NULL;
             win->scrollback_indicator_sub_surface = NULL;
-
-            LOG_INFO("destroyed indicator surfaces");
         }
         return;
     }
@@ -1334,7 +1332,6 @@ render_scrollback_position(struct terminal *term)
         }
 
         wl_subsurface_set_sync(win->scrollback_indicator_sub_surface);
-        LOG_INFO("instantiated indicator surfaces");
     }
 
     assert(win->scrollback_indicator_surface != NULL);
@@ -1356,14 +1353,30 @@ render_scrollback_position(struct terminal *term)
      *    0% -> at the beginning of the scrollback
      *  100% -> at the bottom, i.e. where new lines are inserted
      */
-    int percentage =
+    unsigned percent =
         rebased_view + term->rows == term->grid->num_rows
         ? 100
         : 100 * rebased_view / term->grid->num_rows;
 
+    wchar_t text[64];
+    int cell_count;
+
+    /* *What* to render */
+    switch (term->conf->scrollback.indicator.format) {
+    case SCROLLBACK_INDICATOR_FORMAT_PERCENT:
+        swprintf(text, sizeof(text) / sizeof(text[0]), L"%u%%", percent);
+        cell_count = 3;
+        break;
+
+    case SCROLLBACK_INDICATOR_FORMAT_LINENO:
+        swprintf(text, sizeof(text) / sizeof(text[0]), L"%d", rebased_view + 1);
+        cell_count = 1 + (int)log10(term->grid->num_rows);
+        break;
+    }
+
     const int scale = term->scale;
     const int margin = 3 * scale;
-    const int width = 2 * margin + 3 * term->cell_width;  /* TODO: this is percent only */
+    const int width = 2 * margin + cell_count * term->cell_width;
     const int height = 2 * margin + term->cell_height;
 
     unsigned long cookie = shm_cookie_scrollback_indicator(term);
@@ -1378,9 +1391,7 @@ render_scrollback_position(struct terminal *term)
     struct fcft_font *font = term->fonts[0];
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[7]);
 
-    wchar_t text[64];
-    swprintf(text, sizeof(text) / sizeof(text[0]), L"%d%%", percentage);
-
+    /* Sub-surface relative coordinates */
     unsigned x = width - margin - wcslen(text) * term->cell_width;
     const unsigned y = margin;
 
@@ -1401,10 +1412,31 @@ render_scrollback_position(struct terminal *term)
         x += term->cell_width;
     }
 
+    /* *Where* to render - parent relative coordinates */
+    int surf_top = 0;
+    switch (term->conf->scrollback.indicator.style) {
+    case SCROLLBACK_INDICATOR_STYLE_NONE:
+        assert(false);
+        return;
+
+    case SCROLLBACK_INDICATOR_STYLE_FIXED:
+        surf_top = margin + term->cell_height;
+        break;
+
+    case SCROLLBACK_INDICATOR_STYLE_RELATIVE: {
+        int lines = term->rows - 2;  /* Avoid using first and last row */
+        assert(lines > 0);
+
+        int on_line = 1 + percent * lines / 100;
+        surf_top = margin + on_line * term->cell_height;
+        break;
+    }
+    }
+
     wl_subsurface_set_position(
         win->scrollback_indicator_sub_surface,
         (term->width - term->margins.right - width) / scale,
-        term->margins.top / scale + term->cell_height);
+        surf_top / scale);
     wl_surface_attach(win->scrollback_indicator_surface, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(win->scrollback_indicator_surface, 0, 0, width, height);
     wl_surface_set_buffer_scale(win->scrollback_indicator_surface, scale);
