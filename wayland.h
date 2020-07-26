@@ -236,6 +236,8 @@ struct monitor {
         } scaled;
     } ppi;
 
+    float dpi;
+
     int scale;
     float refresh;
     enum wl_output_subpixel subpixel;

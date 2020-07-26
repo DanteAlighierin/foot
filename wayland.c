@@ -294,11 +294,18 @@ output_update_ppi(struct monitor *mon)
 
     int x_inches = mon->dim.mm.width * 0.03937008;
     int y_inches = mon->dim.mm.height * 0.03937008;
+
     mon->ppi.real.x = mon->dim.px_real.width / x_inches;
     mon->ppi.real.y = mon->dim.px_real.height / y_inches;
 
     mon->ppi.scaled.x = mon->dim.px_scaled.width / x_inches;
     mon->ppi.scaled.y = mon->dim.px_scaled.height / y_inches;
+
+    float px_diag = sqrt(
+        pow(mon->dim.px_scaled.width, 2) +
+        pow(mon->dim.px_scaled.height, 2));
+
+    mon->dpi = px_diag / mon->inch * mon->scale;
 }
 
 static void
@@ -343,6 +350,7 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
 {
     struct monitor *mon = data;
     mon->scale = factor;
+    output_update_ppi(mon);
 }
 
 static const struct wl_output_listener output_listener = {
@@ -1029,13 +1037,14 @@ wayl_init(const struct config *conf, struct fdm *fdm)
 
     tll_foreach(wayl->monitors, it) {
         LOG_INFO(
-            "%s: %dx%d+%dx%d@%dHz %s %.2f\" scale=%d PPI=%dx%d (physical) PPI=%dx%d (logical)",
+            "%s: %dx%d+%dx%d@%dHz %s %.2f\" scale=%d PPI=%dx%d (physical) PPI=%dx%d (logical), DPI=%.2f",
             it->item.name, it->item.dim.px_real.width, it->item.dim.px_real.height,
             it->item.x, it->item.y, (int)round(it->item.refresh),
             it->item.model != NULL ? it->item.model : it->item.description,
             it->item.inch, it->item.scale,
             it->item.ppi.real.x, it->item.ppi.real.y,
-            it->item.ppi.scaled.x, it->item.ppi.scaled.y);
+            it->item.ppi.scaled.x, it->item.ppi.scaled.y,
+            it->item.dpi);
     }
 
     wayl->fd = wl_display_get_fd(wayl->display);
