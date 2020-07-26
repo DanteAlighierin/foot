@@ -1023,11 +1023,16 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
     switch ((term->active_surface = term_surface_kind(term, surface))) {
-    case TERM_SURF_GRID:
-        seat->mouse.col = x / term->cell_width;
-        seat->mouse.row = y / term->cell_height;
+    case TERM_SURF_GRID: {
+        int col = (x - term->margins.left) / term->cell_width;
+        int row = (y - term->margins.top) / term->cell_height;
+
+        seat->mouse.col = col >= 0 && col < term->cols ? col : -1;
+        seat->mouse.row = row >= 0 && row < term->rows ? row : -1;
+
         term_xcursor_update(term);
         break;
+    }
 
     case TERM_SURF_SEARCH:
     case TERM_SURF_TITLE:
@@ -1165,26 +1170,31 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_GRID: {
+        term_xcursor_update(term);
+
         int col = (x - term->margins.left) / term->cell_width;
         int row = (y - term->margins.top) / term->cell_height;
 
-        if (col < 0 || row < 0 || col >= term->cols || row >= term->rows)
-            return;
+        int old_col = seat->mouse.col;
+        int old_row = seat->mouse.row;
+
+        seat->mouse.col = col >= 0 && col < term->cols ? col : -1;
+        seat->mouse.row = row >= 0 && row < term->rows ? row : -1;
+
+        if (seat->mouse.col < 0 || seat->mouse.row < 0)
+            break;
 
         bool update_selection = seat->mouse.button == BTN_LEFT;
         bool update_selection_early = term->selection.end.row == -1;
 
         if (update_selection && update_selection_early)
-            selection_update(term, col, row);
+            selection_update(term, seat->mouse.col, seat->mouse.row);
 
-        if (col == seat->mouse.col && row == seat->mouse.row)
+        if (old_col == seat->mouse.col && old_row == seat->mouse.row)
             break;
 
-        seat->mouse.col = col;
-        seat->mouse.row = row;
-
         if (update_selection && !update_selection_early)
-            selection_update(term, col, row);
+            selection_update(term, seat->mouse.col, seat->mouse.row);
 
         if (!term_mouse_grabbed(term, seat)) {
             term_mouse_motion(
@@ -1360,9 +1370,11 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 if (selection_enabled(term, seat)) {
                     switch (seat->mouse.count) {
                     case 1:
-                        selection_start(
-                            term, seat->mouse.col, seat->mouse.row,
-                            seat->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
+                        if (seat->mouse.col >= 0 && seat->mouse.row >= 0) {
+                            selection_start(
+                                term, seat->mouse.col, seat->mouse.row,
+                                seat->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
+                        }
                         break;
 
                     case 2:

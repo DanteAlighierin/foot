@@ -32,11 +32,17 @@
   outside it.
 * Scrollback search to focus match, that requires a viewport change,
   roughly in the center of the screen.
+* Mouse cursor is now always a `left_ptr` when inside the margins, to
+  indicate it is not possible to start a selection.
 
 
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Crash when starting a selection inside the margins.
+
+
 ### Security
 
 
