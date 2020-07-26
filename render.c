@@ -1363,7 +1363,7 @@ render_scrollback_position(struct terminal *term)
 
     /* *What* to render */
     switch (term->conf->scrollback.indicator.format) {
-    case SCROLLBACK_INDICATOR_FORMAT_PERCENT:
+    case SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE:
         swprintf(text, sizeof(text) / sizeof(text[0]), L"%u%%", percent);
         cell_count = 3;
         break;

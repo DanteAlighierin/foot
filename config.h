@@ -50,7 +50,7 @@ struct config {
             } style;
 
             enum {
-                SCROLLBACK_INDICATOR_FORMAT_PERCENT,
+                SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE,
                 SCROLLBACK_INDICATOR_FORMAT_LINENO
             } format;
         } indicator;
