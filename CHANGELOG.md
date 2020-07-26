@@ -12,6 +12,15 @@
 * [1.2.0](#1-2-0)
 
 ## 1.4.4
+### Changed
+
+* Mouse cursor is now always a `left_ptr` when inside the margins, to
+  indicate it is not possible to start a selection.
+
+
+### Fixed
+
+* Crash when starting a selection inside the margins.
 
 
 ## 1.4.3

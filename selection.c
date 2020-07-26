@@ -25,9 +25,10 @@ bool
 selection_enabled(const struct terminal *term, struct seat *seat)
 {
     return
-        term->mouse_tracking == MOUSE_NONE ||
-        term_mouse_grabbed(term, seat) ||
-        term->is_searching;
+        seat->mouse.col >= 0 && seat->mouse.row >= 0 &&
+        (term->mouse_tracking == MOUSE_NONE ||
+         term_mouse_grabbed(term, seat) ||
+         term->is_searching);
 }
 
 bool
