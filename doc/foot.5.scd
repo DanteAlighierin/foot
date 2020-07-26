@@ -348,7 +348,7 @@ any of these options.
 	Now, that was a lof of text. But what is it foot actually does?
 	
 	When receiving client data, it schedules a timer, the
-	*delayed-render-lower*. If we do not recieve any more client data
+	*delayed-render-lower*. If we do not receive any more client data
 	before the timer has run out, we render the frame. If however, we
 	do receive more data, the timer is re-scheduled. That is, each
 	time we receive client data, frame rendering is delayed another

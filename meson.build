@@ -148,7 +148,12 @@ custom_target(
   install: true,
   install_dir: join_paths(get_option('datadir'), 'terminfo'))
 
-install_data('foot.desktop', 'foot-server.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
+install_data(
+  'LICENSE', 'README.md', 'CHANGELOG.md',
+  install_dir: join_paths(get_option('datadir'), 'doc', 'foot'))
+install_data(
+  'foot.desktop', 'foot-server.desktop',
+  install_dir: join_paths(get_option('datadir'), 'applications'))
 install_data('footrc', install_dir: join_paths(get_option('datadir'), 'foot'))
 
 subdir('completions')
