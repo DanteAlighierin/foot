@@ -291,7 +291,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->scrollback.lines = lines;
     }
 
-    else if (strcmp(key, "scrollback-indicator") == 0) {
+    else if (strcmp(key, "scrollback-indicator-style") == 0) {
         if (strcmp(value, "none") == 0)
             conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_NONE;
         else if (strcmp(value, "fixed") == 0)
