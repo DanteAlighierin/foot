@@ -223,7 +223,7 @@ struct terminal {
 
     struct fcft_font *fonts[4];
     struct config_font *font_sizes;
-    int font_dpi;
+    float font_dpi;
     enum fcft_subpixel font_subpixel;
 
     tll(struct ptmx_buffer) ptmx_buffer;

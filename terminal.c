@@ -559,7 +559,7 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
     return true;
 }
 
-static unsigned
+static float
 get_font_dpi(const struct terminal *term)
 {
     /*
@@ -584,7 +584,7 @@ get_font_dpi(const struct terminal *term)
      */
 
     /* Use highest DPI from outputs we're mapped on */
-    unsigned dpi = 0;
+    double dpi = 0.0;
     assert(term->window != NULL);
     tll_foreach(term->window->on_outputs, it) {
         if (it->item->ppi.scaled.y > dpi)
@@ -592,7 +592,7 @@ get_font_dpi(const struct terminal *term)
     }
 
     /* If we're not mapped, use DPI from first monitor. Hopefully this is where we'll get mapped later... */
-    if (dpi == 0) {
+    if (dpi == 0.) {
         tll_foreach(term->wl->monitors, it) {
             dpi = it->item.ppi.scaled.y * term->scale;
             break;
@@ -601,7 +601,7 @@ get_font_dpi(const struct terminal *term)
 
     if (dpi == 0) {
         /* No monitors? */
-        dpi = 96;
+        dpi = 96.;
     }
 
     return dpi;
@@ -692,10 +692,10 @@ reload_fonts(struct terminal *term)
     }
 
     char attrs0[256], attrs1[256], attrs2[256], attrs3[256];
-    snprintf(attrs0, sizeof(attrs0), "dpi=%u", term->font_dpi);
-    snprintf(attrs1, sizeof(attrs1), "dpi=%u:weight=bold", term->font_dpi);
-    snprintf(attrs2, sizeof(attrs2), "dpi=%u:slant=italic", term->font_dpi);
-    snprintf(attrs3, sizeof(attrs3), "dpi=%u:weight=bold:slant=italic", term->font_dpi);
+    snprintf(attrs0, sizeof(attrs0), "dpi=%.2f", term->font_dpi);
+    snprintf(attrs1, sizeof(attrs1), "dpi=%.2f:weight=bold", term->font_dpi);
+    snprintf(attrs2, sizeof(attrs2), "dpi=%.2f:slant=italic", term->font_dpi);
+    snprintf(attrs3, sizeof(attrs3), "dpi=%.2f:weight=bold:slant=italic", term->font_dpi);
 
     struct fcft_font *fonts[4];
     struct font_load_data data[4] = {
@@ -836,7 +836,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .ptmx = ptmx,
         .ptmx_buffer = tll_init(),
         .font_sizes = malloc(sizeof(term->font_sizes[0]) * tll_length(conf->fonts)),
-        .font_dpi = 0,
+        .font_dpi = 0.,
         .font_subpixel = (conf->colors.alpha == 0xffff  /* Can't do subpixel rendering on transparent background */
                           ? FCFT_SUBPIXEL_DEFAULT
                           : FCFT_SUBPIXEL_NONE),
@@ -1490,11 +1490,11 @@ term_font_size_reset(struct terminal *term)
 bool
 term_font_dpi_changed(struct terminal *term)
 {
-    unsigned dpi = get_font_dpi(term);
+    float dpi = get_font_dpi(term);
     if (dpi == term->font_dpi)
         return true;
 
-    LOG_DBG("DPI changed (%u -> %u): reloading fonts", term->font_dpi, dpi);
+    LOG_DBG("DPI changed (%.2f -> %.2f): reloading fonts", term->font_dpi, dpi);
     term->font_dpi = dpi;
 
     return reload_fonts(term);
