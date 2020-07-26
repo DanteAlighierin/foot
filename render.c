@@ -1420,7 +1420,7 @@ render_scrollback_position(struct terminal *term)
         return;
 
     case SCROLLBACK_INDICATOR_STYLE_FIXED:
-        surf_top = margin + term->cell_height;
+        surf_top = term->cell_height - margin;
         break;
 
     case SCROLLBACK_INDICATOR_STYLE_RELATIVE: {
@@ -1428,15 +1428,15 @@ render_scrollback_position(struct terminal *term)
         assert(lines > 0);
 
         int on_line = 1 + percent * lines / 100;
-        surf_top = margin + on_line * term->cell_height;
+        surf_top = on_line * term->cell_height - margin;
         break;
     }
     }
 
     wl_subsurface_set_position(
         win->scrollback_indicator_sub_surface,
-        (term->width - term->margins.right - width) / scale,
-        surf_top / scale);
+        (term->width - margin - width) / scale,
+        (term->margins.top + surf_top) / scale);
     wl_surface_attach(win->scrollback_indicator_surface, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(win->scrollback_indicator_surface, 0, 0, width, height);
     wl_surface_set_buffer_scale(win->scrollback_indicator_surface, scale);
