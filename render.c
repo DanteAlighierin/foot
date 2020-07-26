@@ -1383,13 +1383,13 @@ render_scrollback_position(struct terminal *term)
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, width, height, cookie, false, 1);
 
-    pixman_color_t bg = color_hex_to_pixman(term->colors.table[4]);
+    pixman_color_t bg = color_hex_to_pixman(term->colors.table[8 + 4]);
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
         &(pixman_rectangle16_t){0, 0, width, height});
 
     struct fcft_font *font = term->fonts[0];
-    pixman_color_t fg = color_hex_to_pixman(term->colors.table[7]);
+    pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
     /* Sub-surface relative coordinates */
     unsigned x = width - margin - wcslen(text) * term->cell_width;
