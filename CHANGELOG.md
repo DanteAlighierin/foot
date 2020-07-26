@@ -37,6 +37,9 @@
   roughly in the center of the screen.
 * Mouse cursor is now always a `left_ptr` when inside the margins, to
   indicate it is not possible to start a selection.
+* Scrollback position indicator. This feature is optional and
+  controlled by the **scrollback-indicator-style** and
+  **scrollback-indicator-format** options in `footrc`.
 
 
 ### Deprecated
