@@ -1660,7 +1660,7 @@ render_search_box(struct terminal *term)
             draw_bar(term, buf->pix[0], font, &fg, x, y);
 
         const struct fcft_glyph *glyph = fcft_glyph_rasterize(
-            font, term->search.buf[i], true);
+            font, term->search.buf[i], term->font_subpixel);
 
         if (glyph == NULL)
             continue;
