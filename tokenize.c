@@ -38,10 +38,11 @@ tokenize_cmdline(char *cmdline, char ***argv)
     char delim = first_token_is_quoted ? cmdline[0] : ' ';
 
     char *p = first_token_is_quoted ? &cmdline[1] : &cmdline[0];
+    char *search_start = p;
 
     size_t idx = 0;
     while (*p != '\0') {
-        char *end = strchr(p, delim);
+        char *end = strchr(search_start, delim);
         if (end == NULL) {
             if (delim != ' ') {
                 LOG_ERR("unterminated %s quote", delim == '"' ? "double" : "single");
@@ -56,6 +57,15 @@ tokenize_cmdline(char *cmdline, char ***argv)
                 goto err;
             } else
                 return true;
+        }
+
+        if (end > p && *(end - 1) == '\\') {
+            /* Escaped quote, remove one level of escaping and
+             * continue searching for "our" closing quote */
+            memmove(end - 1, end, strlen(end));
+            end[strlen(end) - 1] = '\0';
+            search_start = end;
+            continue;
         }
 
         *end = '\0';
@@ -75,6 +85,7 @@ tokenize_cmdline(char *cmdline, char ***argv)
             p++;
         } else
             delim = ' ';
+        search_start = p;
     }
 
     if (!push_argv(argv, &argv_size, NULL, &idx))

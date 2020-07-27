@@ -18,6 +18,8 @@
 * [LICENSE](LICENSE), [README.md](README.md) and
   [CHANGELOG.md](CHANGELOG.md) are now installed to
   `${datadir}/doc/foot`.
+* Support for escaping quotes in **pipe-visible** and
+  **pipe-scrollback** commands.
 
 
 ### Changed
