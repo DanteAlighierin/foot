@@ -1353,10 +1353,10 @@ render_scrollback_position(struct terminal *term)
      *    0% -> at the beginning of the scrollback
      *  100% -> at the bottom, i.e. where new lines are inserted
      */
-    unsigned percent =
+    double percent =
         rebased_view + term->rows == term->grid->num_rows
-        ? 100
-        : 100 * rebased_view / term->grid->num_rows;
+        ? 1.0
+        : (double)rebased_view / term->grid->num_rows;
 
     wchar_t text[64];
     int cell_count;
@@ -1364,7 +1364,7 @@ render_scrollback_position(struct terminal *term)
     /* *What* to render */
     switch (term->conf->scrollback.indicator.format) {
     case SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE:
-        swprintf(text, sizeof(text) / sizeof(text[0]), L"%u%%", percent);
+        swprintf(text, sizeof(text) / sizeof(text[0]), L"%u%%", (int)(100 * percent));
         cell_count = 3;
         break;
 
@@ -1424,11 +1424,11 @@ render_scrollback_position(struct terminal *term)
         break;
 
     case SCROLLBACK_INDICATOR_STYLE_RELATIVE: {
-        int lines = term->rows - 2;  /* Avoid using first and last row */
+        int lines = term->rows - 3;  /* Avoid using first and two last rows */
         assert(lines > 0);
 
-        int on_line = 1 + percent * lines / 100;
-        surf_top = on_line * term->cell_height - margin;
+        int pixels = lines * term->cell_height - height + 2 * margin;
+        surf_top = term->cell_height - margin + (int)(percent * pixels);
         break;
     }
     }
