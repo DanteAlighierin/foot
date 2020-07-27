@@ -1287,6 +1287,170 @@ render_csd(struct terminal *term)
     render_csd_title(term);
 }
 
+static void
+render_scrollback_position(struct terminal *term)
+{
+    if (term->conf->scrollback.indicator.style == SCROLLBACK_INDICATOR_STYLE_NONE)
+        return;
+
+    struct wayland *wayl = term->wl;
+    struct wl_window *win = term->window;
+
+    if (term->grid->view == term->grid->offset) {
+        if (win->scrollback_indicator_surface != NULL) {
+            wl_subsurface_destroy(win->scrollback_indicator_sub_surface);
+            wl_surface_destroy(win->scrollback_indicator_surface);
+
+            win->scrollback_indicator_surface = NULL;
+            win->scrollback_indicator_sub_surface = NULL;
+        }
+        return;
+    }
+
+    if (win->scrollback_indicator_surface == NULL) {
+        win->scrollback_indicator_surface
+            = wl_compositor_create_surface(wayl->compositor);
+
+        if (win->scrollback_indicator_surface == NULL) {
+            LOG_ERR("failed to create scrollback indicator surface");
+            return;
+        }
+
+        wl_surface_set_user_data(win->scrollback_indicator_surface, win);
+
+        term->window->scrollback_indicator_sub_surface
+            = wl_subcompositor_get_subsurface(
+                wayl->sub_compositor,
+                win->scrollback_indicator_surface,
+                win->surface);
+
+        if (win->scrollback_indicator_sub_surface == NULL) {
+            LOG_ERR("failed to create scrollback indicator sub-surface");
+            wl_surface_destroy(win->scrollback_indicator_surface);
+            win->scrollback_indicator_surface = NULL;
+            return;
+        }
+
+        wl_subsurface_set_sync(win->scrollback_indicator_sub_surface);
+    }
+
+    assert(win->scrollback_indicator_surface != NULL);
+    assert(win->scrollback_indicator_sub_surface != NULL);
+
+    /* Find absolute row number of the scrollback start */
+    int scrollback_start = term->grid->offset + term->rows;
+    while (term->grid->rows[scrollback_start & (term->grid->num_rows - 1)] == NULL)
+        scrollback_start++;
+
+    /* Rebase viewport against scrollback start (so that 0 is at
+     * the beginning of the scrollback) */
+    int rebased_view = term->grid->view - scrollback_start + term->grid->num_rows;
+    rebased_view &= term->grid->num_rows - 1;
+
+    /*
+     * How far down in the scrollback we are.
+     *
+     *    0% -> at the beginning of the scrollback
+     *  100% -> at the bottom, i.e. where new lines are inserted
+     */
+    double percent =
+        rebased_view + term->rows == term->grid->num_rows
+        ? 1.0
+        : (double)rebased_view / term->grid->num_rows;
+
+    wchar_t text[64];
+    int cell_count;
+
+    /* *What* to render */
+    switch (term->conf->scrollback.indicator.format) {
+    case SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE:
+        swprintf(text, sizeof(text) / sizeof(text[0]), L"%u%%", (int)(100 * percent));
+        cell_count = 3;
+        break;
+
+    case SCROLLBACK_INDICATOR_FORMAT_LINENO:
+        swprintf(text, sizeof(text) / sizeof(text[0]), L"%d", rebased_view + 1);
+        cell_count = 1 + (int)log10(term->grid->num_rows);
+        break;
+    }
+
+    const int scale = term->scale;
+    const int margin = 3 * scale;
+    const int width = 2 * margin + cell_count * term->cell_width;
+    const int height = 2 * margin + term->cell_height;
+
+    unsigned long cookie = shm_cookie_scrollback_indicator(term);
+    struct buffer *buf = shm_get_buffer(
+        term->wl->shm, width, height, cookie, false, 1);
+
+    pixman_color_t bg = color_hex_to_pixman(term->colors.table[8 + 4]);
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
+        &(pixman_rectangle16_t){0, 0, width, height});
+
+    struct fcft_font *font = term->fonts[0];
+    pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
+
+    /* Sub-surface relative coordinates */
+    unsigned x = width - margin - wcslen(text) * term->cell_width;
+    const unsigned y = margin;
+
+    for (size_t i = 0; i < wcslen(text); i++) {
+        const struct fcft_glyph *glyph = fcft_glyph_rasterize(
+            font, text[i], term->font_subpixel);
+
+        if (glyph == NULL)
+            continue;
+
+        pixman_image_t *src = pixman_image_create_solid_fill(&fg);
+        pixman_image_composite32(
+            PIXMAN_OP_OVER, src, glyph->pix, buf->pix[0], 0, 0, 0, 0,
+            x + glyph->x, y + font_baseline(term) - glyph->y,
+            glyph->width, glyph->height);
+        pixman_image_unref(src);
+
+        x += term->cell_width;
+    }
+
+    /* *Where* to render - parent relative coordinates */
+    int surf_top = 0;
+    switch (term->conf->scrollback.indicator.style) {
+    case SCROLLBACK_INDICATOR_STYLE_NONE:
+        assert(false);
+        return;
+
+    case SCROLLBACK_INDICATOR_STYLE_FIXED:
+        surf_top = term->cell_height - margin;
+        break;
+
+    case SCROLLBACK_INDICATOR_STYLE_RELATIVE: {
+        int lines = term->rows - 3;  /* Avoid using first and two last rows */
+        assert(lines > 0);
+
+        int pixels = lines * term->cell_height - height + 2 * margin;
+        surf_top = term->cell_height - margin + (int)(percent * pixels);
+        break;
+    }
+    }
+
+    wl_subsurface_set_position(
+        win->scrollback_indicator_sub_surface,
+        (term->width - margin - width) / scale,
+        (term->margins.top + surf_top) / scale);
+    wl_surface_attach(win->scrollback_indicator_surface, buf->wl_buf, 0, 0);
+    wl_surface_damage_buffer(win->scrollback_indicator_surface, 0, 0, width, height);
+    wl_surface_set_buffer_scale(win->scrollback_indicator_surface, scale);
+
+    struct wl_region *region = wl_compositor_create_region(wayl->compositor);
+    if (region != NULL) {
+        wl_region_add(region, 0, 0, width, height);
+        wl_surface_set_opaque_region(win->scrollback_indicator_surface, region);
+        wl_region_destroy(region);
+    }
+
+    wl_surface_commit(win->scrollback_indicator_surface);
+}
+
 static void frame_callback(
     void *data, struct wl_callback *wl_callback, uint32_t callback_data);
 
@@ -1498,6 +1662,8 @@ grid_render(struct terminal *term)
             term->window->surface, 0, 0, term->width, term->height);
     }
 
+    render_scrollback_position(term);
+
     assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
     assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
 
@@ -1616,7 +1782,7 @@ render_search_box(struct terminal *term)
             draw_bar(term, buf->pix[0], font, &fg, x, y);
 
         const struct fcft_glyph *glyph = fcft_glyph_rasterize(
-            font, term->search.buf[i], true);
+            font, term->search.buf[i], term->font_subpixel);
 
         if (glyph == NULL)
             continue;

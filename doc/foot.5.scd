@@ -68,6 +68,19 @@ in this order:
 *scrollback*
 	Number of scrollback lines. Default: _1000_.
 
+*scrollback-indicator-style*
+	Configures the style of the scrollback position indicator. One of
+	*none*, *fixed* or *relative*. *none* disables the indicator
+	completely. *fixed* always renders the indicator near the top at
+	the window, and *relative* renders the indicator at the position
+	corresponding to the current scrollback position. Default:
+	_relative_.
+
+*scrollback-indicator-format*
+	Which format to use when displaying the scrollback position
+	indicator. Either _percentage_ or _line_. This option is ignored
+	if *scrollback-indicator-style=none*. Default: _percentage_.
+
 *workers*
 	Number of threads to use for rendering. Set to 0 to disable
 	multithreading. Default: the number of available logical CPUs

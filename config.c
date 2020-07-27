@@ -288,7 +288,37 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
             return false;
         }
-        conf->scrollback_lines = lines;
+        conf->scrollback.lines = lines;
+    }
+
+    else if (strcmp(key, "scrollback-indicator-style") == 0) {
+        if (strcmp(value, "none") == 0)
+            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_NONE;
+        else if (strcmp(value, "fixed") == 0)
+            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_FIXED;
+        else if (strcmp(value, "relative") == 0)
+            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_RELATIVE;
+        else {
+            LOG_ERR("%s:%d: scrollback-indicator-style must be one of "
+                    "'none', 'fixed' or 'moving'",
+                    path, lineno);
+            return false;
+        }
+    }
+
+    else if (strcmp(key, "scrollback-indicator-format") == 0) {
+        if (strcmp(value, "percent") == 0) {
+            conf->scrollback.indicator.format
+                = SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE;
+        } else if (strcmp(value, "line") == 0) {
+            conf->scrollback.indicator.format
+                = SCROLLBACK_INDICATOR_FORMAT_LINENO;
+        } else {
+            LOG_ERR("%s:%d: 'scrollback-indicator-format must be one "
+                    "of 'percent' or 'line'",
+                    path, lineno);
+            return false;
+        }
     }
 
     else {
@@ -917,8 +947,13 @@ config_load(struct config *conf, const char *conf_path)
         .pad_y = 2,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = tll_init(),
-        .scrollback_lines = 1000,
-
+        .scrollback = {
+            .lines = 1000,
+            .indicator = {
+                .style = SCROLLBACK_INDICATOR_STYLE_RELATIVE,
+                .format = SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE,
+            },
+        },
         .colors = {
             .fg = default_foreground,
             .bg = default_background,
