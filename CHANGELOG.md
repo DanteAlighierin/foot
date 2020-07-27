@@ -18,6 +18,8 @@
 * [LICENSE](LICENSE), [README.md](README.md) and
   [CHANGELOG.md](CHANGELOG.md) are now installed to
   `${datadir}/doc/foot`.
+* Support for escaping quotes in **pipe-visible** and
+  **pipe-scrollback** commands.
 
 
 ### Changed
@@ -35,6 +37,8 @@
   outside it.
 * Scrollback search to focus match, that requires a viewport change,
   roughly in the center of the screen.
+* Extending a selection with the right mouse button now works while
+  dragging the mouse.
 * Mouse cursor is now always a `left_ptr` when inside the margins, to
   indicate it is not possible to start a selection.
 * Scrollback position indicator. This feature is optional and
@@ -46,7 +50,10 @@
 ### Removed
 ### Fixed
 
-* Crash in scrollback search
+* Crash in scrollback search.
+* Crash when a **pipe-visible** or **pipe-scrollback** command
+  contained an unclosed quote
+  (https://codeberg.org/dnkl/foot/issues/49).
 * Crash when starting a selection inside the margins.
 
 

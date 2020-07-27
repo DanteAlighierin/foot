@@ -1187,7 +1187,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         if (seat->mouse.col < 0 || seat->mouse.row < 0)
             break;
 
-        bool update_selection = seat->mouse.button == BTN_LEFT;
+        bool update_selection = seat->mouse.button == BTN_LEFT || seat->mouse.button == BTN_RIGHT;
         bool update_selection_early = term->selection.end.row == -1;
 
         if (update_selection && update_selection_early)

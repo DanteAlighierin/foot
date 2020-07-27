@@ -373,8 +373,8 @@ selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial
 
     if (row < start->row || (row == start->row && col < start->col)) {
         /* Extend selection to start *before* current start */
-        new_start = (struct coord){col, row};
-        new_end = *end;
+        new_start = *end;
+        new_end = (struct coord){col, row};
     }
 
     else if (row > end->row || (row == end->row && col > end->col)) {
@@ -392,8 +392,8 @@ selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial
             abs(linear - (end->row * term->cols + end->col)))
         {
             /* Move start point */
-            new_start = (struct coord){col, row};
-            new_end = *end;
+            new_start = *end;
+            new_end = (struct coord){col, row};
         }
 
         else {
@@ -441,13 +441,13 @@ selection_extend_block(struct terminal *term, int col, int row, uint32_t serial)
         /* Move one of the top corners */
 
         if (abs(col - top_left.col) < abs(col - top_right.col)) {
-            new_start = (struct coord){col, row};
-            new_end = bottom_right;
+            new_start = bottom_right;
+            new_end = (struct coord){col, row};
         }
 
         else {
-            new_start = (struct coord){col, row};
-            new_end = bottom_left;
+            new_start = bottom_left;
+            new_end = (struct coord){col, row};
         }
     }
 
