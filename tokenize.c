@@ -46,6 +46,7 @@ tokenize_cmdline(char *cmdline, char ***argv)
             if (delim != ' ') {
                 LOG_ERR("unterminated %s quote\n", delim == '"' ? "double" : "single");
                 free(*argv);
+                *argv = NULL;
                 return false;
             }
 
