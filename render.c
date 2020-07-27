@@ -1433,6 +1433,7 @@ render_scrollback_position(struct terminal *term)
     }
     }
 
+    quirk_weston_subsurface_desync_on(win->scrollback_indicator_sub_surface);
     wl_subsurface_set_position(
         win->scrollback_indicator_sub_surface,
         (term->width - margin - width) / scale,
@@ -1449,6 +1450,7 @@ render_scrollback_position(struct terminal *term)
     }
 
     wl_surface_commit(win->scrollback_indicator_surface);
+    quirk_weston_subsurface_desync_off(win->scrollback_indicator_sub_surface);
 }
 
 static void frame_callback(
