@@ -2,7 +2,7 @@
 
 # font=monospace
 # scrollback=1000
-# scrollback-indicator-style=relative
+# scrollback-indicator-position=relative
 # scrollback-indicator-format=percentage
 # geometry=700x500
 # pad=2x2

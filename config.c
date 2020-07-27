@@ -291,15 +291,15 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->scrollback.lines = lines;
     }
 
-    else if (strcmp(key, "scrollback-indicator-style") == 0) {
+    else if (strcmp(key, "scrollback-indicator-position") == 0) {
         if (strcmp(value, "none") == 0)
-            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_NONE;
+            conf->scrollback.indicator.position = SCROLLBACK_INDICATOR_POSITION_NONE;
         else if (strcmp(value, "fixed") == 0)
-            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_FIXED;
+            conf->scrollback.indicator.position = SCROLLBACK_INDICATOR_POSITION_FIXED;
         else if (strcmp(value, "relative") == 0)
-            conf->scrollback.indicator.style = SCROLLBACK_INDICATOR_STYLE_RELATIVE;
+            conf->scrollback.indicator.position = SCROLLBACK_INDICATOR_POSITION_RELATIVE;
         else {
-            LOG_ERR("%s:%d: scrollback-indicator-style must be one of "
+            LOG_ERR("%s:%d: scrollback-indicator-position must be one of "
                     "'none', 'fixed' or 'moving'",
                     path, lineno);
             return false;
@@ -950,7 +950,7 @@ config_load(struct config *conf, const char *conf_path)
         .scrollback = {
             .lines = 1000,
             .indicator = {
-                .style = SCROLLBACK_INDICATOR_STYLE_RELATIVE,
+                .position = SCROLLBACK_INDICATOR_POSITION_RELATIVE,
                 .format = SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE,
             },
         },

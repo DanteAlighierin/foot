@@ -1290,7 +1290,7 @@ render_csd(struct terminal *term)
 static void
 render_scrollback_position(struct terminal *term)
 {
-    if (term->conf->scrollback.indicator.style == SCROLLBACK_INDICATOR_STYLE_NONE)
+    if (term->conf->scrollback.indicator.position == SCROLLBACK_INDICATOR_POSITION_NONE)
         return;
 
     struct wayland *wayl = term->wl;
@@ -1414,16 +1414,16 @@ render_scrollback_position(struct terminal *term)
 
     /* *Where* to render - parent relative coordinates */
     int surf_top = 0;
-    switch (term->conf->scrollback.indicator.style) {
-    case SCROLLBACK_INDICATOR_STYLE_NONE:
+    switch (term->conf->scrollback.indicator.position) {
+    case SCROLLBACK_INDICATOR_POSITION_NONE:
         assert(false);
         return;
 
-    case SCROLLBACK_INDICATOR_STYLE_FIXED:
+    case SCROLLBACK_INDICATOR_POSITION_FIXED:
         surf_top = term->cell_height - margin;
         break;
 
-    case SCROLLBACK_INDICATOR_STYLE_RELATIVE: {
+    case SCROLLBACK_INDICATOR_POSITION_RELATIVE: {
         int lines = term->rows - 3;  /* Avoid using first and two last rows */
         assert(lines > 0);
 

@@ -44,10 +44,10 @@ struct config {
 
         struct {
             enum {
-                SCROLLBACK_INDICATOR_STYLE_NONE,
-                SCROLLBACK_INDICATOR_STYLE_FIXED,
-                SCROLLBACK_INDICATOR_STYLE_RELATIVE
-            } style;
+                SCROLLBACK_INDICATOR_POSITION_NONE,
+                SCROLLBACK_INDICATOR_POSITION_FIXED,
+                SCROLLBACK_INDICATOR_POSITION_RELATIVE
+            } position;
 
             enum {
                 SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE,
