@@ -1,5 +1,6 @@
 # Changelog
 
+* [Unreleased](#unreleased)
 * [1.4.2](#1.4.2)
 * [1.4.1](#1-4-1)
 * [1.4.0](#1-4-0)
@@ -8,6 +9,53 @@
 * [1.2.2](#1-2-2)
 * [1.2.1](#1-2-1)
 * [1.2.0](#1-2-0)
+
+## Unreleased
+### Added
+
+* Section to [README.md](README.md) describing how to programmatically
+  identify foot.
+* [LICENSE](LICENSE), [README.md](README.md) and
+  [CHANGELOG.md](CHANGELOG.md) are now installed to
+  `${datadir}/doc/foot`.
+* Support for escaping quotes in **pipe-visible** and
+  **pipe-scrollback** commands.
+
+
+### Changed
+
+* Primary DA to no longer indicate support for _Selective Erase_,
+  _Technical Characters_ and _Terminal State Interrogation_.
+* Secondary DA to report foot as a VT220 instead of a VT420.
+* Secondary DA to report foot's version number in parameter 2, the
+  _Firmware Version_. The string is made up of foot's major, minor and
+  patch version numbers, always using two digits for each version
+  number and without any other separating characters. Thus, _1.4.2_
+  would be reported as `010402` (i.e. the full response would be
+  `\E[>1;010402;0c`).
+* Scrollback search to only move the viewport if the match lies
+  outside it.
+* Scrollback search to focus match, that requires a viewport change,
+  roughly in the center of the screen.
+* Extending a selection with the right mouse button now works while
+  dragging the mouse.
+
+
+### Deprecated
+### Removed
+### Fixed
+
+* Crash in scrollback search.
+* Crash when a **pipe-visible** or **pipe-scrollback** command
+  contained an unclosed quote
+  (https://codeberg.org/dnkl/foot/issues/49).
+
+
+### Security
+### Contributors
+
+* [birger](https://codeberg.org/birger)
+* [cherti](https://codeberg.org/cherti)
 
 
 ## 1.4.2

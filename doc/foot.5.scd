@@ -176,7 +176,7 @@ This section lets you override the default key bindings.
 The general format is _action=combo1...comboN_. That is, each action
 may have one or more key combinations, space separated. Each
 combination is on the form _mod1+mod2+key_. The names of the modifiers
-and the key *must* be a valid XKB key name.
+and the key *must* be valid XKB key names.
 
 Note that if *Shift* is one of the modifiers, the _key_ *must* be in
 upper case. For example, *Control+Shift+v* will never trigger -
@@ -335,7 +335,7 @@ any of these options.
 	Now, that was a lof of text. But what is it foot actually does?
 	
 	When receiving client data, it schedules a timer, the
-	*delayed-render-lower*. If we do not recieve any more client data
+	*delayed-render-lower*. If we do not receive any more client data
 	before the timer has run out, we render the frame. If however, we
 	do receive more data, the timer is re-scheduled. That is, each
 	time we receive client data, frame rendering is delayed another

@@ -5,6 +5,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 ## Index
 
 1. [Features](#features)
+1. [Configuration](#configuration)
 1. [Troubleshooting](#troubleshooting)
 1. [Why the name 'foot'?](#why-the-name-foot)
 1. [Fonts](#fonts)
@@ -18,6 +19,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Backspace](#backspace)
 1. [DPI and font size](#dpi-and-font-size)
 1. [Supported OSCs](#supported-oscs)
+1. [Programmatically checking if running in foot](#programmatically-checking-if-running-in-foot)
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
@@ -32,7 +34,6 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Credits](#Credits)
 1. [Bugs](#bugs)
 1. [Mastodon](#mastodon)
-
 
 ## Features
 
@@ -51,6 +52,14 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 * [Sixel image support](https://en.wikipedia.org/wiki/Sixel)
 
   ![wow](doc/sixel-wow.png "Sixel screenshot")
+
+## Configuration
+
+**foot** can be configured by creating a file `$XDG_CONFIG_HOME/footrc` (defaulting to `~/.config/footrc`).
+A template for that can usually be found in `/usr/share/foot/footrc` or
+[here](https://codeberg.org/dnkl/foot/src/branch/master/footrc).
+
+Further information can be found in foot's manpage `foot(5)`.
 
 
 ## Troubleshooting
@@ -222,14 +231,14 @@ want to launch a new terminal.
 By default, foot prefixes _Meta characters_ with ESC. This corresponds
 to XTerm's `metaSendsEscape` option set to `true`.
 
-This can be disabled programatically with `\E[?1036l` (and enabled
+This can be disabled programmatically with `\E[?1036l` (and enabled
 again with `\E[?1036h`).
 
 When disabled, foot will instead set the 8:th bit of meta character
 and then UTF-8 encode it. This corresponds to XTerm's `eightBitMeta`
 option set to `true`.
 
-This can also be disabled programatically with `rmm` (_reset meta
+This can also be disabled programmatically with `rmm` (_reset meta
 mode_, `\E[?1034l`), and enabled again with `smm` (_set meta mode_,
 `\E[?1034h`).
 
@@ -299,6 +308,39 @@ with the terminal emulator itself. Foot implements the following OSCs:
 * `OSC 111` - reset default background color
 * `OSC 112` - reset cursor color
 * `OSC 555` - flash screen (**foot specific**)
+
+
+## Programmatically checking if running in foot
+
+Foot does **not** set any environment variables that can be used to
+identify foot (reading `TERM` is not reliable since the user may have
+chosen to use a different terminfo).
+
+You can instead use the escape sequences to read the _Secondary_ and
+_Tertiary Device Attributes_ (secondary/tertiary DA, for short).
+
+The tertiary DA response is always `\EP!|464f4f54\E\\`. The `\EP!|` is
+the standard tertiary DA response prefix, `DCS ! |`. The trailing
+`\E\\` is of course the standard string terminator, `ST`.
+
+In the response above, the interresting part is `464f4f54`; this is
+the string _FOOT_ in hex.
+
+The secondary DA response is `\E[>1;XXYYZZ;0c`, where XXYYZZ is foot's
+major, minor and patch version numbers, in decimal, using two digits
+for each number. For example, foot-1.4.2 would respond with
+`\E[>1;010402;0c`.
+
+**Note**: not all terminal emulators implement tertiary DA. Most
+implement secondary DA, but not all. All _should_ however implement
+_Primary DA_.
+
+Thus, a safe way to query the terminal is to request the tertiary,
+secondary and primary DA all at once, in that order. All terminals
+should ignore escape sequences they do not recognize. You will have to
+parse the response (which in foot will consist of all three DA
+responses, all at once) to determine which requests the terminal
+emulator actually responded to.
 
 
 ## Requirements
