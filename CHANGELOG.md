@@ -1,7 +1,8 @@
 # Changelog
 
 * [Unreleased](#unreleased)
-* [1.4.2](#1.4.2)
+* [1.4.3](#1-4-3)
+* [1.4.2](#1-4-2)
 * [1.4.1](#1-4-1)
 * [1.4.0](#1-4-0)
 * [1.3.0](#1-3-0)
@@ -11,6 +12,15 @@
 * [1.2.0](#1-2-0)
 
 ## Unreleased
+### Added
+### Deprecated
+### Removed
+### Fixed
+### Security
+### Contributors
+
+
+## 1.4.3
 ### Added
 
 * Section to [README.md](README.md) describing how to programmatically
@@ -46,8 +56,6 @@
   **scrollback-indicator-format** options in `footrc`.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Crash in scrollback search.
@@ -57,7 +65,6 @@
 * Crash when starting a selection inside the margins.
 
 
-### Security
 ### Contributors
 
 * [birger](https://codeberg.org/birger)
