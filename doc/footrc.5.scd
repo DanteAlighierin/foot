@@ -1,7 +1,7 @@
-foot(5)
+footrc(5)
 
 # NAME
-foot - configuration file
+footrc - configuration file
 
 # DESCRIPTION
 

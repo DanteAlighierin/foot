@@ -55,11 +55,12 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 
 ## Configuration
 
-**foot** can be configured by creating a file `$XDG_CONFIG_HOME/footrc` (defaulting to `~/.config/footrc`).
-A template for that can usually be found in `/usr/share/foot/footrc` or
+**foot** can be configured by creating a file
+`$XDG_CONFIG_HOME/footrc` (defaulting to `~/.config/footrc`).  A
+template for that can usually be found in `/usr/share/foot/footrc` or
 [here](https://codeberg.org/dnkl/foot/src/branch/master/footrc).
 
-Further information can be found in foot's manpage `foot(5)`.
+Further information can be found in foot's man page `footrc(5)`.
 
 
 ## Troubleshooting
