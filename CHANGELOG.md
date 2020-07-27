@@ -37,13 +37,15 @@
   outside it.
 * Scrollback search to focus match, that requires a viewport change,
   roughly in the center of the screen.
+* Extending a selection with the right mouse button now works while
+  dragging the mouse.
 
 
 ### Deprecated
 ### Removed
 ### Fixed
 
-* Crash in scrollback search
+* Crash in scrollback search.
 * Crash when a **pipe-visible** or **pipe-scrollback** command
   contained an unclosed quote
   (https://codeberg.org/dnkl/foot/issues/49).
