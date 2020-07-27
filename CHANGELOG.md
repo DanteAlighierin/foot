@@ -15,7 +15,21 @@
 ### Added
 ### Deprecated
 ### Removed
+### Changed
+
+* Mouse cursor is now always a `left_ptr` when inside the margins, to
+  indicate it is not possible to start a selection.
+* Scrollback position indicator. This feature is optional and
+  controlled by the **scrollback-indicator-style** and
+  **scrollback-indicator-format** options in `footrc`
+  (https://codeberg.org/dnkl/foot/issues/42).
+
+
 ### Fixed
+
+* Crash when starting a selection inside the margins.
+
+
 ### Security
 ### Contributors
 
@@ -49,12 +63,6 @@
   roughly in the center of the screen.
 * Extending a selection with the right mouse button now works while
   dragging the mouse.
-* Mouse cursor is now always a `left_ptr` when inside the margins, to
-  indicate it is not possible to start a selection.
-* Scrollback position indicator. This feature is optional and
-  controlled by the **scrollback-indicator-style** and
-  **scrollback-indicator-format** options in `footrc`
-  (https://codeberg.org/dnkl/foot/issues/42).
 
 
 ### Fixed
@@ -63,7 +71,6 @@
 * Crash when a **pipe-visible** or **pipe-scrollback** command
   contained an unclosed quote
   (https://codeberg.org/dnkl/foot/issues/49).
-* Crash when starting a selection inside the margins.
 
 
 ### Contributors
