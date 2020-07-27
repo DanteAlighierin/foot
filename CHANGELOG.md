@@ -53,7 +53,8 @@
   indicate it is not possible to start a selection.
 * Scrollback position indicator. This feature is optional and
   controlled by the **scrollback-indicator-style** and
-  **scrollback-indicator-format** options in `footrc`.
+  **scrollback-indicator-format** options in `footrc`
+  (https://codeberg.org/dnkl/foot/issues/42).
 
 
 ### Fixed
