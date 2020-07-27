@@ -42,6 +42,9 @@
 ### Fixed
 
 * Crash in scrollback search
+* Crash when a **pipe-visible** or **pipe-scrollback** command
+  contained an unclosed quote
+  (https://codeberg.org/dnkl/foot/issues/49).
 
 
 ### Security
