@@ -411,3 +411,7 @@ any of these options.
 	Note: this feature is always disabled in 32-bit.
 	
 	Default: _512_. Maximum allowed: _2048_ (2GB).
+
+# SEE ALSO
+
+*foot*(1), *footclient*(1)
