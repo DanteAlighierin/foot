@@ -1,7 +1,7 @@
 # Changelog
 
-* [Unreleased](#unreleased)
-* [1.4.2](#1.4.2)
+* [1.4.3](#1-4-3)
+* [1.4.2](#1-4-2)
 * [1.4.1](#1-4-1)
 * [1.4.0](#1-4-0)
 * [1.3.0](#1-3-0)
@@ -10,7 +10,7 @@
 * [1.2.1](#1-2-1)
 * [1.2.0](#1-2-0)
 
-## Unreleased
+## 1.4.3
 ### Added
 
 * Section to [README.md](README.md) describing how to programmatically
@@ -41,8 +41,6 @@
   dragging the mouse.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Crash in scrollback search.
@@ -51,7 +49,6 @@
   (https://codeberg.org/dnkl/foot/issues/49).
 
 
-### Security
 ### Contributors
 
 * [birger](https://codeberg.org/birger)
