@@ -1358,19 +1358,25 @@ render_scrollback_position(struct terminal *term)
         ? 1.0
         : (double)rebased_view / term->grid->num_rows;
 
-    wchar_t text[64];
+    wchar_t _text[64];
+    const wchar_t *text = _text;
     int cell_count;
 
     /* *What* to render */
     switch (term->conf->scrollback.indicator.format) {
     case SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE:
-        swprintf(text, sizeof(text) / sizeof(text[0]), L"%u%%", (int)(100 * percent));
+        swprintf(_text, sizeof(_text) / sizeof(_text[0]), L"%u%%", (int)(100 * percent));
         cell_count = 3;
         break;
 
     case SCROLLBACK_INDICATOR_FORMAT_LINENO:
-        swprintf(text, sizeof(text) / sizeof(text[0]), L"%d", rebased_view + 1);
+        swprintf(_text, sizeof(_text) / sizeof(_text[0]), L"%d", rebased_view + 1);
         cell_count = 1 + (int)log10(term->grid->num_rows);
+        break;
+
+    case SCROLLBACK_INDICATOR_FORMAT_TEXT:
+        text = term->conf->scrollback.indicator.text;
+        cell_count = wcslen(text);
         break;
     }
 

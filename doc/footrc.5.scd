@@ -78,8 +78,9 @@ in this order:
 
 *scrollback-indicator-format*
 	Which format to use when displaying the scrollback position
-	indicator. Either _percentage_ or _line_. This option is ignored
-	if *scrollback-indicator-position=none*. Default: _percentage_.
+	indicator. Either _percentage_, _line_, or a custom fixed
+	string. This option is ignored if
+	*scrollback-indicator-position=none*. Default: _empty string_.
 
 *workers*
 	Number of threads to use for rendering. Set to 0 to disable

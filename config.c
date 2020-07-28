@@ -314,10 +314,17 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             conf->scrollback.indicator.format
                 = SCROLLBACK_INDICATOR_FORMAT_LINENO;
         } else {
-            LOG_ERR("%s:%d: 'scrollback-indicator-format must be one "
-                    "of 'percent' or 'line'",
-                    path, lineno);
-            return false;
+            free(conf->scrollback.indicator.text);
+            conf->scrollback.indicator.text = NULL;
+
+            size_t len = mbstowcs(NULL, value, -1);
+            if (len < 0) {
+                LOG_ERRNO("%s:%d: invalid scrollback-indicator-format value", path, lineno);
+                return false;
+            }
+
+            conf->scrollback.indicator.text = calloc(len + 1, sizeof(wchar_t));
+            mbstowcs(conf->scrollback.indicator.text, value, len);
         }
     }
 
@@ -967,7 +974,8 @@ config_load(struct config *conf, const char *conf_path)
             .lines = 1000,
             .indicator = {
                 .position = SCROLLBACK_INDICATOR_POSITION_RELATIVE,
-                .format = SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE,
+                .format = SCROLLBACK_INDICATOR_FORMAT_TEXT,
+                .text = wcsdup(L""),
             },
         },
         .colors = {
@@ -1119,6 +1127,7 @@ config_free(struct config conf)
     free(conf.shell);
     free(conf.title);
     free(conf.app_id);
+    free(conf.scrollback.indicator.text);
     tll_foreach(conf.fonts, it)
         config_font_destroy(&it->item);
     tll_free(conf.fonts);

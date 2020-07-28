@@ -51,8 +51,11 @@ struct config {
 
             enum {
                 SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE,
-                SCROLLBACK_INDICATOR_FORMAT_LINENO
+                SCROLLBACK_INDICATOR_FORMAT_LINENO,
+                SCROLLBACK_INDICATOR_FORMAT_TEXT,
             } format;
+
+            wchar_t *text;
         } indicator;
     } scrollback;
 
