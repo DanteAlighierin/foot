@@ -21,9 +21,6 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [DPI and font size](#dpi-and-font-size)
 1. [Supported OSCs](#supported-oscs)
 1. [Programmatically checking if running in foot](#programmatically-checking-if-running-in-foot)
-1. [Requirements](#requirements)
-   1. [Running](#running)
-   1. [Building](#building)
 1. [Credits](#Credits)
 1. [Bugs](#bugs)
 1. [Mastodon](#mastodon)
@@ -343,45 +340,6 @@ should ignore escape sequences they do not recognize. You will have to
 parse the response (which in foot will consist of all three DA
 responses, all at once) to determine which requests the terminal
 emulator actually responded to.
-
-
-## Requirements
-
-### Running
-
-* fontconfig
-* freetype
-* pixman
-* wayland (_client_ and _cursor_ libraries)
-* xkbcommon
-* [tllist](https://codeberg.org/dnkl/tllist) [^1]
-* [fcft](https://codeberg.org/dnkl/fcft) [^1]
-
-[^1]: can also be built as subprojects, in which case they are
-    statically linked.
-
-
-### Building
-
-In addition to the dev variant of the packages above, you need:
-
-* meson
-* ninja
-* wayland protocols
-* ncurses
-* scdoc
-
-A note on compilers; in general, foot runs **much** faster when
-compiled with gcc instead of clang. A profile-guided gcc build can be
-more than twice as fast as a clang build.
-
-**Note** GCC 10.1 has a performance regression that severely affects
-foot when doing PGO builds and building with `-O2`; it is about 30-40%
-slower compared to GCC 9.3.
-
-The work around is simple: make sure you build with `-O3`. This is the
-default with `meson --buildtype=release`, but e.g. `makepkg` can
-override it (`makepkg` uses `-O2` by default).
 
 
 # Credits

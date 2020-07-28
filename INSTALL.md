@@ -1,6 +1,9 @@
 # Installing
 
 1. [Overview](#overview)
+1. [Requirements](#requirements)
+   1. [Running](#running)
+   1. [Building](#building)
 1. [Arch Linux](#arch-linux)
 1. [Other](#other)
    1. [Setup](#setup)
@@ -25,6 +28,45 @@ If **not** found, they will be searched for as subprojects. In this
 case you need to create the `subprojects` directory and clone
 https://codeberg.org/dnkl/fcft.git and
 https://codeberg.org/dnkl/tllist.git (see [Other](#other) below).
+
+
+## Requirements
+
+### Running
+
+* fontconfig
+* freetype
+* pixman
+* wayland (_client_ and _cursor_ libraries)
+* xkbcommon
+* [tllist](https://codeberg.org/dnkl/tllist) [^1]
+* [fcft](https://codeberg.org/dnkl/fcft) [^1]
+
+[^1]: can also be built as subprojects, in which case they are
+    statically linked.
+
+
+### Building
+
+In addition to the dev variant of the packages above, you need:
+
+* meson
+* ninja
+* wayland protocols
+* ncurses
+* scdoc
+
+A note on compilers; in general, foot runs **much** faster when
+compiled with gcc instead of clang. A profile-guided gcc build can be
+more than twice as fast as a clang build.
+
+**Note** GCC 10.1 has a performance regression that severely affects
+foot when doing PGO builds and building with `-O2`; it is about 30-40%
+slower compared to GCC 9.3.
+
+The work around is simple: make sure you build with `-O3`. This is the
+default with `meson --buildtype=release`, but e.g. `makepkg` can
+override it (`makepkg` uses `-O2` by default).
 
 
 ## Arch Linux
