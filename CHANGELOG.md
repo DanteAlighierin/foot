@@ -42,6 +42,8 @@
 ### Fixed
 
 * Crash in scrollback search
+* Improved font size consistency across multiple monitors with
+  different DPI (https://codeberg.org/dnkl/foot/issues/47).
 
 
 ### Security
