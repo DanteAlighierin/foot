@@ -288,7 +288,44 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
             return false;
         }
-        conf->scrollback_lines = lines;
+        conf->scrollback.lines = lines;
+    }
+
+    else if (strcmp(key, "scrollback-indicator-position") == 0) {
+        if (strcmp(value, "none") == 0)
+            conf->scrollback.indicator.position = SCROLLBACK_INDICATOR_POSITION_NONE;
+        else if (strcmp(value, "fixed") == 0)
+            conf->scrollback.indicator.position = SCROLLBACK_INDICATOR_POSITION_FIXED;
+        else if (strcmp(value, "relative") == 0)
+            conf->scrollback.indicator.position = SCROLLBACK_INDICATOR_POSITION_RELATIVE;
+        else {
+            LOG_ERR("%s:%d: scrollback-indicator-position must be one of "
+                    "'none', 'fixed' or 'moving'",
+                    path, lineno);
+            return false;
+        }
+    }
+
+    else if (strcmp(key, "scrollback-indicator-format") == 0) {
+        if (strcmp(value, "percentage") == 0) {
+            conf->scrollback.indicator.format
+                = SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE;
+        } else if (strcmp(value, "line") == 0) {
+            conf->scrollback.indicator.format
+                = SCROLLBACK_INDICATOR_FORMAT_LINENO;
+        } else {
+            free(conf->scrollback.indicator.text);
+            conf->scrollback.indicator.text = NULL;
+
+            size_t len = mbstowcs(NULL, value, -1);
+            if (len < 0) {
+                LOG_ERRNO("%s:%d: invalid scrollback-indicator-format value", path, lineno);
+                return false;
+            }
+
+            conf->scrollback.indicator.text = calloc(len + 1, sizeof(wchar_t));
+            mbstowcs(conf->scrollback.indicator.text, value, len);
+        }
     }
 
     else {
@@ -792,7 +829,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
             break;
         }
 
-        /* Strip whitespace */
+        /* Strip leading whitespace */
         char *line = _line;
         {
             while (isspace(*line))
@@ -809,11 +846,15 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         if (line[0] == '\0' || line[0] == '#')
             continue;
 
+        /* Split up into key/value pair + trailing comment */
+        char *key_value = strtok(line, "#");
+        char *comment __attribute__((unused)) = strtok(NULL, "\n");
+
         /* Check for new section */
-        if (line[0] == '[') {
-            char *end = strchr(line, ']');
+        if (key_value[0] == '[') {
+            char *end = strchr(key_value, ']');
             if (end == NULL) {
-                LOG_ERR("%s:%d: syntax error: %s", path, lineno, line);
+                LOG_ERR("%s:%d: syntax error: %s", path, lineno, key_value);
                 goto err;
             }
 
@@ -821,13 +862,13 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 
             section = SECTION_COUNT;
             for (enum section i = 0; i < SECTION_COUNT; i++) {
-                if (strcmp(&line[1], section_info[i].name) == 0) {
+                if (strcmp(&key_value[1], section_info[i].name) == 0) {
                     section = i;
                 }
             }
 
             if (section == SECTION_COUNT) {
-                LOG_ERR("%s:%d: invalid section name: %s", path, lineno, &line[1]);
+                LOG_ERR("%s:%d: invalid section name: %s", path, lineno, &key_value[1]);
                 goto err;
             }
 
@@ -835,11 +876,20 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
             continue;
         }
 
-        char *key = strtok(line, "=");
+        char *key = strtok(key_value, "=");
+        if (key == NULL) {
+            LOG_ERR("%s:%d: syntax error: no key specified", path, lineno);
+            goto err;
+        }
+
         char *value = strtok(NULL, "\n");
+        if (value == NULL) {
+            /* Empty value, i.e. "key=" */
+            value = key + strlen(key);
+        }
 
         /* Strip trailing whitespace from key (leading stripped earlier) */
-        {
+        if (key[0] != '\0') {
             assert(!isspace(*key));
 
             char *end = key + strlen(key) - 1;
@@ -850,25 +900,28 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 
         if (value == NULL) {
             if (key != NULL && strlen(key) > 0 && key[0] != '#') {
-                LOG_ERR("%s:%d: syntax error: %s", path, lineno, line);
+                LOG_ERR("%s:%d: syntax error: %s", path, lineno, key_value);
                 goto err;
             }
 
             continue;
         }
 
-        /* Strip leading whitespace from value (trailing stripped earlier) */
+        /* Strip leading+trailing whitespace from value */
         {
             while (isspace(*value))
                 value++;
-            assert(!isspace(*(value + strlen(value) - 1)));
+
+            if (value[0] != '\0') {
+                char *end = value + strlen(value) - 1;
+                while (isspace(*end))
+                    end--;
+                *(end + 1) = '\0';
+            }
         }
 
-        if (key[0] == '#')
-            continue;
-
-        LOG_DBG("section=%s, key='%s', value='%s'",
-                section_names[section], key, value);
+        LOG_DBG("section=%s, key='%s', value='%s', comment='%s'",
+                section_info[section].name, key, value, comment);
 
         parser_fun_t section_parser = section_info[section].fun;
         assert(section_parser != NULL);
@@ -917,8 +970,14 @@ config_load(struct config *conf, const char *conf_path)
         .pad_y = 2,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = tll_init(),
-        .scrollback_lines = 1000,
-
+        .scrollback = {
+            .lines = 1000,
+            .indicator = {
+                .position = SCROLLBACK_INDICATOR_POSITION_RELATIVE,
+                .format = SCROLLBACK_INDICATOR_FORMAT_TEXT,
+                .text = wcsdup(L""),
+            },
+        },
         .colors = {
             .fg = default_foreground,
             .bg = default_background,
@@ -1068,6 +1127,7 @@ config_free(struct config conf)
     free(conf.shell);
     free(conf.title);
     free(conf.app_id);
+    free(conf.scrollback.indicator.text);
     tll_foreach(conf.fonts, it)
         config_font_destroy(&it->item);
     tll_free(conf.fonts);

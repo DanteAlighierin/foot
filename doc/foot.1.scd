@@ -119,7 +119,7 @@ The following keyboard shortcuts are available.
 ## NORMAL MODE
 
 Note that these are just the defaults; they can be changed in the
-*footrc*, see *foot*(5).
+*footrc*, see *footrc*(5).
 
 *shift*+*page up*/*page down*
 	Scroll up/down in history
@@ -239,7 +239,7 @@ Finally, pressing *alt* will prefix the transmitted byte with ESC.
 
 # CONFIGURATION
 
-See *foot*(5)
+See *footrc*(5)
 
 # BUGS
 
@@ -256,4 +256,4 @@ The report should contain the following:
 
 # SEE ALSO
 
-*foot*(5), *footclient*(1)
+*footrc*(5), *footclient*(1)

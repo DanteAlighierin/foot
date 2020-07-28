@@ -1,7 +1,8 @@
 # Changelog
 
 * [Unreleased](#unreleased)
-* [1.4.2](#1.4.2)
+* [1.4.3](#1-4-3)
+* [1.4.2](#1-4-2)
 * [1.4.1](#1-4-1)
 * [1.4.0](#1-4-0)
 * [1.3.0](#1-3-0)
@@ -12,12 +13,39 @@
 
 ## Unreleased
 ### Added
+### Deprecated
+### Removed
+### Changed
+
+* Renamed man page for `footrc` from **foot**(5) to **footrc**(5).
+* Mouse cursor is now always a `left_ptr` when inside the margins, to
+  indicate it is not possible to start a selection.
+* Scrollback position indicator. This feature is optional and
+  controlled by the **scrollback-indicator-position** and
+  **scrollback-indicator-format** options in `footrc`
+  (https://codeberg.org/dnkl/foot/issues/42).
+
+
+### Fixed
+
+* Crash when starting a selection inside the margins.
+* Handle trailing comments in `footrc`
+
+
+### Security
+### Contributors
+
+
+## 1.4.3
+### Added
 
 * Section to [README.md](README.md) describing how to programmatically
   identify foot.
 * [LICENSE](LICENSE), [README.md](README.md) and
   [CHANGELOG.md](CHANGELOG.md) are now installed to
   `${datadir}/doc/foot`.
+* Support for escaping quotes in **pipe-visible** and
+  **pipe-scrollback** commands.
 
 
 ### Changed
@@ -35,18 +63,20 @@
   outside it.
 * Scrollback search to focus match, that requires a viewport change,
   roughly in the center of the screen.
+* Extending a selection with the right mouse button now works while
+  dragging the mouse.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
-* Crash in scrollback search
+* Crash in scrollback search.
+* Crash when a **pipe-visible** or **pipe-scrollback** command
+  contained an unclosed quote
+  (https://codeberg.org/dnkl/foot/issues/49).
 * Improved font size consistency across multiple monitors with
   different DPI (https://codeberg.org/dnkl/foot/issues/47).
 
 
-### Security
 ### Contributors
 
 * [birger](https://codeberg.org/birger)

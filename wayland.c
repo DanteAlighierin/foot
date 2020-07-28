@@ -1212,6 +1212,11 @@ wayl_win_destroy(struct wl_window *win)
      * nor mouse focus).
      */
 
+    if (win->scrollback_indicator_surface != NULL) {
+        wl_surface_attach(win->scrollback_indicator_surface, NULL, 0, 0);
+        wl_surface_commit(win->scrollback_indicator_surface);
+    }
+
     /* Scrollback search */
     if (win->search_surface != NULL) {
         wl_surface_attach(win->search_surface, NULL, 0, 0);
@@ -1236,6 +1241,10 @@ wayl_win_destroy(struct wl_window *win)
     tll_free(win->on_outputs);
 
     csd_destroy(win);
+    if (win->scrollback_indicator_sub_surface != NULL)
+        wl_subsurface_destroy(win->scrollback_indicator_sub_surface);
+    if (win->scrollback_indicator_surface != NULL)
+        wl_surface_destroy(win->scrollback_indicator_surface);
     if (win->search_sub_surface != NULL)
         wl_subsurface_destroy(win->search_sub_surface);
     if (win->search_surface != NULL)

@@ -909,7 +909,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .tab_stops = tll_init(),
         .wl = wayl,
         .render = {
-            .scrollback_lines = conf->scrollback_lines,
+            .scrollback_lines = conf->scrollback.lines,
             .app_sync_updates.timer_fd = app_sync_updates_fd,
             .workers = {
                 .count = conf->render_worker_count,
@@ -2407,6 +2407,8 @@ term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
         return TERM_SURF_GRID;
     else if (surface == term->window->search_surface)
         return TERM_SURF_SEARCH;
+    else if (surface == term->window->scrollback_indicator_surface)
+        return TERM_SURF_SCROLLBACK_INDICATOR;
     else if (surface == term->window->csd.surface[CSD_SURF_TITLE])
         return TERM_SURF_TITLE;
     else if (surface == term->window->csd.surface[CSD_SURF_LEFT])

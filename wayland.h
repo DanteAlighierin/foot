@@ -275,6 +275,9 @@ struct wl_window {
     struct wl_surface *search_surface;
     struct wl_subsurface *search_sub_surface;
 
+    struct wl_surface *scrollback_indicator_surface;
+    struct wl_subsurface *scrollback_indicator_sub_surface;
+
     struct wl_callback *frame_callback;
 
     tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */

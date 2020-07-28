@@ -1,7 +1,7 @@
-foot(5)
+footrc(5)
 
 # NAME
-foot - configuration file
+footrc - configuration file
 
 # DESCRIPTION
 
@@ -67,6 +67,20 @@ in this order:
 
 *scrollback*
 	Number of scrollback lines. Default: _1000_.
+
+*scrollback-indicator-position*
+	Configures the style of the scrollback position indicator. One of
+	*none*, *fixed* or *relative*. *none* disables the indicator
+	completely. *fixed* always renders the indicator near the top at
+	the window, and *relative* renders the indicator at the position
+	corresponding to the current scrollback position. Default:
+	_relative_.
+
+*scrollback-indicator-format*
+	Which format to use when displaying the scrollback position
+	indicator. Either _percentage_, _line_, or a custom fixed
+	string. This option is ignored if
+	*scrollback-indicator-position=none*. Default: _empty string_.
 
 *workers*
 	Number of threads to use for rendering. Set to 0 to disable
@@ -176,7 +190,7 @@ This section lets you override the default key bindings.
 The general format is _action=combo1...comboN_. That is, each action
 may have one or more key combinations, space separated. Each
 combination is on the form _mod1+mod2+key_. The names of the modifiers
-and the key *must* be a valid XKB key name.
+and the key *must* be valid XKB key names.
 
 Note that if *Shift* is one of the modifiers, the _key_ *must* be in
 upper case. For example, *Control+Shift+v* will never trigger -
@@ -398,3 +412,7 @@ any of these options.
 	Note: this feature is always disabled in 32-bit.
 	
 	Default: _512_. Maximum allowed: _2048_ (2GB).
+
+# SEE ALSO
+
+*foot*(1), *footclient*(1)

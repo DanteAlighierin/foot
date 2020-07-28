@@ -34,6 +34,8 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Credits](#Credits)
 1. [Bugs](#bugs)
 1. [Mastodon](#mastodon)
+1. [License](#license)
+
 
 ## Features
 
@@ -55,11 +57,12 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 
 ## Configuration
 
-**foot** can be configured by creating a file `$XDG_CONFIG_HOME/footrc` (defaulting to `~/.config/footrc`).
-A template for that can usually be found in `/usr/share/foot/footrc` or
+**foot** can be configured by creating a file
+`$XDG_CONFIG_HOME/footrc` (defaulting to `~/.config/footrc`).  A
+template for that can usually be found in `/usr/share/foot/footrc` or
 [here](https://codeberg.org/dnkl/foot/src/branch/master/footrc).
 
-Further information can be found in foot's manpage `foot(5)`.
+Further information can be found in foot's man page `footrc(5)`.
 
 
 ## Troubleshooting
@@ -590,3 +593,8 @@ The report should contain the following:
 
 Every now and then I post foot related updates on
 [@dnkl@linuxrocks.online](https://linuxrocks.online/@dnkl)
+
+
+# License
+
+Foot is released under the [MIT](LICENSE).
