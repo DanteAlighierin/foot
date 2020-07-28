@@ -29,6 +29,7 @@
 ### Fixed
 
 * Crash when starting a selection inside the margins.
+* Handle trailing comments in `footrc`
 
 
 ### Security
