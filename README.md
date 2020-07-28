@@ -5,6 +5,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 ## Index
 
 1. [Features](#features)
+1. [Installing](#installing)
 1. [Configuration](#configuration)
 1. [Troubleshooting](#troubleshooting)
 1. [Why the name 'foot'?](#why-the-name-foot)
@@ -23,7 +24,6 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
-1. [Installing](#installing)
 1. [Credits](#Credits)
 1. [Bugs](#bugs)
 1. [Mastodon](#mastodon)
@@ -47,6 +47,12 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 * [Sixel image support](https://en.wikipedia.org/wiki/Sixel)
 
   ![wow](doc/sixel-wow.png "Sixel screenshot")
+
+
+# Installing
+
+See [INSTALL.md](INSTALL.md).
+
 
 ## Configuration
 
@@ -376,11 +382,6 @@ slower compared to GCC 9.3.
 The work around is simple: make sure you build with `-O3`. This is the
 default with `meson --buildtype=release`, but e.g. `makepkg` can
 override it (`makepkg` uses `-O2` by default).
-
-
-# Installing
-
-See [INSTALL.md](INSTALL.md).
 
 
 # Credits
