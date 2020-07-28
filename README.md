@@ -34,6 +34,8 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Credits](#Credits)
 1. [Bugs](#bugs)
 1. [Mastodon](#mastodon)
+1. [License](#license)
+
 
 ## Features
 
@@ -591,3 +593,8 @@ The report should contain the following:
 
 Every now and then I post foot related updates on
 [@dnkl@linuxrocks.online](https://linuxrocks.online/@dnkl)
+
+
+# License
+
+Foot is released under the [MIT](LICENSE).
