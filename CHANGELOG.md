@@ -21,6 +21,8 @@
 ### Fixed
 
 * Crash when starting a selection inside the margins.
+* Improved font size consistency across multiple monitors with
+  different DPI (https://codeberg.org/dnkl/foot/issues/47).
 
 
 ## 1.4.3
