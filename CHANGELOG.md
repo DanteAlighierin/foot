@@ -73,6 +73,8 @@
 * Crash when a **pipe-visible** or **pipe-scrollback** command
   contained an unclosed quote
   (https://codeberg.org/dnkl/foot/issues/49).
+* Improved font size consistency across multiple monitors with
+  different DPI (https://codeberg.org/dnkl/foot/issues/47).
 
 
 ### Contributors
