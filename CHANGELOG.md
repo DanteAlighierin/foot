@@ -13,16 +13,20 @@
 * [1.2.0](#1-2-0)
 
 ## Unreleased
+
 ### Added
+
+* Scrollback position indicator. This feature is optional and
+  controlled by the **scrollback-indicator-position** and
+  **scrollback-indicator-format** options in `footrc`
+  (https://codeberg.org/dnkl/foot/issues/42).
+
+
 ### Deprecated
 ### Removed
 ### Changed
 
 * Renamed man page for `footrc` from **foot**(5) to **footrc**(5).
-* Scrollback position indicator. This feature is optional and
-  controlled by the **scrollback-indicator-position** and
-  **scrollback-indicator-format** options in `footrc`
-  (https://codeberg.org/dnkl/foot/issues/42).
 
 
 ### Security
