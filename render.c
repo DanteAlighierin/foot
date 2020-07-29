@@ -1360,7 +1360,7 @@ render_scrollback_position(struct terminal *term)
 
     wchar_t _text[64];
     const wchar_t *text = _text;
-    int cell_count;
+    int cell_count = 0;
 
     /* *What* to render */
     switch (term->conf->scrollback.indicator.format) {
