@@ -3,6 +3,7 @@
 _arguments \
     -s -S -C \
     '(-c --config)'{-c,--config}'[path to configuration file (XDG_CONFIG_HOME/footrc)]:config:_files' \
+    '--check-config[verify configuration and exit with 0 if ok, otherwise exit with 1]' \
     '(-f --font)'{-f,--font}'[font name and style in fontconfig format (monospace)]:font:->fonts' \
     '(-t --term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
     '--title[initial window title]:()' \

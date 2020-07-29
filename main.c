@@ -46,6 +46,7 @@ print_usage(const char *prog_name)
         "\n"
         "Options:\n"
         "  -c,--config=PATH                      load configuration from PATH (XDG_CONFIG_HOME/footrc)\n"
+        "     --check-config                     verify configuration, exit with 0 if ok, otherwise exit with 1\n"
         "  -f,--font=FONT                        comma separated list of fonts in fontconfig format (monospace)\n"
         "  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
         "     --title=TITLE                      initial window title (foot)\n"
@@ -142,6 +143,7 @@ main(int argc, char *const *argv)
 
     static const struct option longopts[] =  {
         {"config",               required_argument, NULL, 'c'},
+        {"check-config",         no_argument,       NULL, 'C'},
         {"term",                 required_argument, NULL, 't'},
         {"title",                required_argument, NULL, 'T'},
         {"app-id",               required_argument, NULL, 'a'},
@@ -161,6 +163,7 @@ main(int argc, char *const *argv)
         {NULL,                   no_argument,       NULL,   0},
     };
 
+    bool check_config = false;
     const char *conf_path = NULL;
     const char *conf_term = NULL;
     const char *conf_title = NULL;
@@ -181,13 +184,17 @@ main(int argc, char *const *argv)
     bool log_syslog = true;
 
     while (true) {
-        int c = getopt_long(argc, argv, "+c:t:a:Lf:g:s::Pp:l::Svh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+c:Ct:a:Lf:g:s::Pp:l::Svh", longopts, NULL);
         if (c == -1)
             break;
 
         switch (c) {
         case 'c':
             conf_path = optarg;
+            break;
+
+        case 'C':
+            check_config = true;
             break;
 
         case 't':
@@ -318,6 +325,11 @@ main(int argc, char *const *argv)
     if (!config_load(&conf, conf_path)) {
         config_free(conf);
         return ret;
+    }
+
+    if (check_config) {
+        config_free(conf);
+        return EXIT_SUCCESS;
     }
 
     setlocale(LC_CTYPE, "");

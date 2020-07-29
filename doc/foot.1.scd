@@ -15,6 +15,10 @@ arguments, to execute (instead of the default shell).
 *-c*,*--config*=_PATH_
 	Path to configuration file. Default: *XDG_CONFIG_HOME/footrc*.
 
+*--check-config*
+	Verify configuration and then exit with 0 if ok, otherwise exit
+	with 1.
+
 *-f*,*--font*=_FONT_
 	Comma separated list of fonts to use, in fontconfig format (see
 	*FONT FORMAT*).

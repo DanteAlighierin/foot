@@ -21,6 +21,7 @@
   **scrollback-indicator-format** options in `footrc`
   (https://codeberg.org/dnkl/foot/issues/42).
 * Key bindings in _scollback search_ mode are now configurable.
+* `--check-config` command line option.
 
 
 ### Deprecated
