@@ -127,14 +127,20 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
     for (size_t i = 0; i < warning_count; i++) {
         switch (warnings[i].kind) {
         case USER_WARNING_DEPRECATION:
-            write(pts, "\e[33;1;5mdeprecated:\e[39;21;25m ", 32);
+            if (write(pts, "\e[33;1;5mdeprecated:\e[39;21;25m ", 32) < 0)
+                goto err;
         }
 
-        write(pts, warnings[i].text, strlen(warnings[i].text));
-        write(pts, "\e[m\n", 4);
+        if (write(pts, warnings[i].text, strlen(warnings[i].text)) < 0 ||
+            write(pts, "\e[m\n", 4) < 0)
+        {
+            goto err;
+        }
         free(warnings[i].text);
+        warnings[i].text = NULL;
     }
     free(warnings);
+    warnings = NULL;
 
     close(pts);
     pts = -1;
@@ -161,6 +167,11 @@ err:
     if (ptmx != -1)
         close(ptmx);
     close(err_fd);
+
+    for (size_t i = 0; i < warning_count; i++)
+        free(warnings[i].text);
+    free(warnings);
+
     _exit(errno);
 }
 
