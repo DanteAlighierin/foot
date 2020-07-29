@@ -1,6 +1,7 @@
 # Changelog
 
 * [Unreleased](#unreleased)
+* [1.4.4](#1-4-4)
 * [1.4.3](#1-4-3)
 * [1.4.2](#1-4-2)
 * [1.4.1](#1-4-1)
@@ -18,24 +19,29 @@
 ### Changed
 
 * Renamed man page for `footrc` from **foot**(5) to **footrc**(5).
-* Mouse cursor is now always a `left_ptr` when inside the margins, to
-  indicate it is not possible to start a selection.
 * Scrollback position indicator. This feature is optional and
   controlled by the **scrollback-indicator-position** and
   **scrollback-indicator-format** options in `footrc`
   (https://codeberg.org/dnkl/foot/issues/42).
 
 
+### Security
+### Contributors
+
+
+## 1.4.4
+### Changed
+
+* Mouse cursor is now always a `left_ptr` when inside the margins, to
+  indicate it is not possible to start a selection.
+
+
 ### Fixed
 
 * Crash when starting a selection inside the margins.
-* Handle trailing comments in `footrc`
 * Improved font size consistency across multiple monitors with
   different DPI (https://codeberg.org/dnkl/foot/issues/47).
-
-
-### Security
-### Contributors
+* Handle trailing comments in `footrc`
 
 
 ## 1.4.3
