@@ -261,7 +261,8 @@ e.g. *search-start=none*.
 	use *sh -c "command line"* if you need that.
 	
 	Example:
-		*pipe-visible=[sh -c "xurls | bemenu | xargs -r firefox"] Control+Print*
+		*pipe-visible=[sh -c "xurls | uniq | tac | bemenu | xargs -r
+		firefox"] Control+Print*
 	
 	Default: _not bound_
 
