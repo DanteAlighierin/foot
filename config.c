@@ -48,7 +48,7 @@ static const uint32_t default_bright[] = {
     0xffffff,
 };
 
-static const char *binding_action_map[] = {
+static const char *const binding_action_map[] = {
     [BIND_ACTION_NONE] = NULL,
     [BIND_ACTION_SCROLLBACK_UP] = "scrollback-up",
     [BIND_ACTION_SCROLLBACK_DOWN] = "scrollback-down",
@@ -69,6 +69,29 @@ static const char *binding_action_map[] = {
 
 static_assert(ALEN(binding_action_map) == BIND_ACTION_COUNT,
               "binding action map size mismatch");
+
+static const char *const search_binding_action_map[] = {
+    [BIND_ACTION_SEARCH_NONE] = NULL,
+    [BIND_ACTION_SEARCH_CANCEL] = "cancel",
+    [BIND_ACTION_SEARCH_COMMIT] = "commit",
+    [BIND_ACTION_SEARCH_FIND_PREV] = "find-prev",
+    [BIND_ACTION_SEARCH_FIND_NEXT] = "find-next",
+    [BIND_ACTION_SEARCH_EDIT_LEFT] = "cursor-left",
+    [BIND_ACTION_SEARCH_EDIT_LEFT_WORD] = "cursor-left-word",
+    [BIND_ACTION_SEARCH_EDIT_RIGHT] = "cursor-right",
+    [BIND_ACTION_SEARCH_EDIT_RIGHT_WORD] = "cursor-right-word",
+    [BIND_ACTION_SEARCH_EDIT_HOME] = "cursor-home",
+    [BIND_ACTION_SEARCH_EDIT_END] = "cursor-end",
+    [BIND_ACTION_SEARCH_DELETE_PREV] = "delete-prev",
+    [BIND_ACTION_SEARCH_DELETE_PREV_WORD] = "delete-prev-word",
+    [BIND_ACTION_SEARCH_DELETE_NEXT] = "delete-next",
+    [BIND_ACTION_SEARCH_DELETE_NEXT_WORD] = "delete-next-word",
+    [BIND_ACTION_SEARCH_EXTEND_WORD] = "extend-to-word-boundary",
+    [BIND_ACTION_SEARCH_EXTEND_WORD_WS] = "extend-to-next-whitespace",
+};
+
+static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
+              "search binding action map size mismatch");
 
 static char *
 get_shell(void)
@@ -523,6 +546,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
 static bool
 verify_key_combo(const struct config *conf, enum bind_action_normal action,
+                 const char *const binding_action_map[],
                  const char *combo, const char *path, unsigned lineno)
 {
     tll_foreach(conf->bindings.key, it) {
@@ -602,7 +626,7 @@ parse_section_key_bindings(
             return true;
         }
 
-        if (!verify_key_combo(conf, action, value, path, lineno)) {
+        if (!verify_key_combo(conf, action, binding_action_map, value, path, lineno)) {
             return false;
         }
 
@@ -632,6 +656,95 @@ parse_section_key_bindings(
                 .pipe_cmd = pipe_cmd != NULL ? strndup(pipe_cmd, pipe_len) : NULL,
             };
             tll_push_back(conf->bindings.key, binding);
+        }
+        return true;
+    }
+
+    LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+    return false;
+
+}
+
+static bool
+parse_section_search_bindings(
+    const char *key, const char *value, struct config *conf,
+    const char *path, unsigned lineno)
+{
+#if 0
+    const char *pipe_cmd = NULL;
+    size_t pipe_len = 0;
+
+    if (value[0] == '[') {
+        const char *pipe_cmd_end = strrchr(value, ']');
+        if (pipe_cmd_end == NULL) {
+            LOG_ERR("%s:%d: unclosed '['", path, lineno);
+            return false;
+        }
+
+        pipe_cmd = &value[1];
+        pipe_len = pipe_cmd_end - pipe_cmd;
+
+        value = pipe_cmd_end + 1;
+    }
+#endif
+
+    for (enum bind_action_search action = 0;
+         action < BIND_ACTION_SEARCH_COUNT;
+         action++)
+    {
+        if (search_binding_action_map[action] == NULL)
+            continue;
+
+        if (strcmp(key, search_binding_action_map[action]) != 0)
+            continue;
+
+        if (strcasecmp(value, "none") == 0) {
+            tll_foreach(conf->bindings.search, it) {
+                if (it->item.action == action) {
+                    free(it->item.key);
+                    // free(it->item.pipe_cmd);
+                    tll_remove(conf->bindings.search, it);
+                }
+            }
+            return true;
+        }
+
+        if (!verify_key_combo(conf, action, search_binding_action_map, value, path, lineno)) {
+            return false;
+        }
+
+        bool already_added = false;
+        tll_foreach(conf->bindings.search, it) {
+            if (it->item.action == action
+#if 0
+                &&
+                ((it->item.pipe_cmd == NULL && pipe_cmd == NULL) ||
+                 (it->item.pipe_cmd != NULL && pipe_cmd != NULL &&
+                  strncmp(it->item.pipe_cmd, pipe_cmd, pipe_len) == 0))
+#endif
+                )
+            {
+
+                free(it->item.key);
+                // free(it->item.pipe_cmd);
+
+                it->item.key = strdup(value);
+#if 0
+                it->item.pipe_cmd = pipe_cmd != NULL
+                    ? strndup(pipe_cmd, pipe_len) : NULL;
+#endif
+                already_added = true;
+                break;
+            }
+        }
+
+        if (!already_added) {
+            struct config_key_binding_search binding = {
+                .action = action,
+                .key = strdup(value),
+                // .pipe_cmd = pipe_cmd != NULL ? strndup(pipe_cmd, pipe_len) : NULL,
+            };
+            tll_push_back(conf->bindings.search, binding);
         }
         return true;
     }
@@ -785,6 +898,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         SECTION_CURSOR,
         SECTION_CSD,
         SECTION_KEY_BINDINGS,
+        SECTION_SEARCH_BINDINGS,
         SECTION_MOUSE_BINDINGS,
         SECTION_TWEAK,
         SECTION_COUNT,
@@ -799,13 +913,14 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         parser_fun_t fun;
         const char *name;
     } section_info[] = {
-        [SECTION_MAIN] =           {&parse_section_main, "main"},
-        [SECTION_COLORS] =         {&parse_section_colors, "colors"},
-        [SECTION_CURSOR] =         {&parse_section_cursor, "cursor"},
-        [SECTION_CSD] =            {&parse_section_csd, "csd"},
-        [SECTION_KEY_BINDINGS] =   {&parse_section_key_bindings, "key-bindings"},
-        [SECTION_MOUSE_BINDINGS] = {&parse_section_mouse_bindings, "mouse-bindings"},
-        [SECTION_TWEAK] =          {&parse_section_tweak, "tweak"},
+        [SECTION_MAIN] =            {&parse_section_main, "main"},
+        [SECTION_COLORS] =          {&parse_section_colors, "colors"},
+        [SECTION_CURSOR] =          {&parse_section_cursor, "cursor"},
+        [SECTION_CSD] =             {&parse_section_csd, "csd"},
+        [SECTION_KEY_BINDINGS] =    {&parse_section_key_bindings, "key-bindings"},
+        [SECTION_SEARCH_BINDINGS] = {&parse_section_search_bindings, "search-bindings"},
+        [SECTION_MOUSE_BINDINGS] =  {&parse_section_mouse_bindings, "mouse-bindings"},
+        [SECTION_TWEAK] =           {&parse_section_tweak, "tweak"},
     };
 
     static_assert(ALEN(section_info) == SECTION_COUNT, "section info array size mismatch");

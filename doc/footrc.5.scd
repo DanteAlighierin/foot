@@ -265,6 +265,76 @@ e.g. *search-start=none*.
 	
 	Default: _not bound_
 
+# SECTION: search-bindings
+
+This section lets you override the default key bindings used in
+scrollback search mode. The syntax is exactly the same as the regular
+**key-bindings**.
+
+*cancel*
+	Aborts the search. The viewport is restored and the _primary
+	selection_ is **not** updated. Default: _Control+g Escape_.
+
+*commit*
+	Exit search mode and copy current selection into the _primary
+	selection_. Viewport is **not** restored. To copy the selection to
+	the regular _clipboard_, use *Control+Shift+C*. Default: _Return_.
+
+*find-prev*
+	Search **backwards** in the scrollback history for the next
+	match. Default: _Control+r_.
+
+*find-next*
+	Searchs **forwards** in the scrollback history for the next
+	match. Default: _Control+s_.
+
+*cursor-left*
+	Moves the cursor in the search box one **character** to the
+	left. Default: _Left Control+b_.
+
+*cursor-left-word*
+	Moves the cursor in the search box one **word** to the
+	left. Default: _Control+Left Mod1+b_.
+
+*cursor-right*
+	Moves the cursor in the search box one **character** to the
+	right. Default: _Right Control+f_.
+
+*cursor-right-word*
+	Moves the cursor in the search box one **word** to the
+	right. Default: _Control+Left Mod1+b_.
+
+*cursor-home*
+	Moves the cursor in the search box to the beginning of the
+	input. Default: _Home Control+a_.
+
+*cursor-end*
+	Moves the cursor in the search box to the end of the
+	input. Default: _End Control+e_.
+
+*delete-prev*
+	Deletes the **character before** the cursor. Default: _BackSpace_.
+
+*delete-prev-word*
+	Deletes the **word before** the cursor. Default: _Mod1+BackSpace
+	Control+BackSpace_.
+
+*delete-next*
+	Deletes the **character after** the cursor. Default: _Delete_.
+
+*delete-next-word*
+	Deletes the **word after** the cursor. Default: _Mod1+b
+	Control+Delete_.
+
+*extend-to-word-boundary*
+	Extend current selection to the next word boundary. Default:
+	_Control+w_.
+
+*extend-to-next-whitespace*
+	Extend the current selection to the next whitespace. Default:
+	_Control+Shift+W_.
+
+
 # SECTION: mouse-bindings
 
 This section lets you override the default mouse bindings.
