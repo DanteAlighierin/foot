@@ -306,6 +306,9 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "scrollback") == 0) {
+        LOG_WARN("deprecated: 'scrollback' option, "
+                 "use 'lines' in the '[scrollback]' section instead'");
+
         unsigned long lines;
         if (!str_to_ulong(value, 10, &lines)) {
             LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
@@ -314,7 +317,28 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->scrollback.lines = lines;
     }
 
-    else if (strcmp(key, "scrollback-indicator-position") == 0) {
+    else {
+        LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+parse_section_scrollback(const char *key, const char *value, struct config *conf,
+                         const char *path, unsigned lineno)
+{
+    if (strcmp(key, "lines") == 0) {
+        unsigned long lines;
+        if (!str_to_ulong(value, 10, &lines)) {
+            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            return false;
+        }
+        conf->scrollback.lines = lines;
+    }
+
+    else if (strcmp(key, "indicator-position") == 0) {
         if (strcmp(value, "none") == 0)
             conf->scrollback.indicator.position = SCROLLBACK_INDICATOR_POSITION_NONE;
         else if (strcmp(value, "fixed") == 0)
@@ -322,14 +346,14 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         else if (strcmp(value, "relative") == 0)
             conf->scrollback.indicator.position = SCROLLBACK_INDICATOR_POSITION_RELATIVE;
         else {
-            LOG_ERR("%s:%d: scrollback-indicator-position must be one of "
+            LOG_ERR("%s:%d: indicator-position must be one of "
                     "'none', 'fixed' or 'moving'",
                     path, lineno);
             return false;
         }
     }
 
-    else if (strcmp(key, "scrollback-indicator-format") == 0) {
+    else if (strcmp(key, "indicator-format") == 0) {
         if (strcmp(value, "percentage") == 0) {
             conf->scrollback.indicator.format
                 = SCROLLBACK_INDICATOR_FORMAT_PERCENTAGE;
@@ -342,7 +366,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
             size_t len = mbstowcs(NULL, value, -1);
             if (len < 0) {
-                LOG_ERRNO("%s:%d: invalid scrollback-indicator-format value", path, lineno);
+                LOG_ERRNO("%s:%d: invalid indicator-format value", path, lineno);
                 return false;
             }
 
@@ -894,6 +918,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 {
     enum section {
         SECTION_MAIN,
+        SECTION_SCROLLBACK,
         SECTION_COLORS,
         SECTION_CURSOR,
         SECTION_CSD,
@@ -914,6 +939,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         const char *name;
     } section_info[] = {
         [SECTION_MAIN] =            {&parse_section_main, "main"},
+        [SECTION_SCROLLBACK] =      {&parse_section_scrollback, "scrollback"},
         [SECTION_COLORS] =          {&parse_section_colors, "colors"},
         [SECTION_CURSOR] =          {&parse_section_cursor, "cursor"},
         [SECTION_CSD] =             {&parse_section_csd, "csd"},

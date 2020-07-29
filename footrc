@@ -1,9 +1,6 @@
 # -*- conf -*-
 
 # font=monospace
-# scrollback=1000
-# scrollback-indicator-position=relative
-# scrollback-indicator-format=
 # geometry=700x500
 # pad=2x2
 # initial-window-mode=windowed
@@ -11,6 +8,11 @@
 # term=foot
 # login-shell=no
 # workers=<number of logical CPUs>
+
+[scrollback]
+# lines=1000
+# indicator-position=relative
+# indicator-format=
 
 [cursor]
 # style=block

@@ -65,10 +65,19 @@ in this order:
 	compositor can use this value to e.g. group multiple windows, or
 	apply window management rules. Default: _foot_.
 
-*scrollback*
+*workers*
+	Number of threads to use for rendering. Set to 0 to disable
+	multithreading. Default: the number of available logical CPUs
+	(including SMT). Note that this is not always the best value. In
+	some cases, the number of physical _cores_ is better.
+
+
+# SECTION: scrollback
+
+*lines*
 	Number of scrollback lines. Default: _1000_.
 
-*scrollback-indicator-position*
+*indicator-position*
 	Configures the style of the scrollback position indicator. One of
 	*none*, *fixed* or *relative*. *none* disables the indicator
 	completely. *fixed* always renders the indicator near the top at
@@ -76,17 +85,11 @@ in this order:
 	corresponding to the current scrollback position. Default:
 	_relative_.
 
-*scrollback-indicator-format*
+*indicator-format*
 	Which format to use when displaying the scrollback position
 	indicator. Either _percentage_, _line_, or a custom fixed
 	string. This option is ignored if
-	*scrollback-indicator-position=none*. Default: _empty string_.
-
-*workers*
-	Number of threads to use for rendering. Set to 0 to disable
-	multithreading. Default: the number of available logical CPUs
-	(including SMT). Note that this is not always the best value. In
-	some cases, the number of physical _cores_ is better.
+	*indicator-position=none*. Default: _empty string_.
 
 
 # SECTION: cursor
