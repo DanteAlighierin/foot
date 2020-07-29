@@ -309,6 +309,17 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         LOG_WARN("deprecated: 'scrollback' option, "
                  "use 'lines' in the '[scrollback]' section instead'");
 
+        const char *fmt = "%s:%d: \e[1mscrollback\e[21m option, use \e[1mlines\e[21m in the \e[1m[scrollback]\e[21m section";
+        int len = snprintf(NULL, 0, fmt, path, lineno);
+        char *text = malloc(len + 1);
+        snprintf(text, len + 1, fmt, path, lineno);
+
+        struct user_warning warning = {
+            .kind = USER_WARNING_DEPRECATION,
+            .text = text,
+        };
+        tll_push_back(conf->warnings, warning);
+
         unsigned long lines;
         if (!str_to_ulong(value, 10, &lines)) {
             LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
