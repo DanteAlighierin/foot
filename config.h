@@ -119,6 +119,8 @@ struct config {
         uint64_t delayed_render_upper_ns;
         off_t max_shm_pool_size;
     } tweak;
+
+    user_warning_list_t warnings;
 };
 
 bool config_load(struct config *conf, const char *path);

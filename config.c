@@ -1170,6 +1170,8 @@ config_load(struct config *conf, const char *conf_path)
             .delayed_render_upper_ns = 16666666 / 2,   /* half a frame period (60Hz) */
             .max_shm_pool_size = 512 * 1024 * 1024,
         },
+
+        .warnings = tll_init(),
     };
 
     struct config_key_binding_normal scrollback_up =   {BIND_ACTION_SCROLLBACK_UP,   strdup("Shift+Page_Up")};
@@ -1284,6 +1286,10 @@ config_free(struct config conf)
     tll_free(conf.bindings.key);
     tll_free(conf.bindings.mouse);
     tll_free(conf.bindings.search);
+
+    tll_foreach(conf.warnings, it)
+        free(it->item.text);
+    tll_free(conf.warnings);
 }
 
 struct config_font

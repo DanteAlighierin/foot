@@ -18,6 +18,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
+#include "terminal.h"
 #include "tokenize.h"
 
 static bool
@@ -67,7 +68,8 @@ err:
 }
 
 static void
-slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell)
+slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
+           size_t warning_count, struct user_warning warnings[static warning_count])
 {
     int pts = -1;
     const char *pts_name = ptsname(ptmx);
@@ -122,6 +124,18 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell)
         goto err;
     }
 
+    for (size_t i = 0; i < warning_count; i++) {
+        switch (warnings[i].kind) {
+        case USER_WARNING_DEPRECATION:
+            write(pts, "\e[33;1;5mdeprecated:\e[39;21;25m ", 32);
+        }
+
+        write(pts, warnings[i].text, strlen(warnings[i].text));
+        write(pts, "\e[m\n", 4);
+        free(warnings[i].text);
+    }
+    free(warnings);
+
     close(pts);
     pts = -1;
 
@@ -152,7 +166,8 @@ err:
 
 pid_t
 slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
-            const char *term_env, const char *conf_shell, bool login_shell)
+            const char *term_env, const char *conf_shell, bool login_shell,
+            const user_warning_list_t *warnings)
 {
     int fork_pipe[2];
     if (pipe2(fork_pipe, O_CLOEXEC) < 0) {
@@ -220,7 +235,20 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         if (is_valid_shell(shell_argv[0]))
             setenv("SHELL", shell_argv[0], 1);
 
-        slave_exec(ptmx, shell_argv, fork_pipe[1], login_shell);
+        struct user_warning *warnings_copy = malloc(
+            tll_length(*warnings) * sizeof(warnings_copy[0]));
+        {
+            size_t i = 0;
+            tll_foreach(*warnings, it){
+                warnings_copy[i] = (struct user_warning){
+                    .kind = it->item.kind,
+                    .text = strdup(it->item.text),
+                };
+            }
+        }
+
+        slave_exec(ptmx, shell_argv, fork_pipe[1], login_shell,
+                   tll_length(*warnings), warnings_copy);
         assert(false);
         break;
 
