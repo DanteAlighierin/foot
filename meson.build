@@ -126,6 +126,7 @@ executable(
   'spawn.c', 'spawn.h',
   'terminal.c', 'terminal.h',
   'tokenize.c', 'tokenize.h',
+  'user-notification.h',
   'vt.c', 'vt.h',
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,

@@ -944,7 +944,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
     if ((term->slave = slave_spawn(
              term->ptmx, argc, term->cwd, argv,
              conf->term, conf->shell, conf->login_shell,
-             &conf->warnings)) == -1)
+             &conf->notifications)) == -1)
     {
         goto err;
     }

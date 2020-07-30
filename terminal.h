@@ -206,12 +206,6 @@ enum term_surface {
     TERM_SURF_BUTTON_CLOSE,
 };
 
-struct user_warning {
-    enum { USER_WARNING_DEPRECATION } kind;
-    char *text;
-};
-typedef tll(struct user_warning) user_warning_list_t;
-
 struct terminal {
     struct fdm *fdm;
     struct reaper *reaper;

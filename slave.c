@@ -67,9 +67,52 @@ err:
     return false;
 }
 
+static bool
+emit_one_notification(int fd, const struct user_notification *notif)
+{
+    const char *prefix = NULL;
+    const char *postfix = "\e[m\n";
+
+    switch (notif->kind) {
+    case USER_NOTIFICATION_DEPRECATED:
+        prefix = "\e[33;1mdeprecated\e[39;21m: ";
+        break;
+
+    case USER_NOTIFICATION_WARNING:
+        prefix = "\e[33;1mwarning\e[39;21m: ";
+        break;
+
+    case USER_NOTIFICATION_ERROR:
+        prefix = "\e[31;1merror\e[39;21m: ";
+        break;
+    }
+
+    assert(prefix != NULL);
+
+    if (write(fd, prefix, strlen(prefix)) < 0 ||
+        write(fd, notif->text, strlen(notif->text)) < 0 ||
+        write(fd, postfix, strlen(postfix)) < 0)
+    {
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+emit_notifications(int fd, const user_notifications_t *notifications)
+{
+    tll_foreach(*notifications, it) {
+        if (!emit_one_notification(fd, &it->item))
+            return false;
+    }
+
+    return true;
+}
+
 static void
 slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
-           size_t warning_count, struct user_warning warnings[static warning_count])
+           const user_notifications_t *notifications)
 {
     int pts = -1;
     const char *pts_name = ptsname(ptmx);
@@ -124,23 +167,8 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
         goto err;
     }
 
-    for (size_t i = 0; i < warning_count; i++) {
-        switch (warnings[i].kind) {
-        case USER_WARNING_DEPRECATION:
-            if (write(pts, "\e[33;1;5mdeprecated:\e[39;21;25m ", 32) < 0)
-                goto err;
-        }
-
-        if (write(pts, warnings[i].text, strlen(warnings[i].text)) < 0 ||
-            write(pts, "\e[m\n", 4) < 0)
-        {
-            goto err;
-        }
-        free(warnings[i].text);
-        warnings[i].text = NULL;
-    }
-    free(warnings);
-    warnings = NULL;
+    if (!emit_notifications(pts, notifications))
+        goto err;
 
     close(pts);
     pts = -1;
@@ -167,18 +195,13 @@ err:
     if (ptmx != -1)
         close(ptmx);
     close(err_fd);
-
-    for (size_t i = 0; i < warning_count; i++)
-        free(warnings[i].text);
-    free(warnings);
-
     _exit(errno);
 }
 
 pid_t
 slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
             const char *term_env, const char *conf_shell, bool login_shell,
-            const user_warning_list_t *warnings)
+            const user_notifications_t *notifications)
 {
     int fork_pipe[2];
     if (pipe2(fork_pipe, O_CLOEXEC) < 0) {
@@ -246,20 +269,7 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         if (is_valid_shell(shell_argv[0]))
             setenv("SHELL", shell_argv[0], 1);
 
-        struct user_warning *warnings_copy = malloc(
-            tll_length(*warnings) * sizeof(warnings_copy[0]));
-        {
-            size_t i = 0;
-            tll_foreach(*warnings, it){
-                warnings_copy[i] = (struct user_warning){
-                    .kind = it->item.kind,
-                    .text = strdup(it->item.text),
-                };
-            }
-        }
-
-        slave_exec(ptmx, shell_argv, fork_pipe[1], login_shell,
-                   tll_length(*warnings), warnings_copy);
+        slave_exec(ptmx, shell_argv, fork_pipe[1], login_shell, notifications);
         assert(false);
         break;
 

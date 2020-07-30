@@ -6,6 +6,7 @@
 #include <tllist.h>
 
 #include "terminal.h"
+#include "user-notification.h"
 #include "wayland.h"
 
 struct config_font {
@@ -123,7 +124,7 @@ struct config {
         off_t max_shm_pool_size;
     } tweak;
 
-    user_warning_list_t warnings;
+    user_notifications_t notifications;
 };
 
 bool config_load(struct config *conf, const char *path);

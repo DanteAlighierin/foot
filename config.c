@@ -310,16 +310,16 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         LOG_WARN("deprecated: 'scrollback' option, "
                  "use 'lines' in the '[scrollback]' section instead'");
 
-        const char *fmt = "%s:%d: \e[1mscrollback\e[21m option, use \e[1mlines\e[21m in the \e[1m[scrollback]\e[21m section";
+        const char *fmt = "%s:%d: \e[1mscrollback\e[21m option, use \e[1mscrollback.lines\e[21m instead";
         int len = snprintf(NULL, 0, fmt, path, lineno);
         char *text = malloc(len + 1);
         snprintf(text, len + 1, fmt, path, lineno);
 
-        struct user_warning warning = {
-            .kind = USER_WARNING_DEPRECATION,
+        struct user_notification deprecation = {
+            .kind = USER_NOTIFICATION_DEPRECATED,
             .text = text,
         };
-        tll_push_back(conf->warnings, warning);
+        tll_push_back(conf->notifications, deprecation);
 
         unsigned long lines;
         if (!str_to_ulong(value, 10, &lines)) {
@@ -581,10 +581,9 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 }
 
 static bool
-verify_key_combo(const struct config *conf, enum bind_action_normal action,
-                 const char *const binding_action_map[],
-                 const char *combo, const char *path, unsigned lineno)
+verify_key_combo(const struct config *conf, const char *combo, const char *path, unsigned lineno)
 {
+    /* Check regular key bindings */
     tll_foreach(conf->bindings.key, it) {
         char *copy = strdup(it->item.key);
 
@@ -593,8 +592,31 @@ verify_key_combo(const struct config *conf, enum bind_action_normal action,
              collision = strtok_r(NULL, " ", &save))
         {
             if (strcmp(combo, collision) == 0) {
-                LOG_ERR("%s:%d: %s already mapped to %s", path, lineno, combo,
-                        binding_action_map[it->item.action]);
+                bool has_pipe = it->item.pipe.cmd != NULL;
+                LOG_ERR("%s:%d: %s already mapped to '%s%s%s%s'", path, lineno, combo,
+                        binding_action_map[it->item.action],
+                        has_pipe ? " [" : "",
+                        has_pipe ? it->item.pipe.cmd : "",
+                        has_pipe ? "]" : "");
+                free(copy);
+                return false;
+            }
+        }
+
+        free(copy);
+    }
+
+    /* Check scrollback search bindings */
+    tll_foreach(conf->bindings.search, it) {
+        char *copy = strdup(it->item.key);
+
+        for (char *save = NULL, *collision = strtok_r(copy, " ", &save);
+             collision != NULL;
+             collision = strtok_r(NULL, " ", &save))
+        {
+            if (strcmp(combo, collision) == 0) {
+                LOG_ERR("%s:%d: %s already mapped to '%s'", path, lineno, combo,
+                        search_binding_action_map[it->item.action]);
                 free(copy);
                 return false;
             }
@@ -618,6 +640,29 @@ verify_key_combo(const struct config *conf, enum bind_action_normal action,
     }
 
     return true;
+}
+
+static int
+argv_compare(char *const *argv1, char *const *argv2)
+{
+    assert(argv1 != NULL);
+    assert(argv2 != NULL);
+
+    for (size_t i = 0; ; i++) {
+        if (argv1[i] == NULL && argv2[i] == NULL)
+            return 0;
+        if (argv1[i] == NULL)
+            return -1;
+        if (argv2[i] == NULL)
+            return 1;
+
+        int ret = strcmp(argv1[i], argv2[i]);
+        if (ret != 0)
+            return ret;
+    }
+
+    assert(false);
+    return 1;
 }
 
 static bool
@@ -674,7 +719,7 @@ parse_section_key_bindings(
             return true;
         }
 
-        if (!verify_key_combo(conf, action, binding_action_map, value, path, lineno)) {
+        if (!verify_key_combo(conf, value, path, lineno)) {
             free(pipe_argv);
             free(pipe_cmd);
             return false;
@@ -744,7 +789,7 @@ parse_section_search_bindings(
             return true;
         }
 
-        if (!verify_key_combo(conf, action, search_binding_action_map, value, path, lineno)) {
+        if (!verify_key_combo(conf, value, path, lineno)) {
             return false;
         }
 
@@ -1168,7 +1213,7 @@ config_load(struct config *conf, const char *conf_path)
             .max_shm_pool_size = 512 * 1024 * 1024,
         },
 
-        .warnings = tll_init(),
+        .notifications = tll_init(),
     };
 
     struct config_key_binding_normal scrollback_up =   {BIND_ACTION_SCROLLBACK_UP,   strdup("Shift+Page_Up")};
@@ -1285,9 +1330,9 @@ config_free(struct config conf)
     tll_free(conf.bindings.mouse);
     tll_free(conf.bindings.search);
 
-    tll_foreach(conf.warnings, it)
+    tll_foreach(conf.notifications, it)
         free(it->item.text);
-    tll_free(conf.warnings);
+    tll_free(conf.notifications);
 }
 
 struct config_font
