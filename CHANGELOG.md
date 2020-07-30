@@ -26,8 +26,7 @@
 
 ### Deprecated
 
-* **scrollback** option in `footrc`. Use the **lines** option in the
-  **[scrollback]** section instead.
+* **scrollback** option in `footrc`. Use **scrollback.lines** instead.
 
 
 ### Removed
