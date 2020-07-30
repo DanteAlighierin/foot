@@ -38,7 +38,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 * On-the-fly DPI font size adjustment
 * Scrollback search
 * Color emoji support
-* Server/daemon mode (one master process, many windows)
+* Server/daemon mode
 * Multi-seat
 * [Synchronized Updates](https://gitlab.freedesktop.org/terminal-wg/specifications/-/merge_requests/2) support
 * [Sixel image support](https://en.wikipedia.org/wiki/Sixel)
