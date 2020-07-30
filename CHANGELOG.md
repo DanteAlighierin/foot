@@ -35,6 +35,13 @@
 * Renamed man page for `footrc` from **foot**(5) to **footrc**(5).
 
 
+### Fixed
+
+* Command lines for **pipe-visible** and **pipe-scrollback** are now
+  tokenized (i.e. syntax checked) when the configuration is loaded,
+  instead of every time the key binding is executed.
+
+
 ### Security
 ### Contributors
 

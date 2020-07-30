@@ -47,7 +47,7 @@ enum bind_action_normal {
 struct key_binding_normal {
     struct key_binding bind;
     enum bind_action_normal action;
-    const char *pipe_cmd;
+    char **pipe_argv;
 };
 
 struct mouse_binding {

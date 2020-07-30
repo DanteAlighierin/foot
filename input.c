@@ -76,7 +76,7 @@ pipe_closed:
 
 static void
 execute_binding(struct seat *seat, struct terminal *term,
-                enum bind_action_normal action, const char *pipe_cmd,
+                enum bind_action_normal action, char *const *pipe_argv,
                 uint32_t serial)
 {
     switch (action) {
@@ -146,7 +146,7 @@ execute_binding(struct seat *seat, struct terminal *term,
 
     case BIND_ACTION_PIPE_SCROLLBACK:
     case BIND_ACTION_PIPE_VIEW: {
-        if (pipe_cmd == NULL)
+        if (pipe_argv == NULL)
             break;
 
         struct pipe_context *ctx = NULL;
@@ -157,12 +157,6 @@ execute_binding(struct seat *seat, struct terminal *term,
 
         char *text = NULL;
         size_t len = 0;
-
-        char *cmd = strdup(pipe_cmd);
-        char **argv = NULL;
-
-        if (!tokenize_cmdline(cmd, &argv))
-            goto pipe_err;
 
         if (pipe(pipe_fd) < 0) {
             LOG_ERRNO("failed to create pipe");
@@ -207,12 +201,8 @@ execute_binding(struct seat *seat, struct terminal *term,
             }
         }
 
-        if (!spawn(term->reaper, NULL, argv, pipe_fd[0], stdout_fd, stderr_fd))
+        if (!spawn(term->reaper, NULL, pipe_argv, pipe_fd[0], stdout_fd, stderr_fd))
             goto pipe_err;
-
-        /* Not needed anymore */
-        free(argv); argv = NULL;
-        free(cmd); cmd = NULL;
 
         /* Close read end */
         close(pipe_fd[0]);
@@ -239,8 +229,6 @@ execute_binding(struct seat *seat, struct terminal *term,
         if (pipe_fd[1] >= 0)
             close(pipe_fd[1]);
         free(text);
-        free(argv);
-        free(cmd);
         free(ctx);
         break;
     }
@@ -426,7 +414,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
                 ((struct key_binding_normal){
                     .bind = it2->item,
                     .action = it->item.action,
-                    .pipe_cmd = it->item.pipe_cmd}));
+                    .pipe_argv = it->item.pipe.argv}));
         }
         tll_free(bindings);
     }
@@ -743,14 +731,14 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
         /* Match symbol */
         if (it->item.bind.sym == sym) {
-            execute_binding(seat, term, it->item.action, it->item.pipe_cmd, serial);
+            execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial);
             goto maybe_repeat;
         }
 
         /* Match raw key code */
         tll_foreach(it->item.bind.key_codes, code) {
             if (code->item == key) {
-                execute_binding(seat, term, it->item.action, it->item.pipe_cmd, serial);
+                execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial);
                 goto maybe_repeat;
             }
         }

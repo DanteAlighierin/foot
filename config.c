@@ -20,6 +20,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "input.h"
+#include "tokenize.h"
 #include "util.h"
 #include "wayland.h"
 
@@ -624,7 +625,8 @@ parse_section_key_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    const char *pipe_cmd = NULL;
+    char *pipe_cmd = NULL;
+    char **pipe_argv = NULL;
     size_t pipe_len = 0;
 
     if (value[0] == '[') {
@@ -634,10 +636,18 @@ parse_section_key_bindings(
             return false;
         }
 
-        pipe_cmd = &value[1];
         pipe_len = pipe_cmd_end - pipe_cmd;
+        pipe_cmd = strndup(&value[1], pipe_len);
+
+        if (!tokenize_cmdline(pipe_cmd, &pipe_argv)) {
+            LOG_ERR("%s:%d: syntax error in command line", path, lineno);
+            free(pipe_cmd);
+            return false;
+        }
 
         value = pipe_cmd_end + 1;
+        while (isspace(*value))
+            value++;
     }
 
     for (enum bind_action_normal action = 0;
@@ -654,31 +664,37 @@ parse_section_key_bindings(
             tll_foreach(conf->bindings.key, it) {
                 if (it->item.action == action) {
                     free(it->item.key);
-                    free(it->item.pipe_cmd);
+                    free(it->item.pipe.cmd);
+                    free(it->item.pipe.argv);
                     tll_remove(conf->bindings.key, it);
                 }
             }
+            free(pipe_argv);
+            free(pipe_cmd);
             return true;
         }
 
         if (!verify_key_combo(conf, action, binding_action_map, value, path, lineno)) {
+            free(pipe_argv);
+            free(pipe_cmd);
             return false;
         }
 
         bool already_added = false;
         tll_foreach(conf->bindings.key, it) {
             if (it->item.action == action &&
-                ((it->item.pipe_cmd == NULL && pipe_cmd == NULL) ||
-                 (it->item.pipe_cmd != NULL && pipe_cmd != NULL &&
-                  strncmp(it->item.pipe_cmd, pipe_cmd, pipe_len) == 0)))
+                ((it->item.pipe.argv == NULL && pipe_argv == NULL) ||
+                 (it->item.pipe.argv != NULL && pipe_argv != NULL &&
+                  argv_compare(it->item.pipe.argv, pipe_argv) == 0)))
             {
 
                 free(it->item.key);
-                free(it->item.pipe_cmd);
+                free(it->item.pipe.cmd);
+                free(it->item.pipe.argv);
 
                 it->item.key = strdup(value);
-                it->item.pipe_cmd = pipe_cmd != NULL
-                    ? strndup(pipe_cmd, pipe_len) : NULL;
+                it->item.pipe.cmd = pipe_cmd;
+                it->item.pipe.argv = pipe_argv;
                 already_added = true;
                 break;
             }
@@ -688,7 +704,10 @@ parse_section_key_bindings(
             struct config_key_binding_normal binding = {
                 .action = action,
                 .key = strdup(value),
-                .pipe_cmd = pipe_cmd != NULL ? strndup(pipe_cmd, pipe_len) : NULL,
+                .pipe = {
+                    .cmd = pipe_cmd,
+                    .argv = pipe_argv,
+                },
             };
             tll_push_back(conf->bindings.key, binding);
         }
@@ -705,24 +724,6 @@ parse_section_search_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-#if 0
-    const char *pipe_cmd = NULL;
-    size_t pipe_len = 0;
-
-    if (value[0] == '[') {
-        const char *pipe_cmd_end = strrchr(value, ']');
-        if (pipe_cmd_end == NULL) {
-            LOG_ERR("%s:%d: unclosed '['", path, lineno);
-            return false;
-        }
-
-        pipe_cmd = &value[1];
-        pipe_len = pipe_cmd_end - pipe_cmd;
-
-        value = pipe_cmd_end + 1;
-    }
-#endif
-
     for (enum bind_action_search action = 0;
          action < BIND_ACTION_SEARCH_COUNT;
          action++)
@@ -737,7 +738,6 @@ parse_section_search_bindings(
             tll_foreach(conf->bindings.search, it) {
                 if (it->item.action == action) {
                     free(it->item.key);
-                    // free(it->item.pipe_cmd);
                     tll_remove(conf->bindings.search, it);
                 }
             }
@@ -750,24 +750,11 @@ parse_section_search_bindings(
 
         bool already_added = false;
         tll_foreach(conf->bindings.search, it) {
-            if (it->item.action == action
-#if 0
-                &&
-                ((it->item.pipe_cmd == NULL && pipe_cmd == NULL) ||
-                 (it->item.pipe_cmd != NULL && pipe_cmd != NULL &&
-                  strncmp(it->item.pipe_cmd, pipe_cmd, pipe_len) == 0))
-#endif
-                )
-            {
+            if (it->item.action == action) {
 
                 free(it->item.key);
-                // free(it->item.pipe_cmd);
 
                 it->item.key = strdup(value);
-#if 0
-                it->item.pipe_cmd = pipe_cmd != NULL
-                    ? strndup(pipe_cmd, pipe_len) : NULL;
-#endif
                 already_added = true;
                 break;
             }
@@ -777,7 +764,6 @@ parse_section_search_bindings(
             struct config_key_binding_search binding = {
                 .action = action,
                 .key = strdup(value),
-                // .pipe_cmd = pipe_cmd != NULL ? strndup(pipe_cmd, pipe_len) : NULL,
             };
             tll_push_back(conf->bindings.search, binding);
         }
@@ -1289,7 +1275,8 @@ config_free(struct config conf)
 
     tll_foreach(conf.bindings.key, it) {
         free(it->item.key);
-        free(it->item.pipe_cmd);
+        free(it->item.pipe.cmd);
+        free(it->item.pipe.argv);
     }
     tll_foreach(conf.bindings.search, it)
         free(it->item.key);

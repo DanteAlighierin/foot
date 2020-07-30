@@ -17,7 +17,10 @@ struct config_font {
 struct config_key_binding_normal {
     enum bind_action_normal action;
     char *key;
-    char *pipe_cmd;
+    struct {
+        char *cmd;
+        char **argv;
+    } pipe;
 };
 
 struct config_key_binding_search {
