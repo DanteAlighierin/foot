@@ -64,6 +64,8 @@
 # fullscreen=none
 # pipe-visible=[sh -c "xurls | bemenu | xargs -r firefox"] none
 # pipe-scrollback=[sh -c "xurls | bemenu | xargs -r firefox"] none
+# pipe-selected=[xargs -r firefox] none
+
 
 [search-bindings]
 # cancel=Control+g Escape

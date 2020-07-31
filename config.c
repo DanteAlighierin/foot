@@ -66,6 +66,7 @@ static const char *const binding_action_map[] = {
     [BIND_ACTION_FULLSCREEN] = "fullscreen",
     [BIND_ACTION_PIPE_SCROLLBACK] = "pipe-scrollback",
     [BIND_ACTION_PIPE_VIEW] = "pipe-visible",
+    [BIND_ACTION_PIPE_SELECTED] = "pipe-selected",
 };
 
 static_assert(ALEN(binding_action_map) == BIND_ACTION_COUNT,

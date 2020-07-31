@@ -145,7 +145,8 @@ execute_binding(struct seat *seat, struct terminal *term,
         break;
 
     case BIND_ACTION_PIPE_SCROLLBACK:
-    case BIND_ACTION_PIPE_VIEW: {
+    case BIND_ACTION_PIPE_VIEW:
+    case BIND_ACTION_PIPE_SELECTED: {
         if (pipe_argv == NULL)
             break;
 
@@ -171,9 +172,27 @@ execute_binding(struct seat *seat, struct terminal *term,
             goto pipe_err;
         }
 
-        bool success = action == BIND_ACTION_PIPE_SCROLLBACK
-            ? term_scrollback_to_text(term, &text, &len)
-            : term_view_to_text(term, &text, &len);
+        bool success;
+        switch (action) {
+        case BIND_ACTION_PIPE_SCROLLBACK:
+            success = term_scrollback_to_text(term, &text, &len);
+            break;
+
+        case BIND_ACTION_PIPE_VIEW:
+            success = term_view_to_text(term, &text, &len);
+            break;
+
+        case BIND_ACTION_PIPE_SELECTED:
+            text = selection_to_text(term);
+            success = text != NULL;
+            len = text != NULL ? strlen(text) : 0;
+            break;
+
+        default:
+            assert(false);
+            success = false;
+            break;
+        }
 
         if (!success)
             goto pipe_err;

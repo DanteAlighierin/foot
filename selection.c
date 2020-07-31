@@ -204,9 +204,12 @@ extract_one_const_wrapper(struct terminal *term,
     return extract_one(term, row, cell, col, data);
 }
 
-static char *
-extract_selection(const struct terminal *term)
+char *
+selection_to_text(const struct terminal *term)
 {
+    if (term->selection.end.row == -1)
+        return NULL;
+
     struct extraction_context *ctx = extract_begin(term->selection.kind);
     if (ctx == NULL)
         return NULL;
@@ -873,7 +876,7 @@ selection_to_clipboard(struct seat *seat, struct terminal *term, uint32_t serial
         return;
 
     /* Get selection as a string */
-    char *text = extract_selection(term);
+    char *text = selection_to_text(term);
     if (!text_to_clipboard(seat, term, text, serial))
         free(text);
 }
@@ -1074,7 +1077,7 @@ selection_to_primary(struct seat *seat, struct terminal *term, uint32_t serial)
         return;
 
     /* Get selection as a string */
-    char *text = extract_selection(term);
+    char *text = selection_to_text(term);
     if (!text_to_primary(seat, term, text, serial))
         free(text);
 }

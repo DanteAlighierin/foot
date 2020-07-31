@@ -22,6 +22,9 @@
   (https://codeberg.org/dnkl/foot/issues/42).
 * Key bindings in _scollback search_ mode are now configurable.
 * `--check-config` command line option.
+* **pipe-selected** key binding. Works like **pipe-visible** and
+  **pipe-scrollback**, but only pipes the currently selected text, if
+  any (https://codeberg.org/dnkl/foot/issues/51).
 
 
 ### Deprecated
