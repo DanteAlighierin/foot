@@ -736,7 +736,7 @@ parse_section_key_bindings(
             return false;
         }
 
-        pipe_len = pipe_cmd_end - pipe_cmd;
+        pipe_len = pipe_cmd_end - value - 1;
         pipe_cmd = strndup(&value[1], pipe_len);
 
         if (!tokenize_cmdline(pipe_cmd, &pipe_argv)) {
