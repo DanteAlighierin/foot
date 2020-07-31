@@ -202,10 +202,12 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
             goto err;
         if (fcntl(pts, F_SETFL, flags | O_NONBLOCK) < 0)
             goto err;
-    }
 
-    if (!emit_notifications(pts, notifications))
-        goto err;
+        if (!emit_notifications(pts, notifications))
+            goto err;
+
+        fcntl(pts, F_SETFL, flags);
+    }
 
     close(pts);
     pts = -1;
