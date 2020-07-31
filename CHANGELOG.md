@@ -25,6 +25,7 @@
 * **pipe-selected** key binding. Works like **pipe-visible** and
   **pipe-scrollback**, but only pipes the currently selected text, if
   any (https://codeberg.org/dnkl/foot/issues/51).
+* **cursor.hide-when-typing** option to `footrc.
 
 
 ### Deprecated

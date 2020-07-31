@@ -517,6 +517,9 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "blink") == 0)
         conf->cursor.blink = str_to_bool(value);
 
+    else if (strcmp(key, "hide-when-typing") == 0)
+        conf->cursor.hide_when_typing = str_to_bool(value);
+
     else if (strcmp(key, "color") == 0) {
         char *value_copy = strdup(value);
         const char *text = strtok(value_copy, " ");
@@ -1251,6 +1254,7 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
         .cursor = {
             .style = CURSOR_BLOCK,
             .blink = false,
+            .hide_when_typing = false,
             .color = {
                 .text = 0,
                 .cursor = 0,

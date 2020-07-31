@@ -544,9 +544,11 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     seat->kbd.meta = false;
     xkb_compose_state_reset(seat->kbd.xkb_compose_state);
 
-    if (old_focused != NULL)
+    if (old_focused != NULL) {
+        seat->pointer.hidden = false;
+        term_xcursor_update_for_seat(old_focused, seat);
         term_kbd_focus_out(old_focused);
-    else {
+    } else {
         /*
          * Sway bug - under certain conditions we get a
          * keyboard_leave() (and keyboard_key()) without first having
@@ -692,6 +694,11 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     if (state == XKB_KEY_UP) {
         stop_repeater(seat, key);
         return;
+    }
+
+    if (state == XKB_KEY_DOWN && term->conf->cursor.hide_when_typing) {
+        seat->pointer.hidden = true;
+        term_xcursor_update_for_seat(term, seat);
     }
 
     key += 8;
@@ -922,7 +929,7 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         seat->kbd.xkb_state, seat->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
 
     if (seat->kbd_focus && seat->kbd_focus->active_surface == TERM_SURF_GRID)
-        term_xcursor_update(seat->kbd_focus);
+        term_xcursor_update_for_seat(seat->kbd_focus, seat);
 }
 
 static void
@@ -1017,6 +1024,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     struct terminal *term = win->term;
 
     seat->pointer.serial = serial;
+    seat->pointer.hidden = false;
 
     LOG_DBG("pointer-enter: pointer=%p, serial=%u, surface = %p, new-moused = %p",
             wl_pointer, serial, surface, term);
@@ -1037,7 +1045,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
         seat->mouse.col = col >= 0 && col < term->cols ? col : -1;
         seat->mouse.row = row >= 0 && row < term->rows ? row : -1;
 
-        term_xcursor_update(term);
+        term_xcursor_update_for_seat(term, seat);
         break;
     }
 
@@ -1078,6 +1086,8 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         "%s: pointer-leave: pointer=%p, serial=%u, surface = %p, old-moused = %p",
         seat->name, wl_pointer, serial, surface, old_moused);
 
+    seat->pointer.hidden = false;
+
     if (seat->pointer.xcursor_callback != NULL) {
         /* A cursor frame callback may never be called if the pointer leaves our surface */
         wl_callback_destroy(seat->pointer.xcursor_callback);
@@ -1105,7 +1115,7 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         enum term_surface active_surface = old_moused->active_surface;
 
         old_moused->active_surface = TERM_SURF_NONE;
-        term_xcursor_update(old_moused);
+        term_xcursor_update_for_seat(old_moused, seat);
 
         switch (active_surface) {
         case TERM_SURF_BUTTON_MINIMIZE:
@@ -1149,6 +1159,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
+    seat->pointer.hidden = false;
     seat->mouse.x = x;
     seat->mouse.y = y;
 
@@ -1180,7 +1191,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_GRID: {
-        term_xcursor_update(term);
+        term_xcursor_update_for_seat(term, seat);
 
         int col = (x - term->margins.left) / term->cell_width;
         int row = (y - term->margins.top) / term->cell_height;
@@ -1246,6 +1257,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     struct seat *seat = data;
     struct wayland *wayl = seat->wayl;
     struct terminal *term = seat->mouse_focus;
+
+    seat->pointer.hidden = false;
 
     assert(term != NULL);
 

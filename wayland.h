@@ -152,6 +152,7 @@ struct seat {
         struct wl_cursor_theme *theme;
         struct wl_cursor *cursor;
         int scale;
+        bool hidden;
 
         const char *xcursor;
         struct wl_callback *xcursor_callback;

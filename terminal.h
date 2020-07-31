@@ -439,6 +439,7 @@ struct terminal {
     char *cwd;
 };
 
+extern const char *const XCURSOR_HIDDEN;
 extern const char *const XCURSOR_LEFT_PTR;
 extern const char *const XCURSOR_TEXT;
 //extern const char *const XCURSOR_HAND2;
@@ -531,6 +532,7 @@ void term_mouse_motion(
     bool shift, bool alt, bool ctrl);
 bool term_mouse_grabbed(const struct terminal *term, struct seat *seat);
 void term_xcursor_update(struct terminal *term);
+void term_xcursor_update_for_seat(struct terminal *term, struct seat *seat);
 
 void term_set_window_title(struct terminal *term, const char *title);
 void term_flash(struct terminal *term, unsigned duration_ms);

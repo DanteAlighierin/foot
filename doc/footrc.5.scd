@@ -106,6 +106,9 @@ applications can change these at runtime.
 	Boolean. Enables blinking cursor. Note that this can be overridden
 	by applications. Default: _no_.
 
+*hide-when-typing*
+	Boolean. When enabled, the mouse cursor is hidden while typing.
+
 *color*
 	Two RRGGBB values specifying the foreground (text) and background
 	(cursor) colors for the cursor. Default: inversed foreground and

@@ -2105,6 +2105,15 @@ render_xcursor_update(struct seat *seat)
     if (!seat->mouse_focus)
         return;
 
+    assert(seat->pointer.xcursor != NULL);
+
+    if (seat->pointer.xcursor == XCURSOR_HIDDEN) {
+        /* Hide cursor */
+        wl_surface_attach(seat->pointer.surface, NULL, 0, 0);
+        wl_surface_commit(seat->pointer.surface);
+        return;
+    }
+
     seat->pointer.cursor = wl_cursor_theme_get_cursor(
         seat->pointer.theme, seat->pointer.xcursor);
 

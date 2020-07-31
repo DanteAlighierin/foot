@@ -43,6 +43,7 @@ ensure_size(struct extraction_context *ctx, size_t additional_chars)
     assert(ctx->size >= ctx->idx + additional_chars);
     return true;
 }
+
 bool
 extract_finish(struct extraction_context *ctx, char **text, size_t *len)
 {

@@ -36,6 +36,7 @@
 
 #define PTMX_TIMING 0
 
+const char *const XCURSOR_HIDDEN = "hidden";
 const char *const XCURSOR_LEFT_PTR = "left_ptr";
 const char *const XCURSOR_TEXT = "text";
 //const char *const XCURSOR_HAND2 = "hand2";
@@ -2207,18 +2208,22 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
 }
 
 void
+term_xcursor_update_for_seat(struct terminal *term, struct seat *seat)
+{
+    const char *xcursor
+        = seat->pointer.hidden ? XCURSOR_HIDDEN
+        : term->is_searching ? XCURSOR_LEFT_PTR
+        : selection_enabled(term, seat) ? XCURSOR_TEXT
+        : XCURSOR_LEFT_PTR;
+
+    render_xcursor_set(seat, term, xcursor);
+}
+
+void
 term_xcursor_update(struct terminal *term)
 {
-    tll_foreach(term->wl->seats, it) {
-        struct seat *seat = &it->item;
-
-        const char *xcursor
-            = term->is_searching ? XCURSOR_LEFT_PTR :  /* TODO: something different? */
-            selection_enabled(term, seat) ? XCURSOR_TEXT :
-            XCURSOR_LEFT_PTR;
-
-        render_xcursor_set(seat, term, xcursor);
-    }
+    tll_foreach(term->wl->seats, it)
+        term_xcursor_update_for_seat(term, &it->item);
 }
 
 void

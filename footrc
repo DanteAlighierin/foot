@@ -18,6 +18,7 @@
 # style=block
 # color=111111 dcdccc
 # blink=no
+# hide-when-typing=no
 
 [colors]
 # alpha=1.0
