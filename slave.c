@@ -93,6 +93,16 @@ emit_one_notification(int fd, const struct user_notification *notif)
         write(fd, notif->text, strlen(notif->text)) < 0 ||
         write(fd, postfix, strlen(postfix)) < 0)
     {
+        if (errno == EWOULDBLOCK || errno == EAGAIN) {
+            /*
+             * The main process is blocking and waiting for us to
+             * close the error pipe. Thus, pts data will *not* be
+             * processed until we've exec:d. This means we cannot
+             * write anymore once the kernel buffer is full. Don't
+             * treat this as a fatal error.
+             */
+            return true;
+        }
         return false;
     }
 
@@ -184,6 +194,14 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
     {
         LOG_ERRNO("failed to dup stdin/stdout/stderr");
         goto err;
+    }
+
+    {
+        int flags = fcntl(pts, F_GETFL);
+        if (flags < 0)
+            goto err;
+        if (fcntl(pts, F_SETFL, flags | O_NONBLOCK) < 0)
+            goto err;
     }
 
     if (!emit_notifications(pts, notifications))
