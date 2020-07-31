@@ -199,7 +199,9 @@ Note that these are just the defaults; they can be changed in the
 	Paste from the _primary_ selection
 
 *right*
-	Extend current selection
+	Extend current selection. Clicking immediately extends the
+	selection, while hold-and-drag allows you to interactively resize
+	the selection.
 
 *wheel*
 	Scroll up/down in history

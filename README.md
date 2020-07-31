@@ -185,7 +185,9 @@ These are the default shortcuts. See `man 5 foot` and the example
 : Paste from _primary_ selection
 
 <kbd>right</kbd>
-: Extend current selection
+: Extend current selection. Clicking immediately extends the
+  selection, while hold-and-drag allows you to interactively resize
+  the selection.
 
 <kbd>wheel</kbd>
 : Scroll up/down in history
