@@ -39,7 +39,6 @@ https://codeberg.org/dnkl/tllist.git (see [Other](#other) below).
 * pixman
 * wayland (_client_ and _cursor_ libraries)
 * xkbcommon
-* [tllist](https://codeberg.org/dnkl/tllist) [^1]
 * [fcft](https://codeberg.org/dnkl/fcft) [^1]
 
 [^1]: can also be built as subprojects, in which case they are
@@ -55,6 +54,7 @@ In addition to the dev variant of the packages above, you need:
 * wayland protocols
 * ncurses
 * scdoc
+* [tllist](https://codeberg.org/dnkl/tllist) [^1]
 
 A note on compilers; in general, foot runs **much** faster when
 compiled with gcc instead of clang. A profile-guided gcc build can be
