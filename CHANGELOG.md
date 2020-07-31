@@ -36,6 +36,9 @@
 ### Changed
 
 * Renamed man page for `footrc` from **foot**(5) to **footrc**(5).
+* Configuration errors are no longer fatal; foot will start and print
+  an error inside the terminal (and of course still log errors on
+  stderr).
 
 
 ### Fixed

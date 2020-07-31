@@ -95,6 +95,50 @@ static const char *const search_binding_action_map[] = {
 static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
               "search binding action map size mismatch");
 
+#define LOG_AND_NOTIFY_ERR(fmt, ...)                        \
+    LOG_ERR(fmt, ## __VA_ARGS__);                           \
+    {                                                       \
+        int len = snprintf(NULL, 0, fmt, ## __VA_ARGS__);   \
+        char *text = malloc(len + 1);                       \
+        snprintf(text, len + 1, fmt, ## __VA_ARGS__);       \
+        struct user_notification notif = {                  \
+            .kind = USER_NOTIFICATION_ERROR,                \
+            .text = text,                                   \
+        };                                                  \
+        tll_push_back(conf->notifications, notif);          \
+    }
+
+#define LOG_AND_NOTIFY_WARN(fmt, ...)                       \
+    LOG_WARN(fmt, ## __VA_ARGS__);                          \
+    {                                                       \
+        int len = snprintf(NULL, 0, fmt, ## __VA_ARGS__);   \
+        char *text = malloc(len + 1);                       \
+        snprintf(text, len + 1, fmt, ## __VA_ARGS__);       \
+        struct user_notification notif = {                  \
+            .kind = USER_NOTIFICATION_WARNING,              \
+            .text = text,                                   \
+        };                                                  \
+        tll_push_back(conf->notifications, notif);          \
+    }
+
+#define LOG_AND_NOTIFY_ERRNO(fmt, ...)                                  \
+    {                                                                   \
+        int _errno = errno;                                             \
+        LOG_ERRNO(fmt, ## __VA_ARGS__);                                 \
+        {                                                               \
+            int len = snprintf(NULL, 0, fmt, ## __VA_ARGS__);           \
+            int errno_len = snprintf(NULL, 0, ": %s", strerror(_errno)); \
+            char *text = malloc(len + errno_len + 1);                   \
+            snprintf(text, len + errno_len + 1, fmt, ## __VA_ARGS__);   \
+            snprintf(&text[len], errno_len + 1, ": %s", strerror(_errno)); \
+            struct user_notification notif = {                          \
+                .kind = USER_NOTIFICATION_ERROR,                        \
+                .text = text,                                           \
+            };                                                          \
+            tll_push_back(conf->notifications, notif);                  \
+        }                                                               \
+    }
+
 static char *
 get_shell(void)
 {
@@ -103,11 +147,10 @@ get_shell(void)
     if (shell == NULL) {
         struct passwd *passwd = getpwuid(getuid());
         if (passwd == NULL) {
-            LOG_ERRNO("failed to lookup user");
-            return NULL;
-        }
-
-        shell = passwd->pw_shell;
+            LOG_ERRNO("failed to lookup user: falling back to 'sh'");
+            shell = "sh";
+        } else
+            shell = passwd->pw_shell;
     }
 
     LOG_DBG("user's shell: %s", shell);
@@ -200,16 +243,18 @@ str_to_double(const char *s, double *res)
 }
 
 static bool
-str_to_color(const char *s, uint32_t *color, bool allow_alpha, const char *path, int lineno)
+str_to_color(const char *s, uint32_t *color, bool allow_alpha, const char *path, int lineno,
+             const char *section, const char *key)
 {
     unsigned long value;
     if (!str_to_ulong(s, 16, &value)) {
-        LOG_ERRNO("%s:%d: invalid color: %s", path, lineno, s);
+        LOG_ERRNO("%s:%d: [%s]: %s: invalid color: %s", path, lineno, section, key, s);
         return false;
     }
 
     if (!allow_alpha && (value & 0xff000000) != 0) {
-        LOG_ERR("%s:%d: color value must not have an alpha component", path, lineno);
+        LOG_ERR("%s:%d: [%s]: %s: color value must not have an alpha component: %s",
+                path, lineno, section, key, s);
         return false;
     }
 
@@ -248,8 +293,9 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "geometry") == 0) {
         unsigned width, height;
         if (sscanf(value, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
-            LOG_ERR(
-                "%s: %d: expected WIDTHxHEIGHT, where both are positive integers: %s",
+            LOG_AND_NOTIFY_ERR(
+                "%s: %d: [default]: geometry: expected WIDTHxHEIGHT, "
+                "where both are positive integers, got '%s'",
                 path, lineno, value);
             return false;
         }
@@ -261,8 +307,9 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "pad") == 0) {
         unsigned x, y;
         if (sscanf(value, "%ux%u", &x, &y) != 2) {
-            LOG_ERR(
-                "%s:%d: expected PAD_XxPAD_Y, where both are positive integers: %s",
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: pad: expected PAD_XxPAD_Y, "
+                "where both are positive integers, got '%s'",
                 path, lineno, value);
             return false;
         }
@@ -279,8 +326,9 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         else if (strcmp(value, "fullscreen") == 0)
             conf->startup_mode = STARTUP_FULLSCREEN;
         else {
-            LOG_ERR(
-                "%s:%d: expected either 'windowed', 'maximized' or 'fullscreen'",
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: initial-window-mode: expected either "
+                "'windowed', 'maximized' or 'fullscreen'",
                 path, lineno);
             return false;
         }
@@ -301,17 +349,18 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "workers") == 0) {
         unsigned long count;
         if (!str_to_ulong(value, 10, &count)) {
-            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: workers: expected an integer, got '%s'",
+                path, lineno, value);
             return false;
         }
         conf->render_worker_count = count;
     }
 
     else if (strcmp(key, "scrollback") == 0) {
-        LOG_WARN("deprecated: 'scrollback' option, "
-                 "use 'lines' in the '[scrollback]' section instead'");
+        LOG_WARN("deprecated: [default]: scrollback: use 'scrollback.lines' instead'");
 
-        const char *fmt = "%s:%d: \e[1mscrollback\e[21m option, use \e[1mscrollback.lines\e[21m instead";
+        const char *fmt = "%s:%d: \e[1mdefault.scrollback\e[21m, use \e[1mscrollback.lines\e[21m instead";
         int len = snprintf(NULL, 0, fmt, path, lineno);
         char *text = malloc(len + 1);
         snprintf(text, len + 1, fmt, path, lineno);
@@ -324,14 +373,16 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
         unsigned long lines;
         if (!str_to_ulong(value, 10, &lines)) {
-            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: scrollback: expected an integer, got '%s'",
+                path, lineno, value);
             return false;
         }
         conf->scrollback.lines = lines;
     }
 
     else {
-        LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+        LOG_AND_NOTIFY_ERR("%s:%u: [default]: %s: invalid key", path, lineno, key);
         return false;
     }
 
@@ -345,7 +396,7 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
     if (strcmp(key, "lines") == 0) {
         unsigned long lines;
         if (!str_to_ulong(value, 10, &lines)) {
-            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            LOG_AND_NOTIFY_ERR("%s:%d: [scrollback]: lines: expected an integer, got '%s'", path, lineno, value);
             return false;
         }
         conf->scrollback.lines = lines;
@@ -359,7 +410,7 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
         else if (strcmp(value, "relative") == 0)
             conf->scrollback.indicator.position = SCROLLBACK_INDICATOR_POSITION_RELATIVE;
         else {
-            LOG_ERR("%s:%d: indicator-position must be one of "
+            LOG_AND_NOTIFY_ERR("%s:%d: [scrollback]: indicator-position must be one of "
                     "'none', 'fixed' or 'moving'",
                     path, lineno);
             return false;
@@ -379,7 +430,7 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
 
             size_t len = mbstowcs(NULL, value, -1);
             if (len < 0) {
-                LOG_ERRNO("%s:%d: invalid indicator-format value", path, lineno);
+                LOG_AND_NOTIFY_ERRNO("%s:%d: [scrollback]: indicator-format: invalid value: %s", path, lineno, value);
                 return false;
             }
 
@@ -389,7 +440,7 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
     }
 
     else {
-        LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+        LOG_AND_NOTIFY_ERR("%s:%u: [scrollback]: %s: invalid key", path, lineno, key);
         return false;
     }
 
@@ -423,7 +474,7 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "alpha") == 0) {
         double alpha;
         if (!str_to_double(value, &alpha) || alpha < 0. || alpha > 1.) {
-            LOG_ERR("%s: %d: alpha: expected a value in the range 0.0-1.0",
+            LOG_AND_NOTIFY_ERR("%s: %d: [colors]: alpha: expected a value in the range 0.0-1.0",
                     path, lineno);
             return false;
         }
@@ -433,12 +484,12 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
     }
 
     else {
-        LOG_ERR("%s:%d: invalid key: %s", path, lineno, key);
+        LOG_AND_NOTIFY_ERR("%s:%d: [colors]: %s: invalid key", path, lineno, key);
         return false;
     }
 
     uint32_t color_value;
-    if (!str_to_color(value, &color_value, false, path, lineno))
+    if (!str_to_color(value, &color_value, false, path, lineno, "colors", key))
         return false;
 
     *color = color_value;
@@ -458,7 +509,7 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
             conf->cursor.style = CURSOR_UNDERLINE;
 
         else {
-            LOG_ERR("%s:%d: invalid 'style': %s", path, lineno, value);
+            LOG_AND_NOTIFY_ERR("%s:%d: invalid 'style': %s", path, lineno, value);
             return false;
         }
     }
@@ -473,10 +524,10 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
 
         uint32_t text_color, cursor_color;
         if (text == NULL || cursor == NULL ||
-            !str_to_color(text, &text_color, false, path, lineno) ||
-            !str_to_color(cursor, &cursor_color, false, path, lineno))
+            !str_to_color(text, &text_color, false, path, lineno, "cursor", "color") ||
+            !str_to_color(cursor, &cursor_color, false, path, lineno, "cursor", "color"))
         {
-            LOG_ERR("%s:%d: invalid cursor colors: %s", path, lineno, value);
+            LOG_AND_NOTIFY_ERR("%s:%d: invalid cursor colors: %s", path, lineno, value);
             free(value_copy);
             return false;
         }
@@ -487,7 +538,7 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
     }
 
     else {
-        LOG_ERR("%s:%d: invalid key: %s", path, lineno, key);
+        LOG_AND_NOTIFY_ERR("%s:%d: [cursor]: %s: invalid key", path, lineno, key);
         return false;
     }
 
@@ -504,15 +555,15 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
         else if (strcmp(value, "client") == 0)
             conf->csd.preferred = CONF_CSD_PREFER_CLIENT;
         else {
-            LOG_ERR("%s:%d: expected either 'server' or 'client'", path, lineno);
+            LOG_AND_NOTIFY_ERR("%s:%d: csd.preferred: expected either 'server' or 'client'", path, lineno);
             return false;
         }
     }
 
     else if (strcmp(key, "color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno)) {
-            LOG_ERR("%s:%d: invalid titlebar-color: %s", path, lineno, value);
+        if (!str_to_color(value, &color, true, path, lineno, "csd", "color")) {
+            LOG_AND_NOTIFY_ERR("%s:%d: invalid titlebar-color: %s", path, lineno, value);
             return false;
         }
 
@@ -523,7 +574,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "size") == 0) {
         unsigned long pixels;
         if (!str_to_ulong(value, 10, &pixels)) {
-            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            LOG_AND_NOTIFY_ERR("%s:%d: expected an integer, got '%s'", path, lineno, value);
             return false;
         }
 
@@ -533,7 +584,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "button-width") == 0) {
         unsigned long pixels;
         if (!str_to_ulong(value, 10, &pixels)) {
-            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            LOG_AND_NOTIFY_ERR("%s:%d: expected an integer, got '%s'", path, lineno, value);
             return false;
         }
 
@@ -542,8 +593,8 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-minimize-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno)) {
-            LOG_ERR("%s:%d: invalid button-minimize-color: %s", path, lineno, value);
+        if (!str_to_color(value, &color, true, path, lineno, "csd", "button-minimize-color")) {
+            LOG_AND_NOTIFY_ERR("%s:%d: invalid button-minimize-color: %s", path, lineno, value);
             return false;
         }
 
@@ -553,8 +604,8 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-maximize-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno)) {
-            LOG_ERR("%s:%d: invalid button-maximize-color: %s", path, lineno, value);
+        if (!str_to_color(value, &color, true, path, lineno, "csd", "button-maximize-color")) {
+            LOG_AND_NOTIFY_ERR("%s:%d: invalid button-maximize-color: %s", path, lineno, value);
             return false;
         }
 
@@ -564,8 +615,8 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-close-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno)) {
-            LOG_ERR("%s:%d: invalid button-close-color: %s", path, lineno, value);
+        if (!str_to_color(value, &color, true, path, lineno, "csd", "button-close-color")) {
+            LOG_AND_NOTIFY_ERR("%s:%d: invalid button-close-color: %s", path, lineno, value);
             return false;
         }
 
@@ -574,7 +625,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
     }
 
     else {
-        LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+        LOG_AND_NOTIFY_ERR("%s:%u: [csd]: %s: invalid key", path, lineno, key);
         return false;
     }
 
@@ -582,7 +633,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 }
 
 static bool
-verify_key_combo(const struct config *conf, const char *combo, const char *path, unsigned lineno)
+verify_key_combo(struct config *conf, const char *combo, const char *path, unsigned lineno)
 {
     /* Check regular key bindings */
     tll_foreach(conf->bindings.key, it) {
@@ -594,7 +645,7 @@ verify_key_combo(const struct config *conf, const char *combo, const char *path,
         {
             if (strcmp(combo, collision) == 0) {
                 bool has_pipe = it->item.pipe.cmd != NULL;
-                LOG_ERR("%s:%d: %s already mapped to '%s%s%s%s'", path, lineno, combo,
+                LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s%s%s%s'", path, lineno, combo,
                         binding_action_map[it->item.action],
                         has_pipe ? " [" : "",
                         has_pipe ? it->item.pipe.cmd : "",
@@ -616,7 +667,7 @@ verify_key_combo(const struct config *conf, const char *combo, const char *path,
              collision = strtok_r(NULL, " ", &save))
         {
             if (strcmp(combo, collision) == 0) {
-                LOG_ERR("%s:%d: %s already mapped to '%s'", path, lineno, combo,
+                LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s'", path, lineno, combo,
                         search_binding_action_map[it->item.action]);
                 free(copy);
                 return false;
@@ -636,7 +687,7 @@ verify_key_combo(const struct config *conf, const char *combo, const char *path,
     xkb_context_unref(ctx);
 
     if (!valid_combo) {
-        LOG_ERR("%s:%d: invalid key combination: %s", path, lineno, combo);
+        LOG_AND_NOTIFY_ERR("%s:%d: invalid key combination: %s", path, lineno, combo);
         return false;
     }
 
@@ -678,7 +729,7 @@ parse_section_key_bindings(
     if (value[0] == '[') {
         const char *pipe_cmd_end = strrchr(value, ']');
         if (pipe_cmd_end == NULL) {
-            LOG_ERR("%s:%d: unclosed '['", path, lineno);
+            LOG_AND_NOTIFY_ERR("%s:%d: unclosed '['", path, lineno);
             return false;
         }
 
@@ -686,7 +737,7 @@ parse_section_key_bindings(
         pipe_cmd = strndup(&value[1], pipe_len);
 
         if (!tokenize_cmdline(pipe_cmd, &pipe_argv)) {
-            LOG_ERR("%s:%d: syntax error in command line", path, lineno);
+            LOG_AND_NOTIFY_ERR("%s:%d: syntax error in command line", path, lineno);
             free(pipe_cmd);
             return false;
         }
@@ -760,7 +811,7 @@ parse_section_key_bindings(
         return true;
     }
 
-    LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+    LOG_AND_NOTIFY_ERR("%s:%u: [key-bindings]: %s: invalid key", path, lineno, key);
     return false;
 
 }
@@ -816,7 +867,7 @@ parse_section_search_bindings(
         return true;
     }
 
-    LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+    LOG_AND_NOTIFY_ERR("%s:%u: [search-bindings]: %s: invalid key", path, lineno, key);
     return false;
 
 }
@@ -863,7 +914,7 @@ parse_section_mouse_bindings(
             /* Make sure button isn't already mapped to another action */
             tll_foreach(conf->bindings.mouse, it) {
                 if (it->item.button == i && it->item.count == count) {
-                    LOG_ERR("%s:%d: %s already mapped to %s", path, lineno,
+                    LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to %s", path, lineno,
                             value, binding_action_map[it->item.action]);
                     return false;
                 }
@@ -890,12 +941,12 @@ parse_section_mouse_bindings(
             return true;
         }
 
-        LOG_ERR("%s:%d: invalid mouse button: %s", path, lineno, value);
+        LOG_AND_NOTIFY_ERR("%s:%d: invalid mouse button: %s", path, lineno, value);
         return false;
 
     }
 
-    LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+    LOG_AND_NOTIFY_ERR("%s:%u: [mouse-bindings]: %s: invalid key", path, lineno, key);
     return false;
 }
 
@@ -907,12 +958,12 @@ parse_section_tweak(
     if (strcmp(key, "delayed-render-lower") == 0) {
         unsigned long ns;
         if (!str_to_ulong(value, 10, &ns)) {
-            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            LOG_AND_NOTIFY_ERR("%s:%d: expected an integer, got '%s'", path, lineno, value);
             return false;
         }
 
         if (ns > 16666666) {
-            LOG_ERR("%s:%d: timeout must not exceed 16ms", path, lineno);
+            LOG_AND_NOTIFY_ERR("%s:%d: timeout must not exceed 16ms", path, lineno);
             return false;
         }
 
@@ -923,12 +974,12 @@ parse_section_tweak(
     else if (strcmp(key, "delayed-render-upper") == 0) {
         unsigned long ns;
         if (!str_to_ulong(value, 10, &ns)) {
-            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            LOG_AND_NOTIFY_ERR("%s:%d: expected an integer, got '%s'", path, lineno, value);
             return false;
         }
 
         if (ns > 16666666) {
-            LOG_ERR("%s:%d: timeout must not exceed 16ms", path, lineno);
+            LOG_AND_NOTIFY_ERR("%s:%d: timeout must not exceed 16ms", path, lineno);
             return false;
         }
 
@@ -939,7 +990,7 @@ parse_section_tweak(
     else if (strcmp(key, "max-shm-pool-size-mb") == 0) {
         unsigned long mb;
         if (!str_to_ulong(value, 10, &mb)) {
-            LOG_ERR("%s:%d: expected an integer: %s", path, lineno, value);
+            LOG_AND_NOTIFY_ERR("%s:%d: expected an integer, got '%s'", path, lineno, value);
             return false;
         }
 
@@ -949,7 +1000,7 @@ parse_section_tweak(
     }
 
     else {
-        LOG_ERR("%s:%u: invalid key: %s", path, lineno, key);
+        LOG_AND_NOTIFY_ERR("%s:%u: [tweak]: %s: invalid key", path, lineno, key);
         return false;
     }
 
@@ -957,7 +1008,7 @@ parse_section_tweak(
 }
 
 static bool
-parse_config_file(FILE *f, struct config *conf, const char *path)
+parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_are_fatal)
 {
     enum section {
         SECTION_MAIN,
@@ -999,6 +1050,14 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
     char *_line = NULL;
     size_t count = 0;
 
+#define error_or_continue()                     \
+    {                                           \
+        if (errors_are_fatal)                   \
+            goto err;                           \
+        else                                    \
+            continue;                           \
+    }
+
     while (true) {
         errno = 0;
         lineno++;
@@ -1007,8 +1066,9 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 
         if (ret < 0) {
             if (errno != 0) {
-                LOG_ERRNO("failed to read from configuration");
-                goto err;
+                LOG_AND_NOTIFY_ERRNO("failed to read from configuration");
+                if (errors_are_fatal)
+                    goto err;
             }
             break;
         }
@@ -1038,8 +1098,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         if (key_value[0] == '[') {
             char *end = strchr(key_value, ']');
             if (end == NULL) {
-                LOG_ERR("%s:%d: syntax error: %s", path, lineno, key_value);
-                goto err;
+                LOG_AND_NOTIFY_ERR("%s:%d: syntax error: %s", path, lineno, key_value);
+                error_or_continue();
             }
 
             *end = '\0';
@@ -1052,8 +1112,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
             }
 
             if (section == SECTION_COUNT) {
-                LOG_ERR("%s:%d: invalid section name: %s", path, lineno, &key_value[1]);
-                goto err;
+                LOG_AND_NOTIFY_ERR("%s:%d: invalid section name: %s", path, lineno, &key_value[1]);
+                error_or_continue();
             }
 
             /* Process next line */
@@ -1062,8 +1122,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 
         char *key = strtok(key_value, "=");
         if (key == NULL) {
-            LOG_ERR("%s:%d: syntax error: no key specified", path, lineno);
-            goto err;
+            LOG_AND_NOTIFY_ERR("%s:%d: syntax error: no key specified", path, lineno);
+            error_or_continue();
         }
 
         char *value = strtok(NULL, "\n");
@@ -1084,8 +1144,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
 
         if (value == NULL) {
             if (key != NULL && strlen(key) > 0 && key[0] != '#') {
-                LOG_ERR("%s:%d: syntax error: %s", path, lineno, key_value);
-                goto err;
+                LOG_AND_NOTIFY_ERR("%s:%d: syntax error: %s", path, lineno, key_value);
+                error_or_continue();
             }
 
             continue;
@@ -1111,7 +1171,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path)
         assert(section_parser != NULL);
 
         if (!section_parser(key, value, conf, path, lineno))
-            goto err;
+            error_or_continue();
     }
 
     free(_line);
@@ -1139,7 +1199,7 @@ get_server_socket_path(void)
 }
 
 bool
-config_load(struct config *conf, const char *conf_path)
+config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
 {
     bool ret = false;
 
@@ -1278,8 +1338,8 @@ config_load(struct config *conf, const char *conf_path)
     if (conf_path == NULL) {
         if ((default_path = get_config_path()) == NULL) {
             /* Default conf */
-            LOG_WARN("no configuration found, using defaults");
-            ret = true;
+            LOG_AND_NOTIFY_WARN("no configuration found, using defaults");
+            ret = !errors_are_fatal;
             goto out;
         }
 
@@ -1291,11 +1351,12 @@ config_load(struct config *conf, const char *conf_path)
 
     FILE *f = fopen(conf_path, "r");
     if (f == NULL) {
-        LOG_ERR("%s: failed to open", conf_path);
+        LOG_AND_NOTIFY_ERR("%s: failed to open", conf_path);
+        ret = !errors_are_fatal;
         goto out;
     }
 
-    ret = parse_config_file(f, conf, conf_path);
+    ret = parse_config_file(f, conf, conf_path, errors_are_fatal);
     fclose(f);
 
 out:

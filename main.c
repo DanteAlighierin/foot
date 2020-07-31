@@ -322,7 +322,7 @@ main(int argc, char *const *argv)
     }
 
     struct config conf = {NULL};
-    if (!config_load(&conf, conf_path)) {
+    if (!config_load(&conf, conf_path, check_config)) {
         config_free(conf);
         return ret;
     }

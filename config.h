@@ -127,7 +127,7 @@ struct config {
     user_notifications_t notifications;
 };
 
-bool config_load(struct config *conf, const char *path);
+bool config_load(struct config *conf, const char *path, bool errors_are_fatal);
 void config_free(struct config conf);
 
 struct config_font config_font_parse(const char *pattern);
