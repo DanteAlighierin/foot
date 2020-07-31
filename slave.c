@@ -196,7 +196,7 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
         goto err;
     }
 
-    {
+    if (tll_length(*notifications) > 0) {
         int flags = fcntl(pts, F_GETFL);
         if (flags < 0)
             goto err;
