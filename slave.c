@@ -102,9 +102,28 @@ emit_one_notification(int fd, const struct user_notification *notif)
 static bool
 emit_notifications(int fd, const user_notifications_t *notifications)
 {
+    /* Errors first */
     tll_foreach(*notifications, it) {
-        if (!emit_one_notification(fd, &it->item))
-            return false;
+        if (it->item.kind == USER_NOTIFICATION_ERROR) {
+            if (!emit_one_notification(fd, &it->item))
+                return false;
+        }
+    }
+
+    /* Then warnings */
+    tll_foreach(*notifications, it) {
+        if (it->item.kind == USER_NOTIFICATION_WARNING) {
+            if (!emit_one_notification(fd, &it->item))
+                return false;
+        }
+    }
+
+    /* Finally deprecation messages */
+    tll_foreach(*notifications, it) {
+        if (it->item.kind == USER_NOTIFICATION_DEPRECATED) {
+            if (!emit_one_notification(fd, &it->item))
+                return false;
+        }
     }
 
     return true;
