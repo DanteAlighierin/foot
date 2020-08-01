@@ -12,6 +12,7 @@
 
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/eventfd.h>
 #include <fcntl.h>
 
 #define LOG_MODULE "slave"
@@ -231,7 +232,7 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
     execvp(file, argv);
 
 err:
-    (void)!write(err_fd, &errno, sizeof(errno));
+    (void)!write(err_fd, &(uint64_t){errno}, sizeof(uint64_t));
     if (pts != -1)
         close(pts);
     if (ptmx != -1)
@@ -245,9 +246,9 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
             const char *term_env, const char *conf_shell, bool login_shell,
             const user_notifications_t *notifications)
 {
-    int fork_pipe[2];
-    if (pipe2(fork_pipe, O_CLOEXEC) < 0) {
-        LOG_ERRNO("failed to create pipe");
+    int error_fd = eventfd(0, EFD_CLOEXEC);
+    if (error_fd < 0) {
+        LOG_ERRNO("failed to create event FD");
         return -1;
     }
 
@@ -255,18 +256,16 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
     switch (pid) {
     case -1:
         LOG_ERRNO("failed to fork");
-        close(fork_pipe[0]);
-        close(fork_pipe[1]);
+        close(error_fd);
         return -1;
 
     case 0:
         /* Child */
-        close(fork_pipe[0]);  /* Close read end */
 
         if (chdir(cwd) < 0) {
             const int _errno = errno;
             LOG_ERRNO("failed to change working directory");
-            (void)!write(fork_pipe[1], &_errno, sizeof(_errno));
+            (void)!write(error_fd, &(uint64_t){_errno}, sizeof(uint64_t));
             _exit(_errno);
         }
 
@@ -281,7 +280,7 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         {
             const int _errno = errno;
             LOG_ERRNO_P("failed to restore signals", errno);
-            (void)!write(fork_pipe[1], &_errno, sizeof(_errno));
+            (void)!write(error_fd, &(uint64_t){_errno}, sizeof(uint64_t));
             _exit(_errno);
         }
 
@@ -293,9 +292,10 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         if (argc == 0) {
             char *shell_copy = strdup(conf_shell);
             if (!tokenize_cmdline(shell_copy, &_shell_argv)) {
+                const int _errno = errno;
                 free(shell_copy);
-                (void)!write(fork_pipe[1], &errno, sizeof(errno));
-                _exit(0);
+                (void)!write(error_fd, &(uint64_t){_errno}, sizeof(uint64_t));
+                _exit(_errno);
             }
             shell_argv = _shell_argv;
         } else {
@@ -311,26 +311,23 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         if (is_valid_shell(shell_argv[0]))
             setenv("SHELL", shell_argv[0], 1);
 
-        slave_exec(ptmx, shell_argv, fork_pipe[1], login_shell, notifications);
+        slave_exec(ptmx, shell_argv, error_fd, login_shell, notifications);
         assert(false);
         break;
 
     default: {
-        close(fork_pipe[1]); /* Close write end */
         LOG_DBG("slave has PID %d", pid);
 
-        int _errno;
-        static_assert(sizeof(errno) == sizeof(_errno), "errno size mismatch");
-
-        ssize_t ret = read(fork_pipe[0], &_errno, sizeof(_errno));
-        close(fork_pipe[0]);
+        uint64_t _errno;
+        ssize_t ret = read(error_fd, &_errno, sizeof(_errno));
+        close(error_fd);
 
         if (ret < 0) {
-            LOG_ERRNO("failed to read from pipe");
+            LOG_ERRNO("failed to read from error FD");
             return -1;
         } else if (ret == sizeof(_errno)) {
             LOG_ERRNO_P(
-                "%s: failed to execute", _errno, argc == 0 ? conf_shell : argv[0]);
+                "%s: failed to execute", (int)_errno, argc == 0 ? conf_shell : argv[0]);
             return -1;
         } else
             LOG_DBG("%s: successfully started", conf_shell);
