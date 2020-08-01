@@ -67,7 +67,9 @@ err:
     return false;
 }
 
-static bool
+enum user_notification_ret_t {UN_OK, UN_NO_MORE, UN_FAIL};
+
+static enum user_notification_ret_t
 emit_one_notification(int fd, const struct user_notification *notif)
 {
     const char *prefix = NULL;
@@ -93,17 +95,39 @@ emit_one_notification(int fd, const struct user_notification *notif)
         write(fd, notif->text, strlen(notif->text)) < 0 ||
         write(fd, postfix, strlen(postfix)) < 0)
     {
-        if (errno == EWOULDBLOCK || errno == EAGAIN) {
-            /*
-             * The main process is blocking and waiting for us to
-             * close the error pipe. Thus, pts data will *not* be
-             * processed until we've exec:d. This means we cannot
-             * write anymore once the kernel buffer is full. Don't
-             * treat this as a fatal error.
-             */
-            return true;
+        /*
+         * The main process is blocking and waiting for us to close
+         * the error pipe. Thus, pts data will *not* be processed
+         * until we've exec:d. This means we cannot write anymore once
+         * the kernel buffer is full. Don't treat this as a fatal
+         * error.
+         */
+        if (errno == EWOULDBLOCK || errno == EAGAIN)
+            return UN_NO_MORE;
+        else {
+            LOG_ERRNO("failed to write user-notification");
+            return UN_FAIL;
         }
-        return false;
+    }
+
+    return UN_OK;
+}
+
+static bool
+emit_notifications_of_kind(int fd, const user_notifications_t *notifications,
+                           enum user_notification_kind kind)
+{
+    tll_foreach(*notifications, it) {
+        if (it->item.kind == kind) {
+            switch (emit_one_notification(fd, &it->item)) {
+            case UN_OK:
+                break;
+            case UN_NO_MORE:
+                return true;
+            case UN_FAIL:
+                return false;
+            }
+        }
     }
 
     return true;
@@ -112,31 +136,10 @@ emit_one_notification(int fd, const struct user_notification *notif)
 static bool
 emit_notifications(int fd, const user_notifications_t *notifications)
 {
-    /* Errors first */
-    tll_foreach(*notifications, it) {
-        if (it->item.kind == USER_NOTIFICATION_ERROR) {
-            if (!emit_one_notification(fd, &it->item))
-                return false;
-        }
-    }
-
-    /* Then warnings */
-    tll_foreach(*notifications, it) {
-        if (it->item.kind == USER_NOTIFICATION_WARNING) {
-            if (!emit_one_notification(fd, &it->item))
-                return false;
-        }
-    }
-
-    /* Finally deprecation messages */
-    tll_foreach(*notifications, it) {
-        if (it->item.kind == USER_NOTIFICATION_DEPRECATED) {
-            if (!emit_one_notification(fd, &it->item))
-                return false;
-        }
-    }
-
-    return true;
+    return
+        emit_notifications_of_kind(fd, notifications, USER_NOTIFICATION_ERROR) &&
+        emit_notifications_of_kind(fd, notifications, USER_NOTIFICATION_WARNING) &&
+        emit_notifications_of_kind(fd, notifications, USER_NOTIFICATION_DEPRECATED);
 }
 
 static void
@@ -188,14 +191,6 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
         }
     }
 
-    if (dup2(pts, STDIN_FILENO) == -1 ||
-        dup2(pts, STDOUT_FILENO) == -1 ||
-        dup2(pts, STDERR_FILENO) == -1)
-    {
-        LOG_ERRNO("failed to dup stdin/stdout/stderr");
-        goto err;
-    }
-
     if (tll_length(*notifications) > 0) {
         int flags = fcntl(pts, F_GETFL);
         if (flags < 0)
@@ -207,6 +202,14 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
             goto err;
 
         fcntl(pts, F_SETFL, flags);
+    }
+
+    if (dup2(pts, STDIN_FILENO) == -1 ||
+        dup2(pts, STDOUT_FILENO) == -1 ||
+        dup2(pts, STDERR_FILENO) == -1)
+    {
+        LOG_ERRNO("failed to dup stdin/stdout/stderr");
+        goto err;
     }
 
     close(pts);

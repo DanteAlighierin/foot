@@ -2,12 +2,14 @@
 
 #include <tllist.h>
 
+enum user_notification_kind {
+    USER_NOTIFICATION_DEPRECATED,
+    USER_NOTIFICATION_WARNING,
+    USER_NOTIFICATION_ERROR,
+};
+
 struct user_notification {
-    enum {
-        USER_NOTIFICATION_DEPRECATED,
-        USER_NOTIFICATION_WARNING,
-        USER_NOTIFICATION_ERROR,
-    } kind;
+    enum user_notification_kind kind;
     char *text;
 };
 
