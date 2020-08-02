@@ -40,6 +40,8 @@
 * Configuration errors are no longer fatal; foot will start and print
   an error inside the terminal (and of course still log errors on
   stderr).
+* Default `--server` socket path to use `$WAYLAND_DISPLAY` instead of
+  `$XDG_SESSION_ID` (https://codeberg.org/dnkl/foot/issues/55).
 
 
 ### Fixed

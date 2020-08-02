@@ -81,13 +81,13 @@ arguments, to execute (instead of the default shell).
 	others with it.
 	
 	The default path is
-	*$XDG\_RUNTIME\_DIR/foot-$XDG\_SESSION\_ID.sock*.
+	*$XDG\_RUNTIME\_DIR/foot-$WAYLAND\_DISPLAY.sock*.
 	
-	If *$XDG_RUNTIME_DIR* is not set, the default path is instead
+	If *$XDG\_RUNTIME\_DIR* is not set, the default path is instead
 	*/tmp/foot.sock*.
 	
-	If *$XDG_RUNTIME_DIR* is set, but *$XDG_SESSION_ID* is not, the
-	default path is *$XDG_RUNTIME_DIR/foot-no-session.sock*.
+	If *$XDG\_RUNTIME\_DIR* is set, but *$WAYLAND\_DISPLAY* is not,
+	the default path is *$XDG\_RUNTIME\_DIR/foot.sock*.
 	
 	Note that if you change the default, you will also need to use the
 	*--server-socket* option in *footclient*(1) and point it to your

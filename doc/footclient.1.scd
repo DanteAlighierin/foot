@@ -34,7 +34,8 @@ arguments, to execute (instead of the default shell).
 	Start a login shell, by prepending a '-' to argv[0].
 
 *-s*,*--server-socket*=_PATH_
-	Connect to _PATH_ instead of _XDG\_RUNTIME\_DIR/foot.sock_.
+	Connect to _PATH_ instead of
+	*$XDG\_RUNTIME\_DIR/foot-$WAYLAND\_DISPLAY.sock*.
 
 *--hold*
 	Remain open after child process exits.
