@@ -575,7 +575,7 @@ osc_dispatch(struct terminal *term)
 
             /*
              * Reply in XParseColor format
-             * E.g. for color 0xdcdccc we reply "\e]10;rgb:dc/dc/cc\e\\"
+             * E.g. for color 0xdcdccc we reply "\033]10;rgb:dc/dc/cc\033\\"
              */
             char reply[32];
             snprintf(

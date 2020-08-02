@@ -60,14 +60,14 @@ _log(enum log_class log_class, const char *module, const char *file, int lineno,
     }
 
     char clr[16];
-    snprintf(clr, sizeof(clr), "\e[%dm", class_clr);
-    fprintf(stderr, "%s%s%s: ", colorize ? clr : "", class, colorize ? "\e[0m" : "");
+    snprintf(clr, sizeof(clr), "\033[%dm", class_clr);
+    fprintf(stderr, "%s%s%s: ", colorize ? clr : "", class, colorize ? "\033[0m" : "");
 
     if (colorize)
-        fprintf(stderr, "\e[2m");
+        fprintf(stderr, "\033[2m");
     fprintf(stderr, "%s:%d: ", file, lineno);
     if (colorize)
-        fprintf(stderr, "\e[0m");
+        fprintf(stderr, "\033[0m");
 
     vfprintf(stderr, fmt, va);
 
