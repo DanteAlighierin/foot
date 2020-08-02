@@ -56,7 +56,7 @@ print_usage(const char *prog_name)
         "     --login-shell                      start shell as a login shell\n"
         "  -g,--geometry=WIDTHxHEIGHT            set initial width and height\n"
         "  -s,--server[=PATH]                    run as a server (use 'footclient' to start terminals).\n"
-        "                                        Without PATH, $XDG_RUNTIME_DIR/foot-$XDG_SESSION_ID.sock will be used.\n"
+        "                                        Without PATH, $XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock will be used.\n"
         "     --hold                             remain open after child process exits\n"
         "  -p,--print-pid=FILE|FD                print PID to file or FD (only applicable in server mode)\n"
         "  -l,--log-colorize=[never|always|auto] enable/disable colorization of log output on stderr\n"
