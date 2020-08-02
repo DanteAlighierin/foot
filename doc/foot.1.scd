@@ -13,7 +13,7 @@ arguments, to execute (instead of the default shell).
 # OPTIONS
 
 *-c*,*--config*=_PATH_
-	Path to configuration file. Default: *XDG_CONFIG_HOME/footrc*.
+	Path to configuration file. Default: *$XDG_CONFIG_HOME/footrc*.
 
 *--check-config*
 	Verify configuration and then exit with 0 if ok, otherwise exit
@@ -80,9 +80,18 @@ arguments, to execute (instead of the default shell).
 	Also be aware that should one terminal crash, it will take all the
 	others with it.
 	
-	You may optionally override the default socket path,
-	*XDG\_RUNTIME\_DIR/foot.sock*. If you do so, you will need to use
-	the *--server-socket* option in *footclient*(1).
+	The default path is
+	*$XDG\_RUNTIME\_DIR/foot-$XDG\_SESSION\_ID.sock*.
+	
+	If *$XDG_RUNTIME_DIR* is not set, the default path is instead
+	*/tmp/foot.sock*.
+	
+	If *$XDG_RUNTIME_DIR* is set, but *$XDG_SESSION_ID* is not, the
+	default path is *$XDG_RUNTIME_DIR/foot-no-session.sock*.
+	
+	Note that if you change the default, you will also need to use the
+	*--server-socket* option in *footclient*(1) and point it to your
+	custom socket path.
 
 *--hold*
 	Remain open after child process exits.

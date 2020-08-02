@@ -1194,7 +1194,7 @@ get_server_socket_path(void)
         return strdup("/tmp/foot.sock");
 
     if (xdg_session_id == NULL)
-        xdg_session_id = "<no-session>";
+        xdg_session_id = "no-session";
 
     char *path = malloc(strlen(xdg_runtime) + 1 + strlen("foot-.sock") + strlen(xdg_session_id) + 1);
     sprintf(path, "%s/foot-%s.sock", xdg_runtime, xdg_session_id);
