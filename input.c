@@ -701,7 +701,13 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     xkb_keysym_t sym = xkb_state_key_get_one_sym(seat->kbd.xkb_state, key);
 
     if (state == XKB_KEY_DOWN && term->conf->cursor.hide_when_typing &&
-        sym != XKB_KEY_Shift_L && sym != XKB_KEY_Shift_R)
+        /* TODO: better way to detect modifers */
+        sym != XKB_KEY_Shift_L && sym != XKB_KEY_Shift_R &&
+        sym != XKB_KEY_Control_L && sym != XKB_KEY_Control_R &&
+        sym != XKB_KEY_Alt_L && sym != XKB_KEY_Alt_R &&
+        sym != XKB_KEY_Super_L && sym != XKB_KEY_Super_R &&
+        sym != XKB_KEY_Meta_L && sym != XKB_KEY_Meta_R &&
+        sym != XKB_KEY_Menu)
     {
         seat->pointer.hidden = true;
         term_xcursor_update_for_seat(term, seat);
