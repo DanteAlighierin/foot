@@ -4,8 +4,8 @@ footclient(1)
 footclient - start new terminals in a foot server
 
 # SYNOPSIS
-*foot* [_OPTIONS_]++
-*foot* [_OPTIONS_] <_command_> [_COMMAND OPTIONS_]
+*footclient* [_OPTIONS_]++
+*footclient* [_OPTIONS_] <_command_> [_COMMAND OPTIONS_]
 
 All trailing (non-option) arguments are treated as a command, and its
 arguments, to execute (instead of the default shell).
