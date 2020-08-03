@@ -26,6 +26,8 @@
   **pipe-scrollback**, but only pipes the currently selected text, if
   any (https://codeberg.org/dnkl/foot/issues/51).
 * **cursor.hide-when-typing** option to `footrc.
+* **scrollback.multiplier** option to `footrc`
+  (https://codeberg.org/dnkl/foot/issues/54).
 
 
 ### Deprecated

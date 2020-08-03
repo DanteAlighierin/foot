@@ -77,6 +77,10 @@ in this order:
 *lines*
 	Number of scrollback lines. Default: _1000_.
 
+*multiplier*
+	Amount to multiply mouse scrolling with. It is a decimal number,
+	i.e. fractions are allowed. Default: _1.0_.
+
 *indicator-position*
 	Configures the style of the scrollback position indicator. One of
 	*none*, *fixed* or *relative*. *none* disables the indicator

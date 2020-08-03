@@ -61,6 +61,7 @@ struct config {
 
             wchar_t *text;
         } indicator;
+        double multiplier;
     } scrollback;
 
     struct {
