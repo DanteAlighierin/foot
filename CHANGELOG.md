@@ -54,6 +54,8 @@
 ### Security
 ### Contributors
 
+* [craigbarnes](https://codeberg.org/craigbarnes)
+
 
 ## 1.4.4
 ### Changed
