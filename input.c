@@ -1544,7 +1544,8 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
      * Without this, very slow scrolling will never actually scroll
      * anything.
      */
-    seat->mouse.axis_aggregated += wl_fixed_to_double(value);
+    seat->mouse.axis_aggregated
+        += seat->wayl->conf->scrollback.multiplier * wl_fixed_to_double(value);
 
     if (fabs(seat->mouse.axis_aggregated) >= 1.) {
         mouse_scroll(seat, round(seat->mouse.axis_aggregated));
@@ -1561,7 +1562,7 @@ wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
 
     struct seat *seat = data;
     seat->mouse.have_discrete = true;
-    mouse_scroll(seat, discrete);
+    mouse_scroll(seat, seat->wayl->conf->scrollback.multiplier * discrete);
 }
 
 static void

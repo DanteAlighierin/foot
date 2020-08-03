@@ -439,6 +439,17 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
         }
     }
 
+    else if (strcmp(key, "multiplier") == 0) {
+        double multiplier;
+        if (!str_to_double(value, &multiplier)) {
+            LOG_AND_NOTIFY_ERR("%s:%d: [scrollback]: multiplier: "
+                               "invalid value: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->scrollback.multiplier = multiplier;
+    }
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [scrollback]: %s: invalid key", path, lineno, key);
         return false;
@@ -1218,6 +1229,7 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
                 .format = SCROLLBACK_INDICATOR_FORMAT_TEXT,
                 .text = wcsdup(L""),
             },
+            .multiplier = 1.,
         },
         .colors = {
             .fg = default_foreground,
