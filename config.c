@@ -360,7 +360,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "scrollback") == 0) {
         LOG_WARN("deprecated: [default]: scrollback: use 'scrollback.lines' instead'");
 
-        const char *fmt = "%s:%d: \e[1mdefault.scrollback\e[21m, use \e[1mscrollback.lines\e[21m instead";
+        const char *fmt = "%s:%d: \033[1mdefault.scrollback\033[21m, use \033[1mscrollback.lines\033[21m instead";
         int len = snprintf(NULL, 0, fmt, path, lineno);
         char *text = malloc(len + 1);
         snprintf(text, len + 1, fmt, path, lineno);

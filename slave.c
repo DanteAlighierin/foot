@@ -73,19 +73,19 @@ static enum user_notification_ret_t
 emit_one_notification(int fd, const struct user_notification *notif)
 {
     const char *prefix = NULL;
-    const char *postfix = "\e[m\n";
+    const char *postfix = "\033[m\n";
 
     switch (notif->kind) {
     case USER_NOTIFICATION_DEPRECATED:
-        prefix = "\e[33;1mdeprecated\e[39;21m: ";
+        prefix = "\033[33;1mdeprecated\033[39;21m: ";
         break;
 
     case USER_NOTIFICATION_WARNING:
-        prefix = "\e[33;1mwarning\e[39;21m: ";
+        prefix = "\033[33;1mwarning\033[39;21m: ";
         break;
 
     case USER_NOTIFICATION_ERROR:
-        prefix = "\e[31;1merror\e[39;21m: ";
+        prefix = "\033[31;1merror\033[39;21m: ";
         break;
     }
 
