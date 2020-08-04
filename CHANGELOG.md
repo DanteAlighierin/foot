@@ -51,6 +51,8 @@
 * Command lines for **pipe-visible** and **pipe-scrollback** are now
   tokenized (i.e. syntax checked) when the configuration is loaded,
   instead of every time the key binding is executed.
+* Incorrect multi-column character spacer insertion when reflowing
+  text.
 
 
 ### Security

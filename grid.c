@@ -261,14 +261,15 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
                     }
                 }
                 new_col_idx++;
+            }
 
-                /* For multi-column characters, insert spacers in the
-                 * subsequent cells */
-                for (size_t i = 0; i < width - 1; i++) {
-                    assert(new_col_idx < new_cols);
-                    print_spacer();
-                    new_col_idx++;
-                }
+            /* For multi-column characters, insert spacers in the
+             * subsequent cells */
+            const struct cell *old_cell = &old_row->cells[c];
+            for (size_t i = 0; i < width - 1; i++) {
+                assert(new_col_idx < new_cols);
+                print_spacer();
+                new_col_idx++;
             }
 
             c += width - 1;
