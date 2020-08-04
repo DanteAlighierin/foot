@@ -705,6 +705,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         sym != XKB_KEY_Shift_L && sym != XKB_KEY_Shift_R &&
         sym != XKB_KEY_Control_L && sym != XKB_KEY_Control_R &&
         sym != XKB_KEY_Alt_L && sym != XKB_KEY_Alt_R &&
+        sym != XKB_KEY_ISO_Level3_Shift &&
         sym != XKB_KEY_Super_L && sym != XKB_KEY_Super_R &&
         sym != XKB_KEY_Meta_L && sym != XKB_KEY_Meta_R &&
         sym != XKB_KEY_Menu)
@@ -713,7 +714,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         term_xcursor_update_for_seat(term, seat);
     }
 
-#if 0
+#if 1
     char foo[100];
     xkb_keysym_get_name(sym, foo, sizeof(foo));
     LOG_INFO("%s", foo);
