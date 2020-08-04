@@ -700,7 +700,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     bool should_repeat = xkb_keymap_key_repeats(seat->kbd.xkb_keymap, key);
     xkb_keysym_t sym = xkb_state_key_get_one_sym(seat->kbd.xkb_state, key);
 
-    if (state == XKB_KEY_DOWN && term->conf->cursor.hide_when_typing &&
+    if (state == XKB_KEY_DOWN && term->conf->mouse.hide_when_typing &&
         /* TODO: better way to detect modifers */
         sym != XKB_KEY_Shift_L && sym != XKB_KEY_Shift_R &&
         sym != XKB_KEY_Control_L && sym != XKB_KEY_Control_R &&

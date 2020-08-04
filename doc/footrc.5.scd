@@ -110,15 +110,19 @@ applications can change these at runtime.
 	Boolean. Enables blinking cursor. Note that this can be overridden
 	by applications. Default: _no_.
 
-*hide-when-typing*
-	Boolean. When enabled, the mouse cursor is hidden while typing.
-
 *color*
 	Two RRGGBB values specifying the foreground (text) and background
 	(cursor) colors for the cursor. Default: inversed foreground and
 	background colors. Note that this value only applies to the block
 	cursor. The other cursor styles are always rendered with the
 	foreground color.
+
+
+# SECTION: mouse
+
+*hide-when-typing*
+	Boolean. When enabled, the mouse cursor is hidden while typing.
+
 
 # SECTION: colors
 
@@ -151,6 +155,7 @@ _alpha_ option.
 *alpha*
 	Background translucency. A value in the range 0.0-1.0, where 0.0
 	means completely transparent, and 1.0 is opaque. Default: _1.0_.
+
 
 # SECTION: csd
 
@@ -192,6 +197,7 @@ component.
 *button-close-color*
 	Close button's AARRGGBB color. Default: use the default _regular1_
 	color (red).
+
 
 # SECTION: key-bindings
 
@@ -275,6 +281,7 @@ e.g. *search-start=none*.
 		firefox"] Control+Print*
 	
 	Default: _not bound_
+
 
 # SECTION: search-bindings
 

@@ -19,6 +19,8 @@
 # style=block
 # color=111111 dcdccc
 # blink=no
+
+[mouse]
 # hide-when-typing=no
 
 [colors]

@@ -528,9 +528,6 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "blink") == 0)
         conf->cursor.blink = str_to_bool(value);
 
-    else if (strcmp(key, "hide-when-typing") == 0)
-        conf->cursor.hide_when_typing = str_to_bool(value);
-
     else if (strcmp(key, "color") == 0) {
         char *value_copy = strdup(value);
         const char *text = strtok(value_copy, " ");
@@ -553,6 +550,21 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
 
     else {
         LOG_AND_NOTIFY_ERR("%s:%d: [cursor]: %s: invalid key", path, lineno, key);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+parse_section_mouse(const char *key, const char *value, struct config *conf,
+                    const char *path, unsigned lineno)
+{
+    if (strcmp(key, "hide-when-typing") == 0)
+        conf->mouse.hide_when_typing = str_to_bool(value);
+
+    else {
+        LOG_AND_NOTIFY_ERR("%s:%d: [mouse]: %s: invalid key", path, lineno, key);
         return false;
     }
 
@@ -1029,6 +1041,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         SECTION_SCROLLBACK,
         SECTION_COLORS,
         SECTION_CURSOR,
+        SECTION_MOUSE,
         SECTION_CSD,
         SECTION_KEY_BINDINGS,
         SECTION_SEARCH_BINDINGS,
@@ -1050,6 +1063,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         [SECTION_SCROLLBACK] =      {&parse_section_scrollback, "scrollback"},
         [SECTION_COLORS] =          {&parse_section_colors, "colors"},
         [SECTION_CURSOR] =          {&parse_section_cursor, "cursor"},
+        [SECTION_MOUSE] =           {&parse_section_mouse, "mouse"},
         [SECTION_CSD] =             {&parse_section_csd, "csd"},
         [SECTION_KEY_BINDINGS] =    {&parse_section_key_bindings, "key-bindings"},
         [SECTION_SEARCH_BINDINGS] = {&parse_section_search_bindings, "search-bindings"},
@@ -1260,11 +1274,13 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
         .cursor = {
             .style = CURSOR_BLOCK,
             .blink = false,
-            .hide_when_typing = false,
             .color = {
                 .text = 0,
                 .cursor = 0,
             },
+        },
+        .mouse = {
+            .hide_when_typing = false,
         },
         .csd = {
             .preferred = CONF_CSD_PREFER_SERVER,
