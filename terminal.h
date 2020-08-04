@@ -114,7 +114,6 @@ struct grid {
     struct row **rows;
     struct row *cur_row;
 
-    tll(struct damage) damage;
     tll(struct damage) scroll_damage;
     tll(struct sixel) sixel_images;
 };

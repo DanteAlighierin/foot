@@ -1135,7 +1135,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
                             min(term->grid->cursor.point.row, term->rows - 1),
                             min(term->grid->cursor.point.col, term->cols - 1));
 
-                        tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);
 
                         term_erase(
@@ -1262,7 +1261,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
                             min(term->grid->cursor.point.row, term->rows - 1),
                             min(term->grid->cursor.point.col, term->cols - 1));
 
-                        tll_free(term->alt.damage);
                         tll_free(term->alt.scroll_damage);
 
                         /* Delete all sixel images on the alt screen */

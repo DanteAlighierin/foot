@@ -898,8 +898,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .start = {-1, -1},
             .end = {-1, -1},
         },
-        .normal = {.damage = tll_init(), .scroll_damage = tll_init(), .sixel_images = tll_init()},
-        .alt = {.damage = tll_init(), .scroll_damage = tll_init(), .sixel_images = tll_init()},
+        .normal = {.scroll_damage = tll_init(), .sixel_images = tll_init()},
+        .alt = {.scroll_damage = tll_init(), .sixel_images = tll_init()},
         .grid = &term->normal,
         .composed_count = 0,
         .composed = NULL,
@@ -1408,9 +1408,7 @@ term_reset(struct terminal *term, bool hard)
     }
     term->normal.cur_row = term->normal.rows[0];
     term->alt.cur_row = term->alt.rows[0];
-    tll_free(term->normal.damage);
     tll_free(term->normal.scroll_damage);
-    tll_free(term->alt.damage);
     tll_free(term->alt.scroll_damage);
     term->render.last_cursor.row = NULL;
     term->render.was_flashing = false;
