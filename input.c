@@ -714,7 +714,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         term_xcursor_update_for_seat(term, seat);
     }
 
-#if 1
+#if 0
     char foo[100];
     xkb_keysym_get_name(sym, foo, sizeof(foo));
     LOG_INFO("%s", foo);
