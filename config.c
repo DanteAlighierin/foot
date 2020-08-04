@@ -23,6 +23,7 @@
 #include "tokenize.h"
 #include "util.h"
 #include "wayland.h"
+#include "xmalloc.h"
 
 static const uint32_t default_foreground = 0xdcdccc;
 static const uint32_t default_background = 0x111111;
@@ -98,9 +99,7 @@ static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
 #define LOG_AND_NOTIFY_ERR(fmt, ...)                        \
     LOG_ERR(fmt, ## __VA_ARGS__);                           \
     {                                                       \
-        int len = snprintf(NULL, 0, fmt, ## __VA_ARGS__);   \
-        char *text = malloc(len + 1);                       \
-        snprintf(text, len + 1, fmt, ## __VA_ARGS__);       \
+        char *text = xasprintf(fmt, ## __VA_ARGS__);        \
         struct user_notification notif = {                  \
             .kind = USER_NOTIFICATION_ERROR,                \
             .text = text,                                   \
@@ -111,9 +110,7 @@ static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
 #define LOG_AND_NOTIFY_WARN(fmt, ...)                       \
     LOG_WARN(fmt, ## __VA_ARGS__);                          \
     {                                                       \
-        int len = snprintf(NULL, 0, fmt, ## __VA_ARGS__);   \
-        char *text = malloc(len + 1);                       \
-        snprintf(text, len + 1, fmt, ## __VA_ARGS__);       \
+        char *text = xasprintf(fmt, ## __VA_ARGS__);        \
         struct user_notification notif = {                  \
             .kind = USER_NOTIFICATION_WARNING,              \
             .text = text,                                   \
@@ -128,7 +125,7 @@ static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
         {                                                               \
             int len = snprintf(NULL, 0, fmt, ## __VA_ARGS__);           \
             int errno_len = snprintf(NULL, 0, ": %s", strerror(_errno)); \
-            char *text = malloc(len + errno_len + 1);                   \
+            char *text = xmalloc(len + errno_len + 1);                  \
             snprintf(text, len + errno_len + 1, fmt, ## __VA_ARGS__);   \
             snprintf(&text[len], errno_len + 1, ": %s", strerror(_errno)); \
             struct user_notification notif = {                          \
@@ -154,7 +151,7 @@ get_shell(void)
     }
 
     LOG_DBG("user's shell: %s", shell);
-    return strdup(shell);
+    return xstrdup(shell);
 }
 
 static char *
@@ -169,9 +166,7 @@ get_config_path_user_config(void)
     const char *home_dir = passwd->pw_dir;
     LOG_DBG("user's home directory: %s", home_dir);
 
-    int len = snprintf(NULL, 0, "%s/.config/footrc", home_dir);
-    char *path = malloc(len + 1);
-    snprintf(path, len + 1, "%s/.config/footrc", home_dir);
+    char *path = xasprintf("%s/.config/footrc", home_dir);
     return path;
 }
 
@@ -182,9 +177,7 @@ get_config_path_xdg(void)
     if (xdg_config_home == NULL)
         return NULL;
 
-    int len = snprintf(NULL, 0, "%s/footrc", xdg_config_home);
-    char *path = malloc(len + 1);
-    snprintf(path, len + 1, "%s/footrc", xdg_config_home);
+    char *path = xasprintf("%s/footrc", xdg_config_home);
     return path;
 }
 
@@ -268,12 +261,12 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 {
     if (strcmp(key, "term") == 0) {
         free(conf->term);
-        conf->term = strdup(value);
+        conf->term = xstrdup(value);
     }
 
     else if (strcmp(key, "shell") == 0) {
         free(conf->shell);
-        conf->shell = strdup(value);
+        conf->shell = xstrdup(value);
     }
 
     else if (strcmp(key, "login-shell") == 0) {
@@ -282,12 +275,12 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "title") == 0) {
         free(conf->title);
-        conf->title = strdup(value);
+        conf->title = xstrdup(value);
     }
 
     else if (strcmp(key, "app-id") == 0) {
         free(conf->app_id);
-        conf->app_id = strdup(value);
+        conf->app_id = xstrdup(value);
     }
 
     else if (strcmp(key, "geometry") == 0) {
@@ -335,7 +328,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "font") == 0) {
-        char *copy = strdup(value);
+        char *copy = xstrdup(value);
         for (const char *font = strtok(copy, ","); font != NULL; font = strtok(NULL, ",")) {
             /* Trim spaces, strictly speaking not necessary, but looks nice :) */
             while (*font != '\0' && isspace(*font))
@@ -361,9 +354,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         LOG_WARN("deprecated: [default]: scrollback: use 'scrollback.lines' instead'");
 
         const char *fmt = "%s:%d: \033[1mdefault.scrollback\033[21m, use \033[1mscrollback.lines\033[21m instead";
-        int len = snprintf(NULL, 0, fmt, path, lineno);
-        char *text = malloc(len + 1);
-        snprintf(text, len + 1, fmt, path, lineno);
+        char *text = xasprintf(fmt, path, lineno);
 
         struct user_notification deprecation = {
             .kind = USER_NOTIFICATION_DEPRECATED,
@@ -434,7 +425,7 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
                 return false;
             }
 
-            conf->scrollback.indicator.text = calloc(len + 1, sizeof(wchar_t));
+            conf->scrollback.indicator.text = xcalloc(len + 1, sizeof(wchar_t));
             mbstowcs(conf->scrollback.indicator.text, value, len);
         }
     }
@@ -529,7 +520,7 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
         conf->cursor.blink = str_to_bool(value);
 
     else if (strcmp(key, "color") == 0) {
-        char *value_copy = strdup(value);
+        char *value_copy = xstrdup(value);
         const char *text = strtok(value_copy, " ");
         const char *cursor = strtok(NULL, " ");
 
@@ -663,7 +654,7 @@ verify_key_combo(struct config *conf, const char *combo, const char *path, unsig
 {
     /* Check regular key bindings */
     tll_foreach(conf->bindings.key, it) {
-        char *copy = strdup(it->item.key);
+        char *copy = xstrdup(it->item.key);
 
         for (char *save = NULL, *collision = strtok_r(copy, " ", &save);
              collision != NULL;
@@ -686,7 +677,7 @@ verify_key_combo(struct config *conf, const char *combo, const char *path, unsig
 
     /* Check scrollback search bindings */
     tll_foreach(conf->bindings.search, it) {
-        char *copy = strdup(it->item.key);
+        char *copy = xstrdup(it->item.key);
 
         for (char *save = NULL, *collision = strtok_r(copy, " ", &save);
              collision != NULL;
@@ -815,7 +806,7 @@ parse_section_key_bindings(
                 free(it->item.pipe.cmd);
                 free(it->item.pipe.argv);
 
-                it->item.key = strdup(value);
+                it->item.key = xstrdup(value);
                 it->item.pipe.cmd = pipe_cmd;
                 it->item.pipe.argv = pipe_argv;
                 already_added = true;
@@ -826,7 +817,7 @@ parse_section_key_bindings(
         if (!already_added) {
             struct config_key_binding_normal binding = {
                 .action = action,
-                .key = strdup(value),
+                .key = xstrdup(value),
                 .pipe = {
                     .cmd = pipe_cmd,
                     .argv = pipe_argv,
@@ -877,7 +868,7 @@ parse_section_search_bindings(
 
                 free(it->item.key);
 
-                it->item.key = strdup(value);
+                it->item.key = xstrdup(value);
                 already_added = true;
                 break;
             }
@@ -886,7 +877,7 @@ parse_section_search_bindings(
         if (!already_added) {
             struct config_key_binding_search binding = {
                 .action = action,
-                .key = strdup(value),
+                .key = xstrdup(value),
             };
             tll_push_back(conf->bindings.search, binding);
         }
@@ -1206,18 +1197,14 @@ get_server_socket_path(void)
 {
     const char *xdg_runtime = getenv("XDG_RUNTIME_DIR");
     if (xdg_runtime == NULL)
-        return strdup("/tmp/foot.sock");
+        return xstrdup("/tmp/foot.sock");
 
     const char *wayland_display = getenv("WAYLAND_DISPLAY");
     if (wayland_display == NULL) {
-        char *path = malloc(strlen(xdg_runtime) + 1 + strlen("foot.sock") + 1);
-        sprintf(path, "%s/foot.sock", xdg_runtime);
-        return path;
+        return xasprintf("%s/foot.sock", xdg_runtime);
     }
 
-    char *path = malloc(strlen(xdg_runtime) + 1 + strlen("foot-.sock") + strlen(wayland_display) + 1);
-    sprintf(path, "%s/foot-%s.sock", xdg_runtime, wayland_display);
-    return path;
+    return xasprintf("%s/foot-%s.sock", xdg_runtime, wayland_display);
 }
 
 bool
@@ -1226,10 +1213,10 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
     bool ret = false;
 
     *conf = (struct config) {
-        .term = strdup("foot"),
+        .term = xstrdup("foot"),
         .shell = get_shell(),
-        .title = strdup("foot"),
-        .app_id = strdup("foot"),
+        .title = xstrdup("foot"),
+        .app_id = xstrdup("foot"),
         .width = 700,
         .height = 500,
         .pad_x = 2,
@@ -1303,15 +1290,15 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
         .notifications = tll_init(),
     };
 
-    struct config_key_binding_normal scrollback_up =   {BIND_ACTION_SCROLLBACK_UP,   strdup("Shift+Page_Up")};
-    struct config_key_binding_normal scrollback_down = {BIND_ACTION_SCROLLBACK_DOWN, strdup("Shift+Page_Down")};
-    struct config_key_binding_normal clipboard_copy =  {BIND_ACTION_CLIPBOARD_COPY,  strdup("Control+Shift+C")};
-    struct config_key_binding_normal clipboard_paste = {BIND_ACTION_CLIPBOARD_PASTE, strdup("Control+Shift+V")};
-    struct config_key_binding_normal search_start =    {BIND_ACTION_SEARCH_START,    strdup("Control+Shift+R")};
-    struct config_key_binding_normal font_size_up =    {BIND_ACTION_FONT_SIZE_UP,    strdup("Control+plus Control+equal Control+KP_Add")};
-    struct config_key_binding_normal font_size_down =  {BIND_ACTION_FONT_SIZE_DOWN,  strdup("Control+minus Control+KP_Subtract")};
-    struct config_key_binding_normal font_size_reset = {BIND_ACTION_FONT_SIZE_RESET, strdup("Control+0 Control+KP_0")};
-    struct config_key_binding_normal spawn_terminal =  {BIND_ACTION_SPAWN_TERMINAL,  strdup("Control+Shift+N")};
+    struct config_key_binding_normal scrollback_up =   {BIND_ACTION_SCROLLBACK_UP,   xstrdup("Shift+Page_Up")};
+    struct config_key_binding_normal scrollback_down = {BIND_ACTION_SCROLLBACK_DOWN, xstrdup("Shift+Page_Down")};
+    struct config_key_binding_normal clipboard_copy =  {BIND_ACTION_CLIPBOARD_COPY,  xstrdup("Control+Shift+C")};
+    struct config_key_binding_normal clipboard_paste = {BIND_ACTION_CLIPBOARD_PASTE, xstrdup("Control+Shift+V")};
+    struct config_key_binding_normal search_start =    {BIND_ACTION_SEARCH_START,    xstrdup("Control+Shift+R")};
+    struct config_key_binding_normal font_size_up =    {BIND_ACTION_FONT_SIZE_UP,    xstrdup("Control+plus Control+equal Control+KP_Add")};
+    struct config_key_binding_normal font_size_down =  {BIND_ACTION_FONT_SIZE_DOWN,  xstrdup("Control+minus Control+KP_Subtract")};
+    struct config_key_binding_normal font_size_reset = {BIND_ACTION_FONT_SIZE_RESET, xstrdup("Control+0 Control+KP_0")};
+    struct config_key_binding_normal spawn_terminal =  {BIND_ACTION_SPAWN_TERMINAL,  xstrdup("Control+Shift+N")};
 
     tll_push_back(conf->bindings.key, scrollback_up);
     tll_push_back(conf->bindings.key, scrollback_down);
@@ -1326,22 +1313,22 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
     struct mouse_binding primary_paste = {BIND_ACTION_PRIMARY_PASTE, BTN_MIDDLE, 1};
     tll_push_back(conf->bindings.mouse, primary_paste);
 
-    struct config_key_binding_search search_cancel =          {BIND_ACTION_SEARCH_CANCEL,           strdup("Control+g Escape")};
-    struct config_key_binding_search search_commit =          {BIND_ACTION_SEARCH_COMMIT,           strdup("Return")};
-    struct config_key_binding_search search_find_prev =       {BIND_ACTION_SEARCH_FIND_PREV,        strdup("Control+r")};
-    struct config_key_binding_search search_find_next =       {BIND_ACTION_SEARCH_FIND_NEXT,        strdup("Control+s")};
-    struct config_key_binding_search search_edit_left =       {BIND_ACTION_SEARCH_EDIT_LEFT,        strdup("Left Control+b")};
-    struct config_key_binding_search search_edit_left_word =  {BIND_ACTION_SEARCH_EDIT_LEFT_WORD,   strdup("Control+Left Mod1+b")};
-    struct config_key_binding_search search_edit_right =      {BIND_ACTION_SEARCH_EDIT_RIGHT,       strdup("Right Control+f")};
-    struct config_key_binding_search search_edit_right_word = {BIND_ACTION_SEARCH_EDIT_RIGHT_WORD,  strdup("Control+Right Mod1+f")};
-    struct config_key_binding_search search_edit_home =       {BIND_ACTION_SEARCH_EDIT_HOME,        strdup("Home Control+a")};
-    struct config_key_binding_search search_edit_end =        {BIND_ACTION_SEARCH_EDIT_END,         strdup("End Control+e")};
-    struct config_key_binding_search search_del_prev =        {BIND_ACTION_SEARCH_DELETE_PREV,      strdup("BackSpace")};
-    struct config_key_binding_search search_del_prev_word =   {BIND_ACTION_SEARCH_DELETE_PREV_WORD, strdup("Mod1+BackSpace Control+BackSpace")};
-    struct config_key_binding_search search_del_next =        {BIND_ACTION_SEARCH_DELETE_NEXT,      strdup("Delete")};
-    struct config_key_binding_search search_del_next_word =   {BIND_ACTION_SEARCH_DELETE_NEXT_WORD, strdup("Mod1+d Control+Delete")};
-    struct config_key_binding_search search_ext_word =        {BIND_ACTION_SEARCH_EXTEND_WORD,      strdup("Control+w")};
-    struct config_key_binding_search search_ext_word_ws =     {BIND_ACTION_SEARCH_EXTEND_WORD_WS,   strdup("Control+Shift+W")};
+    struct config_key_binding_search search_cancel =          {BIND_ACTION_SEARCH_CANCEL,           xstrdup("Control+g Escape")};
+    struct config_key_binding_search search_commit =          {BIND_ACTION_SEARCH_COMMIT,           xstrdup("Return")};
+    struct config_key_binding_search search_find_prev =       {BIND_ACTION_SEARCH_FIND_PREV,        xstrdup("Control+r")};
+    struct config_key_binding_search search_find_next =       {BIND_ACTION_SEARCH_FIND_NEXT,        xstrdup("Control+s")};
+    struct config_key_binding_search search_edit_left =       {BIND_ACTION_SEARCH_EDIT_LEFT,        xstrdup("Left Control+b")};
+    struct config_key_binding_search search_edit_left_word =  {BIND_ACTION_SEARCH_EDIT_LEFT_WORD,   xstrdup("Control+Left Mod1+b")};
+    struct config_key_binding_search search_edit_right =      {BIND_ACTION_SEARCH_EDIT_RIGHT,       xstrdup("Right Control+f")};
+    struct config_key_binding_search search_edit_right_word = {BIND_ACTION_SEARCH_EDIT_RIGHT_WORD,  xstrdup("Control+Right Mod1+f")};
+    struct config_key_binding_search search_edit_home =       {BIND_ACTION_SEARCH_EDIT_HOME,        xstrdup("Home Control+a")};
+    struct config_key_binding_search search_edit_end =        {BIND_ACTION_SEARCH_EDIT_END,         xstrdup("End Control+e")};
+    struct config_key_binding_search search_del_prev =        {BIND_ACTION_SEARCH_DELETE_PREV,      xstrdup("BackSpace")};
+    struct config_key_binding_search search_del_prev_word =   {BIND_ACTION_SEARCH_DELETE_PREV_WORD, xstrdup("Mod1+BackSpace Control+BackSpace")};
+    struct config_key_binding_search search_del_next =        {BIND_ACTION_SEARCH_DELETE_NEXT,      xstrdup("Delete")};
+    struct config_key_binding_search search_del_next_word =   {BIND_ACTION_SEARCH_DELETE_NEXT_WORD, xstrdup("Mod1+d Control+Delete")};
+    struct config_key_binding_search search_ext_word =        {BIND_ACTION_SEARCH_EXTEND_WORD,      xstrdup("Control+w")};
+    struct config_key_binding_search search_ext_word_ws =     {BIND_ACTION_SEARCH_EXTEND_WORD_WS,   xstrdup("Control+Shift+W")};
 
     tll_push_back(conf->bindings.search, search_cancel);
     tll_push_back(conf->bindings.search, search_commit);
