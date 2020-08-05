@@ -1,7 +1,6 @@
 #pragma once
 
 #include <stddef.h>
-#include <string.h>
 #include "macros.h"
 
 void *xmalloc(size_t size) XMALLOC;

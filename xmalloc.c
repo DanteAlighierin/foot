@@ -2,11 +2,14 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
 #include "xmalloc.h"
 
 static NORETURN COLD void
 fatal_error(const char *msg, int err)
 {
+    syslog(LOG_ERR, "%s: %s", msg, strerror(err));
     errno = err;
     perror(msg);
     abort();
