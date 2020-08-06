@@ -13,11 +13,9 @@
 
 //#include "config.h"
 #include "fdm.h"
+#include "macros.h"
 #include "reaper.h"
 #include "wayland.h"
-
-#define likely(c) __builtin_expect(!!(c), 1)
-#define unlikely(c) __builtin_expect(!!(c), 0)
 
 /*
  *  Note: we want the cells to be as small as possible. Larger cells
