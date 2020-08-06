@@ -53,6 +53,7 @@
   instead of every time the key binding is executed.
 * Incorrect multi-column character spacer insertion when reflowing
   text.
+* Compilation errors in 32-bit builds.
 
 
 ### Security

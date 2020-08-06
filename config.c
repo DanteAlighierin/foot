@@ -1012,8 +1012,8 @@ parse_section_tweak(
         }
 
         conf->tweak.max_shm_pool_size = min(mb * 1024 * 1024, INT32_MAX);
-        LOG_WARN("tweak: max-shm-pool-size=%lu bytes",
-                 conf->tweak.max_shm_pool_size);
+        LOG_WARN("tweak: max-shm-pool-size=%lld bytes",
+                 (long long)conf->tweak.max_shm_pool_size);
     }
 
     else {

@@ -336,7 +336,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                  * _not_ preceeded by a graphical character.
                  */
                 int count = vt_param_get(term, 0, 1);
-                LOG_DBG("REP: '%C' %d times", term->vt.last_printed, count);
+                LOG_DBG("REP: '%lc' %d times", (wint_t)term->vt.last_printed, count);
 
                 const int width = wcwidth(term->vt.last_printed);
                 if (width > 0) {

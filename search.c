@@ -656,7 +656,7 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
     term->search.buf[term->search.len] = L'\0';
 
 update_search:
-    LOG_DBG("search: buffer: %S", term->search.buf);
+    LOG_DBG("search: buffer: %ls", term->search.buf);
     search_find_next(term);
     render_refresh_search(term);
 }
