@@ -1048,15 +1048,15 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 
     switch ((term->active_surface = term_surface_kind(term, surface))) {
     case TERM_SURF_GRID: {
-        int col = x >= term->margins.left
-            ? (x - term->margins.left) / term->cell_width
-            : -1;
-        int row = y >= term->margins.top
-            ? (y - term->margins.top) / term->cell_height
-            : -1;
+        if (x < term->margins.left || x >= term->width - term->margins.right)
+            seat->mouse.col = -1;
+        else
+            seat->mouse.col = (x - term->margins.left) / term->cell_width;
 
-        seat->mouse.col = col >= 0 && col < term->cols ? col : -1;
-        seat->mouse.row = row >= 0 && row < term->rows ? row : -1;
+        if (y < term->margins.top || y >= term->height - term->margins.bottom)
+            seat->mouse.row = -1;
+        else
+            seat->mouse.row = (y - term->margins.top) / term->cell_height;
 
         term_xcursor_update_for_seat(term, seat);
         break;
@@ -1204,38 +1204,58 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_GRID: {
-        int col = x >= term->margins.left ? (x - term->margins.left) / term->cell_width : -1;
-        int row = y >= term->margins.top ? (y - term->margins.top) / term->cell_height : -1;
-
         int old_col = seat->mouse.col;
         int old_row = seat->mouse.row;
 
-        seat->mouse.col = col >= 0 && col < term->cols ? col : -1;
-        seat->mouse.row = row >= 0 && row < term->rows ? row : -1;
+        /*
+         * While the seat's mouse coordinates must always be on the
+         * grid, or -1, we allow updating the selection even when the
+         * mouse is outside the grid (could also be outside the
+         * terminal window).
+         */
+        int selection_col;
+        int selection_row;
+
+        if (x < term->margins.left) {
+            seat->mouse.col = -1;
+            selection_col = 0;
+        } else if (x >= term->width - term->margins.right) {
+            seat->mouse.col = -1;
+            selection_col = term->cols - 1;
+        } else {
+            seat->mouse.col = (x - term->margins.left) / term->cell_width;
+            selection_col = seat->mouse.col;
+        }
+
+        if (y < term->margins.top) {
+            seat->mouse.row = -1;
+            selection_row = 0;
+        } else if (y >= term->height - term->margins.bottom) {
+            seat->mouse.row = -1;
+            selection_row = term->rows - 1;
+        } else {
+            seat->mouse.row = (y - term->margins.top) / term->cell_height;
+            selection_row = seat->mouse.row;
+        }
+
+        assert(seat->mouse.col == -1 || (seat->mouse.col >= 0 && seat->mouse.col < term->cols));
+        assert(seat->mouse.row == -1 || (seat->mouse.row >= 0 && seat->mouse.row < term->rows));
 
         term_xcursor_update_for_seat(term, seat);
 
-        /* Update selection even if cursor is outside the grid,
-         * including outside the terminal bounds */
-        int selection_col = max(0, min(col, term->cols - 1));
-        int selection_row = max(0, min(row, term->rows - 1));
+        /* Cursor has moved to a different cell since last time */
+        bool cursor_is_on_new_cell
+            = old_col != seat->mouse.col || old_row != seat->mouse.row;
 
-        bool update_selection =
-            seat->mouse.button == BTN_LEFT || seat->mouse.button == BTN_RIGHT;
-        bool update_selection_early = term->selection.end.row == -1;
-
-        if (update_selection && update_selection_early)
-            selection_update(term, selection_col, selection_row);
-
-        if (old_col == seat->mouse.col && old_row == seat->mouse.row) {
-            /* Cursor hasn't moved to a new cell since last motion event */
-            break;
+        /* Update selection */
+        if (seat->mouse.button == BTN_LEFT || seat->mouse.button) {
+            if (cursor_is_on_new_cell || term->selection.end.row < 0)
+                selection_update(term, selection_col, selection_row);
         }
 
-        if (update_selection && !update_selection_early)
-            selection_update(term, selection_col, selection_row);
-
+        /* Send mouse event to client application */
         if (!term_mouse_grabbed(term, seat) &&
+            cursor_is_on_new_cell &&
             seat->mouse.col >= 0 &&
             seat->mouse.row >= 0)
         {
