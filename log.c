@@ -79,8 +79,7 @@ _log(enum log_class log_class, const char *module, const char *file, int lineno,
 
 static void
 _sys_log(enum log_class log_class, const char *module,
-         const char *file __attribute__((unused)),
-         int lineno __attribute__((unused)),
+         const char UNUSED *file, int UNUSED lineno,
          const char *fmt, int sys_errno, va_list va)
 {
     if (!do_syslog)

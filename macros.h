@@ -20,6 +20,12 @@
     #define HAS_BUILTIN(x) 0
 #endif
 
+#if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(unused) || defined(__TINYC__)
+    #define UNUSED __attribute__((__unused__))
+#else
+    #define UNUSED
+#endif
+
 #if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(malloc)
     #define MALLOC __attribute__((__malloc__))
 #else

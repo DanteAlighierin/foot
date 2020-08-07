@@ -26,6 +26,7 @@
 #include "config.h"
 #include "commands.h"
 #include "keymap.h"
+#include "macros.h"
 #include "quirks.h"
 #include "render.h"
 #include "search.h"
@@ -1116,8 +1117,7 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     } else {
         if (surface != NULL) {
             /* Sway 1.4 sends this event with a NULL surface when we destroy the window */
-            const struct wl_window *win __attribute__((unused))
-                = wl_surface_get_user_data(surface);
+            const struct wl_window UNUSED *win = wl_surface_get_user_data(surface);
             assert(old_moused == win->term);
         }
 

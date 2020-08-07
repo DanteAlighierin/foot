@@ -1032,7 +1032,7 @@ fdm_shutdown(struct fdm *fdm, int fd, int events, void *data)
     wayl_win_destroy(term->window);
     term->window = NULL;
 
-    struct wayland *wayl __attribute__((unused)) = term->wl;
+    struct wayland *wayl = term->wl;
 
     /*
      * Normally we'd get unmapped when we destroy the Wayland
