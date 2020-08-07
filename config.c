@@ -20,6 +20,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "input.h"
+#include "macros.h"
 #include "tokenize.h"
 #include "util.h"
 #include "wayland.h"
@@ -1111,7 +1112,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
 
         /* Split up into key/value pair + trailing comment */
         char *key_value = strtok(line, "#");
-        char *comment __attribute__((unused)) = strtok(NULL, "\n");
+        char UNUSED *comment = strtok(NULL, "\n");
 
         /* Check for new section */
         if (key_value[0] == '[') {

@@ -1,5 +1,6 @@
 #pragma once
 #include <stdbool.h>
+#include "macros.h"
 
 enum log_colorize { LOG_COLORIZE_NEVER, LOG_COLORIZE_ALWAYS, LOG_COLORIZE_AUTO };
 enum log_facility { LOG_FACILITY_USER, LOG_FACILITY_DAEMON };
@@ -11,16 +12,16 @@ void log_deinit(void);
 
 void log_msg(enum log_class log_class, const char *module,
                const char *file, int lineno,
-               const char *fmt, ...) __attribute__((format (printf, 5, 6)));
+               const char *fmt, ...) PRINTF(5);
 
 void log_errno(enum log_class log_class, const char *module,
                const char *file, int lineno,
-               const char *fmt, ...) __attribute__((format (printf, 5, 6)));
+               const char *fmt, ...) PRINTF(5);
 
 void log_errno_provided(
     enum log_class log_class, const char *module,
     const char *file, int lineno, int _errno,
-    const char *fmt, ...) __attribute__((format (printf, 6, 7)));
+    const char *fmt, ...) PRINTF(6);
 
 #define LOG_ERR(fmt, ...)  \
     log_msg(LOG_CLASS_ERROR, LOG_MODULE, __FILE__, __LINE__, fmt, ## __VA_ARGS__)

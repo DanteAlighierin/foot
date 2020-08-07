@@ -22,6 +22,7 @@
 #define LOG_MODULE "shm"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "macros.h"
 
 #define TIME_SCROLL 0
 
@@ -398,7 +399,7 @@ static bool
 wrap_buffer(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
 {
     /* We don't allow overlapping offsets */
-    off_t diff __attribute__((unused)) =
+    off_t UNUSED diff =
         new_offset < buf->offset ? buf->offset - new_offset : new_offset - buf->offset;
     assert(diff > buf->size);
 
