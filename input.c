@@ -1204,8 +1204,6 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_GRID: {
-        term_xcursor_update_for_seat(term, seat);
-
         int col = x >= term->margins.left ? (x - term->margins.left) / term->cell_width : -1;
         int row = y >= term->margins.top ? (y - term->margins.top) / term->cell_height : -1;
 
@@ -1215,22 +1213,35 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         seat->mouse.col = col >= 0 && col < term->cols ? col : -1;
         seat->mouse.row = row >= 0 && row < term->rows ? row : -1;
 
-        if (seat->mouse.col < 0 || seat->mouse.row < 0)
-            break;
+        term_xcursor_update_for_seat(term, seat);
 
-        bool update_selection = seat->mouse.button == BTN_LEFT || seat->mouse.button == BTN_RIGHT;
+        /* Update selection even if cursor is outside the grid,
+         * including outside the terminal bounds */
+        int selection_col = max(0, min(col, term->cols - 1));
+        int selection_row = max(0, min(row, term->rows - 1));
+
+        bool update_selection =
+            seat->mouse.button == BTN_LEFT || seat->mouse.button == BTN_RIGHT;
         bool update_selection_early = term->selection.end.row == -1;
 
         if (update_selection && update_selection_early)
-            selection_update(term, seat->mouse.col, seat->mouse.row);
+            selection_update(term, selection_col, selection_row);
 
-        if (old_col == seat->mouse.col && old_row == seat->mouse.row)
+        if (old_col == seat->mouse.col && old_row == seat->mouse.row) {
+            /* Cursor hasn't moved to a new cell since last motion event */
             break;
+        }
 
         if (update_selection && !update_selection_early)
-            selection_update(term, seat->mouse.col, seat->mouse.row);
+            selection_update(term, selection_col, selection_row);
 
-        if (!term_mouse_grabbed(term, seat)) {
+        if (!term_mouse_grabbed(term, seat) &&
+            seat->mouse.col >= 0 &&
+            seat->mouse.row >= 0)
+        {
+            assert(seat->mouse.col < term->cols);
+            assert(seat->mouse.row < term->rows);
+
             term_mouse_motion(
                 term, seat->mouse.button, seat->mouse.row, seat->mouse.col,
                 seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);

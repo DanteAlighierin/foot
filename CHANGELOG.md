@@ -55,6 +55,8 @@
   text.
 * Compilation errors in 32-bit builds.
 * Mouse cursor style of top and left margins.
+* Selection is now **updated** when the cursor moves outside the grid
+  (https://codeberg.org/dnkl/foot/issues/70).
 
 
 ### Security
