@@ -1410,19 +1410,19 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_GRID: {
         search_cancel(term);
 
+        bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
             if (button == BTN_LEFT && seat->mouse.count <= 3) {
                 selection_cancel(term);
 
-                if (selection_enabled(term, seat)) {
+                if (selection_enabled(term, seat) && cursor_is_on_grid) {
                     switch (seat->mouse.count) {
                     case 1:
-                        if (seat->mouse.col >= 0 && seat->mouse.row >= 0) {
-                            selection_start(
-                                term, seat->mouse.col, seat->mouse.row,
-                                seat->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
-                        }
+                        selection_start(
+                            term, seat->mouse.col, seat->mouse.row,
+                            seat->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
                         break;
 
                     case 2:
@@ -1439,7 +1439,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             }
 
             else if (button == BTN_RIGHT && seat->mouse.count == 1) {
-                if (selection_enabled(term, seat)) {
+                if (selection_enabled(term, seat) && cursor_is_on_grid) {
                     selection_extend(
                         seat, term, seat->mouse.col, seat->mouse.row, serial);
                 }
@@ -1464,7 +1464,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 }
             }
 
-            if (!term_mouse_grabbed(term, seat)) {
+            if (!term_mouse_grabbed(term, seat) && cursor_is_on_grid) {
                 term_mouse_down(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
@@ -1476,7 +1476,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             if (button == BTN_LEFT && term->selection.end.col != -1)
                 selection_finalize(seat, term, serial);
 
-            if (!term_mouse_grabbed(term, seat)) {
+            if (!term_mouse_grabbed(term, seat) && cursor_is_on_grid) {
                 term_mouse_up(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
