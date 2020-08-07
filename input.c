@@ -1548,16 +1548,23 @@ mouse_scroll(struct seat *seat, int amount)
             keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_DOWN);
         keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_UP);
     } else {
-        if (!term_mouse_grabbed(term, seat)) {
+        if (!term_mouse_grabbed(term, seat) &&
+            seat->mouse.col >= 0 && seat->mouse.row >= 0)
+        {
+            assert(seat->mouse.col < term->cols);
+            assert(seat->mouse.row < term->rows);
+
             for (int i = 0; i < amount; i++) {
                 term_mouse_down(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
             }
+
             term_mouse_up(
                 term, button, seat->mouse.row, seat->mouse.col,
                 seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
         }
+
         scrollback(term, amount);
     }
 }
