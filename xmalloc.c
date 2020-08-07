@@ -42,10 +42,23 @@ xcalloc(size_t nmemb, size_t size)
     return check_alloc(calloc(nmemb, size));
 }
 
+void *
+xrealloc(void *ptr, size_t size)
+{
+    void *alloc = realloc(ptr, size);
+    return unlikely(size == 0) ? alloc : check_alloc(alloc);
+}
+
 char *
 xstrdup(const char *str)
 {
     return check_alloc(strdup(str));
+}
+
+char *
+xstrndup(const char *str, size_t n)
+{
+    return check_alloc(strndup(str, n));
 }
 
 static VPRINTF(2) int
