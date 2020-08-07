@@ -97,33 +97,14 @@ _sys_log(enum log_class log_class, const char *module,
 
     assert(level != -1);
 
-    const char *sys_err = sys_errno != 0 ? strerror(sys_errno) : NULL;
+    char msg[4096];
+    int n = vsnprintf(msg, sizeof(msg), fmt, va);
+    assert(n >= 0);
 
-    va_list va2;
-    va_copy(va2, va);
+    if (sys_errno != 0 && (size_t)n < sizeof(msg))
+        snprintf(msg + n, sizeof(msg) - n, ": %s", strerror(sys_errno));
 
-    /* Calculate required size of buffer holding the entire log message */
-    int required_len = 0;
-    required_len += strlen(module) + 2;  /* "%s: " */
-    required_len += vsnprintf(NULL, 0, fmt, va2); va_end(va2);
-
-    if (sys_errno != 0)
-        required_len += strlen(sys_err) + 2; /* ": %s" */
-
-    /* Format the msg */
-    char *msg = malloc(required_len + 1);
-    int idx = 0;
-
-    idx += snprintf(&msg[idx], required_len + 1 - idx, "%s: ", module);
-    idx += vsnprintf(&msg[idx], required_len + 1 - idx, fmt, va);
-
-    if (sys_errno != 0) {
-        snprintf(
-            &msg[idx], required_len + 1 - idx, ": %s", strerror(sys_errno));
-    }
-
-    syslog(level, "%s", msg);
-    free(msg);
+    syslog(level, "%s: %s", module, msg);
 }
 
 void
