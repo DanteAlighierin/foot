@@ -1048,8 +1048,12 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 
     switch ((term->active_surface = term_surface_kind(term, surface))) {
     case TERM_SURF_GRID: {
-        int col = (x - term->margins.left) / term->cell_width;
-        int row = (y - term->margins.top) / term->cell_height;
+        int col = x >= term->margins.left
+            ? (x - term->margins.left) / term->cell_width
+            : -1;
+        int row = y >= term->margins.top
+            ? (y - term->margins.top) / term->cell_height
+            : -1;
 
         seat->mouse.col = col >= 0 && col < term->cols ? col : -1;
         seat->mouse.row = row >= 0 && row < term->rows ? row : -1;
@@ -1202,8 +1206,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_GRID: {
         term_xcursor_update_for_seat(term, seat);
 
-        int col = (x - term->margins.left) / term->cell_width;
-        int row = (y - term->margins.top) / term->cell_height;
+        int col = x >= term->margins.left ? (x - term->margins.left) / term->cell_width : -1;
+        int row = y >= term->margins.top ? (y - term->margins.top) / term->cell_height : -1;
 
         int old_col = seat->mouse.col;
         int old_row = seat->mouse.row;

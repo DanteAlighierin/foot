@@ -54,6 +54,7 @@
 * Incorrect multi-column character spacer insertion when reflowing
   text.
 * Compilation errors in 32-bit builds.
+* Mouse cursor style of top and left margins.
 
 
 ### Security
