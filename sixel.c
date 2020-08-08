@@ -9,6 +9,7 @@
 #include "render.h"
 #include "sixel-hls.h"
 #include "util.h"
+#include "xmalloc.h"
 
 static size_t count;
 
@@ -38,13 +39,13 @@ sixel_init(struct terminal *term)
     term->sixel.param = 0;
     term->sixel.param_idx = 0;
     memset(term->sixel.params, 0, sizeof(term->sixel.params));
-    term->sixel.image.data = malloc(1 * 6 * sizeof(term->sixel.image.data[0]));
+    term->sixel.image.data = xmalloc(1 * 6 * sizeof(term->sixel.image.data[0]));
     term->sixel.image.width = 1;
     term->sixel.image.height = 6;
     term->sixel.image.autosize = true;
 
     if (term->sixel.palette == NULL) {
-        term->sixel.palette = calloc(
+        term->sixel.palette = xcalloc(
             term->sixel.palette_size, sizeof(term->sixel.palette[0]));
     }
 
@@ -240,7 +241,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
             .cols = six->cols,
             .pos = six->pos,
         };
-        imgs[0].data = malloc(imgs[0].width * imgs[0].height * sizeof(uint32_t));
+        imgs[0].data = xmalloc(imgs[0].width * imgs[0].height * sizeof(uint32_t));
         memcpy(imgs[0].data, six->data, imgs[0].width * imgs[0].height * sizeof(uint32_t));
     }
 
@@ -254,7 +255,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
                 six->pos.col,
                 (six->pos.row + rel_below) & (term->grid->num_rows - 1)},
         };
-        imgs[1].data = malloc(imgs[1].width * imgs[1].height * sizeof(uint32_t));
+        imgs[1].data = xmalloc(imgs[1].width * imgs[1].height * sizeof(uint32_t));
         memcpy(
             imgs[1].data,
             &((const uint32_t *)six->data)[rel_below * term->cell_height * six->width],
@@ -271,7 +272,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
                 six->pos.col,
                 (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
         };
-        imgs[2].data = malloc(imgs[2].width * imgs[2].height * sizeof(uint32_t));
+        imgs[2].data = xmalloc(imgs[2].width * imgs[2].height * sizeof(uint32_t));
         for (size_t i = 0; i < imgs[2].height; i++)
             memcpy(
                 &((uint32_t *)imgs[2].data)[i * imgs[2].width],
@@ -289,7 +290,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
                 six->pos.col + rel_right,
                 (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
         };
-        imgs[3].data = malloc(imgs[3].width * imgs[3].height * sizeof(uint32_t));
+        imgs[3].data = xmalloc(imgs[3].width * imgs[3].height * sizeof(uint32_t));
         for (size_t i = 0; i < imgs[3].height; i++)
             memcpy(
                 &((uint32_t *)imgs[3].data)[i * imgs[3].width],
@@ -464,7 +465,7 @@ sixel_unhook(struct terminal *term)
         if (pixel_row_idx == 0)
             img_data = term->sixel.image.data;
         else {
-            img_data = malloc(height * stride);
+            img_data = xmalloc(height * stride);
             memcpy(
                 img_data,
                 &((uint8_t *)term->sixel.image.data)[pixel_row_idx * stride],
@@ -566,7 +567,7 @@ resize(struct terminal *term, int new_width, int new_height)
     } else {
         /* Width (and thus stride) change - need to allocate a new buffer */
         assert(new_width > old_width);
-        new_data = malloc(alloc_new_width * alloc_new_height * sizeof(uint32_t));
+        new_data = xmalloc(alloc_new_width * alloc_new_height * sizeof(uint32_t));
 
         /* Copy old rows, and initialize new columns to background color */
         for (int r = 0; r < old_height; r++) {

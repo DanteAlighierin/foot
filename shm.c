@@ -23,6 +23,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "macros.h"
+#include "xmalloc.h"
 
 #define TIME_SCROLL 0
 
@@ -150,7 +151,7 @@ instantiate_offset(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
 
     void *mmapped = MAP_FAILED;
     struct wl_buffer *wl_buf = NULL;
-    pixman_image_t **pix = calloc(buf->pix_instances, sizeof(*pix));
+    pixman_image_t **pix = xcalloc(buf->pix_instances, sizeof(*pix));
 
     mmapped = (uint8_t *)buf->real_mmapped + new_offset;
 

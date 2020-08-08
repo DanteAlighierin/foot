@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <errno.h>
 
 #define LOG_MODULE "base64"
 #define LOG_ENABLE_DBG 0
@@ -47,10 +48,14 @@ base64_decode(const char *s)
 {
     const size_t len = strlen(s);
 
-    if (len % 4 != 0)
+    if (len % 4 != 0) {
+        errno = EINVAL;
         return NULL;
+    }
 
     char *ret = malloc(len / 4 * 3 + 1);
+    if (unlikely(ret == NULL))
+        return NULL;
 
     for (size_t i = 0, o = 0; i < len; i += 4, o += 3) {
         unsigned char c0 = s[i + 0];
@@ -60,6 +65,7 @@ base64_decode(const char *s)
 
         if (!is_valid(c0) || !is_valid(c1) || !is_valid(c2) || !is_valid(c3)) {
             free(ret);
+            errno = EINVAL;
             return NULL;
         }
 
@@ -87,10 +93,12 @@ char *
 base64_encode(const uint8_t *data, size_t size)
 {
     assert(size % 3 == 0);
-    if (size %3 != 0)
+    if (unlikely(size % 3 != 0))
         return NULL;
 
     char *ret = malloc(size / 3 * 4 + 1);
+    if (unlikely(ret == NULL))
+        return NULL;
 
     for (size_t i = 0, o = 0; i < size; i += 3, o += 4) {
         int x = data[i + 0];

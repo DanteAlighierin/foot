@@ -22,6 +22,7 @@
 #include "selection.h"
 #include "shm.h"
 #include "util.h"
+#include "xmalloc.h"
 
 #define TIME_FRAME_RENDERING 0
 #define TIME_SCROLL_DAMAGE 0
@@ -43,7 +44,12 @@ static void fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data);
 struct renderer *
 render_init(struct fdm *fdm, struct wayland *wayl)
 {
-    struct renderer *renderer = calloc(1, sizeof(*renderer));
+    struct renderer *renderer = malloc(sizeof(*renderer));
+    if (unlikely(renderer == NULL)) {
+        LOG_ERRNO("malloc() failed");
+        return NULL;
+    }
+
     *renderer = (struct renderer) {
         .fdm = fdm,
         .wayl = wayl,
@@ -1691,7 +1697,7 @@ grid_render(struct terminal *term)
         if (feedback == NULL) {
             LOG_WARN("failed to create presentation feedback");
         } else {
-            struct presentation_context *ctx = malloc(sizeof(*ctx));
+            struct presentation_context *ctx = xmalloc(sizeof(*ctx));
             *ctx = (struct presentation_context){
                 .term = term,
                 .input.tv_sec = term->render.input_time.tv_sec,
@@ -1840,7 +1846,7 @@ render_update_title(struct terminal *term)
     char *copy = NULL;
 
     if (strlen(title) > max_len) {
-        copy = strndup(title, max_len);
+        copy = xstrndup(title, max_len);
         title = copy;
     }
 

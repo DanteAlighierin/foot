@@ -752,7 +752,7 @@ parse_section_key_bindings(
         }
 
         pipe_len = pipe_cmd_end - value - 1;
-        pipe_cmd = strndup(&value[1], pipe_len);
+        pipe_cmd = xstrndup(&value[1], pipe_len);
 
         if (!tokenize_cmdline(pipe_cmd, &pipe_argv)) {
             LOG_AND_NOTIFY_ERR("%s:%d: syntax error in command line", path, lineno);

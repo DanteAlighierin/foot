@@ -8,6 +8,7 @@
 #include "log.h"
 #include "sixel.h"
 #include "util.h"
+#include "xmalloc.h"
 
 void
 grid_swap_row(struct grid *grid, int row_a, int row_b)
@@ -28,16 +29,16 @@ grid_swap_row(struct grid *grid, int row_a, int row_b)
 struct row *
 grid_row_alloc(int cols, bool initialize)
 {
-    struct row *row = malloc(sizeof(*row));
+    struct row *row = xmalloc(sizeof(*row));
     row->dirty = false;
     row->linebreak = false;
 
     if (initialize) {
-        row->cells = calloc(cols, sizeof(row->cells[0]));
+        row->cells = xcalloc(cols, sizeof(row->cells[0]));
         for (size_t c = 0; c < cols; c++)
             row->cells[c].attrs.clean = 1;
     } else
-        row->cells = malloc(cols * sizeof(row->cells[0]));
+        row->cells = xmalloc(cols * sizeof(row->cells[0]));
 
     return row;
 }
@@ -65,7 +66,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
     int new_col_idx = 0;
     int new_row_idx = 0;
 
-    struct row **new_grid = calloc(new_rows, sizeof(new_grid[0]));
+    struct row **new_grid = xcalloc(new_rows, sizeof(new_grid[0]));
     struct row *new_row = new_grid[new_row_idx];
 
     assert(new_row == NULL);

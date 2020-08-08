@@ -10,6 +10,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "tllist.h"
+#include "xmalloc.h"
 
 struct reaper {
     struct fdm *fdm;
@@ -39,7 +40,7 @@ reaper_init(struct fdm *fdm)
         return NULL;
     }
 
-    struct reaper *reaper = malloc(sizeof(*reaper));
+    struct reaper *reaper = xmalloc(sizeof(*reaper));
     *reaper = (struct reaper){
         .fdm = fdm,
         .fd = fd,

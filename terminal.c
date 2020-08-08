@@ -33,6 +33,7 @@
 #include "spawn.h"
 #include "util.h"
 #include "vt.h"
+#include "xmalloc.h"
 
 #define PTMX_TIMING 0
 
@@ -93,7 +94,7 @@ enqueue_data:
      * handler take care of it
      */
     {
-        void *copy = malloc(len);
+        void *copy = xmalloc(len);
         memcpy(copy, _data, len);
 
         struct ptmx_buffer queued = {
@@ -510,11 +511,11 @@ initialize_render_workers(struct terminal *term)
         goto err_sem_destroy;
     }
 
-    term->render.workers.threads = calloc(
+    term->render.workers.threads = xcalloc(
         term->render.workers.count, sizeof(term->render.workers.threads[0]));
 
     for (size_t i = 0; i < term->render.workers.count; i++) {
-        struct render_worker_context *ctx = malloc(sizeof(*ctx));
+        struct render_worker_context *ctx = xmalloc(sizeof(*ctx));
         *ctx = (struct render_worker_context) {
             .term = term,
             .my_id = 1 + i,
@@ -685,7 +686,7 @@ reload_fonts(struct terminal *term)
             snprintf(size, sizeof(size), ":size=%.2f", term->font_sizes[i].pt_size);
 
         size_t len = strlen(it->item.pattern) + strlen(size) + 1;
-        names[i] = malloc(len);
+        names[i] = xmalloc(len);
 
         strcpy(names[i], it->item.pattern);
         strcat(names[i], size);
@@ -767,6 +768,10 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
     int app_sync_updates_fd = -1;
 
     struct terminal *term = malloc(sizeof(*term));
+    if (unlikely(term == NULL)) {
+        LOG_ERRNO("malloc() failed");
+        return NULL;
+    }
 
     if ((ptmx = posix_openpt(O_RDWR | O_NOCTTY)) == -1) {
         LOG_ERRNO("failed to open PTY");
@@ -836,7 +841,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .quit = false,
         .ptmx = ptmx,
         .ptmx_buffer = tll_init(),
-        .font_sizes = malloc(sizeof(term->font_sizes[0]) * tll_length(conf->fonts)),
+        .font_sizes = xmalloc(sizeof(term->font_sizes[0]) * tll_length(conf->fonts)),
         .font_dpi = 0.,
         .font_subpixel = (conf->colors.alpha == 0xffff  /* Can't do subpixel rendering on transparent background */
                           ? FCFT_SUBPIXEL_DEFAULT
@@ -929,8 +934,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .hold_at_exit = conf->hold_at_exit,
         .shutdown_cb = shutdown_cb,
         .shutdown_data = shutdown_data,
-        .foot_exe = strdup(foot_exe),
-        .cwd = strdup(cwd),
+        .foot_exe = xstrdup(foot_exe),
+        .cwd = xstrdup(cwd),
     };
 
     {
@@ -2228,7 +2233,7 @@ void
 term_set_window_title(struct terminal *term, const char *title)
 {
     free(term->window_title);
-    term->window_title = strdup(title);
+    term->window_title = xstrdup(title);
     render_refresh_title(term);
 }
 

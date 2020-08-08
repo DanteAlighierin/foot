@@ -18,6 +18,7 @@
 #include "util.h"
 #include "version.h"
 #include "vt.h"
+#include "xmalloc.h"
 
 #define UNHANDLED()        LOG_DBG("unhandled: %s", csi_as_string(term, final, -1))
 #define UNHANDLED_SGR(idx) LOG_DBG("unhandled: %s", csi_as_string(term, 'm', idx))
@@ -933,7 +934,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 unsigned what = vt_param_get(term, 1, 0);
                 if (what == 0 || what == 2) {
                     tll_push_back(
-                        term->window_title_stack, strdup(term->window_title));
+                        term->window_title_stack, xstrdup(term->window_title));
                 }
                 break;
             }

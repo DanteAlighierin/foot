@@ -13,6 +13,7 @@
 #include "grid.h"
 #include "osc.h"
 #include "util.h"
+#include "xmalloc.h"
 
 #define UNHANDLED() LOG_DBG("unhandled: %s", esc_as_string(term, final))
 
@@ -649,7 +650,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
 
             if (term->composed_count < CELL_COMB_CHARS_HI) {
                 term->composed_count++;
-                term->composed = realloc(term->composed, term->composed_count * sizeof(term->composed[0]));
+                term->composed = xrealloc(term->composed, term->composed_count * sizeof(term->composed[0]));
                 term->composed[term->composed_count - 1] = new_cc;
 
                 term_print(term, CELL_COMB_CHARS_LO + term->composed_count - 1, base_width);

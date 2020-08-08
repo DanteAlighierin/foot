@@ -20,6 +20,7 @@
 
 #include "terminal.h"
 #include "tokenize.h"
+#include "xmalloc.h"
 
 static bool
 is_valid_shell(const char *shell)
@@ -217,9 +218,9 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
 
     const char *file;
     if (login_shell) {
-        file = strdup(argv[0]);
+        file = xstrdup(argv[0]);
 
-        char *arg0 = malloc(strlen(argv[0]) + 1 + 1);
+        char *arg0 = xmalloc(strlen(argv[0]) + 1 + 1);
         arg0[0] = '-';
         arg0[1] = '\0';
         strcat(arg0, argv[0]);
@@ -291,7 +292,7 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         char **shell_argv = NULL;
 
         if (argc == 0) {
-            char *shell_copy = strdup(conf_shell);
+            char *shell_copy = xstrdup(conf_shell);
             if (!tokenize_cmdline(shell_copy, &_shell_argv)) {
                 free(shell_copy);
                 (void)!write(fork_pipe[1], &errno, sizeof(errno));
@@ -302,7 +303,7 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
             size_t count = 0;
             for (; argv[count] != NULL; count++)
                 ;
-            shell_argv = malloc((count + 1) * sizeof(shell_argv[0]));
+            shell_argv = xmalloc((count + 1) * sizeof(shell_argv[0]));
             for (size_t i = 0; i < count; i++)
                 shell_argv[i] = argv[i];
             shell_argv[count] = NULL;
