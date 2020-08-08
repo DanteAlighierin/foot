@@ -1253,8 +1253,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         bool cursor_is_on_new_cell
             = old_col != seat->mouse.col || old_row != seat->mouse.row;
 
-        /* Cursor is inside the grid, or in the margins (or even
-         * outside the terminal window) */
+        /* Cursor is inside the grid, i.e. *not* in the margins */
         bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
 
         /* Update selection */
