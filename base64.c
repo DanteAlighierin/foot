@@ -37,12 +37,9 @@ static const char lookup[64] = {
 };
 
 static inline bool
-is_valid(char c)
+is_valid(unsigned char c)
 {
-    return ((c >= 'A' && c <= 'Z') ||
-            (c >= 'a' && c <= 'z') ||
-            (c >= '0' && c <= '9') ||
-            c == '+' || c == '/' || c == '=');
+    return reverse_lookup[c] != 0 || c == 'A' || c == '=';
 }
 
 char *
