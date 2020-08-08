@@ -1048,6 +1048,12 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 
     switch ((term->active_surface = term_surface_kind(term, surface))) {
     case TERM_SURF_GRID: {
+        /*
+         * Translate x,y pixel coordinate to a cell coordinate, or -1
+         * if the cursor is outside the grid. I.e. if it is inside the
+         * margins.
+         */
+
         if (x < term->margins.left || x >= term->width - term->margins.right)
             seat->mouse.col = -1;
         else
