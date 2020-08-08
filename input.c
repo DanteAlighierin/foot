@@ -1049,11 +1049,21 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 
     switch ((term->active_surface = term_surface_kind(term, surface))) {
     case TERM_SURF_GRID: {
-        int col = (x - term->margins.left) / term->cell_width;
-        int row = (y - term->margins.top) / term->cell_height;
+        /*
+         * Translate x,y pixel coordinate to a cell coordinate, or -1
+         * if the cursor is outside the grid. I.e. if it is inside the
+         * margins.
+         */
 
-        seat->mouse.col = col >= 0 && col < term->cols ? col : -1;
-        seat->mouse.row = row >= 0 && row < term->rows ? row : -1;
+        if (x < term->margins.left || x >= term->width - term->margins.right)
+            seat->mouse.col = -1;
+        else
+            seat->mouse.col = (x - term->margins.left) / term->cell_width;
+
+        if (y < term->margins.top || y >= term->height - term->margins.bottom)
+            seat->mouse.row = -1;
+        else
+            seat->mouse.row = (y - term->margins.top) / term->cell_height;
 
         term_xcursor_update_for_seat(term, seat);
         break;
@@ -1200,33 +1210,65 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_GRID: {
-        term_xcursor_update_for_seat(term, seat);
-
-        int col = (x - term->margins.left) / term->cell_width;
-        int row = (y - term->margins.top) / term->cell_height;
-
         int old_col = seat->mouse.col;
         int old_row = seat->mouse.row;
 
-        seat->mouse.col = col >= 0 && col < term->cols ? col : -1;
-        seat->mouse.row = row >= 0 && row < term->rows ? row : -1;
+        /*
+         * While the seat's mouse coordinates must always be on the
+         * grid, or -1, we allow updating the selection even when the
+         * mouse is outside the grid (could also be outside the
+         * terminal window).
+         */
+        int selection_col;
+        int selection_row;
 
-        if (seat->mouse.col < 0 || seat->mouse.row < 0)
-            break;
+        if (x < term->margins.left) {
+            seat->mouse.col = -1;
+            selection_col = 0;
+        } else if (x >= term->width - term->margins.right) {
+            seat->mouse.col = -1;
+            selection_col = term->cols - 1;
+        } else {
+            seat->mouse.col = (x - term->margins.left) / term->cell_width;
+            selection_col = seat->mouse.col;
+        }
 
-        bool update_selection = seat->mouse.button == BTN_LEFT || seat->mouse.button == BTN_RIGHT;
-        bool update_selection_early = term->selection.end.row == -1;
+        if (y < term->margins.top) {
+            seat->mouse.row = -1;
+            selection_row = 0;
+        } else if (y >= term->height - term->margins.bottom) {
+            seat->mouse.row = -1;
+            selection_row = term->rows - 1;
+        } else {
+            seat->mouse.row = (y - term->margins.top) / term->cell_height;
+            selection_row = seat->mouse.row;
+        }
 
-        if (update_selection && update_selection_early)
-            selection_update(term, seat->mouse.col, seat->mouse.row);
+        assert(seat->mouse.col == -1 || (seat->mouse.col >= 0 && seat->mouse.col < term->cols));
+        assert(seat->mouse.row == -1 || (seat->mouse.row >= 0 && seat->mouse.row < term->rows));
 
-        if (old_col == seat->mouse.col && old_row == seat->mouse.row)
-            break;
+        term_xcursor_update_for_seat(term, seat);
 
-        if (update_selection && !update_selection_early)
-            selection_update(term, seat->mouse.col, seat->mouse.row);
+        /* Cursor has moved to a different cell since last time */
+        bool cursor_is_on_new_cell
+            = old_col != seat->mouse.col || old_row != seat->mouse.row;
 
-        if (!term_mouse_grabbed(term, seat)) {
+        /* Cursor is inside the grid, i.e. *not* in the margins */
+        bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+
+        /* Update selection */
+        if (seat->mouse.button == BTN_LEFT || seat->mouse.button == BTN_RIGHT) {
+            if (cursor_is_on_new_cell || term->selection.end.row < 0)
+                selection_update(term, selection_col, selection_row);
+        }
+
+        /* Send mouse event to client application */
+        if (!term_mouse_grabbed(term, seat) &&
+            cursor_is_on_new_cell && cursor_is_on_grid)
+        {
+            assert(seat->mouse.col < term->cols);
+            assert(seat->mouse.row < term->rows);
+
             term_mouse_motion(
                 term, seat->mouse.button, seat->mouse.row, seat->mouse.col,
                 seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
@@ -1395,19 +1437,19 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_GRID: {
         search_cancel(term);
 
+        bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
             if (button == BTN_LEFT && seat->mouse.count <= 3) {
                 selection_cancel(term);
 
-                if (selection_enabled(term, seat)) {
+                if (selection_enabled(term, seat) && cursor_is_on_grid) {
                     switch (seat->mouse.count) {
                     case 1:
-                        if (seat->mouse.col >= 0 && seat->mouse.row >= 0) {
-                            selection_start(
-                                term, seat->mouse.col, seat->mouse.row,
-                                seat->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
-                        }
+                        selection_start(
+                            term, seat->mouse.col, seat->mouse.row,
+                            seat->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
                         break;
 
                     case 2:
@@ -1424,7 +1466,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             }
 
             else if (button == BTN_RIGHT && seat->mouse.count == 1) {
-                if (selection_enabled(term, seat)) {
+                if (selection_enabled(term, seat) && cursor_is_on_grid) {
                     selection_extend(
                         seat, term, seat->mouse.col, seat->mouse.row, serial);
                 }
@@ -1449,7 +1491,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 }
             }
 
-            if (!term_mouse_grabbed(term, seat)) {
+            if (!term_mouse_grabbed(term, seat) && cursor_is_on_grid) {
                 term_mouse_down(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
@@ -1461,7 +1503,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             if (button == BTN_LEFT && term->selection.end.col != -1)
                 selection_finalize(seat, term, serial);
 
-            if (!term_mouse_grabbed(term, seat)) {
+            if (!term_mouse_grabbed(term, seat) && cursor_is_on_grid) {
                 term_mouse_up(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
@@ -1513,16 +1555,23 @@ mouse_scroll(struct seat *seat, int amount)
             keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_DOWN);
         keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_UP);
     } else {
-        if (!term_mouse_grabbed(term, seat)) {
+        if (!term_mouse_grabbed(term, seat) &&
+            seat->mouse.col >= 0 && seat->mouse.row >= 0)
+        {
+            assert(seat->mouse.col < term->cols);
+            assert(seat->mouse.row < term->rows);
+
             for (int i = 0; i < amount; i++) {
                 term_mouse_down(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
             }
+
             term_mouse_up(
                 term, button, seat->mouse.row, seat->mouse.col,
                 seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
         }
+
         scrollback(term, amount);
     }
 }
