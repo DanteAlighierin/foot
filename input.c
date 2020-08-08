@@ -1247,17 +1247,19 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         bool cursor_is_on_new_cell
             = old_col != seat->mouse.col || old_row != seat->mouse.row;
 
+        /* Cursor is inside the grid, or in the margins (or even
+         * outside the terminal window) */
+        bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+
         /* Update selection */
-        if (seat->mouse.button == BTN_LEFT || seat->mouse.button) {
+        if (seat->mouse.button == BTN_LEFT || seat->mouse.button == BTN_RIGHT) {
             if (cursor_is_on_new_cell || term->selection.end.row < 0)
                 selection_update(term, selection_col, selection_row);
         }
 
         /* Send mouse event to client application */
         if (!term_mouse_grabbed(term, seat) &&
-            cursor_is_on_new_cell &&
-            seat->mouse.col >= 0 &&
-            seat->mouse.row >= 0)
+            cursor_is_on_new_cell && cursor_is_on_grid)
         {
             assert(seat->mouse.col < term->cols);
             assert(seat->mouse.row < term->rows);
