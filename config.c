@@ -657,7 +657,7 @@ verify_key_combo(struct config *conf, const char *combo, const char *path, unsig
 {
     /* Check regular key bindings */
     tll_foreach(conf->bindings.key, it) {
-        char *copy = xstrdup(it->item.key);
+        char *copy = xstrdup(it->item.combos);
 
         for (char *save = NULL, *collision = strtok_r(copy, " ", &save);
              collision != NULL;
@@ -680,7 +680,7 @@ verify_key_combo(struct config *conf, const char *combo, const char *path, unsig
 
     /* Check scrollback search bindings */
     tll_foreach(conf->bindings.search, it) {
-        char *copy = xstrdup(it->item.key);
+        char *copy = xstrdup(it->item.combos);
 
         for (char *save = NULL, *collision = strtok_r(copy, " ", &save);
              collision != NULL;
@@ -708,6 +708,46 @@ verify_key_combo(struct config *conf, const char *combo, const char *path, unsig
 
     if (!valid_combo) {
         LOG_AND_NOTIFY_ERR("%s:%d: invalid key combination: %s", path, lineno, combo);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+verify_mouse_combo(struct config *conf,
+                   const char *combo, enum bind_action_normal action,
+                   const char *path, unsigned lineno)
+{
+    tll_foreach(conf->bindings.mouse, it) {
+        char *copy = xstrdup(it->item.combos);
+        for (char *save = NULL, *collision = strtok_r(copy, " ", &save);
+             collision != NULL;
+             collision = strtok_r(NULL, " ", &save))
+        {
+            if (strcmp(combo, collision) == 0) {
+                LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s'", path, lineno, combo,
+                                   binding_action_map[it->item.action]);
+                free(copy);
+                return false;
+            }
+        }
+
+        free(copy);
+    }
+
+    struct xkb_context *ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+    struct xkb_keymap *keymap = xkb_keymap_new_from_names(
+        ctx, &(struct xkb_rule_names){}, XKB_KEYMAP_COMPILE_NO_FLAGS);
+
+    bool valid_combo = input_parse_mouse_binding(keymap, combo, action, NULL);
+
+    xkb_keymap_unref(keymap);
+    xkb_context_unref(ctx);
+
+    if (!valid_combo) {
+        LOG_AND_NOTIFY_ERR("%s:%d: invalid mouse binding: %s",
+                           path, lineno, combo);
         return false;
     }
 
@@ -780,7 +820,7 @@ parse_section_key_bindings(
         if (strcasecmp(value, "none") == 0) {
             tll_foreach(conf->bindings.key, it) {
                 if (it->item.action == action) {
-                    free(it->item.key);
+                    free(it->item.combos);
                     free(it->item.pipe.cmd);
                     free(it->item.pipe.argv);
                     tll_remove(conf->bindings.key, it);
@@ -805,11 +845,11 @@ parse_section_key_bindings(
                   argv_compare(it->item.pipe.argv, pipe_argv) == 0)))
             {
 
-                free(it->item.key);
+                free(it->item.combos);
                 free(it->item.pipe.cmd);
                 free(it->item.pipe.argv);
 
-                it->item.key = xstrdup(value);
+                it->item.combos = xstrdup(value);
                 it->item.pipe.cmd = pipe_cmd;
                 it->item.pipe.argv = pipe_argv;
                 already_added = true;
@@ -820,7 +860,7 @@ parse_section_key_bindings(
         if (!already_added) {
             struct config_key_binding_normal binding = {
                 .action = action,
-                .key = xstrdup(value),
+                .combos = xstrdup(value),
                 .pipe = {
                     .cmd = pipe_cmd,
                     .argv = pipe_argv,
@@ -854,24 +894,21 @@ parse_section_search_bindings(
         if (strcasecmp(value, "none") == 0) {
             tll_foreach(conf->bindings.search, it) {
                 if (it->item.action == action) {
-                    free(it->item.key);
+                    free(it->item.combos);
                     tll_remove(conf->bindings.search, it);
                 }
             }
             return true;
         }
 
-        if (!verify_key_combo(conf, value, path, lineno)) {
+        if (!verify_key_combo(conf, value, path, lineno))
             return false;
-        }
 
         bool already_added = false;
         tll_foreach(conf->bindings.search, it) {
             if (it->item.action == action) {
-
-                free(it->item.key);
-
-                it->item.key = xstrdup(value);
+                free(it->item.combos);
+                it->item.combos = xstrdup(value);
                 already_added = true;
                 break;
             }
@@ -880,7 +917,7 @@ parse_section_search_bindings(
         if (!already_added) {
             struct config_key_binding_search binding = {
                 .action = action,
-                .key = xstrdup(value),
+                .combos = xstrdup(value),
             };
             tll_push_back(conf->bindings.search, binding);
         }
@@ -907,6 +944,7 @@ parse_section_mouse_bindings(
         if (strcmp(value, "NONE") == 0) {
             tll_foreach(conf->bindings.mouse, it) {
                 if (it->item.action == action) {
+                    free(it->item.combos);
                     tll_remove(conf->bindings.mouse, it);
                     break;
                 }
@@ -914,6 +952,29 @@ parse_section_mouse_bindings(
             return true;
         }
 
+        if (!verify_mouse_combo(conf, value, action, path, lineno))
+            return false;
+
+        bool already_added = false;
+        tll_foreach(conf->bindings.mouse, it) {
+            if (it->item.action == action) {
+                free(it->item.combos);
+                it->item.combos = xstrdup(value);
+                already_added = true;
+                break;
+            }
+        }
+
+        if (!already_added) {
+            struct config_mouse_binding binding = {
+                .action = action,
+                .combos = xstrdup(value),
+            };
+            tll_push_back(conf->bindings.mouse, binding);
+        }
+
+        return true;
+#if 0
         const char *map[] = {
             [BTN_LEFT] = "BTN_LEFT",
             [BTN_RIGHT] = "BTN_RIGHT",
@@ -951,8 +1012,9 @@ parse_section_mouse_bindings(
             }
 
             if (!already_added) {
-                struct mouse_binding binding = {
+                struct config_mouse_binding binding = {
                     .action = action,
+                    .mods = xstrdup(""),
                     .button = i,
                     .count = count,
                 };
@@ -963,7 +1025,7 @@ parse_section_mouse_bindings(
 
         LOG_AND_NOTIFY_ERR("%s:%d: invalid mouse button: %s", path, lineno, value);
         return false;
-
+#endif
     }
 
     LOG_AND_NOTIFY_ERR("%s:%u: [mouse-bindings]: %s: invalid key", path, lineno, key);
@@ -1340,7 +1402,7 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
     tll_push_back(conf->bindings.key, font_size_reset);
     tll_push_back(conf->bindings.key, spawn_terminal);
 
-    struct mouse_binding primary_paste = {BIND_ACTION_PRIMARY_PASTE, BTN_MIDDLE, 1};
+    struct config_mouse_binding primary_paste = {BIND_ACTION_PRIMARY_PASTE, xstrdup("BTN_MIDDLE")};
     tll_push_back(conf->bindings.mouse, primary_paste);
 
     struct config_key_binding_search search_cancel =          {BIND_ACTION_SEARCH_CANCEL,           xstrdup("Control+g Escape")};
@@ -1428,12 +1490,14 @@ config_free(struct config conf)
     free(conf.server_socket_path);
 
     tll_foreach(conf.bindings.key, it) {
-        free(it->item.key);
+        free(it->item.combos);
         free(it->item.pipe.cmd);
         free(it->item.pipe.argv);
     }
+    tll_foreach(conf.bindings.mouse, it)
+        free(it->item.combos);
     tll_foreach(conf.bindings.search, it)
-        free(it->item.key);
+        free(it->item.combos);
 
     tll_free(conf.bindings.key);
     tll_free(conf.bindings.mouse);

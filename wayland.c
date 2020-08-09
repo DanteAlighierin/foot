@@ -125,6 +125,8 @@ seat_destroy(struct seat *seat)
         tll_free(it->item.bind.key_codes);
     tll_free(seat->kbd.bindings.search);
 
+    tll_free(seat->mouse.bindings);
+
     if (seat->kbd.xkb_compose_state != NULL)
         xkb_compose_state_unref(seat->kbd.xkb_compose_state);
     if (seat->kbd.xkb_compose_table != NULL)
@@ -761,9 +763,6 @@ handle_global(void *data, struct wl_registry *registry,
 
         struct wl_seat *wl_seat = wl_registry_bind(
             wayl->registry, name, &wl_seat_interface, required);
-
-        /* Clipboard */
-        /* Primary selection */
 
         tll_push_back(wayl->seats, ((struct seat){
                     .wayl = wayl,

@@ -303,7 +303,8 @@ input_parse_key_binding(struct xkb_keymap *keymap, const char *combos,
                 if (sym == XKB_KEY_NoSymbol) {
                     LOG_ERR("%s: key binding is not a valid XKB symbol name",
                             key);
-                    break;
+                    free(copy);
+                    return false;
                 }
 
                 /*
@@ -347,6 +348,90 @@ input_parse_key_binding(struct xkb_keymap *keymap, const char *combos,
             tll_push_back(*bindings, binding);
         } else
             tll_free(key_codes);
+    }
+
+    free(copy);
+    return true;
+}
+
+bool
+input_parse_mouse_binding(struct xkb_keymap *keymap, const char *combos,
+                          enum bind_action_normal action,
+                          mouse_binding_list_t *bindings)
+{
+    if (combos == NULL)
+        return true;
+
+    char *copy = xstrdup(combos);
+    for (char *save1 = NULL, *combo = strtok_r(copy, " ", &save1);
+         combo != NULL;
+         combo = strtok_r(NULL, " ", &save1))
+    {
+        xkb_mod_mask_t mod_mask = 0;
+        int button = 0;
+
+        for (char *save2 = NULL, *key = strtok_r(combo, "+", &save2),
+                 *next_key = strtok_r(NULL, "+", &save2);
+             key != NULL;
+             key = next_key, next_key = strtok_r(NULL, "+", &save2))
+        {
+            if (next_key != NULL) {
+                /* Modifier */
+                xkb_mod_index_t mod = xkb_keymap_mod_get_index(keymap, key);
+
+                if (mod == -1) {
+                    LOG_ERR("%s: not a valid modifier name", key);
+                    free(copy);
+                    return false;
+                }
+
+                mod_mask |= 1 << mod;
+            }
+
+            else {
+                /* Button */
+                static const struct {
+                    const char *name;
+                    int code;
+                } map[] = {
+                    {"BTN_LEFT", BTN_LEFT},
+                    {"BTN_RIGHT", BTN_RIGHT},
+                    {"BTN_MIDDLE", BTN_MIDDLE},
+                    {"BTN_SIDE", BTN_SIDE},
+                    {"BTN_EXTRA", BTN_EXTRA},
+                    {"BTN_FORWARD", BTN_FORWARD},
+                    {"BTN_BACK", BTN_BACK},
+                    {"BTN_TASK", BTN_TASK},
+                };
+
+                for (size_t i = 0; i < ALEN(map); i++) {
+                    if (strcmp(key, map[i].name) == 0) {
+                        button = map[i].code;
+                        break;
+                    }
+                }
+
+                if (button == 0) {
+                    LOG_ERR("%s: invalid mouse button name", key);
+                    free(copy);
+                    return false;
+                }
+            }
+        }
+
+        if (button == 0)
+            continue;
+
+        if (bindings != NULL) {
+            const struct mouse_binding binding = {
+                .action = action,
+                .mods = mod_mask,
+                .button = button,
+                .count = 1,
+            };
+
+            tll_push_back(*bindings, binding);
+        }
     }
 
     free(copy);
@@ -402,6 +487,8 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         tll_free(it->item.bind.key_codes);
     tll_free(seat->kbd.bindings.search);
 
+    tll_free(seat->mouse.bindings);
+
     seat->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     seat->kbd.xkb_keymap = xkb_keymap_new_from_buffer(
         seat->kbd.xkb, map_str, size, XKB_KEYMAP_FORMAT_TEXT_V1,
@@ -427,7 +514,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     tll_foreach(wayl->conf->bindings.key, it) {
         key_binding_list_t bindings = tll_init();
         input_parse_key_binding(
-            seat->kbd.xkb_keymap, it->item.key, &bindings);
+            seat->kbd.xkb_keymap, it->item.combos, &bindings);
 
         tll_foreach(bindings, it2) {
             tll_push_back(
@@ -443,7 +530,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     tll_foreach(wayl->conf->bindings.search, it) {
         key_binding_list_t bindings = tll_init();
         input_parse_key_binding(
-            seat->kbd.xkb_keymap, it->item.key, &bindings);
+            seat->kbd.xkb_keymap, it->item.combos, &bindings);
 
         tll_foreach(bindings, it2) {
             tll_push_back(
@@ -452,6 +539,12 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
                     .bind = it2->item, .action = it->item.action}));
         }
         tll_free(bindings);
+    }
+
+    tll_foreach(wayl->conf->bindings.mouse, it) {
+        input_parse_mouse_binding(
+            seat->kbd.xkb_keymap, it->item.combos, it->item.action,
+            &seat->mouse.bindings);
     }
 }
 
@@ -1440,9 +1533,12 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
 
+        xkb_mod_mask_t mods = xkb_state_serialize_mods(
+            seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
+
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
-            if (button == BTN_LEFT && seat->mouse.count <= 3) {
+            if (button == BTN_LEFT && seat->mouse.count <= 3 && mods == 0) {
                 selection_cancel(term);
 
                 if (selection_enabled(term, seat) && cursor_is_on_grid) {
@@ -1466,7 +1562,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 }
             }
 
-            else if (button == BTN_RIGHT && seat->mouse.count == 1) {
+            else if (button == BTN_RIGHT && seat->mouse.count == 1 && mods == 0) {
                 if (selection_enabled(term, seat) && cursor_is_on_grid) {
                     selection_extend(
                         seat, term, seat->mouse.col, seat->mouse.row, serial);
@@ -1474,11 +1570,16 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             }
 
             else {
-                tll_foreach(wayl->conf->bindings.mouse, it) {
+                tll_foreach(seat->mouse.bindings, it) {
                     const struct mouse_binding *binding = &it->item;
 
                     if (binding->button != button) {
                         /* Wrong button */
+                        continue;
+                    }
+
+                    if (binding->mods != mods) {
+                        /* Modifier mismatch */
                         continue;
                     }
 

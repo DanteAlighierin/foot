@@ -53,9 +53,11 @@ struct key_binding_normal {
 
 struct mouse_binding {
     enum bind_action_normal action;
+    xkb_mod_mask_t mods;
     uint32_t button;
     int count;
 };
+typedef tll(struct mouse_binding) mouse_binding_list_t;
 
 enum bind_action_search {
     BIND_ACTION_SEARCH_NONE,
@@ -173,6 +175,8 @@ struct seat {
         /* We used a discrete axis event in the current pointer frame */
         double axis_aggregated;
         bool have_discrete;
+
+        mouse_binding_list_t bindings;
     } mouse;
 
     /* Clipboard */

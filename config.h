@@ -17,16 +17,21 @@ struct config_font {
 
 struct config_key_binding_normal {
     enum bind_action_normal action;
-    char *key;
+    char *combos;
     struct {
         char *cmd;
         char **argv;
     } pipe;
 };
 
+struct config_mouse_binding {
+    enum bind_action_normal action;
+    char *combos;
+};
+
 struct config_key_binding_search {
     enum bind_action_search action;
-    char *key;
+    char *combos;
 };
 
 struct config {
@@ -91,7 +96,7 @@ struct config {
     struct {
         /* Bindings for "normal" mode */
         tll(struct config_key_binding_normal) key;
-        tll(struct mouse_binding) mouse;
+        tll(struct config_mouse_binding) mouse;
 
         /*
          * Special modes
