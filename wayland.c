@@ -974,7 +974,12 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
 struct wayland *
 wayl_init(const struct config *conf, struct fdm *fdm)
 {
-    struct wayland *wayl = xcalloc(1, sizeof(*wayl));
+    struct wayland *wayl = calloc(1, sizeof(*wayl));
+    if (unlikely(wayl == NULL)) {
+        LOG_ERRNO("calloc() failed");
+        return NULL;
+    }
+
     wayl->conf = conf;
     wayl->fdm = fdm;
     wayl->fd = -1;
@@ -1131,7 +1136,12 @@ wayl_win_init(struct terminal *term)
     struct wayland *wayl = term->wl;
     const struct config *conf = term->conf;
 
-    struct wl_window *win = xcalloc(1, sizeof(*win));
+    struct wl_window *win = calloc(1, sizeof(*win));
+    if (unlikely(win == NULL)) {
+        LOG_ERRNO("calloc() failed");
+        return NULL;
+    }
+
     win->term = term;
     win->use_csd = CSD_UNKNOWN;
     win->csd.move_timeout_fd = -1;
