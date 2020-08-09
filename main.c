@@ -28,6 +28,7 @@
 #include "shm.h"
 #include "terminal.h"
 #include "version.h"
+#include "xmalloc.h"
 
 static volatile sig_atomic_t aborted = 0;
 
@@ -341,15 +342,15 @@ main(int argc, char *const *argv)
 
     if (conf_term != NULL) {
         free(conf.term);
-        conf.term = strdup(conf_term);
+        conf.term = xstrdup(conf_term);
     }
     if (conf_title != NULL) {
         free(conf.title);
-        conf.title = strdup(conf_title);
+        conf.title = xstrdup(conf_title);
     }
     if (conf_app_id != NULL) {
         free(conf.app_id);
-        conf.app_id = strdup(conf_app_id);
+        conf.app_id = xstrdup(conf_app_id);
     }
     if (login_shell)
         conf.login_shell = true;
@@ -367,7 +368,7 @@ main(int argc, char *const *argv)
         conf.height = conf_height;
     if (conf_server_socket_path != NULL) {
         free(conf.server_socket_path);
-        conf.server_socket_path = strdup(conf_server_socket_path);
+        conf.server_socket_path = xstrdup(conf_server_socket_path);
     }
     if (maximized)
         conf.startup_mode = STARTUP_MAXIMIZED;
@@ -389,7 +390,7 @@ main(int argc, char *const *argv)
         errno = 0;
         size_t buf_len = 1024;
         do {
-            cwd = realloc(cwd, buf_len);
+            cwd = xrealloc(cwd, buf_len);
             if (getcwd(cwd, buf_len) == NULL && errno != ERANGE) {
                 LOG_ERRNO("failed to get current working directory");
                 goto out;

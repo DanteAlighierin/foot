@@ -20,6 +20,7 @@
 #include "render.h"
 #include "util.h"
 #include "vt.h"
+#include "xmalloc.h"
 
 bool
 selection_enabled(const struct terminal *term, struct seat *seat)
@@ -692,9 +693,9 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
     size_t async_idx = 0;
     switch (async_write(fd, selection, len, &async_idx)) {
     case ASYNC_WRITE_REMAIN: {
-        struct clipboard_send *ctx = malloc(sizeof(*ctx));
+        struct clipboard_send *ctx = xmalloc(sizeof(*ctx));
         *ctx = (struct clipboard_send) {
-            .data = strdup(selection),
+            .data = xstrdup(selection),
             .len = len,
             .idx = async_idx,
         };
@@ -784,9 +785,9 @@ primary_send(void *data,
     size_t async_idx = 0;
     switch (async_write(fd, selection, len, &async_idx)) {
     case ASYNC_WRITE_REMAIN: {
-        struct clipboard_send *ctx = malloc(sizeof(*ctx));
+        struct clipboard_send *ctx = xmalloc(sizeof(*ctx));
         *ctx = (struct clipboard_send) {
-            .data = strdup(selection),
+            .data = xstrdup(selection),
             .len = len,
             .idx = async_idx,
         };
@@ -953,7 +954,7 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
         return done(user);
     }
 
-    struct clipboard_receive *ctx = malloc(sizeof(*ctx));
+    struct clipboard_receive *ctx = xmalloc(sizeof(*ctx));
     *ctx = (struct clipboard_receive) {
         .cb = cb,
         .done = done,

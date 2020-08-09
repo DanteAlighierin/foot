@@ -36,6 +36,7 @@
 #include "tokenize.h"
 #include "util.h"
 #include "vt.h"
+#include "xmalloc.h"
 
 struct pipe_context {
     char *text;
@@ -227,7 +228,7 @@ execute_binding(struct seat *seat, struct terminal *term,
         /* Close read end */
         close(pipe_fd[0]);
 
-        ctx = malloc(sizeof(*ctx));
+        ctx = xmalloc(sizeof(*ctx));
         *ctx = (struct pipe_context){
             .text = text,
             .left = len,
@@ -268,7 +269,7 @@ input_parse_key_binding(struct xkb_keymap *keymap, const char *combos,
 
     xkb_keysym_t sym = XKB_KEY_NoSymbol;
 
-    char *copy = strdup(combos);
+    char *copy = xstrdup(combos);
 
     for (char *save1 = NULL, *combo = strtok_r(copy, " ", &save1);
          combo != NULL;

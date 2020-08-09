@@ -19,6 +19,7 @@
 #include "shm.h"
 #include "terminal.h"
 #include "wayland.h"
+#include "xmalloc.h"
 
 struct client;
 struct server {
@@ -157,7 +158,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         }
 
         LOG_DBG("total len: %u", total_len);
-        client->buffer.data = malloc(total_len + 1);
+        client->buffer.data = xmalloc(total_len + 1);
         client->buffer.left = total_len;
         client->buffer.idx = 0;
 
@@ -277,7 +278,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     memcpy(&argc, p, sizeof(argc));
     p += sizeof(argc);
 
-    argv = calloc(argc + 1, sizeof(argv[0]));
+    argv = xcalloc(argc + 1, sizeof(argv[0]));
     LOG_DBG("argc = %d", argc);
 
     for (int i = 0; i < argc; i++) {
@@ -302,11 +303,11 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     client->conf = *server->conf;
     client->conf.term = strlen(term_env) > 0
-        ? strdup(term_env) : strdup(server->conf->term);
+        ? xstrdup(term_env) : xstrdup(server->conf->term);
     client->conf.title = strlen(title) > 0
-        ? strdup(title) : strdup(server->conf->title);
+        ? xstrdup(title) : xstrdup(server->conf->title);
     client->conf.app_id = strlen(app_id) > 0
-        ? strdup(app_id) : strdup(server->conf->app_id);
+        ? xstrdup(app_id) : xstrdup(server->conf->app_id);
     client->conf.hold_at_exit = hold;
     client->conf.login_shell = login_shell;
 
@@ -360,7 +361,7 @@ fdm_server(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
-    struct client *client = malloc(sizeof(*client));
+    struct client *client = xmalloc(sizeof(*client));
     *client = (struct client) {
         .server = server,
         .fd = client_fd,
@@ -451,6 +452,11 @@ server_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
     }
 
     server = malloc(sizeof(*server));
+    if (unlikely(server == NULL)) {
+        LOG_ERRNO("malloc() failed");
+        goto err;
+    }
+
     *server = (struct server) {
         .conf = conf,
         .fdm = fdm,

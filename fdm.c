@@ -50,6 +50,11 @@ fdm_init(void)
     }
 
     struct fdm *fdm = malloc(sizeof(*fdm));
+    if (unlikely(fdm == NULL)) {
+        LOG_ERRNO("malloc() failed");
+        return NULL;
+    }
+
     *fdm = (struct fdm){
         .epoll_fd = epoll_fd,
         .is_polling = false,
@@ -114,6 +119,11 @@ fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
 #endif
 
     struct handler *fd_data = malloc(sizeof(*fd_data));
+    if (unlikely(fd_data == NULL)) {
+        LOG_ERRNO("malloc() failed");
+        return false;
+    }
+
     *fd_data = (struct handler) {
         .fd = fd,
         .events = events,

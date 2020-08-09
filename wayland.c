@@ -29,6 +29,7 @@
 #include "render.h"
 #include "selection.h"
 #include "util.h"
+#include "xmalloc.h"
 
 static void
 csd_instantiate(struct wl_window *win)
@@ -250,7 +251,7 @@ seat_handle_name(void *data, struct wl_seat *wl_seat, const char *name)
 {
     struct seat *seat = data;
     free(seat->name);
-    seat->name = strdup(name);
+    seat->name = xstrdup(name);
 }
 
 static const struct wl_seat_listener seat_listener = {
@@ -318,8 +319,8 @@ output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
     mon->dim.mm.width = physical_width;
     mon->dim.mm.height = physical_height;
     mon->inch = sqrt(pow(mon->dim.mm.width, 2) + pow(mon->dim.mm.height, 2)) * 0.03937008;
-    mon->make = make != NULL ? strdup(make) : NULL;
-    mon->model = model != NULL ? strdup(model) : NULL;
+    mon->make = make != NULL ? xstrdup(make) : NULL;
+    mon->model = model != NULL ? xstrdup(model) : NULL;
     mon->subpixel = subpixel;
     output_update_ppi(mon);
 }
@@ -389,7 +390,7 @@ xdg_output_handle_name(void *data, struct zxdg_output_v1 *xdg_output,
                        const char *name)
 {
     struct monitor *mon = data;
-    mon->name = name != NULL ? strdup(name) : NULL;
+    mon->name = name != NULL ? xstrdup(name) : NULL;
 }
 
 static void
@@ -397,7 +398,7 @@ xdg_output_handle_description(void *data, struct zxdg_output_v1 *xdg_output,
                               const char *description)
 {
     struct monitor *mon = data;
-    mon->description = description != NULL ? strdup(description) : NULL;
+    mon->description = description != NULL ? xstrdup(description) : NULL;
 }
 
 static const struct zxdg_output_v1_listener xdg_output_listener = {
@@ -974,6 +975,11 @@ struct wayland *
 wayl_init(const struct config *conf, struct fdm *fdm)
 {
     struct wayland *wayl = calloc(1, sizeof(*wayl));
+    if (unlikely(wayl == NULL)) {
+        LOG_ERRNO("calloc() failed");
+        return NULL;
+    }
+
     wayl->conf = conf;
     wayl->fdm = fdm;
     wayl->fd = -1;
@@ -1131,6 +1137,11 @@ wayl_win_init(struct terminal *term)
     const struct config *conf = term->conf;
 
     struct wl_window *win = calloc(1, sizeof(*win));
+    if (unlikely(win == NULL)) {
+        LOG_ERRNO("calloc() failed");
+        return NULL;
+    }
+
     win->term = term;
     win->use_csd = CSD_UNKNOWN;
     win->csd.move_timeout_fd = -1;

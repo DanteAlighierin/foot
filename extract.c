@@ -20,6 +20,11 @@ struct extraction_context *
 extract_begin(enum selection_kind kind)
 {
     struct extraction_context *ctx = malloc(sizeof(*ctx));
+    if (unlikely(ctx == NULL)) {
+        LOG_ERRNO("malloc() failed");
+        return NULL;
+    }
+
     *ctx = (struct extraction_context){
         .selection_kind = kind,
     };
@@ -80,6 +85,11 @@ extract_finish(struct extraction_context *ctx, char **text, size_t *len)
     }
 
     *text = malloc(_len + 1);
+    if (unlikely(text == NULL)) {
+        LOG_ERRNO("malloc() failed");
+        goto out;
+    }
+
     wcstombs(*text, ctx->buf, _len + 1);
 
     if (len != NULL)

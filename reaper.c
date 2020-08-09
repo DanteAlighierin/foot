@@ -40,6 +40,13 @@ reaper_init(struct fdm *fdm)
     }
 
     struct reaper *reaper = malloc(sizeof(*reaper));
+    if (unlikely(reaper == NULL)) {
+        LOG_ERRNO("malloc() failed");
+        close(fd);
+        sigprocmask(SIG_UNBLOCK, &mask, NULL);
+        return NULL;
+    }
+
     *reaper = (struct reaper){
         .fdm = fdm,
         .fd = fd,

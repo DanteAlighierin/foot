@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
 #include <limits.h>
 #include <unistd.h>
 
@@ -14,6 +15,7 @@
 #include "selection.h"
 #include "terminal.h"
 #include "vt.h"
+#include "xmalloc.h"
 
 #define UNHANDLED() LOG_DBG("unhandled: OSC: %.*s", (int)term->vt.osc.idx, term->vt.osc.data)
 
@@ -22,12 +24,15 @@ osc_to_clipboard(struct terminal *term, const char *target,
                  const char *base64_data)
 {
     char *decoded = base64_decode(base64_data);
-    LOG_DBG("decoded: %s", decoded);
-
     if (decoded == NULL) {
-        LOG_WARN("OSC: invalid clipboard data: %s", base64_data);
+        if (errno == EINVAL)
+            LOG_WARN("OSC: invalid clipboard data: %s", base64_data);
+        else
+            LOG_ERRNO("base64_decode() failed");
         return;
     }
+
+    LOG_DBG("decoded: %s", decoded);
 
     bool to_clipboard = false;
     bool to_primary = false;
@@ -67,13 +72,13 @@ osc_to_clipboard(struct terminal *term, const char *target,
     }
 
     if (to_clipboard) {
-        char *copy = strdup(decoded);
+        char *copy = xstrdup(decoded);
         if (!text_to_clipboard(seat, term, copy, seat->kbd.serial))
             free(copy);
     }
 
     if (to_primary) {
-        char *copy = strdup(decoded);
+        char *copy = xstrdup(decoded);
         if (!text_to_primary(seat, term, copy, seat->kbd.serial))
             free(copy);
     }
@@ -184,7 +189,7 @@ osc_from_clipboard(struct terminal *term, const char *source)
     term_to_slave(term, &src, 1);
     term_to_slave(term, ";", 1);
 
-    struct clip_context *ctx = malloc(sizeof(*ctx));
+    struct clip_context *ctx = xmalloc(sizeof(*ctx));
     *ctx = (struct clip_context) {.seat = seat, .term = term};
 
     switch (src) {
@@ -374,7 +379,7 @@ osc_set_pwd(struct terminal *term, char *string)
 
     /* Decode %xx encoded characters */
     const char *path = hostname_end;
-    char *pwd = malloc(strlen(path) + 1);
+    char *pwd = xmalloc(strlen(path) + 1);
     char *p = pwd;
 
     while (true) {

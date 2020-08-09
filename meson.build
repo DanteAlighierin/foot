@@ -139,7 +139,10 @@ executable(
 executable(
   'footclient',
   'client.c',
-  'log.c', 'log.h', version,
+  'log.c', 'log.h',
+  'macros.h',
+  'xmalloc.c', 'xmalloc.h',
+  version,
   install: true)
 
 tic = find_program('tic', native: true)

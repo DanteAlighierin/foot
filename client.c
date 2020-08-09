@@ -16,6 +16,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "version.h"
+#include "xmalloc.h"
 
 static volatile sig_atomic_t aborted = 0;
 
@@ -201,7 +202,7 @@ main(int argc, char *const *argv)
         errno = 0;
         size_t buf_len = 1024;
         do {
-            cwd = realloc(cwd, buf_len);
+            cwd = xrealloc(cwd, buf_len);
             if (getcwd(cwd, buf_len) == NULL && errno != ERANGE) {
                 LOG_ERRNO("failed to get current working directory");
                 goto err;
