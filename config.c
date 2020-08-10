@@ -97,45 +97,43 @@ static const char *const search_binding_action_map[] = {
 static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
               "search binding action map size mismatch");
 
-#define LOG_AND_NOTIFY_ERR(fmt, ...)                        \
-    LOG_ERR(fmt, ## __VA_ARGS__);                           \
-    {                                                       \
-        char *text = xasprintf(fmt, ## __VA_ARGS__);        \
-        struct user_notification notif = {                  \
-            .kind = USER_NOTIFICATION_ERROR,                \
-            .text = text,                                   \
-        };                                                  \
-        tll_push_back(conf->notifications, notif);          \
-    }
+#define LOG_AND_NOTIFY_ERR(fmt, ...)                                \
+    do {                                                            \
+        LOG_ERR(fmt, ## __VA_ARGS__);                               \
+        char *text = xasprintf(fmt, ## __VA_ARGS__);                \
+        struct user_notification notif = {                          \
+            .kind = USER_NOTIFICATION_ERROR,                        \
+            .text = text,                                           \
+        };                                                          \
+        tll_push_back(conf->notifications, notif);                  \
+    } while (0)
 
 #define LOG_AND_NOTIFY_WARN(fmt, ...)                       \
-    LOG_WARN(fmt, ## __VA_ARGS__);                          \
-    {                                                       \
+    do {                                                    \
+        LOG_WARN(fmt, ## __VA_ARGS__);                      \
         char *text = xasprintf(fmt, ## __VA_ARGS__);        \
         struct user_notification notif = {                  \
             .kind = USER_NOTIFICATION_WARNING,              \
             .text = text,                                   \
         };                                                  \
         tll_push_back(conf->notifications, notif);          \
-    }
+    } while (0)
 
 #define LOG_AND_NOTIFY_ERRNO(fmt, ...)                                  \
-    {                                                                   \
+    do {                                                                \
         int _errno = errno;                                             \
         LOG_ERRNO(fmt, ## __VA_ARGS__);                                 \
-        {                                                               \
-            int len = snprintf(NULL, 0, fmt, ## __VA_ARGS__);           \
-            int errno_len = snprintf(NULL, 0, ": %s", strerror(_errno)); \
-            char *text = xmalloc(len + errno_len + 1);                  \
-            snprintf(text, len + errno_len + 1, fmt, ## __VA_ARGS__);   \
-            snprintf(&text[len], errno_len + 1, ": %s", strerror(_errno)); \
-            struct user_notification notif = {                          \
-                .kind = USER_NOTIFICATION_ERROR,                        \
-                .text = text,                                           \
-            };                                                          \
-            tll_push_back(conf->notifications, notif);                  \
-        }                                                               \
-    }
+        int len = snprintf(NULL, 0, fmt, ## __VA_ARGS__);               \
+        int errno_len = snprintf(NULL, 0, ": %s", strerror(_errno));    \
+        char *text = xmalloc(len + errno_len + 1);                      \
+        snprintf(text, len + errno_len + 1, fmt, ## __VA_ARGS__);       \
+        snprintf(&text[len], errno_len + 1, ": %s", strerror(_errno));  \
+        struct user_notification notif = {                              \
+            .kind = USER_NOTIFICATION_ERROR,                            \
+            .text = text,                                               \
+        };                                                              \
+        tll_push_back(conf->notifications, notif);                      \
+    } while(0)
 
 static char *
 get_shell(void)
