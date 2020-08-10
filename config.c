@@ -1007,15 +1007,39 @@ parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *ke
          combo = strtok_r(NULL, " ", &tok_ctx))
     {
         struct config_key_modifiers modifiers = {};
-        const char *key = strrchr(combo, '+');
+        char *key = strrchr(combo, '+');
 
         if (key == NULL) {
             /* No modifiers */
             key = combo;
         } else {
+            *key = '\0';
             if (!parse_modifiers(conf, combo, key - combo, &modifiers, path, lineno))
                 goto err;
             key++;  /* Skip past the '+' */
+        }
+
+        size_t count = 0;
+        {
+            char *_count = strrchr(key, '-');
+            if (_count != NULL) {
+                *_count = '\0';
+                _count++;
+
+                errno = 0;
+                char *end;
+                unsigned long value = strtoul(_count, &end, 10);
+                if (_count[0] == '\0' || *end != '\0' || errno != 0) {
+                    if (errno != 0)
+                        LOG_AND_NOTIFY_ERRNO(
+                            "%s:%d: %s: invalid click count", path, lineno, _count);
+                    else
+                        LOG_AND_NOTIFY_ERR(
+                            "%s:%d: %s: invalid click count", path, lineno, _count);
+                    goto err;
+                }
+                count = value;
+            }
         }
 
         static const struct {
@@ -1050,7 +1074,7 @@ parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *ke
             .modifiers = modifiers,
             .m = {
                 .button = button,
-                .count = 1,
+                .count = count,
             },
         };
         tll_push_back(*key_combos, new);
