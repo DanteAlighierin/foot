@@ -33,6 +33,8 @@
 * **tweak.render-timer** option to `footrc`.
 * Modifier support in mouse bindings
   (https://codeberg.org/dnkl/foot/issues/77).
+* Click count support in mouse bindings, i.e double- and triple-click
+  (https://codeberg.org/dnkl/foot/issues/78).
 
 
 ### Deprecated
