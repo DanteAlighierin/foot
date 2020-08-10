@@ -15,23 +15,35 @@ struct config_font {
     int px_size;
 };
 
+struct config_key_modifiers {
+    bool shift;
+    bool alt;
+    bool ctrl;
+    bool meta;
+};
+
 struct config_key_binding_normal {
     enum bind_action_normal action;
-    char *combos;
+    struct config_key_modifiers modifiers;
+    xkb_keysym_t sym;
     struct {
         char *cmd;
         char **argv;
+        bool master_copy;
     } pipe;
-};
-
-struct config_mouse_binding {
-    enum bind_action_normal action;
-    char *combos;
 };
 
 struct config_key_binding_search {
     enum bind_action_search action;
-    char *combos;
+    struct config_key_modifiers modifiers;
+    xkb_keysym_t sym;
+};
+
+struct config_mouse_binding {
+    enum bind_action_normal action;
+    struct config_key_modifiers modifiers;
+    int button;
+    int count;
 };
 
 struct config {
