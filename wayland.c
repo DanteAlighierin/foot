@@ -912,18 +912,22 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 
         if (seat->kbd_focus != NULL) {
             LOG_WARN("compositor destroyed seat '%s' "
-                     "without sending keyboard/pointer leave events",
+                     "without sending a keyboard leave event",
                      seat->name);
-
-            struct terminal *term = seat->kbd_focus;
 
             if (seat->wl_keyboard != NULL)
                 keyboard_listener.leave(
-                    seat, seat->wl_keyboard, -1, term->window->surface);
+                    seat, seat->wl_keyboard, -1, seat->kbd_focus->window->surface);
+        }
+
+        if (seat->mouse_focus != NULL) {
+            LOG_WARN("compositor destroyed seat '%s' "
+                     "without sending a pointer leave event",
+                     seat->name);
 
             if (seat->wl_pointer != NULL)
                 pointer_listener.leave(
-                    seat, seat->wl_pointer, -1, term->window->surface);
+                    seat, seat->wl_pointer, -1, seat->mouse_focus->window->surface);
         }
 
         seat_destroy(seat);
