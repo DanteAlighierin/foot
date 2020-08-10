@@ -31,6 +31,8 @@
 * **colors.selection-foreground** and **colors.selection-background**
   options to `footrc`.
 * **tweak.render-timer** option to `footrc`.
+* Modifier support in mouse bindings
+  (https://codeberg.org/dnkl/foot/issues/77).
 
 
 ### Deprecated
