@@ -1211,7 +1211,12 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     }
 
     /* Reset mouse state */
-    memset(&seat->mouse, 0, sizeof(seat->mouse));
+    seat->mouse.x = seat->mouse.y = 0;
+    seat->mouse.col = seat->mouse.row = 0;
+    seat->mouse.button = seat->mouse.last_button = seat->mouse.count = 0;
+    memset(&seat->mouse.last_time, 0, sizeof(seat->mouse.last_time));
+    seat->mouse.axis_aggregated = 0.0;
+    seat->mouse.have_discrete = false;
 
     seat->mouse_focus = NULL;
     if (old_moused == NULL) {
