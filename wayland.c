@@ -932,6 +932,7 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 
         seat_destroy(seat);
         tll_remove(wayl->seats, it);
+        return;
     }
 
     LOG_WARN("unknown global removed: 0x%08x", name);
