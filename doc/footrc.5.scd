@@ -364,24 +364,20 @@ This section lets you override the default mouse bindings.
 
 The general format is _action=combo1...comboN_. That is, each action
 may have one or more key combinations, space separated. Each
-combination is on the form _mod1+mod2+BTN\_<name>_[-COUNT]. The names
-of the modifiers and the key *must* be valid XKB key names. You can
-find the button names using *libinput debug-events*.
+combination is on the form _mod1+mod2+BTN\_<name>[-COUNT]_. The names
+of the modifiers *must* be valid XKB key names, and the button name
+*must* be a valid libinput name. You can find the button names using
+*libinput debug-events*.
 
 The trailing *COUNT* is optional and specifies the click count
-required to trigger the binding. The default is *COUNT* is omitted is
+required to trigger the binding. The default if *COUNT* is omitted is
 _1_.
 
-Example: *primary-paste=Control+BTN_LEFT-2*
-
-Trigger _primary-paste_ when *ctrl* is pressed, and the left mouse
-button is double clicked.
-
-A button can only be mapped to *one* action. Lets say you want to bind
-*BTN\_MIDDLE* to *fullscreen*. Since *BTN\_MIDDLE* is the default
-binding for *primary-paste*, you first need to unmap the default
-binding. This can be done by setting _action=none_;
-e.g. *primary-paste=none*.
+A modifier+button combination can only be mapped to *one* action. Lets
+say you want to bind *BTN\_MIDDLE* to *fullscreen*. Since
+*BTN\_MIDDLE* is the default binding for *primary-paste*, you first
+need to unmap the default binding. This can be done by setting
+_action=none_; e.g. *primary-paste=none*.
 
 All actions listed under *key-bindings* can be user here as well.
 
