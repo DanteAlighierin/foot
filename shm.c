@@ -291,6 +291,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
 
     if (!can_punch_hole_initialized) {
         can_punch_hole_initialized = true;
+#if defined(__x86_64__)
         can_punch_hole = fallocate(
             pool_fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1) == 0;
 
@@ -299,6 +300,11 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
                 "fallocate(FALLOC_FL_PUNCH_HOLE) not "
                 "supported (%s): expect lower performance", strerror(errno));
         }
+#else
+        /* This is mostly to make sure we skip the warning issued
+         * above */
+        can_punch_hole = false;
+#endif
     }
 
     if (scrollable && !can_punch_hole) {
