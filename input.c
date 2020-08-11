@@ -254,13 +254,23 @@ execute_binding(struct seat *seat, struct terminal *term,
         break;
     }
 
-    case BIND_ACTION_SELECT_BEGIN:
-        selection_start(term, seat->mouse.col, seat->mouse.row, SELECTION_NORMAL);
+    case BIND_ACTION_SELECT_BEGIN: {
+        bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+        if (selection_enabled(term, seat) && cursor_is_on_grid) {
+            selection_start(
+                term, seat->mouse.col, seat->mouse.row, SELECTION_NORMAL);
+        }
         break;
+    }
 
-    case BIND_ACTION_SELECT_BEGIN_BLOCK:
-        selection_start(term, seat->mouse.col, seat->mouse.row, SELECTION_BLOCK);
+    case BIND_ACTION_SELECT_BEGIN_BLOCK: {
+        bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+        if (selection_enabled(term, seat) && cursor_is_on_grid) {
+            selection_start(
+                term, seat->mouse.col, seat->mouse.row, SELECTION_BLOCK);
+        }
         break;
+    }
 
     case BIND_ACTION_SELECT_EXTEND: {
         bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
@@ -271,20 +281,30 @@ execute_binding(struct seat *seat, struct terminal *term,
         break;
     }
 
-    case BIND_ACTION_SELECT_WORD:
-        selection_mark_word(
-            seat, term, seat->mouse.col, seat->mouse.row, false, serial);
+    case BIND_ACTION_SELECT_WORD: {
+        bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+        if (selection_enabled(term, seat) && cursor_is_on_grid) {
+            selection_mark_word(
+                seat, term, seat->mouse.col, seat->mouse.row, false, serial);
+        }
         break;
+    }
 
-    case BIND_ACTION_SELECT_WORD_WS:
-        selection_mark_word(
-            seat, term, seat->mouse.col, seat->mouse.row, true, serial);
+    case BIND_ACTION_SELECT_WORD_WS: {
+        bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+        if (selection_enabled(term, seat) && cursor_is_on_grid) {
+            selection_mark_word(
+                seat, term, seat->mouse.col, seat->mouse.row, true, serial);
+        }
         break;
+    }
 
-    case BIND_ACTION_SELECT_ROW:
-        selection_mark_row(seat, term, seat->mouse.row, serial);
+    case BIND_ACTION_SELECT_ROW: {
+        bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+        if (selection_enabled(term, seat) && cursor_is_on_grid)
+            selection_mark_row(seat, term, seat->mouse.row, serial);
         break;
-
+    }
 
     case BIND_ACTION_COUNT:
         assert(false);
