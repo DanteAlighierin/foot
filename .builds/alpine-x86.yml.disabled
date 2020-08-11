@@ -1,5 +1,5 @@
-image: i386/alpine/edge
-# arch: x86
+image: alpine/edge
+arch: x86
 packages:
   - musl-dev
   - eudev-libs
