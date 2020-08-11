@@ -1,5 +1,3 @@
-image: alpine:edge
-
 stages:
   - build
 
@@ -18,7 +16,8 @@ before_script:
   - git clone https://codeberg.org/dnkl/fcft.git
   - cd ..
 
-debug:
+debug-x64:
+  image: alpine:edge
   stage: build
   script:
     - mkdir -p bld/debug
@@ -27,7 +26,28 @@ debug:
     - ninja -v -k0
     - ninja -v test
 
-release:
+release-x64:
+  image: alpine:edge
+  stage: build
+  script:
+    - mkdir -p bld/release
+    - cd bld/release
+    - meson --buildtype=release ../../
+    - ninja -v -k0
+    - ninja -v test
+
+debug-x86:
+  image: i386/alpine:edge
+  stage: build
+  script:
+    - mkdir -p bld/debug
+    - cd bld/debug
+    - meson --buildtype=debug ../../
+    - ninja -v -k0
+    - ninja -v test
+
+release-x86:
+  image: i386/alpine:edge
   stage: build
   script:
     - mkdir -p bld/release
