@@ -385,6 +385,24 @@ e.g. *primary-paste=none*.
 
 All actions listed under *key-bindings* can be user here as well.
 
+*select-begin*
+	Begin an interactive selection. The selection is finalized, and
+	copied to the _primary selection_, when the button is
+	released..Default: _BTN\_LEFT_.
+
+*select-extend*
+	Interactively extend an existing selection. The selection is
+	finalized, and copied to the _primary selection_, when the button
+	is released. Default: _BTN\_RIGHT_.
+
+*select-word*
+	Select the _word_ (separated by spaces, period, comma, parenthesis
+	etc) under the pointer. Default: _BTN\_LEFT-2_.
+
+*select-word-whitespace*
+	Select the _word_ (separated by spaces _only_) under the
+	pointer. Default: Control+_BTN\_LEFT-2_.
+
 *primary-paste*
 	Pastes from the _primary selection_. Default: _BTN\_MIDDLE_.
 
