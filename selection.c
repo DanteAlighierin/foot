@@ -567,13 +567,13 @@ selection_extend(struct seat *seat, struct terminal *term,
 void
 selection_finalize(struct seat *seat, struct terminal *term, uint32_t serial)
 {
-    if (term->selection.start.row < 0 || term->selection.end.row < 0)
-        return;
-
     if (!term->selection.ongoing)
         return;
 
     term->selection.ongoing = false;
+
+    if (term->selection.start.row < 0 || term->selection.end.row < 0)
+        return;
 
     assert(term->selection.start.row != -1);
     assert(term->selection.end.row != -1);
