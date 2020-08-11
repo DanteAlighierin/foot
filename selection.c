@@ -536,6 +536,8 @@ selection_extend(struct seat *seat, struct terminal *term,
         return;
     }
 
+    term->selection.ongoing = true;
+
     row += term->grid->view;
 
     if ((row == term->selection.start.row && col == term->selection.start.col) ||
