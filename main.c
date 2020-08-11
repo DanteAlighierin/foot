@@ -319,7 +319,7 @@ main(int argc, char *const *argv)
         if (uname(&name) < 0)
             LOG_ERRNO("uname() failed");
         else
-            LOG_INFO("arch: %s", name.machine);
+            LOG_INFO("arch: %s/%zu-bit, ", name.machine, sizeof(void *) * 8);
     }
 
     struct config conf = {NULL};
