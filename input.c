@@ -1296,8 +1296,10 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
 
         /* Update selection */
-        if (cursor_is_on_new_cell || term->selection.end.row < 0)
-            selection_update(term, selection_col, selection_row);
+        if (!term->is_searching) {
+            if (cursor_is_on_new_cell || term->selection.end.row < 0)
+                selection_update(term, selection_col, selection_row);
+        }
 
         /* Send mouse event to client application */
         if (!term_mouse_grabbed(term, seat) &&
