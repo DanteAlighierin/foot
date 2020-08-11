@@ -369,6 +369,10 @@ of the modifiers *must* be valid XKB key names, and the button name
 *must* be a valid libinput name. You can find the button names using
 *libinput debug-events*.
 
+Note that *Shift* cannot be used as a modifier in mouse bindings since
+it is used to enable selection when the client application is grabbing
+the mouse.
+
 The trailing *COUNT* is optional and specifies the click count
 required to trigger the binding. The default if *COUNT* is omitted is
 _1_.

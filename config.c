@@ -1026,6 +1026,11 @@ parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *ke
             *key = '\0';
             if (!parse_modifiers(conf, combo, key - combo, &modifiers, path, lineno))
                 goto err;
+            if (modifiers.shift) {
+                LOG_AND_NOTIFY_ERR("%s:%d: Shift cannot be used in mosue bindings",
+                                   path, lineno);
+                goto err;
+            }
             key++;  /* Skip past the '+' */
         }
 
