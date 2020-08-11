@@ -237,6 +237,7 @@ selection_start(struct terminal *term, int col, int row,
     term->selection.kind = kind;
     term->selection.start = (struct coord){col, term->grid->view + row};
     term->selection.end = (struct coord){-1, -1};
+    term->selection.ongoing = true;
 }
 
 static bool
@@ -566,6 +567,11 @@ selection_finalize(struct seat *seat, struct terminal *term, uint32_t serial)
     if (term->selection.start.row < 0 || term->selection.end.row < 0)
         return;
 
+    if (!term->selection.ongoing)
+        return;
+
+    term->selection.ongoing = false;
+
     assert(term->selection.start.row != -1);
     assert(term->selection.end.row != -1);
 
@@ -600,6 +606,7 @@ selection_cancel(struct terminal *term)
     term->selection.start = (struct coord){-1, -1};
     term->selection.end = (struct coord){-1, -1};
     term->selection.direction = SELECTION_UNDIR;
+    term->selection.ongoing = false;
 }
 
 void

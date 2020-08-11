@@ -42,6 +42,15 @@ enum bind_action_normal {
     BIND_ACTION_PIPE_SCROLLBACK,
     BIND_ACTION_PIPE_VIEW,
     BIND_ACTION_PIPE_SELECTED,
+
+    BIND_ACTION_KEY_COUNT = BIND_ACTION_PIPE_SELECTED,
+
+    /* Mouse specific actions - i.e. they require a mouse coordinate */
+    BIND_ACTION_SELECT_BEGIN,
+    BIND_ACTION_SELECT_WORD,
+    BIND_ACTION_SELECT_WORD_WS,
+    BIND_ACTION_SELECT_EXTEND,
+
     BIND_ACTION_COUNT,
 };
 

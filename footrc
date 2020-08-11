@@ -93,3 +93,7 @@
 
 [mouse-bindings]
 # primary-paste=BTN_MIDDLE
+# select-begin=BTN_LEFT
+# select-word=BTN_LEFT-2
+# select-word-whitespace=Control+BTN_LEFT-2
+# select-extend=BTN_RIGHT

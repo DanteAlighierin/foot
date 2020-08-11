@@ -254,6 +254,31 @@ execute_binding(struct seat *seat, struct terminal *term,
         break;
     }
 
+    case BIND_ACTION_SELECT_BEGIN:
+        selection_start(
+            term, seat->mouse.col, seat->mouse.row,
+            seat->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
+        break;
+
+    case BIND_ACTION_SELECT_WORD:
+        selection_mark_word(
+            seat, term, seat->mouse.col, seat->mouse.row, false, serial);
+        break;
+
+    case BIND_ACTION_SELECT_WORD_WS:
+        selection_mark_word(
+            seat, term, seat->mouse.col, seat->mouse.row, true, serial);
+        break;
+
+    case BIND_ACTION_SELECT_EXTEND: {
+        bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+        if (selection_enabled(term, seat) && cursor_is_on_grid) {
+            selection_extend(
+                seat, term, seat->mouse.col, seat->mouse.row, serial);
+        }
+        break;
+    }
+
     case BIND_ACTION_COUNT:
         assert(false);
         break;
@@ -1442,38 +1467,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
-            if (button == BTN_LEFT && seat->mouse.count <= 3 && mods == 0) {
-                selection_cancel(term);
-
-                if (selection_enabled(term, seat) && cursor_is_on_grid) {
-                    switch (seat->mouse.count) {
-                    case 1:
-                        selection_start(
-                            term, seat->mouse.col, seat->mouse.row,
-                            seat->kbd.ctrl ? SELECTION_BLOCK : SELECTION_NORMAL);
-                        break;
-
-                    case 2:
-                        selection_mark_word(
-                            seat, term, seat->mouse.col, seat->mouse.row,
-                            seat->kbd.ctrl, serial);
-                        break;
-
-                    case 3:
-                        selection_mark_row(seat, term, seat->mouse.row, serial);
-                        break;
-                    }
-                }
-            }
-
-            else if (button == BTN_RIGHT && seat->mouse.count == 1 && mods == 0) {
-                if (selection_enabled(term, seat) && cursor_is_on_grid) {
-                    selection_extend(
-                        seat, term, seat->mouse.col, seat->mouse.row, serial);
-                }
-            }
-
-            else if (seat->wl_keyboard != NULL) {
+            if (seat->wl_keyboard != NULL) {
                 /* Seat has keyboard - use mouse bindings *with* modifiers */
                 tll_foreach(seat->mouse.bindings, it) {
                     const struct mouse_binding *binding = &it->item;
@@ -1533,8 +1527,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         }
 
         case WL_POINTER_BUTTON_STATE_RELEASED:
-            if (button == BTN_LEFT && term->selection.end.col != -1)
-                selection_finalize(seat, term, serial);
+            selection_finalize(seat, term, serial);
 
             if (!term_mouse_grabbed(term, seat) && cursor_is_on_grid) {
                 term_mouse_up(
