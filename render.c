@@ -136,14 +136,16 @@ presented(void *data,
     if (use_input) {
         struct timeval diff;
         timersub(commit, input, &diff);
-        chars += snprintf(&msg[chars], sizeof(msg) - chars,
-                          "input - %lu µs -> ", diff.tv_usec);
+        chars += snprintf(
+            &msg[chars], sizeof(msg) - chars,
+            "input - %llu µs -> ", (unsigned long long)diff.tv_usec);
     }
 
     struct timeval diff;
     timersub(&presented, commit, &diff);
-    chars += snprintf(&msg[chars], sizeof(msg) - chars,
-                      "commit - %lu µs -> ", diff.tv_usec);
+    chars += snprintf(
+        &msg[chars], sizeof(msg) - chars,
+        "commit - %llu µs -> ", (unsigned long long)diff.tv_usec);
 
     if (use_input) {
         assert(timercmp(&presented, input, >));
@@ -153,8 +155,9 @@ presented(void *data,
         timersub(&presented, commit, &diff);
     }
 
-    chars += snprintf(&msg[chars], sizeof(msg) - chars,
-                      "presented (total: %lu µs)", diff.tv_usec);
+    chars += snprintf(
+        &msg[chars], sizeof(msg) - chars,
+        "presented (total: %llu µs)", (unsigned long long)diff.tv_usec);
 
     unsigned frame_count = 0;
     if (tll_length(term->window->on_outputs) > 0) {
