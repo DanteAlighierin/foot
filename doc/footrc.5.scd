@@ -388,7 +388,12 @@ All actions listed under *key-bindings* can be user here as well.
 *select-begin*
 	Begin an interactive selection. The selection is finalized, and
 	copied to the _primary selection_, when the button is
-	released..Default: _BTN\_LEFT_.
+	released. Default: _BTN\_LEFT_.
+
+*select-begin-block*
+	Begin an interactive block selection. The selection is finalized,
+	and copied to the _primary selection_, when the button is
+	released. Default: _Control+BTN\_LEFT_.
 
 *select-extend*
 	Interactively extend an existing selection. The selection is
@@ -402,6 +407,9 @@ All actions listed under *key-bindings* can be user here as well.
 *select-word-whitespace*
 	Select the _word_ (separated by spaces _only_) under the
 	pointer. Default: Control+_BTN\_LEFT-2_.
+
+*select-row*
+	Select the whole row under the pointer. Default: _BTN\_LEFT-3_.
 
 *primary-paste*
 	Pastes from the _primary selection_. Default: _BTN\_MIDDLE_.

@@ -94,6 +94,8 @@
 [mouse-bindings]
 # primary-paste=BTN_MIDDLE
 # select-begin=BTN_LEFT
+# select-begin-block=Control=BTN_LEFT
+# select-extend=BTN_RIGHT
 # select-word=BTN_LEFT-2
 # select-word-whitespace=Control+BTN_LEFT-2
-# select-extend=BTN_RIGHT
+# select-row=BTN_LEFT-3

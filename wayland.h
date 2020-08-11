@@ -47,9 +47,11 @@ enum bind_action_normal {
 
     /* Mouse specific actions - i.e. they require a mouse coordinate */
     BIND_ACTION_SELECT_BEGIN,
+    BIND_ACTION_SELECT_BEGIN_BLOCK,
+    BIND_ACTION_SELECT_EXTEND,
     BIND_ACTION_SELECT_WORD,
     BIND_ACTION_SELECT_WORD_WS,
-    BIND_ACTION_SELECT_EXTEND,
+    BIND_ACTION_SELECT_ROW,
 
     BIND_ACTION_COUNT,
 };
