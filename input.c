@@ -1487,13 +1487,19 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
 
-        xkb_mod_mask_t mods = xkb_state_serialize_mods(
-            seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
-
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
             if (seat->wl_keyboard != NULL) {
                 /* Seat has keyboard - use mouse bindings *with* modifiers */
+
+                xkb_mod_mask_t mods = xkb_state_serialize_mods(
+                    seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
+
+                /* Ignore Shift when matching modifiers, since it is
+                 * used to enable selection in mouse grabbing client
+                 * applications */
+                mods &= ~(1 << seat->kbd.mod_shift);
+
                 tll_foreach(seat->mouse.bindings, it) {
                     const struct mouse_binding *binding = &it->item;
 
