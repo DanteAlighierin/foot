@@ -311,6 +311,9 @@ selection_update(struct terminal *term, int col, int row)
     if (term->selection.start.row < 0)
         return;
 
+    if (!term->selection.ongoing)
+        return;
+
     LOG_DBG("selection updated: start = %d,%d, end = %d,%d -> %d, %d",
             term->selection.start.row, term->selection.start.col,
             term->selection.end.row, term->selection.end.col,
