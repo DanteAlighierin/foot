@@ -57,6 +57,9 @@
 * Mouse cursor style in top and left margins.
 * Selection is now **updated** when the cursor moves outside the grid
   (https://codeberg.org/dnkl/foot/issues/70).
+* Viewport sometimes not moving when doing a scrollback search.
+* Crash when cancelling a scrollback search and the window had been
+  resized while searching.
 
 
 ### Security

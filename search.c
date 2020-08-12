@@ -18,6 +18,44 @@
 #include "shm.h"
 #include "util.h"
 
+/*
+ * Ensures a "new" viewport doesn't contain any unallocated rows.
+ *
+ * This is done by first checking if the *first* row is NULL. If so,
+ * we move the viewport *forward*, until the first row is non-NULL. At
+ * this point, the entire viewport should be allocated rows only.
+ *
+ * If the first row already was non-NULL, we instead check the *last*
+ * row, and if it is NULL, we move the viewport *backward* until the
+ * last row is non-NULL.
+ */
+static int
+ensure_view_is_allocated(struct terminal *term, int new_view)
+{
+    int view_end = (new_view + term->rows - 1) & (term->grid->num_rows - 1);
+
+    if (term->grid->rows[new_view] == NULL) {
+        while (term->grid->rows[new_view] == NULL)
+            new_view = (new_view + 1) & (term->grid->num_rows - 1);
+    }
+
+    else if (term->grid->rows[view_end] == NULL) {
+        while (term->grid->rows[view_end] == NULL) {
+            new_view--;
+            if (new_view < 0)
+                new_view += term->grid->num_rows;
+            view_end = (new_view + term->rows - 1) & (term->grid->num_rows - 1);
+        }
+    }
+
+#if defined(_DEBUG)
+    for (size_t r = 0; r < term->rows; r++)
+        assert(term->grid->rows[(new_view + r) & (term->grid->num_rows - 1)] != NULL);
+#endif
+
+    return new_view;
+}
+
 static bool
 search_ensure_size(struct terminal *term, size_t wanted_size)
 {
@@ -124,23 +162,10 @@ search_update_selection(struct terminal *term,
         while (new_view < 0)
             new_view += term->grid->num_rows;
 
-        /* Prevent scrolling in uninitialized rows */
-        bool all_initialized = false;
-        do {
-            all_initialized = true;
-
-            for (int i = 0; i < term->rows; i++) {
-                int row_no = (new_view + i) % term->grid->num_rows;
-                if (term->grid->rows[row_no] == NULL) {
-                    all_initialized = false;
-                    new_view--;
-                    break;
-                }
-            }
-        } while (!all_initialized);
+        new_view = ensure_view_is_allocated(term, new_view);
 
         /* Don't scroll past scrollback history */
-        int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
+        int end = (term->grid->offset + term->rows - 1) & (term->grid->num_rows - 1);
         if (end >= term->grid->offset) {
             /* Not wrapped */
             if (new_view >= term->grid->offset && new_view <= end)
@@ -149,6 +174,12 @@ search_update_selection(struct terminal *term,
             if (new_view >= term->grid->offset || new_view <= end)
                 new_view = term->grid->offset;
         }
+
+#if defined(_DEBUG)
+        /* Verify all to-be-visible rows have been allocated */
+        for (int r = 0; r < term->rows; r++)
+            assert(term->grid->rows[(new_view + r) & (term->grid->num_rows - 1)] != NULL);
+#endif
 
         /* Update view */
         term->grid->view = new_view;
@@ -221,8 +252,8 @@ search_find_next(struct terminal *term)
             backward ? "backward" : "forward", start_row, start_col,
             term->grid->offset, term->grid->view);
 
-#define ROW_DEC(_r) ((_r) = ((_r) - 1 + term->grid->num_rows) % term->grid->num_rows)
-#define ROW_INC(_r) ((_r) = ((_r) + 1) % term->grid->num_rows)
+#define ROW_DEC(_r) ((_r) = ((_r) - 1 + term->grid->num_rows) & (term->grid->num_rows - 1))
+#define ROW_INC(_r) ((_r) = ((_r) + 1) & (term->grid->num_rows - 1))
 
     /* Scan backward from current end-of-output */
     /* TODO: don't search "scrollback" in alt screen? */
@@ -316,7 +347,7 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
     /* Calculate end coord - note: assumed to be valid */
     for (size_t i = 0; i < len; i++) {
         if (++end_col >= term->cols) {
-            end_row = (end_row + 1) % term->grid->num_rows;
+            end_row = (end_row + 1) & (term->grid->num_rows - 1);
             end_col = 0;
         }
     }
@@ -328,7 +359,7 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 
     for (size_t r = 0;
          r < term->grid->num_rows;
-         end_row = (end_row + 1) % term->grid->num_rows, r++)
+         end_row = (end_row + 1) & (term->grid->num_rows - 1), r++)
     {
         const struct row *row = term->grid->rows[end_row];
         if (row == NULL)
@@ -440,8 +471,10 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SEARCH_CANCEL:
         if (term->search.view_followed_offset)
             term->grid->view = term->grid->offset;
-        else
-            term->grid->view = term->search.original_view;
+        else {
+            term->grid->view = ensure_view_is_allocated(
+                term, term->search.original_view);
+        }
         term_damage_view(term);
         search_cancel(term);
         return true;
