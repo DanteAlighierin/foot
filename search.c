@@ -662,6 +662,9 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
             seat->kbd.xkb_state, key, (char *)buf, sizeof(buf));
     }
 
+    if (count == 0)
+        return;
+
     const char *src = (const char *)buf;
     mbstate_t ps = {};
     size_t wchars = mbsnrtowcs(NULL, &src, count, 0, &ps);
