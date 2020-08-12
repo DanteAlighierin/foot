@@ -120,8 +120,7 @@ arguments, to execute (instead of the default shell).
 will start a new terminal window with your default shell.
 
 You can override the default shell by appending a custom command to
-the foot command line. To ensure foot does not touch the shell
-arguments, use *--*:
+the foot command line
 
 	foot -- sh -c "echo hello world && sleep 5"
 
@@ -131,7 +130,7 @@ The following keyboard shortcuts are available.
 
 ## NORMAL MODE
 
-Note that these are just the defaults; they can be changed in the
+Note that these are just the defaults; they can be changed in
 *footrc*, see *footrc*(5).
 
 *shift*+*page up*/*page down*
