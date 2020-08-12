@@ -70,6 +70,9 @@ struct config {
         uint32_t regular[8];
         uint32_t bright[8];
         uint16_t alpha;
+        uint32_t selection_fg;
+        uint32_t selection_bg;
+        bool selection_uses_custom_colors;
     } colors;
 
     struct {

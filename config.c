@@ -474,6 +474,8 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "bright5") == 0)    color = &conf->colors.bright[5];
     else if (strcmp(key, "bright6") == 0)    color = &conf->colors.bright[6];
     else if (strcmp(key, "bright7") == 0)    color = &conf->colors.bright[7];
+    else if (strcmp(key, "selection-foreground") == 0) color = &conf->colors.selection_fg;
+    else if (strcmp(key, "selection-background") == 0) color = &conf->colors.selection_bg;
     else if (strcmp(key, "alpha") == 0) {
         double alpha;
         if (!str_to_double(value, &alpha) || alpha < 0. || alpha > 1.) {
@@ -1257,6 +1259,9 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
                 default_bright[7],
             },
             .alpha = 0xffff,
+            .selection_fg = 0x80000000,  /* Use default bg */
+            .selection_bg = 0x80000000,  /* Use default fg */
+            .selection_uses_custom_colors = false,
         },
 
         .cursor = {
@@ -1372,6 +1377,10 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
 
     ret = parse_config_file(f, conf, conf_path, errors_are_fatal);
     fclose(f);
+
+    conf->colors.selection_uses_custom_colors =
+        conf->colors.selection_fg >> 24 == 0 &&
+        conf->colors.selection_bg >> 24 == 0;
 
 out:
     if (ret && tll_length(conf->fonts) == 0)

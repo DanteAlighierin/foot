@@ -384,15 +384,19 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     uint32_t _fg = 0;
     uint32_t _bg = 0;
 
-    /* Use cell specific color, if set, otherwise the default colors (possible reversed) */
-    _fg = cell->attrs.have_fg ? cell->attrs.fg : term->colors.fg;
-    _bg = cell->attrs.have_bg ? cell->attrs.bg : term->colors.bg;
+    if (is_selected && term->conf->colors.selection_uses_custom_colors) {
+        _fg = term->conf->colors.selection_fg;
+        _bg = term->conf->colors.selection_bg;
+    } else {
+        /* Use cell specific color, if set, otherwise the default colors (possible reversed) */
+        _fg = cell->attrs.have_fg ? cell->attrs.fg : term->colors.fg;
+        _bg = cell->attrs.have_bg ? cell->attrs.bg : term->colors.bg;
 
-    /* If *one* is set, we reverse */
-    if (term->reverse ^ cell->attrs.reverse ^ is_selected) {
-        uint32_t swap = _fg;
-        _fg = _bg;
-        _bg = swap;
+        if (term->reverse ^ cell->attrs.reverse ^ is_selected) {
+            uint32_t swap = _fg;
+            _fg = _bg;
+            _bg = swap;
+        }
     }
 
     if (cell->attrs.blink && term->blink.state == BLINK_OFF)

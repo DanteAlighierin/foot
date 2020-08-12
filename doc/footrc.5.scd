@@ -156,6 +156,11 @@ _alpha_ option.
 	Background translucency. A value in the range 0.0-1.0, where 0.0
 	means completely transparent, and 1.0 is opaque. Default: _1.0_.
 
+*selection-foreground*, *selection-background*
+	Foreground (text) and background color to use in selected
+	text. Note that *both* options must be set, or the default will be
+	used. Default: _inverse foreground/background_.
+
 
 # SECTION: csd
 
