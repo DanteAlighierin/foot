@@ -1770,8 +1770,9 @@ grid_render(struct terminal *term)
         timersub(&end_time, &start_time, &render_time);
 
         if (term->conf->tweak.render_timer_log) {
-            LOG_INFO("frame rendered in %lds %ld µs",
-                     render_time.tv_sec, render_time.tv_usec);
+            LOG_INFO("frame rendered in %llds %lld µs",
+                     (long long)render_time.tv_sec,
+                     (long long)render_time.tv_usec);
         }
 
         if (term->conf->tweak.render_timer_osd)
