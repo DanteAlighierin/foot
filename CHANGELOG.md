@@ -28,6 +28,8 @@
 * **mouse.hide-when-typing** option to `footrc`.
 * **scrollback.multiplier** option to `footrc`
   (https://codeberg.org/dnkl/foot/issues/54).
+* **colors.selection-foreground** and **colors.selection-background**
+  options to `footrc`.
 
 
 ### Deprecated

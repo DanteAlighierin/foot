@@ -43,6 +43,8 @@
 # bright5=fcace3   # bright magenta
 # bright6=b3ffff   # bright cyan
 # bright7=ffffff   # bright white
+# selection-foreground=<inverse foreground/background>
+# selection-background=<inverse foreground/background>
 
 [csd]
 # preferred=server
