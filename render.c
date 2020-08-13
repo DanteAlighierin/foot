@@ -1491,7 +1491,7 @@ render_render_timer(struct terminal *term, struct timeval render_time)
 
     wchar_t text[256];
     double usecs = render_time.tv_sec * 1000000 + render_time.tv_usec;
-    swprintf(text, sizeof(text), L"%.2f µs", usecs);
+    swprintf(text, sizeof(text) / sizeof(text[0]), L"%.2f µs", usecs);
 
     const int cell_count = wcslen(text);
     const int margin = 3 * term->scale;
