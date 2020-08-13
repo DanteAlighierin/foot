@@ -375,23 +375,24 @@ selection_update(struct terminal *term, int col, int row)
         }
     }
 
-    /* Handle double-width characters */
+    /* If an end point is in the middle of a multi-column character,
+     * expand the selection to cover the entire character */
     if (new_start.row < new_end.row ||
         (new_start.row == new_end.row && new_start.col <= new_end.col))
     {
-        if (new_start.col - 1 >= 0)
-            if (wcwidth(row_start->cells[new_start.col - 1].wc) > 1)
-                new_start.col--;
-        if (new_end.col + 1 < term->cols)
-            if (wcwidth(row_end->cells[new_end.col].wc) > 1)
-                new_end.col++;
+        while (new_start.col >= 1 &&
+               row_start->cells[new_start.col].wc == CELL_MULT_COL_SPACER)
+            new_start.col--;
+        while (new_end.col < term->cols - 1 &&
+               row_end->cells[new_end.col + 1].wc == CELL_MULT_COL_SPACER)
+            new_end.col++;
     } else {
-        if (new_end.col - 1 >= 0)
-            if (wcwidth(row_end->cells[new_end.col - 1].wc) > 1)
-                new_end.col--;
-        if (new_start.col + 1 < term->cols)
-            if (wcwidth(row_start->cells[new_start.col].wc) > 1)
-                new_start.col++;
+        while (new_end.col >= 1 &&
+               row_end->cells[new_end.col].wc == CELL_MULT_COL_SPACER)
+            new_end.col--;
+        while (new_start.col < term->cols - 1 &&
+               row_start->cells[new_start.col + 1].wc == CELL_MULT_COL_SPACER)
+            new_start.col++;
     }
 
     selection_modify(term, new_start, new_end);
