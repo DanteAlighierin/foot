@@ -24,7 +24,6 @@
 #include "util.h"
 #include "xmalloc.h"
 
-#define TIME_FRAME_RENDERING 0
 #define TIME_SCROLL_DAMAGE 0
 
 struct renderer {
@@ -1301,6 +1300,54 @@ render_csd(struct terminal *term)
 }
 
 static void
+render_osd(struct terminal *term,
+           struct wl_surface *surf, struct wl_subsurface *sub_surf,
+           struct buffer *buf,
+           const wchar_t *text, uint32_t _fg, uint32_t _bg,
+           unsigned width, unsigned height, unsigned x, unsigned y)
+{
+    pixman_color_t bg = color_hex_to_pixman(_bg);
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
+        &(pixman_rectangle16_t){0, 0, width, height});
+
+    struct fcft_font *font = term->fonts[0];
+    pixman_color_t fg = color_hex_to_pixman(_fg);
+
+    for (size_t i = 0; i < wcslen(text); i++) {
+        const struct fcft_glyph *glyph = fcft_glyph_rasterize(
+            font, text[i], term->font_subpixel);
+
+        if (glyph == NULL)
+            continue;
+
+        pixman_image_t *src = pixman_image_create_solid_fill(&fg);
+        pixman_image_composite32(
+            PIXMAN_OP_OVER, src, glyph->pix, buf->pix[0], 0, 0, 0, 0,
+            x + glyph->x, y + font_baseline(term) - glyph->y,
+            glyph->width, glyph->height);
+        pixman_image_unref(src);
+
+        x += term->cell_width;
+    }
+
+    quirk_weston_subsurface_desync_on(sub_surf);
+    wl_surface_attach(surf, buf->wl_buf, 0, 0);
+    wl_surface_damage_buffer(surf, 0, 0, width, height);
+    wl_surface_set_buffer_scale(surf, term->scale);
+
+    struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
+    if (region != NULL) {
+        wl_region_add(region, 0, 0, width, height);
+        wl_surface_set_opaque_region(surf, region);
+        wl_region_destroy(region);
+    }
+
+    wl_surface_commit(surf);
+    quirk_weston_subsurface_desync_off(sub_surf);
+}
+
+static void
 render_scrollback_position(struct terminal *term)
 {
     if (term->conf->scrollback.indicator.position == SCROLLBACK_INDICATOR_POSITION_NONE)
@@ -1402,35 +1449,6 @@ render_scrollback_position(struct terminal *term)
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, width, height, cookie, false, 1);
 
-    pixman_color_t bg = color_hex_to_pixman(term->colors.table[8 + 4]);
-    pixman_image_fill_rectangles(
-        PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
-        &(pixman_rectangle16_t){0, 0, width, height});
-
-    struct fcft_font *font = term->fonts[0];
-    pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
-
-    /* Sub-surface relative coordinates */
-    unsigned x = width - margin - wcslen(text) * term->cell_width;
-    const unsigned y = margin;
-
-    for (size_t i = 0; i < wcslen(text); i++) {
-        const struct fcft_glyph *glyph = fcft_glyph_rasterize(
-            font, text[i], term->font_subpixel);
-
-        if (glyph == NULL)
-            continue;
-
-        pixman_image_t *src = pixman_image_create_solid_fill(&fg);
-        pixman_image_composite32(
-            PIXMAN_OP_OVER, src, glyph->pix, buf->pix[0], 0, 0, 0, 0,
-            x + glyph->x, y + font_baseline(term) - glyph->y,
-            glyph->width, glyph->height);
-        pixman_image_unref(src);
-
-        x += term->cell_width;
-    }
-
     /* *Where* to render - parent relative coordinates */
     int surf_top = 0;
     switch (term->conf->scrollback.indicator.position) {
@@ -1452,24 +1470,44 @@ render_scrollback_position(struct terminal *term)
     }
     }
 
-    quirk_weston_subsurface_desync_on(win->scrollback_indicator_sub_surface);
     wl_subsurface_set_position(
         win->scrollback_indicator_sub_surface,
         (term->width - margin - width) / scale,
         (term->margins.top + surf_top) / scale);
-    wl_surface_attach(win->scrollback_indicator_surface, buf->wl_buf, 0, 0);
-    wl_surface_damage_buffer(win->scrollback_indicator_surface, 0, 0, width, height);
-    wl_surface_set_buffer_scale(win->scrollback_indicator_surface, scale);
 
-    struct wl_region *region = wl_compositor_create_region(wayl->compositor);
-    if (region != NULL) {
-        wl_region_add(region, 0, 0, width, height);
-        wl_surface_set_opaque_region(win->scrollback_indicator_surface, region);
-        wl_region_destroy(region);
-    }
+    render_osd(
+        term,
+        win->scrollback_indicator_surface, win->scrollback_indicator_sub_surface,
+        buf, text,
+        term->colors.table[0], term->colors.table[8 + 4],
+        width, height, width - margin - wcslen(text) * term->cell_width, margin);
 
-    wl_surface_commit(win->scrollback_indicator_surface);
-    quirk_weston_subsurface_desync_off(win->scrollback_indicator_sub_surface);
+}
+
+static void
+render_render_timer(struct terminal *term, struct timeval render_time)
+{
+    struct wl_window *win = term->window;
+
+    wchar_t text[256];
+    double usecs = render_time.tv_sec * 1000000 + render_time.tv_usec;
+    swprintf(text, sizeof(text), L"%.2f µs", usecs);
+
+    const int cell_count = wcslen(text);
+    const int margin = 3 * term->scale;
+    const int width = 2 * margin + cell_count * term->cell_width;
+    const int height = 2 * margin + term->cell_height;
+
+    unsigned long cookie = shm_cookie_render_timer(term);
+    struct buffer *buf = shm_get_buffer(
+        term->wl->shm, width, height, cookie, false, 1);
+
+    render_osd(
+        term,
+        win->render_timer_surface, win->render_timer_sub_surface,
+        buf, text,
+        term->colors.table[0], term->colors.table[8 + 1],
+        width, height, margin, margin);
 }
 
 static void frame_callback(
@@ -1485,10 +1523,9 @@ grid_render(struct terminal *term)
     if (term->is_shutting_down)
         return;
 
-#if TIME_FRAME_RENDERING
     struct timeval start_time;
-    gettimeofday(&start_time, NULL);
-#endif
+    if (term->conf->tweak.render_timer_osd || term->conf->tweak.render_timer_log)
+        gettimeofday(&start_time, NULL);
 
     assert(term->width > 0);
     assert(term->height > 0);
@@ -1725,15 +1762,21 @@ grid_render(struct terminal *term)
     quirk_kde_damage_before_attach(term->window->surface);
     wl_surface_commit(term->window->surface);
 
-#if TIME_FRAME_RENDERING
-    struct timeval end_time;
-    gettimeofday(&end_time, NULL);
+    if (term->conf->tweak.render_timer_osd || term->conf->tweak.render_timer_log) {
+        struct timeval end_time;
+        gettimeofday(&end_time, NULL);
 
-    struct timeval render_time;
-    timersub(&end_time, &start_time, &render_time);
-    LOG_INFO("frame rendered in %lds %ldus",
-             render_time.tv_sec, render_time.tv_usec);
-#endif
+        struct timeval render_time;
+        timersub(&end_time, &start_time, &render_time);
+
+        if (term->conf->tweak.render_timer_log) {
+            LOG_INFO("frame rendered in %lds %ld µs",
+                     render_time.tv_sec, render_time.tv_usec);
+        }
+
+        if (term->conf->tweak.render_timer_osd)
+            render_render_timer(term, render_time);
+    }
 }
 
 static void

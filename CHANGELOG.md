@@ -30,6 +30,7 @@
   (https://codeberg.org/dnkl/foot/issues/54).
 * **colors.selection-foreground** and **colors.selection-background**
   options to `footrc`.
+* **tweak.render-timer** option to `footrc`.
 
 
 ### Deprecated

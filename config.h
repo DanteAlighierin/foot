@@ -127,6 +127,8 @@ struct config {
     bool hold_at_exit;
 
     struct {
+        bool render_timer_osd;
+        bool render_timer_log;
         uint64_t delayed_render_lower_ns;
         uint64_t delayed_render_upper_ns;
         off_t max_shm_pool_size;

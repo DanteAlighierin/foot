@@ -400,6 +400,12 @@ foot.
 When reporting bugs, please mention if, and to what, you have changed
 any of these options.
 
+*render-timer*
+	Enables a frame rendering timer, that prints the time it takes to
+	render each frame, in microseconds, either on-screen, to stderr,
+	or both. Valid values are *none*, *osd*, *log* and
+	*both*. Default: _none_.
+
 *delayed-render-lower*, *delayed-render-upper*
 	These two values control the timeouts (in nanoseconds) that are
 	used to mitigate screen flicker caused by clients writing large,

@@ -50,4 +50,5 @@ struct terminal;
 static inline unsigned long shm_cookie_grid(const struct terminal *term) { return (unsigned long)((uintptr_t)term + 0); }
 static inline unsigned long shm_cookie_search(const struct terminal *term) { return (unsigned long)((uintptr_t)term + 1); }
 static inline unsigned long shm_cookie_scrollback_indicator(const struct terminal *term) { return (unsigned long)(uintptr_t)term + 2; }
-static inline unsigned long shm_cookie_csd(const struct terminal *term, int n) { return (unsigned long)((uintptr_t)term + 3 + (n)); }
+static inline unsigned long shm_cookie_render_timer(const struct terminal *term) { return (unsigned long)(uintptr_t)term + 3; }
+static inline unsigned long shm_cookie_csd(const struct terminal *term, int n) { return (unsigned long)((uintptr_t)term + 4 + (n)); }

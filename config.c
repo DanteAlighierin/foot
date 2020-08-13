@@ -975,7 +975,29 @@ parse_section_tweak(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    if (strcmp(key, "delayed-render-lower") == 0) {
+    if (strcmp(key, "render-timer") == 0) {
+        if (strcmp(value, "none") == 0) {
+            conf->tweak.render_timer_osd = false;
+            conf->tweak.render_timer_log = false;
+        } else if (strcmp(value, "osd") == 0) {
+            conf->tweak.render_timer_osd = true;
+            conf->tweak.render_timer_log = false;
+        } else if (strcmp(value, "log") == 0) {
+            conf->tweak.render_timer_osd = false;
+            conf->tweak.render_timer_log = true;
+        } else if (strcmp(value, "both") == 0) {
+            conf->tweak.render_timer_osd = true;
+            conf->tweak.render_timer_log = true;
+        } else {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [tweak]: %s: invalid 'render-timer' value, "
+                "expected one of 'none', 'osd', 'log' or 'both'",
+                path, lineno, value);
+            return false;
+        }
+    }
+
+    else if (strcmp(key, "delayed-render-lower") == 0) {
         unsigned long ns;
         if (!str_to_ulong(value, 10, &ns)) {
             LOG_AND_NOTIFY_ERR("%s:%d: expected an integer, got '%s'", path, lineno, value);
@@ -1291,6 +1313,8 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
             .delayed_render_lower_ns = 500000,         /* 0.5ms */
             .delayed_render_upper_ns = 16666666 / 2,   /* half a frame period (60Hz) */
             .max_shm_pool_size = 512 * 1024 * 1024,
+            .render_timer_osd = false,
+            .render_timer_log = false,
         },
 
         .notifications = tll_init(),

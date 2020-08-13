@@ -1197,6 +1197,20 @@ wayl_win_init(struct terminal *term)
     }
 
     wl_surface_commit(win->surface);
+
+    if (conf->tweak.render_timer_osd) {
+        win->render_timer_surface = wl_compositor_create_surface(wayl->compositor);
+        if (win->render_timer_surface == NULL) {
+            LOG_ERR("failed to create render timer surface");
+            goto out;
+        }
+        win->render_timer_sub_surface = wl_subcompositor_get_subsurface(
+            wayl->sub_compositor, win->render_timer_surface, win->surface);
+        wl_subsurface_set_sync(win->render_timer_sub_surface);
+        wl_surface_set_user_data(win->render_timer_surface, win);
+        wl_subsurface_set_position(win->render_timer_sub_surface, 10, 10);
+        wl_surface_commit(win->render_timer_surface);
+    }
     return win;
 
 out:
@@ -1222,6 +1236,11 @@ wayl_win_destroy(struct wl_window *win)
      * global wayland struct (since it no longer has neither keyboard
      * nor mouse focus).
      */
+
+    if (win->render_timer_surface != NULL) {
+        wl_surface_attach(win->render_timer_surface, NULL, 0, 0);
+        wl_surface_commit(win->render_timer_surface);
+    }
 
     if (win->scrollback_indicator_surface != NULL) {
         wl_surface_attach(win->scrollback_indicator_surface, NULL, 0, 0);
@@ -1252,6 +1271,10 @@ wayl_win_destroy(struct wl_window *win)
     tll_free(win->on_outputs);
 
     csd_destroy(win);
+    if (win->render_timer_sub_surface != NULL)
+        wl_subsurface_destroy(win->render_timer_sub_surface);
+    if (win->render_timer_surface != NULL)
+        wl_surface_destroy(win->render_timer_surface);
     if (win->scrollback_indicator_sub_surface != NULL)
         wl_subsurface_destroy(win->scrollback_indicator_sub_surface);
     if (win->scrollback_indicator_surface != NULL)
