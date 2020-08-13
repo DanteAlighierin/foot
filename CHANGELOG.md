@@ -62,6 +62,8 @@
 * Viewport sometimes not moving when doing a scrollback search.
 * Crash when cancelling a scrollback search and the window had been
   resized while searching.
+* Selection start point not moving when the selection changes
+  direction.
 
 
 ### Security

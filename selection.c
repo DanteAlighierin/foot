@@ -320,10 +320,46 @@ selection_update(struct terminal *term, int col, int row)
     struct coord new_start = term->selection.start;
     struct coord new_end = {col, term->grid->view + row};
 
+    /* Adjust start point if the selection has changed 'direction' */
+    if (!(new_end.row == new_start.row && new_end.col == new_start.col)) {
+        enum selection_direction new_direction;
+
+        if (new_end.row > new_start.row ||
+            (new_end.row == new_start.row && new_end.col > new_start.col))
+        {
+            /* New end point is before the start point */
+            new_direction = SELECTION_RIGHT;
+        } else {
+            /* The new end point is after the start point */
+            new_direction = SELECTION_LEFT;
+        }
+
+        if (term->selection.direction != new_direction) {
+            if (term->selection.direction != SELECTION_UNDIR) {
+                if (new_direction == SELECTION_LEFT) {
+                    new_start.col--;
+                    if (new_start.col < 0) {
+                        new_start.col = term->cols - 1;
+                        new_start.row--;
+                    }
+                } else {
+                    new_start.col++;
+                    if (new_start.col >= term->cols) {
+                        new_start.col = 0;
+                        new_start.row++;
+                    }
+                }
+            }
+
+            term->selection.direction = new_direction;
+        }
+    }
+
     size_t start_row_idx = new_start.row & (term->grid->num_rows - 1);
     size_t end_row_idx = new_end.row & (term->grid->num_rows - 1);
     const struct row *row_start = term->grid->rows[start_row_idx];
     const struct row *row_end = term->grid->rows[end_row_idx];
+
 
     /* Handle double-width characters */
     if (new_start.row < new_end.row ||
@@ -548,6 +584,7 @@ selection_cancel(struct terminal *term)
     term->selection.kind = SELECTION_NONE;
     term->selection.start = (struct coord){-1, -1};
     term->selection.end = (struct coord){-1, -1};
+    term->selection.direction = SELECTION_UNDIR;
 }
 
 void
