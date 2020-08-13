@@ -10,6 +10,16 @@ footclient - start new terminals in a foot server
 All trailing (non-option) arguments are treated as a command, and its
 arguments, to execute (instead of the default shell).
 
+# DESCRIPTION
+
+*footclient* is used together with *foot*(1) in *--server*
+mode.
+
+Running it without arguments will open a new terminal window (hosted
+in the foot server), with your default shell. The exit code will be
+that of the terminal (thus, *footclient* does not exit until the
+terminal has terminated).
+
 # OPTIONS
 
 *-t*,*--term*=_TERM_
@@ -45,16 +55,6 @@ arguments, to execute (instead of the default shell).
 
 *-v*,*--version*
 	Show the version number and quit
-
-# DESCRIPTION
-
-*footclient* is used together with *foot*(1) in *--server*
-mode.
-
-Running it without arguments will open a new terminal window (hosted
-in the foot server), with your default shell. The exit code will be
-that of the terminal (thus, *footclient* does not exit until the
-terminal has terminated).
 
 # SEE ALSO
 
