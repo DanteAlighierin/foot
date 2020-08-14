@@ -35,10 +35,6 @@
   (https://codeberg.org/dnkl/foot/issues/77).
 * Click count support in mouse bindings, i.e double- and triple-click
   (https://codeberg.org/dnkl/foot/issues/78).
-* Modifier support in mouse bindings
-  (https://codeberg.org/dnkl/foot/issues/77).
-* Click count support in mouse bindings, i.e double- and triple-click
-  (https://codeberg.org/dnkl/foot/issues/78).
 * All mouse actions (begin selection, select word, select row etc) are
   now configurable, via the new **select-begin**,
   **select-begin-block**, **select-extend**, **select-word**,
