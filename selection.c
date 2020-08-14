@@ -237,6 +237,7 @@ selection_start(struct terminal *term, int col, int row,
     term->selection.kind = kind;
     term->selection.start = (struct coord){col, term->grid->view + row};
     term->selection.end = (struct coord){-1, -1};
+    term->selection.ongoing = true;
 }
 
 static bool
@@ -308,6 +309,9 @@ void
 selection_update(struct terminal *term, int col, int row)
 {
     if (term->selection.start.row < 0)
+        return;
+
+    if (!term->selection.ongoing)
         return;
 
     LOG_DBG("selection updated: start = %d,%d, end = %d,%d -> %d, %d",
@@ -532,6 +536,8 @@ selection_extend(struct seat *seat, struct terminal *term,
         return;
     }
 
+    term->selection.ongoing = true;
+
     row += term->grid->view;
 
     if ((row == term->selection.start.row && col == term->selection.start.col) ||
@@ -563,6 +569,11 @@ selection_extend(struct seat *seat, struct terminal *term,
 void
 selection_finalize(struct seat *seat, struct terminal *term, uint32_t serial)
 {
+    if (!term->selection.ongoing)
+        return;
+
+    term->selection.ongoing = false;
+
     if (term->selection.start.row < 0 || term->selection.end.row < 0)
         return;
 
@@ -600,6 +611,7 @@ selection_cancel(struct terminal *term)
     term->selection.start = (struct coord){-1, -1};
     term->selection.end = (struct coord){-1, -1};
     term->selection.direction = SELECTION_UNDIR;
+    term->selection.ongoing = false;
 }
 
 void

@@ -69,6 +69,14 @@ static const char *const binding_action_map[] = {
     [BIND_ACTION_PIPE_SCROLLBACK] = "pipe-scrollback",
     [BIND_ACTION_PIPE_VIEW] = "pipe-visible",
     [BIND_ACTION_PIPE_SELECTED] = "pipe-selected",
+
+    /* Mouse-specific actions */
+    [BIND_ACTION_SELECT_BEGIN] = "select-begin",
+    [BIND_ACTION_SELECT_BEGIN_BLOCK] = "select-begin-block",
+    [BIND_ACTION_SELECT_EXTEND] = "select-extend",
+    [BIND_ACTION_SELECT_WORD] = "select-word",
+    [BIND_ACTION_SELECT_WORD_WS] = "select-word-whitespace",
+    [BIND_ACTION_SELECT_ROW] = "select-row",
 };
 
 static_assert(ALEN(binding_action_map) == BIND_ACTION_COUNT,
@@ -643,7 +651,8 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
     }
 
     else {
-        LOG_AND_NOTIFY_ERR("%s:%u: [csd]: %s: invalid key", path, lineno, key);
+        LOG_AND_NOTIFY_ERR("%s:%u: [csd]: %s: invalid action",
+                           path, lineno, key);
         return false;
     }
 
@@ -859,7 +868,7 @@ parse_section_key_bindings(
     }
 
     for (enum bind_action_normal action = 0;
-         action < BIND_ACTION_COUNT;
+         action < BIND_ACTION_KEY_COUNT;
          action++)
     {
         if (binding_action_map[action] == NULL)
@@ -932,7 +941,8 @@ parse_section_key_bindings(
         return true;
     }
 
-    LOG_AND_NOTIFY_ERR("%s:%u: [key-bindings]: %s: invalid key", path, lineno, key);
+    LOG_AND_NOTIFY_ERR("%s:%u: [key-bindings]: %s: invalid action",
+                       path, lineno, key);
     return false;
 
 }
@@ -1016,6 +1026,11 @@ parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *ke
             *key = '\0';
             if (!parse_modifiers(conf, combo, key - combo, &modifiers, path, lineno))
                 goto err;
+            if (modifiers.shift) {
+                LOG_AND_NOTIFY_ERR("%s:%d: Shift cannot be used in mosue bindings",
+                                   path, lineno);
+                goto err;
+            }
             key++;  /* Skip past the '+' */
         }
 
@@ -1121,7 +1136,10 @@ parse_section_mouse_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    for (enum bind_action_normal action = 0; action < BIND_ACTION_COUNT; action++) {
+    for (enum bind_action_normal action = 0;
+         action < BIND_ACTION_COUNT;
+         action++)
+    {
         if (binding_action_map[action] == NULL)
             continue;
 
@@ -1519,8 +1537,15 @@ add_default_mouse_bindings(struct config *conf)
 } while (0)
 
     const struct config_key_modifiers none = {};
+    const struct config_key_modifiers ctrl = {.ctrl = true};
 
     add_binding(BIND_ACTION_PRIMARY_PASTE, none, BTN_MIDDLE, 1);
+    add_binding(BIND_ACTION_SELECT_BEGIN, none, BTN_LEFT, 1);
+    add_binding(BIND_ACTION_SELECT_BEGIN_BLOCK, ctrl, BTN_LEFT, 1);
+    add_binding(BIND_ACTION_SELECT_EXTEND, none, BTN_RIGHT, 1);
+    add_binding(BIND_ACTION_SELECT_WORD, none, BTN_LEFT, 2);
+    add_binding(BIND_ACTION_SELECT_WORD_WS, ctrl, BTN_LEFT, 2);
+    add_binding(BIND_ACTION_SELECT_ROW, none, BTN_LEFT, 3);
 
 #undef add_binding
 }
