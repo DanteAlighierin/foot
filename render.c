@@ -1502,6 +1502,11 @@ render_render_timer(struct terminal *term, struct timeval render_time)
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, width, height, cookie, false, 1);
 
+    wl_subsurface_set_position(
+        win->render_timer_sub_surface,
+        margin / term->scale,
+        (term->margins.top + term->cell_height - margin) / term->scale);
+
     render_osd(
         term,
         win->render_timer_surface, win->render_timer_sub_surface,

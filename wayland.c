@@ -1212,7 +1212,6 @@ wayl_win_init(struct terminal *term)
             wayl->sub_compositor, win->render_timer_surface, win->surface);
         wl_subsurface_set_sync(win->render_timer_sub_surface);
         wl_surface_set_user_data(win->render_timer_surface, win);
-        wl_subsurface_set_position(win->render_timer_sub_surface, 10, 10);
         wl_surface_commit(win->render_timer_surface);
     }
     return win;
