@@ -364,9 +364,18 @@ This section lets you override the default mouse bindings.
 
 The general format is _action=combo1...comboN_. That is, each action
 may have one or more key combinations, space separated. Each
-combination is on the form _mod1+mod2+BTN\_<name>_. The names of the
-modifiers and the key *must* be valid XKB key names. You can find the
-button names using *libinput debug-events*.
+combination is on the form _mod1+mod2+BTN\_<name>_[-COUNT]. The names
+of the modifiers and the key *must* be valid XKB key names. You can
+find the button names using *libinput debug-events*.
+
+The trailing *COUNT* is optional and specifies the click count
+required to trigger the binding. The default is *COUNT* is omitted is
+_1_.
+
+Example: *primary-paste=Control+BTN_LEFT-2*
+
+Trigger _primary-paste_ when *ctrl* is pressed, and the left mouse
+button is double clicked.
 
 A button can only be mapped to *one* action. Lets say you want to bind
 *BTN\_MIDDLE* to *fullscreen*. Since *BTN\_MIDDLE* is the default
