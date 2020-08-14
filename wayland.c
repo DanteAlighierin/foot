@@ -125,6 +125,8 @@ seat_destroy(struct seat *seat)
         tll_free(it->item.bind.key_codes);
     tll_free(seat->kbd.bindings.search);
 
+    tll_free(seat->mouse.bindings);
+
     if (seat->kbd.xkb_compose_state != NULL)
         xkb_compose_state_unref(seat->kbd.xkb_compose_state);
     if (seat->kbd.xkb_compose_table != NULL)
@@ -762,9 +764,6 @@ handle_global(void *data, struct wl_registry *registry,
         struct wl_seat *wl_seat = wl_registry_bind(
             wayl->registry, name, &wl_seat_interface, required);
 
-        /* Clipboard */
-        /* Primary selection */
-
         tll_push_back(wayl->seats, ((struct seat){
                     .wayl = wayl,
                     .wl_seat = wl_seat,
@@ -913,22 +912,27 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 
         if (seat->kbd_focus != NULL) {
             LOG_WARN("compositor destroyed seat '%s' "
-                     "without sending keyboard/pointer leave events",
+                     "without sending a keyboard leave event",
                      seat->name);
-
-            struct terminal *term = seat->kbd_focus;
 
             if (seat->wl_keyboard != NULL)
                 keyboard_listener.leave(
-                    seat, seat->wl_keyboard, -1, term->window->surface);
+                    seat, seat->wl_keyboard, -1, seat->kbd_focus->window->surface);
+        }
+
+        if (seat->mouse_focus != NULL) {
+            LOG_WARN("compositor destroyed seat '%s' "
+                     "without sending a pointer leave event",
+                     seat->name);
 
             if (seat->wl_pointer != NULL)
                 pointer_listener.leave(
-                    seat, seat->wl_pointer, -1, term->window->surface);
+                    seat, seat->wl_pointer, -1, seat->mouse_focus->window->surface);
         }
 
         seat_destroy(seat);
         tll_remove(wayl->seats, it);
+        return;
     }
 
     LOG_WARN("unknown global removed: 0x%08x", name);

@@ -260,97 +260,110 @@ execute_binding(struct seat *seat, struct terminal *term,
     }
 }
 
-bool
-input_parse_key_binding(struct xkb_keymap *keymap, const char *combos,
-                        key_binding_list_t *bindings)
+static xkb_mod_mask_t
+conf_modifiers_to_mask(const struct seat *seat,
+                       const struct config_key_modifiers *modifiers)
 {
-    if (combos == NULL)
-        return true;
+    xkb_mod_mask_t mods = 0;
+    mods |= modifiers->shift << seat->kbd.mod_shift;
+    mods |= modifiers->ctrl << seat->kbd.mod_ctrl;
+    mods |= modifiers->alt << seat->kbd.mod_alt;
+    mods |= modifiers->meta << seat->kbd.mod_meta;
+    return mods;
+}
 
-    xkb_keysym_t sym = XKB_KEY_NoSymbol;
+static xkb_keycode_list_t
+key_codes_for_xkb_sym(struct xkb_keymap *keymap, xkb_keysym_t sym)
+{
+    xkb_keycode_list_t key_codes = tll_init();
 
-    char *copy = xstrdup(combos);
+    /*
+     * Find all key codes that map to the lower case
+     * version of the symbol.
+     *
+     * This allows us to match bindings in other layouts
+     * too.
+     */
+    xkb_keysym_t lower_sym = xkb_keysym_to_lower(sym);
+    struct xkb_state *state = xkb_state_new(keymap);
 
-    for (char *save1 = NULL, *combo = strtok_r(copy, " ", &save1);
-         combo != NULL;
-         combo = strtok_r(NULL, " ", &save1))
+    for (xkb_keycode_t code = xkb_keymap_min_keycode(keymap);
+         code <= xkb_keymap_max_keycode(keymap);
+         code++)
     {
-        xkb_mod_mask_t mod_mask = 0;
-        xkb_keycode_list_t key_codes = tll_init();
-
-        LOG_DBG("%s", combo);
-        for (char *save2 = NULL, *key = strtok_r(combo, "+", &save2),
-                 *next_key = strtok_r(NULL, "+", &save2);
-             key != NULL;
-             key = next_key, next_key = strtok_r(NULL, "+", &save2))
-        {
-            if (next_key != NULL) {
-                /* Modifier */
-                xkb_mod_index_t mod = xkb_keymap_mod_get_index(keymap, key);
-
-                if (mod == -1) {
-                    LOG_ERR("%s: not a valid modifier name", key);
-                    free(copy);
-                    return false;
-                }
-
-                mod_mask |= 1 << mod;
-                LOG_DBG("MOD: %d - %s", mod, key);
-            } else {
-                /* Symbol */
-                sym = xkb_keysym_from_name(key, 0);
-
-                if (sym == XKB_KEY_NoSymbol) {
-                    LOG_ERR("%s: key binding is not a valid XKB symbol name",
-                            key);
-                    break;
-                }
-
-                /*
-                 * Find all key codes that map to the lower case
-                 * version of the symbol.
-                 *
-                 * This allows us to match bindings in other layouts
-                 * too.
-                 */
-                xkb_keysym_t lower_sym = xkb_keysym_to_lower(sym);
-                struct xkb_state *state = xkb_state_new(keymap);
-
-                for (xkb_keycode_t code = xkb_keymap_min_keycode(keymap);
-                     code <= xkb_keymap_max_keycode(keymap);
-                     code++)
-                {
-                    if (xkb_state_key_get_one_sym(state, code) == lower_sym)
-                        tll_push_back(key_codes, code);
-                }
-
-                xkb_state_unref(state);
-            }
-        }
-
-        LOG_DBG("mods=0x%08x, sym=%d", mod_mask, sym);
-
-        if (sym == XKB_KEY_NoSymbol) {
-            assert(tll_length(key_codes) == 0);
-            tll_free(key_codes);
-            continue;
-        }
-
-        assert(sym != 0);
-        if (bindings != NULL) {
-            const struct key_binding binding = {
-                .mods = mod_mask,
-                .sym = sym,
-                .key_codes = key_codes,
-            };
-
-            tll_push_back(*bindings, binding);
-        } else
-            tll_free(key_codes);
+        if (xkb_state_key_get_one_sym(state, code) == lower_sym)
+            tll_push_back(key_codes, code);
     }
 
-    free(copy);
-    return true;
+    xkb_state_unref(state);
+    return key_codes;
+}
+
+static void
+convert_key_binding(struct seat *seat,
+                    const struct config_key_binding_normal *conf_binding)
+{
+    struct key_binding_normal binding = {
+        .action = conf_binding->action,
+        .bind = {
+            .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
+            .sym = conf_binding->sym,
+            .key_codes = key_codes_for_xkb_sym(
+                seat->kbd.xkb_keymap, conf_binding->sym),
+        },
+        .pipe_argv = conf_binding->pipe.argv,
+    };
+    tll_push_back(seat->kbd.bindings.key, binding);
+}
+
+static void
+convert_key_bindings(const struct config *conf, struct seat *seat)
+{
+    tll_foreach(conf->bindings.key, it)
+        convert_key_binding(seat, &it->item);
+}
+
+static void
+convert_search_binding(struct seat *seat,
+                       const struct config_key_binding_search *conf_binding)
+{
+    struct key_binding_search binding = {
+        .action = conf_binding->action,
+        .bind = {
+            .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
+            .sym = conf_binding->sym,
+            .key_codes = key_codes_for_xkb_sym(
+                seat->kbd.xkb_keymap, conf_binding->sym),
+        },
+    };
+    tll_push_back(seat->kbd.bindings.search, binding);
+}
+
+static void
+convert_search_bindings(const struct config *conf, struct seat *seat)
+{
+    tll_foreach(conf->bindings.search, it)
+        convert_search_binding(seat, &it->item);
+}
+
+static void
+convert_mouse_binding(struct seat *seat,
+                      const struct config_mouse_binding *conf_binding)
+{
+    struct mouse_binding binding = {
+        .action = conf_binding->action,
+        .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
+        .button = conf_binding->button,
+        .count = conf_binding->count,
+    };
+    tll_push_back(seat->mouse.bindings, binding);
+}
+
+static void
+convert_mouse_bindings(const struct config *conf, struct seat *seat)
+{
+    tll_foreach(conf->bindings.mouse, it)
+        convert_mouse_binding(seat, &it->item);
 }
 
 static void
@@ -402,12 +415,13 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         tll_free(it->item.bind.key_codes);
     tll_free(seat->kbd.bindings.search);
 
+    tll_free(seat->mouse.bindings);
+
     seat->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
     seat->kbd.xkb_keymap = xkb_keymap_new_from_buffer(
         seat->kbd.xkb, map_str, size, XKB_KEYMAP_FORMAT_TEXT_V1,
         XKB_KEYMAP_COMPILE_NO_FLAGS);
 
-    /* TODO: initialize in enter? */
     seat->kbd.xkb_state = xkb_state_new(seat->kbd.xkb_keymap);
 
     seat->kbd.mod_shift = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Shift");
@@ -424,35 +438,9 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     munmap(map_str, size);
     close(fd);
 
-    tll_foreach(wayl->conf->bindings.key, it) {
-        key_binding_list_t bindings = tll_init();
-        input_parse_key_binding(
-            seat->kbd.xkb_keymap, it->item.key, &bindings);
-
-        tll_foreach(bindings, it2) {
-            tll_push_back(
-                seat->kbd.bindings.key,
-                ((struct key_binding_normal){
-                    .bind = it2->item,
-                    .action = it->item.action,
-                    .pipe_argv = it->item.pipe.argv}));
-        }
-        tll_free(bindings);
-    }
-
-    tll_foreach(wayl->conf->bindings.search, it) {
-        key_binding_list_t bindings = tll_init();
-        input_parse_key_binding(
-            seat->kbd.xkb_keymap, it->item.key, &bindings);
-
-        tll_foreach(bindings, it2) {
-            tll_push_back(
-                seat->kbd.bindings.search,
-                ((struct key_binding_search){
-                    .bind = it2->item, .action = it->item.action}));
-        }
-        tll_free(bindings);
-    }
+    convert_key_bindings(wayl->conf, seat);
+    convert_search_bindings(wayl->conf, seat);
+    convert_mouse_bindings(wayl->conf, seat);
 }
 
 static void
@@ -1119,7 +1107,12 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     }
 
     /* Reset mouse state */
-    memset(&seat->mouse, 0, sizeof(seat->mouse));
+    seat->mouse.x = seat->mouse.y = 0;
+    seat->mouse.col = seat->mouse.row = 0;
+    seat->mouse.button = seat->mouse.last_button = seat->mouse.count = 0;
+    memset(&seat->mouse.last_time, 0, sizeof(seat->mouse.last_time));
+    seat->mouse.axis_aggregated = 0.0;
+    seat->mouse.have_discrete = false;
 
     seat->mouse_focus = NULL;
     if (old_moused == NULL) {
@@ -1444,9 +1437,12 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
 
+        xkb_mod_mask_t mods = xkb_state_serialize_mods(
+            seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
+
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
-            if (button == BTN_LEFT && seat->mouse.count <= 3) {
+            if (button == BTN_LEFT && seat->mouse.count <= 3 && mods == 0) {
                 selection_cancel(term);
 
                 if (selection_enabled(term, seat) && cursor_is_on_grid) {
@@ -1470,15 +1466,16 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 }
             }
 
-            else if (button == BTN_RIGHT && seat->mouse.count == 1) {
+            else if (button == BTN_RIGHT && seat->mouse.count == 1 && mods == 0) {
                 if (selection_enabled(term, seat) && cursor_is_on_grid) {
                     selection_extend(
                         seat, term, seat->mouse.col, seat->mouse.row, serial);
                 }
             }
 
-            else {
-                tll_foreach(wayl->conf->bindings.mouse, it) {
+            else if (seat->wl_keyboard != NULL) {
+                /* Seat has keyboard - use mouse bindings *with* modifiers */
+                tll_foreach(seat->mouse.bindings, it) {
                     const struct mouse_binding *binding = &it->item;
 
                     if (binding->button != button) {
@@ -1486,8 +1483,39 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                         continue;
                     }
 
+                    if (binding->mods != mods) {
+                        /* Modifier mismatch */
+                        continue;
+                    }
+
                     if  (binding->count != seat->mouse.count) {
                         /* Not correct click count */
+                        continue;
+                    }
+
+                    execute_binding(seat, term, binding->action, NULL, serial);
+                    break;
+                }
+            }
+
+            else {
+                /* Seat does NOT have a keyboard - use mouse bindings *without* modifiers */
+                tll_foreach(seat->wayl->conf->bindings.mouse, it) {
+                    const struct config_mouse_binding *binding = &it->item;
+
+                    if (binding->button != button) {
+                        /* Wrong button */
+                        continue;
+                    }
+
+                    if (binding->count != seat->mouse.count) {
+                        /* Incorrect click count */
+                        continue;
+                    }
+
+                    const struct config_key_modifiers no_mods = {};
+                    if (memcmp(&binding->modifiers, &no_mods, sizeof(no_mods)) != 0) {
+                        /* Binding has modifiers */
                         continue;
                     }
 

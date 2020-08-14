@@ -362,9 +362,11 @@ scrollback search mode. The syntax is exactly the same as the regular
 
 This section lets you override the default mouse bindings.
 
-The general format is _action=BTN\_<name>_, where _BTN\_<name>_ is
-the name of the event code (e.g. *BTN\_LEFT*, *BTN\_RIGHT*). You can
-find the event names using *libinput debug-events*.
+The general format is _action=combo1...comboN_. That is, each action
+may have one or more key combinations, space separated. Each
+combination is on the form _mod1+mod2+BTN\_<name>_. The names of the
+modifiers and the key *must* be valid XKB key names. You can find the
+button names using *libinput debug-events*.
 
 A button can only be mapped to *one* action. Lets say you want to bind
 *BTN\_MIDDLE* to *fullscreen*. Since *BTN\_MIDDLE* is the default
