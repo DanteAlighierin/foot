@@ -1072,6 +1072,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 
     case TERM_SURF_SEARCH:
     case TERM_SURF_SCROLLBACK_INDICATOR:
+    case TERM_SURF_RENDER_TIMER:
     case TERM_SURF_TITLE:
         render_xcursor_set(seat, term, XCURSOR_LEFT_PTR);
         break;
@@ -1151,6 +1152,7 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         case TERM_SURF_GRID:
         case TERM_SURF_SEARCH:
         case TERM_SURF_SCROLLBACK_INDICATOR:
+        case TERM_SURF_RENDER_TIMER:
         case TERM_SURF_TITLE:
         case TERM_SURF_BORDER_LEFT:
         case TERM_SURF_BORDER_RIGHT:
@@ -1187,6 +1189,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_NONE:
     case TERM_SURF_SEARCH:
     case TERM_SURF_SCROLLBACK_INDICATOR:
+    case TERM_SURF_RENDER_TIMER:
     case TERM_SURF_BUTTON_MINIMIZE:
     case TERM_SURF_BUTTON_MAXIMIZE:
     case TERM_SURF_BUTTON_CLOSE:
@@ -1433,6 +1436,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     case TERM_SURF_SEARCH:
     case TERM_SURF_SCROLLBACK_INDICATOR:
+    case TERM_SURF_RENDER_TIMER:
         break;
 
     case TERM_SURF_GRID: {
