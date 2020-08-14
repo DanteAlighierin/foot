@@ -1727,6 +1727,23 @@ grid_render(struct terminal *term)
 
     render_scrollback_position(term);
 
+    if (term->conf->tweak.render_timer_osd || term->conf->tweak.render_timer_log) {
+        struct timeval end_time;
+        gettimeofday(&end_time, NULL);
+
+        struct timeval render_time;
+        timersub(&end_time, &start_time, &render_time);
+
+        if (term->conf->tweak.render_timer_log) {
+            LOG_INFO("frame rendered in %llds %lld µs",
+                     (long long)render_time.tv_sec,
+                     (long long)render_time.tv_usec);
+        }
+
+        if (term->conf->tweak.render_timer_osd)
+            render_render_timer(term, render_time);
+    }
+
     assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
     assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
 
@@ -1766,23 +1783,6 @@ grid_render(struct terminal *term)
     wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
     quirk_kde_damage_before_attach(term->window->surface);
     wl_surface_commit(term->window->surface);
-
-    if (term->conf->tweak.render_timer_osd || term->conf->tweak.render_timer_log) {
-        struct timeval end_time;
-        gettimeofday(&end_time, NULL);
-
-        struct timeval render_time;
-        timersub(&end_time, &start_time, &render_time);
-
-        if (term->conf->tweak.render_timer_log) {
-            LOG_INFO("frame rendered in %llds %lld µs",
-                     (long long)render_time.tv_sec,
-                     (long long)render_time.tv_usec);
-        }
-
-        if (term->conf->tweak.render_timer_osd)
-            render_render_timer(term, render_time);
-    }
 }
 
 static void
