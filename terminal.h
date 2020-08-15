@@ -421,7 +421,7 @@ struct terminal {
             bool autosize;
         } image;
 
-        unsigned params[5];  /* Collected parmaeters, for RASTER, COLOR_SPEC */
+        unsigned params[5];  /* Collected parameters, for RASTER, COLOR_SPEC */
         unsigned param;      /* Currently collecting parameter, for RASTER, COLOR_SPEC and REPEAT */
         unsigned param_idx;  /* Parameters seen */
 

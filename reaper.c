@@ -119,7 +119,7 @@ fdm_reap(struct fdm *fdm, int fd, int events, void *data)
     }
 
     tll_foreach(reaper->children, it) {
-        /* Don't use wait() since we don't want to accidentaly reap
+        /* Don't use wait() since we don't want to accidentally reap
          * the PTS slave */
 
         pid_t pid = it->item;

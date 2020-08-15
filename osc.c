@@ -512,7 +512,7 @@ osc_dispatch(struct terminal *term)
                  * Update color of already rendered cells.
                  *
                  * Note that we do *not* store the original palette
-                 * index. Therefor, the best we can do is compare
+                 * index. Therefore, the best we can do is compare
                  * colors - if they match, assume "our" palette index
                  * was the one used to render the cell.
                  *

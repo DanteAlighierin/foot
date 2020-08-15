@@ -733,7 +733,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     xkb_keysym_t sym = xkb_state_key_get_one_sym(seat->kbd.xkb_state, key);
 
     if (state == XKB_KEY_DOWN && term->conf->mouse.hide_when_typing &&
-        /* TODO: better way to detect modifers */
+        /* TODO: better way to detect modifiers */
         sym != XKB_KEY_Shift_L && sym != XKB_KEY_Shift_R &&
         sym != XKB_KEY_Control_L && sym != XKB_KEY_Control_R &&
         sym != XKB_KEY_Alt_L && sym != XKB_KEY_Alt_R &&
@@ -959,7 +959,7 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     xkb_state_update_mask(
         seat->kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
 
-    /* Update state of modifiers we're interrested in for e.g mouse events */
+    /* Update state of modifiers we're interested in for e.g mouse events */
     seat->kbd.shift = xkb_state_mod_index_is_active(
         seat->kbd.xkb_state, seat->kbd.mod_shift, XKB_STATE_MODS_DEPRESSED);
     seat->kbd.alt = xkb_state_mod_index_is_active(
