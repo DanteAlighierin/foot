@@ -308,7 +308,7 @@ scrollback search mode. The syntax is exactly the same as the regular
 	match. Default: _Control+r_.
 
 *find-next*
-	Searchs **forwards** in the scrollback history for the next
+	Searches **forwards** in the scrollback history for the next
 	match. Default: _Control+s_.
 
 *cursor-left*
