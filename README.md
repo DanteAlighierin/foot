@@ -134,9 +134,10 @@ These are the default shortcuts. See `man 5 foot` and the example
 : Reset font size
 
 <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>n</kbd>
-: Spawn a new terminal. If the shell has been configured to emit the
-  OSC 7 escape sequence, the new terminal will start in the current
-  working directory.
+: Spawn a new terminal. If the shell has been [configured to emit the
+  OSC 7 escape
+  sequence](https://codeberg.org/dnkl/foot/wiki#user-content-how-to-configure-my-shell-to-emit-the-osc-7-escape-sequence),
+  the new terminal will start in the current working directory.
 
 
 #### Scrollback search
