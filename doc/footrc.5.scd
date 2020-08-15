@@ -482,7 +482,7 @@ any of these options.
 	delay we introduce is so small that the risk of pushing the frame
 	over to the next frame interval is also very small.
 	
-	Now, that was a lof of text. But what is it foot actually does?
+	Now, that was a lot of text. But what is it foot actually does?
 	
 	When receiving client data, it schedules a timer, the
 	*delayed-render-lower*. If we do not receive any more client data
@@ -503,7 +503,7 @@ any of these options.
 	foot. Furthermore, both values must be less than 16ms (that is,
 	16000000 nanoseconds).
 	
-	You can disable the feature altoghether by setting either value to
+	You can disable the feature altogether by setting either value to
 	0. In this case, frames are rendered "as soon as possible".
 	
 	Default: lower=_500000_ (0.5ms), upper=_8333333_ (8.3ms - half a
