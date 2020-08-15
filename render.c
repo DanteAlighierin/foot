@@ -610,7 +610,7 @@ grid_render_scroll(struct terminal *term, struct buffer *buf,
      * So, we need to figure out when to SHM scroll, and when to
      * memmove.
      *
-     * For now, assume that the both methods perform rougly the same,
+     * For now, assume that the both methods perform roughly the same,
      * given an equal number of bytes to move/allocate, and use the
      * method that results in the least amount of bytes to touch.
      *

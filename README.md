@@ -325,7 +325,7 @@ The tertiary DA response is always `\EP!|464f4f54\E\\`. The `\EP!|` is
 the standard tertiary DA response prefix, `DCS ! |`. The trailing
 `\E\\` is of course the standard string terminator, `ST`.
 
-In the response above, the interresting part is `464f4f54`; this is
+In the response above, the interesting part is `464f4f54`; this is
 the string _FOOT_ in hex.
 
 The secondary DA response is `\E[>1;XXYYZZ;0c`, where XXYYZZ is foot's

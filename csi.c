@@ -334,7 +334,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 /*
                  * Note: we never reset 'last-printed'. According to
                  * ECMA-48, the behaviour is undefined if REP was
-                 * _not_ preceeded by a graphical character.
+                 * _not_ preceded by a graphical character.
                  */
                 int count = vt_param_get(term, 0, 1);
                 LOG_DBG("REP: '%lc' %d times", (wint_t)term->vt.last_printed, count);
@@ -377,7 +377,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
              *  - 29   ANSI text locator (i.e., DEC Locator mode).
              *
              * Note: we report ourselves as a VT220, mainly to be able
-             * to pass parameters, to indiciate we support sixel, and
+             * to pass parameters, to indicate we support sixel, and
              * ANSI colors.
              *
              * The VT level must be synchronized with the secondary DA
@@ -1416,7 +1416,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                  *  determine level of support.
                  *
                  * We report ourselves as a VT220. This must be
-                 * synchronized with the primary DA respons.
+                 * synchronized with the primary DA response.
                  *
                  * Note: tertiary DA replies with "FOOT".
                  */

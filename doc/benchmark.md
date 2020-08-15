@@ -58,7 +58,7 @@ CPU: i5-8250U
 
 RAM: 8GB
 
-Graphics: Intel UHD Graphcis 620
+Graphics: Intel UHD Graphics 620
 
 
 ### Terminal configuration

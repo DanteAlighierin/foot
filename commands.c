@@ -37,7 +37,7 @@ cmd_scrollback_up(struct terminal *term, int rows)
         /*
          *  This happens when scrolling up in a newly opened terminal;
          *  every single line (except those already visible) are
-         *  uninitalized, and the loop above will bring us back to
+         *  uninitialized, and the loop above will bring us back to
          *  where we started.
          */
         return;
