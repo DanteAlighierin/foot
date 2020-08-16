@@ -41,6 +41,8 @@
   **select-word-whitespace** and **select-row** options in the
   **mouse-bindings** section in `footrc`
   (https://codeberg.org/dnkl/foot/issues/79).
+* Implement XTSAVE/XTRESTORE escape sequences, `CSI ? Ps s` and `CSI ?
+  Ps r` (https://codeberg.org/dnkl/foot/issues/91).
 
 
 ### Deprecated
