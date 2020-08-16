@@ -555,6 +555,38 @@ xtsave(struct terminal *term, unsigned param)
     }
 }
 
+static void
+xtrestore(struct terminal *term, unsigned param)
+{
+    bool enable;
+    switch (param) {
+    case 1: enable = term->xtsave.application_cursor_keys;
+    case 3: return;
+    case 4: return;
+    case 5: enable = term->xtsave.reverse; break;
+    case 6: enable = term->xtsave.origin; break;
+    case 7: enable = term->xtsave.auto_margin; break;
+    case 9: /* enable = term->xtsave.mouse_x10; break; */ return;
+    case 12: return;
+    case 25: enable = term->xtsave.show_cursor; break;
+    case 1000: enable = term->xtsave.mouse_click; break;
+    case 1001: return;
+    case 1002: enable = term->xtsave.mouse_drag; break;
+    case 1003: enable = term->xtsave.mouse_motion; break;
+    case 1004: enable = term->xtsave.focus_events; break;
+    case 1005: /* enable = term->xtsave.mouse_utf8; break; */ return;
+    case 1006: enable = term->xtsave.mouse_sgr; break;
+    case 1007: enable = term->xtsave.alt_scrolling; break;
+    case 1015: enable = term->xtsave.mouse_urxvt; break;
+    case 1034: enable = term->xtsave.meta_eight_bit; break;
+    case 1036: enable = term->xtsave.meta_esc_prefix; break;
+    case 1049: enable = term->xtsave.alt_screen; break;
+    case 2004: enable = term->xtsave.bracketed_paste; break;
+    }
+
+    decset_decrst(term, param, enable);
+}
+
 void
 csi_dispatch(struct terminal *term, uint8_t final)
 {
@@ -1283,22 +1315,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 'r':
-            for (size_t i = 0; i < term->vt.params.idx; i++) {
-                switch (term->vt.params.v[i].value) {
-#if 0  /* We don't implement "highlight mouse tracking" */
-                case 1001:  /* restore old highlight mouse tracking mode? */
-                    LOG_WARN(
-                        "unimplemented: %s "
-                        "(restore 'highlight mouse tracking' mode)",
-                        csi_as_string(term, final, i));
-                    break;
-#endif
-
-                default:
-                    UNHANDLED();
-                    break;
-                }
-            }
+            for (size_t i = 0; i < term->vt.params.idx; i++)
+                xtrestore(term, term->vt.params.v[i].value);
             break;
 
         case 'S': {
