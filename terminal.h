@@ -248,26 +248,26 @@ struct terminal {
 
     /* Saved DECSET modes - we save the SET state */
     struct {
-        bool origin;
-        bool application_cursor_keys;
-        bool reverse;
-        bool show_cursor;
-        bool auto_margin;
-        //bool cursor_blink;
-        bool insert_mode;
-        bool bracketed_paste;
-        bool focus_events;
-        bool alt_scrolling;
-        //bool mouse_x10;
-        bool mouse_click;
-        bool mouse_drag;
-        bool mouse_motion;
-        //bool mouse_utf8;
-        bool mouse_sgr;
-        bool mouse_urxvt;
-        bool meta_eight_bit;
-        bool meta_esc_prefix;
-        bool alt_screen;
+        uint32_t origin:1;
+        uint32_t application_cursor_keys:1;
+        uint32_t reverse:1;
+        uint32_t show_cursor:1;
+        uint32_t auto_margin:1;
+        //uint32_t cursor_blink:1;
+        uint32_t insert_mode:1;
+        uint32_t bracketed_paste:1;
+        uint32_t focus_events:1;
+        uint32_t alt_scrolling:1;
+        //uint32_t mouse_x10:1;
+        uint32_t mouse_click:1;
+        uint32_t mouse_drag:1;
+        uint32_t mouse_motion:1;
+        //uint32_t mouse_utf8:1;
+        uint32_t mouse_sgr:1;
+        uint32_t mouse_urxvt:1;
+        uint32_t meta_eight_bit:1;
+        uint32_t meta_esc_prefix:1;
+        uint32_t alt_screen:1;
     } xtsave;
 
     struct charsets charsets;
