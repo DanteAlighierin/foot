@@ -331,11 +331,13 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
 
     switch (param) {
     case 1:
+        /* DECCKM */
         term->cursor_keys_mode =
             enable ? CURSOR_KEYS_APPLICATION : CURSOR_KEYS_NORMAL;
         break;
 
     case 3:
+        /* DECCOLM */
         if (enable)
             LOG_WARN("unimplemented: 132 column mode (DECCOLM)");
 
@@ -353,11 +355,13 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         break;
 
     case 5:
+        /* DECSCNM */
         term->reverse = enable;
         term_damage_all(term);
         break;
 
-    case 6: { /* DECOM */
+    case 6: {
+        /* DECOM */
         term->origin = enable ? ORIGIN_RELATIVE : ORIGIN_ABSOLUTE;
         term_cursor_home(term);
         break;
@@ -384,6 +388,7 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         break;
 
     case 25:
+        /* DECTCEM */
         term->hide_cursor = !enable;
         break;
 
