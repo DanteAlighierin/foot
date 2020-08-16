@@ -20,7 +20,7 @@
   controlled by the **scrollback.indicator-position** and
   **scrollback.indicator-format** options in `footrc`
   (https://codeberg.org/dnkl/foot/issues/42).
-* Key bindings in _scollback search_ mode are now configurable.
+* Key bindings in _scrollback search_ mode are now configurable.
 * `--check-config` command line option.
 * **pipe-selected** key binding. Works like **pipe-visible** and
   **pipe-scrollback**, but only pipes the currently selected text, if
@@ -243,7 +243,7 @@
   (which is what foot emits) instead of the incorrect value `\EOE`.
 * Palette re-use in sixel images. Previously, the palette was reset
   after each image.
-* Do not auto-resize a sixel image for which the cllent has specified
+* Do not auto-resize a sixel image for which the client has specified
   a size. This fixes an issue where an image would incorrectly
   overflow into the cell row beneath.
 * Text printed, or other sixel images drawn, on top of a sixel image

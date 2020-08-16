@@ -184,7 +184,7 @@ paths. To do this, we will use the script
 
 ```sh
 foot_tmp_file=$(mktemp)
-./foot --config=/dev/null --term=xterm sh -c "<path-to-generate-alt-ranodm-writes.py> --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${foot_tmp_file} && cat ${foot_tmp_file}"
+./foot --config=/dev/null --term=xterm sh -c "<path-to-generate-alt-random-writes.py> --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${foot_tmp_file} && cat ${foot_tmp_file}"
 rm ${foot_tmp_file}
 ```
 
@@ -229,7 +229,7 @@ has not been installed yet. However, most things should work with the
 
 But, I **recommend** you install the `foot` and `foot-direct` terminfo
 files. You can either copy them manually (typically to
-`/usr/share/terminfo/f` - but this is dependens on the distro), or
+`/usr/share/terminfo/f` - but this depends on the distro), or
 just install everything:
 ```sh
 ninja install
