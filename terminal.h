@@ -228,6 +228,7 @@ struct terminal {
 
     tll(struct ptmx_buffer) ptmx_buffer;
 
+    enum cursor_origin origin;
     enum cursor_keys cursor_keys_mode;
     enum keypad_keys keypad_keys_mode;
     bool reverse;
@@ -239,6 +240,32 @@ struct terminal {
     bool alt_scrolling;
     enum mouse_tracking mouse_tracking;
     enum mouse_reporting mouse_reporting;
+
+    struct {
+        bool esc_prefix;
+        bool eight_bit;
+    } meta;
+
+    /* Saved DECSET modes */
+    struct {
+        enum cursor_origin origin;
+        enum cursor_keys cursor_keys_mode;
+        //enum keypad_keys keypad_keys_mode;
+        bool reverse;
+        bool hide_cursor;
+        bool auto_margin;
+        bool insert_mode;
+        bool bracketed_paste;
+        bool focus_events;
+        bool alt_scrolling;
+        enum mouse_tracking mouse_tracking;
+        enum mouse_reporting mouse_reporting;
+        struct {
+            bool esc_prefix;
+            bool eight_bit;
+        } meta;
+        bool alt_screen;
+    } xtsave;
 
     struct charsets charsets;
     struct charsets saved_charsets; /* For save/restore cursor + attributes */
@@ -288,7 +315,6 @@ struct terminal {
         uint32_t default_table[256];
     } colors;
 
-    enum cursor_origin origin;
     enum cursor_style default_cursor_style;
     enum cursor_style cursor_style;
     struct {
@@ -327,11 +353,6 @@ struct terminal {
         struct coord match;
         size_t match_len;
     } search;
-
-    struct {
-        bool esc_prefix;
-        bool eight_bit;
-    } meta;
 
     tll(int) tab_stops;
 

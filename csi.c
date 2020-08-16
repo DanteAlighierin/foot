@@ -329,6 +329,8 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
     int UNUSED final = enable ? 'h' : 'l';
 #endif
 
+    /* Note: update XTSAVE/XTRESTORE if adding/removing things here */
+
     switch (param) {
     case 1:
         /* DECCKM */
@@ -522,6 +524,35 @@ static void
 decrst(struct terminal *term, unsigned param)
 {
     decset_decrst(term, param, false);
+}
+
+static void
+xtsave(struct terminal *term, unsigned param)
+{
+    switch (param) {
+    case 1: term->xtsave.cursor_keys_mode = term->cursor_keys_mode; break;
+    case 3: break;
+    case 4: break;
+    case 5: term->xtsave.reverse = term->reverse; break;
+    case 6: term->xtsave.origin = term->origin; break;
+    case 7: term->xtsave.auto_margin = term->auto_margin; break;
+    case 9: if (term->mouse_tracking == MOUSE_X10) term->xtsave.mouse_tracking = MOUSE_X10; break;
+    case 12: break;
+    case 25: term->xtsave.hide_cursor = term->hide_cursor; break;
+    case 1000: if (term->mouse_tracking == MOUSE_CLICK) term->xtsave.mouse_tracking = MOUSE_CLICK; break;
+    case 1001: break;
+    case 1002: if (term->mouse_tracking == MOUSE_DRAG) term->xtsave.mouse_tracking = MOUSE_DRAG; break;
+    case 1003: if (term->mouse_tracking == MOUSE_MOTION) term->xtsave.mouse_tracking = MOUSE_MOTION; break;
+    case 1004: term->xtsave.focus_events = term->focus_events; break;
+    case 1005: /* if (term->mouse_reporting == MOUSE_UTF8) term->xtsave.mouse_reporting = MOUSE_UTF8; break; */
+    case 1006: if (term->mouse_reporting == MOUSE_SGR) term->xtsave.mouse_reporting = MOUSE_SGR; break;
+    case 1007: term->xtsave.alt_scrolling = term->alt_scrolling; break;
+    case 1015: if (term->mouse_reporting == MOUSE_URXVT) term->xtsave.mouse_reporting = MOUSE_URXVT; break;
+    case 1034: term->xtsave.meta.eight_bit = term->meta.eight_bit; break;
+    case 1036: term->xtsave.meta.esc_prefix = term->meta.esc_prefix; break;
+    case 1049: term->xtsave.alt_screen = term->grid == &term->alt; break;
+    case 2004: term->xtsave.bracketed_paste = term->bracketed_paste; break;
+    }
 }
 
 void
