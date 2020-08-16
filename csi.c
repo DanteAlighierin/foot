@@ -530,26 +530,26 @@ static void
 xtsave(struct terminal *term, unsigned param)
 {
     switch (param) {
-    case 1: term->xtsave.cursor_keys_mode = term->cursor_keys_mode; break;
+    case 1: term->xtsave.application_cursor_keys = term->cursor_keys_mode == CURSOR_KEYS_APPLICATION; break;
     case 3: break;
     case 4: break;
     case 5: term->xtsave.reverse = term->reverse; break;
     case 6: term->xtsave.origin = term->origin; break;
     case 7: term->xtsave.auto_margin = term->auto_margin; break;
-    case 9: if (term->mouse_tracking == MOUSE_X10) term->xtsave.mouse_tracking = MOUSE_X10; break;
+    case 9: /* term->xtsave.mouse_x10 = term->mouse_tracking == MOUSE_X10; */ break;
     case 12: break;
-    case 25: term->xtsave.hide_cursor = term->hide_cursor; break;
-    case 1000: if (term->mouse_tracking == MOUSE_CLICK) term->xtsave.mouse_tracking = MOUSE_CLICK; break;
+    case 25: term->xtsave.show_cursor = !term->hide_cursor; break;
+    case 1000: term->xtsave.mouse_click = term->mouse_tracking == MOUSE_CLICK; break;
     case 1001: break;
-    case 1002: if (term->mouse_tracking == MOUSE_DRAG) term->xtsave.mouse_tracking = MOUSE_DRAG; break;
-    case 1003: if (term->mouse_tracking == MOUSE_MOTION) term->xtsave.mouse_tracking = MOUSE_MOTION; break;
+    case 1002: term->xtsave.mouse_drag = term->mouse_tracking == MOUSE_DRAG; break;
+    case 1003: term->xtsave.mouse_motion = term->mouse_tracking == MOUSE_MOTION; break;
     case 1004: term->xtsave.focus_events = term->focus_events; break;
-    case 1005: /* if (term->mouse_reporting == MOUSE_UTF8) term->xtsave.mouse_reporting = MOUSE_UTF8; break; */
-    case 1006: if (term->mouse_reporting == MOUSE_SGR) term->xtsave.mouse_reporting = MOUSE_SGR; break;
+    case 1005: /* term->xtsave.mouse_utf8 = term->mouse_reporting == MOUSE_UTF8; */ break;
+    case 1006: term->xtsave.mouse_sgr = term->mouse_reporting == MOUSE_SGR; break;
     case 1007: term->xtsave.alt_scrolling = term->alt_scrolling; break;
-    case 1015: if (term->mouse_reporting == MOUSE_URXVT) term->xtsave.mouse_reporting = MOUSE_URXVT; break;
-    case 1034: term->xtsave.meta.eight_bit = term->meta.eight_bit; break;
-    case 1036: term->xtsave.meta.esc_prefix = term->meta.esc_prefix; break;
+    case 1015: term->xtsave.mouse_urxvt = term->mouse_reporting == MOUSE_URXVT; break;
+    case 1034: term->xtsave.meta_eight_bit = term->meta.eight_bit; break;
+    case 1036: term->xtsave.meta_esc_prefix = term->meta.esc_prefix; break;
     case 1049: term->xtsave.alt_screen = term->grid == &term->alt; break;
     case 2004: term->xtsave.bracketed_paste = term->bracketed_paste; break;
     }

@@ -246,24 +246,27 @@ struct terminal {
         bool eight_bit;
     } meta;
 
-    /* Saved DECSET modes */
+    /* Saved DECSET modes - we save the SET state */
     struct {
-        enum cursor_origin origin;
-        enum cursor_keys cursor_keys_mode;
-        //enum keypad_keys keypad_keys_mode;
+        bool origin;
+        bool application_cursor_keys;
         bool reverse;
-        bool hide_cursor;
+        bool show_cursor;
         bool auto_margin;
+        //bool cursor_blink;
         bool insert_mode;
         bool bracketed_paste;
         bool focus_events;
         bool alt_scrolling;
-        enum mouse_tracking mouse_tracking;
-        enum mouse_reporting mouse_reporting;
-        struct {
-            bool esc_prefix;
-            bool eight_bit;
-        } meta;
+        //bool mouse_x10;
+        bool mouse_click;
+        bool mouse_drag;
+        bool mouse_motion;
+        //bool mouse_utf8;
+        bool mouse_sgr;
+        bool mouse_urxvt;
+        bool meta_eight_bit;
+        bool meta_esc_prefix;
         bool alt_screen;
     } xtsave;
 
