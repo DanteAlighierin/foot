@@ -1278,22 +1278,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 's':
-            for (size_t i = 0; i < term->vt.params.idx; i++) {
-                switch (term->vt.params.v[i].value) {
-#if 0  /* We don't implement "highlight mouse tracking" */
-                case 1001:  /* save old highlight mouse tracking mode? */
-                    LOG_WARN(
-                        "unimplemented: %s "
-                        "(save 'highlight mouse tracking' mode)",
-                        csi_as_string(term, final, i));
-                    break;
-#endif
-
-                default:
-                    UNHANDLED();
-                    break;
-                }
-            }
+            for (size_t i = 0; i < term->vt.params.idx; i++)
+                xtsave(term, term->vt.params.v[i].value);
             break;
 
         case 'r':
