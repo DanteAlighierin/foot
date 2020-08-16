@@ -521,7 +521,7 @@ decset(struct terminal *term, unsigned param)
 static void
 decrst(struct terminal *term, unsigned param)
 {
-    deecset_decrst(term, param, false);
+    decset_decrst(term, param, false);
 }
 
 void
