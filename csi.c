@@ -4,10 +4,13 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <errno.h>
 
 #if defined(_DEBUG)
  #include <stdio.h>
 #endif
+
+#include <sys/timerfd.h>
 
 #define LOG_MODULE "csi"
 #define LOG_ENABLE_DBG 0
@@ -552,7 +555,20 @@ xtsave(struct terminal *term, unsigned param)
     case 6: term->xtsave.origin = term->origin; break;
     case 7: term->xtsave.auto_margin = term->auto_margin; break;
     case 9: /* term->xtsave.mouse_x10 = term->mouse_tracking == MOUSE_X10; */ break;
-    case 12: break;
+
+    case 12: {
+        struct itimerspec current_value;
+        if (timerfd_gettime(term->cursor_blink.fd, &current_value) < 0)
+            LOG_WARN("xtsave: failed to read cursor blink timer: %s", strerror(errno));
+        else {
+            const struct timespec zero = {};
+            term->xtsave.cursor_blink =
+                !(memcmp(&current_value.it_interval, &zero, sizeof(zero)) == 0 &&
+                  memcmp(&current_value.it_value, &zero, sizeof(zero)) == 0);
+        }
+        break;
+    }
+
     case 25: term->xtsave.show_cursor = !term->hide_cursor; break;
     case 1000: term->xtsave.mouse_click = term->mouse_tracking == MOUSE_CLICK; break;
     case 1001: break;
@@ -582,7 +598,7 @@ xtrestore(struct terminal *term, unsigned param)
     case 6: enable = term->xtsave.origin; break;
     case 7: enable = term->xtsave.auto_margin; break;
     case 9: /* enable = term->xtsave.mouse_x10; break; */ return;
-    case 12: return;
+    case 12: enable = term->xtsave.cursor_blink; break;
     case 25: enable = term->xtsave.show_cursor; break;
     case 1000: enable = term->xtsave.mouse_click; break;
     case 1001: return;

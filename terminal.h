@@ -253,7 +253,7 @@ struct terminal {
         uint32_t reverse:1;
         uint32_t show_cursor:1;
         uint32_t auto_margin:1;
-        //uint32_t cursor_blink:1;
+        uint32_t cursor_blink:1;
         uint32_t insert_mode:1;
         uint32_t bracketed_paste:1;
         uint32_t focus_events:1;
