@@ -378,8 +378,10 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
     case 9:
         if (enable)
             LOG_WARN("unimplemented: X10 mouse tracking mode");
-        else
+#if 0
+        else if (term->mouse_tracking == MOUSE_X10)
             term->mouse_tracking = MOUSE_NONE;
+#endif
         break;
 
     case 12:
@@ -395,7 +397,10 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         break;
 
     case 1000:
-        term->mouse_tracking = enable ? MOUSE_CLICK : MOUSE_NONE;
+        if (enable)
+            term->mouse_tracking = MOUSE_CLICK;
+        else if (term->mouse_tracking == MOUSE_CLICK)
+            term->mouse_tracking = MOUSE_NONE;
         term_xcursor_update(term);
         break;
 
@@ -405,12 +410,18 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         break;
 
     case 1002:
-        term->mouse_tracking = enable ? MOUSE_DRAG : MOUSE_NONE;
+        if (enable)
+            term->mouse_tracking = MOUSE_DRAG;
+        else if (term->mouse_tracking == MOUSE_DRAG)
+             term->mouse_tracking = MOUSE_NONE;
         term_xcursor_update(term);
         break;
 
     case 1003:
-        term->mouse_tracking = enable ? MOUSE_MOTION : MOUSE_NONE;
+        if (enable)
+            term->mouse_tracking = MOUSE_MOTION;
+        else if (term->mouse_tracking == MOUSE_MOTION)
+            term->mouse_tracking = MOUSE_NONE;
         term_xcursor_update(term);
         break;
 
@@ -421,14 +432,17 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
     case 1005:
         if (enable)
             LOG_WARN("unimplemented: mouse reporting mode: UTF-8");
-        else
+#if 0
+        else if (term->mouse_reporting == MOUSE_UTF8)
             term->mouse_reporting = MOUSE_NONE;
+#endif
         break;
 
     case 1006:
         if (enable)
-            LOG_DBG("mouse reporting mode: SGR");
-        term->mouse_reporting = enable ? MOUSE_SGR : MOUSE_NORMAL;
+            term->mouse_reporting = MOUSE_SGR;
+        else if (term->mouse_reporting == MOUSE_SGR)
+            term->mouse_reporting = MOUSE_NORMAL;
         break;
 
     case 1007:
@@ -437,8 +451,9 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
 
     case 1015:
         if (enable)
-            LOG_DBG("mouse reporting mode: urxvt");
-        term->mouse_reporting = enable ? MOUSE_URXVT : MOUSE_NORMAL;
+            term->mouse_reporting = MOUSE_URXVT;
+        else if (term->mouse_reporting == MOUSE_URXVT)
+            term->mouse_reporting = MOUSE_NORMAL;
         break;
 
     case 1034:
