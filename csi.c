@@ -591,7 +591,7 @@ xtrestore(struct terminal *term, unsigned param)
 {
     bool enable;
     switch (param) {
-    case 1: enable = term->xtsave.application_cursor_keys;
+    case 1: enable = term->xtsave.application_cursor_keys; break;
     case 3: return;
     case 4: return;
     case 5: enable = term->xtsave.reverse; break;
