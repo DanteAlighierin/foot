@@ -613,6 +613,8 @@ xtrestore(struct terminal *term, unsigned param)
     case 1036: enable = term->xtsave.meta_esc_prefix; break;
     case 1049: enable = term->xtsave.alt_screen; break;
     case 2004: enable = term->xtsave.bracketed_paste; break;
+
+    default: return;
     }
 
     decset_decrst(term, param, enable);
