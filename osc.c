@@ -429,6 +429,59 @@ osc_notify(struct terminal *term, char *string)
 }
 #endif
 
+static void
+update_color_in_grids(struct terminal *term, uint32_t old_color,
+                      uint32_t new_color)
+{
+    /*
+     * Update color of already rendered cells.
+     *
+     * Note that we do *not* store the original palette
+     * index. Therefore, the best we can do is compare colors - if
+     * they match, assume "our" palette index was the one used to
+     * render the cell.
+     *
+     * There are a couple of cases where this isn't necessarily true:
+     * - user has configured the 16 base colors with non-unique
+     * colors.  - the client has used 24-bit escapes for colors
+     *
+     * In general though, if the client configures the palette, it is
+     * very likely only using index:ed coloring (i.e. not 24-bit
+     * direct colors), and I hope that it is unusual with palettes
+     * where all the colors aren't unique.
+     *
+     * TODO(?): for performance reasons, we only update the current
+     * screen rows (of both grids). I.e. scrollback is *not* updated.
+     */
+    for (size_t i = 0; i < 2; i++) {
+        struct grid *grid = i == 0 ? &term->normal : &term->alt;
+
+        for (size_t r = 0; r < term->rows; r++) {
+            struct row *row = grid_row(grid, r);
+            assert(row != NULL);
+
+            for (size_t c = 0; c < term->grid->num_cols; c++) {
+                struct cell *cell = &row->cells[c];
+                if (cell->attrs.have_fg &&
+                    cell->attrs.fg == old_color)
+                {
+                    cell->attrs.fg = new_color;
+                    cell->attrs.clean = 0;
+                    row->dirty = true;
+                }
+
+                if ( cell->attrs.have_bg &&
+                    cell->attrs.bg == old_color)
+                {
+                    cell->attrs.bg = new_color;
+                    cell->attrs.clean = 0;
+                    row->dirty = true;
+                }
+            }
+        }
+    }
+}
+
 void
 osc_dispatch(struct terminal *term)
 {
@@ -508,52 +561,7 @@ osc_dispatch(struct terminal *term)
                 LOG_DBG("change color definition for #%u from %06x to %06x",
                         idx, term->colors.table[idx], color);
 
-                /*
-                 * Update color of already rendered cells.
-                 *
-                 * Note that we do *not* store the original palette
-                 * index. Therefore, the best we can do is compare
-                 * colors - if they match, assume "our" palette index
-                 * was the one used to render the cell.
-                 *
-                 * There are a couple of cases where this isn't necessarily true:
-                 *  - user has configured the 16 base colors with non-unique colors.
-                 *  - the client has used 24-bit escapes for colors
-                 *
-                 * In general though, if the client configures the
-                 * palette, it is very likely only using index:ed
-                 * coloring (i.e. not 24-bit direct colors), and I
-                 * hope that it is unusual with palettes where all the
-                 * colors aren't unique.
-                 *
-                 * TODO(?): for performance reasons, we only update
-                 * the current screen rows (of both
-                 * grids). I.e. scrollback is *not* updates.
-                 */
-                for (size_t i = 0; i < 2; i++) {
-                    struct grid *grid = i == 0 ? &term->normal : &term->alt;
-
-                    for (size_t r = 0; r < term->rows; r++) {
-                        struct row *row = grid_row(grid, r);
-                        assert(row != NULL);
-
-                        for (size_t c = 0; c < term->grid->num_cols; c++) {
-                            struct cell *cell = &row->cells[c];
-                            if (cell->attrs.have_fg && cell->attrs.fg == term->colors.table[idx]) {
-                                cell->attrs.fg = color;
-                                cell->attrs.clean = 0;
-                                row->dirty = true;
-                            }
-
-                            if (cell->attrs.have_bg && cell->attrs.bg == term->colors.table[idx]) {
-                                cell->attrs.bg = color;
-                                cell->attrs.clean = 0;
-                                row->dirty = true;
-                            }
-                        }
-                    }
-                }
-
+                update_color_in_grids(term, term->colors.table[idx], color);
                 term->colors.table[idx] = color;
             }
         }
@@ -603,6 +611,7 @@ osc_dispatch(struct terminal *term)
         case 11: term->colors.bg = color; break;
         }
 
+        term_damage_view(term);
         render_refresh(term);
         break;
     }
@@ -646,8 +655,11 @@ osc_dispatch(struct terminal *term)
 
         if (strlen(string) == 0) {
             LOG_DBG("resetting all colors");
-            for (size_t i = 0; i < 256; i++)
+            for (size_t i = 0; i < 256; i++) {
+                update_color_in_grids(
+                    term, term->colors.table[i], term->colors.default_table[i]);
                 term->colors.table[i] = term->colors.default_table[i];
+        }
         }
 
         else {
@@ -663,6 +675,8 @@ osc_dispatch(struct terminal *term)
                 }
 
                 LOG_DBG("resetting color #%u", idx);
+                update_color_in_grids(
+                    term, term->colors.table[idx], term->colors.default_table[idx]);
                 term->colors.table[idx] = term->colors.default_table[idx];
             }
         }
@@ -677,12 +691,14 @@ osc_dispatch(struct terminal *term)
     case 110: /* Reset default text foreground color */
         LOG_DBG("resetting foreground");
         term->colors.fg = term->colors.default_fg;
+        term_damage_view(term);
         render_refresh(term);
         break;
 
     case 111: /* Reset default text background color */
         LOG_DBG("resetting background");
         term->colors.bg = term->colors.default_bg;
+        term_damage_view(term);
         render_refresh(term);
         break;
 
