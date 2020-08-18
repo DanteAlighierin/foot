@@ -4,10 +4,13 @@
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <errno.h>
 
 #if defined(_DEBUG)
  #include <stdio.h>
 #endif
+
+#include <sys/timerfd.h>
 
 #define LOG_MODULE "csi"
 #define LOG_ENABLE_DBG 0
@@ -319,6 +322,300 @@ csi_sgr(struct terminal *term)
             break;
         }
     }
+}
+
+static void
+decset_decrst(struct terminal *term, unsigned param, bool enable)
+{
+#if defined(_DEBUG)
+    /* For UNHANDLED() */
+    int UNUSED final = enable ? 'h' : 'l';
+#endif
+
+    /* Note: update XTSAVE/XTRESTORE if adding/removing things here */
+
+    switch (param) {
+    case 1:
+        /* DECCKM */
+        term->cursor_keys_mode =
+            enable ? CURSOR_KEYS_APPLICATION : CURSOR_KEYS_NORMAL;
+        break;
+
+    case 3:
+        /* DECCOLM */
+        if (enable)
+            LOG_WARN("unimplemented: 132 column mode (DECCOLM)");
+
+        term_erase(
+            term,
+            &(struct coord){0, 0},
+            &(struct coord){term->cols - 1, term->rows - 1});
+        term_cursor_home(term);
+        break;
+
+    case 4:
+        /* DECSCLM - Smooth scroll */
+        if (enable)
+            LOG_WARN("unimplemented: Smooth (Slow) Scroll (DECSCLM)");
+        break;
+
+    case 5:
+        /* DECSCNM */
+        term->reverse = enable;
+        term_damage_all(term);
+        break;
+
+    case 6: {
+        /* DECOM */
+        term->origin = enable ? ORIGIN_RELATIVE : ORIGIN_ABSOLUTE;
+        term_cursor_home(term);
+        break;
+    }
+
+    case 7:
+        /* DECAWM */
+        term->auto_margin = enable;
+        term->grid->cursor.lcf = false;
+        break;
+
+    case 9:
+        if (enable)
+            LOG_WARN("unimplemented: X10 mouse tracking mode");
+#if 0
+        else if (term->mouse_tracking == MOUSE_X10)
+            term->mouse_tracking = MOUSE_NONE;
+#endif
+        break;
+
+    case 12:
+        if (enable)
+            term_cursor_blink_enable(term);
+        else
+            term_cursor_blink_disable(term);
+        break;
+
+    case 25:
+        /* DECTCEM */
+        term->hide_cursor = !enable;
+        break;
+
+    case 1000:
+        if (enable)
+            term->mouse_tracking = MOUSE_CLICK;
+        else if (term->mouse_tracking == MOUSE_CLICK)
+            term->mouse_tracking = MOUSE_NONE;
+        term_xcursor_update(term);
+        break;
+
+    case 1001:
+        if (enable)
+            LOG_WARN("unimplemented: highlight mouse tracking");
+        break;
+
+    case 1002:
+        if (enable)
+            term->mouse_tracking = MOUSE_DRAG;
+        else if (term->mouse_tracking == MOUSE_DRAG)
+             term->mouse_tracking = MOUSE_NONE;
+        term_xcursor_update(term);
+        break;
+
+    case 1003:
+        if (enable)
+            term->mouse_tracking = MOUSE_MOTION;
+        else if (term->mouse_tracking == MOUSE_MOTION)
+            term->mouse_tracking = MOUSE_NONE;
+        term_xcursor_update(term);
+        break;
+
+    case 1004:
+        term->focus_events = enable;
+        break;
+
+    case 1005:
+        if (enable)
+            LOG_WARN("unimplemented: mouse reporting mode: UTF-8");
+#if 0
+        else if (term->mouse_reporting == MOUSE_UTF8)
+            term->mouse_reporting = MOUSE_NONE;
+#endif
+        break;
+
+    case 1006:
+        if (enable)
+            term->mouse_reporting = MOUSE_SGR;
+        else if (term->mouse_reporting == MOUSE_SGR)
+            term->mouse_reporting = MOUSE_NORMAL;
+        break;
+
+    case 1007:
+        term->alt_scrolling = enable;
+        break;
+
+    case 1015:
+        if (enable)
+            term->mouse_reporting = MOUSE_URXVT;
+        else if (term->mouse_reporting == MOUSE_URXVT)
+            term->mouse_reporting = MOUSE_NORMAL;
+        break;
+
+    case 1034:
+        /* smm */
+        LOG_DBG("%s 8-bit meta mode", enable ? "enabling" : "disabling");
+        term->meta.eight_bit = enable;
+        break;
+
+    case 1036:
+        /* metaSendsEscape */
+        LOG_DBG("%s meta-sends-escape", enable ? "enabling" : "disabling");
+        term->meta.esc_prefix = enable;
+        break;
+
+#if 0
+    case 1042:
+        LOG_WARN("unimplemented: 'urgency' window manager hint on ctrl-g");
+        break;
+
+    case 1043:
+        LOG_WARN("unimplemented: raise window on ctrl-g");
+        break;
+#endif
+
+    case 1049:
+        if (enable && term->grid != &term->alt) {
+            selection_cancel(term);
+
+            term->grid = &term->alt;
+
+            term_cursor_to(
+                term,
+                min(term->grid->cursor.point.row, term->rows - 1),
+                min(term->grid->cursor.point.col, term->cols - 1));
+
+            tll_free(term->alt.scroll_damage);
+
+            term_erase(
+                term,
+                &(struct coord){0, 0},
+                &(struct coord){term->cols - 1, term->rows - 1});
+        }
+
+        else if (!enable && term->grid == &term->alt) {
+            selection_cancel(term);
+
+            term->grid = &term->normal;
+
+            term_cursor_to(
+                term,
+                min(term->grid->cursor.point.row, term->rows - 1),
+                min(term->grid->cursor.point.col, term->cols - 1));
+
+            tll_free(term->alt.scroll_damage);
+
+            /* Delete all sixel images on the alt screen */
+            tll_foreach(term->alt.sixel_images, it) {
+                sixel_destroy(&it->item);
+                tll_remove(term->alt.sixel_images, it);
+            }
+
+            term_damage_all(term);
+        }
+        break;
+
+    case 2004:
+        term->bracketed_paste = enable;
+        break;
+
+    default:
+        UNHANDLED();
+        break;
+    }
+}
+
+static void
+decset(struct terminal *term, unsigned param)
+{
+    decset_decrst(term, param, true);
+}
+
+static void
+decrst(struct terminal *term, unsigned param)
+{
+    decset_decrst(term, param, false);
+}
+
+static void
+xtsave(struct terminal *term, unsigned param)
+{
+    switch (param) {
+    case 1: term->xtsave.application_cursor_keys = term->cursor_keys_mode == CURSOR_KEYS_APPLICATION; break;
+    case 3: break;
+    case 4: break;
+    case 5: term->xtsave.reverse = term->reverse; break;
+    case 6: term->xtsave.origin = term->origin; break;
+    case 7: term->xtsave.auto_margin = term->auto_margin; break;
+    case 9: /* term->xtsave.mouse_x10 = term->mouse_tracking == MOUSE_X10; */ break;
+
+    case 12: {
+        struct itimerspec current_value;
+        if (timerfd_gettime(term->cursor_blink.fd, &current_value) < 0)
+            LOG_WARN("xtsave: failed to read cursor blink timer: %s", strerror(errno));
+        else {
+            const struct timespec zero = {};
+            term->xtsave.cursor_blink =
+                !(memcmp(&current_value.it_interval, &zero, sizeof(zero)) == 0 &&
+                  memcmp(&current_value.it_value, &zero, sizeof(zero)) == 0);
+        }
+        break;
+    }
+
+    case 25: term->xtsave.show_cursor = !term->hide_cursor; break;
+    case 1000: term->xtsave.mouse_click = term->mouse_tracking == MOUSE_CLICK; break;
+    case 1001: break;
+    case 1002: term->xtsave.mouse_drag = term->mouse_tracking == MOUSE_DRAG; break;
+    case 1003: term->xtsave.mouse_motion = term->mouse_tracking == MOUSE_MOTION; break;
+    case 1004: term->xtsave.focus_events = term->focus_events; break;
+    case 1005: /* term->xtsave.mouse_utf8 = term->mouse_reporting == MOUSE_UTF8; */ break;
+    case 1006: term->xtsave.mouse_sgr = term->mouse_reporting == MOUSE_SGR; break;
+    case 1007: term->xtsave.alt_scrolling = term->alt_scrolling; break;
+    case 1015: term->xtsave.mouse_urxvt = term->mouse_reporting == MOUSE_URXVT; break;
+    case 1034: term->xtsave.meta_eight_bit = term->meta.eight_bit; break;
+    case 1036: term->xtsave.meta_esc_prefix = term->meta.esc_prefix; break;
+    case 1049: term->xtsave.alt_screen = term->grid == &term->alt; break;
+    case 2004: term->xtsave.bracketed_paste = term->bracketed_paste; break;
+    }
+}
+
+static void
+xtrestore(struct terminal *term, unsigned param)
+{
+    bool enable;
+    switch (param) {
+    case 1: enable = term->xtsave.application_cursor_keys;
+    case 3: return;
+    case 4: return;
+    case 5: enable = term->xtsave.reverse; break;
+    case 6: enable = term->xtsave.origin; break;
+    case 7: enable = term->xtsave.auto_margin; break;
+    case 9: /* enable = term->xtsave.mouse_x10; break; */ return;
+    case 12: enable = term->xtsave.cursor_blink; break;
+    case 25: enable = term->xtsave.show_cursor; break;
+    case 1000: enable = term->xtsave.mouse_click; break;
+    case 1001: return;
+    case 1002: enable = term->xtsave.mouse_drag; break;
+    case 1003: enable = term->xtsave.mouse_motion; break;
+    case 1004: enable = term->xtsave.focus_events; break;
+    case 1005: /* enable = term->xtsave.mouse_utf8; break; */ return;
+    case 1006: enable = term->xtsave.mouse_sgr; break;
+    case 1007: enable = term->xtsave.alt_scrolling; break;
+    case 1015: enable = term->xtsave.mouse_urxvt; break;
+    case 1034: enable = term->xtsave.meta_eight_bit; break;
+    case 1036: enable = term->xtsave.meta_esc_prefix; break;
+    case 1049: enable = term->xtsave.alt_screen; break;
+    case 2004: enable = term->xtsave.bracketed_paste; break;
+    }
+
+    decset_decrst(term, param, enable);
 }
 
 void
@@ -1008,283 +1305,17 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
     case '?': {
         switch (final) {
-        case 'h': {
-            for (size_t i = 0; i < term->vt.params.idx; i++) {
-                switch (term->vt.params.v[i].value) {
-                case 1:
-                    term->cursor_keys_mode = CURSOR_KEYS_APPLICATION;
-                    break;
-
-                case 3:
-                    LOG_WARN("unimplemented: 132 column mode (DECCOLM, %s)",
-                             csi_as_string(term, final, i));
-                    term_erase(
-                        term,
-                        &(struct coord){0, 0},
-                        &(struct coord){term->cols - 1, term->rows - 1});
-                    term_cursor_home(term);
-                    break;
-
-                case 4:
-                    /* DECSCLM - Smooth scroll */
-                    LOG_WARN("unimplemented: Smooth (Slow) Scroll (DECSCLM, %s)",
-                             csi_as_string(term, final, i));
-                    break;
-
-                case 5:
-                    term->reverse = true;
-                    term_damage_all(term);
-                    break;
-
-                case 6: { /* DECOM */
-                    term->origin = ORIGIN_RELATIVE;
-                    term_cursor_home(term);
-                    break;
-                }
-
-                case 7:
-                    /* DECAWM */
-                    term->auto_margin = true;
-                    term->grid->cursor.lcf = false;
-                    break;
-
-                case 9:
-                    LOG_WARN("unimplemented: X10 mouse tracking mode");
-                    /* term->mouse_tracking = MOUSE_X10; */
-                    break;
-
-                case 12:
-                    term_cursor_blink_enable(term);
-                    break;
-
-                case 25:
-                    term->hide_cursor = false;
-                    break;
-
-                case 1000:
-                    term->mouse_tracking = MOUSE_CLICK;
-                    term_xcursor_update(term);
-                    break;
-
-                case 1001:
-                    LOG_WARN("unimplemented: highlight mouse tracking");
-                    break;
-
-                case 1002:
-                    term->mouse_tracking = MOUSE_DRAG;
-                    term_xcursor_update(term);
-                    break;
-
-                case 1003:
-                    term->mouse_tracking = MOUSE_MOTION;
-                    term_xcursor_update(term);
-                    break;
-
-                case 1004:
-                    term->focus_events = true;
-                    break;
-
-                case 1005:
-                    LOG_WARN("unimplemented: mouse reporting mode: UTF-8");
-                    /* term->mouse_reporting = MOUSE_UTF8; */
-                    break;
-
-                case 1006:
-                    LOG_DBG("mouse reporting mode: SGR");
-                    term->mouse_reporting = MOUSE_SGR;
-                    break;
-
-                case 1007:
-                    term->alt_scrolling = true;
-                    break;
-
-                case 1015:
-                    LOG_DBG("mouse reporting mode: urxvt");
-                    term->mouse_reporting = MOUSE_URXVT;
-                    break;
-
-                case 1034:
-                    /* smm */
-                    LOG_DBG("enabling 8-bit meta mode");
-                    term->meta.eight_bit = true;
-                    break;
-
-                case 1036:
-                    /* metaSendsEscape */
-                    LOG_DBG("enabling meta-sends-escape");
-                    term->meta.esc_prefix = true;
-                    break;
-
-#if 0
-                case 1042:
-                    LOG_WARN("unimplemented: 'urgency' window manager hint on ctrl-g");
-                    break;
-
-                case 1043:
-                    LOG_WARN("unimplemented: raise window on ctrl-g");
-                    break;
-#endif
-
-                case 1049:
-                    if (term->grid != &term->alt) {
-                        selection_cancel(term);
-
-                        term->grid = &term->alt;
-
-                        term_cursor_to(
-                            term,
-                            min(term->grid->cursor.point.row, term->rows - 1),
-                            min(term->grid->cursor.point.col, term->cols - 1));
-
-                        tll_free(term->alt.scroll_damage);
-
-                        term_erase(
-                            term,
-                            &(struct coord){0, 0},
-                            &(struct coord){term->cols - 1, term->rows - 1});
-                    }
-                    break;
-
-                case 2004:
-                    term->bracketed_paste = true;
-                    break;
-
-                default:
-                    UNHANDLED();
-                    break;
-                }
-            }
+        case 'h':
+            /* DECSET - DEC private mode set */
+            for (size_t i = 0; i < term->vt.params.idx; i++)
+                decset(term, term->vt.params.v[i].value);
             break;
-        }
 
-        case 'l': {
-            for (size_t i = 0; i < term->vt.params.idx; i++) {
-                switch (term->vt.params.v[i].value) {
-                case 1:
-                    term->cursor_keys_mode = CURSOR_KEYS_NORMAL;
-                    break;
-
-                case 3:
-                    /* DECCOLM - 80 column mode */
-                    term_erase(
-                        term,
-                        &(struct coord){0, 0},
-                        &(struct coord){term->cols - 1, term->rows - 1});
-                    term_cursor_home(term);
-                    break;
-
-                case 4:
-                    /* DECSCLM - Jump scroll */
-                    break;
-
-                case 5:
-                    term->reverse = false;
-                    term_damage_all(term);
-                    break;
-
-                case 6: { /* DECOM */
-                    term->origin = ORIGIN_ABSOLUTE;
-                    term_cursor_home(term);
-                    break;
-                }
-
-                case 7:
-                    /* DECAWM */
-                    term->auto_margin = false;
-                    term->grid->cursor.lcf = false;
-                    break;
-
-                case 12:
-                    term_cursor_blink_disable(term);
-                    break;
-
-                case 25:
-                    term->hide_cursor = true;
-                    break;
-
-                case 1001:
-                    /* Highlight mouse tracking */
-                    break;
-
-                case 9:     /* MOUSE_X10 */
-                case 1000:  /* MOUSE_NORMAL */
-                case 1002:  /* MOUSE_BUTTON_EVENT */
-                case 1003:  /* MOUSE_ANY_EVENT */
-                    term->mouse_tracking = MOUSE_NONE;
-                    term_xcursor_update(term);
-                    break;
-
-                case 1005:  /* MOUSE_UTF8 */
-                case 1006:  /* MOUSE_SGR */
-                case 1015:  /* MOUSE_URXVT */
-                    LOG_DBG("mouse reporting mode: legacy");
-                    term->mouse_reporting = MOUSE_NORMAL;
-                    break;
-
-                case 1004:
-                    term->focus_events = false;
-                    break;
-
-                case 1007:
-                    term->alt_scrolling = false;
-                    break;
-
-                case 1034:
-                    /* rmm */
-                    LOG_DBG("disabling 8-bit meta mode");
-                    term->meta.eight_bit = false;
-                    break;
-
-                case 1036:
-                    /* metaSendsEscape */
-                    LOG_DBG("disabling  meta-sends-escape");
-                    term->meta.esc_prefix = false;
-                    break;
-
-#if 0
-                case 1042:
-                    /* 'urgency' window manager hint on ctrl-g */
-                    break;
-
-                case 1043:
-                    /* raise window on ctrl-g */
-                    break;
-#endif
-
-                case 1049:
-                    if (term->grid == &term->alt) {
-                        selection_cancel(term);
-
-                        term->grid = &term->normal;
-
-                        term_cursor_to(
-                            term,
-                            min(term->grid->cursor.point.row, term->rows - 1),
-                            min(term->grid->cursor.point.col, term->cols - 1));
-
-                        tll_free(term->alt.scroll_damage);
-
-                        /* Delete all sixel images on the alt screen */
-                        tll_foreach(term->alt.sixel_images, it) {
-                            sixel_destroy(&it->item);
-                            tll_remove(term->alt.sixel_images, it);
-                        }
-
-                        term_damage_all(term);
-                    }
-                    break;
-
-                case 2004:
-                    term->bracketed_paste = false;
-                    break;
-
-                default:
-                    UNHANDLED();
-                    break;
-                }
-            }
+        case 'l':
+            /* DECRST - DEC private mode reset */
+            for (size_t i = 0; i < term->vt.params.idx; i++)
+                decrst(term, term->vt.params.v[i].value);
             break;
-        }
 
         case 'p': {
             if (term->vt.private[1] != '$') {
@@ -1310,41 +1341,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 's':
-            for (size_t i = 0; i < term->vt.params.idx; i++) {
-                switch (term->vt.params.v[i].value) {
-#if 0  /* We don't implement "highlight mouse tracking" */
-                case 1001:  /* save old highlight mouse tracking mode? */
-                    LOG_WARN(
-                        "unimplemented: %s "
-                        "(save 'highlight mouse tracking' mode)",
-                        csi_as_string(term, final, i));
-                    break;
-#endif
-
-                default:
-                    UNHANDLED();
-                    break;
-                }
-            }
+            for (size_t i = 0; i < term->vt.params.idx; i++)
+                xtsave(term, term->vt.params.v[i].value);
             break;
 
         case 'r':
-            for (size_t i = 0; i < term->vt.params.idx; i++) {
-                switch (term->vt.params.v[i].value) {
-#if 0  /* We don't implement "highlight mouse tracking" */
-                case 1001:  /* restore old highlight mouse tracking mode? */
-                    LOG_WARN(
-                        "unimplemented: %s "
-                        "(restore 'highlight mouse tracking' mode)",
-                        csi_as_string(term, final, i));
-                    break;
-#endif
-
-                default:
-                    UNHANDLED();
-                    break;
-                }
-            }
+            for (size_t i = 0; i < term->vt.params.idx; i++)
+                xtrestore(term, term->vt.params.v[i].value);
             break;
 
         case 'S': {
