@@ -59,6 +59,7 @@
   stderr).
 * Default `--server` socket path to use `$WAYLAND_DISPLAY` instead of
   `$XDG_SESSION_ID` (https://codeberg.org/dnkl/foot/issues/55).
+* Trailing empty cells are no longer highlighted in mouse selections.
 
 
 ### Fixed

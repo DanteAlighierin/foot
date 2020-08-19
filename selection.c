@@ -240,6 +240,13 @@ selection_start(struct terminal *term, int col, int row,
     term->selection.ongoing = true;
 }
 
+/* Context used while (un)marking selected cells, to be able to
+ * exclude empty cells */
+struct mark_context {
+    const struct row *last_row;
+    int empty_count;
+};
+
 static bool
 unmark_selected(struct terminal *term, struct row *row, struct cell *cell,
                 int col, void *data)
@@ -260,8 +267,23 @@ static bool
 premark_selected(struct terminal *term, struct row *row, struct cell *cell,
                  int col, void *data)
 {
+    struct mark_context *ctx = data;
+    assert(ctx != NULL);
+
+    if (ctx->last_row != row) {
+        ctx->last_row = row;
+        ctx->empty_count = 0;
+    }
+
+    if (cell->wc == 0 && term->selection.kind == SELECTION_NORMAL) {
+        ctx->empty_count++;
+        return true;
+    }
+
     /* Tell unmark to leave this be */
-    cell->attrs.selected |= 2;
+    for (int i = 0; i < ctx->empty_count + 1; i++)
+        row->cells[col - i].attrs.selected |= 2;
+
     return true;
 }
 
@@ -269,14 +291,30 @@ static bool
 mark_selected(struct terminal *term, struct row *row, struct cell *cell,
               int col, void *data)
 {
-    if (cell->attrs.selected & 1) {
-        cell->attrs.selected = 1;  /* Clear the pre-mark bit */
+    struct mark_context *ctx = data;
+    assert(ctx != NULL);
+
+    if (ctx->last_row != row) {
+        ctx->last_row = row;
+        ctx->empty_count = 0;
+    }
+
+    if (cell->wc == 0 && term->selection.kind == SELECTION_NORMAL) {
+        ctx->empty_count++;
         return true;
     }
 
-    row->dirty = true;
-    cell->attrs.selected = 1;
-    cell->attrs.clean = 0;
+    for (int i = 0; i < ctx->empty_count + 1; i++) {
+        struct cell *c = &row->cells[col - i];
+        if (c->attrs.selected & 1)
+            c->attrs.selected = 1; /* Clear the pre-mark bit */
+        else {
+            row->dirty = true;
+            c->attrs.selected = 1;
+            c->attrs.clean = 0;
+        }
+    }
+
     return true;
 }
 
@@ -287,21 +325,25 @@ selection_modify(struct terminal *term, struct coord start, struct coord end)
     assert(start.row != -1 && start.col != -1);
     assert(end.row != -1 && end.col != -1);
 
+    struct mark_context ctx = {};
+
     /* Premark all cells that *will* be selected */
-    foreach_selected(term, start, end, &premark_selected, NULL);
+    foreach_selected(term, start, end, &premark_selected, &ctx);
+    memset(&ctx, 0, sizeof(ctx));
 
     if (term->selection.end.row >= 0) {
         /* Unmark previous selection, ignoring cells that are part of
          * the new selection */
         foreach_selected(term, term->selection.start, term->selection.end,
-                         &unmark_selected, NULL);
+                         &unmark_selected, &ctx);
+        memset(&ctx, 0, sizeof(ctx));
     }
 
     term->selection.start = start;
     term->selection.end = end;
 
     /* Mark new selection */
-    foreach_selected(term, start, end, &mark_selected, NULL);
+    foreach_selected(term, start, end, &mark_selected, &ctx);
     render_refresh(term);
 }
 
@@ -409,7 +451,8 @@ selection_dirty_cells(struct terminal *term)
         return;
 
     foreach_selected(
-        term, term->selection.start, term->selection.end, &mark_selected, NULL);
+        term, term->selection.start, term->selection.end, &mark_selected,
+        &(struct mark_context){});
 }
 
 static void
@@ -600,10 +643,11 @@ selection_cancel(struct terminal *term)
             term->selection.start.row, term->selection.start.col,
             term->selection.end.row, term->selection.end.col);
 
+
     if (term->selection.start.row >= 0 && term->selection.end.row >= 0) {
         foreach_selected(
             term, term->selection.start, term->selection.end,
-            &unmark_selected, NULL);
+            &unmark_selected, &(struct mark_context){});
         render_refresh(term);
     }
 
