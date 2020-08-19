@@ -77,6 +77,8 @@
   resized while searching.
 * Selection start point not moving when the selection changes
   direction.
+* OSC 10/11/104/110/111 (modify colors) did not update existing screen
+  content (https://codeberg.org/dnkl/foot/issues/94).
 
 
 ### Security
