@@ -10,6 +10,7 @@ struct extraction_context {
     size_t size;
     size_t idx;
     size_t empty_count;
+    size_t newline_count;
     bool failed;
     const struct row *last_row;
     const struct cell *last_cell;
@@ -124,10 +125,10 @@ extract_one(const struct terminal *term, const struct row *row,
             {
                 /* Row has a hard linebreak, or either last cell or
                  * current cell is empty */
-                if (!ensure_size(ctx, 1))
-                    goto err;
 
-                ctx->buf[ctx->idx++] = L'\n';
+                /* Don't emit newline just yet - only if there are
+                 * non-empty cells following it */
+                ctx->newline_count++;
                 ctx->empty_count = 0;
             }
         }
@@ -149,12 +150,17 @@ extract_one(const struct terminal *term, const struct row *row,
         return true;
     }
 
-    /* Replace empty cells with spaces when followed by non-empty cell */
-    if (!ensure_size(ctx, ctx->empty_count))
+    /* Insert pending newlines, and replace empty cells with spaces */
+    if (!ensure_size(ctx, ctx->newline_count + ctx->empty_count))
         goto err;
+
+    for (size_t i = 0; i < ctx->newline_count; i++)
+        ctx->buf[ctx->idx++] = L'\n';
 
     for (size_t i = 0; i < ctx->empty_count; i++)
         ctx->buf[ctx->idx++] = L' ';
+
+    ctx->newline_count = 0;
     ctx->empty_count = 0;
 
     if (cell->wc >= CELL_COMB_CHARS_LO &&

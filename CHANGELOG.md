@@ -80,6 +80,8 @@
   direction.
 * OSC 10/11/104/110/111 (modify colors) did not update existing screen
   content (https://codeberg.org/dnkl/foot/issues/94).
+* Extra newlines when copying empty cells
+  (https://codeberg.org/dnkl/foot/issues/97).
 
 
 ### Security
