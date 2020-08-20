@@ -35,3 +35,11 @@ sdbm_hash(const char *s)
 
     return hash;
 }
+
+#include <wchar.h>
+static inline int
+my_wcswidth(const wchar_t *s, size_t n)
+{
+    int ret = wcswidth(s, n);
+    return max(0, ret);
+}

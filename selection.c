@@ -249,7 +249,7 @@ selection_find_word_boundary_left(struct terminal *term, struct coord *pos,
     if (c >= CELL_COMB_CHARS_LO &&
         c < (CELL_COMB_CHARS_LO + term->composed_count))
     {
-        c = term->composed[c - CELL_COMB_CHARS_LO].base;
+        c = term->composed[c - CELL_COMB_CHARS_LO].chars[0];
     }
 
     bool initial_is_space = c == 0 || iswspace(c);
@@ -289,7 +289,7 @@ selection_find_word_boundary_left(struct terminal *term, struct coord *pos,
         if (c >= CELL_COMB_CHARS_LO &&
             c < (CELL_COMB_CHARS_LO + term->composed_count))
         {
-            c = term->composed[c - CELL_COMB_CHARS_LO].base;
+            c = term->composed[c - CELL_COMB_CHARS_LO].chars[0];
         }
 
         bool is_space = c == 0 || iswspace(c);
@@ -328,7 +328,7 @@ selection_find_word_boundary_right(struct terminal *term, struct coord *pos,
     if (c >= CELL_COMB_CHARS_LO &&
         c < (CELL_COMB_CHARS_LO + term->composed_count))
     {
-        c = term->composed[c - CELL_COMB_CHARS_LO].base;
+        c = term->composed[c - CELL_COMB_CHARS_LO].chars[0];
     }
 
     bool initial_is_space = c == 0 || iswspace(c);
@@ -370,7 +370,7 @@ selection_find_word_boundary_right(struct terminal *term, struct coord *pos,
         if (c >= CELL_COMB_CHARS_LO &&
             c < (CELL_COMB_CHARS_LO + term->composed_count))
         {
-            c = term->composed[c - CELL_COMB_CHARS_LO].base;
+            c = term->composed[c - CELL_COMB_CHARS_LO].chars[0];
         }
 
         bool is_space = c == 0 || iswspace(c);

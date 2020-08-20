@@ -229,12 +229,11 @@ extract_one(const struct terminal *term, const struct row *row,
         const struct composed *composed
             = &term->composed[cell->wc - CELL_COMB_CHARS_LO];
 
-        if (!ensure_size(ctx, 1 + composed->count))
+        if (!ensure_size(ctx, composed->count))
             goto err;
 
-        ctx->buf[ctx->idx++] = composed->base;
         for (size_t i = 0; i < composed->count; i++)
-            ctx->buf[ctx->idx++] = composed->combining[i];
+            ctx->buf[ctx->idx++] = composed->chars[i];
     }
 
     else {

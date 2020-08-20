@@ -500,19 +500,15 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     }
 
     struct fcft_font *font = attrs_to_font(term, &cell->attrs);
-    const struct fcft_glyph *glyph = NULL;
     const struct composed *composed = NULL;
+    const struct fcft_grapheme *grapheme = NULL;
+    const struct fcft_glyph *single = NULL;
+    const struct fcft_glyph **glyphs = NULL;
+    unsigned glyph_count = 0;
 
     wchar_t base = cell->wc;
 
     if (base != 0) {
-        if (base >= CELL_COMB_CHARS_LO &&
-            base < (CELL_COMB_CHARS_LO + term->composed_count))
-        {
-            composed = &term->composed[base - CELL_COMB_CHARS_LO];
-            base = composed->base;
-        }
-
         if (unlikely(
                 /* Classic box drawings */
                 (base >= 0x2500 && base <= 0x259f) ||
@@ -528,7 +524,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                 (base >= 0x1fb00 && base <= 0x1fb3b) ||
 
                 /* Unicode 13 partial blocks */
-                 /* TODO: there's more here! */
+                /* TODO: there's more here! */
                 (base >= 0x1fb70 && base <= 0x1fb8b)) &&
 
             likely(!term->conf->box_drawings_uses_font_glyphs))
@@ -542,7 +538,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             xassert(idx < ALEN(term->box_drawing));
 
             if (likely(term->box_drawing[idx] != NULL))
-                glyph = term->box_drawing[idx];
+                single = term->box_drawing[idx];
             else {
                 mtx_lock(&term->render.workers.lock);
 
@@ -551,15 +547,45 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                     term->box_drawing[idx] = box_drawing(term, base);
                 mtx_unlock(&term->render.workers.lock);
 
-                glyph = term->box_drawing[idx];
-                xassert(glyph != NULL);
+                single = term->box_drawing[idx];
+                xassert(single != NULL);
             }
-        } else
-            glyph = fcft_glyph_rasterize(font, base, term->font_subpixel);
+
+            glyph_count = 1;
+            glyphs = &single;
+        }
+
+        else if (base >= CELL_COMB_CHARS_LO &&
+                 base < (CELL_COMB_CHARS_LO + term->composed_count))
+        {
+            composed = &term->composed[base - CELL_COMB_CHARS_LO];
+            base = composed->chars[0];
+
+            if (term->conf->can_shape_grapheme && term->conf->tweak.grapheme_shaping) {
+                grapheme = fcft_grapheme_rasterize(
+                    font, composed->count, composed->chars,
+                    0, NULL, term->font_subpixel);
+            }
+
+            if (grapheme != NULL) {
+                composed = NULL;
+                glyphs = grapheme->glyphs;
+                glyph_count = grapheme->count;
+            }
+        }
+
+
+        if (single == NULL && grapheme == NULL) {
+            xassert(base != 0);
+            single = fcft_glyph_rasterize(font, base, term->font_subpixel);
+            glyph_count = 1;
+            glyphs = &single;
+        }
     }
 
+    assert(glyph_count == 0 || glyphs != NULL);
     const int cols_left = term->cols - col;
-    int cell_cols = glyph != NULL ? max(1, min(glyph->cols, cols_left)) : 1;
+    int cell_cols = glyph_count > 0 ? max(1, min(glyphs[0]->cols, cols_left)) : 1;
 
     /*
      * Hack!
@@ -580,15 +606,15 @@ render_cell(struct terminal *term, pixman_image_t *pix,
      *  - *this* cells is followed by an empty cell, or a space
      */
     if (term->conf->tweak.allow_overflowing_double_width_glyphs &&
-        ((glyph != NULL &&
-          glyph->cols == 1 &&
-          glyph->width >= term->cell_width * 15 / 10 &&
-          glyph->width < 3 * term->cell_width &&
-          col < term->cols - 1) ||
-         (term->conf->tweak.pua_double_width &&
-          ((base >= 0x00e000 && base <= 0x00f8ff) ||
-           (base >= 0x0f0000 && base <= 0x0ffffd) ||
-           (base >= 0x100000 && base <= 0x10fffd)))) &&
+        ((glyph_count > 0 &&
+          glyphs[0]->cols == 1 &&
+          glyphs[0]->width >= term->cell_width * 15 / 10 &&
+          glyphs[0]->width < 3 * term->cell_width &&
+          col < term->cols - 1  ||
+          (term->conf->tweak.pua_double_width &&
+           ((base >= 0x00e000 && base <= 0x00f8ff) ||
+            (base >= 0x0f0000 && base <= 0x0ffffd) ||
+            (base >= 0x100000 && base <= 0x10fffd))))) &&
         (row->cells[col + 1].wc == 0 || row->cells[col + 1].wc == L' '))
     {
         cell_cols = 2;
@@ -632,33 +658,43 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     pixman_image_t *clr_pix = pixman_image_create_solid_fill(&fg);
 
-    if (glyph != NULL) {
-        const int letter_x_ofs = term->font_x_ofs;
+    for (unsigned i = 0; i < glyph_count; i++) {
+        const int letter_x_ofs = i == 0 ? term->font_x_ofs : 0;
+
+        const struct fcft_glyph *glyph = glyphs[i];
+        if (glyph == NULL)
+            continue;
+
+        int g_x = glyph->x;
+        int g_y = glyph->y;
+
+        if (i > 0 && glyph->x >= 0)
+            g_x -= term->cell_width;
 
         if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
             /* Glyph surface is a pre-rendered image (typically a color emoji...) */
             if (!(cell->attrs.blink && term->blink.state == BLINK_OFF)) {
                 pixman_image_composite32(
                     PIXMAN_OP_OVER, glyph->pix, NULL, pix, 0, 0, 0, 0,
-                    x + letter_x_ofs + glyph->x, y + font_baseline(term) - glyph->y,
+                    x + letter_x_ofs + g_x, y + font_baseline(term) - g_y,
                     glyph->width, glyph->height);
             }
         } else {
             pixman_image_composite32(
                 PIXMAN_OP_OVER, clr_pix, glyph->pix, pix, 0, 0, 0, 0,
-                x + letter_x_ofs + glyph->x, y + font_baseline(term) - glyph->y,
+                x + letter_x_ofs + g_x, y + font_baseline(term) - g_y,
                 glyph->width, glyph->height);
 
-        }
+            /* Combining characters */
+            if (composed != NULL) {
+                assert(glyph_count == 1);
 
-        /* Combining characters */
-        if (composed != NULL) {
-            for (size_t i = 0; i < composed->count; i++) {
-                const struct fcft_glyph *g = fcft_glyph_rasterize(
-                    font, composed->combining[i], term->font_subpixel);
+                for (size_t i = 1; i < composed->count; i++) {
+                    const struct fcft_glyph *g = fcft_glyph_rasterize(
+                        font, composed->chars[i], term->font_subpixel);
 
-                if (g == NULL)
-                    continue;
+                    if (g == NULL)
+                        continue;
 
                     /*
                      * Fonts _should_ assume the pen position is now
@@ -677,16 +713,22 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                      * somewhat deal with double-width glyphs we use
                      * an offset of *one* cell.
                      */
-                int x_ofs = g->x < 0
-                    ? cell_cols * term->cell_width
-                    : (cell_cols - 1) * term->cell_width;
+                    int x_ofs = g->x < 0
+                        ? cell_cols * term->cell_width
+                        : (cell_cols - 1) * term->cell_width;
 
-                pixman_image_composite32(
-                    PIXMAN_OP_OVER, clr_pix, g->pix, pix, 0, 0, 0, 0,
-                    x + letter_x_ofs + x_ofs + g->x, y + font_baseline(term) - g->y,
-                    g->width, g->height);
+                    pixman_image_composite32(
+                        PIXMAN_OP_OVER, clr_pix, g->pix, pix, 0, 0, 0, 0,
+                        /* Some fonts use a negative offset, while others use a
+                         * "normal" offset */
+                        x + x_ofs + g->x,
+                        y + font_baseline(term) - g->y,
+                        g->width, g->height);
+                }
             }
         }
+
+        x += glyph->advance.x;
     }
 
     pixman_image_unref(clr_pix);

@@ -1,5 +1,8 @@
 option('ime', type: 'boolean', value: true, description: 'IME (Input Method Editor) support')
 
+option('grapheme-clustering', type: 'feature',
+       description: 'Enables grapheme clustering using libutf8proc. Requires fcft with harfbuzz support to be useful.')
+
 option('terminfo', type: 'feature', description: 'Build terminfo. When disabled, foot\'s terminfo will not be built, and foot will default to \'xterm-256color\' instead of \'foot\'.')
 
 option('terminfo-install-location', type: 'string', description: 'Where to install the foot terminfo files, relative to the installation prefix. If set to \'disabled\', the terminfo files are not installed at all (useful when packaging the terminfo files in a separate package). Defaults to $datadir/terminfo.')

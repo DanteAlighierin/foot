@@ -111,6 +111,7 @@ struct config {
     struct pt_or_px underline_offset;
 
     bool box_drawings_uses_font_glyphs;
+    bool can_shape_grapheme;
 
     struct {
         bool urgent;
@@ -244,6 +245,7 @@ struct config {
     struct {
         enum fcft_scaling_filter fcft_filter;
         bool allow_overflowing_double_width_glyphs;
+        bool grapheme_shaping;
         bool render_timer_osd;
         bool render_timer_log;
         bool damage_whole_window;
