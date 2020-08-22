@@ -1,5 +1,6 @@
 stages:
   - build
+  - codespell
 
 variables:
   GIT_SUBMODULE_STRATEGY: normal
@@ -55,3 +56,10 @@ release-x86:
     - meson --buildtype=release ../../
     - ninja -v -k0
     - ninja -v test
+
+codespell:
+  image: alpine:edge
+  stage: codespell
+  script:
+    - apk add codespell
+    - codespell *.c *.h
