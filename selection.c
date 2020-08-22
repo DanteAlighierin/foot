@@ -1204,6 +1204,11 @@ from_clipboard_done(void *user)
 void
 selection_from_clipboard(struct seat *seat, struct terminal *term, uint32_t serial)
 {
+    if (term->is_sending_paste_data) {
+        /* We're already pasting... */
+        return;
+    }
+
     struct wl_clipboard *clipboard = &seat->clipboard;
     if (clipboard->data_offer == NULL)
         return;
@@ -1316,6 +1321,11 @@ selection_from_primary(struct seat *seat, struct terminal *term)
 {
     if (term->wl->primary_selection_device_manager == NULL)
         return;
+
+    if (term->is_sending_paste_data) {
+        /* We're already pasting... */
+        return;
+    }
 
     struct wl_clipboard *clipboard = &seat->clipboard;
     if (clipboard->data_offer == NULL)
