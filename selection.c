@@ -1211,7 +1211,7 @@ selection_from_clipboard(struct seat *seat, struct terminal *term, uint32_t seri
     term->is_sending_paste_data = true;
 
     if (term->bracketed_paste)
-        term_to_slave(term, "\033[200~", 6);
+        term_paste_data_to_slave(term, "\033[200~", 6);
 
     text_from_clipboard(
         seat, term, &from_clipboard_cb, &from_clipboard_done, term);
