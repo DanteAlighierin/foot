@@ -1,6 +1,5 @@
 stages:
   - build
-  - codespell
 
 variables:
   GIT_SUBMODULE_STRATEGY: normal
@@ -59,7 +58,7 @@ release-x86:
 
 codespell:
   image: alpine:edge
-  stage: codespell
+  stage: build
   script:
     - apk add codespell
     - codespell *.c *.h
