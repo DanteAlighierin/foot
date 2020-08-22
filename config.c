@@ -426,9 +426,11 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
             free(conf->scrollback.indicator.text);
             conf->scrollback.indicator.text = NULL;
 
-            size_t len = mbstowcs(NULL, value, -1);
+            size_t len = mbstowcs(NULL, value, 0);
             if (len < 0) {
-                LOG_AND_NOTIFY_ERRNO("%s:%d: [scrollback]: indicator-format: invalid value: %s", path, lineno, value);
+                LOG_AND_NOTIFY_ERRNO(
+                    "%s:%d: [scrollback]: indicator-format: "
+                    "invalid value: %s", path, lineno, value);
                 return false;
             }
 
