@@ -76,7 +76,7 @@ pipe_closed:
     return true;
 }
 
-static void
+static bool
 execute_binding(struct seat *seat, struct terminal *term,
                 enum bind_action_normal action, char *const *pipe_argv,
                 uint32_t serial)
@@ -85,52 +85,52 @@ execute_binding(struct seat *seat, struct terminal *term,
 
     switch (action) {
     case BIND_ACTION_NONE:
-        break;
+        return true;
 
     case BIND_ACTION_SCROLLBACK_UP:
         cmd_scrollback_up(term, term->rows);
-        break;
+        return true;
 
     case BIND_ACTION_SCROLLBACK_DOWN:
         cmd_scrollback_down(term, term->rows);
-        break;
+        return true;
 
     case BIND_ACTION_CLIPBOARD_COPY:
         selection_to_clipboard(seat, term, serial);
-        break;
+        return true;
 
     case BIND_ACTION_CLIPBOARD_PASTE:
         selection_from_clipboard(seat, term, serial);
         term_reset_view(term);
-        break;
+        return true;
 
     case BIND_ACTION_PRIMARY_PASTE:
         selection_from_primary(seat, term);
-        break;
+        return true;
 
     case BIND_ACTION_SEARCH_START:
         search_begin(term);
-        break;
+        return true;
 
     case BIND_ACTION_FONT_SIZE_UP:
         term_font_size_increase(term);
-        break;
+        return true;
 
     case BIND_ACTION_FONT_SIZE_DOWN:
         term_font_size_decrease(term);
-        break;
+        return true;
 
     case BIND_ACTION_FONT_SIZE_RESET:
         term_font_size_reset(term);
-        break;
+        return true;
 
     case BIND_ACTION_SPAWN_TERMINAL:
         term_spawn_new(term);
-        break;
+        return true;
 
     case BIND_ACTION_MINIMIZE:
         xdg_toplevel_set_minimized(term->window->xdg_toplevel);
-        break;
+        return true;
 
     case BIND_ACTION_MAXIMIZE:
         if (term->window->is_fullscreen)
@@ -139,20 +139,20 @@ execute_binding(struct seat *seat, struct terminal *term,
             xdg_toplevel_unset_maximized(term->window->xdg_toplevel);
         else
             xdg_toplevel_set_maximized(term->window->xdg_toplevel);
-        break;
+        return true;
 
     case BIND_ACTION_FULLSCREEN:
         if (term->window->is_fullscreen)
             xdg_toplevel_unset_fullscreen(term->window->xdg_toplevel);
         else
             xdg_toplevel_set_fullscreen(term->window->xdg_toplevel, NULL);
-        break;
+        return true;
 
     case BIND_ACTION_PIPE_SCROLLBACK:
     case BIND_ACTION_PIPE_VIEW:
     case BIND_ACTION_PIPE_SELECTED: {
         if (pipe_argv == NULL)
-            break;
+            return true;
 
         struct pipe_context *ctx = NULL;
 
@@ -240,9 +240,9 @@ execute_binding(struct seat *seat, struct terminal *term,
         if (!fdm_add(term->fdm, pipe_fd[1], EPOLLOUT, &fdm_write_pipe, ctx))
             goto pipe_err;
 
-        break;
+        return true;
 
-      pipe_err:
+        pipe_err:
         if (stdout_fd >= 0)
             close(stdout_fd);
         if (stderr_fd >= 0)
@@ -253,53 +253,62 @@ execute_binding(struct seat *seat, struct terminal *term,
             close(pipe_fd[1]);
         free(text);
         free(ctx);
-        break;
+        return true;
     }
 
     case BIND_ACTION_SELECT_BEGIN:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
                 term, seat->mouse.col, seat->mouse.row, SELECTION_NORMAL);
+            return true;
         }
-        break;
+        return false;
 
     case BIND_ACTION_SELECT_BEGIN_BLOCK:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
                 term, seat->mouse.col, seat->mouse.row, SELECTION_BLOCK);
+            return true;
         }
-        break;
+        return false;
 
     case BIND_ACTION_SELECT_EXTEND:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_extend(
                 seat, term, seat->mouse.col, seat->mouse.row, serial);
+            return true;
         }
-        break;
+        return false;
 
     case BIND_ACTION_SELECT_WORD:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_mark_word(
                 seat, term, seat->mouse.col, seat->mouse.row, false, serial);
+            return true;
         }
-        break;
+        return false;
 
     case BIND_ACTION_SELECT_WORD_WS:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_mark_word(
                 seat, term, seat->mouse.col, seat->mouse.row, true, serial);
+            return true;
         }
-        break;
+        return false;
 
     case BIND_ACTION_SELECT_ROW:
-        if (selection_enabled(term, seat) && cursor_is_on_grid)
+        if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_mark_row(seat, term, seat->mouse.row, serial);
-        break;
+            return true;
+        }
+        return false;
 
     case BIND_ACTION_COUNT:
         assert(false);
-        break;
+        return false;
     }
+
+    return false;
 }
 
 static xkb_mod_mask_t
@@ -798,15 +807,15 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
         /* Match symbol */
         if (it->item.bind.sym == sym) {
-            execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial);
-            goto maybe_repeat;
+            if (execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial))
+                goto maybe_repeat;
         }
 
         /* Match raw key code */
         tll_foreach(it->item.bind.key_codes, code) {
             if (code->item == key) {
-                execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial);
-                goto maybe_repeat;
+                if (execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial))
+                    goto maybe_repeat;
             }
         }
     }
@@ -1152,6 +1161,7 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     seat->mouse.x = seat->mouse.y = 0;
     seat->mouse.col = seat->mouse.row = 0;
     seat->mouse.button = seat->mouse.last_button = seat->mouse.count = 0;
+    seat->mouse.consumed = false;
     memset(&seat->mouse.last_time, 0, sizeof(seat->mouse.last_time));
     seat->mouse.axis_aggregated = 0.0;
     seat->mouse.have_discrete = false;
@@ -1302,7 +1312,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         }
 
         /* Send mouse event to client application */
-        if (!term_mouse_grabbed(term, seat) &&
+        if (!seat->mouse.consumed &&
+            !term_mouse_grabbed(term, seat) &&
             cursor_is_on_new_cell && cursor_is_on_grid)
         {
             assert(seat->mouse.col < term->cols);
@@ -1481,6 +1492,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
+            assert(!seat->mouse.consumed);
+
             if (seat->wl_keyboard != NULL) {
                 /* Seat has keyboard - use mouse bindings *with* modifiers */
 
@@ -1510,7 +1523,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                         continue;
                     }
 
-                    execute_binding(seat, term, binding->action, NULL, serial);
+                    seat->mouse.consumed = execute_binding(
+                        seat, term, binding->action, NULL, serial);
                     break;
                 }
             }
@@ -1536,12 +1550,16 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                         continue;
                     }
 
-                    execute_binding(seat, term, binding->action, NULL, serial);
+                    seat->mouse.consumed = execute_binding(
+                        seat, term, binding->action, NULL, serial);
                     break;
                 }
             }
 
-            if (!term_mouse_grabbed(term, seat) && cursor_is_on_grid) {
+            if (!seat->mouse.consumed &&
+                !term_mouse_grabbed(term, seat) &&
+                cursor_is_on_grid)
+            {
                 term_mouse_down(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
@@ -1552,11 +1570,16 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         case WL_POINTER_BUTTON_STATE_RELEASED:
             selection_finalize(seat, term, serial);
 
-            if (!term_mouse_grabbed(term, seat) && cursor_is_on_grid) {
+            if (!seat->mouse.consumed &&
+                !term_mouse_grabbed(term, seat) &&
+                cursor_is_on_grid)
+            {
                 term_mouse_up(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
             }
+
+            seat->mouse.consumed = false;
             break;
         }
         break;
