@@ -1182,7 +1182,7 @@ static void
 from_clipboard_cb(const char *data, size_t size, void *user)
 {
     struct terminal *term = user;
-    term_to_slave(term, data, size);
+    term_paste_data_to_slave(term, data, size);
 }
 
 static void
@@ -1191,7 +1191,13 @@ from_clipboard_done(void *user)
     struct terminal *term = user;
 
     if (term->bracketed_paste)
-        term_to_slave(term, "\033[201~", 6);
+        term_paste_data_to_slave(term, "\033[201~", 6);
+
+    term->is_sending_paste_data = false;
+
+    /* Make sure we send any queued up non-paste data */
+    if (tll_length(term->ptmx_buffers) > 0)
+        fdm_event_add(term->fdm, term->ptmx, EPOLLOUT);
 }
 
 void
@@ -1200,6 +1206,8 @@ selection_from_clipboard(struct seat *seat, struct terminal *term, uint32_t seri
     struct wl_clipboard *clipboard = &seat->clipboard;
     if (clipboard->data_offer == NULL)
         return;
+
+    term->is_sending_paste_data = true;
 
     if (term->bracketed_paste)
         term_to_slave(term, "\033[200~", 6);
@@ -1312,8 +1320,9 @@ selection_from_primary(struct seat *seat, struct terminal *term)
     if (clipboard->data_offer == NULL)
         return;
 
+    term->is_sending_paste_data = true;
     if (term->bracketed_paste)
-        term_to_slave(term, "\033[200~", 6);
+        term_paste_data_to_slave(term, "\033[200~", 6);
 
     text_from_primary(seat, term, &from_clipboard_cb, &from_clipboard_done, term);
 }

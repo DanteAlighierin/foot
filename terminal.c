@@ -50,31 +50,44 @@ const char *const XCURSOR_RIGHT_SIDE = "right_side";
 const char *const XCURSOR_TOP_SIDE = "top_side";
 const char *const XCURSOR_BOTTOM_SIDE = "bottom_side";
 
-bool
-term_to_slave(struct terminal *term, const void *_data, size_t len)
+static void
+enqueue_data_for_slave(const void *data, size_t len, size_t offset,
+                       ptmx_buffer_list_t *buffer_list)
 {
-    if (term->ptmx < 0) {
-        /* We're probably in "hold" */
-        return false;
-    }
+    /*
+     * We're in asynchronous mode - push data to queue and let the FDM
+     * handler take care of it
+     */
+    {
+        void *copy = xmalloc(len);
+        memcpy(copy, data, len);
 
-    size_t async_idx = 0;
-    if (tll_length(term->ptmx_buffer) > 0) {
-        /* With a non-empty queue, EPOLLOUT has already been enabled */
-        goto enqueue_data;
+        struct ptmx_buffer queued = {
+            .data = copy,
+            .len = len,
+            .idx = offset,
+        };
+        tll_push_back(*buffer_list, queued);
     }
+}
 
+static bool
+data_to_slave(struct terminal *term, const void *data, size_t len,
+              ptmx_buffer_list_t *buffer_list)
+{
     /*
      * Try a synchronous write first. If we fail to write everything,
      * switch to asynchronous.
      */
 
-    switch (async_write(term->ptmx, _data, len, &async_idx)) {
+    size_t async_idx = 0;
+    switch (async_write(term->ptmx, data, len, &async_idx)) {
     case ASYNC_WRITE_REMAIN:
         /* Switch to asynchronous mode; let FDM write the remaining data */
         if (!fdm_event_add(term->fdm, term->ptmx, EPOLLOUT))
             return false;
-        goto enqueue_data;
+        enqueue_data_for_slave(data, len, async_idx, buffer_list);
+        return true;
 
     case ASYNC_WRITE_DONE:
         return true;
@@ -87,24 +100,52 @@ term_to_slave(struct terminal *term, const void *_data, size_t len)
     /* Shouldn't get here */
     assert(false);
     return false;
+}
 
-enqueue_data:
-    /*
-     * We're in asynchronous mode - push data to queue and let the FDM
-     * handler take care of it
-     */
-    {
-        void *copy = xmalloc(len);
-        memcpy(copy, _data, len);
+bool
+term_paste_data_to_slave(struct terminal *term, const void *data, size_t len)
+{
+    assert(term->is_sending_paste_data);
 
-        struct ptmx_buffer queued = {
-            .data = copy,
-            .len = len,
-            .idx = async_idx,
-        };
-        tll_push_back(term->ptmx_buffer, queued);
+    if (term->ptmx < 0) {
+        /* We're probably in "hold" */
+        return false;
     }
-    return true;
+
+    if (tll_length(term->ptmx_paste_buffers) > 0) {
+        /* Don't even try to send data *now* if there's queued up
+         * data, since that would result in events arriving out of
+         * order. */
+        enqueue_data_for_slave(data, len, 0, &term->ptmx_paste_buffers);
+        return true;
+    }
+
+    return data_to_slave(term, data, len, &term->ptmx_paste_buffers);
+}
+
+bool
+term_to_slave(struct terminal *term, const void *data, size_t len)
+{
+    if (term->ptmx < 0) {
+        /* We're probably in "hold" */
+        return false;
+    }
+
+    if (tll_length(term->ptmx_buffers) > 0 || term->is_sending_paste_data) {
+        /*
+         * Don't even try to send data *now* if there's queued up
+         * data, since that would result in events arriving out of
+         * order.
+         *
+         * Furthermore, if we're currently sending paste data to the
+         * client, do *not* mix that stream with other events
+         * (https://codeberg.org/dnkl/foot/issues/101).
+         */
+        enqueue_data_for_slave(data, len, 0, &term->ptmx_buffers);
+        return true;
+    }
+
+    return data_to_slave(term, data, len, &term->ptmx_buffers);
 }
 
 static bool
@@ -113,28 +154,48 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
     struct terminal *term = data;
 
     /* If there is no queued data, then we shouldn't be in asynchronous mode */
-    assert(tll_length(term->ptmx_buffer) > 0);
+    assert(tll_length(term->ptmx_buffers) > 0 ||
+           tll_length(term->ptmx_paste_buffers) > 0);
 
-    /* Don't use pop() since we may not be able to write the entire buffer */
-    tll_foreach(term->ptmx_buffer, it) {
-        switch (async_write(term->ptmx, it->item.data, it->item.len, &it->item.idx)) {
-        case ASYNC_WRITE_DONE:
-            free(it->item.data);
-            tll_remove(term->ptmx_buffer, it);
-            break;
-
-        case ASYNC_WRITE_REMAIN:
-            /* to_slave() updated it->item.idx */
-            return true;
-
-        case ASYNC_WRITE_ERR:
-            LOG_ERRNO("failed to asynchronously write %zu bytes to slave",
-                      it->item.len - it->item.idx);
-            return false;
-        }
+    /* Writes a single buffer, returns if not all of it could be written */
+#define write_one_buffer(buffer_list)                                   \
+    {                                                                   \
+        switch (async_write(term->ptmx, it->item.data, it->item.len, &it->item.idx)) { \
+        case ASYNC_WRITE_DONE:                                          \
+            free(it->item.data);                                        \
+            tll_remove(buffer_list, it);                                \
+            break;                                                      \
+        case ASYNC_WRITE_REMAIN:                                        \
+            /* to_slave() updated it->item.idx */                       \
+            return true;                                                \
+        case ASYNC_WRITE_ERR:                                           \
+            LOG_ERRNO("failed to asynchronously write %zu bytes to slave", \
+                      it->item.len - it->item.idx);                     \
+            return false;                                               \
+        }                                                               \
     }
 
-    /* No more queued data, switch back to synchronous mode */
+    tll_foreach(term->ptmx_paste_buffers, it)
+        write_one_buffer(term->ptmx_paste_buffers);
+
+    /* If we get here, *all* paste data buffers were successfully
+     * flushed */
+
+    if (!term->is_sending_paste_data) {
+        tll_foreach(term->ptmx_buffers, it)
+            write_one_buffer(term->ptmx_buffers);
+    }
+
+    /*
+     * If we get here, *all* buffers were successfully flushed.
+     *
+     * Or, we're still sending paste data, in which case we do *not*
+     * want to send the "normal" queued up data
+     *
+     * In both cases, we want to *disable* the FDM callback since
+     * otherwise we'd just be called right away again, with nothing to
+     * write.
+     */
     fdm_event_del(term->fdm, term->ptmx, EPOLLOUT);
     return true;
 }
@@ -840,7 +901,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .conf = conf,
         .quit = false,
         .ptmx = ptmx,
-        .ptmx_buffer = tll_init(),
+        .ptmx_buffers = tll_init(),
+        .ptmx_paste_buffers = tll_init(),
         .font_sizes = xmalloc(sizeof(term->font_sizes[0]) * tll_length(conf->fonts)),
         .font_dpi = 0.,
         .font_subpixel = (conf->colors.alpha == 0xffff  /* Can't do subpixel rendering on transparent background */
@@ -1206,9 +1268,12 @@ term_destroy(struct terminal *term)
     assert(tll_length(term->render.workers.queue) == 0);
     tll_free(term->render.workers.queue);
 
-    tll_foreach(term->ptmx_buffer, it)
+    tll_foreach(term->ptmx_buffers, it)
         free(it->item.data);
-    tll_free(term->ptmx_buffer);
+    tll_free(term->ptmx_buffers);
+    tll_foreach(term->ptmx_paste_buffers, it)
+        free(it->item.data);
+    tll_free(term->ptmx_paste_buffers);
     tll_free(term->tab_stops);
 
     tll_foreach(term->normal.sixel_images, it)
