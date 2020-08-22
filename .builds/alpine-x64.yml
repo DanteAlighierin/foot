@@ -15,6 +15,8 @@ packages:
   - pixman-dev
   - libxkbcommon-dev
   - ncurses
+  - python3
+  - py3-pip
 
 sources:
   - https://codeberg.org/dnkl/foot
@@ -41,3 +43,6 @@ tasks:
       meson --buildtype=minsize foot bld/release
       ninja -C bld/release -k0
       meson test -C bld/release --print-errorlogs
+  - codespell: |
+      pip install codespell
+      ~/.local/bin/codespell *.c *.h
