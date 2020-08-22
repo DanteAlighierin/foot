@@ -54,21 +54,15 @@ static void
 enqueue_data_for_slave(const void *data, size_t len, size_t offset,
                        ptmx_buffer_list_t *buffer_list)
 {
-    /*
-     * We're in asynchronous mode - push data to queue and let the FDM
-     * handler take care of it
-     */
-    {
-        void *copy = xmalloc(len);
-        memcpy(copy, data, len);
+    void *copy = xmalloc(len);
+    memcpy(copy, data, len);
 
-        struct ptmx_buffer queued = {
-            .data = copy,
-            .len = len,
-            .idx = offset,
-        };
-        tll_push_back(*buffer_list, queued);
-    }
+    struct ptmx_buffer queued = {
+        .data = copy,
+        .len = len,
+        .idx = offset,
+    };
+    tll_push_back(*buffer_list, queued);
 }
 
 static bool
