@@ -86,6 +86,8 @@
   (https://codeberg.org/dnkl/foot/issues/97).
 * Mouse events from being sent to client application when a mouse
   binding has consumed it.
+* Input events from getting mixed with paste data
+  (https://codeberg.org/dnkl/foot/issues/101).
 
 
 ### Security
