@@ -60,6 +60,6 @@ codespell:
   image: alpine:edge
   stage: build
   script:
-    - apk add python
+    - apk add python3
     - pip install codespell
     - codespell *.c *.h
