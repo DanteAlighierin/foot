@@ -1182,6 +1182,7 @@ static void
 from_clipboard_cb(const char *data, size_t size, void *user)
 {
     struct terminal *term = user;
+    assert(term->is_sending_paste_data);
     term_paste_data_to_slave(term, data, size);
 }
 
