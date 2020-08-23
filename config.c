@@ -989,12 +989,12 @@ parse_section_search_bindings(
 
         /* Emit key bindings */
         tll_foreach(key_combos, it) {
-            struct config_key_binding_normal binding = {
+            struct config_key_binding_search binding = {
                 .action = action,
                 .modifiers = it->item.modifiers,
                 .sym = it->item.sym,
             };
-            tll_push_back(conf->bindings.key, binding);
+            tll_push_back(conf->bindings.search, binding);
         }
 
         free_key_combo_list(&key_combos);
