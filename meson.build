@@ -18,7 +18,8 @@ add_project_arguments(
     ? ['-D_DEBUG']
     : [cc.get_supported_arguments('-fno-asynchronous-unwind-tables')]) +
   cc.get_supported_arguments(
-    ['-fstrict-aliasing',
+    ['-pedantic',
+     '-fstrict-aliasing',
      '-Wstrict-aliasing']),
   language: 'c',
 )
