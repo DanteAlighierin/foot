@@ -287,6 +287,7 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         }
 
         setenv("TERM", term_env, 1);
+        setenv("COLORTERM", "truecolor", 1);
 
         char **_shell_argv = NULL;
         char **shell_argv = NULL;

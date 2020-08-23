@@ -43,6 +43,8 @@
   (https://codeberg.org/dnkl/foot/issues/79).
 * Implement XTSAVE/XTRESTORE escape sequences, `CSI ? Ps s` and `CSI ?
   Ps r` (https://codeberg.org/dnkl/foot/issues/91).
+* `$COLORTERM` is now set to `truecolor` at startup, to indicate
+  support for 24-bit RGB colors.
 
 
 ### Deprecated
