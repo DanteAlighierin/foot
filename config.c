@@ -105,10 +105,10 @@ static const char *const search_binding_action_map[] = {
 static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
               "search binding action map size mismatch");
 
-#define LOG_AND_NOTIFY_ERR(fmt, ...)                                \
+#define LOG_AND_NOTIFY_ERR(...)                                     \
     do {                                                            \
-        LOG_ERR(fmt, ## __VA_ARGS__);                               \
-        char *text = xasprintf(fmt, ## __VA_ARGS__);                \
+        LOG_ERR(__VA_ARGS__);                                       \
+        char *text = xasprintf(__VA_ARGS__);                        \
         struct user_notification notif = {                          \
             .kind = USER_NOTIFICATION_ERROR,                        \
             .text = text,                                           \
@@ -116,10 +116,10 @@ static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
         tll_push_back(conf->notifications, notif);                  \
     } while (0)
 
-#define LOG_AND_NOTIFY_WARN(fmt, ...)                       \
+#define LOG_AND_NOTIFY_WARN(...)                            \
     do {                                                    \
-        LOG_WARN(fmt, ## __VA_ARGS__);                      \
-        char *text = xasprintf(fmt, ## __VA_ARGS__);        \
+        LOG_WARN(__VA_ARGS__);                              \
+        char *text = xasprintf(__VA_ARGS__);                \
         struct user_notification notif = {                  \
             .kind = USER_NOTIFICATION_WARNING,              \
             .text = text,                                   \
@@ -127,14 +127,14 @@ static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
         tll_push_back(conf->notifications, notif);          \
     } while (0)
 
-#define LOG_AND_NOTIFY_ERRNO(fmt, ...)                                  \
+#define LOG_AND_NOTIFY_ERRNO(...)                                       \
     do {                                                                \
         int _errno = errno;                                             \
-        LOG_ERRNO(fmt, ## __VA_ARGS__);                                 \
-        int len = snprintf(NULL, 0, fmt, ## __VA_ARGS__);               \
+        LOG_ERRNO(__VA_ARGS__);                                         \
+        int len = snprintf(NULL, 0, __VA_ARGS__);                       \
         int errno_len = snprintf(NULL, 0, ": %s", strerror(_errno));    \
         char *text = xmalloc(len + errno_len + 1);                      \
-        snprintf(text, len + errno_len + 1, fmt, ## __VA_ARGS__);       \
+        snprintf(text, len + errno_len + 1, __VA_ARGS__);               \
         snprintf(&text[len], errno_len + 1, ": %s", strerror(_errno));  \
         struct user_notification notif = {                              \
             .kind = USER_NOTIFICATION_ERROR,                            \

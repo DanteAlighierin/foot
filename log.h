@@ -23,21 +23,21 @@ void log_errno_provided(
     const char *file, int lineno, int _errno,
     const char *fmt, ...) PRINTF(6);
 
-#define LOG_ERR(fmt, ...)  \
-    log_msg(LOG_CLASS_ERROR, LOG_MODULE, __FILE__, __LINE__, fmt, ## __VA_ARGS__)
-#define LOG_ERRNO(fmt, ...) \
-    log_errno(LOG_CLASS_ERROR, LOG_MODULE, __FILE__, __LINE__, fmt, ## __VA_ARGS__)
-#define LOG_ERRNO_P(fmt, _errno, ...)                                   \
+#define LOG_ERR(...)  \
+    log_msg(LOG_CLASS_ERROR, LOG_MODULE, __FILE__, __LINE__, __VA_ARGS__)
+#define LOG_ERRNO(...) \
+    log_errno(LOG_CLASS_ERROR, LOG_MODULE, __FILE__, __LINE__, __VA_ARGS__)
+#define LOG_ERRNO_P(_errno, ...)                                        \
     log_errno_provided(LOG_CLASS_ERROR, LOG_MODULE, __FILE__, __LINE__, \
-                       _errno, fmt, ## __VA_ARGS__)
-#define LOG_WARN(fmt, ...)  \
-    log_msg(LOG_CLASS_WARNING, LOG_MODULE, __FILE__, __LINE__, fmt, ## __VA_ARGS__)
-#define LOG_INFO(fmt, ...)  \
-    log_msg(LOG_CLASS_INFO, LOG_MODULE, __FILE__, __LINE__, fmt, ## __VA_ARGS__)
+                       _errno, __VA_ARGS__)
+#define LOG_WARN(...)  \
+    log_msg(LOG_CLASS_WARNING, LOG_MODULE, __FILE__, __LINE__, __VA_ARGS__)
+#define LOG_INFO(...)  \
+    log_msg(LOG_CLASS_INFO, LOG_MODULE, __FILE__, __LINE__,  __VA_ARGS__)
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
- #define LOG_DBG(fmt, ...)  \
-    log_msg(LOG_CLASS_DEBUG, LOG_MODULE, __FILE__, __LINE__, fmt, ## __VA_ARGS__)
+ #define LOG_DBG(...)  \
+    log_msg(LOG_CLASS_DEBUG, LOG_MODULE, __FILE__, __LINE__, __VA_ARGS__)
 #else
- #define LOG_DBG(fmt, ...)
+ #define LOG_DBG(...)
 #endif

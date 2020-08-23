@@ -281,7 +281,7 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
             sigprocmask(SIG_SETMASK, &mask, NULL) < 0)
         {
             const int _errno = errno;
-            LOG_ERRNO_P("failed to restore signals", errno);
+            LOG_ERRNO_P(errno, "failed to restore signals");
             (void)!write(fork_pipe[1], &_errno, sizeof(_errno));
             _exit(_errno);
         }
@@ -332,7 +332,8 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
             return -1;
         } else if (ret == sizeof(_errno)) {
             LOG_ERRNO_P(
-                "%s: failed to execute", _errno, argc == 0 ? conf_shell : argv[0]);
+                _errno, "%s: failed to execute",
+                argc == 0 ? conf_shell : argv[0]);
             return -1;
         } else
             LOG_DBG("%s: successfully started", conf_shell);
