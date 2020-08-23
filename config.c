@@ -409,7 +409,7 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
             conf->scrollback.indicator.position = SCROLLBACK_INDICATOR_POSITION_RELATIVE;
         else {
             LOG_AND_NOTIFY_ERR("%s:%d: [scrollback]: indicator-position must be one of "
-                    "'none', 'fixed' or 'moving'",
+                    "'none', 'fixed' or 'relative'",
                     path, lineno);
             return false;
         }
