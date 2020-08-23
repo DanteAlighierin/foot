@@ -231,7 +231,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
             row, col, height, width,
             rel_above, rel_below, rel_left, rel_right);
 
-    struct sixel imgs[4] = {};
+    struct sixel imgs[4] = {0};
 
     if (rel_above > 0) {
         imgs[0] =  (struct sixel){

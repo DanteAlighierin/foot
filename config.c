@@ -689,7 +689,7 @@ parse_modifiers(struct config *conf, const char *text, size_t len,
 {
     bool ret = false;
 
-    *modifiers = (struct config_key_modifiers){};
+    *modifiers = (struct config_key_modifiers){0};
     char *copy = xstrndup(text, len);
 
     for (char *tok_ctx = NULL, *key = strtok_r(copy, "+", &tok_ctx);
@@ -730,7 +730,7 @@ parse_key_combos(struct config *conf, const char *combos, key_combo_list_t *key_
          combo != NULL;
          combo = strtok_r(NULL, " ", &tok_ctx))
     {
-        struct config_key_modifiers modifiers = {};
+        struct config_key_modifiers modifiers = {0};
         const char *key = strrchr(combo, '+');
 
         if (key == NULL) {
@@ -1018,7 +1018,7 @@ parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *ke
          combo != NULL;
          combo = strtok_r(NULL, " ", &tok_ctx))
     {
-        struct config_key_modifiers modifiers = {};
+        struct config_key_modifiers modifiers = {0};
         char *key = strrchr(combo, '+');
 
         if (key == NULL) {
@@ -1494,7 +1494,7 @@ add_default_search_bindings(struct config *conf)
             ((struct config_key_binding_search){action, mods, sym}));   \
 } while (0)
 
-    const struct config_key_modifiers none = {};
+    const struct config_key_modifiers none = {0};
     const struct config_key_modifiers alt = {.alt = true};
     const struct config_key_modifiers ctrl = {.ctrl = true};
     const struct config_key_modifiers ctrl_shift = {.ctrl = true, .shift = true};
@@ -1538,7 +1538,7 @@ add_default_mouse_bindings(struct config *conf)
             ((struct config_mouse_binding){action, mods, btn, count})); \
 } while (0)
 
-    const struct config_key_modifiers none = {};
+    const struct config_key_modifiers none = {0};
     const struct config_key_modifiers ctrl = {.ctrl = true};
 
     add_binding(BIND_ACTION_PRIMARY_PASTE, none, BTN_MIDDLE, 1);

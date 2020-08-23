@@ -549,7 +549,7 @@ stop_repeater(struct seat *seat, uint32_t key)
     if (key != -1 && key != seat->kbd.repeat.key)
         return true;
 
-    if (timerfd_settime(seat->kbd.repeat.fd, 0, &(struct itimerspec){}, NULL) < 0) {
+    if (timerfd_settime(seat->kbd.repeat.fd, 0, &(struct itimerspec){{0}}, NULL) < 0) {
         LOG_ERRNO("%s: failed to disarm keyboard repeat timer", seat->name);
         return false;
     }
@@ -843,7 +843,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
      * Compose, and maybe emit "normal" character
      */
 
-    uint8_t buf[64] = {};
+    uint8_t buf[64] = {0};
     int count = 0;
 
     if (compose_status == XKB_COMPOSE_COMPOSED) {
@@ -923,7 +923,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                 const wchar_t wc = 0x80 | buf[0];
 
                 char utf8[8];
-                mbstate_t ps = {};
+                mbstate_t ps = {0};
                 size_t chars = wcrtomb(utf8, wc, &ps);
 
                 if (chars != (size_t)-1)
@@ -1544,7 +1544,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                         continue;
                     }
 
-                    const struct config_key_modifiers no_mods = {};
+                    const struct config_key_modifiers no_mods = {0};
                     if (memcmp(&binding->modifiers, &no_mods, sizeof(no_mods)) != 0) {
                         /* Binding has modifiers */
                         continue;

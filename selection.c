@@ -325,7 +325,7 @@ selection_modify(struct terminal *term, struct coord start, struct coord end)
     assert(start.row != -1 && start.col != -1);
     assert(end.row != -1 && end.col != -1);
 
-    struct mark_context ctx = {};
+    struct mark_context ctx = {0};
 
     /* Premark all cells that *will* be selected */
     foreach_selected(term, start, end, &premark_selected, &ctx);
@@ -452,7 +452,7 @@ selection_dirty_cells(struct terminal *term)
 
     foreach_selected(
         term, term->selection.start, term->selection.end, &mark_selected,
-        &(struct mark_context){});
+        &(struct mark_context){0});
 }
 
 static void
@@ -647,7 +647,7 @@ selection_cancel(struct terminal *term)
     if (term->selection.start.row >= 0 && term->selection.end.row >= 0) {
         foreach_selected(
             term, term->selection.start, term->selection.end,
-            &unmark_selected, &(struct mark_context){});
+            &unmark_selected, &(struct mark_context){0});
         render_refresh(term);
     }
 

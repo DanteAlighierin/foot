@@ -140,7 +140,7 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
 }
 
 #if PTMX_TIMING
-static struct timespec last = {};
+static struct timespec last = {0};
 #endif
 
 static bool
@@ -339,7 +339,7 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
         term->blink.active = false;
         term->blink.state = BLINK_ON;
 
-        static const struct itimerspec disarm = {};
+        static const struct itimerspec disarm = {{0}};
         if (timerfd_settime(term->blink.fd, 0, &disarm, NULL)  < 0)
             LOG_ERRNO("failed to disarm blink timer");
     } else
@@ -437,11 +437,11 @@ fdm_delayed_render(struct fdm *fdm, int fd, int events, void *data)
         return true;
 
 #if PTMX_TIMING
-    last = (struct timespec){};
+    last = (struct timespec){0};
 #endif
 
     /* Reset timers */
-    struct itimerspec reset = {};
+    struct itimerspec reset = {{0}};
     timerfd_settime(term->delayed_render_timer.lower_fd, 0, &reset, NULL);
     timerfd_settime(term->delayed_render_timer.upper_fd, 0, &reset, NULL);
     term->delayed_render_timer.is_armed = false;
@@ -707,7 +707,7 @@ reload_fonts(struct terminal *term)
         {count, (const char **)names, attrs3, &fonts[3]},
     };
 
-    thrd_t tids[4] = {};
+    thrd_t tids[4] = {0};
     for (size_t i = 0; i < 4; i++) {
         int ret = thrd_create(&tids[i], &font_loader_thread, &data[i]);
         if (ret != thrd_success) {
@@ -1709,7 +1709,7 @@ cursor_blink_start_timer(struct terminal *term)
 static bool
 cursor_blink_stop_timer(struct terminal *term)
 {
-    return timerfd_settime(term->cursor_blink.fd, 0, &(struct itimerspec){}, NULL) == 0;
+    return timerfd_settime(term->cursor_blink.fd, 0, &(struct itimerspec){{0}}, NULL) == 0;
 }
 
 void
@@ -2279,10 +2279,10 @@ term_enable_app_sync_updates(struct terminal *term)
     /* Disarm delayed rendering timers */
     timerfd_settime(
         term->delayed_render_timer.lower_fd, 0,
-        &(struct itimerspec){}, NULL);
+        &(struct itimerspec){{0}}, NULL);
     timerfd_settime(
         term->delayed_render_timer.upper_fd, 0,
-        &(struct itimerspec){}, NULL);
+        &(struct itimerspec){{0}}, NULL);
     term->delayed_render_timer.is_armed = false;
 }
 
@@ -2299,7 +2299,7 @@ term_disable_app_sync_updates(struct terminal *term)
     /* Reset timers */
     timerfd_settime(
         term->render.app_sync_updates.timer_fd, 0,
-        &(struct itimerspec){}, NULL);
+        &(struct itimerspec){{0}}, NULL);
 }
 
 static inline void

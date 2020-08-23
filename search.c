@@ -648,7 +648,7 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
         }
     }
 
-    uint8_t buf[64] = {};
+    uint8_t buf[64] = {0};
     int count = 0;
 
     if (compose_status == XKB_COMPOSE_COMPOSED) {
@@ -666,7 +666,7 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
         return;
 
     const char *src = (const char *)buf;
-    mbstate_t ps = {};
+    mbstate_t ps = {0};
     size_t wchars = mbsnrtowcs(NULL, &src, count, 0, &ps);
 
     if (wchars == -1) {
