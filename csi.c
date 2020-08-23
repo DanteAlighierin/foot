@@ -544,6 +544,12 @@ decrst(struct terminal *term, unsigned param)
     decset_decrst(term, param, false);
 }
 
+static bool
+timespecs_equal(const struct timespec *a, const struct timespec *b)
+{
+    return a->tv_sec == b->tv_sec && a->tv_nsec == b->tv_nsec;
+}
+
 static void
 xtsave(struct terminal *term, unsigned param)
 {
@@ -561,10 +567,10 @@ xtsave(struct terminal *term, unsigned param)
         if (timerfd_gettime(term->cursor_blink.fd, &current_value) < 0)
             LOG_WARN("xtsave: failed to read cursor blink timer: %s", strerror(errno));
         else {
-            const struct timespec zero = {};
+            const struct timespec zero = {.tv_sec = 0, .tv_nsec = 0};
             term->xtsave.cursor_blink =
-                !(memcmp(&current_value.it_interval, &zero, sizeof(zero)) == 0 &&
-                  memcmp(&current_value.it_value, &zero, sizeof(zero)) == 0);
+                !(timespecs_equal(&current_value.it_interval, &zero) &&
+                  timespecs_equal(&current_value.it_value, &zero));
         }
         break;
     }
