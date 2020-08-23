@@ -227,7 +227,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
     assert(rel_right >= 0);
 
     LOG_DBG("SPLIT: six (%p): %dx%d-%dx%d, %dx%d-%dx%d, rel: above=%d, below=%d, left=%d, right=%d",
-            six, six->pos.row, six->pos.col, six->rows, six->cols,
+            (void *)six, six->pos.row, six->pos.col, six->rows, six->cols,
             row, col, height, width,
             rel_above, rel_below, rel_left, rel_right);
 

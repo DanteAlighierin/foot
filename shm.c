@@ -116,7 +116,7 @@ static void
 buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
     struct buffer *buffer = data;
-    LOG_DBG("release: cookie=%lx (buf=%p)", buffer->cookie, buffer);
+    LOG_DBG("release: cookie=%lx (buf=%p)", buffer->cookie, (void *)buffer);
     assert(buffer->wl_buf == wl_buffer);
     assert(buffer->busy);
     buffer->busy = false;
@@ -208,7 +208,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
         assert(!it->item.busy);
 
         LOG_DBG("cookie=%lx: purging buffer %p (width=%d, height=%d): %zu KB",
-                cookie, &it->item, it->item.width, it->item.height,
+                cookie, (void *)&it->item, it->item.width, it->item.height,
                 it->item.size / 1024);
 
         buffer_destroy(&it->item);
@@ -225,7 +225,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
 
         if (!it->item.busy) {
             LOG_DBG("cookie=%lx: re-using buffer from cache (buf=%p)",
-                    cookie, &it->item);
+                    cookie, (void *)&it->item);
             it->item.busy = true;
             it->item.purge = false;
             assert(it->item.pix_instances == pix_instances);
@@ -244,7 +244,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
         if (it->item.width == width && it->item.height == height)
             continue;
 
-        LOG_DBG("cookie=%lx: marking buffer %p for purging", cookie, &it->item);
+        LOG_DBG("cookie=%lx: marking buffer %p for purging", cookie, (void *)&it->item);
         it->item.purge = true;
     }
 

@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <errno.h>
 #include <assert.h>
@@ -263,7 +264,7 @@ fdm_hook_add(struct fdm *fdm, fdm_hook_t hook, void *data,
 #if defined(_DEBUG)
     tll_foreach(*hooks, it) {
         if (it->item.callback == hook) {
-            LOG_ERR("hook=%p already registered", hook);
+            LOG_ERR("hook=0x%" PRIxPTR " already registered", (uintptr_t)hook);
             return false;
         }
     }
@@ -286,7 +287,7 @@ fdm_hook_del(struct fdm *fdm, fdm_hook_t hook, enum fdm_hook_priority priority)
         return true;
     }
 
-    LOG_WARN("hook=%p not registered", hook);
+    LOG_WARN("hook=0x%" PRIxPTR " not registered", (uintptr_t)hook);
     return false;
 }
 
@@ -300,18 +301,24 @@ fdm_poll(struct fdm *fdm)
     }
 
     tll_foreach(fdm->hooks_high, it) {
-        LOG_DBG("executing high priority hook %p(fdm=%p, data=%p)",
-                it->item.callback, fdm, it->item.callback_data);
+        LOG_DBG(
+            "executing high priority hook 0x%" PRIxPTR" (fdm=%p, data=%p)",
+            (uintptr_t)it->item.callback, (void *)fdm,
+            (void *)it->item.callback_data);
         it->item.callback(fdm, it->item.callback_data);
     }
     tll_foreach(fdm->hooks_normal, it) {
-        LOG_DBG("executing normal priority hook %p(fdm=%p, data=%p)",
-                it->item.callback, fdm, it->item.callback_data);
+        LOG_DBG(
+            "executing normal priority hook 0x%" PRIxPTR " (fdm=%p, data=%p)",
+            (uintptr_t)it->item.callback, (void *)fdm,
+            (void *)it->item.callback_data);
         it->item.callback(fdm, it->item.callback_data);
     }
     tll_foreach(fdm->hooks_low, it) {
-        LOG_DBG("executing low priority hook %p(fdm=%p, data=%p)",
-                it->item.callback, fdm, it->item.callback_data);
+        LOG_DBG(
+            "executing low priority hook 0x%" PRIxPTR " (fdm=%p, data=%p)",
+            (uintptr_t)it->item.callback, (void *)fdm,
+            (void *)it->item.callback_data);
         it->item.callback(fdm, it->item.callback_data);
     }
 
