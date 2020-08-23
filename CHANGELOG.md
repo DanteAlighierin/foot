@@ -82,6 +82,8 @@
   content (https://codeberg.org/dnkl/foot/issues/94).
 * Extra newlines when copying empty cells
   (https://codeberg.org/dnkl/foot/issues/97).
+* Mouse events from being sent to client application when a mouse
+  binding has consumed it.
 
 
 ### Security

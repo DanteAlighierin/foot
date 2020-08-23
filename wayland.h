@@ -178,6 +178,7 @@ struct seat {
         int col;
         int row;
         int button;
+        bool consumed;  /* True if a button press was consumed - i.e. if a binding claimed it */
 
         int count;
         int last_button;
