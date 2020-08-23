@@ -184,10 +184,12 @@ foreach_selected(
 {
     switch (term->selection.kind) {
     case SELECTION_NORMAL:
-        return foreach_selected_normal(term, start, end, cb, data);
+        foreach_selected_normal(term, start, end, cb, data);
+        return;
 
     case SELECTION_BLOCK:
-        return foreach_selected_block(term, start, end, cb, data);
+        foreach_selected_block(term, start, end, cb, data);
+        return;
 
     case SELECTION_NONE:
         assert(false);
@@ -1059,7 +1061,8 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
     {
         LOG_ERRNO("failed to set O_NONBLOCK");
         close(read_fd);
-        return done(user);
+        done(user);
+        return;
     }
 
     struct clipboard_receive *ctx = xmalloc(sizeof(*ctx));
@@ -1082,14 +1085,17 @@ text_from_clipboard(struct seat *seat, struct terminal *term,
                     void (*done)(void *user), void *user)
 {
     struct wl_clipboard *clipboard = &seat->clipboard;
-    if (clipboard->data_offer == NULL)
-        return done(user);
+    if (clipboard->data_offer == NULL) {
+        done(user);
+        return;
+    }
 
     /* Prepare a pipe the other client can write its selection to us */
     int fds[2];
     if (pipe2(fds, O_CLOEXEC) == -1) {
         LOG_ERRNO("failed to create pipe");
-        return done(user);
+        done(user);
+        return;
     }
 
     int read_fd = fds[0];
@@ -1197,18 +1203,23 @@ text_from_primary(
     void (*cb)(const char *data, size_t size, void *user),
     void (*done)(void *user), void *user)
 {
-    if (term->wl->primary_selection_device_manager == NULL)
-        return done(user);
+    if (term->wl->primary_selection_device_manager == NULL) {
+        done(user);
+        return;
+    }
 
     struct wl_primary *primary = &seat->primary;
-    if (primary->data_offer == NULL)
-        return done(user);
+    if (primary->data_offer == NULL){
+        done(user);
+        return;
+    }
 
     /* Prepare a pipe the other client can write its selection to us */
     int fds[2];
     if (pipe2(fds, O_CLOEXEC) == -1) {
         LOG_ERRNO("failed to create pipe");
-        return done(user);
+        done(user);
+        return;
     }
 
     int read_fd = fds[0];
