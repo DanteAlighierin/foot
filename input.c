@@ -422,7 +422,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
                 uint32_t format, int32_t fd, uint32_t size)
 {
     LOG_DBG("keyboard_keymap: keyboard=%p (format=%u, size=%u)",
-            wl_keyboard, format, size);
+            (void *)wl_keyboard, format, size);
 
     struct seat *seat = data;
     struct wayland *wayl = seat->wayl;
@@ -505,7 +505,7 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     struct terminal *term = win->term;
 
     LOG_DBG("%s: keyboard_enter: keyboard=%p, serial=%u, surface=%p",
-            seat->name, wl_keyboard, serial, surface);
+            seat->name, (void *)wl_keyboard, serial, (void *)surface);
 
     if (seat->kbd.xkb == NULL)
         return;
@@ -549,7 +549,7 @@ stop_repeater(struct seat *seat, uint32_t key)
     if (key != -1 && key != seat->kbd.repeat.key)
         return true;
 
-    if (timerfd_settime(seat->kbd.repeat.fd, 0, &(struct itimerspec){}, NULL) < 0) {
+    if (timerfd_settime(seat->kbd.repeat.fd, 0, &(struct itimerspec){{0}}, NULL) < 0) {
         LOG_ERRNO("%s: failed to disarm keyboard repeat timer", seat->name);
         return false;
     }
@@ -564,7 +564,7 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     struct seat *seat = data;
 
     LOG_DBG("keyboard_leave: keyboard=%p, serial=%u, surface=%p",
-            wl_keyboard, serial, surface);
+            (void *)wl_keyboard, serial, (void *)surface);
 
     if (seat->kbd.xkb == NULL)
         return;
@@ -597,7 +597,7 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
          */
         LOG_WARN(
             "compositor sent keyboard_leave event without a keyboard_enter "
-            "event: surface=%p", surface);
+            "event: surface=%p", (void *)surface);
     }
 }
 
@@ -795,7 +795,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     LOG_DBG("keyboard_key: keyboard=%p, serial=%u, "
             "sym=%u, mod=0x%08x, consumed=0x%08x, significant=0x%08x, "
             "effective=0x%08x, repeats=%d",
-            wl_keyboard, serial,
+            (void *)wl_keyboard, serial,
             sym, mods, consumed, significant, effective_mods, should_repeat);
 
     /*
@@ -843,7 +843,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
      * Compose, and maybe emit "normal" character
      */
 
-    uint8_t buf[64] = {};
+    uint8_t buf[64] = {0};
     int count = 0;
 
     if (compose_status == XKB_COMPOSE_COMPOSED) {
@@ -923,7 +923,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                 const wchar_t wc = 0x80 | buf[0];
 
                 char utf8[8];
-                mbstate_t ps = {};
+                mbstate_t ps = {0};
                 size_t chars = wcrtomb(utf8, wc, &ps);
 
                 if (chars != (size_t)-1)
@@ -1077,7 +1077,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     seat->pointer.hidden = false;
 
     LOG_DBG("pointer-enter: pointer=%p, serial=%u, surface = %p, new-moused = %p",
-            wl_pointer, serial, surface, term);
+            (void *)wl_pointer, serial, (void *)surface, (void *)term);
 
     /* Scale may have changed */
     wayl_reload_xcursor_theme(seat, term->scale);
@@ -1145,7 +1145,8 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
 
     LOG_DBG(
         "%s: pointer-leave: pointer=%p, serial=%u, surface = %p, old-moused = %p",
-        seat->name, wl_pointer, serial, surface, old_moused);
+        seat->name, (void *)wl_pointer, serial, (void *)surface,
+        (void *)old_moused);
 
     seat->pointer.hidden = false;
 
@@ -1170,7 +1171,7 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     if (old_moused == NULL) {
         LOG_WARN(
             "compositor sent pointer_leave event without a pointer_enter "
-            "event: surface=%p", surface);
+            "event: surface=%p", (void *)surface);
     } else {
         if (surface != NULL) {
             /* Sway 1.4 sends this event with a NULL surface when we destroy the window */
@@ -1218,7 +1219,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     struct terminal *term = seat->mouse_focus;
     struct wl_window *win = term->window;
 
-    LOG_DBG("pointer_motion: pointer=%p, x=%d, y=%d", wl_pointer,
+    LOG_DBG("pointer_motion: pointer=%p, x=%d, y=%d", (void *)wl_pointer,
             wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y));
 
     assert(term != NULL);
@@ -1353,7 +1354,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                   uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
 {
     LOG_DBG("BUTTON: pointer=%p, serial=%u, button=%x, state=%u",
-            wl_pointer, serial, button, state);
+            (void *)wl_pointer, serial, button, state);
 
     struct seat *seat = data;
     struct wayland *wayl = seat->wayl;
@@ -1544,7 +1545,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                         continue;
                     }
 
-                    const struct config_key_modifiers no_mods = {};
+                    const struct config_key_modifiers no_mods = {0};
                     if (memcmp(&binding->modifiers, &no_mods, sizeof(no_mods)) != 0) {
                         /* Binding has modifiers */
                         continue;

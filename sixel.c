@@ -227,11 +227,11 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
     assert(rel_right >= 0);
 
     LOG_DBG("SPLIT: six (%p): %dx%d-%dx%d, %dx%d-%dx%d, rel: above=%d, below=%d, left=%d, right=%d",
-            six, six->pos.row, six->pos.col, six->rows, six->cols,
+            (void *)six, six->pos.row, six->pos.col, six->rows, six->cols,
             row, col, height, width,
             rel_above, rel_below, rel_left, rel_right);
 
-    struct sixel imgs[4] = {};
+    struct sixel imgs[4] = {0};
 
     if (rel_above > 0) {
         imgs[0] =  (struct sixel){
@@ -668,7 +668,16 @@ decsixel(struct terminal *term, uint8_t c)
         term->sixel.pos.col = 0;
         break;
 
-    case '?'...'~':
+    case '?': case '@': case 'A': case 'B': case 'C': case 'D': case 'E':
+    case 'F': case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
+    case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R': case 'S':
+    case 'T': case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
+    case '[': case '\\': case ']': case '^': case '_': case '`': case 'a':
+    case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
+    case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o':
+    case 'p': case 'q': case 'r': case 's': case 't': case 'u': case 'v':
+    case 'w': case 'x': case 'y': case 'z': case '{': case '|': case '}':
+    case '~':
         sixel_add(term, term->sixel.palette[term->sixel.color_idx], c - 63);
         break;
 
@@ -687,7 +696,8 @@ static void
 decgra(struct terminal *term, uint8_t c)
 {
     switch (c) {
-    case '0'...'9':
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
         term->sixel.param *= 10;
         term->sixel.param += c - '0';
         break;
@@ -732,7 +742,8 @@ static void
 decgri(struct terminal *term, uint8_t c)
 {
     switch (c) {
-    case '0'...'9':
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
         term->sixel.param *= 10;
         term->sixel.param += c - '0';
         break;
@@ -750,7 +761,8 @@ static void
 decgci(struct terminal *term, uint8_t c)
 {
     switch (c) {
-    case '0'...'9':
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
         term->sixel.param *= 10;
         term->sixel.param += c - '0';
         break;

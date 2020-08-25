@@ -18,7 +18,8 @@ add_project_arguments(
     ? ['-D_DEBUG']
     : [cc.get_supported_arguments('-fno-asynchronous-unwind-tables')]) +
   cc.get_supported_arguments(
-    ['-fstrict-aliasing',
+    ['-pedantic',
+     '-fstrict-aliasing',
      '-Wstrict-aliasing']),
   language: 'c',
 )
@@ -60,7 +61,7 @@ wayland_cursor = dependency('wayland-cursor')
 xkb = dependency('xkbcommon')
 fontconfig = dependency('fontconfig')
 
-tllist = dependency('tllist', version: '>=1.0.1', fallback: 'tllist')
+tllist = dependency('tllist', version: '>=1.0.4', fallback: 'tllist')
 fcft = dependency('fcft', version: ['>=2.2.2', '<3.0.0'], fallback: 'fcft')
 
 wayland_protocols_datadir = wayland_protocols.get_pkgconfig_variable('pkgdatadir')

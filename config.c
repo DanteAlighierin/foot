@@ -105,10 +105,10 @@ static const char *const search_binding_action_map[] = {
 static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
               "search binding action map size mismatch");
 
-#define LOG_AND_NOTIFY_ERR(fmt, ...)                                \
+#define LOG_AND_NOTIFY_ERR(...)                                     \
     do {                                                            \
-        LOG_ERR(fmt, ## __VA_ARGS__);                               \
-        char *text = xasprintf(fmt, ## __VA_ARGS__);                \
+        LOG_ERR(__VA_ARGS__);                                       \
+        char *text = xasprintf(__VA_ARGS__);                        \
         struct user_notification notif = {                          \
             .kind = USER_NOTIFICATION_ERROR,                        \
             .text = text,                                           \
@@ -116,10 +116,10 @@ static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
         tll_push_back(conf->notifications, notif);                  \
     } while (0)
 
-#define LOG_AND_NOTIFY_WARN(fmt, ...)                       \
+#define LOG_AND_NOTIFY_WARN(...)                            \
     do {                                                    \
-        LOG_WARN(fmt, ## __VA_ARGS__);                      \
-        char *text = xasprintf(fmt, ## __VA_ARGS__);        \
+        LOG_WARN(__VA_ARGS__);                              \
+        char *text = xasprintf(__VA_ARGS__);                \
         struct user_notification notif = {                  \
             .kind = USER_NOTIFICATION_WARNING,              \
             .text = text,                                   \
@@ -127,14 +127,14 @@ static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
         tll_push_back(conf->notifications, notif);          \
     } while (0)
 
-#define LOG_AND_NOTIFY_ERRNO(fmt, ...)                                  \
+#define LOG_AND_NOTIFY_ERRNO(...)                                       \
     do {                                                                \
         int _errno = errno;                                             \
-        LOG_ERRNO(fmt, ## __VA_ARGS__);                                 \
-        int len = snprintf(NULL, 0, fmt, ## __VA_ARGS__);               \
+        LOG_ERRNO(__VA_ARGS__);                                         \
+        int len = snprintf(NULL, 0, __VA_ARGS__);                       \
         int errno_len = snprintf(NULL, 0, ": %s", strerror(_errno));    \
         char *text = xmalloc(len + errno_len + 1);                      \
-        snprintf(text, len + errno_len + 1, fmt, ## __VA_ARGS__);       \
+        snprintf(text, len + errno_len + 1, __VA_ARGS__);               \
         snprintf(&text[len], errno_len + 1, ": %s", strerror(_errno));  \
         struct user_notification notif = {                              \
             .kind = USER_NOTIFICATION_ERROR,                            \
@@ -689,7 +689,7 @@ parse_modifiers(struct config *conf, const char *text, size_t len,
 {
     bool ret = false;
 
-    *modifiers = (struct config_key_modifiers){};
+    *modifiers = (struct config_key_modifiers){0};
     char *copy = xstrndup(text, len);
 
     for (char *tok_ctx = NULL, *key = strtok_r(copy, "+", &tok_ctx);
@@ -730,7 +730,7 @@ parse_key_combos(struct config *conf, const char *combos, key_combo_list_t *key_
          combo != NULL;
          combo = strtok_r(NULL, " ", &tok_ctx))
     {
-        struct config_key_modifiers modifiers = {};
+        struct config_key_modifiers modifiers = {0};
         const char *key = strrchr(combo, '+');
 
         if (key == NULL) {
@@ -1018,7 +1018,7 @@ parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *ke
          combo != NULL;
          combo = strtok_r(NULL, " ", &tok_ctx))
     {
-        struct config_key_modifiers modifiers = {};
+        struct config_key_modifiers modifiers = {0};
         char *key = strrchr(combo, '+');
 
         if (key == NULL) {
@@ -1494,7 +1494,7 @@ add_default_search_bindings(struct config *conf)
             ((struct config_key_binding_search){action, mods, sym}));   \
 } while (0)
 
-    const struct config_key_modifiers none = {};
+    const struct config_key_modifiers none = {0};
     const struct config_key_modifiers alt = {.alt = true};
     const struct config_key_modifiers ctrl = {.ctrl = true};
     const struct config_key_modifiers ctrl_shift = {.ctrl = true, .shift = true};
@@ -1538,7 +1538,7 @@ add_default_mouse_bindings(struct config *conf)
             ((struct config_mouse_binding){action, mods, btn, count})); \
 } while (0)
 
-    const struct config_key_modifiers none = {};
+    const struct config_key_modifiers none = {0};
     const struct config_key_modifiers ctrl = {.ctrl = true};
 
     add_binding(BIND_ACTION_PRIMARY_PASTE, none, BTN_MIDDLE, 1);

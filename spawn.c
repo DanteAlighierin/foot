@@ -61,7 +61,7 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
         LOG_ERRNO("failed to read from pipe");
         return false;
     } else {
-        LOG_ERRNO_P("%s: failed to spawn", _errno, argv[0]);
+        LOG_ERRNO_P(_errno, "%s: failed to spawn", argv[0]);
         errno = _errno;
         waitpid(pid, NULL, 0);
         return false;

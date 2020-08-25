@@ -184,10 +184,12 @@ foreach_selected(
 {
     switch (term->selection.kind) {
     case SELECTION_NORMAL:
-        return foreach_selected_normal(term, start, end, cb, data);
+        foreach_selected_normal(term, start, end, cb, data);
+        return;
 
     case SELECTION_BLOCK:
-        return foreach_selected_block(term, start, end, cb, data);
+        foreach_selected_block(term, start, end, cb, data);
+        return;
 
     case SELECTION_NONE:
         assert(false);
@@ -325,7 +327,7 @@ selection_modify(struct terminal *term, struct coord start, struct coord end)
     assert(start.row != -1 && start.col != -1);
     assert(end.row != -1 && end.col != -1);
 
-    struct mark_context ctx = {};
+    struct mark_context ctx = {0};
 
     /* Premark all cells that *will* be selected */
     foreach_selected(term, start, end, &premark_selected, &ctx);
@@ -452,7 +454,7 @@ selection_dirty_cells(struct terminal *term)
 
     foreach_selected(
         term, term->selection.start, term->selection.end, &mark_selected,
-        &(struct mark_context){});
+        &(struct mark_context){0});
 }
 
 static void
@@ -647,7 +649,7 @@ selection_cancel(struct terminal *term)
     if (term->selection.start.row >= 0 && term->selection.end.row >= 0) {
         foreach_selected(
             term, term->selection.start, term->selection.end,
-            &unmark_selected, &(struct mark_context){});
+            &unmark_selected, &(struct mark_context){0});
         render_refresh(term);
     }
 
@@ -1059,7 +1061,8 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
     {
         LOG_ERRNO("failed to set O_NONBLOCK");
         close(read_fd);
-        return done(user);
+        done(user);
+        return;
     }
 
     struct clipboard_receive *ctx = xmalloc(sizeof(*ctx));
@@ -1082,14 +1085,17 @@ text_from_clipboard(struct seat *seat, struct terminal *term,
                     void (*done)(void *user), void *user)
 {
     struct wl_clipboard *clipboard = &seat->clipboard;
-    if (clipboard->data_offer == NULL)
-        return done(user);
+    if (clipboard->data_offer == NULL) {
+        done(user);
+        return;
+    }
 
     /* Prepare a pipe the other client can write its selection to us */
     int fds[2];
     if (pipe2(fds, O_CLOEXEC) == -1) {
         LOG_ERRNO("failed to create pipe");
-        return done(user);
+        done(user);
+        return;
     }
 
     int read_fd = fds[0];
@@ -1197,18 +1203,23 @@ text_from_primary(
     void (*cb)(const char *data, size_t size, void *user),
     void (*done)(void *user), void *user)
 {
-    if (term->wl->primary_selection_device_manager == NULL)
-        return done(user);
+    if (term->wl->primary_selection_device_manager == NULL) {
+        done(user);
+        return;
+    }
 
     struct wl_primary *primary = &seat->primary;
-    if (primary->data_offer == NULL)
-        return done(user);
+    if (primary->data_offer == NULL){
+        done(user);
+        return;
+    }
 
     /* Prepare a pipe the other client can write its selection to us */
     int fds[2];
     if (pipe2(fds, O_CLOEXEC) == -1) {
         LOG_ERRNO("failed to create pipe");
-        return done(user);
+        done(user);
+        return;
     }
 
     int read_fd = fds[0];
