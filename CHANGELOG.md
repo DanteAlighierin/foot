@@ -62,6 +62,8 @@
 * Default `--server` socket path to use `$WAYLAND_DISPLAY` instead of
   `$XDG_SESSION_ID` (https://codeberg.org/dnkl/foot/issues/55).
 * Trailing empty cells are no longer highlighted in mouse selections.
+* Scrollback position indicator is now based on the number of _used_
+  scrollback lines, instead of the _total_ number of scrollback lines.
 
 
 ### Fixed
