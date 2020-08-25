@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -36,10 +37,8 @@ xmalloc(size_t size)
 void *
 xcalloc(size_t nmemb, size_t size)
 {
-    if (unlikely(nmemb == 0 || size == 0)) {
-        size = 1;
-    }
-    return check_alloc(calloc(nmemb, size));
+    assert(size != 0);
+    return check_alloc(calloc(likely(nmemb) ? nmemb : 1, size));
 }
 
 void *
