@@ -131,10 +131,12 @@ page_size(void)
 {
     static size_t size = 0;
     if (size == 0) {
-        size = sysconf(_SC_PAGE_SIZE);
-        if (size < 0) {
+        long n = sysconf(_SC_PAGE_SIZE);
+        if (n <= 0) {
             LOG_ERRNO("failed to get page size");
             size = 4096;
+        } else {
+            size = (size_t)n;
         }
     }
     assert(size > 0);
