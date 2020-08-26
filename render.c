@@ -1469,7 +1469,11 @@ render_scrollback_position(struct terminal *term)
         break;
 
     case SCROLLBACK_INDICATOR_POSITION_RELATIVE: {
-        int lines = term->rows - 3;  /* Avoid using first and two last rows */
+        int lines = term->rows - 2;  /* Avoid using first and last rows */
+        if (term->is_searching) {
+            /* Make sure we don't collide with the scrollback search box */
+            lines--;
+        }
         assert(lines > 0);
 
         int pixels = lines * term->cell_height - height + 2 * margin;
