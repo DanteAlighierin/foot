@@ -1424,7 +1424,7 @@ render_scrollback_position(struct terminal *term)
     double percent =
         rebased_view + term->rows == populated_rows
         ? 1.0
-        : (double)rebased_view / populated_rows;
+        : (double)rebased_view / (populated_rows - term->rows);
 
     wchar_t _text[64];
     const wchar_t *text = _text;
