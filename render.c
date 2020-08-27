@@ -1399,13 +1399,21 @@ render_scrollback_position(struct terminal *term)
 
     /* Find absolute row number of the scrollback start */
     int scrollback_start = term->grid->offset + term->rows;
-    while (term->grid->rows[scrollback_start & (term->grid->num_rows - 1)] == NULL)
+    int empty_rows = 0;
+    while (term->grid->rows[scrollback_start & (term->grid->num_rows - 1)] == NULL) {
         scrollback_start++;
+        empty_rows++;
+    }
 
     /* Rebase viewport against scrollback start (so that 0 is at
      * the beginning of the scrollback) */
     int rebased_view = term->grid->view - scrollback_start + term->grid->num_rows;
     rebased_view &= term->grid->num_rows - 1;
+
+    /* How much of the scrollback is actually used? */
+    int populated_rows = term->grid->num_rows - empty_rows;
+    assert(populated_rows > 0);
+    assert(populated_rows <= term->grid->num_rows);
 
     /*
      * How far down in the scrollback we are.
@@ -1414,9 +1422,9 @@ render_scrollback_position(struct terminal *term)
      *  100% -> at the bottom, i.e. where new lines are inserted
      */
     double percent =
-        rebased_view + term->rows == term->grid->num_rows
+        rebased_view + term->rows == populated_rows
         ? 1.0
-        : (double)rebased_view / term->grid->num_rows;
+        : (double)rebased_view / (populated_rows - term->rows);
 
     wchar_t _text[64];
     const wchar_t *text = _text;
@@ -1461,7 +1469,11 @@ render_scrollback_position(struct terminal *term)
         break;
 
     case SCROLLBACK_INDICATOR_POSITION_RELATIVE: {
-        int lines = term->rows - 3;  /* Avoid using first and two last rows */
+        int lines = term->rows - 2;  /* Avoid using first and last rows */
+        if (term->is_searching) {
+            /* Make sure we don't collide with the scrollback search box */
+            lines--;
+        }
         assert(lines > 0);
 
         int pixels = lines * term->cell_height - height + 2 * margin;
