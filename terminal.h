@@ -205,6 +205,8 @@ enum term_surface {
     TERM_SURF_BUTTON_CLOSE,
 };
 
+typedef tll(struct ptmx_buffer) ptmx_buffer_list_t;
+
 struct terminal {
     struct fdm *fdm;
     struct reaper *reaper;
@@ -226,7 +228,9 @@ struct terminal {
     float font_dpi;
     enum fcft_subpixel font_subpixel;
 
-    tll(struct ptmx_buffer) ptmx_buffer;
+    bool is_sending_paste_data;
+    ptmx_buffer_list_t ptmx_buffers;
+    ptmx_buffer_list_t ptmx_paste_buffers;
 
     enum cursor_origin origin;
     enum cursor_keys cursor_keys_mode;
@@ -489,6 +493,8 @@ int term_destroy(struct terminal *term);
 
 void term_reset(struct terminal *term, bool hard);
 bool term_to_slave(struct terminal *term, const void *data, size_t len);
+bool term_paste_data_to_slave(
+    struct terminal *term, const void *data, size_t len);
 
 bool term_font_size_increase(struct terminal *term);
 bool term_font_size_decrease(struct terminal *term);

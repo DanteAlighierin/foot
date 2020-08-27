@@ -8,6 +8,7 @@
 #include <wctype.h>
 
 #include <sys/epoll.h>
+#include <sys/timerfd.h>
 
 #define LOG_MODULE "selection"
 #define LOG_ENABLE_DBG 0
@@ -993,12 +994,50 @@ selection_to_clipboard(struct seat *seat, struct terminal *term, uint32_t serial
 }
 
 struct clipboard_receive {
+    int read_fd;
+    int timeout_fd;
+    struct itimerspec timeout;
+
     /* Callback data */
     void (*cb)(const char *data, size_t size, void *user);
     void (*done)(void *user);
     void *user;
 };
 
+static void
+clipboard_receive_done(struct fdm *fdm, struct clipboard_receive *ctx)
+{
+    fdm_del(fdm, ctx->timeout_fd);
+    fdm_del(fdm, ctx->read_fd);
+    ctx->done(ctx->user);
+    free(ctx);
+}
+
+static bool
+fdm_receive_timeout(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct clipboard_receive *ctx = data;
+    if (events & EPOLLHUP)
+        return false;
+
+    assert(events & EPOLLIN);
+
+    uint64_t expire_count;
+    ssize_t ret = read(fd, &expire_count, sizeof(expire_count));
+    if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+
+        LOG_ERRNO("failed to read clipboard timeout timer");
+        return false;
+    }
+
+    LOG_WARN("no data received from clipboard in %llu seconds, aborting",
+             (unsigned long long)ctx->timeout.it_value.tv_sec);
+
+    clipboard_receive_done(fdm, ctx);
+    return true;
+}
 
 static bool
 fdm_receive(struct fdm *fdm, int fd, int events, void *data)
@@ -1007,6 +1046,12 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
 
     if ((events & EPOLLHUP) && !(events & EPOLLIN))
         goto done;
+
+    /* Reset timeout timer */
+    if (timerfd_settime(ctx->timeout_fd, 0, &ctx->timeout, NULL) < 0) {
+        LOG_ERRNO("failed to re-arm clipboard timeout timer");
+        return false;
+    }
 
     /* Read until EOF */
     while (true) {
@@ -1044,9 +1089,7 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
     }
 
 done:
-    fdm_del(fdm, fd);
-    ctx->done(ctx->user);
-    free(ctx);
+    clipboard_receive_done(fdm, ctx);
     return true;
 }
 
@@ -1055,28 +1098,52 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
                         void (*cb)(const char *data, size_t size, void *user),
                         void (*done)(void *user), void *user)
 {
+    int timeout_fd = -1;
+    struct clipboard_receive *ctx = NULL;
+
     int flags;
     if ((flags = fcntl(read_fd, F_GETFL)) < 0 ||
         fcntl(read_fd, F_SETFL, flags | O_NONBLOCK) < 0)
     {
         LOG_ERRNO("failed to set O_NONBLOCK");
-        close(read_fd);
-        done(user);
-        return;
+        goto err;
     }
 
-    struct clipboard_receive *ctx = xmalloc(sizeof(*ctx));
+    timeout_fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+    if (timeout_fd < 0) {
+        LOG_ERRNO("failed to create clipboard timeout timer FD");
+        goto err;
+    }
+
+    const struct itimerspec timeout = {.it_value = {.tv_sec = 2}};
+    if (timerfd_settime(timeout_fd, 0, &timeout, NULL) < 0) {
+        LOG_ERRNO("faild to arm clipboard timeout timer");
+        goto err;
+    }
+
+    ctx = xmalloc(sizeof(*ctx));
     *ctx = (struct clipboard_receive) {
+        .read_fd = read_fd,
+        .timeout_fd = timeout_fd,
+        .timeout = timeout,
         .cb = cb,
         .done = done,
         .user = user,
     };
 
-    if (!fdm_add(term->fdm, read_fd, EPOLLIN, &fdm_receive, ctx)) {
-        close(read_fd);
-        free(ctx);
-        done(user);
+    if (!fdm_add(term->fdm, read_fd, EPOLLIN, &fdm_receive, ctx) ||
+        !fdm_add(term->fdm, timeout_fd, EPOLLIN, &fdm_receive_timeout, ctx))
+    {
+        goto err;
     }
+
+    return;
+
+err:
+    free(ctx);
+    fdm_del(term->fdm, timeout_fd);
+    fdm_del(term->fdm, read_fd);
+    done(user);
 }
 
 void
@@ -1115,7 +1182,8 @@ static void
 from_clipboard_cb(const char *data, size_t size, void *user)
 {
     struct terminal *term = user;
-    term_to_slave(term, data, size);
+    assert(term->is_sending_paste_data);
+    term_paste_data_to_slave(term, data, size);
 }
 
 static void
@@ -1124,18 +1192,31 @@ from_clipboard_done(void *user)
     struct terminal *term = user;
 
     if (term->bracketed_paste)
-        term_to_slave(term, "\033[201~", 6);
+        term_paste_data_to_slave(term, "\033[201~", 6);
+
+    term->is_sending_paste_data = false;
+
+    /* Make sure we send any queued up non-paste data */
+    if (tll_length(term->ptmx_buffers) > 0)
+        fdm_event_add(term->fdm, term->ptmx, EPOLLOUT);
 }
 
 void
 selection_from_clipboard(struct seat *seat, struct terminal *term, uint32_t serial)
 {
+    if (term->is_sending_paste_data) {
+        /* We're already pasting... */
+        return;
+    }
+
     struct wl_clipboard *clipboard = &seat->clipboard;
     if (clipboard->data_offer == NULL)
         return;
 
+    term->is_sending_paste_data = true;
+
     if (term->bracketed_paste)
-        term_to_slave(term, "\033[200~", 6);
+        term_paste_data_to_slave(term, "\033[200~", 6);
 
     text_from_clipboard(
         seat, term, &from_clipboard_cb, &from_clipboard_done, term);
@@ -1241,12 +1322,18 @@ selection_from_primary(struct seat *seat, struct terminal *term)
     if (term->wl->primary_selection_device_manager == NULL)
         return;
 
+    if (term->is_sending_paste_data) {
+        /* We're already pasting... */
+        return;
+    }
+
     struct wl_clipboard *clipboard = &seat->clipboard;
     if (clipboard->data_offer == NULL)
         return;
 
+    term->is_sending_paste_data = true;
     if (term->bracketed_paste)
-        term_to_slave(term, "\033[200~", 6);
+        term_paste_data_to_slave(term, "\033[200~", 6);
 
     text_from_primary(seat, term, &from_clipboard_cb, &from_clipboard_done, term);
 }
