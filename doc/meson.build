@@ -13,7 +13,7 @@ foreach man_src : [{'name': 'foot', 'section' : 1},
   custom_target(
     out,
     output: out,
-    input: '@0@.@01@.scd'.format(name, section),
+    input: '@0@.@1@.scd'.format(name, section),
     command: [sh, '-c', '@0@ < @INPUT@'.format(scdoc_prog.path())],
     capture: true,
     install: true,
