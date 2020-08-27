@@ -12,11 +12,11 @@ with a _[section]_).
 foot will search for a configuration file in the following locations,
 in this order:
 
-- _XDG_CONFIG_HOME/foot/foot.ini_
-- _~/.config/foot/foot.ini_
-- _XDG_CONFIG_HOME/footrc_
-- _~/.config/footrc_
-- _XDG_CONFIG_DIRS/foot/foot.init_
+- *XDG_CONFIG_HOME/foot/foot.ini*
+- *~/.config/foot/foot.ini*
+- *XDG_CONFIG_HOME/footrc*
+- *~/.config/footrc*
+- *XDG_CONFIG_DIRS/foot/foot.init*
 
 # SECTION: default
 
