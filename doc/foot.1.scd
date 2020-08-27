@@ -23,7 +23,8 @@ the foot command line
 # OPTIONS
 
 *-c*,*--config*=_PATH_
-	Path to configuration file. Default: *$XDG_CONFIG_HOME/footrc*.
+	Path to configuration file. Default:
+	*$XDG_CONFIG_HOME/foot/foot.ini*.
 
 *--check-config*
 	Verify configuration and then exit with 0 if ok, otherwise exit
@@ -131,7 +132,7 @@ The following keyboard shortcuts are available.
 ## NORMAL MODE
 
 Note that these are just the defaults; they can be changed in
-*footrc*, see *footrc*(5).
+*foot.ini*, see *foot.ini*(5).
 
 *shift*+*page up*/*page down*
 	Scroll up/down in history
@@ -253,7 +254,7 @@ Finally, pressing *alt* will prefix the transmitted byte with ESC.
 
 # CONFIGURATION
 
-See *footrc*(5)
+See *foot.ini*(5)
 
 # BUGS
 
@@ -270,4 +271,4 @@ The report should contain the following:
 
 # SEE ALSO
 
-*footrc*(5), *footclient*(1)
+*foot.ini*(5), *footclient*(1)
