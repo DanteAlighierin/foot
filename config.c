@@ -1849,7 +1849,7 @@ out:
         tll_push_back(conf->fonts, config_font_parse("monospace"));
 
     free(conf_file.path);
-    if (conf_file.fd < 0)
+    if (conf_file.fd >= 0)
         close(conf_file.fd);
 
     return ret;
