@@ -1117,7 +1117,7 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
 
     const struct itimerspec timeout = {.it_value = {.tv_sec = 2}};
     if (timerfd_settime(timeout_fd, 0, &timeout, NULL) < 0) {
-        LOG_ERRNO("faild to arm clipboard timeout timer");
+        LOG_ERRNO("failed to arm clipboard timeout timer");
         goto err;
     }
 
