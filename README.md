@@ -56,7 +56,7 @@ See [INSTALL.md](INSTALL.md).
 **foot** can be configured by creating a file
 `$XDG_CONFIG_HOME/foot/foot.ini` (defaulting to
 `~/.config/foot/foot.ini`).  A template for that can usually be found
-in `/usr/share/foot/foot.ini;9~` or
+in `/usr/share/foot/foot.ini` or
 [here](https://codeberg.org/dnkl/foot/src/branch/master/foot.ini).
 
 Further information can be found in foot's man page `foot.ini(5)`.
