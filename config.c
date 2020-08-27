@@ -6,11 +6,13 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <pwd.h>
 #include <assert.h>
 #include <errno.h>
+#include <pwd.h>
+#include <fcntl.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <linux/input-event-codes.h>
 #include <xkbcommon/xkbcommon.h>
@@ -161,50 +163,210 @@ get_shell(void)
     return xstrdup(shell);
 }
 
-static char *
-get_config_path_user_config(void)
+struct config_file {
+    char *path;       /* Full, absolute, path */
+    int fd;           /* FD of file, O_RDONLY */
+};
+
+struct path_component {
+    const char *component;
+    int fd;
+};
+typedef tll(struct path_component) path_components_t;
+
+static void
+path_component_add(path_components_t *components, const char *comp, int fd)
 {
-    struct passwd *passwd = getpwuid(getuid());
-    if (passwd == NULL) {
-        LOG_ERRNO("failed to lookup user");
-        return NULL;
+    assert(comp != NULL);
+    assert(fd >= 0);
+
+    struct path_component pc = {.component = comp, .fd = fd};
+    tll_push_back(*components, pc);
+}
+
+static void
+path_component_destroy(struct path_component *component)
+{
+    assert(component->fd >= 0);
+    close(component->fd);
+}
+
+static void
+path_components_destroy(path_components_t *components)
+{
+    tll_foreach(*components, it) {
+        path_component_destroy(&it->item);
+        tll_remove(*components, it);
+    }
+}
+
+static struct config_file
+path_components_to_config_file(const path_components_t *components)
+{
+    if (tll_length(*components) == 0)
+        goto err;
+
+    size_t len = 0;
+    tll_foreach(*components, it)
+        len += strlen(it->item.component) + 1;
+
+    char *path = malloc(len);
+    if (path == NULL)
+        goto err;
+
+    size_t idx = 0;
+    tll_foreach(*components, it) {
+        strcpy(&path[idx], it->item.component);
+        idx += strlen(it->item.component);
+        path[idx++] = '/';
+    }
+    path[idx - 1] = '\0';  /* Strip last ’/’ */
+
+    int fd_copy = dup(tll_back(*components).fd);
+    if (fd_copy < 0) {
+        free(path);
+        goto err;
     }
 
-    const char *home_dir = passwd->pw_dir;
-    LOG_DBG("user's home directory: %s", home_dir);
+    return (struct config_file){.path = path, .fd = fd_copy};
 
-    char *path = xasprintf("%s/.config/footrc", home_dir);
-    return path;
+err:
+    return (struct config_file){.path = NULL, .fd = -1};
 }
 
-static char *
-get_config_path_xdg(void)
+static const char *
+get_user_home_dir(void)
 {
-    const char *xdg_config_home = getenv("XDG_CONFIG_HOME");
-    if (xdg_config_home == NULL)
+    const struct passwd *passwd = getpwuid(getuid());
+    if (passwd == NULL)
         return NULL;
-
-    char *path = xasprintf("%s/footrc", xdg_config_home);
-    return path;
+    return passwd->pw_dir;
 }
 
-static char *
-get_config_path(void)
+static bool
+try_open_file(path_components_t *components, const char *name)
 {
+    int parent_fd = tll_back(*components).fd;
+
     struct stat st;
+    if (fstatat(parent_fd, name, &st, 0) == 0 && S_ISREG(st.st_mode)) {
+        int fd = openat(parent_fd, name, O_RDONLY);
+        if (fd >= 0) {
+            path_component_add(components, name, fd);
+            return true;
+        }
+    }
 
-    char *config = get_config_path_xdg();
-    if (config != NULL && stat(config, &st) == 0 && S_ISREG(st.st_mode))
-        return config;
-    free(config);
+    return false;
+}
 
-    /* 'Default' XDG_CONFIG_HOME */
-    config = get_config_path_user_config();
-    if (config != NULL && stat(config, &st) == 0 && S_ISREG(st.st_mode))
-        return config;
-    free(config);
+static struct config_file
+open_config(struct config *conf)
+{
+    struct config_file ret = {.path = NULL, .fd = -1};
+    bool log_deprecation = false;
 
-    return NULL;
+    path_components_t components = tll_init();
+
+    const char *xdg_config_home = getenv("XDG_CONFIG_HOME");
+    const char *user_home_dir = get_user_home_dir();
+    char *xdg_config_dirs_copy = NULL;
+
+    /* Use XDG_CONFIG_HOME, or ~/.config */
+    if (xdg_config_home != NULL) {
+        int fd = open(xdg_config_home, O_RDONLY);
+        if (fd >= 0)
+            path_component_add(&components, xdg_config_home, fd);
+    } else if (user_home_dir != NULL) {
+        int home_fd = open(user_home_dir, O_RDONLY);
+        if (home_fd >= 0) {
+            int config_fd = openat(home_fd, ".config", O_RDONLY);
+            if (config_fd >= 0) {
+                path_component_add(&components, user_home_dir, home_fd);
+                path_component_add(&components, ".config", config_fd);
+            } else
+                close(home_fd);
+        }
+    }
+
+    /* First look for foot/foot.ini */
+    if (tll_length(components) > 0) {
+        int foot_fd = openat(tll_back(components).fd, "foot", O_RDONLY);
+        if (foot_fd >= 0) {
+            path_component_add(&components, "foot", foot_fd);
+
+            if (try_open_file(&components, "foot.ini"))
+                goto done;
+
+            struct path_component pc = tll_pop_back(components);
+            path_component_destroy(&pc);
+        }
+    }
+
+    /* Next try footrc */
+    if (tll_length(components) > 0 && try_open_file(&components, "footrc")) {
+        log_deprecation = true;
+        goto done;
+    }
+
+    /* Finally, try foot/foot.ini in all XDG_CONFIG_DIRS */
+    const char *xdg_config_dirs = getenv("XDG_CONFIG_DIRS");
+    xdg_config_dirs_copy = xdg_config_dirs != NULL
+        ? strdup(xdg_config_dirs) : NULL;
+
+    if (xdg_config_dirs_copy != NULL) {
+        for (char *save = NULL,
+                 *xdg_dir = strtok_r(xdg_config_dirs_copy, ":", &save);
+             xdg_dir != NULL;
+             xdg_dir = strtok_r(NULL, ":", &save))
+        {
+            path_components_destroy(&components);
+
+            int xdg_fd = open(xdg_dir, O_RDONLY);
+            if (xdg_fd < 0)
+                continue;
+
+            int foot_fd = openat(xdg_fd, "foot", O_RDONLY);
+            if (foot_fd < 0) {
+                close(xdg_fd);
+                continue;
+            }
+
+            assert(tll_length(components) == 0);
+            path_component_add(&components, xdg_dir, xdg_fd);
+            path_component_add(&components, "foot", foot_fd);
+
+            if (try_open_file(&components, "foot.ini"))
+                goto done;
+        }
+    }
+
+out:
+    path_components_destroy(&components);
+    free(xdg_config_dirs_copy);
+    return ret;
+
+done:
+    assert(tll_length(components) > 0);
+    ret = path_components_to_config_file(&components);
+
+    if (log_deprecation && ret.path != NULL) {
+        LOG_WARN("deprecated: configuration in $XDG_CONFIG_HOME/footrc, "
+                 "use $XDG_CONFIG_HOME/foot/foot.ini instead");
+
+        char *text = xstrdup(
+            "configuration in \033[31m$XDG_CONFIG_HOME/footrc\033[39m or "
+            "\033[31m~/.config/footrc\033[39m, "
+            "use \033[32m$XDG_CONFIG_HOME/foot/foot.ini\033[39m or "
+            "\033[32m~/.config/foot/foot.ini\033[39m instead");
+
+        struct user_notification deprecation = {
+            .kind = USER_NOTIFICATION_DEPRECATED,
+            .text = text,
+        };
+        tll_push_back(conf->notifications, deprecation);
+    }
+    goto out;
 }
 
 static bool
@@ -1644,24 +1806,33 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
     add_default_search_bindings(conf);
     add_default_mouse_bindings(conf);
 
-    char *default_path = NULL;
-    if (conf_path == NULL) {
-        if ((default_path = get_config_path()) == NULL) {
-            /* Default conf */
-            LOG_AND_NOTIFY_WARN("no configuration found, using defaults");
+    struct config_file conf_file = {.path = NULL, .fd = -1};
+    if (conf_path != NULL) {
+        int fd = open(conf_path, O_RDONLY);
+        if (fd < 0) {
+            LOG_AND_NOTIFY_ERRNO("%s: failed to open", conf_path);
             ret = !errors_are_fatal;
             goto out;
         }
 
-        conf_path = default_path;
+        conf_file.path = xstrdup(conf_path);
+        conf_file.fd = fd;
+    } else {
+        conf_file = open_config(conf);
+        if (conf_file.fd < 0) {
+            LOG_AND_NOTIFY_ERR("no configuration found, using defaults");
+            ret = !errors_are_fatal;
+            goto out;
+        }
     }
 
-    assert(conf_path != NULL);
-    LOG_INFO("loading configuration from %s", conf_path);
+    assert(conf_file.path != NULL);
+    assert(conf_file.fd >= 0);
+    LOG_INFO("loading configuration from %s", conf_file.path);
 
-    FILE *f = fopen(conf_path, "r");
+    FILE *f = fdopen(conf_file.fd, "r");
     if (f == NULL) {
-        LOG_AND_NOTIFY_ERR("%s: failed to open", conf_path);
+        LOG_AND_NOTIFY_ERRNO("%s: failed to open", conf_file.path);
         ret = !errors_are_fatal;
         goto out;
     }
@@ -1677,7 +1848,10 @@ out:
     if (ret && tll_length(conf->fonts) == 0)
         tll_push_back(conf->fonts, config_font_parse("monospace"));
 
-    free(default_path);
+    free(conf_file.path);
+    if (conf_file.fd < 0)
+        close(conf_file.fd);
+
     return ret;
 }
 
