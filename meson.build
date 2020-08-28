@@ -163,7 +163,7 @@ install_data(
 install_data(
   'foot.desktop', 'foot-server.desktop',
   install_dir: join_paths(get_option('datadir'), 'applications'))
-install_data('footrc', install_dir: join_paths(get_option('datadir'), 'foot'))
+install_data('foot.ini', install_dir: join_paths(get_option('datadir'), 'foot'))
 
 subdir('completions')
 subdir('doc')

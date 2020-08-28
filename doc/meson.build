@@ -3,16 +3,17 @@ sh = find_program('sh', native: true)
 scdoc = dependency('scdoc', native: true)
 scdoc_prog = find_program(scdoc.get_pkgconfig_variable('scdoc'), native: true)
 
-foreach man_src : ['foot.1.scd', 'footrc.5.scd', 'footclient.1.scd']
-  parts = man_src.split('.')
-  name = parts[-3]
-  section = parts[-2]
+foreach man_src : [{'name': 'foot', 'section' : 1},
+                   {'name': 'foot.ini', 'section': 5},
+                   {'name': 'footclient', 'section': 1}]
+  name = man_src['name']
+  section = man_src['section']
   out = '@0@.@1@'.format(name, section)
 
   custom_target(
     out,
     output: out,
-    input: man_src,
+    input: '@0@.@1@.scd'.format(name, section),
     command: [sh, '-c', '@0@ < @INPUT@'.format(scdoc_prog.path())],
     capture: true,
     install: true,

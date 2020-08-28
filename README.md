@@ -54,11 +54,12 @@ See [INSTALL.md](INSTALL.md).
 ## Configuration
 
 **foot** can be configured by creating a file
-`$XDG_CONFIG_HOME/footrc` (defaulting to `~/.config/footrc`).  A
-template for that can usually be found in `/usr/share/foot/footrc` or
-[here](https://codeberg.org/dnkl/foot/src/branch/master/footrc).
+`$XDG_CONFIG_HOME/foot/foot.ini` (defaulting to
+`~/.config/foot/foot.ini`).  A template for that can usually be found
+in `/usr/share/foot/foot.ini` or
+[here](https://codeberg.org/dnkl/foot/src/branch/master/foot.ini).
 
-Further information can be found in foot's man page `footrc(5)`.
+Further information can be found in foot's man page `foot.ini(5)`.
 
 
 ## Troubleshooting
@@ -104,8 +105,8 @@ fonts, _then_ fontconfig's list is used.
 
 ## Shortcuts
 
-These are the default shortcuts. See `man 5 foot` and the example
-`footrc` to see how these can be changed.
+These are the default shortcuts. See `man foot.ini` and the example
+`foot.ini` to see how these can be changed.
 
 
 ### Keyboard

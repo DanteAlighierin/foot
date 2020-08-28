@@ -50,6 +50,8 @@
 ### Deprecated
 
 * **scrollback** option in `footrc`. Use **scrollback.lines** instead.
+* `$XDG_CONFIG_HOME/footrc`/`~/.config/footrc`. Use
+  `$XDG_CONFIG_HOME/foot/foot.ini`/`~/.config/foot/foot.ini` instead.
 
 
 ### Removed
@@ -64,6 +66,13 @@
 * Trailing empty cells are no longer highlighted in mouse selections.
 * Scrollback position indicator is now based on the number of _used_
   scrollback lines, instead of the _total_ number of scrollback lines.
+* Foot now searches for its configuration in
+  `$XDG_CONFIG_HOME/foot/foot.ini` (typically
+  `~/.config/foot/foot.ini`), before looking for
+  `$XDG_CONFIG_HOME/footrc`.
+* Foot now searches for its configuration in
+  `$XDG_DATA_DIRS/foot/foot.ini`, if no configuration is found in
+  `$XDG_CONFIG_HOME/foot/foot.ini` or in `$XDG_CONFIG_HOME/footrc`.
 
 
 ### Fixed

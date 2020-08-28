@@ -46,7 +46,7 @@ print_usage(const char *prog_name)
         "Usage: %s [OPTIONS...] command [ARGS...]\n"
         "\n"
         "Options:\n"
-        "  -c,--config=PATH                      load configuration from PATH ($XDG_CONFIG_HOME/footrc)\n"
+        "  -c,--config=PATH                      load configuration from PATH ($XDG_CONFIG_HOME/foot/foot.ini)\n"
         "     --check-config                     verify configuration, exit with 0 if ok, otherwise exit with 1\n"
         "  -f,--font=FONT                        comma separated list of fonts in fontconfig format (monospace)\n"
         "  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
