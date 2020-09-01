@@ -619,6 +619,7 @@ osc_dispatch(struct terminal *term)
 
         term_damage_view(term);
         render_refresh(term);
+        render_refresh_margins(term);
         break;
     }
 
@@ -706,6 +707,7 @@ osc_dispatch(struct terminal *term)
         term->colors.bg = term->colors.default_bg;
         term_damage_view(term);
         render_refresh(term);
+        render_refresh_margins(term);
         break;
 
     case 112:

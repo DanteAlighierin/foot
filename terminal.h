@@ -373,6 +373,7 @@ struct terminal {
         /* Scheduled for rendering, as soon-as-possible */
         struct {
             bool grid;
+            bool margins;
             bool csd;
             bool search;
             bool title;
@@ -381,6 +382,7 @@ struct terminal {
         /* Scheduled for rendering, in the next frame callback */
         struct {
             bool grid;
+            bool margins;
             bool csd;
             bool search;
             bool title;
