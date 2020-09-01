@@ -1535,7 +1535,7 @@ static const struct wl_callback_listener frame_listener = {
 };
 
 static void
-grid_render(struct terminal *term)
+grid_render(struct terminal *term, bool redraw_margins)
 {
     if (term->is_shutting_down)
         return;
@@ -1554,14 +1554,16 @@ grid_render(struct terminal *term)
     /* If we resized the window, or is flashing, or just stopped flashing */
     if (term->render.last_buf != buf ||
         term->flash.active || term->render.was_flashing ||
-        term->is_searching != term->render.was_searching)
+        term->is_searching != term->render.was_searching ||
+        redraw_margins)
     {
         if (term->render.last_buf != NULL &&
             term->render.last_buf->width == buf->width &&
             term->render.last_buf->height == buf->height &&
             !term->flash.active &&
             !term->render.was_flashing &&
-            term->is_searching == term->render.was_searching)
+            term->is_searching == term->render.was_searching &&
+            !redraw_margins)
         {
             static bool has_warned = false;
             if (!has_warned) {
@@ -1955,13 +1957,10 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     if (search && term->is_searching)
         render_search_box(term);
 
-    if (margins)
-        term->render.last_buf = NULL;
-
     if ((grid || margins) &&
         (!term->delayed_render_timer.is_armed || csd || search))
     {
-        grid_render(term);
+        grid_render(term, margins);
     }
 }
 
@@ -2285,9 +2284,6 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         term->render.refresh.title = false;
 
         if (term->window->frame_callback == NULL) {
-            if (margins)
-                term->render.last_buf = NULL;
-
             if (csd && term->window->use_csd == CSD_YES) {
                 quirk_weston_csd_on(term);
                 render_csd(term);
@@ -2298,7 +2294,7 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
             if (search)
                 render_search_box(term);
             if (grid || margins)
-                grid_render(term);
+                grid_render(term, margins);
         } else {
             /* Tells the frame callback to render again */
             term->render.pending.grid |= grid;
