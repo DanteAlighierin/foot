@@ -1932,11 +1932,13 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     term->window->frame_callback = NULL;
 
     bool grid = term->render.pending.grid;
+    bool margins = term->render.pending.margins;
     bool csd = term->render.pending.csd;
     bool search = term->render.pending.search;
     bool title = term->render.pending.title;
 
     term->render.pending.grid = false;
+    term->render.pending.margins = false;
     term->render.pending.csd = false;
     term->render.pending.search = false;
     term->render.pending.title = false;
@@ -1953,8 +1955,14 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     if (search && term->is_searching)
         render_search_box(term);
 
-    if (grid && (!term->delayed_render_timer.is_armed || csd || search))
+    if (margins)
+        term->render.last_buf = NULL;
+
+    if ((grid || margins) &&
+        (!term->delayed_render_timer.is_armed || csd || search))
+    {
         grid_render(term);
+    }
 }
 
 /* Move to terminal.c? */
@@ -2265,16 +2273,21 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         assert(term->window->is_configured);
 
         bool grid = term->render.refresh.grid;
+        bool margins = term->render.refresh.margins;
         bool csd = term->render.refresh.csd;
         bool search = term->render.refresh.search;
         bool title = term->render.refresh.title;
 
         term->render.refresh.grid = false;
+        term->render.refresh.margins = false;
         term->render.refresh.csd = false;
         term->render.refresh.search = false;
         term->render.refresh.title = false;
 
         if (term->window->frame_callback == NULL) {
+            if (margins)
+                term->render.last_buf = NULL;
+
             if (csd && term->window->use_csd == CSD_YES) {
                 quirk_weston_csd_on(term);
                 render_csd(term);
@@ -2284,11 +2297,12 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
                 render_update_title(term);
             if (search)
                 render_search_box(term);
-            if (grid)
+            if (grid || margins)
                 grid_render(term);
         } else {
             /* Tells the frame callback to render again */
             term->render.pending.grid |= grid;
+            term->render.pending.margins |= margins;
             term->render.pending.csd |= csd;
             term->render.pending.search |= search;
             term->render.pending.title |= title;
@@ -2317,6 +2331,12 @@ void
 render_refresh(struct terminal *term)
 {
     term->render.refresh.grid = true;
+}
+
+void
+render_refresh_margins(struct terminal *term)
+{
+    term->render.refresh.margins = true;
 }
 
 void

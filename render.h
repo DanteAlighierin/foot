@@ -13,6 +13,7 @@ bool render_resize(struct terminal *term, int width, int height);
 bool render_resize_force(struct terminal *term, int width, int height);
 
 void render_refresh(struct terminal *term);
+void render_refresh_margins(struct terminal *term);
 void render_refresh_csd(struct terminal *term);
 void render_refresh_search(struct terminal *term);
 void render_refresh_title(struct terminal *term);
