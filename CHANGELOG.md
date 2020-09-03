@@ -45,6 +45,10 @@
   Ps r` (https://codeberg.org/dnkl/foot/issues/91).
 * `$COLORTERM` is now set to `truecolor` at startup, to indicate
   support for 24-bit RGB colors.
+* Experimental support for rendering double-width glyphs with a
+  character width of 1. Must be explicitly enabled with
+  `tweak.allow-overflowing-double-width-glyphs`
+  (https://codeberg.org/dnkl/foot/issues/116).
 
 
 ### Deprecated

@@ -433,6 +433,31 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     const int cols_left = term->cols - col;
     int cell_cols = glyph != NULL ? max(1, min(glyph->cols, cols_left)) : 1;
 
+    /*
+     * Hack!
+     *
+     * Deal with double-width glyphs for which wcwidth() returns
+     * 1. Typically Unicode private usage area characters,
+     * e.g. powerline, or nerd hack fonts.
+     *
+     * Users can enable a tweak option that lets this glyphs
+     * overflow/bleed into the neighbouring cell.
+     *
+     * We only apply this workaround if:
+     *  - the user has explicitly enabled this feature
+     *  - the *character* width is 1
+     *  - the *glyph* width is at least 1.5 cells
+     *  - the *glyph* width is less than 3 cells
+     */
+    if (term->conf->tweak.allow_overflowing_double_width_glyphs &&
+        glyph != NULL &&
+        glyph->cols == 1 &&
+        glyph->width >= term->cell_width * 15 / 10 &&
+        glyph->width < 3 * term->cell_width)
+    {
+        cell_cols = min(2, cols_left);
+    }
+
     pixman_region32_t clip;
     pixman_region32_init_rect(
         &clip, x, y,
