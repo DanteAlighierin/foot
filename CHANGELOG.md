@@ -99,6 +99,8 @@
   binding has consumed it.
 * Input events from getting mixed with paste data
   (https://codeberg.org/dnkl/foot/issues/101).
+* Missing DPI values for “some” monitors on Gnome
+  (https://codeberg.org/dnkl/foot/issues/118).
 
 
 ### Security
