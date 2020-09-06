@@ -563,6 +563,8 @@ any of these options.
 	allowed value, 2GB (but note that you most likely will not notice
 	any difference compared to the default value).
 	
+	Setting it to 0 disables the feature.
+	
 	Note: this feature is always disabled in 32-bit.
 	
 	Default: _512_. Maximum allowed: _2048_ (2GB).
