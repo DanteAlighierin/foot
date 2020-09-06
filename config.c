@@ -1841,7 +1841,7 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
         goto out;
     }
 
-    ret = parse_config_file(f, conf, conf_path, errors_are_fatal);
+    ret = parse_config_file(f, conf, conf_file.path, errors_are_fatal);
     fclose(f);
 
     conf->colors.selection_uses_custom_colors =
