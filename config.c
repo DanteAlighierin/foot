@@ -1361,6 +1361,9 @@ parse_section_tweak(
     if (strcmp(key, "allow-overflowing-double-width-glyphs") == 0)
         conf->tweak.allow_overflowing_double_width_glyphs = str_to_bool(value);
 
+    else if (strcmp(key, "damage-whole-window") == 0)
+        conf->tweak.damage_whole_window = str_to_bool(value);
+
     else if (strcmp(key, "render-timer") == 0) {
         if (strcmp(value, "none") == 0) {
             conf->tweak.render_timer_osd = false;
@@ -1801,6 +1804,7 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
             .max_shm_pool_size = 512 * 1024 * 1024,
             .render_timer_osd = false,
             .render_timer_log = false,
+            .damage_whole_window = false,
         },
 
         .notifications = tll_init(),

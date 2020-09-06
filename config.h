@@ -147,6 +147,7 @@ struct config {
         bool allow_overflowing_double_width_glyphs;
         bool render_timer_osd;
         bool render_timer_log;
+        bool damage_whole_window;
         uint64_t delayed_render_lower_ns;
         uint64_t delayed_render_upper_ns;
         off_t max_shm_pool_size;
