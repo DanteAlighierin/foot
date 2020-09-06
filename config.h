@@ -144,6 +144,7 @@ struct config {
     bool hold_at_exit;
 
     struct {
+        bool allow_overflowing_double_width_glyphs;
         bool render_timer_osd;
         bool render_timer_log;
         uint64_t delayed_render_lower_ns;

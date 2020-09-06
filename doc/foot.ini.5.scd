@@ -440,6 +440,22 @@ foot.
 When reporting bugs, please mention if, and to what, you have changed
 any of these options.
 
+*allow-overflowing-double-width-glyphs*
+	When enabled, double width glyphs with a character width of 1 are
+	allowed to overflow into the neighbouring cell.
+	
+	One use case for this is fonts "icon" characters in the Unicode
+	private usage area, e.g. Nerd Fonts, or Powerline Fonts. Without
+	this option, such glyphs will appear "cut off".
+	
+	Another use case are legacy emoji characters like *WHITE FROWNING
+	FACE*.
+	
+	Note: this feature uses _heuristics_ to determine *which* glyphs
+	should be allowed to overflow.
+	
+	Default: _false_.
+
 *render-timer*
 	Enables a frame rendering timer, that prints the time it takes to
 	render each frame, in microseconds, either on-screen, to stderr,
@@ -513,7 +529,6 @@ any of these options.
 	frame interval).
 
 *max-shm-pool-size-mb*
-
 	This option controls the amount of *virtual* memory used by the
 	pixmap memory to which the terminal screen content is rendered.
 	

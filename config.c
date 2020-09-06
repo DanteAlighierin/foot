@@ -1358,7 +1358,10 @@ parse_section_tweak(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    if (strcmp(key, "render-timer") == 0) {
+    if (strcmp(key, "allow-overflowing-double-width-glyphs") == 0)
+        conf->tweak.allow_overflowing_double_width_glyphs = str_to_bool(value);
+
+    else if (strcmp(key, "render-timer") == 0) {
         if (strcmp(value, "none") == 0) {
             conf->tweak.render_timer_osd = false;
             conf->tweak.render_timer_log = false;
@@ -1792,6 +1795,7 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
         .hold_at_exit = false,
 
         .tweak = {
+            .allow_overflowing_double_width_glyphs = false,
             .delayed_render_lower_ns = 500000,         /* 0.5ms */
             .delayed_render_upper_ns = 16666666 / 2,   /* half a frame period (60Hz) */
             .max_shm_pool_size = 512 * 1024 * 1024,
