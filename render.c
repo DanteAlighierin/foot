@@ -2110,12 +2110,14 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     grid_reflow(
         &term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows,
         term->grid == &term->normal ? ALEN(tracking_points) : 0,
-        term->grid == &term->normal ? tracking_points : NULL);
+        term->grid == &term->normal ? tracking_points : NULL,
+        term->composed_count, term->composed);
 
     grid_reflow(
         &term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows,
         term->grid == &term->alt ? ALEN(tracking_points) : 0,
-        term->grid == &term->alt ? tracking_points : NULL);
+        term->grid == &term->alt ? tracking_points : NULL,
+        term->composed_count, term->composed);
 
     /* Reset tab stops */
     tll_free(term->tab_stops);

@@ -105,6 +105,7 @@
   (https://codeberg.org/dnkl/foot/issues/101).
 * Missing DPI values for “some” monitors on Gnome
   (https://codeberg.org/dnkl/foot/issues/118).
+* Handling of multi-column composed characters while reflowing.
 
 
 ### Security

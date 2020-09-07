@@ -57,7 +57,9 @@ void
 grid_reflow(struct grid *grid, int new_rows, int new_cols,
             int old_screen_rows, int new_screen_rows,
             size_t tracking_points_count,
-            struct coord *const _tracking_points[static tracking_points_count])
+            struct coord *const _tracking_points[static tracking_points_count],
+            size_t compose_count, const struct
+            composed composed[static compose_count])
 {
     struct row *const *old_grid = grid->rows;
     const int old_rows = grid->num_rows;
@@ -225,19 +227,33 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
             if (new_cols_left < cols_needed && new_cols_left >= old_cols_left)
                 empty_count = max(0, empty_count - (cols_needed - new_cols_left));
 
-            int width = max(1, wcwidth(old_row->cells[c].wc));
+            wchar_t wc = old_row->cells[c].wc;
+            if (wc >= CELL_COMB_CHARS_LO &&
+                wc < (CELL_COMB_CHARS_LO + compose_count))
+            {
+                wc = composed[wc - CELL_COMB_CHARS_LO].base;
+            }
+
+            int width = max(1, wcwidth(wc));
 
             /* Multi-column characters are never cut in half */
             assert(c + width <= old_cols);
 
             for (int i = 0; i < empty_count + 1; i++) {
                 const struct cell *old_cell = &old_row->cells[c - empty_count + i];
+                wc = old_cell->wc;
 
-                if (old_cell->wc == CELL_MULT_COL_SPACER)
+                if (wc == CELL_MULT_COL_SPACER)
                     continue;
 
+                if (wc >= CELL_COMB_CHARS_LO &&
+                    wc < (CELL_COMB_CHARS_LO + compose_count))
+                {
+                    wc = composed[wc - CELL_COMB_CHARS_LO].base;
+                }
+
                 /* Out of columns on current row in new grid? */
-                if (new_col_idx + max(1, wcwidth(old_cell->wc)) > new_cols) {
+                if (new_col_idx + max(1, wcwidth(wc)) > new_cols) {
                     /* Pad to end-of-line with spacers, then line-wrap */
                     for (;new_col_idx < new_cols; new_col_idx++)
                         print_spacer();
