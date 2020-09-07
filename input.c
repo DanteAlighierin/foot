@@ -1493,77 +1493,76 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
-            assert(!seat->mouse.consumed);
+            if (!seat->mouse.consumed) {
+                if (seat->wl_keyboard != NULL) {
+                    /* Seat has keyboard - use mouse bindings *with* modifiers */
 
-            if (seat->wl_keyboard != NULL) {
-                /* Seat has keyboard - use mouse bindings *with* modifiers */
+                    xkb_mod_mask_t mods = xkb_state_serialize_mods(
+                        seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
 
-                xkb_mod_mask_t mods = xkb_state_serialize_mods(
-                    seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
+                    /* Ignore Shift when matching modifiers, since it is
+                     * used to enable selection in mouse grabbing client
+                     * applications */
+                    mods &= ~(1 << seat->kbd.mod_shift);
 
-                /* Ignore Shift when matching modifiers, since it is
-                 * used to enable selection in mouse grabbing client
-                 * applications */
-                mods &= ~(1 << seat->kbd.mod_shift);
+                    tll_foreach(seat->mouse.bindings, it) {
+                        const struct mouse_binding *binding = &it->item;
 
-                tll_foreach(seat->mouse.bindings, it) {
-                    const struct mouse_binding *binding = &it->item;
+                        if (binding->button != button) {
+                            /* Wrong button */
+                            continue;
+                        }
 
-                    if (binding->button != button) {
-                        /* Wrong button */
-                        continue;
+                        if (binding->mods != mods) {
+                            /* Modifier mismatch */
+                            continue;
+                        }
+
+                        if  (binding->count != seat->mouse.count) {
+                            /* Not correct click count */
+                            continue;
+                        }
+
+                        seat->mouse.consumed = execute_binding(
+                            seat, term, binding->action, NULL, serial);
+                        break;
                     }
-
-                    if (binding->mods != mods) {
-                        /* Modifier mismatch */
-                        continue;
-                    }
-
-                    if  (binding->count != seat->mouse.count) {
-                        /* Not correct click count */
-                        continue;
-                    }
-
-                    seat->mouse.consumed = execute_binding(
-                        seat, term, binding->action, NULL, serial);
-                    break;
                 }
-            }
 
-            else {
-                /* Seat does NOT have a keyboard - use mouse bindings *without* modifiers */
-                tll_foreach(seat->wayl->conf->bindings.mouse, it) {
-                    const struct config_mouse_binding *binding = &it->item;
+                else {
+                    /* Seat does NOT have a keyboard - use mouse bindings *without* modifiers */
+                    tll_foreach(seat->wayl->conf->bindings.mouse, it) {
+                        const struct config_mouse_binding *binding = &it->item;
 
-                    if (binding->button != button) {
-                        /* Wrong button */
-                        continue;
+                        if (binding->button != button) {
+                            /* Wrong button */
+                            continue;
+                        }
+
+                        if (binding->count != seat->mouse.count) {
+                            /* Incorrect click count */
+                            continue;
+                        }
+
+                        const struct config_key_modifiers no_mods = {0};
+                        if (memcmp(&binding->modifiers, &no_mods, sizeof(no_mods)) != 0) {
+                            /* Binding has modifiers */
+                            continue;
+                        }
+
+                        seat->mouse.consumed = execute_binding(
+                            seat, term, binding->action, NULL, serial);
+                        break;
                     }
-
-                    if (binding->count != seat->mouse.count) {
-                        /* Incorrect click count */
-                        continue;
-                    }
-
-                    const struct config_key_modifiers no_mods = {0};
-                    if (memcmp(&binding->modifiers, &no_mods, sizeof(no_mods)) != 0) {
-                        /* Binding has modifiers */
-                        continue;
-                    }
-
-                    seat->mouse.consumed = execute_binding(
-                        seat, term, binding->action, NULL, serial);
-                    break;
                 }
-            }
 
-            if (!seat->mouse.consumed &&
-                !term_mouse_grabbed(term, seat) &&
-                cursor_is_on_grid)
-            {
-                term_mouse_down(
-                    term, button, seat->mouse.row, seat->mouse.col,
-                    seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+                if (!term_mouse_grabbed(term, seat) &&
+                    cursor_is_on_grid)
+                {
+                    term_mouse_down(
+                        term, button, seat->mouse.row, seat->mouse.col,
+                        seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+                }
             }
             break;
         }
