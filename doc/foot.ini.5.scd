@@ -441,8 +441,8 @@ When reporting bugs, please mention if, and to what, you have changed
 any of these options.
 
 *allow-overflowing-double-width-glyphs*
-	When enabled, double width glyphs with a character width of 1 are
-	allowed to overflow into the neighbouring cell.
+	Boolean. when enabled, double width glyphs with a character width
+	of 1 are allowed to overflow into the neighbouring cell.
 	
 	One use case for this is fonts "icon" characters in the Unicode
 	private usage area, e.g. Nerd Fonts, or Powerline Fonts. Without
@@ -527,6 +527,21 @@ any of these options.
 	
 	Default: lower=_500000_ (0.5ms), upper=_8333333_ (8.3ms - half a
 	frame interval).
+
+*damage-whole-window*
+	Boolean. When enabled, foot will 'damage' the entire window each
+	time a frame has been rendered. This forces the compositor to
+	redraw the entire window. If disabled, foot will only 'damage'
+	updated rows.
+	
+	There is normally *no* reason to enable this. However, it has been
+	seen to workaround an issue with _fractional scaling_ in _Gnome_.
+	
+	Note that enabling this option is likely to increase CPU and/or
+	GPU usage (by the compositor, not by foot), and may have a
+	negative impact on battery life.
+	
+	Default: _false_.
 
 *max-shm-pool-size-mb*
 	This option controls the amount of *virtual* memory used by the

@@ -1819,6 +1819,11 @@ grid_render(struct terminal *term, bool redraw_margins)
         }
     }
 
+    if (term->conf->tweak.damage_whole_window) {
+        wl_surface_damage_buffer(
+            term->window->surface, 0, 0, INT32_MAX, INT32_MAX);
+    }
+
     wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
     quirk_kde_damage_before_attach(term->window->surface);
     wl_surface_commit(term->window->surface);
