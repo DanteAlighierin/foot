@@ -106,6 +106,8 @@
 * Missing DPI values for “some” monitors on Gnome
   (https://codeberg.org/dnkl/foot/issues/118).
 * Handling of multi-column composed characters while reflowing.
+* Escape sequences sent for key combinations with `Return`, that did
+  **not** include `Alt`.
 
 
 ### Security
