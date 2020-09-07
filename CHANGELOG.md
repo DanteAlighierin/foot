@@ -75,6 +75,8 @@
 * Foot now searches for its configuration in
   `$XDG_DATA_DIRS/foot/foot.ini`, if no configuration is found in
   `$XDG_CONFIG_HOME/foot/foot.ini` or in `$XDG_CONFIG_HOME/footrc`.
+* Minimum window size changed from four rows and 20 columns, to 1 row
+  and 2 columns.
 
 
 ### Fixed

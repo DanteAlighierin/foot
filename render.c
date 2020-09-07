@@ -2042,8 +2042,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     }
 
     /* Don't shrink grid too much */
-    const int min_cols = 20;
-    const int min_rows = 4;
+    const int min_cols = 2;
+    const int min_rows = 1;
 
     /* Minimum window size */
     const int min_width = min_cols * term->cell_width;
