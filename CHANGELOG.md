@@ -14,23 +14,30 @@
 
 ## Unreleased
 
+### Deprecated
+
+* `$XDG_CONFIG_HOME/footrc`/`~/.config/footrc`. Use
+  `$XDG_CONFIG_HOME/foot/foot.ini`/`~/.config/foot/foot.ini` instead.
+* **scrollback** option in `foot.ini`. Use **scrollback.lines** instead.
+
+
 ### Added
 
 * Scrollback position indicator. This feature is optional and
   controlled by the **scrollback.indicator-position** and
-  **scrollback.indicator-format** options in `footrc`
+  **scrollback.indicator-format** options in `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/42).
 * Key bindings in _scrollback search_ mode are now configurable.
 * `--check-config` command line option.
 * **pipe-selected** key binding. Works like **pipe-visible** and
   **pipe-scrollback**, but only pipes the currently selected text, if
   any (https://codeberg.org/dnkl/foot/issues/51).
-* **mouse.hide-when-typing** option to `footrc`.
-* **scrollback.multiplier** option to `footrc`
+* **mouse.hide-when-typing** option to `foot.ini`.
+* **scrollback.multiplier** option to `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/54).
 * **colors.selection-foreground** and **colors.selection-background**
-  options to `footrc`.
-* **tweak.render-timer** option to `footrc`.
+  options to `foot.ini`.
+* **tweak.render-timer** option to `foot.ini`.
 * Modifier support in mouse bindings
   (https://codeberg.org/dnkl/foot/issues/77).
 * Click count support in mouse bindings, i.e double- and triple-click
@@ -39,7 +46,7 @@
   now configurable, via the new **select-begin**,
   **select-begin-block**, **select-extend**, **select-word**,
   **select-word-whitespace** and **select-row** options in the
-  **mouse-bindings** section in `footrc`
+  **mouse-bindings** section in `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/79).
 * Implement XTSAVE/XTRESTORE escape sequences, `CSI ? Ps s` and `CSI ?
   Ps r` (https://codeberg.org/dnkl/foot/issues/91).
@@ -51,27 +58,17 @@
   (https://codeberg.org/dnkl/foot/issues/116).
 
 
-### Deprecated
-
-* **scrollback** option in `footrc`. Use **scrollback.lines** instead.
-* `$XDG_CONFIG_HOME/footrc`/`~/.config/footrc`. Use
-  `$XDG_CONFIG_HOME/foot/foot.ini`/`~/.config/foot/foot.ini` instead.
-
 
 ### Removed
 ### Changed
 
-* Renamed man page for `footrc` from **foot**(5) to **footrc**(5).
+* Renamed man page for `foot.ini` from **foot**(5) to **foot.ini**(5).
 * Configuration errors are no longer fatal; foot will start and print
   an error inside the terminal (and of course still log errors on
   stderr).
 * Default `--server` socket path to use `$WAYLAND_DISPLAY` instead of
   `$XDG_SESSION_ID` (https://codeberg.org/dnkl/foot/issues/55).
 * Trailing empty cells are no longer highlighted in mouse selections.
-* Foot now searches for its configuration in
-  `$XDG_CONFIG_HOME/foot/foot.ini` (typically
-  `~/.config/foot/foot.ini`), before looking for
-  `$XDG_CONFIG_HOME/footrc`.
 * Foot now searches for its configuration in
   `$XDG_DATA_DIRS/foot/foot.ini`, if no configuration is found in
   `$XDG_CONFIG_HOME/foot/foot.ini` or in `$XDG_CONFIG_HOME/footrc`.
