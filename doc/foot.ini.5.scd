@@ -35,17 +35,27 @@ in this order:
 	
 	Default: _monospace_.
 
-*geometry*
-	Initial window width and height in pixels (subject to output
-	scaling), on the form _WIDTHxHEIGHT_. Default: _700x500_.
-
 *pad*
 	Padding between border and glyphs, in pixels (subject to output
 	scaling), on the form _XxY_. Default: _2x2_.
 
+*initial-window-size-pixels*
+	Initial window width and height in _pixels_ (subject to output
+	scaling), on the form _WIDTHxHEIGHT_. The height _includes_ the
+	titlebar when using CSDs. Mutually exclusive to
+	*initial-window-size-chars*. Default: _700x500_.
+
+*initial-window-size-chars*
+	Initial window width and height in _characters_, on the form
+	_WIDTHxHEIGHT_. Mutually exclusive to
+	*initial-window-size-pixels*. Default: _not set_.
+
 *initial-window-mode*
 	Initial window mode for each newly spawned window: *windowed*,
 	*maximized* or *fullscreen*. Default: _windowed_.
+
+*geometry*
+	Deprecated. Alias for *initial-window-size-pixels*.
 
 *shell*
 	Executable to launch. Typically a shell. Default: _$SHELL_ if set,

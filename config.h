@@ -9,6 +9,8 @@
 #include "user-notification.h"
 #include "wayland.h"
 
+enum conf_size_type {CONF_SIZE_PX, CONF_SIZE_CELLS};
+
 struct config_font {
     char *pattern;
     double pt_size;
@@ -52,10 +54,24 @@ struct config {
     char *title;
     char *app_id;
     bool login_shell;
-    unsigned width;
-    unsigned height;
+
+    struct {
+        enum conf_size_type type;
+        union {
+            struct {
+                unsigned width;
+                unsigned height;
+            } px;
+            struct {
+                unsigned width;
+                unsigned height;
+            } cells;
+        };
+    } size;
+
     unsigned pad_x;
     unsigned pad_y;
+
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 
     tll(struct config_font) fonts;
@@ -156,7 +172,9 @@ struct config {
     user_notifications_t notifications;
 };
 
-bool config_load(struct config *conf, const char *path, bool errors_are_fatal);
+bool config_load(
+    struct config *conf, const char *path,
+    user_notifications_t *initial_user_notifications, bool errors_are_fatal);
 void config_free(struct config conf);
 
 struct config_font config_font_parse(const char *pattern);

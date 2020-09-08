@@ -45,8 +45,14 @@ the foot command line
 	
 	Default: _monospace_.
 
+*-w*,*--window-size-pixels*=_WIDTHxHEIGHT_
+	Set initial window width and height, in pixels. Default: _700x500_.
+
+*-W*,*--window-size-chars*=_WIDTHxHEIGHT_
+	Set initial window width and height, in characters. Default: _not set_.
+
 *-g*,*--geometry*=_WIDTHxHEIGHT_
-	Set initial window width and height. Default: *700x500*.
+	Deprecated. Alias for *-w*,*--window-size-pixels*.
 
 *-t*,*--term*=_TERM_
 	Value to set the environment variable *TERM* to. Default: _foot_.

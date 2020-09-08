@@ -14,3 +14,11 @@ struct user_notification {
 };
 
 typedef tll(struct user_notification) user_notifications_t;
+
+static inline void
+user_notifications_free(user_notifications_t *notifications)
+{
+    tll_foreach(*notifications, it)
+        free(it->item.text);
+    tll_free(*notifications);
+}
