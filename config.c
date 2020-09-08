@@ -1107,6 +1107,8 @@ parse_section_key_bindings(
 
     LOG_AND_NOTIFY_ERR("%s:%u: [key-bindings]: %s: invalid action",
                        path, lineno, key);
+    free(pipe_cmd);
+    free(pipe_argv);
     return false;
 
 }
