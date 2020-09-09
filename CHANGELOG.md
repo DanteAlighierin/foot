@@ -64,6 +64,9 @@
   `-W,--window-size-chars` command line option to `foot`. This option
   configures the initial window size in **characters**, and is an
   alternative to **initial-window-size-pixels**.
+* **scrollback-up-half** and **scrollback-down-half** key
+  bindings. They scroll up/down half of a page in the scrollback
+  (https://codeberg.org/dnkl/foot/issues/128).
 
 
 ### Removed

@@ -239,10 +239,19 @@ default binding. This can be done by setting _action=none_;
 e.g. *search-start=none*.
 
 *scrollback-up*
-	Scrolls up/back in history. Default: _Shift+Page\_Up_.
+	Scrolls up/back one page in history. Default: _Shift+Page\_Up_.
+
+*scrollback-up-half*
+	Scrolls up/back half of a page in history. Default:
+	_Shift+Page\_Up_.
 
 *scrollback-down*
-	Scroll down/forward in history. Default: _Shift+Page\_Down_.
+	Scroll down/forward one page in history. Default:
+	_Shift+Page\_Down_.
+
+*scrollback-down-half*
+	Scroll down/forward half of a page in history. Default:
+	_Shift+Page\_Down_.
 
 *clipboard-copy*
 	Copies the current selection into the _clipboard_. Default: _Control+Shift+C_.
