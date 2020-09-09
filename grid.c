@@ -331,16 +331,14 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
     cursor.row -= grid->offset;
     while (cursor.row < 0)
         cursor.row += grid->num_rows;
-
-    assert(cursor.row >= 0);
-    assert(cursor.row < grid->num_rows);
+    cursor.row = min(cursor.row, new_screen_rows - 1);
+    assert(cursor.col >= 0 && cursor.col < new_cols);
 
     saved_cursor.row -= grid->offset;
     while (saved_cursor.row < 0)
         saved_cursor.row += grid->num_rows;
-
-    assert(saved_cursor.row >= 0);
-    assert(saved_cursor.row < grid->num_rows);
+    saved_cursor.row = min(saved_cursor.row, new_screen_rows - 1);
+    assert(saved_cursor.col >= 0 && saved_cursor.col < new_cols);
 
     grid->cursor.point = cursor;
     grid->saved_cursor.point = saved_cursor;
