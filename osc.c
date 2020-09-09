@@ -23,17 +23,6 @@ static void
 osc_to_clipboard(struct terminal *term, const char *target,
                  const char *base64_data)
 {
-    char *decoded = base64_decode(base64_data);
-    if (decoded == NULL) {
-        if (errno == EINVAL)
-            LOG_WARN("OSC: invalid clipboard data: %s", base64_data);
-        else
-            LOG_ERRNO("base64_decode() failed");
-        return;
-    }
-
-    LOG_DBG("decoded: %s", decoded);
-
     bool to_clipboard = false;
     bool to_primary = false;
 
@@ -70,6 +59,22 @@ osc_to_clipboard(struct terminal *term, const char *target,
         LOG_WARN("OSC52: client tried to write to clipboard data while window was unfocused");
         return;
     }
+
+    char *decoded = base64_decode(base64_data);
+    if (decoded == NULL) {
+        if (errno == EINVAL)
+            LOG_WARN("OSC: invalid clipboard data: %s", base64_data);
+        else
+            LOG_ERRNO("base64_decode() failed");
+
+        if (to_clipboard)
+            selection_clipboard_unset(seat);
+        if (to_primary)
+            selection_primary_unset(seat);
+        return;
+    }
+
+    LOG_DBG("decoded: %s", decoded);
 
     if (to_clipboard) {
         char *copy = xstrdup(decoded);

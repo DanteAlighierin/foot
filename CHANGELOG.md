@@ -112,6 +112,8 @@
 * Handling of multi-column composed characters while reflowing.
 * Escape sequences sent for key combinations with `Return`, that did
   **not** include `Alt`.
+* Clipboard (or primary selection) is now cleared when receiving an
+  OSC-52 command with an invalid base64 encoded payload.
 
 
 ### Security
