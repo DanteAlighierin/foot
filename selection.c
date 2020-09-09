@@ -661,6 +661,18 @@ selection_cancel(struct terminal *term)
     term->selection.ongoing = false;
 }
 
+bool
+selection_clipboard_has_data(const struct seat *seat)
+{
+    return seat->clipboard.data_offer != NULL;
+}
+
+bool
+selection_primary_has_data(const struct seat *seat)
+{
+    return seat->primary.data_offer != NULL;
+}
+
 void
 selection_clipboard_unset(struct seat *seat)
 {
