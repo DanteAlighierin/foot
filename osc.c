@@ -162,20 +162,6 @@ from_clipboard_done(void *user)
 static void
 osc_from_clipboard(struct terminal *term, const char *source)
 {
-    /* Use clipboard if no source has been specified */
-    char src = source[0] == '\0' ? 'c' : 0;
-
-    for (const char *s = source; *s != '\0'; s++) {
-        if (*s == 'c' || *s == 'p' || *s == 's') {
-            src = *s;
-            break;
-        } else
-            LOG_WARN("unimplemented: clipboard source '%c'", *s);
-    }
-
-    if (src == 0)
-        return;
-
     /* Find a seat in which the terminal has focus */
     struct seat *seat = NULL;
     tll_foreach(term->wl->seats, it) {
@@ -190,6 +176,35 @@ osc_from_clipboard(struct terminal *term, const char *source)
         return;
     }
 
+    /* Use clipboard if no source has been specified */
+    char src = source[0] == '\0' ? 'c' : 0;
+    bool from_clipboard = src == 'c';
+    bool from_primary = false;
+
+    for (const char *s = source;
+         *s != '\0' && !from_clipboard && !from_primary;
+         s++)
+    {
+        if (*s == 'c' || *s == 'p' || *s == 's') {
+            src = *s;
+
+            switch (src) {
+            case 'c':
+                from_clipboard = selection_clipboard_has_data(seat);
+                break;
+
+            case 's':
+            case 'p':
+                from_primary = selection_primary_has_data(seat);
+                break;
+            }
+        } else
+            LOG_WARN("unimplemented: clipboard source '%c'", *s);
+    }
+
+    if (!from_clipboard && !from_primary)
+        return;
+
     term_to_slave(term, "\033]52;", 5);
     term_to_slave(term, &src, 1);
     term_to_slave(term, ";", 1);
@@ -197,17 +212,14 @@ osc_from_clipboard(struct terminal *term, const char *source)
     struct clip_context *ctx = xmalloc(sizeof(*ctx));
     *ctx = (struct clip_context) {.seat = seat, .term = term};
 
-    switch (src) {
-    case 'c':
+    if (from_clipboard) {
         text_from_clipboard(
             seat, term, &from_clipboard_cb, &from_clipboard_done, ctx);
-        break;
+    }
 
-    case 's':
-    case 'p':
+    if (from_primary) {
         text_from_primary(
             seat, term, &from_clipboard_cb, &from_clipboard_done, ctx);
-        break;
     }
 }
 
