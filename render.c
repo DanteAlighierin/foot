@@ -2032,13 +2032,24 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
             width = term->unmaximized_width;
             height = term->unmaximized_height;
         } else {
-            width = term->conf->width;
-            height = term->conf->height;
+            switch (term->conf->size.type) {
+            case CONF_SIZE_PX:
+                width = term->conf->size.px.width;
+                height = term->conf->size.px.height;
 
-            if (term->window->use_csd == CSD_YES) {
-                /* Take CSD title bar into account */
-                assert(!term->window->is_fullscreen);
-                height -= term->conf->csd.title_height;
+                if (term->window->use_csd == CSD_YES) {
+                    /* Take CSD title bar into account */
+                    assert(!term->window->is_fullscreen);
+                    height -= term->conf->csd.title_height;
+                }
+                break;
+
+            case CONF_SIZE_CELLS:
+                width = 2 * term->conf->pad_x;
+                height = 2 * term->conf->pad_y;
+                width += term->conf->size.cells.width * term->cell_width;
+                height += term->conf->size.cells.height * term->cell_height;
+                break;
             }
 
             width *= scale;

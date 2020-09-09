@@ -452,18 +452,49 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->app_id = xstrdup(value);
     }
 
-    else if (strcmp(key, "geometry") == 0) {
+    else if (strcmp(key, "initial-window-size-pixels") == 0 ||
+             strcmp(key, "geometry") == 0  /* deprecated */)
+    {
+        if (strcmp(key, "geometry") == 0) {
+            LOG_WARN("deprecated: [default]: geometry: use 'initial-window-size-pixels' instead'");
+
+            const char *fmt = "%s:%d: \033[1mgeometry\033[21m, use \033[1minitial-window-size-pixels\033[21m instead";
+            char *text = xasprintf(fmt, path, lineno);
+
+            struct user_notification deprecation = {
+                .kind = USER_NOTIFICATION_DEPRECATED,
+                .text = text,
+            };
+            tll_push_back(conf->notifications, deprecation);
+        }
+
         unsigned width, height;
         if (sscanf(value, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
             LOG_AND_NOTIFY_ERR(
-                "%s: %d: [default]: geometry: expected WIDTHxHEIGHT, "
-                "where both are positive integers, got '%s'",
-                path, lineno, value);
+                "%s: %d: [default]: initial-window-size-pixels: "
+                "expected WIDTHxHEIGHT, where both are positive integers, "
+                "got '%s'", path, lineno, value);
             return false;
         }
 
-        conf->width = width;
-        conf->height = height;
+        conf->size.type = CONF_SIZE_PX;
+        conf->size.px.width = width;
+        conf->size.px.height = height;
+    }
+
+    else if (strcmp(key, "initial-window-size-chars") == 0) {
+        unsigned width, height;
+        if (sscanf(value, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
+            LOG_AND_NOTIFY_ERR(
+                "%s: %d: [default]: initial-window-size-chars: "
+                "expected WIDTHxHEIGHT, where both are positive integers, "
+                "got '%s'", path, lineno, value);
+            return false;
+        }
+
+        conf->size.type = CONF_SIZE_CELLS;
+        conf->size.cells.width = width;
+        conf->size.cells.height = height;
     }
 
     else if (strcmp(key, "pad") == 0) {
@@ -1723,7 +1754,8 @@ add_default_mouse_bindings(struct config *conf)
 }
 
 bool
-config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
+config_load(struct config *conf, const char *conf_path,
+            user_notifications_t *initial_user_notifications, bool errors_are_fatal)
 {
     bool ret = false;
 
@@ -1732,8 +1764,13 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
         .shell = get_shell(),
         .title = xstrdup("foot"),
         .app_id = xstrdup("foot"),
-        .width = 700,
-        .height = 500,
+        .size = {
+            .type = CONF_SIZE_PX,
+            .px = {
+                .width = 700,
+                .height = 500,
+            },
+        },
         .pad_x = 2,
         .pad_y = 2,
         .startup_mode = STARTUP_WINDOWED,
@@ -1812,6 +1849,10 @@ config_load(struct config *conf, const char *conf_path, bool errors_are_fatal)
         .notifications = tll_init(),
     };
 
+    tll_foreach(*initial_user_notifications, it)
+        tll_push_back(conf->notifications, it->item);
+    tll_free(*initial_user_notifications);
+
     add_default_key_bindings(conf);
     add_default_search_bindings(conf);
     add_default_mouse_bindings(conf);
@@ -1889,9 +1930,7 @@ config_free(struct config conf)
     tll_free(conf.bindings.mouse);
     tll_free(conf.bindings.search);
 
-    tll_foreach(conf.notifications, it)
-        free(it->item.text);
-    tll_free(conf.notifications);
+    user_notifications_free(&conf.notifications);
 }
 
 struct config_font

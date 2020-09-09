@@ -55,7 +55,8 @@ print_usage(const char *prog_name)
         "     --maximized                        start in maximized mode\n"
         "     --fullscreen                       start in fullscreen mode\n"
         "     --login-shell                      start shell as a login shell\n"
-        "  -g,--geometry=WIDTHxHEIGHT            set initial width and height\n"
+        "  -w,--window-size-pixels=WIDTHxHEIGHT  initial width and height, in pixels (alternative to '--dimensions')\n"
+        "  -W,--window-size-chars=WIDTHxHEIGHT   initial width and height, in characters (alternative to '--geometry')\n"
         "  -s,--server[=PATH]                    run as a server (use 'footclient' to start terminals).\n"
         "                                        Without PATH, $XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock will be used.\n"
         "     --hold                             remain open after child process exits\n"
@@ -143,25 +144,27 @@ main(int argc, char *const *argv)
     const char *const prog_name = argv[0];
 
     static const struct option longopts[] =  {
-        {"config",               required_argument, NULL, 'c'},
-        {"check-config",         no_argument,       NULL, 'C'},
-        {"term",                 required_argument, NULL, 't'},
-        {"title",                required_argument, NULL, 'T'},
-        {"app-id",               required_argument, NULL, 'a'},
-        {"login-shell",          no_argument,       NULL, 'L'},
-        {"font",                 required_argument, NULL, 'f'},
-        {"geometry",             required_argument, NULL, 'g'},
-        {"server",               optional_argument, NULL, 's'},
-        {"hold",                 no_argument,       NULL, 'H'},
-        {"maximized",            no_argument,       NULL, 'm'},
-        {"fullscreen",           no_argument,       NULL, 'F'},
-        {"presentation-timings", no_argument,       NULL, 'P'}, /* Undocumented */
-        {"print-pid",            required_argument, NULL, 'p'},
-        {"log-colorize",         optional_argument, NULL, 'l'},
-        {"log-no-syslog",        no_argument,       NULL, 'S'},
-        {"version",              no_argument,       NULL, 'v'},
-        {"help",                 no_argument,       NULL, 'h'},
-        {NULL,                   no_argument,       NULL,   0},
+        {"config",                 required_argument, NULL, 'c'},
+        {"check-config",           no_argument,       NULL, 'C'},
+        {"term",                   required_argument, NULL, 't'},
+        {"title",                  required_argument, NULL, 'T'},
+        {"app-id",                 required_argument, NULL, 'a'},
+        {"login-shell",            no_argument,       NULL, 'L'},
+        {"font",                   required_argument, NULL, 'f'},
+        {"geometry",               required_argument, NULL, 'g'},  /* Deprecated */
+        {"window-size-pixels",     required_argument, NULL, 'w'},
+        {"window-size-chars",      required_argument, NULL, 'W'},
+        {"server",                 optional_argument, NULL, 's'},
+        {"hold",                   no_argument,       NULL, 'H'},
+        {"maximized",              no_argument,       NULL, 'm'},
+        {"fullscreen",             no_argument,       NULL, 'F'},
+        {"presentation-timings",   no_argument,       NULL, 'P'}, /* Undocumented */
+        {"print-pid",              required_argument, NULL, 'p'},
+        {"log-colorize",           optional_argument, NULL, 'l'},
+        {"log-no-syslog",          no_argument,       NULL, 'S'},
+        {"version",                no_argument,       NULL, 'v'},
+        {"help",                   no_argument,       NULL, 'h'},
+        {NULL,                     no_argument,       NULL,   0},
     };
 
     bool check_config = false;
@@ -171,6 +174,7 @@ main(int argc, char *const *argv)
     const char *conf_app_id = NULL;
     bool login_shell = false;
     tll(char *) conf_fonts = tll_init();
+    enum conf_size_type conf_size_type = CONF_SIZE_PX;
     int conf_width = -1;
     int conf_height = -1;
     bool as_server = false;
@@ -183,9 +187,10 @@ main(int argc, char *const *argv)
     const char *pid_file = NULL;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
     bool log_syslog = true;
+    user_notifications_t user_notifications = tll_init();
 
     while (true) {
-        int c = getopt_long(argc, argv, "+c:Ct:a:Lf:g:s::Pp:l::Svh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+c:Ct:a:Lf:g:w:W:s::Pp:l::Svh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -237,12 +242,37 @@ main(int argc, char *const *argv)
             break;
 
         case 'g': {
+            LOG_WARN("deprecated: -g,--geometry command line option. Use -w,--window-size-pixels instead");
+            struct user_notification deprecation = {
+                .kind = USER_NOTIFICATION_DEPRECATED,
+                .text = xstrdup(
+                    "\033[1m-g,--geometry\033[21m command line option. "
+                    "Use \033[1m-w,--window-size-pixels\033[21m instead"),
+            };
+            tll_push_back(user_notifications, deprecation);
+            /* FALLTHROUGH */
+        }
+        case 'w': {
             unsigned width, height;
             if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
-                fprintf(stderr, "error: invalid geometry: %s\n", optarg);
+                fprintf(stderr, "error: invalid window-size-pixels: %s\n", optarg);
                 return EXIT_FAILURE;
             }
 
+            conf_size_type = CONF_SIZE_PX;
+            conf_width = width;
+            conf_height = height;
+            break;
+        }
+
+        case 'W': {
+            unsigned width, height;
+            if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
+                fprintf(stderr, "error: invalid window-size-chars: %s\n", optarg);
+                return EXIT_FAILURE;
+            }
+
+            conf_size_type = CONF_SIZE_CELLS;
             conf_width = width;
             conf_height = height;
             break;
@@ -323,7 +353,7 @@ main(int argc, char *const *argv)
     }
 
     struct config conf = {NULL};
-    if (!config_load(&conf, conf_path, check_config)) {
+    if (!config_load(&conf, conf_path, &user_notifications, check_config)) {
         config_free(conf);
         return ret;
     }
@@ -362,10 +392,21 @@ main(int argc, char *const *argv)
             tll_push_back(conf.fonts, config_font_parse(it->item));
         tll_free(conf_fonts);
     }
-    if (conf_width > 0)
-        conf.width = conf_width;
-    if (conf_height > 0)
-        conf.height = conf_height;
+    if (conf_width > 0 && conf_height > 0) {
+        conf.size.type = conf_size_type;
+
+        switch (conf_size_type) {
+        case CONF_SIZE_PX:
+            conf.size.px.width = conf_width;
+            conf.size.px.height = conf_height;
+            break;
+
+        case CONF_SIZE_CELLS:
+            conf.size.cells.width = conf_width;
+            conf.size.cells.height = conf_height;
+            break;
+        }
+    }
     if (conf_server_socket_path != NULL) {
         free(conf.server_socket_path);
         conf.server_socket_path = xstrdup(conf_server_socket_path);

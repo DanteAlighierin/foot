@@ -56,7 +56,14 @@
   character width of 1. Must be explicitly enabled with
   `tweak.allow-overflowing-double-width-glyphs`
   (https://codeberg.org/dnkl/foot/issues/116).
-
+* **initial-window-size-pixels** options to `foot.ini` and
+  `-w,--window-size-pixels` command line option to `foot`. This option
+  replaces the now deprecated **geometry** and `-g,--geometry`
+  options.
+* **initial-window-size-chars** option to `foot.ini` and
+  `-W,--window-size-chars` command line option to `foot`. This option
+  configures the initial window size in **characters**, and is an
+  alternative to **initial-window-size-pixels**.
 
 
 ### Removed
