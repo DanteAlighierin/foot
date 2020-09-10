@@ -30,6 +30,12 @@ void selection_mark_word(
 void selection_mark_row(
     struct seat *seat, struct terminal *term, int row, uint32_t serial);
 
+void selection_clipboard_unset(struct seat *seat);
+void selection_primary_unset(struct seat *seat);
+
+bool selection_clipboard_has_data(const struct seat *seat);
+bool selection_primary_has_data(const struct seat *seat);
+
 char *selection_to_text(const struct terminal *term);
 void selection_to_clipboard(
     struct seat *seat, struct terminal *term, uint32_t serial);

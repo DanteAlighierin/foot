@@ -661,6 +661,59 @@ selection_cancel(struct terminal *term)
     term->selection.ongoing = false;
 }
 
+bool
+selection_clipboard_has_data(const struct seat *seat)
+{
+    return seat->clipboard.data_offer != NULL;
+}
+
+bool
+selection_primary_has_data(const struct seat *seat)
+{
+    return seat->primary.data_offer != NULL;
+}
+
+void
+selection_clipboard_unset(struct seat *seat)
+{
+    struct wl_clipboard *clipboard = &seat->clipboard;
+
+    if (clipboard->data_source == NULL)
+        return;
+
+    /* Kill previous data source */
+    assert(clipboard->serial != 0);
+    wl_data_device_set_selection(seat->data_device, NULL, clipboard->serial);
+    wl_data_source_destroy(clipboard->data_source);
+
+    clipboard->data_source = NULL;
+    clipboard->serial = 0;
+
+    free(clipboard->text);
+    clipboard->text = NULL;
+}
+
+void
+selection_primary_unset(struct seat *seat)
+{
+    struct wl_primary *primary = &seat->primary;
+
+    if (primary->data_source == NULL)
+        return;
+
+    assert(primary->serial != 0);
+    zwp_primary_selection_device_v1_set_selection(
+        seat->primary_selection_device, NULL, primary->serial);
+    zwp_primary_selection_source_v1_destroy(primary->data_source);
+    free(primary->text);
+
+    primary->data_source = NULL;
+    primary->serial = 0;
+
+    free(primary->text);
+    primary->text = NULL;
+}
+
 void
 selection_mark_word(struct seat *seat, struct terminal *term, int col, int row,
                     bool spaces_only, uint32_t serial)
