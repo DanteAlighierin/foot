@@ -115,6 +115,8 @@
 * Clipboard (or primary selection) is now cleared when receiving an
   OSC-52 command with an invalid base64 encoded payload.
 * Cursor position being set outside the grid when reflowing text.
+* CSD buttons to be hidden when window size becomes so small that they
+  no longer fit.
 
 
 ### Security

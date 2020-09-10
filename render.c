@@ -957,23 +957,33 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
     const int border_width = !term->window->is_maximized
         ? term->conf->csd.border_width * term->scale : 0;
 
-    const int title_height = !term->window->is_fullscreen
-        ? term->conf->csd.title_height * term->scale : 0;
+    const int title_height = term->window->is_fullscreen
+        ? 0
+        : term->conf->csd.title_height * term->scale;
 
     const int button_width = !term->window->is_fullscreen
         ? term->conf->csd.button_width * term->scale : 0;
 
+    const int button_close_width = term->width >= 1 * button_width
+        ? button_width : 0;
+
+    const int button_maximize_width = term->width >= 2 * button_width
+        ? button_width : 0;
+
+    const int button_minimize_width = term->width >= 3 * button_width
+        ? button_width : 0;
+
     switch (surf_idx) {
-    case CSD_SURF_TITLE:  return (struct csd_data){            0,                -title_height,                    term->width,                title_height};
+    case CSD_SURF_TITLE:  return (struct csd_data){            0,                -title_height,                   term->width,                 title_height};
     case CSD_SURF_LEFT:   return (struct csd_data){-border_width,                -title_height,                   border_width, title_height + term->height};
     case CSD_SURF_RIGHT:  return (struct csd_data){  term->width,                -title_height,                   border_width, title_height + term->height};
     case CSD_SURF_TOP:    return (struct csd_data){-border_width, -title_height - border_width, term->width + 2 * border_width,                border_width};
     case CSD_SURF_BOTTOM: return (struct csd_data){-border_width,                 term->height, term->width + 2 * border_width,                border_width};
 
     /* Positioned relative to CSD_SURF_TITLE */
-    case CSD_SURF_MINIMIZE: return (struct csd_data){term->width - 3 * button_width, 0, button_width, title_height};
-    case CSD_SURF_MAXIMIZE: return (struct csd_data){term->width - 2 * button_width, 0, button_width, title_height};
-    case CSD_SURF_CLOSE:    return (struct csd_data){term->width - 1 * button_width, 0, button_width, title_height};
+    case CSD_SURF_MINIMIZE: return (struct csd_data){term->width - 3 * button_width, 0, button_minimize_width, title_height};
+    case CSD_SURF_MAXIMIZE: return (struct csd_data){term->width - 2 * button_width, 0, button_maximize_width, title_height};
+    case CSD_SURF_CLOSE:    return (struct csd_data){term->width - 1 * button_width, 0, button_close_width,    title_height};
 
     case CSD_SURF_COUNT:
         assert(false);
@@ -1306,8 +1316,6 @@ render_csd(struct terminal *term)
         assert(sub != NULL);
 
         if (width == 0 || height == 0) {
-            /* CSD borders aren't rendered in maximized mode */
-            assert(term->window->is_maximized || term->window->is_fullscreen);
             wl_subsurface_set_position(sub, 0, 0);
             wl_surface_attach(surf, NULL, 0, 0);
             wl_surface_commit(surf);
