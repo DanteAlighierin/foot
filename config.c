@@ -56,7 +56,13 @@ static const uint32_t default_bright[] = {
 static const char *const binding_action_map[] = {
     [BIND_ACTION_NONE] = NULL,
     [BIND_ACTION_SCROLLBACK_UP] = "scrollback-up",
+    [BIND_ACTION_SCROLLBACK_UP_PAGE] = "scrollback-up-page",
+    [BIND_ACTION_SCROLLBACK_UP_HALF_PAGE] = "scrollback-up-half-page",
+    [BIND_ACTION_SCROLLBACK_UP_LINE] = "scrollback-up-line",
     [BIND_ACTION_SCROLLBACK_DOWN] = "scrollback-down",
+    [BIND_ACTION_SCROLLBACK_DOWN_PAGE] = "scrollback-down-page",
+    [BIND_ACTION_SCROLLBACK_DOWN_HALF_PAGE] = "scrollback-down-half-page",
+    [BIND_ACTION_SCROLLBACK_DOWN_LINE] = "scrollback-down-line",
     [BIND_ACTION_CLIPBOARD_COPY] = "clipboard-copy",
     [BIND_ACTION_CLIPBOARD_PASTE] = "clipboard-paste",
     [BIND_ACTION_PRIMARY_PASTE] = "primary-paste",
@@ -456,7 +462,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
              strcmp(key, "geometry") == 0  /* deprecated */)
     {
         if (strcmp(key, "geometry") == 0) {
-            LOG_WARN("deprecated: [default]: geometry: use 'initial-window-size-pixels' instead'");
+            LOG_WARN("deprecated: %s:%d: [default]: geometry: use 'initial-window-size-pixels' instead'", path, lineno);
 
             const char *fmt = "%s:%d: \033[1mgeometry\033[21m, use \033[1minitial-window-size-pixels\033[21m instead";
             char *text = xasprintf(fmt, path, lineno);
@@ -551,7 +557,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "scrollback") == 0) {
-        LOG_WARN("deprecated: [default]: scrollback: use 'scrollback.lines' instead'");
+        LOG_WARN("deprecated: %s:%d: [default]: scrollback: use 'scrollback.lines' instead'", path, lineno);
 
         const char *fmt = "%s:%d: \033[1mdefault.scrollback\033[21m, use \033[1mscrollback.lines\033[21m instead";
         char *text = xasprintf(fmt, path, lineno);
@@ -1032,6 +1038,44 @@ argv_compare(char *const *argv1, char *const *argv2)
     return 1;
 }
 
+static void
+maybe_deprecated_key_binding(struct config *conf,
+                             const char *section,
+                             enum bind_action_normal action,
+                             const char *path, unsigned lineno)
+{
+    enum bind_action_normal replacement = BIND_ACTION_NONE;
+
+    switch (action) {
+    case BIND_ACTION_SCROLLBACK_UP:
+        replacement = BIND_ACTION_SCROLLBACK_UP_PAGE;
+        break;
+
+    case BIND_ACTION_SCROLLBACK_DOWN:
+        replacement = BIND_ACTION_SCROLLBACK_DOWN_PAGE;
+        break;
+
+    default:
+        return;
+    }
+
+    LOG_WARN("deprecated: %s:%d: [%s]: key binding %s, use %s instead",
+             path, lineno, section,
+             binding_action_map[action], binding_action_map[replacement]);
+
+    const char *fmt = "%s:%d: [%s]: \033[1m%s\033[21m, use \033[1m%s\033[21m instead";
+    char *text = xasprintf(
+        fmt, path, lineno, section,
+        binding_action_map[action], binding_action_map[replacement]);
+
+    struct user_notification deprecation = {
+        .kind = USER_NOTIFICATION_DEPRECATED,
+        .text = text,
+    };
+    tll_push_back(conf->notifications, deprecation);
+
+}
+
 static bool
 parse_section_key_bindings(
     const char *key, const char *value, struct config *conf,
@@ -1071,6 +1115,9 @@ parse_section_key_bindings(
 
         if (strcmp(key, binding_action_map[action]) != 0)
             continue;
+
+        maybe_deprecated_key_binding(
+            conf, "key-bindings", action, path, lineno);
 
         /* Unset binding */
         if (strcasecmp(value, "none") == 0) {
@@ -1343,6 +1390,9 @@ parse_section_mouse_bindings(
 
         if (strcmp(key, binding_action_map[action]) != 0)
             continue;
+
+        maybe_deprecated_key_binding(
+            conf, "mouse-bindings", action, path, lineno);
 
         /* Unset binding */
         if (strcasecmp(value, "none") == 0) {

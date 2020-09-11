@@ -18,7 +18,11 @@
 
 * `$XDG_CONFIG_HOME/footrc`/`~/.config/footrc`. Use
   `$XDG_CONFIG_HOME/foot/foot.ini`/`~/.config/foot/foot.ini` instead.
-* **scrollback** option in `foot.ini`. Use **scrollback.lines** instead.
+* **scrollback** option in `foot.ini`. Use **scrollback.lines**
+  instead.
+* **scrollback-up** key binding. Use **scrollback-up-page** instead.
+* **scrollback-down** key binding. Use **scrollback-down-page**
+  instead.
 
 
 ### Added
@@ -64,6 +68,11 @@
   `-W,--window-size-chars` command line option to `foot`. This option
   configures the initial window size in **characters**, and is an
   alternative to **initial-window-size-pixels**.
+* **scrollback-up-half-page** and **scrollback-down-half-page** key
+  bindings. They scroll up/down half of a page in the scrollback
+  (https://codeberg.org/dnkl/foot/issues/128).
+* **scrollback-up-line** and **scrollback-down-line** key
+  bindings. They scroll up/down a single line in the scrollback.
 
 
 ### Removed
@@ -81,6 +90,7 @@
   `$XDG_CONFIG_HOME/foot/foot.ini` or in `$XDG_CONFIG_HOME/footrc`.
 * Minimum window size changed from four rows and 20 columns, to 1 row
   and 2 columns.
+* **scrollback-up/down** renamed to **scrollback-up/down-page**.
 
 
 ### Fixed

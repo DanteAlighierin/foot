@@ -88,11 +88,29 @@ execute_binding(struct seat *seat, struct terminal *term,
         return true;
 
     case BIND_ACTION_SCROLLBACK_UP:
+    case BIND_ACTION_SCROLLBACK_UP_PAGE:
         cmd_scrollback_up(term, term->rows);
         return true;
 
+    case BIND_ACTION_SCROLLBACK_UP_HALF_PAGE:
+        cmd_scrollback_up(term, max(term->rows / 2, 1));
+        return true;
+
+    case BIND_ACTION_SCROLLBACK_UP_LINE:
+        cmd_scrollback_up(term, 1);
+        return true;
+
     case BIND_ACTION_SCROLLBACK_DOWN:
+    case BIND_ACTION_SCROLLBACK_DOWN_PAGE:
         cmd_scrollback_down(term, term->rows);
+        return true;
+
+    case BIND_ACTION_SCROLLBACK_DOWN_HALF_PAGE:
+        cmd_scrollback_down(term, max(term->rows / 2, 1));
+        return true;
+
+    case BIND_ACTION_SCROLLBACK_DOWN_LINE:
+        cmd_scrollback_down(term, 1);
         return true;
 
     case BIND_ACTION_CLIPBOARD_COPY:

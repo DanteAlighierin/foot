@@ -238,11 +238,24 @@ default shortcut for *search-start*, you first need to unmap the
 default binding. This can be done by setting _action=none_;
 e.g. *search-start=none*.
 
-*scrollback-up*
-	Scrolls up/back in history. Default: _Shift+Page\_Up_.
+*scrollback-up-page*
+	Scrolls up/back one page in history. Default: _Shift+Page\_Up_.
 
-*scrollback-down*
-	Scroll down/forward in history. Default: _Shift+Page\_Down_.
+*scrollback-up-half-page*
+	Scrolls up/back half of a page in history. Default: _not set_.
+
+*scrollback-up-line*
+	Scrolls up/back a single line in history. Default: _not set_.
+
+*scrollback-down-page*
+	Scroll down/forward one page in history. Default:
+	_Shift+Page\_Down_.
+
+*scrollback-down-half-page*
+	Scroll down/forward half of a page in history. Default: _not set_.
+
+*scrollback-down-line*
+	Scroll down/forward a single line in history. Default: _not set_.
 
 *clipboard-copy*
 	Copies the current selection into the _clipboard_. Default: _Control+Shift+C_.
