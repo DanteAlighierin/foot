@@ -1442,11 +1442,17 @@ parse_section_tweak(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    if (strcmp(key, "allow-overflowing-double-width-glyphs") == 0)
+    if (strcmp(key, "allow-overflowing-double-width-glyphs") == 0) {
         conf->tweak.allow_overflowing_double_width_glyphs = str_to_bool(value);
+        if (conf->tweak.allow_overflowing_double_width_glyphs)
+            LOG_WARN("tweak: allow overflowing double-width glyphs");
+    }
 
-    else if (strcmp(key, "damage-whole-window") == 0)
+    else if (strcmp(key, "damage-whole-window") == 0) {
         conf->tweak.damage_whole_window = str_to_bool(value);
+        if (conf->tweak.damage_whole_window)
+            LOG_WARN("tweak: damage whole window");
+    }
 
     else if (strcmp(key, "render-timer") == 0) {
         if (strcmp(value, "none") == 0) {
