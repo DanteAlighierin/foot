@@ -91,6 +91,7 @@
 * Minimum window size changed from four rows and 20 columns, to 1 row
   and 2 columns.
 * **scrollback-up/down** renamed to **scrollback-up/down-page**.
+* fcft >= 2.3.0 is now required.
 
 
 ### Fixed

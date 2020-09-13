@@ -1442,7 +1442,34 @@ parse_section_tweak(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    if (strcmp(key, "allow-overflowing-double-width-glyphs") == 0) {
+    if (strcmp(key, "scaling-filter") == 0) {
+        static const struct {
+            const char *name;
+            enum fcft_scaling_filter filter;
+        } filters[] = {
+            {"none",     FCFT_SCALING_FILTER_NONE},
+            {"nearest",  FCFT_SCALING_FILTER_NEAREST},
+            {"bilinear", FCFT_SCALING_FILTER_BILINEAR},
+            {"cubic",    FCFT_SCALING_FILTER_CUBIC},
+            {"lanczos3", FCFT_SCALING_FILTER_LANCZOS3},
+        };
+
+        for (size_t i = 0; i < ALEN(filters); i++) {
+            if (strcmp(value, filters[i].name) == 0) {
+                conf->tweak.fcft_filter = filters[i].filter;
+                LOG_WARN("tweak: scaling-filter=%s", filters[i].name);
+                return true;
+            }
+        }
+
+        LOG_AND_NOTIFY_ERR(
+            "%s:%d: [tweak]: %s: invalid 'scaling-filter' value, "
+            "expected one of 'none', 'nearest', 'bilinear', 'cubic' or "
+            "'lanczos3'", path, lineno, value);
+        return false;
+    }
+
+    else if (strcmp(key, "allow-overflowing-double-width-glyphs") == 0) {
         conf->tweak.allow_overflowing_double_width_glyphs = str_to_bool(value);
         if (conf->tweak.allow_overflowing_double_width_glyphs)
             LOG_WARN("tweak: allow overflowing double-width glyphs");
@@ -1894,6 +1921,7 @@ config_load(struct config *conf, const char *conf_path,
         .hold_at_exit = false,
 
         .tweak = {
+            .fcft_filter = FCFT_SCALING_FILTER_LANCZOS3,
             .allow_overflowing_double_width_glyphs = false,
             .delayed_render_lower_ns = 500000,         /* 0.5ms */
             .delayed_render_upper_ns = 16666666 / 2,   /* half a frame period (60Hz) */

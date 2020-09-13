@@ -460,8 +460,20 @@ should not change these unless you understand what they do and note
 that changing the default values *will* print a warning when launching
 foot.
 
+Note that these options may change, or be removed at any time, without
+prior notice.
+
 When reporting bugs, please mention if, and to what, you have changed
 any of these options.
+
+*scaling-filter*
+	Overrides the default scaling filter used when down-scaling bitmap
+	fonts (e.g. emoji fonts). Possible values are *none*, *nearest*,
+	*bilinear*, *cubic* or *lanczos3*. *cubic* and *lanczos3* produce
+	the best results, but are slower (with *lanczos3* being the best
+	_and_ slowest).
+	
+	Default: _lanczos3_.
 
 *allow-overflowing-double-width-glyphs*
 	Boolean. when enabled, double width glyphs with a character width

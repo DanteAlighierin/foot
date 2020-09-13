@@ -363,6 +363,8 @@ main(int argc, char *const *argv)
         return EXIT_SUCCESS;
     }
 
+    fcft_set_scaling_filter(conf.tweak.fcft_filter);
+
     setlocale(LC_CTYPE, "");
     LOG_INFO("locale: %s", setlocale(LC_CTYPE, NULL));
     if (!locale_is_utf8()) {

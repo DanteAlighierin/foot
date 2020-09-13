@@ -160,6 +160,7 @@ struct config {
     bool hold_at_exit;
 
     struct {
+        enum fcft_scaling_filter fcft_filter;
         bool allow_overflowing_double_width_glyphs;
         bool render_timer_osd;
         bool render_timer_log;
