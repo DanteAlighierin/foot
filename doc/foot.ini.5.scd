@@ -48,7 +48,14 @@ in this order:
 *initial-window-size-chars*
 	Initial window width and height in _characters_, on the form
 	_WIDTHxHEIGHT_. Mutually exclusive to
-	*initial-window-size-pixels*. Default: _not set_.
+	*initial-window-size-pixels*.'
+	
+	Note that if you have a multi-monitor setup, with different
+	scaling factors, there is a possibility the window size will not
+	be set correctly. If that is the case, use
+	*initial-window-size-pixels* instead.
+	
+	Default: _not set_.
 
 *initial-window-mode*
 	Initial window mode for each newly spawned window: *windowed*,

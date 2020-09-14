@@ -2023,7 +2023,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     if (scale == -1) {
         /* Haven't 'entered' an output yet? */
-        scale = 1;
+        scale = term->scale;
     }
 
     width *= scale;
@@ -2050,18 +2050,19 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
                     assert(!term->window->is_fullscreen);
                     height -= term->conf->csd.title_height;
                 }
+
+                width *= scale;
+                height *= scale;
                 break;
 
             case CONF_SIZE_CELLS:
-                width = 2 * term->conf->pad_x;
-                height = 2 * term->conf->pad_y;
+                width = 2 * term->conf->pad_x * scale;
+                height = 2 * term->conf->pad_y * scale;
+
                 width += term->conf->size.cells.width * term->cell_width;
                 height += term->conf->size.cells.height * term->cell_height;
                 break;
             }
-
-            width *= scale;
-            height *= scale;
         }
     }
 
