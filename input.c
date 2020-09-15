@@ -1660,9 +1660,8 @@ mouse_scroll(struct seat *seat, int amount)
             term_mouse_up(
                 term, button, seat->mouse.row, seat->mouse.col,
                 seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
-        }
-
-        scrollback(term, amount);
+        } else
+            scrollback(term, amount);
     }
 }
 
