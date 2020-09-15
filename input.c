@@ -1624,7 +1624,8 @@ mouse_scroll(struct seat *seat, int amount)
     amount = abs(amount);
 
     if ((button == BTN_BACK || button == BTN_FORWARD) &&
-        term->grid == &term->alt && term->alt_scrolling)
+        term->grid == &term->alt && term->alt_scrolling &&
+        term->mouse_tracking == MOUSE_NONE)
     {
         /*
          * alternateScroll/faux scrolling - translate mouse
