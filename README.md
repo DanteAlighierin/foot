@@ -1,6 +1,7 @@
 # ![Logo: a terminal with a foot shaped prompt](icons/hicolor/48x48/apps/foot.png) foot
 
 The fast, lightweight and minimalistic Wayland terminal emulator.
+## Note: this is a just a mirror of the original repository located [here](https://codeberg.org/dnkl/foot0).
 
 ## Index
 
