@@ -62,7 +62,7 @@ xkb = dependency('xkbcommon')
 fontconfig = dependency('fontconfig')
 
 tllist = dependency('tllist', version: '>=1.0.4', fallback: 'tllist')
-fcft = dependency('fcft', version: ['>=2.3.0', '<3.0.0'], fallback: 'fcft')
+fcft = dependency('fcft', version: ['>=2.2.90', '<3.0.0'], fallback: 'fcft')
 
 wayland_protocols_datadir = wayland_protocols.get_pkgconfig_variable('pkgdatadir')
 
