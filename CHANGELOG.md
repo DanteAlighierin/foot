@@ -75,8 +75,8 @@
   bindings. They scroll up/down a single line in the scrollback.
 * **mouse.alternate-scroll-mode** option to `foot.ini`. This option
   controls the initial state of the _Alternate Scroll Mode_, and
-  defaults to `yes`. When enabled, mouse events are translated to
-  up/down key events in the alternate screen, letting you scroll in
+  defaults to `yes`. When enabled, mouse scroll events are translated
+  to up/down key events in the alternate screen, letting you scroll in
   e.g. `less` and other applications without enabling native mouse
   support in them (https://codeberg.org/dnkl/foot/issues/135).
 
