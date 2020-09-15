@@ -143,6 +143,24 @@ applications can change these at runtime.
 *hide-when-typing*
 	Boolean. When enabled, the mouse cursor is hidden while typing.
 
+*alternate-scroll-mode*
+	Boolean. This option controls the initial value for the _alternate
+	scroll mode_. When this mode is enabled, mouse scroll events are
+	translated to _up_/_down_ key events when displaying the alternate
+	screen.
+	
+	This lets you scroll with the mouse in e.g. pagers (like _less_)
+	without enabling native mouse support in them.
+	
+	Alternate scrolling is *not* used if the application enables
+	native mouse support.
+	
+	This option can be modified by applications at run-time using the
+	escape sequences *CSI ? 1007 h* (enable) and *CSI ? 1007 l`
+	(disable).
+	
+	Default: _yes_.
+
 
 # SECTION: colors
 

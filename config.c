@@ -764,6 +764,9 @@ parse_section_mouse(const char *key, const char *value, struct config *conf,
     if (strcmp(key, "hide-when-typing") == 0)
         conf->mouse.hide_when_typing = str_to_bool(value);
 
+    else if (strcmp(key, "alternate-scroll-mode") == 0)
+        conf->mouse.alternate_scroll_mode = str_to_bool(value);
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%d: [mouse]: %s: invalid key", path, lineno, key);
         return false;
@@ -1907,6 +1910,7 @@ config_load(struct config *conf, const char *conf_path,
         },
         .mouse = {
             .hide_when_typing = false,
+            .alternate_scroll_mode = true,
         },
         .csd = {
             .preferred = CONF_CSD_PREFER_SERVER,
