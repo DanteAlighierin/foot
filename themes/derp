@@ -1,0 +1,24 @@
+# Derp
+
+[cursor]
+color=000000 ffffff
+
+[colors]
+foreground=ffffff
+background=000000
+regular0=111111
+regular1=d36265
+regular2=aece91
+regular3=e7e18c
+regular4=5297cf
+regular5=963c59
+regular6=5e7175
+regular7=bebebe
+bright0=666666
+bright1=ef8171
+bright2=cfefb3
+bright3=fff796
+bright4=74b8ef
+bright5=b85e7b
+bright6=a3babf
+bright7=ffffff
