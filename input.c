@@ -498,6 +498,9 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     seat->kbd.mod_ctrl = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Control");
     seat->kbd.mod_meta = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Mod4");
 
+    seat->kbd.key_arrow_up = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "UP");
+    seat->kbd.key_arrow_down = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "DOWN");
+
     /* Compose (dead keys) */
     seat->kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
         seat->kbd.xkb, setlocale(LC_CTYPE, NULL), XKB_COMPOSE_COMPILE_NO_FLAGS);
@@ -1623,6 +1626,7 @@ mouse_scroll(struct seat *seat, int amount)
 
     amount = abs(amount);
 
+
     if ((button == BTN_BACK || button == BTN_FORWARD) &&
         term->grid == &term->alt && term->alt_scrolling &&
         term->mouse_tracking == MOUSE_NONE)
@@ -1632,19 +1636,14 @@ mouse_scroll(struct seat *seat, int amount)
          * "back"/"forward" to up/down keys
          */
 
-        static xkb_keycode_t key_arrow_up = 0;
-        static xkb_keycode_t key_arrow_down = 0;
+        if (seat->wl_keyboard != NULL) {
+            xkb_keycode_t key = button == BTN_BACK
+                ? seat->kbd.key_arrow_up : seat->kbd.key_arrow_down;
 
-        if (key_arrow_up == 0) {
-            key_arrow_up = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "UP");
-            key_arrow_down = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "DOWN");
+            for (int i = 0; i < amount; i++)
+                keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_DOWN);
+            keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_UP);
         }
-
-        xkb_keycode_t key = button == BTN_BACK ? key_arrow_up : key_arrow_down;
-
-        for (int i = 0; i < amount; i++)
-            keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_DOWN);
-        keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_UP);
     } else {
         if (!term_mouse_grabbed(term, seat) &&
             seat->mouse.col >= 0 && seat->mouse.row >= 0)
