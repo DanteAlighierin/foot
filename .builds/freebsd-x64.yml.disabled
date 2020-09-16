@@ -12,6 +12,7 @@ packages:
   - pixman
   - libxkbcommon
   - ncurses
+  - check
 
 sources:
   - https://codeberg.org/dnkl/foot

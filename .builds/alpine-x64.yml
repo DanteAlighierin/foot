@@ -18,6 +18,7 @@ packages:
   - ncurses
   - python3
   - py3-pip
+  - check
 
 sources:
   - https://codeberg.org/dnkl/foot
