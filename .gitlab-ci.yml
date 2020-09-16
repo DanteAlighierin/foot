@@ -8,7 +8,7 @@ before_script:
   - echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
   - apk update
   - apk add musl-dev linux-headers meson ninja gcc scdoc ncurses
-  - apk add libxkbcommon-dev pixman-dev freetype-dev fontconfig-dev
+  - apk add libxkbcommon-dev pixman-dev freetype-dev fontconfig-dev harfbuzz-dev
   - apk add wayland-dev wayland-protocols
   - apk add git
   - mkdir -p subprojects && cd subprojects
@@ -22,7 +22,7 @@ debug-x64:
   script:
     - mkdir -p bld/debug
     - cd bld/debug
-    - meson --buildtype=debug -Dfcft:test-text-shaping=true ../../
+    - meson --buildtype=debug -Dfcft:text-shaping=enabled -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
 
@@ -32,7 +32,7 @@ release-x64:
   script:
     - mkdir -p bld/release
     - cd bld/release
-    - meson --buildtype=release -Dfcft:test-text-shaping=true ../../
+    - meson --buildtype=release -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
 
@@ -42,7 +42,7 @@ debug-x86:
   script:
     - mkdir -p bld/debug
     - cd bld/debug
-    - meson --buildtype=debug -Dfcft:test-text-shaping=true ../../
+    - meson --buildtype=debug -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
 
@@ -52,7 +52,7 @@ release-x86:
   script:
     - mkdir -p bld/release
     - cd bld/release
-    - meson --buildtype=release -Dfcft:test-text-shaping=true ../../
+    - meson --buildtype=release -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
 

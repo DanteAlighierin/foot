@@ -12,6 +12,7 @@ packages:
   - wayland-protocols
   - freetype-dev
   - fontconfig-dev
+  - harfbuzz-dev
   - pixman-dev
   - libxkbcommon-dev
   - ncurses
@@ -35,12 +36,12 @@ tasks:
       ln -s ../../fcft foot/subprojects/fcft
   - debug: |
       mkdir -p bld/debug
-      meson --buildtype=debug -Dfcft:test-text-shaping=true foot bld/debug
+      meson --buildtype=debug -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true foot bld/debug
       ninja -C bld/debug -k0
       meson test -C bld/debug --print-errorlogs
   - release: |
       mkdir -p bld/release
-      meson --buildtype=minsize -Dfcft:test-text-shaping=true foot bld/release
+      meson --buildtype=minsize -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true foot bld/release
       ninja -C bld/release -k0
       meson test -C bld/release --print-errorlogs
   - codespell: |
