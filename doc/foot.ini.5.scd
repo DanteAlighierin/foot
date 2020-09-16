@@ -156,7 +156,7 @@ applications can change these at runtime.
 	native mouse support.
 	
 	This option can be modified by applications at run-time using the
-	escape sequences *CSI ? 1007 h* (enable) and *CSI ? 1007 l`
+	escape sequences *CSI ? 1007 h* (enable) and *CSI ? 1007 l*
 	(disable).
 	
 	Default: _yes_.
