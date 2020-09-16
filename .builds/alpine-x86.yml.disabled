@@ -17,7 +17,7 @@ packages:
   - pixman-dev
   - libxkbcommon-dev
   - ncurses
-  - check
+  - check-dev
 
 sources:
   - https://codeberg.org/dnkl/foot

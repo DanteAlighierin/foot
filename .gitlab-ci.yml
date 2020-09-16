@@ -11,7 +11,7 @@ before_script:
   - apk add libxkbcommon-dev pixman-dev freetype-dev fontconfig-dev harfbuzz-dev
   - apk add wayland-dev wayland-protocols
   - apk add git
-  - apk add check
+  - apk add check-dev
   - mkdir -p subprojects && cd subprojects
   - git clone https://codeberg.org/dnkl/tllist.git
   - git clone https://codeberg.org/dnkl/fcft.git
