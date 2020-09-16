@@ -37,7 +37,7 @@ release-x64:
     - cd bld/release
     - meson --buildtype=release -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
-    - ninja -v tes
+    - ninja -v test
   artifacts:
     reports:
       junit: bld/debug/meson-logs/testlog.junit.xml
