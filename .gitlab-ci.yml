@@ -22,7 +22,7 @@ debug-x64:
   script:
     - mkdir -p bld/debug
     - cd bld/debug
-    - meson --buildtype=debug ../../
+    - meson --buildtype=debug -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
 
@@ -32,7 +32,7 @@ release-x64:
   script:
     - mkdir -p bld/release
     - cd bld/release
-    - meson --buildtype=release ../../
+    - meson --buildtype=release -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
 
@@ -42,7 +42,7 @@ debug-x86:
   script:
     - mkdir -p bld/debug
     - cd bld/debug
-    - meson --buildtype=debug ../../
+    - meson --buildtype=debug -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
 
@@ -52,7 +52,7 @@ release-x86:
   script:
     - mkdir -p bld/release
     - cd bld/release
-    - meson --buildtype=release ../../
+    - meson --buildtype=release -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
 
