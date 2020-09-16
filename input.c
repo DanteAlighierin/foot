@@ -498,6 +498,9 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     seat->kbd.mod_ctrl = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Control");
     seat->kbd.mod_meta = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Mod4");
 
+    seat->kbd.key_arrow_up = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "UP");
+    seat->kbd.key_arrow_down = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "DOWN");
+
     /* Compose (dead keys) */
     seat->kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
         seat->kbd.xkb, setlocale(LC_CTYPE, NULL), XKB_COMPOSE_COMPILE_NO_FLAGS);
@@ -1611,58 +1614,53 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 }
 
 static void
+alternate_scroll(struct seat *seat, int amount, int button)
+{
+    if (seat->wl_keyboard == NULL)
+        return;
+
+    xkb_keycode_t key = button == BTN_BACK
+        ? seat->kbd.key_arrow_up : seat->kbd.key_arrow_down;
+
+    for (int i = 0; i < amount; i++)
+        keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_DOWN);
+    keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_UP);
+}
+
+static void
 mouse_scroll(struct seat *seat, int amount)
 {
     struct terminal *term = seat->mouse_focus;
     assert(term != NULL);
 
     int button = amount < 0 ? BTN_BACK : BTN_FORWARD;
-
-    void (*scrollback)(struct terminal *term, int rows)
-        = amount < 0 ? &cmd_scrollback_up : &cmd_scrollback_down;
-
     amount = abs(amount);
 
-    if ((button == BTN_BACK || button == BTN_FORWARD) &&
-        term->grid == &term->alt && term->alt_scrolling)
-    {
-        /*
-         * alternateScroll/faux scrolling - translate mouse
-         * "back"/"forward" to up/down keys
-         */
-
-        static xkb_keycode_t key_arrow_up = 0;
-        static xkb_keycode_t key_arrow_down = 0;
-
-        if (key_arrow_up == 0) {
-            key_arrow_up = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "UP");
-            key_arrow_down = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "DOWN");
+    if (term->mouse_tracking == MOUSE_NONE) {
+        if (term->grid == &term->alt) {
+            if (term->alt_scrolling)
+                alternate_scroll(seat, amount, button);
+        } else {
+            if (button == BTN_BACK)
+                cmd_scrollback_up(term, amount);
+            else
+                cmd_scrollback_down(term, amount);
         }
+    } else if (!term_mouse_grabbed(term, seat) &&
+               seat->mouse.col >= 0 && seat->mouse.row >= 0)
+    {
+        assert(seat->mouse.col < term->cols);
+        assert(seat->mouse.row < term->rows);
 
-        xkb_keycode_t key = button == BTN_BACK ? key_arrow_up : key_arrow_down;
-
-        for (int i = 0; i < amount; i++)
-            keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_DOWN);
-        keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_UP);
-    } else {
-        if (!term_mouse_grabbed(term, seat) &&
-            seat->mouse.col >= 0 && seat->mouse.row >= 0)
-        {
-            assert(seat->mouse.col < term->cols);
-            assert(seat->mouse.row < term->rows);
-
-            for (int i = 0; i < amount; i++) {
-                term_mouse_down(
-                    term, button, seat->mouse.row, seat->mouse.col,
-                    seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
-            }
-
-            term_mouse_up(
+        for (int i = 0; i < amount; i++) {
+            term_mouse_down(
                 term, button, seat->mouse.row, seat->mouse.col,
                 seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
         }
 
-        scrollback(term, amount);
+        term_mouse_up(
+            term, button, seat->mouse.row, seat->mouse.col,
+            seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
     }
 }
 
