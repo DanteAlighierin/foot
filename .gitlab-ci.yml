@@ -25,6 +25,9 @@ debug-x64:
     - meson --buildtype=debug -Dfcft:text-shaping=enabled -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
+  artifacts:
+    reports:
+      junit: bld/debug/meson-logs/testlog.junit.xml
 
 release-x64:
   image: alpine:edge
@@ -34,7 +37,10 @@ release-x64:
     - cd bld/release
     - meson --buildtype=release -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
-    - ninja -v test
+    - ninja -v tes
+  artifacts:
+    reports:
+      junit: bld/debug/meson-logs/testlog.junit.xml
 
 debug-x86:
   image: i386/alpine:edge
@@ -45,6 +51,9 @@ debug-x86:
     - meson --buildtype=debug -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
+  artifacts:
+    reports:
+      junit: bld/debug/meson-logs/testlog.junit.xml
 
 release-x86:
   image: i386/alpine:edge
@@ -55,6 +64,9 @@ release-x86:
     - meson --buildtype=release -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
+  artifacts:
+    reports:
+      junit: bld/debug/meson-logs/testlog.junit.xml
 
 codespell:
   image: alpine:edge
