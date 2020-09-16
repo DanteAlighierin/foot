@@ -13,6 +13,8 @@ packages:
   - libxkbcommon
   - ncurses
   - check
+  - ttf-hack
+  - font-noto-emoji
 
 sources:
   - https://codeberg.org/dnkl/foot

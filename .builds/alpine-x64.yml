@@ -19,6 +19,8 @@ packages:
   - python3
   - py3-pip
   - check-dev
+  - ttf-hack
+  - font-noto-emoji
 
 sources:
   - https://codeberg.org/dnkl/foot

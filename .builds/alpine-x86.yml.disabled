@@ -18,6 +18,8 @@ packages:
   - libxkbcommon-dev
   - ncurses
   - check-dev
+  - ttf-hack
+  - font-noto-emoji
 
 sources:
   - https://codeberg.org/dnkl/foot
