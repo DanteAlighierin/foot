@@ -705,7 +705,6 @@ selection_primary_unset(struct seat *seat)
     zwp_primary_selection_device_v1_set_selection(
         seat->primary_selection_device, NULL, primary->serial);
     zwp_primary_selection_source_v1_destroy(primary->data_source);
-    free(primary->text);
 
     primary->data_source = NULL;
     primary->serial = 0;
