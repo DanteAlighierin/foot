@@ -964,6 +964,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .grid = &term->normal,
         .composed_count = 0,
         .composed = NULL,
+        .alt_scrolling = conf->mouse.alternate_scroll_mode,
         .meta = {
             .esc_prefix = true,
             .eight_bit = true,

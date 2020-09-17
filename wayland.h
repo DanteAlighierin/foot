@@ -149,6 +149,9 @@ struct seat {
         xkb_mod_index_t mod_ctrl;
         xkb_mod_index_t mod_meta;
 
+        xkb_keycode_t key_arrow_up;
+        xkb_keycode_t key_arrow_down;
+
         /* Enabled modifiers */
         bool shift;
         bool alt;

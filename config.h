@@ -119,6 +119,7 @@ struct config {
 
     struct {
         bool hide_when_typing;
+        bool alternate_scroll_mode;
     } mouse;
 
     struct {
