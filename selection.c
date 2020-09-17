@@ -1010,6 +1010,7 @@ text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t
 
         clipboard->data_source = NULL;
         clipboard->serial = 0;
+        clipboard->text = NULL;
     }
 
     clipboard->data_source
@@ -1294,6 +1295,7 @@ text_to_primary(struct seat *seat, struct terminal *term, char *text, uint32_t s
 
         primary->data_source = NULL;
         primary->serial = 0;
+        primary->text = NULL;
     }
 
     primary->data_source
