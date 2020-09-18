@@ -142,6 +142,7 @@
 * [craigbarnes](https://codeberg.org/craigbarnes)
 * [birger](https://codeberg.org/birger)
 * [Ordoviz](https://codeberg.org/Ordoviz)
+* [cherti](https://codeberg.org/cherti)
 
 
 ## 1.4.4
