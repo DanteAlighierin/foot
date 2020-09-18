@@ -1,6 +1,6 @@
 # Changelog
 
-* [1.5.0](#1-5-0)
+* [Unreleased](#unreleased)
 * [1.4.4](#1-4-4)
 * [1.4.3](#1-4-3)
 * [1.4.2](#1-4-2)
@@ -12,7 +12,7 @@
 * [1.2.1](#1-2-1)
 * [1.2.0](#1-2-0)
 
-## 1.5.0
+## Unreleased
 
 ### Deprecated
 
@@ -81,6 +81,7 @@
   support in them (https://codeberg.org/dnkl/foot/issues/135).
 
 
+### Removed
 ### Changed
 
 * Renamed man page for `foot.ini` from **foot**(5) to **foot.ini**(5).
@@ -135,12 +136,12 @@
   no longer fit.
 
 
+### Security
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
 * [birger](https://codeberg.org/birger)
 * [Ordoviz](https://codeberg.org/Ordoviz)
-* [cherti](https://codeberg.org/cherti)
 
 
 ## 1.4.4
