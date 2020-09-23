@@ -2,15 +2,13 @@
 
 The fast, lightweight and minimalistic Wayland terminal emulator.
 
-## Note: this is a just a mirror of the original repository located [here](https://codeberg.org/dnkl/foot).
-
 ## Index
 
 1. [Features](#features)
 1. [Installing](#installing)
 1. [Configuration](#configuration)
 1. [Troubleshooting](#troubleshooting)
-1. [Why the name 'foot'?](#fiwhy-the-name-foot)
+1. [Why the name 'foot'?](#why-the-name-foot)
 1. [Fonts](#fonts)
 1. [Shortcuts](#shortcuts)
    1. [Keyboard](#keyboard)

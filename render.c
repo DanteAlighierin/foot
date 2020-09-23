@@ -2056,11 +2056,23 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
                 break;
 
             case CONF_SIZE_CELLS:
-                width = 2 * term->conf->pad_x * scale;
-                height = 2 * term->conf->pad_y * scale;
+                width = term->conf->size.cells.width * term->cell_width;
+                height = term->conf->size.cells.height * term->cell_height;
 
-                width += term->conf->size.cells.width * term->cell_width;
-                height += term->conf->size.cells.height * term->cell_height;
+                width += 2 * term->conf->pad_x * scale;
+                height += 2 * term->conf->pad_y * scale;
+
+                /*
+                 * Ensure we can scale to logical size, and back to
+                 * pixels without truncating.
+                 */
+                if (width % scale)
+                    width += scale - width % scale;
+                if (height % scale)
+                    height += scale - height % scale;
+
+                assert(width % scale == 0);
+                assert(height % scale == 0);
                 break;
             }
         }
