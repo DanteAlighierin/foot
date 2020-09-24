@@ -52,8 +52,8 @@ In addition to the dev variant of the packages above, you need:
 * meson
 * ninja
 * wayland protocols
-* ncurses
-* scdoc
+* ncurses (needed to generate terminfo)
+* scdoc (for man page generation)
 * [tllist](https://codeberg.org/dnkl/tllist) [^1]
 
 A note on compilers; in general, foot runs **much** faster when
