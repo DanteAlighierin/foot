@@ -317,13 +317,28 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
     while (new_grid[grid->offset] == NULL)
         grid->offset = (grid->offset + 1) & (new_rows - 1);
 
-    grid->view = view_follows ? grid->offset : viewport.row;
-
     /* Ensure all visible rows have been allocated */
     for (int r = 0; r < new_screen_rows; r++) {
         int idx = (grid->offset + r) & (new_rows - 1);
         if (new_grid[idx] == NULL)
             new_grid[idx] = grid_row_alloc(new_cols, true);
+    }
+
+    grid->view = view_follows ? grid->offset : viewport.row;
+
+    /* If enlarging the window, the old viewport may be too far down,
+     * with unallocated rows. Make sure this cannot happen */
+    while (true) {
+        int idx = (grid->view + new_screen_rows - 1) & (new_rows - 1);
+        if (new_grid[idx] != NULL)
+            break;
+        grid->view--;
+        if (grid->view < 0)
+            grid->view += new_rows;
+    }
+    for (size_t r = 0; r < new_screen_rows; r++) {
+        int idx = (grid->view + r) & (new_rows - 1);
+        assert(new_grid[idx] != NULL);
     }
 
     /* Free old grid */
