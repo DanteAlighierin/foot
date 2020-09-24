@@ -60,6 +60,9 @@ wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
 xkb = dependency('xkbcommon')
 fontconfig = dependency('fontconfig')
+scdoc = dependency('scdoc', native: true, required: get_option('with-docs'))
+
+build_and_install_docs = scdoc.found()
 
 tllist = dependency('tllist', version: '>=1.0.4', fallback: 'tllist')
 fcft = dependency('fcft', version: ['>=2.3.0', '<3.0.0'], fallback: 'fcft')
@@ -158,20 +161,23 @@ custom_target(
   install_dir: join_paths(get_option('datadir'), 'terminfo'))
 
 install_data(
-  'LICENSE', 'README.md', 'CHANGELOG.md',
-  install_dir: join_paths(get_option('datadir'), 'doc', 'foot'))
-install_data(
   'foot.desktop', 'foot-server.desktop',
   install_dir: join_paths(get_option('datadir'), 'applications'))
 install_data('foot.ini', install_dir: join_paths(get_option('datadir'), 'foot'))
 
 subdir('completions')
-subdir('doc')
 subdir('icons')
 
-# summary(
-#   {
-#     '<feature>': false,
-#   },
-#   bool_yn: true
-# )
+if build_and_install_docs
+  install_data(
+    'LICENSE', 'README.md', 'CHANGELOG.md',
+    install_dir: join_paths(get_option('datadir'), 'doc', 'foot'))
+  subdir('doc')
+endif
+
+summary(
+  {
+    'Documentation': build_and_install_docs,
+  },
+  bool_yn: true
+)
