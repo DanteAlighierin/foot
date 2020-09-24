@@ -27,6 +27,8 @@
   (https://codeberg.org/dnkl/foot/issues/146).
 * Color flashes when changing the color palette with OSC 4,10,11
   (https://codeberg.org/dnkl/foot/issues/141).
+* Scrollback position is now retained when resizing the window
+  (https://codeberg.org/dnkl/foot/issues/142).
 
 
 ### Security
