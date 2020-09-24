@@ -6,6 +6,7 @@
 #define LOG_MODULE "grid"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "macros.h"
 #include "sixel.h"
 #include "util.h"
 #include "xmalloc.h"
@@ -337,7 +338,7 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
             grid->view += new_rows;
     }
     for (size_t r = 0; r < new_screen_rows; r++) {
-        int idx = (grid->view + r) & (new_rows - 1);
+        int UNUSED idx = (grid->view + r) & (new_rows - 1);
         assert(new_grid[idx] != NULL);
     }
 
