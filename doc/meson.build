@@ -1,5 +1,6 @@
 sh = find_program('sh', native: true)
 
+scdoc = dependency('scdoc', native: true)
 scdoc_prog = find_program(scdoc.get_pkgconfig_variable('scdoc'), native: true)
 
 foreach man_src : [{'name': 'foot', 'section' : 1},

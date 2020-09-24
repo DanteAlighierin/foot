@@ -1,2 +1,0 @@
-option('with-docs', type: 'feature', value: 'enabled',
-       description: 'generate and install documentation (man pages). Requires scdoc.')

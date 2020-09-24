@@ -16,13 +16,6 @@
 
 ## Unreleased
 ### Added
-
-* `-Dwith-docs=disabled|enabled|auto` meson command line option. When
-  disabled, no documentation will be installed. This includes man
-  pages as well as `README.md`, `CHANGELOG.md` and `LICENSE`. Defaults
-  to `enabled`.
-
-
 ### Changed
 ### Deprecated
 ### Removed
