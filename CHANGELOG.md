@@ -20,6 +20,13 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Mouse bindings now match even if the actual click count is larger
+  than specified in the binding. This allows you to, for example,
+  quickly press the middle-button to paste multiple times
+  (https://codeberg.org/dnkl/foot/issues/146).
+
+
 ### Security
 ### Contributors
 
