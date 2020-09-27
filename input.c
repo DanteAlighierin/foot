@@ -1688,6 +1688,8 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
     if (seat->mouse.have_discrete)
         return;
 
+    assert(seat->mouse_focus != NULL);
+
     /*
      * Aggregate scrolled amount until we get at least 1.0
      *
@@ -1697,10 +1699,12 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
     seat->mouse.axis_aggregated
         += seat->wayl->conf->scrollback.multiplier * wl_fixed_to_double(value);
 
-    if (fabs(seat->mouse.axis_aggregated) >= 1.) {
-        mouse_scroll(seat, round(seat->mouse.axis_aggregated));
-        seat->mouse.axis_aggregated = 0.;
-    }
+    if (fabs(seat->mouse.axis_aggregated) < seat->mouse_focus->cell_height)
+        return;
+
+    int lines = seat->mouse.axis_aggregated / seat->mouse_focus->cell_height;
+    mouse_scroll(seat, lines);
+    seat->mouse.axis_aggregated -= (double)lines * seat->mouse_focus->cell_height;
 }
 
 static void
