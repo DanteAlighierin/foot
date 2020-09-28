@@ -1526,6 +1526,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                      * applications */
                     mods &= ~(1 << seat->kbd.mod_shift);
 
+                    const struct mouse_binding *match = NULL;
+
                     tll_foreach(seat->mouse.bindings, it) {
                         const struct mouse_binding *binding = &it->item;
 
@@ -1539,19 +1541,25 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                             continue;
                         }
 
-                        if  (binding->count != seat->mouse.count) {
+                        if  (binding->count > seat->mouse.count) {
                             /* Not correct click count */
                             continue;
                         }
 
+                        if (match == NULL || binding->count > match->count)
+                            match = binding;
+                    }
+
+                    if (match != NULL) {
                         seat->mouse.consumed = execute_binding(
-                            seat, term, binding->action, NULL, serial);
-                        break;
+                            seat, term, match->action, NULL, serial);
                     }
                 }
 
                 else {
                     /* Seat does NOT have a keyboard - use mouse bindings *without* modifiers */
+                    const struct config_mouse_binding *match = NULL;
+
                     tll_foreach(seat->wayl->conf->bindings.mouse, it) {
                         const struct config_mouse_binding *binding = &it->item;
 
@@ -1560,7 +1568,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                             continue;
                         }
 
-                        if (binding->count != seat->mouse.count) {
+                        if (binding->count > seat->mouse.count) {
                             /* Incorrect click count */
                             continue;
                         }
@@ -1571,9 +1579,13 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                             continue;
                         }
 
+                        if (match == NULL || binding->count > match->count)
+                            match = binding;
+                    }
+
+                    if (match != NULL) {
                         seat->mouse.consumed = execute_binding(
-                            seat, term, binding->action, NULL, serial);
-                        break;
+                            seat, term, match->action, NULL, serial);
                     }
                 }
 
