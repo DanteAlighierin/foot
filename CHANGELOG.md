@@ -25,6 +25,8 @@
   than specified in the binding. This allows you to, for example,
   quickly press the middle-button to paste multiple times
   (https://codeberg.org/dnkl/foot/issues/146).
+* Color flashes when changing the color palette with OSC 4,10,11
+  (https://codeberg.org/dnkl/foot/issues/141).
 
 
 ### Security
