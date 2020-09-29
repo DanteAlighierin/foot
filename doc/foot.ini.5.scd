@@ -99,7 +99,7 @@ in this order:
 
 *multiplier*
 	Amount to multiply mouse scrolling with. It is a decimal number,
-	i.e. fractions are allowed. Default: _1.0_.
+	i.e. fractions are allowed. Default: _3.0_.
 
 *indicator-position*
 	Configures the style of the scrollback position indicator. One of
