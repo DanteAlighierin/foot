@@ -17,6 +17,11 @@
 ## Unreleased
 ### Added
 ### Changed
+
+* Default value of the **multiplier** option in `foot.ini` from `1.0`
+  to `3.0`.
+
+
 ### Deprecated
 ### Removed
 ### Fixed
