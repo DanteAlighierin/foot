@@ -18,8 +18,8 @@
 ### Added
 ### Changed
 
-* Default value of the **multiplier** option in `foot.ini` from `1.0`
-  to `3.0`.
+* Default value of the **scrollback.multiplier** option in `foot.ini`
+  from `1.0` to `3.0`.
 
 
 ### Deprecated
