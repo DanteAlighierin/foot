@@ -1869,7 +1869,7 @@ config_load(struct config *conf, const char *conf_path,
                 .format = SCROLLBACK_INDICATOR_FORMAT_TEXT,
                 .text = wcsdup(L""),
             },
-            .multiplier = 1.,
+            .multiplier = 3.,
         },
         .colors = {
             .fg = default_foreground,
