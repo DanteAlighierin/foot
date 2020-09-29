@@ -388,6 +388,8 @@ struct terminal {
             bool title;
         } pending;
 
+        bool margins;  /* Someone explicitly requested a refresh of the margins */
+
         int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
 
         struct {
@@ -511,6 +513,9 @@ void term_damage_rows_in_view(struct terminal *term, int start, int end);
 
 void term_damage_all(struct terminal *term);
 void term_damage_view(struct terminal *term);
+
+void term_damage_cursor(struct terminal *term);
+void term_damage_margins(struct terminal *term);
 
 void term_reset_view(struct terminal *term);
 

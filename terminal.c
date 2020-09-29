@@ -1627,6 +1627,19 @@ term_damage_view(struct terminal *term)
 }
 
 void
+term_damage_cursor(struct terminal *term)
+{
+    term->grid->cur_row->cells[term->grid->cursor.point.col].attrs.clean = 0;
+    term->grid->cur_row->dirty = true;
+}
+
+void
+term_damage_margins(struct terminal *term)
+{
+    term->render.margins = true;
+}
+
+void
 term_damage_scroll(struct terminal *term, enum damage_type damage_type,
                    struct scroll_region region, int lines)
 {
