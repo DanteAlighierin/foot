@@ -1568,7 +1568,7 @@ static const struct wl_callback_listener frame_listener = {
 };
 
 static void
-grid_render(struct terminal *term, bool redraw_margins)
+grid_render(struct terminal *term)
 {
     if (term->is_shutting_down)
         return;
@@ -1588,7 +1588,7 @@ grid_render(struct terminal *term, bool redraw_margins)
     if (term->render.last_buf != buf ||
         term->flash.active || term->render.was_flashing ||
         term->is_searching != term->render.was_searching ||
-        redraw_margins)
+        term->render.margins)
     {
         if (term->render.last_buf != NULL &&
             term->render.last_buf->width == buf->width &&
@@ -1596,7 +1596,7 @@ grid_render(struct terminal *term, bool redraw_margins)
             !term->flash.active &&
             !term->render.was_flashing &&
             term->is_searching == term->render.was_searching &&
-            !redraw_margins)
+            !term->render.margins)
         {
             static bool has_warned = false;
             if (!has_warned) {
@@ -1972,13 +1972,11 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     term->window->frame_callback = NULL;
 
     bool grid = term->render.pending.grid;
-    bool margins = term->render.pending.margins;
     bool csd = term->render.pending.csd;
     bool search = term->render.pending.search;
     bool title = term->render.pending.title;
 
     term->render.pending.grid = false;
-    term->render.pending.margins = false;
     term->render.pending.csd = false;
     term->render.pending.search = false;
     term->render.pending.title = false;
@@ -1995,11 +1993,8 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     if (search && term->is_searching)
         render_search_box(term);
 
-    if ((grid || margins) &&
-        (!term->delayed_render_timer.is_armed || csd || search))
-    {
-        grid_render(term, margins);
-    }
+    if (grid && (!term->delayed_render_timer.is_armed || csd || search))
+        grid_render(term);
 }
 
 /* Move to terminal.c? */
@@ -2336,13 +2331,11 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         assert(term->window->is_configured);
 
         bool grid = term->render.refresh.grid;
-        bool margins = term->render.refresh.margins;
         bool csd = term->render.refresh.csd;
         bool search = term->render.refresh.search;
         bool title = term->render.refresh.title;
 
         term->render.refresh.grid = false;
-        term->render.refresh.margins = false;
         term->render.refresh.csd = false;
         term->render.refresh.search = false;
         term->render.refresh.title = false;
@@ -2357,12 +2350,11 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
                 render_update_title(term);
             if (search)
                 render_search_box(term);
-            if (grid || margins)
-                grid_render(term, margins);
+            if (grid)
+                grid_render(term);
         } else {
             /* Tells the frame callback to render again */
             term->render.pending.grid |= grid;
-            term->render.pending.margins |= margins;
             term->render.pending.csd |= csd;
             term->render.pending.search |= search;
             term->render.pending.title |= title;
@@ -2391,12 +2383,6 @@ void
 render_refresh(struct terminal *term)
 {
     term->render.refresh.grid = true;
-}
-
-void
-render_refresh_margins(struct terminal *term)
-{
-    term->render.refresh.margins = true;
 }
 
 void
