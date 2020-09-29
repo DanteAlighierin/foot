@@ -2386,12 +2386,6 @@ render_refresh(struct terminal *term)
 }
 
 void
-render_refresh_margins(struct terminal *term)
-{
-    term->render.refresh.margins = true;
-}
-
-void
 render_refresh_csd(struct terminal *term)
 {
     if (term->window->use_csd == CSD_YES)
