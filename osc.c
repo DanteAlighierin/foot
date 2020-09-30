@@ -589,7 +589,6 @@ osc_dispatch(struct terminal *term)
             }
         }
 
-        render_refresh(term);
         break;
     }
 
@@ -635,8 +634,7 @@ osc_dispatch(struct terminal *term)
         }
 
         term_damage_view(term);
-        render_refresh(term);
-        render_refresh_margins(term);
+        term_damage_margins(term);
         break;
     }
 
@@ -664,7 +662,8 @@ osc_dispatch(struct terminal *term)
             term->cursor_color.cursor = 0;  /* Invert fg/bg */
         else
             term->cursor_color.cursor = 1u << 31 | color;
-        render_refresh(term);
+
+        term_damage_cursor(term);
         break;
 
     case 30:  /* Set tab title */
@@ -705,7 +704,6 @@ osc_dispatch(struct terminal *term)
             }
         }
 
-        render_refresh(term);
         break;
     }
 
@@ -716,22 +714,20 @@ osc_dispatch(struct terminal *term)
         LOG_DBG("resetting foreground");
         term->colors.fg = term->colors.default_fg;
         term_damage_view(term);
-        render_refresh(term);
         break;
 
     case 111: /* Reset default text background color */
         LOG_DBG("resetting background");
         term->colors.bg = term->colors.default_bg;
         term_damage_view(term);
-        render_refresh(term);
-        render_refresh_margins(term);
+        term_damage_margins(term);
         break;
 
     case 112:
         LOG_DBG("resetting cursor color");
         term->cursor_color.text = term->default_cursor_color.text;
         term->cursor_color.cursor = term->default_cursor_color.cursor;
-        render_refresh(term);
+        term_damage_cursor(term);
         break;
 
     case 555:

@@ -373,7 +373,6 @@ struct terminal {
         /* Scheduled for rendering, as soon-as-possible */
         struct {
             bool grid;
-            bool margins;
             bool csd;
             bool search;
             bool title;
@@ -382,11 +381,12 @@ struct terminal {
         /* Scheduled for rendering, in the next frame callback */
         struct {
             bool grid;
-            bool margins;
             bool csd;
             bool search;
             bool title;
         } pending;
+
+        bool margins;  /* Someone explicitly requested a refresh of the margins */
 
         int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
 
@@ -511,6 +511,9 @@ void term_damage_rows_in_view(struct terminal *term, int start, int end);
 
 void term_damage_all(struct terminal *term);
 void term_damage_view(struct terminal *term);
+
+void term_damage_cursor(struct terminal *term);
+void term_damage_margins(struct terminal *term);
 
 void term_reset_view(struct terminal *term);
 

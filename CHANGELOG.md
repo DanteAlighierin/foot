@@ -17,6 +17,11 @@
 ## Unreleased
 ### Added
 ### Changed
+
+* Default value of the **scrollback.multiplier** option in `foot.ini`
+  from `1.0` to `3.0`.
+
+
 ### Deprecated
 ### Removed
 ### Fixed
@@ -25,6 +30,19 @@
   than specified in the binding. This allows you to, for example,
   quickly press the middle-button to paste multiple times
   (https://codeberg.org/dnkl/foot/issues/146).
+* Color flashes when changing the color palette with OSC 4,10,11
+  (https://codeberg.org/dnkl/foot/issues/141).
+* Scrollback position is now retained when resizing the window
+  (https://codeberg.org/dnkl/foot/issues/142).
+* Trackpad scrolling speed. Note that it is much slower compared to
+  previous foot versions. Use the **multiplier** option in `foot.ini`
+  if you find the new speed too slow
+  (https://codeberg.org/dnkl/foot/issues/144).
+* Trackpad scrolling speed to better match the mouse scrolling speed,
+  and to be consistent with other (Wayland) terminal emulators. Note
+  that it is (much) slower compared to previous foot versions. Use the
+  **scrollback.multiplier** option in `foot.ini` if you find the new
+  speed too slow (https://codeberg.org/dnkl/foot/issues/144).
 
 
 ### Security
