@@ -399,6 +399,10 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         term->hide_cursor = !enable;
         break;
 
+    case 45:
+        term->reverse_wrap = enable;
+        break;
+
     case 1000:
         if (enable)
             term->mouse_tracking = MOUSE_CLICK;
@@ -576,6 +580,7 @@ xtsave(struct terminal *term, unsigned param)
     }
 
     case 25: term->xtsave.show_cursor = !term->hide_cursor; break;
+    case 45: term->xtsave.reverse_wrap = term->reverse_wrap; break;
     case 1000: term->xtsave.mouse_click = term->mouse_tracking == MOUSE_CLICK; break;
     case 1001: break;
     case 1002: term->xtsave.mouse_drag = term->mouse_tracking == MOUSE_DRAG; break;

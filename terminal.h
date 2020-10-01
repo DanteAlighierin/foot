@@ -237,6 +237,7 @@ struct terminal {
     enum keypad_keys keypad_keys_mode;
     bool reverse;
     bool hide_cursor;
+    bool reverse_wrap;
     bool auto_margin;
     bool insert_mode;
     bool bracketed_paste;
@@ -256,6 +257,7 @@ struct terminal {
         uint32_t application_cursor_keys:1;
         uint32_t reverse:1;
         uint32_t show_cursor:1;
+        uint32_t reverse_wrap:1;
         uint32_t auto_margin:1;
         uint32_t cursor_blink:1;
         uint32_t insert_mode:1;
