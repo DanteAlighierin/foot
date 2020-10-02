@@ -16,6 +16,12 @@
 
 ## Unreleased
 ### Added
+
+* Implement reverse auto-wrap. This mode can be enabled/disabled with
+  `CSI ? 45 h` and `CSI `45 l`. It is disabled by default
+  (https://codeberg.org/dnkl/foot/issues/150).
+
+
 ### Changed
 
 * Default value of the **scrollback.multiplier** option in `foot.ini`
