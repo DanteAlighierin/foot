@@ -448,6 +448,16 @@ sixel_unhook(struct terminal *term)
     int pixel_rows_left = term->sixel.image.height;
     const int stride = term->sixel.image.width * sizeof(uint32_t);
 
+    /*
+     * Need to 'remember' current cursor column.
+     *
+     * If we split up the sixel (to avoid scrollback wrap-around), we
+     * will emit a carriage-return (after several linefeeds), which
+     * will reset the cursor column to 0. If we use _that_ column for
+     * the subsequent image parts, the image will look sheared.
+     */
+    const int start_col = term->grid->cursor.point.col;
+
     /* We do not allow sixels to cross the scrollback wrap-around, as
      * this makes intersection calculations much more complicated */
     while (pixel_rows_left > 0) {
@@ -478,7 +488,7 @@ sixel_unhook(struct terminal *term)
             .height = height,
             .rows = (height + term->cell_height - 1) / term->cell_height,
             .cols = (width + term->cell_width - 1) / term->cell_width,
-            .pos = (struct coord){cursor->col, cur_row},
+            .pos = (struct coord){start_col, cur_row},
         };
 
         sixel_overwrite_by_rectangle(

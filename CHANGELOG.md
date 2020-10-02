@@ -48,6 +48,9 @@
 * Background opacity when in _reverse video_ mode.
 * Crash when writing a sixel image that extends outside the terminal's
   right margin (https://codeberg.org/dnkl/foot/issues/151).
+* Sixel image at non-zero column positions getting sheared at
+  seemingly random occasions
+  (https://codeberg.org/dnkl/foot/issues/151).
 
 
 ### Security
