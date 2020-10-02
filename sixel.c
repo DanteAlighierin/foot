@@ -484,7 +484,9 @@ sixel_unhook(struct terminal *term)
         sixel_overwrite_by_rectangle(
             term, cursor->row, image.pos.col, image.rows, image.cols);
 
-        LOG_DBG("generating %dx%d pixman image at %d-%d", image.width, image.height, image.pos.row, image.pos.row + image.rows);
+        LOG_DBG("generating %dx%d pixman image at %d-%d",
+                image.width, image.height,
+                image.pos.row, image.pos.row + image.rows);
 
         image.pix = pixman_image_create_bits_no_clear(
             PIXMAN_a8r8g8b8,
