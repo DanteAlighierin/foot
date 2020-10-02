@@ -130,7 +130,10 @@ action_execute(struct terminal *term, uint8_t c)
 
     case '\b':
         /* backspace */
-        term_cursor_left(term, 1);
+        if (term->grid->cursor.lcf)
+            term->grid->cursor.lcf = false;
+        else
+            term_cursor_left(term, 1);
         break;
 
     case '\t': {
