@@ -1728,11 +1728,6 @@ term_cursor_home(struct terminal *term)
 void
 term_cursor_left(struct terminal *term, int count)
 {
-    if (unlikely(term->grid->cursor.lcf))
-        count--;
-
-    assert(count >= 0);
-
     int move_amount = min(term->grid->cursor.point.col, count);
     term->grid->cursor.point.col -= move_amount;
     assert(term->grid->cursor.point.col >= 0);

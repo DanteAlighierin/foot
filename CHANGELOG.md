@@ -43,8 +43,6 @@
   that it is (much) slower compared to previous foot versions. Use the
   **scrollback.multiplier** option in `foot.ini` if you find the new
   speed too slow (https://codeberg.org/dnkl/foot/issues/144).
-* Cursor left movements moving cursor to wrong location when cursor is
-  “beyond” the right margin.
 
 
 ### Security
