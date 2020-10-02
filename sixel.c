@@ -482,7 +482,8 @@ sixel_unhook(struct terminal *term)
         };
 
         sixel_overwrite_by_rectangle(
-            term, cursor->row, image.pos.col, image.rows, image.cols);
+            term, cursor->row, image.pos.col,
+            image.rows, min(image.cols, term->cols - image.pos.col));
 
         LOG_DBG("generating %dx%d pixman image at %d-%d",
                 image.width, image.height,
