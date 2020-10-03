@@ -1524,6 +1524,20 @@ term_font_size_adjust(struct terminal *term, double amount)
          * So we delete them.
          */
         sixel_destroy_all(term);
+    } else if (term->cell_width != old_cell_width ||
+               term->cell_height != old_cell_height)
+    {
+        tll_foreach(term->normal.sixel_images, it) {
+            struct sixel *six = &it->item;
+            six->rows = (six->height + term->cell_height - 1) / term->cell_height;
+            six->cols = (six->width + term->cell_width - 1) / term->cell_width;
+        }
+
+        tll_foreach(term->alt.sixel_images, it) {
+            struct sixel *six = &it->item;
+            six->rows = (six->height + term->cell_height - 1) / term->cell_height;
+            six->cols = (six->width + term->cell_width - 1) / term->cell_width;
+        }
     }
     return true;
 }
