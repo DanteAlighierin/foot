@@ -211,11 +211,6 @@ static void
 sixel_overwrite(struct terminal *term, struct sixel *six,
                 int row, int col, int height, int width)
 {
-    assert(row >= 0);
-    assert(row + height <= term->grid->num_rows);
-    assert(col >= 0);
-    assert(col + width <= term->grid->num_cols);
-
     int rel_above = min(max(row - six->pos.row, 0), six->rows);
     int rel_below = max(min(row + height - six->pos.row, six->rows), 0);
     int rel_left = min(max(col - six->pos.col, 0), six->cols);
@@ -315,11 +310,6 @@ static void
 _sixel_overwrite_by_rectangle(
     struct terminal *term, int row, int col, int height, int width)
 {
-    assert(row >= 0);
-    assert(row + height <= term->grid->num_rows);
-    assert(col >= 0);
-    assert(col + width <= term->grid->num_cols);
-
     const int start = row;
     const int end = row + height - 1;
 
@@ -492,8 +482,7 @@ sixel_unhook(struct terminal *term)
         };
 
         sixel_overwrite_by_rectangle(
-            term, cursor->row, image.pos.col,
-            image.rows, min(image.cols, term->cols - image.pos.col));
+            term, cursor->row, image.pos.col, image.rows, image.cols);
 
         LOG_DBG("generating %dx%d pixman image at %d-%d",
                 image.width, image.height,
