@@ -232,8 +232,6 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
         imgs[0] =  (struct sixel){
             .width = six->width,
             .height = rel_above * term->cell_height,
-            .rows = rel_above,
-            .cols = six->cols,
             .pos = six->pos,
         };
         imgs[0].data = xmalloc(imgs[0].width * imgs[0].height * sizeof(uint32_t));
@@ -244,8 +242,6 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
         imgs[1] = (struct sixel){
             .width = six->width,
             .height = six->height - rel_below * term->cell_height,
-            .rows = six->rows - rel_below,
-            .cols = six->cols,
             .pos = (struct coord){
                 six->pos.col,
                 (six->pos.row + rel_below) & (term->grid->num_rows - 1)},
@@ -261,8 +257,6 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
         imgs[2] = (struct sixel){
             .width = rel_left * term->cell_width,
             .height = min(term->cell_height, six->height - rel_above * term->cell_height),
-            .rows = 1,
-            .cols = rel_left,
             .pos = (struct coord){
                 six->pos.col,
                 (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
@@ -279,8 +273,6 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
         imgs[3] = (struct sixel){
             .width = six->width - rel_right * term->cell_width,
             .height = min(term->cell_height, six->height - rel_above * term->cell_height),
-            .rows = 1,
-            .cols = six->cols - rel_right,
             .pos = (struct coord){
                 six->pos.col + rel_right,
                 (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
@@ -296,6 +288,9 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
     for (size_t i = 0; i < sizeof(imgs) / sizeof(imgs[0]); i++) {
         if (imgs[i].data == NULL)
             continue;
+
+        imgs[i].rows = (imgs[i].height + term->cell_height - 1) / term->cell_height;
+        imgs[i].cols = (imgs[i].width + term->cell_width - 1) / term->cell_width;
 
         imgs[i].pix = pixman_image_create_bits_no_clear(
             PIXMAN_a8r8g8b8,
