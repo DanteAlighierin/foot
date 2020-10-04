@@ -192,7 +192,12 @@ verify_no_overlap(const struct terminal *term)
             pixman_region32_intersect(&intersection, &rect1, &rect2);
 
             assert(!pixman_region32_not_empty(&intersection));
+
+            pixman_region32_fini(&intersection);
+            pixman_region32_fini(&rect2);
         }
+
+        pixman_region32_fini(&rect1);
     }
 #endif
     return true;
