@@ -243,7 +243,7 @@ sixel_scroll_up(struct terminal *term, int rows)
 
         int six_start = rebase_row(term, six->pos.row);
         if (six_start < rows) {
-            sixel_destroy(six);
+            sixel_erase(term, six);
             tll_remove(term->grid->sixel_images, it);
         } else
             break;
@@ -262,7 +262,7 @@ sixel_scroll_down(struct terminal *term, int rows)
 
         int six_end = rebase_row(term, six->pos.row + six->rows - 1);
         if (six_end >= term->grid->num_rows - rows) {
-            sixel_destroy(six);
+            sixel_erase(term, six);
             tll_remove(term->grid->sixel_images, it);
         } else
             break;
