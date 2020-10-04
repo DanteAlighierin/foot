@@ -156,7 +156,7 @@ verify_no_wraparound_crossover(const struct terminal *term)
         assert(six->pos.row >= 0);
         assert(six->pos.row < term->grid->num_rows);
 
-        int end = (six->pos.row + six->rows) & (term->grid->num_rows - 1);
+        int end = (six->pos.row + six->rows - 1) & (term->grid->num_rows - 1);
         assert(end >= six->pos.row);
     }
 #endif
