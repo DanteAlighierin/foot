@@ -109,7 +109,7 @@ rebase_row(const struct terminal *term, int abs_row)
     return rebased_row;
 }
 
-static bool
+static void
 verify_list_order(const struct terminal *term)
 {
 #if defined(_DEBUG)
@@ -126,8 +126,6 @@ verify_list_order(const struct terminal *term)
         int col_count = it->item.cols;
 
         assert(row <= prev_row);
-        if (row > prev_row)
-            return false;
 
         if (row == prev_row) {
             /* Allowed to be on the same row only if their columns
@@ -135,10 +133,6 @@ verify_list_order(const struct terminal *term)
 
             assert(col + col_count <= prev_col ||
                    prev_col + prev_col_count <= col);
-
-            if (!(col + col_count <= prev_col ||
-                  prev_col + prev_col_count <= col))
-                return false;
         }
 
         prev_row = row;
@@ -147,10 +141,9 @@ verify_list_order(const struct terminal *term)
         idx++;
     }
 #endif
-    return true;
 }
 
-static bool
+static void
 verify_no_wraparound_crossover(const struct terminal *term)
 {
 #if defined(_DEBUG)
@@ -164,12 +157,9 @@ verify_no_wraparound_crossover(const struct terminal *term)
         assert(end >= six->pos.row);
     }
 #endif
-    return true;
 }
 
-#include <pixman.h>
-
-static bool
+static void
 verify_no_overlap(const struct terminal *term)
 {
 #if defined(_DEBUG)
@@ -204,15 +194,14 @@ verify_no_overlap(const struct terminal *term)
         pixman_region32_fini(&rect1);
     }
 #endif
-    return true;
 }
 
-static bool
+static void
 verify_sixels(const struct terminal *term)
 {
-    return (verify_no_wraparound_crossover(term) &&
-            verify_no_overlap(term) &&
-            verify_list_order(term));
+    verify_no_wraparound_crossover(term);
+    verify_no_overlap(term);
+    verify_list_order(term);
 }
 
 static void
