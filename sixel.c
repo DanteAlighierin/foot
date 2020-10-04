@@ -201,8 +201,8 @@ static bool
 verify_sixels(const struct terminal *term)
 {
     return (verify_no_wraparound_crossover(term) &&
-            verify_list_order(term) &&
-            verify_no_overlap(term));
+            verify_no_overlap(term) &&
+            verify_list_order(term));
 }
 
 static void
