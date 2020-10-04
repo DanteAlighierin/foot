@@ -618,11 +618,10 @@ sixel_unhook(struct terminal *term)
             image.width, image.height,
             img_data, stride);
 
-
+        /* Allocate space *first*, then insert */
         for (size_t i = 0; i < image.rows; i++)
             term_linefeed(term);
         term_carriage_return(term);
-        render_refresh(term);
 
         sixel_insert(term, image);
 
@@ -635,6 +634,8 @@ sixel_unhook(struct terminal *term)
     term->sixel.image.height = 0;
     term->sixel.max_col = 0;
     term->sixel.pos = (struct coord){0, 0};
+
+    render_refresh(term);
 }
 
 static unsigned
