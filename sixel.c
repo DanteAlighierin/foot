@@ -518,7 +518,6 @@ sixel_cell_size_changed(struct terminal *term)
         six->rows = (six->height + term->cell_height - 1) / term->cell_height;
         six->cols = (six->width + term->cell_width - 1) / term->cell_width;
     }
-    verify_sixels(term);
 
     term->grid = &term->alt;
     tll_foreach(term->alt.sixel_images, it) {
@@ -526,7 +525,6 @@ sixel_cell_size_changed(struct terminal *term)
         six->rows = (six->height + term->cell_height - 1) / term->cell_height;
         six->cols = (six->width + term->cell_width - 1) / term->cell_width;
     }
-    verify_sixels(term);
 
     term->grid = g;
 }
