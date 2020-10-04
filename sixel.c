@@ -372,22 +372,25 @@ _sixel_overwrite_by_rectangle(
     const int start = row;
     const int end = row + height - 1;
 
+    /* We should never generate scrollback wrapping sixels */
+    assert(end < term->grid->num_rows);
+
     const int scrollback_rel_start = rebase_row(term, start);
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
 
         const int six_start = six->pos.row;
-        const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
+        const int six_end = (six_start + six->rows - 1);
         const int six_scrollback_rel_end = rebase_row(term, six_end);
+
+        /* We should never generate scrollback wrapping sixels */
+        assert(six_end < term->grid->num_rows);
 
         if (six_scrollback_rel_end < scrollback_rel_start) {
             /* All remaining sixels are *before* our rectangle */
             break;
         }
-
-        /* We should never generate scrollback wrapping sixels */
-        assert(six_end >= six_start);
 
         if ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
             (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
