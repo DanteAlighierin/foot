@@ -537,7 +537,7 @@ sixel_reflow(struct terminal *term)
 
             if (end < start) {
                 /* Crosses scrollback wrap-around */
-                /* TOOD: split image */
+                /* TODO: split image */
                 sixel_destroy(six);
                 continue;
             }
