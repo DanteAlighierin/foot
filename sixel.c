@@ -509,6 +509,54 @@ sixel_cell_size_changed(struct terminal *term)
 }
 
 void
+sixel_reflow(struct terminal *term)
+{
+    struct grid *g = term->grid;
+
+    for (size_t i = 0; i < 2; i++) {
+        struct grid *grid = i == 0 ? &term->normal : &term->alt;
+
+        term->grid = grid;
+
+        /* Need the “real” list to be empty from the beginning */
+        tll(struct sixel) copy = tll_init();
+        tll_foreach(grid->sixel_images, it)
+            tll_push_back(copy, it->item);
+        tll_free(grid->sixel_images);
+
+        tll_rforeach(copy, it) {
+            struct sixel *six = &it->item;
+            int start = six->pos.row;
+            int end = (start + six->rows - 1) & (grid->num_rows - 1);
+
+            if (end < start) {
+                /* Crosses scrollback wrap-around */
+                /* TOOD: split image */
+                sixel_destroy(six);
+                continue;
+            }
+
+            if (six->rows > grid->num_rows) {
+                /* Image too large */
+                /* TODO: keep bottom part? */
+                sixel_destroy(six);
+                continue;
+            }
+
+            /* Sixels that didn’t overlap may now do so, which isn’t
+             * allowed of course */
+            _sixel_overwrite_by_rectangle(
+                term, six->pos.row, six->pos.col, six->rows, six->cols);
+            sixel_insert(term, it->item);
+        }
+
+        tll_free(copy);
+    }
+
+    term->grid = g;
+}
+
+void
 sixel_unhook(struct terminal *term)
 {
     int pixel_row_idx = 0;
