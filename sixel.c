@@ -485,6 +485,30 @@ sixel_overwrite_at_cursor(struct terminal *term, int width)
 }
 
 void
+sixel_cell_size_changed(struct terminal *term)
+{
+    struct grid *g = term->grid;
+
+    term->grid = &term->normal;
+    tll_foreach(term->normal.sixel_images, it) {
+        struct sixel *six = &it->item;
+        six->rows = (six->height + term->cell_height - 1) / term->cell_height;
+        six->cols = (six->width + term->cell_width - 1) / term->cell_width;
+    }
+    verify_sixels(term);
+
+    term->grid = &term->alt;
+    tll_foreach(term->alt.sixel_images, it) {
+        struct sixel *six = &it->item;
+        six->rows = (six->height + term->cell_height - 1) / term->cell_height;
+        six->cols = (six->width + term->cell_width - 1) / term->cell_width;
+    }
+    verify_sixels(term);
+
+    term->grid = g;
+}
+
+void
 sixel_unhook(struct terminal *term)
 {
     int pixel_row_idx = 0;

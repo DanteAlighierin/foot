@@ -16,6 +16,7 @@ void sixel_destroy_all(struct terminal *term);
 void sixel_scroll_up(struct terminal *term, int rows);
 void sixel_scroll_down(struct terminal *term, int rows);
 
+void sixel_cell_size_changed(struct terminal *term);
 /*
  * Remove sixel data from the specified location. Used when printing
  * or erasing characters, and when emitting new sixel images, to
