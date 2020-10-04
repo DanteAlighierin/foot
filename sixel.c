@@ -246,11 +246,21 @@ sixel_scroll_up(struct terminal *term, int rows)
         struct sixel *six = &it->item;
 
         int six_start = rebase_row(term, six->pos.row);
+
         if (six_start < rows) {
             sixel_erase(term, six);
             tll_remove(term->grid->sixel_images, it);
-        } else
-            break;
+        } else {
+            /*
+             * Unfortunately, we cannot break here.
+             *
+             * The sixels are sorted on their *end* row. This means
+             * there may be a sixel with a top row that will be
+             * scrolled out *anywhere* in the list (think of a huuuuge
+             * sixel that covers the entire scrollback)
+             */
+            //break;
+        }
     }
 
     verify_sixels(term);
