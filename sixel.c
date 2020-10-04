@@ -188,6 +188,7 @@ verify_no_overlap(const struct terminal *term)
                 six2->pos.row, six2->cols, six2->rows);
 
             pixman_region32_t intersection;
+            pixman_region32_init(&intersection);
             pixman_region32_intersect(&intersection, &rect1, &rect2);
 
             assert(!pixman_region32_not_empty(&intersection));
