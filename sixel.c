@@ -110,7 +110,7 @@ rebase_row(const struct terminal *term, int abs_row)
 }
 
 static bool
-verify_sixel_list_order(const struct terminal *term)
+verify_list_order(const struct terminal *term)
 {
 #if defined(_DEBUG)
     int prev_row = INT_MAX;
@@ -146,6 +146,65 @@ verify_sixel_list_order(const struct terminal *term)
     return true;
 }
 
+static bool
+verify_no_wraparound_crossover(const struct terminal *term)
+{
+#if defined(_DEBUG)
+    tll_foreach(term->grid->sixel_images, it) {
+        const struct sixel *six = &it->item;
+
+        assert(six->pos.row >= 0);
+        assert(six->pos.row < term->grid->num_rows);
+
+        int end = (six->pos.row + six->rows) & (term->grid->num_rows - 1);
+        assert(end >= six->pos.row);
+    }
+#endif
+    return true;
+}
+
+#include <pixman.h>
+
+static bool
+verify_no_overlap(const struct terminal *term)
+{
+#if defined(_DEBUG)
+    tll_foreach(term->grid->sixel_images, it) {
+        const struct sixel *six1 = &it->item;
+
+        pixman_region32_t rect1;
+        pixman_region32_init_rect(
+            &rect1, six1->pos.col, six1->pos.row, six1->cols, six1->rows);
+
+        tll_foreach(term->grid->sixel_images, it2) {
+            const struct sixel *six2 = &it2->item;
+
+            if (six1 == six2)
+                continue;
+
+            pixman_region32_t rect2;
+            pixman_region32_init_rect(
+                &rect2, six2->pos.col,
+                six2->pos.row, six2->cols, six2->rows);
+
+            pixman_region32_t intersection;
+            pixman_region32_intersect(&intersection, &rect1, &rect2);
+
+            assert(!pixman_region32_not_empty(&intersection));
+        }
+    }
+#endif
+    return true;
+}
+
+static bool
+verify_sixels(const struct terminal *term)
+{
+    return (verify_no_wraparound_crossover(term) &&
+            verify_list_order(term) &&
+            verify_no_overlap(term));
+}
+
 static void
 sixel_insert(struct terminal *term, struct sixel sixel)
 {
@@ -166,9 +225,8 @@ out:
     tll_foreach(term->grid->sixel_images, it) {
         LOG_DBG("  rows=%d+%d", it->item.pos.row, it->item.rows);
     }
-#else
-    verify_sixel_list_order(term);
 #endif
+    verify_sixels(term);
 }
 
 void
@@ -185,7 +243,7 @@ sixel_scroll_up(struct terminal *term, int rows)
             break;
     }
 
-    verify_sixel_list_order(term);
+    verify_sixels(term);
 }
 
 void
@@ -204,7 +262,7 @@ sixel_scroll_down(struct terminal *term, int rows)
             break;
     }
 
-    verify_sixel_list_order(term);
+    verify_sixels(term);
 }
 
 static void
