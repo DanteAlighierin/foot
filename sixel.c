@@ -658,6 +658,9 @@ sixel_unhook(struct terminal *term)
     term->sixel.max_col = 0;
     term->sixel.pos = (struct coord){0, 0};
 
+    LOG_DBG("you now have %zu sixels in current grid",
+            tll_length(term->grid->sixel_images));
+
     render_refresh(term);
 }
 
