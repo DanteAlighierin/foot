@@ -242,6 +242,9 @@ out:
 void
 sixel_scroll_up(struct terminal *term, int rows)
 {
+    if (likely(tll_length(term->grid->sixel_images) == 0))
+        return;
+
     tll_rforeach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
 
@@ -269,6 +272,9 @@ sixel_scroll_up(struct terminal *term, int rows)
 void
 sixel_scroll_down(struct terminal *term, int rows)
 {
+    if (likely(tll_length(term->grid->sixel_images) == 0))
+        return;
+
     assert(term->grid->num_rows >= rows);
 
     tll_foreach(term->grid->sixel_images, it) {
