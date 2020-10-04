@@ -117,6 +117,9 @@ verify_list_order(const struct terminal *term)
     int prev_col = -1;
     int prev_col_count = 0;
 
+    /* To aid debugging */
+    size_t idx = 0;
+
     tll_foreach(term->grid->sixel_images, it) {
         int row = rebase_row(term, it->item.pos.row + it->item.rows - 1);
         int col = it->item.pos.col;
@@ -141,6 +144,7 @@ verify_list_order(const struct terminal *term)
         prev_row = row;
         prev_col = col;
         prev_col_count = col_count;
+        idx++;
     }
 #endif
     return true;
