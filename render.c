@@ -20,6 +20,7 @@
 #include "grid.h"
 #include "quirks.h"
 #include "selection.h"
+#include "sixel.h"
 #include "shm.h"
 #include "util.h"
 #include "xmalloc.h"
@@ -2196,6 +2197,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     term->cols = new_cols;
     term->rows = new_rows;
+
+    sixel_reflow(term);
 
     LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d "
             "(left-margin=%d, right-margin=%d, top-margin=%d, bottom-margin=%d)",
