@@ -99,6 +99,15 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
     sixel_destroy(sixel);
 }
 
+/*
+ * Calculates the scrollback relative row number, given an absolute row number.
+ *
+ * The scrollback relative row number 0 is the *first*, and *oldest*
+ * row in the scrollback history (and thus the *first* row to be
+ * scrolled out). Thus, a higher number means further *down* in the
+ * scrollback, with the *highest* number being at the bottom of the
+ * screen, where new input appears.
+ */
 static int
 rebase_row(const struct terminal *term, int abs_row)
 {
@@ -109,6 +118,12 @@ rebase_row(const struct terminal *term, int abs_row)
     return rebased_row;
 }
 
+/*
+ * Verify the sixels are sorted correctly.
+ *
+ * The sixels are sorted on their *end* row, in descending order. This
+ * invariant means the most recent sixels appear first in the list.
+ */
 static void
 verify_list_order(const struct terminal *term)
 {
@@ -143,6 +158,11 @@ verify_list_order(const struct terminal *term)
 #endif
 }
 
+/*
+ * Verifies there aren't any sixels that cross the scrollback
+ * wrap-around. This invariant means a sixel's absolute row numbers
+ * are strictly increasing.
+ */
 static void
 verify_no_wraparound_crossover(const struct terminal *term)
 {
@@ -159,6 +179,9 @@ verify_no_wraparound_crossover(const struct terminal *term)
 #endif
 }
 
+/*
+ * Verifies no sixel overlap with any other sixels.
+ */
 static void
 verify_no_overlap(const struct terminal *term)
 {
