@@ -643,6 +643,29 @@ sixel_reflow(struct terminal *term)
                 continue;
             }
 
+            /* Drop sixels that now cross the current scrollback end
+             * border. This is similar to a sixel that have been
+             * scrolled out */
+            /* TODO: should be possible to optimize this */
+            bool sixel_destroyed = false;
+            int last_row = -1;
+
+            for (int j = 0; j < six->rows; j++) {
+                int row_no = rebase_row(term, six->pos.row + j);
+                if (last_row != -1 && last_row >= row_no) {
+                    sixel_destroy(six);
+                    sixel_destroyed = true;
+                    break;
+                }
+
+                last_row = row_no;
+            }
+
+            if (sixel_destroyed) {
+                LOG_WARN("destroyed sixel that now crossed history");
+                continue;
+            }
+
             /* Sixels that didn’t overlap may now do so, which isn’t
              * allowed of course */
             _sixel_overwrite_by_rectangle(
