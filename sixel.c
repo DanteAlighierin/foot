@@ -427,6 +427,13 @@ static void
 _sixel_overwrite_by_rectangle(
     struct terminal *term, int row, int col, int height, int width)
 {
+    verify_sixels(term);
+
+#if defined(_DEBUG)
+    pixman_region32_t overwrite_rect;
+    pixman_region32_init_rect(&overwrite_rect, col, row, width, height);
+#endif
+
     const int start = row;
     const int end = row + height - 1;
 
@@ -434,6 +441,8 @@ _sixel_overwrite_by_rectangle(
     assert(end < term->grid->num_rows);
 
     const int scrollback_rel_start = rebase_row(term, start);
+
+    bool UNUSED would_have_breaked = false;
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
@@ -447,8 +456,22 @@ _sixel_overwrite_by_rectangle(
 
         if (six_scrollback_rel_end < scrollback_rel_start) {
             /* All remaining sixels are *before* our rectangle */
+            would_have_breaked = true;
             break;
         }
+
+#if defined(_DEBUG)
+        pixman_region32_t six_rect;
+        pixman_region32_init_rect(&six_rect, six->pos.col, six->pos.row, six->cols, six->rows);
+
+        pixman_region32_t intersection;
+        pixman_region32_init(&intersection);
+        pixman_region32_intersect(&intersection, &six_rect, &overwrite_rect);
+
+        const bool collides = pixman_region32_not_empty(&intersection);
+#else
+        const bool UNUSED collides = false;
+#endif
 
         if ((start <= six_start && end >= six_start) ||  /* Crosses sixel start boundary */
             (start <= six_end && end >= six_end) ||      /* Crosses sixel end boundary */
@@ -461,14 +484,27 @@ _sixel_overwrite_by_rectangle(
                 (col <= col_end && col + width - 1 >= col_end) ||
                 (col >= col_start && col + width - 1 <= col_end))
             {
+                assert(!would_have_breaked);
+
                 struct sixel to_be_erased = *six;
                 tll_remove(term->grid->sixel_images, it);
 
                 sixel_overwrite(term, &to_be_erased, start, col, height, width);
                 sixel_erase(term, &to_be_erased);
-            }
-        }
+            } else
+                assert(!collides);
+        } else
+            assert(!collides);
+
+#if defined(_DEBUG)
+        pixman_region32_fini(&intersection);
+        pixman_region32_fini(&six_rect);
+#endif
     }
+
+#if defined(_DEBUG)
+    pixman_region32_fini(&overwrite_rect);
+#endif
 }
 
 void
