@@ -180,6 +180,31 @@ verify_no_wraparound_crossover(const struct terminal *term)
 }
 
 /*
+ * Verify there aren't any sixels that cross the scrollback end. This
+ * invariant means a sixel's rebased row numbers are strictly
+ * increasing.
+ */
+static void
+verify_scrollback_consistency(const struct terminal *term)
+{
+#if defined(_DEBUG)
+    tll_foreach(term->grid->sixel_images, it) {
+        const struct sixel *six = &it->item;
+
+        int last_row = -1;
+        for (int i = 0; i < six->rows; i++) {
+            int row_no = rebase_row(term, six->pos.row + i);
+
+            if (last_row != -1)
+                assert(last_row < row_no);
+
+            last_row = row_no;
+        }
+    }
+#endif
+}
+
+/*
  * Verifies no sixel overlap with any other sixels.
  */
 static void
@@ -223,6 +248,7 @@ static void
 verify_sixels(const struct terminal *term)
 {
     verify_no_wraparound_crossover(term);
+    verify_scrollback_consistency(term);
     verify_no_overlap(term);
     verify_list_order(term);
 }
