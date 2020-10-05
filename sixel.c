@@ -333,93 +333,92 @@ static void
 sixel_overwrite(struct terminal *term, struct sixel *six,
                 int row, int col, int height, int width)
 {
-    int rel_above = min(max(row - six->pos.row, 0), six->rows);
-    int rel_below = max(min(row + height - six->pos.row, six->rows), 0);
-    int rel_left = min(max(col - six->pos.col, 0), six->cols);
-    int rel_right = max(min(col + width - six->pos.col, six->cols), 0);
+    pixman_region32_t six_rect;
+    pixman_region32_init_rect(
+        &six_rect,
+        six->pos.col * term->cell_width, six->pos.row * term->cell_height,
+        six->width, six->height);
 
-    assert(rel_above >= 0);
-    assert(rel_below >= 0);
-    assert(rel_left >= 0);
-    assert(rel_right >= 0);
+    pixman_region32_t overwrite_rect;
+    pixman_region32_init_rect(
+        &overwrite_rect,
+        col * term->cell_width, row * term->cell_height,
+        width * term->cell_width, height * term->cell_height);
 
-    LOG_DBG("SPLIT: six (%p): %dx%d-%dx%d, %dx%d-%dx%d, rel: above=%d, below=%d, left=%d, right=%d",
-            (void *)six, six->pos.row, six->pos.col, six->rows, six->cols,
-            row, col, height, width,
-            rel_above, rel_below, rel_left, rel_right);
+#if defined(_DEBUG)
+    pixman_region32_t intersection;
+    pixman_region32_init(&intersection);
+    pixman_region32_intersect(&intersection, &six_rect, &overwrite_rect);
+    assert(pixman_region32_not_empty(&intersection));
+    pixman_region32_fini(&intersection);
+#endif
 
-    struct sixel imgs[4] = {0};
+    pixman_region32_t diff;
+    pixman_region32_init(&diff);
+    pixman_region32_subtract(&diff, &six_rect, &overwrite_rect);
 
-    if (rel_above > 0) {
-        imgs[0] =  (struct sixel){
-            .width = six->width,
-            .height = rel_above * term->cell_height,
-            .pos = six->pos,
-        };
-        imgs[0].data = xmalloc(imgs[0].width * imgs[0].height * sizeof(uint32_t));
-        memcpy(imgs[0].data, six->data, imgs[0].width * imgs[0].height * sizeof(uint32_t));
-    }
+    pixman_region32_fini(&six_rect);
+    pixman_region32_fini(&overwrite_rect);
 
-    if (rel_below < six->rows) {
-        imgs[1] = (struct sixel){
-            .width = six->width,
-            .height = six->height - rel_below * term->cell_height,
-            .pos = (struct coord){
-                six->pos.col,
-                (six->pos.row + rel_below) & (term->grid->num_rows - 1)},
-        };
-        imgs[1].data = xmalloc(imgs[1].width * imgs[1].height * sizeof(uint32_t));
-        memcpy(
-            imgs[1].data,
-            &((const uint32_t *)six->data)[rel_below * term->cell_height * six->width],
-            imgs[1].width * imgs[1].height * sizeof(uint32_t));
-    }
+    int n_rects = -1;
+    pixman_box32_t *boxes = pixman_region32_rectangles(&diff, &n_rects);
 
-    if (rel_left > 0) {
-        imgs[2] = (struct sixel){
-            .width = rel_left * term->cell_width,
-            .height = min(term->cell_height, six->height - rel_above * term->cell_height),
-            .pos = (struct coord){
-                six->pos.col,
-                (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
-        };
-        imgs[2].data = xmalloc(imgs[2].width * imgs[2].height * sizeof(uint32_t));
-        for (size_t i = 0; i < imgs[2].height; i++)
+    for (int i = 0; i < n_rects; i++) {
+        LOG_DBG("box #%d: x1=%d, y1=%d, x2=%d, y2=%d", i,
+                boxes[i].x1, boxes[i].y1, boxes[i].x2, boxes[i].y2);
+
+        assert(boxes[i].x1 % term->cell_width == 0);
+        assert(boxes[i].y1 % term->cell_height == 0);
+
+        /* New image's position, in cells */
+        const int new_col = boxes[i].x1 / term->cell_width;
+        const int new_row = boxes[i].y1 / term->cell_height;
+
+        assert(new_row < term->grid->num_rows);
+
+        /* New image's width and height, in pixels */
+        const int new_width = boxes[i].x2 - boxes[i].x1;
+        const int new_height = boxes[i].y2 - boxes[i].y1;
+
+        uint32_t *new_data = xmalloc(new_width * new_height * sizeof(uint32_t));
+        const uint32_t *old_data = six->data;
+
+        /* Pixel offsets into old image backing memory */
+        const int x_ofs = boxes[i].x1 - six->pos.col * term->cell_width;
+        const int y_ofs = boxes[i].y1 - six->pos.row * term->cell_height;
+
+        /* Copy image data, one row at a time */
+        for (size_t j = 0; j < new_height; j++) {
             memcpy(
-                &((uint32_t *)imgs[2].data)[i * imgs[2].width],
-                &((const uint32_t *)six->data)[(rel_above * term->cell_height + i) * six->width],
-                imgs[2].width * sizeof(uint32_t));
-    }
+                &new_data[(0 + j) * new_width],
+                &old_data[(y_ofs + j) * six->width + x_ofs],
+                new_width * sizeof(uint32_t));
+        }
 
-    if (rel_right < six->cols) {
-        imgs[3] = (struct sixel){
-            .width = six->width - rel_right * term->cell_width,
-            .height = min(term->cell_height, six->height - rel_above * term->cell_height),
-            .pos = (struct coord){
-                six->pos.col + rel_right,
-                (six->pos.row + rel_above) & (term->grid->num_rows - 1)},
-        };
-        imgs[3].data = xmalloc(imgs[3].width * imgs[3].height * sizeof(uint32_t));
-        for (size_t i = 0; i < imgs[3].height; i++)
-            memcpy(
-                &((uint32_t *)imgs[3].data)[i * imgs[3].width],
-                &((const uint32_t *)six->data)[(rel_above * term->cell_height + i) * six->width + rel_right * term->cell_width],
-                imgs[3].width * sizeof(uint32_t));
-    }
-
-    for (size_t i = 0; i < sizeof(imgs) / sizeof(imgs[0]); i++) {
-        if (imgs[i].data == NULL)
-            continue;
-
-        imgs[i].rows = (imgs[i].height + term->cell_height - 1) / term->cell_height;
-        imgs[i].cols = (imgs[i].width + term->cell_width - 1) / term->cell_width;
-
-        imgs[i].pix = pixman_image_create_bits_no_clear(
+        pixman_image_t *new_pix = pixman_image_create_bits_no_clear(
             PIXMAN_a8r8g8b8,
-            imgs[i].width, imgs[i].height,
-            imgs[i].data, imgs[i].width * sizeof(uint32_t));
-        sixel_insert(term, imgs[i]);
+            new_width, new_height, new_data, new_width * sizeof(uint32_t));
+
+        struct sixel new_six = {
+            .data = new_data,
+            .pix = new_pix,
+            .width = new_width,
+            .height = new_height,
+            .pos = {.col = new_col, .row = new_row},
+            .cols = (new_width + term->cell_width - 1) / term->cell_width,
+            .rows = (new_height + term->cell_height - 1) / term->cell_height,
+        };
+
+#if defined(_DEBUG)
+        /* Assert we don't cross the scrollback wrap-around */
+        const int new_end = new_six.pos.row + new_six.rows - 1;
+        assert(new_end < term->grid->num_rows);
+#endif
+
+        sixel_insert(term, new_six);
     }
+
+    pixman_region32_fini(&diff);
 }
 
 /* Row numbers are absolute */
