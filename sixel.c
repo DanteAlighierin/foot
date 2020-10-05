@@ -706,8 +706,8 @@ sixel_unhook(struct terminal *term)
             .pos = (struct coord){start_col, cur_row},
         };
 
-        sixel_overwrite_by_rectangle(
-            term, cursor->row, image.pos.col, image.rows, image.cols);
+        assert(image.rows < term->grid->num_rows);
+        assert(image.pos.row + image.rows - 1 < term->grid->num_rows);
 
         LOG_DBG("generating %dx%d pixman image at %d-%d",
                 image.width, image.height,
@@ -722,6 +722,9 @@ sixel_unhook(struct terminal *term)
         for (size_t i = 0; i < image.rows; i++)
             term_linefeed(term);
         term_carriage_return(term);
+
+        _sixel_overwrite_by_rectangle(
+            term, image.pos.row, image.pos.col, image.rows, image.cols);
 
         sixel_insert(term, image);
 
