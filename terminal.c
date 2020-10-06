@@ -1735,7 +1735,7 @@ term_cursor_left(struct terminal *term, int count)
 
     /* Reverse wrap */
     if (unlikely(new_col < 0)) {
-        if (unlikely(term->reverse_wrap && term->auto_margin)) {
+        if (likely(term->reverse_wrap && term->auto_margin)) {
 
             /* Number of rows to reverse wrap through */
             int row_count = (abs(new_col) - 1) / term->cols + 1;
