@@ -29,7 +29,8 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 
 ## Features
 
-* Fast (see [benchmarks](doc/benchmark.md))
+* Fast (see [benchmarks](doc/benchmark.md), and
+  [performance](https://codeberg.org/dnkl/foot/wiki/Performance))
 * Lightweight, in dependencies, on-disk and in-memory
 * Wayland native
 * DE agnostic
