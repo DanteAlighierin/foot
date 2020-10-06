@@ -904,6 +904,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
                           : FCFT_SUBPIXEL_NONE),
         .cursor_keys_mode = CURSOR_KEYS_NORMAL,
         .keypad_keys_mode = KEYPAD_NUMERICAL,
+        .reverse_wrap = true,
         .auto_margin = true,
         .window_title_stack = tll_init(),
         .scale = 1,
@@ -1394,6 +1395,7 @@ term_reset(struct terminal *term, bool hard)
     term->keypad_keys_mode = KEYPAD_NUMERICAL;
     term->reverse = false;
     term->hide_cursor = false;
+    term->reverse_wrap = true;
     term->auto_margin = true;
     term->insert_mode = false;
     term->bracketed_paste = false;
