@@ -51,6 +51,8 @@
 * Sixel image at non-zero column positions getting sheared at
   seemingly random occasions
   (https://codeberg.org/dnkl/foot/issues/151).
+* Crash after either resizing a window or changing the font size if
+  there were sixels present in the scrollback while doing so.
 
 
 ### Security
