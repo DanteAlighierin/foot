@@ -1673,6 +1673,11 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
             continue;
         }
 
+        if (section >= SECTION_COUNT) {
+            /* Last section name was invalid; ignore all keys in it */
+            continue;
+        }
+
         char *key = strtok(key_value, "=");
         if (key == NULL) {
             LOG_AND_NOTIFY_ERR("%s:%d: syntax error: no key specified", path, lineno);
@@ -1710,6 +1715,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
 
         LOG_DBG("section=%s, key='%s', value='%s', comment='%s'",
                 section_info[section].name, key, value, comment);
+
+        assert(section >= 0 && section < SECTION_COUNT);
 
         parser_fun_t section_parser = section_info[section].fun;
         assert(section_parser != NULL);

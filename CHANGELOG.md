@@ -50,6 +50,8 @@
   that it is (much) slower compared to previous foot versions. Use the
   **scrollback.multiplier** option in `foot.ini` if you find the new
   speed too slow (https://codeberg.org/dnkl/foot/issues/144).
+* Crash when `foot.ini` contains an invalid section name
+  (https://codeberg.org/dnkl/foot/issues/159).
 
 
 ### Security
