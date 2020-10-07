@@ -475,7 +475,7 @@ _Examples_:
 - Dina:weight=bold:slant=italic
 - Courier New:size=12
 
-# TWEAKS
+# TWEAK
 
 This section is for advanced users and describes configuration options
 that can be used to tweak foot's low-level behavior.
