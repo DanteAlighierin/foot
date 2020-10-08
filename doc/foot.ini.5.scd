@@ -16,7 +16,7 @@ in this order:
 - *~/.config/foot/foot.ini*
 - *XDG_CONFIG_HOME/footrc*
 - *~/.config/footrc*
-- *XDG_CONFIG_DIRS/foot/foot.init*
+- *XDG_CONFIG_DIRS/foot/foot.ini*
 
 # SECTION: default
 
