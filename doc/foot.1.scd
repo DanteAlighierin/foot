@@ -18,7 +18,7 @@ will start a new terminal window with your default shell.
 You can override the default shell by appending a custom command to
 the foot command line
 
-	*foot -- sh -c "echo hello world && sleep 5"*
+	*foot sh -c "echo hello world && sleep 5"*
 
 # OPTIONS
 
