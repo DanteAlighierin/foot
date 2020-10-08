@@ -95,7 +95,9 @@ in this order:
 # SECTION: scrollback
 
 *lines*
-	Number of scrollback lines. Default: _1000_.
+	Number of scrollback lines. The maximum number of allocated lines
+	will be this value plus the number of visible lines, rounded up to
+	the nearest power of 2. Default: _1000_.
 
 *multiplier*
 	Amount to multiply mouse scrolling with. It is a decimal number,
