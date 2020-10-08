@@ -403,7 +403,9 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     pixman_color_t fg = color_hex_to_pixman(_fg);
     pixman_color_t bg = color_hex_to_pixman_with_alpha(
-        _bg, _bg == term->colors.bg ? term->colors.alpha : 0xffff);
+        _bg,
+        (_bg == (term->reverse ? term->colors.fg : term->colors.bg)
+         ? term->colors.alpha : 0xffff));
 
     if (cell->attrs.dim)
         color_dim(&fg);
@@ -549,8 +551,12 @@ render_margin(struct terminal *term, struct buffer *buf,
     const int line_count = end_line - start_line;
 
     uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
+
     pixman_color_t bg = color_hex_to_pixman_with_alpha(
-        _bg, _bg == term->colors.bg ? term->colors.alpha : 0xffff);
+        _bg,
+        (_bg == (term->reverse ? term->colors.fg : term->colors.bg)
+         ? term->colors.alpha : 0xffff));
+
     if (term->is_searching)
         color_dim(&bg);
 

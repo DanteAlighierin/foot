@@ -45,6 +45,7 @@
   speed too slow (https://codeberg.org/dnkl/foot/issues/144).
 * Crash when `foot.ini` contains an invalid section name
   (https://codeberg.org/dnkl/foot/issues/159).
+* Background opacity when in _reverse video_ mode.
 
 
 ### Security
