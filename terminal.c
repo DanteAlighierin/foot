@@ -2073,6 +2073,12 @@ term_kbd_focus_in(struct terminal *term)
         return;
 
     term->kbd_focus = true;
+
+    if (term->render.urgency) {
+        term->render.urgency = false;
+        term_damage_margins(term);
+    }
+
     cursor_refresh(term);
 
     if (term->focus_events)
@@ -2361,6 +2367,17 @@ term_flash(struct terminal *term, unsigned duration_ms)
     else {
         term->flash.active = true;
     }
+}
+
+void
+term_bell(struct terminal *term)
+{
+    if (term->kbd_focus || !term->conf->bell_set_urgency)
+        return;
+
+    /* There's no 'urgency' hint in Wayland - we just paint the margins red */
+    term->render.urgency = true;
+    term_damage_margins(term);
 }
 
 bool

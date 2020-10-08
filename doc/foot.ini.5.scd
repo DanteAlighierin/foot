@@ -91,6 +91,22 @@ in this order:
 	(including SMT). Note that this is not always the best value. In
 	some cases, the number of physical _cores_ is better.
 
+*bell*
+	Action to perform when receiving a *BEL* character. Can be set to
+	either *set-urgency* or *none*.
+	
+	When set to *set-urgency*, the margins will be painted in red
+	whenever *BEL* is received while the window does *not* have
+	keyboard focus. Note that Wayland currently does not have an
+	_urgency_ hint like X11. The value *set-urgency* was chosen for
+	forward-compatibility in the hopes that a corresponding Wayland
+	protocol is added in the future (in which case foot will use that
+	instead of painting its margins red).
+
+	When set to *none*, no special action is taken when receiving *BEL*.
+	
+	Default: _none_.
+
 
 # SECTION: scrollback
 

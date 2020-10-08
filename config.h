@@ -72,6 +72,8 @@ struct config {
     unsigned pad_x;
     unsigned pad_y;
 
+    bool bell_set_urgency;
+
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 
     tll(struct config_font) fonts;

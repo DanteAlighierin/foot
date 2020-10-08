@@ -389,6 +389,7 @@ struct terminal {
         } pending;
 
         bool margins;  /* Someone explicitly requested a refresh of the margins */
+        bool urgency;  /* Signal 'urgency' (paint borders red) */
 
         int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
 
@@ -574,6 +575,7 @@ void term_xcursor_update_for_seat(struct terminal *term, struct seat *seat);
 
 void term_set_window_title(struct terminal *term, const char *title);
 void term_flash(struct terminal *term, unsigned duration_ms);
+void term_bell(struct terminal *term);
 bool term_spawn_new(const struct terminal *term);
 
 void term_enable_app_sync_updates(struct terminal *term);

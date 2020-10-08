@@ -542,6 +542,35 @@ draw_cursor:
 }
 
 static void
+render_urgency(struct terminal *term, struct buffer *buf)
+{
+    uint32_t red = term->colors.table[1];
+    pixman_color_t bg = color_hex_to_pixman(red);
+
+    if (term->is_searching)
+        color_dim(&bg);
+
+    int width = min(min(term->margins.left, term->margins.right),
+                    min(term->margins.top, term->margins.bottom));
+
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix[0], &bg, 4,
+        (pixman_rectangle16_t[]){
+            /* Top */
+            {0, 0, term->width, width},
+
+            /* Bottom */
+            {0, term->height - width, term->width, width},
+
+            /* Left */
+            {0, width, width, term->height - 2 * width},
+
+            /* Right */
+            {term->width - width, width, width, term->height - 2 * width},
+        });
+}
+
+static void
 render_margin(struct terminal *term, struct buffer *buf,
               int start_line, int end_line, bool apply_damage)
 {
@@ -577,6 +606,9 @@ render_margin(struct terminal *term, struct buffer *buf,
             {rmargin, term->margins.top + start_line * term->cell_height,
              term->margins.right, line_count * term->cell_height},
     });
+
+    if (term->render.urgency)
+        render_urgency(term, buf);
 
     if (apply_damage) {
         /* Top */
