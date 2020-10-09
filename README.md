@@ -322,16 +322,12 @@ chosen to use a different terminfo).
 You can instead use the escape sequences to read the _Secondary_ and
 _Tertiary Device Attributes_ (secondary/tertiary DA, for short).
 
-The tertiary DA response is always `\EP!|464f4f54\E\\`. The `\EP!|` is
-the standard tertiary DA response prefix, `DCS ! |`. The trailing
-`\E\\` is of course the standard string terminator, `ST`.
+The tertiary DA response is always `\EP!|464f4f54\E\\`, where
+`464f4f54` if `FOOT` in hex.
 
-In the response above, the interesting part is `464f4f54`; this is
-the string _FOOT_ in hex.
-
-The secondary DA response is `\E[>1;XXYYZZ;0c`, where XXYYZZ is foot's
-major, minor and patch version numbers, in decimal, using two digits
-for each number. For example, foot-1.4.2 would respond with
+The secondary DA response is `\E[>1;XXYYZZ;0c`, where `XXYYZZ` is
+foot's major, minor and patch version numbers, in decimal, using two
+digits for each number. For example, foot-1.4.2 would respond with
 `\E[>1;010402;0c`.
 
 **Note**: not all terminal emulators implement tertiary DA. Most
