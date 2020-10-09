@@ -15,6 +15,7 @@
 #include "log.h"
 
 #include "async.h"
+#include "config.h"
 #include "extract.h"
 #include "grid.h"
 #include "misc.h"
@@ -725,7 +726,7 @@ selection_mark_word(struct seat *seat, struct terminal *term, int col, int row,
     const struct row *r = grid_row_in_view(term->grid, start.row);
     wchar_t c = r->cells[start.col].wc;
 
-    if (!(c == 0 || !isword(c, spaces_only))) {
+    if (!(c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))) {
         while (true) {
             int next_col = start.col - 1;
             int next_row = start.row;
@@ -740,7 +741,7 @@ selection_mark_word(struct seat *seat, struct terminal *term, int col, int row,
             const struct row *row = grid_row_in_view(term->grid, next_row);
 
             c = row->cells[next_col].wc;
-            if (c == 0 || !isword(c, spaces_only))
+            if (c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))
                 break;
 
             start.col = next_col;
@@ -751,7 +752,7 @@ selection_mark_word(struct seat *seat, struct terminal *term, int col, int row,
     r = grid_row_in_view(term->grid, end.row);
     c = r->cells[end.col].wc;
 
-    if (!(c == 0 || !isword(c, spaces_only))) {
+    if (!(c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))) {
         while (true) {
             int next_col = end.col + 1;
             int next_row = end.row;
@@ -766,7 +767,7 @@ selection_mark_word(struct seat *seat, struct terminal *term, int col, int row,
             const struct row *row = grid_row_in_view(term->grid, next_row);
 
             c = row->cells[next_col].wc;
-            if (c == '\0' || !isword(c, spaces_only))
+            if (c == '\0' || !isword(c, spaces_only, term->conf->word_delimiters))
                 break;
 
             end.col = next_col;

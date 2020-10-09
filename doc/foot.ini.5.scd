@@ -110,6 +110,10 @@ in this order:
 	
 	Default: _none_.
 
+*word-delimiters*
+	String of characters that act as word delimiters when selecting
+	text. Default: _,│`|:"'()[]{}<>_
+
 
 # SECTION: scrollback
 

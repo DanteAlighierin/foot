@@ -10,6 +10,7 @@
 #define LOG_MODULE "search"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "config.h"
 #include "grid.h"
 #include "input.h"
 #include "misc.h"
@@ -368,7 +369,7 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
         bool done = false;
         for (; end_col < term->cols; end_col++) {
             wchar_t wc = row->cells[end_col].wc;
-            if (wc == 0 || (!first && !isword(wc, spaces_only))) {
+            if (wc == 0 || (!first && !isword(wc, spaces_only, term->conf->word_delimiters))) {
                 done = true;
                 break;
             }
