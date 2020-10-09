@@ -517,6 +517,20 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->pad_y = y;
     }
 
+    else if (strcmp(key, "bell") == 0) {
+        if (strcmp(value, "set-urgency") == 0)
+            conf->bell_set_urgency = true;
+        else if (strcmp(value, "none") == 0)
+            conf->bell_set_urgency = false;
+        else {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: bell: "
+                "expected either 'set-urgency' or 'none'", path, lineno);
+            conf->bell_set_urgency = false;
+            return false;
+        }
+    }
+
     else if (strcmp(key, "initial-window-mode") == 0) {
         if (strcmp(value, "windowed") == 0)
             conf->startup_mode = STARTUP_WINDOWED;
@@ -1867,6 +1881,7 @@ config_load(struct config *conf, const char *conf_path,
         },
         .pad_x = 2,
         .pad_y = 2,
+        .bell_set_urgency = false,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = tll_init(),
         .scrollback = {

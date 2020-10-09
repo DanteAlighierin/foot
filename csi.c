@@ -363,6 +363,7 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         /* DECSCNM */
         term->reverse = enable;
         term_damage_all(term);
+        term_damage_margins(term);
         break;
 
     case 6: {

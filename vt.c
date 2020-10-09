@@ -124,8 +124,7 @@ action_execute(struct terminal *term, uint8_t c)
 
     case '\a':
         /* BEL - bell */
-        // LOG_INFO("BELL");
-        // term_flash(term, 50);
+        term_bell(term);
         break;
 
     case '\b':
