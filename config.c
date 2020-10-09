@@ -464,7 +464,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         if (strcmp(key, "geometry") == 0) {
             LOG_WARN("deprecated: %s:%d: [default]: geometry: use 'initial-window-size-pixels' instead'", path, lineno);
 
-            const char *fmt = "%s:%d: \033[1mgeometry\033[21m, use \033[1minitial-window-size-pixels\033[21m instead";
+            const char fmt[] = "%s:%d: \033[1mgeometry\033[21m, use \033[1minitial-window-size-pixels\033[21m instead";
             char *text = xasprintf(fmt, path, lineno);
 
             struct user_notification deprecation = {
@@ -573,7 +573,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "scrollback") == 0) {
         LOG_WARN("deprecated: %s:%d: [default]: scrollback: use 'scrollback.lines' instead'", path, lineno);
 
-        const char *fmt = "%s:%d: \033[1mdefault.scrollback\033[21m, use \033[1mscrollback.lines\033[21m instead";
+        const char fmt[] = "%s:%d: \033[1mdefault.scrollback\033[21m, use \033[1mscrollback.lines\033[21m instead";
         char *text = xasprintf(fmt, path, lineno);
 
         struct user_notification deprecation = {
@@ -1080,7 +1080,7 @@ maybe_deprecated_key_binding(struct config *conf,
              path, lineno, section,
              binding_action_map[action], binding_action_map[replacement]);
 
-    const char *fmt = "%s:%d: [%s]: \033[1m%s\033[21m, use \033[1m%s\033[21m instead";
+    const char fmt[] = "%s:%d: [%s]: \033[1m%s\033[21m, use \033[1m%s\033[21m instead";
     char *text = xasprintf(
         fmt, path, lineno, section,
         binding_action_map[action], binding_action_map[replacement]);
