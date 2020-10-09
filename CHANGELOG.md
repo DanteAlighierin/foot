@@ -29,6 +29,8 @@
   to add support for this. The value `set-urgency` was chosen for
   forward-compatibility, in the hopes that this proposal eventualizes
   (https://codeberg.org/dnkl/foot/issues/157).
+* **word-delimiters** option to `foot.ini`
+  (https://codeberg.org/dnkl/foot/issues/156).
 
 
 ### Changed
