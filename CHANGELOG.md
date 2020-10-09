@@ -53,6 +53,7 @@
   (https://codeberg.org/dnkl/foot/issues/151).
 * Crash after either resizing a window or changing the font size if
   there were sixels present in the scrollback while doing so.
+* _Send Device Attributes_ to only send a response if `Ps == 0`.
 
 
 ### Security

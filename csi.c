@@ -653,6 +653,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 'c': {
+            if (vt_param_get(term, 0, 0) != 0) {
+                UNHANDLED();
+                break;
+            }
+
             /* Send Device Attributes (Primary DA) */
 
             /*
