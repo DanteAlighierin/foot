@@ -124,13 +124,15 @@ action_execute(struct terminal *term, uint8_t c)
 
     case '\a':
         /* BEL - bell */
-        // LOG_INFO("BELL");
-        // term_flash(term, 50);
+        term_bell(term);
         break;
 
     case '\b':
         /* backspace */
-        term_cursor_left(term, 1);
+        if (term->grid->cursor.lcf)
+            term->grid->cursor.lcf = false;
+        else
+            term_cursor_left(term, 1);
         break;
 
     case '\t': {

@@ -16,7 +16,7 @@ in this order:
 - *~/.config/foot/foot.ini*
 - *XDG_CONFIG_HOME/footrc*
 - *~/.config/footrc*
-- *XDG_CONFIG_DIRS/foot/foot.init*
+- *XDG_CONFIG_DIRS/foot/foot.ini*
 
 # SECTION: default
 
@@ -91,11 +91,32 @@ in this order:
 	(including SMT). Note that this is not always the best value. In
 	some cases, the number of physical _cores_ is better.
 
+*bell*
+	Action to perform when receiving a *BEL* character. Can be set to
+	either *set-urgency* or *none*.
+	
+	When set to *set-urgency*, the margins will be painted in red
+	whenever *BEL* is received while the window does *not* have
+	keyboard focus. Note that Wayland currently does not have an
+	_urgency_ hint like X11. The value *set-urgency* was chosen for
+	forward-compatibility in the hopes that a corresponding Wayland
+	protocol is added in the future (in which case foot will use that
+	instead of painting its margins red).
+	
+	_Note_: expect this feature to be *replaced* with proper
+	compositor urgency support once/if that gets implemented.
+	
+	When set to *none*, no special action is taken when receiving *BEL*.
+	
+	Default: _none_.
+
 
 # SECTION: scrollback
 
 *lines*
-	Number of scrollback lines. Default: _1000_.
+	Number of scrollback lines. The maximum number of allocated lines
+	will be this value plus the number of visible lines, rounded up to
+	the nearest power of 2. Default: _1000_.
 
 *multiplier*
 	Amount to multiply mouse scrolling with. It is a decimal number,
@@ -104,7 +125,7 @@ in this order:
 *indicator-position*
 	Configures the style of the scrollback position indicator. One of
 	*none*, *fixed* or *relative*. *none* disables the indicator
-	completely. *fixed* always renders the indicator near the top at
+	completely. *fixed* always renders the indicator near the top of
 	the window, and *relative* renders the indicator at the position
 	corresponding to the current scrollback position. Default:
 	_relative_.
@@ -475,7 +496,7 @@ _Examples_:
 - Dina:weight=bold:slant=italic
 - Courier New:size=12
 
-# TWEAKS
+# TWEAK
 
 This section is for advanced users and describes configuration options
 that can be used to tweak foot's low-level behavior.

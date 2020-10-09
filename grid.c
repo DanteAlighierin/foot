@@ -83,9 +83,9 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
      * at the output that is *oldest* */
     int offset = grid->offset + old_screen_rows;
 
-    tll(struct sixel) old_sixels = tll_init();
+    tll(struct sixel) untranslated_sixels = tll_init();
     tll_foreach(grid->sixel_images, it)
-        tll_push_back(old_sixels, it->item);
+        tll_push_back(untranslated_sixels, it->item);
     tll_free(grid->sixel_images);
 
     /* Turn cursor coordinates into grid absolute coordinates */
@@ -108,7 +108,6 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
     for (size_t i = 0; i < tracking_points_count; i++)
         tll_push_back(tracking_points, _tracking_points[i]);
 
-
     /*
      * Walk the old grid
      */
@@ -122,56 +121,15 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
             continue;
 
         /* Map sixels on current "old" row to current "new row" */
-        tll_foreach(old_sixels, it) {
+        tll_foreach(untranslated_sixels, it) {
             if (it->item.pos.row != old_row_idx)
                 continue;
 
             struct sixel sixel = it->item;
             sixel.pos.row = new_row_idx;
 
-            /* Make sure it doesn't cross the wrap-around after being re-based */
-            int end = (sixel.pos.row + sixel.rows - 1) & (new_rows - 1);
-            if (end < sixel.pos.row) {
-                /* TODO: split instead of destroying */
-                sixel_destroy(&it->item);
-            } else {
-
-                /* Insert sixel into the *sorted* list. */
-
-                /* Based on rebase_row() in sixel.c */
-                /* Uses 'old' offset to ensure old sixels are treated as such */
-#define rebase_row(t, row)                                              \
-                (((row) - (grid->offset + new_screen_rows) + new_rows) & (new_rows - 1))
-
-                int end_row = rebase_row(term, sixel.pos.row + sixel.rows - 1);
-
-                /*
-                 * TODO: this is basically sixel_insert(), except we
-                 * cannot use it since:
-                 *
-                 *  a) we don't have a 'term' reference
-                 *  b) the grid hasn't been fully * updated yet
-                 *     (e.g. grid->num_rows is invalid etc).
-                 */
-
-                bool inserted = false;
-                tll_foreach(grid->sixel_images, it2) {
-                    const struct sixel *s = &it2->item;
-                    if (rebase_row(term, s->pos.row + s->rows - 1) < end_row) {
-                        tll_insert_before(grid->sixel_images, it2, sixel);
-                        inserted = true;
-                        break;
-                    }
-                }
-
-                if (!inserted)
-                    tll_push_back(grid->sixel_images, sixel);
-
-            }
-
-            /* Sixel has been either re-mapped, or destroyed */
-            tll_remove(old_sixels, it);
-#undef rebase_row
+            tll_push_back(grid->sixel_images, sixel);
+            tll_remove(untranslated_sixels, it);
         }
 
 #define line_wrap()                                                     \
@@ -372,9 +330,9 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
     grid->saved_cursor.lcf = false;
 
     /* Free sixels we failed to "map" to the new grid */
-    tll_foreach(old_sixels, it)
+    tll_foreach(untranslated_sixels, it)
         sixel_destroy(&it->item);
-    tll_free(old_sixels);
+    tll_free(untranslated_sixels);
 
     tll_free(tracking_points);
 }

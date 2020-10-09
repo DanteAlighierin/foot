@@ -16,6 +16,21 @@
 
 ## Unreleased
 ### Added
+
+* Implement reverse auto-wrap (_auto\_left\_margin_, _bw_, in
+  terminfo). This mode can be enabled/disabled with `CSI ? 45 h` and
+  `CSI ? 45 l`. It is **enabled** by default
+  (https://codeberg.org/dnkl/foot/issues/150).
+* **bell** option to `foot.ini`. Can be set to `set-urgency` to make
+  foot render the margins in red when receiving `BEL` while **not**
+  having keyboard focus. Note that Wayland does **not** implement an
+  _urgency_ hint like X11, but that there is a
+  [proposal](https://gitlab.freedesktop.org/wayland/wayland-protocols/-/merge_requests/9)
+  to add support for this. The value `set-urgency` was chosen for
+  forward-compatibility, in the hopes that this proposal eventualizes
+  (https://codeberg.org/dnkl/foot/issues/157).
+
+
 ### Changed
 
 * Default value of the **scrollback.multiplier** option in `foot.ini`
@@ -43,6 +58,17 @@
   that it is (much) slower compared to previous foot versions. Use the
   **scrollback.multiplier** option in `foot.ini` if you find the new
   speed too slow (https://codeberg.org/dnkl/foot/issues/144).
+* Crash when `foot.ini` contains an invalid section name
+  (https://codeberg.org/dnkl/foot/issues/159).
+* Background opacity when in _reverse video_ mode.
+* Crash when writing a sixel image that extends outside the terminal's
+  right margin (https://codeberg.org/dnkl/foot/issues/151).
+* Sixel image at non-zero column positions getting sheared at
+  seemingly random occasions
+  (https://codeberg.org/dnkl/foot/issues/151).
+* Crash after either resizing a window or changing the font size if
+  there were sixels present in the scrollback while doing so.
+* _Send Device Attributes_ to only send a response if `Ps == 0`.
 
 
 ### Security

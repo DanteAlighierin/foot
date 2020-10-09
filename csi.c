@@ -363,6 +363,7 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         /* DECSCNM */
         term->reverse = enable;
         term_damage_all(term);
+        term_damage_margins(term);
         break;
 
     case 6: {
@@ -397,6 +398,10 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
     case 25:
         /* DECTCEM */
         term->hide_cursor = !enable;
+        break;
+
+    case 45:
+        term->reverse_wrap = enable;
         break;
 
     case 1000:
@@ -576,6 +581,7 @@ xtsave(struct terminal *term, unsigned param)
     }
 
     case 25: term->xtsave.show_cursor = !term->hide_cursor; break;
+    case 45: term->xtsave.reverse_wrap = term->reverse_wrap; break;
     case 1000: term->xtsave.mouse_click = term->mouse_tracking == MOUSE_CLICK; break;
     case 1001: break;
     case 1002: term->xtsave.mouse_drag = term->mouse_tracking == MOUSE_DRAG; break;
@@ -606,6 +612,7 @@ xtrestore(struct terminal *term, unsigned param)
     case 9: /* enable = term->xtsave.mouse_x10; break; */ return;
     case 12: enable = term->xtsave.cursor_blink; break;
     case 25: enable = term->xtsave.show_cursor; break;
+    case 45: enable = term->xtsave.reverse_wrap; break;
     case 1000: enable = term->xtsave.mouse_click; break;
     case 1001: return;
     case 1002: enable = term->xtsave.mouse_drag; break;
@@ -653,6 +660,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 'c': {
+            if (vt_param_get(term, 0, 0) != 0) {
+                UNHANDLED();
+                break;
+            }
+
             /* Send Device Attributes (Primary DA) */
 
             /*

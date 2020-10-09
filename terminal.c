@@ -605,11 +605,37 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
         term->fonts[i] = fonts[i];
     }
 
+    const int old_cell_width = term->cell_width;
+    const int old_cell_height = term->cell_height;
+
     term->cell_width = term->fonts[0]->space_advance.x > 0
         ? term->fonts[0]->space_advance.x : term->fonts[0]->max_advance.x;
     term->cell_height = max(term->fonts[0]->height,
                             term->fonts[0]->ascent + term->fonts[0]->descent);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
+
+    if (term->cell_width < old_cell_width ||
+        term->cell_height < old_cell_height)
+    {
+        /*
+         * The cell size has decreased.
+         *
+         * This means sixels, which we cannot resize, no longer fit
+         * into their "allocated" grid space.
+         *
+         * To be able to fit them, we would have to change the grid
+         * content. Inserting empty lines _might_ seem acceptable, but
+         * we'd also need to insert empty columns, which would break
+         * existing layout completely.
+         *
+         * So we delete them.
+         */
+        sixel_destroy_all(term);
+    } else if (term->cell_width != old_cell_width ||
+               term->cell_height != old_cell_height)
+    {
+        sixel_cell_size_changed(term);
+    }
 
     /* Use force, since cell-width/height may have changed */
     render_resize_force(term, term->width / term->scale, term->height / term->scale);
@@ -904,6 +930,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
                           : FCFT_SUBPIXEL_NONE),
         .cursor_keys_mode = CURSOR_KEYS_NORMAL,
         .keypad_keys_mode = KEYPAD_NUMERICAL,
+        .reverse_wrap = true,
         .auto_margin = true,
         .window_title_stack = tll_init(),
         .scale = 1,
@@ -1394,6 +1421,7 @@ term_reset(struct terminal *term, bool hard)
     term->keypad_keys_mode = KEYPAD_NUMERICAL;
     term->reverse = false;
     term->hide_cursor = false;
+    term->reverse_wrap = true;
     term->auto_margin = true;
     term->insert_mode = false;
     term->bracketed_paste = false;
@@ -1501,31 +1529,7 @@ term_font_size_adjust(struct terminal *term, double amount)
         term->font_sizes[i].px_size = -1;
     }
 
-    const int old_cell_width = term->cell_width;
-    const int old_cell_height = term->cell_height;
-
-    if (!reload_fonts(term))
-        return false;
-
-    if (term->cell_width < old_cell_width ||
-        term->cell_height < old_cell_height)
-    {
-        /*
-         * The cell size has decreased.
-         *
-         * This means sixels, which we cannot resize, no longer fit
-         * into their "allocated" grid space.
-         *
-         * To be able to fit them, we would have to change the grid
-         * content. Inserting empty lines _might_ seem acceptable, but
-         * we'd also need to insert empty columns, which would break
-         * existing layout completely.
-         *
-         * So we delete them.
-         */
-        sixel_destroy_all(term);
-    }
-    return true;
+    return reload_fonts(term);
 }
 
 bool
@@ -1728,9 +1732,44 @@ term_cursor_home(struct terminal *term)
 void
 term_cursor_left(struct terminal *term, int count)
 {
-    int move_amount = min(term->grid->cursor.point.col, count);
-    term->grid->cursor.point.col -= move_amount;
-    assert(term->grid->cursor.point.col >= 0);
+    assert(count >= 0);
+    int new_col = term->grid->cursor.point.col - count;
+
+    /* Reverse wrap */
+    if (unlikely(new_col < 0)) {
+        if (likely(term->reverse_wrap && term->auto_margin)) {
+
+            /* Number of rows to reverse wrap through */
+            int row_count = (abs(new_col) - 1) / term->cols + 1;
+
+            /* Row number cursor will end up on */
+            int new_row_no = term->grid->cursor.point.row - row_count;
+
+            /* New column number */
+            new_col = term->cols - ((abs(new_col) - 1) % term->cols + 1);
+            assert(new_col >= 0 && new_col < term->cols);
+
+            /* Don't back up past the scroll region */
+            /* TODO: should this be allowed? */
+            if (new_row_no < term->scroll_region.start) {
+                new_row_no = term->scroll_region.start;
+                new_col = 0;
+            }
+
+            struct row *new_row = grid_row(term->grid, new_row_no);
+            term->grid->cursor.point.col = new_col;
+            term->grid->cursor.point.row = new_row_no;
+            term->grid->cursor.lcf = false;
+            term->grid->cur_row = new_row;
+            return;
+        }
+
+        /* Reverse wrap disabled - don't let cursor move past first column */
+        new_col = 0;
+    }
+
+    assert(new_col >= 0);
+    term->grid->cursor.point.col = new_col;
     term->grid->cursor.lcf = false;
 }
 
@@ -2036,6 +2075,12 @@ term_kbd_focus_in(struct terminal *term)
         return;
 
     term->kbd_focus = true;
+
+    if (term->render.urgency) {
+        term->render.urgency = false;
+        term_damage_margins(term);
+    }
+
     cursor_refresh(term);
 
     if (term->focus_events)
@@ -2324,6 +2369,17 @@ term_flash(struct terminal *term, unsigned duration_ms)
     else {
         term->flash.active = true;
     }
+}
+
+void
+term_bell(struct terminal *term)
+{
+    if (term->kbd_focus || !term->conf->bell_set_urgency)
+        return;
+
+    /* There's no 'urgency' hint in Wayland - we just paint the margins red */
+    term->render.urgency = true;
+    term_damage_margins(term);
 }
 
 bool

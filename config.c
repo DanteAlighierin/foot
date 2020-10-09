@@ -464,7 +464,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         if (strcmp(key, "geometry") == 0) {
             LOG_WARN("deprecated: %s:%d: [default]: geometry: use 'initial-window-size-pixels' instead'", path, lineno);
 
-            const char *fmt = "%s:%d: \033[1mgeometry\033[21m, use \033[1minitial-window-size-pixels\033[21m instead";
+            const char fmt[] = "%s:%d: \033[1mgeometry\033[21m, use \033[1minitial-window-size-pixels\033[21m instead";
             char *text = xasprintf(fmt, path, lineno);
 
             struct user_notification deprecation = {
@@ -517,6 +517,20 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->pad_y = y;
     }
 
+    else if (strcmp(key, "bell") == 0) {
+        if (strcmp(value, "set-urgency") == 0)
+            conf->bell_set_urgency = true;
+        else if (strcmp(value, "none") == 0)
+            conf->bell_set_urgency = false;
+        else {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: bell: "
+                "expected either 'set-urgency' or 'none'", path, lineno);
+            conf->bell_set_urgency = false;
+            return false;
+        }
+    }
+
     else if (strcmp(key, "initial-window-mode") == 0) {
         if (strcmp(value, "windowed") == 0)
             conf->startup_mode = STARTUP_WINDOWED;
@@ -559,7 +573,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "scrollback") == 0) {
         LOG_WARN("deprecated: %s:%d: [default]: scrollback: use 'scrollback.lines' instead'", path, lineno);
 
-        const char *fmt = "%s:%d: \033[1mdefault.scrollback\033[21m, use \033[1mscrollback.lines\033[21m instead";
+        const char fmt[] = "%s:%d: \033[1mdefault.scrollback\033[21m, use \033[1mscrollback.lines\033[21m instead";
         char *text = xasprintf(fmt, path, lineno);
 
         struct user_notification deprecation = {
@@ -1066,7 +1080,7 @@ maybe_deprecated_key_binding(struct config *conf,
              path, lineno, section,
              binding_action_map[action], binding_action_map[replacement]);
 
-    const char *fmt = "%s:%d: [%s]: \033[1m%s\033[21m, use \033[1m%s\033[21m instead";
+    const char fmt[] = "%s:%d: [%s]: \033[1m%s\033[21m, use \033[1m%s\033[21m instead";
     char *text = xasprintf(
         fmt, path, lineno, section,
         binding_action_map[action], binding_action_map[replacement]);
@@ -1673,6 +1687,11 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
             continue;
         }
 
+        if (section >= SECTION_COUNT) {
+            /* Last section name was invalid; ignore all keys in it */
+            continue;
+        }
+
         char *key = strtok(key_value, "=");
         if (key == NULL) {
             LOG_AND_NOTIFY_ERR("%s:%d: syntax error: no key specified", path, lineno);
@@ -1710,6 +1729,8 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
 
         LOG_DBG("section=%s, key='%s', value='%s', comment='%s'",
                 section_info[section].name, key, value, comment);
+
+        assert(section >= 0 && section < SECTION_COUNT);
 
         parser_fun_t section_parser = section_info[section].fun;
         assert(section_parser != NULL);
@@ -1860,6 +1881,7 @@ config_load(struct config *conf, const char *conf_path,
         },
         .pad_x = 2,
         .pad_y = 2,
+        .bell_set_urgency = false,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = tll_init(),
         .scrollback = {

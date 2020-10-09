@@ -237,6 +237,7 @@ struct terminal {
     enum keypad_keys keypad_keys_mode;
     bool reverse;
     bool hide_cursor;
+    bool reverse_wrap;
     bool auto_margin;
     bool insert_mode;
     bool bracketed_paste;
@@ -256,9 +257,9 @@ struct terminal {
         uint32_t application_cursor_keys:1;
         uint32_t reverse:1;
         uint32_t show_cursor:1;
+        uint32_t reverse_wrap:1;
         uint32_t auto_margin:1;
         uint32_t cursor_blink:1;
-        uint32_t insert_mode:1;
         uint32_t bracketed_paste:1;
         uint32_t focus_events:1;
         uint32_t alt_scrolling:1;
@@ -387,6 +388,7 @@ struct terminal {
         } pending;
 
         bool margins;  /* Someone explicitly requested a refresh of the margins */
+        bool urgency;  /* Signal 'urgency' (paint borders red) */
 
         int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
 
@@ -572,6 +574,7 @@ void term_xcursor_update_for_seat(struct terminal *term, struct seat *seat);
 
 void term_set_window_title(struct terminal *term, const char *title);
 void term_flash(struct terminal *term, unsigned duration_ms);
+void term_bell(struct terminal *term);
 bool term_spawn_new(const struct terminal *term);
 
 void term_enable_app_sync_updates(struct terminal *term);
