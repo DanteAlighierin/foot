@@ -61,6 +61,13 @@
 * Crash when `foot.ini` contains an invalid section name
   (https://codeberg.org/dnkl/foot/issues/159).
 * Background opacity when in _reverse video_ mode.
+* Crash when writing a sixel image that extends outside the terminal's
+  right margin (https://codeberg.org/dnkl/foot/issues/151).
+* Sixel image at non-zero column positions getting sheared at
+  seemingly random occasions
+  (https://codeberg.org/dnkl/foot/issues/151).
+* Crash after either resizing a window or changing the font size if
+  there were sixels present in the scrollback while doing so.
 
 
 ### Security
