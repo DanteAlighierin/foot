@@ -102,7 +102,10 @@ in this order:
 	forward-compatibility in the hopes that a corresponding Wayland
 	protocol is added in the future (in which case foot will use that
 	instead of painting its margins red).
-
+	
+	_Note_: expect this feature to be *replaced* with proper
+	compositor urgency support once/if that gets implemented.
+	
 	When set to *none*, no special action is taken when receiving *BEL*.
 	
 	Default: _none_.
