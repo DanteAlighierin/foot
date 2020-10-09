@@ -201,14 +201,12 @@ When run normally, **foot** is a single-window application; if you
 want another window, start another foot process.
 
 However, foot can also be run in a _server_ mode. In this mode, one
-process hosts multiple windows. Note that this is **nothing** like
-tabs. When first started in server mode, **no** windows are available.
+process hosts multiple windows. All Wayland communication, VT parsing
+and rendering is done in the server process.
 
-You open new windows by running `footclient`. This is a small process
-that instructs the foot server to open a new terminal window. The
-client process remains running until the terminal window is
-closed. The exit value of the client process is that of the shell that
-was running in the terminal window.
+New windows are opened by running `footclient`, which remains running
+until the terminal window is closed, at which point it exits with the
+exit value of the client process (typically the shell).
 
 The point of this mode is **a)** reduced memory footprint - all
 terminal windows will share fonts and glyph cache, and **b)** reduced
