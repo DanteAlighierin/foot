@@ -310,8 +310,8 @@ e.g. *search-start=none*.
 	Pastes from the _clipboard_. Default: _Control+Shift+V_.
 
 *primary-paste*
-	Pastes from the _primary selection_. Default: not bound (to a
-	_key_, see *mouse-bindings*).
+	Pastes from the _primary selection_. Default: _Shift+Insert_ (also
+	defined in *mouse-bindings*).
 
 *search-start*
 	Starts a scrollback/history search. Default: _Control+Shift+R_.
