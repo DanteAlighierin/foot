@@ -78,6 +78,7 @@ foreach prot : [
   wayland_protocols_datadir + '/unstable/xdg-output/xdg-output-unstable-v1.xml',
   wayland_protocols_datadir + '/unstable/primary-selection/primary-selection-unstable-v1.xml',
   wayland_protocols_datadir + '/stable/presentation-time/presentation-time.xml',
+  wayland_protocols_datadir + '/unstable/text-input/text-input-unstable-v3.xml',
   ]
 
   wl_proto_headers += custom_target(
@@ -147,6 +148,7 @@ executable(
   'commands.c', 'commands.h',
   'extract.c', 'extract.h',
   'fdm.c', 'fdm.h',
+  'ime.c', 'ime.h',
   'input.c', 'input.h',
   'main.c',
   'quirks.c', 'quirks.h',
