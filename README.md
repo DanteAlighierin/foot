@@ -123,6 +123,9 @@ These are the default shortcuts. See `man foot.ini` and the example
 <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>v</kbd>
 : Paste from _clipboard_
 
+<kbd>shift</kbd>+<kbd>insert</kbd>
+: Paste from the _primary selection_
+
 <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>r</kbd>
 : Start a scrollback search
 
