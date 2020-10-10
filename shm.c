@@ -25,6 +25,10 @@
 #include "macros.h"
 #include "xmalloc.h"
 
+#if !defined(MAP_UNINITIALIZED)
+ #define MAP_UNINITIALIZED 0
+#endif
+
 #define TIME_SCROLL 0
 
 /*
