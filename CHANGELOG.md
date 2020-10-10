@@ -83,6 +83,7 @@
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
+* [zar](https://codeberg.org/zar)
 
 
 ## 1.5.0
