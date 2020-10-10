@@ -110,6 +110,11 @@ in this order:
 	
 	Default: _none_.
 
+*word-delimiters*
+	String of characters that act as word delimiters when selecting
+	text. Note that whitespace characters are _always_ word
+	delimiters, regardless of this setting. Default: _,│`|:"'()[]{}<>_
+
 
 # SECTION: scrollback
 

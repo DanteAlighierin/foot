@@ -570,6 +570,21 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->render_worker_count = count;
     }
 
+    else if (strcmp(key, "word-delimiters") == 0) {
+        size_t chars = mbstowcs(NULL, value, 0);
+        if (chars == (size_t)-1) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: word-delimiters: invalid string: %s",
+                path, lineno, value);
+            return false;
+        }
+
+        free(conf->word_delimiters);
+
+        conf->word_delimiters = xmalloc((chars + 1) * sizeof(wchar_t));
+        mbstowcs(conf->word_delimiters, value, chars + 1);
+    }
+
     else if (strcmp(key, "scrollback") == 0) {
         LOG_WARN("deprecated: %s:%d: [default]: scrollback: use 'scrollback.lines' instead'", path, lineno);
 
@@ -648,7 +663,7 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
             }
 
             conf->scrollback.indicator.text = xcalloc(len + 1, sizeof(wchar_t));
-            mbstowcs(conf->scrollback.indicator.text, value, len);
+            mbstowcs(conf->scrollback.indicator.text, value, len + 1);
         }
     }
 
@@ -1872,6 +1887,7 @@ config_load(struct config *conf, const char *conf_path,
         .shell = get_shell(),
         .title = xstrdup("foot"),
         .app_id = xstrdup("foot"),
+        .word_delimiters = xwcsdup(L",│`|:\"'()[]{}<>"),
         .size = {
             .type = CONF_SIZE_PX,
             .px = {
@@ -2024,6 +2040,7 @@ config_free(struct config conf)
     free(conf.shell);
     free(conf.title);
     free(conf.app_id);
+    free(conf.word_delimiters);
     free(conf.scrollback.indicator.text);
     tll_foreach(conf.fonts, it)
         config_font_destroy(&it->item);

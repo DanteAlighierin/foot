@@ -53,6 +53,7 @@ struct config {
     char *shell;
     char *title;
     char *app_id;
+    wchar_t *word_delimiters;
     bool login_shell;
 
     struct {
