@@ -813,8 +813,12 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
             conf->csd.preferred = CONF_CSD_PREFER_SERVER;
         else if (strcmp(value, "client") == 0)
             conf->csd.preferred = CONF_CSD_PREFER_CLIENT;
+        else if (strcmp(value, "none") == 0)
+            conf->csd.preferred = CONF_CSD_PREFER_NONE;
         else {
-            LOG_AND_NOTIFY_ERR("%s:%d: csd.preferred: expected either 'server' or 'client'", path, lineno);
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: csd.preferred: expected either "
+                "'server', 'client' or 'none'", path, lineno);
             return false;
         }
     }
