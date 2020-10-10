@@ -245,8 +245,8 @@ component.
 	compositor support, and how it has been configured, it may
 	instruct foot to use CSDs even though this option has been set to
 	*server*, or render SSDs despite *client* or *none* being set.
-
-Default: _server_.
+	
+	Default: _server_.
 
 *size*
 	Height, in pixels (subject to output scaling), of the
