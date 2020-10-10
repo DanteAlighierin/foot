@@ -37,6 +37,8 @@
 
 * Default value of the **scrollback.multiplier** option in `foot.ini`
   from `1.0` to `3.0`.
+* `shift`+`insert` now pastes from the primary selection by
+  default. This is in addition to middle-clicking with the mouse.
 
 
 ### Deprecated

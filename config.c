@@ -1795,6 +1795,7 @@ add_default_key_bindings(struct config *conf)
     add_binding(BIND_ACTION_SCROLLBACK_DOWN, shift, XKB_KEY_Page_Down);
     add_binding(BIND_ACTION_CLIPBOARD_COPY, ctrl_shift, XKB_KEY_C);
     add_binding(BIND_ACTION_CLIPBOARD_PASTE, ctrl_shift, XKB_KEY_V);
+    add_binding(BIND_ACTION_PRIMARY_PASTE, shift, XKB_KEY_Insert);
     add_binding(BIND_ACTION_SEARCH_START, ctrl_shift, XKB_KEY_R);
     add_binding(BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_plus);
     add_binding(BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_equal);
