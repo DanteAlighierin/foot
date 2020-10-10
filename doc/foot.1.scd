@@ -149,6 +149,9 @@ Note that these are just the defaults; they can be changed in
 *ctrl*+*shift*+*v*
 	Paste from _clipboard_
 
+*shift*+*insert*
+	Paste from the _primary selection_.
+
 *ctrl*+*shift*+*r*
 	Start a scrollback search
 
