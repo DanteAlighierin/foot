@@ -244,11 +244,7 @@ component.
 	Note that this is only a hint to the compositor. Depending on
 	compositor support, and how it has been configured, it may
 	instruct foot to use CSDs even though this option has been set to
-	*client*, or to use SSDs even though CSDs were requested.
-	
-	The exception is *none*. In this mode, foot will technically
-	request CSDs from the compositor, but will not actually render any
-	window decorations at all, regardless of the compositors response.
+	*server*, or render SSDs despite *client* or *none* being set.
 
 Default: _server_.
 
