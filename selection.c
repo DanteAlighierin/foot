@@ -1382,8 +1382,8 @@ selection_from_primary(struct seat *seat, struct terminal *term)
         return;
     }
 
-    struct wl_clipboard *clipboard = &seat->clipboard;
-    if (clipboard->data_offer == NULL)
+    struct wl_primary *primary = &seat->primary;
+    if (primary->data_offer == NULL)
         return;
 
     term->is_sending_paste_data = true;
