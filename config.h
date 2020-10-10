@@ -140,7 +140,7 @@ struct config {
     } bindings;
 
     struct {
-        enum { CONF_CSD_PREFER_SERVER, CONF_CSD_PREFER_CLIENT } preferred;
+        enum { CONF_CSD_PREFER_NONE, CONF_CSD_PREFER_SERVER, CONF_CSD_PREFER_CLIENT } preferred;
 
         int title_height;
         int border_width;

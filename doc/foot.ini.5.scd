@@ -238,10 +238,15 @@ values here are in AARRGGBB format. I.e. they contain an alpha
 component.
 
 *preferred*
-	Which type of window decorations to prefer: *client* (CSD) or
-	*server* (SSD). Note that this is only a hint to the
-	compositor. Depending on the compositor's configuration and
-	capabilities, it may not have any effect. Default: _server_.
+	Which type of window decorations to prefer: *client* (CSD),
+	*server* (SSD) or *none*.
+	
+	Note that this is only a hint to the compositor. Depending on
+	compositor support, and how it has been configured, it may
+	instruct foot to use CSDs even though this option has been set to
+	*server*, or render SSDs despite *client* or *none* being set.
+	
+	Default: _server_.
 
 *size*
 	Height, in pixels (subject to output scaling), of the
