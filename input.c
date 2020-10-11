@@ -1325,10 +1325,22 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
             = old_col != seat->mouse.col || old_row != seat->mouse.row;
 
         /* Cursor is inside the grid, i.e. *not* in the margins */
-        bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+        const bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
+
+        const bool scroll_up = y < term->margins.top;
+        const bool scroll_down = y >= term->height - term->margins.bottom;
 
         /* Update selection */
         if (!term->is_searching) {
+
+            if (scroll_up || scroll_down) {
+                if (scroll_up)
+                    cmd_scrollback_up(term, 1);
+                if (scroll_down)
+                    cmd_scrollback_down(term, 1);
+                cursor_is_on_new_cell = true;
+            }
+
             if (cursor_is_on_new_cell || term->selection.end.row < 0)
                 selection_update(term, selection_col, selection_row);
         }
