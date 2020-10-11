@@ -1345,7 +1345,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
                  * distance between the mouse and the grid; the
                  * further away the mouse is, the faster we scroll.
                  *
-                 * Note that the speed is measures in ‘intervals (in
+                 * Note that the speed is measured in ‘intervals (in
                  * ns) between each timed scroll of a single line’.
                  *
                  * Thus, the further away the mouse is, the smaller
