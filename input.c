@@ -1327,16 +1327,32 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         /* Cursor is inside the grid, i.e. *not* in the margins */
         const bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
 
-        const bool scroll_up = y < term->margins.top;
-        const bool scroll_down = y > term->height - term->margins.bottom;
+        enum selection_scroll_direction auto_scroll_direction
+            = y < term->margins.top ? SELECTION_SCROLL_UP
+            : y > term->height - term->margins.bottom ? SELECTION_SCROLL_DOWN
+            : SELECTION_SCROLL_NOT;
 
-        if (!scroll_up && !scroll_down)
+        if (auto_scroll_direction == SELECTION_SCROLL_NOT)
             selection_stop_scroll_timer(term);
 
         /* Update selection */
         if (!term->is_searching) {
-            if (scroll_up || scroll_down) {
-                int distance = scroll_up
+            if (auto_scroll_direction != SELECTION_SCROLL_NOT) {
+                /*
+                 * Start ‘selection auto-scrolling’
+                 *
+                 * The speed of the scrolling is proportional to the
+                 * distance between the mouse and the grid; the
+                 * further away the mouse is, the fast we scroll.
+                 *
+                 * Note that the speed is measures in ‘intervals (in
+                 * ns) between each timed scroll of a single line’.
+                 *
+                 * Thus, the further away the mouse is, the smaller
+                 * interval value we use.
+                 */
+
+                int distance = auto_scroll_direction == SELECTION_SCROLL_UP
                     ? term->margins.top - y
                     : y - (term->height - term->margins.bottom);
 
@@ -1346,8 +1362,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 
                 selection_start_scroll_timer(
                     term, 400000000 / (divisor > 0 ? divisor : 1),
-                    scroll_up ? SELECTION_SCROLL_UP : SELECTION_SCROLL_DOWN,
-                    selection_col);
+                    auto_scroll_direction, selection_col);
             }
 
             if (cursor_is_on_new_cell || term->selection.end.row < 0)

@@ -817,6 +817,9 @@ fdm_scroll_timer(struct fdm *fdm, int fd, int events, void *data)
     }
 
     switch (term->selection.auto_scroll.direction) {
+    case SELECTION_SCROLL_NOT:
+        return true;
+
     case SELECTION_SCROLL_UP:
         for (uint64_t i = 0; i < expiration_count; i++)
             cmd_scrollback_up(term, 1);
@@ -838,6 +841,8 @@ void
 selection_start_scroll_timer(struct terminal *term, int interval_ns,
                              enum selection_scroll_direction direction, int col)
 {
+    assert(direction != SELECTION_SCROLL_NOT);
+
     if (!term->selection.ongoing)
         return;
 
@@ -875,7 +880,6 @@ selection_start_scroll_timer(struct terminal *term, int interval_ns,
 
     term->selection.auto_scroll.direction = direction;
     term->selection.auto_scroll.col = col;
-
     return;
 
 err:
@@ -886,11 +890,14 @@ err:
 void
 selection_stop_scroll_timer(struct terminal *term)
 {
-    if (term->selection.auto_scroll.fd < 0)
+    if (term->selection.auto_scroll.fd < 0) {
+        assert(term->selection.auto_scroll.direction == SELECTION_SCROLL_NOT);
         return;
+    }
 
     fdm_del(term->fdm, term->selection.auto_scroll.fd);
     term->selection.auto_scroll.fd = -1;
+    term->selection.auto_scroll.direction = SELECTION_SCROLL_NOT;
 }
 
 static void
