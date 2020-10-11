@@ -635,29 +635,23 @@ xdg_toplevel_decoration_configure(void *data,
 {
     struct wl_window *win = data;
 
-    if (win->term->conf->csd.preferred == CONF_CSD_PREFER_NONE) {
-        /* User explicitly disabled window decorations */
-        LOG_INFO("window decorations disabled");
+    assert(win->term->conf->csd.preferred != CONF_CSD_PREFER_NONE);
+    switch (mode) {
+    case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
+        LOG_INFO("using CSD decorations");
+        win->use_csd = CSD_YES;
+        csd_instantiate(win);
+        break;
+
+    case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
+        LOG_INFO("using SSD decorations");
         win->use_csd = CSD_NO;
         csd_destroy(win);
-    } else {
-        switch (mode) {
-        case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
-            LOG_INFO("using CSD decorations");
-            win->use_csd = CSD_YES;
-            csd_instantiate(win);
-            break;
+        break;
 
-        case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
-            LOG_INFO("using SSD decorations");
-            win->use_csd = CSD_NO;
-            csd_destroy(win);
-            break;
-
-        default:
-            LOG_ERR("unimplemented: unknown XDG toplevel decoration mode: %u", mode);
-            break;
-        }
+    default:
+        LOG_ERR("unimplemented: unknown XDG toplevel decoration mode: %u", mode);
+        break;
     }
 
     if (win->is_configured && win->use_csd == CSD_YES) {
@@ -1191,7 +1185,11 @@ wayl_win_init(struct terminal *term)
 
     xdg_toplevel_set_app_id(win->xdg_toplevel, conf->app_id);
 
-    if (wayl->xdg_decoration_manager != NULL) {
+    if (conf->csd.preferred == CONF_CSD_PREFER_NONE) {
+        /* User specifically do *not* want decorations */
+        win->use_csd = CSD_NO;
+        LOG_INFO("window decorations disabled by user");
+    } else if (wayl->xdg_decoration_manager != NULL) {
         win->xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
             wayl->xdg_decoration_manager, win->xdg_toplevel);
 
@@ -1206,10 +1204,6 @@ wayl_win_init(struct terminal *term)
 
         zxdg_toplevel_decoration_v1_add_listener(
             win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, win);
-    } else if (conf->csd.preferred == CONF_CSD_PREFER_NONE) {
-        /* No decoration manager - and user specifically do *not* want CSDs */
-        win->use_csd = CSD_NO;
-        LOG_INFO("no decoration manager available - user has disabled CSDs");
     } else {
         /* No decoration manager - thus we *must* draw our own decorations */
         win->use_csd = CSD_YES;
