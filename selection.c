@@ -649,10 +649,7 @@ selection_cancel(struct terminal *term)
             term->selection.start.row, term->selection.start.col,
             term->selection.end.row, term->selection.end.col);
 
-    if (term->selection.auto_scroll.fd >= 0) {
-        fdm_del(term->fdm, term->selection.auto_scroll.fd);
-        term->selection.auto_scroll.fd = -1;
-    }
+    selection_stop_scroll_timer(term);
 
     if (term->selection.start.row >= 0 && term->selection.end.row >= 0) {
         foreach_selected(
