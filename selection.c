@@ -818,14 +818,12 @@ fdm_scroll_timer(struct fdm *fdm, int fd, int events, void *data)
         return true;
 
     case SELECTION_SCROLL_UP:
-        for (uint64_t i = 0; i < expiration_count; i++)
-            cmd_scrollback_up(term, 1);
+        cmd_scrollback_up(term, expiration_count);
         selection_update(term, term->selection.auto_scroll.col, 0);
         break;
 
     case SELECTION_SCROLL_DOWN:
-        for (uint64_t i = 0; i < expiration_count; i++)
-            cmd_scrollback_down(term, 1);
+        cmd_scrollback_down(term, expiration_count);
         selection_update(term, term->selection.auto_scroll.col, term->rows - 1);
         break;
     }
