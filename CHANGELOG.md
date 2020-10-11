@@ -33,6 +33,9 @@
   (https://codeberg.org/dnkl/foot/issues/157).
 * **word-delimiters** option to `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/156).
+* **csd.preferred** can now be set to `none` to disable window
+  decorations. Note that some compositors will render SSDs despite
+  this option being used (https://codeberg.org/dnkl/foot/issues/163).
 
 
 ### Changed
@@ -41,9 +44,6 @@
   from `1.0` to `3.0`.
 * `shift`+`insert` now pastes from the primary selection by
   default. This is in addition to middle-clicking with the mouse.
-* **csd.preferred** can now be set to `none` to disable window
-  decorations. Note that some compositors will render SSDs despite
-  this option being used (https://codeberg.org/dnkl/foot/issues/163).
 
 
 ### Deprecated
