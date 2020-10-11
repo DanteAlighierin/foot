@@ -31,6 +31,9 @@
   (https://codeberg.org/dnkl/foot/issues/157).
 * **word-delimiters** option to `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/156).
+* Terminal content is now auto-scrolled when moving the mouse above or
+  below the window while selecting
+  (https://codeberg.org/dnkl/foot/issues/149).
 
 
 ### Changed
