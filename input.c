@@ -1343,7 +1343,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
                  *
                  * The speed of the scrolling is proportional to the
                  * distance between the mouse and the grid; the
-                 * further away the mouse is, the fast we scroll.
+                 * further away the mouse is, the faster we scroll.
                  *
                  * Note that the speed is measures in ‘intervals (in
                  * ns) between each timed scroll of a single line’.
