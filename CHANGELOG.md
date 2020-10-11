@@ -1,6 +1,7 @@
 # Changelog
 
 * [Unreleased](#Unreleased)
+* [1.5.1](#1-5-1)
 * [1.5.0](#1-5-0)
 * [1.4.4](#1-4-4)
 * [1.4.3](#1-4-3)
@@ -37,6 +38,15 @@
   decorations. Note that some compositors will render SSDs despite
   this option being used (https://codeberg.org/dnkl/foot/issues/163).
 
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+### Contributors
+
+
+## 1.5.1
 
 ### Changed
 
@@ -46,8 +56,6 @@
   default. This is in addition to middle-clicking with the mouse.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Mouse bindings now match even if the actual click count is larger
@@ -77,7 +85,6 @@
 * Paste from primary when clipboard is empty.
 
 
-### Security
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
