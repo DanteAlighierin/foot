@@ -1328,17 +1328,25 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         const bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
 
         const bool scroll_up = y < term->margins.top;
-        const bool scroll_down = y >= term->height - term->margins.bottom;
+        const bool scroll_down = y > term->height - term->margins.bottom;
+
+        if (!scroll_up && !scroll_down)
+            selection_stop_scroll_timer(term);
 
         /* Update selection */
         if (!term->is_searching) {
-
             if (scroll_up || scroll_down) {
-                if (scroll_up)
-                    cmd_scrollback_up(term, 1);
-                if (scroll_down)
-                    cmd_scrollback_down(term, 1);
-                cursor_is_on_new_cell = true;
+                int distance = scroll_up
+                    ? term->margins.top - y
+                    : y - (term->height - term->margins.bottom);
+
+                assert(distance > 0);
+                distance /= term->scale;
+
+                selection_start_scroll_timer(
+                    term, 100000000 / (distance > 0 ? distance : 1),
+                    scroll_up ? SELECTION_SCROLL_UP : SELECTION_SCROLL_DOWN,
+                    selection_col);
             }
 
             if (cursor_is_on_new_cell || term->selection.end.row < 0)

@@ -74,3 +74,8 @@ void text_from_primary(
     struct seat *seat, struct terminal *term,
     void (*cb)(const char *data, size_t size, void *user),
     void (*dont)(void *user), void *user);
+
+void selection_start_scroll_timer(
+    struct terminal *term, int interval_ns,
+    enum selection_scroll_direction direction, int col);
+void selection_stop_scroll_timer(struct terminal *term);
