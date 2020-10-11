@@ -1341,10 +1341,11 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
                     : y - (term->height - term->margins.bottom);
 
                 assert(distance > 0);
-                distance /= term->scale;
+                int divisor
+                    = distance * term->conf->scrollback.multiplier / term->scale;
 
                 selection_start_scroll_timer(
-                    term, 100000000 / (distance > 0 ? distance : 1),
+                    term, 400000000 / (divisor > 0 ? divisor : 1),
                     scroll_up ? SELECTION_SCROLL_UP : SELECTION_SCROLL_DOWN,
                     selection_col);
             }
