@@ -996,6 +996,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .esc_prefix = true,
             .eight_bit = true,
         },
+        .bell_is_urgent = conf->bell_is_urgent,
         .tab_stops = tll_init(),
         .wl = wayl,
         .render = {
@@ -2374,7 +2375,7 @@ term_flash(struct terminal *term, unsigned duration_ms)
 void
 term_bell(struct terminal *term)
 {
-    if (term->kbd_focus || !term->conf->bell_set_urgency)
+    if (term->kbd_focus || !term->bell_is_urgent)
         return;
 
     /* There's no 'urgency' hint in Wayland - we just paint the margins red */

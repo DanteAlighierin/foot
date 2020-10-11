@@ -103,6 +103,9 @@ in this order:
 	protocol is added in the future (in which case foot will use that
 	instead of painting its margins red).
 	
+	Applications can enable/disable this feature programatically with
+	the *CSI ? 1042 h* and *CSI ? 1042 l* escape sequences.
+	
 	_Note_: expect this feature to be *replaced* with proper
 	compositor urgency support once/if that gets implemented.
 	

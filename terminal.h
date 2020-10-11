@@ -251,6 +251,8 @@ struct terminal {
         bool eight_bit;
     } meta;
 
+    bool bell_is_urgent;
+
     /* Saved DECSET modes - we save the SET state */
     struct {
         uint32_t origin:1;
@@ -272,6 +274,7 @@ struct terminal {
         uint32_t mouse_urxvt:1;
         uint32_t meta_eight_bit:1;
         uint32_t meta_esc_prefix:1;
+        uint32_t bell_is_urgent:1;
         uint32_t alt_screen:1;
     } xtsave;
 

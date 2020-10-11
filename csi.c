@@ -476,11 +476,11 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         term->meta.esc_prefix = enable;
         break;
 
-#if 0
     case 1042:
-        LOG_WARN("unimplemented: 'urgency' window manager hint on ctrl-g");
+        term->bell_is_urgent = enable;
         break;
 
+#if 0
     case 1043:
         LOG_WARN("unimplemented: raise window on ctrl-g");
         break;
@@ -593,6 +593,7 @@ xtsave(struct terminal *term, unsigned param)
     case 1015: term->xtsave.mouse_urxvt = term->mouse_reporting == MOUSE_URXVT; break;
     case 1034: term->xtsave.meta_eight_bit = term->meta.eight_bit; break;
     case 1036: term->xtsave.meta_esc_prefix = term->meta.esc_prefix; break;
+    case 1042: term->xtsave.bell_is_urgent = term->bell_is_urgent; break;
     case 1049: term->xtsave.alt_screen = term->grid == &term->alt; break;
     case 2004: term->xtsave.bracketed_paste = term->bracketed_paste; break;
     }
@@ -624,6 +625,7 @@ xtrestore(struct terminal *term, unsigned param)
     case 1015: enable = term->xtsave.mouse_urxvt; break;
     case 1034: enable = term->xtsave.meta_eight_bit; break;
     case 1036: enable = term->xtsave.meta_esc_prefix; break;
+    case 1042: enable = term->xtsave.bell_is_urgent; break;
     case 1049: enable = term->xtsave.alt_screen; break;
     case 2004: enable = term->xtsave.bracketed_paste; break;
 

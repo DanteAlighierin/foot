@@ -73,7 +73,7 @@ struct config {
     unsigned pad_x;
     unsigned pad_y;
 
-    bool bell_set_urgency;
+    bool bell_is_urgent;
 
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 

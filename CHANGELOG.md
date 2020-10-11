@@ -23,8 +23,10 @@
   (https://codeberg.org/dnkl/foot/issues/150).
 * **bell** option to `foot.ini`. Can be set to `set-urgency` to make
   foot render the margins in red when receiving `BEL` while **not**
-  having keyboard focus. Note that Wayland does **not** implement an
-  _urgency_ hint like X11, but that there is a
+  having keyboard focus. Applications can dynamically enable/disable
+  this with the `CSI ? 1042 h` and `CSI ? 1042 l` escape
+  sequences. Note that Wayland does **not** implement an _urgency_
+  hint like X11, but that there is a
   [proposal](https://gitlab.freedesktop.org/wayland/wayland-protocols/-/merge_requests/9)
   to add support for this. The value `set-urgency` was chosen for
   forward-compatibility, in the hopes that this proposal eventualizes

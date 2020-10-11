@@ -519,14 +519,14 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "bell") == 0) {
         if (strcmp(value, "set-urgency") == 0)
-            conf->bell_set_urgency = true;
+            conf->bell_is_urgent = true;
         else if (strcmp(value, "none") == 0)
-            conf->bell_set_urgency = false;
+            conf->bell_is_urgent = false;
         else {
             LOG_AND_NOTIFY_ERR(
                 "%s:%d: [default]: bell: "
                 "expected either 'set-urgency' or 'none'", path, lineno);
-            conf->bell_set_urgency = false;
+            conf->bell_is_urgent = false;
             return false;
         }
     }
@@ -1902,7 +1902,7 @@ config_load(struct config *conf, const char *conf_path,
         },
         .pad_x = 2,
         .pad_y = 2,
-        .bell_set_urgency = false,
+        .bell_is_urgent = false,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = tll_init(),
         .scrollback = {
