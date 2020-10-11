@@ -1,6 +1,6 @@
 # Changelog
 
-* [Unreleased](#Unreleased)
+* [1.5.1](#1-5-1)
 * [1.5.0](#1-5-0)
 * [1.4.4](#1-4-4)
 * [1.4.3](#1-4-3)
@@ -14,8 +14,8 @@
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
-### Added
+## 1.5.1
+
 ### Changed
 
 * Default value of the **scrollback.multiplier** option in `foot.ini`
@@ -24,8 +24,6 @@
   default. This is in addition to middle-clicking with the mouse.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Mouse bindings now match even if the actual click count is larger
@@ -55,7 +53,6 @@
 * Paste from primary when clipboard is empty.
 
 
-### Security
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
