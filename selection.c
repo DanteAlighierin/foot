@@ -15,6 +15,7 @@
 #include "log.h"
 
 #include "async.h"
+#include "commands.h"
 #include "config.h"
 #include "extract.h"
 #include "grid.h"
@@ -619,6 +620,7 @@ selection_finalize(struct seat *seat, struct terminal *term, uint32_t serial)
     if (!term->selection.ongoing)
         return;
 
+    selection_stop_scroll_timer(term);
     term->selection.ongoing = false;
 
     if (term->selection.start.row < 0 || term->selection.end.row < 0)
@@ -647,6 +649,7 @@ selection_cancel(struct terminal *term)
             term->selection.start.row, term->selection.start.col,
             term->selection.end.row, term->selection.end.col);
 
+    selection_stop_scroll_timer(term);
 
     if (term->selection.start.row >= 0 && term->selection.end.row >= 0) {
         foreach_selected(
@@ -789,6 +792,108 @@ selection_mark_row(
     selection_finalize(seat, term, serial);
 }
 
+static bool
+fdm_scroll_timer(struct fdm *fdm, int fd, int events, void *data)
+{
+    if (events & EPOLLHUP)
+        return false;
+
+    struct terminal *term = data;
+
+    uint64_t expiration_count;
+    ssize_t ret = read(
+        term->selection.auto_scroll.fd,
+        &expiration_count, sizeof(expiration_count));
+
+    if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+
+        LOG_ERRNO("failed to read selection scroll timer");
+        return false;
+    }
+
+    switch (term->selection.auto_scroll.direction) {
+    case SELECTION_SCROLL_NOT:
+        return true;
+
+    case SELECTION_SCROLL_UP:
+        cmd_scrollback_up(term, expiration_count);
+        selection_update(term, term->selection.auto_scroll.col, 0);
+        break;
+
+    case SELECTION_SCROLL_DOWN:
+        cmd_scrollback_down(term, expiration_count);
+        selection_update(term, term->selection.auto_scroll.col, term->rows - 1);
+        break;
+    }
+
+
+    return true;
+}
+
+void
+selection_start_scroll_timer(struct terminal *term, int interval_ns,
+                             enum selection_scroll_direction direction, int col)
+{
+    assert(direction != SELECTION_SCROLL_NOT);
+
+    if (!term->selection.ongoing)
+        return;
+
+    if (term->selection.auto_scroll.fd < 0) {
+        int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+        if (fd < 0) {
+            LOG_ERRNO("failed to create selection scroll timer");
+            goto err;
+        }
+
+        if (!fdm_add(term->fdm, fd, EPOLLIN, &fdm_scroll_timer, term)) {
+            close(fd);
+            return;
+        }
+
+        term->selection.auto_scroll.fd = fd;
+    }
+
+    struct itimerspec timer;
+    if (timerfd_gettime(term->selection.auto_scroll.fd, &timer) < 0) {
+        LOG_ERRNO("failed to get current selection scroll timer value");
+        goto err;
+    }
+
+    if (timer.it_value.tv_sec == 0 && timer.it_value.tv_nsec == 0)
+        timer.it_value.tv_nsec = 1;
+
+    timer.it_interval.tv_sec = interval_ns / 1000000000;
+    timer.it_interval.tv_nsec = interval_ns % 1000000000;
+
+    if (timerfd_settime(term->selection.auto_scroll.fd, 0, &timer, NULL) < 0) {
+        LOG_ERRNO("failed to set new selection scroll timer value");
+        goto err;
+    }
+
+    term->selection.auto_scroll.direction = direction;
+    term->selection.auto_scroll.col = col;
+    return;
+
+err:
+    selection_stop_scroll_timer(term);
+    return;
+}
+
+void
+selection_stop_scroll_timer(struct terminal *term)
+{
+    if (term->selection.auto_scroll.fd < 0) {
+        assert(term->selection.auto_scroll.direction == SELECTION_SCROLL_NOT);
+        return;
+    }
+
+    fdm_del(term->fdm, term->selection.auto_scroll.fd);
+    term->selection.auto_scroll.fd = -1;
+    term->selection.auto_scroll.direction = SELECTION_SCROLL_NOT;
+}
 
 static void
 target(void *data, struct wl_data_source *wl_data_source, const char *mime_type)

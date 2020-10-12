@@ -37,6 +37,10 @@
 * **csd.preferred** can now be set to `none` to disable window
   decorations. Note that some compositors will render SSDs despite
   this option being used (https://codeberg.org/dnkl/foot/issues/163).
+* Terminal content is now auto-scrolled when moving the mouse above or
+  below the window while selecting
+  (https://codeberg.org/dnkl/foot/issues/149).
+
 
 ### Changed
 ### Deprecated

@@ -985,6 +985,9 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .selection = {
             .start = {-1, -1},
             .end = {-1, -1},
+            .auto_scroll = {
+                .fd = -1,
+            },
         },
         .normal = {.scroll_damage = tll_init(), .sixel_images = tll_init()},
         .alt = {.scroll_damage = tll_init(), .sixel_images = tll_init()},
@@ -1164,6 +1167,7 @@ term_shutdown(struct terminal *term)
 
     term_cursor_blink_disable(term);
 
+    fdm_del(term->fdm, term->selection.auto_scroll.fd);
     fdm_del(term->fdm, term->render.app_sync_updates.timer_fd);
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
@@ -1176,6 +1180,7 @@ term_shutdown(struct terminal *term)
     else
         close(term->ptmx);
 
+    term->selection.auto_scroll.fd = -1;
     term->render.app_sync_updates.timer_fd = -1;
     term->delayed_render_timer.lower_fd = -1;
     term->delayed_render_timer.upper_fd = -1;
@@ -1226,6 +1231,7 @@ term_destroy(struct terminal *term)
         }
     }
 
+    fdm_del(term->fdm, term->selection.auto_scroll.fd);
     fdm_del(term->fdm, term->render.app_sync_updates.timer_fd);
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
