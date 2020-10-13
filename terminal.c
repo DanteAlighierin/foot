@@ -1586,12 +1586,12 @@ term_font_subpixel_changed(struct terminal *term)
 
 #if defined(_DEBUG) && LOG_ENABLE_DBG
     static const char *const str[] = {
-        [FCFT_SUBPIXEL_ORDER_DEFAULT] = "default",
-        [FCFT_SUBPIXEL_ORDER_NONE] = "disabled",
-        [FCFT_SUBPIXEL_ORDER_HORIZONTAL_RGB] = "RGB",
-        [FCFT_SUBPIXEL_ORDER_HORIZONTAL_BGR] = "BGR",
-        [FCFT_SUBPIXEL_ORDER_VERTICAL_RGB] = "V-RGB",
-        [FCFT_SUBPIXEL_ORDER_VERTICAL_BGR] = "V-BGR",
+        [FCFT_SUBPIXEL_DEFAULT] = "default",
+        [FCFT_SUBPIXEL_NONE] = "disabled",
+        [FCFT_SUBPIXEL_HORIZONTAL_RGB] = "RGB",
+        [FCFT_SUBPIXEL_HORIZONTAL_BGR] = "BGR",
+        [FCFT_SUBPIXEL_VERTICAL_RGB] = "V-RGB",
+        [FCFT_SUBPIXEL_VERTICAL_BGR] = "V-BGR",
     };
 #endif
 
