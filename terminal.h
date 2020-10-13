@@ -291,7 +291,6 @@ struct terminal {
     } flash;
 
     struct {
-        bool active;
         enum { BLINK_ON, BLINK_OFF } state;
         int fd;
     } blink;

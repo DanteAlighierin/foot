@@ -391,9 +391,7 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
     if (no_blinking_cells) {
         LOG_DBG("disarming blink timer");
 
-        term->blink.active = false;
         term->blink.state = BLINK_ON;
-
         fdm_del(term->fdm, term->blink.fd);
         term->blink.fd = -1;
     } else
@@ -1469,7 +1467,6 @@ term_reset(struct terminal *term, bool hard)
         return;
 
     term->flash.active = false;
-    term->blink.active = false;
     term->blink.state = BLINK_ON;
     term->colors.fg = term->colors.default_fg;
     term->colors.bg = term->colors.default_bg;
