@@ -1625,13 +1625,15 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                     }
                 }
 
-                if (!term_mouse_grabbed(term, seat) &&
-                    cursor_is_on_grid)
-                {
-                    term_mouse_down(
-                        term, button, seat->mouse.row, seat->mouse.col,
-                        seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
-                }
+            }
+
+            if (!seat->mouse.consumed &&
+                !term_mouse_grabbed(term, seat) &&
+                cursor_is_on_grid)
+            {
+                term_mouse_down(
+                    term, button, seat->mouse.row, seat->mouse.col,
+                    seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
             }
             break;
         }

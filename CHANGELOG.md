@@ -1,6 +1,7 @@
 # Changelog
 
 * [Unreleased](#Unreleased)
+* [1.5.2](#1-5-2)
 * [1.5.1](#1-5-1)
 * [1.5.0](#1-5-0)
 * [1.4.4](#1-4-4)
@@ -48,6 +49,14 @@
 ### Fixed
 ### Security
 ### Contributors
+
+
+## 1.5.2
+
+### Fixed
+
+* Regression: middle clicking double pastes in e.g. vim
+  (https://codeberg.org/dnkl/foot/issues/168)
 
 
 ## 1.5.1
