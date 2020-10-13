@@ -394,9 +394,8 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
         term->blink.active = false;
         term->blink.state = BLINK_ON;
 
-        static const struct itimerspec disarm = {{0}};
-        if (timerfd_settime(term->blink.fd, 0, &disarm, NULL)  < 0)
-            LOG_ERRNO("failed to disarm blink timer");
+        fdm_del(term->fdm, term->blink.fd);
+        term->blink.fd = -1;
     } else
         render_refresh(term);
     return true;
@@ -405,19 +404,33 @@ fdm_blink(struct fdm *fdm, int fd, int events, void *data)
 void
 term_arm_blink_timer(struct terminal *term)
 {
-    if (term->blink.active)
+    if (term->blink.fd >= 0)
         return;
 
     LOG_DBG("arming blink timer");
+
+    int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+    if (fd < 0) {
+        LOG_ERRNO("failed to create blink timer FD");
+        return;
+    }
+
+    if (!fdm_add(term->fdm, fd, EPOLLIN, &fdm_blink, term)) {
+        close(fd);
+        return;
+    }
+
     struct itimerspec alarm = {
         .it_value = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
         .it_interval = {.tv_sec = 0, .tv_nsec = 500 * 1000000},
     };
 
-    if (timerfd_settime(term->blink.fd, 0, &alarm, NULL) < 0)
+    if (timerfd_settime(fd, 0, &alarm, NULL) < 0) {
         LOG_ERRNO("failed to arm blink timer");
-    else
-        term->blink.active = true;
+        fdm_del(term->fdm, fd);
+    }
+
+    term->blink.fd = fd;
 }
 
 static void
@@ -842,7 +855,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
 {
     int ptmx = -1;
     int flash_fd = -1;
-    int blink_fd = -1;
     int cursor_blink_fd = -1;
     int delay_lower_fd = -1;
     int delay_upper_fd = -1;
@@ -860,10 +872,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
     }
     if ((flash_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
         LOG_ERRNO("failed to create flash timer FD");
-        goto close_fds;
-    }
-    if ((blink_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
-        LOG_ERRNO("failed to create blink timer FD");
         goto close_fds;
     }
     if ((cursor_blink_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) == -1) {
@@ -905,7 +913,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
      */
 
     if (!fdm_add(fdm, flash_fd, EPOLLIN, &fdm_flash, term) ||
-        !fdm_add(fdm, blink_fd, EPOLLIN, &fdm_blink, term) ||
         !fdm_add(fdm, cursor_blink_fd, EPOLLIN, &fdm_cursor_blink, term) ||
         !fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
         !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term) ||
@@ -935,7 +942,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .window_title_stack = tll_init(),
         .scale = 1,
         .flash = {.fd = flash_fd},
-        .blink = {.fd = blink_fd},
+        .blink = {.fd = -1},
         .vt = {
             .state = 0,  /* STATE_GROUND */
         },
@@ -1093,7 +1100,6 @@ err:
 close_fds:
     close(ptmx);
     fdm_del(fdm, flash_fd);
-    fdm_del(fdm, blink_fd);
     fdm_del(fdm, cursor_blink_fd);
     fdm_del(fdm, delay_lower_fd);
     fdm_del(fdm, delay_upper_fd);
