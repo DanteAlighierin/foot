@@ -1481,7 +1481,10 @@ term_reset(struct terminal *term, bool hard)
     term->alt.cursor = (struct cursor){.point = {0, 0}};
     term->alt.saved_cursor = (struct cursor){.point = {0, 0}};
     term->cursor_style = term->default_cursor_style;
-    term_cursor_blink_disable(term);
+    if (term->conf->cursor.blink)
+        term_cursor_blink_enable(term);
+    else
+        term_cursor_blink_disable(term);
     term->cursor_color.text = term->default_cursor_color.text;
     term->cursor_color.cursor = term->default_cursor_color.cursor;
     selection_cancel(term);
