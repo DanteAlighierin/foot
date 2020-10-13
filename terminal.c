@@ -1468,6 +1468,7 @@ term_reset(struct terminal *term, bool hard)
 
     term->flash.active = false;
     term->blink.state = BLINK_ON;
+    fdm_del(term->fdm, term->blink.fd); term->blink.fd = -1;
     term->colors.fg = term->colors.default_fg;
     term->colors.bg = term->colors.default_bg;
     for (size_t i = 0; i < 256; i++)
