@@ -937,18 +937,9 @@ done:
 }
 
 static void
-send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
-     int32_t fd)
+send_clipboard_or_primary(struct seat *seat, int fd, const char *selection,
+                          const char *source_name)
 {
-    struct seat *seat = data;
-    const struct wl_clipboard *clipboard = &seat->clipboard;
-
-    assert(clipboard != NULL);
-    assert(clipboard->text != NULL);
-
-    const char *selection = clipboard->text;
-    const size_t len = strlen(selection);
-
     /* Make it NONBLOCK:ing right away - we don't want to block if the
      * initial attempt to send the data synchronously fails */
     int flags;
@@ -959,14 +950,16 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
         return;
     }
 
+    size_t len = strlen(selection);
     size_t async_idx = 0;
+
     switch (async_write(fd, selection, len, &async_idx)) {
     case ASYNC_WRITE_REMAIN: {
         struct clipboard_send *ctx = xmalloc(sizeof(*ctx));
         *ctx = (struct clipboard_send) {
-            .data = xstrdup(selection),
-            .len = len,
-            .idx = async_idx,
+            .data = xstrdup(&selection[async_idx]),
+            .len = len - async_idx,
+            .idx = 0,
         };
 
         if (fdm_add(seat->wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
@@ -981,13 +974,23 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
         break;
 
     case ASYNC_WRITE_ERR:
-        LOG_ERRNO(
-            "failed to write %zu bytes of clipboard selection data to FD=%d",
-            len, fd);
+        LOG_ERRNO("failed write %zu bytes of %s selection data to FD=%d",
+                  len, source_name, fd);
         break;
     }
 
     close(fd);
+}
+
+static void
+send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
+     int32_t fd)
+{
+    struct seat *seat = data;
+    const struct wl_clipboard *clipboard = &seat->clipboard;
+
+    assert(clipboard->text != NULL);
+    send_clipboard_or_primary(seat, fd, clipboard->text, "clipboard");
 }
 
 static void
@@ -1037,49 +1040,8 @@ primary_send(void *data,
     struct seat *seat = data;
     const struct wl_primary *primary = &seat->primary;
 
-    assert(primary != NULL);
     assert(primary->text != NULL);
-
-    const char *selection = primary->text;
-    const size_t len = strlen(selection);
-
-    int flags;
-    if ((flags = fcntl(fd, F_GETFL)) < 0 ||
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
-    {
-        LOG_ERRNO("failed to set O_NONBLOCK");
-        return;
-    }
-
-    size_t async_idx = 0;
-    switch (async_write(fd, selection, len, &async_idx)) {
-    case ASYNC_WRITE_REMAIN: {
-        struct clipboard_send *ctx = xmalloc(sizeof(*ctx));
-        *ctx = (struct clipboard_send) {
-            .data = xstrdup(selection),
-            .len = len,
-            .idx = async_idx,
-        };
-
-        if (fdm_add(seat->wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
-            return;
-
-        free(ctx->data);
-        free(ctx);
-        break;
-    }
-
-    case ASYNC_WRITE_DONE:
-        break;
-
-    case ASYNC_WRITE_ERR:
-        LOG_ERRNO(
-            "failed to write %zu bytes of primary selection data to FD=%d",
-            len, fd);
-        break;
-    }
-
-    close(fd);
+    send_clipboard_or_primary(seat, fd, primary->text, "primary");
 }
 
 static void
