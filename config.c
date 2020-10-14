@@ -519,14 +519,14 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "bell") == 0) {
         if (strcmp(value, "set-urgency") == 0)
-            conf->bell_set_urgency = true;
+            conf->bell_is_urgent = true;
         else if (strcmp(value, "none") == 0)
-            conf->bell_set_urgency = false;
+            conf->bell_is_urgent = false;
         else {
             LOG_AND_NOTIFY_ERR(
                 "%s:%d: [default]: bell: "
                 "expected either 'set-urgency' or 'none'", path, lineno);
-            conf->bell_set_urgency = false;
+            conf->bell_is_urgent = false;
             return false;
         }
     }
@@ -568,6 +568,21 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             return false;
         }
         conf->render_worker_count = count;
+    }
+
+    else if (strcmp(key, "word-delimiters") == 0) {
+        size_t chars = mbstowcs(NULL, value, 0);
+        if (chars == (size_t)-1) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: word-delimiters: invalid string: %s",
+                path, lineno, value);
+            return false;
+        }
+
+        free(conf->word_delimiters);
+
+        conf->word_delimiters = xmalloc((chars + 1) * sizeof(wchar_t));
+        mbstowcs(conf->word_delimiters, value, chars + 1);
     }
 
     else if (strcmp(key, "scrollback") == 0) {
@@ -648,7 +663,7 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
             }
 
             conf->scrollback.indicator.text = xcalloc(len + 1, sizeof(wchar_t));
-            mbstowcs(conf->scrollback.indicator.text, value, len);
+            mbstowcs(conf->scrollback.indicator.text, value, len + 1);
         }
     }
 
@@ -798,8 +813,12 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
             conf->csd.preferred = CONF_CSD_PREFER_SERVER;
         else if (strcmp(value, "client") == 0)
             conf->csd.preferred = CONF_CSD_PREFER_CLIENT;
+        else if (strcmp(value, "none") == 0)
+            conf->csd.preferred = CONF_CSD_PREFER_NONE;
         else {
-            LOG_AND_NOTIFY_ERR("%s:%d: csd.preferred: expected either 'server' or 'client'", path, lineno);
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: csd.preferred: expected either "
+                "'server', 'client' or 'none'", path, lineno);
             return false;
         }
     }
@@ -1780,6 +1799,7 @@ add_default_key_bindings(struct config *conf)
     add_binding(BIND_ACTION_SCROLLBACK_DOWN, shift, XKB_KEY_Page_Down);
     add_binding(BIND_ACTION_CLIPBOARD_COPY, ctrl_shift, XKB_KEY_C);
     add_binding(BIND_ACTION_CLIPBOARD_PASTE, ctrl_shift, XKB_KEY_V);
+    add_binding(BIND_ACTION_PRIMARY_PASTE, shift, XKB_KEY_Insert);
     add_binding(BIND_ACTION_SEARCH_START, ctrl_shift, XKB_KEY_R);
     add_binding(BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_plus);
     add_binding(BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_equal);
@@ -1872,6 +1892,7 @@ config_load(struct config *conf, const char *conf_path,
         .shell = get_shell(),
         .title = xstrdup("foot"),
         .app_id = xstrdup("foot"),
+        .word_delimiters = xwcsdup(L",│`|:\"'()[]{}<>"),
         .size = {
             .type = CONF_SIZE_PX,
             .px = {
@@ -1881,7 +1902,7 @@ config_load(struct config *conf, const char *conf_path,
         },
         .pad_x = 2,
         .pad_y = 2,
-        .bell_set_urgency = false,
+        .bell_is_urgent = false,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = tll_init(),
         .scrollback = {
@@ -2024,6 +2045,7 @@ config_free(struct config conf)
     free(conf.shell);
     free(conf.title);
     free(conf.app_id);
+    free(conf.word_delimiters);
     free(conf.scrollback.indicator.text);
     tll_foreach(conf.fonts, it)
         config_font_destroy(&it->item);

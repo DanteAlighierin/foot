@@ -103,12 +103,20 @@ in this order:
 	protocol is added in the future (in which case foot will use that
 	instead of painting its margins red).
 	
+	Applications can enable/disable this feature programatically with
+	the *CSI ? 1042 h* and *CSI ? 1042 l* escape sequences.
+	
 	_Note_: expect this feature to be *replaced* with proper
 	compositor urgency support once/if that gets implemented.
 	
 	When set to *none*, no special action is taken when receiving *BEL*.
 	
 	Default: _none_.
+
+*word-delimiters*
+	String of characters that act as word delimiters when selecting
+	text. Note that whitespace characters are _always_ word
+	delimiters, regardless of this setting. Default: _,│`|:"'()[]{}<>_
 
 
 # SECTION: scrollback
@@ -233,10 +241,15 @@ values here are in AARRGGBB format. I.e. they contain an alpha
 component.
 
 *preferred*
-	Which type of window decorations to prefer: *client* (CSD) or
-	*server* (SSD). Note that this is only a hint to the
-	compositor. Depending on the compositor's configuration and
-	capabilities, it may not have any effect. Default: _server_.
+	Which type of window decorations to prefer: *client* (CSD),
+	*server* (SSD) or *none*.
+	
+	Note that this is only a hint to the compositor. Depending on
+	compositor support, and how it has been configured, it may
+	instruct foot to use CSDs even though this option has been set to
+	*server*, or render SSDs despite *client* or *none* being set.
+	
+	Default: _server_.
 
 *size*
 	Height, in pixels (subject to output scaling), of the
@@ -310,8 +323,8 @@ e.g. *search-start=none*.
 	Pastes from the _clipboard_. Default: _Control+Shift+V_.
 
 *primary-paste*
-	Pastes from the _primary selection_. Default: not bound (to a
-	_key_, see *mouse-bindings*).
+	Pastes from the _primary selection_. Default: _Shift+Insert_ (also
+	defined in *mouse-bindings*).
 
 *search-start*
 	Starts a scrollback/history search. Default: _Control+Shift+R_.

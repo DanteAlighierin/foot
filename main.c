@@ -352,6 +352,13 @@ main(int argc, char *const *argv)
             LOG_INFO("arch: %s/%zu-bit, ", name.machine, sizeof(void *) * 8);
     }
 
+    setlocale(LC_CTYPE, "");
+    LOG_INFO("locale: %s", setlocale(LC_CTYPE, NULL));
+    if (!locale_is_utf8()) {
+        LOG_ERR("locale is not UTF-8");
+        return ret;
+    }
+
     struct config conf = {NULL};
     if (!config_load(&conf, conf_path, &user_notifications, check_config)) {
         config_free(conf);
@@ -364,13 +371,6 @@ main(int argc, char *const *argv)
     }
 
     fcft_set_scaling_filter(conf.tweak.fcft_filter);
-
-    setlocale(LC_CTYPE, "");
-    LOG_INFO("locale: %s", setlocale(LC_CTYPE, NULL));
-    if (!locale_is_utf8()) {
-        LOG_ERR("locale is not UTF-8");
-        return ret;
-    }
 
     if (conf_term != NULL) {
         free(conf.term);

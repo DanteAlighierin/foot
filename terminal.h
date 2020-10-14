@@ -182,6 +182,7 @@ enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
 
 enum selection_kind { SELECTION_NONE, SELECTION_NORMAL, SELECTION_BLOCK };
 enum selection_direction {SELECTION_UNDIR, SELECTION_LEFT, SELECTION_RIGHT};
+enum selection_scroll_direction {SELECTION_SCROLL_NOT, SELECTION_SCROLL_UP, SELECTION_SCROLL_DOWN};
 
 struct ptmx_buffer {
     void *data;
@@ -251,6 +252,8 @@ struct terminal {
         bool eight_bit;
     } meta;
 
+    bool bell_is_urgent;
+
     /* Saved DECSET modes - we save the SET state */
     struct {
         uint32_t origin:1;
@@ -272,6 +275,7 @@ struct terminal {
         uint32_t mouse_urxvt:1;
         uint32_t meta_eight_bit:1;
         uint32_t meta_esc_prefix:1;
+        uint32_t bell_is_urgent:1;
         uint32_t alt_screen:1;
     } xtsave;
 
@@ -287,7 +291,6 @@ struct terminal {
     } flash;
 
     struct {
-        bool active;
         enum { BLINK_ON, BLINK_OFF } state;
         int fd;
     } blink;
@@ -346,6 +349,12 @@ struct terminal {
         struct coord start;
         struct coord end;
         bool ongoing;
+
+        struct {
+            int fd;
+            int col;
+            enum selection_scroll_direction direction;
+        } auto_scroll;
     } selection;
 
     bool is_searching;

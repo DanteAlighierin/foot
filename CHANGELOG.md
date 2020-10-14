@@ -1,6 +1,8 @@
 # Changelog
 
 * [Unreleased](#Unreleased)
+* [1.5.2](#1-5-2)
+* [1.5.1](#1-5-1)
 * [1.5.0](#1-5-0)
 * [1.4.4](#1-4-4)
 * [1.4.3](#1-4-3)
@@ -23,22 +25,50 @@
   (https://codeberg.org/dnkl/foot/issues/150).
 * **bell** option to `foot.ini`. Can be set to `set-urgency` to make
   foot render the margins in red when receiving `BEL` while **not**
-  having keyboard focus. Note that Wayland does **not** implement an
-  _urgency_ hint like X11, but that there is a
+  having keyboard focus. Applications can dynamically enable/disable
+  this with the `CSI ? 1042 h` and `CSI ? 1042 l` escape
+  sequences. Note that Wayland does **not** implement an _urgency_
+  hint like X11, but that there is a
   [proposal](https://gitlab.freedesktop.org/wayland/wayland-protocols/-/merge_requests/9)
   to add support for this. The value `set-urgency` was chosen for
   forward-compatibility, in the hopes that this proposal eventualizes
   (https://codeberg.org/dnkl/foot/issues/157).
+* **word-delimiters** option to `foot.ini`
+  (https://codeberg.org/dnkl/foot/issues/156).
+* **csd.preferred** can now be set to `none` to disable window
+  decorations. Note that some compositors will render SSDs despite
+  this option being used (https://codeberg.org/dnkl/foot/issues/163).
+* Terminal content is now auto-scrolled when moving the mouse above or
+  below the window while selecting
+  (https://codeberg.org/dnkl/foot/issues/149).
 
+
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+### Contributors
+
+
+## 1.5.2
+
+### Fixed
+
+* Regression: middle clicking double pastes in e.g. vim
+  (https://codeberg.org/dnkl/foot/issues/168)
+
+
+## 1.5.1
 
 ### Changed
 
 * Default value of the **scrollback.multiplier** option in `foot.ini`
   from `1.0` to `3.0`.
+* `shift`+`insert` now pastes from the primary selection by
+  default. This is in addition to middle-clicking with the mouse.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Mouse bindings now match even if the actual click count is larger
@@ -49,10 +79,6 @@
   (https://codeberg.org/dnkl/foot/issues/141).
 * Scrollback position is now retained when resizing the window
   (https://codeberg.org/dnkl/foot/issues/142).
-* Trackpad scrolling speed. Note that it is much slower compared to
-  previous foot versions. Use the **multiplier** option in `foot.ini`
-  if you find the new speed too slow
-  (https://codeberg.org/dnkl/foot/issues/144).
 * Trackpad scrolling speed to better match the mouse scrolling speed,
   and to be consistent with other (Wayland) terminal emulators. Note
   that it is (much) slower compared to previous foot versions. Use the
@@ -69,10 +95,13 @@
 * Crash after either resizing a window or changing the font size if
   there were sixels present in the scrollback while doing so.
 * _Send Device Attributes_ to only send a response if `Ps == 0`.
+* Paste from primary when clipboard is empty.
 
 
-### Security
 ### Contributors
+
+* [craigbarnes](https://codeberg.org/craigbarnes)
+* [zar](https://codeberg.org/zar)
 
 
 ## 1.5.0

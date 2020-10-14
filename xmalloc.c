@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 #include <syslog.h>
 #include "xmalloc.h"
 
@@ -52,6 +53,12 @@ char *
 xstrdup(const char *str)
 {
     return check_alloc(strdup(str));
+}
+
+wchar_t *
+xwcsdup(const wchar_t *str)
+{
+    return check_alloc(wcsdup(str));
 }
 
 char *

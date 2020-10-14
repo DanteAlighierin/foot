@@ -3,22 +3,13 @@
 #include <wctype.h>
 
 bool
-isword(wchar_t wc, bool spaces_only)
+isword(wchar_t wc, bool spaces_only, const wchar_t *delimiters)
 {
     if (spaces_only)
         return iswgraph(wc);
 
-    switch (wc) {
-    default: return iswgraph(wc);
-
-    case L'(': case L')':
-    case L'[': case L']':
-    case L'{': case L'}':
-    case L'<': case L'>':
-    case L'│': case L'|':
-    case L',':
-    case L'`': case L'"': case L'\'':
-    case L':':
+    if (wcschr(delimiters, wc) != NULL)
         return false;
-    }
+
+    return iswgraph(wc);
 }

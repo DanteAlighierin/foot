@@ -53,6 +53,7 @@ struct config {
     char *shell;
     char *title;
     char *app_id;
+    wchar_t *word_delimiters;
     bool login_shell;
 
     struct {
@@ -72,7 +73,7 @@ struct config {
     unsigned pad_x;
     unsigned pad_y;
 
-    bool bell_set_urgency;
+    bool bell_is_urgent;
 
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 
@@ -139,7 +140,7 @@ struct config {
     } bindings;
 
     struct {
-        enum { CONF_CSD_PREFER_SERVER, CONF_CSD_PREFER_CLIENT } preferred;
+        enum { CONF_CSD_PREFER_NONE, CONF_CSD_PREFER_SERVER, CONF_CSD_PREFER_CLIENT } preferred;
 
         int title_height;
         int border_width;

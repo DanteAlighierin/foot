@@ -635,6 +635,7 @@ xdg_toplevel_decoration_configure(void *data,
 {
     struct wl_window *win = data;
 
+    assert(win->term->conf->csd.preferred != CONF_CSD_PREFER_NONE);
     switch (mode) {
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
         LOG_INFO("using CSD decorations");
@@ -1184,8 +1185,11 @@ wayl_win_init(struct terminal *term)
 
     xdg_toplevel_set_app_id(win->xdg_toplevel, conf->app_id);
 
-    /* Request server-side decorations */
-    if (wayl->xdg_decoration_manager != NULL) {
+    if (conf->csd.preferred == CONF_CSD_PREFER_NONE) {
+        /* User specifically do *not* want decorations */
+        win->use_csd = CSD_NO;
+        LOG_INFO("window decorations disabled by user");
+    } else if (wayl->xdg_decoration_manager != NULL) {
         win->xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
             wayl->xdg_decoration_manager, win->xdg_toplevel);
 
