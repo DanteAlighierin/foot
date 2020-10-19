@@ -19,6 +19,10 @@
 
 ### Fixed
 
+* Crash when libxkbcommon cannot find a suitable libX11 _compose_
+  file. Note that foot will run, but without support for dead keys.
+  (https://codeberg.org/dnkl/foot/issues/170).
+
 
 ## 1.5.2
 
