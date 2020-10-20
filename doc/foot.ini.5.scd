@@ -39,6 +39,9 @@ in this order:
 	specified in *font* are used. *Note*: you _may_ have to tweak the
 	size(s) of the custom bold/italic fonts to match the regular font.
 	
+	To disable bold and/or italic fonts, set e.g. *font-bold* to
+	_exactly_ the same value as *font*.
+	
 	Default: _monospace_ (*font*), _not set_ (*font-bold*,
 	*font-italic*, *font-bold-italic*).
 
