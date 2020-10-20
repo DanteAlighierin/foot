@@ -295,8 +295,8 @@ struct terminal {
     int scale;
     int width;  /* pixels */
     int height; /* pixels */
-    int unmaximized_width;  /* last unmaximized size, pixels */
-    int unmaximized_height; /*  last unmaximized size, pixels */
+    int stashed_width;
+    int stashed_height;
     struct {
         int left;
         int right;

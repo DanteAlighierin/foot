@@ -2038,9 +2038,9 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
          * If we have a "last" used size - use that. Otherwise, use
          * the size from the user configuration.
          */
-        if (term->unmaximized_width != 0 && term->unmaximized_height != 0) {
-            width = term->unmaximized_width;
-            height = term->unmaximized_height;
+        if (term->stashed_width != 0 && term->stashed_height != 0) {
+            width = term->stashed_width;
+            height = term->stashed_height;
         } else {
             switch (term->conf->size.type) {
             case CONF_SIZE_PX:
@@ -2193,9 +2193,14 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->render.last_cursor.row = NULL;
 
 damage_view:
-    if (!term->window->is_maximized && !term->window->is_fullscreen) {
-        term->unmaximized_width = term->width;
-        term->unmaximized_height = term->height;
+    if (!term->window->is_maximized &&
+        !term->window->is_fullscreen &&
+        !term->window->is_tiled)
+    {
+        /* Stash current size, to enable us to restore it when we're
+         * being un-maximized/fullscreened/tiled */
+        term->stashed_width = term->width;
+        term->stashed_height = term->height;
     }
 
 #if 0
