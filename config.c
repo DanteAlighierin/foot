@@ -547,14 +547,28 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         }
     }
 
-    else if (strcmp(key, "font") == 0) {
+    else if (strcmp(key, "font") == 0 ||
+             strcmp(key, "font-bold") == 0 ||
+             strcmp(key, "font-italic") == 0 ||
+             strcmp(key, "font-bold-italic") == 0)
+
+    {
+        size_t idx =
+            strcmp(key, "font") == 0 ? 0 :
+            strcmp(key, "font-bold") == 0 ? 1 :
+            strcmp(key, "font-italic") == 0 ? 2 : 3;
+
+        tll_foreach(conf->fonts[idx], it)
+            config_font_destroy(&it->item);
+        tll_free(conf->fonts[idx]);
+
         char *copy = xstrdup(value);
         for (const char *font = strtok(copy, ","); font != NULL; font = strtok(NULL, ",")) {
             /* Trim spaces, strictly speaking not necessary, but looks nice :) */
             while (*font != '\0' && isspace(*font))
                 font++;
             if (*font != '\0')
-                tll_push_back(conf->fonts, config_font_parse(font));
+                tll_push_back(conf->fonts[idx], config_font_parse(font));
         }
         free(copy);
     }
@@ -1904,7 +1918,7 @@ config_load(struct config *conf, const char *conf_path,
         .pad_y = 2,
         .bell_is_urgent = false,
         .startup_mode = STARTUP_WINDOWED,
-        .fonts = tll_init(),
+        .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
         .scrollback = {
             .lines = 1000,
             .indicator = {
@@ -2028,8 +2042,8 @@ config_load(struct config *conf, const char *conf_path,
         conf->colors.selection_bg >> 24 == 0;
 
 out:
-    if (ret && tll_length(conf->fonts) == 0)
-        tll_push_back(conf->fonts, config_font_parse("monospace"));
+    if (ret && tll_length(conf->fonts[0]) == 0)
+        tll_push_back(conf->fonts[0], config_font_parse("monospace"));
 
     free(conf_file.path);
     if (conf_file.fd >= 0)
@@ -2047,9 +2061,11 @@ config_free(struct config conf)
     free(conf.app_id);
     free(conf.word_delimiters);
     free(conf.scrollback.indicator.text);
-    tll_foreach(conf.fonts, it)
-        config_font_destroy(&it->item);
-    tll_free(conf.fonts);
+    for (size_t i = 0; i < ALEN(conf.fonts); i++) {
+        tll_foreach(conf.fonts[i], it)
+            config_font_destroy(&it->item);
+        tll_free(conf.fonts[i]);
+    }
     free(conf.server_socket_path);
 
     tll_foreach(conf.bindings.key, it) {

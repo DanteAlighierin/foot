@@ -20,20 +20,27 @@ in this order:
 
 # SECTION: default
 
-*font*
+*font*, *font-bold*, *font-italic*, *font-bold-italic*
 	Comma separated list of fonts to use, in fontconfig format (see
 	*FONT FORMAT*).
 	
-	The first font is the primary font. The remaining fonts are
-	fallback fonts that will be used whenever a glyph cannot be found
-	in the primary font.
+	For each option, the first font is the primary font. The remaining
+	fonts are fallback fonts that will be used whenever a glyph cannot
+	be found in the primary font.
 	
 	The fallback fonts are searched in the order they appear. If a
 	glyph cannot be found in any of the fallback fonts, the dynamic
 	fallback list from fontconfig (for the primary font) is
 	searched.
 	
-	Default: _monospace_.
+	*font-bold*, *font-italic* and *font-bold-italic* allow custom
+	fonts to be used for bold/italic/bold+italic fonts. If left
+	unconfigured, the bold/italic variants of the regular font(s)
+	specified in *font* are used. *Note*: you _may_ have to tweak the
+	size(s) of the custom bold/italic fonts to match the regular font.
+	
+	Default: _monospace_ (*font*), _not set_ (*font-bold*,
+	*font-italic*, *font-bold-italic*).
 
 *pad*
 	Padding between border and glyphs, in pixels (subject to output
