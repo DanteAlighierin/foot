@@ -23,6 +23,7 @@
   file. Note that foot will run, but without support for dead keys.
   (https://codeberg.org/dnkl/foot/issues/170).
 * Restored window size when window is un-tiled.
+* XCursor shape in CSD corners when window is tiled.
 
 
 ## 1.5.2
