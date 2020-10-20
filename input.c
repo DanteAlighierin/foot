@@ -504,8 +504,13 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     /* Compose (dead keys) */
     seat->kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
         seat->kbd.xkb, setlocale(LC_CTYPE, NULL), XKB_COMPOSE_COMPILE_NO_FLAGS);
-    seat->kbd.xkb_compose_state = xkb_compose_state_new(
-        seat->kbd.xkb_compose_table, XKB_COMPOSE_STATE_NO_FLAGS);
+
+    if (seat->kbd.xkb_compose_table == NULL) {
+        LOG_WARN("failed to instantiate compose table; dead keys will not work");
+    } else {
+        seat->kbd.xkb_compose_state = xkb_compose_state_new(
+            seat->kbd.xkb_compose_table, XKB_COMPOSE_STATE_NO_FLAGS);
+    }
 
     munmap(map_str, size);
     close(fd);
@@ -604,7 +609,8 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     seat->kbd.alt = false;
     seat->kbd.ctrl = false;
     seat->kbd.meta = false;
-    xkb_compose_state_reset(seat->kbd.xkb_compose_state);
+    if (seat->kbd.xkb_compose_state != NULL)
+        xkb_compose_state_reset(seat->kbd.xkb_compose_state);
 
     if (old_focused != NULL) {
         seat->pointer.hidden = false;
@@ -782,9 +788,13 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     LOG_INFO("%s", foo);
 #endif
 
-    xkb_compose_state_feed(seat->kbd.xkb_compose_state, sym);
-    enum xkb_compose_status compose_status = xkb_compose_state_get_status(
-        seat->kbd.xkb_compose_state);
+    enum xkb_compose_status compose_status = XKB_COMPOSE_NOTHING;
+
+    if (seat->kbd.xkb_compose_state != NULL) {
+        xkb_compose_state_feed(seat->kbd.xkb_compose_state, sym);
+        compose_status = xkb_compose_state_get_status(
+            seat->kbd.xkb_compose_state);
+    }
 
     if (compose_status == XKB_COMPOSE_COMPOSING) {
         /* TODO: goto maybe_repeat? */
@@ -868,12 +878,18 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     int count = 0;
 
     if (compose_status == XKB_COMPOSE_COMPOSED) {
+        assert(seat->kbd.xkb_compose_state != NULL);
+
         count = xkb_compose_state_get_utf8(
             seat->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
         xkb_compose_state_reset(seat->kbd.xkb_compose_state);
-    } else if (compose_status == XKB_COMPOSE_CANCELLED) {
+    }
+
+    else if (compose_status == XKB_COMPOSE_CANCELLED) {
         goto maybe_repeat;
-    } else {
+    }
+
+    else {
         count = xkb_state_key_get_utf8(
             seat->kbd.xkb_state, key, (char *)buf, sizeof(buf));
     }
