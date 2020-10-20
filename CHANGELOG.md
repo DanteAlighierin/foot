@@ -24,6 +24,8 @@
   (https://codeberg.org/dnkl/foot/issues/170).
 * Restored window size when window is un-tiled.
 * XCursor shape in CSD corners when window is tiled.
+* Error handling when processing keyboard input (maybe
+  https://codeberg.org/dnkl/foot/issues/171).
 
 
 ## 1.5.2
