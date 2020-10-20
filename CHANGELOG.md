@@ -51,7 +51,7 @@
 * Crash when libxkbcommon cannot find a suitable libX11 _compose_
   file. Note that foot will run, but without support for dead keys.
   (https://codeberg.org/dnkl/foot/issues/170).
-* Restored window size when window is un-tiled.
+* Restore window size when window is un-tiled.
 * XCursor shape in CSD corners when window is tiled.
 * Error handling when processing keyboard input (maybe
   https://codeberg.org/dnkl/foot/issues/171).
