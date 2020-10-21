@@ -764,39 +764,77 @@ font_loader_thread(void *_data)
 static bool
 reload_fonts(struct terminal *term)
 {
-    const size_t count = tll_length(term->conf->fonts);
-    char *names[count];
+    const size_t counts[4] = {
+        tll_length(term->conf->fonts[0]),
+        tll_length(term->conf->fonts[1]),
+        tll_length(term->conf->fonts[2]),
+        tll_length(term->conf->fonts[3]),
+    };
 
-    size_t i = 0;
-    tll_foreach(term->conf->fonts, it) {
-        bool use_px_size = term->font_sizes[i].px_size > 0;
-        char size[64];
+    /* Configure size (which may have been changed run-time) */
+    char **names[4];
+    for (size_t i = 0; i < 4; i++) {
+        names[i] = xmalloc(counts[i] * sizeof(names[i][0]));
 
-        if (use_px_size)
-            snprintf(size, sizeof(size), ":pixelsize=%d", term->font_sizes[i].px_size);
-        else
-            snprintf(size, sizeof(size), ":size=%.2f", term->font_sizes[i].pt_size);
+        size_t j = 0;
+        tll_foreach(term->conf->fonts[i], it) {
+            bool use_px_size = term->font_sizes[i][j].px_size > 0;
+            char size[64];
 
-        size_t len = strlen(it->item.pattern) + strlen(size) + 1;
-        names[i] = xmalloc(len);
+            if (use_px_size)
+                snprintf(size, sizeof(size), ":pixelsize=%d", term->font_sizes[i][j].px_size);
+            else
+                snprintf(size, sizeof(size), ":size=%.2f", term->font_sizes[i][j].pt_size);
 
-        strcpy(names[i], it->item.pattern);
-        strcat(names[i], size);
-        i++;
+            size_t len = strlen(it->item.pattern) + strlen(size) + 1;
+            names[i][j] = xmalloc(len);
+
+            strcpy(names[i][j], it->item.pattern);
+            strcat(names[i][j], size);
+            j++;
+        }
     }
 
-    char attrs0[256], attrs1[256], attrs2[256], attrs3[256];
-    snprintf(attrs0, sizeof(attrs0), "dpi=%.2f", term->font_dpi);
-    snprintf(attrs1, sizeof(attrs1), "dpi=%.2f:weight=bold", term->font_dpi);
-    snprintf(attrs2, sizeof(attrs2), "dpi=%.2f:slant=italic", term->font_dpi);
-    snprintf(attrs3, sizeof(attrs3), "dpi=%.2f:weight=bold:slant=italic", term->font_dpi);
+    /* Did user configure custom bold/italic fonts?
+     * Or should we use the regular font, with weight/slant attributes? */
+    const bool custom_bold = counts[1] > 0;
+    const bool custom_italic = counts[2] > 0;
+    const bool custom_bold_italic = counts[3] > 0;
+
+    const size_t count_regular = counts[0];
+    const char **names_regular = (const char **)names[0];
+
+    const size_t count_bold = custom_bold ? counts[1] : counts[0];
+    const char **names_bold = (const char **)(custom_bold ? names[1] : names[0]);
+
+    const size_t count_italic = custom_italic ? counts[2] : counts[0];
+    const char **names_italic = (const char **)(custom_italic ? names[2] : names[0]); 
+
+    const size_t count_bold_italic = custom_bold_italic ? counts[3] : counts[0];
+    const char **names_bold_italic = (const char **)(custom_bold_italic ? names[3] : names[0]);
+
+    char *attrs[4] = {NULL};
+    int attr_len[4] = {-1, -1, -1, -1};  /* -1, so that +1 (below) results in 0 */
+
+    for (size_t i = 0; i < 2; i++) {
+        attr_len[0] = snprintf(attrs[0], attr_len[0] + 1, "dpi=%.2f", term->font_dpi);
+        attr_len[1] = snprintf(attrs[1], attr_len[1] + 1, "dpi=%.2f:%s", term->font_dpi, !custom_bold ? "weight=bold" : "");
+        attr_len[2] = snprintf(attrs[2], attr_len[2] + 1, "dpi=%.2f:%s", term->font_dpi, !custom_italic ? "slant=italic" : "");
+        attr_len[3] = snprintf(attrs[3], attr_len[3] + 1, "dpi=%.2f:%s", term->font_dpi, !custom_bold_italic ? "weight=bold:slant=italic" : "");
+
+        if (i > 0)
+            continue;
+
+        for (size_t i = 0; i < 4; i++)
+            attrs[i] = xmalloc(attr_len[i] + 1);
+    }
 
     struct fcft_font *fonts[4];
     struct font_load_data data[4] = {
-        {count, (const char **)names, attrs0, &fonts[0]},
-        {count, (const char **)names, attrs1, &fonts[1]},
-        {count, (const char **)names, attrs2, &fonts[2]},
-        {count, (const char **)names, attrs3, &fonts[3]},
+        {count_regular,     names_regular,     attrs[0], &fonts[0]},
+        {count_bold,        names_bold,        attrs[1], &fonts[1]},
+        {count_italic,      names_italic,      attrs[2], &fonts[2]},
+        {count_bold_italic, names_bold_italic, attrs[3], &fonts[3]},
     };
 
     thrd_t tids[4] = {0};
@@ -819,6 +857,13 @@ reload_fonts(struct terminal *term)
             success = false;
     }
 
+    for (size_t i = 0; i < 4; i++) {
+        for (size_t j = 0; j < counts[i]; j++)
+            free(names[i][j]);
+        free(names[i]);
+        free(attrs[i]);
+    }
+
     if (!success) {
         LOG_ERR("failed to load primary fonts");
         for (size_t i = 0; i < 4; i++) {
@@ -827,19 +872,18 @@ reload_fonts(struct terminal *term)
         }
     }
 
-    for (size_t i = 0; i < count; i++)
-        free(names[i]);
-
     return success ? term_set_fonts(term, fonts) : success;
 }
 
 static bool
 load_fonts_from_conf(struct terminal *term)
 {
-    size_t i = 0;
-    tll_foreach(term->conf->fonts, it) {
-        term->font_sizes[i++] = (struct config_font){
-            .pt_size = it->item.pt_size, .px_size = it->item.px_size};
+    for (size_t i = 0; i < 4; i++) {
+        size_t j = 0;
+        tll_foreach(term->conf->fonts[i], it) {
+            term->font_sizes[i][j++] = (struct config_font){
+                .pt_size = it->item.pt_size, .px_size = it->item.px_size};
+        }
     }
 
     return reload_fonts(term);
@@ -922,7 +966,12 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .ptmx = ptmx,
         .ptmx_buffers = tll_init(),
         .ptmx_paste_buffers = tll_init(),
-        .font_sizes = xmalloc(sizeof(term->font_sizes[0]) * tll_length(conf->fonts)),
+        .font_sizes = {
+            xmalloc(sizeof(term->font_sizes[0][0]) * tll_length(conf->fonts[0])),
+            xmalloc(sizeof(term->font_sizes[1][0]) * tll_length(conf->fonts[1])),
+            xmalloc(sizeof(term->font_sizes[2][0]) * tll_length(conf->fonts[2])),
+            xmalloc(sizeof(term->font_sizes[3][0]) * tll_length(conf->fonts[3])),
+        },
         .font_dpi = 0.,
         .font_subpixel = (conf->colors.alpha == 0xffff  /* Can't do subpixel rendering on transparent background */
                           ? FCFT_SUBPIXEL_DEFAULT
@@ -1025,10 +1074,10 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .cwd = xstrdup(cwd),
     };
 
-    {
-        size_t i = 0;
-        tll_foreach(conf->fonts, it) {
-            term->font_sizes[i++] = (struct config_font){
+    for (size_t i = 0; i < 4; i++) {
+        size_t j = 0;
+        tll_foreach(conf->fonts[i], it) {
+            term->font_sizes[i][j++] = (struct config_font){
                 .pt_size = it->item.pt_size, .px_size = it->item.px_size};
         }
     }
@@ -1277,7 +1326,8 @@ term_destroy(struct terminal *term)
 
     for (size_t i = 0; i < sizeof(term->fonts) / sizeof(term->fonts[0]); i++)
         fcft_destroy(term->fonts[i]);
-    free(term->font_sizes);
+    for (size_t i = 0; i < 4; i++)
+        free(term->font_sizes[i]);
 
     free(term->search.buf);
 
@@ -1518,22 +1568,24 @@ term_reset(struct terminal *term, bool hard)
 static bool
 term_font_size_adjust(struct terminal *term, double amount)
 {
-    for (size_t i = 0; i < tll_length(term->conf->fonts); i++) {
-        double old_pt_size = term->font_sizes[i].pt_size;
+    for (size_t i = 0; i < 4; i++) {
+        for (size_t j = 0; j < tll_length(term->conf->fonts[i]); j++) {
+            double old_pt_size = term->font_sizes[i][j].pt_size;
 
-        /*
-         * To ensure primary and user-configured fallback fonts are
-         * resizes by the same amount, convert pixel sizes to point
-         * sizes, and to the adjustment on point sizes only.
-         */
+            /*
+             * To ensure primary and user-configured fallback fonts are
+             * resizes by the same amount, convert pixel sizes to point
+             * sizes, and to the adjustment on point sizes only.
+             */
 
-        if (term->font_sizes[i].px_size > 0) {
-            double dpi = term->font_dpi;
-            old_pt_size = term->font_sizes[i].px_size * 72. / dpi;
+            if (term->font_sizes[i][j].px_size > 0) {
+                double dpi = term->font_dpi;
+                old_pt_size = term->font_sizes[i][j].px_size * 72. / dpi;
+            }
+
+            term->font_sizes[i][j].pt_size = fmax(old_pt_size + amount, 0);
+            term->font_sizes[i][j].px_size = -1;
         }
-
-        term->font_sizes[i].pt_size = fmax(old_pt_size + amount, 0);
-        term->font_sizes[i].px_size = -1;
     }
 
     return reload_fonts(term);
