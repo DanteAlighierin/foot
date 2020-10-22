@@ -48,6 +48,11 @@
 
 
 ### Changed
+
+* Blinking text now uses the foreground color, but dimmed down in its
+  off state, instead of the background color.
+
+
 ### Deprecated
 ### Removed
 ### Fixed
