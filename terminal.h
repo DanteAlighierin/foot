@@ -225,7 +225,7 @@ struct terminal {
     struct composed *composed;
 
     struct fcft_font *fonts[4];
-    struct config_font *font_sizes;
+    struct config_font *font_sizes[4];
     float font_dpi;
     enum fcft_subpixel font_subpixel;
 
@@ -300,8 +300,8 @@ struct terminal {
     int scale;
     int width;  /* pixels */
     int height; /* pixels */
-    int unmaximized_width;  /* last unmaximized size, pixels */
-    int unmaximized_height; /*  last unmaximized size, pixels */
+    int stashed_width;
+    int stashed_height;
     struct {
         int left;
         int right;

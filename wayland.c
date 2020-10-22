@@ -485,6 +485,10 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     bool is_activated = false;
     bool is_fullscreen = false;
     bool is_maximized = false;
+    bool is_tiled_top = false;
+    bool is_tiled_bottom = false;
+    bool is_tiled_left = false;
+    bool is_tiled_right = false;
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char state_str[2048];
@@ -505,16 +509,17 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     enum xdg_toplevel_state *state;
     wl_array_for_each(state, states) {
         switch (*state) {
-        case XDG_TOPLEVEL_STATE_ACTIVATED:  is_activated = true; break;
-        case XDG_TOPLEVEL_STATE_FULLSCREEN: is_fullscreen = true; break;
-        case XDG_TOPLEVEL_STATE_MAXIMIZED:  is_maximized = true; break;
+        case XDG_TOPLEVEL_STATE_ACTIVATED:    is_activated = true; break;
+        case XDG_TOPLEVEL_STATE_FULLSCREEN:   is_fullscreen = true; break;
+        case XDG_TOPLEVEL_STATE_MAXIMIZED:    is_maximized = true; break;
+        case XDG_TOPLEVEL_STATE_TILED_LEFT:   is_tiled_left = true; break;
+        case XDG_TOPLEVEL_STATE_TILED_RIGHT:  is_tiled_right = true; break;
+        case XDG_TOPLEVEL_STATE_TILED_TOP:    is_tiled_top = true; break;
+        case XDG_TOPLEVEL_STATE_TILED_BOTTOM: is_tiled_bottom = true; break;
 
         case XDG_TOPLEVEL_STATE_RESIZING:
-        case XDG_TOPLEVEL_STATE_TILED_LEFT:
-        case XDG_TOPLEVEL_STATE_TILED_RIGHT:
-        case XDG_TOPLEVEL_STATE_TILED_TOP:
-        case XDG_TOPLEVEL_STATE_TILED_BOTTOM:
             /* Ignored */
+            /* TODO: throttle? */
             break;
         }
 
@@ -535,7 +540,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     else
         state_str[0] = '\0';
 
-    LOG_DBG("xdg-toplevel: configure: size=%dx%d, states=%s",
+    LOG_DBG("xdg-toplevel: configure: size=%dx%d, states=[%s]",
             width, height, state_str);
 #endif
 
@@ -559,6 +564,10 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     win->configure.is_activated = is_activated;
     win->configure.is_fullscreen = is_fullscreen;
     win->configure.is_maximized = is_maximized;
+    win->configure.is_tiled_top = is_tiled_top;
+    win->configure.is_tiled_bottom = is_tiled_bottom;
+    win->configure.is_tiled_left = is_tiled_left;
+    win->configure.is_tiled_right = is_tiled_right;
     win->configure.width = width;
     win->configure.height = height;
 }
@@ -589,6 +598,11 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     bool wasnt_configured = !win->is_configured;
     win->is_configured = true;
     win->is_maximized = win->configure.is_maximized;
+    win->is_tiled_top = win->configure.is_tiled_top;
+    win->is_tiled_bottom = win->configure.is_tiled_bottom;
+    win->is_tiled_left = win->configure.is_tiled_left;
+    win->is_tiled_right = win->configure.is_tiled_right;
+    win->is_tiled = win->is_tiled_top || win->is_tiled_bottom || win->is_tiled_left || win->is_tiled_right;
 
     if (win->is_fullscreen != win->configure.is_fullscreen && win->use_csd == CSD_YES) {
         if (win->configure.is_fullscreen)
@@ -737,8 +751,14 @@ handle_global(void *data, struct wl_registry *registry,
         if (!verify_iface_version(interface, version, required))
             return;
 
+        /*
+         * We *require* version 1, but _can_ use version 2. Version 2
+         * adds 'tiled' window states. We use that information to
+         * restore the window size when window is un-tiled.
+         */
+
         wayl->shell = wl_registry_bind(
-            wayl->registry, name, &xdg_wm_base_interface, required);
+            wayl->registry, name, &xdg_wm_base_interface, min(version, 2));
         xdg_wm_base_add_listener(wayl->shell, &xdg_wm_base_listener, wayl);
     }
 

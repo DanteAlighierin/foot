@@ -487,25 +487,35 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     tll_free(seat->mouse.bindings);
 
     seat->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-    seat->kbd.xkb_keymap = xkb_keymap_new_from_buffer(
-        seat->kbd.xkb, map_str, size, XKB_KEYMAP_FORMAT_TEXT_V1,
-        XKB_KEYMAP_COMPILE_NO_FLAGS);
 
-    seat->kbd.xkb_state = xkb_state_new(seat->kbd.xkb_keymap);
+    if (seat->kbd.xkb != NULL) {
+        seat->kbd.xkb_keymap = xkb_keymap_new_from_buffer(
+            seat->kbd.xkb, map_str, size, XKB_KEYMAP_FORMAT_TEXT_V1,
+            XKB_KEYMAP_COMPILE_NO_FLAGS);
 
-    seat->kbd.mod_shift = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Shift");
-    seat->kbd.mod_alt = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Mod1") ;
-    seat->kbd.mod_ctrl = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Control");
-    seat->kbd.mod_meta = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Mod4");
+        /* Compose (dead keys) */
+        seat->kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
+            seat->kbd.xkb, setlocale(LC_CTYPE, NULL), XKB_COMPOSE_COMPILE_NO_FLAGS);
 
-    seat->kbd.key_arrow_up = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "UP");
-    seat->kbd.key_arrow_down = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "DOWN");
+        if (seat->kbd.xkb_compose_table == NULL) {
+            LOG_WARN("failed to instantiate compose table; dead keys will not work");
+        } else {
+            seat->kbd.xkb_compose_state = xkb_compose_state_new(
+                seat->kbd.xkb_compose_table, XKB_COMPOSE_STATE_NO_FLAGS);
+        }
+    }
 
-    /* Compose (dead keys) */
-    seat->kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
-        seat->kbd.xkb, setlocale(LC_CTYPE, NULL), XKB_COMPOSE_COMPILE_NO_FLAGS);
-    seat->kbd.xkb_compose_state = xkb_compose_state_new(
-        seat->kbd.xkb_compose_table, XKB_COMPOSE_STATE_NO_FLAGS);
+    if (seat->kbd.xkb_keymap != NULL) {
+        seat->kbd.xkb_state = xkb_state_new(seat->kbd.xkb_keymap);
+
+        seat->kbd.mod_shift = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Shift");
+        seat->kbd.mod_alt = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Mod1") ;
+        seat->kbd.mod_ctrl = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Control");
+        seat->kbd.mod_meta = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Mod4");
+
+        seat->kbd.key_arrow_up = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "UP");
+        seat->kbd.key_arrow_down = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "DOWN");
+    }
 
     munmap(map_str, size);
     close(fd);
@@ -604,7 +614,8 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     seat->kbd.alt = false;
     seat->kbd.ctrl = false;
     seat->kbd.meta = false;
-    xkb_compose_state_reset(seat->kbd.xkb_compose_state);
+    if (seat->kbd.xkb_compose_state != NULL)
+        xkb_compose_state_reset(seat->kbd.xkb_compose_state);
 
     if (old_focused != NULL) {
         seat->pointer.hidden = false;
@@ -743,8 +754,12 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     struct seat *seat = data;
     struct terminal *term = seat->kbd_focus;
 
-    if (seat->kbd.xkb == NULL)
+    if (seat->kbd.xkb == NULL ||
+        seat->kbd.xkb_keymap == NULL ||
+        seat->kbd.xkb_state == NULL)
+    {
         return;
+    }
 
     assert(term != NULL);
 
@@ -782,9 +797,13 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     LOG_INFO("%s", foo);
 #endif
 
-    xkb_compose_state_feed(seat->kbd.xkb_compose_state, sym);
-    enum xkb_compose_status compose_status = xkb_compose_state_get_status(
-        seat->kbd.xkb_compose_state);
+    enum xkb_compose_status compose_status = XKB_COMPOSE_NOTHING;
+
+    if (seat->kbd.xkb_compose_state != NULL) {
+        xkb_compose_state_feed(seat->kbd.xkb_compose_state, sym);
+        compose_status = xkb_compose_state_get_status(
+            seat->kbd.xkb_compose_state);
+    }
 
     if (compose_status == XKB_COMPOSE_COMPOSING) {
         /* TODO: goto maybe_repeat? */
@@ -860,33 +879,43 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         goto maybe_repeat;
     }
 
+    if (compose_status == XKB_COMPOSE_CANCELLED)
+        goto maybe_repeat;
+
     /*
      * Compose, and maybe emit "normal" character
      */
 
-    uint8_t buf[64] = {0};
-    int count = 0;
+    assert(seat->kbd.xkb_compose_state != NULL ||
+           compose_status != XKB_COMPOSE_COMPOSED);
 
-    if (compose_status == XKB_COMPOSE_COMPOSED) {
-        count = xkb_compose_state_get_utf8(
-            seat->kbd.xkb_compose_state, (char *)buf, sizeof(buf));
+    int count = compose_status == XKB_COMPOSE_COMPOSED
+        ? xkb_compose_state_get_utf8(seat->kbd.xkb_compose_state, NULL, 0)
+        : xkb_state_key_get_utf8(seat->kbd.xkb_state, key, NULL, 0);
+
+    if (count <= 0)
+        goto maybe_repeat;
+
+    /* Buffer for translated key. Use a static buffer in most cases,
+     * and use a malloc:ed buffer when necessary */
+    uint8_t buf[32];
+    uint8_t *utf8 = count < sizeof(buf) ? buf : xmalloc(count + 1);
+
+    compose_status == XKB_COMPOSE_COMPOSED
+        ? xkb_compose_state_get_utf8(
+            seat->kbd.xkb_compose_state, (char *)utf8, count + 1)
+        : xkb_state_key_get_utf8(
+            seat->kbd.xkb_state, key, (char *)utf8, count + 1);
+
+    if (seat->kbd.xkb_compose_state != NULL)
         xkb_compose_state_reset(seat->kbd.xkb_compose_state);
-    } else if (compose_status == XKB_COMPOSE_CANCELLED) {
-        goto maybe_repeat;
-    } else {
-        count = xkb_state_key_get_utf8(
-            seat->kbd.xkb_state, key, (char *)buf, sizeof(buf));
-    }
-
-    if (count == 0)
-        goto maybe_repeat;
 
 #define is_control_key(x) ((x) >= 0x40 && (x) <= 0x7f)
 #define IS_CTRL(x) ((x) < 0x20 || ((x) >= 0x7f && (x) <= 0x9f))
 
     if ((keymap_mods & MOD_CTRL) &&
         !is_control_key(sym) &&
-        (count == 1 && !IS_CTRL(buf[0])) &&
+        (count == 1 && !IS_CTRL(utf8[0])) &&
         sym < 256)
     {
         static const int mod_param_map[32] = {
@@ -937,11 +966,11 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
              */
             if (term->meta.esc_prefix) {
                 term_to_slave(term, "\x1b", 1);
-                term_to_slave(term, buf, count);
+                term_to_slave(term, utf8, count);
             }
 
             else if (term->meta.eight_bit && count == 1) {
-                const wchar_t wc = 0x80 | buf[0];
+                const wchar_t wc = 0x80 | utf8[0];
 
                 char utf8[8];
                 mbstate_t ps = {0};
@@ -950,16 +979,19 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                 if (chars != (size_t)-1)
                     term_to_slave(term, utf8, chars);
                 else
-                    term_to_slave(term, buf, count);
+                    term_to_slave(term, utf8, count);
             }
 
             else {
                 /* Alt ignored */
-                term_to_slave(term, buf, count);
+                term_to_slave(term, utf8, count);
             }
         } else
-            term_to_slave(term, buf, count);
+            term_to_slave(term, utf8, count);
     }
+
+    if (utf8 != buf)
+        free(utf8);
 
     term_reset_view(term);
     selection_cancel(term);
@@ -970,7 +1002,6 @@ maybe_repeat:
 
     if (should_repeat)
         start_repeater(seat, key - 8);
-
 }
 
 static void
@@ -983,21 +1014,20 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     LOG_DBG("modifiers: depressed=0x%x, latched=0x%x, locked=0x%x, group=%u",
             mods_depressed, mods_latched, mods_locked, group);
 
-    if (seat->kbd.xkb == NULL)
-        return;
+    if (seat->kbd.xkb_state != NULL) {
+        xkb_state_update_mask(
+            seat->kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
 
-    xkb_state_update_mask(
-        seat->kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
-
-    /* Update state of modifiers we're interested in for e.g mouse events */
-    seat->kbd.shift = xkb_state_mod_index_is_active(
-        seat->kbd.xkb_state, seat->kbd.mod_shift, XKB_STATE_MODS_DEPRESSED);
-    seat->kbd.alt = xkb_state_mod_index_is_active(
-        seat->kbd.xkb_state, seat->kbd.mod_alt, XKB_STATE_MODS_DEPRESSED);
-    seat->kbd.ctrl = xkb_state_mod_index_is_active(
-        seat->kbd.xkb_state, seat->kbd.mod_ctrl, XKB_STATE_MODS_DEPRESSED);
-    seat->kbd.meta = xkb_state_mod_index_is_active(
-        seat->kbd.xkb_state, seat->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
+        /* Update state of modifiers we're interested in for e.g mouse events */
+        seat->kbd.shift = xkb_state_mod_index_is_active(
+            seat->kbd.xkb_state, seat->kbd.mod_shift, XKB_STATE_MODS_DEPRESSED);
+        seat->kbd.alt = xkb_state_mod_index_is_active(
+            seat->kbd.xkb_state, seat->kbd.mod_alt, XKB_STATE_MODS_DEPRESSED);
+        seat->kbd.ctrl = xkb_state_mod_index_is_active(
+            seat->kbd.xkb_state, seat->kbd.mod_ctrl, XKB_STATE_MODS_DEPRESSED);
+        seat->kbd.meta = xkb_state_mod_index_is_active(
+            seat->kbd.xkb_state, seat->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
+    }
 
     if (seat->kbd_focus && seat->kbd_focus->active_surface == TERM_SURF_GRID)
         term_xcursor_update_for_seat(seat->kbd_focus, seat);
@@ -1033,8 +1063,9 @@ is_top_left(const struct terminal *term, int x, int y)
 {
     int csd_border_size = term->conf->csd.border_width;
     return (
-        (term->active_surface == TERM_SURF_BORDER_LEFT && y < 10 * term->scale) ||
-        (term->active_surface == TERM_SURF_BORDER_TOP && x < (10 + csd_border_size) * term->scale));
+        (!term->window->is_tiled_top && !term->window->is_tiled_left) &&
+        ((term->active_surface == TERM_SURF_BORDER_LEFT && y < 10 * term->scale) ||
+         (term->active_surface == TERM_SURF_BORDER_TOP && x < (10 + csd_border_size) * term->scale)));
 }
 
 static bool
@@ -1042,8 +1073,9 @@ is_top_right(const struct terminal *term, int x, int y)
 {
     int csd_border_size = term->conf->csd.border_width;
     return (
-        (term->active_surface == TERM_SURF_BORDER_RIGHT && y < 10 * term->scale) ||
-        (term->active_surface == TERM_SURF_BORDER_TOP && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale));
+        (!term->window->is_tiled_top && !term->window->is_tiled_right) &&
+        ((term->active_surface == TERM_SURF_BORDER_RIGHT && y < 10 * term->scale) ||
+         (term->active_surface == TERM_SURF_BORDER_TOP && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale)));
 }
 
 static bool
@@ -1052,8 +1084,9 @@ is_bottom_left(const struct terminal *term, int x, int y)
     int csd_title_size = term->conf->csd.title_height;
     int csd_border_size = term->conf->csd.border_width;
     return (
-        (term->active_surface == TERM_SURF_BORDER_LEFT && y > csd_title_size * term->scale + term->height) ||
-        (term->active_surface == TERM_SURF_BORDER_BOTTOM && x < (10 + csd_border_size) * term->scale));
+        (!term->window->is_tiled_bottom && !term->window->is_tiled_left) &&
+        ((term->active_surface == TERM_SURF_BORDER_LEFT && y > csd_title_size * term->scale + term->height) ||
+         (term->active_surface == TERM_SURF_BORDER_BOTTOM && x < (10 + csd_border_size) * term->scale)));
 }
 
 static bool
@@ -1062,8 +1095,9 @@ is_bottom_right(const struct terminal *term, int x, int y)
     int csd_title_size = term->conf->csd.title_height;
     int csd_border_size = term->conf->csd.border_width;
     return (
-        (term->active_surface == TERM_SURF_BORDER_RIGHT && y > csd_title_size * term->scale + term->height) ||
-        (term->active_surface == TERM_SURF_BORDER_BOTTOM && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale));
+        (!term->window->is_tiled_bottom && !term->window->is_tiled_right) &&
+        ((term->active_surface == TERM_SURF_BORDER_RIGHT && y > csd_title_size * term->scale + term->height) ||
+         (term->active_surface == TERM_SURF_BORDER_BOTTOM && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale)));
 }
 
 static const char *
@@ -1551,7 +1585,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
             if (!seat->mouse.consumed) {
-                if (seat->wl_keyboard != NULL) {
+                if (seat->wl_keyboard != NULL && seat->kbd.xkb_state != NULL) {
                     /* Seat has keyboard - use mouse bindings *with* modifiers */
 
                     xkb_mod_mask_t mods = xkb_state_serialize_mods(

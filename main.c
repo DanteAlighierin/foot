@@ -27,6 +27,7 @@
 #include "server.h"
 #include "shm.h"
 #include "terminal.h"
+#include "util.h"
 #include "version.h"
 #include "xmalloc.h"
 
@@ -387,11 +388,13 @@ main(int argc, char *const *argv)
     if (login_shell)
         conf.login_shell = true;
     if (tll_length(conf_fonts) > 0) {
-        tll_foreach(conf.fonts, it)
-            config_font_destroy(&it->item);
-        tll_free(conf.fonts);
+        for (size_t i = 0; i < ALEN(conf.fonts); i++) {
+            tll_foreach(conf.fonts[i], it)
+                config_font_destroy(&it->item);
+            tll_free(conf.fonts[i]);
+        }
         tll_foreach(conf_fonts, it)
-            tll_push_back(conf.fonts, config_font_parse(it->item));
+            tll_push_back(conf.fonts[0], config_font_parse(it->item));
         tll_free(conf_fonts);
     }
     if (conf_width > 0 && conf_height > 0) {

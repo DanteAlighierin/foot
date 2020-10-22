@@ -656,7 +656,7 @@ osc_dispatch(struct terminal *term)
         if (string[0] == '#' ? !parse_legacy_color(string, &color) : !parse_rgb(string, &color))
             break;
 
-        LOG_INFO("change cursor color to %06x", color);
+        LOG_DBG("change cursor color to %06x", color);
 
         if (color == 0)
             term->cursor_color.cursor = 0;  /* Invert fg/bg */

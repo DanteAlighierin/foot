@@ -16,6 +16,7 @@ struct config_font {
     double pt_size;
     int px_size;
 };
+typedef tll(struct config_font) config_font_list_t;
 
 struct config_key_modifiers {
     bool shift;
@@ -77,7 +78,7 @@ struct config {
 
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 
-    tll(struct config_font) fonts;
+    config_font_list_t fonts[4];
 
     struct {
         int lines;

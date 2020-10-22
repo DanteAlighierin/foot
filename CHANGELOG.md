@@ -41,12 +41,26 @@
 * Terminal content is now auto-scrolled when moving the mouse above or
   below the window while selecting
   (https://codeberg.org/dnkl/foot/issues/149).
+* **font-bold**, **font-italic** and **font-bold-italic** options to
+  `foot.ini`. These options allow custom bold/italic fonts. They are
+  unset by default, meaning the bold/italic version of the regular
+  font is used (https://codeberg.org/dnkl/foot/issues/169).
 
 
 ### Changed
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Crash when libxkbcommon cannot find a suitable libX11 _compose_
+  file. Note that foot will run, but without support for dead keys.
+  (https://codeberg.org/dnkl/foot/issues/170).
+* Restore window size when window is un-tiled.
+* XCursor shape in CSD corners when window is tiled.
+* Error handling when processing keyboard input (maybe
+  https://codeberg.org/dnkl/foot/issues/171).
+
+
 ### Security
 ### Contributors
 
