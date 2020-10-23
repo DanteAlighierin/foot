@@ -399,9 +399,6 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         }
     }
 
-    if (cell->attrs.blink && term->blink.state == BLINK_OFF)
-        _fg = _bg;
-
     pixman_color_t fg = color_hex_to_pixman(_fg);
     pixman_color_t bg = color_hex_to_pixman_with_alpha(
         _bg,
@@ -409,6 +406,9 @@ render_cell(struct terminal *term, pixman_image_t *pix,
          ? term->colors.alpha : 0xffff));
 
     if (cell->attrs.dim)
+        color_dim(&fg);
+
+    if (cell->attrs.blink && term->blink.state == BLINK_OFF)
         color_dim(&fg);
 
     if (term->is_searching && !is_selected) {
