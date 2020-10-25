@@ -350,7 +350,7 @@ main(int argc, char *const *argv)
         if (uname(&name) < 0)
             LOG_ERRNO("uname() failed");
         else
-            LOG_INFO("arch: %s/%zu-bit, ", name.machine, sizeof(void *) * 8);
+            LOG_INFO("arch: %s/%zu-bit", name.machine, sizeof(void *) * 8);
     }
 
     setlocale(LC_CTYPE, "");
