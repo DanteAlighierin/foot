@@ -205,6 +205,9 @@ struct seat {
 
     struct wl_clipboard clipboard;
     struct wl_primary primary;
+
+    /* Drag ‘n’ drop */
+    struct terminal *dnd_term;
 };
 
 enum csd_surface {
@@ -308,6 +311,8 @@ struct wl_window {
     struct wl_subsurface *render_timer_sub_surface;
 
     struct wl_callback *frame_callback;
+
+    struct wl_data_offer *dnd_offer;
 
     tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
 

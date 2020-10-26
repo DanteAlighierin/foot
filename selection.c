@@ -898,7 +898,7 @@ selection_stop_scroll_timer(struct terminal *term)
 static void
 target(void *data, struct wl_data_source *wl_data_source, const char *mime_type)
 {
-    LOG_WARN("TARGET: mime-type=%s", mime_type);
+    LOG_DBG("TARGET: mime-type=%s", mime_type);
 }
 
 struct clipboard_send {
@@ -1008,19 +1008,23 @@ cancelled(void *data, struct wl_data_source *wl_data_source)
     clipboard->text = NULL;
 }
 
+/* We don’t support dragging *from* */
 static void
 dnd_drop_performed(void *data, struct wl_data_source *wl_data_source)
 {
+    //LOG_DBG("DnD drop performed");
 }
 
 static void
 dnd_finished(void *data, struct wl_data_source *wl_data_source)
 {
+    //LOG_DBG("DnD finished");
 }
 
 static void
 action(void *data, struct wl_data_source *wl_data_source, uint32_t dnd_action)
 {
+    //LOG_DBG("DnD action: %u", dnd_action);
 }
 
 static const struct wl_data_source_listener data_source_listener = {
@@ -1464,17 +1468,20 @@ selection_from_primary(struct seat *seat, struct terminal *term)
 static void
 offer(void *data, struct wl_data_offer *wl_data_offer, const char *mime_type)
 {
+    LOG_INFO("OFFER: %s", mime_type);
 }
 
 static void
 source_actions(void *data, struct wl_data_offer *wl_data_offer,
                 uint32_t source_actions)
 {
+    LOG_INFO("ACTIONS: 0x%08x", source_actions);
 }
 
 static void
 offer_action(void *data, struct wl_data_offer *wl_data_offer, uint32_t dnd_action)
 {
+    LOG_INFO("OFFER ACTION: 0x%08x", dnd_action);
 }
 
 static const struct wl_data_offer_listener data_offer_listener = {
@@ -1488,6 +1495,7 @@ static void
 data_offer(void *data, struct wl_data_device *wl_data_device,
            struct wl_data_offer *id)
 {
+    //wl_data_offer_add_listener(id, &data_offer_listener, data);
 }
 
 static void
@@ -1495,11 +1503,43 @@ enter(void *data, struct wl_data_device *wl_data_device, uint32_t serial,
       struct wl_surface *surface, wl_fixed_t x, wl_fixed_t y,
       struct wl_data_offer *id)
 {
+    struct seat *seat = data;
+    struct wayland *wayl = seat->wayl;
+
+    assert(seat->dnd_term == NULL);
+
+    /* Remember current DnD offer */
+
+    /* Remmeber _which_ terminal the current DnD offer is targetting */
+    tll_foreach(wayl->terms, it) {
+        if (term_surface_kind(it->item, surface) == TERM_SURF_GRID &&
+            !it->item->is_sending_paste_data)
+        {
+            wl_data_offer_accept(id, serial, "text/plain;charset=utf-8");
+            wl_data_offer_set_actions(
+                id,
+                WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY | WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE,
+                WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
+
+            seat->dnd_term = it->item;
+            seat->dnd_term->window->dnd_offer = id;
+            return;
+        }
+    }
+
+    /* Either terminal is alraedy busy sending paste data, or mouse
+     * pointer isn’t over the grid */
+    seat->dnd_term = NULL;
+    wl_data_offer_set_actions(id, 0, WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
 }
 
 static void
 leave(void *data, struct wl_data_device *wl_data_device)
 {
+    struct seat *seat = data;
+    if (seat->dnd_term != NULL)
+        seat->dnd_term->window->dnd_offer = NULL;
+    seat->dnd_term = NULL;
 }
 
 static void
@@ -1509,8 +1549,58 @@ motion(void *data, struct wl_data_device *wl_data_device, uint32_t time,
 }
 
 static void
+dnd_done(void *user)
+{
+    struct terminal *term = user;
+    struct wl_data_offer *offer = term->window->dnd_offer;
+
+    assert(offer != NULL);
+    term->window->dnd_offer = NULL;
+
+    wl_data_offer_finish(offer);
+    wl_data_offer_destroy(offer);
+
+    from_clipboard_done(user);
+}
+
+static void
 drop(void *data, struct wl_data_device *wl_data_device)
 {
+    struct seat *seat = data;
+
+    struct terminal *term = seat->dnd_term;
+    assert(term != NULL);
+
+    struct wl_data_offer *offer = term->window->dnd_offer;
+    assert(offer != NULL);
+    seat->dnd_term = NULL;
+
+    /* Prepare a pipe the other client can write its selection to us */
+    int fds[2];
+    if (pipe2(fds, O_CLOEXEC) == -1) {
+        LOG_ERRNO("failed to create pipe");
+        goto err;
+    }
+
+    int read_fd = fds[0];
+    int write_fd = fds[1];
+
+    /* Give write-end of pipe to other client */
+    wl_data_offer_receive(offer, "text/plain;charset=utf-8", write_fd);
+
+    /* Don't keep our copy of the write-end open (or we'll never get EOF) */
+    close(write_fd);
+
+    term->is_sending_paste_data = true;
+
+    if (term->bracketed_paste)
+        term_paste_data_to_slave(term, "\033[200~", 6);
+
+    begin_receive_clipboard(term, read_fd, &from_clipboard_cb, &dnd_done, term);
+    return;
+
+err:
+    wl_data_offer_destroy(offer);
 }
 
 static void
@@ -1526,10 +1616,6 @@ selection(void *data, struct wl_data_device *wl_data_device,
         wl_data_offer_destroy(clipboard->data_offer);
 
     clipboard->data_offer = id;
-#if 0
-    if (id != NULL)
-        wl_data_offer_add_listener(id, &data_offer_listener, term);
-#endif
 }
 
 const struct wl_data_device_listener data_device_listener = {
