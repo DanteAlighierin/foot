@@ -1464,24 +1464,24 @@ selection_from_primary(struct seat *seat, struct terminal *term)
     text_from_primary(seat, term, &from_clipboard_cb, &from_clipboard_done, term);
 }
 
-#if 0
+#if 1
 static void
 offer(void *data, struct wl_data_offer *wl_data_offer, const char *mime_type)
 {
-    LOG_INFO("OFFER: %s", mime_type);
+    LOG_DBG("OFFER: %s", mime_type);
 }
 
 static void
 source_actions(void *data, struct wl_data_offer *wl_data_offer,
                 uint32_t source_actions)
 {
-    LOG_INFO("ACTIONS: 0x%08x", source_actions);
+    LOG_DBG("ACTIONS: 0x%08x", source_actions);
 }
 
 static void
 offer_action(void *data, struct wl_data_offer *wl_data_offer, uint32_t dnd_action)
 {
-    LOG_INFO("OFFER ACTION: 0x%08x", dnd_action);
+    LOG_DBG("OFFER ACTION: 0x%08x", dnd_action);
 }
 
 static const struct wl_data_offer_listener data_offer_listener = {
@@ -1495,7 +1495,7 @@ static void
 data_offer(void *data, struct wl_data_device *wl_data_device,
            struct wl_data_offer *id)
 {
-    //wl_data_offer_add_listener(id, &data_offer_listener, data);
+    wl_data_offer_add_listener(id, &data_offer_listener, data);
 }
 
 static void
