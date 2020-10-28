@@ -67,12 +67,12 @@ bool text_to_primary(
  */
 void text_from_clipboard(
     struct seat *seat, struct terminal *term,
-    void (*cb)(const char *data, size_t size, void *user),
+    void (*cb)(char *data, size_t size, void *user),
     void (*done)(void *user), void *user);
 
 void text_from_primary(
     struct seat *seat, struct terminal *term,
-    void (*cb)(const char *data, size_t size, void *user),
+    void (*cb)(char *data, size_t size, void *user),
     void (*dont)(void *user), void *user);
 
 void selection_start_scroll_timer(
