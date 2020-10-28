@@ -1734,7 +1734,7 @@ enter(void *data, struct wl_data_device *wl_data_device, uint32_t serial,
 
     assert(offer == seat->clipboard.data_offer);
 
-    /* Remmeber _which_ terminal the current DnD offer is targetting */
+    /* Remember _which_ terminal the current DnD offer is targeting */
     assert(seat->clipboard.window == NULL);
     tll_foreach(wayl->terms, it) {
         if (term_surface_kind(it->item, surface) == TERM_SURF_GRID &&
@@ -1752,7 +1752,7 @@ enter(void *data, struct wl_data_device *wl_data_device, uint32_t serial,
         }
     }
 
-    /* Either terminal is alraedy busy sending paste data, or mouse
+    /* Either terminal is already busy sending paste data, or mouse
      * pointer isn’t over the grid */
     seat->clipboard.window = NULL;
     wl_data_offer_set_actions(offer, 0, 0);

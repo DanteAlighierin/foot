@@ -71,7 +71,7 @@ uri_parse(const char *uri, size_t len,
         start += 2;
         left -= 2;
 
-        /* [user[:pasword]@]@host[:port] */
+        /* [user[:password]@]@host[:port] */
 
         /* Find beginning of path segment (required component
          * following the authinfo) */
