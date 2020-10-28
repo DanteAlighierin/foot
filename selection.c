@@ -21,9 +21,17 @@
 #include "grid.h"
 #include "misc.h"
 #include "render.h"
+#include "uri.h"
 #include "util.h"
 #include "vt.h"
 #include "xmalloc.h"
+
+static const char *const mime_type_map[] = {
+    [DATA_OFFER_MIME_UNSET] = NULL,
+    [DATA_OFFER_MIME_TEXT_PLAIN] = "text/plain",
+    [DATA_OFFER_MIME_TEXT_UTF8] = "text/plain;charset=utf-8",
+    [DATA_OFFER_MIME_URI_LIST] = "text/uri-list",
+};
 
 bool
 selection_enabled(const struct terminal *term, struct seat *seat)
@@ -898,7 +906,7 @@ selection_stop_scroll_timer(struct terminal *term)
 static void
 target(void *data, struct wl_data_source *wl_data_source, const char *mime_type)
 {
-    LOG_WARN("TARGET: mime-type=%s", mime_type);
+    LOG_DBG("TARGET: mime-type=%s", mime_type);
 }
 
 struct clipboard_send {
@@ -1008,19 +1016,23 @@ cancelled(void *data, struct wl_data_source *wl_data_source)
     clipboard->text = NULL;
 }
 
+/* We don’t support dragging *from* */
 static void
 dnd_drop_performed(void *data, struct wl_data_source *wl_data_source)
 {
+    //LOG_DBG("DnD drop performed");
 }
 
 static void
 dnd_finished(void *data, struct wl_data_source *wl_data_source)
 {
+    //LOG_DBG("DnD finished");
 }
 
 static void
 action(void *data, struct wl_data_source *wl_data_source, uint32_t dnd_action)
 {
+    //LOG_DBG("DnD action: %u", dnd_action);
 }
 
 static const struct wl_data_source_listener data_source_listener = {
@@ -1092,7 +1104,7 @@ text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t
     clipboard->text = text;
 
     /* Configure source */
-    wl_data_source_offer(clipboard->data_source, "text/plain;charset=utf-8");
+    wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8]);
     wl_data_source_add_listener(clipboard->data_source, &data_source_listener, seat);
     wl_data_device_set_selection(seat->data_device, clipboard->data_source, serial);
 
@@ -1120,7 +1132,7 @@ struct clipboard_receive {
     struct itimerspec timeout;
 
     /* Callback data */
-    void (*cb)(const char *data, size_t size, void *user);
+    void (*cb)(char *data, size_t size, void *user);
     void (*done)(void *user);
     void *user;
 };
@@ -1191,7 +1203,7 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
             break;
 
         /* Call cb while at same time replacing \r\n with \n */
-        const char *p = text;
+        char *p = text;
         size_t left = count;
     again:
         for (size_t i = 0; i < left - 1; i++) {
@@ -1216,7 +1228,7 @@ done:
 
 static void
 begin_receive_clipboard(struct terminal *term, int read_fd,
-                        void (*cb)(const char *data, size_t size, void *user),
+                        void (*cb)(char *data, size_t size, void *user),
                         void (*done)(void *user), void *user)
 {
     int timeout_fd = -1;
@@ -1269,7 +1281,7 @@ err:
 
 void
 text_from_clipboard(struct seat *seat, struct terminal *term,
-                    void (*cb)(const char *data, size_t size, void *user),
+                    void (*cb)(char *data, size_t size, void *user),
                     void (*done)(void *user), void *user)
 {
     struct wl_clipboard *clipboard = &seat->clipboard;
@@ -1291,7 +1303,7 @@ text_from_clipboard(struct seat *seat, struct terminal *term,
 
     /* Give write-end of pipe to other client */
     wl_data_offer_receive(
-        clipboard->data_offer, "text/plain;charset=utf-8", write_fd);
+        clipboard->data_offer, mime_type_map[clipboard->mime_type], write_fd);
 
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
@@ -1299,18 +1311,94 @@ text_from_clipboard(struct seat *seat, struct terminal *term,
     begin_receive_clipboard(term, read_fd, cb, done, user);
 }
 
+struct receive_offer_context {
+    struct terminal *term;
+
+    /* URI state */
+    bool add_space;
+    struct {
+        char *data;
+        size_t sz;
+        size_t idx;
+    } buf;
+
+    union {
+        struct wl_data_offer *data_offer;
+        struct zwp_primary_selection_offer_v1 *primary_offer;
+    };
+};
+
 static void
-from_clipboard_cb(const char *data, size_t size, void *user)
+receive_offer_text(char *data, size_t size, void *user)
 {
-    struct terminal *term = user;
-    assert(term->is_sending_paste_data);
-    term_paste_data_to_slave(term, data, size);
+    struct receive_offer_context *ctx = user;
+    assert(ctx->term->is_sending_paste_data);
+    term_paste_data_to_slave(ctx->term, data, size);
 }
 
 static void
-from_clipboard_done(void *user)
+receive_offer_uri(char *data, size_t size, void *user)
 {
-    struct terminal *term = user;
+    struct receive_offer_context *ctx = user;
+
+    while (ctx->buf.idx + size > ctx->buf.sz) {
+        size_t new_sz = ctx->buf.sz == 0 ? size : 2 * ctx->buf.sz;
+        ctx->buf.data = xrealloc(ctx->buf.data, new_sz);
+        ctx->buf.sz = new_sz;
+    }
+
+    memcpy(&ctx->buf.data[ctx->buf.idx], data, size);
+    ctx->buf.idx += size;
+
+    char *start = ctx->buf.data;
+    char *end = NULL;
+
+    while ((end = memchr(start, '\n', ctx->buf.idx - (start - ctx->buf.data))) != NULL) {
+        const size_t len = end - start;
+
+        LOG_DBG("URI: \"%.*s\"", (int)len, start);
+
+        char *scheme, *host, *path;
+        if (!uri_parse(start, len, &scheme, NULL, NULL, &host, NULL, &path, NULL, NULL)) {
+            LOG_ERR("drag-and-drop: invalid URI: %.*s", (int)len, start);
+            start = end + 1;
+            continue;
+        }
+
+        if (ctx->add_space)
+            receive_offer_text(" ", 1, ctx);
+        ctx->add_space = true;
+
+        receive_offer_text("'", 1, ctx);
+
+        if (strcmp(scheme, "file") == 0 && hostname_is_localhost(host))
+            receive_offer_text(path, strlen(path), ctx);
+        else
+            receive_offer_text(start, len, ctx);
+
+        receive_offer_text("'", 1, ctx);
+        start = end + 1;
+
+        free(scheme);
+        free(host);
+        free(path);
+    }
+
+    const size_t ofs = start - ctx->buf.data;
+    const size_t left = ctx->buf.idx - ofs;
+
+    memmove(&ctx->buf.data[0], &ctx->buf.data[ofs], left);
+    ctx->buf.idx = left;
+}
+
+static void
+receive_offer_done(void *user)
+{
+    struct receive_offer_context *ctx = user;
+    struct terminal *term = ctx->term;
+
+    free(ctx->buf.data);
+    free(ctx);
 
     if (term->bracketed_paste)
         term_paste_data_to_slave(term, "\033[201~", 6);
@@ -1339,8 +1427,18 @@ selection_from_clipboard(struct seat *seat, struct terminal *term, uint32_t seri
     if (term->bracketed_paste)
         term_paste_data_to_slave(term, "\033[200~", 6);
 
+    struct receive_offer_context *ctx = xmalloc(sizeof(*ctx));
+    *ctx = (struct receive_offer_context) {
+        .term = term,
+        .data_offer = clipboard->data_offer,
+    };
+
     text_from_clipboard(
-        seat, term, &from_clipboard_cb, &from_clipboard_done, term);
+        seat, term,
+        (clipboard->mime_type == DATA_OFFER_MIME_URI_LIST
+         ? &receive_offer_uri
+         : &receive_offer_text),
+        &receive_offer_done, ctx);
 }
 
 bool
@@ -1379,7 +1477,7 @@ text_to_primary(struct seat *seat, struct terminal *term, char *text, uint32_t s
     primary->text = text;
 
     /* Configure source */
-    zwp_primary_selection_source_v1_offer(primary->data_source, "text/plain;charset=utf-8");
+    zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8]);
     zwp_primary_selection_source_v1_add_listener(primary->data_source, &primary_selection_source_listener, seat);
     zwp_primary_selection_device_v1_set_selection(seat->primary_selection_device, primary->data_source, serial);
 
@@ -1403,7 +1501,7 @@ selection_to_primary(struct seat *seat, struct terminal *term, uint32_t serial)
 void
 text_from_primary(
     struct seat *seat, struct terminal *term,
-    void (*cb)(const char *data, size_t size, void *user),
+    void (*cb)(char *data, size_t size, void *user),
     void (*done)(void *user), void *user)
 {
     if (term->wl->primary_selection_device_manager == NULL) {
@@ -1430,7 +1528,7 @@ text_from_primary(
 
     /* Give write-end of pipe to other client */
     zwp_primary_selection_offer_v1_receive(
-        primary->data_offer, "text/plain;charset=utf-8", write_fd);
+        primary->data_offer, mime_type_map[primary->mime_type], write_fd);
 
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
@@ -1457,24 +1555,157 @@ selection_from_primary(struct seat *seat, struct terminal *term)
     if (term->bracketed_paste)
         term_paste_data_to_slave(term, "\033[200~", 6);
 
-    text_from_primary(seat, term, &from_clipboard_cb, &from_clipboard_done, term);
+    struct receive_offer_context *ctx = xmalloc(sizeof(*ctx));
+    *ctx = (struct receive_offer_context){
+        .term = term,
+        .primary_offer = primary->data_offer,
+    };
+
+    text_from_primary(
+        seat, term,
+        (primary->mime_type == DATA_OFFER_MIME_URI_LIST
+         ? &receive_offer_uri
+         : &receive_offer_text),
+        &receive_offer_done, ctx);
 }
 
-#if 0
+static void
+select_mime_type_for_offer(const char *_mime_type,
+                           enum data_offer_mime_type *type)
+{
+    enum data_offer_mime_type mime_type = DATA_OFFER_MIME_UNSET;
+
+    /* Translate offered mime type to our mime type enum */
+    for (size_t i = 0; i < ALEN(mime_type_map); i++) {
+        if (mime_type_map[i] == NULL)
+            continue;
+
+        if (strcmp(_mime_type, mime_type_map[i]) == 0) {
+            mime_type = i;
+            break;
+        }
+    }
+
+    LOG_DBG("mime-type: %s -> %s (offered type was %s)",
+            mime_type_map[*type], mime_type_map[mime_type], _mime_type);
+
+    /* Mime-type transition; if the new mime-type is "better" than
+     * previously offered types, use the new type */
+
+    switch (mime_type) {
+    case DATA_OFFER_MIME_TEXT_PLAIN:
+        /* text/plain is our least preferred type. Only use if current
+         * type is unset */
+        switch (*type) {
+        case DATA_OFFER_MIME_UNSET:
+            *type = mime_type;
+            break;
+
+        default:
+            break;
+        }
+        break;
+
+    case DATA_OFFER_MIME_TEXT_UTF8:
+        /* text/plain;charset=utf-8 is preferred over text/plain */
+        switch (*type) {
+        case DATA_OFFER_MIME_UNSET:
+        case DATA_OFFER_MIME_TEXT_PLAIN:
+            *type = mime_type;
+            break;
+
+        default:
+            break;
+        }
+        break;
+
+    case DATA_OFFER_MIME_URI_LIST:
+        /* text/uri-list is always used when offered */
+        *type = mime_type;
+        break;
+
+    case DATA_OFFER_MIME_UNSET:
+        break;
+    }
+}
+
+static void
+data_offer_reset(struct wl_clipboard *clipboard)
+{
+    if (clipboard->data_offer != NULL) {
+        wl_data_offer_destroy(clipboard->data_offer);
+        clipboard->data_offer = NULL;
+    }
+
+    clipboard->window = NULL;
+    clipboard->mime_type = DATA_OFFER_MIME_UNSET;
+}
+
 static void
 offer(void *data, struct wl_data_offer *wl_data_offer, const char *mime_type)
 {
+    struct seat *seat = data;
+    select_mime_type_for_offer(mime_type, &seat->clipboard.mime_type);
 }
 
 static void
 source_actions(void *data, struct wl_data_offer *wl_data_offer,
                 uint32_t source_actions)
 {
+#if defined(_DEBUG) && LOG_ENABLE_DBG
+    char actions_as_string[1024];
+    size_t idx = 0;
+
+    actions_as_string[0] = '\0';
+    actions_as_string[sizeof(actions_as_string) - 1] = '\0';
+
+    for (size_t i = 0; i < 31; i++) {
+        if (((source_actions >> i) & 1) == 0)
+            continue;
+
+        enum wl_data_device_manager_dnd_action action = 1 << i;
+
+        const char *s = NULL;
+
+        switch (action) {
+        case WL_DATA_DEVICE_MANAGER_DND_ACTION_NONE: s = NULL; break;
+        case WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY: s = "copy"; break;
+        case WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE: s = "move"; break;
+        case WL_DATA_DEVICE_MANAGER_DND_ACTION_ASK: s = "ask"; break;
+        }
+
+        if (s == NULL)
+            continue;
+
+        strncat(actions_as_string, s, sizeof(actions_as_string) - idx - 1);
+        idx += strlen(s);
+        strncat(actions_as_string, ", ", sizeof(actions_as_string) - idx - 1);
+        idx += 2;
+    }
+
+    /* Strip trailing ", " */
+    if (strlen(actions_as_string) > 2)
+        actions_as_string[strlen(actions_as_string) - 2] = '\0';
+
+    LOG_DBG("DnD actions: %s (0x%08x)", actions_as_string, source_actions);
+#endif
 }
 
 static void
 offer_action(void *data, struct wl_data_offer *wl_data_offer, uint32_t dnd_action)
 {
+#if defined(_DEBUG) && LOG_ENABLE_DBG
+    const char *s = NULL;
+
+    switch (dnd_action) {
+    case WL_DATA_DEVICE_MANAGER_DND_ACTION_NONE: s = "<none>"; break;
+    case WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY: s = "copy"; break;
+    case WL_DATA_DEVICE_MANAGER_DND_ACTION_MOVE: s = "move"; break;
+    case WL_DATA_DEVICE_MANAGER_DND_ACTION_ASK: s = "ask"; break;
+    }
+
+    LOG_DBG("DnD offer action: %s (0x%08x)", s, dnd_action);
+#endif
 }
 
 static const struct wl_data_offer_listener data_offer_listener = {
@@ -1482,24 +1713,56 @@ static const struct wl_data_offer_listener data_offer_listener = {
     .source_actions = &source_actions,
     .action = &offer_action,
 };
-#endif
 
 static void
 data_offer(void *data, struct wl_data_device *wl_data_device,
-           struct wl_data_offer *id)
+           struct wl_data_offer *offer)
 {
+    struct seat *seat = data;
+    data_offer_reset(&seat->clipboard);
+    seat->clipboard.data_offer = offer;
+    wl_data_offer_add_listener(offer, &data_offer_listener, seat);
 }
 
 static void
 enter(void *data, struct wl_data_device *wl_data_device, uint32_t serial,
       struct wl_surface *surface, wl_fixed_t x, wl_fixed_t y,
-      struct wl_data_offer *id)
+      struct wl_data_offer *offer)
 {
+    struct seat *seat = data;
+    struct wayland *wayl = seat->wayl;
+
+    assert(offer == seat->clipboard.data_offer);
+
+    /* Remember _which_ terminal the current DnD offer is targeting */
+    assert(seat->clipboard.window == NULL);
+    tll_foreach(wayl->terms, it) {
+        if (term_surface_kind(it->item, surface) == TERM_SURF_GRID &&
+            !it->item->is_sending_paste_data)
+        {
+            wl_data_offer_accept(
+                offer, serial, mime_type_map[seat->clipboard.mime_type]);
+            wl_data_offer_set_actions(
+                offer,
+                WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY,
+                WL_DATA_DEVICE_MANAGER_DND_ACTION_COPY);
+
+            seat->clipboard.window = it->item->window;
+            return;
+        }
+    }
+
+    /* Either terminal is already busy sending paste data, or mouse
+     * pointer isn’t over the grid */
+    seat->clipboard.window = NULL;
+    wl_data_offer_set_actions(offer, 0, 0);
 }
 
 static void
 leave(void *data, struct wl_data_device *wl_data_device)
 {
+    struct seat *seat = data;
+    seat->clipboard.window = NULL;
 }
 
 static void
@@ -1509,27 +1772,73 @@ motion(void *data, struct wl_data_device *wl_data_device, uint32_t time,
 }
 
 static void
+receive_dnd_done(void *user)
+{
+    struct receive_offer_context *ctx = user;
+
+    wl_data_offer_finish(ctx->data_offer);
+    receive_offer_done(user);
+}
+
+static void
 drop(void *data, struct wl_data_device *wl_data_device)
 {
+    struct seat *seat = data;
+
+    assert(seat->clipboard.window != NULL);
+    struct terminal *term = seat->clipboard.window->term;
+
+    struct wl_clipboard *clipboard = &seat->clipboard;
+
+    struct receive_offer_context *ctx = xmalloc(sizeof(*ctx));
+    *ctx = (struct receive_offer_context){
+        .term = term,
+        .data_offer = clipboard->data_offer,
+    };
+
+    /* Prepare a pipe the other client can write its selection to us */
+    int fds[2];
+    if (pipe2(fds, O_CLOEXEC) == -1) {
+        LOG_ERRNO("failed to create pipe");
+        free(ctx);
+        return;
+    }
+
+    int read_fd = fds[0];
+    int write_fd = fds[1];
+
+    LOG_DBG("DnD drop: mime-type=%s", mime_type_map[clipboard->mime_type]);
+
+    /* Give write-end of pipe to other client */
+    wl_data_offer_receive(
+        clipboard->data_offer, mime_type_map[clipboard->mime_type], write_fd);
+
+    /* Don't keep our copy of the write-end open (or we'll never get EOF) */
+    close(write_fd);
+
+    term->is_sending_paste_data = true;
+
+    if (term->bracketed_paste)
+        term_paste_data_to_slave(term, "\033[200~", 6);
+
+    begin_receive_clipboard(
+        term, read_fd,
+        (clipboard->mime_type == DATA_OFFER_MIME_URI_LIST
+         ? &receive_offer_uri
+         : &receive_offer_text),
+        &receive_dnd_done, ctx);
 }
 
 static void
 selection(void *data, struct wl_data_device *wl_data_device,
-          struct wl_data_offer *id)
+          struct wl_data_offer *offer)
 {
     /* Selection offer from other client */
-
     struct seat *seat = data;
-    struct wl_clipboard *clipboard = &seat->clipboard;
-
-    if (clipboard->data_offer != NULL)
-        wl_data_offer_destroy(clipboard->data_offer);
-
-    clipboard->data_offer = id;
-#if 0
-    if (id != NULL)
-        wl_data_offer_add_listener(id, &data_offer_listener, term);
-#endif
+    if (offer == NULL)
+        data_offer_reset(&seat->clipboard);
+    else
+        assert(offer == seat->clipboard.data_offer);
 }
 
 const struct wl_data_device_listener data_device_listener = {
@@ -1541,46 +1850,55 @@ const struct wl_data_device_listener data_device_listener = {
     .selection = &selection,
 };
 
-#if 0
 static void
 primary_offer(void *data,
               struct zwp_primary_selection_offer_v1 *zwp_primary_selection_offer,
               const char *mime_type)
 {
+    LOG_DBG("primary offer: %s", mime_type);
+    struct seat *seat = data;
+    select_mime_type_for_offer(mime_type, &seat->primary.mime_type);
 }
 
 static const struct zwp_primary_selection_offer_v1_listener primary_selection_offer_listener = {
     .offer = &primary_offer,
 };
-#endif
+
+static void
+primary_offer_reset(struct wl_primary *primary)
+{
+    if (primary->data_offer != NULL) {
+        zwp_primary_selection_offer_v1_destroy(primary->data_offer);
+        primary->data_offer = NULL;
+    }
+
+    primary->mime_type = DATA_OFFER_MIME_UNSET;
+}
 
 static void
 primary_data_offer(void *data,
                    struct zwp_primary_selection_device_v1 *zwp_primary_selection_device,
                    struct zwp_primary_selection_offer_v1 *offer)
 {
+    struct seat *seat = data;
+    primary_offer_reset(&seat->primary);
+    seat->primary.data_offer = offer;
+    zwp_primary_selection_offer_v1_add_listener(
+        offer, &primary_selection_offer_listener, seat);
 }
 
 static void
 primary_selection(void *data,
                   struct zwp_primary_selection_device_v1 *zwp_primary_selection_device,
-                  struct zwp_primary_selection_offer_v1 *id)
+                  struct zwp_primary_selection_offer_v1 *offer)
 {
     /* Selection offer from other client, for primary */
 
     struct seat *seat = data;
-    struct wl_primary *primary = &seat->primary;
-
-    if (primary->data_offer != NULL)
-        zwp_primary_selection_offer_v1_destroy(primary->data_offer);
-
-    primary->data_offer = id;
-#if 0
-    if (id != NULL) {
-        zwp_primary_selection_offer_v1_add_listener(
-            id, &primary_selection_offer_listener, term);
-    }
-#endif
+    if (offer == NULL)
+        primary_offer_reset(&seat->primary);
+    else
+        assert(seat->primary.data_offer == offer);
 }
 
 const struct zwp_primary_selection_device_v1_listener primary_selection_device_listener = {

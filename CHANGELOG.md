@@ -45,6 +45,8 @@
   `foot.ini`. These options allow custom bold/italic fonts. They are
   unset by default, meaning the bold/italic version of the regular
   font is used (https://codeberg.org/dnkl/foot/issues/169).
+* Drag & drop support; text, files and URLs can now be dropped in a
+  foot terminal window (https://codeberg.org/dnkl/foot/issues/175).
 
 
 ### Changed

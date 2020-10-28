@@ -101,9 +101,20 @@ struct key_binding_search {
     enum bind_action_search action;
 };
 
+/* Mime-types we support when dealing with data offers (e.g. copy-paste, or DnD) */
+enum data_offer_mime_type {
+    DATA_OFFER_MIME_UNSET,
+    DATA_OFFER_MIME_TEXT_PLAIN,
+    DATA_OFFER_MIME_TEXT_UTF8,
+    DATA_OFFER_MIME_URI_LIST,
+};
+
+struct wl_window;
 struct wl_clipboard {
+    struct wl_window *window;  /* For DnD */
     struct wl_data_source *data_source;
     struct wl_data_offer *data_offer;
+    enum data_offer_mime_type mime_type;
     char *text;
     uint32_t serial;
 };
@@ -111,6 +122,7 @@ struct wl_clipboard {
 struct wl_primary {
     struct zwp_primary_selection_source_v1 *data_source;
     struct zwp_primary_selection_offer_v1 *data_offer;
+    enum data_offer_mime_type mime_type;
     char *text;
     uint32_t serial;
 };

@@ -130,6 +130,7 @@ executable(
   'spawn.c', 'spawn.h',
   'terminal.c', 'terminal.h',
   'tokenize.c', 'tokenize.h',
+  'uri.c', 'uri.h',
   'user-notification.h',
   'vt.c', 'vt.h',
   'wayland.c', 'wayland.h',
