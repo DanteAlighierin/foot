@@ -3,8 +3,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
-#include <limits.h>
-#include <unistd.h>
 
 #define LOG_MODULE "osc"
 #define LOG_ENABLE_DBG 0
@@ -14,6 +12,7 @@
 #include "render.h"
 #include "selection.h"
 #include "terminal.h"
+#include "uri.h"
 #include "vt.h"
 #include "xmalloc.h"
 
@@ -99,7 +98,7 @@ struct clip_context {
 };
 
 static void
-from_clipboard_cb(const char *text, size_t size, void *user)
+from_clipboard_cb(char *text, size_t size, void *user)
 {
     struct clip_context *ctx = user;
     struct terminal *term = ctx->term;
@@ -352,87 +351,26 @@ parse_rgb(const char *string, uint32_t *color)
     return true;
 }
 
-static uint8_t
-nibble2hex(char c)
-{
-    switch (c) {
-    case '0': case '1': case '2': case '3': case '4':
-    case '5': case '6': case '7': case '8': case '9':
-        return c - '0';
-
-    case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-        return c - 'a' + 10;
-
-    case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
-        return c - 'A' + 10;
-    }
-
-    assert(false);
-    return 0;
-}
-
 static void
 osc_set_pwd(struct terminal *term, char *string)
 {
     LOG_DBG("PWD: URI: %s", string);
 
-    if (memcmp(string, "file://", 7) != 0)
-        return;
-    string += 7;
-
-    const char *hostname = string;
-    char *hostname_end = strchr(string, '/');
-    if (hostname_end == NULL)
-        return;
-
-    char this_host[HOST_NAME_MAX];
-    if (gethostname(this_host, sizeof(this_host)) < 0)
-        this_host[0] = '\0';
-
-    /* Ignore this CWD if the hostname isn't 'localhost' or our gethostname() */
-    size_t hostname_len = hostname_end - hostname;
-    if (strncmp(hostname, "", hostname_len) != 0 &&
-        strncmp(hostname, "localhost", hostname_len) != 0 &&
-        strncmp(hostname, this_host, hostname_len) != 0)
-    {
-        LOG_DBG("ignoring OSC 7: hostname mismatch: %.*s != %s",
-                (int)hostname_len, hostname, this_host);
+    char *scheme, *host, *path;
+    if (!uri_parse(string, strlen(string), &scheme, NULL, NULL, &host, NULL, &path, NULL, NULL)) {
+        LOG_ERR("OSC7: invalid URI: %s", string);
         return;
     }
 
-    /* Decode %xx encoded characters */
-    const char *path = hostname_end;
-    char *pwd = xmalloc(strlen(path) + 1);
-    char *p = pwd;
+    if (strcmp(scheme, "file") == 0 && hostname_is_localhost(host)) {
+        LOG_DBG("OSC7: pwd: %s", path);
+        free(term->cwd);
+        term->cwd = path;
+    } else
+        free(path);
 
-    while (true) {
-        /* Find next '%' */
-        const char *next = strchr(path, '%');
-
-        if (next == NULL) {
-            strcpy(p, path);
-            break;
-        }
-
-        /* Copy everything leading up to the '%' */
-        size_t prefix_len = next - path;
-        memcpy(p, path, prefix_len);
-        p += prefix_len;
-
-        if (isxdigit(next[1]) && isxdigit(next[2])) {
-            *p++ = nibble2hex(next[1]) << 4 | nibble2hex(next[2]);
-            *p = '\0';
-            path = next + 3;
-        } else {
-            *p++ = *next;
-            *p = '\0';
-            path = next + 1;
-        }
-    }
-
-    LOG_DBG("PWD: decoded: %s", pwd);
-    free(term->cwd);
-    term->cwd = pwd;
+    free(scheme);
+    free(host);
 }
 
 #if 0
