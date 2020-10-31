@@ -1777,6 +1777,7 @@ receive_dnd_done(void *user)
     struct receive_offer_context *ctx = user;
 
     wl_data_offer_finish(ctx->data_offer);
+    wl_data_offer_destroy(ctx->data_offer);
     receive_offer_done(user);
 }
 
@@ -1827,6 +1828,10 @@ drop(void *data, struct wl_data_device *wl_data_device)
          ? &receive_offer_uri
          : &receive_offer_text),
         &receive_dnd_done, ctx);
+
+    /* data offer is now “owned” by the receive context */
+    clipboard->data_offer = NULL;
+    clipboard->mime_type = DATA_OFFER_MIME_UNSET;
 }
 
 static void
