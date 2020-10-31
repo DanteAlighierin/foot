@@ -66,6 +66,9 @@
 * XCursor shape in CSD corners when window is tiled.
 * Error handling when processing keyboard input (maybe
   https://codeberg.org/dnkl/foot/issues/171).
+* Compilation error _"overflow in conversion from long 'unsigned int'
+  to 'int' changes value... "_ seen on platforms where the `request`
+  argument in `ioctl(3)` is an `int` (for example: linux/ppc64).
 
 
 ### Security

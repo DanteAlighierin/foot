@@ -2206,7 +2206,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
             term->margins.left, term->margins.right, term->margins.top, term->margins.bottom);
 
     /* Signal TIOCSWINSZ */
-    if (term->ptmx >= 0 && ioctl(term->ptmx, TIOCSWINSZ,
+    if (term->ptmx >= 0 && ioctl(term->ptmx, (unsigned int)TIOCSWINSZ,
               &(struct winsize){
                   .ws_row = term->rows,
                   .ws_col = term->cols,
