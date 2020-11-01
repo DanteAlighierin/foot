@@ -108,6 +108,8 @@ static const char *const search_binding_action_map[] = {
     [BIND_ACTION_SEARCH_DELETE_NEXT_WORD] = "delete-next-word",
     [BIND_ACTION_SEARCH_EXTEND_WORD] = "extend-to-word-boundary",
     [BIND_ACTION_SEARCH_EXTEND_WORD_WS] = "extend-to-next-whitespace",
+    [BIND_ACTION_SEARCH_CLIPBOARD_PASTE] = "clipboard-paste",
+    [BIND_ACTION_SEARCH_PRIMARY_PASTE] = "primary-paste",
 };
 
 static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
@@ -1840,6 +1842,7 @@ add_default_search_bindings(struct config *conf)
     const struct config_key_modifiers none = {0};
     const struct config_key_modifiers alt = {.alt = true};
     const struct config_key_modifiers ctrl = {.ctrl = true};
+    const struct config_key_modifiers shift = {.shift = true};
     const struct config_key_modifiers ctrl_shift = {.ctrl = true, .shift = true};
 
     add_binding(BIND_ACTION_SEARCH_CANCEL, ctrl, XKB_KEY_g);
@@ -1867,6 +1870,9 @@ add_default_search_bindings(struct config *conf)
     add_binding(BIND_ACTION_SEARCH_DELETE_NEXT_WORD, alt, XKB_KEY_d);
     add_binding(BIND_ACTION_SEARCH_EXTEND_WORD, ctrl, XKB_KEY_w);
     add_binding(BIND_ACTION_SEARCH_EXTEND_WORD_WS, ctrl_shift, XKB_KEY_W);
+    add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_v);
+    add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_y);
+    add_binding(BIND_ACTION_SEARCH_PRIMARY_PASTE, shift, XKB_KEY_Insert);
 
 #undef add_binding
 }

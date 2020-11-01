@@ -186,6 +186,12 @@ Note that these are just the defaults; they can be changed in
 	Same as *ctrl*+*w*, except that the only word separating
 	characters are whitespace characters.
 
+*ctrl*+*v*, *ctrl*+*y*
+	Paste from clipboard into the searh buffer.
+
+*shift*+*insert*
+	Paste from primary selection into the search buffer.
+
 *escape*, *ctrl*+*g*
 	Cancel the search
 

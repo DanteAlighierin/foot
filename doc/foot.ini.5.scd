@@ -452,6 +452,13 @@ scrollback search mode. The syntax is exactly the same as the regular
 	Extend the current selection to the next whitespace. Default:
 	_Control+Shift+W_.
 
+*clipboard-paste*
+	Paste from the _clipboard_ into the search buffer. Default:
+	_Control+v Control+y_.
+
+*primary-paste*
+	Paste from the _primary selection_ into the search
+	buffer. Default: _Shift+Insert_.
 
 # SECTION: mouse-bindings
 
