@@ -928,7 +928,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         goto close_fds;
     }
 
-    if (ioctl(ptmx, TIOCSWINSZ,
+    if (ioctl(ptmx, (unsigned int)TIOCSWINSZ,
               &(struct winsize){.ws_row = 24, .ws_col = 80}) < 0)
     {
         LOG_ERRNO("failed to set initial TIOCSWINSZ");

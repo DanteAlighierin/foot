@@ -47,6 +47,10 @@
   font is used (https://codeberg.org/dnkl/foot/issues/169).
 * Drag & drop support; text, files and URLs can now be dropped in a
   foot terminal window (https://codeberg.org/dnkl/foot/issues/175).
+* **clipboard-paste** and **primary-paste** scrollback search
+  bindings. By default, they are bound to `ctrl+v ctrl+y` and
+  `shift+insert` respectively, and lets you paste from the clipboard
+  or primary selection into the search buffer.
 
 
 ### Changed
@@ -66,6 +70,9 @@
 * XCursor shape in CSD corners when window is tiled.
 * Error handling when processing keyboard input (maybe
   https://codeberg.org/dnkl/foot/issues/171).
+* Compilation error _"overflow in conversion from long 'unsigned int'
+  to 'int' changes value... "_ seen on platforms where the `request`
+  argument in `ioctl(3)` is an `int` (for example: linux/ppc64).
 
 
 ### Security

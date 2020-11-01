@@ -333,6 +333,35 @@ search_find_next(struct terminal *term)
 }
 
 static void
+add_chars(struct terminal *term, const char *src, size_t count)
+{
+    mbstate_t ps = {0};
+    size_t wchars = mbsnrtowcs(NULL, &src, count, 0, &ps);
+
+    if (wchars == -1) {
+        LOG_ERRNO("failed to convert %.*s to wchars", (int)count, src);
+        return;
+    }
+
+    if (!search_ensure_size(term, term->search.len + wchars))
+        return;
+
+    assert(term->search.len + wchars < term->search.sz);
+
+    memmove(&term->search.buf[term->search.cursor + wchars],
+            &term->search.buf[term->search.cursor],
+            (term->search.len - term->search.cursor) * sizeof(wchar_t));
+
+    memset(&ps, 0, sizeof(ps));
+    mbsnrtowcs(&term->search.buf[term->search.cursor], &src, count,
+               wchars, &ps);
+
+    term->search.len += wchars;
+    term->search.cursor += wchars;
+    term->search.buf[term->search.len] = L'\0';
+}
+
+static void
 search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 {
     if (term->search.match_len == 0)
@@ -459,6 +488,23 @@ distance_prev_word(const struct terminal *term)
         cursor++;
 
     return term->search.cursor - cursor;
+}
+
+static void
+from_clipboard_cb(char *text, size_t size, void *user)
+{
+    struct terminal *term = user;
+    add_chars(term, text, size);
+}
+
+static void
+from_clipboard_done(void *user)
+{
+    struct terminal *term = user;
+
+    LOG_DBG("search: buffer: %ls", term->search.buf);
+    search_find_next(term);
+    render_refresh_search(term);
 }
 
 static bool
@@ -609,6 +655,16 @@ execute_binding(struct seat *seat, struct terminal *term,
         search_match_to_end_of_word(term, true);
         return false;
 
+    case BIND_ACTION_SEARCH_CLIPBOARD_PASTE:
+        text_from_clipboard(
+            seat, term, &from_clipboard_cb, &from_clipboard_done, term);
+        return false;
+
+    case BIND_ACTION_SEARCH_PRIMARY_PASTE:
+        text_from_primary(
+            seat, term, &from_clipboard_cb, &from_clipboard_done, term);
+        return false;
+
     case BIND_ACTION_SEARCH_COUNT:
         assert(false);
         return false;
@@ -666,31 +722,7 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
     if (count == 0)
         return;
 
-    const char *src = (const char *)buf;
-    mbstate_t ps = {0};
-    size_t wchars = mbsnrtowcs(NULL, &src, count, 0, &ps);
-
-    if (wchars == -1) {
-        LOG_ERRNO("failed to convert %.*s to wchars", count, buf);
-        return;
-    }
-
-    if (!search_ensure_size(term, term->search.len + wchars))
-        return;
-
-    assert(term->search.len + wchars < term->search.sz);
-
-    memmove(&term->search.buf[term->search.cursor + wchars],
-            &term->search.buf[term->search.cursor],
-            (term->search.len - term->search.cursor) * sizeof(wchar_t));
-
-    memset(&ps, 0, sizeof(ps));
-    mbsnrtowcs(&term->search.buf[term->search.cursor], &src, count,
-               wchars, &ps);
-
-    term->search.len += wchars;
-    term->search.cursor += wchars;
-    term->search.buf[term->search.len] = L'\0';
+    add_chars(term, (const char *)buf, count);
 
 update_search:
     LOG_DBG("search: buffer: %ls", term->search.buf);
