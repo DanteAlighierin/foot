@@ -748,20 +748,15 @@ keymap_lookup(struct terminal *term, xkb_keysym_t sym, enum modifier mods)
 }
 
 static void
-keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
-             uint32_t time, uint32_t key, uint32_t state)
+key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
+                  uint32_t key, uint32_t state)
 {
-    struct seat *seat = data;
-    struct terminal *term = seat->kbd_focus;
-
     if (seat->kbd.xkb == NULL ||
         seat->kbd.xkb_keymap == NULL ||
         seat->kbd.xkb_state == NULL)
     {
         return;
     }
-
-    assert(term != NULL);
 
     const xkb_mod_mask_t ctrl = 1 << seat->kbd.mod_ctrl;
     const xkb_mod_mask_t alt = 1 << seat->kbd.mod_alt;
@@ -773,7 +768,6 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
         return;
     }
 
-    key += 8;
     bool should_repeat = xkb_keymap_key_repeats(seat->kbd.xkb_keymap, key);
     xkb_keysym_t sym = xkb_state_key_get_one_sym(seat->kbd.xkb_state, key);
 
@@ -819,7 +813,7 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
     if (term->is_searching) {
         if (should_repeat)
-            start_repeater(seat, key - 8);
+            start_repeater(seat, key);
         search_input(seat, term, key, sym, effective_mods, serial);
         return;
     }
@@ -832,10 +826,10 @@ keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     }
 #endif
 
-    LOG_DBG("keyboard_key: keyboard=%p, serial=%u, "
+    LOG_DBG("seat: %s, term=%p, serial=%u, "
             "sym=%u, mod=0x%08x, consumed=0x%08x, significant=0x%08x, "
             "effective=0x%08x, repeats=%d",
-            (void *)wl_keyboard, serial,
+            seat->name, (void *)term, serial,
             sym, mods, consumed, significant, effective_mods, should_repeat);
 
     /*
@@ -1001,7 +995,15 @@ maybe_repeat:
         term->wl->presentation_clock_id, &term->render.input_time);
 
     if (should_repeat)
-        start_repeater(seat, key - 8);
+        start_repeater(seat, key);
+}
+
+static void
+keyboard_key(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
+             uint32_t time, uint32_t key, uint32_t state)
+{
+    struct seat *seat = data;
+    key_press_release(seat, seat->kbd_focus, serial, key + 8, state);
 }
 
 static void
@@ -1055,7 +1057,11 @@ const struct wl_keyboard_listener keyboard_listener = {
 void
 input_repeat(struct seat *seat, uint32_t key)
 {
-    keyboard_key(seat, NULL, seat->kbd.serial, 0, key, XKB_KEY_DOWN);
+    /* Should be cleared as soon as we loose focus */
+    assert(seat->kbd_focus != NULL);
+    struct terminal *term = seat->kbd_focus;
+
+    key_press_release(seat, term, seat->kbd.serial, key, XKB_KEY_DOWN);
 }
 
 static bool
@@ -1667,12 +1673,16 @@ alternate_scroll(struct seat *seat, int amount, int button)
     if (seat->wl_keyboard == NULL)
         return;
 
+    /* Should be cleared in leave event */
+    assert(seat->mouse_focus != NULL);
+    struct terminal *term = seat->mouse_focus;
+
     xkb_keycode_t key = button == BTN_BACK
         ? seat->kbd.key_arrow_up : seat->kbd.key_arrow_down;
 
     for (int i = 0; i < amount; i++)
-        keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_DOWN);
-    keyboard_key(seat, NULL, seat->kbd.serial, 0, key - 8, XKB_KEY_UP);
+        key_press_release(seat, term, seat->kbd.serial, key, XKB_KEY_DOWN);
+    key_press_release(seat, term, seat->kbd.serial, key, XKB_KEY_UP);
 }
 
 static void
