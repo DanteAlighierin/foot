@@ -73,6 +73,8 @@
 * Compilation error _"overflow in conversion from long 'unsigned int'
   to 'int' changes value... "_ seen on platforms where the `request`
   argument in `ioctl(3)` is an `int` (for example: linux/ppc64).
+* Crash when using the mouse in alternate scroll mode in an unfocused
+  window (https://codeberg.org/dnkl/foot/issues/179).
 
 
 ### Security
