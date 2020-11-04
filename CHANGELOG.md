@@ -31,6 +31,8 @@
   argument in `ioctl(3)` is an `int` (for example: linux/ppc64).
 * Crash when using the mouse in alternate scroll mode in an unfocused
   window (https://codeberg.org/dnkl/foot/issues/179).
+* Character dropped from selection when "right-click-hold"-extending a
+  selection (https://codeberg.org/dnkl/foot/issues/180).
 
 
 ## 1.5.2
