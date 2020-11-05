@@ -485,17 +485,20 @@ selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial
     assert(start->row < end->row || start->col < end->col);
 
     struct coord new_start, new_end;
+    enum selection_scroll_direction direction;
 
     if (row < start->row || (row == start->row && col < start->col)) {
         /* Extend selection to start *before* current start */
         new_start = *end;
         new_end = (struct coord){col, row};
+        direction = SELECTION_LEFT;
     }
 
     else if (row > end->row || (row == end->row && col > end->col)) {
         /* Extend selection to end *after* current end */
         new_start = *start;
         new_end = (struct coord){col, row};
+        direction = SELECTION_RIGHT;
     }
 
     else {
@@ -509,15 +512,18 @@ selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial
             /* Move start point */
             new_start = *end;
             new_end = (struct coord){col, row};
+            direction = SELECTION_LEFT;
         }
 
         else {
             /* Move end point */
             new_start = *start;
             new_end = (struct coord){col, row};
+            direction = SELECTION_RIGHT;
         }
     }
 
+    term->selection.direction = direction;
     selection_modify(term, new_start, new_end);
 }
 
