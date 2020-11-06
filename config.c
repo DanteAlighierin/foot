@@ -1133,7 +1133,63 @@ maybe_deprecated_key_binding(struct config *conf,
         .text = text,
     };
     tll_push_back(conf->notifications, deprecation);
+}
 
+/*
+ * Parses a key binding value on the form
+ *  "[cmd-to-exec arg1 arg2] Mods+Key"
+ *
+ * and extracts 'cmd-to-exec' and its arguments.
+ *
+ * Input:
+ *  - value: raw string, on the form mention above
+ *  - cmd: pointer to string to will be allocated and filled with
+ *        'cmd-to-exec arg1 arg2'
+ *  - argv: point to array of string. Array will be allocated. Will be
+ *          filled with {'cmd-to-exec', 'arg1', 'arg2', NULL}
+ *
+ * Returns:
+ *  - ssize_t, number of bytes to strip from 'value' to remove the '[]'
+ *    enclosed cmd and its arguments, including any subsequent
+ *    whitespace characters. I.e. if 'value' is "[cmd] BTN_RIGHT", the
+ *    return value is 6 (strlen("[cmd] ")).
+ *  - cmd: allocated string containing "cmd arg1 arg2...". Caller frees.
+ *  - argv: allocatd array containing {"cmd", "arg1", "arg2", NULL}. Caller frees.
+ */
+static ssize_t
+pipe_argv_from_string(const char *value, char **cmd, char ***argv,
+                      struct config *conf,
+                      const char *path, unsigned lineno)
+{
+    *cmd = NULL;
+    *argv = NULL;
+
+    if (value[0] != '[')
+        return 0;
+
+    const char *pipe_cmd_end = strrchr(value, ']');
+    if (pipe_cmd_end == NULL) {
+        LOG_AND_NOTIFY_ERR("%s:%d: unclosed '['", path, lineno);
+        return -1;
+    }
+
+    size_t pipe_len = pipe_cmd_end - value - 1;
+    *cmd = xstrndup(&value[1], pipe_len);
+
+    if (!tokenize_cmdline(*cmd, argv)) {
+        LOG_AND_NOTIFY_ERR("%s:%d: syntax error in command line", path, lineno);
+        free(*cmd);
+        return -1;
+    }
+
+    ssize_t remove_len = pipe_cmd_end + 1 - value;
+    value = pipe_cmd_end + 1;
+    while (isspace(*value)) {
+        value++;
+        remove_len++;
+    }
+
+    return remove_len;
 }
 
 static bool
@@ -1141,30 +1197,16 @@ parse_section_key_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    char *pipe_cmd = NULL;
-    char **pipe_argv = NULL;
-    size_t pipe_len = 0;
+    char *pipe_cmd;
+    char **pipe_argv;
 
-    if (value[0] == '[') {
-        const char *pipe_cmd_end = strrchr(value, ']');
-        if (pipe_cmd_end == NULL) {
-            LOG_AND_NOTIFY_ERR("%s:%d: unclosed '['", path, lineno);
-            return false;
-        }
+    ssize_t pipe_remove_len = pipe_argv_from_string(
+        value, &pipe_cmd, &pipe_argv, conf, path, lineno);
 
-        pipe_len = pipe_cmd_end - value - 1;
-        pipe_cmd = xstrndup(&value[1], pipe_len);
+    if (pipe_remove_len < 0)
+        return false;
 
-        if (!tokenize_cmdline(pipe_cmd, &pipe_argv)) {
-            LOG_AND_NOTIFY_ERR("%s:%d: syntax error in command line", path, lineno);
-            free(pipe_cmd);
-            return false;
-        }
-
-        value = pipe_cmd_end + 1;
-        while (isspace(*value))
-            value++;
-    }
+    value += pipe_remove_len;
 
     for (enum bind_action_normal action = 0;
          action < BIND_ACTION_KEY_COUNT;
