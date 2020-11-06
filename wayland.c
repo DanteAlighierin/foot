@@ -470,7 +470,7 @@ surface_leave(void *data, struct wl_surface *wl_surface,
         return;
     }
 
-    LOG_ERR("unmapped from unknown output");
+    LOG_WARN("unmapped from unknown output");
 }
 
 static const struct wl_surface_listener surface_listener = {
@@ -921,8 +921,14 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
          * surfaces are *not* unmapped before the output is removed
          */
 
-        tll_foreach(wayl->terms, t)
-            surface_leave(t->item->window, NULL /* wl_surface - unused */, mon->output);
+        tll_foreach(wayl->terms, t) {
+            tll_foreach(t->item->window->on_outputs, o) {
+                if (o->item->output == mon->output) {
+                    surface_leave(t->item->window, NULL, mon->output);
+                    break;
+                }
+            }
+        }
 
         monitor_destroy(mon);
         tll_remove(wayl->monitors, it);
