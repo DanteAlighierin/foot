@@ -475,7 +475,7 @@ selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial
     assert(start->row < end->row || start->col < end->col);
 
     struct coord new_start, new_end;
-    enum selection_scroll_direction direction;
+    enum selection_direction direction;
 
     if (row < start->row || (row == start->row && col < start->col)) {
         /* Extend selection to start *before* current start */
