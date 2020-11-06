@@ -77,6 +77,10 @@
   window (https://codeberg.org/dnkl/foot/issues/179).
 * Character dropped from selection when "right-click-hold"-extending a
   selection (https://codeberg.org/dnkl/foot/issues/180).
+* Support for **pipe-\*** actions in mouse bindings. It was previously
+  not possible to add a command to these actions when used in mouse
+  bindings, making them useless
+  (https://codeberg.org/dnkl/foot/issues/183).
 
 
 ### Security

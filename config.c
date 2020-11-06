@@ -1470,8 +1470,13 @@ has_mouse_binding_collisions(struct config *conf, const key_combo_list_t *key_co
             bool count = it->item.count == it2->item.m.count;
 
             if (shift && alt && ctrl && meta && button && count) {
+                bool has_pipe = it->item.pipe.cmd != NULL;
+                LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s%s%s%s'",
                                    path, lineno, it2->item.text,
-                                   binding_action_map[it->item.action]);
+                                   binding_action_map[it->item.action],
+                                   has_pipe ? " [" : "",
+                                   has_pipe ? it->item.pipe.cmd : "",
+                                   has_pipe ? "]" : "");
                 return true;
             }
         }
@@ -1486,6 +1491,17 @@ parse_section_mouse_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
+    char *pipe_cmd;
+    char **pipe_argv;
+
+    ssize_t pipe_remove_len = pipe_argv_from_string(
+        value, &pipe_cmd, &pipe_argv, conf, path, lineno);
+
+    if (pipe_remove_len < 0)
+        return false;
+
+    value += pipe_remove_len;
+
     for (enum bind_action_normal action = 0;
          action < BIND_ACTION_COUNT;
          action++)
@@ -1502,9 +1518,16 @@ parse_section_mouse_bindings(
         /* Unset binding */
         if (strcasecmp(value, "none") == 0) {
             tll_foreach(conf->bindings.mouse, it) {
-                if (it->item.action == action)
+                if (it->item.action == action) {
+                    if (it->item.pipe.master_copy) {
+                        free(it->item.pipe.cmd);
+                        free(it->item.pipe.argv);
+                    }
                     tll_remove(conf->bindings.mouse, it);
+                }
             }
+            free(pipe_argv);
+            free(pipe_cmd);
             return true;
         }
 
@@ -1512,26 +1535,43 @@ parse_section_mouse_bindings(
         if (!parse_mouse_combos(conf, value, &key_combos, path, lineno) ||
             has_mouse_binding_collisions(conf, &key_combos, path, lineno))
         {
+            free(pipe_argv);
+            free(pipe_cmd);
             free_key_combo_list(&key_combos);
             return false;
         }
 
         /* Remove existing bindings for this action */
         tll_foreach(conf->bindings.mouse, it) {
-            if (it->item.action == action) {
+            if (it->item.action == action &&
+                ((it->item.pipe.argv == NULL && pipe_argv == NULL) ||
+                 (it->item.pipe.argv != NULL && pipe_argv != NULL &&
+                  argv_compare(it->item.pipe.argv, pipe_argv) == 0)))
+            {
+                if (it->item.pipe.master_copy) {
+                    free(it->item.pipe.cmd);
+                    free(it->item.pipe.argv);
+                }
                 tll_remove(conf->bindings.mouse, it);
             }
         }
 
         /* Emit mouse bindings */
+        bool first = true;
         tll_foreach(key_combos, it) {
             struct config_mouse_binding binding = {
                 .action = action,
                 .modifiers = it->item.modifiers,
                 .button = it->item.m.button,
                 .count = it->item.m.count,
+                .pipe = {
+                    .cmd = pipe_cmd,
+                    .argv = pipe_argv,
+                    .master_copy = first,
+                },
             };
             tll_push_back(conf->bindings.mouse, binding);
+            first = false;
         }
 
         free_key_combo_list(&key_combos);
@@ -1539,6 +1579,8 @@ parse_section_mouse_bindings(
     }
 
     LOG_AND_NOTIFY_ERR("%s:%u: [mouse-bindings]: %s: invalid key", path, lineno, key);
+    free(pipe_argv);
+    free(pipe_cmd);
     return false;
 }
 
@@ -1937,7 +1979,7 @@ add_default_mouse_bindings(struct config *conf)
     do {                                                                \
         tll_push_back(                                                  \
             conf->bindings.mouse,                                       \
-            ((struct config_mouse_binding){action, mods, btn, count})); \
+            ((struct config_mouse_binding){action, mods, btn, count, {0}})); \
 } while (0)
 
     const struct config_key_modifiers none = {0};
@@ -2128,6 +2170,12 @@ config_free(struct config conf)
     free(conf.server_socket_path);
 
     tll_foreach(conf.bindings.key, it) {
+        if (it->item.pipe.master_copy) {
+            free(it->item.pipe.cmd);
+            free(it->item.pipe.argv);
+        }
+    }
+    tll_foreach(conf.bindings.mouse, it) {
         if (it->item.pipe.master_copy) {
             free(it->item.pipe.cmd);
             free(it->item.pipe.argv);

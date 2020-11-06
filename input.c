@@ -424,6 +424,7 @@ convert_mouse_binding(struct seat *seat,
         .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
         .button = conf_binding->button,
         .count = conf_binding->count,
+        .pipe_argv = conf_binding->pipe.argv,
     };
     tll_push_back(seat->mouse.bindings, binding);
 }
@@ -1628,7 +1629,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
                     if (match != NULL) {
                         seat->mouse.consumed = execute_binding(
-                            seat, term, match->action, NULL, serial);
+                            seat, term, match->action, match->pipe_argv, serial);
                     }
                 }
 
@@ -1661,7 +1662,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
                     if (match != NULL) {
                         seat->mouse.consumed = execute_binding(
-                            seat, term, match->action, NULL, serial);
+                            seat, term, match->action, match->pipe.argv, serial);
                     }
                 }
 
