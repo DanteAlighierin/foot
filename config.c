@@ -1381,7 +1381,7 @@ parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *ke
             key++;  /* Skip past the '+' */
         }
 
-        size_t count = 0;
+        size_t count = 1;
         {
             char *_count = strrchr(key, '-');
             if (_count != NULL) {
