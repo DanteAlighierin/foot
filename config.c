@@ -1026,9 +1026,13 @@ has_key_binding_collisions(struct config *conf, const key_combo_list_t *key_comb
             const struct config_key_modifiers *mods1 = &it->item.modifiers;
             const struct config_key_modifiers *mods2 = &it2->item.modifiers;
 
-            if (memcmp(mods1, mods2, sizeof(*mods1)) == 0 &&
-                it->item.sym == it2->item.sym)
-            {
+            bool shift = mods1->shift == mods2->shift;
+            bool alt = mods1->alt == mods2->alt;
+            bool ctrl = mods1->ctrl == mods2->ctrl;
+            bool meta = mods1->meta == mods2->meta;
+            bool sym = it->item.sym == it2->item.sym;
+
+            if (shift && alt && ctrl && meta && sym) {
                 bool has_pipe = it->item.pipe.cmd != NULL;
                 LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s%s%s%s'",
                                    path, lineno, it2->item.text,
@@ -1053,9 +1057,13 @@ has_search_binding_collisions(struct config *conf, const key_combo_list_t *key_c
             const struct config_key_modifiers *mods1 = &it->item.modifiers;
             const struct config_key_modifiers *mods2 = &it2->item.modifiers;
 
-            if (memcmp(mods1, mods2, sizeof(*mods1)) == 0 &&
-                it->item.sym == it2->item.sym)
-            {
+            bool shift = mods1->shift == mods2->shift;
+            bool alt = mods1->alt == mods2->alt;
+            bool ctrl = mods1->ctrl == mods2->ctrl;
+            bool meta = mods1->meta == mods2->meta;
+            bool sym = it->item.sym == it2->item.sym;
+
+            if (shift && alt && ctrl && meta && sym) {
                 LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s'",
                                    path, lineno, it2->item.text,
                                    search_binding_action_map[it->item.action]);
@@ -1412,11 +1420,14 @@ has_mouse_binding_collisions(struct config *conf, const key_combo_list_t *key_co
             const struct config_key_modifiers *mods1 = &it->item.modifiers;
             const struct config_key_modifiers *mods2 = &it2->item.modifiers;
 
-            if (memcmp(mods1, mods2, sizeof(*mods1)) == 0 &&
-                it->item.button == it2->item.m.button &&
-                it->item.count == it2->item.m.count)
-            {
-                LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s'",
+            bool shift = mods1->shift == mods2->shift;
+            bool alt = mods1->alt == mods2->alt;
+            bool ctrl = mods1->ctrl == mods2->ctrl;
+            bool meta = mods1->meta == mods2->meta;
+            bool button = it->item.button == it2->item.m.button;
+            bool count = it->item.count == it2->item.m.count;
+
+            if (shift && alt && ctrl && meta && button && count) {
                                    path, lineno, it2->item.text,
                                    binding_action_map[it->item.action]);
                 return true;
