@@ -446,15 +446,9 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     struct seat *seat = data;
     struct wayland *wayl = seat->wayl;
 
-    char *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (map_str == MAP_FAILED) {
-        LOG_ERRNO("failed to mmap keyboard keymap");
-        close(fd);
-        return;
-    }
-
-    while (map_str[size - 1] == '\0')
-        size--;
+    /*
+     * Free old keymap state
+     */
 
     if (seat->kbd.xkb_compose_state != NULL) {
         xkb_compose_state_unref(seat->kbd.xkb_compose_state);
@@ -486,6 +480,29 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     tll_free(seat->kbd.bindings.search);
 
     tll_free(seat->mouse.bindings);
+
+    /* Verify keymap is in a format we understand */
+    switch ((enum wl_keyboard_keymap_format)format) {
+    case WL_KEYBOARD_KEYMAP_FORMAT_NO_KEYMAP:
+        return;
+
+    case WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1:
+        break;
+
+    default:
+        LOG_WARN("unrecognized keymap format: %u", format);
+        return;
+    }
+
+    char *map_str = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (map_str == MAP_FAILED) {
+        LOG_ERRNO("failed to mmap keyboard keymap");
+        close(fd);
+        return;
+    }
+
+    while (map_str[size - 1] == '\0')
+        size--;
 
     seat->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
