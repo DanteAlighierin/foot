@@ -78,7 +78,7 @@ main(int argc, char *const *argv)
     bool hold = false;
 
     while (true) {
-        int c = getopt_long(argc, argv, "+:t:a:s:l::hv", longopts, NULL);
+        int c = getopt_long(argc, argv, "+t:a:s:l::hv", longopts, NULL);
         if (c == -1)
             break;
 
@@ -138,12 +138,7 @@ main(int argc, char *const *argv)
             print_usage(prog_name);
             return EXIT_SUCCESS;
 
-       case ':':
-            fprintf(stderr, "error: -%c: missing required argument\n", optopt);
-            return EXIT_FAILURE;
-
         case '?':
-            fprintf(stderr, "error: -%c: invalid option\n", optopt);
             return EXIT_FAILURE;
         }
     }
