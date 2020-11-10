@@ -21,6 +21,9 @@
 
 ### Fixed
 
+* Resize very slow when window is hidden
+  (https://codeberg.org/dnkl/foot/issues/190).
+
 
 ## 1.5.3
 

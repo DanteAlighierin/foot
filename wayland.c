@@ -614,17 +614,26 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
 
     xdg_surface_ack_configure(xdg_surface, serial);
 
-    /* TODO: check with GNOME and tiling - presumably that didn't work
-     * unless we presented a *new* buffer, hence we used to do a force
-     * resize here */
-    bool resized = render_resize(term, win->configure.width, win->configure.height);
+    if (term->window->frame_callback != NULL) {
+        /*
+         * Preempt render scheduling.
+         *
+         * Each configure event require a corresponding new
+         * surface+commit. Thus we cannot just schedule a pending
+         * refresh if there’s already a frame being rendered.
+         */
+        wl_callback_destroy(term->window->frame_callback);
+        term->window->frame_callback = NULL;
+    }
+
+    bool resized = render_resize(
+        term, win->configure.width, win->configure.height);
 
     if (win->configure.is_activated)
         term_visual_focus_in(term);
     else
         term_visual_focus_out(term);
 
-    /* TODO: remove - shouldn't be necessary with render_resize_force() */
     if (!resized) {
         /*
          * If we didn't resize, we won't be committing a new surface
