@@ -68,6 +68,8 @@
   not possible to add a command to these actions when used in mouse
   bindings, making them useless
   (https://codeberg.org/dnkl/foot/issues/183).
+* Resize very slow when window is hidden
+  (https://codeberg.org/dnkl/foot/issues/190).
 
 
 ### Security
