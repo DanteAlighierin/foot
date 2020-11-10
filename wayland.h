@@ -72,6 +72,7 @@ struct mouse_binding {
     xkb_mod_mask_t mods;
     uint32_t button;
     int count;
+    char **pipe_argv;
 };
 typedef tll(struct mouse_binding) mouse_binding_list_t;
 

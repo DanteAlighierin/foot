@@ -159,14 +159,14 @@ seat_destroy(struct seat *seat)
     if (seat->primary_selection_device != NULL)
         zwp_primary_selection_device_v1_destroy(seat->primary_selection_device);
     if (seat->data_device != NULL)
-        wl_data_device_destroy(seat->data_device);
+        wl_data_device_release(seat->data_device);
 
     if (seat->wl_keyboard != NULL)
-        wl_keyboard_destroy(seat->wl_keyboard);
+        wl_keyboard_release(seat->wl_keyboard);
     if (seat->wl_pointer != NULL)
-        wl_pointer_destroy(seat->wl_pointer);
+        wl_pointer_release(seat->wl_pointer);
     if (seat->wl_seat != NULL)
-        wl_seat_destroy(seat->wl_seat);
+        wl_seat_release(seat->wl_seat);
 
     free(seat->clipboard.text);
     free(seat->primary.text);
@@ -470,7 +470,7 @@ surface_leave(void *data, struct wl_surface *wl_surface,
         return;
     }
 
-    LOG_ERR("unmapped from unknown output");
+    LOG_WARN("unmapped from unknown output");
 }
 
 static const struct wl_surface_listener surface_listener = {
@@ -893,7 +893,7 @@ monitor_destroy(struct monitor *mon)
     if (mon->xdg != NULL)
         zxdg_output_v1_destroy(mon->xdg);
     if (mon->output != NULL)
-        wl_output_destroy(mon->output);
+        wl_output_release(mon->output);
     free(mon->make);
     free(mon->model);
     free(mon->name);
@@ -914,15 +914,21 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
         if (mon->wl_name != name)
             continue;
 
-        LOG_INFO("monitor unplugged: %s", mon->name);
+        LOG_INFO("monitor unplugged or disabled: %s", mon->name);
 
         /*
          * Update all terminals that are mapped here. On Sway 1.4,
          * surfaces are *not* unmapped before the output is removed
          */
 
-        tll_foreach(wayl->terms, t)
-            surface_leave(t->item->window, NULL /* wl_surface - unused */, mon->output);
+        tll_foreach(wayl->terms, t) {
+            tll_foreach(t->item->window->on_outputs, o) {
+                if (o->item->output == mon->output) {
+                    surface_leave(t->item->window, NULL, mon->output);
+                    break;
+                }
+            }
+        }
 
         monitor_destroy(mon);
         tll_remove(wayl->monitors, it);
@@ -1156,8 +1162,10 @@ wayl_destroy(struct wayland *wayl)
         wl_registry_destroy(wayl->registry);
     if (wayl->fd != -1)
         fdm_del_no_close(wayl->fdm, wayl->fd);
-    if (wayl->display != NULL)
+    if (wayl->display != NULL) {
+        wayl_flush(wayl);
         wl_display_disconnect(wayl->display);
+    }
 
     free(wayl);
 }

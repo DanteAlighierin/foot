@@ -47,6 +47,11 @@ struct config_mouse_binding {
     struct config_key_modifiers modifiers;
     int button;
     int count;
+    struct {
+        char *cmd;
+        char **argv;
+        bool master_copy;
+    } pipe;
 };
 
 struct config {

@@ -1026,9 +1026,13 @@ has_key_binding_collisions(struct config *conf, const key_combo_list_t *key_comb
             const struct config_key_modifiers *mods1 = &it->item.modifiers;
             const struct config_key_modifiers *mods2 = &it2->item.modifiers;
 
-            if (memcmp(mods1, mods2, sizeof(*mods1)) == 0 &&
-                it->item.sym == it2->item.sym)
-            {
+            bool shift = mods1->shift == mods2->shift;
+            bool alt = mods1->alt == mods2->alt;
+            bool ctrl = mods1->ctrl == mods2->ctrl;
+            bool meta = mods1->meta == mods2->meta;
+            bool sym = it->item.sym == it2->item.sym;
+
+            if (shift && alt && ctrl && meta && sym) {
                 bool has_pipe = it->item.pipe.cmd != NULL;
                 LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s%s%s%s'",
                                    path, lineno, it2->item.text,
@@ -1053,9 +1057,13 @@ has_search_binding_collisions(struct config *conf, const key_combo_list_t *key_c
             const struct config_key_modifiers *mods1 = &it->item.modifiers;
             const struct config_key_modifiers *mods2 = &it2->item.modifiers;
 
-            if (memcmp(mods1, mods2, sizeof(*mods1)) == 0 &&
-                it->item.sym == it2->item.sym)
-            {
+            bool shift = mods1->shift == mods2->shift;
+            bool alt = mods1->alt == mods2->alt;
+            bool ctrl = mods1->ctrl == mods2->ctrl;
+            bool meta = mods1->meta == mods2->meta;
+            bool sym = it->item.sym == it2->item.sym;
+
+            if (shift && alt && ctrl && meta && sym) {
                 LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s'",
                                    path, lineno, it2->item.text,
                                    search_binding_action_map[it->item.action]);
@@ -1125,7 +1133,63 @@ maybe_deprecated_key_binding(struct config *conf,
         .text = text,
     };
     tll_push_back(conf->notifications, deprecation);
+}
 
+/*
+ * Parses a key binding value on the form
+ *  "[cmd-to-exec arg1 arg2] Mods+Key"
+ *
+ * and extracts 'cmd-to-exec' and its arguments.
+ *
+ * Input:
+ *  - value: raw string, on the form mention above
+ *  - cmd: pointer to string to will be allocated and filled with
+ *        'cmd-to-exec arg1 arg2'
+ *  - argv: point to array of string. Array will be allocated. Will be
+ *          filled with {'cmd-to-exec', 'arg1', 'arg2', NULL}
+ *
+ * Returns:
+ *  - ssize_t, number of bytes to strip from 'value' to remove the '[]'
+ *    enclosed cmd and its arguments, including any subsequent
+ *    whitespace characters. I.e. if 'value' is "[cmd] BTN_RIGHT", the
+ *    return value is 6 (strlen("[cmd] ")).
+ *  - cmd: allocated string containing "cmd arg1 arg2...". Caller frees.
+ *  - argv: allocatd array containing {"cmd", "arg1", "arg2", NULL}. Caller frees.
+ */
+static ssize_t
+pipe_argv_from_string(const char *value, char **cmd, char ***argv,
+                      struct config *conf,
+                      const char *path, unsigned lineno)
+{
+    *cmd = NULL;
+    *argv = NULL;
+
+    if (value[0] != '[')
+        return 0;
+
+    const char *pipe_cmd_end = strrchr(value, ']');
+    if (pipe_cmd_end == NULL) {
+        LOG_AND_NOTIFY_ERR("%s:%d: unclosed '['", path, lineno);
+        return -1;
+    }
+
+    size_t pipe_len = pipe_cmd_end - value - 1;
+    *cmd = xstrndup(&value[1], pipe_len);
+
+    if (!tokenize_cmdline(*cmd, argv)) {
+        LOG_AND_NOTIFY_ERR("%s:%d: syntax error in command line", path, lineno);
+        free(*cmd);
+        return -1;
+    }
+
+    ssize_t remove_len = pipe_cmd_end + 1 - value;
+    value = pipe_cmd_end + 1;
+    while (isspace(*value)) {
+        value++;
+        remove_len++;
+    }
+
+    return remove_len;
 }
 
 static bool
@@ -1133,30 +1197,16 @@ parse_section_key_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    char *pipe_cmd = NULL;
-    char **pipe_argv = NULL;
-    size_t pipe_len = 0;
+    char *pipe_cmd;
+    char **pipe_argv;
 
-    if (value[0] == '[') {
-        const char *pipe_cmd_end = strrchr(value, ']');
-        if (pipe_cmd_end == NULL) {
-            LOG_AND_NOTIFY_ERR("%s:%d: unclosed '['", path, lineno);
-            return false;
-        }
+    ssize_t pipe_remove_len = pipe_argv_from_string(
+        value, &pipe_cmd, &pipe_argv, conf, path, lineno);
 
-        pipe_len = pipe_cmd_end - value - 1;
-        pipe_cmd = xstrndup(&value[1], pipe_len);
+    if (pipe_remove_len < 0)
+        return false;
 
-        if (!tokenize_cmdline(pipe_cmd, &pipe_argv)) {
-            LOG_AND_NOTIFY_ERR("%s:%d: syntax error in command line", path, lineno);
-            free(pipe_cmd);
-            return false;
-        }
-
-        value = pipe_cmd_end + 1;
-        while (isspace(*value))
-            value++;
-    }
+    value += pipe_remove_len;
 
     for (enum bind_action_normal action = 0;
          action < BIND_ACTION_KEY_COUNT;
@@ -1331,7 +1381,7 @@ parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *ke
             key++;  /* Skip past the '+' */
         }
 
-        size_t count = 0;
+        size_t count = 1;
         {
             char *_count = strrchr(key, '-');
             if (_count != NULL) {
@@ -1412,13 +1462,21 @@ has_mouse_binding_collisions(struct config *conf, const key_combo_list_t *key_co
             const struct config_key_modifiers *mods1 = &it->item.modifiers;
             const struct config_key_modifiers *mods2 = &it2->item.modifiers;
 
-            if (memcmp(mods1, mods2, sizeof(*mods1)) == 0 &&
-                it->item.button == it2->item.m.button &&
-                it->item.count == it2->item.m.count)
-            {
-                LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s'",
+            bool shift = mods1->shift == mods2->shift;
+            bool alt = mods1->alt == mods2->alt;
+            bool ctrl = mods1->ctrl == mods2->ctrl;
+            bool meta = mods1->meta == mods2->meta;
+            bool button = it->item.button == it2->item.m.button;
+            bool count = it->item.count == it2->item.m.count;
+
+            if (shift && alt && ctrl && meta && button && count) {
+                bool has_pipe = it->item.pipe.cmd != NULL;
+                LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s%s%s%s'",
                                    path, lineno, it2->item.text,
-                                   binding_action_map[it->item.action]);
+                                   binding_action_map[it->item.action],
+                                   has_pipe ? " [" : "",
+                                   has_pipe ? it->item.pipe.cmd : "",
+                                   has_pipe ? "]" : "");
                 return true;
             }
         }
@@ -1433,6 +1491,17 @@ parse_section_mouse_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
+    char *pipe_cmd;
+    char **pipe_argv;
+
+    ssize_t pipe_remove_len = pipe_argv_from_string(
+        value, &pipe_cmd, &pipe_argv, conf, path, lineno);
+
+    if (pipe_remove_len < 0)
+        return false;
+
+    value += pipe_remove_len;
+
     for (enum bind_action_normal action = 0;
          action < BIND_ACTION_COUNT;
          action++)
@@ -1449,9 +1518,16 @@ parse_section_mouse_bindings(
         /* Unset binding */
         if (strcasecmp(value, "none") == 0) {
             tll_foreach(conf->bindings.mouse, it) {
-                if (it->item.action == action)
+                if (it->item.action == action) {
+                    if (it->item.pipe.master_copy) {
+                        free(it->item.pipe.cmd);
+                        free(it->item.pipe.argv);
+                    }
                     tll_remove(conf->bindings.mouse, it);
+                }
             }
+            free(pipe_argv);
+            free(pipe_cmd);
             return true;
         }
 
@@ -1459,26 +1535,43 @@ parse_section_mouse_bindings(
         if (!parse_mouse_combos(conf, value, &key_combos, path, lineno) ||
             has_mouse_binding_collisions(conf, &key_combos, path, lineno))
         {
+            free(pipe_argv);
+            free(pipe_cmd);
             free_key_combo_list(&key_combos);
             return false;
         }
 
         /* Remove existing bindings for this action */
         tll_foreach(conf->bindings.mouse, it) {
-            if (it->item.action == action) {
+            if (it->item.action == action &&
+                ((it->item.pipe.argv == NULL && pipe_argv == NULL) ||
+                 (it->item.pipe.argv != NULL && pipe_argv != NULL &&
+                  argv_compare(it->item.pipe.argv, pipe_argv) == 0)))
+            {
+                if (it->item.pipe.master_copy) {
+                    free(it->item.pipe.cmd);
+                    free(it->item.pipe.argv);
+                }
                 tll_remove(conf->bindings.mouse, it);
             }
         }
 
         /* Emit mouse bindings */
+        bool first = true;
         tll_foreach(key_combos, it) {
             struct config_mouse_binding binding = {
                 .action = action,
                 .modifiers = it->item.modifiers,
                 .button = it->item.m.button,
                 .count = it->item.m.count,
+                .pipe = {
+                    .cmd = pipe_cmd,
+                    .argv = pipe_argv,
+                    .master_copy = first,
+                },
             };
             tll_push_back(conf->bindings.mouse, binding);
+            first = false;
         }
 
         free_key_combo_list(&key_combos);
@@ -1486,6 +1579,8 @@ parse_section_mouse_bindings(
     }
 
     LOG_AND_NOTIFY_ERR("%s:%u: [mouse-bindings]: %s: invalid key", path, lineno, key);
+    free(pipe_argv);
+    free(pipe_cmd);
     return false;
 }
 
@@ -1884,7 +1979,7 @@ add_default_mouse_bindings(struct config *conf)
     do {                                                                \
         tll_push_back(                                                  \
             conf->bindings.mouse,                                       \
-            ((struct config_mouse_binding){action, mods, btn, count})); \
+            ((struct config_mouse_binding){action, mods, btn, count, {0}})); \
 } while (0)
 
     const struct config_key_modifiers none = {0};
@@ -2075,6 +2170,12 @@ config_free(struct config conf)
     free(conf.server_socket_path);
 
     tll_foreach(conf.bindings.key, it) {
+        if (it->item.pipe.master_copy) {
+            free(it->item.pipe.cmd);
+            free(it->item.pipe.argv);
+        }
+    }
+    tll_foreach(conf.bindings.mouse, it) {
         if (it->item.pipe.master_copy) {
             free(it->item.pipe.cmd);
             free(it->item.pipe.argv);

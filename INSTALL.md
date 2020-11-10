@@ -127,8 +127,9 @@ mkdir -p bld/release && cd bld/release
 ### Release build
 
 ```sh
-export CFLAGS+="-O3 -march=native -fno-plt"
-meson --buildtype=release --prefix=/usr -Db_lto=true
+CFLAGS+="-O3 -march=native -fno-plt"
+export CFLAGS
+meson --buildtype=release --prefix=/usr -Db_lto=true ../..
 ```
 
 For performance reasons, I strongly recommend doing a
