@@ -19,6 +19,13 @@
 
 ## 1.5.4
 
+### Changed
+
+* Num Lock by default overrides the keypad mode. See
+  **foot.ini**(5)::KEYPAD, or [README.md](README.md#keypad) for
+  details (https://codeberg.org/dnkl/foot/issues/194).
+
+
 ### Fixed
 
 * Resize very slow when window is hidden

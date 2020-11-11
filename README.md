@@ -18,6 +18,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Server (daemon) mode](#server-daemon-mode)
 1. [Alt/meta](#alt-meta)
 1. [Backspace](#backspace)
+1. [Keypad](#keypad)
 1. [DPI and font size](#dpi-and-font-size)
 1. [Supported OSCs](#supported-oscs)
 1. [Programmatically checking if running in foot](#programmatically-checking-if-running-in-foot)
@@ -261,6 +262,25 @@ described above **cannot** be changed.
 
 Finally, pressing <kbd>alt</kbd> will prefix the transmitted byte with
 ESC.
+
+
+## KEYPAD
+
+By default, <kbd>Num Lock</kbd> overrides the run-time configuration
+keypad mode; when active, the keypad is always considered to be in
+_numerical_ mode. This corresponds to XTerm's `numLock` option set to
+`true`.
+
+In this mode, the keypad keys always sends either numbers (<kbd>Num
+Lock</kbd> is **active**) or cursor movement keys (<kbd>Up</kbd>,
+<kbd>Down</kbd>, <kbd>Left</kbd>, <kbd>Right</kbd>, <kbd>Page
+Up</kbd>, <kbd>Page Down</kbd> etc).
+
+This can be disabled programmatically with `\E[?1035l` (and enabled
+again with `\E[?1035h`).
+
+When disabled, the keypad sends custom escape sequences instead of
+numbers, when in _application_ mode.
 
 
 ## DPI and font size
