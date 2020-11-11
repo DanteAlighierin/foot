@@ -508,10 +508,10 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     if (seat->kbd.xkb_keymap != NULL) {
         seat->kbd.xkb_state = xkb_state_new(seat->kbd.xkb_keymap);
 
-        seat->kbd.mod_shift = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Shift");
-        seat->kbd.mod_alt = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Mod1") ;
-        seat->kbd.mod_ctrl = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Control");
-        seat->kbd.mod_meta = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, "Mod4");
+        seat->kbd.mod_shift = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_SHIFT);
+        seat->kbd.mod_alt = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_ALT) ;
+        seat->kbd.mod_ctrl = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_CTRL);
+        seat->kbd.mod_meta = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_LOGO);
 
         seat->kbd.key_arrow_up = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "UP");
         seat->kbd.key_arrow_down = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "DOWN");
