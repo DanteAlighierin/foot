@@ -250,6 +250,8 @@ struct terminal {
         bool eight_bit;
     } meta;
 
+    bool num_lock_modifier;
+
     /* Saved DECSET modes - we save the SET state */
     struct {
         uint32_t origin:1;
@@ -270,6 +272,7 @@ struct terminal {
         uint32_t mouse_urxvt:1;
         uint32_t meta_eight_bit:1;
         uint32_t meta_esc_prefix:1;
+        uint32_t num_lock_modifier:1;
         uint32_t alt_screen:1;
     } xtsave;
 

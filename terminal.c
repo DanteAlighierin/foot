@@ -995,6 +995,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .esc_prefix = true,
             .eight_bit = true,
         },
+        .num_lock_modifier = true,
         .tab_stops = tll_init(),
         .wl = wayl,
         .render = {
