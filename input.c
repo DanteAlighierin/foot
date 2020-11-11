@@ -741,7 +741,8 @@ keymap_data_for_sym(xkb_keysym_t sym, size_t *count)
 }
 
 static const struct key_data *
-keymap_lookup(struct terminal *term, xkb_keysym_t sym, enum modifier mods)
+keymap_lookup(struct seat *seat, struct terminal *term,
+              xkb_keysym_t sym, enum modifier mods)
 {
     size_t count;
     const struct key_data *info = keymap_data_for_sym(sym, &count);
@@ -749,16 +750,22 @@ keymap_lookup(struct terminal *term, xkb_keysym_t sym, enum modifier mods)
     if (info == NULL)
         return NULL;
 
+    const enum cursor_keys cursor_keys_mode = term->cursor_keys_mode;
+    const enum keypad_keys keypad_keys_mode
+        = (term->num_lock_modifier && seat->kbd.num
+           ? KEYPAD_NUMERICAL
+           : term->keypad_keys_mode);
+
     for (size_t j = 0; j < count; j++) {
         if (info[j].modifiers != MOD_ANY && info[j].modifiers != mods)
             continue;
 
         if (info[j].cursor_keys_mode != CURSOR_KEYS_DONTCARE &&
-            info[j].cursor_keys_mode != term->cursor_keys_mode)
+            info[j].cursor_keys_mode != cursor_keys_mode)
             continue;
 
         if (info[j].keypad_keys_mode != KEYPAD_DONTCARE &&
-            info[j].keypad_keys_mode != term->keypad_keys_mode)
+            info[j].keypad_keys_mode != keypad_keys_mode)
             continue;
 
         return &info[j];
@@ -884,7 +891,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     keymap_mods |= seat->kbd.ctrl ? MOD_CTRL : MOD_NONE;
     keymap_mods |= seat->kbd.meta ? MOD_META : MOD_NONE;
 
-    const struct key_data *keymap = keymap_lookup(term, sym, keymap_mods);
+    const struct key_data *keymap = keymap_lookup(seat, term, sym, keymap_mods);
     if (keymap != NULL) {
         term_to_slave(term, keymap->seq, strlen(keymap->seq));
 
