@@ -22,8 +22,9 @@
 ### Changed
 
 * Num Lock by default overrides the keypad mode. See
-  **foot.ini**(5)::KEYPAD, or [README.md](README.md#keypad) for
-  details (https://codeberg.org/dnkl/foot/issues/194).
+  **foot.ini**(5)::KEYPAD, or
+  [README.md](README.md#user-content-keypad) for details
+  (https://codeberg.org/dnkl/foot/issues/194).
 
 
 ### Fixed
