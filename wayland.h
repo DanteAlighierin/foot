@@ -163,6 +163,7 @@ struct seat {
         xkb_mod_index_t mod_alt;
         xkb_mod_index_t mod_ctrl;
         xkb_mod_index_t mod_meta;
+        xkb_mod_index_t mod_num;
 
         xkb_keycode_t key_arrow_up;
         xkb_keycode_t key_arrow_down;
@@ -172,6 +173,7 @@ struct seat {
         bool alt;
         bool ctrl;
         bool meta;
+        bool num;
 
         struct {
             tll(struct key_binding_normal) key;

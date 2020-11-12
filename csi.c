@@ -470,6 +470,12 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         term->meta.eight_bit = enable;
         break;
 
+    case 1035:
+        /* numLock */
+        LOG_DBG("%s Num Lock modifier", enable ? "enabling" : "disabling");
+        term->num_lock_modifier = enable;
+        break;
+
     case 1036:
         /* metaSendsEscape */
         LOG_DBG("%s meta-sends-escape", enable ? "enabling" : "disabling");
@@ -592,6 +598,7 @@ xtsave(struct terminal *term, unsigned param)
     case 1007: term->xtsave.alt_scrolling = term->alt_scrolling; break;
     case 1015: term->xtsave.mouse_urxvt = term->mouse_reporting == MOUSE_URXVT; break;
     case 1034: term->xtsave.meta_eight_bit = term->meta.eight_bit; break;
+    case 1035: term->xtsave.num_lock_modifier = term->num_lock_modifier; break;
     case 1036: term->xtsave.meta_esc_prefix = term->meta.esc_prefix; break;
     case 1042: term->xtsave.bell_is_urgent = term->bell_is_urgent; break;
     case 1049: term->xtsave.alt_screen = term->grid == &term->alt; break;
@@ -624,6 +631,7 @@ xtrestore(struct terminal *term, unsigned param)
     case 1007: enable = term->xtsave.alt_scrolling; break;
     case 1015: enable = term->xtsave.mouse_urxvt; break;
     case 1034: enable = term->xtsave.meta_eight_bit; break;
+    case 1035: enable = term->xtsave.num_lock_modifier; break;
     case 1036: enable = term->xtsave.meta_esc_prefix; break;
     case 1042: enable = term->xtsave.bell_is_urgent; break;
     case 1049: enable = term->xtsave.alt_screen; break;
