@@ -58,6 +58,10 @@
 
 * Blinking text now uses the foreground color, but dimmed down in its
   off state, instead of the background color.
+* Num Lock by default overrides the keypad mode. See
+  **foot.ini**(5)::KEYPAD, or
+  [README.md](README.md#user-content-keypad) for details
+  (https://codeberg.org/dnkl/foot/issues/194).
 
 
 ### Deprecated
@@ -68,6 +72,8 @@
   not possible to add a command to these actions when used in mouse
   bindings, making them useless
   (https://codeberg.org/dnkl/foot/issues/183).
+* Resize very slow when window is hidden
+  (https://codeberg.org/dnkl/foot/issues/190).
 
 
 ### Security

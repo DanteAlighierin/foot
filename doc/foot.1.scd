@@ -267,6 +267,23 @@ described above *cannot* be changed.
 
 Finally, pressing *alt* will prefix the transmitted byte with ESC.
 
+# KEYPAD
+
+By default, *Num Lock* overrides the run-time configuration keypad
+mode; when active, the keypad is always considered to be in
+_numerical_ mode. This corresponds to XTerm's *numLock* option set to
+*true*.
+
+In this mode, the keypad keys always sends either numbers (Num Lock is
+active) or cursor movement keys (up, down, left, right, page up, page
+down etc).
+
+This can be disabled programmatically with *\E[?1035l* (and enabled
+again with *\E[?1035h*).
+
+When disabled, the keypad sends custom escape sequences instead of
+numbers, when in _application_ mode.
+
 # CONFIGURATION
 
 See *foot.ini*(5)

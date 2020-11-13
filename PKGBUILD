@@ -4,8 +4,8 @@ pkgrel=1
 arch=('x86_64' 'aarch64')
 url=https://codeberg.org/dnkl/foot
 license=(mit)
-makedepends=('meson' 'ninja' 'scdoc' 'python' 'ncurses' 'wayland-protocols' 'tllist>=1.0.4')
 depends=('libxkbcommon' 'wayland' 'pixman' 'fontconfig' 'fcft>=2.3.0')
+makedepends=('meson' 'ninja' 'scdoc' 'python' 'ncurses' 'wayland-protocols' 'tllist>=1.0.4')
 source=()
 
 pkgver() {
@@ -43,7 +43,7 @@ check() {
 package_foot-git() {
   pkgdesc="A wayland native terminal emulator"
   changelog=CHANGELOG.md
-  optdepends=('foot-terminfo: terminfo for foot')
+  depends+=('foot-terminfo')
   conflicts=('foot')
   provides=('foot')
 
