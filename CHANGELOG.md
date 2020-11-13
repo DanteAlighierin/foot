@@ -52,6 +52,10 @@
   bindings. By default, they are bound to `ctrl+v ctrl+y` and
   `shift+insert` respectively, and lets you paste from the clipboard
   or primary selection into the search buffer.
+* Support for **pipe-\*** actions in mouse bindings. It was previously
+  not possible to add a command to these actions when used in mouse
+  bindings, making them useless
+  (https://codeberg.org/dnkl/foot/issues/183).
 
 
 ### Changed
@@ -72,10 +76,6 @@
 ### Removed
 ### Fixed
 
-* Support for **pipe-\*** actions in mouse bindings. It was previously
-  not possible to add a command to these actions when used in mouse
-  bindings, making them useless
-  (https://codeberg.org/dnkl/foot/issues/183).
 * Resize very slow when window is hidden
   (https://codeberg.org/dnkl/foot/issues/190).
 
