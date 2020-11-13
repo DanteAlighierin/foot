@@ -516,7 +516,7 @@ any of these options.
 	Note: this feature uses _heuristics_ to determine *which* glyphs
 	should be allowed to overflow.
 	
-	Default: _false_.
+	Default: _yes_.
 
 *render-timer*
 	Enables a frame rendering timer, that prints the time it takes to
@@ -603,7 +603,7 @@ any of these options.
 	GPU usage (by the compositor, not by foot), and may have a
 	negative impact on battery life.
 	
-	Default: _false_.
+	Default: _no_.
 
 *max-shm-pool-size-mb*
 	This option controls the amount of *virtual* memory used by the

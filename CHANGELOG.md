@@ -25,6 +25,10 @@
   **foot.ini**(5)::KEYPAD, or
   [README.md](README.md#user-content-keypad) for details
   (https://codeberg.org/dnkl/foot/issues/194).
+* Single-width characters with double-width glyphs are now allowed to
+  overflow into neighboring cells by default. Set
+  **tweak.allow-overflowing-double-width-glyphs** to ‘no’ to disable
+  this.
 
 
 ### Fixed
