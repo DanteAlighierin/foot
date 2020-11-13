@@ -1618,8 +1618,8 @@ parse_section_tweak(
 
     else if (strcmp(key, "allow-overflowing-double-width-glyphs") == 0) {
         conf->tweak.allow_overflowing_double_width_glyphs = str_to_bool(value);
-        if (conf->tweak.allow_overflowing_double_width_glyphs)
-            LOG_WARN("tweak: allow overflowing double-width glyphs");
+        if (!conf->tweak.allow_overflowing_double_width_glyphs)
+            LOG_WARN("tweak: disabled overflowing double-width glyphs");
     }
 
     else if (strcmp(key, "damage-whole-window") == 0) {
@@ -2084,7 +2084,7 @@ config_load(struct config *conf, const char *conf_path,
 
         .tweak = {
             .fcft_filter = FCFT_SCALING_FILTER_LANCZOS3,
-            .allow_overflowing_double_width_glyphs = false,
+            .allow_overflowing_double_width_glyphs = true,
             .delayed_render_lower_ns = 500000,         /* 0.5ms */
             .delayed_render_upper_ns = 16666666 / 2,   /* half a frame period (60Hz) */
             .max_shm_pool_size = 512 * 1024 * 1024,
