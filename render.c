@@ -801,51 +801,24 @@ grid_render_scroll_reverse(struct terminal *term, struct buffer *buf,
 }
 
 static void
-render_sixel(struct terminal *term, pixman_image_t *pix,
-             const struct sixel *sixel)
+render_sixel_chunk(struct terminal *term, pixman_image_t *pix, const struct sixel *sixel,
+                   int term_start_row, int img_start_row, int count)
 {
-    int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
-    int first_visible_row = -1;
-
-    for (size_t i = sixel->pos.row; i < sixel->pos.row + sixel->rows; i++) {
-        int row = i & (term->grid->num_rows - 1);
-
-        if (view_end >= term->grid->view) {
-            /* Not wrapped */
-            if (row >= term->grid->view && row <= view_end) {
-                first_visible_row = i;
-                break;
-            }
-        } else {
-            /* Wrapped */
-            if (row >= term->grid->view || row <= view_end) {
-                first_visible_row = i;
-                break;
-            }
-        }
-    }
-
-    if (first_visible_row < 0)
-        return;
-
-    /* First visible (0 based) row of the image */
-    const int first_img_row = first_visible_row - sixel->pos.row;
-
-    /* Map first visible line to current grid view */
-    const int row = first_visible_row & (term->grid->num_rows - 1);
-    const int view_aligned =
-        (row - term->grid->view + term->grid->num_rows) & (term->grid->num_rows - 1);
-
     /* Translate row/column to x/y pixel values */
     const int x = term->margins.left + sixel->pos.col * term->cell_width;
-    const int y = max(
-        term->margins.top, term->margins.top + view_aligned * term->cell_height);
+    const int y = term->margins.top + term_start_row * term->cell_height;
 
     /* Width/height, in pixels - and don't touch the window margins */
-    const int width = min(sixel->width, term->width - x - term->margins.right);
-    const int height = min(
-        sixel->height - first_img_row * term->cell_height,
-        term->height - y - term->margins.bottom);
+    const int width = max(
+        0,
+        min(sixel->width,
+            term->width - x - term->margins.right));
+    const int height = max(
+        0,
+        min(
+            min(count * term->cell_height,                          /* 'count' number of rows */
+                sixel->height - img_start_row * term->cell_height), /* What remains of the sixel */
+            term->height - y - term->margins.bottom));
 
     /* Verify we're not stepping outside the grid */
     assert(x >= term->margins.left);
@@ -853,17 +826,133 @@ render_sixel(struct terminal *term, pixman_image_t *pix,
     assert(x + width <= term->width - term->margins.right);
     assert(y + height <= term->height - term->margins.bottom);
 
+    //LOG_DBG("sixel chunk: %dx%d %dx%d", x, y, width, height);
+
     pixman_image_composite32(
         PIXMAN_OP_SRC,
         sixel->pix,
         NULL,
         pix,
-        0, first_img_row * term->cell_height,
+        0, img_start_row * term->cell_height,
         0, 0,
         x, y,
         width, height);
 
     wl_surface_damage_buffer(term->window->surface, x, y, width, height);
+}
+
+static void
+render_sixel(struct terminal *term, pixman_image_t *pix,
+             const struct sixel *sixel)
+{
+    const int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
+    const bool last_row_needs_erase = sixel->height % term->cell_height != 0;
+    const bool last_col_needs_erase = sixel->width % term->cell_width != 0;
+
+    int chunk_img_start = -1;  /* Image-relative start row of chunk */
+    int chunk_term_start = -1; /* Viewport relative start row of chunk */
+    int chunk_row_count = 0;   /* Number of rows to emit */
+
+#define maybe_emit_sixel_chunk_then_reset()                             \
+    if (chunk_row_count != 0) {                                         \
+        render_sixel_chunk(                                             \
+            term, pix, sixel,                                           \
+            chunk_term_start, chunk_img_start, chunk_row_count);        \
+        chunk_term_start = chunk_img_start = -1;                        \
+        chunk_row_count = 0;                                            \
+    }
+
+    /*
+     * Iterate all sixel rows:
+     *
+     *  - ignore rows that aren't visible on-screen
+     *  - ignore rows that aren't dirty (they have already been rendered)
+     *  - chunk consecutive dirty rows into a 'chunk'
+     *  - emit (render) chunk as soon as a row isn't visible, or is clean
+     *  - emit final chunk after we've iterated all rows
+     *
+     * The purpose of this is to reduce the amount of pixels that
+     * needs to be composited and marked as damaged for the
+     * compositor.
+     *
+     * Since we do CPU based composition, rendering is a slow and
+     * heavy task for foot, and thus it is important to not re-render
+     * things unnecessarily.
+     */
+
+    for (int _abs_row_no = sixel->pos.row;
+         _abs_row_no < sixel->pos.row + sixel->rows;
+         _abs_row_no++)
+    {
+        const int abs_row_no = _abs_row_no & (term->grid->num_rows - 1);
+        const int term_row_no =
+            (abs_row_no - term->grid->view + term->grid->num_rows) &
+            (term->grid->num_rows - 1);
+
+        /* Check if row is in the visible viewport */
+        if (view_end >= term->grid->view) {
+            /* Not wrapped */
+            if (!(abs_row_no >= term->grid->view && abs_row_no <= view_end)) {
+                /* Not visible */
+                maybe_emit_sixel_chunk_then_reset();
+                continue;
+            }
+        } else {
+            /* Wrapped */
+            if (!(abs_row_no >= term->grid->view || abs_row_no <= view_end)) {
+                /* Not visible */
+                maybe_emit_sixel_chunk_then_reset();
+                continue;
+            }
+        }
+
+        /* Is the row dirty? */
+        struct row *row = term->grid->rows[abs_row_no];
+        assert(row != NULL);  /* Should be visible */
+
+        if (!row->dirty) {
+            maybe_emit_sixel_chunk_then_reset();
+            continue;
+        }
+
+        /*
+         * Loop cells and set their 'clean' bit, to prevent the grid
+         * rendered from overwriting the sixel
+         *
+         * If the last sixel row only partially covers the cell row,
+         * 'erase' the cell by rendering them.
+         */
+        for (int col = sixel->pos.col;
+             col < min(sixel->pos.col + sixel->cols, term->cols);
+             col++)
+        {
+            struct cell *cell = &row->cells[col];
+
+            if (!cell->attrs.clean) {
+                bool last_row = abs_row_no == sixel->pos.row + sixel->rows - 1;
+                bool last_col = col == sixel->pos.col + sixel->cols - 1;
+
+                if ((last_row_needs_erase && last_row) ||
+                    (last_col_needs_erase && last_col))
+                {
+                    LOG_INFO("ERASE col=%d", col);
+                    render_cell(term, pix, row, col, term_row_no, false);
+                } else
+                    cell->attrs.clean = 1;
+            }
+        }
+
+        if (chunk_term_start == -1) {
+            assert(chunk_img_start == -1);
+            chunk_term_start = term_row_no;
+            chunk_img_start = _abs_row_no - sixel->pos.row;
+            chunk_row_count = 1;
+        } else
+            chunk_row_count++;
+    }
+
+    maybe_emit_sixel_chunk_then_reset();
+#undef maybe_emit_sixel_chunk_then_reset
 }
 
 static void
@@ -1737,6 +1826,8 @@ grid_render(struct terminal *term)
         cursor.row &= term->grid->num_rows - 1;
     }
 
+    render_sixel_images(term, buf->pix[0]);
+
     if (term->render.workers.count > 0) {
         mtx_lock(&term->render.workers.lock);
         term->render.workers.buf = buf;
@@ -1796,8 +1887,6 @@ grid_render(struct terminal *term)
             sem_wait(&term->render.workers.done);
         term->render.workers.buf = NULL;
     }
-
-    render_sixel_images(term, buf->pix[0]);
 
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
