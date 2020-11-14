@@ -130,7 +130,7 @@ mkdir -p bld/release && cd bld/release
 export CFLAGS="$CFLAGS -O3 -march=native"
 meson --buildtype=release --prefix=/usr -Db_lto=true ../..
 ```
-Both `-O3` (in `CFLAGS`) and `-Db_lto=true` are **highly** recommended.
+Both `-O3` and `-Db_lto=true` are **highly** recommended.
 
 For performance reasons, I strongly recommend doing a
 [PGO](#profile-guided-optimization) (Profile Guided Optimization)
