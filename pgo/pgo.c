@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -9,6 +11,14 @@
 #include "async.h"
 #include "user-notification.h"
 #include "vt.h"
+
+static void
+usage(const char *prog_name)
+{
+    printf(
+        "Usage: %s stimuli-file1 stimuli-file2 ... stimuli-fileN\n",
+        prog_name);
+}
 
 void wl_proxy_marshal(struct wl_proxy *p, uint32_t opcode, ...) {}
 
@@ -172,6 +182,11 @@ extract_finish(struct extraction_context *context, char **text, size_t *len)
 int
 main(int argc, const char *const *argv)
 {
+    if (argc < 2) {
+        usage(argv[0]);
+        return EXIT_FAILURE;
+    }
+
     const int row_count = 67;
     const int col_count = 135;
     const int grid_row_count = 16384;
@@ -209,25 +224,52 @@ main(int argc, const char *const *argv)
         },
     };
 
-    struct stat st;
-    if (stat(argv[1], &st) < 0)
-        return 1;
-    uint8_t *data = malloc(st.st_size);
-    int fd = open(argv[1], O_RDONLY);
-    if (fd < 0)
-        return 1;
-    ssize_t amount = read(fd, data, st.st_size);
-    if (amount != st.st_size)
-        return 1;
-    close(fd);
+    int ret = EXIT_FAILURE;
 
-    vt_from_slave(&term, data, st.st_size);
+    for (int i = 1; i < argc; i++) {
+        struct stat st;
+        if (stat(argv[i], &st) < 0) {
+            fprintf(stderr, "error: %s: failed to stat: %s",
+                    argv[i], strerror(errno));
+            goto out;
+        }
 
-    free(data);
+        uint8_t *data = malloc(st.st_size);
+        if (data == NULL) {
+            fprintf(stderr, "error: %s: failed to allocate buffer: %s",
+                    argv[i], strerror(errno));
+            goto out;
+        }
+
+        int fd = open(argv[1], O_RDONLY);
+        if (fd < 0) {
+            fprintf(stderr, "error: %s: failed to open: %s",
+                    argv[i], strerror(errno));
+            goto out;
+        }
+
+        ssize_t amount = read(fd, data, st.st_size);
+        if (amount != st.st_size) {
+            fprintf(stderr, "error: %s: failed to read: %s",
+                    argv[i], strerror(errno));
+            goto out;
+        }
+
+        close(fd);
+
+        printf("Feeding VT parser with %s\n", argv[i]);
+        vt_from_slave(&term, data, st.st_size);
+        free(data);
+    }
+
+    ret = EXIT_SUCCESS;
+
+out:
     for (int i = 0; i < grid_row_count; i++) {
         free(rows[i]->cells);
         free(rows[i]);
     }
+
     free(rows);
-    return 0;
+    return ret;
 }
