@@ -519,6 +519,9 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->pad_y = y;
     }
 
+    else if (strcmp(key, "bold-text-in-bright") == 0)
+        conf->bold_in_bright = str_to_bool(value);
+
     else if (strcmp(key, "bell") == 0) {
         if (strcmp(value, "set-urgency") == 0)
             conf->bell_is_urgent = true;
@@ -2017,6 +2020,7 @@ config_load(struct config *conf, const char *conf_path,
         },
         .pad_x = 2,
         .pad_y = 2,
+        .bold_in_bright = false,
         .bell_is_urgent = false,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
