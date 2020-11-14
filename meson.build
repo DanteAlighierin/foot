@@ -117,7 +117,7 @@ vtlib = static_library(
   'osc.c', 'osc.h',
   'sixel.c', 'sixel.h',
   'vt.c', 'vt.h',
-  dependencies: [pixman, tllist],
+  dependencies: [pixman, fcft, tllist],
   link_with: misc,
 )
 
