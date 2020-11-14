@@ -57,9 +57,9 @@ def main():
                     bottom = rand.read(1)[0] % 3
                     out.write(f'\033[{top};{lines - bottom}r')
 
-                count = rand.read(1)[0] % (lines - 1)
+                lines_to_scroll = rand.read(1)[0] % (lines - 1)
                 rev = rand.read(1)[0] % 2
-                out.write(f'\033[{count + 1}{"T" if rev == 1 else "S"}')
+                out.write(f'\033[{lines_to_scroll + 1}{"T" if rev == 1 else "S"}')
                 continue
 
             # Generate a random location and a random character
