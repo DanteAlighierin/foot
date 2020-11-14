@@ -163,29 +163,25 @@ build.
 #### Profile Guided Optimization
 
 First, make sure you have configured a [release](#release-build) build
-directory, but:
+directory, but add these to the `CFLAGS`:
 
-If using Clang, make sure to add `-Wno-ignored-optimization-argument
--Wno-profile-instr-out-of-date` to `CFLAGS`.
+* Clang: `-Wno-ignored-optimization-argument -Wno-profile-instr-out-of-date`
+* GCC: `-Wno-missing-profile`
 
-If using GCC, make sure to add `-Wno-missing-profile` to `CFLAGS`.
-
-Then, tell meson we want to _generate_ profile data, and build:
+Then, tell meson we want to _generate_ profiling data, and build:
 
 ```sh
 meson configure -Db_pgo=generate
 ninja
 ```
 
-Next, we need to execute the intermediate build of foot, and run a
-payload inside it that will exercise the performance critical code
-paths.
+Next, we need to actually generate the profiling data.
 
 There are two ways to do this: a [partial PGO build using a PGO
 helper](#partial-pgo) binary, or a [full PGO build](#full-pgo) by
-running an intermediate foot binary. The latter has slightly better
-results (i.e. results in a faster binary), but must be run in a
-Wayland session.
+running the real foot binary. The latter has slightly better results
+(i.e. results in a faster binary), but must be run in a Wayland
+session.
 
 
 ##### Partial PGO
@@ -246,12 +242,14 @@ ninja
 
 Continue reading in [Running the new build](#running-the-new-build)
 
+
 ### Debug build
 
 ```sh
 meson --buildtype=debug ../..
 ninja
 ```
+
 
 ### Running the new build
 
