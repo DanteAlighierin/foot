@@ -133,7 +133,7 @@ pgolib = static_library(
 
 executable(
   'pgo',
-  'pgo.c',
+  'pgo/pgo.c',
   dependencies: [math, threads, pixman, fcft, tllist],
   link_with: pgolib,
 )
