@@ -100,24 +100,52 @@ version = custom_target(
   output: 'version.h',
   command: [generate_version_sh, meson.project_version(), '@SOURCE_DIR@', '@OUTPUT@'])
 
+misc = static_library(
+  'misc',
+  'hsl.c', 'hsl.h',
+  'macros.h',
+  'misc.c', 'misc.h',
+  'uri.c', 'uri.h',
+  'xmalloc.c', 'xmalloc.h',
+)
+
+vtlib = static_library(
+  'vtlib',
+  'base64.c', 'base64.h',
+  'csi.c', 'csi.h',
+  'dcs.c', 'dcs.h',
+  'osc.c', 'osc.h',
+  'sixel.c', 'sixel.h',
+  'vt.c', 'vt.h',
+  dependencies: [pixman],
+  link_with: misc,
+)
+
+pgolib = static_library(
+  'pgolib',
+  'grid.c', 'grid.h',
+  'terminal.c', 'terminal.h',
+  dependencies: [pixman, fcft],
+  link_with: vtlib,
+)
+
+executable(
+  'pgo',
+  'pgo.c',
+  dependencies: [pixman, fcft],
+  link_with: pgolib,
+)
+
 executable(
   'foot',
   'async.c', 'async.h',
-  'base64.c', 'base64.h',
   'config.c', 'config.h',
   'commands.c', 'commands.h',
-  'csi.c', 'csi.h',
-  'dcs.c', 'dcs.h',
   'extract.c', 'extract.h',
   'fdm.c', 'fdm.h',
-  'grid.c', 'grid.h',
-  'hsl.c', 'hsl.h',
   'input.c', 'input.h',
   'log.c', 'log.h',
-  'macros.h',
   'main.c',
-  'misc.c', 'misc.h',
-  'osc.c', 'osc.h',
   'quirks.c', 'quirks.h',
   'reaper.c', 'reaper.h',
   'render.c', 'render.h',
@@ -125,19 +153,15 @@ executable(
   'selection.c', 'selection.h',
   'server.c', 'server.h', 'client-protocol.h',
   'shm.c', 'shm.h',
-  'sixel.c', 'sixel.h',
   'slave.c', 'slave.h',
   'spawn.c', 'spawn.h',
-  'terminal.c', 'terminal.h',
   'tokenize.c', 'tokenize.h',
-  'uri.c', 'uri.h',
   'user-notification.h',
-  'vt.c', 'vt.h',
   'wayland.c', 'wayland.h',
-  'xmalloc.c', 'xmalloc.h',
   wl_proto_src + wl_proto_headers, version,
   dependencies: [math, threads, pixman, wayland_client, wayland_cursor, xkb, fontconfig,
                  tllist, fcft],
+  link_with: pgolib,
   install: true)
 
 executable(
