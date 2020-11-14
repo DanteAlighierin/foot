@@ -101,6 +101,10 @@ in this order:
 	(including SMT). Note that this is not always the best value. In
 	some cases, the number of physical _cores_ is better.
 
+*bold-text-in-bright*
+	Boolean. When enabled, bold text is rendered in a brighter color
+	(in addition to using a bold font). Default: _no_.
+
 *bell*
 	Action to perform when receiving a *BEL* character. Can be set to
 	either *set-urgency* or *none*.
