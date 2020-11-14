@@ -126,6 +126,7 @@ vtlib = static_library(
 pgolib = static_library(
   'pgolib',
   'grid.c', 'grid.h',
+  'selection.c', 'selection.h',
   'terminal.c', 'terminal.h',
   dependencies: [pixman, fcft, tllist],
   link_with: vtlib,
@@ -134,7 +135,8 @@ pgolib = static_library(
 executable(
   'pgo',
   'pgo/pgo.c',
-  dependencies: [math, threads, pixman, fcft, tllist],
+  wl_proto_src,
+  dependencies: [math, threads, pixman, wayland_client, fcft, tllist],
   link_with: pgolib,
 )
 
@@ -151,7 +153,6 @@ executable(
   'reaper.c', 'reaper.h',
   'render.c', 'render.h',
   'search.c', 'search.h',
-  'selection.c', 'selection.h',
   'server.c', 'server.h', 'client-protocol.h',
   'shm.c', 'shm.h',
   'slave.c', 'slave.h',

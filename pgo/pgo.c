@@ -20,74 +20,11 @@ usage(const char *prog_name)
         prog_name);
 }
 
-void wl_proxy_marshal(struct wl_proxy *p, uint32_t opcode, ...) {}
-
 enum async_write_status
 async_write(int fd, const void *data, size_t len, size_t *idx)
 {
     return ASYNC_WRITE_DONE;
 }
-
-bool
-selection_enabled(const struct terminal *term, struct seat *seat)
-{
-    return true;
-}
-
-void selection_cancel(struct terminal *term) {}
-void selection_clipboard_unset(struct seat *seat) {}
-void selection_primary_unset(struct seat *seat) {}
-
-bool
-text_to_clipboard(
-    struct seat *seat, struct terminal *term, char *text, uint32_t serial)
-{
-    return true;
-}
-
-bool
-text_to_primary(
-    struct seat *seat, struct terminal *term, char *text, uint32_t serial)
-{
-    return true;
-}
-
-bool
-selection_clipboard_has_data(const struct seat *seat)
-{
-    return true;
-}
-
-bool
-selection_primary_has_data(const struct seat *seat)
-{
-    return true;
-}
-
-void
-text_from_clipboard(
-    struct seat *seat, struct terminal *term,
-    void (*cb)(char *data, size_t size, void *user),
-    void (*done)(void *user), void *user)
-{
-}
-
-void
-text_from_primary(
-    struct seat *seat, struct terminal *term,
-    void (*cb)(char *data, size_t size, void *user),
-    void (*dont)(void *user), void *user)
-{
-}
-
-bool
-selection_on_rows(const struct terminal *term, int start, int end)
-{
-    return false;
-}
-
-void selection_view_up(struct terminal *term, int new_view) {}
-void selection_view_down(struct terminal *term, int new_view) {}
 
 bool
 fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
@@ -178,6 +115,9 @@ extract_finish(struct extraction_context *context, char **text, size_t *len)
 {
     return true;
 }
+
+void cmd_scrollback_up(struct terminal *term, int rows) {}
+void cmd_scrollback_down(struct terminal *term, int rows) {}
 
 int
 main(int argc, const char *const *argv)
