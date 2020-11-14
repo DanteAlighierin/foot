@@ -172,9 +172,9 @@ extract_finish(struct extraction_context *context, char **text, size_t *len)
 int
 main(int argc, const char *const *argv)
 {
-    const int row_count = 24;
-    const int col_count = 80;
-    const int grid_row_count = 1024;
+    const int row_count = 67;
+    const int col_count = 135;
+    const int grid_row_count = 16384;
 
     struct row **rows = calloc(grid_row_count, sizeof(rows[0]));
     for (int i = 0; i < grid_row_count; i++) {
