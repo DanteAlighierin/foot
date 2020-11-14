@@ -103,6 +103,7 @@ version = custom_target(
 misc = static_library(
   'misc',
   'hsl.c', 'hsl.h',
+  'log.c', 'log.h',
   'macros.h',
   'misc.c', 'misc.h',
   'uri.c', 'uri.h',
@@ -145,7 +146,6 @@ executable(
   'extract.c', 'extract.h',
   'fdm.c', 'fdm.h',
   'input.c', 'input.h',
-  'log.c', 'log.h',
   'main.c',
   'quirks.c', 'quirks.h',
   'reaper.c', 'reaper.h',
