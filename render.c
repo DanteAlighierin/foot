@@ -240,6 +240,14 @@ color_dim(pixman_color_t *color)
 }
 
 static inline void
+color_brighten(pixman_color_t *color)
+{
+    color->red = color->red * 2 <= 0xffff ? color->red * 2 : 0xffff;
+    color->green = color->green * 2 <= 0xffff ? color->green * 2 : 0xffff;
+    color->blue = color->blue * 2 <= 0xffff ? color->blue * 2 : 0xffff;
+}
+
+static inline void
 color_dim_for_search(pixman_color_t *color)
 {
     color->red /= 2;
@@ -407,6 +415,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     if (cell->attrs.dim)
         color_dim(&fg);
+    if (term->conf->bold_in_bright && cell->attrs.bold)
+        color_brighten(&fg);
 
     if (cell->attrs.blink && term->blink.state == BLINK_OFF)
         color_dim(&fg);

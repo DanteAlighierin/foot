@@ -56,6 +56,9 @@
   not possible to add a command to these actions when used in mouse
   bindings, making them useless
   (https://codeberg.org/dnkl/foot/issues/183).
+* **bold-text-in-bright** option to `foot.ini`. When enabled, bold
+  text is rendered in a brighter color
+  (https://codeberg.org/dnkl/foot/issues/199).
 
 
 ### Changed
