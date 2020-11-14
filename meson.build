@@ -117,7 +117,7 @@ vtlib = static_library(
   'osc.c', 'osc.h',
   'sixel.c', 'sixel.h',
   'vt.c', 'vt.h',
-  dependencies: [pixman],
+  dependencies: [pixman, tllist],
   link_with: misc,
 )
 
@@ -125,14 +125,14 @@ pgolib = static_library(
   'pgolib',
   'grid.c', 'grid.h',
   'terminal.c', 'terminal.h',
-  dependencies: [pixman, fcft],
+  dependencies: [pixman, fcft, tllist],
   link_with: vtlib,
 )
 
 executable(
   'pgo',
   'pgo.c',
-  dependencies: [pixman, fcft],
+  dependencies: [pixman, fcft, tllist],
   link_with: pgolib,
 )
 
