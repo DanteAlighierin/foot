@@ -134,8 +134,7 @@ Both `-O3` and `-Db_lto=true` are **highly** recommended.
 
 For performance reasons, I strongly recommend doing a
 [PGO](#profile-guided-optimization) (Profile Guided Optimization)
-build. This requires a running Wayland session since we will be
-executing an intermediate build of foot.
+build.
 
 If you do not want this, just build:
 
@@ -180,8 +179,42 @@ ninja
 
 Next, we need to execute the intermediate build of foot, and run a
 payload inside it that will exercise the performance critical code
-paths. To do this, we will use the script
-`scripts/generate-alt-random-writes.py`:
+paths.
+
+There are two ways to do this: a [partial PGO build using a PGO
+helper](#partial-pgo) binary, or a [full PGO build](#full-pgo) by
+running an intermediate foot binary. The latter has slightly better
+results (i.e. results in a faster binary), but must be run in a
+Wayland session.
+
+
+##### Partial PGO
+
+This method uses a PGO helper binary that links against the VT parser
+only. It is similar to a mock test; it instantiates a dummy terminal
+instance and then directly calls the VT parser with stimuli.
+
+It explicitly does **not** include the Wayland backend and as such, it
+does not require a running Wayland session. The downside is that not
+all code paths in foot is exercised. In particular, the **rendering**
+code is not. As a result, the final binary built using this method is
+slightly slower than when doing a [full PGO](#full-pgo) build.
+
+We will use the `pgo` binary along with stimuli found in `<src>/pgo`:
+
+```sh
+./pgo ../../pgo/stimuli-*.raw
+```
+
+You are now ready to [use the generated PGO
+data](#use-the-generated-pgo-data).
+
+
+##### Full PGO
+
+This method requires a running Wayland session.
+
+We will use the script `scripts/generate-alt-random-writes.py`:
 
 ```sh
 foot_tmp_file=$(mktemp)
@@ -191,6 +224,12 @@ rm ${foot_tmp_file}
 
 You should see a foot window open up, with random colored text. The
 window should close after ~1-2s.
+
+
+##### Use the generated PGO data
+
+Now that we have _generated_ PGO data, we need to rebuild foot. This
+time telling meson (and ultimately gcc/clang) to _use_ the PGO data.
 
 If using Clang, now do (this requires _llvm_ to have been installed):
 
