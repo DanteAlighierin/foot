@@ -18,6 +18,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'out', type=argparse.FileType(mode='w'), nargs='?', help='name of output file')
+    parser.add_argument('--cols', type=int)
+    parser.add_argument('--rows', type=int)
     parser.add_argument('--colors-regular', action='store_true')
     parser.add_argument('--colors-bright', action='store_true')
     parser.add_argument('--colors-rgb', action='store_true')
@@ -32,6 +34,11 @@ def main():
         fcntl.ioctl(sys.stdout.fileno(),
                     termios.TIOCGWINSZ,
                     struct.pack('HHHH', 0, 0, 0, 0)))
+
+    if opts.rows is not None:
+        lines = opts.rows
+    if opts.cols is not None:
+        cols = opts.cols
 
     # Number of characters to write to screen
     count = 256 * 1024**1
