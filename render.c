@@ -237,7 +237,7 @@ color_dim(uint32_t color)
 {
     int hue, sat, lum;
     rgb_to_hsl(color, &hue, &sat, &lum);
-    return hsl_to_rgb(hue, sat, max(0, lum - 15));
+    return hsl_to_rgb(hue, sat, lum / 1.5);
 }
 
 static inline uint32_t
@@ -245,7 +245,7 @@ color_brighten(uint32_t color)
 {
     int hue, sat, lum;
     rgb_to_hsl(color, &hue, &sat, &lum);
-    return hsl_to_rgb(hue, sat, min(100, lum + 15));
+    return hsl_to_rgb(hue, sat, min(100, lum * 1.3));
 }
 
 static inline void
