@@ -271,7 +271,7 @@ Finally, pressing <kbd>alt</kbd> will prefix the transmitted byte with
 ESC.
 
 
-## KEYPAD
+## Keypad
 
 By default, <kbd>Num Lock</kbd> overrides the run-time configuration
 keypad mode; when active, the keypad is always considered to be in
@@ -376,7 +376,7 @@ emulator actually responded to.
 contributing foot's [logo](icons/hicolor/48x48/apps/foot.png).
 
 
-# BUGS
+# Bugs
 
 Please report bugs to https://codeberg.org/dnkl/foot/issues
 

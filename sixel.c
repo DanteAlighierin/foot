@@ -741,9 +741,20 @@ sixel_unhook(struct terminal *term)
             image.width, image.height,
             img_data, stride);
 
-        /* Allocate space *first*, then insert */
-        for (size_t i = 0; i < image.rows; i++)
+        /* Allocate space *first* (by emitting line-feeds), then insert */
+        for (size_t i = 0; i < image.rows; i++) {
+            struct row *row = term->grid->cur_row;
+            row->dirty = true;
+
+            /* Mark cells touched by the sixel as dirty */
+            for (int col = image.pos.col;
+                 col < min(image.pos.col + image.cols, term->cols);
+                 col++)
+            {
+                row->cells[col].attrs.clean = 0;
+            }
             term_linefeed(term);
+        }
         term_carriage_return(term);
 
         _sixel_overwrite_by_rectangle(

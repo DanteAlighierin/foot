@@ -519,6 +519,9 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->pad_y = y;
     }
 
+    else if (strcmp(key, "bold-text-in-bright") == 0)
+        conf->bold_in_bright = str_to_bool(value);
+
     else if (strcmp(key, "bell") == 0) {
         if (strcmp(value, "set-urgency") == 0)
             conf->bell_is_urgent = true;
@@ -1618,8 +1621,8 @@ parse_section_tweak(
 
     else if (strcmp(key, "allow-overflowing-double-width-glyphs") == 0) {
         conf->tweak.allow_overflowing_double_width_glyphs = str_to_bool(value);
-        if (conf->tweak.allow_overflowing_double_width_glyphs)
-            LOG_WARN("tweak: allow overflowing double-width glyphs");
+        if (!conf->tweak.allow_overflowing_double_width_glyphs)
+            LOG_WARN("tweak: disabled overflowing double-width glyphs");
     }
 
     else if (strcmp(key, "damage-whole-window") == 0) {
@@ -2017,6 +2020,7 @@ config_load(struct config *conf, const char *conf_path,
         },
         .pad_x = 2,
         .pad_y = 2,
+        .bold_in_bright = false,
         .bell_is_urgent = false,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
@@ -2084,7 +2088,7 @@ config_load(struct config *conf, const char *conf_path,
 
         .tweak = {
             .fcft_filter = FCFT_SCALING_FILTER_LANCZOS3,
-            .allow_overflowing_double_width_glyphs = false,
+            .allow_overflowing_double_width_glyphs = true,
             .delayed_render_lower_ns = 500000,         /* 0.5ms */
             .delayed_render_upper_ns = 16666666 / 2,   /* half a frame period (60Hz) */
             .max_shm_pool_size = 512 * 1024 * 1024,

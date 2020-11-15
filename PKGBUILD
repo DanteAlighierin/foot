@@ -16,8 +16,7 @@ pkgver() {
 build() {
   # makepkg uses -O2 by default, but we *really* want -O3
   # -Wno-missing-profile since we're not exercising everything when doing PGO builds
-  # -fno-plt because performance (this is the default in makepkg anyway)
-  export CFLAGS+=" -O3 -Wno-missing-profile -fno-plt"
+  export CFLAGS+=" -O3 -Wno-missing-profile"
 
   meson --prefix=/usr --buildtype=release --wrap-mode=nofallback -Db_lto=true ..
 

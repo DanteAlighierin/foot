@@ -101,6 +101,10 @@ in this order:
 	(including SMT). Note that this is not always the best value. In
 	some cases, the number of physical _cores_ is better.
 
+*bold-text-in-bright*
+	Boolean. When enabled, bold text is rendered in a brighter color
+	(in addition to using a bold font). Default: _no_.
+
 *bell*
 	Action to perform when receiving a *BEL* character. Can be set to
 	either *set-urgency* or *none*.
@@ -565,7 +569,7 @@ any of these options.
 	Note: this feature uses _heuristics_ to determine *which* glyphs
 	should be allowed to overflow.
 	
-	Default: _false_.
+	Default: _yes_.
 
 *render-timer*
 	Enables a frame rendering timer, that prints the time it takes to
@@ -652,7 +656,7 @@ any of these options.
 	GPU usage (by the compositor, not by foot), and may have a
 	negative impact on battery life.
 	
-	Default: _false_.
+	Default: _no_.
 
 *max-shm-pool-size-mb*
 	This option controls the amount of *virtual* memory used by the

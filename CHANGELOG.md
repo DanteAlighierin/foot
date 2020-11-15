@@ -52,6 +52,13 @@
   bindings. By default, they are bound to `ctrl+v ctrl+y` and
   `shift+insert` respectively, and lets you paste from the clipboard
   or primary selection into the search buffer.
+* Support for **pipe-\*** actions in mouse bindings. It was previously
+  not possible to add a command to these actions when used in mouse
+  bindings, making them useless
+  (https://codeberg.org/dnkl/foot/issues/183).
+* **bold-text-in-bright** option to `foot.ini`. When enabled, bold
+  text is rendered in a brighter color
+  (https://codeberg.org/dnkl/foot/issues/199).
 
 
 ### Changed
@@ -62,16 +69,16 @@
   **foot.ini**(5)::KEYPAD, or
   [README.md](README.md#user-content-keypad) for details
   (https://codeberg.org/dnkl/foot/issues/194).
+* Single-width characters with double-width glyphs are now allowed to
+  overflow into neighboring cells by default. Set
+  **tweak.allow-overflowing-double-width-glyphs** to ‘no’ to disable
+  this.
 
 
 ### Deprecated
 ### Removed
 ### Fixed
 
-* Support for **pipe-\*** actions in mouse bindings. It was previously
-  not possible to add a command to these actions when used in mouse
-  bindings, making them useless
-  (https://codeberg.org/dnkl/foot/issues/183).
 * Resize very slow when window is hidden
   (https://codeberg.org/dnkl/foot/issues/190).
 
