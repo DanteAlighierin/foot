@@ -92,8 +92,15 @@ def main():
 
             elif color_variant == ColorVariant.RGB:
                 do_bg = rand.read(1)[0] % 2
+                base = 48 if do_bg else 38
                 rgb = rand.read(3)
-                out.write(f'\033[{48 if do_bg else 38}:2::{rgb[0]}:{rgb[1]}:{rgb[2]}m')
+
+                if rand.read(1)[0] % 2:
+                    # Old-style
+                    out.write(f'\033[{base};2;{rgb[0]};{rgb[1]};{rgb[2]}m')
+                else:
+                    # New-style (sub-parameter based)
+                    out.write(f'\033[{base}:2::{rgb[0]}:{rgb[1]}:{rgb[2]}m')
 
             out.write(c * repeat)
 
