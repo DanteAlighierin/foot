@@ -214,7 +214,7 @@ We will use the script `scripts/generate-alt-random-writes.py`:
 
 ```sh
 foot_tmp_file=$(mktemp)
-./foot --config=/dev/null --term=xterm sh -c "<path-to-generate-alt-random-writes.py> --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${foot_tmp_file} && cat ${foot_tmp_file}"
+./foot --config=/dev/null --term=xterm sh -c "<path-to-generate-alt-random-writes.py> --scroll --scroll-region --colors-regular --colors-bright --colors-256 --colors-rgb ${foot_tmp_file} && cat ${foot_tmp_file}"
 rm ${foot_tmp_file}
 ```
 
