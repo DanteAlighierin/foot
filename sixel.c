@@ -7,7 +7,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "render.h"
-#include "sixel-hls.h"
+#include "hsl.h"
 #include "util.h"
 #include "xmalloc.h"
 
@@ -1052,23 +1052,42 @@ decgci(struct terminal *term, uint8_t c)
 
         if (nparams > 4) {
             unsigned format = term->sixel.params[1];
-            unsigned c1 = term->sixel.params[2];
-            unsigned c2 = term->sixel.params[3];
-            unsigned c3 = term->sixel.params[4];
+            int c1 = term->sixel.params[2];
+            int c2 = term->sixel.params[3];
+            int c3 = term->sixel.params[4];
 
             switch (format) {
             case 1: { /* HLS */
-                uint32_t rgb = hls_to_rgb(c1, c2, c3);
+                int hue = min(c1, 360);
+                int lum = min(c2, 100);
+                int sat = min(c3, 100);
+
+                /*
+                 * Sixel’s HLS use the following primary color hues:
+                 *  blue:  0°
+                 *  red:   120°
+                 *  green: 240°
+                 *
+                 * While “standard” HSL uses:
+                 *  red:   0°
+                 *  green: 120°
+                 *  blue:  240°
+                 */
+                hue = (hue + 240) % 360;
+
+                uint32_t rgb = hsl_to_rgb(hue, sat, lum);
+
                 LOG_DBG("setting palette #%d = HLS %hhu/%hhu/%hhu (0x%06x)",
-                        term->sixel.color_idx, c1, c2, c3, rgb);
+                        term->sixel.color_idx, hue, lum, sat, rgb);
+
                 term->sixel.palette[term->sixel.color_idx] = rgb;
                 break;
             }
 
             case 2: {  /* RGB */
-                uint8_t r = 255 * c1 / 100;
-                uint8_t g = 255 * c2 / 100;
-                uint8_t b = 255 * c3 / 100;
+                uint8_t r = 255 * min(c1, 100) / 100;
+                uint8_t g = 255 * min(c2, 100) / 100;
+                uint8_t b = 255 * min(c3, 100) / 100;
 
                 LOG_DBG("setting palette #%d = RGB %hhu/%hhu/%hhu",
                         term->sixel.color_idx, r, g, b);
