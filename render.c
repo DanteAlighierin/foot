@@ -18,6 +18,7 @@
 #include "log.h"
 #include "config.h"
 #include "grid.h"
+#include "hsl.h"
 #include "quirks.h"
 #include "selection.h"
 #include "sixel.h"
@@ -231,20 +232,20 @@ color_hex_to_pixman(uint32_t color)
     return color_hex_to_pixman_with_alpha(color, 0xffff);
 }
 
-static inline void
-color_dim(pixman_color_t *color)
+static inline uint32_t
+color_dim(uint32_t color)
 {
-    color->red /= 2;
-    color->green /= 2;
-    color->blue /= 2;
+    int hue, sat, lum;
+    rgb_to_hsl(color, &hue, &sat, &lum);
+    return hsl_to_rgb(hue, sat, max(0, lum - 15));
 }
 
-static inline void
-color_brighten(pixman_color_t *color)
+static inline uint32_t
+color_brighten(uint32_t color)
 {
-    color->red = color->red * 2 <= 0xffff ? color->red * 2 : 0xffff;
-    color->green = color->green * 2 <= 0xffff ? color->green * 2 : 0xffff;
-    color->blue = color->blue * 2 <= 0xffff ? color->blue * 2 : 0xffff;
+    int hue, sat, lum;
+    rgb_to_hsl(color, &hue, &sat, &lum);
+    return hsl_to_rgb(hue, sat, min(100, lum + 15));
 }
 
 static inline void
@@ -407,19 +408,19 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         }
     }
 
+    if (cell->attrs.dim)
+        _fg = color_dim(_fg);
+    if (term->conf->bold_in_bright && cell->attrs.bold)
+        _fg = color_brighten(_fg);
+
+    if (cell->attrs.blink && term->blink.state == BLINK_OFF)
+        _fg = color_dim(_fg);
+
     pixman_color_t fg = color_hex_to_pixman(_fg);
     pixman_color_t bg = color_hex_to_pixman_with_alpha(
         _bg,
         (_bg == (term->reverse ? term->colors.fg : term->colors.bg)
          ? term->colors.alpha : 0xffff));
-
-    if (cell->attrs.dim)
-        color_dim(&fg);
-    if (term->conf->bold_in_bright && cell->attrs.bold)
-        color_brighten(&fg);
-
-    if (cell->attrs.blink && term->blink.state == BLINK_OFF)
-        color_dim(&fg);
 
     if (term->is_searching && !is_selected) {
         color_dim_for_search(&fg);
@@ -556,10 +557,11 @@ static void
 render_urgency(struct terminal *term, struct buffer *buf)
 {
     uint32_t red = term->colors.table[1];
+    if (term->is_searching)
+        red = color_dim(red);
+
     pixman_color_t bg = color_hex_to_pixman(red);
 
-    if (term->is_searching)
-        color_dim(&bg);
 
     int width = min(min(term->margins.left, term->margins.right),
                     min(term->margins.top, term->margins.bottom));
@@ -591,14 +593,13 @@ render_margin(struct terminal *term, struct buffer *buf,
     const int line_count = end_line - start_line;
 
     uint32_t _bg = !term->reverse ? term->colors.bg : term->colors.fg;
+    if (term->is_searching)
+        _bg = color_dim(_bg);
 
     pixman_color_t bg = color_hex_to_pixman_with_alpha(
         _bg,
         (_bg == (term->reverse ? term->colors.fg : term->colors.bg)
          ? term->colors.alpha : 0xffff));
-
-    if (term->is_searching)
-        color_dim(&bg);
 
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix[0], &bg, 4,
@@ -1177,9 +1178,10 @@ render_csd_title(struct terminal *term)
         alpha = _color >> 24 | (_color >> 24 << 8);
     }
 
-    pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
     if (!term->visual_focus)
-        color_dim(&color);
+        _color = color_dim(_color);
+
+    pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
     render_csd_part(term, surf, buf, info.width, info.height, &color);
     csd_commit(term, surf, buf);
 }
@@ -1412,9 +1414,10 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
         alpha = 0;
     }
 
-    pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
     if (!term->visual_focus)
-        color_dim(&color);
+        _color = color_dim(_color);
+
+    pixman_color_t color = color_hex_to_pixman_with_alpha(_color, alpha);
     render_csd_part(term, surf, buf, info.width, info.height, &color);
 
     switch (surf_idx) {
