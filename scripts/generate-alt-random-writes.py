@@ -11,6 +11,7 @@ class ColorVariant(enum.IntEnum):
     NONE = enum.auto()
     REGULAR = enum.auto()
     BRIGHT = enum.auto()
+    CUBE = enum.auto()
     RGB = enum.auto()
 
 
@@ -22,6 +23,7 @@ def main():
     parser.add_argument('--rows', type=int)
     parser.add_argument('--colors-regular', action='store_true')
     parser.add_argument('--colors-bright', action='store_true')
+    parser.add_argument('--colors-256', action='store_true')
     parser.add_argument('--colors-rgb', action='store_true')
     parser.add_argument('--scroll', action='store_true')
     parser.add_argument('--scroll-region', action='store_true')
@@ -49,6 +51,7 @@ def main():
     color_variants = ([ColorVariant.NONE] +
                       ([ColorVariant.REGULAR] if opts.colors_regular else []) +
                       ([ColorVariant.BRIGHT] if opts.colors_bright else []) +
+                      ([ColorVariant.CUBE] if opts.colors_256 else []) +
                       ([ColorVariant.RGB] if opts.colors_rgb else []))
 
     # Enter alt screen
@@ -89,6 +92,18 @@ def main():
 
                 idx = rand.read(1)[0] % 8
                 out.write(f'\033[{base + idx}m')
+
+            elif color_variant == ColorVariant.CUBE:
+                do_bg = rand.read(1)[0] % 2
+                base = 48 if do_bg else 38
+
+                idx = rand.read(1)[0] % 256
+                if rand.read(1)[0] % 2:
+                    # Old-style
+                    out.write(f'\033[{base};5;{idx}m')
+                else:
+                    # New-style (sub-parameter based)
+                    out.write(f'\033[{base}:2:5:{idx}m')
 
             elif color_variant == ColorVariant.RGB:
                 do_bg = rand.read(1)[0] % 2
