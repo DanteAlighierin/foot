@@ -27,6 +27,9 @@ def main():
     parser.add_argument('--colors-rgb', action='store_true')
     parser.add_argument('--scroll', action='store_true')
     parser.add_argument('--scroll-region', action='store_true')
+    parser.add_argument('--attr-bold', action='store_true')
+    parser.add_argument('--attr-italic', action='store_true')
+    parser.add_argument('--attr-underline', action='store_true')
 
     opts = parser.parse_args()
     out = opts.out if opts.out is not None else sys.stdout
@@ -120,6 +123,13 @@ def main():
                 else:
                     # New-style (sub-parameter based)
                     out.write(f'\033[{base}:2::{rgb[0]}:{rgb[1]}:{rgb[2]}m')
+
+            if opts.attr_bold and rand.read(1)[0] % 5 == 0:
+                out.write('\033[1m')
+            if opts.attr_italic and rand.read(1)[0] % 5 == 0:
+                out.write('\033[3m')
+            if opts.attr_underline and rand.read(1)[0] % 5 == 0:
+                out.write('\033[4m')
 
             out.write(c * repeat)
 
