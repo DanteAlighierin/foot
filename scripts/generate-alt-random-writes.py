@@ -123,10 +123,11 @@ def main():
 
             out.write(c * repeat)
 
-            if color_variant != ColorVariant.NONE:
-                do_sgr_reset = rand.read(1)[0] % 2
-                if do_sgr_reset:
-                    out.write('\033[m')
+            do_sgr_reset = rand.read(1)[0] % 2
+            if do_sgr_reset:
+                reset_actions = ['\033[m', '\033[39m', '\033[49m']
+                idx = rand.read(1)[0] % len(reset_actions)
+                out.write(reset_actions[idx])
 
     # Leave alt screen
     out.write('\033[m\033[r\033[?1049l')
