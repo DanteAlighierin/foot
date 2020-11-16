@@ -49,7 +49,7 @@ def main():
     count = 256 * 1024**1
 
     # Characters to choose from
-    alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRTSTUVWXYZ0123456789 '
+    alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRTSTUVWXYZ0123456789 öäå 👨👩🧒'
 
     color_variants = ([ColorVariant.NONE] +
                       ([ColorVariant.REGULAR] if opts.colors_regular else []) +
