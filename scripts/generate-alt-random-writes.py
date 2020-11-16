@@ -69,7 +69,11 @@ def main():
 
                 lines_to_scroll = rand.read(1)[0] % (lines - 1)
                 rev = rand.read(1)[0] % 2
-                out.write(f'\033[{lines_to_scroll + 1}{"T" if rev == 1 else "S"}')
+                if not rev and rand.read(1)[0] % 2:
+                    out.write(f'\033[{lines};{cols}H')
+                    out.write('\n' * lines_to_scroll)
+                else:
+                    out.write(f'\033[{lines_to_scroll + 1}{"T" if rev == 1 else "S"}')
                 continue
 
             # Generate a random location and a random character
