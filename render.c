@@ -945,7 +945,6 @@ render_sixel(struct terminal *term, pixman_image_t *pix,
                 if ((last_row_needs_erase && last_row) ||
                     (last_col_needs_erase && last_col))
                 {
-                    LOG_INFO("ERASE col=%d", col);
                     render_cell(term, pix, row, col, term_row_no, false);
                 } else
                     cell->attrs.clean = 1;
