@@ -850,16 +850,16 @@ reload_fonts(struct terminal *term)
     for (size_t i = 0; i < 2; i++) {
         attr_len[0] = snprintf(
             attrs[0], attr_len[0] + 1, "dpi=%.2f",
-            use_dpi ? term->font_dpi : 75);
+            use_dpi ? term->font_dpi : 96);
         attr_len[1] = snprintf(
             attrs[1], attr_len[1] + 1, "dpi=%.2f:%s",
-            use_dpi ? term->font_dpi : 75, !custom_bold ? "weight=bold" : "");
+            use_dpi ? term->font_dpi : 96, !custom_bold ? "weight=bold" : "");
         attr_len[2] = snprintf(
             attrs[2], attr_len[2] + 1, "dpi=%.2f:%s",
-            use_dpi ? term->font_dpi : 75, !custom_italic ? "slant=italic" : "");
+            use_dpi ? term->font_dpi : 96, !custom_italic ? "slant=italic" : "");
         attr_len[3] = snprintf(
             attrs[3], attr_len[3] + 1, "dpi=%.2f:%s",
-            use_dpi ? term->font_dpi : 75, !custom_bold_italic ? "weight=bold:slant=italic" : "");
+            use_dpi ? term->font_dpi : 96, !custom_bold_italic ? "weight=bold:slant=italic" : "");
 
         if (i > 0)
             continue;
