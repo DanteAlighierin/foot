@@ -227,6 +227,7 @@ struct terminal {
     struct fcft_font *fonts[4];
     struct config_font *font_sizes[4];
     float font_dpi;
+    int font_scale;
     enum fcft_subpixel font_subpixel;
 
     bool is_sending_paste_data;

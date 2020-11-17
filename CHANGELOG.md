@@ -59,6 +59,10 @@
 * **bold-text-in-bright** option to `foot.ini`. When enabled, bold
   text is rendered in a brighter color
   (https://codeberg.org/dnkl/foot/issues/199).
+* **dpi-aware** option to `foot.ini`. The default, **enabled**,
+  implements foot's old font sizing behavior. But, when **disabled**,
+  foot will ignore the monitors' DPI and instead size fonts using the
+  scale factor alone (https://codeberg.org/dnkl/foot/issues/206).
 
 
 ### Changed

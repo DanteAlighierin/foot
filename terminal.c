@@ -701,6 +701,31 @@ get_font_dpi(const struct terminal *term)
     return dpi;
 }
 
+static int
+get_font_scale(const struct terminal *term)
+{
+    /* Same as get_font_dpi(), but returns output scale factor instead */
+    int scale = 0;
+
+    assert(term->window != NULL);
+    tll_foreach(term->window->on_outputs, it) {
+        if (it->item->scale > scale)
+            scale = it->item->scale;
+    }
+
+    if (scale == 0) {
+        tll_foreach(term->wl->monitors, it) {
+            scale = it->item.scale;
+            break;
+        }
+    }
+
+    if (scale == 0)
+        scale = 1;
+
+    return scale;
+}
+
 static enum fcft_subpixel
 get_font_subpixel(const struct terminal *term)
 {
@@ -781,10 +806,14 @@ reload_fonts(struct terminal *term)
             bool use_px_size = term->font_sizes[i][j].px_size > 0;
             char size[64];
 
+            const int scale = term->conf->dpi_aware ? 1 : term->scale;
+
             if (use_px_size)
-                snprintf(size, sizeof(size), ":pixelsize=%d", term->font_sizes[i][j].px_size);
+                snprintf(size, sizeof(size), ":pixelsize=%d",
+                         term->font_sizes[i][j].px_size * scale);
             else
-                snprintf(size, sizeof(size), ":size=%.2f", term->font_sizes[i][j].pt_size);
+                snprintf(size, sizeof(size), ":size=%.2f",
+                         term->font_sizes[i][j].pt_size * (double)scale);
 
             size_t len = strlen(it->item.pattern) + strlen(size) + 1;
             names[i][j] = xmalloc(len);
@@ -813,14 +842,24 @@ reload_fonts(struct terminal *term)
     const size_t count_bold_italic = custom_bold_italic ? counts[3] : counts[0];
     const char **names_bold_italic = (const char **)(custom_bold_italic ? names[3] : names[0]);
 
+    const bool use_dpi = term->conf->dpi_aware;
+
     char *attrs[4] = {NULL};
     int attr_len[4] = {-1, -1, -1, -1};  /* -1, so that +1 (below) results in 0 */
 
     for (size_t i = 0; i < 2; i++) {
-        attr_len[0] = snprintf(attrs[0], attr_len[0] + 1, "dpi=%.2f", term->font_dpi);
-        attr_len[1] = snprintf(attrs[1], attr_len[1] + 1, "dpi=%.2f:%s", term->font_dpi, !custom_bold ? "weight=bold" : "");
-        attr_len[2] = snprintf(attrs[2], attr_len[2] + 1, "dpi=%.2f:%s", term->font_dpi, !custom_italic ? "slant=italic" : "");
-        attr_len[3] = snprintf(attrs[3], attr_len[3] + 1, "dpi=%.2f:%s", term->font_dpi, !custom_bold_italic ? "weight=bold:slant=italic" : "");
+        attr_len[0] = snprintf(
+            attrs[0], attr_len[0] + 1, "dpi=%.2f",
+            use_dpi ? term->font_dpi : 75);
+        attr_len[1] = snprintf(
+            attrs[1], attr_len[1] + 1, "dpi=%.2f:%s",
+            use_dpi ? term->font_dpi : 75, !custom_bold ? "weight=bold" : "");
+        attr_len[2] = snprintf(
+            attrs[2], attr_len[2] + 1, "dpi=%.2f:%s",
+            use_dpi ? term->font_dpi : 75, !custom_italic ? "slant=italic" : "");
+        attr_len[3] = snprintf(
+            attrs[3], attr_len[3] + 1, "dpi=%.2f:%s",
+            use_dpi ? term->font_dpi : 75, !custom_bold_italic ? "weight=bold:slant=italic" : "");
 
         if (i > 0)
             continue;
@@ -973,6 +1012,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             xmalloc(sizeof(term->font_sizes[3][0]) * tll_length(conf->fonts[3])),
         },
         .font_dpi = 0.,
+        .font_scale = 0,
         .font_subpixel = (conf->colors.alpha == 0xffff  /* Can't do subpixel rendering on transparent background */
                           ? FCFT_SUBPIXEL_DEFAULT
                           : FCFT_SUBPIXEL_NONE),
@@ -1619,12 +1659,22 @@ term_font_size_reset(struct terminal *term)
 bool
 term_font_dpi_changed(struct terminal *term)
 {
-    float dpi = get_font_dpi(term);
-    if (dpi == term->font_dpi)
-        return true;
+    if (term->conf->dpi_aware) {
+        float dpi = get_font_dpi(term);
+        if (dpi == term->font_dpi)
+            return true;
 
-    LOG_DBG("DPI changed (%.2f -> %.2f): reloading fonts", term->font_dpi, dpi);
-    term->font_dpi = dpi;
+        LOG_DBG("DPI changed (%.2f -> %.2f): reloading fonts", term->font_dpi, dpi);
+        term->font_dpi = dpi;
+    } else {
+        int scale = get_font_scale(term);
+        if (scale == term->font_scale)
+            return true;
+
+        LOG_DBG("scale factor changed (%d -> %d): reloading fonts",
+                term->font_scale, scale);
+        term->font_scale = scale;
+    }
 
     return reload_fonts(term);
 }
