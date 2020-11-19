@@ -35,6 +35,8 @@
 
 * Resize very slow when window is hidden
   (https://codeberg.org/dnkl/foot/issues/190).
+* Key mappings for key combinations with `shift`+`tab`
+  (https://codeberg.org/dnkl/foot/issues/210).
 
 
 ## 1.5.3
