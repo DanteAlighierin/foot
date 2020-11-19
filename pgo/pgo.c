@@ -169,6 +169,10 @@ main(int argc, const char *const *argv)
             .start = 0,
             .end = row_count,
         },
+        .selection = {
+            .start = {-1, -1},
+            .end = {-1, -1},
+        },
     };
 
     tll_push_back(wayl.terms, &term);
