@@ -578,6 +578,9 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         free(copy);
     }
 
+    else if (strcmp(key, "dpi-aware") == 0)
+        conf->dpi_aware = str_to_bool(value);
+
     else if (strcmp(key, "workers") == 0) {
         unsigned long count;
         if (!str_to_ulong(value, 10, &count)) {
@@ -2024,6 +2027,7 @@ config_load(struct config *conf, const char *conf_path,
         .bell_is_urgent = false,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
+        .dpi_aware = true,  /* Use DPI by default, not scale factor */
         .scrollback = {
             .lines = 1000,
             .indicator = {
