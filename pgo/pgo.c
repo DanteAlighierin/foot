@@ -137,7 +137,14 @@ main(int argc, const char *const *argv)
         rows[i]->cells = calloc(col_count, sizeof(rows[i]->cells[0]));
     }
 
+    struct wayland wayl = {
+        .seats = tll_init(),
+        .monitors = tll_init(),
+        .terms = tll_init(),
+    };
+
     struct terminal term = {
+        .wl = &wayl,
         .grid = &term.normal,
         .normal = {
             .num_rows = grid_row_count,
@@ -163,6 +170,8 @@ main(int argc, const char *const *argv)
             .end = row_count,
         },
     };
+
+    tll_push_back(wayl.terms, &term);
 
     int ret = EXIT_FAILURE;
 
@@ -205,6 +214,8 @@ main(int argc, const char *const *argv)
     ret = EXIT_SUCCESS;
 
 out:
+    tll_free(wayl.terms);
+
     for (int i = 0; i < grid_row_count; i++) {
         free(rows[i]->cells);
         free(rows[i]);
