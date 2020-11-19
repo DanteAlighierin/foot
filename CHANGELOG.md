@@ -83,6 +83,7 @@
   (https://codeberg.org/dnkl/foot/issues/190).
 * Key mappings for key combinations with `shift`+`tab`
   (https://codeberg.org/dnkl/foot/issues/210).
+* Key mappings for key combinations with `alt`+`return`.
 
 
 ### Security
