@@ -45,7 +45,7 @@ static const struct key_data key_return[] = {
 
 /* Tab isn't covered by the regular "modifyOtherKeys" handling */
 static const struct key_data key_tab[] = {
-    {MOD_SHIFT,                                 CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;2;9~"},
+    {MOD_SHIFT,                                 CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[Z"},
     {MOD_ALT,                                   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;3;9~"},
     {MOD_SHIFT | MOD_ALT,                       CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;4;9~"},
     {MOD_CTRL,                                  CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;5;9~"},
@@ -61,10 +61,6 @@ static const struct key_data key_tab[] = {
     {MOD_META | MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;15;9~"},
     {MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;16;9~"},
     {MOD_ANY,                                   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\t"},
-};
-
-static const struct key_data key_backtab[] = {
-    {MOD_ANY, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[Z"},
 };
 
 static const struct key_data key_backspace[] = {
