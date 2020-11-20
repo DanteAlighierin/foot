@@ -659,8 +659,8 @@ keymap_data_for_sym(xkb_keysym_t sym, size_t *count)
     switch (sym) {
     case XKB_KEY_Escape:       *count = ALEN(key_escape);       return key_escape;
     case XKB_KEY_Return:       *count = ALEN(key_return);       return key_return;
-    case XKB_KEY_Tab:          *count = ALEN(key_tab);          return key_tab;
-    case XKB_KEY_ISO_Left_Tab: *count = ALEN(key_backtab);      return key_backtab;
+    case XKB_KEY_Tab:          /* FALLTHROUGH */
+    case XKB_KEY_ISO_Left_Tab: *count = ALEN(key_tab);          return key_tab;
     case XKB_KEY_BackSpace:    *count = ALEN(key_backspace);    return key_backspace;
     case XKB_KEY_Up:           *count = ALEN(key_up);           return key_up;
     case XKB_KEY_Down:         *count = ALEN(key_down);         return key_down;

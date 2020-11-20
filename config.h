@@ -84,6 +84,7 @@ struct config {
 
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 
+    bool dpi_aware;
     config_font_list_t fonts[4];
 
     struct {
