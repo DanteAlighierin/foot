@@ -123,7 +123,7 @@ executable(
   'render.c', 'render.h',
   'search.c', 'search.h',
   'selection.c', 'selection.h',
-  'server.c', 'server.h',
+  'server.c', 'server.h', 'client-protocol.h',
   'shm.c', 'shm.h',
   'sixel.c', 'sixel.h',
   'slave.c', 'slave.h',
@@ -142,7 +142,7 @@ executable(
 
 executable(
   'footclient',
-  'client.c',
+  'client.c', 'client-protocol.h',
   'log.c', 'log.h',
   'macros.h',
   'xmalloc.c', 'xmalloc.h',

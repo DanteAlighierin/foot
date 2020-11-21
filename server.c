@@ -16,6 +16,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
+#include "client-protocol.h"
 #include "shm.h"
 #include "terminal.h"
 #include "wayland.h"
@@ -202,102 +203,36 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     uint8_t *p = client->buffer.data;
     const uint8_t *end = &client->buffer.data[client->buffer.idx];
 
-    uint16_t cwd_len;
-    CHECK_BUF(sizeof(cwd_len));
-    memcpy(&cwd_len, p, sizeof(cwd_len));
-    p += sizeof(cwd_len);
+    const struct client_data *cdata = (const struct client_data *)p;
+    CHECK_BUF(sizeof(*cdata));
+    p += sizeof(*cdata);
 
-    CHECK_BUF(cwd_len);
-    const char *cwd = (const char *)p; p += cwd_len;
-    LOG_DBG("CWD = %.*s", cwd_len, cwd);
+    CHECK_BUF(cdata->cwd_len);
+    const char *cwd = (const char *)p; p += cdata->cwd_len;
+    LOG_DBG("CWD = %.*s", cdata->cwd_len, cwd);
 
-    if (cwd_len != strlen(cwd) + 1) {
-        LOG_ERR("CWD length mismatch: indicated = %u, actual = %zu",
-                cwd_len - 1, strlen(cwd));
-        goto shutdown;
+    CHECK_BUF(cdata->term_len);
+    const char *term_env = (const char *)p; p += cdata->term_len;
+    LOG_DBG("TERM = %.*s", cdata->term_len, term_env);
+
+    CHECK_BUF(cdata->title_len);
+    const char *title = (const char *)p; p += cdata->title_len;
+    LOG_DBG("title = %.*s", cdata->title_len, title);
+
+    CHECK_BUF(cdata->app_id_len);
+    const char *app_id = (const char *)p; p += cdata->app_id_len;
+    LOG_DBG("app-id = %.*s", cdata->app_id_len, app_id);
+
+    argv = xcalloc(cdata->argc + 1, sizeof(argv[0]));
+
+    for (uint16_t i = 0; i < cdata->argc; i++) {
+        const struct client_argv *arg = (const struct client_argv *)p;
+        CHECK_BUF(sizeof(*arg));
+        p += sizeof(*arg);
+
+        CHECK_BUF(arg->len);
+        argv[i] = (char *)p; p += arg->len;
     }
-
-    uint16_t term_env_len;
-    CHECK_BUF(sizeof(term_env_len));
-    memcpy(&term_env_len, p, sizeof(term_env_len));
-    p += sizeof(term_env_len);
-
-    CHECK_BUF(term_env_len);
-    const char *term_env = (const char *)p; p += term_env_len;
-    LOG_DBG("TERM = %.*s", term_env_len, term_env);
-
-    if (term_env_len != strlen(term_env) + 1) {
-        LOG_ERR("TERM length mismatch: indicated = %u, actual = %zu",
-                term_env_len - 1, strlen(term_env));
-        goto shutdown;
-    }
-
-    uint16_t title_len;
-    CHECK_BUF(sizeof(title_len));
-    memcpy(&title_len, p, sizeof(title_len));
-    p += sizeof(title_len);
-
-    CHECK_BUF(title_len);
-    const char *title = (const char *)p; p += title_len;
-    LOG_DBG("app-id = %.*s", title_len, title);
-
-    if (title_len != strlen(title) + 1) {
-        LOG_ERR("title length mismatch: indicated = %u, actual = %zu",
-                title_len - 1, strlen(title));
-        goto shutdown;
-    }
-
-    uint16_t app_id_len;
-    CHECK_BUF(sizeof(app_id_len));
-    memcpy(&app_id_len, p, sizeof(app_id_len));
-    p += sizeof(app_id_len);
-
-    CHECK_BUF(app_id_len);
-    const char *app_id = (const char *)p; p += app_id_len;
-    LOG_DBG("app-id = %.*s", app_id_len, app_id);
-
-    if (app_id_len != strlen(app_id) + 1) {
-        LOG_ERR("app-id length mismatch: indicated = %u, actual = %zu",
-                app_id_len - 1, strlen(app_id));
-        goto shutdown;
-    }
-
-    CHECK_BUF(sizeof(uint8_t));
-    const uint8_t maximized = *(const uint8_t *)p; p += sizeof(maximized);
-
-    CHECK_BUF(sizeof(uint8_t));
-    const uint8_t fullscreen = *(const uint8_t *)p; p += sizeof(fullscreen);
-
-    CHECK_BUF(sizeof(uint8_t));
-    const uint8_t hold = *(const uint8_t *)p; p += sizeof(hold);
-
-    CHECK_BUF(sizeof(uint8_t));
-    const uint8_t login_shell = *(const uint8_t *)p; p += sizeof(login_shell);
-
-    CHECK_BUF(sizeof(argc));
-    memcpy(&argc, p, sizeof(argc));
-    p += sizeof(argc);
-
-    argv = xcalloc(argc + 1, sizeof(argv[0]));
-    LOG_DBG("argc = %d", argc);
-
-    for (int i = 0; i < argc; i++) {
-        uint16_t len;
-        CHECK_BUF(sizeof(len));
-        memcpy(&len, p, sizeof(len));
-        p += sizeof(len);
-
-        CHECK_BUF(len);
-        argv[i] = (char *)p; p += strlen(argv[i]) + 1;
-        LOG_DBG("argv[%d] = %s", i, argv[i]);
-
-        if (len != strlen(argv[i]) + 1) {
-            LOG_ERR("argv[%d] length mismatch: indicated = %u, actual = %zu",
-                    i, len - 1, strlen(argv[i]));
-            goto shutdown;
-        }
-    }
-    argv[argc] = NULL;
 
 #undef CHECK_BUF
 
@@ -308,12 +243,12 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         ? xstrdup(title) : xstrdup(server->conf->title);
     client->conf.app_id = strlen(app_id) > 0
         ? xstrdup(app_id) : xstrdup(server->conf->app_id);
-    client->conf.hold_at_exit = hold;
-    client->conf.login_shell = login_shell;
+    client->conf.hold_at_exit = cdata->hold;
+    client->conf.login_shell = cdata->login_shell;
 
-    if (maximized)
+    if (cdata->maximized)
         client->conf.startup_mode = STARTUP_MAXIMIZED;
-    else if (fullscreen)
+    else if (cdata->fullscreen)
         client->conf.startup_mode = STARTUP_FULLSCREEN;
 
     client->term = term_init(
