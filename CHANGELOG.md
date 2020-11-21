@@ -42,6 +42,11 @@
 * Crash with explicitly sized sixels with a height less than 6 pixels.
 
 
+### Contributors
+
+* [craigbarnes](https://codeberg.org/craigbarnes)
+
+
 ## 1.5.3
 
 ### Fixed
