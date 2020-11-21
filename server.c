@@ -200,6 +200,14 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
             goto shutdown;                      \
     } while (0)
 
+#define CHECK_BUF_AND_NULL(sz) do {             \
+        CHECK_BUF(sz);                          \
+        if (sz == 0)                            \
+            goto shutdown;                      \
+        if (p[sz - 1] != '\0')                  \
+            goto shutdown;                      \
+    } while (0)
+
     uint8_t *p = client->buffer.data;
     const uint8_t *end = &client->buffer.data[client->buffer.idx];
 
@@ -207,19 +215,19 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     CHECK_BUF(sizeof(*cdata));
     p += sizeof(*cdata);
 
-    CHECK_BUF(cdata->cwd_len);
+    CHECK_BUF_AND_NULL(cdata->cwd_len);
     const char *cwd = (const char *)p; p += cdata->cwd_len;
     LOG_DBG("CWD = %.*s", cdata->cwd_len, cwd);
 
-    CHECK_BUF(cdata->term_len);
+    CHECK_BUF_AND_NULL(cdata->term_len);
     const char *term_env = (const char *)p; p += cdata->term_len;
     LOG_DBG("TERM = %.*s", cdata->term_len, term_env);
 
-    CHECK_BUF(cdata->title_len);
+    CHECK_BUF_AND_NULL(cdata->title_len);
     const char *title = (const char *)p; p += cdata->title_len;
     LOG_DBG("title = %.*s", cdata->title_len, title);
 
-    CHECK_BUF(cdata->app_id_len);
+    CHECK_BUF_AND_NULL(cdata->app_id_len);
     const char *app_id = (const char *)p; p += cdata->app_id_len;
     LOG_DBG("app-id = %.*s", cdata->app_id_len, app_id);
 
@@ -230,10 +238,11 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         CHECK_BUF(sizeof(*arg));
         p += sizeof(*arg);
 
-        CHECK_BUF(arg->len);
+        CHECK_BUF_AND_NULL(arg->len);
         argv[i] = (char *)p; p += arg->len;
     }
 
+#undef CHECK_BUF_AND_NULL
 #undef CHECK_BUF
 
     client->conf = *server->conf;
