@@ -22,7 +22,7 @@ struct client_data {
 
     uint16_t argc;
 
-    /* char cwd[stati cwd_len]; */
+    /* char cwd[static cwd_len]; */
     /* char term[static term_len]; */
     /* char title[static title_len]; */
     /* char app_id[static app_id_len]; */
