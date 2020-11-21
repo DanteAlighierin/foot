@@ -256,7 +256,7 @@ main(int argc, char *const *argv)
         term_len >= 1 << (8 * sizeof(data.term_len)) ||
         title_len >= 1 << (8 * sizeof(data.title_len)) ||
         app_id_len >= 1 << (8 * sizeof(data.app_id_len)) ||
-        argc > data.argc)
+        argc > (int)(unsigned int)data.argc)
     {
         LOG_ERR("size overflow");
         goto err;
