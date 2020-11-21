@@ -79,7 +79,7 @@ main(int argc, char *const *argv)
     bool hold = false;
 
     while (true) {
-        int c = getopt_long(argc, argv, "+t:a:s:l::hv", longopts, NULL);
+        int c = getopt_long(argc, argv, "+t:T:a:mFLs:Hl::vh", longopts, NULL);
         if (c == -1)
             break;
 
