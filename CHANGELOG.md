@@ -93,6 +93,8 @@
 ### Security
 ### Contributors
 
+* [craigbarnes](https://codeberg.org/craigbarnes)
+
 
 ## 1.5.3
 
