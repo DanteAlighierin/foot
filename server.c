@@ -119,7 +119,6 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     struct server *server = client->server;
 
     char **argv = NULL;
-    int argc = 0;
 
     if (events & EPOLLHUP)
         goto shutdown;
@@ -211,36 +210,40 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     uint8_t *p = client->buffer.data;
     const uint8_t *end = &client->buffer.data[client->buffer.idx];
 
-    const struct client_data *cdata = (const struct client_data *)p;
-    CHECK_BUF(sizeof(*cdata));
-    p += sizeof(*cdata);
+    struct client_data cdata;
+    CHECK_BUF(sizeof(cdata));
+    memcpy(&cdata, p, sizeof(cdata));
+    p += sizeof(cdata);
 
-    CHECK_BUF_AND_NULL(cdata->cwd_len);
-    const char *cwd = (const char *)p; p += cdata->cwd_len;
-    LOG_DBG("CWD = %.*s", cdata->cwd_len, cwd);
+    CHECK_BUF_AND_NULL(cdata.cwd_len);
+    const char *cwd = (const char *)p; p += cdata.cwd_len;
+    LOG_DBG("CWD = %.*s", cdata.cwd_len, cwd);
 
-    CHECK_BUF_AND_NULL(cdata->term_len);
-    const char *term_env = (const char *)p; p += cdata->term_len;
-    LOG_DBG("TERM = %.*s", cdata->term_len, term_env);
+    CHECK_BUF_AND_NULL(cdata.term_len);
+    const char *term_env = (const char *)p; p += cdata.term_len;
+    LOG_DBG("TERM = %.*s", cdata.term_len, term_env);
 
-    CHECK_BUF_AND_NULL(cdata->title_len);
-    const char *title = (const char *)p; p += cdata->title_len;
-    LOG_DBG("title = %.*s", cdata->title_len, title);
+    CHECK_BUF_AND_NULL(cdata.title_len);
+    const char *title = (const char *)p; p += cdata.title_len;
+    LOG_DBG("title = %.*s", cdata.title_len, title);
 
-    CHECK_BUF_AND_NULL(cdata->app_id_len);
-    const char *app_id = (const char *)p; p += cdata->app_id_len;
-    LOG_DBG("app-id = %.*s", cdata->app_id_len, app_id);
+    CHECK_BUF_AND_NULL(cdata.app_id_len);
+    const char *app_id = (const char *)p; p += cdata.app_id_len;
+    LOG_DBG("app-id = %.*s", cdata.app_id_len, app_id);
 
-    argv = xcalloc(cdata->argc + 1, sizeof(argv[0]));
+    argv = xcalloc(cdata.argc + 1, sizeof(argv[0]));
 
-    for (uint16_t i = 0; i < cdata->argc; i++) {
-        const struct client_argv *arg = (const struct client_argv *)p;
-        CHECK_BUF(sizeof(*arg));
-        p += sizeof(*arg);
+    for (uint16_t i = 0; i < cdata.argc; i++) {
+        struct client_argv arg;
+        CHECK_BUF(sizeof(arg));
+        memcpy(&arg, p, sizeof(arg));
+        p += sizeof(arg);
 
-        CHECK_BUF_AND_NULL(arg->len);
-        argv[i] = (char *)p; p += arg->len;
+        CHECK_BUF_AND_NULL(arg.len);
+        argv[i] = (char *)p; p += arg.len;
+        LOG_DBG("argv[%hu] = %.*s", i, arg.len, argv[i]);
     }
+    argv[cdata.argc] = NULL;
 
 #undef CHECK_BUF_AND_NULL
 #undef CHECK_BUF
@@ -252,17 +255,17 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         ? xstrdup(title) : xstrdup(server->conf->title);
     client->conf.app_id = strlen(app_id) > 0
         ? xstrdup(app_id) : xstrdup(server->conf->app_id);
-    client->conf.hold_at_exit = cdata->hold;
-    client->conf.login_shell = cdata->login_shell;
+    client->conf.hold_at_exit = cdata.hold;
+    client->conf.login_shell = cdata.login_shell;
 
-    if (cdata->maximized)
+    if (cdata.maximized)
         client->conf.startup_mode = STARTUP_MAXIMIZED;
-    else if (cdata->fullscreen)
+    else if (cdata.fullscreen)
         client->conf.startup_mode = STARTUP_FULLSCREEN;
 
     client->term = term_init(
         &client->conf, server->fdm, server->reaper, server->wayl,
-        "footclient", cwd, argc, argv, &term_shutdown_handler, client);
+        "footclient", cwd, cdata.argc, argv, &term_shutdown_handler, client);
 
     if (client->term == NULL) {
         LOG_ERR("failed to instantiate new terminal");
