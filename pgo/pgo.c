@@ -6,11 +6,17 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/epoll.h>
+#include <sys/timerfd.h>
+#include <sys/mman.h>
 #include <fcntl.h>
 
 #include "async.h"
+#include "config.h"
 #include "user-notification.h"
 #include "vt.h"
+
+extern bool fdm_ptmx(struct fdm *fdm, int fd, int events, void *data);
 
 static void
 usage(const char *prog_name)
@@ -131,11 +137,28 @@ main(int argc, const char *const *argv)
     const int col_count = 135;
     const int grid_row_count = 16384;
 
+    int lower_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+    if (lower_fd < 0)
+        return EXIT_FAILURE;
+
+    int upper_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+    if (upper_fd < 0) {
+        close(lower_fd);
+        return EXIT_FAILURE;
+    }
+
     struct row **rows = calloc(grid_row_count, sizeof(rows[0]));
     for (int i = 0; i < grid_row_count; i++) {
         rows[i] = calloc(1, sizeof(*rows[i]));
         rows[i]->cells = calloc(col_count, sizeof(rows[i]->cells[0]));
     }
+
+    struct config conf = {
+        .tweak = {
+            .delayed_render_lower_ns = 500000,         /* 0.5ms */
+            .delayed_render_upper_ns = 16666666 / 2,   /* half a frame period (60Hz) */
+        },
+    };
 
     struct wayland wayl = {
         .seats = tll_init(),
@@ -144,6 +167,7 @@ main(int argc, const char *const *argv)
     };
 
     struct terminal term = {
+        .conf = &conf,
         .wl = &wayl,
         .grid = &term.normal,
         .normal = {
@@ -173,6 +197,10 @@ main(int argc, const char *const *argv)
             .start = {-1, -1},
             .end = {-1, -1},
         },
+        .delayed_render_timer = {
+            .lower_fd = lower_fd,
+            .upper_fd = upper_fd
+        }
     };
 
     tll_push_back(wayl.terms, &term);
@@ -182,37 +210,62 @@ main(int argc, const char *const *argv)
     for (int i = 1; i < argc; i++) {
         struct stat st;
         if (stat(argv[i], &st) < 0) {
-            fprintf(stderr, "error: %s: failed to stat: %s",
+            fprintf(stderr, "error: %s: failed to stat: %s\n",
                     argv[i], strerror(errno));
             goto out;
         }
 
         uint8_t *data = malloc(st.st_size);
         if (data == NULL) {
-            fprintf(stderr, "error: %s: failed to allocate buffer: %s",
+            fprintf(stderr, "error: %s: failed to allocate buffer: %s\n",
                     argv[i], strerror(errno));
             goto out;
         }
 
         int fd = open(argv[1], O_RDONLY);
         if (fd < 0) {
-            fprintf(stderr, "error: %s: failed to open: %s",
+            fprintf(stderr, "error: %s: failed to open: %s\n",
                     argv[i], strerror(errno));
             goto out;
         }
 
         ssize_t amount = read(fd, data, st.st_size);
         if (amount != st.st_size) {
-            fprintf(stderr, "error: %s: failed to read: %s",
+            fprintf(stderr, "error: %s: failed to read: %s\n",
                     argv[i], strerror(errno));
             goto out;
         }
 
         close(fd);
 
-        printf("Feeding VT parser with %s\n", argv[i]);
-        vt_from_slave(&term, data, st.st_size);
+        int mem_fd = memfd_create("foot-pgo-ptmx", MFD_CLOEXEC);
+        if (mem_fd < 0) {
+            fprintf(stderr, "error: failed to create memory FD\n");
+            goto out;
+        }
+
+        if (write(mem_fd, data, st.st_size) < 0) {
+            fprintf(stderr, "error: failed to write memory FD\n");
+            close(mem_fd);
+            goto out;
+        }
+
         free(data);
+
+        term.ptmx = mem_fd;
+        lseek(mem_fd, 0, SEEK_SET);
+
+        printf("Feeding VT parser with %s (%lld bytes)\n",
+               argv[i], (long long)st.st_size);
+
+        while (lseek(mem_fd, 0, SEEK_CUR) < st.st_size) {
+            if (!fdm_ptmx(NULL, -1, EPOLLIN, &term)) {
+                fprintf(stderr, "error: fdm_ptmx() failed\n");
+                close(mem_fd);
+                goto out;
+            }
+        }
+        close(mem_fd);
     }
 
     ret = EXIT_SUCCESS;
@@ -226,5 +279,7 @@ out:
     }
 
     free(rows);
+    close(lower_fd);
+    close(upper_fd);
     return ret;
 }

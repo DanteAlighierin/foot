@@ -198,7 +198,9 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
 static struct timespec last = {0};
 #endif
 
-static bool
+/* Externally visible, but not declared in terminal.h, to enable pgo
+ * to call this function directly */
+bool
 fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
