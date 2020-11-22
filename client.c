@@ -37,6 +37,8 @@ print_usage(const char *prog_name)
     printf("  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
            "     --title=TITLE                      initial window title (foot)\n"
            "  -a,--app-id=ID                        window application ID (foot)\n"
+           "  -w,--window-size-pixels=WIDTHxHEIGHT  initial width and height, in pixels\n"
+           "  -W,--window-size-chars=WIDTHxHEIGHT   initial width and height, in characters\n"
            "     --maximized                        start in maximized mode\n"
            "     --fullscreen                       start in fullscreen mode\n"
            "     --login-shell                      start shell as a login shell\n"
