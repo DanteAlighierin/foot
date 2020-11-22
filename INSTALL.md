@@ -134,10 +134,10 @@ mkdir -p bld/release && cd bld/release
 
 Below are instructions for building foot either [size
 optimized](#size-optimized), [performance
-optimized](performance-optimized-non-pgo), or [performance
-optimized](#performance-optimized-pgo) using PGO.
+optimized](performance-optimized-non-pgo), or performance
+optimized using [PGO](#performance-optimized-pgo).
 
-PGO - Profile Guided Optimization - is a way to optimize a program
+PGO - _Profile Guided Optimization_ - is a way to optimize a program
 better than `-O3` can, and is done by compiling foot twice: first to
 generate an instrumented version which is used to run a payload that
 exercises the performance critical parts of foot, and then a second
@@ -208,6 +208,8 @@ helper](#partial-pgo) binary, or a [full PGO build](#full-pgo) by
 running the real foot binary. The latter has slightly better results
 (i.e. results in a faster binary), but must be run in a Wayland
 session.
+
+A full PGO build also tends to be smaller than a partial build.
 
 
 ##### Partial PGO
