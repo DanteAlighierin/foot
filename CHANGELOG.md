@@ -18,6 +18,15 @@
 
 
 ## Unreleased
+
+### For packagers
+
+Starting with this release, foot can be PGO:d (compiled using profile
+guided optimizations) **without** a running Wayland session. This
+means foot can be PGO:d in e.g. sandboxed build scripts. See
+[INSTALL.md](INSTALL.md#user-content-profile-guided-optimization).
+
+
 ### Added
 
 * Implement reverse auto-wrap (_auto\_left\_margin_, _bw_, in
