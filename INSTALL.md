@@ -8,6 +8,12 @@
 1. [Other](#other)
    1. [Setup](#setup)
    1. [Release build](#release-build)
+      1. [Size optimized](#size-optimized)
+      1. [Performance optimized, non-PGO](#performance-optimized-non-pgo)
+      1. [Performance optimized, PGO](#performance-optimized-pgo)
+         1. [Partial PGO](#partial-pgo)
+         1. [Full PGO](#full-pgo)
+         1. [Use the generated PGO data](#use-the-generated-pgo-data)
       1. [Profile Guided Optimization](#profile-guided-optimization)
    1. [Debug build](#debug-build)
    1. [Running the new build](#running-the-new-build)
@@ -126,49 +132,67 @@ mkdir -p bld/release && cd bld/release
 
 ### Release build
 
+Below are instructions for building foot either [size
+optimized](#size-optimized), [performance
+optimized](performance-optimized-non-pgo), or [performance
+optimized](#performance-optimized-pgo) using PGO.
+
+PGO - Profile Guided Optimization - is a way to optimize a program
+better than `-O3` can, and is done by compiling foot twice: first to
+generate an instrumented version which is used to run a payload that
+exercises the performance critical parts of foot, and then a second
+time to rebuild foot using the generated profiling data to guide
+optimization.
+
+In addition to being faster, PGO builds also tend to be smaller than
+regular `-O3` builds.
+
+
+#### Size optimized
+
+To optimize for size (i.e. produce a small binary):
+
+```sh
+export CFLAGS="$CFLAGS -Os -march=native"
+meson --buildtype=release --prefix=/usr -Db_lto=true ../..
+ninja
+ninja test
+ninja install
+```
+
+#### Performance optimized, non-PGO
+
+To do a regular, non-PGO build optimized for performance:
+
 ```sh
 export CFLAGS="$CFLAGS -O3 -march=native"
 meson --buildtype=release --prefix=/usr -Db_lto=true ../..
+wninja
+ninja test
+ninja install
 ```
 
-To optimize for performance, both `-O3`, `-Db_lto=true` and doing a
-[PGO](#profile-guided-optimization) (Profile Guided Optimization)
-build is recommended.
+Use `-O2` instead of `-O3` if you prefer a slightly smaller (and
+slower!) binary.
 
-If you instead want to optimize for size, use `-Os` instead of `-O3`.
 
-In general, `-Os` results in the smallest (and slowest) binary. A full
-PGO build will be slightly larger than a `-Os` build, but smaller than
-a `-O3` build. A partial PGO build will be somewhere in between a full
-PGO build and a `-O3` build. See the [size
-comparison](#size-comparison).
+#### Performance optimized, PGO
 
-If you are doing a non-PGO build, just build:
+First, configure the build directory:
 
 ```sh
-ninja
+export CFLAGS="$CFLAGS -O3 -march=native -Wno-missing-profile"
+meson --buildtype=release --prefix=/usr -Db_lto=true ../..
 ```
 
-and then skip to [Running the new build](#running-the-new-build).
+It is **very** important `-O3` is being used here, as GCC-10.1.x and
+later have a regression where PGO with `-O2` is **much** slower.
 
-**For packagers**: normally, you would configure compiler flags using
-`-Dc_args`. This however "overwrites" `CFLAGS`. `makepkg` from Arch,
-for example, uses `CFLAGS` to specify the default set of flags.
+If you are using Clang instead of GCC, use the following `CFLAGS` instead:
 
-Thus, we do `export CFLAGS+="..."` to at least not throw away those
-flags.
-
-In particular, with GCC 10.1, it is **very** important `-O3` is used
-**when doing a [PGO](#profile-guided-optimization) build**.
-
-
-#### Profile Guided Optimization
-
-First, make sure you have configured a [release](#release-build) build
-directory, but add these to the `CFLAGS`:
-
-* Clang: `-Wno-ignored-optimization-argument -Wno-profile-instr-out-of-date`
-* GCC: `-Wno-missing-profile`
+```sh
+export CFLAGS="$CFLAGS -O3 -march=native -Wno-ignored-optimization-argument -Wno-profile-instr-out-of-date"
+```
 
 Then, tell meson we want to _generate_ profiling data, and build:
 
@@ -176,12 +200,6 @@ Then, tell meson we want to _generate_ profiling data, and build:
 meson configure -Db_pgo=generate
 ninja
 ```
-
-Remainder: make sure `-O3` is being used.
-
-To get **maximum** performance, you can also add
-`-fprofile-partial-training`, but do note that this will result in a
-noticeably larger binary (see [size comparison](#size-comparison))
 
 Next, we need to actually generate the profiling data.
 
@@ -273,15 +291,6 @@ ninja
 
 Continue reading in [Running the new build](#running-the-new-build)
 
-
-##### Size comparison
-
-| PGO             | default | `-fprofile-partial-training`|
-|-----------------|--------:|----------------------------:|
-| none (`-O3`)    | 340K    | -                           |
-| none (`-Os`)    | 260K    | -                           |
-| partial         | 328K    | 376K                        |
-| full            | 292K    | 352K                        |
 
 ### Debug build
 
