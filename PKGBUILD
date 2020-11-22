@@ -39,7 +39,7 @@ build() {
       --cols=135 \
       ${script_options} \
       ${tmp_file}
-    ./pgo ${tmp_file} ${tmp_file} ${tmp_file} ${tmp_file} ${tmp_file} ${tmp_file}
+    ./pgo ${tmp_file} ${tmp_file} ${tmp_file}
   fi
 
   rm "${tmp_file}"
