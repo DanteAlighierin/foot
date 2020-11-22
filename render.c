@@ -539,15 +539,11 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     pixman_image_unref(clr_pix);
 
     /* Underline */
-    if (cell->attrs.underline) {
-        draw_underline(term, pix, attrs_to_font(term, &cell->attrs),
-                       &fg, x, y, cell_cols);
-    }
+    if (cell->attrs.underline)
+        draw_underline(term, pix, font, &fg, x, y, cell_cols);
 
-    if (cell->attrs.strikethrough) {
-        draw_strikeout(term, pix, attrs_to_font(term, &cell->attrs),
-                       &fg, x, y, cell_cols);
-    }
+    if (cell->attrs.strikethrough)
+        draw_strikeout(term, pix, font, &fg, x, y, cell_cols);
 
 draw_cursor:
     if (has_cursor && (term->cursor_style != CURSOR_BLOCK || !term->kbd_focus))
