@@ -130,13 +130,20 @@ mkdir -p bld/release && cd bld/release
 export CFLAGS="$CFLAGS -O3 -march=native"
 meson --buildtype=release --prefix=/usr -Db_lto=true ../..
 ```
-Both `-O3` and `-Db_lto=true` are **highly** recommended.
 
-For performance reasons, I strongly recommend doing a
+To optimize for performance, both `-O3`, `-Db_lto=true` and doing a
 [PGO](#profile-guided-optimization) (Profile Guided Optimization)
-build.
+build is recommended.
 
-If you do not want this, just build:
+If you instead want to optimize for size, use `-Os` instead of `-O3`.
+
+In general, `-Os` results in the smallest (and slowest) binary. A full
+PGO build will be slightly larger than a `-Os` build, but smaller than
+a `-O3` build. A partial PGO build will be somewhere in between a full
+PGO build and a `-O3` build. See the [size
+comparison](#size-comparison).
+
+If you are doing a non-PGO build, just build:
 
 ```sh
 ninja
@@ -151,13 +158,8 @@ for example, uses `CFLAGS` to specify the default set of flags.
 Thus, we do `export CFLAGS+="..."` to at least not throw away those
 flags.
 
-When packaging, you may want to use the default `CFLAGS` only, but
-note this: foot is a performance critical application that relies on
-compiler optimizations to perform well.
-
 In particular, with GCC 10.1, it is **very** important `-O3` is used
-(and not e.g. `-O2`) when doing a [PGO](#profile-guided-optimization)
-build.
+**when doing a [PGO](#profile-guided-optimization) build**.
 
 
 #### Profile Guided Optimization
@@ -174,6 +176,12 @@ Then, tell meson we want to _generate_ profiling data, and build:
 meson configure -Db_pgo=generate
 ninja
 ```
+
+Remainder: make sure `-O3` is being used.
+
+To get **maximum** performance, you can also add
+`-fprofile-partial-training`, but do note that this will result in a
+noticeably larger binary (see [size comparison](#size-comparison))
 
 Next, we need to actually generate the profiling data.
 
@@ -265,6 +273,15 @@ ninja
 
 Continue reading in [Running the new build](#running-the-new-build)
 
+
+##### Size comparison
+
+| PGO             | default | `-fprofile-partial-training`|
+|-----------------|--------:|----------------------------:|
+| none (`-O3`)    | 340K    | -                           |
+| none (`-Os`)    | 260K    | -                           |
+| partial         | 328K    | 376K                        |
+| full            | 292K    | 352K                        |
 
 ### Debug build
 
