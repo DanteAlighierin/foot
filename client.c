@@ -54,23 +54,28 @@ main(int argc, char *const *argv)
     const char *const prog_name = argv[0];
 
     static const struct option longopts[] =  {
-        {"term",          required_argument, NULL, 't'},
-        {"title",         required_argument, NULL, 'T'},
-        {"app-id",        required_argument, NULL, 'a'},
-        {"maximized",     no_argument,       NULL, 'm'},
-        {"fullscreen",    no_argument,       NULL, 'F'},
-        {"login-shell",   no_argument,       NULL, 'L'},
-        {"server-socket", required_argument, NULL, 's'},
-        {"hold",          no_argument,       NULL, 'H'},
-        {"log-colorize",  optional_argument, NULL, 'l'},
-        {"version",       no_argument,       NULL, 'v'},
-        {"help",          no_argument,       NULL, 'h'},
-        {NULL,            no_argument,       NULL,   0},
+        {"term",               required_argument, NULL, 't'},
+        {"title",              required_argument, NULL, 'T'},
+        {"app-id",             required_argument, NULL, 'a'},
+        {"window-size-pixels", required_argument, NULL, 'w'},
+        {"window-size-chars",  required_argument, NULL, 'W'},
+        {"maximized",          no_argument,       NULL, 'm'},
+        {"fullscreen",         no_argument,       NULL, 'F'},
+        {"login-shell",        no_argument,       NULL, 'L'},
+        {"server-socket",      required_argument, NULL, 's'},
+        {"hold",               no_argument,       NULL, 'H'},
+        {"log-colorize",       optional_argument, NULL, 'l'},
+        {"version",            no_argument,       NULL, 'v'},
+        {"help",               no_argument,       NULL, 'h'},
+        {NULL,                 no_argument,       NULL,   0},
     };
 
     const char *term = "";
     const char *title = "";
     const char *app_id = "";
+    unsigned size_type = 0; // enum conf_size_type (without pulling in tllist/fcft via config.h)
+    unsigned width = 0;
+    unsigned height = 0;
     const char *server_socket_path = NULL;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
     bool login_shell = false;
@@ -79,7 +84,7 @@ main(int argc, char *const *argv)
     bool hold = false;
 
     while (true) {
-        int c = getopt_long(argc, argv, "+t:T:a:mFLs:Hl::vh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+t:T:a:w:W:mFLs:Hl::vh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -98,6 +103,22 @@ main(int argc, char *const *argv)
 
         case 'L':
             login_shell = true;
+            break;
+
+        case 'w':
+            if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
+                fprintf(stderr, "error: invalid window-size-pixels: %s\n", optarg);
+                return EXIT_FAILURE;
+            }
+            size_type = 0; // CONF_SIZE_PX
+            break;
+
+        case 'W':
+            if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
+                fprintf(stderr, "error: invalid window-size-chars: %s\n", optarg);
+                return EXIT_FAILURE;
+            }
+            size_type = 1; // CONF_SIZE_CELLS
             break;
 
         case 'm':
@@ -215,6 +236,9 @@ main(int argc, char *const *argv)
     const size_t app_id_len = strlen(app_id) + 1;
 
     const struct client_data data = {
+        .width = width,
+        .height = height,
+        .size_type = size_type,
         .maximized = maximized,
         .fullscreen = fullscreen,
         .hold = hold,

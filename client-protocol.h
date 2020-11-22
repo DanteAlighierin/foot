@@ -10,6 +10,9 @@ struct client_argv {
 };
 
 struct client_data {
+    unsigned width;
+    unsigned height;
+    uint8_t size_type:1; // Values correspond to enum conf_size_type
     uint8_t maximized:1;
     uint8_t fullscreen:1;
     uint8_t hold:1;
