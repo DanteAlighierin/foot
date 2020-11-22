@@ -24,7 +24,7 @@
 Starting with this release, foot can be PGO:d (compiled using profile
 guided optimizations) **without** a running Wayland session. This
 means foot can be PGO:d in e.g. sandboxed build scripts. See
-[INSTALL.md](INSTALL.md#user-content-profile-guided-optimization).
+[INSTALL.md](INSTALL.md#user-content-performance-optimized-pgo).
 
 
 ### Added
