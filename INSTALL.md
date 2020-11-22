@@ -214,7 +214,7 @@ tmp_file=$(mktemp)
     --attr-italic \
     --attr-underline \
     ${tmp_file}
-./pgo ${tmp_file} ${tmp_file} ${tmp_file} ${tmp_file} ${tmp_file} ${tmp_file}
+./pgo ${tmp_file} ${tmp_file} ${tmp_file}
 rm ${tmp_file}
 ```
 
