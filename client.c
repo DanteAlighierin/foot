@@ -100,7 +100,7 @@ main(int argc, char *const *argv)
             login_shell = true;
             break;
 
-        case ',':
+        case 'm':
             maximized = true;
             fullscreen = false;
             break;
