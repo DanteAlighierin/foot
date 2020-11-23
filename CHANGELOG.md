@@ -73,7 +73,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   foot will ignore the monitors' DPI and instead size fonts using the
   scale factor alone (https://codeberg.org/dnkl/foot/issues/206).
 * `-w,--window-size-pixels` and `-W,--window-size-chars` command line
-  options to `footclient`.
+  options to `footclient` (https://codeberg.org/dnkl/foot/issues/189).
 
 
 ### Changed
