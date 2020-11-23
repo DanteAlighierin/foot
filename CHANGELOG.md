@@ -74,6 +74,8 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   scale factor alone (https://codeberg.org/dnkl/foot/issues/206).
 * `-w,--window-size-pixels` and `-W,--window-size-chars` command line
   options to `footclient` (https://codeberg.org/dnkl/foot/issues/189).
+* Short command line options for `--title`, `--maximized`,
+  `--fullscreen`, `--login-shell`, `--hold` and `--check-config`.
 
 
 ### Changed

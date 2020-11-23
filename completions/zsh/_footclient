@@ -3,15 +3,15 @@
 _arguments \
     -s -S -C \
     '(-t --term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
-    '--title[initial window title]:()' \
+    '(-T --title)'{-T,--title}'[initial window title]:()' \
     '(-a --app-id)'{-a,--app-id}'[value to set the app-id property on the Wayland window to (foot)]:()' \
-    '--maximized[start in maximized mode]' \
-    '--fullscreen[start in fullscreen mode]' \
-    '--login-shell[start shell as a login shell]' \
+    '(-m --maximized)'{-m,--maximized}'[start in maximized mode]' \
+    '(-F --fullscreen)'{-F,--fullscreen}'[start in fullscreen mode]' \
+    '(-L --login-shell)'{-L,--login-shell}'[start shell as a login shell]' \
     '(-w --window-size-pixels)'{-w,--window-size-pixels}'[window WIDTHxHEIGHT, in pixels (700x500)]:size_pixels:()' \
     '(-W --window-size-chars)'{-W,--window-size-chars}'[window WIDTHxHEIGHT, in characters (not set)]:size_chars:()' \
     '(-s --server-socket)'{-s,--server-socket}'[override the default path to the foot server socket ($XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)]:server:_files' \
-    '--hold[remain open after child process exits]' \
+    '(-H --hold)'{-H,--hold}'[remain open after child process exits]' \
     '(-l --log-colorize)'{-l,--log-colorize}'[enable or disable colorization of log output on stderr]:logcolor:(never always auto)' \
     '(-v --version)'{-v,--version}'[show the version number and quit]' \
     '(-h --help)'{-h,--help}'[show help message and quit]' \

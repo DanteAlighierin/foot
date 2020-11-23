@@ -25,7 +25,7 @@ terminal has terminated).
 *-t*,*--term*=_TERM_
 	Value to set the environment variable *TERM* to. Default: _foot_.
 
-*--title*=_TITLE_
+*-T*,*--title*=_TITLE_
 	Initial window title. Default: _foot_.
 
 *-a*,*--app-id*=_ID_
@@ -38,22 +38,22 @@ terminal has terminated).
 *-W*,*--window-size-chars*=_WIDTHxHEIGHT_
 	Set initial window width and height, in characters. Default: _not set_.
 
-*--maximized*
+*-m*,*--maximized*
 	Start in maximized mode. If both *--maximized* and *--fullscreen*
 	are specified, the _last_ one takes precedence.
 
-*--fullscreen*
+*-F*,*--fullscreen*
 	Start in fullscreen mode. If both *--maximized* and *--fullscreen*
 	are specified, the _last_ one takes precedence.
 
-*--login-shell*
+*-L*,*--login-shell*
 	Start a login shell, by prepending a '-' to argv[0].
 
 *-s*,*--server-socket*=_PATH_
 	Connect to _PATH_ instead of
 	*$XDG\_RUNTIME\_DIR/foot-$WAYLAND\_DISPLAY.sock*.
 
-*--hold*
+*-H*,*--hold*
 	Remain open after child process exits.
 
 *-l*,*--log-colorize*=[{*never*,*always*,*auto*}]
