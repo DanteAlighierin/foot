@@ -815,9 +815,6 @@ resize(struct terminal *term, int new_width, int new_height)
     assert(alloc_new_height >= new_height);
     assert(alloc_new_height - new_height < 6);
 
-    assert(new_width >= old_width);
-    assert(new_height >= old_height);
-
     uint32_t *new_data = NULL;
 
     if (new_width == old_width) {
@@ -838,7 +835,7 @@ resize(struct terminal *term, int new_width, int new_height)
         new_data = xmalloc(alloc_new_width * alloc_new_height * sizeof(uint32_t));
 
         /* Copy old rows, and initialize new columns to background color */
-        for (int r = 0; r < old_height; r++) {
+        for (int r = 0; r < min(old_height, new_height); r++) {
             memcpy(&new_data[r * new_width], &old_data[r * old_width], old_width * sizeof(uint32_t));
 
             for (int c = old_width; c < new_width; c++)
