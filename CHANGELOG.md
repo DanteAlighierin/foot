@@ -39,6 +39,7 @@
   (https://codeberg.org/dnkl/foot/issues/210).
 * Key mappings for key combinations with `alt`+`return`.
 * `footclient` `-m` (`--maximized`) flag being ignored.
+* Crash with explicitly sized sixels with a height less than 6 pixels.
 
 
 ## 1.5.3
