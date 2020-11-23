@@ -32,6 +32,12 @@ terminal has terminated).
 	Value to set the *app-id* property on the Wayland window
 	to. Default: _foot_.
 
+*-w*,*--window-size-pixels*=_WIDTHxHEIGHT_
+	Set initial window width and height, in pixels. Default: _700x500_.
+
+*-W*,*--window-size-chars*=_WIDTHxHEIGHT_
+	Set initial window width and height, in characters. Default: _not set_.
+
 *--maximized*
 	Start in maximized mode. If both *--maximized* and *--fullscreen*
 	are specified, the _last_ one takes precedence.

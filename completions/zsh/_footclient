@@ -8,6 +8,8 @@ _arguments \
     '--maximized[start in maximized mode]' \
     '--fullscreen[start in fullscreen mode]' \
     '--login-shell[start shell as a login shell]' \
+    '(-w --window-size-pixels)'{-w,--window-size-pixels}'[window WIDTHxHEIGHT, in pixels (700x500)]:size_pixels:()' \
+    '(-W --window-size-chars)'{-W,--window-size-chars}'[window WIDTHxHEIGHT, in characters (not set)]:size_chars:()' \
     '(-s --server-socket)'{-s,--server-socket}'[override the default path to the foot server socket ($XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)]:server:_files' \
     '--hold[remain open after child process exits]' \
     '(-l --log-colorize)'{-l,--log-colorize}'[enable or disable colorization of log output on stderr]:logcolor:(never always auto)' \
