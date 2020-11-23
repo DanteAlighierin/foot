@@ -3,6 +3,8 @@
 #include "terminal.h"
 
 #define SIXEL_MAX_COLORS 1024u
+#define SIXEL_MAX_WIDTH 10000u
+#define SIXEL_MAX_HEIGHT 10000u
 
 void sixel_fini(struct terminal *term);
 

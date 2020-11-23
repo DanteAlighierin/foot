@@ -90,6 +90,8 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   overflow into neighboring cells by default. Set
   **tweak.allow-overflowing-double-width-glyphs** to ‘no’ to disable
   this.
+* Sixel default maximum size is now 10000x10000 instead of the current
+  window size.
 
 
 ### Deprecated

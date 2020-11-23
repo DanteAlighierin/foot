@@ -13,6 +13,7 @@
 
 #include "async.h"
 #include "config.h"
+#include "sixel.h"
 #include "user-notification.h"
 #include "vt.h"
 
@@ -200,7 +201,12 @@ main(int argc, const char *const *argv)
         .delayed_render_timer = {
             .lower_fd = lower_fd,
             .upper_fd = upper_fd
-        }
+        },
+        .sixel = {
+            .palette_size = SIXEL_MAX_COLORS,
+            .max_width = SIXEL_MAX_WIDTH,
+            .max_height = SIXEL_MAX_HEIGHT,
+        },
     };
 
     tll_push_back(wayl.terms, &term);
