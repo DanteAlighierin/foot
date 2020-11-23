@@ -476,8 +476,12 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         PIXMAN_OP_SRC, pix, &bg, 1,
         &(pixman_rectangle16_t){x, y, cell_cols * width, height});
 
-    if (cell->attrs.blink)
+    if (cell->attrs.blink && term->blink.fd < 0) {
+        /* TODO: use a custom lock for this? */
+        mtx_lock(&term->render.workers.lock);
         term_arm_blink_timer(term);
+        mtx_unlock(&term->render.workers.lock);
+    }
 
     if (has_cursor && term->cursor_style == CURSOR_BLOCK && term->kbd_focus)
         draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
@@ -488,7 +492,6 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     pixman_image_t *clr_pix = pixman_image_create_solid_fill(&fg);
 
     if (glyph != NULL) {
-        /* Clip to cell */
         if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
             /* Glyph surface is a pre-rendered image (typically a color emoji...) */
             if (!(cell->attrs.blink && term->blink.state == BLINK_OFF)) {
