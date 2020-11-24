@@ -198,7 +198,9 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
 static struct timespec last = {0};
 #endif
 
-static bool
+/* Externally visible, but not declared in terminal.h, to enable pgo
+ * to call this function directly */
+bool
 fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
@@ -1107,6 +1109,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         },
         .sixel = {
             .palette_size = SIXEL_MAX_COLORS,
+            .max_width = SIXEL_MAX_WIDTH,
+            .max_height = SIXEL_MAX_HEIGHT,
         },
         .hold_at_exit = conf->hold_at_exit,
         .shutdown_cb = shutdown_cb,

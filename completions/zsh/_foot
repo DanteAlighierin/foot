@@ -3,18 +3,18 @@
 _arguments \
     -s -S -C \
     '(-c --config)'{-c,--config}'[path to configuration file (XDG_CONFIG_HOME/footrc)]:config:_files' \
-    '--check-config[verify configuration and exit with 0 if ok, otherwise exit with 1]' \
+    '(-C --check-config)'{-C,--check-config}'[verify configuration and exit with 0 if ok, otherwise exit with 1]' \
     '(-f --font)'{-f,--font}'[font name and style in fontconfig format (monospace)]:font:->fonts' \
     '(-t --term)'{-t,--term}'[value to set the environment variable TERM to (foot)]:term:->terms' \
-    '--title[initial window title]:()' \
+    '(-T --title)'{-T,--title}'[initial window title]:()' \
     '(-a --app-id)'{-a,--app-id}'[value to set the app-id property on the Wayland window to (foot)]:()' \
-    '--maximized[start in maximized mode]' \
-    '--fullscreen[start in fullscreen mode]' \
-    '--login-shell[start shell as a login shell]' \
+    '(-m --maximized)'{-m,--maximized}'[start in maximized mode]' \
+    '(-F --fullscreen)'{-F,--fullscreen}'[start in fullscreen mode]' \
+    '(-L --login-shell)'{-L,--login-shell}'[start shell as a login shell]' \
     '(-w --window-size-pixels)'{-w,--window-size-pixels}'[window WIDTHxHEIGHT, in pixels (700x500)]:size_pixels:()' \
     '(-W --window-size-chars)'{-W,--window-size-chars}'[window WIDTHxHEIGHT, in characters (not set)]:size_chars:()' \
     '(-s --server)'{-s,--server}'[run as server; open terminals by running footclient]:server:_files' \
-    '--hold[remain open after child process exits]' \
+    '(-H --hold)'{-H,--hold}'[remain open after child process exits]' \
     '(-p --print-pid)'{-p,--print-pid}'[print PID to this file or FD when up and running (server mode only)]:pidfile:_files' \
     '(-l --log-colorize)'{-l,--log-colorize}'[enable or disable colorization of log output on stderr]:logcolor:(never always auto)' \
     '(-S --log-no-syslog)'{-s,--log-no-syslog}'[disable syslog logging (server mode only)]' \

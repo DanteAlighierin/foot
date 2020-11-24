@@ -18,6 +18,15 @@
 
 
 ## Unreleased
+
+### For packagers
+
+Starting with this release, foot can be PGO:d (compiled using profile
+guided optimizations) **without** a running Wayland session. This
+means foot can be PGO:d in e.g. sandboxed build scripts. See
+[INSTALL.md](INSTALL.md#user-content-performance-optimized-pgo).
+
+
 ### Added
 
 * Implement reverse auto-wrap (_auto\_left\_margin_, _bw_, in
@@ -63,6 +72,10 @@
   implements foot's old font sizing behavior. But, when **disabled**,
   foot will ignore the monitors' DPI and instead size fonts using the
   scale factor alone (https://codeberg.org/dnkl/foot/issues/206).
+* `-w,--window-size-pixels` and `-W,--window-size-chars` command line
+  options to `footclient` (https://codeberg.org/dnkl/foot/issues/189).
+* Short command line options for `--title`, `--maximized`,
+  `--fullscreen`, `--login-shell`, `--hold` and `--check-config`.
 
 
 ### Changed
@@ -77,6 +90,8 @@
   overflow into neighboring cells by default. Set
   **tweak.allow-overflowing-double-width-glyphs** to ‘no’ to disable
   this.
+* Sixel default maximum size is now 10000x10000 instead of the current
+  window size.
 
 
 ### Deprecated
@@ -88,10 +103,14 @@
 * Key mappings for key combinations with `shift`+`tab`
   (https://codeberg.org/dnkl/foot/issues/210).
 * Key mappings for key combinations with `alt`+`return`.
+* `footclient` `-m` (`--maximized`) flag being ignored.
+* Crash with explicitly sized sixels with a height less than 6 pixels.
 
 
 ### Security
 ### Contributors
+
+* [craigbarnes](https://codeberg.org/craigbarnes)
 
 
 ## 1.5.3

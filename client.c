@@ -15,6 +15,7 @@
 #define LOG_MODULE "foot-client"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "client-protocol.h"
 #include "version.h"
 #include "xmalloc.h"
 
@@ -36,6 +37,8 @@ print_usage(const char *prog_name)
     printf("  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
            "     --title=TITLE                      initial window title (foot)\n"
            "  -a,--app-id=ID                        window application ID (foot)\n"
+           "  -w,--window-size-pixels=WIDTHxHEIGHT  initial width and height, in pixels\n"
+           "  -W,--window-size-chars=WIDTHxHEIGHT   initial width and height, in characters\n"
            "     --maximized                        start in maximized mode\n"
            "     --fullscreen                       start in fullscreen mode\n"
            "     --login-shell                      start shell as a login shell\n"
@@ -53,23 +56,28 @@ main(int argc, char *const *argv)
     const char *const prog_name = argv[0];
 
     static const struct option longopts[] =  {
-        {"term",          required_argument, NULL, 't'},
-        {"title",         required_argument, NULL, 'T'},
-        {"app-id",        required_argument, NULL, 'a'},
-        {"maximized",     no_argument,       NULL, 'm'},
-        {"fullscreen",    no_argument,       NULL, 'F'},
-        {"login-shell",   no_argument,       NULL, 'L'},
-        {"server-socket", required_argument, NULL, 's'},
-        {"hold",          no_argument,       NULL, 'H'},
-        {"log-colorize",  optional_argument, NULL, 'l'},
-        {"version",       no_argument,       NULL, 'v'},
-        {"help",          no_argument,       NULL, 'h'},
-        {NULL,            no_argument,       NULL,   0},
+        {"term",               required_argument, NULL, 't'},
+        {"title",              required_argument, NULL, 'T'},
+        {"app-id",             required_argument, NULL, 'a'},
+        {"window-size-pixels", required_argument, NULL, 'w'},
+        {"window-size-chars",  required_argument, NULL, 'W'},
+        {"maximized",          no_argument,       NULL, 'm'},
+        {"fullscreen",         no_argument,       NULL, 'F'},
+        {"login-shell",        no_argument,       NULL, 'L'},
+        {"server-socket",      required_argument, NULL, 's'},
+        {"hold",               no_argument,       NULL, 'H'},
+        {"log-colorize",       optional_argument, NULL, 'l'},
+        {"version",            no_argument,       NULL, 'v'},
+        {"help",               no_argument,       NULL, 'h'},
+        {NULL,                 no_argument,       NULL,   0},
     };
 
     const char *term = "";
     const char *title = "";
     const char *app_id = "";
+    unsigned size_type = 0; // enum conf_size_type (without pulling in tllist/fcft via config.h)
+    unsigned width = 0;
+    unsigned height = 0;
     const char *server_socket_path = NULL;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
     bool login_shell = false;
@@ -78,7 +86,7 @@ main(int argc, char *const *argv)
     bool hold = false;
 
     while (true) {
-        int c = getopt_long(argc, argv, "+t:a:s:l::hv", longopts, NULL);
+        int c = getopt_long(argc, argv, "+t:T:a:w:W:mFLs:Hl::vh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -99,7 +107,23 @@ main(int argc, char *const *argv)
             login_shell = true;
             break;
 
-        case ',':
+        case 'w':
+            if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
+                fprintf(stderr, "error: invalid window-size-pixels: %s\n", optarg);
+                return EXIT_FAILURE;
+            }
+            size_type = 0; // CONF_SIZE_PX
+            break;
+
+        case 'W':
+            if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
+                fprintf(stderr, "error: invalid window-size-chars: %s\n", optarg);
+                return EXIT_FAILURE;
+            }
+            size_type = 1; // CONF_SIZE_CELLS
+            break;
+
+        case 'm':
             maximized = true;
             fullscreen = false;
             break;
@@ -150,6 +174,7 @@ main(int argc, char *const *argv)
 
     /* malloc:ed and needs to be in scope of all goto's */
     char *cwd = NULL;
+    struct client_argv *cargv = NULL;
 
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd == -1) {
@@ -205,99 +230,81 @@ main(int argc, char *const *argv)
             buf_len *= 2;
         } while (errno == ERANGE);
     }
-    const uint16_t cwd_len = strlen(cwd) + 1;
-    const uint16_t term_len = strlen(term) + 1;
-    const uint16_t title_len = strlen(title) + 1;
-    const uint16_t app_id_len = strlen(app_id) + 1;
-    uint32_t total_len = 0;
 
-    /* Calculate total length */
-    total_len += sizeof(cwd_len) + cwd_len;
-    total_len += sizeof(term_len) + term_len;
-    total_len += sizeof(title_len) + title_len;
-    total_len += sizeof(app_id_len) + app_id_len;
-    total_len += sizeof(uint8_t);  /* maximized */
-    total_len += sizeof(uint8_t);  /* fullscreen */
-    total_len += sizeof(uint8_t);  /* hold */
-    total_len += sizeof(uint8_t);  /* login_shell */
-    total_len += sizeof(argc);
+    /* String lengths, including NULL terminator */
+    const size_t cwd_len = strlen(cwd) + 1;
+    const size_t term_len = strlen(term) + 1;
+    const size_t title_len = strlen(title) + 1;
+    const size_t app_id_len = strlen(app_id) + 1;
 
-    for (int i = 0; i < argc; i++) {
-        uint16_t len = strlen(argv[i]) + 1;
-        total_len += sizeof(len) + len;
+    const struct client_data data = {
+        .width = width,
+        .height = height,
+        .size_type = size_type,
+        .maximized = maximized,
+        .fullscreen = fullscreen,
+        .hold = hold,
+        .login_shell = login_shell,
+        .cwd_len = cwd_len,
+        .term_len = term_len,
+        .title_len = title_len,
+        .app_id_len = app_id_len,
+        .argc = argc,
+    };
+
+    /* Total packet length, not (yet) including argv[] */
+    size_t total_len = (
+        sizeof(data) +
+        cwd_len +
+        term_len +
+        title_len +
+        app_id_len);
+
+    cargv = xmalloc(argc * sizeof(cargv[0]));
+
+    /* Add argv[] size to total packet length */
+    for (size_t i = 0; i < argc; i++) {
+        const size_t arg_len = strlen(argv[i]) + 1;
+
+        if (arg_len >= 1 << (8 * sizeof(cargv[i].len))) {
+            LOG_ERR("argv length overflow");
+            goto err;
+        }
+
+        cargv[i].len = arg_len;
+        total_len += sizeof(cargv[i]) + cargv[i].len;
     }
 
-    LOG_DBG("term-len: %hu, argc: %d, total-len: %u",
-            term_len, argc, total_len);
-
-    if (send(fd, &total_len, sizeof(total_len), 0) != sizeof(total_len)) {
-        LOG_ERRNO("failed to send total length to server");
-        goto err;
-    }
-
-    if (send(fd, &cwd_len, sizeof(cwd_len), 0) != sizeof(cwd_len) ||
-        send(fd, cwd, cwd_len, 0) != cwd_len)
+    /* Check for size overflows */
+    if (total_len >= 1llu << (8 * sizeof(uint32_t)) ||
+        cwd_len >= 1 << (8 * sizeof(data.cwd_len)) ||
+        term_len >= 1 << (8 * sizeof(data.term_len)) ||
+        title_len >= 1 << (8 * sizeof(data.title_len)) ||
+        app_id_len >= 1 << (8 * sizeof(data.app_id_len)) ||
+        argc > (int)(unsigned int)data.argc)
     {
-        LOG_ERRNO("failed to send CWD to server");
+        LOG_ERR("size overflow");
         goto err;
     }
 
-    if (send(fd, &term_len, sizeof(term_len), 0) != sizeof(term_len) ||
-        send(fd, term, term_len, 0) != term_len)
-    {
-        LOG_ERRNO("failed to send TERM to server");
-        goto err;
-    }
-
-    if (send(fd, &title_len, sizeof(title_len), 0) != sizeof(title_len) ||
-        send(fd, title, title_len, 0) != title_len)
-    {
-        LOG_ERRNO("failed to send title to server");
-        goto err;
-    }
-
-    if (send(fd, &app_id_len, sizeof(app_id_len), 0) != sizeof(app_id_len) ||
+    /* Send everything except argv[] */
+    if (send(fd, &(uint32_t){total_len}, sizeof(uint32_t), 0) != sizeof(uint32_t) ||
+        send(fd, &data, sizeof(data), 0) != sizeof(data) ||
+        send(fd, cwd, cwd_len, 0) != cwd_len ||
+        send(fd, term, term_len, 0) != term_len ||
+        send(fd, title, title_len, 0) != title_len ||
         send(fd, app_id, app_id_len, 0) != app_id_len)
     {
-        LOG_ERRNO("failed to send app-id to server");
+        LOG_ERRNO("failed to send setup packet to server");
         goto err;
     }
 
-    if (send(fd, &(uint8_t){maximized}, sizeof(uint8_t), 0) != sizeof(uint8_t)) {
-        LOG_ERRNO("failed to send maximized");
-        goto err;
-    }
-
-    if (send(fd, &(uint8_t){fullscreen}, sizeof(uint8_t), 0) != sizeof(uint8_t)) {
-        LOG_ERRNO("failed to send fullscreen");
-        goto err;
-    }
-
-    if (send(fd, &(uint8_t){hold}, sizeof(uint8_t), 0) != sizeof(uint8_t)) {
-        LOG_ERRNO("failed to send hold");
-        goto err;
-    }
-
-    if (send(fd, &(uint8_t){login_shell}, sizeof(uint8_t), 0) != sizeof(uint8_t)) {
-        LOG_ERRNO("failed to send login-shell");
-        goto err;
-    }
-
-    LOG_DBG("argc = %d", argc);
-    if (send(fd, &argc, sizeof(argc), 0) != sizeof(argc)) {
-        LOG_ERRNO("failed to send argc/argv to server");
-        goto err;
-    }
-
-    for (int i = 0; i < argc; i++) {
-        uint16_t len = strlen(argv[i]) + 1;
-
-        LOG_DBG("argv[%d] = %s (%hu)", i, argv[i], len);
-
-        if (send(fd, &len, sizeof(len), 0) != sizeof(len) ||
-            send(fd, argv[i], len, 0) != len)
+    /* Send argv[] */
+    for (size_t i = 0; i < argc; i++) {
+        if (send(fd, &cargv[i], sizeof(cargv[i]), 0) != sizeof(cargv[i]) ||
+            send(fd, argv[i], cargv[i].len, 0) != cargv[i].len)
         {
-            LOG_ERRNO("failed to send argc/argv to server");
+            LOG_ERRNO("failed to send setup packet to server");
             goto err;
         }
     }
@@ -319,6 +326,7 @@ main(int argc, char *const *argv)
         ret = exit_code;
 
 err:
+    free(cargv);
     free(cwd);
     if (fd != -1)
         close(fd);

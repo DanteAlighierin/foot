@@ -191,7 +191,7 @@ main(int argc, char *const *argv)
     user_notifications_t user_notifications = tll_init();
 
     while (true) {
-        int c = getopt_long(argc, argv, "+c:Ct:a:Lf:g:w:W:s::Pp:l::Svh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+c:Ct:T:a:Lf:g:w:W:s::HmFPp:l::Svh", longopts, NULL);
         if (c == -1)
             break;
 

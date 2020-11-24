@@ -20,18 +20,31 @@ build() {
 
   meson --prefix=/usr --buildtype=release --wrap-mode=nofallback -Db_lto=true ..
 
+  find -name "*.gcda" -delete
+  meson configure -Db_pgo=generate
+  ninja
+
+  script_options="--scroll --scroll-region --colors-regular --colors-bright --colors-256 --colors-rgb --attr-bold --attr-italic --attr-underline"
+
+  tmp_file=$(mktemp)
+
   if [[ -v WAYLAND_DISPLAY ]]; then
-    meson configure -Db_pgo=generate
-    find -name "*.gcda" -delete
-    ninja
-
-    tmp_file=$(mktemp)
-    ./foot --config /dev/null --term=xterm -- sh -c "../scripts/generate-alt-random-writes.py --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${tmp_file} && cat ${tmp_file}"
-    rm "${tmp_file}"
-
-    meson configure -Db_pgo=use
+    ./foot \
+      --config /dev/null \
+      --term=xterm \
+      sh -c "../scripts/generate-alt-random-writes.py ${script_options} ${tmp_file} && cat ${tmp_file}"
+  else
+    ../scripts/generate-alt-random-writes.py \
+      --rows=67 \
+      --cols=135 \
+      ${script_options} \
+      ${tmp_file}
+    ./pgo ${tmp_file} ${tmp_file} ${tmp_file}
   fi
 
+  rm "${tmp_file}"
+
+  meson configure -Db_pgo=use
   ninja
 }
 

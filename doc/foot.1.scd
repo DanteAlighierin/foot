@@ -26,7 +26,7 @@ the foot command line
 	Path to configuration file. Default:
 	*$XDG_CONFIG_HOME/foot/foot.ini*.
 
-*--check-config*
+*-C*,*--check-config*
 	Verify configuration and then exit with 0 if ok, otherwise exit
 	with 1.
 
@@ -57,18 +57,18 @@ the foot command line
 *-t*,*--term*=_TERM_
 	Value to set the environment variable *TERM* to. Default: _foot_.
 
-*--title*=_TITLE_
+*-T*,*--title*=_TITLE_
 	Initial window title. Default: _foot_.
 
 *-a*,*--app-id*=_ID_
 	Value to set the *app-id* property on the Wayland window
 	to. Default: _foot_.
 
-*--maximized*
+*-m*,*--maximized*
 	Start in maximized mode. If both *--maximized* and *--fullscreen*
 	are specified, the _last_ one takes precedence.
 
-*--fullscreen*
+*-F*,*--fullscreen*
 	Start in fullscreen mode. If both *--maximized* and *--fullscreen*
 	are specified, the _last_ one takes precedence.
 
@@ -110,7 +110,7 @@ the foot command line
 	*--server-socket* option in *footclient*(1) and point it to your
 	custom socket path.
 
-*--hold*
+*-H*,*--hold*
 	Remain open after child process exits.
 
 *-p*,*--print-pid*=_FILE_|_FD_

@@ -8,6 +8,12 @@
 1. [Other](#other)
    1. [Setup](#setup)
    1. [Release build](#release-build)
+      1. [Size optimized](#size-optimized)
+      1. [Performance optimized, non-PGO](#performance-optimized-non-pgo)
+      1. [Performance optimized, PGO](#performance-optimized-pgo)
+         1. [Partial PGO](#partial-pgo)
+         1. [Full PGO](#full-pgo)
+         1. [Use the generated PGO data](#use-the-generated-pgo-data)
       1. [Profile Guided Optimization](#profile-guided-optimization)
    1. [Debug build](#debug-build)
    1. [Running the new build](#running-the-new-build)
@@ -126,71 +132,151 @@ mkdir -p bld/release && cd bld/release
 
 ### Release build
 
+Below are instructions for building foot either [size
+optimized](#size-optimized), [performance
+optimized](performance-optimized-non-pgo), or performance
+optimized using [PGO](#performance-optimized-pgo).
+
+PGO - _Profile Guided Optimization_ - is a way to optimize a program
+better than `-O3` can, and is done by compiling foot twice: first to
+generate an instrumented version which is used to run a payload that
+exercises the performance critical parts of foot, and then a second
+time to rebuild foot using the generated profiling data to guide
+optimization.
+
+In addition to being faster, PGO builds also tend to be smaller than
+regular `-O3` builds.
+
+
+#### Size optimized
+
+To optimize for size (i.e. produce a small binary):
+
+```sh
+export CFLAGS="$CFLAGS -Os -march=native"
+meson --buildtype=release --prefix=/usr -Db_lto=true ../..
+ninja
+ninja test
+ninja install
+```
+
+#### Performance optimized, non-PGO
+
+To do a regular, non-PGO build optimized for performance:
+
 ```sh
 export CFLAGS="$CFLAGS -O3 -march=native"
 meson --buildtype=release --prefix=/usr -Db_lto=true ../..
+wninja
+ninja test
+ninja install
 ```
-Both `-O3` and `-Db_lto=true` are **highly** recommended.
 
-For performance reasons, I strongly recommend doing a
-[PGO](#profile-guided-optimization) (Profile Guided Optimization)
-build. This requires a running Wayland session since we will be
-executing an intermediate build of foot.
+Use `-O2` instead of `-O3` if you prefer a slightly smaller (and
+slower!) binary.
 
-If you do not want this, just build:
+
+#### Performance optimized, PGO
+
+First, configure the build directory:
 
 ```sh
-ninja
+export CFLAGS="$CFLAGS -O3 -march=native -Wno-missing-profile"
+meson --buildtype=release --prefix=/usr -Db_lto=true ../..
 ```
 
-and then skip to [Running the new build](#running-the-new-build).
+It is **very** important `-O3` is being used here, as GCC-10.1.x and
+later have a regression where PGO with `-O2` is **much** slower.
 
-**For packagers**: normally, you would configure compiler flags using
-`-Dc_args`. This however "overwrites" `CFLAGS`. `makepkg` from Arch,
-for example, uses `CFLAGS` to specify the default set of flags.
+If you are using Clang instead of GCC, use the following `CFLAGS` instead:
 
-Thus, we do `export CFLAGS+="..."` to at least not throw away those
-flags.
+```sh
+export CFLAGS="$CFLAGS -O3 -march=native -Wno-ignored-optimization-argument -Wno-profile-instr-out-of-date"
+```
 
-When packaging, you may want to use the default `CFLAGS` only, but
-note this: foot is a performance critical application that relies on
-compiler optimizations to perform well.
-
-In particular, with GCC 10.1, it is **very** important `-O3` is used
-(and not e.g. `-O2`) when doing a [PGO](#profile-guided-optimization)
-build.
-
-
-#### Profile Guided Optimization
-
-First, make sure you have configured a [release](#release-build) build
-directory, but:
-
-If using Clang, make sure to add `-Wno-ignored-optimization-argument
--Wno-profile-instr-out-of-date` to `CFLAGS`.
-
-If using GCC, make sure to add `-Wno-missing-profile` to `CFLAGS`.
-
-Then, tell meson we want to _generate_ profile data, and build:
+Then, tell meson we want to _generate_ profiling data, and build:
 
 ```sh
 meson configure -Db_pgo=generate
 ninja
 ```
 
-Next, we need to execute the intermediate build of foot, and run a
-payload inside it that will exercise the performance critical code
-paths. To do this, we will use the script
+Next, we need to actually generate the profiling data.
+
+There are two ways to do this: a [partial PGO build using a PGO
+helper](#partial-pgo) binary, or a [full PGO build](#full-pgo) by
+running the real foot binary. The latter has slightly better results
+(i.e. results in a faster binary), but must be run in a Wayland
+session.
+
+A full PGO build also tends to be smaller than a partial build.
+
+
+##### Partial PGO
+
+This method uses a PGO helper binary that links against the VT parser
+only. It is similar to a mock test; it instantiates a dummy terminal
+instance and then directly calls the VT parser with stimuli.
+
+It explicitly does **not** include the Wayland backend and as such, it
+does not require a running Wayland session. The downside is that not
+all code paths in foot is exercised. In particular, the **rendering**
+code is not. As a result, the final binary built using this method is
+slightly slower than when doing a [full PGO](#full-pgo) build.
+
+We will use the `pgo` binary along with input corpus generated by
 `scripts/generate-alt-random-writes.py`:
 
 ```sh
+tmp_file=$(mktemp)
+../../scripts/generate-alt-random-writes \
+    --rows=67 \
+    --cols=135 \
+    --scroll \
+    --scroll-region \
+    --colors-regular \
+    --colors-bright \
+    --colors-256 \
+    --colors-rgb \
+    --attr-bold \
+    --attr-italic \
+    --attr-underline \
+    ${tmp_file}
+./pgo ${tmp_file} ${tmp_file} ${tmp_file}
+rm ${tmp_file}
+```
+
+The snippet above first creates an (empty) temporary file. Then, it
+runs a script that generates random escape sequences (if you cat
+`${tmp_file}` in a terminal, you’ll see random colored characters all
+over the screen). Finally, we feed the randomly generated escape
+sequences to the PGO helper. This is what generates the profiling data
+used in the next step.
+
+You are now ready to [use the generated PGO
+data](#use-the-generated-pgo-data).
+
+
+##### Full PGO
+
+This method requires a running Wayland session.
+
+We will use the script `scripts/generate-alt-random-writes.py`:
+
+```sh
 foot_tmp_file=$(mktemp)
-./foot --config=/dev/null --term=xterm sh -c "<path-to-generate-alt-random-writes.py> --scroll --scroll-region --colors-regular --colors-bright --colors-rgb ${foot_tmp_file} && cat ${foot_tmp_file}"
+./foot --config=/dev/null --term=xterm sh -c "<path-to-generate-alt-random-writes.py> --scroll --scroll-region --colors-regular --colors-bright --colors-256 --colors-rgb --attr-bold --attr-italic --attr-underline ${foot_tmp_file} && cat ${foot_tmp_file}"
 rm ${foot_tmp_file}
 ```
 
 You should see a foot window open up, with random colored text. The
 window should close after ~1-2s.
+
+
+##### Use the generated PGO data
+
+Now that we have _generated_ PGO data, we need to rebuild foot. This
+time telling meson (and ultimately gcc/clang) to _use_ the PGO data.
 
 If using Clang, now do (this requires _llvm_ to have been installed):
 
@@ -207,12 +293,14 @@ ninja
 
 Continue reading in [Running the new build](#running-the-new-build)
 
+
 ### Debug build
 
 ```sh
 meson --buildtype=debug ../..
 ninja
 ```
+
 
 ### Running the new build
 
