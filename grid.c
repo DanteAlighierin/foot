@@ -55,12 +55,125 @@ grid_row_free(struct row *row)
 }
 
 void
-grid_reflow(struct grid *grid, int new_rows, int new_cols,
-            int old_screen_rows, int new_screen_rows,
-            size_t tracking_points_count,
-            struct coord *const _tracking_points[static tracking_points_count],
-            size_t compose_count, const struct
-            composed composed[static compose_count])
+grid_resize_without_reflow(
+    struct grid *grid, int new_rows, int new_cols,
+    int old_screen_rows, int new_screen_rows)
+{
+    struct row *const *old_grid = grid->rows;
+    const int old_rows = grid->num_rows;
+    const int old_cols = grid->num_cols;
+
+    struct row **new_grid = xcalloc(new_rows, sizeof(new_grid[0]));
+
+    tll(struct sixel) untranslated_sixels = tll_init();
+    tll_foreach(grid->sixel_images, it)
+        tll_push_back(untranslated_sixels, it->item);
+    tll_free(grid->sixel_images);
+
+    int new_offset = 0;
+
+    /* Copy old lines, truncating them if old rows were longer */
+    for (int r = 0; r < min(old_screen_rows, new_screen_rows); r++) {
+        const int old_row_idx = (grid->offset + r) & (old_rows - 1);
+        const int new_row_idx = (new_offset + r) & (new_rows - 1);
+
+        const struct row *old_row = old_grid[old_row_idx];
+        assert(old_row != NULL);
+
+        struct row *new_row = grid_row_alloc(new_cols, false);
+        new_grid[new_row_idx] = new_row;
+
+        memcpy(new_row->cells,
+               old_row->cells,
+               sizeof(struct cell) * min(old_cols, new_cols));
+
+        new_row->dirty = old_row->dirty;
+        new_row->linebreak = false;
+
+        /* Clear "new" columns */
+        if (new_cols > old_cols) {
+            memset(&new_row->cells[old_cols], 0,
+                   sizeof(struct cell) * (new_cols - old_cols));
+            new_row->dirty = true;
+        }
+
+        /* Map sixels on current "old" row to current "new row" */
+        tll_foreach(untranslated_sixels, it) {
+            if (it->item.pos.row != old_row_idx)
+                continue;
+
+            struct sixel sixel = it->item;
+            sixel.pos.row = new_row_idx;
+
+            if (sixel.pos.col < new_cols)
+                tll_push_back(grid->sixel_images, sixel);
+            else
+                sixel_destroy(&it->item);
+            tll_remove(untranslated_sixels, it);
+        }
+    }
+
+    /* Clear "new" lines */
+    for (int r = min(old_screen_rows, new_screen_rows); r < new_screen_rows; r++) {
+        struct row *new_row = grid_row_alloc(new_cols, false);
+        new_grid[(new_offset + r) & (new_rows - 1)] = new_row;
+
+        memset(new_row->cells, 0, sizeof(struct cell) * new_cols);
+        new_row->linebreak = false;
+        new_row->dirty = true;
+    }
+
+    /* Free old grid */
+    for (int r = 0; r < grid->num_rows; r++)
+        grid_row_free(old_grid[r]);
+    free(grid->rows);
+
+    grid->rows = new_grid;
+    grid->num_rows = new_rows;
+    grid->num_cols = new_cols;
+
+    grid->view = grid->offset = new_offset;
+
+    /* Keep cursor at current position, but clamp to new dimensions */
+    struct coord cursor = grid->cursor.point;
+    if (cursor.row == old_screen_rows - 1) {
+        /* 'less' breaks if the cursor isn't at the bottom */
+        cursor.row = new_screen_rows - 1;
+    }
+    cursor.row = min(cursor.row, new_screen_rows - 1);
+    cursor.col = min(cursor.col, new_cols - 1);
+    grid->cursor.point = cursor;
+
+    struct coord saved_cursor = grid->saved_cursor.point;
+    if (saved_cursor.row == old_screen_rows - 1)
+        saved_cursor.row = new_screen_rows - 1;
+    saved_cursor.row = min(saved_cursor.row, new_screen_rows - 1);
+    saved_cursor.col = min(saved_cursor.col, new_cols - 1);
+    grid->saved_cursor.point = saved_cursor;
+
+    grid->cur_row = new_grid[(grid->offset + cursor.row) & (new_rows - 1)];
+    grid->cursor.lcf = false;
+    grid->saved_cursor.lcf = false;
+
+    /* Free sixels we failed to "map" to the new grid */
+    tll_foreach(untranslated_sixels, it)
+        sixel_destroy(&it->item);
+    tll_free(untranslated_sixels);
+
+#if defined(_DEBUG)
+    for (int r = 0; r < new_screen_rows; r++)
+        grid_row_in_view(grid, r);
+#endif
+}
+
+void
+grid_resize_and_reflow(
+    struct grid *grid, int new_rows, int new_cols,
+    int old_screen_rows, int new_screen_rows,
+    size_t tracking_points_count,
+    struct coord *const _tracking_points[static tracking_points_count],
+    size_t compose_count, const struct
+    composed composed[static compose_count])
 {
     struct row *const *old_grid = grid->rows;
     const int old_rows = grid->num_rows;
@@ -305,7 +418,6 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
         grid_row_free(old_grid[r]);
     free(grid->rows);
 
-    grid->cur_row = new_grid[cursor.row];
     grid->rows = new_grid;
     grid->num_rows = new_rows;
     grid->num_cols = new_cols;
@@ -315,14 +427,15 @@ grid_reflow(struct grid *grid, int new_rows, int new_cols,
     while (cursor.row < 0)
         cursor.row += grid->num_rows;
     cursor.row = min(cursor.row, new_screen_rows - 1);
-    assert(cursor.col >= 0 && cursor.col < new_cols);
+    cursor.col = min(cursor.col, new_cols - 1);
 
     saved_cursor.row -= grid->offset;
     while (saved_cursor.row < 0)
         saved_cursor.row += grid->num_rows;
     saved_cursor.row = min(saved_cursor.row, new_screen_rows - 1);
-    assert(saved_cursor.col >= 0 && saved_cursor.col < new_cols);
+    saved_cursor.col = min(saved_cursor.col, new_cols - 1);
 
+    grid->cur_row = new_grid[(grid->offset + cursor.row) & (new_rows - 1)];
     grid->cursor.point = cursor;
     grid->saved_cursor.point = saved_cursor;
 
