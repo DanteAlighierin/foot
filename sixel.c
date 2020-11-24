@@ -778,24 +778,6 @@ sixel_unhook(struct terminal *term)
     render_refresh(term);
 }
 
-static unsigned
-max_width(const struct terminal *term)
-{
-    /* foot extension - treat 0 to mean current terminal size */
-    return term->sixel.max_width == 0
-        ? term->cols * term->cell_width
-        : term->sixel.max_width;
-}
-
-static unsigned
-max_height(const struct terminal *term)
-{
-    /* foot extension - treat 0 to mean current terminal size */
-    return term->sixel.max_height == 0
-        ? term->rows * term->cell_height
-        : term->sixel.max_height;
-}
-
 static bool
 resize(struct terminal *term, int new_width, int new_height)
 {
@@ -863,8 +845,8 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 {
     //LOG_DBG("adding sixel %02hhx using color 0x%06x", sixel, color);
 
-    if (term->sixel.pos.col >= max_width(term) ||
-        term->sixel.pos.row * 6 + 5 >= max_height(term))
+    if (term->sixel.pos.col >= term->sixel.max_width ||
+        term->sixel.pos.row * 6 + 5 >= term->sixel.max_height)
     {
         return;
     }
@@ -990,7 +972,7 @@ decgra(struct terminal *term, uint8_t c)
                 pan, pad, pan / pad, ph, pv);
 
         if (ph >= term->sixel.image.height && pv >= term->sixel.image.width &&
-            ph <= max_height(term) && pv <= max_width(term))
+            ph <= term->sixel.max_height && pv <= term->sixel.max_width)
         {
             if (resize(term, ph, pv))
                 term->sixel.image.autosize = false;
@@ -1163,19 +1145,19 @@ sixel_geometry_report_current(struct terminal *term)
 {
     char reply[64];
     snprintf(reply, sizeof(reply), "\033[?2;0;%u;%uS",
-             max_width(term), max_height(term));
+             term->sixel.max_width, term->sixel.max_height);
     term_to_slave(term, reply, strlen(reply));
 
     LOG_DBG("query response for current sixel geometry: %ux%u",
-            max_width(term), max_height(term));
+            term->sixel.max_width, term->sixel.max_height);
 }
 
 void
 sixel_geometry_reset(struct terminal *term)
 {
-    LOG_DBG("sixel geometry reset to %ux%u", max_width(term), max_height(term));
-    term->sixel.max_width = 0;
-    term->sixel.max_height = 0;
+    LOG_DBG("sixel geometry reset to %ux%u", SIXEL_MAX_WIDTH, SIXEL_MAX_HEIGHT);
+    term->sixel.max_width = SIXEL_MAX_WIDTH;
+    term->sixel.max_height = SIXEL_MAX_HEIGHT;
     sixel_geometry_report_current(term);
 }
 

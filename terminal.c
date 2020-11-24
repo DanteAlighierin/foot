@@ -1109,6 +1109,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         },
         .sixel = {
             .palette_size = SIXEL_MAX_COLORS,
+            .max_width = SIXEL_MAX_WIDTH,
+            .max_height = SIXEL_MAX_HEIGHT,
         },
         .hold_at_exit = conf->hold_at_exit,
         .shutdown_cb = shutdown_cb,
