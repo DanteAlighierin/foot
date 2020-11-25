@@ -294,6 +294,8 @@ struct monitor {
     char *description;
 
     float inch;  /* e.g. 24" */
+
+    bool use_output_release;
 };
 
 struct wayland;
