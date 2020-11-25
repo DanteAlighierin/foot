@@ -114,6 +114,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
+* [kennylevinsen](https://codeberg.org/kennylevinsen)
 
 
 ## 1.5.3
