@@ -2276,23 +2276,22 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         goto damage_view;
     }
 
+    if (term->grid == &term->alt)
+        selection_cancel(term);
+
     struct coord *const tracking_points[] = {
         &term->selection.start,
         &term->selection.end,
     };
 
-    /* Reflow grids */
-    grid_reflow(
+    /* Resize grids */
+    grid_resize_and_reflow(
         &term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows,
-        term->grid == &term->normal ? ALEN(tracking_points) : 0,
-        term->grid == &term->normal ? tracking_points : NULL,
+        ALEN(tracking_points), tracking_points,
         term->composed_count, term->composed);
 
-    grid_reflow(
-        &term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows,
-        term->grid == &term->alt ? ALEN(tracking_points) : 0,
-        term->grid == &term->alt ? tracking_points : NULL,
-        term->composed_count, term->composed);
+    grid_resize_without_reflow(
+        &term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows);
 
     /* Reset tab stops */
     tll_free(term->tab_stops);
