@@ -73,7 +73,7 @@ grid_resize_without_reflow(
     int new_offset = 0;
 
     /* Copy old lines, truncating them if old rows were longer */
-    for (int r = 0; r < min(old_screen_rows, new_screen_rows); r++) {
+    for (int r = 0, n = min(old_screen_rows, new_screen_rows); r < n; r++) {
         const int old_row_idx = (grid->offset + r) & (old_rows - 1);
         const int new_row_idx = (new_offset + r) & (new_rows - 1);
 
