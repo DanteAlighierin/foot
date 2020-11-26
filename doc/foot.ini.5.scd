@@ -1,7 +1,7 @@
 foot.ini(5)
 
 # NAME
-foot.ini - configuration file
+foot.ini - configuration file for *foot*(1)
 
 # DESCRIPTION
 
@@ -93,7 +93,7 @@ in this order:
 	Executable to launch. Typically a shell. Default: _$SHELL_ if set,
 	otherwise the user's default shell (as specified in
 	_/etc/passwd_). You can also pass arguments. For example
-	"/bin/bash --norc".
+	*/bin/bash --norc*.
 
 *login-shell*
 	Boolean. If enabled, the shell will be launched as a login shell,
@@ -199,7 +199,8 @@ applications can change these at runtime.
 # SECTION: mouse
 
 *hide-when-typing*
-	Boolean. When enabled, the mouse cursor is hidden while typing.
+	Boolean. When enabled, the mouse cursor is hidden while
+	typing. Default: _no_.
 
 *alternate-scroll-mode*
 	Boolean. This option controls the initial value for the _alternate
@@ -315,8 +316,8 @@ combination is on the form _mod1+mod2+key_. The names of the modifiers
 and the key *must* be valid XKB key names.
 
 Note that if *Shift* is one of the modifiers, the _key_ *must* be in
-upper case. For example, *Control+Shift+v* will never trigger -
-*Control+Shift+V* is the correct way to write it.
+upper case. For example, *Control+Shift+v* will never trigger, but
+*Control+Shift+V* will.
 
 Note that *Alt* is usually called *Mod1*.
 
