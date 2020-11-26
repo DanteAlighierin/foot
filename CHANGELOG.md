@@ -95,6 +95,10 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * Graphical glitches/flashes when resizing the window while running a
   fullscreen application, i.e. the 'alt' screen
   (https://codeberg.org/dnkl/foot/issues/221).
+* Cursor will now blink if **either** `CSI ? 12 h` or `CSI Ps SP q`
+  has been used to enable blinking. **cursor.blink** in `foot.ini`
+  controls the default state of `CSI Ps SP q`
+  (https://codeberg.org/dnkl/foot/issues/218).
 
 
 ### Deprecated

@@ -390,10 +390,8 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         break;
 
     case 12:
-        if (enable)
-            term_cursor_blink_enable(term);
-        else
-            term_cursor_blink_disable(term);
+        term->cursor_blink.decset = enable;
+        term_cursor_blink_update(term);
         break;
 
     case 25:
@@ -556,12 +554,6 @@ decrst(struct terminal *term, unsigned param)
     decset_decrst(term, param, false);
 }
 
-static bool
-timespecs_equal(const struct timespec *a, const struct timespec *b)
-{
-    return a->tv_sec == b->tv_sec && a->tv_nsec == b->tv_nsec;
-}
-
 static void
 xtsave(struct terminal *term, unsigned param)
 {
@@ -573,20 +565,7 @@ xtsave(struct terminal *term, unsigned param)
     case 6: term->xtsave.origin = term->origin; break;
     case 7: term->xtsave.auto_margin = term->auto_margin; break;
     case 9: /* term->xtsave.mouse_x10 = term->mouse_tracking == MOUSE_X10; */ break;
-
-    case 12: {
-        struct itimerspec current_value;
-        if (timerfd_gettime(term->cursor_blink.fd, &current_value) < 0)
-            LOG_WARN("xtsave: failed to read cursor blink timer: %s", strerror(errno));
-        else {
-            const struct timespec zero = {.tv_sec = 0, .tv_nsec = 0};
-            term->xtsave.cursor_blink =
-                !(timespecs_equal(&current_value.it_interval, &zero) &&
-                  timespecs_equal(&current_value.it_value, &zero));
-        }
-        break;
-    }
-
+    case 12: term->xtsave.cursor_blink = term->cursor_blink.decset; break;
     case 25: term->xtsave.show_cursor = !term->hide_cursor; break;
     case 45: term->xtsave.reverse_wrap = term->reverse_wrap; break;
     case 1000: term->xtsave.mouse_click = term->mouse_tracking == MOUSE_CLICK; break;
@@ -1514,11 +1493,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
             int param = vt_param_get(term, 0, 0);
             switch (param) {
             case 0: /* blinking block, but we use it to reset to configured default */
-                if (term->default_cursor_blink)
-                    term_cursor_blink_enable(term);
-                else
-                    term_cursor_blink_disable(term);
                 term->cursor_style = term->conf->cursor.style;
+                term->cursor_blink.deccsusr = term->conf->cursor.blink;
+                term_cursor_blink_update(term);
                 break;
 
             case 1:         /* blinking block */
@@ -1542,10 +1519,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
             }
 
             if (param > 0 && param <= 6) {
-                if (param & 1)
-                    term_cursor_blink_enable(term);
-                else
-                    term_cursor_blink_disable(term);
+                term->cursor_blink.deccsusr = param & 1;
+                term_cursor_blink_update(term);
             }
             break;
         }

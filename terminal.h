@@ -338,11 +338,11 @@ struct terminal {
 
     enum cursor_style cursor_style;
     struct {
-        bool active;
-        enum { CURSOR_BLINK_ON, CURSOR_BLINK_OFF } state;
+        bool decset;   /* Blink enabled via '\E[?12h' */
+        bool deccsusr; /* Blink enabled via '\E[X q' */
         int fd;
+        enum { CURSOR_BLINK_ON, CURSOR_BLINK_OFF } state;
     } cursor_blink;
-    bool default_cursor_blink;
     struct {
         uint32_t text;
         uint32_t cursor;
@@ -538,9 +538,7 @@ void term_cursor_left(struct terminal *term, int count);
 void term_cursor_right(struct terminal *term, int count);
 void term_cursor_up(struct terminal *term, int count);
 void term_cursor_down(struct terminal *term, int count);
-void term_cursor_blink_enable(struct terminal *term);
-void term_cursor_blink_disable(struct terminal *term);
-void term_cursor_blink_restart(struct terminal *term);
+void term_cursor_blink_update(struct terminal *term);
 
 void term_print(struct terminal *term, wchar_t wc, int width);
 
