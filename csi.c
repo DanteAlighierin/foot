@@ -15,6 +15,7 @@
 #define LOG_MODULE "csi"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "config.h"
 #include "grid.h"
 #include "selection.h"
 #include "sixel.h"
@@ -1513,11 +1514,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             int param = vt_param_get(term, 0, 0);
             switch (param) {
             case 0: /* blinking block, but we use it to reset to configured default */
-                term->cursor_style = term->default_cursor_style;
                 if (term->default_cursor_blink)
                     term_cursor_blink_enable(term);
                 else
                     term_cursor_blink_disable(term);
+                term->cursor_style = term->conf->cursor.style;
                 break;
 
             case 1:         /* blinking block */

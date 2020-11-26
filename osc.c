@@ -8,6 +8,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "base64.h"
+#include "config.h"
 #include "grid.h"
 #include "render.h"
 #include "selection.h"
@@ -663,8 +664,8 @@ osc_dispatch(struct terminal *term)
 
     case 112:
         LOG_DBG("resetting cursor color");
-        term->cursor_color.text = term->default_cursor_color.text;
-        term->cursor_color.cursor = term->default_cursor_color.cursor;
+        term->cursor_color.text = term->conf->cursor.color.text;
+        term->cursor_color.cursor = term->conf->cursor.color.cursor;
         term_damage_cursor(term);
         break;
 

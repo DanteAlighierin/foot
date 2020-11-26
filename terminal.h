@@ -336,7 +336,6 @@ struct terminal {
         uint32_t default_table[256];
     } colors;
 
-    enum cursor_style default_cursor_style;
     enum cursor_style cursor_style;
     struct {
         bool active;
@@ -344,10 +343,6 @@ struct terminal {
         int fd;
     } cursor_blink;
     bool default_cursor_blink;
-    struct {
-        uint32_t text;
-        uint32_t cursor;
-    } default_cursor_color;
     struct {
         uint32_t text;
         uint32_t cursor;
@@ -474,7 +469,6 @@ struct terminal {
     } sixel;
 
     bool quit;
-    bool hold_at_exit;
     bool is_shutting_down;
     void (*shutdown_cb)(void *data, int exit_code);
     void *shutdown_data;
