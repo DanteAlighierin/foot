@@ -301,6 +301,10 @@ The report should contain the following:
   with symbols
 - Steps to reproduce. The more details the better
 
+# IRC
+
+\#foot-terminal on chat.freenode.net
+
 # SEE ALSO
 
 *foot.ini*(5), *footclient*(1)
