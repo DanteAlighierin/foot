@@ -397,7 +397,8 @@ The report should contain the following:
 ## IRC
 
 Ask questions, hang out, sing praise or just say hi on
-`#foot-terminal` on Freenode, where I’m `dnkl`.
+`#foot-terminal` on [chat.freenode.net](https://freenode.net), where
+I’m `dnkl`.
 
 
 ## Mastodon
