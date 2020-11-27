@@ -138,7 +138,7 @@ The following keyboard shortcuts are available.
 ## NORMAL MODE
 
 Note that these are just the defaults; they can be changed in
-*foot.ini*, see *foot.ini*(5).
+*foot.ini(5)*.
 
 *shift*+*page up*/*page down*
 	Scroll up/down in history

@@ -215,14 +215,44 @@ struct terminal {
 
     pid_t slave;
     int ptmx;
-    bool quit;
 
+    struct vt vt;
+    struct grid *grid;
     struct grid normal;
     struct grid alt;
-    struct grid *grid;
+
+    int cols;   /* number of columns */
+    int rows;   /* number of rows */
+    struct scroll_region scroll_region;
+
+    struct charsets charsets;
+    struct charsets saved_charsets; /* For save/restore cursor + attributes */
+
+    bool auto_margin;
+    bool insert_mode;
+    bool reverse;
+    bool hide_cursor;
+    bool reverse_wrap;
+    bool bracketed_paste;
+    bool focus_events;
+    bool alt_scrolling;
+    enum cursor_origin origin;
+    enum cursor_keys cursor_keys_mode;
+    enum keypad_keys keypad_keys_mode;
+    enum mouse_tracking mouse_tracking;
+    enum mouse_reporting mouse_reporting;
+
+    tll(int) tab_stops;
 
     size_t composed_count;
     struct composed *composed;
+
+    /* Temporary: for FDM */
+    struct {
+        bool is_armed;
+        int lower_fd;
+        int upper_fd;
+    } delayed_render_timer;
 
     struct fcft_font *fonts[4];
     struct config_font *font_sizes[4];
@@ -233,20 +263,6 @@ struct terminal {
     bool is_sending_paste_data;
     ptmx_buffer_list_t ptmx_buffers;
     ptmx_buffer_list_t ptmx_paste_buffers;
-
-    enum cursor_origin origin;
-    enum cursor_keys cursor_keys_mode;
-    enum keypad_keys keypad_keys_mode;
-    bool reverse;
-    bool hide_cursor;
-    bool reverse_wrap;
-    bool auto_margin;
-    bool insert_mode;
-    bool bracketed_paste;
-    bool focus_events;
-    bool alt_scrolling;
-    enum mouse_tracking mouse_tracking;
-    enum mouse_reporting mouse_reporting;
 
     struct {
         bool esc_prefix;
@@ -282,9 +298,6 @@ struct terminal {
         uint32_t alt_screen:1;
     } xtsave;
 
-    struct charsets charsets;
-    struct charsets saved_charsets; /* For save/restore cursor + attributes */
-
     char *window_title;
     tll(char *) window_title_stack;
 
@@ -298,8 +311,6 @@ struct terminal {
         int fd;
     } blink;
 
-    struct vt vt;
-
     int scale;
     int width;  /* pixels */
     int height; /* pixels */
@@ -311,12 +322,8 @@ struct terminal {
         int top;
         int bottom;
     } margins;
-    int cols;   /* number of columns */
-    int rows;   /* number of rows */
     int cell_width;  /* pixels per cell, x-wise */
     int cell_height; /* pixels per cell, y-wise */
-
-    struct scroll_region scroll_region;
 
     struct {
         uint32_t fg;
@@ -373,8 +380,6 @@ struct terminal {
         struct coord match;
         size_t match_len;
     } search;
-
-    tll(int) tab_stops;
 
     struct wayland *wl;
     struct wl_window *window;
@@ -438,19 +443,12 @@ struct terminal {
         struct timespec input_time;
     } render;
 
-    /* Temporary: for FDM */
-    struct {
-        bool is_armed;
-        int lower_fd;
-        int upper_fd;
-    } delayed_render_timer;
-
     struct {
         enum {
             SIXEL_DECSIXEL,  /* DECSIXEL body part ", $, -, ? ... ~ */
             SIXEL_DECGRA,    /* DECGRA Set Raster Attributes " Pan; Pad; Ph; Pv */
             SIXEL_DECGRI,    /* DECGRI Graphics Repeat Introducer ! Pn Ch */
-            SIXEL_DECGCI,    /* DECGCI Graphics Color Introducer # Pc; Pu; Px; Py; Pz */        
+            SIXEL_DECGCI,    /* DECGCI Graphics Color Introducer # Pc; Pu; Px; Py; Pz */
         } state;
 
         struct coord pos;    /* Current sixel coordinate */
@@ -475,6 +473,7 @@ struct terminal {
         unsigned max_height;    /* Maximum image height, in pixels */
     } sixel;
 
+    bool quit;
     bool hold_at_exit;
     bool is_shutting_down;
     void (*shutdown_cb)(void *data, int exit_code);

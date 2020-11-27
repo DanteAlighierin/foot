@@ -92,6 +92,9 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   this.
 * Sixel default maximum size is now 10000x10000 instead of the current
   window size.
+* Graphical glitches/flashes when resizing the window while running a
+  fullscreen application, i.e. the 'alt' screen
+  (https://codeberg.org/dnkl/foot/issues/221).
 
 
 ### Deprecated
@@ -111,6 +114,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
+* [kennylevinsen](https://codeberg.org/kennylevinsen)
 
 
 ## 1.5.3

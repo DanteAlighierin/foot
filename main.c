@@ -490,8 +490,8 @@ main(int argc, char *const *argv)
             goto out;
     }
 
-    while (!aborted && (as_server || tll_length(wayl->terms) > 0)) {
-        if (!fdm_poll(fdm))
+    while (likely(!aborted && (as_server || tll_length(wayl->terms) > 0))) {
+        if (unlikely(!fdm_poll(fdm)))
             break;
     }
 

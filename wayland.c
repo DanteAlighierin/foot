@@ -841,11 +841,12 @@ handle_global(void *data, struct wl_registry *registry,
             return;
 
         struct wl_output *output = wl_registry_bind(
-            wayl->registry, name, &wl_output_interface, required);
+            wayl->registry, name, &wl_output_interface, min(version, 3));
 
         tll_push_back(
             wayl->monitors,
-            ((struct monitor){.wayl = wayl, .output = output, .wl_name = name}));
+            ((struct monitor){.wayl = wayl, .output = output, .wl_name = name,
+             .use_output_release = version >= WL_OUTPUT_RELEASE_SINCE_VERSION}));
 
         struct monitor *mon = &tll_back(wayl->monitors);
         wl_output_add_listener(output, &output_listener, mon);
@@ -901,8 +902,12 @@ monitor_destroy(struct monitor *mon)
 {
     if (mon->xdg != NULL)
         zxdg_output_v1_destroy(mon->xdg);
-    if (mon->output != NULL)
-        wl_output_release(mon->output);
+    if (mon->output != NULL) {
+        if (mon->use_output_release)
+            wl_output_release(mon->output);
+        else
+            wl_output_destroy(mon->output);
+    }
     free(mon->make);
     free(mon->model);
     free(mon->name);

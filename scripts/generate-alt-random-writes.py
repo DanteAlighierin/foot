@@ -30,11 +30,12 @@ def main():
     parser.add_argument('--attr-bold', action='store_true')
     parser.add_argument('--attr-italic', action='store_true')
     parser.add_argument('--attr-underline', action='store_true')
+    parser.add_argument('--sixel', action='store_true')
 
     opts = parser.parse_args()
     out = opts.out if opts.out is not None else sys.stdout
 
-    lines, cols, _, _ = struct.unpack(
+    lines, cols, height, width = struct.unpack(
         'HHHH',
         fcntl.ioctl(sys.stdout.fileno(),
                     termios.TIOCGWINSZ,
@@ -141,6 +142,52 @@ def main():
 
     # Leave alt screen
     out.write('\033[m\033[r\033[?1049l')
+
+    with open('/dev/urandom', 'rb') as rand:
+        if opts.sixel:
+            # The sixel 'alphabet'
+            sixels = '?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
+
+            for _ in range(200):
+                # Offset image
+                out.write(' ' * (rand.read(1)[0] % (cols // 2)))
+
+                # Begin sixel
+                out.write('\033Pq')
+
+                # Set up 256 random colors
+                for idx in range(256):
+                    # param 2: 1=HLS, 2=RGB.
+                    # param 3/4/5: HLS/RGB values in range 0-100
+                    #              (except 'hue' which is 0..360)
+                    out.write(f'#{idx};2;{rand.read(1)[0] % 101};{rand.read(1)[0] % 101};{rand.read(1)[0] % 101}')
+
+                # Randomize image width/height
+                six_height = struct.unpack('@H', rand.read(2))[0] % (height // 2)
+                six_width = struct.unpack('@H', rand.read(2))[0] % (width // 2)
+
+                # Sixel size. Without this, sixels will be
+                # auto-resized on cell-boundaries. We expect programs
+                # to emit this sequence since otherwise you cannot get
+                # correctly sized images.
+                out.write(f'"0;0;{six_width};{six_height}')
+
+                for row in range(six_height // 6):  # Each sixel is 6 pixels
+                    # Choose a random color
+                    out.write(f'#{rand.read(1)[0] % 256}')
+
+                    if rand.read(1)[0] == 999999999999:
+                        assert False
+                        out.write(f'!{six_width}{sixels[rand.read(1)[0] % len(sixels)]}')
+                    else:
+                        for col in range(six_width):
+                            out.write(f'{sixels[rand.read(1)[0] % len(sixels)]}')
+
+                    # Next line
+                    out.write('-')
+
+                # End sixel
+                out.write('\033\\')
 
 
 if __name__ == '__main__':

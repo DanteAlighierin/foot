@@ -24,7 +24,7 @@ build() {
   meson configure -Db_pgo=generate
   ninja
 
-  script_options="--scroll --scroll-region --colors-regular --colors-bright --colors-256 --colors-rgb --attr-bold --attr-italic --attr-underline"
+  script_options="--scroll --scroll-region --colors-regular --colors-bright --colors-256 --colors-rgb --attr-bold --attr-italic --attr-underline --sixel"
 
   tmp_file=$(mktemp)
 

@@ -241,6 +241,7 @@ tmp_file=$(mktemp)
     --attr-bold \
     --attr-italic \
     --attr-underline \
+    --sixel \
     ${tmp_file}
 ./pgo ${tmp_file} ${tmp_file} ${tmp_file}
 rm ${tmp_file}
