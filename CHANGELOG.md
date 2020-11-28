@@ -112,6 +112,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * Key mappings for key combinations with `alt`+`return`.
 * `footclient` `-m` (`--maximized`) flag being ignored.
 * Crash with explicitly sized sixels with a height less than 6 pixels.
+* Key mappings for `esc` with modifiers.
 
 
 ### Security
