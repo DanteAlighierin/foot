@@ -1,5 +1,7 @@
 #include "ime.h"
 
+#include <string.h>
+
 #include "text-input-unstable-v3.h"
 
 #define LOG_MODULE "ime"
@@ -72,7 +74,9 @@ static void
 commit_string(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
               const char *text)
 {
+    struct seat *seat = data;
     LOG_DBG("commit: text=%s", text);
+    term_to_slave(seat->kbd_focus, text, strlen(text));
 }
 
 static void
