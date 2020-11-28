@@ -21,6 +21,21 @@ struct key_data {
 };
 
 static const struct key_data key_escape[] = {
+    {MOD_SHIFT,                                 CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;2;27~"},
+    {MOD_ALT,                                   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;3;27~"},
+    {MOD_SHIFT | MOD_ALT,                       CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;4;27~"},
+    {MOD_CTRL,                                  CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;5;27~"},
+    {MOD_SHIFT | MOD_CTRL,                      CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;6;27~"},
+    {MOD_ALT | MOD_CTRL,                        CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;7;27~"},
+    {MOD_SHIFT | MOD_ALT | MOD_CTRL,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;8;27~"},
+    {MOD_META,                                  CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;9;27~"},
+    {MOD_META | MOD_SHIFT,                      CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;10;27~"},
+    {MOD_META | MOD_ALT,                        CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;11;27~"},
+    {MOD_META | MOD_SHIFT | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;12;27~"},
+    {MOD_META | MOD_CTRL,                       CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;13;27~"},
+    {MOD_META | MOD_SHIFT | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;14;27~"},
+    {MOD_META | MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;15;27~"},
+    {MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;16;27~"},
     {MOD_ANY,   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033"},
 };
 
