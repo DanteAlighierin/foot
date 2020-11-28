@@ -48,7 +48,7 @@ enter(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         break;
     }
 
-   zwp_text_input_v3_commit(seat->wl_text_input);
+    zwp_text_input_v3_commit(seat->wl_text_input);
 }
 
 static void
@@ -57,13 +57,15 @@ leave(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 {
     struct seat *seat = data;
     LOG_DBG("leave: seat=%s", seat->name);
+    zwp_text_input_v3_disable(seat->wl_text_input);
+    zwp_text_input_v3_commit(seat->wl_text_input);
 }
 
 static void
 preedit_string(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
                const char *text, int32_t cursor_begin, int32_t cursor_end)
 {
-    LOG_DBG("preedit-strig: text=%s, begin=%d, end=%d", text, cursor_begin, cursor_end);
+    LOG_DBG("preedit-string: text=%s, begin=%d, end=%d", text, cursor_begin, cursor_end);
 }
 
 static void
