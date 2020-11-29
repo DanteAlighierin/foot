@@ -11,21 +11,28 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
+enum {
+    P = 0, // Padding byte (=)
+    I = 128, // Invalid byte ([^A-Za-z0-9+/=])
+};
+
 static const uint8_t reverse_lookup[256] = {
-    ['A'] = 0, ['B'] = 1, ['C'] = 2, ['D'] = 3, ['E'] = 4, ['F'] = 5, ['G'] = 6,
-    ['H'] = 7, ['I'] = 8, ['J'] = 9, ['K'] = 10, ['L'] = 11, ['M'] = 12, ['N'] = 13,
-    ['O'] = 14, ['P'] = 15, ['Q'] = 16, ['R'] = 17, ['S'] = 18, ['T'] = 19, ['U'] = 20,
-    ['V'] = 21, ['W'] = 22, ['X'] = 23, ['Y'] = 24, ['Z'] = 25,
-
-    ['a'] = 26, ['b'] = 27, ['c'] = 28, ['d'] = 29, ['e'] = 30, ['f'] = 31, ['g'] = 32,
-    ['h'] = 33, ['i'] = 34, ['j'] = 35, ['k'] = 36, ['l'] = 37, ['m'] = 38, ['n'] = 39,
-    ['o'] = 40, ['p'] = 41, ['q'] = 42, ['r'] = 43, ['s'] = 44, ['t'] = 45, ['u'] = 46,
-    ['v'] = 47, ['w'] = 48, ['x'] = 49, ['y'] = 50, ['z'] = 51,
-
-    ['0'] = 52, ['1'] = 53, ['2'] = 54, ['3'] = 55, ['4'] = 56, ['5'] = 57,
-    ['6'] = 58, ['7'] = 59, ['8'] = 60, ['9'] = 61,
-
-    ['+'] = 62, ['/'] = 63,
+     I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,
+     I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,
+     I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I, 62,  I,  I,  I, 63,
+    52, 53, 54, 55, 56, 57, 58, 59, 60, 61,  I,  I,  I,  P,  I,  I,
+     I,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14,
+    15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,  I,  I,  I,  I,  I,
+     I, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+    41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51,  I,  I,  I,  I,  I,
+     I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,
+     I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,
+     I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,
+     I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,
+     I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,
+     I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,
+     I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,
+     I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I,  I
 };
 
 static const char lookup[64] = {
@@ -37,18 +44,11 @@ static const char lookup[64] = {
     '+', '/',
 };
 
-static inline bool
-is_valid(unsigned char c)
-{
-    return reverse_lookup[c] != 0 || c == 'A' || c == '=';
-}
-
 char *
 base64_decode(const char *s)
 {
     const size_t len = strlen(s);
-
-    if (len % 4 != 0) {
+    if (unlikely(len % 4 != 0)) {
         errno = EINVAL;
         return NULL;
     }
@@ -58,21 +58,16 @@ base64_decode(const char *s)
         return NULL;
 
     for (size_t i = 0, o = 0; i < len; i += 4, o += 3) {
-        unsigned char c0 = s[i + 0];
-        unsigned char c1 = s[i + 1];
-        unsigned char c2 = s[i + 2];
-        unsigned char c3 = s[i + 3];
+        unsigned a = reverse_lookup[(unsigned char)s[i + 0]];
+        unsigned b = reverse_lookup[(unsigned char)s[i + 1]];
+        unsigned c = reverse_lookup[(unsigned char)s[i + 2]];
+        unsigned d = reverse_lookup[(unsigned char)s[i + 3]];
 
-        if (!is_valid(c0) || !is_valid(c1) || !is_valid(c2) || !is_valid(c3)) {
+        if (unlikely((a | b | c | d) & I)) {
             free(ret);
             errno = EINVAL;
             return NULL;
         }
-
-        unsigned a = reverse_lookup[c0];
-        unsigned b = reverse_lookup[c1];
-        unsigned c = reverse_lookup[c2];
-        unsigned d = reverse_lookup[c3];
 
         uint32_t v = a << 18 | b << 12 | c << 6 | d << 0;
         char x = (v >> 16) & 0xff;
