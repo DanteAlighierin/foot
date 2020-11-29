@@ -336,18 +336,13 @@ struct terminal {
         uint32_t default_table[256];
     } colors;
 
-    enum cursor_style default_cursor_style;
     enum cursor_style cursor_style;
     struct {
-        bool active;
-        enum { CURSOR_BLINK_ON, CURSOR_BLINK_OFF } state;
+        bool decset;   /* Blink enabled via '\E[?12h' */
+        bool deccsusr; /* Blink enabled via '\E[X q' */
         int fd;
+        enum { CURSOR_BLINK_ON, CURSOR_BLINK_OFF } state;
     } cursor_blink;
-    bool default_cursor_blink;
-    struct {
-        uint32_t text;
-        uint32_t cursor;
-    } default_cursor_color;
     struct {
         uint32_t text;
         uint32_t cursor;
@@ -474,7 +469,6 @@ struct terminal {
     } sixel;
 
     bool quit;
-    bool hold_at_exit;
     bool is_shutting_down;
     void (*shutdown_cb)(void *data, int exit_code);
     void *shutdown_data;
@@ -544,9 +538,7 @@ void term_cursor_left(struct terminal *term, int count);
 void term_cursor_right(struct terminal *term, int count);
 void term_cursor_up(struct terminal *term, int count);
 void term_cursor_down(struct terminal *term, int count);
-void term_cursor_blink_enable(struct terminal *term);
-void term_cursor_blink_disable(struct terminal *term);
-void term_cursor_blink_restart(struct terminal *term);
+void term_cursor_blink_update(struct terminal *term);
 
 void term_print(struct terminal *term, wchar_t wc, int width);
 

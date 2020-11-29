@@ -198,6 +198,8 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
 static struct timespec last = {0};
 #endif
 
+static bool cursor_blink_rearm_timer(struct terminal *term);
+
 /* Externally visible, but not declared in terminal.h, to enable pgo
  * to call this function directly */
 bool
@@ -215,7 +217,10 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     }
 
     /* Prevent blinking while typing */
-    term_cursor_blink_restart(term);
+    if (term->cursor_blink.fd >= 0) {
+        term->cursor_blink.state = CURSOR_BLINK_ON;
+        cursor_blink_rearm_timer(term);
+    }
 
     term->render.app_sync_updates.flipped = false;
 
@@ -311,7 +316,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     }
 
     if (hup) {
-        if (term->hold_at_exit) {
+        if (term->conf->hold_at_exit) {
             fdm_del(fdm, fd);
             term->ptmx = -1;
             return true;
@@ -1056,17 +1061,12 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .alpha = conf->colors.alpha,
         },
         .origin = ORIGIN_ABSOLUTE,
-        .default_cursor_blink = conf->cursor.blink,
-        .default_cursor_style = conf->cursor.style,
         .cursor_style = conf->cursor.style,
         .cursor_blink = {
-            .active = conf->cursor.blink,
+            .decset = false,
+            .deccsusr = conf->cursor.blink,
             .state = CURSOR_BLINK_ON,
             .fd = -1,
-        },
-        .default_cursor_color = {
-            .text = conf->cursor.color.text,
-            .cursor = conf->cursor.color.cursor,
         },
         .cursor_color = {
             .text = conf->cursor.color.text,
@@ -1112,7 +1112,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .max_width = SIXEL_MAX_WIDTH,
             .max_height = SIXEL_MAX_HEIGHT,
         },
-        .hold_at_exit = conf->hold_at_exit,
         .shutdown_cb = shutdown_cb,
         .shutdown_data = shutdown_data,
         .foot_exe = xstrdup(foot_exe),
@@ -1256,13 +1255,13 @@ term_shutdown(struct terminal *term)
      * iteration, by creating an event FD that we trigger immediately.
      */
 
-    term_cursor_blink_disable(term);
+    term_cursor_blink_update(term);
+    assert(term->cursor_blink.fd < 0);
 
     fdm_del(term->fdm, term->selection.auto_scroll.fd);
     fdm_del(term->fdm, term->render.app_sync_updates.timer_fd);
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
-    fdm_del(term->fdm, term->cursor_blink.fd);
     fdm_del(term->fdm, term->blink.fd);
     fdm_del(term->fdm, term->flash.fd);
 
@@ -1275,7 +1274,6 @@ term_shutdown(struct terminal *term)
     term->render.app_sync_updates.timer_fd = -1;
     term->delayed_render_timer.lower_fd = -1;
     term->delayed_render_timer.upper_fd = -1;
-    term->cursor_blink.fd = -1;
     term->blink.fd = -1;
     term->flash.fd = -1;
     term->ptmx = -1;
@@ -1575,13 +1573,12 @@ term_reset(struct terminal *term, bool hard)
     term->normal.saved_cursor = (struct cursor){.point = {0, 0}};
     term->alt.cursor = (struct cursor){.point = {0, 0}};
     term->alt.saved_cursor = (struct cursor){.point = {0, 0}};
-    term->cursor_style = term->default_cursor_style;
-    if (term->conf->cursor.blink)
-        term_cursor_blink_enable(term);
-    else
-        term_cursor_blink_disable(term);
-    term->cursor_color.text = term->default_cursor_color.text;
-    term->cursor_color.cursor = term->default_cursor_color.cursor;
+    term->cursor_style = term->conf->cursor.style;
+    term->cursor_blink.decset = false;
+    term->cursor_blink.deccsusr = term->conf->cursor.blink;
+    term_cursor_blink_update(term);
+    term->cursor_color.text = term->conf->cursor.color.text;
+    term->cursor_color.cursor = term->conf->cursor.color.cursor;
     selection_cancel(term);
     term->normal.offset = term->normal.view = 0;
     term->alt.offset = term->alt.view = 0;
@@ -1917,7 +1914,7 @@ term_cursor_down(struct terminal *term, int count)
 }
 
 static bool
-cursor_blink_start_timer(struct terminal *term)
+cursor_blink_rearm_timer(struct terminal *term)
 {
     if (term->cursor_blink.fd < 0) {
         int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
@@ -1950,7 +1947,7 @@ cursor_blink_start_timer(struct terminal *term)
 }
 
 static bool
-cursor_blink_stop_timer(struct terminal *term)
+cursor_blink_disarm_timer(struct terminal *term)
 {
     fdm_del(term->fdm, term->cursor_blink.fd);
     term->cursor_blink.fd = -1;
@@ -1958,29 +1955,21 @@ cursor_blink_stop_timer(struct terminal *term)
 }
 
 void
-term_cursor_blink_enable(struct terminal *term)
+term_cursor_blink_update(struct terminal *term)
 {
-    term->cursor_blink.state = CURSOR_BLINK_ON;
-    term->cursor_blink.active = term->kbd_focus
-        ? cursor_blink_start_timer(term) : true;
-}
+    bool enable = term->cursor_blink.decset || term->cursor_blink.deccsusr;
+    bool activate = !term->is_shutting_down && enable && term->kbd_focus;
 
-void
-term_cursor_blink_disable(struct terminal *term)
-{
-    term->cursor_blink.active = false;
-    term->cursor_blink.state = CURSOR_BLINK_ON;
-    cursor_blink_stop_timer(term);
-}
+    LOG_DBG("decset=%d, deccsrusr=%d, focus=%d, shutting-down=%d, enable=%d, activate=%d",
+            term->cursor_blink.decset, term->cursor_blink.deccsusr,
+            term->kbd_focus, term->is_shutting_down,
+            enable, activate);
 
-void
-term_cursor_blink_restart(struct terminal *term)
-{
-    if (term->cursor_blink.active) {
+    if (activate && term->cursor_blink.fd < 0) {
         term->cursor_blink.state = CURSOR_BLINK_ON;
-        term->cursor_blink.active = term->kbd_focus
-            ? cursor_blink_start_timer(term) : true;
-    }
+        cursor_blink_rearm_timer(term);
+    } else if (!activate && term->cursor_blink.fd >= 0)
+        cursor_blink_disarm_timer(term);
 }
 
 static bool
@@ -2182,9 +2171,7 @@ term_visual_focus_in(struct terminal *term)
         return;
 
     term->visual_focus = true;
-    if (term->cursor_blink.active)
-        cursor_blink_start_timer(term);
-
+    term_cursor_blink_update(term);
     render_refresh_csd(term);
 }
 
@@ -2195,9 +2182,7 @@ term_visual_focus_out(struct terminal *term)
         return;
 
     term->visual_focus = false;
-    if (term->cursor_blink.active)
-        cursor_blink_stop_timer(term);
-
+    term_cursor_blink_update(term);
     render_refresh_csd(term);
 }
 

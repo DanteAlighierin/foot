@@ -24,7 +24,9 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Programmatically checking if running in foot](#programmatically-checking-if-running-in-foot)
 1. [Credits](#Credits)
 1. [Bugs](#bugs)
-1. [Mastodon](#mastodon)
+1. [Contact](#contact)
+   1. [IRC](#irc)
+   1. [Mastodon](#mastodon)
 1. [License](#license)
 
 
@@ -390,7 +392,16 @@ The report should contain the following:
 * Steps to reproduce. The more details the better
 
 
-# Mastodon
+# Contact
+
+## IRC
+
+Ask questions, hang out, sing praise or just say hi on
+`#foot-terminal` on [chat.freenode.net](https://freenode.net), where
+I’m `dnkl`.
+
+
+## Mastodon
 
 Every now and then I post foot related updates on
 [@dnkl@linuxrocks.online](https://linuxrocks.online/@dnkl)
