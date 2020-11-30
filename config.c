@@ -486,8 +486,8 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         }
 
         conf->size.type = CONF_SIZE_PX;
-        conf->size.px.width = width;
-        conf->size.px.height = height;
+        conf->size.width = width;
+        conf->size.height = height;
     }
 
     else if (strcmp(key, "initial-window-size-chars") == 0) {
@@ -501,8 +501,8 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         }
 
         conf->size.type = CONF_SIZE_CELLS;
-        conf->size.cells.width = width;
-        conf->size.cells.height = height;
+        conf->size.width = width;
+        conf->size.height = height;
     }
 
     else if (strcmp(key, "pad") == 0) {
@@ -2016,10 +2016,8 @@ config_load(struct config *conf, const char *conf_path,
         .word_delimiters = xwcsdup(L",│`|:\"'()[]{}<>"),
         .size = {
             .type = CONF_SIZE_PX,
-            .px = {
-                .width = 700,
-                .height = 500,
-            },
+            .width = 700,
+            .height = 500,
         },
         .pad_x = 2,
         .pad_y = 2,
