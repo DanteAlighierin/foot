@@ -812,12 +812,6 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
         term_xcursor_update_for_seat(term, seat);
     }
 
-#if 0
-    char foo[100];
-    xkb_keysym_get_name(sym, foo, sizeof(foo));
-    LOG_INFO("%s", foo);
-#endif
-
     enum xkb_compose_status compose_status = XKB_COMPOSE_NOTHING;
 
     if (seat->kbd.xkb_compose_state != NULL) {
@@ -853,11 +847,16 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     }
 #endif
 
-    LOG_DBG("seat: %s, term=%p, serial=%u, "
-            "sym=%u, mod=0x%08x, consumed=0x%08x, significant=0x%08x, "
+#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
+    char sym_name[100];
+    xkb_keysym_get_name(sym, sym_name, sizeof(sym_name));
+#endif
+
+    LOG_DBG("%s (%u/0x%x): seat=%s, term=%p, serial=%u, "
+            "mod=0x%08x, consumed=0x%08x, significant=0x%08x, "
             "effective=0x%08x, repeats=%d",
-            seat->name, (void *)term, serial,
-            sym, mods, consumed, significant, effective_mods, should_repeat);
+            sym_name, sym, sym, seat->name, (void *)term, serial,
+            mods, consumed, significant, effective_mods, should_repeat);
 
     /*
      * User configurable bindings
