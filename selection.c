@@ -1370,7 +1370,9 @@ text_from_clipboard(struct seat *seat, struct terminal *term,
                     void (*done)(void *user), void *user)
 {
     struct wl_clipboard *clipboard = &seat->clipboard;
-    if (clipboard->data_offer == NULL) {
+    if (clipboard->data_offer == NULL ||
+        clipboard->mime_type == DATA_OFFER_MIME_UNSET)
+    {
         done(user);
         return;
     }
@@ -1512,7 +1514,9 @@ text_from_primary(
     }
 
     struct wl_primary *primary = &seat->primary;
-    if (primary->data_offer == NULL){
+    if (primary->data_offer == NULL ||
+        primary->mime_type == DATA_OFFER_MIME_UNSET)
+    {
         done(user);
         return;
     }
