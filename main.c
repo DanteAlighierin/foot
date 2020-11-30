@@ -399,18 +399,8 @@ main(int argc, char *const *argv)
     }
     if (conf_width > 0 && conf_height > 0) {
         conf.size.type = conf_size_type;
-
-        switch (conf_size_type) {
-        case CONF_SIZE_PX:
-            conf.size.px.width = conf_width;
-            conf.size.px.height = conf_height;
-            break;
-
-        case CONF_SIZE_CELLS:
-            conf.size.cells.width = conf_width;
-            conf.size.cells.height = conf_height;
-            break;
-        }
+        conf.size.width = conf_width;
+        conf.size.height = conf_height;
     }
     if (conf_server_socket_path != NULL) {
         free(conf.server_socket_path);
