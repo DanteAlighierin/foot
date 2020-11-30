@@ -1111,6 +1111,11 @@ text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t
 
     /* Configure source */
     wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8]);
+    wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_PLAIN]);
+    wl_data_source_offer(clipboard->data_source, "STRING");
+    wl_data_source_offer(clipboard->data_source, "TEXT");
+    wl_data_source_offer(clipboard->data_source, "UTF8_STRING");
+
     wl_data_source_add_listener(clipboard->data_source, &data_source_listener, seat);
     wl_data_device_set_selection(seat->data_device, clipboard->data_source, serial);
 
@@ -1470,6 +1475,11 @@ text_to_primary(struct seat *seat, struct terminal *term, char *text, uint32_t s
 
     /* Configure source */
     zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8]);
+    zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_PLAIN]);
+    zwp_primary_selection_source_v1_offer(primary->data_source, "STRING");
+    zwp_primary_selection_source_v1_offer(primary->data_source, "TEXT");
+    zwp_primary_selection_source_v1_offer(primary->data_source, "UTF8_STRING");
+
     zwp_primary_selection_source_v1_add_listener(primary->data_source, &primary_selection_source_listener, seat);
     zwp_primary_selection_device_v1_set_selection(seat->primary_selection_device, primary->data_source, serial);
 
