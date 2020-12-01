@@ -1523,6 +1523,7 @@ term_reset(struct terminal *term, bool hard)
     term->insert_mode = false;
     term->bracketed_paste = false;
     term->focus_events = false;
+    term->modify_escape_key = false;
     term->mouse_tracking = MOUSE_NONE;
     term->mouse_reporting = MOUSE_NORMAL;
     term->charsets.selected = 0;

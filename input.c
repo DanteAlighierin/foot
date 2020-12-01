@@ -886,7 +886,13 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     keymap_mods |= seat->kbd.ctrl ? MOD_CTRL : MOD_NONE;
     keymap_mods |= seat->kbd.meta ? MOD_META : MOD_NONE;
 
-    const struct key_data *keymap = keymap_lookup(seat, term, sym, keymap_mods);
+    const struct key_data *keymap;
+    if (sym == XKB_KEY_Escape && keymap_mods == MOD_NONE && term->modify_escape_key) {
+        static const struct key_data esc = {.seq = "\033[27;1;27~"};
+        keymap = &esc;
+    } else
+        keymap = keymap_lookup(seat, term, sym, keymap_mods);
+
     if (keymap != NULL) {
         term_to_slave(term, keymap->seq, strlen(keymap->seq));
 

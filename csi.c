@@ -536,6 +536,10 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         term->bracketed_paste = enable;
         break;
 
+    case 27127:
+        term->modify_escape_key = enable;
+        break;
+
     default:
         UNHANDLED();
         break;
@@ -583,6 +587,7 @@ xtsave(struct terminal *term, unsigned param)
     case 1042: term->xtsave.bell_is_urgent = term->bell_is_urgent; break;
     case 1049: term->xtsave.alt_screen = term->grid == &term->alt; break;
     case 2004: term->xtsave.bracketed_paste = term->bracketed_paste; break;
+    case 27127: term->xtsave.modify_escape_key = term->modify_escape_key; break;
     }
 }
 
@@ -616,6 +621,7 @@ xtrestore(struct terminal *term, unsigned param)
     case 1042: enable = term->xtsave.bell_is_urgent; break;
     case 1049: enable = term->xtsave.alt_screen; break;
     case 2004: enable = term->xtsave.bracketed_paste; break;
+    case 27127: enable = term->xtsave.modify_escape_key; break;
 
     default: return;
     }
