@@ -408,7 +408,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
         case '=':
             term->keypad_keys_mode = KEYPAD_APPLICATION;
             break;
-
+ö
         case '>':
             term->keypad_keys_mode = KEYPAD_NUMERICAL;
             break;

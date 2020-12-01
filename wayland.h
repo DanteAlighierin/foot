@@ -223,8 +223,24 @@ struct seat {
 
     /* Input Method Editor */
     struct zwp_text_input_v3 *wl_text_input;
-    //struct {
-    //} ime;
+    struct {
+        struct {
+            char *text;
+            int32_t cursor_begin;
+            int32_t cursor_end;
+        } preedit;
+
+        struct  {
+            char *text;
+        } commit;
+
+        struct {
+            uint32_t before_length;
+            uint32_t after_length;
+        } surrounding;
+
+        uint32_t serial;
+    } ime;
 };
 
 enum csd_surface {

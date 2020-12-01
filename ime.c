@@ -9,6 +9,7 @@
 #include "log.h"
 #include "terminal.h"
 #include "wayland.h"
+#include "xmalloc.h"
 
 static void
 enter(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
@@ -51,6 +52,7 @@ enter(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     }
 
     zwp_text_input_v3_commit(seat->wl_text_input);
+    seat->ime.serial++;
 }
 
 static void
@@ -61,6 +63,7 @@ leave(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     LOG_DBG("leave: seat=%s", seat->name);
     zwp_text_input_v3_disable(seat->wl_text_input);
     zwp_text_input_v3_commit(seat->wl_text_input);
+    seat->ime.serial++;
 }
 
 static void
@@ -68,15 +71,23 @@ preedit_string(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
                const char *text, int32_t cursor_begin, int32_t cursor_end)
 {
     LOG_DBG("preedit-string: text=%s, begin=%d, end=%d", text, cursor_begin, cursor_end);
+    struct seat *seat = data;
+
+    free(seat->ime.preedit.text);
+    seat->ime.preedit.text = text != NULL ? xstrdup(text) : NULL;
+    seat->ime.preedit.cursor_begin = cursor_begin;
+    seat->ime.preedit.cursor_end = cursor_end;
 }
 
 static void
 commit_string(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
               const char *text)
 {
-    struct seat *seat = data;
     LOG_DBG("commit: text=%s", text);
-    term_to_slave(seat->kbd_focus, text, strlen(text));
+    struct seat *seat = data;
+    free(seat->ime.commit.text);
+    seat->ime.commit.text = text != NULL ? xstrdup(text) : NULL;
+    //term_to_slave(seat->kbd_focus, text, strlen(text));
 }
 
 static void
@@ -84,13 +95,40 @@ delete_surrounding_text(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
                         uint32_t before_length, uint32_t after_length)
 {
     LOG_DBG("delete-surrounding: before=%d, after=%d", before_length, after_length);
+    struct seat *seat = data;
+    seat->ime.surrounding.before_length = before_length;
+    seat->ime.surrounding.after_length = after_length;
 }
 
 static void
 done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
      uint32_t serial)
 {
+    /*
+     * The application must proceed by evaluating the changes in the
+     * following order:
+     *
+     * 1. Replace existing preedit string with the cursor. 2. Delete
+     * requested surrounding text. 3. Insert commit string with the
+     * cursor at its end. 4. Calculate surrounding text to send. 5.
+     * Insert new preedit text in cursor position. 6. Place cursor
+     * inside preedit text.
+     */
+
     LOG_DBG("done: serial=%u", serial);
+    struct seat *seat = data;
+
+    if (seat->ime.serial != serial)
+        LOG_WARN("IME serial mismatch: expected=0x%08x, got 0x%08x",
+                 seat->ime.serial, serial);
+
+    assert(seat->kbd_focus);
+
+    if (seat->ime.commit.text != NULL)
+        term_to_slave(seat->kbd_focus, seat->ime.commit.text, strlen(seat->ime.commit.text));
+
+    free(seat->ime.commit.text);
+    seat->ime.commit.text = NULL;
 }
 
 const struct zwp_text_input_v3_listener text_input_listener = {
