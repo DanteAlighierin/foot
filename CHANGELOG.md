@@ -113,6 +113,8 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * `footclient` `-m` (`--maximized`) flag being ignored.
 * Crash with explicitly sized sixels with a height less than 6 pixels.
 * Key mappings for `esc` with modifiers.
+* Crash when pasting non-textual clipboard content
+  (https://codeberg.org/dnkl/foot/issues/230).
 
 
 ### Security
