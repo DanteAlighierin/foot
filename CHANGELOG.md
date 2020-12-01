@@ -1,6 +1,7 @@
 # Changelog
 
 * [Unreleased](#Unreleased)
+* [1.5.4](#1-5-4)
 * [1.5.3](#1-5-3)
 * [1.5.2](#1-5-2)
 * [1.5.1](#1-5-1)
@@ -82,14 +83,6 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 
 * Blinking text now uses the foreground color, but dimmed down in its
   off state, instead of the background color.
-* Num Lock by default overrides the keypad mode. See
-  **foot.ini**(5)::KEYPAD, or
-  [README.md](README.md#user-content-keypad) for details
-  (https://codeberg.org/dnkl/foot/issues/194).
-* Single-width characters with double-width glyphs are now allowed to
-  overflow into neighboring cells by default. Set
-  **tweak.allow-overflowing-double-width-glyphs** to ‘no’ to disable
-  this.
 * Sixel default maximum size is now 10000x10000 instead of the current
   window size.
 * Graphical glitches/flashes when resizing the window while running a
@@ -100,9 +93,36 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   controls the default state of `CSI Ps SP q`
   (https://codeberg.org/dnkl/foot/issues/218).
 
-
 ### Deprecated
 ### Removed
+### Fixed
+
+* Crash when pasting non-textual clipboard content
+  (https://codeberg.org/dnkl/foot/issues/230).
+
+### Security
+
+
+### Contributors
+
+* [kennylevinsen](https://codeberg.org/kennylevinsen)
+* [craigbarnes](https://codeberg.org/craigbarnes)
+
+
+## 1.5.4
+
+### Changed
+
+
+* Num Lock by default overrides the keypad mode. See
+  **foot.ini**(5)::KEYPAD, or
+  [README.md](README.md#user-content-keypad) for details
+  (https://codeberg.org/dnkl/foot/issues/194).
+* Single-width characters with double-width glyphs are now allowed to
+  overflow into neighboring cells by default. Set
+  **tweak.allow-overflowing-double-width-glyphs** to ‘no’ to disable
+  this.
+
 ### Fixed
 
 * Resize very slow when window is hidden
@@ -113,15 +133,11 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * `footclient` `-m` (`--maximized`) flag being ignored.
 * Crash with explicitly sized sixels with a height less than 6 pixels.
 * Key mappings for `esc` with modifiers.
-* Crash when pasting non-textual clipboard content
-  (https://codeberg.org/dnkl/foot/issues/230).
 
 
-### Security
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
-* [kennylevinsen](https://codeberg.org/kennylevinsen)
 
 
 ## 1.5.3
