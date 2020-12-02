@@ -314,42 +314,49 @@ draw_strikeout(const struct terminal *term, pixman_image_t *pix,
 }
 
 static void
+cursor_colors_for_cell(const struct terminal *term, const struct cell *cell,
+              const pixman_color_t *fg, const pixman_color_t *bg,
+              pixman_color_t *cursor_color, pixman_color_t *text_color)
+{
+    bool is_selected = cell->attrs.selected;
+
+    if (term->cursor_color.cursor >> 31) {
+        *cursor_color = color_hex_to_pixman(term->cursor_color.cursor);
+        *text_color = color_hex_to_pixman(
+            term->cursor_color.text >> 31
+            ? term->cursor_color.text : term->colors.bg);
+
+        if (term->reverse ^ cell->attrs.reverse ^ is_selected) {
+            pixman_color_t swap = *cursor_color;
+            *cursor_color = *text_color;
+            *text_color = swap;
+        }
+
+        if (term->is_searching && !is_selected) {
+            color_dim_for_search(cursor_color);
+            color_dim_for_search(text_color);
+        }
+    } else {
+        *cursor_color = *fg;
+        *text_color = *bg;
+    }
+}
+
+static void
 draw_cursor(const struct terminal *term, const struct cell *cell,
             const struct fcft_font *font, pixman_image_t *pix, pixman_color_t *fg,
             const pixman_color_t *bg, int x, int y, int cols)
 {
     pixman_color_t cursor_color;
     pixman_color_t text_color;
-
-    bool is_selected = cell->attrs.selected;
-
-    if (term->cursor_color.cursor >> 31) {
-        cursor_color = color_hex_to_pixman(term->cursor_color.cursor);
-        text_color = color_hex_to_pixman(
-            term->cursor_color.text >> 31
-            ? term->cursor_color.text : term->colors.bg);
-
-        if (term->reverse ^ cell->attrs.reverse ^ is_selected) {
-            pixman_color_t swap = cursor_color;
-            cursor_color = text_color;
-            text_color = swap;
-        }
-
-        if (term->is_searching && !is_selected) {
-            color_dim_for_search(&cursor_color);
-            color_dim_for_search(&text_color);
-        }
-    } else {
-        cursor_color = *fg;
-        text_color = *bg;
-    }
+    cursor_colors_for_cell(term, cell, fg, bg, &cursor_color, &text_color);
 
     switch (term->cursor_style) {
     case CURSOR_BLOCK:
-        if (!term->kbd_focus)
+        if (unlikely(!term->kbd_focus || term->ime.preedit.cells != NULL))
             draw_unfocused_block(term, pix, &cursor_color, x, y, cols);
 
-        else if (term->cursor_blink.state == CURSOR_BLINK_ON) {
+        else if (likely(term->cursor_blink.state == CURSOR_BLINK_ON)) {
             *fg = text_color;
             pixman_image_fill_rectangles(
                 PIXMAN_OP_SRC, pix, &cursor_color, 1,
@@ -358,12 +365,17 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
         break;
 
     case CURSOR_BAR:
-        if (term->cursor_blink.state == CURSOR_BLINK_ON || !term->kbd_focus)
+        if (likely(term->cursor_blink.state == CURSOR_BLINK_ON ||
+                   !term->kbd_focus))
+        {
             draw_bar(term, pix, font, &cursor_color, x, y);
+        }
         break;
 
     case CURSOR_UNDERLINE:
-        if (term->cursor_blink.state == CURSOR_BLINK_ON || !term->kbd_focus) {
+        if (likely(term->cursor_blink.state == CURSOR_BLINK_ON ||
+                   !term->kbd_focus))
+        {
             draw_underline(
                 term, pix, attrs_to_font(term, &cell->attrs), &cursor_color,
                 x, y, cols);
@@ -1007,6 +1019,99 @@ render_sixel_images(struct terminal *term, pixman_image_t *pix)
 
         render_sixel(term, pix, &it->item);
     }
+}
+
+static void
+render_ime_preedit(struct terminal *term, struct buffer *buf,
+                   struct coord cursor)
+{
+    if (likely(term->ime.preedit.cells == NULL))
+        return;
+
+    int cells_needed = term->ime.preedit.count;
+
+    int row_idx = cursor.row;
+    int col_idx = cursor.col;
+
+    int cells_left = term->cols - cursor.col;
+    int cells_used = min(cells_needed, term->cols);
+
+    /* Adjust start of pre-edit text to the left if string doesn't fit on row */
+    if (cells_left < cells_used)
+        col_idx -= cells_used - cells_left;
+
+    assert(col_idx >= 0);
+    assert(col_idx < term->cols);
+
+    struct row *row = grid_row_in_view(term->grid, row_idx);
+
+    /* Don't start pre-edit text in the middle of a double-width character */
+    while (col_idx > 0 && row->cells[col_idx].wc == CELL_MULT_COL_SPACER) {
+        cells_used++;
+        col_idx--;
+    }
+
+    /*
+     * Copy original content (render_cell() reads cell data directly
+     * from grid), and mark all cells as dirty. This ensures they are
+     * re-rendered when the pre-edit text is modified or removed.
+     */
+    struct cell *real_cells = malloc(cells_used * sizeof(real_cells[0]));
+    for (int i = 0; i < cells_used; i++) {
+        assert(col_idx + i < term->cols);
+        real_cells[i] = row->cells[col_idx + i];
+        real_cells[i].attrs.clean = 0;
+    }
+    row->dirty = true;
+
+    /* Render pre-edit text */
+    for (int i = 0; i < term->ime.preedit.count; i++) {
+        const struct cell *cell = &term->ime.preedit.cells[i];
+
+        if (cell->wc == CELL_MULT_COL_SPACER)
+            continue;
+
+        int width = wcwidth(term->ime.preedit.cells[i].wc);
+        width = max(1, width);
+
+        if (col_idx + i + width > term->cols)
+            break;
+
+        row->cells[col_idx + i] = term->ime.preedit.cells[i];
+        render_cell(term, buf->pix[0], row, col_idx + i, row_idx, false);
+    }
+
+    /* Hollow cursor */
+    if (!term->ime.preedit.cursor.hidden) {
+        int start = term->ime.preedit.cursor.start;
+        int end = term->ime.preedit.cursor.end;
+
+        pixman_color_t fg = color_hex_to_pixman(term->colors.fg);
+        pixman_color_t bg = color_hex_to_pixman(term->colors.bg);
+
+        pixman_color_t cursor_color, text_color;
+        cursor_colors_for_cell(
+            term, &term->ime.preedit.cells[start],
+            &fg, &bg, &cursor_color, &text_color);
+
+        int x = term->margins.left + (col_idx + start) * term->cell_width;
+        int y = term->margins.top + row_idx * term->cell_height;
+
+        int cols = end - start;
+        draw_unfocused_block(term, buf->pix[0], &cursor_color, x, y, cols);
+    }
+
+    /* Restore original content (but do not render) */
+    for (int i = 0; i < cells_used; i++)
+        row->cells[col_idx + i] = real_cells[i];
+    free(real_cells);
+
+    wl_surface_damage_buffer(
+        term->window->surface,
+        term->margins.left,
+        term->margins.top + row_idx * term->cell_height,
+        term->width - term->margins.left - term->margins.right,
+        1 * term->cell_height);
 }
 
 static void
@@ -1902,6 +2007,9 @@ grid_render(struct terminal *term)
             sem_wait(&term->render.workers.done);
         term->render.workers.buf = NULL;
     }
+
+    /* Render IME pre-edit text */
+    render_ime_preedit(term, buf, cursor);
 
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */

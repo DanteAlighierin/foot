@@ -21,7 +21,7 @@
 #include <xdg-shell.h>
 
 #define LOG_MODULE "input"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "config.h"
 #include "commands.h"
@@ -752,7 +752,7 @@ keymap_lookup(struct seat *seat, struct terminal *term,
     const enum keypad_keys keypad_keys_mode
         = term->num_lock_modifier ? KEYPAD_NUMERICAL : term->keypad_keys_mode;
 
-    log_dbg("keypad mode: %d, num-lock=%d", keypad_keys_mode, seat->kbd.num);
+    LOG_DBG("keypad mode: %d, num-lock=%d", keypad_keys_mode, seat->kbd.num);
 
     for (size_t j = 0; j < count; j++) {
         if (info[j].modifiers != MOD_ANY && info[j].modifiers != mods)

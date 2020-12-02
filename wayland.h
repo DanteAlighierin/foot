@@ -15,6 +15,9 @@
 
 #include "fdm.h"
 
+/* Forward declarations */
+struct terminal;
+
 typedef tll(xkb_keycode_t) xkb_keycode_list_t;
 
 struct key_binding {
@@ -225,18 +228,24 @@ struct seat {
     struct zwp_text_input_v3 *wl_text_input;
     struct {
         struct {
-            char *text;
-            int32_t cursor_begin;
-            int32_t cursor_end;
+            struct {
+                char *text;
+                int32_t cursor_begin;
+                int32_t cursor_end;
+            } pending;
         } preedit;
 
         struct  {
-            char *text;
+            struct {
+                char *text;
+            } pending;
         } commit;
 
         struct {
-            uint32_t before_length;
-            uint32_t after_length;
+            struct {
+                uint32_t before_length;
+                uint32_t after_length;
+            } pending;
         } surrounding;
 
         uint32_t serial;

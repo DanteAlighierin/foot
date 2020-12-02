@@ -470,6 +470,19 @@ struct terminal {
         unsigned max_height;    /* Maximum image height, in pixels */
     } sixel;
 
+    struct {
+        struct {
+            struct cell *cells;
+            int count;
+
+            struct {
+                bool hidden;
+                int start;  /* Cell index, inclusive */
+                int end;    /* Cell index, exclusive */
+            } cursor;
+        } preedit;
+    } ime;
+
     bool quit;
     bool is_shutting_down;
     void (*shutdown_cb)(void *data, int exit_code);

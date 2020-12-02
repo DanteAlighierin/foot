@@ -1403,6 +1403,8 @@ term_destroy(struct terminal *term)
     tll_free(term->alt.sixel_images);
     sixel_fini(term);
 
+    free(term->ime.preedit.cells);
+
     free(term->foot_exe);
     free(term->cwd);
 
@@ -2215,6 +2217,13 @@ term_kbd_focus_out(struct terminal *term)
     tll_foreach(term->wl->seats, it)
         if (it->item.kbd_focus == term)
             return;
+
+    if (term->ime.preedit.cells != NULL) {
+        free(term->ime.preedit.cells);
+        term->ime.preedit.cells = NULL;
+        term->ime.preedit.count = 0;
+        render_refresh(term);
+    }
 
     term->kbd_focus = false;
     cursor_refresh(term);

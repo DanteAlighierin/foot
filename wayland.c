@@ -191,8 +191,8 @@ seat_destroy(struct seat *seat)
 
     free(seat->clipboard.text);
     free(seat->primary.text);
-    free(seat->ime.preedit.text);
-    free(seat->ime.commit.text);
+    free(seat->ime.preedit.pending.text);
+    free(seat->ime.commit.pending.text);
     free(seat->name);
 }
 

@@ -5,9 +5,11 @@
 #include "text-input-unstable-v3.h"
 
 #define LOG_MODULE "ime"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "render.h"
 #include "terminal.h"
+#include "util.h"
 #include "wayland.h"
 #include "xmalloc.h"
 
@@ -64,6 +66,12 @@ leave(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     zwp_text_input_v3_disable(seat->wl_text_input);
     zwp_text_input_v3_commit(seat->wl_text_input);
     seat->ime.serial++;
+
+    free(seat->ime.preedit.pending.text);
+    seat->ime.preedit.pending.text = NULL;
+
+    free(seat->ime.commit.pending.text);
+    seat->ime.commit.pending.text = NULL;
 }
 
 static void
@@ -71,12 +79,13 @@ preedit_string(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
                const char *text, int32_t cursor_begin, int32_t cursor_end)
 {
     LOG_DBG("preedit-string: text=%s, begin=%d, end=%d", text, cursor_begin, cursor_end);
+
     struct seat *seat = data;
 
-    free(seat->ime.preedit.text);
-    seat->ime.preedit.text = text != NULL ? xstrdup(text) : NULL;
-    seat->ime.preedit.cursor_begin = cursor_begin;
-    seat->ime.preedit.cursor_end = cursor_end;
+    free(seat->ime.preedit.pending.text);
+    seat->ime.preedit.pending.text = text != NULL ? xstrdup(text) : NULL;
+    seat->ime.preedit.pending.cursor_begin = cursor_begin;
+    seat->ime.preedit.pending.cursor_end = cursor_end;
 }
 
 static void
@@ -84,10 +93,10 @@ commit_string(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
               const char *text)
 {
     LOG_DBG("commit: text=%s", text);
+
     struct seat *seat = data;
-    free(seat->ime.commit.text);
-    seat->ime.commit.text = text != NULL ? xstrdup(text) : NULL;
-    //term_to_slave(seat->kbd_focus, text, strlen(text));
+    free(seat->ime.commit.pending.text);
+    seat->ime.commit.pending.text = text != NULL ? xstrdup(text) : NULL;
 }
 
 static void
@@ -95,9 +104,10 @@ delete_surrounding_text(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
                         uint32_t before_length, uint32_t after_length)
 {
     LOG_DBG("delete-surrounding: before=%d, after=%d", before_length, after_length);
+
     struct seat *seat = data;
-    seat->ime.surrounding.before_length = before_length;
-    seat->ime.surrounding.after_length = after_length;
+    seat->ime.surrounding.pending.before_length = before_length;
+    seat->ime.surrounding.pending.after_length = after_length;
 }
 
 static void
@@ -105,30 +115,185 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
      uint32_t serial)
 {
     /*
+     * From text-input-unstable-v3.h:
+     *
      * The application must proceed by evaluating the changes in the
      * following order:
      *
-     * 1. Replace existing preedit string with the cursor. 2. Delete
-     * requested surrounding text. 3. Insert commit string with the
-     * cursor at its end. 4. Calculate surrounding text to send. 5.
-     * Insert new preedit text in cursor position. 6. Place cursor
-     * inside preedit text.
+     * 1. Replace existing preedit string with the cursor.
+     * 2. Delete requested surrounding text.
+     * 3. Insert commit string with the cursor at its end.
+     * 4. Calculate surrounding text to send.
+     * 5. Insert new preedit text in cursor position.
+     * 6. Place cursor inside preedit text.
      */
 
     LOG_DBG("done: serial=%u", serial);
     struct seat *seat = data;
 
-    if (seat->ime.serial != serial)
-        LOG_WARN("IME serial mismatch: expected=0x%08x, got 0x%08x",
-                 seat->ime.serial, serial);
+    if (seat->ime.serial != serial) {
+        LOG_DBG("IME serial mismatch: expected=0x%08x, got 0x%08x",
+                seat->ime.serial, serial);
+        return;
+    }
 
     assert(seat->kbd_focus);
+    struct terminal *term = seat->kbd_focus;
 
-    if (seat->ime.commit.text != NULL)
-        term_to_slave(seat->kbd_focus, seat->ime.commit.text, strlen(seat->ime.commit.text));
+    /* 1. Delete existing pre-edit text */
+    if (term->ime.preedit.cells != NULL) {
+        free(term->ime.preedit.cells);
+        term->ime.preedit.cells = NULL;
+        term->ime.preedit.count = 0;
+        render_refresh(term);
+    }
 
-    free(seat->ime.commit.text);
-    seat->ime.commit.text = NULL;
+    /*
+     * 2. Delete requested surroundin text
+     *
+     * We don't support deleting surrounding text. But, we also never
+     * call set_surrounding_text() so hopefully we should never
+     * receive any requests to delete surrounding text.
+     */
+
+    /* 3. Insert commit string */
+    if (seat->ime.commit.pending.text != NULL) {
+        term_to_slave(
+            term,
+            seat->ime.commit.pending.text,
+            strlen(seat->ime.commit.pending.text));
+
+        free(seat->ime.commit.pending.text);
+        seat->ime.commit.pending.text = NULL;
+    }
+
+    /* 4. Calculate surrounding text to send - not supported */
+
+    /* 5. Insert new pre-edit text */
+    size_t wchars = seat->ime.preedit.pending.text != NULL
+        ? mbstowcs(NULL, seat->ime.preedit.pending.text, 0)
+        : 0;
+
+    if (wchars > 0) {
+        /* First, convert to unicode */
+        wchar_t wcs[wchars + 1];
+        mbstowcs(wcs, seat->ime.preedit.pending.text, wchars);
+
+        /* Next, count number of cells needed */
+        size_t cell_count = 0;
+        for (size_t i = 0; i < wchars; i++)
+            cell_count += max(wcwidth(wcs[i]), 1);
+
+        /* Allocate cells */
+        term->ime.preedit.cells = xmalloc(
+            cell_count * sizeof(term->ime.preedit.cells[0]));
+        term->ime.preedit.count = cell_count;
+
+        /* Populate cells */
+        for (size_t i = 0, cell_idx = 0; i < wchars; i++) {
+            struct cell *cell = &term->ime.preedit.cells[cell_idx];
+
+            int width = max(wcwidth(wcs[i]), 1);
+
+            cell->wc = wcs[i];
+            cell->attrs = (struct attributes){.clean = 0, .underline = 1};
+
+            for (int j = 1; j < width; j++) {
+                cell = &term->ime.preedit.cells[cell_idx + j];
+                cell->wc = CELL_MULT_COL_SPACER;
+                cell->attrs = (struct attributes){.clean = 1};
+            }
+
+            cell_idx += width;
+        }
+
+        /* Pre-edit cursor - hidden */
+        if (seat->ime.preedit.pending.cursor_begin == -1 ||
+            seat->ime.preedit.pending.cursor_end == -1)
+        {
+            /* Note: docs says *both* begin and end should be -1,
+             * but what else can we do if only one is -1? */
+            LOG_DBG("pre-edit cursor is hidden");
+            term->ime.preedit.cursor.hidden = true;
+            term->ime.preedit.cursor.start = -1;
+            term->ime.preedit.cursor.end = -1;
+        }
+
+        else {
+            /*
+             * Translate cursor position to cell indices
+             *
+             * The cursor_begin and cursor_end are counted in
+             * *bytes*. We want to map them to *cell* indices.
+             *
+             * To do this, we use mblen() to step though the utf-8
+             * pre-edit string, advancing a unicode character index as
+             * we go, *and* advancing a *cell* index using wcwidth()
+             * of the unicode character.
+             *
+             * When we find the matching *byte* index, we at the same
+             * time know both the unicode *and* cell index.
+             *
+             * Note that this has only been tested with
+             *
+             *   cursor_begin == cursor_end == 0
+             *
+             * I haven't found an IME that requests anything else
+             */
+            
+            const size_t byte_len = strlen(seat->ime.preedit.pending.text);
+
+            int cell_begin = -1, cell_end = -1;
+            for (size_t byte_idx = 0, wc_idx = 0, cell_idx = 0;
+                 byte_idx < byte_len &&
+                     wc_idx < wchars &&
+                     cell_idx < cell_count &&
+                     (cell_begin < 0 || cell_end < 0);
+                 )
+            {
+                if (seat->ime.preedit.pending.cursor_begin == byte_idx)
+                    cell_begin = cell_idx;
+                if (seat->ime.preedit.pending.cursor_end == byte_idx)
+                    cell_end = cell_idx;
+
+                /* Number of bytes of *next* utf-8 character */
+                size_t left = byte_len - byte_idx;
+                int wc_bytes = mblen(&seat->ime.preedit.pending.text[byte_idx], left);
+
+                if (wc_bytes <= 0)
+                    break;
+
+                byte_idx += wc_bytes;
+                cell_idx += max(wcwidth(term->ime.preedit.cells[wc_idx].wc), 1);
+                wc_idx++;
+            }
+
+            /* Bounded by number of screen columns */
+            cell_begin = min(max(cell_begin, 0), cell_count - 1);
+
+            /* Ensure end comes *after* begin, and is bounded by screen */
+            if (cell_end <= cell_begin)
+                cell_end = cell_begin + max(wcwidth(term->ime.preedit.cells[cell_begin].wc), 1);
+            cell_end = min(max(cell_end, 0), cell_count);
+
+            LOG_DBG("pre-edit cursor: begin=%d, end=%d", cell_begin, cell_end);
+
+            assert(cell_begin >= 0);
+            assert(cell_begin < cell_count);
+            assert(cell_end >= 1);
+            assert(cell_end <= cell_count);
+            assert(cell_begin < cell_end);
+
+            term->ime.preedit.cursor.hidden = false;
+            term->ime.preedit.cursor.start = cell_begin;
+            term->ime.preedit.cursor.end = cell_end;
+        }
+
+        render_refresh(term);
+    }
+
+    free(seat->ime.preedit.pending.text);
+    seat->ime.preedit.pending.text = NULL;
 }
 
 const struct zwp_text_input_v3_listener text_input_listener = {
