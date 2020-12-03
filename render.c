@@ -1093,9 +1093,10 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
     }
 
     /* Hollow cursor */
-    if (!term->ime.preedit.cursor.hidden) {
-        int start = term->ime.preedit.cursor.start;
-        int end = term->ime.preedit.cursor.end;
+    int start = term->ime.preedit.cursor.start;
+    int end = term->ime.preedit.cursor.end;
+
+    if (!term->ime.preedit.cursor.hidden && end > start) {
 
         pixman_color_t fg = color_hex_to_pixman(term->colors.fg);
         pixman_color_t bg = color_hex_to_pixman(term->colors.bg);
