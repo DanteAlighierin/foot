@@ -278,19 +278,25 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
             /* Bounded by number of screen columns */
             cell_begin = min(max(cell_begin, 0), cell_count - 1);
-
-            /* Ensure end comes *after* begin, and is bounded by screen */
-            if (cell_end <= cell_begin)
-                cell_end = cell_begin + max(wcwidth(term->ime.preedit.cells[cell_begin].wc), 1);
             cell_end = min(max(cell_end, 0), cell_count);
+
+#if 1
+            if (cell_end < cell_begin)
+                cell_end = cell_begin;
+#else
+            if (cell_end <= cell_begin) {
+                cell_end = cell_begin + max(
+                    wcwidth(term->ime.preedit.cells[cell_begin].wc), 1);
+            }
+#endif
 
             LOG_DBG("pre-edit cursor: begin=%d, end=%d", cell_begin, cell_end);
 
             assert(cell_begin >= 0);
             assert(cell_begin < cell_count);
-            assert(cell_end >= 1);
+            assert(cell_begin <= cell_end);
+            assert(cell_end >= 0);
             assert(cell_end <= cell_count);
-            assert(cell_begin < cell_end);
 
             term->ime.preedit.cursor.hidden = false;
             term->ime.preedit.cursor.start = cell_begin;
