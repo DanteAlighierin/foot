@@ -1022,12 +1022,21 @@ render_sixel_images(struct terminal *term, pixman_image_t *pix)
 }
 
 static void
-render_ime_preedit(struct terminal *term, struct buffer *buf,
-                   struct coord cursor)
+render_ime_preedit(struct terminal *term, struct buffer *buf)
 {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
 
     if (likely(term->ime.preedit.cells == NULL))
+        return;
+
+    /* Adjust cursor position to viewport */
+    struct coord cursor;
+    cursor = term->grid->cursor.point;
+    cursor.row += term->grid->offset;
+    cursor.row -= term->grid->view;
+    cursor.row &= term->grid->num_rows - 1;
+
+    if (cursor.row < 0 || cursor.row >= term->rows)
         return;
 
     int cells_needed = term->ime.preedit.count;
@@ -2012,7 +2021,7 @@ grid_render(struct terminal *term)
     }
 
     /* Render IME pre-edit text */
-    render_ime_preedit(term, buf, cursor);
+    render_ime_preedit(term, buf);
 
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
