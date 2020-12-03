@@ -273,6 +273,9 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
                 wc_idx++;
             }
 
+            if (seat->ime.preedit.pending.cursor_end >= byte_len)
+                cell_end = cell_count;
+
             /* Bounded by number of screen columns */
             cell_begin = min(max(cell_begin, 0), cell_count - 1);
 
