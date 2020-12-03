@@ -290,6 +290,13 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
             }
 #endif
 
+            /* Expand cursor end to end of glyph */
+            while (cell_end > cell_begin && cell_end < cell_count &&
+                   term->ime.preedit.cells[cell_end].wc == CELL_MULT_COL_SPACER)
+            {
+                cell_end++;
+            }
+
             LOG_DBG("pre-edit cursor: begin=%d, end=%d", cell_begin, cell_end);
 
             assert(cell_begin >= 0);
