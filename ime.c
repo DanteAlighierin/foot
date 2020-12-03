@@ -181,8 +181,13 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
         /* Next, count number of cells needed */
         size_t cell_count = 0;
-        for (size_t i = 0; i < wchars; i++)
-            cell_count += max(wcwidth(wcs[i]), 1);
+        size_t widths[wchars + 1];
+
+        for (size_t i = 0; i < wchars; i++) {
+            int width = max(wcwidth(wcs[i]), 1);
+            widths[i] = width;
+            cell_count += width;
+        }
 
         /* Allocate cells */
         term->ime.preedit.cells = xmalloc(
@@ -193,7 +198,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         for (size_t i = 0, cell_idx = 0; i < wchars; i++) {
             struct cell *cell = &term->ime.preedit.cells[cell_idx];
 
-            int width = max(wcwidth(wcs[i]), 1);
+            int width = widths[i];
 
             cell->wc = wcs[i];
             cell->attrs = (struct attributes){.clean = 0, .underline = 1};
