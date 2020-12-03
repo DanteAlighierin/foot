@@ -269,7 +269,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
                     break;
 
                 byte_idx += wc_bytes;
-                cell_idx += max(wcwidth(term->ime.preedit.cells[wc_idx].wc), 1);
+                cell_idx += max(wcwidth(term->ime.preedit.cells[cell_idx].wc), 1);
                 wc_idx++;
             }
 
