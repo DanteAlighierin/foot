@@ -353,7 +353,7 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
 
     switch (term->cursor_style) {
     case CURSOR_BLOCK:
-        if (unlikely(!term->kbd_focus || term->ime.preedit.cells != NULL))
+        if (unlikely(!term->kbd_focus))
             draw_unfocused_block(term, pix, &cursor_color, x, y, cols);
 
         else if (likely(term->cursor_blink.state == CURSOR_BLINK_ON)) {
