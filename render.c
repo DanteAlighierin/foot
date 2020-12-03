@@ -1025,6 +1025,8 @@ static void
 render_ime_preedit(struct terminal *term, struct buffer *buf,
                    struct coord cursor)
 {
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+
     if (likely(term->ime.preedit.cells == NULL))
         return;
 
@@ -1112,6 +1114,7 @@ render_ime_preedit(struct terminal *term, struct buffer *buf,
         term->margins.top + row_idx * term->cell_height,
         term->width - term->margins.left - term->margins.right,
         1 * term->cell_height);
+#endif
 }
 
 static void

@@ -224,6 +224,7 @@ struct seat {
     struct wl_clipboard clipboard;
     struct wl_primary primary;
 
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     /* Input Method Editor */
     struct zwp_text_input_v3 *wl_text_input;
     struct {
@@ -250,6 +251,7 @@ struct seat {
 
         uint32_t serial;
     } ime;
+#endif
 };
 
 enum csd_surface {
@@ -404,7 +406,9 @@ struct wayland {
     struct wp_presentation *presentation;
     uint32_t presentation_clock_id;
 
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     struct zwp_text_input_manager_v3 *text_input_manager;
+#endif
 
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */

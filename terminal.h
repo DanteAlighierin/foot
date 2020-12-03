@@ -470,6 +470,7 @@ struct terminal {
         unsigned max_height;    /* Maximum image height, in pixels */
     } sixel;
 
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     struct {
         struct {
             struct cell *cells;
@@ -482,6 +483,7 @@ struct terminal {
             } cursor;
         } preedit;
     } ime;
+#endif
 
     bool quit;
     bool is_shutting_down;
@@ -605,3 +607,5 @@ bool term_scrollback_to_text(
     const struct terminal *term, char **text, size_t *len);
 bool term_view_to_text(
     const struct terminal *term, char **text, size_t *len);
+
+void term_reset_ime(struct terminal *term);

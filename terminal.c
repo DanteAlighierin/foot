@@ -1403,7 +1403,7 @@ term_destroy(struct terminal *term)
     tll_free(term->alt.sixel_images);
     sixel_fini(term);
 
-    free(term->ime.preedit.cells);
+    term_reset_ime(term);
 
     free(term->foot_exe);
     free(term->cwd);
@@ -2218,12 +2218,12 @@ term_kbd_focus_out(struct terminal *term)
         if (it->item.kbd_focus == term)
             return;
 
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     if (term->ime.preedit.cells != NULL) {
-        free(term->ime.preedit.cells);
-        term->ime.preedit.cells = NULL;
-        term->ime.preedit.count = 0;
+        term_reset_ime(term);
         render_refresh(term);
     }
+#endif
 
     term->kbd_focus = false;
     cursor_refresh(term);
@@ -2752,4 +2752,14 @@ term_view_to_text(const struct terminal *term, char **text, size_t *len)
     int start = grid_row_absolute_in_view(term->grid, 0);
     int end = grid_row_absolute_in_view(term->grid, term->rows - 1);
     return rows_to_text(term, start, end, text, len);
+}
+
+void
+term_reset_ime(struct terminal *term)
+{
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    free(term->ime.preedit.cells);
+    term->ime.preedit.cells = NULL;
+    term->ime.preedit.count = 0;
+#endif
 }

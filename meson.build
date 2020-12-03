@@ -17,6 +17,9 @@ add_project_arguments(
   (is_debug_build
     ? ['-D_DEBUG']
     : [cc.get_supported_arguments('-fno-asynchronous-unwind-tables')]) +
+  (get_option('ime')
+    ? ['-DFOOT_IME_ENABLED=1']
+    : []) +
   cc.get_supported_arguments(
     ['-pedantic',
      '-fstrict-aliasing',
@@ -198,9 +201,9 @@ subdir('completions')
 subdir('doc')
 subdir('icons')
 
-# summary(
-#   {
-#     '<feature>': false,
-#   },
-#   bool_yn: true
-# )
+summary(
+  {
+    'IME': get_option('ime'),
+  },
+  bool_yn: true
+)

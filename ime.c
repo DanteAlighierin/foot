@@ -1,5 +1,7 @@
 #include "ime.h"
 
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+
 #include <string.h>
 
 #include "text-input-unstable-v3.h"
@@ -67,11 +69,7 @@ leave(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     zwp_text_input_v3_commit(seat->wl_text_input);
     seat->ime.serial++;
 
-    free(seat->ime.preedit.pending.text);
-    seat->ime.preedit.pending.text = NULL;
-
-    free(seat->ime.commit.pending.text);
-    seat->ime.commit.pending.text = NULL;
+    ime_reset(seat);
 }
 
 static void
@@ -82,10 +80,13 @@ preedit_string(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
     struct seat *seat = data;
 
-    free(seat->ime.preedit.pending.text);
-    seat->ime.preedit.pending.text = text != NULL ? xstrdup(text) : NULL;
-    seat->ime.preedit.pending.cursor_begin = cursor_begin;
-    seat->ime.preedit.pending.cursor_end = cursor_end;
+    ime_reset_preedit(seat);
+
+    if (text != NULL) {
+        seat->ime.preedit.pending.text = xstrdup(text);
+        seat->ime.preedit.pending.cursor_begin = cursor_begin;
+        seat->ime.preedit.pending.cursor_end = cursor_end;
+    }
 }
 
 static void
@@ -95,8 +96,11 @@ commit_string(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     LOG_DBG("commit: text=%s", text);
 
     struct seat *seat = data;
-    free(seat->ime.commit.pending.text);
-    seat->ime.commit.pending.text = text != NULL ? xstrdup(text) : NULL;
+
+    ime_reset_commit(seat);
+
+    if (text != NULL)
+        seat->ime.commit.pending.text = xstrdup(text);
 }
 
 static void
@@ -142,9 +146,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
     /* 1. Delete existing pre-edit text */
     if (term->ime.preedit.cells != NULL) {
-        free(term->ime.preedit.cells);
-        term->ime.preedit.cells = NULL;
-        term->ime.preedit.count = 0;
+        term_reset_ime(term);
         render_refresh(term);
     }
 
@@ -162,9 +164,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
             term,
             seat->ime.commit.pending.text,
             strlen(seat->ime.commit.pending.text));
-
-        free(seat->ime.commit.pending.text);
-        seat->ime.commit.pending.text = NULL;
+        ime_reset_commit(seat);
     }
 
     /* 4. Calculate surrounding text to send - not supported */
@@ -292,9 +292,30 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         render_refresh(term);
     }
 
+    ime_reset_preedit(seat);
+}
+
+void
+ime_reset_preedit(struct seat *seat)
+{
     free(seat->ime.preedit.pending.text);
     seat->ime.preedit.pending.text = NULL;
 }
+
+void
+ime_reset_commit(struct seat *seat)
+{
+    free(seat->ime.commit.pending.text);
+    seat->ime.commit.pending.text = NULL;
+}
+
+void
+ime_reset(struct seat *seat)
+{
+    ime_reset_preedit(seat);
+    ime_reset_commit(seat);
+}
+
 
 const struct zwp_text_input_v3_listener text_input_listener = {
     .enter = &enter,
@@ -304,3 +325,11 @@ const struct zwp_text_input_v3_listener text_input_listener = {
     .delete_surrounding_text = &delete_surrounding_text,
     .done = &done,
 };
+
+#else /* !FOOT_IME_ENABLED */
+
+void ime_reset_preedit(struct seat *seat) {}
+void ime_reset_commit(struct seat *seat) {}
+void ime_reset(struct seat *seat) {}
+
+#endif

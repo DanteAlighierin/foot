@@ -116,6 +116,7 @@ seat_add_primary_selection(struct seat *seat)
 static void
 seat_add_text_input(struct seat *seat)
 {
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     if (seat->wayl->text_input_manager == NULL)
         return;
 
@@ -128,6 +129,7 @@ seat_add_text_input(struct seat *seat)
 
     seat->wl_text_input = text_input;
     zwp_text_input_v3_add_listener(text_input, &text_input_listener, seat);
+#endif
 }
 
 static void
@@ -184,15 +186,18 @@ seat_destroy(struct seat *seat)
         wl_keyboard_release(seat->wl_keyboard);
     if (seat->wl_pointer != NULL)
         wl_pointer_release(seat->wl_pointer);
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     if (seat->wl_text_input != NULL)
         zwp_text_input_v3_destroy(seat->wl_text_input);
+#endif
+
     if (seat->wl_seat != NULL)
         wl_seat_release(seat->wl_seat);
 
+    ime_reset(seat);
     free(seat->clipboard.text);
     free(seat->primary.text);
-    free(seat->ime.preedit.pending.text);
-    free(seat->ime.commit.pending.text);
     free(seat->name);
 }
 
@@ -920,6 +925,7 @@ handle_global(void *data, struct wl_registry *registry,
         }
     }
 
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     else if (strcmp(interface, zwp_text_input_manager_v3_interface.name) == 0) {
         const uint32_t required = 1;
         if (!verify_iface_version(interface, version, required))
@@ -931,6 +937,7 @@ handle_global(void *data, struct wl_registry *registry,
         tll_foreach(wayl->seats, it)
             seat_add_text_input(&it->item);
     }
+#endif
 }
 
 static void
@@ -1190,8 +1197,11 @@ wayl_destroy(struct wayland *wayl)
         seat_destroy(&it->item);
     tll_free(wayl->seats);
 
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     if (wayl->text_input_manager != NULL)
         zwp_text_input_manager_v3_destroy(wayl->text_input_manager);
+#endif
+
     if (wayl->xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);
     if (wayl->shell != NULL)
