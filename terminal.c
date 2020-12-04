@@ -2806,7 +2806,7 @@ term_ime_disable(struct terminal *term)
     term->ime.enabled = false;
     term_ime_reset(term);
 
-    /* IME is per seat - disable on all seat currenly focusing us */
+    /* IME is per seat - disable on all seat currently focusing us */
     tll_foreach(term->wl->seats, it) {
         if (it->item.kbd_focus == term)
             ime_disable(&it->item);
