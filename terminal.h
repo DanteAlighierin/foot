@@ -472,6 +472,7 @@ struct terminal {
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     struct {
+        bool enabled;
         struct {
             struct cell *cells;
             int count;
@@ -608,4 +609,7 @@ bool term_scrollback_to_text(
 bool term_view_to_text(
     const struct terminal *term, char **text, size_t *len);
 
-void term_reset_ime(struct terminal *term);
+bool term_ime_is_enabled(const struct terminal *term);
+void term_ime_enable(struct terminal *term);
+void term_ime_disable(struct terminal *term);
+void term_ime_reset(struct terminal *term);

@@ -10,6 +10,9 @@ extern const struct zwp_text_input_v3_listener text_input_listener;
 
 struct seat;
 
+void ime_enable(struct seat *seat);
+void ime_disable(struct seat *seat);
+
 void ime_reset_preedit(struct seat *seat);
 void ime_reset_commit(struct seat *seat);
 void ime_reset(struct seat *seat);

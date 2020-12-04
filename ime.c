@@ -20,43 +20,16 @@ enter(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
       struct wl_surface *surface)
 {
     struct seat *seat = data;
+
     LOG_DBG("enter: seat=%s", seat->name);
 
-    assert(seat->kbd_focus != NULL);
+    /* The main grid is the *only* input-receiving surface we have */
+    /* TODO: can we receive text_input::enter() _before_ keyboard_enter()? */
+    struct terminal UNUSED *term = seat->kbd_focus;
+    assert(term != NULL);
+    assert(term_surface_kind(term, surface) == TERM_SURF_GRID);
 
-    switch (term_surface_kind(seat->kbd_focus, surface)) {
-    case TERM_SURF_GRID:
-        zwp_text_input_v3_enable(seat->wl_text_input);
-        zwp_text_input_v3_set_content_type(
-            seat->wl_text_input,
-            ZWP_TEXT_INPUT_V3_CONTENT_HINT_NONE,
-            ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_TERMINAL);
-
-        /* TODO: set cursor rectangle */
-        zwp_text_input_v3_set_cursor_rectangle(seat->wl_text_input, 0, 0, 15, 15);
-        break;
-
-    case TERM_SURF_SEARCH:
-        /* TODO */
-        /* FALLTHROUGH */
-
-    case TERM_SURF_NONE:
-    case TERM_SURF_SCROLLBACK_INDICATOR:
-    case TERM_SURF_RENDER_TIMER:
-    case TERM_SURF_TITLE:
-    case TERM_SURF_BORDER_LEFT:
-    case TERM_SURF_BORDER_RIGHT:
-    case TERM_SURF_BORDER_TOP:
-    case TERM_SURF_BORDER_BOTTOM:
-    case TERM_SURF_BUTTON_MINIMIZE:
-    case TERM_SURF_BUTTON_MAXIMIZE:
-    case TERM_SURF_BUTTON_CLOSE:
-        zwp_text_input_v3_disable(seat->wl_text_input);
-        break;
-    }
-
-    zwp_text_input_v3_commit(seat->wl_text_input);
-    seat->ime.serial++;
+    ime_enable(seat);
 }
 
 static void
@@ -65,11 +38,7 @@ leave(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 {
     struct seat *seat = data;
     LOG_DBG("leave: seat=%s", seat->name);
-    zwp_text_input_v3_disable(seat->wl_text_input);
-    zwp_text_input_v3_commit(seat->wl_text_input);
-    seat->ime.serial++;
-
-    ime_reset(seat);
+    ime_disable(seat);
 }
 
 static void
@@ -146,7 +115,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
     /* 1. Delete existing pre-edit text */
     if (term->ime.preedit.cells != NULL) {
-        term_reset_ime(term);
+        term_ime_reset(term);
         render_refresh(term);
     }
 
@@ -337,6 +306,36 @@ ime_reset(struct seat *seat)
     ime_reset_commit(seat);
 }
 
+void
+ime_enable(struct seat *seat)
+{
+    struct terminal *term = seat->kbd_focus;
+    assert(term != NULL);
+
+    if (!term->ime.enabled)
+        return;
+
+    ime_reset(seat);
+
+    zwp_text_input_v3_enable(seat->wl_text_input);
+    zwp_text_input_v3_set_content_type(
+        seat->wl_text_input,
+        ZWP_TEXT_INPUT_V3_CONTENT_HINT_NONE,
+        ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_TERMINAL);
+
+    zwp_text_input_v3_commit(seat->wl_text_input);
+    seat->ime.serial++;
+}
+
+void
+ime_disable(struct seat *seat)
+{
+    ime_reset(seat);
+
+    zwp_text_input_v3_disable(seat->wl_text_input);
+    zwp_text_input_v3_commit(seat->wl_text_input);
+    seat->ime.serial++;
+}
 
 const struct zwp_text_input_v3_listener text_input_listener = {
     .enter = &enter,
@@ -348,6 +347,9 @@ const struct zwp_text_input_v3_listener text_input_listener = {
 };
 
 #else /* !FOOT_IME_ENABLED */
+
+void ime_enable(struct seat *seat) {}
+void ime_disable(struct seat *seat) {}
 
 void ime_reset_preedit(struct seat *seat) {}
 void ime_reset_commit(struct seat *seat) {}
