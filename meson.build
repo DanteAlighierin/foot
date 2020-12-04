@@ -151,6 +151,7 @@ executable(
   'commands.c', 'commands.h',
   'extract.c', 'extract.h',
   'fdm.c', 'fdm.h',
+  'foot-features.h',
   'ime.c', 'ime.h',
   'input.c', 'input.h',
   'main.c',
@@ -174,6 +175,7 @@ executable(
 executable(
   'footclient',
   'client.c', 'client-protocol.h',
+  'foot-features.h',
   'log.c', 'log.h',
   'macros.h',
   'xmalloc.c', 'xmalloc.h',
