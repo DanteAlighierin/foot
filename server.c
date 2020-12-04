@@ -265,18 +265,8 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     if (cdata.width > 0 && cdata.height > 0) {
         client->conf.size.type = cdata.size_type;
-
-        switch (cdata.size_type) {
-        case CONF_SIZE_PX:
-            client->conf.size.px.width = cdata.width;
-            client->conf.size.px.height = cdata.height;
-            break;
-
-        case CONF_SIZE_CELLS:
-            client->conf.size.cells.width = cdata.width;
-            client->conf.size.cells.height = cdata.height;
-            break;
-        }
+        client->conf.size.width = cdata.width;
+        client->conf.size.height = cdata.height;
     }
 
     client->term = term_init(

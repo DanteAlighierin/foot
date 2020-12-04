@@ -12,8 +12,8 @@
 #include "log.h"
 
 enum {
-    P = 0, // Padding byte (=)
-    I = 128, // Invalid byte ([^A-Za-z0-9+/=])
+    P = 1 << 6, // Padding byte (=)
+    I = 1 << 7, // Invalid byte ([^A-Za-z0-9+/=])
 };
 
 static const uint8_t reverse_lookup[256] = {
@@ -63,10 +63,16 @@ base64_decode(const char *s)
         unsigned c = reverse_lookup[(unsigned char)s[i + 2]];
         unsigned d = reverse_lookup[(unsigned char)s[i + 3]];
 
-        if (unlikely((a | b | c | d) & I)) {
-            free(ret);
-            errno = EINVAL;
-            return NULL;
+        unsigned u = a | b | c | d;
+        if (unlikely(u & I))
+            goto invalid;
+
+        if (unlikely(u & P)) {
+            if (unlikely(i + 4 != len || (a | b) & P || (c & P && !(d & P))))
+                goto invalid;
+
+            c &= 63;
+            d &= 63;
         }
 
         uint32_t v = a << 18 | b << 12 | c << 6 | d << 0;
@@ -82,6 +88,11 @@ base64_decode(const char *s)
 
     ret[len / 4 * 3] = '\0';
     return ret;
+
+invalid:
+    free(ret);
+    errno = EINVAL;
+    return NULL;
 }
 
 char *

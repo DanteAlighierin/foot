@@ -64,16 +64,8 @@ struct config {
 
     struct {
         enum conf_size_type type;
-        union {
-            struct {
-                unsigned width;
-                unsigned height;
-            } px;
-            struct {
-                unsigned width;
-                unsigned height;
-            } cells;
-        };
+        unsigned width;
+        unsigned height;
     } size;
 
     unsigned pad_x;

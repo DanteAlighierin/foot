@@ -530,7 +530,6 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         seat->kbd.mod_alt = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_ALT) ;
         seat->kbd.mod_ctrl = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_CTRL);
         seat->kbd.mod_meta = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_LOGO);
-        seat->kbd.mod_num = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_NUM);
 
         seat->kbd.key_arrow_up = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "UP");
         seat->kbd.key_arrow_down = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "DOWN");
@@ -633,7 +632,6 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     seat->kbd.alt = false;
     seat->kbd.ctrl = false;
     seat->kbd.meta = false;
-    seat->kbd.num = false;
     if (seat->kbd.xkb_compose_state != NULL)
         xkb_compose_state_reset(seat->kbd.xkb_compose_state);
 
@@ -752,9 +750,7 @@ keymap_lookup(struct seat *seat, struct terminal *term,
 
     const enum cursor_keys cursor_keys_mode = term->cursor_keys_mode;
     const enum keypad_keys keypad_keys_mode
-        = (term->num_lock_modifier && seat->kbd.num
-           ? KEYPAD_NUMERICAL
-           : term->keypad_keys_mode);
+        = term->num_lock_modifier ? KEYPAD_NUMERICAL : term->keypad_keys_mode;
 
     for (size_t j = 0; j < count; j++) {
         if (info[j].modifiers != MOD_ANY && info[j].modifiers != mods)
@@ -812,12 +808,6 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
         term_xcursor_update_for_seat(term, seat);
     }
 
-#if 0
-    char foo[100];
-    xkb_keysym_get_name(sym, foo, sizeof(foo));
-    LOG_INFO("%s", foo);
-#endif
-
     enum xkb_compose_status compose_status = XKB_COMPOSE_NOTHING;
 
     if (seat->kbd.xkb_compose_state != NULL) {
@@ -853,11 +843,16 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     }
 #endif
 
-    LOG_DBG("seat: %s, term=%p, serial=%u, "
-            "sym=%u, mod=0x%08x, consumed=0x%08x, significant=0x%08x, "
+#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
+    char sym_name[100];
+    xkb_keysym_get_name(sym, sym_name, sizeof(sym_name));
+#endif
+
+    LOG_DBG("%s (%u/0x%x): seat=%s, term=%p, serial=%u, "
+            "mod=0x%08x, consumed=0x%08x, significant=0x%08x, "
             "effective=0x%08x, repeats=%d",
-            seat->name, (void *)term, serial,
-            sym, mods, consumed, significant, effective_mods, should_repeat);
+            sym_name, sym, sym, seat->name, (void *)term, serial,
+            mods, consumed, significant, effective_mods, should_repeat);
 
     /*
      * User configurable bindings
@@ -891,7 +886,13 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     keymap_mods |= seat->kbd.ctrl ? MOD_CTRL : MOD_NONE;
     keymap_mods |= seat->kbd.meta ? MOD_META : MOD_NONE;
 
-    const struct key_data *keymap = keymap_lookup(seat, term, sym, keymap_mods);
+    const struct key_data *keymap;
+    if (sym == XKB_KEY_Escape && keymap_mods == MOD_NONE && term->modify_escape_key) {
+        static const struct key_data esc = {.seq = "\033[27;1;27~"};
+        keymap = &esc;
+    } else
+        keymap = keymap_lookup(seat, term, sym, keymap_mods);
+
     if (keymap != NULL) {
         term_to_slave(term, keymap->seq, strlen(keymap->seq));
 
@@ -1056,8 +1057,6 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             seat->kbd.xkb_state, seat->kbd.mod_ctrl, XKB_STATE_MODS_DEPRESSED);
         seat->kbd.meta = xkb_state_mod_index_is_active(
             seat->kbd.xkb_state, seat->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
-        seat->kbd.num = xkb_state_mod_index_is_active(
-            seat->kbd.xkb_state, seat->kbd.mod_num, XKB_STATE_MODS_LOCKED);
     }
 
     if (seat->kbd_focus && seat->kbd_focus->active_surface == TERM_SURF_GRID)

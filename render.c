@@ -2180,8 +2180,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
         } else {
             switch (term->conf->size.type) {
             case CONF_SIZE_PX:
-                width = term->conf->size.px.width;
-                height = term->conf->size.px.height;
+                width = term->conf->size.width;
+                height = term->conf->size.height;
 
                 if (term->window->use_csd == CSD_YES) {
                     /* Take CSD title bar into account */
@@ -2194,8 +2194,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
                 break;
 
             case CONF_SIZE_CELLS:
-                width = term->conf->size.cells.width * term->cell_width;
-                height = term->conf->size.cells.height * term->cell_height;
+                width = term->conf->size.width * term->cell_width;
+                height = term->conf->size.height * term->cell_height;
 
                 width += 2 * term->conf->pad_x * scale;
                 height += 2 * term->conf->pad_y * scale;

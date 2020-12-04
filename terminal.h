@@ -236,6 +236,7 @@ struct terminal {
     bool bracketed_paste;
     bool focus_events;
     bool alt_scrolling;
+    bool modify_escape_key;
     enum cursor_origin origin;
     enum cursor_keys cursor_keys_mode;
     enum keypad_keys keypad_keys_mode;
@@ -296,6 +297,7 @@ struct terminal {
         uint32_t num_lock_modifier:1;
         uint32_t bell_is_urgent:1;
         uint32_t alt_screen:1;
+        uint32_t modify_escape_key:1;
     } xtsave;
 
     char *window_title;
