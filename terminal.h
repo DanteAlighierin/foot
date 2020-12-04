@@ -298,6 +298,7 @@ struct terminal {
         uint32_t bell_is_urgent:1;
         uint32_t alt_screen:1;
         uint32_t modify_escape_key:1;
+        uint32_t ime:1;
     } xtsave;
 
     char *window_title;
