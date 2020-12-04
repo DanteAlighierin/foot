@@ -324,12 +324,11 @@ fdm_poll(struct fdm *fdm)
 
     struct epoll_event events[tll_length(fdm->fds)];
 
-    int r;
-    do {
-        r = epoll_wait(fdm->epoll_fd, events, tll_length(fdm->fds), -1);
-    } while (unlikely(r < 0 && errno == EINTR));
+    int r = epoll_wait(fdm->epoll_fd, events, tll_length(fdm->fds), -1);
+    if (unlikely(r < 0)) {
+        if (errno == EINTR)
+            return true;
 
-    if (r < 0) {
         LOG_ERRNO("failed to epoll");
         return false;
     }
