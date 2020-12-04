@@ -30,6 +30,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 
 ### Added
 
+* IME support (https://codeberg.org/dnkl/foot/issues/134).
 * Implement reverse auto-wrap (_auto\_left\_margin_, _bw_, in
   terminfo). This mode can be enabled/disabled with `CSI ? 45 h` and
   `CSI ? 45 l`. It is **enabled** by default
