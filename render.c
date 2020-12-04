@@ -1092,25 +1092,33 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
         render_cell(term, buf->pix[0], row, col_idx + i, row_idx, false);
     }
 
-    /* Hollow cursor */
     int start = term->ime.preedit.cursor.start;
     int end = term->ime.preedit.cursor.end;
 
-    if (!term->ime.preedit.cursor.hidden && end > start) {
+    if (!term->ime.preedit.cursor.hidden) {
+        const struct cell *start_cell = &term->ime.preedit.cells[start];
 
         pixman_color_t fg = color_hex_to_pixman(term->colors.fg);
         pixman_color_t bg = color_hex_to_pixman(term->colors.bg);
 
         pixman_color_t cursor_color, text_color;
         cursor_colors_for_cell(
-            term, &term->ime.preedit.cells[start],
-            &fg, &bg, &cursor_color, &text_color);
+            term, start_cell, &fg, &bg, &cursor_color, &text_color);
 
         int x = term->margins.left + (col_idx + start) * term->cell_width;
         int y = term->margins.top + row_idx * term->cell_height;
 
-        int cols = end - start;
-        draw_unfocused_block(term, buf->pix[0], &cursor_color, x, y, cols);
+        if (end == start) {
+            /* Bar */
+            struct fcft_font *font = attrs_to_font(term, &start_cell->attrs);
+            draw_bar(term, buf->pix[0], font, &cursor_color, x, y);
+        }
+
+        else if (end > start) {
+            /* Hollow cursor */
+            int cols = end - start;
+            draw_unfocused_block(term, buf->pix[0], &cursor_color, x, y, cols);
+        }
     }
 
     /* Restore original content (but do not render) */
