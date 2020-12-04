@@ -2786,7 +2786,7 @@ term_ime_enable(struct terminal *term)
     term->ime.enabled = true;
     term_ime_reset(term);
 
-    /* IME is per seat - enable on all seat currenly focusing us */
+    /* IME is per seat - enable on all seat currently focusing us */
     tll_foreach(term->wl->seats, it) {
         if (it->item.kbd_focus == term)
             ime_enable(&it->item);
