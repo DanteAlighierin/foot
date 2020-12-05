@@ -1029,6 +1029,9 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
     if (likely(term->ime.preedit.cells == NULL))
         return;
 
+    if (unlikely(term->is_searching))
+        return;
+
     /* Adjust cursor position to viewport */
     struct coord cursor;
     cursor = term->grid->cursor.point;
