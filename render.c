@@ -2117,7 +2117,8 @@ render_search_box(struct terminal *term)
 {
     assert(term->window->search_sub_surface != NULL);
 
-    const size_t wanted_visible_chars = max(20, term->search.len);
+    const size_t wanted_visible_chars = max(
+        20, wcsnlen(term->search.buf, term->search.len));
 
     assert(term->scale >= 1);
     const int scale = term->scale;
@@ -2199,7 +2200,7 @@ render_search_box(struct terminal *term)
             pixman_image_unref(src);
         }
 
-        x += term->cell_width;
+        x += max(1, wcwidth(term->search.buf[i])) * term->cell_width;
     }
 
     if (term->search.cursor >= term->search.len)
