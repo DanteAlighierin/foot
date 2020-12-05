@@ -2118,7 +2118,7 @@ render_search_box(struct terminal *term)
     assert(term->window->search_sub_surface != NULL);
 
     const size_t wanted_visible_chars = max(
-        20, wcsnlen(term->search.buf, term->search.len));
+        20, wcswidth(term->search.buf, term->search.len));
 
     assert(term->scale >= 1);
     const int scale = term->scale;
