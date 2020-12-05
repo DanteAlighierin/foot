@@ -135,9 +135,9 @@ mkdir -p bld/release && cd bld/release
 
 All variants below support the following compile-time options:
 
-| Option | Type | Default | Description         | Extra dependencies |
-|--------|------|---------|---------------------|--------------------|
-| -Dime  | Bool | True    | Enables IME support | None               |
+| Option   | Type | Default | Description         | Extra dependencies |
+|----------|------|---------|---------------------|--------------------|
+| `-Dime`  | Bool | True    | Enables IME support | None               |
 
 
 ### Release build
