@@ -1024,10 +1024,14 @@ err:
 }
 
 static bool
-has_key_binding_collisions(struct config *conf, const key_combo_list_t *key_combos,
+has_key_binding_collisions(struct config *conf, enum bind_action_normal action,
+                           const key_combo_list_t *key_combos,
                            const char *path, unsigned lineno)
 {
     tll_foreach(conf->bindings.key, it) {
+        if (it->item.action == action)
+            continue;
+
         tll_foreach(*key_combos, it2) {
             const struct config_key_modifiers *mods1 = &it->item.modifiers;
             const struct config_key_modifiers *mods2 = &it2->item.modifiers;
@@ -1055,10 +1059,14 @@ has_key_binding_collisions(struct config *conf, const key_combo_list_t *key_comb
 }
 
 static bool
-has_search_binding_collisions(struct config *conf, const key_combo_list_t *key_combos,
+has_search_binding_collisions(struct config *conf, enum bind_action_search action,
+                              const key_combo_list_t *key_combos,
                               const char *path, unsigned lineno)
 {
     tll_foreach(conf->bindings.search, it) {
+        if (it->item.action == action)
+            continue;
+
         tll_foreach(*key_combos, it2) {
             const struct config_key_modifiers *mods1 = &it->item.modifiers;
             const struct config_key_modifiers *mods2 = &it2->item.modifiers;
@@ -1245,7 +1253,7 @@ parse_section_key_bindings(
 
         key_combo_list_t key_combos = tll_init();
         if (!parse_key_combos(conf, value, &key_combos, path, lineno) ||
-            has_key_binding_collisions(conf, &key_combos, path, lineno))
+            has_key_binding_collisions(conf, action, &key_combos, path, lineno))
         {
             free(pipe_argv);
             free(pipe_cmd);
@@ -1325,7 +1333,7 @@ parse_section_search_bindings(
 
         key_combo_list_t key_combos = tll_init();
         if (!parse_key_combos(conf, value, &key_combos, path, lineno) ||
-            has_search_binding_collisions(conf, &key_combos, path, lineno))
+            has_search_binding_collisions(conf, action, &key_combos, path, lineno))
         {
             free_key_combo_list(&key_combos);
             return false;
