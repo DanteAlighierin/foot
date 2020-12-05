@@ -332,8 +332,8 @@ search_find_next(struct terminal *term)
 #undef ROW_DEC
 }
 
-static void
-add_chars(struct terminal *term, const char *src, size_t count)
+void
+search_add_chars(struct terminal *term, const char *src, size_t count)
 {
     mbstate_t ps = {0};
     size_t wchars = mbsnrtowcs(NULL, &src, count, 0, &ps);
@@ -494,7 +494,7 @@ static void
 from_clipboard_cb(char *text, size_t size, void *user)
 {
     struct terminal *term = user;
-    add_chars(term, text, size);
+    search_add_chars(term, text, size);
 }
 
 static void
@@ -722,7 +722,7 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
     if (count == 0)
         return;
 
-    add_chars(term, (const char *)buf, count);
+    search_add_chars(term, (const char *)buf, count);
 
 update_search:
     LOG_DBG("search: buffer: %ls", term->search.buf);
