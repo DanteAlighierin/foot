@@ -129,10 +129,14 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
     /* 3. Insert commit string */
     if (seat->ime.commit.pending.text != NULL) {
-        term_to_slave(
-            term,
-            seat->ime.commit.pending.text,
-            strlen(seat->ime.commit.pending.text));
+        if (term->is_searching) {
+            /* TODO */
+        } else {
+            term_to_slave(
+                term,
+                seat->ime.commit.pending.text,
+                strlen(seat->ime.commit.pending.text));
+        }
         ime_reset_commit(seat);
     }
 
@@ -214,7 +218,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
              *
              * I haven't found an IME that requests anything else
              */
-            
+
             const size_t byte_len = strlen(seat->ime.preedit.pending.text);
 
             int cell_begin = -1, cell_end = -1;
