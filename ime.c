@@ -10,6 +10,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "render.h"
+#include "search.h"
 #include "terminal.h"
 #include "util.h"
 #include "wayland.h"
@@ -129,14 +130,14 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
     /* 3. Insert commit string */
     if (seat->ime.commit.pending.text != NULL) {
+        const char *text = seat->ime.commit.pending.text;
+        size_t len = strlen(text);
+
         if (term->is_searching) {
-            /* TODO */
-        } else {
-            term_to_slave(
-                term,
-                seat->ime.commit.pending.text,
-                strlen(seat->ime.commit.pending.text));
-        }
+            search_add_chars(term, text, len);
+            render_refresh_search(term);
+        } else
+            term_to_slave(term, text, len);
         ime_reset_commit(seat);
     }
 
