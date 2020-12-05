@@ -2184,12 +2184,20 @@ render_search_box(struct terminal *term)
         if (glyph == NULL)
             continue;
 
-        pixman_image_t *src = pixman_image_create_solid_fill(&fg);
-        pixman_image_composite32(
-            PIXMAN_OP_OVER, src, glyph->pix, buf->pix[0], 0, 0, 0, 0,
-            x + glyph->x, y + font_baseline(term) - glyph->y,
+        if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
+            /* Glyph surface is a pre-rendered image (typically a color emoji...) */
+            pixman_image_composite32(
+                PIXMAN_OP_OVER, glyph->pix, NULL, buf->pix[0], 0, 0, 0, 0,
+                x + glyph->x, y + font_baseline(term) - glyph->y,
+                glyph->width, glyph->height);
+        } else {
+            pixman_image_t *src = pixman_image_create_solid_fill(&fg);
+            pixman_image_composite32(
+                PIXMAN_OP_OVER, src, glyph->pix, buf->pix[0], 0, 0, 0, 0,
+                x + glyph->x, y + font_baseline(term) - glyph->y,
             glyph->width, glyph->height);
-        pixman_image_unref(src);
+            pixman_image_unref(src);
+        }
 
         x += term->cell_width;
     }
