@@ -18,6 +18,7 @@
 #include "selection.h"
 #include "shm.h"
 #include "util.h"
+#include "xmalloc.h"
 
 /*
  * Ensures a "new" viewport doesn't contain any unallocated rows.
@@ -123,6 +124,11 @@ search_begin(struct terminal *term)
     term->search.original_view = term->grid->view;
     term->search.view_followed_offset = term->grid->view == term->grid->offset;
     term->is_searching = true;
+
+    term->search.len = 0;
+    term->search.sz = 64;
+    term->search.buf = xmalloc(term->search.sz * sizeof(term->search.buf[0]));
+    term->search.buf[0] = L'\0';
 
     term_xcursor_update(term);
     render_refresh_search(term);

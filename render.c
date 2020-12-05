@@ -2117,8 +2117,19 @@ render_search_box(struct terminal *term)
 {
     assert(term->window->search_sub_surface != NULL);
 
-    const size_t wanted_visible_chars = max(
-        20, wcswidth(term->search.buf, term->search.len));
+    /*
+     * We treat the search box pretty much like a row of cells. That
+     * is, a glyph is either 1 or 2 (or more) “cells” wide.
+     *
+     * The search ‘length’, and ‘cursor’ (position) is in
+     * *characters*, not cells. This means we need to translate from
+     * character cound to cell count when calculating the length of
+     * the search box, where in the search string we should start
+     * rendering etc.
+     */
+
+    const size_t total_cells = wcswidth(term->search.buf, term->search.len);
+    const size_t wanted_visible_cells = max(20, total_cells);
 
     assert(term->scale >= 1);
     const int scale = term->scale;
@@ -2128,12 +2139,12 @@ render_search_box(struct terminal *term)
     const size_t width = term->width - 2 * margin;
     const size_t visible_width = min(
         term->width - 2 * margin,
-        2 * margin + wanted_visible_chars * term->cell_width);
+        2 * margin + wanted_visible_cells * term->cell_width);
     const size_t height = min(
         term->height - 2 * margin,
         2 * margin + 1 * term->cell_height);
 
-    const size_t visible_chars = (visible_width - 2 * margin) / term->cell_width;
+    const size_t visible_cells = (visible_width - 2 * margin) / term->cell_width;
     size_t glyph_offset = term->render.search_glyph_offset;
 
     unsigned long cookie = shm_cookie_search(term);
@@ -2158,32 +2169,66 @@ render_search_box(struct terminal *term)
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
-    /* Ensure cursor is visible */
-    if (term->search.cursor < glyph_offset)
-        term->render.search_glyph_offset = glyph_offset = term->search.cursor;
-    else if (term->search.cursor > glyph_offset + visible_chars) {
-        term->render.search_glyph_offset = glyph_offset =
-            term->search.cursor - min(term->search.cursor, visible_chars);
+    /*
+     * Ensure cursor is visible
+     *
+     * First, we need to map the cursor character position to a cell
+     * position. Then we can ensure the cursor is within the rendered
+     * part of the search string.
+     */
+    for (size_t i = 0, cell_idx = 0;
+         i <= term->search.cursor;
+         cell_idx += max(1, wcwidth(term->search.buf[i])), i++)
+    {
+        if (i != term->search.cursor)
+            continue;
+
+        if (cell_idx < glyph_offset)
+            term->render.search_glyph_offset = glyph_offset = cell_idx;
+        else if (cell_idx > glyph_offset + visible_cells) {
+            term->render.search_glyph_offset = glyph_offset =
+                cell_idx - min(cell_idx, visible_cells);
+        }
+        break;
     }
 
     /* Move offset if there is free space available */
-    if (term->search.len - glyph_offset < visible_chars)
+    if (total_cells - glyph_offset < visible_cells)
         term->render.search_glyph_offset = glyph_offset =
-            term->search.len - min(term->search.len, visible_chars);
+            total_cells - min(total_cells, visible_cells);
 
-    /* Text (what the user entered - *not* match(es)) */
-    for (size_t i = glyph_offset;
-         i < term->search.len && i - glyph_offset < visible_chars;
-         i++)
+    /*
+     * Render the search string, starting at ‘glyph_offset’. Note that
+     * glyph_offset is in cells, not characters
+     */
+    for (size_t i = 0,
+             cell_idx = 0,
+             width = max(1, wcwidth(term->search.buf[i])),
+             next_cell_idx = width;
+         i < term->search.len;
+         i++,
+             cell_idx = next_cell_idx,
+             width = max(1, wcwidth(term->search.buf[i])),
+             next_cell_idx += width)
     {
         if (i == term->search.cursor)
             draw_bar(term, buf->pix[0], font, &fg, x, y);
 
+        if (next_cell_idx >= glyph_offset && next_cell_idx - glyph_offset > visible_cells)
+            break;
+
+        if (cell_idx < glyph_offset) {
+            cell_idx = next_cell_idx;
+            continue;
+        }
+
         const struct fcft_glyph *glyph = fcft_glyph_rasterize(
             font, term->search.buf[i], term->font_subpixel);
 
-        if (glyph == NULL)
+        if (glyph == NULL) {
+            cell_idx = next_cell_idx;
             continue;
+        }
 
         if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
             /* Glyph surface is a pre-rendered image (typically a color emoji...) */
@@ -2200,7 +2245,8 @@ render_search_box(struct terminal *term)
             pixman_image_unref(src);
         }
 
-        x += max(1, wcwidth(term->search.buf[i])) * term->cell_width;
+        x += width * term->cell_width;
+        cell_idx = next_cell_idx;
     }
 
     if (term->search.cursor >= term->search.len)
