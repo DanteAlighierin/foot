@@ -2123,7 +2123,7 @@ render_search_box(struct terminal *term)
      *
      * The search ‘length’, and ‘cursor’ (position) is in
      * *characters*, not cells. This means we need to translate from
-     * character cound to cell count when calculating the length of
+     * character count to cell count when calculating the length of
      * the search box, where in the search string we should start
      * rendering etc.
      */
