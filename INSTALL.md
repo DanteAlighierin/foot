@@ -137,7 +137,7 @@ All variants below support the following compile-time options:
 
 | Option   | Type | Default | Description         | Extra dependencies |
 |----------|------|---------|---------------------|--------------------|
-| `-Dime`  | Bool | True    | Enables IME support | None               |
+| `-Dime`  | bool | `true`  | Enables IME support | None               |
 
 
 ### Release build
