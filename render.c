@@ -2128,7 +2128,10 @@ render_search_box(struct terminal *term)
      * rendering etc.
      */
 
-    const size_t total_cells = wcswidth(term->search.buf, term->search.len);
+    const wchar_t *text = term->search.buf;
+    const size_t text_len = term->search.len;
+
+    const size_t total_cells = wcswidth(text, text_len);
     const size_t wanted_visible_cells = max(20, total_cells);
 
     assert(term->scale >= 1);
@@ -2152,7 +2155,7 @@ render_search_box(struct terminal *term)
 
     /* Background - yellow on empty/match, red on mismatch */
     pixman_color_t color = color_hex_to_pixman(
-        term->search.match_len == term->search.len
+        term->search.match_len == text_len
         ? term->colors.table[3] : term->colors.table[1]);
 
     pixman_image_fill_rectangles(
@@ -2178,7 +2181,7 @@ render_search_box(struct terminal *term)
      */
     for (size_t i = 0, cell_idx = 0;
          i <= term->search.cursor;
-         cell_idx += max(1, wcwidth(term->search.buf[i])), i++)
+         cell_idx += max(1, wcwidth(text[i])), i++)
     {
         if (i != term->search.cursor)
             continue;
@@ -2203,12 +2206,12 @@ render_search_box(struct terminal *term)
      */
     for (size_t i = 0,
              cell_idx = 0,
-             width = max(1, wcwidth(term->search.buf[i])),
+             width = max(1, wcwidth(text[i])),
              next_cell_idx = width;
-         i < term->search.len;
+         i < text_len;
          i++,
              cell_idx = next_cell_idx,
-             width = max(1, wcwidth(term->search.buf[i])),
+             width = max(1, wcwidth(text[i])),
              next_cell_idx += width)
     {
         if (i == term->search.cursor)
@@ -2223,7 +2226,7 @@ render_search_box(struct terminal *term)
         }
 
         const struct fcft_glyph *glyph = fcft_glyph_rasterize(
-            font, term->search.buf[i], term->font_subpixel);
+            font, text[i], term->font_subpixel);
 
         if (glyph == NULL) {
             cell_idx = next_cell_idx;
@@ -2249,7 +2252,7 @@ render_search_box(struct terminal *term)
         cell_idx = next_cell_idx;
     }
 
-    if (term->search.cursor >= term->search.len)
+    if (term->search.cursor >= text_len)
         draw_bar(term, buf->pix[0], font, &fg, x, y);
 
     quirk_weston_subsurface_desync_on(term->window->search_sub_surface);
