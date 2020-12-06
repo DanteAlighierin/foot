@@ -2219,9 +2219,12 @@ render_search_box(struct terminal *term)
     }
 
     /* Move offset if there is free space available */
-    if (total_cells - glyph_offset < visible_cells)
+    if (total_cells - glyph_offset < visible_cells) {
+        ssize_t old = glyph_offset;
         term->render.search_glyph_offset = glyph_offset =
             total_cells - min(total_cells, visible_cells);
+        cursor_cell_idx += old - (ssize_t)glyph_offset;
+    }
 
     /*
      * Render the search string, starting at ‘glyph_offset’. Note that
