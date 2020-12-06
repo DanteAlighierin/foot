@@ -2128,8 +2128,19 @@ render_search_box(struct terminal *term)
      * rendering etc.
      */
 
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    size_t text_len = term->search.len;
+    if (term->ime.preedit.text != NULL)
+        text_len += wcslen(term->ime.preedit.text);
+
+    wchar_t *text = xmalloc((text_len + 1) *  sizeof(wchar_t));
+    wcscpy(text, term->search.buf);
+    if (term->ime.preedit.text != NULL)
+        wcscat(text, term->ime.preedit.text);
+#else
     const wchar_t *text = term->search.buf;
     const size_t text_len = term->search.len;
+#endif
 
     const size_t total_cells = wcswidth(text, text_len);
     const size_t wanted_visible_cells = max(20, total_cells);
@@ -2168,7 +2179,8 @@ render_search_box(struct terminal *term)
         1, &(pixman_rectangle16_t){0, 0, width - visible_width, height});
 
     struct fcft_font *font = term->fonts[0];
-    int x = width - visible_width + margin;
+    const int x_left = width - visible_width + margin;
+    int x = x_left;
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
@@ -2179,6 +2191,8 @@ render_search_box(struct terminal *term)
      * position. Then we can ensure the cursor is within the rendered
      * part of the search string.
      */
+    size_t cursor_cell_idx = 0;
+
     for (size_t i = 0, cell_idx = 0;
          i <= term->search.cursor;
          cell_idx += max(1, wcwidth(text[i])), i++)
@@ -2186,12 +2200,21 @@ render_search_box(struct terminal *term)
         if (i != term->search.cursor)
             continue;
 
+#if 0
+#if (FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+        if (term->ime.preedit.cells != NULL)
+            cell_idx += term->ime.preedit.count;
+#endif
+#endif
+
         if (cell_idx < glyph_offset)
             term->render.search_glyph_offset = glyph_offset = cell_idx;
         else if (cell_idx > glyph_offset + visible_cells) {
             term->render.search_glyph_offset = glyph_offset =
                 cell_idx - min(cell_idx, visible_cells);
         }
+        assert(cell_idx >= glyph_offset);
+        cursor_cell_idx = cell_idx - glyph_offset;
         break;
     }
 
@@ -2214,8 +2237,10 @@ render_search_box(struct terminal *term)
              width = max(1, wcwidth(text[i])),
              next_cell_idx += width)
     {
+#if 0
         if (i == term->search.cursor)
             draw_bar(term, buf->pix[0], font, &fg, x, y);
+#endif
 
         if (next_cell_idx >= glyph_offset && next_cell_idx - glyph_offset > visible_cells)
             break;
@@ -2252,8 +2277,36 @@ render_search_box(struct terminal *term)
         cell_idx = next_cell_idx;
     }
 
-    if (term->search.cursor >= text_len)
-        draw_bar(term, buf->pix[0], font, &fg, x, y);
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+
+    if (term->ime.preedit.cells != NULL) {
+        int cells_left = visible_cells - cursor_cell_idx;
+        int count = max(min(term->ime.preedit.count, cells_left), 0);
+
+        /* Underline the entire pre-edit text */
+        draw_underline(term, buf->pix[0], font, &fg,
+                       x_left + cursor_cell_idx * term->cell_width, y, count);
+
+        /* Cursor, unless hidden */
+        if (!term->ime.preedit.cursor.hidden) {
+            /* TODO: we must ensure this is visible */
+            const int start = cursor_cell_idx + term->ime.preedit.cursor.start;
+            const int end = cursor_cell_idx + term->ime.preedit.cursor.end;
+
+            if (start == end) {
+                draw_bar(term, buf->pix[0], font, &fg,
+                         x_left + start * term->cell_width, y);
+            } else {
+                draw_unfocused_block(
+                    term, buf->pix[0], &fg,
+                    x_left + start * term->cell_width, y, end - start);
+            }
+        }
+    }  else
+#endif
+        draw_bar(term, buf->pix[0], font, &fg,
+                 x_left + cursor_cell_idx * term->cell_width, y);
 
     quirk_weston_subsurface_desync_on(term->window->search_sub_surface);
 
@@ -2276,6 +2329,10 @@ render_search_box(struct terminal *term)
 
     wl_surface_commit(term->window->search_surface);
     quirk_weston_subsurface_desync_off(term->window->search_sub_surface);
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    free(text);
+#endif
 }
 
 static void
@@ -2648,31 +2705,27 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
     tll_foreach(renderer->wayl->terms, it) {
         struct terminal *term = it->item;
 
-        if (!term->render.refresh.grid &&
-            !term->render.refresh.csd &&
-            !term->render.refresh.search)
-        {
+        if (unlikely(!term->window->is_configured))
             continue;
-        }
-
-        if (term->render.app_sync_updates.enabled &&
-            !term->render.refresh.csd &&
-            !term->render.refresh.search)
-        {
-            continue;
-        }
-
-        if (term->render.refresh.csd || term->render.refresh.search) {
-             /* Force update of parent surface */
-            term->render.refresh.grid = true;
-        }
-
-        assert(term->window->is_configured);
 
         bool grid = term->render.refresh.grid;
         bool csd = term->render.refresh.csd;
         bool search = term->render.refresh.search;
         bool title = term->render.refresh.title;
+
+        if (!term->is_searching)
+            search = false;
+
+        if (!(grid | csd | search | title))
+            continue;
+
+        if (term->render.app_sync_updates.enabled && !(csd | search | title))
+            continue;
+
+        if (csd | search) {
+            /* Force update of parent surface */
+            grid = true;
+        }
 
         term->render.refresh.grid = false;
         term->render.refresh.csd = false;
