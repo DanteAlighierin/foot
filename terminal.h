@@ -475,6 +475,7 @@ struct terminal {
     struct {
         bool enabled;
         struct {
+            wchar_t *text;
             struct cell *cells;
             int count;
 

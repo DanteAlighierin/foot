@@ -2819,7 +2819,9 @@ term_ime_reset(struct terminal *term)
 {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     if (term->ime.preedit.cells != NULL) {
+        free(term->ime.preedit.text);
         free(term->ime.preedit.cells);
+        term->ime.preedit.text = NULL;
         term->ime.preedit.cells = NULL;
         term->ime.preedit.count = 0;
     }

@@ -150,15 +150,16 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
     if (wchars > 0) {
         /* First, convert to unicode */
-        wchar_t wcs[wchars + 1];
-        mbstowcs(wcs, seat->ime.preedit.pending.text, wchars);
+        term->ime.preedit.text = xmalloc((wchars + 1) * sizeof(wchar_t));
+        mbstowcs(term->ime.preedit.text, seat->ime.preedit.pending.text, wchars);
+        term->ime.preedit.text[wchars] = L'\0';
 
         /* Next, count number of cells needed */
         size_t cell_count = 0;
         size_t widths[wchars + 1];
 
         for (size_t i = 0; i < wchars; i++) {
-            int width = max(wcwidth(wcs[i]), 1);
+            int width = max(wcwidth(term->ime.preedit.text[i]), 1);
             widths[i] = width;
             cell_count += width;
         }
@@ -174,7 +175,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
             int width = widths[i];
 
-            cell->wc = wcs[i];
+            cell->wc = term->ime.preedit.text[i];
             cell->attrs = (struct attributes){.clean = 0, .underline = 1};
 
             for (int j = 1; j < width; j++) {
