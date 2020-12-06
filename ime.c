@@ -117,7 +117,10 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     /* 1. Delete existing pre-edit text */
     if (term->ime.preedit.cells != NULL) {
         term_ime_reset(term);
-        render_refresh(term);
+        if (term->is_searching)
+            render_refresh_search(term);
+        else
+            render_refresh(term);
     }
 
     /*
@@ -285,7 +288,10 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
             term->ime.preedit.cursor.end = cell_end;
         }
 
-        render_refresh(term);
+        if (term->is_searching)
+            render_refresh_search(term);
+        else
+            render_refresh(term);
     }
 
     ime_reset_preedit(seat);
