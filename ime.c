@@ -151,150 +151,156 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         ? mbstowcs(NULL, seat->ime.preedit.pending.text, 0)
         : 0;
 
-    if (wchars > 0) {
-        /* First, convert to unicode */
-        term->ime.preedit.text = xmalloc((wchars + 1) * sizeof(wchar_t));
-        mbstowcs(term->ime.preedit.text, seat->ime.preedit.pending.text, wchars);
-        term->ime.preedit.text[wchars] = L'\0';
+    if (wchars == 0 || wchars == (size_t)-1) {
+        ime_reset_preedit(seat);
+        return;
+    }
 
-        /* Next, count number of cells needed */
-        size_t cell_count = 0;
-        size_t widths[wchars + 1];
+    /* First, convert to unicode */
+    term->ime.preedit.text = xmalloc((wchars + 1) * sizeof(wchar_t));
+    mbstowcs(term->ime.preedit.text, seat->ime.preedit.pending.text, wchars);
+    term->ime.preedit.text[wchars] = L'\0';
 
-        for (size_t i = 0; i < wchars; i++) {
-            int width = max(wcwidth(term->ime.preedit.text[i]), 1);
-            widths[i] = width;
-            cell_count += width;
+    /* Next, count number of cells needed */
+    size_t cell_count = 0;
+    size_t widths[wchars + 1];
+
+    for (size_t i = 0; i < wchars; i++) {
+        int width = max(wcwidth(term->ime.preedit.text[i]), 1);
+        widths[i] = width;
+        cell_count += width;
+    }
+
+    /* Allocate cells */
+    term->ime.preedit.cells = xmalloc(
+        cell_count * sizeof(term->ime.preedit.cells[0]));
+    term->ime.preedit.count = cell_count;
+
+    /* Populate cells */
+    for (size_t i = 0, cell_idx = 0; i < wchars; i++) {
+        struct cell *cell = &term->ime.preedit.cells[cell_idx];
+
+        int width = widths[i];
+
+        cell->wc = term->ime.preedit.text[i];
+        cell->attrs = (struct attributes){.clean = 0};
+
+        for (int j = 1; j < width; j++) {
+            cell = &term->ime.preedit.cells[cell_idx + j];
+            cell->wc = CELL_MULT_COL_SPACER;
+            cell->attrs = (struct attributes){.clean = 1};
         }
 
-        /* Allocate cells */
-        term->ime.preedit.cells = xmalloc(
-            cell_count * sizeof(term->ime.preedit.cells[0]));
-        term->ime.preedit.count = cell_count;
+        cell_idx += width;
+    }
 
-        /* Populate cells */
-        for (size_t i = 0, cell_idx = 0; i < wchars; i++) {
-            struct cell *cell = &term->ime.preedit.cells[cell_idx];
+    /* Pre-edit cursor - hidden */
+    if (seat->ime.preedit.pending.cursor_begin == -1 ||
+        seat->ime.preedit.pending.cursor_end == -1)
+    {
+        /* Note: docs says *both* begin and end should be -1,
+         * but what else can we do if only one is -1? */
+        LOG_DBG("pre-edit cursor is hidden");
+        term->ime.preedit.cursor.hidden = true;
+        term->ime.preedit.cursor.start = -1;
+        term->ime.preedit.cursor.end = -1;
+    }
 
-            int width = widths[i];
+    else {
+        /*
+         * Translate cursor position to cell indices
+         *
+         * The cursor_begin and cursor_end are counted in
+         * *bytes*. We want to map them to *cell* indices.
+         *
+         * To do this, we use mblen() to step though the utf-8
+         * pre-edit string, advancing a unicode character index as
+         * we go, *and* advancing a *cell* index using wcwidth()
+         * of the unicode character.
+         *
+         * When we find the matching *byte* index, we at the same
+         * time know both the unicode *and* cell index.
+         *
+         * Note that this has only been tested with
+         *
+         *   cursor_begin == cursor_end == 0
+         *
+         * I haven't found an IME that requests anything else
+         */
 
-            cell->wc = term->ime.preedit.text[i];
-            cell->attrs = (struct attributes){.clean = 0, .underline = 1};
+        const size_t byte_len = strlen(seat->ime.preedit.pending.text);
 
-            for (int j = 1; j < width; j++) {
-                cell = &term->ime.preedit.cells[cell_idx + j];
-                cell->wc = CELL_MULT_COL_SPACER;
-                cell->attrs = (struct attributes){.clean = 1};
-            }
-
-            cell_idx += width;
-        }
-
-        /* Pre-edit cursor - hidden */
-        if (seat->ime.preedit.pending.cursor_begin == -1 ||
-            seat->ime.preedit.pending.cursor_end == -1)
+        int cell_begin = -1, cell_end = -1;
+        for (size_t byte_idx = 0, wc_idx = 0, cell_idx = 0;
+             byte_idx < byte_len &&
+                 wc_idx < wchars &&
+                 cell_idx < cell_count &&
+                 (cell_begin < 0 || cell_end < 0);
+             cell_idx += widths[wc_idx], wc_idx++)
         {
-            /* Note: docs says *both* begin and end should be -1,
-             * but what else can we do if only one is -1? */
-            LOG_DBG("pre-edit cursor is hidden");
-            term->ime.preedit.cursor.hidden = true;
-            term->ime.preedit.cursor.start = -1;
-            term->ime.preedit.cursor.end = -1;
+            if (seat->ime.preedit.pending.cursor_begin == byte_idx)
+                cell_begin = cell_idx;
+            if (seat->ime.preedit.pending.cursor_end == byte_idx)
+                cell_end = cell_idx;
+
+            /* Number of bytes of *next* utf-8 character */
+            size_t left = byte_len - byte_idx;
+            int wc_bytes = mblen(&seat->ime.preedit.pending.text[byte_idx], left);
+
+            if (wc_bytes <= 0)
+                break;
+
+            byte_idx += wc_bytes;
         }
 
-        else {
-            /*
-             * Translate cursor position to cell indices
-             *
-             * The cursor_begin and cursor_end are counted in
-             * *bytes*. We want to map them to *cell* indices.
-             *
-             * To do this, we use mblen() to step though the utf-8
-             * pre-edit string, advancing a unicode character index as
-             * we go, *and* advancing a *cell* index using wcwidth()
-             * of the unicode character.
-             *
-             * When we find the matching *byte* index, we at the same
-             * time know both the unicode *and* cell index.
-             *
-             * Note that this has only been tested with
-             *
-             *   cursor_begin == cursor_end == 0
-             *
-             * I haven't found an IME that requests anything else
-             */
+        if (seat->ime.preedit.pending.cursor_end >= byte_len)
+            cell_end = cell_count;
 
-            const size_t byte_len = strlen(seat->ime.preedit.pending.text);
+        /* Bounded by number of screen columns */
+        cell_begin = min(max(cell_begin, 0), cell_count - 1);
+        cell_end = min(max(cell_end, 0), cell_count);
 
-            int cell_begin = -1, cell_end = -1;
-            for (size_t byte_idx = 0, wc_idx = 0, cell_idx = 0;
-                 byte_idx < byte_len &&
-                     wc_idx < wchars &&
-                     cell_idx < cell_count &&
-                     (cell_begin < 0 || cell_end < 0);
-                 )
-            {
-                if (seat->ime.preedit.pending.cursor_begin == byte_idx)
-                    cell_begin = cell_idx;
-                if (seat->ime.preedit.pending.cursor_end == byte_idx)
-                    cell_end = cell_idx;
+        if (cell_end < cell_begin)
+            cell_end = cell_begin;
 
-                /* Number of bytes of *next* utf-8 character */
-                size_t left = byte_len - byte_idx;
-                int wc_bytes = mblen(&seat->ime.preedit.pending.text[byte_idx], left);
-
-                if (wc_bytes <= 0)
-                    break;
-
-                byte_idx += wc_bytes;
-                cell_idx += max(wcwidth(term->ime.preedit.cells[cell_idx].wc), 1);
-                wc_idx++;
-            }
-
-            if (seat->ime.preedit.pending.cursor_end >= byte_len)
-                cell_end = cell_count;
-
-            /* Bounded by number of screen columns */
-            cell_begin = min(max(cell_begin, 0), cell_count - 1);
-            cell_end = min(max(cell_end, 0), cell_count);
-
-#if 1
-            if (cell_end < cell_begin)
-                cell_end = cell_begin;
-#else
-            if (cell_end <= cell_begin) {
-                cell_end = cell_begin + max(
-                    wcwidth(term->ime.preedit.cells[cell_begin].wc), 1);
-            }
-#endif
-
-            /* Expand cursor end to end of glyph */
-            while (cell_end > cell_begin && cell_end < cell_count &&
-                   term->ime.preedit.cells[cell_end].wc == CELL_MULT_COL_SPACER)
-            {
-                cell_end++;
-            }
-
-            LOG_DBG("pre-edit cursor: begin=%d, end=%d", cell_begin, cell_end);
-
-            assert(cell_begin >= 0);
-            assert(cell_begin < cell_count);
-            assert(cell_begin <= cell_end);
-            assert(cell_end >= 0);
-            assert(cell_end <= cell_count);
-
-            term->ime.preedit.cursor.hidden = false;
-            term->ime.preedit.cursor.start = cell_begin;
-            term->ime.preedit.cursor.end = cell_end;
+        /* Expand cursor end to end of glyph */
+        while (cell_end > cell_begin && cell_end < cell_count &&
+               term->ime.preedit.cells[cell_end].wc == CELL_MULT_COL_SPACER)
+        {
+            cell_end++;
         }
 
-        if (term->is_searching)
-            render_refresh_search(term);
-        else
-            render_refresh(term);
+        LOG_DBG("pre-edit cursor: begin=%d, end=%d", cell_begin, cell_end);
+
+        assert(cell_begin >= 0);
+        assert(cell_begin < cell_count);
+        assert(cell_begin <= cell_end);
+        assert(cell_end >= 0);
+        assert(cell_end <= cell_count);
+
+        term->ime.preedit.cursor.hidden = false;
+        term->ime.preedit.cursor.start = cell_begin;
+        term->ime.preedit.cursor.end = cell_end;
+    }
+
+    /* Underline pre-edit string that is *not* covered by the cursor */
+    bool hidden = term->ime.preedit.cursor.hidden;
+    int start = term->ime.preedit.cursor.start;
+    int end = term->ime.preedit.cursor.end;
+
+    for (size_t i = 0, cell_idx = 0; i < wchars; cell_idx += widths[i], i++) {
+        if (hidden || start == end || cell_idx < start || cell_idx >= end) {
+            struct cell *cell = &term->ime.preedit.cells[cell_idx];
+            cell->attrs.underline = true;
+        }
     }
 
     ime_reset_preedit(seat);
+
+    if (term->is_searching)
+        render_refresh_search(term);
+    else
+        render_refresh(term);
 }
 
 void
