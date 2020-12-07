@@ -99,6 +99,12 @@ search_cancel_keep_selection(struct terminal *term)
     term->is_searching = false;
     term->render.search_glyph_offset = 0;
 
+    /* Reset IME state */
+    if (term_ime_is_enabled(term)) {
+        term_ime_disable(term);
+        term_ime_enable(term);
+    }
+
     term_xcursor_update(term);
     render_refresh(term);
 }
@@ -110,6 +116,12 @@ search_begin(struct terminal *term)
 
     search_cancel_keep_selection(term);
     selection_cancel(term);
+
+    /* Reset IME state */
+    if (term_ime_is_enabled(term)) {
+        term_ime_disable(term);
+        term_ime_enable(term);
+    }
 
     /* On-demand instantiate wayland surface */
     struct wl_window *win = term->window;
