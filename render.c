@@ -2134,13 +2134,29 @@ render_search_box(struct terminal *term)
         text_len += wcslen(term->ime.preedit.text);
 
     wchar_t *text = xmalloc((text_len + 1) *  sizeof(wchar_t));
-    wcscpy(text, term->search.buf);
+    text[0] = L'\0';
+
+    /* Copy everything up to the cursor */
+    wcsncpy(text, term->search.buf, term->search.cursor);
+    text[term->search.cursor] = L'\0';
+
+    /* Insert pre-edit text at cursor */
     if (term->ime.preedit.text != NULL)
         wcscat(text, term->ime.preedit.text);
+
+    /* And finally everything after the cursor */
+    wcsncat(text, &term->search.buf[term->search.cursor],
+            term->search.len - term->search.cursor);
 #else
     const wchar_t *text = term->search.buf;
     const size_t text_len = term->search.len;
 #endif
+
+    /* Calculate the width of each character */
+    int widths[text_len + 1];
+    for (size_t i = 0; i < text_len; i++)
+        widths[i] = max(1, wcwidth(text[i]));
+    widths[text_len] = 0;
 
     const size_t total_cells = wcswidth(text, text_len);
     const size_t wanted_visible_cells = max(20, total_cells);
@@ -2184,46 +2200,56 @@ render_search_box(struct terminal *term)
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
-    /*
-     * Ensure cursor is visible
-     *
-     * First, we need to map the cursor character position to a cell
-     * position. Then we can ensure the cursor is within the rendered
-     * part of the search string.
-     */
-    size_t cursor_cell_idx = 0;
-
-    for (size_t i = 0, cell_idx = 0;
-         i <= term->search.cursor;
-         cell_idx += max(1, wcwidth(text[i])), i++)
-    {
+    /* Move offset we start rendering at, to ensure the cursor is visible */
+    for (size_t i = 0, cell_idx = 0; i <= term->search.cursor; cell_idx += widths[i], i++) {
         if (i != term->search.cursor)
             continue;
 
-#if 0
 #if (FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-        if (term->ime.preedit.cells != NULL)
-            cell_idx += term->ime.preedit.count;
-#endif
+        if (term->ime.preedit.cells != NULL) {
+            if (term->ime.preedit.cursor.start == term->ime.preedit.cursor.end) {
+                /* All IME's I've seen so far keeps the cursor at
+                 * index 0, so ensure the *end* of the pre-edit string
+                 * is visible */
+                cell_idx += term->ime.preedit.count;
+            } else {
+                /* Try to predict in which direction we'll shift the text */
+                if (cell_idx + term->ime.preedit.cursor.start > glyph_offset)
+                    cell_idx += term->ime.preedit.cursor.end;
+                else
+                    cell_idx += term->ime.preedit.cursor.start;
+            }
+        }
 #endif
 
-        if (cell_idx < glyph_offset)
+        if (cell_idx < glyph_offset) {
+            /* Shift to the *left*, making *this* character the
+             * *first* visible one */
             term->render.search_glyph_offset = glyph_offset = cell_idx;
+        }
+
         else if (cell_idx > glyph_offset + visible_cells) {
+            /* Shift to the *right*, making *this* character the
+             * *last* visible one */
             term->render.search_glyph_offset = glyph_offset =
                 cell_idx - min(cell_idx, visible_cells);
         }
-        assert(cell_idx >= glyph_offset);
-        cursor_cell_idx = cell_idx - glyph_offset;
+
+        /* Adjust offset if there is free space available */
+        if (total_cells - glyph_offset < visible_cells) {
+            term->render.search_glyph_offset = glyph_offset =
+                total_cells - min(total_cells, visible_cells);
+        }
+
         break;
     }
 
-    /* Move offset if there is free space available */
-    if (total_cells - glyph_offset < visible_cells) {
-        ssize_t old = glyph_offset;
-        term->render.search_glyph_offset = glyph_offset =
-            total_cells - min(total_cells, visible_cells);
-        cursor_cell_idx += old - (ssize_t)glyph_offset;
+    /* Ensure offset is at a character boundary */
+    for (size_t i = 0, cell_idx = 0; i <= text_len; cell_idx += widths[i], i++) {
+        if (cell_idx >= glyph_offset) {
+            term->render.search_glyph_offset = glyph_offset = cell_idx;
+            break;
+        }
     }
 
     /*
@@ -2232,23 +2258,75 @@ render_search_box(struct terminal *term)
      */
     for (size_t i = 0,
              cell_idx = 0,
-             width = max(1, wcwidth(text[i])),
+             width = widths[i],
              next_cell_idx = width;
          i < text_len;
          i++,
              cell_idx = next_cell_idx,
-             width = max(1, wcwidth(text[i])),
+             width = widths[i],
              next_cell_idx += width)
     {
-#if 0
-        if (i == term->search.cursor)
-            draw_bar(term, buf->pix[0], font, &fg, x, y);
-#endif
+        /* Render cursor */
+        if (i == term->search.cursor) {
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+            bool have_preedit = term->ime.preedit.cells != NULL;
+            bool hidden = term->ime.preedit.cursor.hidden;
 
-        if (next_cell_idx >= glyph_offset && next_cell_idx - glyph_offset > visible_cells)
+            if (have_preedit && !hidden) {
+                /* Cursor may be outside the visible area:
+                 * cell_idx-glyph_offset can be negative */
+                int cells_left = visible_cells - max(
+                    (ssize_t)(cell_idx - glyph_offset), 0);
+
+                /* If cursor is outside the visible area, we need to
+                 * adjust our rectangle's position */
+                int start = term->ime.preedit.cursor.start
+                    + min((ssize_t)(cell_idx - glyph_offset), 0);
+                int end = term->ime.preedit.cursor.end
+                    + min((ssize_t)(cell_idx - glyph_offset), 0);
+
+                if (start == end) {
+                    int count = min(term->ime.preedit.count, cells_left);
+
+                    /* Underline the entire (visible part of) pre-edit text */
+                    draw_underline(term, buf->pix[0], font, &fg, x, y, count);
+
+                    /* Bar-styled cursor, if in the visible area */
+                    if (start >= 0 && start <= visible_cells)
+                        draw_bar(term, buf->pix[0], font, &fg, x + start * term->cell_width, y);
+                } else {
+                    /* Underline everything before and after the cursor */
+                    int count1 = min(start, cells_left);
+                    int count2 = max(
+                        min(term->ime.preedit.count - term->ime.preedit.cursor.end,
+                            cells_left - end),
+                        0);
+                    draw_underline(term, buf->pix[0], font, &fg, x, y, count1);
+                    draw_underline(term, buf->pix[0], font, &fg, x + end * term->cell_width, y, count2);
+
+                    /* TODO: how do we handle a partially hidden rectangle? */
+                    if (start >= 0 && end <= visible_cells) {
+                        draw_unfocused_block(
+                            term, buf->pix[0], &fg, x + start * term->cell_width, y, end - start);
+                    }
+                }
+            } else if (!have_preedit)
+#endif
+            {
+                /* Cursor *should* be in the visible area */
+                assert(cell_idx >= glyph_offset);
+                assert(cell_idx <= glyph_offset + visible_cells);
+                draw_bar(term, buf->pix[0], font, &fg, x, y);
+            }
+        }
+
+        if (next_cell_idx >= glyph_offset && next_cell_idx - glyph_offset > visible_cells) {
+            /* We're now beyond the visible area - nothing more to render */
             break;
+        }
 
         if (cell_idx < glyph_offset) {
+            /* We haven't yet reached the visible part of the string */
             cell_idx = next_cell_idx;
             continue;
         }
@@ -2280,36 +2358,13 @@ render_search_box(struct terminal *term)
         cell_idx = next_cell_idx;
     }
 
-
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-
-    if (term->ime.preedit.cells != NULL) {
-        int cells_left = visible_cells - cursor_cell_idx;
-        int count = max(min(term->ime.preedit.count, cells_left), 0);
-
-        /* Underline the entire pre-edit text */
-        draw_underline(term, buf->pix[0], font, &fg,
-                       x_left + cursor_cell_idx * term->cell_width, y, count);
-
-        /* Cursor, unless hidden */
-        if (!term->ime.preedit.cursor.hidden) {
-            /* TODO: we must ensure this is visible */
-            const int start = cursor_cell_idx + term->ime.preedit.cursor.start;
-            const int end = cursor_cell_idx + term->ime.preedit.cursor.end;
-
-            if (start == end) {
-                draw_bar(term, buf->pix[0], font, &fg,
-                         x_left + start * term->cell_width, y);
-            } else {
-                draw_unfocused_block(
-                    term, buf->pix[0], &fg,
-                    x_left + start * term->cell_width, y, end - start);
-            }
-        }
-    }  else
+        if (term->ime.preedit.cells != NULL)
+            /* Already rendered */;
+        else
 #endif
-        draw_bar(term, buf->pix[0], font, &fg,
-                 x_left + cursor_cell_idx * term->cell_width, y);
+        if (term->search.cursor >= term->search.len)
+            draw_bar(term, buf->pix[0], font, &fg, x, y);
 
     quirk_weston_subsurface_desync_on(term->window->search_sub_surface);
 
