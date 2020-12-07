@@ -77,6 +77,9 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   options to `footclient` (https://codeberg.org/dnkl/foot/issues/189).
 * Short command line options for `--title`, `--maximized`,
   `--fullscreen`, `--login-shell`, `--hold` and `--check-config`.
+* `DECSET` escape to modify the `escape` key to send `\E[27;1;27~`
+  instead of `\E`: `\E[?27127h` enables the new behavior, `\E[?27127l`
+  disables it (the default).
 
 
 ### Changed
