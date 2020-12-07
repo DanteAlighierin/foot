@@ -96,6 +96,11 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Error when re-assigning a default key binding
+  (https://codeberg.org/dnkl/foot/issues/233).
+
+
 ### Security
 
 
