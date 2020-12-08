@@ -133,7 +133,7 @@ mkdir -p bld/release && cd bld/release
 
 ### Options
 
-All variants below support the following compile-time options:
+Available compile-time options:
 
 | Option   | Type | Default | Description         | Extra dependencies |
 |----------|------|---------|---------------------|--------------------|
