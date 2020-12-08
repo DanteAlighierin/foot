@@ -145,6 +145,17 @@ in this order:
 	text. Note that whitespace characters are _always_ word
 	delimiters, regardless of this setting. Default: _,│`|:"'()[]{}<>_
 
+*notify*
+	Command to execute to display a notification. _${title}_ and
+	_${body}_ will be replaced with the notification's actual _title_
+	and _body_ (message content).
+
+	Applications can trigger notifications in the following ways:
+	
+	- OSC 777: *\\e]777;notify;<title>;<body>\\e\\\\*
+	
+	Default: _notify-send -a foot -i foot ${title} ${body}_.
+
 
 # SECTION: scrollback
 

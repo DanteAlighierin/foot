@@ -566,6 +566,27 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         mbstowcs(conf->word_delimiters, value, chars + 1);
     }
 
+    else if (strcmp(key, "notify") == 0) {
+        free(conf->notify.raw_cmd);
+        free(conf->notify.argv);
+
+        conf->notify.raw_cmd = NULL;
+        conf->notify.argv = NULL;
+
+        char *raw_cmd = xstrdup(value);
+        char **argv = NULL;
+
+        if (!tokenize_cmdline(raw_cmd, &argv)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: notify: syntax error in command line",
+                path, lineno);
+            return false;
+        }
+
+        conf->notify.raw_cmd = raw_cmd;
+        conf->notify.argv = argv;
+    }
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [default]: %s: invalid key", path, lineno, key);
         return false;
@@ -1989,6 +2010,10 @@ config_load(struct config *conf, const char *conf_path,
         .server_socket_path = get_server_socket_path(),
         .presentation_timings = false,
         .hold_at_exit = false,
+        .notify = {
+            .raw_cmd = NULL,
+            .argv = NULL,
+        },
 
         .tweak = {
             .fcft_filter = FCFT_SCALING_FILTER_LANCZOS3,
@@ -2003,6 +2028,10 @@ config_load(struct config *conf, const char *conf_path,
 
         .notifications = tll_init(),
     };
+
+    conf->notify.raw_cmd = xstrdup(
+        "notify-send -a foot -i foot ${title} ${body}");
+    tokenize_cmdline(conf->notify.raw_cmd, &conf->notify.argv);
 
     tll_foreach(*initial_user_notifications, it)
         tll_push_back(conf->notifications, it->item);
@@ -2070,6 +2099,8 @@ config_free(struct config conf)
     free(conf.app_id);
     free(conf.word_delimiters);
     free(conf.scrollback.indicator.text);
+    free(conf.notify.raw_cmd);
+    free(conf.notify.argv);
     for (size_t i = 0; i < ALEN(conf.fonts); i++) {
         tll_foreach(conf.fonts[i], it)
             config_font_destroy(&it->item);

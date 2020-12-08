@@ -164,6 +164,11 @@ struct config {
     bool hold_at_exit;
 
     struct {
+        char *raw_cmd;
+        char **argv;
+    } notify;
+
+    struct {
         enum fcft_scaling_filter fcft_filter;
         bool allow_overflowing_double_width_glyphs;
         bool render_timer_osd;
