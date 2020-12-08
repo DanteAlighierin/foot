@@ -100,6 +100,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 ### Removed
 
 * Support for loading configuration from `$XDG_CONFIG_HOME/footrc`.
+* **scrollback** option from `foot.ini`.
 
 
 ### Fixed

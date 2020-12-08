@@ -583,28 +583,6 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         mbstowcs(conf->word_delimiters, value, chars + 1);
     }
 
-    else if (strcmp(key, "scrollback") == 0) {
-        LOG_WARN("deprecated: %s:%d: [default]: scrollback: use 'scrollback.lines' instead'", path, lineno);
-
-        const char fmt[] = "%s:%d: \033[1mdefault.scrollback\033[21m, use \033[1mscrollback.lines\033[21m instead";
-        char *text = xasprintf(fmt, path, lineno);
-
-        struct user_notification deprecation = {
-            .kind = USER_NOTIFICATION_DEPRECATED,
-            .text = text,
-        };
-        tll_push_back(conf->notifications, deprecation);
-
-        unsigned long lines;
-        if (!str_to_ulong(value, 10, &lines)) {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: scrollback: expected an integer, got '%s'",
-                path, lineno, value);
-            return false;
-        }
-        conf->scrollback.lines = lines;
-    }
-
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [default]: %s: invalid key", path, lineno, key);
         return false;
