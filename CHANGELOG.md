@@ -33,7 +33,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * IME support. This is compile-time optional, see
   [INSTALL.md](INSTALL.md#user-content-options)
   (https://codeberg.org/dnkl/foot/issues/134).
-* `DECSET` escape to enable/disable IME: `CSI ?737769 h` enables IME
+* `DECSET` escape to enable/disable IME: `CSI ? 737769 h` enables IME
   and `CSI ? 737769 l` disables IME. This can be used to
   e.g. enable/disable IME when entering/leaving insert mode in vim.
 * Implement reverse auto-wrap (_auto\_left\_margin_, _bw_, in
