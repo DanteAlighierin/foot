@@ -436,22 +436,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->app_id = xstrdup(value);
     }
 
-    else if (strcmp(key, "initial-window-size-pixels") == 0 ||
-             strcmp(key, "geometry") == 0  /* deprecated */)
-    {
-        if (strcmp(key, "geometry") == 0) {
-            LOG_WARN("deprecated: %s:%d: [default]: geometry: use 'initial-window-size-pixels' instead'", path, lineno);
-
-            const char fmt[] = "%s:%d: \033[1mgeometry\033[21m, use \033[1minitial-window-size-pixels\033[21m instead";
-            char *text = xasprintf(fmt, path, lineno);
-
-            struct user_notification deprecation = {
-                .kind = USER_NOTIFICATION_DEPRECATED,
-                .text = text,
-            };
-            tll_push_back(conf->notifications, deprecation);
-        }
-
+    else if (strcmp(key, "initial-window-size-pixels") == 0) {
         unsigned width, height;
         if (sscanf(value, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
             LOG_AND_NOTIFY_ERR(
