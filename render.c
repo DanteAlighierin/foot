@@ -1046,6 +1046,7 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
 
     int row_idx = cursor.row;
     int col_idx = cursor.col;
+    int ime_ofs = 0;  /* Offset into pre-edit string to start rendering at */
 
     int cells_left = term->cols - cursor.col;
     int cells_used = min(cells_needed, term->cols);
@@ -1053,6 +1054,30 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
     /* Adjust start of pre-edit text to the left if string doesn't fit on row */
     if (cells_left < cells_used)
         col_idx -= cells_used - cells_left;
+
+    if (cells_needed > cells_used) {
+        int start = term->ime.preedit.cursor.start;
+        int end = term->ime.preedit.cursor.end;
+
+        if (start == end) {
+            /* Ensure *end* of pre-edit string is visible */
+            ime_ofs = cells_needed - cells_used;
+        } else {
+            /* Ensure the *beginning* of the cursor-area is visible */
+            ime_ofs = start;
+
+            /* Display as much as possible of the pre-edit string */
+            if (cells_needed - ime_ofs < cells_used)
+                ime_ofs = cells_needed - cells_used;
+        }
+
+        /* Make sure we don't start in the middle of a character */
+        while (ime_ofs < cells_needed &&
+               term->ime.preedit.cells[ime_ofs].wc == CELL_MULT_COL_SPACER)
+        {
+            ime_ofs++;
+        }
+    }
 
     assert(col_idx >= 0);
     assert(col_idx < term->cols);
@@ -1079,27 +1104,26 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
     row->dirty = true;
 
     /* Render pre-edit text */
-    for (int i = 0; i < term->ime.preedit.count; i++) {
-        const struct cell *cell = &term->ime.preedit.cells[i];
+    assert(term->ime.preedit.cells[ime_ofs].wc != CELL_MULT_COL_SPACER);
+    for (int i = 0, idx = ime_ofs; idx < term->ime.preedit.count; i++, idx++) {
+        const struct cell *cell = &term->ime.preedit.cells[idx];
 
         if (cell->wc == CELL_MULT_COL_SPACER)
             continue;
 
-        int width = wcwidth(term->ime.preedit.cells[i].wc);
-        width = max(1, width);
-
+        int width = max(1, wcwidth(cell->wc));
         if (col_idx + i + width > term->cols)
             break;
 
-        row->cells[col_idx + i] = term->ime.preedit.cells[i];
+        row->cells[col_idx + i] = *cell;
         render_cell(term, buf->pix[0], row, col_idx + i, row_idx, false);
     }
 
-    int start = term->ime.preedit.cursor.start;
-    int end = term->ime.preedit.cursor.end;
+    int start = term->ime.preedit.cursor.start - ime_ofs;
+    int end = term->ime.preedit.cursor.end - ime_ofs;
 
     if (!term->ime.preedit.cursor.hidden) {
-        const struct cell *start_cell = &term->ime.preedit.cells[start];
+        const struct cell *start_cell = &term->ime.preedit.cells[start + ime_ofs];
 
         pixman_color_t fg = color_hex_to_pixman(term->colors.fg);
         pixman_color_t bg = color_hex_to_pixman(term->colors.bg);
@@ -1113,14 +1137,18 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
 
         if (end == start) {
             /* Bar */
-            struct fcft_font *font = attrs_to_font(term, &start_cell->attrs);
-            draw_bar(term, buf->pix[0], font, &cursor_color, x, y);
+            if (start >= 0) {
+                struct fcft_font *font = attrs_to_font(term, &start_cell->attrs);
+                draw_bar(term, buf->pix[0], font, &cursor_color, x, y);
+            }
         }
 
         else if (end > start) {
             /* Hollow cursor */
-            int cols = end - start;
-            draw_unfocused_block(term, buf->pix[0], &cursor_color, x, y, cols);
+            if (start >= 0 && end <= term->cols) {
+                int cols = end - start;
+                draw_unfocused_block(term, buf->pix[0], &cursor_color, x, y, cols);
+            }
         }
     }
 
