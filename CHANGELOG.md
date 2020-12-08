@@ -98,6 +98,10 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 
 ### Deprecated
 ### Removed
+
+* Support for loading configuration from `$XDG_CONFIG_HOME/footrc`.
+
+
 ### Fixed
 
 * Error when re-assigning a default key binding

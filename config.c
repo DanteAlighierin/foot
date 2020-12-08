@@ -272,7 +272,6 @@ static struct config_file
 open_config(struct config *conf)
 {
     struct config_file ret = {.path = NULL, .fd = -1};
-    bool log_deprecation = false;
 
     path_components_t components = tll_init();
 
@@ -309,12 +308,6 @@ open_config(struct config *conf)
             struct path_component pc = tll_pop_back(components);
             path_component_destroy(&pc);
         }
-    }
-
-    /* Next try footrc */
-    if (tll_length(components) > 0 && try_open_file(&components, "footrc")) {
-        log_deprecation = true;
-        goto done;
     }
 
     /* Finally, try foot/foot.ini in all XDG_CONFIG_DIRS */
@@ -357,23 +350,6 @@ out:
 done:
     assert(tll_length(components) > 0);
     ret = path_components_to_config_file(&components);
-
-    if (log_deprecation && ret.path != NULL) {
-        LOG_WARN("deprecated: configuration in $XDG_CONFIG_HOME/footrc, "
-                 "use $XDG_CONFIG_HOME/foot/foot.ini instead");
-
-        char *text = xstrdup(
-            "configuration in \033[31m$XDG_CONFIG_HOME/footrc\033[39m or "
-            "\033[31m~/.config/footrc\033[39m, "
-            "use \033[32m$XDG_CONFIG_HOME/foot/foot.ini\033[39m or "
-            "\033[32m~/.config/foot/foot.ini\033[39m instead");
-
-        struct user_notification deprecation = {
-            .kind = USER_NOTIFICATION_DEPRECATED,
-            .text = text,
-        };
-        tll_push_back(conf->notifications, deprecation);
-    }
     goto out;
 }
 
