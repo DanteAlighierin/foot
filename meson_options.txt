@@ -1,0 +1,1 @@
+option('ime', type: 'boolean', value: true, description: 'IME (Input Method Editor) support')

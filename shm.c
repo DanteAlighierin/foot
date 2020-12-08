@@ -655,7 +655,7 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
         : shm_scroll_reverse(shm, buf, -rows, top_margin, top_keep_rows, bottom_margin, bottom_keep_rows);
 }
 
-    void
+void
 shm_purge(struct wl_shm *shm, unsigned long cookie)
 {
     LOG_DBG("cookie=%lx: purging all buffers", cookie);

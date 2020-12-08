@@ -298,6 +298,7 @@ struct terminal {
         uint32_t bell_is_urgent:1;
         uint32_t alt_screen:1;
         uint32_t modify_escape_key:1;
+        uint32_t ime:1;
     } xtsave;
 
     char *window_title;
@@ -470,6 +471,23 @@ struct terminal {
         unsigned max_height;    /* Maximum image height, in pixels */
     } sixel;
 
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    struct {
+        bool enabled;
+        struct {
+            wchar_t *text;
+            struct cell *cells;
+            int count;
+
+            struct {
+                bool hidden;
+                int start;  /* Cell index, inclusive */
+                int end;    /* Cell index, exclusive */
+            } cursor;
+        } preedit;
+    } ime;
+#endif
+
     bool quit;
     bool is_shutting_down;
     void (*shutdown_cb)(void *data, int exit_code);
@@ -592,3 +610,8 @@ bool term_scrollback_to_text(
     const struct terminal *term, char **text, size_t *len);
 bool term_view_to_text(
     const struct terminal *term, char **text, size_t *len);
+
+bool term_ime_is_enabled(const struct terminal *term);
+void term_ime_enable(struct terminal *term);
+void term_ime_disable(struct terminal *term);
+void term_ime_reset(struct terminal *term);

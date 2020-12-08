@@ -540,6 +540,13 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         term->modify_escape_key = enable;
         break;
 
+    case 737769:
+        if (enable)
+            term_ime_enable(term);
+        else
+            term_ime_disable(term);
+        break;
+
     default:
         UNHANDLED();
         break;
@@ -588,6 +595,7 @@ xtsave(struct terminal *term, unsigned param)
     case 1049: term->xtsave.alt_screen = term->grid == &term->alt; break;
     case 2004: term->xtsave.bracketed_paste = term->bracketed_paste; break;
     case 27127: term->xtsave.modify_escape_key = term->modify_escape_key; break;
+    case 737769: term->xtsave.ime = term_ime_is_enabled(term); break;
     }
 }
 
@@ -622,6 +630,7 @@ xtrestore(struct terminal *term, unsigned param)
     case 1049: enable = term->xtsave.alt_screen; break;
     case 2004: enable = term->xtsave.bracketed_paste; break;
     case 27127: enable = term->xtsave.modify_escape_key; break;
+    case 737769: enable = term->xtsave.ime; break;
 
     default: return;
     }

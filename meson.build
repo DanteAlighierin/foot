@@ -17,6 +17,9 @@ add_project_arguments(
   (is_debug_build
     ? ['-D_DEBUG']
     : [cc.get_supported_arguments('-fno-asynchronous-unwind-tables')]) +
+  (get_option('ime')
+    ? ['-DFOOT_IME_ENABLED=1']
+    : []) +
   cc.get_supported_arguments(
     ['-pedantic',
      '-fstrict-aliasing',
@@ -78,6 +81,7 @@ foreach prot : [
   wayland_protocols_datadir + '/unstable/xdg-output/xdg-output-unstable-v1.xml',
   wayland_protocols_datadir + '/unstable/primary-selection/primary-selection-unstable-v1.xml',
   wayland_protocols_datadir + '/stable/presentation-time/presentation-time.xml',
+  wayland_protocols_datadir + '/unstable/text-input/text-input-unstable-v3.xml',
   ]
 
   wl_proto_headers += custom_target(
@@ -147,6 +151,8 @@ executable(
   'commands.c', 'commands.h',
   'extract.c', 'extract.h',
   'fdm.c', 'fdm.h',
+  'foot-features.h',
+  'ime.c', 'ime.h',
   'input.c', 'input.h',
   'main.c',
   'quirks.c', 'quirks.h',
@@ -169,6 +175,7 @@ executable(
 executable(
   'footclient',
   'client.c', 'client-protocol.h',
+  'foot-features.h',
   'log.c', 'log.h',
   'macros.h',
   'xmalloc.c', 'xmalloc.h',
@@ -196,9 +203,9 @@ subdir('completions')
 subdir('doc')
 subdir('icons')
 
-# summary(
-#   {
-#     '<feature>': false,
-#   },
-#   bool_yn: true
-# )
+summary(
+  {
+    'IME': get_option('ime'),
+  },
+  bool_yn: true
+)

@@ -15,6 +15,9 @@
 
 #include "fdm.h"
 
+/* Forward declarations */
+struct terminal;
+
 typedef tll(xkb_keycode_t) xkb_keycode_list_t;
 
 struct key_binding {
@@ -220,6 +223,35 @@ struct seat {
 
     struct wl_clipboard clipboard;
     struct wl_primary primary;
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    /* Input Method Editor */
+    struct zwp_text_input_v3 *wl_text_input;
+    struct {
+        struct {
+            struct {
+                char *text;
+                int32_t cursor_begin;
+                int32_t cursor_end;
+            } pending;
+        } preedit;
+
+        struct  {
+            struct {
+                char *text;
+            } pending;
+        } commit;
+
+        struct {
+            struct {
+                uint32_t before_length;
+                uint32_t after_length;
+            } pending;
+        } surrounding;
+
+        uint32_t serial;
+    } ime;
+#endif
 };
 
 enum csd_surface {
@@ -373,6 +405,10 @@ struct wayland {
 
     struct wp_presentation *presentation;
     uint32_t presentation_clock_id;
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    struct zwp_text_input_manager_v3 *text_input_manager;
+#endif
 
     bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
