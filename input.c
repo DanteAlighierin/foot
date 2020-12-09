@@ -87,7 +87,6 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_NONE:
         return true;
 
-    case BIND_ACTION_SCROLLBACK_UP:
     case BIND_ACTION_SCROLLBACK_UP_PAGE:
         cmd_scrollback_up(term, term->rows);
         return true;
@@ -100,7 +99,6 @@ execute_binding(struct seat *seat, struct terminal *term,
         cmd_scrollback_up(term, 1);
         return true;
 
-    case BIND_ACTION_SCROLLBACK_DOWN:
     case BIND_ACTION_SCROLLBACK_DOWN_PAGE:
         cmd_scrollback_down(term, term->rows);
         return true;

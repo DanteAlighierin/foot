@@ -104,6 +104,13 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 
 ### Deprecated
 ### Removed
+
+* Support for loading configuration from `$XDG_CONFIG_HOME/footrc`.
+* **scrollback** option from `foot.ini`.
+* **geometry** option from `foot.ini`.
+* Key binding action **scrollback-up** and **scrollback-down**.
+
+
 ### Fixed
 
 * Error when re-assigning a default key binding
