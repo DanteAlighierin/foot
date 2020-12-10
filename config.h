@@ -72,7 +72,11 @@ struct config {
     unsigned pad_y;
 
     bool bold_in_bright;
-    bool bell_is_urgent;
+    enum {
+        BELL_ACTION_NONE,
+        BELL_ACTION_URGENT,
+        BELL_ACTION_NOTIFY,
+    } bell_action;
 
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 

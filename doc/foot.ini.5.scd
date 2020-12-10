@@ -120,7 +120,7 @@ in this order:
 
 *bell*
 	Action to perform when receiving a *BEL* character. Can be set to
-	either *set-urgency* or *none*.
+	either *set-urgency*, *notify* or *none*.
 	
 	When set to *set-urgency*, the margins will be painted in red
 	whenever *BEL* is received while the window does *not* have
@@ -135,6 +135,9 @@ in this order:
 	
 	_Note_: expect this feature to be *replaced* with proper
 	compositor urgency support once/if that gets implemented.
+	
+	When set to *notify*, foot will emit a desktop notification (see
+	the *notify* option).
 	
 	When set to *none*, no special action is taken when receiving *BEL*.
 	

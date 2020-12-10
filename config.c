@@ -483,14 +483,17 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "bell") == 0) {
         if (strcmp(value, "set-urgency") == 0)
-            conf->bell_is_urgent = true;
+            conf->bell_action = BELL_ACTION_URGENT;
+        else if (strcmp(value, "notify") == 0)
+            conf->bell_action = BELL_ACTION_NOTIFY;
         else if (strcmp(value, "none") == 0)
-            conf->bell_is_urgent = false;
+            conf->bell_action = BELL_ACTION_NONE;
         else {
             LOG_AND_NOTIFY_ERR(
                 "%s:%d: [default]: bell: "
-                "expected either 'set-urgency' or 'none'", path, lineno);
-            conf->bell_is_urgent = false;
+                "expected either 'set-urgency', 'notify' or 'none'",
+                path, lineno);
+            conf->bell_action = BELL_ACTION_NONE;
             return false;
         }
     }
@@ -1945,7 +1948,7 @@ config_load(struct config *conf, const char *conf_path,
         .pad_x = 2,
         .pad_y = 2,
         .bold_in_bright = false,
-        .bell_is_urgent = false,
+        .bell_action = BELL_ACTION_NONE,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
         .dpi_aware = true,  /* Use DPI by default, not scale factor */

@@ -89,6 +89,9 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * OSC 777;notify: desktop notifications. Use in combination with the
   new **notify** option in `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/224).
+* **bell** option can now be set to `notify`, in which case a desktop
+  notification is emitted when foot receives `BEL` in an unfocused
+  window.
 
 
 ### Changed
