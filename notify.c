@@ -19,6 +19,11 @@ notify_notify(const struct terminal *term, const char *title, const char *body)
 {
     LOG_DBG("notify: title=\"%s\", msg=\"%s\"", title, msg);
 
+    if (term->kbd_focus) {
+        /* No notifications while we’re focused */
+        return;
+    }
+
     if (title == NULL || body == NULL)
         return;
 
