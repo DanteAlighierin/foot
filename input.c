@@ -87,7 +87,6 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_NONE:
         return true;
 
-    case BIND_ACTION_SCROLLBACK_UP:
     case BIND_ACTION_SCROLLBACK_UP_PAGE:
         cmd_scrollback_up(term, term->rows);
         return true;
@@ -100,7 +99,6 @@ execute_binding(struct seat *seat, struct terminal *term,
         cmd_scrollback_up(term, 1);
         return true;
 
-    case BIND_ACTION_SCROLLBACK_DOWN:
     case BIND_ACTION_SCROLLBACK_DOWN_PAGE:
         cmd_scrollback_down(term, term->rows);
         return true;
@@ -751,6 +749,8 @@ keymap_lookup(struct seat *seat, struct terminal *term,
     const enum cursor_keys cursor_keys_mode = term->cursor_keys_mode;
     const enum keypad_keys keypad_keys_mode
         = term->num_lock_modifier ? KEYPAD_NUMERICAL : term->keypad_keys_mode;
+
+    LOG_DBG("keypad mode: %d, num-lock=%d", keypad_keys_mode, seat->kbd.num);
 
     for (size_t j = 0; j < count; j++) {
         if (info[j].modifiers != MOD_ANY && info[j].modifiers != mods)

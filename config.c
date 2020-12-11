@@ -55,11 +55,9 @@ static const uint32_t default_bright[] = {
 
 static const char *const binding_action_map[] = {
     [BIND_ACTION_NONE] = NULL,
-    [BIND_ACTION_SCROLLBACK_UP] = "scrollback-up",
     [BIND_ACTION_SCROLLBACK_UP_PAGE] = "scrollback-up-page",
     [BIND_ACTION_SCROLLBACK_UP_HALF_PAGE] = "scrollback-up-half-page",
     [BIND_ACTION_SCROLLBACK_UP_LINE] = "scrollback-up-line",
-    [BIND_ACTION_SCROLLBACK_DOWN] = "scrollback-down",
     [BIND_ACTION_SCROLLBACK_DOWN_PAGE] = "scrollback-down-page",
     [BIND_ACTION_SCROLLBACK_DOWN_HALF_PAGE] = "scrollback-down-half-page",
     [BIND_ACTION_SCROLLBACK_DOWN_LINE] = "scrollback-down-line",
@@ -272,7 +270,6 @@ static struct config_file
 open_config(struct config *conf)
 {
     struct config_file ret = {.path = NULL, .fd = -1};
-    bool log_deprecation = false;
 
     path_components_t components = tll_init();
 
@@ -309,12 +306,6 @@ open_config(struct config *conf)
             struct path_component pc = tll_pop_back(components);
             path_component_destroy(&pc);
         }
-    }
-
-    /* Next try footrc */
-    if (tll_length(components) > 0 && try_open_file(&components, "footrc")) {
-        log_deprecation = true;
-        goto done;
     }
 
     /* Finally, try foot/foot.ini in all XDG_CONFIG_DIRS */
@@ -357,23 +348,6 @@ out:
 done:
     assert(tll_length(components) > 0);
     ret = path_components_to_config_file(&components);
-
-    if (log_deprecation && ret.path != NULL) {
-        LOG_WARN("deprecated: configuration in $XDG_CONFIG_HOME/footrc, "
-                 "use $XDG_CONFIG_HOME/foot/foot.ini instead");
-
-        char *text = xstrdup(
-            "configuration in \033[31m$XDG_CONFIG_HOME/footrc\033[39m or "
-            "\033[31m~/.config/footrc\033[39m, "
-            "use \033[32m$XDG_CONFIG_HOME/foot/foot.ini\033[39m or "
-            "\033[32m~/.config/foot/foot.ini\033[39m instead");
-
-        struct user_notification deprecation = {
-            .kind = USER_NOTIFICATION_DEPRECATED,
-            .text = text,
-        };
-        tll_push_back(conf->notifications, deprecation);
-    }
     goto out;
 }
 
@@ -460,22 +434,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->app_id = xstrdup(value);
     }
 
-    else if (strcmp(key, "initial-window-size-pixels") == 0 ||
-             strcmp(key, "geometry") == 0  /* deprecated */)
-    {
-        if (strcmp(key, "geometry") == 0) {
-            LOG_WARN("deprecated: %s:%d: [default]: geometry: use 'initial-window-size-pixels' instead'", path, lineno);
-
-            const char fmt[] = "%s:%d: \033[1mgeometry\033[21m, use \033[1minitial-window-size-pixels\033[21m instead";
-            char *text = xasprintf(fmt, path, lineno);
-
-            struct user_notification deprecation = {
-                .kind = USER_NOTIFICATION_DEPRECATED,
-                .text = text,
-            };
-            tll_push_back(conf->notifications, deprecation);
-        }
-
+    else if (strcmp(key, "initial-window-size-pixels") == 0) {
         unsigned width, height;
         if (sscanf(value, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
             LOG_AND_NOTIFY_ERR(
@@ -605,28 +564,6 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
         conf->word_delimiters = xmalloc((chars + 1) * sizeof(wchar_t));
         mbstowcs(conf->word_delimiters, value, chars + 1);
-    }
-
-    else if (strcmp(key, "scrollback") == 0) {
-        LOG_WARN("deprecated: %s:%d: [default]: scrollback: use 'scrollback.lines' instead'", path, lineno);
-
-        const char fmt[] = "%s:%d: \033[1mdefault.scrollback\033[21m, use \033[1mscrollback.lines\033[21m instead";
-        char *text = xasprintf(fmt, path, lineno);
-
-        struct user_notification deprecation = {
-            .kind = USER_NOTIFICATION_DEPRECATED,
-            .text = text,
-        };
-        tll_push_back(conf->notifications, deprecation);
-
-        unsigned long lines;
-        if (!str_to_ulong(value, 10, &lines)) {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: scrollback: expected an integer, got '%s'",
-                path, lineno, value);
-            return false;
-        }
-        conf->scrollback.lines = lines;
     }
 
     else {
@@ -1112,43 +1049,6 @@ argv_compare(char *const *argv1, char *const *argv2)
     return 1;
 }
 
-static void
-maybe_deprecated_key_binding(struct config *conf,
-                             const char *section,
-                             enum bind_action_normal action,
-                             const char *path, unsigned lineno)
-{
-    enum bind_action_normal replacement = BIND_ACTION_NONE;
-
-    switch (action) {
-    case BIND_ACTION_SCROLLBACK_UP:
-        replacement = BIND_ACTION_SCROLLBACK_UP_PAGE;
-        break;
-
-    case BIND_ACTION_SCROLLBACK_DOWN:
-        replacement = BIND_ACTION_SCROLLBACK_DOWN_PAGE;
-        break;
-
-    default:
-        return;
-    }
-
-    LOG_WARN("deprecated: %s:%d: [%s]: key binding %s, use %s instead",
-             path, lineno, section,
-             binding_action_map[action], binding_action_map[replacement]);
-
-    const char fmt[] = "%s:%d: [%s]: \033[1m%s\033[21m, use \033[1m%s\033[21m instead";
-    char *text = xasprintf(
-        fmt, path, lineno, section,
-        binding_action_map[action], binding_action_map[replacement]);
-
-    struct user_notification deprecation = {
-        .kind = USER_NOTIFICATION_DEPRECATED,
-        .text = text,
-    };
-    tll_push_back(conf->notifications, deprecation);
-}
-
 /*
  * Parses a key binding value on the form
  *  "[cmd-to-exec arg1 arg2] Mods+Key"
@@ -1231,9 +1131,6 @@ parse_section_key_bindings(
 
         if (strcmp(key, binding_action_map[action]) != 0)
             continue;
-
-        maybe_deprecated_key_binding(
-            conf, "key-bindings", action, path, lineno);
 
         /* Unset binding */
         if (strcasecmp(value, "none") == 0) {
@@ -1525,9 +1422,6 @@ parse_section_mouse_bindings(
 
         if (strcmp(key, binding_action_map[action]) != 0)
             continue;
-
-        maybe_deprecated_key_binding(
-            conf, "mouse-bindings", action, path, lineno);
 
         /* Unset binding */
         if (strcasecmp(value, "none") == 0) {
@@ -1920,8 +1814,8 @@ add_default_key_bindings(struct config *conf)
     const struct config_key_modifiers ctrl = {.ctrl = true};
     const struct config_key_modifiers ctrl_shift = {.ctrl = true, .shift = true};
 
-    add_binding(BIND_ACTION_SCROLLBACK_UP, shift, XKB_KEY_Page_Up);
-    add_binding(BIND_ACTION_SCROLLBACK_DOWN, shift, XKB_KEY_Page_Down);
+    add_binding(BIND_ACTION_SCROLLBACK_UP_PAGE, shift, XKB_KEY_Page_Up);
+    add_binding(BIND_ACTION_SCROLLBACK_DOWN_PAGE, shift, XKB_KEY_Page_Down);
     add_binding(BIND_ACTION_CLIPBOARD_COPY, ctrl_shift, XKB_KEY_C);
     add_binding(BIND_ACTION_CLIPBOARD_PASTE, ctrl_shift, XKB_KEY_V);
     add_binding(BIND_ACTION_PRIMARY_PASTE, shift, XKB_KEY_Insert);

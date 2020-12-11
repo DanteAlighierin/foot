@@ -314,42 +314,49 @@ draw_strikeout(const struct terminal *term, pixman_image_t *pix,
 }
 
 static void
+cursor_colors_for_cell(const struct terminal *term, const struct cell *cell,
+              const pixman_color_t *fg, const pixman_color_t *bg,
+              pixman_color_t *cursor_color, pixman_color_t *text_color)
+{
+    bool is_selected = cell->attrs.selected;
+
+    if (term->cursor_color.cursor >> 31) {
+        *cursor_color = color_hex_to_pixman(term->cursor_color.cursor);
+        *text_color = color_hex_to_pixman(
+            term->cursor_color.text >> 31
+            ? term->cursor_color.text : term->colors.bg);
+
+        if (term->reverse ^ cell->attrs.reverse ^ is_selected) {
+            pixman_color_t swap = *cursor_color;
+            *cursor_color = *text_color;
+            *text_color = swap;
+        }
+
+        if (term->is_searching && !is_selected) {
+            color_dim_for_search(cursor_color);
+            color_dim_for_search(text_color);
+        }
+    } else {
+        *cursor_color = *fg;
+        *text_color = *bg;
+    }
+}
+
+static void
 draw_cursor(const struct terminal *term, const struct cell *cell,
             const struct fcft_font *font, pixman_image_t *pix, pixman_color_t *fg,
             const pixman_color_t *bg, int x, int y, int cols)
 {
     pixman_color_t cursor_color;
     pixman_color_t text_color;
-
-    bool is_selected = cell->attrs.selected;
-
-    if (term->cursor_color.cursor >> 31) {
-        cursor_color = color_hex_to_pixman(term->cursor_color.cursor);
-        text_color = color_hex_to_pixman(
-            term->cursor_color.text >> 31
-            ? term->cursor_color.text : term->colors.bg);
-
-        if (term->reverse ^ cell->attrs.reverse ^ is_selected) {
-            pixman_color_t swap = cursor_color;
-            cursor_color = text_color;
-            text_color = swap;
-        }
-
-        if (term->is_searching && !is_selected) {
-            color_dim_for_search(&cursor_color);
-            color_dim_for_search(&text_color);
-        }
-    } else {
-        cursor_color = *fg;
-        text_color = *bg;
-    }
+    cursor_colors_for_cell(term, cell, fg, bg, &cursor_color, &text_color);
 
     switch (term->cursor_style) {
     case CURSOR_BLOCK:
-        if (!term->kbd_focus)
+        if (unlikely(!term->kbd_focus))
             draw_unfocused_block(term, pix, &cursor_color, x, y, cols);
 
-        else if (term->cursor_blink.state == CURSOR_BLINK_ON) {
+        else if (likely(term->cursor_blink.state == CURSOR_BLINK_ON)) {
             *fg = text_color;
             pixman_image_fill_rectangles(
                 PIXMAN_OP_SRC, pix, &cursor_color, 1,
@@ -358,12 +365,17 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
         break;
 
     case CURSOR_BAR:
-        if (term->cursor_blink.state == CURSOR_BLINK_ON || !term->kbd_focus)
+        if (likely(term->cursor_blink.state == CURSOR_BLINK_ON ||
+                   !term->kbd_focus))
+        {
             draw_bar(term, pix, font, &cursor_color, x, y);
+        }
         break;
 
     case CURSOR_UNDERLINE:
-        if (term->cursor_blink.state == CURSOR_BLINK_ON || !term->kbd_focus) {
+        if (likely(term->cursor_blink.state == CURSOR_BLINK_ON ||
+                   !term->kbd_focus))
+        {
             draw_underline(
                 term, pix, attrs_to_font(term, &cell->attrs), &cursor_color,
                 x, y, cols);
@@ -1007,6 +1019,151 @@ render_sixel_images(struct terminal *term, pixman_image_t *pix)
 
         render_sixel(term, pix, &it->item);
     }
+}
+
+static void
+render_ime_preedit(struct terminal *term, struct buffer *buf)
+{
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+
+    if (likely(term->ime.preedit.cells == NULL))
+        return;
+
+    if (unlikely(term->is_searching))
+        return;
+
+    /* Adjust cursor position to viewport */
+    struct coord cursor;
+    cursor = term->grid->cursor.point;
+    cursor.row += term->grid->offset;
+    cursor.row -= term->grid->view;
+    cursor.row &= term->grid->num_rows - 1;
+
+    if (cursor.row < 0 || cursor.row >= term->rows)
+        return;
+
+    int cells_needed = term->ime.preedit.count;
+
+    int row_idx = cursor.row;
+    int col_idx = cursor.col;
+    int ime_ofs = 0;  /* Offset into pre-edit string to start rendering at */
+
+    int cells_left = term->cols - cursor.col;
+    int cells_used = min(cells_needed, term->cols);
+
+    /* Adjust start of pre-edit text to the left if string doesn't fit on row */
+    if (cells_left < cells_used)
+        col_idx -= cells_used - cells_left;
+
+    if (cells_needed > cells_used) {
+        int start = term->ime.preedit.cursor.start;
+        int end = term->ime.preedit.cursor.end;
+
+        if (start == end) {
+            /* Ensure *end* of pre-edit string is visible */
+            ime_ofs = cells_needed - cells_used;
+        } else {
+            /* Ensure the *beginning* of the cursor-area is visible */
+            ime_ofs = start;
+
+            /* Display as much as possible of the pre-edit string */
+            if (cells_needed - ime_ofs < cells_used)
+                ime_ofs = cells_needed - cells_used;
+        }
+
+        /* Make sure we don't start in the middle of a character */
+        while (ime_ofs < cells_needed &&
+               term->ime.preedit.cells[ime_ofs].wc == CELL_MULT_COL_SPACER)
+        {
+            ime_ofs++;
+        }
+    }
+
+    assert(col_idx >= 0);
+    assert(col_idx < term->cols);
+
+    struct row *row = grid_row_in_view(term->grid, row_idx);
+
+    /* Don't start pre-edit text in the middle of a double-width character */
+    while (col_idx > 0 && row->cells[col_idx].wc == CELL_MULT_COL_SPACER) {
+        cells_used++;
+        col_idx--;
+    }
+
+    /*
+     * Copy original content (render_cell() reads cell data directly
+     * from grid), and mark all cells as dirty. This ensures they are
+     * re-rendered when the pre-edit text is modified or removed.
+     */
+    struct cell *real_cells = malloc(cells_used * sizeof(real_cells[0]));
+    for (int i = 0; i < cells_used; i++) {
+        assert(col_idx + i < term->cols);
+        real_cells[i] = row->cells[col_idx + i];
+        real_cells[i].attrs.clean = 0;
+    }
+    row->dirty = true;
+
+    /* Render pre-edit text */
+    assert(term->ime.preedit.cells[ime_ofs].wc != CELL_MULT_COL_SPACER);
+    for (int i = 0, idx = ime_ofs; idx < term->ime.preedit.count; i++, idx++) {
+        const struct cell *cell = &term->ime.preedit.cells[idx];
+
+        if (cell->wc == CELL_MULT_COL_SPACER)
+            continue;
+
+        int width = max(1, wcwidth(cell->wc));
+        if (col_idx + i + width > term->cols)
+            break;
+
+        row->cells[col_idx + i] = *cell;
+        render_cell(term, buf->pix[0], row, col_idx + i, row_idx, false);
+    }
+
+    int start = term->ime.preedit.cursor.start - ime_ofs;
+    int end = term->ime.preedit.cursor.end - ime_ofs;
+
+    if (!term->ime.preedit.cursor.hidden) {
+        const struct cell *start_cell = &term->ime.preedit.cells[start + ime_ofs];
+
+        pixman_color_t fg = color_hex_to_pixman(term->colors.fg);
+        pixman_color_t bg = color_hex_to_pixman(term->colors.bg);
+
+        pixman_color_t cursor_color, text_color;
+        cursor_colors_for_cell(
+            term, start_cell, &fg, &bg, &cursor_color, &text_color);
+
+        int x = term->margins.left + (col_idx + start) * term->cell_width;
+        int y = term->margins.top + row_idx * term->cell_height;
+
+        if (end == start) {
+            /* Bar */
+            if (start >= 0) {
+                struct fcft_font *font = attrs_to_font(term, &start_cell->attrs);
+                draw_bar(term, buf->pix[0], font, &cursor_color, x, y);
+            }
+        }
+
+        else if (end > start) {
+            /* Hollow cursor */
+            if (start >= 0 && end <= term->cols) {
+                int cols = end - start;
+                draw_unfocused_block(term, buf->pix[0], &cursor_color, x, y, cols);
+            }
+        }
+    }
+
+    /* Restore original content (but do not render) */
+    for (int i = 0; i < cells_used; i++)
+        row->cells[col_idx + i] = real_cells[i];
+    free(real_cells);
+
+    wl_surface_damage_buffer(
+        term->window->surface,
+        term->margins.left,
+        term->margins.top + row_idx * term->cell_height,
+        term->width - term->margins.left - term->margins.right,
+        1 * term->cell_height);
+#endif
 }
 
 static void
@@ -1903,6 +2060,9 @@ grid_render(struct terminal *term)
         term->render.workers.buf = NULL;
     }
 
+    /* Render IME pre-edit text */
+    render_ime_preedit(term, buf);
+
     if (term->flash.active) {
         /* Note: alpha is pre-computed in each color component */
         /* TODO: dim while searching */
@@ -1985,7 +2145,49 @@ render_search_box(struct terminal *term)
 {
     assert(term->window->search_sub_surface != NULL);
 
-    const size_t wanted_visible_chars = max(20, term->search.len);
+    /*
+     * We treat the search box pretty much like a row of cells. That
+     * is, a glyph is either 1 or 2 (or more) “cells” wide.
+     *
+     * The search ‘length’, and ‘cursor’ (position) is in
+     * *characters*, not cells. This means we need to translate from
+     * character count to cell count when calculating the length of
+     * the search box, where in the search string we should start
+     * rendering etc.
+     */
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    size_t text_len = term->search.len;
+    if (term->ime.preedit.text != NULL)
+        text_len += wcslen(term->ime.preedit.text);
+
+    wchar_t *text = xmalloc((text_len + 1) *  sizeof(wchar_t));
+    text[0] = L'\0';
+
+    /* Copy everything up to the cursor */
+    wcsncpy(text, term->search.buf, term->search.cursor);
+    text[term->search.cursor] = L'\0';
+
+    /* Insert pre-edit text at cursor */
+    if (term->ime.preedit.text != NULL)
+        wcscat(text, term->ime.preedit.text);
+
+    /* And finally everything after the cursor */
+    wcsncat(text, &term->search.buf[term->search.cursor],
+            term->search.len - term->search.cursor);
+#else
+    const wchar_t *text = term->search.buf;
+    const size_t text_len = term->search.len;
+#endif
+
+    /* Calculate the width of each character */
+    int widths[text_len + 1];
+    for (size_t i = 0; i < text_len; i++)
+        widths[i] = max(1, wcwidth(text[i]));
+    widths[text_len] = 0;
+
+    const size_t total_cells = wcswidth(text, text_len);
+    const size_t wanted_visible_cells = max(20, total_cells);
 
     assert(term->scale >= 1);
     const int scale = term->scale;
@@ -1995,12 +2197,12 @@ render_search_box(struct terminal *term)
     const size_t width = term->width - 2 * margin;
     const size_t visible_width = min(
         term->width - 2 * margin,
-        2 * margin + wanted_visible_chars * term->cell_width);
+        2 * margin + wanted_visible_cells * term->cell_width);
     const size_t height = min(
         term->height - 2 * margin,
         2 * margin + 1 * term->cell_height);
 
-    const size_t visible_chars = (visible_width - 2 * margin) / term->cell_width;
+    const size_t visible_cells = (visible_width - 2 * margin) / term->cell_width;
     size_t glyph_offset = term->render.search_glyph_offset;
 
     unsigned long cookie = shm_cookie_search(term);
@@ -2008,7 +2210,7 @@ render_search_box(struct terminal *term)
 
     /* Background - yellow on empty/match, red on mismatch */
     pixman_color_t color = color_hex_to_pixman(
-        term->search.match_len == term->search.len
+        term->search.match_len == text_len
         ? term->colors.table[3] : term->colors.table[1]);
 
     pixman_image_fill_rectangles(
@@ -2021,49 +2223,176 @@ render_search_box(struct terminal *term)
         1, &(pixman_rectangle16_t){0, 0, width - visible_width, height});
 
     struct fcft_font *font = term->fonts[0];
-    int x = width - visible_width + margin;
+    const int x_left = width - visible_width + margin;
+    int x = x_left;
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);
 
-    /* Ensure cursor is visible */
-    if (term->search.cursor < glyph_offset)
-        term->render.search_glyph_offset = glyph_offset = term->search.cursor;
-    else if (term->search.cursor > glyph_offset + visible_chars) {
-        term->render.search_glyph_offset = glyph_offset =
-            term->search.cursor - min(term->search.cursor, visible_chars);
-    }
-
-    /* Move offset if there is free space available */
-    if (term->search.len - glyph_offset < visible_chars)
-        term->render.search_glyph_offset = glyph_offset =
-            term->search.len - min(term->search.len, visible_chars);
-
-    /* Text (what the user entered - *not* match(es)) */
-    for (size_t i = glyph_offset;
-         i < term->search.len && i - glyph_offset < visible_chars;
-         i++)
-    {
-        if (i == term->search.cursor)
-            draw_bar(term, buf->pix[0], font, &fg, x, y);
-
-        const struct fcft_glyph *glyph = fcft_glyph_rasterize(
-            font, term->search.buf[i], term->font_subpixel);
-
-        if (glyph == NULL)
+    /* Move offset we start rendering at, to ensure the cursor is visible */
+    for (size_t i = 0, cell_idx = 0; i <= term->search.cursor; cell_idx += widths[i], i++) {
+        if (i != term->search.cursor)
             continue;
 
-        pixman_image_t *src = pixman_image_create_solid_fill(&fg);
-        pixman_image_composite32(
-            PIXMAN_OP_OVER, src, glyph->pix, buf->pix[0], 0, 0, 0, 0,
-            x + glyph->x, y + font_baseline(term) - glyph->y,
-            glyph->width, glyph->height);
-        pixman_image_unref(src);
+#if (FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+        if (term->ime.preedit.cells != NULL) {
+            if (term->ime.preedit.cursor.start == term->ime.preedit.cursor.end) {
+                /* All IME's I've seen so far keeps the cursor at
+                 * index 0, so ensure the *end* of the pre-edit string
+                 * is visible */
+                cell_idx += term->ime.preedit.count;
+            } else {
+                /* Try to predict in which direction we'll shift the text */
+                if (cell_idx + term->ime.preedit.cursor.start > glyph_offset)
+                    cell_idx += term->ime.preedit.cursor.end;
+                else
+                    cell_idx += term->ime.preedit.cursor.start;
+            }
+        }
+#endif
 
-        x += term->cell_width;
+        if (cell_idx < glyph_offset) {
+            /* Shift to the *left*, making *this* character the
+             * *first* visible one */
+            term->render.search_glyph_offset = glyph_offset = cell_idx;
+        }
+
+        else if (cell_idx > glyph_offset + visible_cells) {
+            /* Shift to the *right*, making *this* character the
+             * *last* visible one */
+            term->render.search_glyph_offset = glyph_offset =
+                cell_idx - min(cell_idx, visible_cells);
+        }
+
+        /* Adjust offset if there is free space available */
+        if (total_cells - glyph_offset < visible_cells) {
+            term->render.search_glyph_offset = glyph_offset =
+                total_cells - min(total_cells, visible_cells);
+        }
+
+        break;
     }
 
-    if (term->search.cursor >= term->search.len)
-        draw_bar(term, buf->pix[0], font, &fg, x, y);
+    /* Ensure offset is at a character boundary */
+    for (size_t i = 0, cell_idx = 0; i <= text_len; cell_idx += widths[i], i++) {
+        if (cell_idx >= glyph_offset) {
+            term->render.search_glyph_offset = glyph_offset = cell_idx;
+            break;
+        }
+    }
+
+    /*
+     * Render the search string, starting at ‘glyph_offset’. Note that
+     * glyph_offset is in cells, not characters
+     */
+    for (size_t i = 0,
+             cell_idx = 0,
+             width = widths[i],
+             next_cell_idx = width;
+         i < text_len;
+         i++,
+             cell_idx = next_cell_idx,
+             width = widths[i],
+             next_cell_idx += width)
+    {
+        /* Render cursor */
+        if (i == term->search.cursor) {
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+            bool have_preedit = term->ime.preedit.cells != NULL;
+            bool hidden = term->ime.preedit.cursor.hidden;
+
+            if (have_preedit && !hidden) {
+                /* Cursor may be outside the visible area:
+                 * cell_idx-glyph_offset can be negative */
+                int cells_left = visible_cells - max(
+                    (ssize_t)(cell_idx - glyph_offset), 0);
+
+                /* If cursor is outside the visible area, we need to
+                 * adjust our rectangle's position */
+                int start = term->ime.preedit.cursor.start
+                    + min((ssize_t)(cell_idx - glyph_offset), 0);
+                int end = term->ime.preedit.cursor.end
+                    + min((ssize_t)(cell_idx - glyph_offset), 0);
+
+                if (start == end) {
+                    int count = min(term->ime.preedit.count, cells_left);
+
+                    /* Underline the entire (visible part of) pre-edit text */
+                    draw_underline(term, buf->pix[0], font, &fg, x, y, count);
+
+                    /* Bar-styled cursor, if in the visible area */
+                    if (start >= 0 && start <= visible_cells)
+                        draw_bar(term, buf->pix[0], font, &fg, x + start * term->cell_width, y);
+                } else {
+                    /* Underline everything before and after the cursor */
+                    int count1 = min(start, cells_left);
+                    int count2 = max(
+                        min(term->ime.preedit.count - term->ime.preedit.cursor.end,
+                            cells_left - end),
+                        0);
+                    draw_underline(term, buf->pix[0], font, &fg, x, y, count1);
+                    draw_underline(term, buf->pix[0], font, &fg, x + end * term->cell_width, y, count2);
+
+                    /* TODO: how do we handle a partially hidden rectangle? */
+                    if (start >= 0 && end <= visible_cells) {
+                        draw_unfocused_block(
+                            term, buf->pix[0], &fg, x + start * term->cell_width, y, end - start);
+                    }
+                }
+            } else if (!have_preedit)
+#endif
+            {
+                /* Cursor *should* be in the visible area */
+                assert(cell_idx >= glyph_offset);
+                assert(cell_idx <= glyph_offset + visible_cells);
+                draw_bar(term, buf->pix[0], font, &fg, x, y);
+            }
+        }
+
+        if (next_cell_idx >= glyph_offset && next_cell_idx - glyph_offset > visible_cells) {
+            /* We're now beyond the visible area - nothing more to render */
+            break;
+        }
+
+        if (cell_idx < glyph_offset) {
+            /* We haven't yet reached the visible part of the string */
+            cell_idx = next_cell_idx;
+            continue;
+        }
+
+        const struct fcft_glyph *glyph = fcft_glyph_rasterize(
+            font, text[i], term->font_subpixel);
+
+        if (glyph == NULL) {
+            cell_idx = next_cell_idx;
+            continue;
+        }
+
+        if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
+            /* Glyph surface is a pre-rendered image (typically a color emoji...) */
+            pixman_image_composite32(
+                PIXMAN_OP_OVER, glyph->pix, NULL, buf->pix[0], 0, 0, 0, 0,
+                x + glyph->x, y + font_baseline(term) - glyph->y,
+                glyph->width, glyph->height);
+        } else {
+            pixman_image_t *src = pixman_image_create_solid_fill(&fg);
+            pixman_image_composite32(
+                PIXMAN_OP_OVER, src, glyph->pix, buf->pix[0], 0, 0, 0, 0,
+                x + glyph->x, y + font_baseline(term) - glyph->y,
+            glyph->width, glyph->height);
+            pixman_image_unref(src);
+        }
+
+        x += width * term->cell_width;
+        cell_idx = next_cell_idx;
+    }
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+        if (term->ime.preedit.cells != NULL)
+            /* Already rendered */;
+        else
+#endif
+        if (term->search.cursor >= term->search.len)
+            draw_bar(term, buf->pix[0], font, &fg, x, y);
 
     quirk_weston_subsurface_desync_on(term->window->search_sub_surface);
 
@@ -2086,6 +2415,10 @@ render_search_box(struct terminal *term)
 
     wl_surface_commit(term->window->search_surface);
     quirk_weston_subsurface_desync_off(term->window->search_sub_surface);
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    free(text);
+#endif
 }
 
 static void
@@ -2458,31 +2791,27 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
     tll_foreach(renderer->wayl->terms, it) {
         struct terminal *term = it->item;
 
-        if (!term->render.refresh.grid &&
-            !term->render.refresh.csd &&
-            !term->render.refresh.search)
-        {
+        if (unlikely(!term->window->is_configured))
             continue;
-        }
-
-        if (term->render.app_sync_updates.enabled &&
-            !term->render.refresh.csd &&
-            !term->render.refresh.search)
-        {
-            continue;
-        }
-
-        if (term->render.refresh.csd || term->render.refresh.search) {
-             /* Force update of parent surface */
-            term->render.refresh.grid = true;
-        }
-
-        assert(term->window->is_configured);
 
         bool grid = term->render.refresh.grid;
         bool csd = term->render.refresh.csd;
         bool search = term->render.refresh.search;
         bool title = term->render.refresh.title;
+
+        if (!term->is_searching)
+            search = false;
+
+        if (!(grid | csd | search | title))
+            continue;
+
+        if (term->render.app_sync_updates.enabled && !(csd | search | title))
+            continue;
+
+        if (csd | search) {
+            /* Force update of parent surface */
+            grid = true;
+        }
 
         term->render.refresh.grid = false;
         term->render.refresh.csd = false;

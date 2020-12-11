@@ -18,6 +18,7 @@
 #include <tllist.h>
 #include <xdg-output-unstable-v1.h>
 #include <xdg-decoration-unstable-v1.h>
+#include <text-input-unstable-v3.h>
 
 #define LOG_MODULE "wayland"
 #define LOG_ENABLE_DBG 0
@@ -25,6 +26,7 @@
 
 #include "config.h"
 #include "terminal.h"
+#include "ime.h"
 #include "input.h"
 #include "render.h"
 #include "selection.h"
@@ -112,6 +114,25 @@ seat_add_primary_selection(struct seat *seat)
 }
 
 static void
+seat_add_text_input(struct seat *seat)
+{
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    if (seat->wayl->text_input_manager == NULL)
+        return;
+
+    struct zwp_text_input_v3 *text_input
+        = zwp_text_input_manager_v3_get_text_input(
+            seat->wayl->text_input_manager, seat->wl_seat);
+
+    if (text_input == NULL)
+        return;
+
+    seat->wl_text_input = text_input;
+    zwp_text_input_v3_add_listener(text_input, &text_input_listener, seat);
+#endif
+}
+
+static void
 seat_destroy(struct seat *seat)
 {
     if (seat == NULL)
@@ -165,9 +186,16 @@ seat_destroy(struct seat *seat)
         wl_keyboard_release(seat->wl_keyboard);
     if (seat->wl_pointer != NULL)
         wl_pointer_release(seat->wl_pointer);
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    if (seat->wl_text_input != NULL)
+        zwp_text_input_v3_destroy(seat->wl_text_input);
+#endif
+
     if (seat->wl_seat != NULL)
         wl_seat_release(seat->wl_seat);
 
+    ime_reset(seat);
     free(seat->clipboard.text);
     free(seat->primary.text);
     free(seat->name);
@@ -815,6 +843,7 @@ handle_global(void *data, struct wl_registry *registry,
 
         seat_add_data_device(seat);
         seat_add_primary_selection(seat);
+        seat_add_text_input(seat);
         wl_seat_add_listener(wl_seat, &seat_listener, seat);
     }
 
@@ -895,6 +924,20 @@ handle_global(void *data, struct wl_registry *registry,
                 wayl->presentation, &presentation_listener, wayl);
         }
     }
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    else if (strcmp(interface, zwp_text_input_manager_v3_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->text_input_manager = wl_registry_bind(
+            wayl->registry, name, &zwp_text_input_manager_v3_interface, required);
+
+        tll_foreach(wayl->seats, it)
+            seat_add_text_input(&it->item);
+    }
+#endif
 }
 
 static void
@@ -1153,6 +1196,11 @@ wayl_destroy(struct wayland *wayl)
     tll_foreach(wayl->seats, it)
         seat_destroy(&it->item);
     tll_free(wayl->seats);
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    if (wayl->text_input_manager != NULL)
+        zwp_text_input_manager_v3_destroy(wayl->text_input_manager);
+#endif
 
     if (wayl->xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);

@@ -18,6 +18,7 @@
 #include "selection.h"
 #include "shm.h"
 #include "util.h"
+#include "xmalloc.h"
 
 /*
  * Ensures a "new" viewport doesn't contain any unallocated rows.
@@ -98,6 +99,12 @@ search_cancel_keep_selection(struct terminal *term)
     term->is_searching = false;
     term->render.search_glyph_offset = 0;
 
+    /* Reset IME state */
+    if (term_ime_is_enabled(term)) {
+        term_ime_disable(term);
+        term_ime_enable(term);
+    }
+
     term_xcursor_update(term);
     render_refresh(term);
 }
@@ -109,6 +116,12 @@ search_begin(struct terminal *term)
 
     search_cancel_keep_selection(term);
     selection_cancel(term);
+
+    /* Reset IME state */
+    if (term_ime_is_enabled(term)) {
+        term_ime_disable(term);
+        term_ime_enable(term);
+    }
 
     /* On-demand instantiate wayland surface */
     struct wl_window *win = term->window;
@@ -123,6 +136,11 @@ search_begin(struct terminal *term)
     term->search.original_view = term->grid->view;
     term->search.view_followed_offset = term->grid->view == term->grid->offset;
     term->is_searching = true;
+
+    term->search.len = 0;
+    term->search.sz = 64;
+    term->search.buf = xmalloc(term->search.sz * sizeof(term->search.buf[0]));
+    term->search.buf[0] = L'\0';
 
     term_xcursor_update(term);
     render_refresh_search(term);
@@ -332,8 +350,8 @@ search_find_next(struct terminal *term)
 #undef ROW_DEC
 }
 
-static void
-add_chars(struct terminal *term, const char *src, size_t count)
+void
+search_add_chars(struct terminal *term, const char *src, size_t count)
 {
     mbstate_t ps = {0};
     size_t wchars = mbsnrtowcs(NULL, &src, count, 0, &ps);
@@ -494,7 +512,7 @@ static void
 from_clipboard_cb(char *text, size_t size, void *user)
 {
     struct terminal *term = user;
-    add_chars(term, text, size);
+    search_add_chars(term, text, size);
 }
 
 static void
@@ -722,7 +740,7 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
     if (count == 0)
         return;
 
-    add_chars(term, (const char *)buf, count);
+    search_add_chars(term, (const char *)buf, count);
 
 update_search:
     LOG_DBG("search: buffer: %ls", term->search.buf);

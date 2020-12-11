@@ -21,6 +21,7 @@
 #include "log.h"
 
 #include "config.h"
+#include "foot-features.h"
 #include "fdm.h"
 #include "reaper.h"
 #include "render.h"
@@ -37,6 +38,15 @@ static void
 sig_handler(int signo)
 {
     aborted = 1;
+}
+
+static const char *
+version_and_features(void)
+{
+    static char buf[256];
+    snprintf(buf, sizeof(buf), "version: %s %cime",
+             FOOT_VERSION, feature_ime() ? '+' : '-');
+    return buf;
 }
 
 static void
@@ -325,7 +335,7 @@ main(int argc, char *const *argv)
             break;
 
         case 'v':
-            printf("foot version %s\n", FOOT_VERSION);
+            printf("foot %s\n", version_and_features());
             return EXIT_SUCCESS;
 
         case 'h':
@@ -343,7 +353,7 @@ main(int argc, char *const *argv)
     argc -= optind;
     argv += optind;
 
-    LOG_INFO("version: %s", FOOT_VERSION);
+    LOG_INFO("%s", version_and_features());
 
     {
         struct utsname name;

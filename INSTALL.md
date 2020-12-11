@@ -7,6 +7,7 @@
 1. [Arch Linux](#arch-linux)
 1. [Other](#other)
    1. [Setup](#setup)
+   1. [Options](#options)
    1. [Release build](#release-build)
       1. [Size optimized](#size-optimized)
       1. [Performance optimized, non-PGO](#performance-optimized-non-pgo)
@@ -129,6 +130,15 @@ To build, first, create a build directory, and switch to it:
 ```sh
 mkdir -p bld/release && cd bld/release
 ```
+
+### Options
+
+Available compile-time options:
+
+| Option   | Type | Default | Description         | Extra dependencies |
+|----------|------|---------|---------------------|--------------------|
+| `-Dime`  | bool | `true`  | Enables IME support | None               |
+
 
 ### Release build
 

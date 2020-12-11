@@ -24,6 +24,7 @@
 #include "config.h"
 #include "extract.h"
 #include "grid.h"
+#include "ime.h"
 #include "quirks.h"
 #include "reaper.h"
 #include "render.h"
@@ -1116,6 +1117,11 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .shutdown_data = shutdown_data,
         .foot_exe = xstrdup(foot_exe),
         .cwd = xstrdup(cwd),
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+        .ime = {
+            .enabled = true,
+        },
+#endif
     };
 
     for (size_t i = 0; i < 4; i++) {
@@ -1403,6 +1409,8 @@ term_destroy(struct terminal *term)
     tll_free(term->alt.sixel_images);
     sixel_fini(term);
 
+    term_ime_reset(term);
+
     free(term->foot_exe);
     free(term->cwd);
 
@@ -1556,6 +1564,10 @@ term_reset(struct terminal *term, bool hard)
     tll_foreach(term->alt.sixel_images, it)
         sixel_destroy(&it->item);
     tll_free(term->alt.sixel_images);
+
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    term_ime_enable(term);
+#endif
 
     if (!hard)
         return;
@@ -2216,6 +2228,13 @@ term_kbd_focus_out(struct terminal *term)
         if (it->item.kbd_focus == term)
             return;
 
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    if (term->ime.preedit.cells != NULL) {
+        term_ime_reset(term);
+        render_refresh(term);
+    }
+#endif
+
     term->kbd_focus = false;
     cursor_refresh(term);
 
@@ -2743,4 +2762,68 @@ term_view_to_text(const struct terminal *term, char **text, size_t *len)
     int start = grid_row_absolute_in_view(term->grid, 0);
     int end = grid_row_absolute_in_view(term->grid, term->rows - 1);
     return rows_to_text(term, start, end, text, len);
+}
+
+bool
+term_ime_is_enabled(const struct terminal *term)
+{
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    return term->ime.enabled;
+#else
+    return false;
+#endif
+}
+
+void
+term_ime_enable(struct terminal *term)
+{
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    if (term->ime.enabled)
+        return;
+
+    LOG_DBG("IME enabled");
+
+    term->ime.enabled = true;
+    term_ime_reset(term);
+
+    /* IME is per seat - enable on all seat currently focusing us */
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term)
+            ime_enable(&it->item);
+    }
+#endif
+}
+
+void
+term_ime_disable(struct terminal *term)
+{
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    if (!term->ime.enabled)
+        return;
+
+    LOG_DBG("IME disabled");
+
+    term->ime.enabled = false;
+    term_ime_reset(term);
+
+    /* IME is per seat - disable on all seat currently focusing us */
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term)
+            ime_disable(&it->item);
+    }
+#endif
+}
+
+void
+term_ime_reset(struct terminal *term)
+{
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    if (term->ime.preedit.cells != NULL) {
+        free(term->ime.preedit.text);
+        free(term->ime.preedit.cells);
+        term->ime.preedit.text = NULL;
+        term->ime.preedit.cells = NULL;
+        term->ime.preedit.count = 0;
+    }
+#endif
 }

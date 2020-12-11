@@ -16,6 +16,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "client-protocol.h"
+#include "foot-features.h"
 #include "version.h"
 #include "xmalloc.h"
 
@@ -25,6 +26,15 @@ static void
 sig_handler(int signo)
 {
     aborted = 1;
+}
+
+static const char *
+version_and_features(void)
+{
+    static char buf[256];
+    snprintf(buf, sizeof(buf), "version: %s %cime",
+             FOOT_VERSION, feature_ime() ? '+' : '-');
+    return buf;
 }
 
 static void
@@ -155,7 +165,7 @@ main(int argc, char *const *argv)
             break;
 
         case 'v':
-            printf("footclient version %s\n", FOOT_VERSION);
+            printf("footclient %s\n", version_and_features());
             return EXIT_SUCCESS;
 
         case 'h':

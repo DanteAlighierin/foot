@@ -126,6 +126,9 @@ extract_finish(struct extraction_context *context, char **text, size_t *len)
 void cmd_scrollback_up(struct terminal *term, int rows) {}
 void cmd_scrollback_down(struct terminal *term, int rows) {}
 
+void ime_enable(struct seat *seat) {}
+void ime_disable(struct seat *seat) {}
+
 int
 main(int argc, const char *const *argv)
 {
