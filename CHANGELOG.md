@@ -123,6 +123,8 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   (https://codeberg.org/dnkl/foot/issues/233).
 * `\E[s`+`\E[u` (save/restore cursor) now saves and restores
   attributes and charset configuration, just like `\E7`+`\E8`.
+* Report mouse motion events to the client application also while
+  dragging the cursor outside the grid.
 
 
 ### Security

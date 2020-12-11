@@ -1250,7 +1250,7 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     /* Reset mouse state */
     seat->mouse.x = seat->mouse.y = 0;
     seat->mouse.col = seat->mouse.row = 0;
-    seat->mouse.button = seat->mouse.last_button = seat->mouse.count = 0;
+    seat->mouse.button = seat->mouse.last_button = seat->mouse.button_for_motion_events = seat->mouse.count = 0;
     seat->mouse.consumed = false;
     memset(&seat->mouse.last_time, 0, sizeof(seat->mouse.last_time));
     seat->mouse.axis_aggregated = 0.0;
@@ -1383,6 +1383,16 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
             selection_row = seat->mouse.row;
         }
 
+        /*
+         * If client is receiving events (because the button was
+         * pressed while the cursor was inside the grid area), then
+         * make sure it receives valid coordinates.
+         */
+        if (seat->mouse.button_for_motion_events > 0) {
+            seat->mouse.col = selection_col;
+            seat->mouse.row = selection_row;
+        }
+
         assert(seat->mouse.col == -1 || (seat->mouse.col >= 0 && seat->mouse.col < term->cols));
         assert(seat->mouse.row == -1 || (seat->mouse.row >= 0 && seat->mouse.row < term->rows));
 
@@ -1440,13 +1450,18 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         /* Send mouse event to client application */
         if (!seat->mouse.consumed &&
             !term_mouse_grabbed(term, seat) &&
-            cursor_is_on_new_cell && cursor_is_on_grid)
+            cursor_is_on_new_cell &&
+            (seat->mouse.button_for_motion_events > 0 ||
+             (seat->mouse.button == 0 && cursor_is_on_grid)))
         {
             assert(seat->mouse.col < term->cols);
             assert(seat->mouse.row < term->rows);
 
             term_mouse_motion(
-                term, seat->mouse.button, seat->mouse.row, seat->mouse.col,
+                term,
+                (seat->mouse.button_for_motion_events > 0
+                 ? seat->mouse.button_for_motion_events : seat->mouse.button),
+                seat->mouse.row, seat->mouse.col,
                 seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
         }
         break;
@@ -1702,6 +1717,9 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 term_mouse_down(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+
+                if (seat->mouse.button_for_motion_events == 0)
+                    seat->mouse.button_for_motion_events = button;
             }
             break;
         }
@@ -1711,11 +1729,15 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
             if (!seat->mouse.consumed &&
                 !term_mouse_grabbed(term, seat) &&
-                cursor_is_on_grid)
+                ((cursor_is_on_grid && seat->mouse.button_for_motion_events > 0) ||
+                 seat->mouse.button_for_motion_events == button))
             {
                 term_mouse_up(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
+
+                if (seat->mouse.button_for_motion_events == button)
+                    seat->mouse.button_for_motion_events = 0;
             }
 
             seat->mouse.consumed = false;

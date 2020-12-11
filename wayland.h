@@ -202,6 +202,18 @@ struct seat {
         int col;
         int row;
         int button;
+
+        /*
+         * Button to send in motion events to the client. This is
+         * always the *first* button pressed on the grid. If multiple
+         * buttons are pressed, the first button is still the one used
+         * in motion events.
+         *
+         * A non-zero value of this *also* indicates that the client
+         * should receive events even if the pointer is outside the
+         * grid.
+         */
+        int button_for_motion_events;
         bool consumed;  /* True if a button press was consumed - i.e. if a binding claimed it */
 
         int count;
