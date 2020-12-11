@@ -121,6 +121,8 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 
 * Error when re-assigning a default key binding
   (https://codeberg.org/dnkl/foot/issues/233).
+* `\E[s`+`\E[u` (save/restore cursor) now saves and restores
+  attributes and charset configuration, just like `\E7`+`\E8`.
 
 
 ### Security

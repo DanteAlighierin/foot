@@ -1108,10 +1108,14 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 's':
             term->grid->saved_cursor = term->grid->cursor;
+            term->vt.saved_attrs = term->vt.attrs;
+            term->saved_charsets = term->charsets;
             break;
 
         case 'u':
             term_restore_cursor(term, &term->grid->saved_cursor);
+            term->vt.attrs = term->vt.saved_attrs;
+            term->charsets = term->saved_charsets;
             break;
 
         case 't': {
