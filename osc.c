@@ -10,6 +10,7 @@
 #include "base64.h"
 #include "config.h"
 #include "grid.h"
+#include "notify.h"
 #include "render.h"
 #include "selection.h"
 #include "terminal.h"
@@ -374,22 +375,37 @@ osc_set_pwd(struct terminal *term, char *string)
     free(host);
 }
 
-#if 0
 static void
 osc_notify(struct terminal *term, char *string)
 {
+    /*
+     * The 'notify' perl extension
+     * (https://pub.phyks.me/scripts/urxvt/notify) is very simple:
+     *
+     * #!/usr/bin/perl
+     * 
+     * sub on_osc_seq_perl {
+     *   my ($term, $osc, $resp) = @_;
+     *   if ($osc =~ /^notify;(\S+);(.*)$/) {
+     *     system("notify-send '$1' '$2'");
+     *   }
+     * }
+     *
+     * As can be seen, the notification text is not encoded in any
+     * way. The regex does a greedy match of the ';' separator. Thus,
+     * any extra ';' will end up being part of the title. There's no
+     * way to have a ';' in the message body.
+     *
+     * I've changed that behavior slightly in; we split the title from
+     * body on the *first* ';', allowing us to have semicolons in the
+     * message body, but *not* in the title.
+     */
     char *ctx = NULL;
-    const char *cmd = strtok_r(string, ";", &ctx);
-    const char *title = strtok_r(NULL, ";", &ctx);
-    const char *msg = strtok_r(NULL, ";", &ctx);
+    const char *title = strtok_r(string, ";", &ctx);
+    const char *msg = strtok_r(NULL, "\x00", &ctx);
 
-    LOG_DBG("cmd: \"%s\", title: \"%s\", msg: \"%s\"",
-            cmd, title, msg);
-
-    if (cmd == NULL || strcmp(cmd, "notify") != 0 || title == NULL || msg == NULL)
-        return;
+    notify_notify(term, title, msg);
 }
-#endif
 
 static void
 update_color_in_grids(struct terminal *term, uint32_t old_color,
@@ -673,11 +689,27 @@ osc_dispatch(struct terminal *term)
         osc_flash(term);
         break;
 
-#if 0
-    case 777:
-        osc_notify(term, string);
+    case 777: {
+        /*
+         * OSC 777 is an URxvt generic escape used to send commands to
+         * perl extensions. The generic syntax is: \E]777;<command>;<string>ST
+         *
+         * We only recognize the 'notify' command, which is, if not
+         * well established, at least fairly well known.
+         */
+
+        char *param_brk = strchr(string, ';');
+        if (param_brk == NULL) {
+            UNHANDLED();
+            return;
+        }
+
+        if (strncmp(string, "notify", param_brk - string) == 0)
+            osc_notify(term, param_brk + 1);
+        else
+            UNHANDLED();
         break;
-#endif
+    }
 
     default:
         UNHANDLED();

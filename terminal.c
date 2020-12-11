@@ -25,6 +25,7 @@
 #include "extract.h"
 #include "grid.h"
 #include "ime.h"
+#include "notify.h"
 #include "quirks.h"
 #include "reaper.h"
 #include "render.h"
@@ -1091,7 +1092,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .eight_bit = true,
         },
         .num_lock_modifier = true,
-        .bell_is_urgent = conf->bell_is_urgent,
+        .bell_action_enabled = true,
         .tab_stops = tll_init(),
         .wl = wayl,
         .render = {
@@ -1532,6 +1533,8 @@ term_reset(struct terminal *term, bool hard)
     term->bracketed_paste = false;
     term->focus_events = false;
     term->modify_escape_key = false;
+    term->num_lock_modifier = true;
+    term->bell_action_enabled = true;
     term->mouse_tracking = MOUSE_NONE;
     term->mouse_reporting = MOUSE_NORMAL;
     term->charsets.selected = 0;
@@ -2512,12 +2515,24 @@ term_flash(struct terminal *term, unsigned duration_ms)
 void
 term_bell(struct terminal *term)
 {
-    if (term->kbd_focus || !term->bell_is_urgent)
+    if (term->kbd_focus || !term->bell_action_enabled)
         return;
 
-    /* There's no 'urgency' hint in Wayland - we just paint the margins red */
-    term->render.urgency = true;
-    term_damage_margins(term);
+    switch (term->conf->bell_action) {
+    case BELL_ACTION_NONE:
+        break;
+
+    case BELL_ACTION_URGENT:
+        /* There's no 'urgency' hint in Wayland - we just paint the
+         * margins red */
+        term->render.urgency = true;
+        term_damage_margins(term);
+        break;
+
+    case BELL_ACTION_NOTIFY:
+        notify_notify(term, "Bell", "Bell in terminal");
+        break;
+    }
 }
 
 bool

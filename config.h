@@ -72,7 +72,11 @@ struct config {
     unsigned pad_y;
 
     bool bold_in_bright;
-    bool bell_is_urgent;
+    enum {
+        BELL_ACTION_NONE,
+        BELL_ACTION_URGENT,
+        BELL_ACTION_NOTIFY,
+    } bell_action;
 
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 
@@ -162,6 +166,11 @@ struct config {
     char *server_socket_path;
     bool presentation_timings;
     bool hold_at_exit;
+
+    struct {
+        char *raw_cmd;
+        char **argv;
+    } notify;
 
     struct {
         enum fcft_scaling_filter fcft_filter;

@@ -86,6 +86,12 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * `DECSET` escape to modify the `escape` key to send `\E[27;1;27~`
   instead of `\E`: `CSI ? 27127 h` enables the new behavior, `CSI ?
   27127 l` disables it (the default).
+* OSC 777;notify: desktop notifications. Use in combination with the
+  new **notify** option in `foot.ini`
+  (https://codeberg.org/dnkl/foot/issues/224).
+* **bell** option can now be set to `notify`, in which case a desktop
+  notification is emitted when foot receives `BEL` in an unfocused
+  window.
 
 
 ### Changed

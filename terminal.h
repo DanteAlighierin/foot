@@ -271,7 +271,7 @@ struct terminal {
     } meta;
 
     bool num_lock_modifier;
-    bool bell_is_urgent;
+    bool bell_action_enabled;
 
     /* Saved DECSET modes - we save the SET state */
     struct {
@@ -295,7 +295,7 @@ struct terminal {
         uint32_t meta_eight_bit:1;
         uint32_t meta_esc_prefix:1;
         uint32_t num_lock_modifier:1;
-        uint32_t bell_is_urgent:1;
+        uint32_t bell_action_enabled:1;
         uint32_t alt_screen:1;
         uint32_t modify_escape_key:1;
         uint32_t ime:1;
