@@ -1516,7 +1516,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     assert(term != NULL);
 
-    enum term_surface surf_kind;
+    enum term_surface surf_kind = TERM_SURF_NONE;
     bool send_to_client = false;
 
     if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
