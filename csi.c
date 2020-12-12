@@ -141,52 +141,50 @@ csi_sgr(struct terminal *term)
                 i += 4;
             }
 
-            /* Sub-parameter style: 38:2:... */
+            /* Indexed: 38:5:<idx> */
             else if (term->vt.params.v[i].sub.idx >= 2 &&
+                     term->vt.params.v[i].sub.value[0] == 5)
+            {
+                const struct vt_param *param = &term->vt.params.v[i];
+
+                uint8_t idx = param->sub.value[1];
+                term->vt.attrs.have_fg = 1;
+                term->vt.attrs.fg = term->colors.table[idx];
+            }
+
+            /*
+             * RGB: 38:2:<color-space>:r:g:b[:ignored:tolerance:tolerance-color-space]
+             * RGB: 38:2:r:g:b
+             *
+             * The second version is a "bastard" version - many
+             * programs "forget" the color space ID
+             * parameter... *sigh*
+             */
+            else if (term->vt.params.v[i].sub.idx >= 4 &&
                      term->vt.params.v[i].sub.value[0] == 2)
             {
                 const struct vt_param *param = &term->vt.params.v[i];
-                const int color_space_id = param->sub.value[1];
+                bool have_color_space_id = param->sub.idx >= 5;
 
-                switch (color_space_id) {
-                case 0:   /* Implementation defined - we map it to '2' */
-                case 2: { /* RGB - 38:2:2:<r>:<g>:<b> */
-                    if (param->sub.idx < 5) {
-                        UNHANDLED_SGR(i);
-                        break;
-                    }
+                /* 0 - color space (ignored) */
+                int r_idx = 2 - !have_color_space_id;
+                int g_idx = 3 - !have_color_space_id;
+                int b_idx = 4 - !have_color_space_id;
+                /* 5 - unused */
+                /* 6 - CS tolerance */
+                /* 7 - color space associated with tolerance */
 
-                    uint8_t r = param->sub.value[2];
-                    uint8_t g = param->sub.value[3];
-                    uint8_t b = param->sub.value[4];
-                    /* 5 - unused */
-                    /* 6 - CS tolerance */
-                    /* 7 - color space associated with tolerance */
+                uint8_t r = param->sub.value[r_idx];
+                uint8_t g = param->sub.value[g_idx];
+                uint8_t b = param->sub.value[b_idx];
 
-                    term->vt.attrs.have_fg = 1;
-                    term->vt.attrs.fg = r << 16 | g << 8 | b;
-                    break;
-                }
-
-                case 5: { /* Indexed - 38:2:5:<idx> */
-                    if (param->sub.idx < 3) {
-                        UNHANDLED_SGR(i);
-                        break;
-                    }
-
-                    uint8_t idx = param->sub.value[2];
-                    term->vt.attrs.have_fg = 1;
-                    term->vt.attrs.fg = term->colors.table[idx];
-                    break;
-                }
-
-                case 1: /* Transparent */
-                case 3: /* CMY */
-                case 4: /* CMYK */
-                    UNHANDLED_SGR(i);
-                    break;
-                }
+                term->vt.attrs.have_fg = 1;
+                term->vt.attrs.fg = r << 16 | g << 8 | b;
             }
+
+            /* Transparent: 38:1 */
+            /* CMY:         38:3:<color-space>:c:m:y[:tolerance:tolerance-color-space] */
+            /* CMYK:        38:4:<color-space>:c:m:y:k[:tolerance:tolerance-color-space] */
 
             /* Unrecognized */
             else
@@ -236,52 +234,50 @@ csi_sgr(struct terminal *term)
                 i += 4;
             }
 
-            /* Sub-parameter style: 48:2:... */
+            /* Indexed: 48:5:<idx> */
             else if (term->vt.params.v[i].sub.idx >= 2 &&
+                     term->vt.params.v[i].sub.value[0] == 5)
+            {
+                const struct vt_param *param = &term->vt.params.v[i];
+
+                uint8_t idx = param->sub.value[1];
+                term->vt.attrs.have_bg = 1;
+                term->vt.attrs.bg = term->colors.table[idx];
+            }
+
+            /*
+             * RGB: 48:2:<color-space>:r:g:b[:ignored:tolerance:tolerance-color-space]
+             * RGB: 48:2:r:g:b
+             *
+             * The second version is a "bastard" version - many
+             * programs "forget" the color space ID
+             * parameter... *sigh*
+             */
+            else if (term->vt.params.v[i].sub.idx >= 4 &&
                      term->vt.params.v[i].sub.value[0] == 2)
             {
                 const struct vt_param *param = &term->vt.params.v[i];
-                const int color_space_id = param->sub.value[1];
+                bool have_color_space_id = param->sub.idx >= 5;
 
-                switch (color_space_id) {
-                case 0:   /* Implementation defined - we map it to '2' */
-                case 2: { /* RGB - 48:2:2:<r>:<g>:<b> */
-                    if (param->sub.idx < 5) {
-                        UNHANDLED_SGR(i);
-                        break;
-                    }
+                /* 0 - color space (ignored) */
+                int r_idx = 2 - !have_color_space_id;
+                int g_idx = 3 - !have_color_space_id;
+                int b_idx = 4 - !have_color_space_id;
+                /* 5 - unused */
+                /* 6 - CS tolerance */
+                /* 7 - color space associated with tolerance */
 
-                    uint8_t r = param->sub.value[2];
-                    uint8_t g = param->sub.value[3];
-                    uint8_t b = param->sub.value[4];
-                    /* 5 - unused */
-                    /* 6 - CS tolerance */
-                    /* 7 - color space associated with tolerance */
+                uint8_t r = param->sub.value[r_idx];
+                uint8_t g = param->sub.value[g_idx];
+                uint8_t b = param->sub.value[b_idx];
 
-                    term->vt.attrs.have_bg = 1;
-                    term->vt.attrs.bg = r << 16 | g << 8 | b;
-                    break;
-                }
-
-                case 5: { /* Indexed - 48:2:5:<idx> */
-                    if (param->sub.idx < 3) {
-                        UNHANDLED_SGR(i);
-                        break;
-                    }
-
-                    uint8_t idx = param->sub.value[2];
-                    term->vt.attrs.have_bg = 1;
-                    term->vt.attrs.bg = term->colors.table[idx];
-                    break;
-                }
-
-                case 1: /* Transparent */
-                case 3: /* CMY */
-                case 4: /* CMYK */
-                    UNHANDLED_SGR(i);
-                    break;
-                }
+                term->vt.attrs.have_bg = 1;
+                term->vt.attrs.bg = r << 16 | g << 8 | b;
             }
+
+            /* Transparent: 48:1 */
+            /* CMY:         48:3:<color-space>:c:m:y[:tolerance:tolerance-color-space] */
+            /* CMYK:        48:4:<color-space>:c:m:y:k[:tolerance:tolerance-color-space] */
 
             else
                 UNHANDLED_SGR(i);

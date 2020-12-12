@@ -107,6 +107,10 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   has been used to enable blinking. **cursor.blink** in `foot.ini`
   controls the default state of `CSI Ps SP q`
   (https://codeberg.org/dnkl/foot/issues/218).
+* The sub-parameter versions of the SGR RGB color escapes (e.g
+  `\E[38:2...m`) can now be used _without_ the color space ID
+  parameter.
+
 
 ### Deprecated
 ### Removed
@@ -125,6 +129,8 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   attributes and charset configuration, just like `\E7`+`\E8`.
 * Report mouse motion events to the client application also while
   dragging the cursor outside the grid.
+* Parsing of the sub-parameter versions of indexed SGR color escapes
+  (e.g. `\E[38:5...m`)
 
 
 ### Security
