@@ -131,6 +131,13 @@ struct wl_primary {
     uint32_t serial;
 };
 
+/* Maps a mouse button to its "owning" surface */
+struct button_tracker {
+    int button;
+    int surf_kind;  /* TODO: this is really an "enum term_surface" */
+    bool send_to_client;  /* Only valid when surface is the main grid surface */
+};
+
 struct seat {
     struct wayland *wayl;
     struct wl_seat *wl_seat;
@@ -201,23 +208,13 @@ struct seat {
         int y;
         int col;
         int row;
-        int button;
 
-        /*
-         * Button to send in motion events to the client. This is
-         * always the *first* button pressed on the grid. If multiple
-         * buttons are pressed, the first button is still the one used
-         * in motion events.
-         *
-         * A non-zero value of this *also* indicates that the client
-         * should receive events even if the pointer is outside the
-         * grid.
-         */
-        int button_for_motion_events;
-        bool consumed;  /* True if a button press was consumed - i.e. if a binding claimed it */
+        /* Mouse buttons currently being pressed, and their "owning" surfaces */
+        tll(struct button_tracker) buttons;
 
+        /* Double- and triple click state */
         int count;
-        int last_button;
+        int last_released_button;
         struct timeval last_time;
 
         /* We used a discrete axis event in the current pointer frame */

@@ -1250,8 +1250,9 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     /* Reset mouse state */
     seat->mouse.x = seat->mouse.y = 0;
     seat->mouse.col = seat->mouse.row = 0;
-    seat->mouse.button = seat->mouse.last_button = seat->mouse.button_for_motion_events = seat->mouse.count = 0;
-    seat->mouse.consumed = false;
+    tll_free(seat->mouse.buttons);
+    seat->mouse.count = 0;
+    seat->mouse.last_released_button = 0;
     memset(&seat->mouse.last_time, 0, sizeof(seat->mouse.last_time));
     seat->mouse.axis_aggregated = 0.0;
     seat->mouse.have_discrete = false;
@@ -1320,7 +1321,18 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     seat->mouse.x = x;
     seat->mouse.y = y;
 
-    switch (term->active_surface) {
+    enum term_surface surf_kind = term->active_surface;
+    int button = 0;
+    bool send_to_client = false;
+
+    if (tll_length(seat->mouse.buttons) > 0) {
+        const struct button_tracker *tracker = &tll_front(seat->mouse.buttons);
+        surf_kind = tracker->surf_kind;
+        button = tracker->button;
+        send_to_client = tracker->send_to_client;
+    }
+
+    switch (surf_kind) {
     case TERM_SURF_NONE:
     case TERM_SURF_SEARCH:
     case TERM_SURF_SCROLLBACK_INDICATOR:
@@ -1334,7 +1346,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         /* We've started a 'move' timer, but user started dragging
          * right away - abort the timer and initiate the actual move
          * right away */
-        if (seat->mouse.button == BTN_LEFT && win->csd.move_timeout_fd != -1) {
+        if (button == BTN_LEFT && win->csd.move_timeout_fd != -1) {
             fdm_del(wayl->fdm, win->csd.move_timeout_fd);
             win->csd.move_timeout_fd = -1;
             xdg_toplevel_move(win->xdg_toplevel, seat->wl_seat, win->csd.serial);
@@ -1388,7 +1400,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
          * pressed while the cursor was inside the grid area), then
          * make sure it receives valid coordinates.
          */
-        if (seat->mouse.button_for_motion_events > 0) {
+        if (send_to_client) {
             seat->mouse.col = selection_col;
             seat->mouse.row = selection_row;
         }
@@ -1443,24 +1455,24 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
                     auto_scroll_direction, selection_col);
             }
 
-            if (cursor_is_on_new_cell || term->selection.end.row < 0)
+            if (term->selection.ongoing && (cursor_is_on_new_cell ||
+                                            term->selection.end.row < 0))
+            {
                 selection_update(term, selection_col, selection_row);
+            }
         }
 
         /* Send mouse event to client application */
-        if (!seat->mouse.consumed &&
-            !term_mouse_grabbed(term, seat) &&
+        if (!term_mouse_grabbed(term, seat) &&
             cursor_is_on_new_cell &&
-            (seat->mouse.button_for_motion_events > 0 ||
-             (seat->mouse.button == 0 && cursor_is_on_grid)))
+            ((button == 0 && cursor_is_on_grid) ||
+             (button != 0 && send_to_client)))
         {
             assert(seat->mouse.col < term->cols);
             assert(seat->mouse.row < term->rows);
 
             term_mouse_motion(
-                term,
-                (seat->mouse.button_for_motion_events > 0
-                 ? seat->mouse.button_for_motion_events : seat->mouse.button),
+                term, button,
                 seat->mouse.row, seat->mouse.col,
                 seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
         }
@@ -1504,29 +1516,54 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     assert(term != NULL);
 
-    /* Update double/triple click state */
+    enum term_surface surf_kind;
+    bool send_to_client = false;
+
     if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
         /* Time since last click */
         struct timeval now, since_last;
         gettimeofday(&now, NULL);
         timersub(&now, &seat->mouse.last_time, &since_last);
 
-        /* Double- or triple click? */
-        if (button == seat->mouse.last_button &&
-            since_last.tv_sec == 0 &&
-            since_last.tv_usec <= 300 * 1000)
+        if (seat->mouse.last_released_button == button &&
+            since_last.tv_sec == 0 && since_last.tv_usec <= 300 * 1000)
         {
             seat->mouse.count++;
         } else
             seat->mouse.count = 1;
 
-        seat->mouse.button = button; /* For motion events */
-        seat->mouse.last_button = button;
-        seat->mouse.last_time = now;
-    } else
-        seat->mouse.button = 0; /* For motion events */
+#if defined(_DEBUG)
+        tll_foreach(seat->mouse.buttons, it)
+            assert(it->item.button != button);
+#endif
 
-    switch (term->active_surface) {
+        tll_push_back(
+            seat->mouse.buttons,
+            ((struct button_tracker){
+                .button = button,
+                .surf_kind = term->active_surface,
+                .send_to_client = false}));
+
+        seat->mouse.last_time = now;
+
+        surf_kind = term->active_surface;
+        send_to_client = false;  /* For now, may be set to true if a binding consumes the button */
+    } else {
+        bool UNUSED have_button = false;
+        tll_foreach(seat->mouse.buttons, it) {
+            if (it->item.button == button) {
+                have_button = true;
+                surf_kind = it->item.surf_kind;
+                send_to_client = it->item.send_to_client;
+                tll_remove(seat->mouse.buttons, it);
+                break;
+            }
+        }
+        assert(have_button);
+        seat->mouse.last_released_button = button;
+    }
+
+    switch (surf_kind) {
     case TERM_SURF_TITLE:
         if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
 
@@ -1633,93 +1670,94 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
         switch (state) {
         case WL_POINTER_BUTTON_STATE_PRESSED: {
-            if (!seat->mouse.consumed) {
-                if (seat->wl_keyboard != NULL && seat->kbd.xkb_state != NULL) {
-                    /* Seat has keyboard - use mouse bindings *with* modifiers */
+            bool consumed = false;
 
-                    xkb_mod_mask_t mods = xkb_state_serialize_mods(
-                        seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
+            if (seat->wl_keyboard != NULL && seat->kbd.xkb_state != NULL) {
+                /* Seat has keyboard - use mouse bindings *with* modifiers */
 
-                    /* Ignore Shift when matching modifiers, since it is
-                     * used to enable selection in mouse grabbing client
-                     * applications */
-                    mods &= ~(1 << seat->kbd.mod_shift);
+                xkb_mod_mask_t mods = xkb_state_serialize_mods(
+                    seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
 
-                    const struct mouse_binding *match = NULL;
+                /* Ignore Shift when matching modifiers, since it is
+                 * used to enable selection in mouse grabbing client
+                 * applications */
+                mods &= ~(1 << seat->kbd.mod_shift);
 
-                    tll_foreach(seat->mouse.bindings, it) {
-                        const struct mouse_binding *binding = &it->item;
+                const struct mouse_binding *match = NULL;
 
-                        if (binding->button != button) {
-                            /* Wrong button */
-                            continue;
-                        }
+                tll_foreach(seat->mouse.bindings, it) {
+                    const struct mouse_binding *binding = &it->item;
 
-                        if (binding->mods != mods) {
-                            /* Modifier mismatch */
-                            continue;
-                        }
-
-                        if  (binding->count > seat->mouse.count) {
-                            /* Not correct click count */
-                            continue;
-                        }
-
-                        if (match == NULL || binding->count > match->count)
-                            match = binding;
+                    if (binding->button != button) {
+                        /* Wrong button */
+                        continue;
                     }
 
-                    if (match != NULL) {
-                        seat->mouse.consumed = execute_binding(
-                            seat, term, match->action, match->pipe_argv, serial);
+                    if (binding->mods != mods) {
+                        /* Modifier mismatch */
+                        continue;
                     }
+
+                    if  (binding->count > seat->mouse.count) {
+                        /* Not correct click count */
+                        continue;
+                    }
+
+                    if (match == NULL || binding->count > match->count)
+                        match = binding;
                 }
 
-                else {
-                    /* Seat does NOT have a keyboard - use mouse bindings *without* modifiers */
-                    const struct config_mouse_binding *match = NULL;
-
-                    tll_foreach(seat->wayl->conf->bindings.mouse, it) {
-                        const struct config_mouse_binding *binding = &it->item;
-
-                        if (binding->button != button) {
-                            /* Wrong button */
-                            continue;
-                        }
-
-                        if (binding->count > seat->mouse.count) {
-                            /* Incorrect click count */
-                            continue;
-                        }
-
-                        const struct config_key_modifiers no_mods = {0};
-                        if (memcmp(&binding->modifiers, &no_mods, sizeof(no_mods)) != 0) {
-                            /* Binding has modifiers */
-                            continue;
-                        }
-
-                        if (match == NULL || binding->count > match->count)
-                            match = binding;
-                    }
-
-                    if (match != NULL) {
-                        seat->mouse.consumed = execute_binding(
-                            seat, term, match->action, match->pipe.argv, serial);
-                    }
+                if (match != NULL) {
+                    consumed = execute_binding(
+                        seat, term, match->action, match->pipe_argv, serial);
                 }
-
             }
 
-            if (!seat->mouse.consumed &&
+            else {
+                /* Seat does NOT have a keyboard - use mouse bindings *without* modifiers */
+                const struct config_mouse_binding *match = NULL;
+
+                tll_foreach(seat->wayl->conf->bindings.mouse, it) {
+                    const struct config_mouse_binding *binding = &it->item;
+
+                    if (binding->button != button) {
+                        /* Wrong button */
+                        continue;
+                    }
+
+                    if (binding->count > seat->mouse.count) {
+                        /* Incorrect click count */
+                        continue;
+                    }
+
+                    const struct config_key_modifiers no_mods = {0};
+                    if (memcmp(&binding->modifiers, &no_mods, sizeof(no_mods)) != 0) {
+                        /* Binding has modifiers */
+                        continue;
+                    }
+
+                    if (match == NULL || binding->count > match->count)
+                        match = binding;
+                }
+
+                if (match != NULL) {
+                    consumed = execute_binding(
+                        seat, term, match->action, match->pipe.argv, serial);
+                }
+            }
+
+            send_to_client = !consumed && cursor_is_on_grid;
+
+            if (send_to_client)
+                tll_back(seat->mouse.buttons).send_to_client = true;
+
+            if (send_to_client &&
                 !term_mouse_grabbed(term, seat) &&
                 cursor_is_on_grid)
             {
                 term_mouse_down(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
-
-                if (seat->mouse.button_for_motion_events == 0)
-                    seat->mouse.button_for_motion_events = button;
             }
             break;
         }
@@ -1727,20 +1765,11 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         case WL_POINTER_BUTTON_STATE_RELEASED:
             selection_finalize(seat, term, serial);
 
-            if (!seat->mouse.consumed &&
-                !term_mouse_grabbed(term, seat) &&
-                ((cursor_is_on_grid && seat->mouse.button_for_motion_events > 0) ||
-                 seat->mouse.button_for_motion_events == button))
-            {
+            if (send_to_client && !term_mouse_grabbed(term, seat)) {
                 term_mouse_up(
                     term, button, seat->mouse.row, seat->mouse.col,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
-
-                if (seat->mouse.button_for_motion_events == button)
-                    seat->mouse.button_for_motion_events = 0;
             }
-
-            seat->mouse.consumed = false;
             break;
         }
         break;

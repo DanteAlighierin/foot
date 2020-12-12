@@ -634,6 +634,8 @@ selection_finalize(struct seat *seat, struct terminal *term, uint32_t serial)
     if (!term->selection.ongoing)
         return;
 
+    LOG_DBG("selection finalize");
+
     selection_stop_scroll_timer(term);
     term->selection.ongoing = false;
 
