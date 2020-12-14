@@ -110,6 +110,9 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * The sub-parameter versions of the SGR RGB color escapes (e.g
   `\E[38:2...m`) can now be used _without_ the color space ID
   parameter.
+* SGR 21 no longer disables **bold**. According to ECMA-4, SGR 21 is
+  _”double underline_”. Foot does not (yet) implement that, but that’s
+  no reason to implement a non-standard behavior.
 
 
 ### Deprecated
