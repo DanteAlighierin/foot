@@ -410,7 +410,6 @@ struct terminal {
         struct {
             bool enabled;
             int timer_fd;
-            bool flipped;
         } app_sync_updates;
 
         /* Render threads + synchronization primitives */

@@ -131,6 +131,8 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   dragging the cursor outside the grid.
 * Parsing of the sub-parameter versions of indexed SGR color escapes
   (e.g. `\E[38:5...m`)
+* Frames occasionally being rendered while application synchronized
+  updates is in effect.
 
 
 ### Security

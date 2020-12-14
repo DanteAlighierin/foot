@@ -224,8 +224,6 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         cursor_blink_rearm_timer(term);
     }
 
-    term->render.app_sync_updates.flipped = false;
-
     uint8_t buf[24 * 1024];
     ssize_t count = sizeof(buf);
 
@@ -246,9 +244,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         vt_from_slave(term, buf, count);
     }
 
-    if (!term->render.app_sync_updates.enabled &&
-        !term->render.app_sync_updates.flipped)
-    {
+    if (!term->render.app_sync_updates.enabled) {
         /*
          * We likely need to re-render. But, we don't want to do it
          * immediately. Often, a single client update is done through
@@ -325,6 +321,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         } else
             return term_shutdown(term);
     }
+
     return true;
 }
 
@@ -2546,9 +2543,6 @@ term_spawn_new(const struct terminal *term)
 void
 term_enable_app_sync_updates(struct terminal *term)
 {
-    if (!term->render.app_sync_updates.enabled)
-        term->render.app_sync_updates.flipped = true;
-
     term->render.app_sync_updates.enabled = true;
 
     if (timerfd_settime(
@@ -2556,6 +2550,17 @@ term_enable_app_sync_updates(struct terminal *term)
             &(struct itimerspec){.it_value = {.tv_sec = 1}}, NULL) < 0)
     {
         LOG_ERR("failed to arm timer for application synchronized updates");
+    }
+
+    /* Disable pending refresh *iff* the grid is the *only* thing
+     * scheduled to be re-rendered */
+    if (!term->render.refresh.csd && !term->render.refresh.search &&
+        !term->render.refresh.title &&
+        !term->render.pending.csd && !term->render.pending.search &&
+        !term->render.pending.title)
+    {
+        term->render.refresh.grid = false;
+        term->render.pending.grid = false;
     }
 
     /* Disarm delayed rendering timers */
@@ -2575,7 +2580,6 @@ term_disable_app_sync_updates(struct terminal *term)
         return;
 
     term->render.app_sync_updates.enabled = false;
-    term->render.app_sync_updates.flipped = true;
     render_refresh(term);
 
     /* Reset timers */
