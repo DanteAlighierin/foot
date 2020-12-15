@@ -191,5 +191,5 @@ bool config_load(
     user_notifications_t *initial_user_notifications, bool errors_are_fatal);
 void config_free(struct config conf);
 
-struct config_font config_font_parse(const char *pattern);
+bool config_font_parse(const char *pattern, struct config_font *font);
 void config_font_destroy(struct config_font *font);

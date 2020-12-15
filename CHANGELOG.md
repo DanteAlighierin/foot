@@ -136,6 +136,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   (e.g. `\E[38:5...m`)
 * Frames occasionally being rendered while application synchronized
   updates is in effect.
+* Handling of failures to parse the font specification string.
 
 
 ### Security
