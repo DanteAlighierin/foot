@@ -25,6 +25,7 @@
 #include "extract.h"
 #include "grid.h"
 #include "ime.h"
+#include "notify.h"
 #include "quirks.h"
 #include "reaper.h"
 #include "render.h"
@@ -223,8 +224,6 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         cursor_blink_rearm_timer(term);
     }
 
-    term->render.app_sync_updates.flipped = false;
-
     uint8_t buf[24 * 1024];
     ssize_t count = sizeof(buf);
 
@@ -245,9 +244,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         vt_from_slave(term, buf, count);
     }
 
-    if (!term->render.app_sync_updates.enabled &&
-        !term->render.app_sync_updates.flipped)
-    {
+    if (!term->render.app_sync_updates.enabled) {
         /*
          * We likely need to re-render. But, we don't want to do it
          * immediately. Often, a single client update is done through
@@ -324,6 +321,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         } else
             return term_shutdown(term);
     }
+
     return true;
 }
 
@@ -1091,7 +1089,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .eight_bit = true,
         },
         .num_lock_modifier = true,
-        .bell_is_urgent = conf->bell_is_urgent,
+        .bell_action_enabled = true,
         .tab_stops = tll_init(),
         .wl = wayl,
         .render = {
@@ -1532,6 +1530,8 @@ term_reset(struct terminal *term, bool hard)
     term->bracketed_paste = false;
     term->focus_events = false;
     term->modify_escape_key = false;
+    term->num_lock_modifier = true;
+    term->bell_action_enabled = true;
     term->mouse_tracking = MOUSE_NONE;
     term->mouse_reporting = MOUSE_NORMAL;
     term->charsets.selected = 0;
@@ -2512,12 +2512,24 @@ term_flash(struct terminal *term, unsigned duration_ms)
 void
 term_bell(struct terminal *term)
 {
-    if (term->kbd_focus || !term->bell_is_urgent)
+    if (term->kbd_focus || !term->bell_action_enabled)
         return;
 
-    /* There's no 'urgency' hint in Wayland - we just paint the margins red */
-    term->render.urgency = true;
-    term_damage_margins(term);
+    switch (term->conf->bell_action) {
+    case BELL_ACTION_NONE:
+        break;
+
+    case BELL_ACTION_URGENT:
+        /* There's no 'urgency' hint in Wayland - we just paint the
+         * margins red */
+        term->render.urgency = true;
+        term_damage_margins(term);
+        break;
+
+    case BELL_ACTION_NOTIFY:
+        notify_notify(term, "Bell", "Bell in terminal");
+        break;
+    }
 }
 
 bool
@@ -2531,9 +2543,6 @@ term_spawn_new(const struct terminal *term)
 void
 term_enable_app_sync_updates(struct terminal *term)
 {
-    if (!term->render.app_sync_updates.enabled)
-        term->render.app_sync_updates.flipped = true;
-
     term->render.app_sync_updates.enabled = true;
 
     if (timerfd_settime(
@@ -2541,6 +2550,17 @@ term_enable_app_sync_updates(struct terminal *term)
             &(struct itimerspec){.it_value = {.tv_sec = 1}}, NULL) < 0)
     {
         LOG_ERR("failed to arm timer for application synchronized updates");
+    }
+
+    /* Disable pending refresh *iff* the grid is the *only* thing
+     * scheduled to be re-rendered */
+    if (!term->render.refresh.csd && !term->render.refresh.search &&
+        !term->render.refresh.title &&
+        !term->render.pending.csd && !term->render.pending.search &&
+        !term->render.pending.title)
+    {
+        term->render.refresh.grid = false;
+        term->render.pending.grid = false;
     }
 
     /* Disarm delayed rendering timers */
@@ -2560,7 +2580,6 @@ term_disable_app_sync_updates(struct terminal *term)
         return;
 
     term->render.app_sync_updates.enabled = false;
-    term->render.app_sync_updates.flipped = true;
     render_refresh(term);
 
     /* Reset timers */

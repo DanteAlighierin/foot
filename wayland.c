@@ -138,6 +138,8 @@ seat_destroy(struct seat *seat)
     if (seat == NULL)
         return;
 
+    tll_free(seat->mouse.buttons);
+
     tll_foreach(seat->kbd.bindings.key, it)
         tll_free(it->item.bind.key_codes);
     tll_free(seat->kbd.bindings.key);

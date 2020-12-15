@@ -155,6 +155,7 @@ executable(
   'ime.c', 'ime.h',
   'input.c', 'input.h',
   'main.c',
+  'notify.c', 'notify.h',
   'quirks.c', 'quirks.h',
   'reaper.c', 'reaper.h',
   'render.c', 'render.h',

@@ -86,6 +86,12 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * `DECSET` escape to modify the `escape` key to send `\E[27;1;27~`
   instead of `\E`: `CSI ? 27127 h` enables the new behavior, `CSI ?
   27127 l` disables it (the default).
+* OSC 777;notify: desktop notifications. Use in combination with the
+  new **notify** option in `foot.ini`
+  (https://codeberg.org/dnkl/foot/issues/224).
+* **bell** option can now be set to `notify`, in which case a desktop
+  notification is emitted when foot receives `BEL` in an unfocused
+  window.
 
 
 ### Changed
@@ -101,6 +107,13 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   has been used to enable blinking. **cursor.blink** in `foot.ini`
   controls the default state of `CSI Ps SP q`
   (https://codeberg.org/dnkl/foot/issues/218).
+* The sub-parameter versions of the SGR RGB color escapes (e.g
+  `\E[38:2...m`) can now be used _without_ the color space ID
+  parameter.
+* SGR 21 no longer disables **bold**. According to ECMA-4, SGR 21 is
+  _”double underline_”. Foot does not (yet) implement that, but that’s
+  no reason to implement a non-standard behavior.
+
 
 ### Deprecated
 ### Removed
@@ -115,6 +128,14 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 
 * Error when re-assigning a default key binding
   (https://codeberg.org/dnkl/foot/issues/233).
+* `\E[s`+`\E[u` (save/restore cursor) now saves and restores
+  attributes and charset configuration, just like `\E7`+`\E8`.
+* Report mouse motion events to the client application also while
+  dragging the cursor outside the grid.
+* Parsing of the sub-parameter versions of indexed SGR color escapes
+  (e.g. `\E[38:5...m`)
+* Frames occasionally being rendered while application synchronized
+  updates is in effect.
 
 
 ### Security

@@ -129,6 +129,11 @@ void cmd_scrollback_down(struct terminal *term, int rows) {}
 void ime_enable(struct seat *seat) {}
 void ime_disable(struct seat *seat) {}
 
+void
+notify_notify(const struct terminal *term, const char *title, const char *body)
+{
+}
+
 int
 main(int argc, const char *const *argv)
 {
