@@ -337,7 +337,7 @@ action_collect(struct terminal *term, uint8_t c)
     LOG_DBG("collect: %c", c);
 
     /*
-     * Having more than one private is *very* rare. Foot ony supports
+     * Having more than one private is *very* rare. Foot only supports
      * a *single* escape with two privates, and none with three or
      * more.
      *
