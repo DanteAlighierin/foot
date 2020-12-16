@@ -50,6 +50,9 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   to add support for this. The value `set-urgency` was chosen for
   forward-compatibility, in the hopes that this proposal eventualizes
   (https://codeberg.org/dnkl/foot/issues/157).
+* **bell** option can also be set to `notify`, in which case a desktop
+  notification is emitted when foot receives `BEL` in an unfocused
+  window.
 * **word-delimiters** option to `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/156).
 * **csd.preferred** can now be set to `none` to disable window
@@ -89,9 +92,6 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * OSC 777;notify: desktop notifications. Use in combination with the
   new **notify** option in `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/224).
-* **bell** option can now be set to `notify`, in which case a desktop
-  notification is emitted when foot receives `BEL` in an unfocused
-  window.
 
 
 ### Changed
