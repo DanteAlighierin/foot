@@ -113,6 +113,8 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * SGR 21 no longer disables **bold**. According to ECMA-48, SGR 21 is
   _”double underline_”. Foot does not (yet) implement that, but that’s
   no reason to implement a non-standard behavior.
+* `DECRQM` now returns actual state of the requested mode, instead of
+  always returning `2`.
 
 
 ### Deprecated

@@ -561,6 +561,42 @@ decrst(struct terminal *term, unsigned param)
     decset_decrst(term, param, false);
 }
 
+static bool
+decrqm(const struct terminal *term, unsigned param, bool *enabled)
+{
+    switch (param) {
+    case 1: *enabled = term->cursor_keys_mode == CURSOR_KEYS_APPLICATION; return true;
+    case 3: *enabled = false; return true;
+    case 4: *enabled = false; return true;
+    case 5: *enabled = term->reverse; return true;
+    case 6: *enabled = term->origin; return true;
+    case 7: *enabled = term->auto_margin; return true;
+    case 9: *enabled = false; /*  term->mouse_tracking == MOUSE_X10; */ return true;
+    case 12: *enabled = term->cursor_blink.decset; return true;
+    case 25: *enabled = !term->hide_cursor; return true;
+    case 45: *enabled = term->reverse_wrap; return true;
+    case 1000: *enabled = term->mouse_tracking == MOUSE_CLICK; return true;
+    case 1001: *enabled = false; return true;
+    case 1002: *enabled = term->mouse_tracking == MOUSE_DRAG; return true;
+    case 1003: *enabled = term->mouse_tracking == MOUSE_MOTION; return true;
+    case 1004: *enabled = term->focus_events; return true;
+    case 1005: *enabled = false; /* term->mouse_reporting == MOUSE_UTF8; */ return true;
+    case 1006: *enabled = term->mouse_reporting == MOUSE_SGR; return true;
+    case 1007: *enabled = term->alt_scrolling; return true;
+    case 1015: *enabled = term->mouse_reporting == MOUSE_URXVT; return true;
+    case 1034: *enabled = term->meta.eight_bit; return true;
+    case 1035: *enabled = term->num_lock_modifier; return true;
+    case 1036: *enabled = term->meta.esc_prefix; return true;
+    case 1042: *enabled = term->bell_action_enabled; return true;
+    case 1049: *enabled = term->grid == &term->alt; return true;
+    case 2004: *enabled = term->bracketed_paste; return true;
+    case 27127: *enabled = term->modify_escape_key; return true;
+    case 737769: *enabled = term_ime_is_enabled(term); return true;
+    }
+
+    return false;
+}
+
 static void
 xtsave(struct terminal *term, unsigned param)
 {
@@ -1359,8 +1395,15 @@ csi_dispatch(struct terminal *term, uint8_t final)
              *   3 - permanently set
              *   4 - permantently reset
              */
+            bool enabled;
+            unsigned value;
+            if (decrqm(term, param, &enabled))
+                value = enabled ? 1 : 2;
+            else
+                value = 0;
+
             char reply[32];
-            snprintf(reply, sizeof(reply), "\033[?%u;2$y", param);
+            snprintf(reply, sizeof(reply), "\033[?%u;%u$y", param, value);
             term_to_slave(term, reply, strlen(reply));
             break;
         }
