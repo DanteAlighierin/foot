@@ -134,7 +134,7 @@ struct vt {
         struct vt_param v[16];
         uint8_t idx;
     } params;
-    char private[2];
+    uint32_t private; /* LSB=priv0, MSB=priv3 */
     struct {
         uint8_t *data;
         size_t size;

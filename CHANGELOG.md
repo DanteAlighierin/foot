@@ -139,6 +139,8 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * Frames occasionally being rendered while application synchronized
   updates is in effect.
 * Handling of failures to parse the font specification string.
+* Extra private/intermediate characters in escape sequences not being
+  ignored.
 
 
 ### Security

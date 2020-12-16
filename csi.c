@@ -57,10 +57,11 @@ csi_as_string(struct terminal *term, uint8_t final, int idx)
                       i == term->vt.params.idx - 1 ? "" : ";");
     }
 
-    for (size_t i = 0; i < sizeof(term->vt.private) / sizeof(term->vt.private[0]); i++) {
-        if (term->vt.private[i] == 0)
+    for (size_t i = 0; i < sizeof(term->vt.private); i++) {
+        char value = (term->vt.private >> (i * 8)) & 0xff;
+        if (value == 0)
             break;
-        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private[i]);
+        c += snprintf(&msg[c], sizeof(msg) - c, "%c", value);
     }
 
     snprintf(&msg[c], sizeof(msg) - c, "%c (%u parameters)",
@@ -673,9 +674,9 @@ xtrestore(struct terminal *term, unsigned param)
 void
 csi_dispatch(struct terminal *term, uint8_t final)
 {
-    LOG_DBG("%s", csi_as_string(term, final, -1));
+    LOG_DBG("%s (%08x)", csi_as_string(term, final, -1), term->vt.private);
 
-    switch (term->vt.private[0]) {
+    switch (term->vt.private) {
     case 0: {
         switch (final) {
         case 'b':
@@ -1361,7 +1362,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        break;  /* private == 0 */
+        break;  /* private[0] == 0 */
     }
 
     case '?': {
@@ -1377,36 +1378,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
             for (size_t i = 0; i < term->vt.params.idx; i++)
                 decrst(term, term->vt.params.v[i].value);
             break;
-
-        case 'p': {
-            if (term->vt.private[1] != '$') {
-                UNHANDLED();
-                break;
-            }
-
-            unsigned param = vt_param_get(term, 0, 0);
-
-            /*
-             * Request DEC private mode (DECRQM)
-             * Reply:
-             *   0 - not recognized
-             *   1 - set
-             *   2 - reset
-             *   3 - permanently set
-             *   4 - permantently reset
-             */
-            bool enabled;
-            unsigned value;
-            if (decrqm(term, param, &enabled))
-                value = enabled ? 1 : 2;
-            else
-                value = 0;
-
-            char reply[32];
-            snprintf(reply, sizeof(reply), "\033[?%u;%u$y", param, value);
-            term_to_slave(term, reply, strlen(reply));
-            break;
-        }
 
         case 's':
             for (size_t i = 0; i < term->vt.params.idx; i++)
@@ -1456,7 +1427,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        break; /* private == '?' */
+        break; /* private[0] == '?' */
     }
 
     case '>': {
@@ -1542,7 +1513,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        break; /* private == '>' */
+        break; /* private[0] == '>' */
     }
 
     case ' ': {
@@ -1587,7 +1558,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             UNHANDLED();
             break;
         }
-        break; /* private == ' ' */
+        break; /* private[0] == ' ' */
     }
 
     case '!': {
@@ -1600,7 +1571,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             UNHANDLED();
             break;
         }
-        break; /* private == '!' */
+        break; /* private[0] == '!' */
     }
 
     case '=': {
@@ -1629,8 +1600,43 @@ csi_dispatch(struct terminal *term, uint8_t final)
             UNHANDLED();
             break;
         }
-        break; /* private == '=' */
+        break; /* private[0] == '=' */
     }
+
+    case 0x243f:  /* ?$ */
+        switch (final) {
+        case 'p': {
+            unsigned param = vt_param_get(term, 0, 0);
+
+            /*
+             * Request DEC private mode (DECRQM)
+             * Reply:
+             *   0 - not recognized
+             *   1 - set
+             *   2 - reset
+             *   3 - permanently set
+             *   4 - permantently reset
+             */
+            bool enabled;
+            unsigned value;
+            if (decrqm(term, param, &enabled))
+                value = enabled ? 1 : 2;
+            else
+                value = 0;
+
+            char reply[32];
+            snprintf(reply, sizeof(reply), "\033[?%u;%u$y", param, value);
+            term_to_slave(term, reply, strlen(reply));
+            break;
+
+        }
+
+        default:
+            UNHANDLED();
+            break;
+        }
+
+        break; /* private[0] == ‘?’ && private[1] == ‘$’ */
 
     default:
         UNHANDLED();

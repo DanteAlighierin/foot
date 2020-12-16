@@ -31,15 +31,15 @@ esu(struct terminal *term)
 void
 dcs_hook(struct terminal *term, uint8_t final)
 {
-    LOG_DBG("hook: %c (intermediate(s): %.2s, param=%d)", final, term->vt.private,
-            vt_param_get(term, 0, 0));
+    LOG_DBG("hook: %c (intermediate(s): %.2s, param=%d)", final,
+            (const char *)&term->vt.private, vt_param_get(term, 0, 0));
 
     assert(term->vt.dcs.data == NULL);
     assert(term->vt.dcs.size == 0);
     assert(term->vt.dcs.put_handler == NULL);
     assert(term->vt.dcs.unhook_handler == NULL);
 
-    switch (term->vt.private[0]) {
+    switch (term->vt.private) {
     case 0:
         switch (final) {
         case 'q':

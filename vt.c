@@ -82,10 +82,11 @@ esc_as_string(struct terminal *term, uint8_t final)
     static char msg[1024];
     int c = snprintf(msg, sizeof(msg), "\\E");
 
-    for (size_t i = 0; i < sizeof(term->vt.private) / sizeof(term->vt.private[0]); i++) {
-        if (term->vt.private[i] == 0)
+    for (size_t i = 0; i < sizeof(term->vt.private); i++) {
+        char value = (term->vt.private >> (i * 8)) & 0xff;
+        if (value == 0)
             break;
-        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private[i]);
+        c += snprintf(&msg[c], sizeof(msg) - c, "%c", value);
     }
 
     assert(term->vt.params.idx == 0);
@@ -105,8 +106,7 @@ static void
 action_clear(struct terminal *term)
 {
     term->vt.params.idx = 0;
-    term->vt.private[0] = 0;
-    term->vt.private[1] = 0;
+    term->vt.private = 0;
 }
 
 static void
@@ -335,12 +335,26 @@ static void
 action_collect(struct terminal *term, uint8_t c)
 {
     LOG_DBG("collect: %c", c);
-    if (term->vt.private[0] == 0)
-        term->vt.private[0] = c;
-    else if (term->vt.private[1] == 0)
-        term->vt.private[1] = c;
+
+    /*
+     * Having more than one private is *very* rare. Foot ony supports
+     * a *single* escape with two privates, and none with three or
+     * more.
+     *
+     * As such, we optimize *reading* the private(s), and *resetting*
+     * them (in action_clear()). Writing is ok if it’s a bit slow.
+     */
+
+    if ((term->vt.private & 0xff) == 0)
+        term->vt.private = c;
+    else if (((term->vt.private >> 8) & 0xff) == 0)
+        term->vt.private |= c << 8;
+    else if (((term->vt.private >> 16) & 0xff) == 0)
+        term->vt.private |= c << 16;
+    else if (((term->vt.private >> 24) & 0xff) == 0)
+        term->vt.private |= c << 24;
     else
-        LOG_WARN("only two private/intermediate characters supported");
+        LOG_WARN("only four private/intermediate characters supported");
 }
 
 static void
@@ -348,7 +362,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
 {
     LOG_DBG("ESC: %s", esc_as_string(term, final));
 
-    switch (term->vt.private[0]) {
+    switch (term->vt.private) {
     case 0:
         switch (final) {
         case '7':
@@ -425,7 +439,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
     case '+':
         switch (final) {
         case '0': {
-            char priv = term->vt.private[0];
+            char priv = term->vt.private;
             ssize_t idx = priv ==
                 '(' ? 0 :
                 ')' ? 1 :
@@ -437,7 +451,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 'B': {
-            char priv = term->vt.private[0];
+            char priv = term->vt.private;
             ssize_t idx = priv ==
                 '(' ? 0 :
                 ')' ? 1 :
