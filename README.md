@@ -315,8 +315,12 @@ Foot will re-size the fonts on-the-fly when the window is moved
 between screens with different DPIs values. If the window covers
 multiple screens, with different DPIs, the highest DPI will be used.
 
-_Tip_: QT applications can be configured to work this way too, by
-exporting the environment variable `QT_WAYLAND_FORCE_DPI=physical`.
+Starting with foot-1.6, the _default_ behavior is to use the monitor’s
+DPI to size fonts when output scaling has been disabled. On monitors
+where output scaling has been enabled, fonts will instead be sized
+using the scaling factor. This can be changed with the `dpi-aware`
+option in `foot.ini`. See the man page, **foot.ini**(5) for more
+information.
 
 _Note_: if you configure **pixelsize**, rather than **size**, then DPI
 changes will **not** change the font size. Pixels are always pixels.
