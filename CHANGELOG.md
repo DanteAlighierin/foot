@@ -78,10 +78,13 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * **bold-text-in-bright** option to `foot.ini`. When enabled, bold
   text is rendered in a brighter color
   (https://codeberg.org/dnkl/foot/issues/199).
-* **dpi-aware** option to `foot.ini`. The default, **enabled**,
-  implements foot's old font sizing behavior. But, when **disabled**,
-  foot will ignore the monitors' DPI and instead size fonts using the
-  scale factor alone (https://codeberg.org/dnkl/foot/issues/206).
+* **dpi-aware** option to `foot.ini`. The default, `auto`, sizes fonts
+  using the monitor’s DPI when output scaling has been
+  **disabled**. If output scaling has been **enabled**, fonts are
+  sized using the scaling factor. DPI-only font sizing can be forced
+  by setting `dpi-aware=yes`. Setting `dpi-aware=no` forces font
+  sizing to be based on the scaling factor.
+  (https://codeberg.org/dnkl/foot/issues/206).
 * `-w,--window-size-pixels` and `-W,--window-size-chars` command line
   options to `footclient` (https://codeberg.org/dnkl/foot/issues/189).
 * Short command line options for `--title`, `--maximized`,

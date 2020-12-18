@@ -776,6 +776,26 @@ get_font_subpixel(const struct terminal *term)
     return FCFT_SUBPIXEL_DEFAULT;
 }
 
+static bool
+font_should_size_by_dpi(const struct terminal *term, int new_scale)
+{
+    return term->conf->dpi_aware == DPI_AWARE_YES ||
+        (term->conf->dpi_aware == DPI_AWARE_AUTO && new_scale <= 1);
+}
+
+static bool
+font_size_by_dpi(const struct terminal *term)
+{
+    return font_should_size_by_dpi(term, term->font_scale);
+}
+
+static bool
+font_size_by_scale(const struct terminal *term)
+{
+    return !font_size_by_dpi(term);
+}
+
+
 struct font_load_data {
     size_t count;
     const char **names;
@@ -812,7 +832,7 @@ reload_fonts(struct terminal *term)
             bool use_px_size = term->font_sizes[i][j].px_size > 0;
             char size[64];
 
-            const int scale = term->conf->dpi_aware ? 1 : term->scale;
+            const int scale = font_size_by_scale(term) ? term->scale : 1;
 
             if (use_px_size)
                 snprintf(size, sizeof(size), ":pixelsize=%d",
@@ -843,12 +863,12 @@ reload_fonts(struct terminal *term)
     const char **names_bold = (const char **)(custom_bold ? names[1] : names[0]);
 
     const size_t count_italic = custom_italic ? counts[2] : counts[0];
-    const char **names_italic = (const char **)(custom_italic ? names[2] : names[0]); 
+    const char **names_italic = (const char **)(custom_italic ? names[2] : names[0]);
 
     const size_t count_bold_italic = custom_bold_italic ? counts[3] : counts[0];
     const char **names_bold_italic = (const char **)(custom_bold_italic ? names[3] : names[0]);
 
-    const bool use_dpi = term->conf->dpi_aware;
+    const bool use_dpi = font_size_by_dpi(term);
 
     char *attrs[4] = {NULL};
     int attr_len[4] = {-1, -1, -1, -1};  /* -1, so that +1 (below) results in 0 */
@@ -1673,22 +1693,33 @@ term_font_size_reset(struct terminal *term)
 bool
 term_font_dpi_changed(struct terminal *term)
 {
-    if (term->conf->dpi_aware) {
-        float dpi = get_font_dpi(term);
-        if (dpi == term->font_dpi)
-            return true;
+    float dpi = get_font_dpi(term);
+    int scale = get_font_scale(term);
 
-        LOG_DBG("DPI changed (%.2f -> %.2f): reloading fonts", term->font_dpi, dpi);
-        term->font_dpi = dpi;
-    } else {
-        int scale = get_font_scale(term);
-        if (scale == term->font_scale)
-            return true;
+    bool was_scaled_using_dpi = font_size_by_dpi(term);
+    bool will_scale_using_dpi = font_should_size_by_dpi(term, scale);
 
-        LOG_DBG("scale factor changed (%d -> %d): reloading fonts",
-                term->font_scale, scale);
-        term->font_scale = scale;
+    bool need_font_reload =
+        was_scaled_using_dpi != will_scale_using_dpi ||
+        (will_scale_using_dpi
+         ? term->font_dpi != dpi
+         : term->font_scale != scale);
+
+    if (need_font_reload) {
+        LOG_DBG("DPI/scale change: DPI-awareness=%s, "
+                "DPI: %.2f -> %.2f, scale: %d -> %d, "
+                "sizing font based on monitor's %s",
+                term->conf->dpi_aware == DPI_AWARE_AUTO ? "auto" :
+                term->conf->dpi_aware == DPI_AWARE_ON ? "yes" : "no",
+                term->font_dpi, dpi, term->font_scale, scale,
+                will_scale_using_dpi ? "DPI" : "scaling factor");
     }
+
+    term->font_dpi = dpi;
+    term->font_scale = scale;
+
+    if (!need_font_reload)
+        return true;
 
     return reload_fonts(term);
 }
