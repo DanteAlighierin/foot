@@ -40,7 +40,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   terminfo). This mode can be enabled/disabled with `CSI ? 45 h` and
   `CSI ? 45 l`. It is **enabled** by default
   (https://codeberg.org/dnkl/foot/issues/150).
-* **bell** option to `foot.ini`. Can be set to `set-urgency` to make
+* `bell` option to `foot.ini`. Can be set to `set-urgency` to make
   foot render the margins in red when receiving `BEL` while **not**
   having keyboard focus. Applications can dynamically enable/disable
   this with the `CSI ? 1042 h` and `CSI ? 1042 l` escape
@@ -50,35 +50,35 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   to add support for this. The value `set-urgency` was chosen for
   forward-compatibility, in the hopes that this proposal eventualizes
   (https://codeberg.org/dnkl/foot/issues/157).
-* **bell** option can also be set to `notify`, in which case a desktop
+* `bell` option can also be set to `notify`, in which case a desktop
   notification is emitted when foot receives `BEL` in an unfocused
   window.
-* **word-delimiters** option to `foot.ini`
+* `word-delimiters` option to `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/156).
-* **csd.preferred** can now be set to `none` to disable window
+* `csd.preferred` can now be set to `none` to disable window
   decorations. Note that some compositors will render SSDs despite
   this option being used (https://codeberg.org/dnkl/foot/issues/163).
 * Terminal content is now auto-scrolled when moving the mouse above or
   below the window while selecting
   (https://codeberg.org/dnkl/foot/issues/149).
-* **font-bold**, **font-italic** and **font-bold-italic** options to
+* `font-bold`, `font-italic` `font-bold-italic` options to
   `foot.ini`. These options allow custom bold/italic fonts. They are
   unset by default, meaning the bold/italic version of the regular
   font is used (https://codeberg.org/dnkl/foot/issues/169).
 * Drag & drop support; text, files and URLs can now be dropped in a
   foot terminal window (https://codeberg.org/dnkl/foot/issues/175).
-* **clipboard-paste** and **primary-paste** scrollback search
-  bindings. By default, they are bound to `ctrl+v ctrl+y` and
-  `shift+insert` respectively, and lets you paste from the clipboard
-  or primary selection into the search buffer.
-* Support for **pipe-\*** actions in mouse bindings. It was previously
+* `clipboard-paste` and `primary-paste` scrollback search bindings. By
+  default, they are bound to `ctrl+v ctrl+y` and `shift+insert`
+  respectively, and lets you paste from the clipboard or primary
+  selection into the search buffer.
+* Support for `pipe-*` actions in mouse bindings. It was previously
   not possible to add a command to these actions when used in mouse
   bindings, making them useless
   (https://codeberg.org/dnkl/foot/issues/183).
-* **bold-text-in-bright** option to `foot.ini`. When enabled, bold
-  text is rendered in a brighter color
+* `bold-text-in-bright` option to `foot.ini`. When enabled, bold text
+  is rendered in a brighter color
   (https://codeberg.org/dnkl/foot/issues/199).
-* **dpi-aware** option to `foot.ini`. The default, `auto`, sizes fonts
+* `dpi-aware` option to `foot.ini`. The default, `auto`, sizes fonts
   using the monitor’s DPI when output scaling has been
   **disabled**. If output scaling has been **enabled**, fonts are
   sized using the scaling factor. DPI-only font sizing can be forced
@@ -93,7 +93,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   instead of `\E`: `CSI ? 27127 h` enables the new behavior, `CSI ?
   27127 l` disables it (the default).
 * OSC 777;notify: desktop notifications. Use in combination with the
-  new **notify** option in `foot.ini`
+  new `notify` option in `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/224).
 * Status line terminfo capabilities `hs`, `tsl`, `fsl` and `dsl`. This
   enables e.g. vim to set the window title
@@ -127,9 +127,9 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 ### Removed
 
 * Support for loading configuration from `$XDG_CONFIG_HOME/footrc`.
-* **scrollback** option from `foot.ini`.
-* **geometry** option from `foot.ini`.
-* Key binding action **scrollback-up** and **scrollback-down**.
+* `scrollback` option from `foot.ini`.
+* `geometry` from `foot.ini`.
+* Key binding action `scrollback-up` and `scrollback-down`.
 
 
 ### Fixed
