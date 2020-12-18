@@ -92,6 +92,9 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * OSC 777;notify: desktop notifications. Use in combination with the
   new **notify** option in `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/224).
+* Status line terminfo capabilities `hs`, `tsl`, `fsl` and `dsl`. This
+  enables e.g. vim to set the window title
+  (https://codeberg.org/dnkl/foot/issues/242).
 
 
 ### Changed
