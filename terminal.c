@@ -1710,7 +1710,7 @@ term_font_dpi_changed(struct terminal *term)
                 "DPI: %.2f -> %.2f, scale: %d -> %d, "
                 "sizing font based on monitor's %s",
                 term->conf->dpi_aware == DPI_AWARE_AUTO ? "auto" :
-                term->conf->dpi_aware == DPI_AWARE_ON ? "yes" : "no",
+                term->conf->dpi_aware == DPI_AWARE_YES ? "yes" : "no",
                 term->font_dpi, dpi, term->font_scale, scale,
                 will_scale_using_dpi ? "DPI" : "scaling factor");
     }
