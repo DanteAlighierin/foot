@@ -1,6 +1,6 @@
 # Changelog
 
-* [Unreleased](#Unreleased)
+* [1.6.0](#1.6.0)
 * [1.5.4](#1-5-4)
 * [1.5.3](#1-5-3)
 * [1.5.2](#1-5-2)
@@ -18,7 +18,7 @@
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
+## 1.6.0
 
 ### For packagers
 
@@ -123,7 +123,6 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   always returning `2`.
 
 
-### Deprecated
 ### Removed
 
 * Support for loading configuration from `$XDG_CONFIG_HOME/footrc`.
@@ -147,9 +146,6 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * Handling of failures to parse the font specification string.
 * Extra private/intermediate characters in escape sequences not being
   ignored.
-
-
-### Security
 
 
 ### Contributors
