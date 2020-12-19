@@ -20,13 +20,23 @@
 
 
 ## Unreleased
+
 ### Added
+
 ### Changed
+
+* The fcft and tllist library subprojects are now handled via Meson
+  [wrap files](https://mesonbuild.com/Wrap-dependency-system-manual.html)
+  instead of needing to be manually cloned.
+
 ### Deprecated
 ### Removed
 ### Fixed
 ### Security
+
 ### Contributors
+
+* [craigbarnes](https://codeberg.org/craigbarnes)
 
 
 ## 1.6.0

@@ -26,15 +26,12 @@ foot makes use of a couple of libraries I have developed:
 [tllist](https://codeberg.org/dnkl/tllist) and
 [fcft](https://codeberg.org/dnkl/fcft). As such, they will most likely
 not have been installed already. You can either install them as system
-libraries, or you can build them as _subprojects_ in foot.
+libraries or build them as _subprojects_ in foot.
 
 When building foot, they will first be searched for as system
 libraries. If **found**, foot will link dynamically against them.
-
-If **not** found, they will be searched for as subprojects. In this
-case you need to create the `subprojects` directory and clone
-https://codeberg.org/dnkl/fcft.git and
-https://codeberg.org/dnkl/tllist.git (see [Other](#other) below).
+If **not** found, meson will attempt to download and build them as
+subprojects.
 
 
 ## Requirements
@@ -113,18 +110,6 @@ be interested in the compiler flags used there.
 
 
 ### Setup
-
-If you have not installed [tllist](https://codeberg.org/dnkl/tllist)
-and [fcft](https://codeberg.org/dnkl/fcft) as system libraries, clone
-them into the `subprojects` directory:
-
-```sh
-mkdir -p subprojects
-pushd subprojects
-git clone https://codeberg.org/dnkl/tllist.git
-git clone https://codeberg.org/dnkl/fcft.git
-popd
-```
 
 To build, first, create a build directory, and switch to it:
 ```sh
