@@ -45,8 +45,10 @@ def main():
 
     if opts.rows is not None:
         lines = opts.rows
+        height = 15 * lines  # PGO helper binary hardcodes cell height to 15px
     if opts.cols is not None:
         cols = opts.cols
+        width = 8 * cols     # PGO help binary hardcodes cell width to 8px
 
     # Number of characters to write to screen
     count = 256 * 1024**1
