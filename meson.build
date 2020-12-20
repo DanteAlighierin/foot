@@ -122,6 +122,7 @@ vtlib = static_library(
   'osc.c', 'osc.h',
   'sixel.c', 'sixel.h',
   'vt.c', 'vt.h',
+  wl_proto_src + wl_proto_headers,
   version,
   dependencies: [pixman, fcft, tllist],
   link_with: misc,
@@ -132,6 +133,7 @@ pgolib = static_library(
   'grid.c', 'grid.h',
   'selection.c', 'selection.h',
   'terminal.c', 'terminal.h',
+  wl_proto_src + wl_proto_headers,
   dependencies: [pixman, fcft, tllist],
   link_with: vtlib,
 )
