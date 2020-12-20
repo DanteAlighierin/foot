@@ -403,8 +403,13 @@ main(int argc, char *const *argv)
                 config_font_destroy(&it->item);
             tll_free(conf.fonts[i]);
         }
-        tll_foreach(conf_fonts, it)
-            tll_push_back(conf.fonts[0], config_font_parse(it->item));
+        tll_foreach(conf_fonts, it) {
+            struct config_font font;
+            if (!config_font_parse(it->item, &font)) {
+                LOG_ERR("%s: invalid font specification", it->item);
+            } else
+                tll_push_back(conf.fonts[0], font);
+        }
         tll_free(conf_fonts);
     }
     if (conf_width > 0 && conf_height > 0) {

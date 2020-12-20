@@ -57,10 +57,11 @@ csi_as_string(struct terminal *term, uint8_t final, int idx)
                       i == term->vt.params.idx - 1 ? "" : ";");
     }
 
-    for (size_t i = 0; i < sizeof(term->vt.private) / sizeof(term->vt.private[0]); i++) {
-        if (term->vt.private[i] == 0)
+    for (size_t i = 0; i < sizeof(term->vt.private); i++) {
+        char value = (term->vt.private >> (i * 8)) & 0xff;
+        if (value == 0)
             break;
-        c += snprintf(&msg[c], sizeof(msg) - c, "%c", term->vt.private[i]);
+        c += snprintf(&msg[c], sizeof(msg) - c, "%c", value);
     }
 
     snprintf(&msg[c], sizeof(msg) - c, "%c (%u parameters)",
@@ -561,6 +562,42 @@ decrst(struct terminal *term, unsigned param)
     decset_decrst(term, param, false);
 }
 
+static bool
+decrqm(const struct terminal *term, unsigned param, bool *enabled)
+{
+    switch (param) {
+    case 1: *enabled = term->cursor_keys_mode == CURSOR_KEYS_APPLICATION; return true;
+    case 3: *enabled = false; return true;
+    case 4: *enabled = false; return true;
+    case 5: *enabled = term->reverse; return true;
+    case 6: *enabled = term->origin; return true;
+    case 7: *enabled = term->auto_margin; return true;
+    case 9: *enabled = false; /*  term->mouse_tracking == MOUSE_X10; */ return true;
+    case 12: *enabled = term->cursor_blink.decset; return true;
+    case 25: *enabled = !term->hide_cursor; return true;
+    case 45: *enabled = term->reverse_wrap; return true;
+    case 1000: *enabled = term->mouse_tracking == MOUSE_CLICK; return true;
+    case 1001: *enabled = false; return true;
+    case 1002: *enabled = term->mouse_tracking == MOUSE_DRAG; return true;
+    case 1003: *enabled = term->mouse_tracking == MOUSE_MOTION; return true;
+    case 1004: *enabled = term->focus_events; return true;
+    case 1005: *enabled = false; /* term->mouse_reporting == MOUSE_UTF8; */ return true;
+    case 1006: *enabled = term->mouse_reporting == MOUSE_SGR; return true;
+    case 1007: *enabled = term->alt_scrolling; return true;
+    case 1015: *enabled = term->mouse_reporting == MOUSE_URXVT; return true;
+    case 1034: *enabled = term->meta.eight_bit; return true;
+    case 1035: *enabled = term->num_lock_modifier; return true;
+    case 1036: *enabled = term->meta.esc_prefix; return true;
+    case 1042: *enabled = term->bell_action_enabled; return true;
+    case 1049: *enabled = term->grid == &term->alt; return true;
+    case 2004: *enabled = term->bracketed_paste; return true;
+    case 27127: *enabled = term->modify_escape_key; return true;
+    case 737769: *enabled = term_ime_is_enabled(term); return true;
+    }
+
+    return false;
+}
+
 static void
 xtsave(struct terminal *term, unsigned param)
 {
@@ -637,9 +674,9 @@ xtrestore(struct terminal *term, unsigned param)
 void
 csi_dispatch(struct terminal *term, uint8_t final)
 {
-    LOG_DBG("%s", csi_as_string(term, final, -1));
+    LOG_DBG("%s (%08x)", csi_as_string(term, final, -1), term->vt.private);
 
-    switch (term->vt.private[0]) {
+    switch (term->vt.private) {
     case 0: {
         switch (final) {
         case 'b':
@@ -1325,7 +1362,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        break;  /* private == 0 */
+        break;  /* private[0] == 0 */
     }
 
     case '?': {
@@ -1341,29 +1378,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
             for (size_t i = 0; i < term->vt.params.idx; i++)
                 decrst(term, term->vt.params.v[i].value);
             break;
-
-        case 'p': {
-            if (term->vt.private[1] != '$') {
-                UNHANDLED();
-                break;
-            }
-
-            unsigned param = vt_param_get(term, 0, 0);
-
-            /*
-             * Request DEC private mode (DECRQM)
-             * Reply:
-             *   0 - not recognized
-             *   1 - set
-             *   2 - reset
-             *   3 - permanently set
-             *   4 - permantently reset
-             */
-            char reply[32];
-            snprintf(reply, sizeof(reply), "\033[?%u;2$y", param);
-            term_to_slave(term, reply, strlen(reply));
-            break;
-        }
 
         case 's':
             for (size_t i = 0; i < term->vt.params.idx; i++)
@@ -1413,7 +1427,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        break; /* private == '?' */
+        break; /* private[0] == '?' */
     }
 
     case '>': {
@@ -1499,7 +1513,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        break; /* private == '>' */
+        break; /* private[0] == '>' */
     }
 
     case ' ': {
@@ -1544,7 +1558,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             UNHANDLED();
             break;
         }
-        break; /* private == ' ' */
+        break; /* private[0] == ' ' */
     }
 
     case '!': {
@@ -1557,7 +1571,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             UNHANDLED();
             break;
         }
-        break; /* private == '!' */
+        break; /* private[0] == '!' */
     }
 
     case '=': {
@@ -1586,8 +1600,43 @@ csi_dispatch(struct terminal *term, uint8_t final)
             UNHANDLED();
             break;
         }
-        break; /* private == '=' */
+        break; /* private[0] == '=' */
     }
+
+    case 0x243f:  /* ?$ */
+        switch (final) {
+        case 'p': {
+            unsigned param = vt_param_get(term, 0, 0);
+
+            /*
+             * Request DEC private mode (DECRQM)
+             * Reply:
+             *   0 - not recognized
+             *   1 - set
+             *   2 - reset
+             *   3 - permanently set
+             *   4 - permantently reset
+             */
+            bool enabled;
+            unsigned value;
+            if (decrqm(term, param, &enabled))
+                value = enabled ? 1 : 2;
+            else
+                value = 0;
+
+            char reply[32];
+            snprintf(reply, sizeof(reply), "\033[?%u;%u$y", param, value);
+            term_to_slave(term, reply, strlen(reply));
+            break;
+
+        }
+
+        default:
+            UNHANDLED();
+            break;
+        }
+
+        break; /* private[0] == ‘?’ && private[1] == ‘$’ */
 
     default:
         UNHANDLED();

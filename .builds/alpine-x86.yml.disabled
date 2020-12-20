@@ -23,8 +23,6 @@ packages:
 
 sources:
   - https://codeberg.org/dnkl/foot
-  - https://codeberg.org/dnkl/tllist
-  - https://codeberg.org/dnkl/fcft
 
 # triggers:
 #   - action: email
@@ -32,10 +30,6 @@ sources:
 #     to: <committer>
 
 tasks:
-  - subprojects: |
-      mkdir foot/subprojects
-      ln -s ../../tllist foot/subprojects/tllist
-      ln -s ../../fcft foot/subprojects/fcft
   - debug: |
       mkdir -p bld/debug
       meson --buildtype=debug -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true foot bld/debug

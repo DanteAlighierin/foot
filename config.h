@@ -80,7 +80,7 @@ struct config {
 
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 
-    bool dpi_aware;
+    enum {DPI_AWARE_AUTO, DPI_AWARE_YES, DPI_AWARE_NO} dpi_aware;
     config_font_list_t fonts[4];
 
     struct {
@@ -191,5 +191,5 @@ bool config_load(
     user_notifications_t *initial_user_notifications, bool errors_are_fatal);
 void config_free(struct config conf);
 
-struct config_font config_font_parse(const char *pattern);
+bool config_font_parse(const char *pattern, struct config_font *font);
 void config_font_destroy(struct config_font *font);

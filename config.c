@@ -534,14 +534,26 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             /* Trim spaces, strictly speaking not necessary, but looks nice :) */
             while (*font != '\0' && isspace(*font))
                 font++;
-            if (*font != '\0')
-                tll_push_back(conf->fonts[idx], config_font_parse(font));
+            if (*font != '\0') {
+                struct config_font font_data;
+                if (!config_font_parse(font, &font_data)) {
+                    LOG_ERR("%s:%d: [default]: %s: invalid font specification",
+                            path, lineno, key);
+                    free(copy);
+                    return false;
+                }
+                tll_push_back(conf->fonts[idx], font_data);
+            }
         }
         free(copy);
     }
 
-    else if (strcmp(key, "dpi-aware") == 0)
-        conf->dpi_aware = str_to_bool(value);
+    else if (strcmp(key, "dpi-aware") == 0) {
+        if (strcmp(value, "auto") == 0)
+            conf->dpi_aware = DPI_AWARE_AUTO;
+        else
+            conf->dpi_aware = str_to_bool(value) ? DPI_AWARE_YES : DPI_AWARE_NO;
+    }
 
     else if (strcmp(key, "workers") == 0) {
         unsigned long count;
@@ -1951,7 +1963,7 @@ config_load(struct config *conf, const char *conf_path,
         .bell_action = BELL_ACTION_NONE,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
-        .dpi_aware = true,  /* Use DPI by default, not scale factor */
+        .dpi_aware = DPI_AWARE_AUTO, /* DPI-aware when scaling-factor == 1 */
         .scrollback = {
             .lines = 1000,
             .indicator = {
@@ -2083,8 +2095,14 @@ config_load(struct config *conf, const char *conf_path,
         conf->colors.selection_bg >> 24 == 0;
 
 out:
-    if (ret && tll_length(conf->fonts[0]) == 0)
-        tll_push_back(conf->fonts[0], config_font_parse("monospace"));
+    if (ret && tll_length(conf->fonts[0]) == 0) {
+        struct config_font font;
+        if (!config_font_parse("monospace", &font)) {
+            LOG_ERR("failed to load font 'monospace' - no fonts installed?");
+            ret = false;
+        } else
+            tll_push_back(conf->fonts[0], font);
+    }
 
     free(conf_file.path);
     if (conf_file.fd >= 0)
@@ -2131,10 +2149,12 @@ config_free(struct config conf)
     user_notifications_free(&conf.notifications);
 }
 
-struct config_font
-config_font_parse(const char *pattern)
+bool
+config_font_parse(const char *pattern, struct config_font *font)
 {
     FcPattern *pat = FcNameParse((const FcChar8 *)pattern);
+    if (pat == NULL)
+        return false;
 
     double pt_size = -1.0;
     FcPatternGetDouble(pat, FC_SIZE, 0, &pt_size);
@@ -2150,10 +2170,12 @@ config_font_parse(const char *pattern)
     char *stripped_pattern = (char *)FcNameUnparse(pat);
     FcPatternDestroy(pat);
 
-    return (struct config_font){
+    *font = (struct config_font){
         .pattern = stripped_pattern,
         .pt_size = pt_size,
-        .px_size = px_size};
+        .px_size = px_size
+    };
+    return true;
 }
 
 void

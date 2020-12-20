@@ -44,19 +44,24 @@ in this order:
 	*font-italic*, *font-bold-italic*).
 
 *dpi-aware*
-	Boolean. When enabled, fonts are sized using the monitor's DPI,
-	making a font of a given size have the same physical size,
-	regardless of monitor. In other words, if you drag a foot window
-	between different monitors, the font size remains the same.
+	*auto*, *yes*, or *no*. When set to *yes*, fonts are sized using
+	the monitor's DPI, making a font of a given size have the same
+	physical size, regardless of monitor. In other words, if you drag
+	a foot window between different monitors, the font size remains
+	the same.
 	
-	In this mode, the monitor's scale factor is ignored; doubling the
-	scale factor will *not* double the font size.
+	In this mode, the monitor's scaling factor is ignored; doubling
+	the scaling factor will *not* double the font size.
 	
-	When disabled, the monitor's DPI is ignored. The font is instead
-	sized using the monitor's scale factor; doubling the scale factor
-	*does* double the font size.
-
-	Default: _yes_
+	When set to *no*, the monitor's DPI is ignored. The font is
+	instead sized using the monitor's scaling factor; doubling the
+	scaling factor *does* double the font size.
+	
+	Finally, if set to *auto*, fonts will be sized using the monitor's
+	DPI on monitors with a scaling factor of 1, but otherwise size
+	fonts using the scaling factor.
+	
+	Default: _auto_
 
 *pad*
 	Padding between border and glyphs, in pixels (subject to output

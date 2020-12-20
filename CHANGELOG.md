@@ -1,6 +1,8 @@
 # Changelog
 
 * [Unreleased](#Unreleased)
+* [1.6.1](#1-6-1)
+* [1.6.0](#1-6-0)
 * [1.5.4](#1-5-4)
 * [1.5.3](#1-5-3)
 * [1.5.2](#1-5-2)
@@ -19,6 +21,42 @@
 
 
 ## Unreleased
+### Added
+### Changed
+
+* The fcft and tllist library subprojects are now handled via Meson
+  [wrap files](https://mesonbuild.com/Wrap-dependency-system-manual.html)
+  instead of needing to be manually cloned.
+
+
+### Deprecated
+### Removed
+### Fixed
+### Security
+### Contributors
+
+* [craigbarnes](https://codeberg.org/craigbarnes)
+
+
+## 1.6.1
+### Deprecated
+### Removed
+### Fixed
+
+* Missing dependencies in meson, causing heavily parallelized builds
+  to fail.
+* Background color when alpha < 1.0 being wrong
+  (https://codeberg.org/dnkl/foot/issues/249).
+
+
+### Security
+### Contributors
+
+* [craigbarnes](https://codeberg.org/craigbarnes)
+* [sterni](https://codeberg.org/sterni)
+
+
+## 1.6.0
 
 ### For packagers
 
@@ -36,11 +74,18 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * `DECSET` escape to enable/disable IME: `CSI ? 737769 h` enables IME
   and `CSI ? 737769 l` disables it. This can be used to
   e.g. enable/disable IME when entering/leaving insert mode in vim.
+* `dpi-aware` option to `foot.ini`. The default, `auto`, sizes fonts
+  using the monitor’s DPI when output scaling has been
+  **disabled**. If output scaling has been **enabled**, fonts are
+  sized using the scaling factor. DPI-only font sizing can be forced
+  by setting `dpi-aware=yes`. Setting `dpi-aware=no` forces font
+  sizing to be based on the scaling factor.
+  (https://codeberg.org/dnkl/foot/issues/206).
 * Implement reverse auto-wrap (_auto\_left\_margin_, _bw_, in
   terminfo). This mode can be enabled/disabled with `CSI ? 45 h` and
   `CSI ? 45 l`. It is **enabled** by default
   (https://codeberg.org/dnkl/foot/issues/150).
-* **bell** option to `foot.ini`. Can be set to `set-urgency` to make
+* `bell` option to `foot.ini`. Can be set to `set-urgency` to make
   foot render the margins in red when receiving `BEL` while **not**
   having keyboard focus. Applications can dynamically enable/disable
   this with the `CSI ? 1042 h` and `CSI ? 1042 l` escape
@@ -50,35 +95,34 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   to add support for this. The value `set-urgency` was chosen for
   forward-compatibility, in the hopes that this proposal eventualizes
   (https://codeberg.org/dnkl/foot/issues/157).
-* **word-delimiters** option to `foot.ini`
+* `bell` option can also be set to `notify`, in which case a desktop
+  notification is emitted when foot receives `BEL` in an unfocused
+  window.
+* `word-delimiters` option to `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/156).
-* **csd.preferred** can now be set to `none` to disable window
+* `csd.preferred` can now be set to `none` to disable window
   decorations. Note that some compositors will render SSDs despite
   this option being used (https://codeberg.org/dnkl/foot/issues/163).
 * Terminal content is now auto-scrolled when moving the mouse above or
   below the window while selecting
   (https://codeberg.org/dnkl/foot/issues/149).
-* **font-bold**, **font-italic** and **font-bold-italic** options to
+* `font-bold`, `font-italic` `font-bold-italic` options to
   `foot.ini`. These options allow custom bold/italic fonts. They are
   unset by default, meaning the bold/italic version of the regular
   font is used (https://codeberg.org/dnkl/foot/issues/169).
 * Drag & drop support; text, files and URLs can now be dropped in a
   foot terminal window (https://codeberg.org/dnkl/foot/issues/175).
-* **clipboard-paste** and **primary-paste** scrollback search
-  bindings. By default, they are bound to `ctrl+v ctrl+y` and
-  `shift+insert` respectively, and lets you paste from the clipboard
-  or primary selection into the search buffer.
-* Support for **pipe-\*** actions in mouse bindings. It was previously
+* `clipboard-paste` and `primary-paste` scrollback search bindings. By
+  default, they are bound to `ctrl+v ctrl+y` and `shift+insert`
+  respectively, and lets you paste from the clipboard or primary
+  selection into the search buffer.
+* Support for `pipe-*` actions in mouse bindings. It was previously
   not possible to add a command to these actions when used in mouse
   bindings, making them useless
   (https://codeberg.org/dnkl/foot/issues/183).
-* **bold-text-in-bright** option to `foot.ini`. When enabled, bold
-  text is rendered in a brighter color
+* `bold-text-in-bright` option to `foot.ini`. When enabled, bold text
+  is rendered in a brighter color
   (https://codeberg.org/dnkl/foot/issues/199).
-* **dpi-aware** option to `foot.ini`. The default, **enabled**,
-  implements foot's old font sizing behavior. But, when **disabled**,
-  foot will ignore the monitors' DPI and instead size fonts using the
-  scale factor alone (https://codeberg.org/dnkl/foot/issues/206).
 * `-w,--window-size-pixels` and `-W,--window-size-chars` command line
   options to `footclient` (https://codeberg.org/dnkl/foot/issues/189).
 * Short command line options for `--title`, `--maximized`,
@@ -87,11 +131,11 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   instead of `\E`: `CSI ? 27127 h` enables the new behavior, `CSI ?
   27127 l` disables it (the default).
 * OSC 777;notify: desktop notifications. Use in combination with the
-  new **notify** option in `foot.ini`
+  new `notify` option in `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/224).
-* **bell** option can now be set to `notify`, in which case a desktop
-  notification is emitted when foot receives `BEL` in an unfocused
-  window.
+* Status line terminfo capabilities `hs`, `tsl`, `fsl` and `dsl`. This
+  enables e.g. vim to set the window title
+  (https://codeberg.org/dnkl/foot/issues/242).
 
 
 ### Changed
@@ -110,18 +154,19 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * The sub-parameter versions of the SGR RGB color escapes (e.g
   `\E[38:2...m`) can now be used _without_ the color space ID
   parameter.
-* SGR 21 no longer disables **bold**. According to ECMA-4, SGR 21 is
+* SGR 21 no longer disables **bold**. According to ECMA-48, SGR 21 is
   _”double underline_”. Foot does not (yet) implement that, but that’s
   no reason to implement a non-standard behavior.
+* `DECRQM` now returns actual state of the requested mode, instead of
+  always returning `2`.
 
 
-### Deprecated
 ### Removed
 
 * Support for loading configuration from `$XDG_CONFIG_HOME/footrc`.
-* **scrollback** option from `foot.ini`.
-* **geometry** option from `foot.ini`.
-* Key binding action **scrollback-up** and **scrollback-down**.
+* `scrollback` option from `foot.ini`.
+* `geometry` from `foot.ini`.
+* Key binding action `scrollback-up` and `scrollback-down`.
 
 
 ### Fixed
@@ -136,9 +181,9 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   (e.g. `\E[38:5...m`)
 * Frames occasionally being rendered while application synchronized
   updates is in effect.
-
-
-### Security
+* Handling of failures to parse the font specification string.
+* Extra private/intermediate characters in escape sequences not being
+  ignored.
 
 
 ### Contributors

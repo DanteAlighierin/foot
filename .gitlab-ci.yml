@@ -13,10 +13,6 @@ before_script:
   - apk add git
   - apk add check-dev
   - apk add ttf-hack font-noto-emoji
-  - mkdir -p subprojects && cd subprojects
-  - git clone https://codeberg.org/dnkl/tllist.git
-  - git clone https://codeberg.org/dnkl/fcft.git
-  - cd ..
 
 debug-x64:
   image: alpine:edge
