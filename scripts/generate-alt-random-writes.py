@@ -116,7 +116,7 @@ def main():
                 out.write(f'\033[{base};5;{idx}m')
             else:
                 # New-style (sub-parameter based)
-                out.write(f'\033[{base}:2:5:{idx}m')
+                out.write(f'\033[{base}:5:{idx}m')
 
         elif color_variant == ColorVariant.RGB:
             do_bg = random.randrange(2)
