@@ -33,7 +33,7 @@
 
 
 ### Security
-### Contributors5
+### Contributors
 
 
 ## 1.6.0
