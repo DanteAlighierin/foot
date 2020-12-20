@@ -1,6 +1,7 @@
 # Changelog
 
 * [Unreleased](#Unreleased)
+* [1.6.1](#1-6-1)
 * [1.6.0](#1-6-0)
 * [1.5.4](#1-5-4)
 * [1.5.3](#1-5-3)
@@ -20,9 +21,7 @@
 
 
 ## Unreleased
-
 ### Added
-
 ### Changed
 
 * The fcft and tllist library subprojects are now handled via Meson
@@ -30,6 +29,16 @@
   instead of needing to be manually cloned.
 
 
+### Deprecated
+### Removed
+### Fixed
+### Security
+### Contributors
+
+* [craigbarnes](https://codeberg.org/craigbarnes)
+
+
+## 1.6.1
 ### Deprecated
 ### Removed
 ### Fixed
@@ -41,7 +50,6 @@
 
 
 ### Security
-
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
