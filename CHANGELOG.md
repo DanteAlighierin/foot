@@ -28,6 +28,8 @@
 
 * Missing dependencies in meson, causing heavily parallelized builds
   to fail.
+* Background color when alpha < 1.0 being wrong
+  (https://codeberg.org/dnkl/foot/issues/249).
 
 
 ### Security
