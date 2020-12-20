@@ -35,6 +35,9 @@
 ### Security
 ### Contributors
 
+* [craigbarnes](https://codeberg.org/craigbarnes)
+* [sterni](https://codeberg.org/sterni)
+
 
 ## 1.6.0
 
