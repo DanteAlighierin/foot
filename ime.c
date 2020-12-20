@@ -328,6 +328,36 @@ ime_reset(struct seat *seat)
 }
 
 void
+ime_send_cursor_rect(struct seat *seat, struct terminal *term)
+{
+    if (unlikely(seat->wayl->text_input_manager == NULL))
+        return;
+
+    if (!term->ime.enabled)
+        return;
+
+    if (seat->ime.cursor_rect.pending.x == seat->ime.cursor_rect.sent.x &&
+        seat->ime.cursor_rect.pending.y == seat->ime.cursor_rect.sent.y &&
+        seat->ime.cursor_rect.pending.width == seat->ime.cursor_rect.sent.width &&
+        seat->ime.cursor_rect.pending.height == seat->ime.cursor_rect.sent.height)
+    {
+        return;
+    }
+
+    zwp_text_input_v3_set_cursor_rectangle(
+        seat->wl_text_input,
+        seat->ime.cursor_rect.pending.x / term->scale,
+        seat->ime.cursor_rect.pending.y / term->scale,
+        seat->ime.cursor_rect.pending.width / term->scale,
+        seat->ime.cursor_rect.pending.height / term->scale);
+
+    zwp_text_input_v3_commit(seat->wl_text_input);
+    seat->ime.serial++;
+
+    seat->ime.cursor_rect.sent = seat->ime.cursor_rect.pending;
+}
+
+void
 ime_enable(struct seat *seat)
 {
     if (unlikely(seat->wayl->text_input_manager == NULL))
@@ -347,6 +377,15 @@ ime_enable(struct seat *seat)
         ZWP_TEXT_INPUT_V3_CONTENT_HINT_NONE,
         ZWP_TEXT_INPUT_V3_CONTENT_PURPOSE_TERMINAL);
 
+    zwp_text_input_v3_set_cursor_rectangle(
+        seat->wl_text_input,
+        seat->ime.cursor_rect.pending.x / term->scale,
+        seat->ime.cursor_rect.pending.y / term->scale,
+        seat->ime.cursor_rect.pending.width / term->scale,
+        seat->ime.cursor_rect.pending.height / term->scale);
+
+    seat->ime.cursor_rect.sent = seat->ime.cursor_rect.pending;
+
     zwp_text_input_v3_commit(seat->wl_text_input);
     seat->ime.serial++;
 }
@@ -364,6 +403,42 @@ ime_disable(struct seat *seat)
     seat->ime.serial++;
 }
 
+void
+ime_update_cursor_rect(struct seat *seat, struct terminal *term)
+{
+    /* Set in render_ime_preedit() */
+    if (term->ime.preedit.cells != NULL)
+        goto update;
+
+    /* Set in render_search_box() */
+    if (term->is_searching)
+        goto update;
+
+    int x, y, width, height;
+    int col = term->grid->cursor.point.col;
+    int row = term->grid->cursor.point.row;
+    row += term->grid->offset;
+    row -= term->grid->view;
+    row &= term->grid->num_rows - 1;
+    x = term->margins.left + col * term->cell_width;
+    y = term->margins.top + row * term->cell_height;
+
+    if (term->cursor_style == CURSOR_BAR)
+        width = 1;
+    else
+        width = term->cell_width;
+
+    height = term->cell_height;
+
+    seat->ime.cursor_rect.pending.x = x;
+    seat->ime.cursor_rect.pending.y = y;
+    seat->ime.cursor_rect.pending.width = width;
+    seat->ime.cursor_rect.pending.height = height;
+
+update:
+    ime_send_cursor_rect(seat, term);
+}
+
 const struct zwp_text_input_v3_listener text_input_listener = {
     .enter = &enter,
     .leave = &leave,
@@ -377,9 +452,11 @@ const struct zwp_text_input_v3_listener text_input_listener = {
 
 void ime_enable(struct seat *seat) {}
 void ime_disable(struct seat *seat) {}
+void ime_update_cursor_rect(struct seat *seat, struct terminal *term) {}
 
 void ime_reset_preedit(struct seat *seat) {}
 void ime_reset_commit(struct seat *seat) {}
 void ime_reset(struct seat *seat) {}
+void ime_send_cursor_rect(struct seat *seat, struct terminal *term) {}
 
 #endif

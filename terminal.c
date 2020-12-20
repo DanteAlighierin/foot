@@ -2943,3 +2943,19 @@ term_ime_reset(struct terminal *term)
     }
 #endif
 }
+
+void
+term_ime_set_cursor_rect(struct terminal *term, int x, int y, int width,
+                         int height)
+{
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term) {
+            it->item.ime.cursor_rect.pending.x = x;
+            it->item.ime.cursor_rect.pending.y = y;
+            it->item.ime.cursor_rect.pending.width = width;
+            it->item.ime.cursor_rect.pending.height = height;
+        }
+    }
+#endif
+}
