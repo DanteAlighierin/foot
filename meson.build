@@ -141,7 +141,7 @@ pgolib = static_library(
 executable(
   'pgo',
   'pgo/pgo.c',
-  wl_proto_src,
+  wl_proto_src + wl_proto_headers,
   dependencies: [math, threads, pixman, wayland_client, fcft, tllist],
   link_with: pgolib,
 )
