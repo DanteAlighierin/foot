@@ -138,6 +138,13 @@ struct button_tracker {
     bool send_to_client;  /* Only valid when surface is the main grid surface */
 };
 
+struct rect {
+    int x;
+    int y;
+    int width;
+    int height;
+};
+
 struct seat {
     struct wayland *wayl;
     struct wl_seat *wl_seat;
@@ -235,6 +242,11 @@ struct seat {
     /* Input Method Editor */
     struct zwp_text_input_v3 *wl_text_input;
     struct {
+        struct {
+            struct rect pending;
+            struct rect sent;
+        } cursor_rect;
+
         struct {
             struct {
                 char *text;

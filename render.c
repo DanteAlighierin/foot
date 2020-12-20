@@ -31,6 +31,7 @@
 #include "shm.h"
 #include "util.h"
 #include "xmalloc.h"
+#include "ime.h"
 
 #define TIME_SCROLL_DAMAGE 0
 
@@ -1181,6 +1182,7 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
                 struct fcft_font *font = attrs_to_font(term, &start_cell->attrs);
                 draw_bar(term, buf->pix[0], font, &cursor_color, x, y);
             }
+            term_ime_set_cursor_rect(term, x, y, 1, term->cell_height);
         }
 
         else if (end > start) {
@@ -1189,6 +1191,9 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
                 int cols = end - start;
                 draw_unfocused_block(term, buf->pix[0], &cursor_color, x, y, cols);
             }
+
+            term_ime_set_cursor_rect(
+                term, x, y, (end - start) * term->cell_width, term->cell_height);
         }
     }
 
@@ -2248,6 +2253,9 @@ render_search_box(struct terminal *term)
     unsigned long cookie = shm_cookie_search(term);
     struct buffer *buf = shm_get_buffer(term->wl->shm, width, height, cookie, false, 1);
 
+#define WINDOW_X(x) (margin + x)
+#define WINDOW_Y(y) (term->height - margin - height + y)
+
     /* Background - yellow on empty/match, red on mismatch */
     pixman_color_t color = color_hex_to_pixman(
         term->search.match_len == text_len
@@ -2334,6 +2342,7 @@ render_search_box(struct terminal *term)
              width = widths[i],
              next_cell_idx += width)
     {
+    /* Convert subsurface coordinates to window coordinates*/
         /* Render cursor */
         if (i == term->search.cursor) {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
@@ -2362,6 +2371,9 @@ render_search_box(struct terminal *term)
                     /* Bar-styled cursor, if in the visible area */
                     if (start >= 0 && start <= visible_cells)
                         draw_bar(term, buf->pix[0], font, &fg, x + start * term->cell_width, y);
+                    term_ime_set_cursor_rect(term,
+                        WINDOW_X(x + start * term->cell_width), WINDOW_Y(y),
+                        1, term->cell_height);
                 } else {
                     /* Underline everything before and after the cursor */
                     int count1 = min(start, cells_left);
@@ -2377,6 +2389,9 @@ render_search_box(struct terminal *term)
                         draw_unfocused_block(
                             term, buf->pix[0], &fg, x + start * term->cell_width, y, end - start);
                     }
+                    term_ime_set_cursor_rect(term,
+                        WINDOW_X(x + start * term->cell_width), WINDOW_Y(y),
+                        term->cell_width * (end - start), term->cell_height);
                 }
             } else if (!have_preedit)
 #endif
@@ -2385,6 +2400,8 @@ render_search_box(struct terminal *term)
                 assert(cell_idx >= glyph_offset);
                 assert(cell_idx <= glyph_offset + visible_cells);
                 draw_bar(term, buf->pix[0], font, &fg, x, y);
+                term_ime_set_cursor_rect(
+                    term, WINDOW_X(x), WINDOW_Y(y), 1, term->cell_height);
             }
         }
 
@@ -2437,8 +2454,11 @@ render_search_box(struct terminal *term)
             /* Already rendered */;
         else
 #endif
-        if (term->search.cursor >= term->search.len)
+        if (term->search.cursor >= term->search.len) {
             draw_bar(term, buf->pix[0], font, &fg, x, y);
+            term_ime_set_cursor_rect(
+                term, WINDOW_X(x), WINDOW_Y(y), 1, term->cell_height);
+        }
 
     quirk_weston_subsurface_desync_on(term->window->search_sub_surface);
 
@@ -2465,6 +2485,8 @@ render_search_box(struct terminal *term)
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     free(text);
 #endif
+#undef WINDOW_X
+#undef WINDOW_Y
 }
 
 static void
@@ -2514,6 +2536,10 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 
     if (search && term->is_searching)
         render_search_box(term);
+
+    tll_foreach(term->wl->seats, it)
+        if (it->item.kbd_focus == term)
+            ime_update_cursor_rect(&it->item, term);
 
     if (grid && (!term->delayed_render_timer.is_armed || csd || search))
         grid_render(term);
@@ -2874,6 +2900,9 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
                 render_update_title(term);
             if (search)
                 render_search_box(term);
+            tll_foreach(term->wl->seats, it)
+                if (it->item.kbd_focus == term)
+                    ime_update_cursor_rect(&it->item, term);
             if (grid)
                 grid_render(term);
         } else {

@@ -27,6 +27,8 @@
 * Completions for fish shell
   (https://codeberg.org/dnkl/foot/issues/11)
 * FreeBSD support (https://codeberg.org/dnkl/foot/issues/238).
+* IME popup location support: foot now sends the location of the cursor
+  so any popup can be displayed near the text that is being typed.
 
 
 ### Changed
@@ -76,6 +78,7 @@
 * [pc](https://codeberg.org/pc)
 * [FollieHiyuki](https://codeberg.org/FollieHiyuki)
 * jbeich
+* [tdeo](https://codeberg.org/tdeo)
 
 
 ## 1.6.2

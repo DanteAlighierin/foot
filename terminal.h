@@ -614,3 +614,5 @@ bool term_ime_is_enabled(const struct terminal *term);
 void term_ime_enable(struct terminal *term);
 void term_ime_disable(struct terminal *term);
 void term_ime_reset(struct terminal *term);
+void term_ime_set_cursor_rect(
+    struct terminal *term, int x, int y, int width, int height);
