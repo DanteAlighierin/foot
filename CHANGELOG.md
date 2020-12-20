@@ -25,6 +25,11 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Missing dependencies in meson, causing heavily parallelized builds
+  to fail.
+
+
 ### Security
 ### Contributors
 
