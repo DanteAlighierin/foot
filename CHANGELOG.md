@@ -29,6 +29,7 @@
   [wrap files](https://mesonbuild.com/Wrap-dependency-system-manual.html)
   instead of needing to be manually cloned.
 
+
 ### Deprecated
 ### Removed
 ### Fixed
@@ -44,6 +45,7 @@
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
+* [sterni](https://codeberg.org/sterni)
 
 
 ## 1.6.0
