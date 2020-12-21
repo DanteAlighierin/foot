@@ -34,6 +34,7 @@
   to fail.
 * Background color when alpha < 1.0 being wrong
   (https://codeberg.org/dnkl/foot/issues/249).
+* `generate-alt-random.py` failing in containers.
 
 
 ### Security
