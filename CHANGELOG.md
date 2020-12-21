@@ -29,6 +29,8 @@
 ### Changed
 
 * Use `-std=c11` instead of `-std=c18`.
+* Added `-Wno-profile-instr-unprofiled` to Clang cflags in PGO builds
+  ([INSTALL.md](https://codeberg.org/dnkl/foot/src/branch/releases/1.6/INSTALL.md#user-content-performance-optimized-pgo))
 
 
 ### Deprecated
