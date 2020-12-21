@@ -21,6 +21,11 @@
 
 ## 1.6.1
 ### Added
+
+* `--seed` to `generate-alt-random.py`, enabling deterministic PGO
+  builds.
+
+
 ### Changed
 
 * Use `-std=c11` instead of `-std=c18`.
