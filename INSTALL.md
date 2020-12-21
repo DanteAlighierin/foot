@@ -142,6 +142,10 @@ optimization.
 In addition to being faster, PGO builds also tend to be smaller than
 regular `-O3` builds.
 
+**Note**: if you are packaging foot, you should probably remove
+`-march=native`, as that may cause gcc/clang to emit instructions that
+may not be available on other computers.
+
 
 #### Size optimized
 
