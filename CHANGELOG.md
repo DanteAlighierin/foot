@@ -22,6 +22,10 @@
 ## 1.6.1
 ### Added
 ### Changed
+
+* Use `-std=c11` instead of `-std=c18`.
+
+
 ### Deprecated
 ### Removed
 ### Fixed
