@@ -177,7 +177,7 @@ To do a regular, non-PGO build optimized for performance:
 ```sh
 export CFLAGS="$CFLAGS -O3 -march=native"
 meson --buildtype=release --prefix=/usr -Db_lto=true ../..
-wninja
+ninja
 ninja test
 ninja install
 ```
