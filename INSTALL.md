@@ -201,7 +201,10 @@ later have a regression where PGO with `-O2` is **much** slower.
 If you are using Clang instead of GCC, use the following `CFLAGS` instead:
 
 ```sh
-export CFLAGS="$CFLAGS -O3 -march=native -Wno-ignored-optimization-argument -Wno-profile-instr-out-of-date"
+export CFLAGS="$CFLAGS -O3 -march=native \
+    -Wno-ignored-optimization-argument \
+    -Wno-profile-instr-out-of-date \
+    -Wno-profile-instr-unprofiled"
 ```
 
 Then, tell meson we want to _generate_ profiling data, and build:
