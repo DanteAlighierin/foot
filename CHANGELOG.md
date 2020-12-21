@@ -33,6 +33,10 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* `generate-alt-random.py` failing in containers.
+
+
 ### Security
 ### Contributors
 

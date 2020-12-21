@@ -37,11 +37,17 @@ def main():
     opts = parser.parse_args()
     out = opts.out if opts.out is not None else sys.stdout
 
-    lines, cols, height, width = struct.unpack(
-        'HHHH',
-        fcntl.ioctl(sys.stdout.fileno(),
-                    termios.TIOCGWINSZ,
-                    struct.pack('HHHH', 0, 0, 0, 0)))
+    try:
+        lines, cols, height, width = struct.unpack(
+            'HHHH',
+            fcntl.ioctl(sys.stdout.fileno(),
+                        termios.TIOCGWINSZ,
+                        struct.pack('HHHH', 0, 0, 0, 0)))
+    except OSError:
+        lines = None
+        cols = None
+        height = None
+        width = None
 
     if opts.rows is not None:
         lines = opts.rows
@@ -49,6 +55,9 @@ def main():
     if opts.cols is not None:
         cols = opts.cols
         width = 8 * cols     # PGO help binary hardcodes cell width to 8px
+
+    if lines is None or cols is None or height is None or width is None:
+        raise Exception('could not get terminal width/height; use --rows and --cols')
 
     # Number of characters to write to screen
     count = 256 * 1024**1
