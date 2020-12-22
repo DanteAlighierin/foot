@@ -1,6 +1,7 @@
 # Changelog
 
 * [Unreleased](#Unreleased)
+* [1.6.2](#1-6-2)
 * [1.6.1](#1-6-1)
 * [1.6.0](#1-6-0)
 * [1.5.4](#1-5-4)
@@ -38,18 +39,37 @@
 * [craigbarnes](https://codeberg.org/craigbarnes)
 
 
+## 1.6.2
+
+### Fixed
+
+* Version number in `meson.build`.
+
+
 ## 1.6.1
-### Deprecated
-### Removed
+### Added
+
+* `--seed` to `generate-alt-random.py`, enabling deterministic PGO
+  builds.
+
+
+### Changed
+
+
+* Use `-std=c11` instead of `-std=c18`.
+* Added `-Wno-profile-instr-unprofiled` to Clang cflags in PGO builds
+  ([INSTALL.md](https://codeberg.org/dnkl/foot/src/branch/releases/1.6/INSTALL.md#user-content-performance-optimized-pgo))
+
+
 ### Fixed
 
 * Missing dependencies in meson, causing heavily parallelized builds
   to fail.
 * Background color when alpha < 1.0 being wrong
   (https://codeberg.org/dnkl/foot/issues/249).
+* `generate-alt-random.py` failing in containers.
 
 
-### Security
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)

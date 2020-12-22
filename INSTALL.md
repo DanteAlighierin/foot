@@ -148,7 +148,7 @@ regular `-O3` builds.
 To optimize for size (i.e. produce a small binary):
 
 ```sh
-export CFLAGS="$CFLAGS -Os -march=native"
+export CFLAGS="$CFLAGS -Os"
 meson --buildtype=release --prefix=/usr -Db_lto=true ../..
 ninja
 ninja test
@@ -160,9 +160,9 @@ ninja install
 To do a regular, non-PGO build optimized for performance:
 
 ```sh
-export CFLAGS="$CFLAGS -O3 -march=native"
+export CFLAGS="$CFLAGS -O3"
 meson --buildtype=release --prefix=/usr -Db_lto=true ../..
-wninja
+ninja
 ninja test
 ninja install
 ```
@@ -176,7 +176,7 @@ slower!) binary.
 First, configure the build directory:
 
 ```sh
-export CFLAGS="$CFLAGS -O3 -march=native -Wno-missing-profile"
+export CFLAGS="$CFLAGS -O3 -Wno-missing-profile"
 meson --buildtype=release --prefix=/usr -Db_lto=true ../..
 ```
 
@@ -186,7 +186,10 @@ later have a regression where PGO with `-O2` is **much** slower.
 If you are using Clang instead of GCC, use the following `CFLAGS` instead:
 
 ```sh
-export CFLAGS="$CFLAGS -O3 -march=native -Wno-ignored-optimization-argument -Wno-profile-instr-out-of-date"
+export CFLAGS="$CFLAGS -O3 \
+    -Wno-ignored-optimization-argument \
+    -Wno-profile-instr-out-of-date \
+    -Wno-profile-instr-unprofiled"
 ```
 
 Then, tell meson we want to _generate_ profiling data, and build:

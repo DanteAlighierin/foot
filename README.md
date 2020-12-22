@@ -2,6 +2,9 @@
 
 The fast, lightweight and minimalistic Wayland terminal emulator.
 
+[![Packaging status](https://repology.org/badge/vertical-allrepos/foot.svg)](https://repology.org/project/foot/versions)
+
+
 ## Index
 
 1. [Features](#features)
