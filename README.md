@@ -1,7 +1,9 @@
 # ![Logo: a terminal with a foot shaped prompt](icons/hicolor/48x48/apps/foot.png) foot
 
 The fast, lightweight and minimalistic Wayland terminal emulator.
+
 [![Pipeline status](https://gitlab.com/dnkl/foot/badges/master/pipeline.svg)](https://gitlab.com/dnkl/foot/commits/master)
+[![builds.sr.ht status](https://builds.sr.ht/~dnkl/foot.svg)](https://builds.sr.ht/~dnkl/foot?)
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/foot.svg)](https://repology.org/project/foot/versions)
 
