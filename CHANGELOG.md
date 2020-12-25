@@ -30,6 +30,8 @@
 
 * Exit when the client application terminates, not when the TTY file
   descriptor is closed.
+* Crash on compositors not implementing the _text input_ interface
+  (https://codeberg.org/dnkl/foot/issues/259).
 
 
 ### Security
