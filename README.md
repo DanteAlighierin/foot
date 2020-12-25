@@ -2,6 +2,7 @@
 
 The fast, lightweight and minimalistic Wayland terminal emulator.
 
+[https://gitlab.com/dnkl/foot/badges/master/pipeline.svg](https://gitlab.com/dnkl/foot/commits/master)
 [![Packaging status](https://repology.org/badge/vertical-allrepos/foot.svg)](https://repology.org/project/foot/versions)
 
 
