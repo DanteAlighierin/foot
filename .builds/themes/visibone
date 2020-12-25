@@ -1,0 +1,24 @@
+# VisiBone
+
+[cursor]
+color=010101 ffffff
+
+[colors]
+foreground=ffffff
+background=010101
+regular0=666666
+regular1=cc6666
+regular2=66cc99
+regular3=cc9966
+regular4=6699cc
+regular5=cc6699
+regular6=66cccc
+regular7=cccccc
+bright0=999999
+bright1=ff9999
+bright2=99ffcc
+bright3=ffcc99
+bright4=99ccff
+bright5=ff99cc
+bright6=99ffff
+bright7=ffffff
