@@ -27,6 +27,11 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Exit when the client application terminates, not when the TTY file
+  descriptor is closed.
+
+
 ### Security
 ### Contributors
 
