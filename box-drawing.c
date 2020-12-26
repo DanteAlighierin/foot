@@ -40,21 +40,19 @@ vline(uint8_t *buf, int y1, int y2, int x, int thick, int stride)
     }
 }
 
-/* Vertially centered horizontal line, from the center out to the left edge */
-#define hline_middle_left(thick) \
-    hline(buf, 0, (width - thick) / 2 + thick, (height - thick) / 2, thick, stride)
+#define _hline_middle_left(vthick, hthick) \
+    hline(buf, 0, (width - vthick) / 2 + vthick, (height - hthick) / 2, hthick, stride)
+#define _hline_middle_right(vthick, hthick) \
+    hline(buf, (width - vthick) / 2, width, (height - hthick) / 2, hthick, stride)
+#define _vline_middle_up(vthick, hthick) \
+    vline(buf, 0, (height - hthick) / 2 + hthick, (width - vthick) / 2, vthick, stride)
+#define _vline_middle_down(vthick, hthick) \
+    vline(buf, (height - hthick) / 2, height, (width - vthick) / 2, vthick, stride)
 
-/* Vertially centered horizontal line, from the center out to the right edge */
-#define hline_middle_right(thick) \
-    hline(buf, (width - thick) / 2, width, (height - thick) / 2, thick, stride)
-
-/* Horizontally centered vertical line, from the center up to the top edge */
-#define vline_middle_up(thick) \
-    vline(buf, 0, (height - thick) / 2 + thick, (width - thick) / 2, thick, stride)
-
-/* Horizontally centered vertical line, from the center down to the bottom edge */
-#define vline_middle_down(thick) \
-    vline(buf, (height - thick) / 2, height, (width - thick) / 2, thick, stride)
+#define hline_middle_left(thick) _hline_middle_left(thick, thick)
+#define hline_middle_right(thick) _hline_middle_right(thick, thick)
+#define vline_middle_up(thick) _vline_middle_up(thick, thick)
+#define vline_middle_down(thick) _vline_middle_down(thick, thick)
 
 static void
 draw_box_drawings_light_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
@@ -92,6 +90,20 @@ draw_box_drawings_light_down_and_right(uint8_t *buf, int width, int height, int 
 }
 
 static void
+draw_box_drawings_down_light_and_right_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    _hline_middle_right(thickness(1, dpi), thickness(2, dpi));
+    vline_middle_down(thickness(1, dpi));
+}
+
+static void
+draw_box_drawings_down_heavy_and_right_light(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    hline_middle_right(thickness(1, dpi));
+    _vline_middle_down(thickness(2, dpi), thickness(1, dpi));
+}
+
+static void
 draw_box_drawings_heavy_down_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
     hline_middle_right(thickness(2, dpi));
@@ -103,6 +115,20 @@ draw_box_drawings_light_down_and_left(uint8_t *buf, int width, int height, int s
 {
     hline_middle_left(thickness(1, dpi));
     vline_middle_down(thickness(1, dpi));
+}
+
+static void
+draw_box_drawings_down_light_and_left_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    _hline_middle_left(thickness(1, dpi), thickness(2, dpi));
+    vline_middle_down(thickness(1, dpi));
+}
+
+static void
+draw_box_drawings_down_heavy_and_left_light(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    hline_middle_left(thickness(1, dpi));
+    _vline_middle_down(thickness(2, dpi), thickness(1, dpi));
 }
 
 static void
@@ -120,6 +146,20 @@ draw_box_drawings_light_up_and_right(uint8_t *buf, int width, int height, int st
 }
 
 static void
+draw_box_drawings_up_light_and_right_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    _hline_middle_right(thickness(1, dpi), thickness(2, dpi));
+    vline_middle_up(thickness(1, dpi));
+}
+
+static void
+draw_box_drawings_up_heavy_and_right_light(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    hline_middle_right(thickness(1, dpi));
+    _vline_middle_up(thickness(2, dpi), thickness(1, dpi));
+}
+
+static void
 draw_box_drawings_heavy_up_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
     hline_middle_right(thickness(2, dpi));
@@ -131,6 +171,20 @@ draw_box_drawings_light_up_and_left(uint8_t *buf, int width, int height, int str
 {
     hline_middle_left(thickness(1, dpi));
     vline_middle_up(thickness(1, dpi));
+}
+
+static void
+draw_box_drawings_up_light_and_left_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    _hline_middle_left(thickness(1, dpi), thickness(2, dpi));
+    vline_middle_up(thickness(1, dpi));
+}
+
+static void
+draw_box_drawings_up_heavy_and_left_light(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    hline_middle_left(thickness(1, dpi));
+    _vline_middle_up(thickness(2, dpi), thickness(1, dpi));
 }
 
 static void
@@ -231,6 +285,8 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x2502: draw_box_drawings_light_vertical(buf, width, height, stride, dpi); break;
     case 0x2503: draw_box_drawings_heavy_vertical(buf, width, height, stride, dpi); break;
     case 0x250c: draw_box_drawings_light_down_and_right(buf, width, height, stride, dpi); break;
+    case 0x250d: draw_box_drawings_down_light_and_right_heavy(buf, width, height, stride, dpi); break;
+    case 0x250e: draw_box_drawings_down_heavy_and_right_light(buf, width, height, stride, dpi); break;
     case 0x250f: draw_box_drawings_heavy_down_and_right(buf, width, height, stride, dpi); break;
 
     case 0x2504:
@@ -241,25 +297,23 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x2509:
     case 0x250a:
     case 0x250b:
-    case 0x250d:
-    case 0x250e:
         LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
         break;
 
     case 0x2510: draw_box_drawings_light_down_and_left(buf, width, height, stride, dpi); break;
+    case 0x2511: draw_box_drawings_down_light_and_left_heavy(buf, width, height, stride, dpi); break;
+    case 0x2512: draw_box_drawings_down_heavy_and_left_light(buf, width, height, stride, dpi); break;
     case 0x2513: draw_box_drawings_heavy_down_and_left(buf, width, height, stride, dpi); break;
     case 0x2514: draw_box_drawings_light_up_and_right(buf, width, height, stride, dpi); break;
+    case 0x2515: draw_box_drawings_up_light_and_right_heavy(buf, width, height, stride, dpi); break;
+    case 0x2516: draw_box_drawings_up_heavy_and_right_light(buf, width, height, stride, dpi); break;
     case 0x2517: draw_box_drawings_heavy_up_and_right(buf, width, height, stride, dpi); break;
     case 0x2518: draw_box_drawings_light_up_and_left(buf, width, height, stride, dpi); break;
+    case 0x2519: draw_box_drawings_up_light_and_left_heavy(buf, width, height, stride, dpi); break;
+    case 0x251a: draw_box_drawings_up_heavy_and_left_light(buf, width, height, stride, dpi); break;
     case 0x251b: draw_box_drawings_heavy_up_and_left(buf, width, height, stride, dpi); break;
     case 0x251c: draw_box_drawings_light_vertical_and_right(buf, width, height, stride, dpi); break;
 
-    case 0x2511:
-    case 0x2512:
-    case 0x2515:
-    case 0x2516:
-    case 0x2519:
-    case 0x251a:
     case 0x251d:
     case 0x251e:
     case 0x251f:
