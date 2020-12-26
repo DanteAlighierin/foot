@@ -957,8 +957,11 @@ slave_died(struct reaper *reaper, pid_t pid, void *data)
     LOG_DBG("slave (PID=%u) died", pid);
 
     if (term->conf->hold_at_exit) {
-        fdm_del(term->fdm, term->ptmx);
-        term->ptmx = -1;
+        /* The PTMX FDM handler may already have closed our end */
+        if (term->ptmx >= 0) {
+            fdm_del(term->fdm, term->ptmx);
+            term->ptmx = -1;
+        }
         return true;
     }
 
