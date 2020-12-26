@@ -183,7 +183,7 @@ draw_glyph(wchar_t wc, pixman_image_t *pix, int width, int height, int stride)
     case 0x259d:
     case 0x259e:
     case 0x259f:
-        LOG_WARN("unimplemented: box drawing: wc=%04x", wc);
+        LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
         //assert(false);
         break;
     }
@@ -192,7 +192,7 @@ draw_glyph(wchar_t wc, pixman_image_t *pix, int width, int height, int stride)
 struct fcft_glyph *
 box_drawing(struct terminal *term, wchar_t wc)
 {
-    LOG_DBG("rendering 0x%04x", wc);
+    LOG_DBG("rendering 0x%04lx", (long)wc);
 
     int width = term->cell_width;
     int height = term->cell_height;
