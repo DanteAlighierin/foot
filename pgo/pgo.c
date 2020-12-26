@@ -13,6 +13,7 @@
 
 #include "async.h"
 #include "config.h"
+#include "reaper.h"
 #include "sixel.h"
 #include "user-notification.h"
 #include "vt.h"
@@ -133,6 +134,9 @@ void
 notify_notify(const struct terminal *term, const char *title, const char *body)
 {
 }
+
+void reaper_add(struct reaper *reaper, pid_t pid, reaper_cb cb, void *cb_data) {}
+
 
 int
 main(int argc, const char *const *argv)

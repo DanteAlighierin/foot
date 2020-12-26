@@ -314,12 +314,8 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     }
 
     if (hup) {
-        if (term->conf->hold_at_exit) {
-            fdm_del(fdm, fd);
-            term->ptmx = -1;
-            return true;
-        } else
-            return term_shutdown(term);
+        fdm_del(fdm, fd);
+        term->ptmx = -1;
     }
 
     return true;
@@ -954,6 +950,21 @@ load_fonts_from_conf(struct terminal *term)
     return reload_fonts(term);
 }
 
+static bool
+slave_died(struct reaper *reaper, pid_t pid, void *data)
+{
+    struct terminal *term = data;
+    LOG_DBG("slave (PID=%u) died", pid);
+
+    if (term->conf->hold_at_exit) {
+        fdm_del(term->fdm, term->ptmx);
+        term->ptmx = -1;
+        return true;
+    }
+
+    return term_shutdown(term);
+}
+
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
           struct wayland *wayl, const char *foot_exe, const char *cwd,
@@ -1158,6 +1169,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
     {
         goto err;
     }
+
+    reaper_add(term->reaper, term->slave, &slave_died, term);
 
     /* Guess scale; we're not mapped yet, so we don't know on which
      * output we'll be. Pick highest scale we find for now */
