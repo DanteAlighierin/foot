@@ -261,6 +261,8 @@ struct terminal {
     int font_scale;
     enum fcft_subpixel font_subpixel;
 
+    struct fcft_glyph *box_drawing[160];
+
     bool is_sending_paste_data;
     ptmx_buffer_list_t ptmx_buffers;
     ptmx_buffer_list_t ptmx_paste_buffers;

@@ -1412,6 +1412,13 @@ term_destroy(struct terminal *term)
     for (size_t i = 0; i < 4; i++)
         free(term->font_sizes[i]);
 
+    for (size_t i = 0; i < ALEN(term->box_drawing); i++) {
+        if (term->box_drawing[i] != NULL) {
+            pixman_image_unref(term->box_drawing[i]->pix);
+            free(term->box_drawing[i]);
+        }
+    }
+
     free(term->search.buf);
 
     if (term->render.workers.threads != NULL) {
