@@ -618,6 +618,14 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
         term->fonts[i] = fonts[i];
     }
 
+    for (size_t i = 0; i < ALEN(term->box_drawing); i++) {
+        if (term->box_drawing[i] != NULL) {
+            pixman_image_unref(term->box_drawing[i]->pix);
+            free(term->box_drawing[i]);
+            term->box_drawing[i] = NULL;
+        }
+    }
+
     const int old_cell_width = term->cell_width;
     const int old_cell_height = term->cell_height;
 
