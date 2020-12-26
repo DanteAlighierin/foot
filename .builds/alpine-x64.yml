@@ -1,3 +1,4 @@
+
 image: alpine/edge
 packages:
   - musl-dev
@@ -44,4 +45,4 @@ tasks:
   - codespell: |
       pip install codespell
       cd foot
-      ~/.local/bin/codespell *.c *.h doc/*.scd
+      ~/.local/bin/codespell README.md INSTALL.md CHANGELOG.md *.c *.h doc/*.scd
