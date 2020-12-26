@@ -37,6 +37,8 @@
 ### Security
 ### Contributors
 
+* [birger](https://codeberg.org/birger)
+
 
 ## 1.6.2
 
