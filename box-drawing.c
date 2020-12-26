@@ -40,222 +40,186 @@ vline(uint8_t *buf, int y1, int y2, int x, int thick, int stride)
     }
 }
 
-static void
-draw_box_drawings_xxx_horizontal(uint8_t *buf, int width, int height, int stride, int thick)
-{
-    hline(buf, 0, width, (height - thick) / 2, thick, stride);
-}
+/* Vertially centered horizontal line, from the center out to the left edge */
+#define hline_middle_left(thick) \
+    hline(buf, 0, (width - thick) / 2 + thick, (height - thick) / 2, thick, stride)
+
+/* Vertially centered horizontal line, from the center out to the right edge */
+#define hline_middle_right(thick) \
+    hline(buf, (width - thick) / 2, width, (height - thick) / 2, thick, stride)
+
+/* Horizontally centered vertical line, from the center up to the top edge */
+#define vline_middle_up(thick) \
+    vline(buf, 0, (height - thick) / 2 + thick, (width - thick) / 2, thick, stride)
+
+/* Horizontally centered vertical line, from the center down to the bottom edge */
+#define vline_middle_down(thick) \
+    vline(buf, (height - thick) / 2, height, (width - thick) / 2, thick, stride)
 
 static void
 draw_box_drawings_light_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_horizontal(buf, width, height, stride, thickness(1, dpi));
+    hline_middle_left(thickness(1, dpi));
+    hline_middle_right(thickness(1, dpi));
 }
 
 static void
 draw_box_drawings_heavy_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_horizontal(buf, width, height, stride, thickness(2, dpi));
-}
-
-static void
-draw_box_drawings_xxx_vertical(uint8_t *buf, int width, int height, int stride, int thick)
-{
-    vline(buf, 0, height, (width - thick) / 2, thick, stride);
+    hline_middle_left(thickness(2, dpi));
+    hline_middle_right(thickness(2, dpi));
 }
 
 static void
 draw_box_drawings_light_vertical(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_vertical(buf, width, height, stride, thickness(1, dpi));
+    vline_middle_up(thickness(1, dpi));
+    vline_middle_down(thickness(1, dpi));
 }
 
 static void
 draw_box_drawings_heavy_vertical(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_vertical(buf, width, height, stride, thickness(2, dpi));
-}
-
-static void
-draw_box_drawings_xxx_down_and_right(uint8_t *buf, int width, int height, int stride, int thick)
-{
-    int hmid = (height - thick) / 2;
-    int vmid = (width - thick) / 2;
-    hline(buf, vmid, width, hmid, thick, stride);
-    vline(buf, hmid, height, vmid, thick, stride);
+    vline_middle_up(thickness(2, dpi));
+    vline_middle_down(thickness(2, dpi));
 }
 
 static void
 draw_box_drawings_light_down_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_down_and_right(buf, width, height, stride, thickness(1, dpi));
+    hline_middle_right(thickness(1, dpi));
+    vline_middle_down(thickness(1, dpi));
 }
 
 static void
 draw_box_drawings_heavy_down_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_down_and_right(buf, width, height, stride, thickness(2, dpi));
-}
-
-static void
-draw_box_drawings_xxx_down_and_left(uint8_t *buf, int width, int height, int stride, int thick)
-{
-    int hmid = (height - thick) / 2;
-    int vmid = (width - thick) / 2;
-    hline(buf, 0, vmid, hmid, thick, stride);
-    vline(buf, hmid, height, vmid, thick, stride);
+    hline_middle_right(thickness(2, dpi));
+    vline_middle_down(thickness(2, dpi));
 }
 
 static void
 draw_box_drawings_light_down_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_down_and_left(buf, width, height, stride, thickness(1, dpi));
+    hline_middle_left(thickness(1, dpi));
+    vline_middle_down(thickness(1, dpi));
 }
 
 static void
 draw_box_drawings_heavy_down_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_down_and_left(buf, width, height, stride, thickness(2, dpi));
-}
-
-static void
-draw_box_drawings_xxx_up_and_right(uint8_t *buf, int width, int height, int stride, int thick)
-{
-    int hmid = (height - thick) / 2;
-    int vmid = (width - thick) / 2;
-    hline(buf, vmid, width, hmid, thick, stride);
-    vline(buf, 0, hmid, vmid, thick, stride);
+    hline_middle_left(thickness(2, dpi));
+    vline_middle_down(thickness(2, dpi));
 }
 
 static void
 draw_box_drawings_light_up_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_up_and_right(buf, width, height, stride, thickness(1, dpi));
+    hline_middle_right(thickness(1, dpi));
+    vline_middle_up(thickness(1, dpi));
 }
 
 static void
 draw_box_drawings_heavy_up_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_up_and_right(buf, width, height, stride, thickness(2, dpi));
-}
-
-static void
-draw_box_drawings_xxx_up_and_left(uint8_t *buf, int width, int height, int stride, int thick)
-{
-    int hmid = (height - thick) / 2;
-    int vmid = (width - thick) / 2;
-    hline(buf, 0, vmid + thick, hmid, thick, stride);
-    vline(buf, 0, hmid, vmid, thick, stride);
+    hline_middle_right(thickness(2, dpi));
+    vline_middle_up(thickness(2, dpi));
 }
 
 static void
 draw_box_drawings_light_up_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_up_and_left(buf, width, height, stride, thickness(1, dpi));
+    hline_middle_left(thickness(1, dpi));
+    vline_middle_up(thickness(1, dpi));
 }
 
 static void
 draw_box_drawings_heavy_up_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_up_and_left(buf, width, height, stride, thickness(2, dpi));
-}
-
-static void
-draw_box_drawings_xxx_vertical_and_right(uint8_t *buf, int width, int height, int stride, int thick)
-{
-    int hmid = (height - thick) / 2;
-    int vmid = (width - thick) / 2;
-    hline(buf, vmid, width, hmid, thick, stride);
-    vline(buf, 0, height, vmid, thick, stride);
+    hline_middle_left(thickness(2, dpi));
+    vline_middle_up(thickness(2, dpi));
 }
 
 static void
 draw_box_drawings_light_vertical_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_vertical_and_right(buf, width, height, stride, thickness(1, dpi));
+    hline_middle_right(thickness(1, dpi));
+    vline_middle_up(thickness(1, dpi));
+    vline_middle_down(thickness(1, dpi));
 }
 
 static void
 draw_box_drawings_heavy_vertical_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_vertical_and_right(buf, width, height, stride, thickness(2, dpi));
-}
-
-static void
-draw_box_drawings_xxx_vertical_and_left(uint8_t *buf, int width, int height, int stride, int thick)
-{
-    int hmid = (height - thick) / 2;
-    int vmid = (width - thick) / 2;
-    hline(buf, 0, vmid, hmid, thick, stride);
-    vline(buf, 0, height, vmid, thick, stride);
+    hline_middle_right(thickness(2, dpi));
+    vline_middle_up(thickness(2, dpi));
+    vline_middle_down(thickness(2, dpi));
 }
 
 static void
 draw_box_drawings_light_vertical_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_vertical_and_left(buf, width, height, stride, thickness(1, dpi));
+    hline_middle_left(thickness(1, dpi));
+    vline_middle_up(thickness(1, dpi));
+    vline_middle_down(thickness(1, dpi));
 }
 
 static void
 draw_box_drawings_heavy_vertical_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_vertical_and_left(buf, width, height, stride, thickness(2, dpi));
-}
-
-static void
-draw_box_drawings_xxx_down_and_horizontal(uint8_t *buf, int width, int height, int stride, int thick)
-{
-    int hmid = (height - thick) / 2;
-    int vmid = (width - thick) / 2;
-    hline(buf, 0, width, hmid, thick, stride);
-    vline(buf, hmid, height, vmid, thick, stride);
+    hline_middle_left(thickness(2, dpi));
+    vline_middle_up(thickness(2, dpi));
+    vline_middle_down(thickness(2, dpi));
 }
 
 static void
 draw_box_drawings_light_down_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_down_and_horizontal(buf, width, height, stride, thickness(1, dpi));
+    hline_middle_left(thickness(1, dpi));
+    hline_middle_right(thickness(1, dpi));
+    vline_middle_down(thickness(1, dpi));
 }
 
 static void
 draw_box_drawings_heavy_down_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_down_and_horizontal(buf, width, height, stride, thickness(2, dpi));
-}
-
-static void
-draw_box_drawings_xxx_up_and_horizontal(uint8_t *buf, int width, int height, int stride, int thick)
-{
-    int hmid = (height - thick) / 2;
-    int vmid = (width - thick) / 2;
-    hline(buf, 0, width, hmid, thick, stride);
-    vline(buf, 0, hmid, vmid, thick, stride);
+    hline_middle_left(thickness(2, dpi));
+    hline_middle_right(thickness(2, dpi));
+    vline_middle_down(thickness(2, dpi));
 }
 
 static void
 draw_box_drawings_light_up_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_up_and_horizontal(buf, width, height, stride, thickness(1, dpi));
+    hline_middle_left(thickness(1, dpi));
+    hline_middle_right(thickness(1, dpi));
+    vline_middle_up(thickness(1, dpi));
 }
 
 static void
 draw_box_drawings_heavy_up_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_xxx_up_and_horizontal(buf, width, height, stride, thickness(2, dpi));
+    hline_middle_left(thickness(2, dpi));
+    hline_middle_right(thickness(2, dpi));
+    vline_middle_up(thickness(2, dpi));
 }
 
 static void
 draw_box_drawings_light_vertical_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_light_vertical(buf, width, height, stride, dpi);
-    draw_box_drawings_light_horizontal(buf, width, height, stride, dpi);
+    hline_middle_left(thickness(1, dpi));
+    hline_middle_right(thickness(1, dpi));
+    vline_middle_up(thickness(1, dpi));
+    vline_middle_down(thickness(1, dpi));
 }
 
 static void
 draw_box_drawings_heavy_vertical_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    draw_box_drawings_heavy_vertical(buf, width, height, stride, dpi);
-    draw_box_drawings_heavy_horizontal(buf, width, height, stride, dpi);
+    hline_middle_left(thickness(2, dpi));
+    hline_middle_right(thickness(2, dpi));
+    vline_middle_up(thickness(2, dpi));
+    vline_middle_down(thickness(2, dpi));
 }
 
 static void
@@ -462,8 +426,6 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
 struct fcft_glyph *
 box_drawing(struct terminal *term, wchar_t wc)
 {
-    LOG_DBG("rendering 0x%04lx", (long)wc);
-
     int width = term->cell_width;
     int height = term->cell_height;
     int stride = stride_for_format_and_width(PIXMAN_a1, width);
