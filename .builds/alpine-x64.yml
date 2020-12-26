@@ -50,4 +50,4 @@ tasks:
   - codespell: |
       pip install codespell
       cd foot
-      ~/.local/bin/codespell *.c *.h
+      ~/.local/bin/codespell *.c *.h doc/*.scd
