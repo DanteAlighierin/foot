@@ -77,4 +77,4 @@ codespell:
     - apk add python3
     - apk add py3-pip
     - pip install codespell
-    - codespell *.c *.h doc/*.scd
+    - codespell README.md INSTALL.md CHANGELOG.md *.c *.h doc/*.scd
