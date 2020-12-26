@@ -44,6 +44,7 @@
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
+* [birger](https://codeberg.org/birger)
 
 
 ## 1.6.2
