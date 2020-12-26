@@ -10,6 +10,12 @@
 #include "terminal.h"
 #include "xmalloc.h"
 
+static int
+thickness(int pts, int dpi)
+{
+    return pts * dpi / 72;
+}
+
 static void
 hline(uint8_t *buf, int x1, int x2, int y, int thick, int stride)
 {
@@ -37,7 +43,7 @@ vline(uint8_t *buf, int y1, int y2, int x, int thick, int stride)
 static void
 draw_box_drawings_light_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    const int thick = 1 * dpi / 72;
+    const int thick = thickness(1, dpi);
     hline(buf, 0, width, (height - thick) / 2, thick, stride);
 }
 
@@ -50,14 +56,14 @@ draw_box_drawings_heavy_horizontal(uint8_t *buf, int width, int height, int stri
 static void
 draw_box_drawings_light_vertical(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    int thick = 1 * dpi / 72;
+    const int thick = thickness(1, dpi);
     vline(buf, 0, height, (width - thick) / 2, thick, stride);
 }
 
 static void
 draw_box_drawings_light_down_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    int thick = 1 * dpi / 72;
+    const int thick = thickness(1, dpi);
     int hmid = (height - thick) / 2;
     int vmid = (width - thick) / 2;
     hline(buf, vmid, width, hmid, thick, stride);
@@ -67,7 +73,7 @@ draw_box_drawings_light_down_and_right(uint8_t *buf, int width, int height, int 
 static void
 draw_box_drawings_light_down_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    int thick = 1 * dpi / 72;
+    const int thick = thickness(1, dpi);
     int hmid = (height - thick) / 2;
     int vmid = (width - thick) / 2;
     hline(buf, 0, vmid, hmid, thick, stride);
@@ -77,7 +83,7 @@ draw_box_drawings_light_down_and_left(uint8_t *buf, int width, int height, int s
 static void
 draw_box_drawings_light_up_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    int thick = 1 * dpi / 72;
+    const int thick = thickness(1, dpi);
     int hmid = (height - thick) / 2;
     int vmid = (width - thick) / 2;
     hline(buf, vmid, width, hmid, thick, stride);
@@ -87,7 +93,7 @@ draw_box_drawings_light_up_and_right(uint8_t *buf, int width, int height, int st
 static void
 draw_box_drawings_light_up_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    int thick = 1 * dpi / 72;
+    const int thick = thickness(1, dpi);
     int hmid = (height - thick) / 2;
     int vmid = (width - thick) / 2;
     hline(buf, 0, vmid, hmid, thick, stride);
@@ -97,7 +103,7 @@ draw_box_drawings_light_up_and_left(uint8_t *buf, int width, int height, int str
 static void
 draw_box_drawings_light_vertical_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    int thick = 1 * dpi / 72;
+    const int thick = thickness(1, dpi);
     int hmid = (height - thick) / 2;
     int vmid = (width - thick) / 2;
     hline(buf, vmid, width, hmid, thick, stride);
@@ -107,7 +113,7 @@ draw_box_drawings_light_vertical_and_right(uint8_t *buf, int width, int height, 
 static void
 draw_box_drawings_light_vertical_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    int thick = 1 * dpi / 72;
+    const int thick = thickness(1, dpi);
     int hmid = (height - thick) / 2;
     int vmid = (width - thick) / 2;
     hline(buf, 0, vmid, hmid, thick, stride);
@@ -117,7 +123,7 @@ draw_box_drawings_light_vertical_and_left(uint8_t *buf, int width, int height, i
 static void
 draw_box_drawings_light_down_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    int thick = 1 * dpi / 72;
+    const int thick = thickness(1, dpi);
     int hmid = (height - thick) / 2;
     int vmid = (width - thick) / 2;
     hline(buf, 0, width, hmid, thick, stride);
@@ -127,7 +133,7 @@ draw_box_drawings_light_down_and_horizontal(uint8_t *buf, int width, int height,
 static void
 draw_box_drawings_light_up_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    int thick = 1 * dpi / 72;
+    const int thick = thickness(1, dpi);
     int hmid = (height - thick) / 2;
     int vmid = (width - thick) / 2;
     hline(buf, 0, width, hmid, thick, stride);
