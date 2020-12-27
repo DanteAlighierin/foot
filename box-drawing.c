@@ -710,49 +710,49 @@ draw_box_drawings_heavy_up_and_light_down(uint8_t *buf, int width, int height, i
 static void
 draw_upper_half_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, 0, width, height / 2);
+    rect(0, 0, width, round(height / 2.));
 }
 
 static void
 draw_lower_one_eighth_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, height - height / 8, width, height);
+    rect(0, height - round(height / 8.), width, height);
 }
 
 static void
 draw_lower_one_quarter_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, height - height / 4, width, height);
+    rect(0, height - round(height / 4.), width, height);
 }
 
 static void
 draw_lower_three_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, height - 3 * height / 8, width, height);
+    rect(0, height - round(3. * height / 8.), width, height);
 }
 
 static void
 draw_lower_half_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, height - height / 2, width, height);
+    rect(0, height - round(height / 2.), width, height);
 }
 
 static void
 draw_lower_five_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, height - 5 * height / 8, width, height);
+    rect(0, height - round(5. * height / 8.), width, height);
 }
 
 static void
 draw_lower_three_quarters_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, height - 3 * height / 4, width, height);
+    rect(0, height - round(3. * height / 4.), width, height);
 }
 
 static void
 draw_lower_seven_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, height - 7 * height / 8, width, height);
+    rect(0, height - round(7. * height / 8.), width, height);
 }
 
 static void
@@ -764,43 +764,43 @@ draw_full_block(uint8_t *buf, int width, int height, int stride, int dpi)
 static void
 draw_left_seven_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, 0, 7 * width / 8, height);
+    rect(0, 0, round(7. * width / 8.), height);
 }
 
 static void
 draw_left_three_quarters_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, 0, 3 * width / 4, height);
+    rect(0, 0, round(3. * width / 4.), height);
 }
 
 static void
 draw_left_five_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, 0, 5 * width / 8, height);
+    rect(0, 0, round(5. * width / 8.), height);
 }
 
 static void
 draw_left_half_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, 0, width / 2, height);
+    rect(0, 0, round(width / 2.), height);
 }
 
 static void
 draw_left_three_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, 0, 3 * width / 8, height);
+    rect(0, 0, round(3. * width / 8.), height);
 }
 
 static void
 draw_left_one_quarter_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, 0, width / 4, height);
+    rect(0, 0, round(width / 4.), height);
 }
 
 static void
 draw_left_one_eighth_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    rect(0, 0, width / 8, height);
+    rect(0, 0, round(width / 8.), height);
 }
 
 static void
