@@ -666,6 +666,34 @@ draw_box_drawings_heavy_down(uint8_t *buf, int width, int height, int stride, in
 }
 
 static void
+draw_box_drawings_light_left_and_heavy_right(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    hline_middle_left(LIGHT);
+    hline_middle_right(HEAVY);
+}
+
+static void
+draw_box_drawings_light_up_and_heavy_down(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    vline_middle_up(LIGHT);
+    vline_middle_down(HEAVY);
+}
+
+static void
+draw_box_drawings_heavy_left_and_light_right(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    hline_middle_left(HEAVY);
+    hline_middle_right(LIGHT);
+}
+
+static void
+draw_box_drawings_heavy_up_and_light_down(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    vline_middle_up(HEAVY);
+    vline_middle_down(LIGHT);
+}
+
+static void
 draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
 {
     switch (wc) {
@@ -806,15 +834,15 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x2579: draw_box_drawings_heavy_up(buf, width, height, stride, dpi); break;
     case 0x257a: draw_box_drawings_heavy_right(buf, width, height, stride, dpi); break;
     case 0x257b: draw_box_drawings_heavy_down(buf, width, height, stride, dpi); break;
+    case 0x257c: draw_box_drawings_light_left_and_heavy_right(buf, width, height, stride, dpi); break;
+    case 0x257d: draw_box_drawings_light_up_and_heavy_down(buf, width, height, stride, dpi); break;
+    case 0x257e: draw_box_drawings_heavy_left_and_light_right(buf, width, height, stride, dpi); break;
+    case 0x257f: draw_box_drawings_heavy_up_and_light_down(buf, width, height, stride, dpi); break;
 
     case 0x2570:
     case 0x2571:
     case 0x2572:
     case 0x2573:
-    case 0x257c:
-    case 0x257d:
-    case 0x257e:
-    case 0x257f:
         LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
         break;
 
