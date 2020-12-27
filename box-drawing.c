@@ -44,6 +44,18 @@ vline(uint8_t *buf, int y1, int y2, int x, int thick, int stride)
     }
 }
 
+static void
+rectangle(uint8_t *buf, int x1, int y1, int x2, int y2, int stride)
+{
+    for (size_t row = y1; row < y2; row++) {
+        for (size_t col = x1; col < x2; col++) {
+            size_t idx = col / 8;
+            size_t bit_no = col % 8;
+            buf[row * stride + idx] |= 1 << bit_no;
+        }
+    }
+}
+
 #define _hline_middle_left(_vthick, _hthick)                            \
     do {                                                                \
         int vthick = thickness(_vthick, dpi);                           \
@@ -76,6 +88,8 @@ vline(uint8_t *buf, int y1, int y2, int x, int thick, int stride)
 #define hline_middle_right(thick) _hline_middle_right(thick, thick)
 #define vline_middle_up(thick) _vline_middle_up(thick, thick)
 #define vline_middle_down(thick) _vline_middle_down(thick, thick)
+
+#define rect(x1, y1, x2, y2) rectangle(buf, x1, y1, x2, y2, stride)
 
 static void
 draw_box_drawings_light_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
@@ -694,6 +708,102 @@ draw_box_drawings_heavy_up_and_light_down(uint8_t *buf, int width, int height, i
 }
 
 static void
+draw_upper_half_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, 0, width, height / 2);
+}
+
+static void
+draw_lower_one_eighth_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, height - height / 8, width, height);
+}
+
+static void
+draw_lower_one_quarter_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, height - height / 4, width, height);
+}
+
+static void
+draw_lower_three_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, height - 3 * height / 8, width, height);
+}
+
+static void
+draw_lower_half_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, height - height / 2, width, height);
+}
+
+static void
+draw_lower_five_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, height - 5 * height / 8, width, height);
+}
+
+static void
+draw_lower_three_quarters_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, height - 3 * height / 4, width, height);
+}
+
+static void
+draw_lower_seven_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, height - 7 * height / 8, width, height);
+}
+
+static void
+draw_full_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, 0, width, height);
+}
+
+static void
+draw_left_seven_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, 0, 7 * width / 8, height);
+}
+
+static void
+draw_left_three_quarters_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, 0, 3 * width / 4, height);
+}
+
+static void
+draw_left_five_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, 0, 5 * width / 8, height);
+}
+
+static void
+draw_left_half_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, 0, width / 2, height);
+}
+
+static void
+draw_left_three_eighths_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, 0, 3 * width / 8, height);
+}
+
+static void
+draw_left_one_quarter_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, 0, width / 4, height);
+}
+
+static void
+draw_left_one_eighth_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, 0, width / 8, height);
+}
+
+static void
 draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
 {
     switch (wc) {
@@ -846,24 +956,22 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
         LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
         break;
 
-    case 0x2580:
-    case 0x2581:
-    case 0x2582:
-    case 0x2583:
-    case 0x2584:
-    case 0x2585:
-    case 0x2586:
-    case 0x2587:
-    case 0x2588:
-    case 0x2589:
-    case 0x258a:
-    case 0x258b:
-    case 0x258c:
-    case 0x258d:
-    case 0x258e:
-    case 0x258f:
-        LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
-        break;
+    case 0x2580: draw_upper_half_block(buf, width, height, stride, dpi); break;
+    case 0x2581: draw_lower_one_eighth_block(buf, width, height, stride, dpi); break;
+    case 0x2582: draw_lower_one_quarter_block(buf, width, height, stride, dpi); break;
+    case 0x2583: draw_lower_three_eighths_block(buf, width, height, stride, dpi); break;
+    case 0x2584: draw_lower_half_block(buf, width, height, stride, dpi); break;
+    case 0x2585: draw_lower_five_eighths_block(buf, width, height, stride, dpi); break;
+    case 0x2586: draw_lower_three_quarters_block(buf, width, height, stride, dpi); break;
+    case 0x2587: draw_lower_seven_eighths_block(buf, width, height, stride, dpi); break;
+    case 0x2588: draw_full_block(buf, width, height, stride, dpi); break;
+    case 0x2589: draw_left_seven_eighths_block(buf, width, height, stride, dpi); break;
+    case 0x258a: draw_left_three_quarters_block(buf, width, height, stride, dpi); break;
+    case 0x258b: draw_left_five_eighths_block(buf, width, height, stride, dpi); break;
+    case 0x258c: draw_left_half_block(buf, width, height, stride, dpi); break;
+    case 0x258d: draw_left_three_eighths_block(buf, width, height, stride, dpi); break;
+    case 0x258e: draw_left_one_quarter_block(buf, width, height, stride, dpi); break;
+    case 0x258f: draw_left_one_eighth_block(buf, width, height, stride, dpi); break;
 
     case 0x2590:
     case 0x2591:
