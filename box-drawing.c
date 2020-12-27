@@ -804,6 +804,24 @@ draw_left_one_eighth_block(uint8_t *buf, int width, int height, int stride, int 
 }
 
 static void
+draw_right_half_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(round(width / 2.), 0, width, height);
+}
+
+static void
+draw_upper_one_eighth_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(0, 0, width, round(height / 8.));
+}
+
+static void
+draw_right_one_eighth_block(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    rect(width - round(width / 8.), 0, width, height);
+}
+
+static void
 draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
 {
     switch (wc) {
@@ -973,12 +991,12 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x258e: draw_left_one_quarter_block(buf, width, height, stride, dpi); break;
     case 0x258f: draw_left_one_eighth_block(buf, width, height, stride, dpi); break;
 
-    case 0x2590:
+    case 0x2590: draw_right_half_block(buf, width, height, stride, dpi); break;
+    case 0x2594: draw_upper_one_eighth_block(buf, width, height, stride, dpi); break;
+    case 0x2595: draw_right_one_eighth_block(buf, width, height, stride, dpi); break;
     case 0x2591:
     case 0x2592:
     case 0x2593:
-    case 0x2594:
-    case 0x2595:
     case 0x2596:
     case 0x2597:
     case 0x2598:
