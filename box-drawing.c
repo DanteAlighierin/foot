@@ -91,10 +91,10 @@ rectangle(uint8_t *buf, int x1, int y1, int x2, int y2, int stride)
 
 #define rect(x1, y1, x2, y2) rectangle(buf, x1, y1, x2, y2, stride)
 
-#define quad_upper_left()  rect(0, 0, width / 2, height / 2)
-#define quad_upper_right() rect(width / 2, 0, width, height / 2)
-#define quad_lower_left()  rect(0, height / 2, width / 2, height)
-#define quad_lower_right() rect(width / 2, height / 2, width, height)
+#define quad_upper_left()  rect(0, 0, ceil(width / 2.), ceil(height / 2.))
+#define quad_upper_right() rect(floor(width / 2.), 0, width, ceil(height / 2.))
+#define quad_lower_left()  rect(0, floor(height / 2.), ceil(width / 2.), height)
+#define quad_lower_right() rect(floor(width / 2.), floor(height / 2.), width, height)
 
 static void
 draw_box_drawings_light_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
