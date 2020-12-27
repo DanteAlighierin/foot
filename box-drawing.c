@@ -91,6 +91,11 @@ rectangle(uint8_t *buf, int x1, int y1, int x2, int y2, int stride)
 
 #define rect(x1, y1, x2, y2) rectangle(buf, x1, y1, x2, y2, stride)
 
+#define quad_upper_left()  rect(0, 0, width / 2, height / 2)
+#define quad_upper_right() rect(width / 2, 0, width, height / 2)
+#define quad_lower_left()  rect(0, height / 2, width / 2, height)
+#define quad_lower_right() rect(width / 2, height / 2, width, height)
+
 static void
 draw_box_drawings_light_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
@@ -822,6 +827,76 @@ draw_right_one_eighth_block(uint8_t *buf, int width, int height, int stride, int
 }
 
 static void
+draw_quadrant_lower_left(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    quad_lower_left();
+}
+
+static void
+draw_quadrant_lower_right(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    quad_lower_right();
+}
+
+static void
+draw_quadrant_upper_left(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    quad_upper_left();
+}
+
+static void
+draw_quadrant_upper_left_and_lower_left_and_lower_right(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    quad_upper_left();
+    quad_lower_left();
+    quad_lower_right();
+}
+
+static void
+draw_quadrant_upper_left_and_lower_right(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    quad_upper_left();
+    quad_lower_right();
+}
+
+static void
+draw_quadrant_upper_left_and_upper_right_and_lower_left(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    quad_upper_left();
+    quad_upper_right();
+    quad_lower_left();
+}
+
+static void
+draw_quadrant_upper_left_and_upper_right_and_lower_right(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    quad_upper_left();
+    quad_upper_right();
+    quad_lower_right();
+}
+
+static void
+draw_quadrant_upper_right(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    quad_upper_right();
+}
+
+static void
+draw_quadrant_upper_right_and_lower_left(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    quad_upper_right();
+    quad_lower_left();
+}
+
+static void
+draw_quadrant_upper_right_and_lower_left_and_lower_right(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    quad_upper_right();
+    quad_lower_left();
+    quad_lower_right();
+}
+
+static void
 draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
 {
     switch (wc) {
@@ -994,19 +1069,20 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x2590: draw_right_half_block(buf, width, height, stride, dpi); break;
     case 0x2594: draw_upper_one_eighth_block(buf, width, height, stride, dpi); break;
     case 0x2595: draw_right_one_eighth_block(buf, width, height, stride, dpi); break;
+    case 0x2596: draw_quadrant_lower_left(buf, width, height, stride, dpi); break;
+    case 0x2597: draw_quadrant_lower_right(buf, width, height, stride, dpi); break;
+    case 0x2598: draw_quadrant_upper_left(buf, width, height, stride, dpi); break;
+    case 0x2599: draw_quadrant_upper_left_and_lower_left_and_lower_right(buf, width, height, stride, dpi); break;
+    case 0x259a: draw_quadrant_upper_left_and_lower_right(buf, width, height, stride, dpi); break;
+    case 0x259b: draw_quadrant_upper_left_and_upper_right_and_lower_left(buf, width, height, stride, dpi); break;
+    case 0x259c: draw_quadrant_upper_left_and_upper_right_and_lower_right(buf, width, height, stride, dpi); break;
+    case 0x259d: draw_quadrant_upper_right(buf, width, height, stride, dpi); break;
+    case 0x259e: draw_quadrant_upper_right_and_lower_left(buf, width, height, stride, dpi); break;
+    case 0x259f: draw_quadrant_upper_right_and_lower_left_and_lower_right(buf, width, height, stride, dpi); break;
+
     case 0x2591:
     case 0x2592:
     case 0x2593:
-    case 0x2596:
-    case 0x2597:
-    case 0x2598:
-    case 0x2599:
-    case 0x259a:
-    case 0x259b:
-    case 0x259c:
-    case 0x259d:
-    case 0x259e:
-    case 0x259f:
         LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
         break;
     }
