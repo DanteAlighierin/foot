@@ -11,6 +11,9 @@
 #include "terminal.h"
 #include "xmalloc.h"
 
+#define LIGHT 1.0
+#define HEAVY 2.0
+
 static int CONST
 thickness(float pts, int dpi)
 {
@@ -77,589 +80,589 @@ vline(uint8_t *buf, int y1, int y2, int x, int thick, int stride)
 static void
 draw_box_drawings_light_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(1.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(LIGHT);
 }
 
 static void
 draw_box_drawings_heavy_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(2.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(HEAVY);
 }
 
 static void
 draw_box_drawings_light_vertical(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    vline_middle_up(1.0);
-    vline_middle_down(1.0);
+    vline_middle_up(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_heavy_vertical(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    vline_middle_up(2.0);
-    vline_middle_down(2.0);
+    vline_middle_up(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_light_down_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(1.0);
-    vline_middle_down(1.0);
+    hline_middle_right(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_down_light_and_right_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    _hline_middle_right(1.0, 2.0);
-    vline_middle_down(1.0);
+    _hline_middle_right(LIGHT, HEAVY);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_down_heavy_and_right_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(1.0);
-    _vline_middle_down(2.0, 1.0);
+    hline_middle_right(LIGHT);
+    _vline_middle_down(HEAVY, LIGHT);
 }
 
 static void
 draw_box_drawings_heavy_down_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(2.0);
-    vline_middle_down(2.0);
+    hline_middle_right(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_light_down_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    vline_middle_down(1.0);
+    hline_middle_left(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_down_light_and_left_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    _hline_middle_left(1.0, 2.0);
-    vline_middle_down(1.0);
+    _hline_middle_left(LIGHT, HEAVY);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_down_heavy_and_left_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    _vline_middle_down(2.0, 1.0);
+    hline_middle_left(LIGHT);
+    _vline_middle_down(HEAVY, LIGHT);
 }
 
 static void
 draw_box_drawings_heavy_down_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    vline_middle_down(2.0);
+    hline_middle_left(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_light_up_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(1.0);
-    vline_middle_up(1.0);
+    hline_middle_right(LIGHT);
+    vline_middle_up(LIGHT);
 }
 
 static void
 draw_box_drawings_up_light_and_right_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    _hline_middle_right(1.0, 2.0);
-    vline_middle_up(1.0);
+    _hline_middle_right(LIGHT, HEAVY);
+    vline_middle_up(LIGHT);
 }
 
 static void
 draw_box_drawings_up_heavy_and_right_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(1.0);
-    _vline_middle_up(2.0, 1.0);
+    hline_middle_right(LIGHT);
+    _vline_middle_up(HEAVY, LIGHT);
 }
 
 static void
 draw_box_drawings_heavy_up_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(2.0);
-    vline_middle_up(2.0);
+    hline_middle_right(HEAVY);
+    vline_middle_up(HEAVY);
 }
 
 static void
 draw_box_drawings_light_up_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    vline_middle_up(1.0);
+    hline_middle_left(LIGHT);
+    vline_middle_up(LIGHT);
 }
 
 static void
 draw_box_drawings_up_light_and_left_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    _hline_middle_left(1.0, 2.0);
-    vline_middle_up(1.0);
+    _hline_middle_left(LIGHT, HEAVY);
+    vline_middle_up(LIGHT);
 }
 
 static void
 draw_box_drawings_up_heavy_and_left_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    _vline_middle_up(2.0, 1.0);
+    hline_middle_left(LIGHT);
+    _vline_middle_up(HEAVY, LIGHT);
 }
 
 static void
 draw_box_drawings_heavy_up_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    vline_middle_up(2.0);
+    hline_middle_left(HEAVY);
+    vline_middle_up(HEAVY);
 }
 
 static void
 draw_box_drawings_light_vertical_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(1.0);
-    vline_middle_up(1.0);
-    vline_middle_down(1.0);
+    hline_middle_right(LIGHT);
+    vline_middle_up(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_vertical_light_and_right_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    _hline_middle_right(1.0, 2.0);
-    vline_middle_up(1.0);
-    vline_middle_down(1.0);
+    _hline_middle_right(LIGHT, HEAVY);
+    vline_middle_up(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_up_heavy_and_right_down_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(1.0);
-    _vline_middle_up(2.0, 1.0);
-    vline_middle_down(1.0);
+    hline_middle_right(LIGHT);
+    _vline_middle_up(HEAVY, LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_down_heavy_and_right_up_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(1.0);
-    vline_middle_up(1.0);
-    _vline_middle_down(2.0, 1.0);
+    hline_middle_right(LIGHT);
+    vline_middle_up(LIGHT);
+    _vline_middle_down(HEAVY, LIGHT);
 }
 
 static void
 draw_box_drawings_vertical_heavy_and_right_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(1.0);
-    vline_middle_up(2.0);
-    vline_middle_down(2.0);
+    hline_middle_right(LIGHT);
+    vline_middle_up(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_down_light_and_right_up_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(2.0);
-    vline_middle_up(2.0);
-    vline_middle_down(1.0);
+    hline_middle_right(HEAVY);
+    vline_middle_up(HEAVY);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_up_light_and_right_down_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(2.0);
-    vline_middle_up(1.0);
-    vline_middle_down(2.0);
+    hline_middle_right(HEAVY);
+    vline_middle_up(LIGHT);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_heavy_vertical_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(2.0);
-    vline_middle_up(2.0);
-    vline_middle_down(2.0);
+    hline_middle_right(HEAVY);
+    vline_middle_up(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_light_vertical_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    vline_middle_up(1.0);
-    vline_middle_down(1.0);
+    hline_middle_left(LIGHT);
+    vline_middle_up(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_vertical_light_and_left_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    _hline_middle_left(1.0, 2.0);
-    vline_middle_up(1.0);
-    vline_middle_down(1.0);
+    _hline_middle_left(LIGHT, HEAVY);
+    vline_middle_up(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_up_heavy_and_left_down_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    _vline_middle_up(2.0, 1.0);
-    vline_middle_down(1.0);
+    hline_middle_left(LIGHT);
+    _vline_middle_up(HEAVY, LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_down_heavy_and_left_up_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    vline_middle_up(1.0);
-    _vline_middle_down(2.0, 1.0);
+    hline_middle_left(LIGHT);
+    vline_middle_up(LIGHT);
+    _vline_middle_down(HEAVY, LIGHT);
 }
 
 static void
 draw_box_drawings_vertical_heavy_and_left_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    vline_middle_up(2.0);
-    vline_middle_down(2.0);
+    hline_middle_left(LIGHT);
+    vline_middle_up(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_down_light_and_left_up_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    vline_middle_up(2.0);
-    vline_middle_down(1.0);
+    hline_middle_left(HEAVY);
+    vline_middle_up(HEAVY);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_up_light_and_left_down_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    vline_middle_up(1.0);
-    vline_middle_down(2.0);
+    hline_middle_left(HEAVY);
+    vline_middle_up(LIGHT);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_heavy_vertical_and_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    vline_middle_up(2.0);
-    vline_middle_down(2.0);
+    hline_middle_left(HEAVY);
+    vline_middle_up(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_light_down_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(1.0);
-    vline_middle_down(1.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_left_heavy_and_right_down_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    _hline_middle_left(1.0, 2.0);
-    hline_middle_right(1.0);
-    vline_middle_down(1.0);
+    _hline_middle_left(LIGHT, HEAVY);
+    hline_middle_right(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_right_heavy_and_left_down_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    _hline_middle_right(1.0, 2.0);
-    vline_middle_down(1.0);
+    hline_middle_left(LIGHT);
+    _hline_middle_right(LIGHT, HEAVY);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_down_light_and_horizontal_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(2.0);
-    vline_middle_down(1.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(HEAVY);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_down_heavy_and_horizontal_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(1.0);
-    _vline_middle_down(2.0, 1.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(LIGHT);
+    _vline_middle_down(HEAVY, LIGHT);
 }
 
 static void
 draw_box_drawings_right_light_and_left_down_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(1.0);
-    vline_middle_down(2.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(LIGHT);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_left_light_and_right_down_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(2.0);
-    vline_middle_down(2.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_heavy_down_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(2.0);
-    vline_middle_down(2.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_light_up_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(1.0);
-    vline_middle_up(1.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(LIGHT);
+    vline_middle_up(LIGHT);
 }
 
 static void
 draw_box_drawings_left_heavy_and_right_up_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    _hline_middle_left(1.0, 2.0);
-    hline_middle_right(1.0);
-    vline_middle_up(1.0);
+    _hline_middle_left(LIGHT, HEAVY);
+    hline_middle_right(LIGHT);
+    vline_middle_up(LIGHT);
 }
 
 static void
 draw_box_drawings_right_heavy_and_left_up_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    _hline_middle_right(1.0, 2.0);
-    vline_middle_up(1.0);
+    hline_middle_left(LIGHT);
+    _hline_middle_right(LIGHT, HEAVY);
+    vline_middle_up(LIGHT);
 }
 
 static void
 draw_box_drawings_up_light_and_horizontal_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(2.0);
-    vline_middle_up(1.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(HEAVY);
+    vline_middle_up(LIGHT);
 }
 
 static void
 draw_box_drawings_up_heavy_and_horizontal_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(1.0);
-    _vline_middle_up(2.0, 1.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(LIGHT);
+    _vline_middle_up(HEAVY, LIGHT);
 }
 
 static void
 draw_box_drawings_right_light_and_left_up_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(1.0);
-    vline_middle_up(2.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(LIGHT);
+    vline_middle_up(HEAVY);
 }
 
 static void
 draw_box_drawings_left_light_and_right_up_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(2.0);
-    vline_middle_up(2.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(HEAVY);
+    vline_middle_up(HEAVY);
 }
 
 static void
 draw_box_drawings_heavy_up_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(2.0);
-    vline_middle_up(2.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(HEAVY);
+    vline_middle_up(HEAVY);
 }
 
 static void
 draw_box_drawings_light_vertical_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(1.0);
-    vline_middle_up(1.0);
-    vline_middle_down(1.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(LIGHT);
+    vline_middle_up(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_left_heavy_and_right_vertical_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    _hline_middle_left(1.0, 2.0);
-    hline_middle_right(1.0);
-    vline_middle_up(1.0);
-    vline_middle_down(1.0);
+    _hline_middle_left(LIGHT, HEAVY);
+    hline_middle_right(LIGHT);
+    vline_middle_up(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_right_heavy_and_left_vertical_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    _hline_middle_right(1.0, 2.0);
-    vline_middle_up(1.0);
-    vline_middle_down(1.0);
+    hline_middle_left(LIGHT);
+    _hline_middle_right(LIGHT, HEAVY);
+    vline_middle_up(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_vertical_light_and_horizontal_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(2.0);
-    vline_middle_up(1.0);
-    vline_middle_down(1.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(HEAVY);
+    vline_middle_up(LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_up_heavy_and_down_horizontal_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(1.0);
-    _vline_middle_up(2.0, 1.0);
-    vline_middle_down(1.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(LIGHT);
+    _vline_middle_up(HEAVY, LIGHT);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_down_heavy_and_up_horizontal_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(1.0);
-    vline_middle_up(1.0);
-    _vline_middle_down(2.0, 1.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(LIGHT);
+    vline_middle_up(LIGHT);
+    _vline_middle_down(HEAVY, LIGHT);
 }
 
 static void
 draw_box_drawings_vertical_heavy_and_horizontal_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(1.0);
-    vline_middle_up(2.0);
-    vline_middle_down(2.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(LIGHT);
+    vline_middle_up(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_left_up_heavy_and_right_down_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(1.0);
-    vline_middle_up(2.0);
-    vline_middle_down(1.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(LIGHT);
+    vline_middle_up(HEAVY);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_right_up_heavy_and_left_down_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(2.0);
-    vline_middle_up(2.0);
-    vline_middle_down(1.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(HEAVY);
+    vline_middle_up(HEAVY);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_left_down_heavy_and_right_up_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(1.0);
-    vline_middle_up(1.0);
-    vline_middle_down(2.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(LIGHT);
+    vline_middle_up(LIGHT);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_right_down_heavy_and_left_up_light(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(2.0);
-    vline_middle_up(1.0);
-    vline_middle_down(2.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(HEAVY);
+    vline_middle_up(LIGHT);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_down_light_and_up_horizontal_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(2.0);
-    vline_middle_up(2.0);
-    vline_middle_down(1.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(HEAVY);
+    vline_middle_up(HEAVY);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_up_light_and_down_horizontal_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(2.0);
-    vline_middle_up(1.0);
-    vline_middle_down(2.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(HEAVY);
+    vline_middle_up(LIGHT);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_right_light_and_left_vertical_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(1.0);
-    vline_middle_up(2.0);
-    vline_middle_down(2.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(LIGHT);
+    vline_middle_up(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_left_light_and_right_vertical_heavy(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
-    hline_middle_right(2.0);
-    vline_middle_up(2.0);
-    vline_middle_down(2.0);
+    hline_middle_left(LIGHT);
+    hline_middle_right(HEAVY);
+    vline_middle_up(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_heavy_vertical_and_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
-    hline_middle_right(2.0);
-    vline_middle_up(2.0);
-    vline_middle_down(2.0);
+    hline_middle_left(HEAVY);
+    hline_middle_right(HEAVY);
+    vline_middle_up(HEAVY);
+    vline_middle_down(HEAVY);
 }
 
 static void
 draw_box_drawings_light_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(1.0);
+    hline_middle_left(LIGHT);
 }
 
 static void
 draw_box_drawings_light_up(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    vline_middle_up(1.0);
+    vline_middle_up(LIGHT);
 }
 
 static void
 draw_box_drawings_light_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(1.0);
+    hline_middle_right(LIGHT);
 }
 
 static void
 draw_box_drawings_light_down(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    vline_middle_down(1.0);
+    vline_middle_down(LIGHT);
 }
 
 static void
 draw_box_drawings_heavy_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_left(2.0);
+    hline_middle_left(HEAVY);
 }
 
 static void
 draw_box_drawings_heavy_up(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    vline_middle_up(2.0);
+    vline_middle_up(HEAVY);
 }
 
 static void
 draw_box_drawings_heavy_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    hline_middle_right(2.0);
+    hline_middle_right(HEAVY);
 }
 
 static void
 draw_box_drawings_heavy_down(uint8_t *buf, int width, int height, int stride, int dpi)
 {
-    vline_middle_down(2.0);
+    vline_middle_down(HEAVY);
 }
 
 static void
