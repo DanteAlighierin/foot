@@ -26,6 +26,12 @@
     #define UNUSED
 #endif
 
+#if HAS_ATTRIBUTE(const)
+    #define CONST __attribute__((__const__))
+#else
+    #define CONST
+#endif
+
 #if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(malloc)
     #define MALLOC __attribute__((__malloc__))
 #else
