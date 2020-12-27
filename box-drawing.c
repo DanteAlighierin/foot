@@ -6,14 +6,15 @@
 #define LOG_MODULE "box-drawing"
 #define LOG_ENABLE_DBG 1
 #include "log.h"
+#include "macros.h"
 #include "stride.h"
 #include "terminal.h"
 #include "xmalloc.h"
 
-static int
-thickness(int pts, int dpi)
+static int CONST
+thickness(float pts, int dpi)
 {
-    return pts * dpi / 72;
+    return pts * (float)dpi / 72.0;
 }
 
 static void
