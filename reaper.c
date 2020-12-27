@@ -11,10 +11,16 @@
 #include "log.h"
 #include "tllist.h"
 
+struct child {
+    pid_t pid;
+    reaper_cb cb;
+    void *cb_data;
+};
+
 struct reaper {
     struct fdm *fdm;
     int fd;
-    tll(pid_t) children;
+    tll(struct child) children;
 };
 
 static bool fdm_reap(struct fdm *fdm, int fd, int events, void *data);
@@ -84,10 +90,12 @@ reaper_destroy(struct reaper *reaper)
 }
 
 void
-reaper_add(struct reaper *reaper, pid_t pid)
+reaper_add(struct reaper *reaper, pid_t pid, reaper_cb cb, void *cb_data)
 {
     LOG_DBG("adding pid=%d", pid);
-    tll_push_back(reaper->children, pid);
+    tll_push_back(
+        reaper->children,
+        ((struct child){.pid = pid, .cb = cb, .cb_data = cb_data}));
 }
 
 static bool
@@ -119,26 +127,34 @@ fdm_reap(struct fdm *fdm, int fd, int events, void *data)
     }
 
     tll_foreach(reaper->children, it) {
-        /* Don't use wait() since we don't want to accidentally reap
-         * the PTS slave */
+        struct child *child = &it->item;
+        pid_t pid = child->pid;
 
-        pid_t pid = it->item;
-
-        int result;
-        int res = waitpid(pid, &result, WNOHANG);
-
-        if (res <= 0) {
-            if (res < 0)
-                LOG_ERRNO("waitpid failed for pid=%d", pid);
+        if (pid != (pid_t)info.ssi_pid)
             continue;
+
+        bool reap_ourselves = true;
+        if (child->cb != NULL)
+            reap_ourselves = !child->cb(reaper, pid, child->cb_data);
+
+        if (reap_ourselves) {
+            int result;
+            int res = waitpid(pid, &result, WNOHANG);
+
+            if (res <= 0) {
+                if (res < 0)
+                    LOG_ERRNO("waitpid failed for pid=%d", pid);
+                continue;
+            }
+
+            else if (WIFEXITED(result))
+                LOG_DBG("pid=%d: exited with status=%d", pid, WEXITSTATUS(result));
+            else if (WIFSIGNALED(result))
+                LOG_DBG("pid=%d: killed by signal=%d", pid, WTERMSIG(result));
+            else
+                LOG_DBG("pid=%d: died of unknown resason", pid);
         }
 
-        else if (WIFEXITED(result))
-            LOG_DBG("pid=%d: exited with status=%d", pid, WEXITSTATUS(result));
-        else if (WIFSIGNALED(result))
-            LOG_DBG("pid=%d: killed by signal=%d", pid, WTERMSIG(result));
-        else
-            LOG_DBG("pid=%d: died of unknown resason", pid);
         tll_remove(reaper->children, it);
     }
 

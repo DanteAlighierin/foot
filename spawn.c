@@ -55,7 +55,7 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
     close(pipe_fds[0]);
 
     if (ret == 0) {
-        reaper_add(reaper, pid);
+        reaper_add(reaper, pid, NULL, NULL);
         return true;
     } else if (ret < 0) {
         LOG_ERRNO("failed to read from pipe");

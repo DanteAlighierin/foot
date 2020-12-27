@@ -327,6 +327,9 @@ ime_reset(struct seat *seat)
 void
 ime_enable(struct seat *seat)
 {
+    if (unlikely(seat->wayl->text_input_manager == NULL))
+        return;
+
     struct terminal *term = seat->kbd_focus;
     assert(term != NULL);
 
@@ -348,6 +351,9 @@ ime_enable(struct seat *seat)
 void
 ime_disable(struct seat *seat)
 {
+    if (unlikely(seat->wayl->text_input_manager == NULL))
+        return;
+
     ime_reset(seat);
 
     zwp_text_input_v3_disable(seat->wl_text_input);

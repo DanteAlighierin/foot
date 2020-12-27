@@ -1130,6 +1130,13 @@ wayl_init(const struct config *conf, struct fdm *fdm)
         goto out;
     }
 
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    if (wayl->text_input_manager == NULL) {
+        LOG_WARN("text input interface not implemented by compositor; "
+                 "IME will be disabled");
+    }
+#endif
+
     /* Trigger listeners registered when handling globals */
     wl_display_roundtrip(wayl->display);
 
