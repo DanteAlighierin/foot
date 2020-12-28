@@ -815,6 +815,42 @@ draw_right_half_block(uint8_t *buf, int width, int height, int stride, int dpi)
 }
 
 static void
+draw_light_shade(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    for (size_t row = 0; row < height; row += 2) {
+        for (size_t col = 0; col < width; col += 2) {
+            size_t idx = col / 8;
+            size_t bit_no = col % 8;
+            buf[row * stride + idx] |= 1 << bit_no;
+        }
+    }
+}
+
+static void
+draw_medium_shade(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    for (size_t row = 0; row < height; row++) {
+        for (size_t col = row % 2; col < width; col += 2) {
+            size_t idx = col / 8;
+            size_t bit_no = col % 8;
+            buf[row * stride + idx] |= 1 << bit_no;
+        }
+    }
+}
+
+static void
+draw_dark_shade(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    for (size_t row = 0; row < height; row++) {
+        for (size_t col = 0; col < width; col += 1 + row % 2) {
+            size_t idx = col / 8;
+            size_t bit_no = col % 8;
+            buf[row * stride + idx] |= 1 << bit_no;
+        }
+    }
+}
+
+static void
 draw_upper_one_eighth_block(uint8_t *buf, int width, int height, int stride, int dpi)
 {
     rect(0, 0, width, round(height / 8.));
@@ -1067,6 +1103,9 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x258f: draw_left_one_eighth_block(buf, width, height, stride, dpi); break;
 
     case 0x2590: draw_right_half_block(buf, width, height, stride, dpi); break;
+    case 0x2591: draw_light_shade(buf, width, height, stride, dpi); break;
+    case 0x2592: draw_medium_shade(buf, width, height, stride, dpi); break;
+    case 0x2593: draw_dark_shade(buf, width, height, stride, dpi); break;
     case 0x2594: draw_upper_one_eighth_block(buf, width, height, stride, dpi); break;
     case 0x2595: draw_right_one_eighth_block(buf, width, height, stride, dpi); break;
     case 0x2596: draw_quadrant_lower_left(buf, width, height, stride, dpi); break;
@@ -1080,9 +1119,6 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x259e: draw_quadrant_upper_right_and_lower_left(buf, width, height, stride, dpi); break;
     case 0x259f: draw_quadrant_upper_right_and_lower_left_and_lower_right(buf, width, height, stride, dpi); break;
 
-    case 0x2591:
-    case 0x2592:
-    case 0x2593:
         LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
         break;
     }
