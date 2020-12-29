@@ -22,7 +22,7 @@ thickness(float pts, int dpi)
 }
 
 static void
-hline(uint8_t *buf, int x1, int x2, int y, int thick, int stride)
+_hline(uint8_t *buf, int x1, int x2, int y, int thick, int stride)
 {
     for (size_t row = y; row < y + thick; row++) {
         for (size_t col = x1; col < x2; col++) {
@@ -33,8 +33,10 @@ hline(uint8_t *buf, int x1, int x2, int y, int thick, int stride)
     }
 }
 
+#define hline(x1, x2, y, thick) _hline(buf, x1, x2, y, thick, stride)
+
 static void
-vline(uint8_t *buf, int y1, int y2, int x, int thick, int stride)
+_vline(uint8_t *buf, int y1, int y2, int x, int thick, int stride)
 {
     for (size_t row = y1; row < y2; row++) {
         for (size_t col = x; col < x + thick; col++) {
@@ -44,6 +46,8 @@ vline(uint8_t *buf, int y1, int y2, int x, int thick, int stride)
         }
     }
 }
+
+#define vline(y1, y2, x, thick) _vline(buf, y1, y2, x, thick, stride)
 
 static void
 rectangle(uint8_t *buf, int x1, int y1, int x2, int y2, int stride)
@@ -61,28 +65,28 @@ rectangle(uint8_t *buf, int x1, int y1, int x2, int y2, int stride)
     do {                                                                \
         int vthick = thickness(_vthick, dpi);                           \
         int hthick = thickness(_hthick, dpi);                           \
-        hline(buf, 0, (width + vthick) / 2, (height - hthick) / 2, hthick, stride); \
+        hline(0, (width + vthick) / 2, (height - hthick) / 2, hthick); \
     } while (0)
 
 #define _hline_middle_right(_vthick, _hthick)                           \
     do {                                                                \
         int vthick = thickness(_vthick, dpi);                           \
         int hthick = thickness(_hthick, dpi);                           \
-        hline(buf, (width - vthick) / 2, width, (height - hthick) / 2, hthick, stride); \
+        hline((width - vthick) / 2, width, (height - hthick) / 2, hthick); \
     } while (0)
 
 #define _vline_middle_up(_vthick, _hthick)                              \
     do {                                                                \
         int vthick = thickness(_vthick, dpi);                           \
         int hthick = thickness(_hthick, dpi);                           \
-        vline(buf, 0, (height + hthick) / 2, (width - vthick) / 2, vthick, stride); \
+        vline(0, (height + hthick) / 2, (width - vthick) / 2, vthick); \
     } while (0)
 
 #define _vline_middle_down(_vthick, _hthick)                            \
     do {                                                                \
         int vthick = thickness(_vthick, dpi);                           \
         int hthick = thickness(_hthick, dpi);                           \
-        vline(buf, (height - hthick) / 2, height, (width - vthick) / 2, vthick, stride); \
+        vline((height - hthick) / 2, height, (width - vthick) / 2, vthick); \
     } while (0)
 
 #define hline_middle_left(thick) _hline_middle_left(thick, thick)
@@ -643,8 +647,8 @@ draw_box_drawings_double_horizontal(uint8_t *buf, int width, int height, int str
     int thick = thickness(LIGHT, dpi);
     int mid = (height - thick * 3) / 2;
 
-    hline(buf, 0, width, mid, thick, stride);
-    hline(buf, 0, width, mid + 2 * thick, thick, stride);
+    hline(0, width, mid, thick);
+    hline(0, width, mid + 2 * thick, thick);
 }
 
 static void
@@ -653,8 +657,8 @@ draw_box_drawings_double_vertical(uint8_t *buf, int width, int height, int strid
     int thick = thickness(LIGHT, dpi);
     int mid = (width - thick * 3) / 2;
 
-    vline(buf, 0, height, mid, thick, stride);
-    vline(buf, 0, height, mid + 2 * thick, thick, stride);
+    vline(0, height, mid, thick);
+    vline(0, height, mid + 2 * thick, thick);
 }
 
 static void
@@ -666,8 +670,8 @@ draw_box_drawings_down_single_and_right_double(uint8_t *buf, int width, int heig
 
     vline_middle_down(LIGHT);
 
-    hline(buf, vmid, width, hmid, thick, stride);
-    hline(buf, vmid, width, hmid + 2 * thick, thick, stride);
+    hline(vmid, width, hmid, thick);
+    hline(vmid, width, hmid + 2 * thick, thick);
 }
 
 static void
@@ -679,8 +683,8 @@ draw_box_drawings_down_double_and_right_single(uint8_t *buf, int width, int heig
 
     hline_middle_right(LIGHT);
 
-    vline(buf, hmid, height, vmid, thick, stride);
-    vline(buf, hmid, height, vmid + 2 * thick, thick, stride);
+    vline(hmid, height, vmid, thick);
+    vline(hmid, height, vmid + 2 * thick, thick);
 }
 
 static void
@@ -690,11 +694,11 @@ draw_box_drawings_double_down_and_right(uint8_t *buf, int width, int height, int
     int hmid = (height - thick * 3) / 2;
     int vmid = (width - thick * 3) / 2;
 
-    vline(buf, hmid, height, vmid, thick, stride);
-    vline(buf, hmid + 2 * thick, height, vmid + 2 * thick, thick, stride);
+    vline(hmid, height, vmid, thick);
+    vline(hmid + 2 * thick, height, vmid + 2 * thick, thick);
 
-    hline(buf, vmid, width, hmid, thick, stride);
-    hline(buf, vmid + 2 * thick, width, hmid + 2 * thick, thick, stride);
+    hline(vmid, width, hmid, thick);
+    hline(vmid + 2 * thick, width, hmid + 2 * thick, thick);
 }
 
 static void
@@ -706,8 +710,8 @@ draw_box_drawings_down_single_and_left_double(uint8_t *buf, int width, int heigh
 
     vline_middle_down(LIGHT);
 
-    hline(buf, 0, vmid, hmid, thick, stride);
-    hline(buf, 0, vmid, hmid + 2 * thick, thick, stride);
+    hline(0, vmid, hmid, thick);
+    hline(0, vmid, hmid + 2 * thick, thick);
 }
 
 static void
@@ -719,8 +723,8 @@ draw_box_drawings_down_double_and_left_single(uint8_t *buf, int width, int heigh
 
     hline_middle_left(LIGHT);
 
-    vline(buf, hmid, height, vmid, thick, stride);
-    vline(buf, hmid, height, vmid + 2 * thick, thick, stride);
+    vline(hmid, height, vmid, thick);
+    vline(hmid, height, vmid + 2 * thick, thick);
 }
 
 static void
@@ -730,11 +734,11 @@ draw_box_drawings_double_down_and_left(uint8_t *buf, int width, int height, int 
     int hmid = (height - thick * 3) / 2;
     int vmid = (width - thick * 3) / 2;
 
-    vline(buf, hmid + 2 * thick, height, vmid, thick, stride);
-    vline(buf, hmid, height, vmid + 2 * thick, thick, stride);
+    vline(hmid + 2 * thick, height, vmid, thick);
+    vline(hmid, height, vmid + 2 * thick, thick);
 
-    hline(buf, 0, vmid + 2 * thick, hmid, thick, stride);
-    hline(buf, 0, vmid, hmid + 2 * thick, thick, stride);
+    hline(0, vmid + 2 * thick, hmid, thick);
+    hline(0, vmid, hmid + 2 * thick, thick);
 }
 
 static void
@@ -746,8 +750,8 @@ draw_box_drawings_up_single_and_right_double(uint8_t *buf, int width, int height
 
     vline_middle_up(LIGHT);
 
-    hline(buf, vmid, width, hmid, thick, stride);
-    hline(buf, vmid, width, hmid + 2 * thick, thick, stride);
+    hline(vmid, width, hmid, thick);
+    hline(vmid, width, hmid + 2 * thick, thick);
 }
 
 static void
@@ -759,8 +763,8 @@ draw_box_drawings_up_double_and_right_single(uint8_t *buf, int width, int height
 
     hline_middle_right(LIGHT);
 
-    vline(buf, 0, hmid, vmid, thick, stride);
-    vline(buf, 0, hmid, vmid + 2 * thick, thick, stride);
+    vline(0, hmid, vmid, thick);
+    vline(0, hmid, vmid + 2 * thick, thick);
 }
 
 static void
@@ -770,11 +774,11 @@ draw_box_drawings_double_up_and_right(uint8_t *buf, int width, int height, int s
     int hmid = (height - thick * 3) / 2;
     int vmid = (width - thick * 3) / 2;
 
-    vline(buf, 0, hmid + 2 * thick, vmid, thick, stride);
-    vline(buf, 0, hmid, vmid + 2 * thick, thick, stride);
+    vline(0, hmid + 2 * thick, vmid, thick);
+    vline(0, hmid, vmid + 2 * thick, thick);
 
-    hline(buf, vmid + 2 * thick, width, hmid, thick, stride);
-    hline(buf, vmid, width, hmid + 2 * thick, thick, stride);
+    hline(vmid + 2 * thick, width, hmid, thick);
+    hline(vmid, width, hmid + 2 * thick, thick);
 }
 
 static void
@@ -786,8 +790,8 @@ draw_box_drawings_up_single_and_left_double(uint8_t *buf, int width, int height,
 
     vline_middle_up(LIGHT);
 
-    hline(buf, 0, vmid, hmid, thick, stride);
-    hline(buf, 0, vmid, hmid + 2 * thick, thick, stride);
+    hline(0, vmid, hmid, thick);
+    hline(0, vmid, hmid + 2 * thick, thick);
 }
 
 static void
@@ -799,8 +803,8 @@ draw_box_drawings_up_double_and_left_single(uint8_t *buf, int width, int height,
 
     hline_middle_left(LIGHT);
 
-    vline(buf, 0, hmid, vmid, thick, stride);
-    vline(buf, 0, hmid, vmid + 2 * thick, thick, stride);
+    vline(0, hmid, vmid, thick);
+    vline(0, hmid, vmid + 2 * thick, thick);
 }
 
 static void
@@ -810,11 +814,11 @@ draw_box_drawings_double_up_and_left(uint8_t *buf, int width, int height, int st
     int hmid = (height - thick * 3) / 2;
     int vmid = (width - thick * 3) / 2;
 
-    vline(buf, 0, hmid + 0 * thick + thick, vmid, thick, stride);
-    vline(buf, 0, hmid + 2 * thick + thick, vmid + 2 * thick, thick, stride);
+    vline(0, hmid + 0 * thick + thick, vmid, thick);
+    vline(0, hmid + 2 * thick + thick, vmid + 2 * thick, thick);
 
-    hline(buf, 0, vmid, hmid, thick, stride);
-    hline(buf, 0, vmid + 2 * thick, hmid + 2 * thick, thick, stride);
+    hline(0, vmid, hmid, thick);
+    hline(0, vmid + 2 * thick, hmid + 2 * thick, thick);
 }
 
 static void
@@ -827,8 +831,8 @@ draw_box_drawings_vertical_single_and_right_double(uint8_t *buf, int width, int 
     vline_middle_up(LIGHT);
     vline_middle_down(LIGHT);
 
-    hline(buf, vmid, width, hmid, thick, stride);
-    hline(buf, vmid, width, hmid + 2 * thick, thick, stride);
+    hline(vmid, width, hmid, thick);
+    hline(vmid, width, hmid + 2 * thick, thick);
 }
 
 static void
@@ -837,10 +841,10 @@ draw_box_drawings_vertical_double_and_right_single(uint8_t *buf, int width, int 
     int thick = thickness(LIGHT, dpi);
     int vmid = (width - thick * 3) / 2;
 
-    hline(buf, vmid + 2 * thick, width, (height - thick) / 2, thick, stride);
+    hline(vmid + 2 * thick, width, (height - thick) / 2, thick);
 
-    vline(buf, 0, height, vmid, thick, stride);
-    vline(buf, 0, height, vmid + 2 * thick, thick, stride);
+    vline(0, height, vmid, thick);
+    vline(0, height, vmid + 2 * thick, thick);
 }
 
 static void
@@ -850,12 +854,12 @@ draw_box_drawings_double_vertical_and_right(uint8_t *buf, int width, int height,
     int hmid = (height - thick * 3) / 2;
     int vmid = (width - thick * 3) / 2;
 
-    vline(buf, 0, height, vmid, thick, stride);
-    vline(buf, 0, hmid, vmid + 2 * thick, thick, stride);
-    vline(buf, hmid + 2 * thick, height, vmid + 2 * thick, thick, stride);
+    vline(0, height, vmid, thick);
+    vline(0, hmid, vmid + 2 * thick, thick);
+    vline(hmid + 2 * thick, height, vmid + 2 * thick, thick);
 
-    hline(buf, vmid + 2 * thick, width, hmid, thick, stride);
-    hline(buf, vmid + 2 * thick, width, hmid + 2 * thick, thick, stride);
+    hline(vmid + 2 * thick, width, hmid, thick);
+    hline(vmid + 2 * thick, width, hmid + 2 * thick, thick);
 }
 
 static void
@@ -868,8 +872,8 @@ draw_box_drawings_vertical_single_and_left_double(uint8_t *buf, int width, int h
     vline_middle_up(LIGHT);
     vline_middle_down(LIGHT);
 
-    hline(buf, 0, vmid, hmid, thick, stride);
-    hline(buf, 0, vmid, hmid + 2 * thick, thick, stride);
+    hline(0, vmid, hmid, thick);
+    hline(0, vmid, hmid + 2 * thick, thick);
 }
 
 static void
@@ -878,10 +882,10 @@ draw_box_drawings_vertical_double_and_left_single(uint8_t *buf, int width, int h
     int thick = thickness(LIGHT, dpi);
     int vmid = (width - thick * 3) / 2;
 
-    hline(buf, 0, vmid, (height - thick) / 2, thick, stride);
+    hline(0, vmid, (height - thick) / 2, thick);
 
-    vline(buf, 0, height, vmid, thick, stride);
-    vline(buf, 0, height, vmid + 2 * thick, thick, stride);
+    vline(0, height, vmid, thick);
+    vline(0, height, vmid + 2 * thick, thick);
 }
 
 static void
@@ -891,12 +895,12 @@ draw_box_drawings_double_vertical_and_left(uint8_t *buf, int width, int height, 
     int hmid = (height - thick * 3) / 2;
     int vmid = (width - thick * 3) / 2;
 
-    vline(buf, 0, height, vmid + 2 * thick, thick, stride);
-    vline(buf, 0, hmid, vmid, thick, stride);
-    vline(buf, hmid + 2 * thick, height, vmid, thick, stride);
+    vline(0, height, vmid + 2 * thick, thick);
+    vline(0, hmid, vmid, thick);
+    vline(hmid + 2 * thick, height, vmid, thick);
 
-    hline(buf, 0, vmid + thick, hmid, thick, stride);
-    hline(buf, 0, vmid, hmid + 2 * thick, thick, stride);
+    hline(0, vmid + thick, hmid, thick);
+    hline(0, vmid, hmid + 2 * thick, thick);
 }
 
 static void
@@ -905,10 +909,10 @@ draw_box_drawings_down_single_and_horizontal_double(uint8_t *buf, int width, int
     int thick = thickness(LIGHT, dpi);
     int hmid = (height - thick * 3) / 2;
 
-    vline(buf, hmid + 2 * thick, height, (width - thick) / 2, thick, stride);
+    vline(hmid + 2 * thick, height, (width - thick) / 2, thick);
 
-    hline(buf, 0, width, hmid, thick, stride);
-    hline(buf, 0, width, hmid + 2 * thick, thick, stride);
+    hline(0, width, hmid, thick);
+    hline(0, width, hmid + 2 * thick, thick);
 }
 
 static void
@@ -921,8 +925,8 @@ draw_box_drawings_down_double_and_horizontal_single(uint8_t *buf, int width, int
     hline_middle_left(LIGHT);
     hline_middle_right(LIGHT);
 
-    vline(buf, hmid, height, vmid, thick, stride);
-    vline(buf, hmid, height, vmid + 2 * thick, thick, stride);
+    vline(hmid, height, vmid, thick);
+    vline(hmid, height, vmid + 2 * thick, thick);
 }
 
 static void
@@ -932,12 +936,12 @@ draw_box_drawings_double_down_and_horizontal(uint8_t *buf, int width, int height
     int hmid = (height - thick * 3) / 2;
     int vmid = (width - thick * 3) / 2;
 
-    hline(buf, 0, width, hmid, thick, stride);
-    hline(buf, 0, vmid, hmid + 2 * thick, thick, stride);
-    hline(buf, vmid + 2 * thick, width, hmid + 2 * thick, thick, stride);
+    hline(0, width, hmid, thick);
+    hline(0, vmid, hmid + 2 * thick, thick);
+    hline(vmid + 2 * thick, width, hmid + 2 * thick, thick);
 
-    vline(buf, hmid + 2 * thick, height, vmid, thick, stride);
-    vline(buf, hmid + 2 * thick, height, vmid + 2 * thick, thick, stride);
+    vline(hmid + 2 * thick, height, vmid, thick);
+    vline(hmid + 2 * thick, height, vmid + 2 * thick, thick);
 }
 
 static void
@@ -947,10 +951,10 @@ draw_box_drawings_up_single_and_horizontal_double(uint8_t *buf, int width, int h
     int hmid = (height - thick * 3) / 2;
     int vmid = (width - thick) / 2;
 
-    vline(buf, 0, hmid, vmid, thick, stride);
+    vline(0, hmid, vmid, thick);
 
-    hline(buf, 0, width, hmid, thick, stride);
-    hline(buf, 0, width, hmid + 2 * thick, thick, stride);
+    hline(0, width, hmid, thick);
+    hline(0, width, hmid + 2 * thick, thick);
 }
 
 static void
@@ -963,8 +967,8 @@ draw_box_drawings_up_double_and_horizontal_single(uint8_t *buf, int width, int h
     hline_middle_left(LIGHT);
     hline_middle_right(LIGHT);
 
-    vline(buf, 0, hmid, vmid, thick, stride);
-    vline(buf, 0, hmid, vmid + 2 * thick, thick, stride);
+    vline(0, hmid, vmid, thick);
+    vline(0, hmid, vmid + 2 * thick, thick);
 }
 
 static void
@@ -974,12 +978,12 @@ draw_box_drawings_double_up_and_horizontal(uint8_t *buf, int width, int height, 
     int hmid = (height - thick * 3) / 2;
     int vmid = (width - thick * 3) / 2;
 
-    vline(buf, 0, hmid, vmid, thick, stride);
-    vline(buf, 0, hmid, vmid + 2 * thick, thick, stride);
+    vline(0, hmid, vmid, thick);
+    vline(0, hmid, vmid + 2 * thick, thick);
 
-    hline(buf, 0, vmid + thick, hmid, thick, stride);
-    hline(buf, vmid + 2 * thick, width, hmid, thick, stride);
-    hline(buf, 0, width, hmid + 2 * thick, thick, stride);
+    hline(0, vmid + thick, hmid, thick);
+    hline(vmid + 2 * thick, width, hmid, thick);
+    hline(0, width, hmid + 2 * thick, thick);
 }
 
 static void
@@ -991,8 +995,8 @@ draw_box_drawings_vertical_single_and_horizontal_double(uint8_t *buf, int width,
     vline_middle_up(LIGHT);
     vline_middle_down(LIGHT);
 
-    hline(buf, 0, width, hmid, thick, stride);
-    hline(buf, 0, width, hmid + 2 * thick, thick, stride);
+    hline(0, width, hmid, thick);
+    hline(0, width, hmid + 2 * thick, thick);
 }
 
 static void
@@ -1004,8 +1008,8 @@ draw_box_drawings_vertical_double_and_horizontal_single(uint8_t *buf, int width,
     hline_middle_left(LIGHT);
     hline_middle_right(LIGHT);
 
-    vline(buf, 0, height, vmid, thick, stride);
-    vline(buf, 0, height, vmid + 2 * thick, thick, stride);
+    vline(0, height, vmid, thick);
+    vline(0, height, vmid + 2 * thick, thick);
 }
 
 static void
@@ -1015,15 +1019,15 @@ draw_box_drawings_double_vertical_and_horizontal(uint8_t *buf, int width, int he
     int hmid = (height - thick * 3) / 2;
     int vmid = (width - thick * 3) / 2;
 
-    hline(buf, 0, vmid, hmid, thick, stride);
-    hline(buf, vmid + 2 * thick, width, hmid, thick, stride);
-    hline(buf, 0, vmid, hmid + 2 * thick, thick, stride);
-    hline(buf, vmid + 2 * thick, width, hmid + 2 * thick, thick, stride);
+    hline(0, vmid, hmid, thick);
+    hline(vmid + 2 * thick, width, hmid, thick);
+    hline(0, vmid, hmid + 2 * thick, thick);
+    hline(vmid + 2 * thick, width, hmid + 2 * thick, thick);
 
-    vline(buf, 0, hmid, vmid, thick, stride);
-    vline(buf, 0, hmid, vmid + 2 * thick, thick, stride);
-    vline(buf, hmid + 2 * thick, height, vmid, thick, stride);
-    vline(buf, hmid + 2 * thick, height, vmid + 2 * thick, thick, stride);
+    vline(0, hmid, vmid, thick);
+    vline(0, hmid, vmid + 2 * thick, thick);
+    vline(hmid + 2 * thick, height, vmid, thick);
+    vline(hmid + 2 * thick, height, vmid + 2 * thick, thick);
 }
 
 static void
