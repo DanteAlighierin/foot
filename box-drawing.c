@@ -22,10 +22,10 @@ thickness(float pts, int dpi)
 }
 
 static void
-_hline(uint8_t *buf, int x1, int x2, int y, int thick, int stride)
+_hline(uint8_t *buf, int x1, int x2, int y, int thick, int width, int height, int stride)
 {
-    for (size_t row = y; row < y + thick; row++) {
-        for (size_t col = x1; col < x2; col++) {
+    for (size_t row = max(y, 0); row < min(y + thick, height); row++) {
+        for (size_t col = max(x1, 0); col < min(x2, width); col++) {
             size_t idx = col / 8;
             size_t bit_no = col % 8;
             buf[row * stride + idx] |= 1 << bit_no;
@@ -33,13 +33,13 @@ _hline(uint8_t *buf, int x1, int x2, int y, int thick, int stride)
     }
 }
 
-#define hline(x1, x2, y, thick) _hline(buf, x1, x2, y, thick, stride)
+#define hline(x1, x2, y, thick) _hline(buf, x1, x2, y, thick, width, height, stride)
 
 static void
-_vline(uint8_t *buf, int y1, int y2, int x, int thick, int stride)
+_vline(uint8_t *buf, int y1, int y2, int x, int thick, int width, int height, int stride)
 {
-    for (size_t row = y1; row < y2; row++) {
-        for (size_t col = x; col < x + thick; col++) {
+    for (size_t row = max(y1, 0); row < min(y2, height); row++) {
+        for (size_t col = max(x, 0); col < min(x + thick, width); col++) {
             size_t idx = col / 8;
             size_t bit_no = col % 8;
             buf[row * stride + idx] |= 1 << bit_no;
@@ -47,19 +47,22 @@ _vline(uint8_t *buf, int y1, int y2, int x, int thick, int stride)
     }
 }
 
-#define vline(y1, y2, x, thick) _vline(buf, y1, y2, x, thick, stride)
+#define vline(y1, y2, x, thick) _vline(buf, y1, y2, x, thick, width, height, stride)
 
 static void
-rectangle(uint8_t *buf, int x1, int y1, int x2, int y2, int stride)
+_rect(uint8_t *buf, int x1, int y1, int x2, int y2, int width, int height, int stride)
 {
-    for (size_t row = y1; row < y2; row++) {
-        for (size_t col = x1; col < x2; col++) {
+    for (size_t row = max(y1, 0); row < min(y2, height); row++) {
+        for (size_t col = max(x1, 0); col < min(x2, width); col++) {
             size_t idx = col / 8;
             size_t bit_no = col % 8;
             buf[row * stride + idx] |= 1 << bit_no;
         }
     }
 }
+
+#define rect(x1, y1, x2, y2) _rect(buf, x1, y1, x2, y2, width, height, stride)
+
 
 #define _hline_middle_left(_vthick, _hthick)                            \
     do {                                                                \
@@ -93,8 +96,6 @@ rectangle(uint8_t *buf, int x1, int y1, int x2, int y2, int stride)
 #define hline_middle_right(thick) _hline_middle_right(thick, thick)
 #define vline_middle_up(thick) _vline_middle_up(thick, thick)
 #define vline_middle_down(thick) _vline_middle_down(thick, thick)
-
-#define rect(x1, y1, x2, y2) rectangle(buf, x1, y1, x2, y2, stride)
 
 #define quad_upper_left()  rect(0, 0, ceil(width / 2.), ceil(height / 2.))
 #define quad_upper_right() rect(floor(width / 2.), 0, width, ceil(height / 2.))
