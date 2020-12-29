@@ -14,7 +14,7 @@
 #define LIGHT 1.0
 #define HEAVY 2.0
 
-static int CONST
+static int
 thickness(float pts, int dpi)
 {
     return pts * (float)dpi / 72.0;
