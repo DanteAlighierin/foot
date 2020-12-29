@@ -3,4 +3,4 @@
 #include <fcft/fcft.h>
 
 struct terminal;
-struct fcft_glyph *box_drawing(struct terminal *term, wchar_t wc);
+struct fcft_glyph *box_drawing(const struct terminal *term, wchar_t wc);
