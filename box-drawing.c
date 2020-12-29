@@ -1508,7 +1508,7 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     }
 }
 
-struct fcft_glyph * COLDx
+struct fcft_glyph * COLD
 box_drawing(const struct terminal *term, wchar_t wc)
 {
     int width = term->cell_width;
