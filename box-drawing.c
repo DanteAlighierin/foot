@@ -1505,13 +1505,10 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x259d: draw_quadrant_upper_right(buf, width, height, stride, dpi); break;
     case 0x259e: draw_quadrant_upper_right_and_lower_left(buf, width, height, stride, dpi); break;
     case 0x259f: draw_quadrant_upper_right_and_lower_left_and_lower_right(buf, width, height, stride, dpi); break;
-
-        LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
-        break;
     }
 }
 
-struct fcft_glyph * COLD
+struct fcft_glyph * COLDx
 box_drawing(const struct terminal *term, wchar_t wc)
 {
     int width = term->cell_width;
