@@ -450,9 +450,10 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             base = composed->base;
         }
 
-        if (unlikely(base >= 0x2500 && base <= 0x259f)) {
+        if (unlikely((base >= 0x2500 && base <= 0x259f) ||
+                     (base >= 0x1fb00 && base <= 0x1fb3b))) {
             /* Box drawing characters */
-            size_t idx = base - 0x2500;
+            size_t idx = base >= 0x1fb00 ? base - 0x1fb00 + 160 : base - 0x2500;
             assert(idx < ALEN(term->box_drawing));
 
             if (likely(term->box_drawing[idx] != NULL))

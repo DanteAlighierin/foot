@@ -9,6 +9,7 @@
 #include "macros.h"
 #include "stride.h"
 #include "terminal.h"
+#include "util.h"
 #include "xmalloc.h"
 
 #define LIGHT 1.0
@@ -1321,9 +1322,137 @@ draw_quadrant_upper_right_and_lower_left_and_lower_right(uint8_t *buf, int width
     quad_lower_right();
 }
 
+#define sextant_upper_left() rect(0, 0, round(width / 2.), round(height / 3.))
+#define sextant_middle_left() rect(0, height / 3, round(width / 2.), round(2. * height / 3.))
+#define sextant_lower_left() rect(0, 2 * height / 3, round(width / 2.), height)
+#define sextant_upper_right() rect(width / 2, 0, width, round(height / 3.))
+#define sextant_middle_right() rect(width / 2, height / 3, width, round(2. * height / 3.))
+#define sextant_lower_right() rect(width / 2, 2 * height / 3, width, height)
+
+static void
+draw_sextant(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    /*
+     * Each byte encodes one sextant:
+     *
+     * Bit     sextant
+     *   0      upper left
+     *   1      middle left
+     *   2      lower left
+     *   3      upper right
+     *   4      middle right
+     *   5      lower right
+     */
+#define UPPER_LEFT (1 << 0)
+#define MIDDLE_LEFT (1 << 1)
+#define LOWER_LEFT (1 << 2)
+#define UPPER_RIGHT (1 << 3)
+#define MIDDLE_RIGHT (1 << 4)
+#define LOWER_RIGHT (1 << 5)
+
+    static const uint8_t matrix[60] = {
+        /* U+1fb00 - U+1fb0f */
+        UPPER_LEFT,
+        UPPER_RIGHT,
+        UPPER_LEFT | UPPER_RIGHT,
+        MIDDLE_LEFT,
+        UPPER_LEFT | MIDDLE_LEFT,
+        UPPER_RIGHT | MIDDLE_LEFT,
+        UPPER_LEFT | UPPER_RIGHT | MIDDLE_LEFT,
+        MIDDLE_RIGHT,
+        UPPER_LEFT | MIDDLE_RIGHT,
+        UPPER_RIGHT | MIDDLE_RIGHT,
+        UPPER_LEFT | UPPER_RIGHT | MIDDLE_RIGHT,
+        MIDDLE_LEFT | MIDDLE_RIGHT,
+        UPPER_LEFT | MIDDLE_LEFT | MIDDLE_RIGHT,
+        UPPER_RIGHT | MIDDLE_LEFT | MIDDLE_RIGHT,
+        UPPER_LEFT | UPPER_RIGHT | MIDDLE_LEFT | MIDDLE_RIGHT,
+        LOWER_LEFT,
+
+        /* U+1fb10 - U+1fb1f */
+        UPPER_LEFT | LOWER_LEFT,
+        UPPER_RIGHT | LOWER_LEFT,
+        UPPER_LEFT | UPPER_RIGHT | LOWER_LEFT,
+        MIDDLE_LEFT | LOWER_LEFT,
+        UPPER_RIGHT | MIDDLE_LEFT | LOWER_LEFT,
+        UPPER_LEFT | UPPER_RIGHT | MIDDLE_LEFT | LOWER_LEFT,
+        MIDDLE_RIGHT | LOWER_LEFT,
+        UPPER_LEFT | MIDDLE_RIGHT | LOWER_LEFT,
+        UPPER_RIGHT | MIDDLE_RIGHT | LOWER_LEFT,
+        UPPER_LEFT | UPPER_RIGHT | MIDDLE_RIGHT | LOWER_LEFT,
+        MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_LEFT,
+        UPPER_LEFT | MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_LEFT,
+        UPPER_RIGHT | MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_LEFT,
+        UPPER_LEFT | UPPER_RIGHT | MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_LEFT,
+        LOWER_RIGHT,
+        UPPER_LEFT | LOWER_RIGHT,
+
+        /* U+1fb20 - U+1fb2f */
+        UPPER_RIGHT | LOWER_RIGHT,
+        UPPER_LEFT | UPPER_RIGHT | LOWER_RIGHT,
+        MIDDLE_LEFT | LOWER_RIGHT,
+        UPPER_LEFT | MIDDLE_LEFT | LOWER_RIGHT,
+        UPPER_RIGHT | MIDDLE_LEFT | LOWER_RIGHT,
+        UPPER_LEFT | UPPER_RIGHT | MIDDLE_LEFT | LOWER_RIGHT,
+        MIDDLE_RIGHT | LOWER_RIGHT,
+        UPPER_LEFT | MIDDLE_RIGHT | LOWER_RIGHT,
+        UPPER_LEFT | UPPER_RIGHT | MIDDLE_RIGHT | LOWER_RIGHT,
+        MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_RIGHT,
+        UPPER_LEFT | MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_RIGHT,
+        UPPER_RIGHT | MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_RIGHT,
+        UPPER_LEFT | UPPER_RIGHT | MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_RIGHT,
+        LOWER_LEFT | LOWER_RIGHT,
+        UPPER_LEFT | LOWER_LEFT | LOWER_RIGHT,
+        UPPER_RIGHT | LOWER_LEFT | LOWER_RIGHT,
+
+        /* U+1fb30 - U+1fb3b */
+        UPPER_LEFT | UPPER_RIGHT | LOWER_LEFT | LOWER_RIGHT,
+        MIDDLE_LEFT | LOWER_LEFT | LOWER_RIGHT,
+        UPPER_LEFT | MIDDLE_LEFT | LOWER_LEFT | LOWER_RIGHT,
+        UPPER_RIGHT | MIDDLE_LEFT | LOWER_LEFT | LOWER_RIGHT,
+        UPPER_LEFT | UPPER_RIGHT | MIDDLE_LEFT | LOWER_LEFT | LOWER_RIGHT,
+        MIDDLE_RIGHT | LOWER_LEFT | LOWER_RIGHT,
+        UPPER_LEFT | MIDDLE_RIGHT | LOWER_LEFT | LOWER_RIGHT,
+        UPPER_RIGHT | MIDDLE_RIGHT | LOWER_LEFT | LOWER_RIGHT,
+        UPPER_LEFT | UPPER_RIGHT | MIDDLE_RIGHT | LOWER_LEFT | LOWER_RIGHT,
+        MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_LEFT | LOWER_RIGHT,
+        UPPER_LEFT | MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_LEFT | LOWER_RIGHT,
+        UPPER_RIGHT | MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_LEFT | LOWER_RIGHT,
+    };
+
+    assert(wc >= 0x1fb00 && wc <= 0x1fb3b);
+    const size_t idx = wc - 0x1fb00;
+
+    assert(idx < ALEN(matrix));
+    uint8_t encoded = matrix[idx];
+
+    if (encoded & UPPER_LEFT)
+        sextant_upper_left();
+
+    if (encoded & MIDDLE_LEFT)
+        sextant_middle_left();
+
+    if (encoded & LOWER_LEFT)
+        sextant_lower_left();
+
+    if (encoded & UPPER_RIGHT)
+        sextant_upper_right();
+
+    if (encoded & MIDDLE_RIGHT)
+        sextant_middle_right();
+
+    if (encoded & LOWER_RIGHT)
+        sextant_lower_right();
+}
+
 static void
 draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
 {
+#if defined(__GNUC__)
+ #pragma GCC diagnostic push
+ #pragma GCC diagnostic ignored "-Wpedantic"
+#endif
+
     switch (wc) {
     case 0x2500: draw_box_drawings_light_horizontal(buf, width, height, stride, dpi); break;
     case 0x2501: draw_box_drawings_heavy_horizontal(buf, width, height, stride, dpi); break;
@@ -1505,7 +1634,13 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x259d: draw_quadrant_upper_right(buf, width, height, stride, dpi); break;
     case 0x259e: draw_quadrant_upper_right_and_lower_left(buf, width, height, stride, dpi); break;
     case 0x259f: draw_quadrant_upper_right_and_lower_left_and_lower_right(buf, width, height, stride, dpi); break;
+
+    case 0x1fb00 ... 0x1fb3b: draw_sextant(wc, buf, width, height, stride, dpi); break;
     }
+
+#if defined(__GNUC__)
+ #pragma GCC diagnostic pop
+#endif
 }
 
 struct fcft_glyph * COLD
