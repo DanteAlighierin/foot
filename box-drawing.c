@@ -18,7 +18,7 @@
 static int
 thickness(float pts, int dpi)
 {
-    return pts * (float)dpi / 72.0;
+    return max(pts * (float)dpi / 72.0, 1);
 }
 
 static void
