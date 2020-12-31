@@ -19,8 +19,16 @@ in this order:
 # SECTION: default
 
 *font*, *font-bold*, *font-italic*, *font-bold-italic*
-	Comma separated list of fonts to use, in fontconfig format (see
-	*FONT FORMAT*).
+
+	Comma separated list of fonts to use, in fontconfig format. That
+	is, a font name followed by a list of colon-separated
+	options. Most noteworthy is *:size=n*, which is used to set the
+	font size.
+	
+	Examples:
+	- Dina:weight=bold:slant=italic
+	- Courier New:size=12
+	- Fantasque Sans Mono:fontfeatures=ss01
 	
 	For each option, the first font is the primary font. The remaining
 	fonts are fallback fonts that will be used whenever a glyph cannot
@@ -40,7 +48,7 @@ in this order:
 	To disable bold and/or italic fonts, set e.g. *font-bold* to
 	_exactly_ the same value as *font*.
 	
-	Default: _monospace_ (*font*), _not set_ (*font-bold*,
+	Default: _monospace:size=8_ (*font*), _not set_ (*font-bold*,
 	*font-italic*, *font-bold-italic*).
 
 *dpi-aware*
@@ -553,15 +561,6 @@ All actions listed under *key-bindings* can be user here as well.
 *primary-paste*
 	Pastes from the _primary selection_. Default: _BTN\_MIDDLE_.
 
-
-# FONT FORMAT
-
-The font is specified in FontConfig syntax. That is, a colon-separated
-list of font name and font options.
-
-_Examples_:
-- Dina:weight=bold:slant=italic
-- Courier New:size=12
 
 # TWEAK
 
