@@ -1037,6 +1037,100 @@ draw_box_drawings_double_vertical_and_horizontal(uint8_t *buf, int width, int he
     vline(hmid + 2 * thick, height, vmid + 2 * thick, thick);
 }
 
+#define cubic_bezier_x(t) __extension__ \
+    ({                                                                  \
+        double tm1 = 1 - t;                                             \
+        double tm1_3 = tm1 * tm1 * tm1;                                 \
+        double t_3 = t * t * t;                                         \
+        tm1_3 * start_x + 3 * t * tm1 * (tm1 * c1_x + t * c2_x) + t_3 * end_x; \
+    })
+
+#define cubic_bezier_y(t) __extension__                                       \
+    ({                                                                  \
+        double tm1 = 1 - t;                                             \
+        double tm1_3 = tm1 * tm1 * tm1;                                 \
+        double t_3 = t * t * t;                                         \
+        tm1_3 * start_y + 3 * t * tm1 * (tm1 * c1_y + t * c2_y) + t_3 * end_y; \
+    })
+
+static void
+draw_box_drawings_light_arc(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    int thick = thickness(LIGHT, dpi);
+    int delta = thick / 2;
+    int extra = thick % 2;
+
+    int hw = (width - thick) / 2;
+    int hh = (height - thick) / 2;
+    int start_x, start_y, end_x, end_y, c1_x, c1_y, c2_x, c2_y;
+
+    if (wc == L'╭') {
+        start_x = hw;
+        start_y = height - 1;
+        end_x = width - 1;
+        end_y = hh;
+
+        c1_x = hw;
+        c1_y = round(3. * height / 4.);
+
+        c2_x = hw;
+        c2_y = hh + 1;
+    } else if (wc == L'╮') {
+        start_x = 0;
+        start_y = hh;
+        end_x = hw;
+        end_y = height - 1;
+
+        c1_x = hw + 1;
+        c1_y = hh + 1;
+
+        c2_x = hw + 1;
+        c2_y = round(3. * height / 4.);
+    } else if (wc == L'╯') {
+        start_x = 0;
+        start_y = hh;
+        end_x = hw;
+        end_y = 0;
+
+        c1_x = hw + 2;
+        c1_y = hh + 1;
+
+        c2_x = hw + 1;
+        c2_y = round(height / 4.);
+    } else {
+        assert(wc == L'╰');
+
+        start_x = hw;
+        start_y = 0;
+        end_x = width - 1;
+        end_y = hh;
+
+        c1_x = hw;
+        c1_y = round(height / 4.);
+
+        c2_x = hw;
+        c2_y = hh + 1;
+    }
+
+    LOG_INFO("%f, %f", round(3. * height / 4.), round(height / 4.));
+
+    int num_samples = height * 4;
+
+    for (size_t i = 0; i < num_samples + 1; i++) {
+        double t = (double)i / num_samples;
+        int p_x = cubic_bezier_x(t);
+        int p_y = cubic_bezier_y(t);
+
+        for (int y = max(p_y - delta, 0); y < min(p_y + delta + extra, height); y++) {
+            for (int x = max(p_x - delta, 0); x < min(p_x + delta + extra, width); x++) {
+                size_t ofs = x / 8;
+                size_t bit_no = x % 8;
+                buf[y * stride + ofs] |= 1 << bit_no;
+            }
+        }
+    }
+}
+
 static void
 draw_box_drawings_light_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
@@ -1586,11 +1680,7 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x256a: draw_box_drawings_vertical_single_and_horizontal_double(buf, width, height, stride, dpi); break;
     case 0x256b: draw_box_drawings_vertical_double_and_horizontal_single(buf, width, height, stride, dpi); break;
     case 0x256c: draw_box_drawings_double_vertical_and_horizontal(buf, width, height, stride, dpi); break;
-    case 0x256d:
-    case 0x256e:
-    case 0x256f:
-        LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
-        break;
+    case 0x256d ... 0x2570: draw_box_drawings_light_arc(wc, buf, width, height, stride, dpi); break;
 
     case 0x2574: draw_box_drawings_light_left(buf, width, height, stride, dpi); break;
     case 0x2575: draw_box_drawings_light_up(buf, width, height, stride, dpi); break;
@@ -1605,7 +1695,6 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x257e: draw_box_drawings_heavy_left_and_light_right(buf, width, height, stride, dpi); break;
     case 0x257f: draw_box_drawings_heavy_up_and_light_down(buf, width, height, stride, dpi); break;
 
-    case 0x2570:
     case 0x2571:
     case 0x2572:
     case 0x2573:
