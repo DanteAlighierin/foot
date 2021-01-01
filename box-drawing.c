@@ -1716,12 +1716,41 @@ draw_quadrant_upper_right_and_lower_left_and_lower_right(struct buf *buf)
     quad_lower_right(buf);
 }
 
-#define sextant_upper_left() rect(0, 0, round(buf->width / 2.), round(buf->height / 3.))
-#define sextant_middle_left() rect(0, buf->height / 3, round(buf->width / 2.), round(2. * buf->height / 3.))
-#define sextant_lower_left() rect(0, 2 * buf->height / 3, round(buf->width / 2.), buf->height)
-#define sextant_upper_right() rect(buf->width / 2, 0, buf->width, round(buf->height / 3.))
-#define sextant_middle_right() rect(buf->width / 2, buf->height / 3, buf->width, round(2. * buf->height / 3.))
-#define sextant_lower_right() rect(buf->width / 2, 2 * buf->height / 3, buf->width, buf->height)
+static void
+sextant_upper_left(struct buf *buf)
+{
+    rect(0, 0, round(buf->width / 2.), round(buf->height / 3.));
+}
+
+static void
+sextant_middle_left(struct buf *buf)
+{
+    rect(0, buf->height / 3, round(buf->width / 2.), round(2. * buf->height / 3.));
+}
+
+static void
+sextant_lower_left(struct buf *buf)
+{
+    rect(0, 2 * buf->height / 3, round(buf->width / 2.), buf->height);
+}
+
+static void
+sextant_upper_right(struct buf *buf)
+{
+    rect(buf->width / 2, 0, buf->width, round(buf->height / 3.));
+}
+
+static void
+sextant_middle_right(struct buf *buf)
+{
+    rect(buf->width / 2, buf->height / 3, buf->width, round(2. * buf->height / 3.));
+}
+
+static void
+sextant_lower_right(struct buf *buf)
+{
+    rect(buf->width / 2, 2 * buf->height / 3, buf->width, buf->height);
+}
 
 static void
 draw_sextant(wchar_t wc, struct buf *buf)
@@ -1821,22 +1850,22 @@ draw_sextant(wchar_t wc, struct buf *buf)
     uint8_t encoded = matrix[idx];
 
     if (encoded & UPPER_LEFT)
-        sextant_upper_left();
+        sextant_upper_left(buf);
 
     if (encoded & MIDDLE_LEFT)
-        sextant_middle_left();
+        sextant_middle_left(buf);
 
     if (encoded & LOWER_LEFT)
-        sextant_lower_left();
+        sextant_lower_left(buf);
 
     if (encoded & UPPER_RIGHT)
-        sextant_upper_right();
+        sextant_upper_right(buf);
 
     if (encoded & MIDDLE_RIGHT)
-        sextant_middle_right();
+        sextant_middle_right(buf);
 
     if (encoded & LOWER_RIGHT)
-        sextant_lower_right();
+        sextant_lower_right(buf);
 }
 
 static void
