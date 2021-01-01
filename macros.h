@@ -26,6 +26,12 @@
     #define UNUSED
 #endif
 
+#if HAS_ATTRIBUTE(noinline)
+    #define NOINLINE __attribute__((noinline))
+#else
+    #define NOINLINE
+#endif
+
 #if HAS_ATTRIBUTE(const)
     #define CONST __attribute__((__const__))
 #else
