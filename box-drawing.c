@@ -114,11 +114,6 @@ _rect(struct buf *buf, int x1, int y1, int x2, int y2)
 #define vline_middle_up(thick) _vline_middle_up(thick, thick)
 #define vline_middle_down(thick) _vline_middle_down(thick, thick)
 
-#define quad_upper_left()  rect(0, 0, ceil(buf->width / 2.), ceil(buf->height / 2.))
-#define quad_upper_right() rect(floor(buf->width / 2.), 0, buf->width, ceil(buf->height / 2.))
-#define quad_lower_left()  rect(0, floor(buf->height / 2.), ceil(buf->width / 2.), buf->height)
-#define quad_lower_right() rect(floor(buf->width / 2.), floor(buf->height / 2.), buf->width, buf->height)
-
 static void
 draw_box_drawings_light_horizontal(struct buf *buf)
 {
@@ -1628,73 +1623,97 @@ draw_right_one_eighth_block(struct buf *buf)
 }
 
 static void
+quad_upper_left(struct buf *buf)
+{
+    rect(0, 0, ceil(buf->width / 2.), ceil(buf->height / 2.));
+}
+
+static void
+quad_upper_right(struct buf *buf)
+{
+    rect(floor(buf->width / 2.), 0, buf->width, ceil(buf->height / 2.));
+}
+
+static void
+quad_lower_left(struct buf *buf)
+{
+    rect(0, floor(buf->height / 2.), ceil(buf->width / 2.), buf->height);
+}
+
+static void
+quad_lower_right(struct buf *buf)
+{
+    rect(floor(buf->width / 2.), floor(buf->height / 2.), buf->width, buf->height);
+}
+
+static void
 draw_quadrant_lower_left(struct buf *buf)
 {
-    quad_lower_left();
+    quad_lower_left(buf);
 }
 
 static void
 draw_quadrant_lower_right(struct buf *buf)
 {
-    quad_lower_right();
+    quad_lower_right(buf);
 }
 
 static void
 draw_quadrant_upper_left(struct buf *buf)
 {
-    quad_upper_left();
+    quad_upper_left(buf);
 }
 
 static void
 draw_quadrant_upper_left_and_lower_left_and_lower_right(struct buf *buf)
 {
-    quad_upper_left();
-    quad_lower_left();
-    quad_lower_right();
+    quad_upper_left(buf);
+    quad_lower_left(buf);
+    quad_lower_right(buf);
 }
 
 static void
 draw_quadrant_upper_left_and_lower_right(struct buf *buf)
 {
-    quad_upper_left();
-    quad_lower_right();
+    quad_upper_left(buf);
+    quad_lower_right(buf);
 }
 
 static void
 draw_quadrant_upper_left_and_upper_right_and_lower_left(struct buf *buf)
 {
-    quad_upper_left();
-    quad_upper_right();
-    quad_lower_left();
+    quad_upper_left(buf);
+    quad_upper_right(buf);
+    quad_lower_left(buf);
 }
 
 static void
 draw_quadrant_upper_left_and_upper_right_and_lower_right(struct buf *buf)
 {
-    quad_upper_left();
-    quad_upper_right();
-    quad_lower_right();
+    quad_upper_left(buf);
+    quad_upper_right(buf);
+    quad_lower_right(buf);
 }
 
 static void
 draw_quadrant_upper_right(struct buf *buf)
 {
-    quad_upper_right();
+    quad_upper_right(buf);
 }
 
 static void
 draw_quadrant_upper_right_and_lower_left(struct buf *buf)
 {
-    quad_upper_right();
-    quad_lower_left();
+    quad_upper_right(buf);
+    quad_lower_left(buf);
 }
 
 static void
 draw_quadrant_upper_right_and_lower_left_and_lower_right(struct buf *buf)
 {
-    quad_upper_right();
-    quad_lower_left();
-    quad_lower_right();
+    quad_upper_right(buf);
+    quad_lower_left(buf);
+    quad_lower_right(buf);
 }
 
 #define sextant_upper_left() rect(0, 0, round(buf->width / 2.), round(buf->height / 3.))
