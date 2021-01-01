@@ -15,7 +15,9 @@
 #define LIGHT 1.0
 #define HEAVY 2.0
 
-#pragma GCC optimize("Os")
+#if defined(__GNUC__)
+ #pragma GCC optimize("Os")
+#endif
 
 struct buf {
     uint8_t *data;
