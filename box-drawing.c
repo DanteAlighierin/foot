@@ -32,7 +32,7 @@ _thickness(struct buf *buf, float pts)
 }
 #define thickness(pts) _thickness(buf, pts)
 
-static void __attribute__((noinline))
+static void NOINLINE
 _hline(struct buf *buf, int x1, int x2, int y, int thick)
 {
     x1 = min(max(x1, 0), buf->width);
@@ -49,7 +49,7 @@ _hline(struct buf *buf, int x1, int x2, int y, int thick)
 
 #define hline(x1, x2, y, thick) _hline(buf, x1, x2, y, thick)
 
-static void __attribute__((noinline))
+static void NOINLINE
 _vline(struct buf *buf, int y1, int y2, int x, int thick)
 {
     y1 = min(max(y1, 0), buf->height);
@@ -66,7 +66,7 @@ _vline(struct buf *buf, int y1, int y2, int x, int thick)
 
 #define vline(y1, y2, x, thick) _vline(buf, y1, y2, x, thick)
 
-static void __attribute__((noinline))
+static void NOINLINE
 _rect(struct buf *buf, int x1, int y1, int x2, int y2)
 {
     for (size_t row = max(y1, 0); row < min(y2, buf->height); row++) {
@@ -80,14 +80,14 @@ _rect(struct buf *buf, int x1, int y1, int x2, int y2)
 
 #define rect(x1, y1, x2, y2) _rect(buf, x1, y1, x2, y2)
 
-static void
+static void NOINLINE
 _hline_middle(struct buf *buf, float _thick)
 {
     int thick = thickness(_thick);
     hline(0, buf->width, (buf->height - thick) / 2, thick);
 }
 
-static void
+static void NOINLINE
 _hline_middle_left(struct buf *buf, float _vthick, float _hthick)
 {
     int vthick = thickness(_vthick);
@@ -95,7 +95,7 @@ _hline_middle_left(struct buf *buf, float _vthick, float _hthick)
     _hline(buf, 0, (buf->width + vthick) / 2, (buf->height - hthick) / 2, hthick);
 }
 
-static void
+static void NOINLINE
 _hline_middle_right(struct buf *buf, float _vthick, float _hthick)
 {
     int vthick = thickness(_vthick);
@@ -103,14 +103,14 @@ _hline_middle_right(struct buf *buf, float _vthick, float _hthick)
     hline((buf->width - vthick) / 2, buf->width, (buf->height - hthick) / 2, hthick);
 }
 
-static void
+static void NOINLINE
 _vline_middle(struct buf *buf, float _thick)
 {
     int thick = thickness(_thick);
     vline(0, buf->height, (buf->width - thick) / 2, thick);
 }
 
-static void
+static void NOINLINE
 _vline_middle_up(struct buf *buf, float _vthick, float _hthick)
 {
     int vthick = thickness(_vthick);
@@ -118,7 +118,7 @@ _vline_middle_up(struct buf *buf, float _vthick, float _hthick)
     vline(0, (buf->height + hthick) / 2, (buf->width - vthick) / 2, vthick);
 }
 
-static void
+static void NOINLINE
 _vline_middle_down(struct buf *buf, float _vthick, float _hthick)
 {
     int vthick = thickness(_vthick);
@@ -1597,37 +1597,37 @@ draw_right_one_eighth_block(struct buf *buf)
     rect(buf->width - round(buf->width / 8.), 0, buf->width, buf->height);
 }
 
-static void
+static void NOINLINE
 quad_upper_left(struct buf *buf)
 {
     rect(0, 0, ceil(buf->width / 2.), ceil(buf->height / 2.));
 }
 
-static void
+static void NOINLINE
 quad_upper_right(struct buf *buf)
 {
     rect(floor(buf->width / 2.), 0, buf->width, ceil(buf->height / 2.));
 }
 
-static void
+static void NOINLINE
 quad_lower_left(struct buf *buf)
 {
     rect(0, floor(buf->height / 2.), ceil(buf->width / 2.), buf->height);
 }
 
-static void
+static void NOINLINE
 quad_lower_right(struct buf *buf)
 {
     rect(floor(buf->width / 2.), floor(buf->height / 2.), buf->width, buf->height);
 }
 
-static void
+static void NOINLINE
 draw_quadrant_lower_left(struct buf *buf)
 {
     quad_lower_left(buf);
 }
 
-static void
+static void NOINLINE
 draw_quadrant_lower_right(struct buf *buf)
 {
     quad_lower_right(buf);
@@ -1691,37 +1691,37 @@ draw_quadrant_upper_right_and_lower_left_and_lower_right(struct buf *buf)
     quad_lower_right(buf);
 }
 
-static void
+static void NOINLINE
 sextant_upper_left(struct buf *buf)
 {
     rect(0, 0, round(buf->width / 2.), round(buf->height / 3.));
 }
 
-static void
+static void NOINLINE
 sextant_middle_left(struct buf *buf)
 {
     rect(0, buf->height / 3, round(buf->width / 2.), round(2. * buf->height / 3.));
 }
 
-static void
+static void NOINLINE
 sextant_lower_left(struct buf *buf)
 {
     rect(0, 2 * buf->height / 3, round(buf->width / 2.), buf->height);
 }
 
-static void
+static void NOINLINE
 sextant_upper_right(struct buf *buf)
 {
     rect(buf->width / 2, 0, buf->width, round(buf->height / 3.));
 }
 
-static void
+static void NOINLINE
 sextant_middle_right(struct buf *buf)
 {
     rect(buf->width / 2, buf->height / 3, buf->width, round(2. * buf->height / 3.));
 }
 
-static void
+static void NOINLINE
 sextant_lower_right(struct buf *buf)
 {
     rect(buf->width / 2, 2 * buf->height / 3, buf->width, buf->height);
