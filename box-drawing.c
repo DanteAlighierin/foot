@@ -1072,7 +1072,7 @@ draw_box_drawings_light_arc(wchar_t wc, uint8_t *buf, int width, int height, int
         end_y = hh;
 
         c1_x = hw;
-        c1_y = 3. * height / 4.;
+        c1_y = 3 * height / 4;
 
         c2_x = hw;
         c2_y = hh;
@@ -1084,7 +1084,7 @@ draw_box_drawings_light_arc(wchar_t wc, uint8_t *buf, int width, int height, int
         end_y = hh;
 
         c1_x = hw;
-        c1_y = 3. * height / 4.;
+        c1_y = 3 * height / 4;
 
         c2_x = hw;
         c2_y = hh;
@@ -1096,7 +1096,7 @@ draw_box_drawings_light_arc(wchar_t wc, uint8_t *buf, int width, int height, int
         end_y = hh;
 
         c1_x = hw;
-        c1_y = height / 4.;
+        c1_y = height / 4;
 
         c2_x = hw;
         c2_y = hh;
@@ -1110,7 +1110,7 @@ draw_box_drawings_light_arc(wchar_t wc, uint8_t *buf, int width, int height, int
         end_y = hh;
 
         c1_x = hw;
-        c1_y = height / 4.;
+        c1_y = height / 4;
 
         c2_x = hw;
         c2_y = hh;
