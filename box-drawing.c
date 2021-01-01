@@ -1066,9 +1066,9 @@ draw_box_drawings_light_arc(wchar_t wc, uint8_t *buf, int width, int height, int
 
     if (wc == L'╭') {
         start_x = hw;
-        start_y = height - 1;
+        start_y = 2 * hh;
 
-        end_x = width - 1;
+        end_x = 2 * hw;
         end_y = hh;
 
         c1_x = hw;
@@ -1078,7 +1078,7 @@ draw_box_drawings_light_arc(wchar_t wc, uint8_t *buf, int width, int height, int
         c2_y = hh;
     } else if (wc == L'╮') {
         start_x = hw;
-        start_y = height - 1;
+        start_y = 2 * hh;
 
         end_x = 0;
         end_y = hh;
@@ -1106,7 +1106,7 @@ draw_box_drawings_light_arc(wchar_t wc, uint8_t *buf, int width, int height, int
         start_x = hw;
         start_y = 0;
 
-        end_x = width - 1;
+        end_x = 2 * hw;
         end_y = hh;
 
         c1_x = hw;
@@ -1125,6 +1125,26 @@ draw_box_drawings_light_arc(wchar_t wc, uint8_t *buf, int width, int height, int
 
         for (int y = max(p_y - delta, 0); y < min(p_y + delta + extra, height); y++) {
             for (int x = max(p_x - delta, 0); x < min(p_x + delta + extra, width); x++) {
+                size_t ofs = x / 8;
+                size_t bit_no = x % 8;
+                buf[y * stride + ofs] |= 1 << bit_no;
+            }
+        }
+    }
+
+    if (wc == L'╭' || wc == L'╰') {
+        for (int x = 2 * hw; x < width; x++) {
+            for (int y = max(hh - delta, 0); y < min(hh + delta + extra, height); y++) {
+                size_t ofs = x / 8;
+                size_t bit_no = x % 8;
+                buf[y * stride + ofs] |= 1 << bit_no;
+            }
+        }
+    }
+
+    if (wc == L'╭' || wc == L'╮') {
+        for (int y = 2 * hh; y < height; y++) {
+            for (int x = max(hw - delta, 0); x < min(hw + delta + extra, width); x++) {
                 size_t ofs = x / 8;
                 size_t bit_no = x % 8;
                 buf[y * stride + ofs] |= 1 << bit_no;
