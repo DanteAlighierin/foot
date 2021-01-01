@@ -158,7 +158,7 @@ draw_box_drawings_dash_horizontal(uint8_t *buf, int width, int height, int strid
 
     int remaining = width - count * dash_width - gap_count * gap;
 
-    int x[4];
+    int x[4] = {0};
     int w[4] = {dash_width, dash_width, dash_width, dash_width};
 
     x[0] = 0;
@@ -214,7 +214,7 @@ draw_box_drawings_dash_vertical(uint8_t *buf, int width, int height, int stride,
 
     int remaining = height - count * dash_height - gap_count * gap;
 
-    int y[4];
+    int y[4] = {0};
     int h[4] = {dash_height, dash_height, dash_height, dash_height};
 
     y[0] = 0;
