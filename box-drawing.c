@@ -137,6 +137,116 @@ draw_box_drawings_heavy_vertical(uint8_t *buf, int width, int height, int stride
 }
 
 static void
+draw_box_drawings_double_dash_horizontal(uint8_t *buf, int width, int height, int stride, int dpi, int thick, int gap)
+{
+    int dash_width = (width - gap) / 2;
+    while (dash_width <= 0 && gap > 1) {
+        gap--;
+        dash_width = (width - gap) / 2;
+    }
+
+    if (dash_width <= 0) {
+        hline_middle_left(LIGHT);
+        hline_middle_right(LIGHT);
+        return;
+    }
+
+    assert(2 * dash_width + gap <= width);
+
+    int x0 = 0;
+    int x1 = x0 + dash_width + gap;
+
+    hline(x0, x0 + dash_width, (height - thick) / 2, thick);
+    hline(x1, width, (height - thick) / 2, thick);
+}
+
+static void
+draw_box_drawings_triple_dash_horizontal(uint8_t *buf, int width, int height, int stride, int dpi, int thick, int gap)
+{
+    int dash_width = (width - (2 * gap)) / 3;
+    while (dash_width <= 0 && gap > 1) {
+        gap--;
+        dash_width = (width - (2 * gap)) / 3;
+    }
+
+    if (dash_width <= 0) {
+        hline_middle_left(LIGHT);
+        hline_middle_right(LIGHT);
+        return;
+    }
+
+    assert(3 * dash_width + 2 * gap <= width);
+
+    int remaining = width - 3 * dash_width - 2 * gap;
+
+    int x0 = 0;
+    int x1 = x0 + dash_width + gap;
+    int x2 = x1 + dash_width + remaining + gap;
+
+    hline(x0, x0 + dash_width, (height - thick) / 2, thick);
+    hline(x1, x1 + dash_width + remaining, (height - thick) / 2, thick);
+    hline(x2, width, (height - thick) / 2, thick);
+}
+
+static void
+draw_box_drawings_quadruple_dash_horizontal(uint8_t *buf, int width, int height, int stride, int dpi, int thick, int gap)
+{
+    int dash_width = (width - (3 * gap)) / 4;
+    while (dash_width <= 0 && gap > 1) {
+        gap--;
+        dash_width = (width - (3 * gap)) / 4;
+    }
+
+    if (dash_width <= 0) {
+        hline_middle_left(LIGHT);
+        hline_middle_right(LIGHT);
+        return;
+    }
+
+    assert(4 * dash_width + 3 * gap <= width);
+
+    int remaining = width - 4 * dash_width - 3 * gap;
+
+    int x0 = 0;
+    int x1 = x0 + dash_width + gap;
+    int x2 = x1 + dash_width + remaining / 2 + gap;
+    int x3 = x2 + dash_width + (remaining - remaining / 2) + gap;
+
+    hline(x0, x0 + dash_width, (height - thick) / 2, thick);
+    hline(x1, x1 + dash_width + remaining / 2, (height - thick) / 2, thick);
+    hline(x2, x2 + dash_width + (remaining - remaining / 2), (height - thick) / 2, thick);
+    hline(x3, width, (height - thick) / 2, thick);
+}
+
+static void
+draw_box_drawings_light_triple_dash_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    draw_box_drawings_triple_dash_horizontal(
+        buf, width, height, stride, dpi, thickness(LIGHT, dpi), thickness(LIGHT, dpi));
+}
+
+static void
+draw_box_drawings_heavy_triple_dash_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    draw_box_drawings_triple_dash_horizontal(
+        buf, width, height, stride, dpi, thickness(HEAVY, dpi), thickness(LIGHT, dpi));
+}
+
+static void
+draw_box_drawings_light_quadruple_dash_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    draw_box_drawings_quadruple_dash_horizontal(
+        buf, width, height, stride, dpi, thickness(LIGHT, dpi), thickness(LIGHT, dpi));
+}
+
+static void
+draw_box_drawings_heavy_quadruple_dash_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    draw_box_drawings_quadruple_dash_horizontal(
+        buf, width, height, stride, dpi, thickness(HEAVY, dpi), thickness(LIGHT, dpi));
+}
+
+static void
 draw_box_drawings_light_down_and_right(uint8_t *buf, int width, int height, int stride, int dpi)
 {
     hline_middle_right(LIGHT);
@@ -646,6 +756,20 @@ draw_box_drawings_heavy_vertical_and_horizontal(uint8_t *buf, int width, int hei
     hline_middle_right(HEAVY);
     vline_middle_up(HEAVY);
     vline_middle_down(HEAVY);
+}
+
+static void
+draw_box_drawings_light_double_dash_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    draw_box_drawings_double_dash_horizontal(
+        buf, width, height, stride, dpi, thickness(LIGHT, dpi), thickness(LIGHT, dpi));
+}
+
+static void
+draw_box_drawings_heavy_double_dash_horizontal(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    draw_box_drawings_double_dash_horizontal(
+        buf, width, height, stride, dpi, thickness(HEAVY, dpi), thickness(LIGHT, dpi));
 }
 
 static void
@@ -1585,17 +1709,17 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x2501: draw_box_drawings_heavy_horizontal(buf, width, height, stride, dpi); break;
     case 0x2502: draw_box_drawings_light_vertical(buf, width, height, stride, dpi); break;
     case 0x2503: draw_box_drawings_heavy_vertical(buf, width, height, stride, dpi); break;
+    case 0x2504: draw_box_drawings_light_triple_dash_horizontal(buf, width, height, stride, dpi); break;
+    case 0x2505: draw_box_drawings_heavy_triple_dash_horizontal(buf, width, height, stride, dpi); break;
+    case 0x2508: draw_box_drawings_light_quadruple_dash_horizontal(buf, width, height, stride, dpi); break;
+    case 0x2509: draw_box_drawings_heavy_quadruple_dash_horizontal(buf, width, height, stride, dpi); break;
     case 0x250c: draw_box_drawings_light_down_and_right(buf, width, height, stride, dpi); break;
     case 0x250d: draw_box_drawings_down_light_and_right_heavy(buf, width, height, stride, dpi); break;
     case 0x250e: draw_box_drawings_down_heavy_and_right_light(buf, width, height, stride, dpi); break;
     case 0x250f: draw_box_drawings_heavy_down_and_right(buf, width, height, stride, dpi); break;
 
-    case 0x2504:
-    case 0x2505:
     case 0x2506:
     case 0x2507:
-    case 0x2508:
-    case 0x2509:
     case 0x250a:
     case 0x250b:
         LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
@@ -1664,9 +1788,9 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x2549: draw_box_drawings_right_light_and_left_vertical_heavy(buf, width, height, stride, dpi); break;
     case 0x254a: draw_box_drawings_left_light_and_right_vertical_heavy(buf, width, height, stride, dpi); break;
     case 0x254b: draw_box_drawings_heavy_vertical_and_horizontal(buf, width, height, stride, dpi); break;
+    case 0x254c: draw_box_drawings_light_double_dash_horizontal(buf, width, height, stride, dpi); break;
+    case 0x254d: draw_box_drawings_heavy_double_dash_horizontal(buf, width, height, stride, dpi); break;
 
-    case 0x254c:
-    case 0x254d:
     case 0x254e:
     case 0x254f:
         LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
