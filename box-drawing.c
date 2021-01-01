@@ -1210,22 +1210,6 @@ draw_box_drawings_double_vertical_and_horizontal(struct buf *buf)
     vline(hmid + 2 * thick, buf->height, vmid + 2 * thick, thick);
 }
 
-#define cubic_bezier_x(t) __extension__ \
-    ({                                                                  \
-        double tm1 = 1 - t;                                             \
-        double tm1_3 = tm1 * tm1 * tm1;                                 \
-        double t_3 = t * t * t;                                         \
-        tm1_3 * start_x + 3 * t * tm1 * (tm1 * c1_x + t * c2_x) + t_3 * end_x; \
-    })
-
-#define cubic_bezier_y(t) __extension__                                       \
-    ({                                                                  \
-        double tm1 = 1 - t;                                             \
-        double tm1_3 = tm1 * tm1 * tm1;                                 \
-        double t_3 = t * t * t;                                         \
-        tm1_3 * start_y + 3 * t * tm1 * (tm1 * c1_y + t * c2_y) + t_3 * end_y; \
-    })
-
 static void
 draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
 {
@@ -1233,74 +1217,52 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
     int delta = thick / 2;
     int extra = thick % 2;
 
+    /* x^2 / a^2 + y^2 / b^2 == 1 */
+
     int hw = (buf->width - thick) / 2;
     int hh = (buf->height - thick) / 2;
-    int start_x, start_y, end_x, end_y, c1_x, c1_y, c2_x, c2_y;
 
-    if (wc == L'╭') {
-        start_x = hw;
-        start_y = 2 * hh;
+    double a = hw;
+    double b = hh;
 
-        end_x = 2 * hw;
-        end_y = hh;
+    double a2 = a * a;
+    double b2 = b * b;
 
-        c1_x = hw;
-        c1_y = 3 * buf->height / 4;
+    int num_samples = buf->height * 16;
+    for (int i = 0; i < num_samples; i++) {
+        double y = i / 16.;
+        double x = sqrt(a2 * (1. - y * y / b2));
+        int row = round(y);
+        int col = round(x);
 
-        c2_x = hw;
-        c2_y = hh;
-    } else if (wc == L'╮') {
-        start_x = hw;
-        start_y = 2 * hh;
+        if (col < 0)
+            continue;
 
-        end_x = 0;
-        end_y = hh;
+        switch (wc) {
+        case  L'╭':
+            row = buf->height - row - 1 - (1 - buf->height % 2);
+            col = buf->width - col - 1 - (1 - buf->width % 2);
+            break;
 
-        c1_x = hw;
-        c1_y = 3 * buf->height / 4;
+        case L'╮':
+            row = buf->height - row - 1 - (1 - buf->height % 2);
+            break;
 
-        c2_x = hw;
-        c2_y = hh;
-    } else if (wc == L'╯') {
-        start_x = hw;
-        start_y = 0;
+        case L'╰':
+            col = buf->width - col - 1 - (1 - buf->width % 2);
+            break;
+        }
 
-        end_x = 0;
-        end_y = hh;
+        for (int r = row - delta; r < row + delta + extra; r++) {
+            if (r < 0 || r >= buf->height)
+                continue;
 
-        c1_x = hw;
-        c1_y = buf->height / 4;
-
-        c2_x = hw;
-        c2_y = hh;
-    } else {
-        assert(wc == L'╰');
-
-        start_x = hw;
-        start_y = 0;
-
-        end_x = 2 * hw;
-        end_y = hh;
-
-        c1_x = hw;
-        c1_y = buf->height / 4;
-
-        c2_x = hw;
-        c2_y = hh;
-    }
-
-    int num_samples = buf->height * 4;
-
-    for (size_t i = 0; i < num_samples + 1; i++) {
-        double t = (double)i / num_samples;
-        int p_x = round(cubic_bezier_x(t));
-        int p_y = round(cubic_bezier_y(t));
-
-        for (int y = max(p_y - delta, 0); y < min(p_y + delta + extra, buf->height); y++) {
-            for (int x = max(p_x - delta, 0); x < min(p_x + delta + extra, buf->width); x++) {
-                size_t ofs = x / 8;
-                size_t bit_no = x % 8;
-                buf->data[y * buf->stride + ofs] |= 1 << bit_no;
+            for (int c = col - delta; c < col + delta + extra; c++) {
+                if (c >= 0 && c < buf->width) {
+                    size_t idx = c / 8;
+                    size_t bit_no = c % 8;
+                    buf->data[r * buf->stride + idx] |= 1 << bit_no;
+                }
             }
         }
     }
