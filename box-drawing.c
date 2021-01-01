@@ -1067,59 +1067,61 @@ draw_box_drawings_light_arc(wchar_t wc, uint8_t *buf, int width, int height, int
     if (wc == L'╭') {
         start_x = hw;
         start_y = height - 1;
+
         end_x = width - 1;
         end_y = hh;
 
         c1_x = hw;
-        c1_y = round(3. * height / 4.);
+        c1_y = 3. * height / 4.;
 
         c2_x = hw;
-        c2_y = hh + 1;
+        c2_y = hh;
     } else if (wc == L'╮') {
-        start_x = 0;
-        start_y = hh;
-        end_x = hw;
-        end_y = height - 1;
+        start_x = hw;
+        start_y = height - 1;
 
-        c1_x = hw + 1;
-        c1_y = hh + 1;
+        end_x = 0;
+        end_y = hh;
 
-        c2_x = hw + 1;
-        c2_y = round(3. * height / 4.);
+        c1_x = hw;
+        c1_y = 3. * height / 4.;
+
+        c2_x = hw;
+        c2_y = hh;
     } else if (wc == L'╯') {
-        start_x = 0;
-        start_y = hh;
-        end_x = hw;
-        end_y = 0;
+        start_x = hw;
+        start_y = 0;
 
-        c1_x = hw + 2;
-        c1_y = hh + 1;
+        end_x = 0;
+        end_y = hh;
 
-        c2_x = hw + 1;
-        c2_y = round(height / 4.);
+        c1_x = hw;
+        c1_y = height / 4.;
+
+        c2_x = hw;
+        c2_y = hh;
     } else {
         assert(wc == L'╰');
 
         start_x = hw;
         start_y = 0;
+
         end_x = width - 1;
         end_y = hh;
 
         c1_x = hw;
-        c1_y = round(height / 4.);
+        c1_y = height / 4.;
 
         c2_x = hw;
-        c2_y = hh + 1;
+        c2_y = hh;
     }
-
-    LOG_INFO("%f, %f", round(3. * height / 4.), round(height / 4.));
 
     int num_samples = height * 4;
 
     for (size_t i = 0; i < num_samples + 1; i++) {
         double t = (double)i / num_samples;
-        int p_x = cubic_bezier_x(t);
-        int p_y = cubic_bezier_y(t);
+        int p_x = round(cubic_bezier_x(t));
+        int p_y = round(cubic_bezier_y(t));
 
         for (int y = max(p_y - delta, 0); y < min(p_y + delta + extra, height); y++) {
             for (int x = max(p_x - delta, 0); x < min(p_x + delta + extra, width); x++) {
