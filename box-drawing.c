@@ -1350,6 +1350,53 @@ draw_box_drawings_light_arc(wchar_t wc, uint8_t *buf, int width, int height, int
 }
 
 static void
+draw_box_drawings_light_diagonal(uint8_t *buf, int width, int height, int stride, int dpi, double k, double c)
+{
+#define linear_equation(x) (k * (x) + c)
+
+    int num_samples = width * 16;
+
+    for (int i = 0; i < num_samples; i++) {
+        double x = i / 16.;
+        int col = round(x);
+        int row = round(linear_equation(x));
+
+        if (row >= 0 && row < height) {
+            size_t ofs = col / 8;
+            size_t bit_no = col % 8;
+            buf[row * stride + ofs] |= 1 << bit_no;
+        }
+    }
+
+#undef linear_equation
+}
+
+static void
+draw_box_drawings_light_diagonal_upper_right_to_lower_left(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    /* y = k * x + c */
+    double c = height - 1;
+    double k = (0 - (height - 1)) / (double)(width - 1 - 0);
+    draw_box_drawings_light_diagonal(buf, width, height, stride, dpi, k, c);
+}
+
+static void
+draw_box_drawings_light_diagonal_upper_left_to_lower_right(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    /* y = k * x + c */
+    double c = 0;
+    double k = (height - 1 - 0) / (double)(width - 1 - 0);
+    draw_box_drawings_light_diagonal(buf, width, height, stride, dpi, k, c);
+}
+
+static void
+draw_box_drawings_light_diagonal_cross(uint8_t *buf, int width, int height, int stride, int dpi)
+{
+    draw_box_drawings_light_diagonal_upper_right_to_lower_left(buf, width, height, stride, dpi);
+    draw_box_drawings_light_diagonal_upper_left_to_lower_right(buf, width, height, stride, dpi);
+}
+
+static void
 draw_box_drawings_light_left(uint8_t *buf, int width, int height, int stride, int dpi)
 {
     hline_middle_left(LIGHT);
@@ -1894,6 +1941,9 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x256c: draw_box_drawings_double_vertical_and_horizontal(buf, width, height, stride, dpi); break;
     case 0x256d ... 0x2570: draw_box_drawings_light_arc(wc, buf, width, height, stride, dpi); break;
 
+    case 0x2571: draw_box_drawings_light_diagonal_upper_right_to_lower_left(buf, width, height, stride, dpi); break;
+    case 0x2572: draw_box_drawings_light_diagonal_upper_left_to_lower_right(buf, width, height, stride, dpi); break;
+    case 0x2573: draw_box_drawings_light_diagonal_cross(buf, width, height, stride, dpi); break;
     case 0x2574: draw_box_drawings_light_left(buf, width, height, stride, dpi); break;
     case 0x2575: draw_box_drawings_light_up(buf, width, height, stride, dpi); break;
     case 0x2576: draw_box_drawings_light_right(buf, width, height, stride, dpi); break;
@@ -1906,12 +1956,6 @@ draw_glyph(wchar_t wc, uint8_t *buf, int width, int height, int stride, int dpi)
     case 0x257d: draw_box_drawings_light_up_and_heavy_down(buf, width, height, stride, dpi); break;
     case 0x257e: draw_box_drawings_heavy_left_and_light_right(buf, width, height, stride, dpi); break;
     case 0x257f: draw_box_drawings_heavy_up_and_light_down(buf, width, height, stride, dpi); break;
-
-    case 0x2571:
-    case 0x2572:
-    case 0x2573:
-        LOG_WARN("unimplemented: box drawing: wc=%04lx", (long)wc);
-        break;
 
     case 0x2580: draw_upper_half_block(buf, width, height, stride, dpi); break;
     case 0x2581: draw_lower_one_eighth_block(buf, width, height, stride, dpi); break;
