@@ -504,11 +504,11 @@ selection_update(struct terminal *term, int col, int row)
     case SELECTION_SEMANTIC_WORD:
         switch (term->selection.direction) {
         case SELECTION_LEFT:
-            find_word_boundary_left(term, &new_end, false);
+            find_word_boundary_left(term, &new_end, term->selection.spaces_only);
             break;
 
         case SELECTION_RIGHT:
-            find_word_boundary_right(term, &new_end, false);
+            find_word_boundary_right(term, &new_end, term->selection.spaces_only);
             break;
 
         case SELECTION_UNDIR:
@@ -847,6 +847,8 @@ selection_mark_word(struct seat *seat, struct terminal *term, int col, int row,
 
     selection_start(term, start.col, start.row,
                     SELECTION_NORMAL, SELECTION_SEMANTIC_WORD);
+    term->selection.spaces_only =  spaces_only;
+
     selection_update(term, end.col, end.row);
     selection_finalize(seat, term, serial);
 }

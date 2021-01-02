@@ -365,6 +365,7 @@ struct terminal {
         struct coord start;
         struct coord end;
         bool ongoing;
+        bool spaces_only; /* SELECTION_SEMANTIC_WORD */
 
         struct {
             int fd;
