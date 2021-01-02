@@ -276,7 +276,7 @@ execute_binding(struct seat *seat, struct terminal *term,
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
                 term, seat->mouse.col, seat->mouse.row,
-                SELECTION_NORMAL, SELECTION_SEMANTIC_NONE);
+                SELECTION_NORMAL, SELECTION_SEMANTIC_NONE, false);
             return true;
         }
         return false;
@@ -285,7 +285,7 @@ execute_binding(struct seat *seat, struct terminal *term,
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
                 term, seat->mouse.col, seat->mouse.row,
-                SELECTION_BLOCK, SELECTION_SEMANTIC_NONE);
+                SELECTION_BLOCK, SELECTION_SEMANTIC_NONE, false);
             return true;
         }
         return false;
@@ -300,23 +300,26 @@ execute_binding(struct seat *seat, struct terminal *term,
 
     case BIND_ACTION_SELECT_WORD:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_mark_word(
-                seat, term, seat->mouse.col, seat->mouse.row, false, serial);
+            selection_start(
+                term, seat->mouse.col, seat->mouse.row,
+                SELECTION_NORMAL, SELECTION_SEMANTIC_WORD, false);
             return true;
         }
         return false;
 
     case BIND_ACTION_SELECT_WORD_WS:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_mark_word(
-                seat, term, seat->mouse.col, seat->mouse.row, true, serial);
+            selection_start(
+                term, seat->mouse.col, seat->mouse.row,
+                SELECTION_NORMAL, SELECTION_SEMANTIC_WORD, true);
             return true;
         }
         return false;
 
     case BIND_ACTION_SELECT_ROW:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_mark_row(seat, term, seat->mouse.row, serial);
+            selection_start(term, seat->mouse.col, seat->mouse.row,
+                            SELECTION_NORMAL, SELECTION_SEMANTIC_ROW, false);
             return true;
         }
         return false;

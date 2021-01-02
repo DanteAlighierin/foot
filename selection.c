@@ -236,9 +236,73 @@ selection_to_text(const struct terminal *term)
     return extract_finish(ctx, &text, NULL) ? text : NULL;
 }
 
+static void
+find_word_boundary_left(struct terminal *term, struct coord *pos,
+                        bool spaces_only)
+{
+    const struct row *r = grid_row_in_view(term->grid, pos->row);
+    wchar_t c = r->cells[pos->col].wc;
+
+    if (!(c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))) {
+        while (true) {
+            int next_col = pos->col - 1;
+            int next_row = pos->row;
+
+            /* Linewrap */
+            if (next_col < 0) {
+                next_col = term->cols - 1;
+                if (--next_row < 0)
+                    break;
+            }
+
+            const struct row *row = grid_row_in_view(term->grid, next_row);
+
+            c = row->cells[next_col].wc;
+            if (c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))
+                break;
+
+            pos->col = next_col;
+            pos->row = next_row;
+        }
+    }
+}
+
+static void
+find_word_boundary_right(struct terminal *term, struct coord *pos,
+                         bool spaces_only)
+{
+    const struct row *r = grid_row_in_view(term->grid, pos->row);
+    wchar_t c = r->cells[pos->col].wc;
+
+    if (!(c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))) {
+        while (true) {
+            int next_col = pos->col + 1;
+            int next_row = pos->row;
+
+            /* Linewrap */
+            if (next_col >= term->cols) {
+                next_col = 0;
+                if (++next_row >= term->rows)
+                    break;
+            }
+
+            const struct row *row = grid_row_in_view(term->grid, next_row);
+
+            c = row->cells[next_col].wc;
+            if (c == '\0' || !isword(c, spaces_only, term->conf->word_delimiters))
+                break;
+
+            pos->col = next_col;
+            pos->row = next_row;
+        }
+    }
+}
+
 void
 selection_start(struct terminal *term, int col, int row,
-                enum selection_kind kind, enum selection_semantic semantic)
+                enum selection_kind kind,
+                enum selection_semantic semantic,
+                bool spaces_only)
 {
     selection_cancel(term);
 
@@ -249,9 +313,33 @@ selection_start(struct terminal *term, int col, int row,
 
     term->selection.kind = kind;
     term->selection.semantic = semantic;
-    term->selection.start = (struct coord){col, term->grid->view + row};
-    term->selection.end = (struct coord){-1, -1};
     term->selection.ongoing = true;
+    term->selection.spaces_only = spaces_only;
+
+
+    switch (semantic) {
+    case SELECTION_SEMANTIC_NONE:
+        term->selection.start = (struct coord){col, term->grid->view + row};
+        term->selection.end = (struct coord){-1, -1};
+        break;
+
+    case SELECTION_SEMANTIC_WORD: {
+        struct coord start = {col, row}, end = {col, row};
+        find_word_boundary_left(term, &start, spaces_only);
+        find_word_boundary_right(term, &end, spaces_only);
+
+        term->selection.start = (struct coord){
+            start.col, term->grid->view + start.row};
+
+        selection_update(term, end.col, end.row);
+        break;
+    }
+
+    case SELECTION_SEMANTIC_ROW:
+        term->selection.start = (struct coord){0, term->grid->view + row};
+        selection_update(term, term->cols - 1, row);
+        break;
+    }
 }
 
 /* Context used while (un)marking selected cells, to be able to
@@ -359,68 +447,6 @@ selection_modify(struct terminal *term, struct coord start, struct coord end)
     /* Mark new selection */
     foreach_selected(term, start, end, &mark_selected, &ctx);
     render_refresh(term);
-}
-
-static void
-find_word_boundary_left(struct terminal *term, struct coord *pos,
-                        bool spaces_only)
-{
-    const struct row *r = grid_row_in_view(term->grid, pos->row);
-    wchar_t c = r->cells[pos->col].wc;
-
-    if (!(c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))) {
-        while (true) {
-            int next_col = pos->col - 1;
-            int next_row = pos->row;
-
-            /* Linewrap */
-            if (next_col < 0) {
-                next_col = term->cols - 1;
-                if (--next_row < 0)
-                    break;
-            }
-
-            const struct row *row = grid_row_in_view(term->grid, next_row);
-
-            c = row->cells[next_col].wc;
-            if (c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))
-                break;
-
-            pos->col = next_col;
-            pos->row = next_row;
-        }
-    }
-}
-
-static void
-find_word_boundary_right(struct terminal *term, struct coord *pos,
-                         bool spaces_only)
-{
-    const struct row *r = grid_row_in_view(term->grid, pos->row);
-    wchar_t c = r->cells[pos->col].wc;
-
-    if (!(c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))) {
-        while (true) {
-            int next_col = pos->col + 1;
-            int next_row = pos->row;
-
-            /* Linewrap */
-            if (next_col >= term->cols) {
-                next_col = 0;
-                if (++next_row >= term->rows)
-                    break;
-            }
-
-            const struct row *row = grid_row_in_view(term->grid, next_row);
-
-            c = row->cells[next_col].wc;
-            if (c == '\0' || !isword(c, spaces_only, term->conf->word_delimiters))
-                break;
-
-            pos->col = next_col;
-            pos->row = next_row;
-        }
-    }
 }
 
 void
@@ -831,33 +857,6 @@ selection_primary_unset(struct seat *seat)
 
     free(primary->text);
     primary->text = NULL;
-}
-
-void
-selection_mark_word(struct seat *seat, struct terminal *term, int col, int row,
-                    bool spaces_only, uint32_t serial)
-{
-    selection_cancel(term);
-
-    struct coord start = {col, row};
-    struct coord end = {col, row};
-
-    find_word_boundary_left(term, &start, spaces_only);
-    find_word_boundary_right(term, &end, spaces_only);
-
-    selection_start(term, start.col, start.row,
-                    SELECTION_NORMAL, SELECTION_SEMANTIC_WORD);
-    term->selection.spaces_only =  spaces_only;
-
-    selection_update(term, end.col, end.row);
-}
-
-void
-selection_mark_row(
-    struct seat *seat, struct terminal *term, int row, uint32_t serial)
-{
-    selection_start(term, 0, row, SELECTION_NORMAL, SELECTION_SEMANTIC_ROW);
-    selection_update(term, term->cols - 1, row);
 }
 
 static bool
