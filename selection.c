@@ -497,7 +497,11 @@ selection_update(struct terminal *term, int col, int row)
         }
     }
 
-    if (term->selection.semantic == SELECTION_SEMANTIC_WORD) {
+    switch (term->selection.semantic) {
+    case SELECTION_SEMANTIC_NONE:
+        break;
+
+    case SELECTION_SEMANTIC_WORD:
         switch (term->selection.direction) {
         case SELECTION_LEFT:
             find_word_boundary_left(term, &new_end, false);
@@ -511,6 +515,23 @@ selection_update(struct terminal *term, int col, int row)
             assert(false);
             break;
         }
+        break;
+
+    case SELECTION_SEMANTIC_ROW:
+        switch (term->selection.direction) {
+        case SELECTION_LEFT:
+            new_end.col = 0;
+            break;
+
+        case SELECTION_RIGHT:
+            new_end.col = term->cols - 1;
+            break;
+
+        case SELECTION_UNDIR:
+            assert(false);
+            break;
+        }
+        break;
     }
 
     /* If an end point is in the middle of a multi-column character,
@@ -834,7 +855,7 @@ void
 selection_mark_row(
     struct seat *seat, struct terminal *term, int row, uint32_t serial)
 {
-    selection_start(term, 0, row, SELECTION_NORMAL, SELECTION_SEMANTIC_NONE);
+    selection_start(term, 0, row, SELECTION_NORMAL, SELECTION_SEMANTIC_ROW);
     selection_update(term, term->cols - 1, row);
     selection_finalize(seat, term, serial);
 }
