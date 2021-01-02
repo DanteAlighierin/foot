@@ -1246,7 +1246,7 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
          * arcs, we need to mirror the arc around either the x-, y- or
          * both axis.
          *
-         * When doing so, we need to adjust for assymetrical cell
+         * When doing so, we need to adjust for asymmetrical cell
          * dimensions.
          *
          * The amazing box drawing art below represents the lower part
@@ -1267,7 +1267,7 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
          *             │ ┆ ┆   │           │   ┆ ┆   │
          *             └─┴─┴─┴─┘           └─┴─┴─┴─┴─┘
          *
-         * As can be seen(?), the resulting line is assymetrical when
+         * As can be seen(?), the resulting line is asymmetrical when
          * *either* the cell is odd sized, *or* the line is odd
          * sized. But not when both are.
          *
