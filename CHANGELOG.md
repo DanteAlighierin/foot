@@ -28,6 +28,8 @@
 * The fcft and tllist library subprojects are now handled via Meson
   [wrap files](https://mesonbuild.com/Wrap-dependency-system-manual.html)
   instead of needing to be manually cloned.
+* Box drawing characters are now rendered by foot, instead of using
+  font glyphs (https://codeberg.org/dnkl/foot/issues/198)
 
 
 ### Deprecated
