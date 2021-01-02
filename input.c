@@ -275,7 +275,8 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SELECT_BEGIN:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
-                term, seat->mouse.col, seat->mouse.row, SELECTION_NORMAL);
+                term, seat->mouse.col, seat->mouse.row,
+                SELECTION_NORMAL, SELECTION_SEMANTIC_NONE);
             return true;
         }
         return false;
@@ -283,7 +284,8 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SELECT_BEGIN_BLOCK:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
-                term, seat->mouse.col, seat->mouse.row, SELECTION_BLOCK);
+                term, seat->mouse.col, seat->mouse.row,
+                SELECTION_BLOCK, SELECTION_SEMANTIC_NONE);
             return true;
         }
         return false;
