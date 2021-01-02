@@ -32,6 +32,8 @@
   font glyphs (https://codeberg.org/dnkl/foot/issues/198)
 * Trailing comments in `foot.ini` must now be preceded by a space or tab
   (https://codeberg.org/dnkl/foot/issues/270)
+* Double- or triple clicking then dragging now extends the selection
+  word- or line-wise (https://codeberg.org/dnkl/foot/issues/267).
 
 
 ### Deprecated
