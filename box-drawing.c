@@ -1275,16 +1275,11 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
         assert(row_end > row_start);
         assert(col_end > col_start);
 
-        for (int r = row_start; r < row_end; r++) {
-            if (r < 0 || r >= buf->height)
-                continue;
-
-            for (int c = col_start; c < col_end; c++) {
-                if (c >= 0 && c < buf->width) {
-                    size_t idx = c / 8;
-                    size_t bit_no = c % 8;
-                    buf->data[r * buf->stride + idx] |= 1 << bit_no;
-                }
+        for (int r = max(row_start, 0); r < min(row_end, buf->height); r++) {
+            for (int c = max(col_start, 0); c < min(col_end, buf->width); c++) {
+                size_t idx = c / 8;
+                size_t bit_no = c % 8;
+                buf->data[r * buf->stride + idx] |= 1 << bit_no;
             }
         }
     }
