@@ -850,7 +850,6 @@ selection_mark_word(struct seat *seat, struct terminal *term, int col, int row,
     term->selection.spaces_only =  spaces_only;
 
     selection_update(term, end.col, end.row);
-    selection_finalize(seat, term, serial);
 }
 
 void
@@ -859,7 +858,6 @@ selection_mark_row(
 {
     selection_start(term, 0, row, SELECTION_NORMAL, SELECTION_SEMANTIC_ROW);
     selection_update(term, term->cols - 1, row);
-    selection_finalize(seat, term, serial);
 }
 
 static bool
