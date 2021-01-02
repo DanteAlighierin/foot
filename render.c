@@ -481,7 +481,16 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         col < term->cols - 1 &&
         (row->cells[col + 1].wc == 0 || row->cells[col + 1].wc == L' '))
     {
-        cell_cols = min(2, cols_left);
+        cell_cols = 2;
+
+        /*
+         * Ensure the cell we’re overflowing into gets re-rendered, to
+         * ensure it is erased if *this* cell is erased. Note that we
+         * do *not* mark the row as dirty - we don’t need to re-render
+         * the cell if nothing else on the row has changed.
+         */
+        row->cells[col].attrs.clean = 0;
+        row->cells[col + 1].attrs.clean = 0;
     }
 
     pixman_region32_t clip;

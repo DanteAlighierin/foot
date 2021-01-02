@@ -38,6 +38,9 @@
   descriptor is closed.
 * Crash on compositors not implementing the _text input_ interface
   (https://codeberg.org/dnkl/foot/issues/259).
+* Erased, overflowing glyphs (when
+  `tweak.allow-overflowing-double-width-glyphs=yes` - the default) not
+  properly erasing the cell overflowed **into**.
 
 
 ### Security
