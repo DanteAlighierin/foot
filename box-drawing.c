@@ -1214,16 +1214,9 @@ static void
 draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
 {
     int thick = thickness(LIGHT);
-    int delta = thick / 2;
-    int extra = thick % 2;
 
-    /* x^2 / a^2 + y^2 / b^2 == 1 */
-
-    int hw = (buf->width - thick) / 2;
-    int hh = (buf->height - thick) / 2;
-
-    double a = hw;
-    double b = hh;
+    double a = (buf->width - thick) / 2;
+    double b = (buf->height - thick) / 2;
 
     double a2 = a * a;
     double b2 = b * b;
@@ -1232,32 +1225,61 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
     for (int i = 0; i < num_samples; i++) {
         double y = i / 16.;
         double x = sqrt(a2 * (1. - y * y / b2));
-        int row = round(y);
-        int col = round(x);
+
+        const int row = round(y);
+        const int col = round(x);
 
         if (col < 0)
             continue;
 
+        int row_start = 0;
+        int row_end = 0;
+        int col_start = 0;
+        int col_end = 0;
+
+        /*
+         * At this point, row/col is only correct for ╯. For the other
+         * arcs, we need to mirror the arc around either the x-, y- or
+         * both axis.
+         */
         switch (wc) {
         case  L'╭':
-            row = buf->height - row - 1 - (1 - buf->height % 2);
-            col = buf->width - col - 1 - (1 - buf->width % 2);
+            row_end = buf->height - row - (thick % 2 ? 1 - buf->height % 2 : buf->height % 2);
+            row_start = row_end - thick;
+            col_end = buf->width - col - (thick % 2 ? 1 - buf->width % 2 : buf->width % 2);
+            col_start = col_end - thick;
             break;
 
         case L'╮':
-            row = buf->height - row - 1 - (1 - buf->height % 2);
+            row_end = buf->height - row - (thick % 2 ? 1 - buf->height % 2 : buf->height % 2);
+            row_start = row_end - thick;
+            col_start = col;
+            col_end = col_start + thick;
             break;
 
         case L'╰':
-            col = buf->width - col - 1 - (1 - buf->width % 2);
+            row_start = row;
+            row_end = row_start + thick;
+            col_end = buf->width - col - (thick % 2 ? 1 - buf->width % 2 : buf->width % 2);
+            col_start = col_end - thick;
+            break;
+
+        case L'╯':
+            row_start = row;
+            row_end = row_start + thick;
+            col_start = col;
+            col_end = col_start + thick;
             break;
         }
 
-        for (int r = row - delta; r < row + delta + extra; r++) {
+        assert(row_end > row_start);
+        assert(col_end > col_start);
+
+        for (int r = row_start; r < row_end; r++) {
             if (r < 0 || r >= buf->height)
                 continue;
 
-            for (int c = col - delta; c < col + delta + extra; c++) {
+            for (int c = col_start; c < col_end; c++) {
                 if (c >= 0 && c < buf->width) {
                     size_t idx = c / 8;
                     size_t bit_no = c % 8;
@@ -1267,23 +1289,30 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
         }
     }
 
+    /*
+     * Since a cell may not be completely symmetrical around its y-
+     * and x-axis, the mirroring done above may result in the last
+     * col/row of the arc not being filled in. This code ensures they
+     * are.
+     */
+
     if (wc == L'╭' || wc == L'╰') {
-        for (int x = 2 * hw; x < buf->width; x++) {
-            for (int y = max(hh - delta, 0); y < min(hh + delta + extra, buf->height); y++) {
-                size_t ofs = x / 8;
-                size_t bit_no = x % 8;
-                buf->data[y * buf->stride + ofs] |= 1 << bit_no;
-            }
+        for (int y = 0; y < thick; y++) {
+            int row = (buf->height - thick) / 2 + y;
+            int col = buf->width - 1;
+            size_t ofs = col / 8;
+            size_t bit_no = col % 8;
+            buf->data[row * buf->stride + ofs] |= 1 << bit_no;
         }
     }
 
     if (wc == L'╭' || wc == L'╮') {
-        for (int y = 2 * hh; y < buf->height; y++) {
-            for (int x = max(hw - delta, 0); x < min(hw + delta + extra, buf->width); x++) {
-                size_t ofs = x / 8;
-                size_t bit_no = x % 8;
-                buf->data[y * buf->stride + ofs] |= 1 << bit_no;
-            }
+        for (int x = 0; x < thick; x++) {
+            int row = buf->height - 1;
+            int col = (buf->width - thick) / 2 + x;
+            size_t ofs = col / 8;
+            size_t bit_no = col % 8;
+            buf->data[row * buf->stride + ofs] |= 1 << bit_no;
         }
     }
 }
