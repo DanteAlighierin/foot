@@ -1241,17 +1241,44 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
          * At this point, row/col is only correct for ╯. For the other
          * arcs, we need to mirror the arc around either the x-, y- or
          * both axis.
+         *
+         * When doing so, we need to adjust for assymetrical cell
+         * dimensions.
+         *
+         * The amazing box drawing art below represents the lower part
+         * of a cell, with the beginning of a vertical line in the
+         * middle. Each column represents one pixel.
+         *
+         *
+         *             Even cell            Odd cell
+         *
+         *             │       │           │         │
+         *  Even line  │ ┆   ┆ │           │ ┆   ┆   │
+         *             │ ┆   ┆ │           │ ┆   ┆   │
+         *             └─┴─┴─┴─┘           └─┴─┴─┴─┴─┘
+         *
+         *
+         *             │       │           │         │
+         *   Odd line  │ ┆ ┆   │           │   ┆ ┆   │
+         *             │ ┆ ┆   │           │   ┆ ┆   │
+         *             └─┴─┴─┴─┘           └─┴─┴─┴─┴─┘
+         *
+         * As can be seen(?), the resulting line is assymetrical when
+         * *either* the cell is odd sized, *or* the line is odd
+         * sized. But not when both are.
+         *
+         * Hence the ‘thick % 2 ^ width % 2’ in the expressions below.
          */
         switch (wc) {
         case  L'╭':
-            row_end = buf->height - row - (thick % 2 ? 1 - buf->height % 2 : buf->height % 2);
+            row_end = buf->height - row - (thick % 2 ^ buf->height % 2);
             row_start = row_end - thick;
-            col_end = buf->width - col - (thick % 2 ? 1 - buf->width % 2 : buf->width % 2);
+            col_end = buf->width - col - (thick % 2 ^ buf->width % 2);
             col_start = col_end - thick;
             break;
 
         case L'╮':
-            row_end = buf->height - row - (thick % 2 ? 1 - buf->height % 2 : buf->height % 2);
+            row_end = buf->height - row - (thick % 2 ^ buf->height % 2);
             row_start = row_end - thick;
             col_start = col;
             col_end = col_start + thick;
@@ -1260,7 +1287,7 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
         case L'╰':
             row_start = row;
             row_end = row_start + thick;
-            col_end = buf->width - col - (thick % 2 ? 1 - buf->width % 2 : buf->width % 2);
+            col_end = buf->width - col - (thick % 2 ^ buf->width % 2);
             col_start = col_end - thick;
             break;
 
