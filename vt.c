@@ -750,10 +750,7 @@ action_utf8_44(struct terminal *term, uint8_t c)
     action_utf8_print(term, term->vt.utf8);
 }
 
-#if defined(__GNUC__)
- #pragma GCC diagnostic push
- #pragma GCC diagnostic ignored "-Wpedantic"
-#endif
+IGNORE_WARNING("-Wpedantic")
 
 static enum state
 state_ground_switch(struct terminal *term, uint8_t data)
@@ -1277,9 +1274,7 @@ state_utf8_43_switch(struct terminal *term, uint8_t data)
     }
 }
 
-#if defined(__GNUC__)
- #pragma GCC diagnostic pop
-#endif
+UNIGNORE_WARNINGS
 
 void
 vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)

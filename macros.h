@@ -1,11 +1,18 @@
 #pragma once
 
+#define DO_PRAGMA(x) _Pragma(#x)
 #define VERCMP(x, y, cx, cy) ((cx > x) || ((cx == x) && (cy >= y)))
 
 #if defined(__GNUC__) && defined(__GNUC_MINOR__)
     #define GNUC_AT_LEAST(x, y) VERCMP(x, y, __GNUC__, __GNUC_MINOR__)
 #else
     #define GNUC_AT_LEAST(x, y) 0
+#endif
+
+#if defined(__clang_major__) && defined(__clang_minor__)
+    #define CLANG_AT_LEAST(x, y) VERCMP(x, y, __clang_major__, __clang_minor__)
+#else
+    #define CLANG_AT_LEAST(x, y) 0
 #endif
 
 #ifdef __has_attribute
@@ -26,13 +33,7 @@
     #define UNUSED
 #endif
 
-#if HAS_ATTRIBUTE(noinline)
-    #define NOINLINE __attribute__((noinline))
-#else
-    #define NOINLINE
-#endif
-
-#if HAS_ATTRIBUTE(const)
+#if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(const)
     #define CONST __attribute__((__const__))
 #else
     #define CONST
@@ -42,6 +43,18 @@
     #define MALLOC __attribute__((__malloc__))
 #else
     #define MALLOC
+#endif
+
+#if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(constructor)
+    #define CONSTRUCTOR __attribute__((__constructor__))
+#else
+    #define CONSTRUCTOR
+#endif
+
+#if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(destructor)
+    #define DESTRUCTOR __attribute__((__destructor__))
+#else
+    #define DESTRUCTOR
 #endif
 
 #if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(format)
@@ -60,6 +73,18 @@
     #define unlikely(x) (x)
 #endif
 
+#if GNUC_AT_LEAST(3, 1) || HAS_ATTRIBUTE(noinline)
+    #define NOINLINE __attribute__((__noinline__))
+#else
+    #define NOINLINE
+#endif
+
+#if GNUC_AT_LEAST(3, 1) || HAS_ATTRIBUTE(always_inline)
+    #define ALWAYS_INLINE __attribute__((__always_inline__))
+#else
+    #define ALWAYS_INLINE
+#endif
+
 #if GNUC_AT_LEAST(3, 3) || HAS_ATTRIBUTE(nonnull)
     #define NONNULL_ARGS __attribute__((__nonnull__))
     #define NONNULL_ARG(...) __attribute__((__nonnull__(__VA_ARGS__)))
@@ -74,16 +99,40 @@
     #define WARN_UNUSED_RESULT
 #endif
 
+#if GNUC_AT_LEAST(4, 1) || HAS_ATTRIBUTE(flatten)
+    #define FLATTEN __attribute__((__flatten__))
+#else
+    #define FLATTEN
+#endif
+
+#if GNUC_AT_LEAST(4, 3) || HAS_ATTRIBUTE(hot)
+    #define HOT __attribute__((__hot__))
+#else
+    #define HOT
+#endif
+
 #if GNUC_AT_LEAST(4, 3) || HAS_ATTRIBUTE(cold)
     #define COLD __attribute__((__cold__))
 #else
     #define COLD
 #endif
 
+#if GNUC_AT_LEAST(4, 5) || HAS_BUILTIN(__builtin_unreachable)
+    #define UNREACHABLE() __builtin_unreachable()
+#else
+    #define UNREACHABLE()
+#endif
+
 #if GNUC_AT_LEAST(5, 0) || HAS_ATTRIBUTE(returns_nonnull)
     #define RETURNS_NONNULL __attribute__((__returns_nonnull__))
 #else
     #define RETURNS_NONNULL
+#endif
+
+#if HAS_ATTRIBUTE(diagnose_if)
+    #define DIAGNOSE_IF(x) __attribute__((diagnose_if((x), (#x), "error")))
+#else
+    #define DIAGNOSE_IF(x)
 #endif
 
 #define XMALLOC MALLOC RETURNS_NONNULL WARN_UNUSED_RESULT
@@ -95,4 +144,30 @@
     #define NORETURN __attribute__((__noreturn__))
 #else
     #define NORETURN
+#endif
+
+#if CLANG_AT_LEAST(3, 6)
+    #define UNROLL_LOOP(n) DO_PRAGMA(clang loop unroll_count(n))
+#elif GNUC_AT_LEAST(8, 0)
+    #define UNROLL_LOOP(n) DO_PRAGMA(GCC unroll (n))
+#else
+    #define UNROLL_LOOP(n)
+#endif
+
+#ifdef __clang__
+    #define IGNORE_WARNING(wflag) \
+        DO_PRAGMA(clang diagnostic push) \
+        DO_PRAGMA(clang diagnostic ignored "-Wunknown-pragmas") \
+        DO_PRAGMA(clang diagnostic ignored "-Wunknown-warning-option") \
+        DO_PRAGMA(clang diagnostic ignored wflag)
+    #define UNIGNORE_WARNINGS DO_PRAGMA(clang diagnostic pop)
+#elif GNUC_AT_LEAST(4, 6)
+    #define IGNORE_WARNING(wflag) \
+        DO_PRAGMA(GCC diagnostic push) \
+        DO_PRAGMA(GCC diagnostic ignored "-Wpragmas") \
+        DO_PRAGMA(GCC diagnostic ignored wflag)
+    #define UNIGNORE_WARNINGS DO_PRAGMA(GCC diagnostic pop)
+#else
+    #define IGNORE_WARNING(wflag)
+    #define UNIGNORE_WARNINGS
 #endif
