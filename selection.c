@@ -620,13 +620,11 @@ selection_update(struct terminal *term, int col, int row)
 
                         keep_going = wc == CELL_MULT_COL_SPACER;
 
-                        if (pivot_end->col == 0) {
-                            if (pivot_end->row > 0) {
-                                pivot_end->col = term->cols - 1;
-                                pivot_end->row--;
-                            }
-                        } else
-                            pivot_end->col--;
+                        /* Multi-col chars shouldn’t span line-wraps */
+                        assert(pivot_end->col > 0);
+                        if (pivot_end->col == 0)
+                            break;
+                        pivot_end->col--;
                     }
                 } else {
                     bool keep_going = true;
@@ -637,13 +635,9 @@ selection_update(struct terminal *term, int col, int row)
 
                         keep_going = wc == CELL_MULT_COL_SPACER;
 
-                        if (pivot_start->col >= term->cols - 1) {
-                            if (pivot_start->row < term->rows - 1) {
-                                pivot_start->col = 0;
-                                pivot_start->row++;
-                            }
-                        } else
-                            pivot_start->col++;
+                        if (pivot_start->col >= term->cols - 1)
+                            break;
+                        pivot_start->col++;
                     }
                 }
 
