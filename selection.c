@@ -561,11 +561,6 @@ selection_update(struct terminal *term, int col, int row)
     struct coord new_start = term->selection.start;
     struct coord new_end = {col, term->grid->view + row};
 
-    size_t start_row_idx = new_start.row & (term->grid->num_rows - 1);
-    size_t end_row_idx = new_end.row & (term->grid->num_rows - 1);
-    const struct row *row_start = term->grid->rows[start_row_idx];
-    const struct row *row_end = term->grid->rows[end_row_idx];
-
     /* Adjust start point if the selection has changed 'direction' */
     if (!(new_end.row == new_start.row && new_end.col == new_start.col)) {
         enum selection_direction new_direction = term->selection.direction;
@@ -697,6 +692,12 @@ selection_update(struct terminal *term, int col, int row)
         }
         break;
     }
+
+    size_t start_row_idx = new_start.row & (term->grid->num_rows - 1);
+    size_t end_row_idx = new_end.row & (term->grid->num_rows - 1);
+
+    const struct row *row_start = term->grid->rows[start_row_idx];
+    const struct row *row_end = term->grid->rows[end_row_idx];
 
     /* If an end point is in the middle of a multi-column character,
      * expand the selection to cover the entire character */
