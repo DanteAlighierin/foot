@@ -249,39 +249,47 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
         c = term->composed[c - CELL_COMB_CHARS_LO].base;
     }
 
-    if (!(c != CELL_MULT_COL_SPACER &&
-          (c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))))
-    {
-        while (true) {
-            int next_col = pos->col - 1;
-            int next_row = pos->row;
+    bool initial_is_space = c == 0 || iswspace(c);
+    bool initial_is_delim = c != 0 && c != CELL_MULT_COL_SPACER &&
+        !isword(c, spaces_only, term->conf->word_delimiters);
 
-            /* Linewrap */
-            if (next_col < 0) {
-                next_col = term->cols - 1;
-                if (--next_row < 0)
-                    break;
-            }
+    while (true) {
+        int next_col = pos->col - 1;
+        int next_row = pos->row;
 
-            const struct row *row = grid_row_in_view(term->grid, next_row);
+        /* Linewrap */
+        if (next_col < 0) {
+            next_col = term->cols - 1;
+            if (--next_row < 0)
+                break;
+        }
 
-            c = row->cells[next_col].wc;
-            if (c >= CELL_COMB_CHARS_LO &&
-                c < (CELL_COMB_CHARS_LO + term->composed_count))
-            {
-                c = term->composed[c - CELL_COMB_CHARS_LO].base;
-            }
+        const struct row *row = grid_row_in_view(term->grid, next_row);
 
-            if (c != CELL_MULT_COL_SPACER &&
-                (c == 0 ||
-                 !isword(c, spaces_only, term->conf->word_delimiters)))
+        c = row->cells[next_col].wc;
+        if (c >= CELL_COMB_CHARS_LO &&
+            c < (CELL_COMB_CHARS_LO + term->composed_count))
+        {
+            c = term->composed[c - CELL_COMB_CHARS_LO].base;
+        }
+
+        bool is_space = c == 0 || iswspace(c);
+        if (initial_is_space && !is_space)
+            break;
+
+        if (!initial_is_space) {
+            bool is_word = c != 0 && c != CELL_MULT_COL_SPACER &&
+                isword(c, spaces_only, term->conf->word_delimiters);
+
+            if ((initial_is_delim && (is_word || is_space)) ||
+                (!initial_is_delim && !is_word))
             {
                 break;
             }
-
-            pos->col = next_col;
-            pos->row = next_row;
         }
+
+        pos->col = next_col;
+        pos->row = next_row;
     }
 }
 
@@ -298,39 +306,47 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
         c = term->composed[c - CELL_COMB_CHARS_LO].base;
     }
 
-    if (!(c != CELL_MULT_COL_SPACER &&
-          (c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))))
-    {
-        while (true) {
-            int next_col = pos->col + 1;
-            int next_row = pos->row;
+    bool initial_is_space = c == 0 || iswspace(c);
+    bool initial_is_delim = c != 0 && c != CELL_MULT_COL_SPACER &&
+        !isword(c, spaces_only, term->conf->word_delimiters);
 
-            /* Linewrap */
-            if (next_col >= term->cols) {
-                next_col = 0;
-                if (++next_row >= term->rows)
-                    break;
-            }
+    while (true) {
+        int next_col = pos->col + 1;
+        int next_row = pos->row;
 
-            const struct row *row = grid_row_in_view(term->grid, next_row);
+        /* Linewrap */
+        if (next_col >= term->cols) {
+            next_col = 0;
+            if (++next_row >= term->rows)
+                break;
+        }
 
-            c = row->cells[next_col].wc;
-            if (c >= CELL_COMB_CHARS_LO &&
-                c < (CELL_COMB_CHARS_LO + term->composed_count))
-            {
-                c = term->composed[c - CELL_COMB_CHARS_LO].base;
-            }
+        const struct row *row = grid_row_in_view(term->grid, next_row);
 
-            if (c != CELL_MULT_COL_SPACER &&
-                (c == 0 ||
-                 !isword(c, spaces_only, term->conf->word_delimiters)))
+        c = row->cells[next_col].wc;
+        if (c >= CELL_COMB_CHARS_LO &&
+            c < (CELL_COMB_CHARS_LO + term->composed_count))
+        {
+            c = term->composed[c - CELL_COMB_CHARS_LO].base;
+        }
+
+        bool is_space = c == 0 || iswspace(c);
+        if (initial_is_space && !is_space)
+            break;
+
+        if (!initial_is_space) {
+            bool is_word = c != 0 && c != CELL_MULT_COL_SPACER &&
+                isword(c, spaces_only, term->conf->word_delimiters);
+
+            if ((initial_is_delim && (is_word || is_space)) ||
+                (!initial_is_delim && !is_word))
             {
                 break;
             }
-
-            pos->col = next_col;
-            pos->row = next_row;
         }
+
+        pos->col = next_col;
+        pos->row = next_row;
     }
 }
 
