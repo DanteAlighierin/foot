@@ -590,7 +590,7 @@ selection_update(struct terminal *term, int col, int row)
                 /* First, make sure ‘start’ isn’t in the middle of a
                  * multi-column character */
                 while (true) {
-                    const struct row *row = term->grid->rows[pivot_start->row];
+                    const struct row *row = term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)];
                     const struct cell *cell = &row->cells[pivot_start->col];
 
                     if (cell->wc != CELL_MULT_COL_SPACER)
@@ -615,7 +615,7 @@ selection_update(struct terminal *term, int col, int row)
                 if (new_direction == SELECTION_RIGHT) {
                     bool keep_going = true;
                     while (keep_going) {
-                        const struct row *row = term->grid->rows[pivot_end->row];
+                        const struct row *row = term->grid->rows[pivot_end->row & (term->grid->num_rows - 1)];
                         const wchar_t wc = row->cells[pivot_end->col].wc;
 
                         keep_going = wc == CELL_MULT_COL_SPACER;
@@ -631,7 +631,7 @@ selection_update(struct terminal *term, int col, int row)
                 } else {
                     bool keep_going = true;
                     while (keep_going) {
-                        const struct row *row = term->grid->rows[pivot_start->row];
+                        const struct row *row = term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)];
                         const wchar_t wc = pivot_start->col < term->cols - 1
                             ? row->cells[pivot_start->col + 1].wc : 0;
 
@@ -647,8 +647,10 @@ selection_update(struct terminal *term, int col, int row)
                     }
                 }
 
-                assert(term->grid->rows[pivot_start->row]->cells[pivot_start->col].wc != CELL_MULT_COL_SPACER);
-                assert(term->grid->rows[pivot_end->row]->cells[pivot_end->col].wc != CELL_MULT_COL_SPACER);
+                assert(term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)]->
+                       cells[pivot_start->col].wc != CELL_MULT_COL_SPACER);
+                assert(term->grid->rows[pivot_end->row & (term->grid->num_rows - 1)]->
+                       cells[pivot_end->col].wc != CELL_MULT_COL_SPACER);
             }
 
             if (new_direction == SELECTION_LEFT) {
