@@ -945,6 +945,8 @@ selection_cancel(struct terminal *term)
     term->selection.kind = SELECTION_NONE;
     term->selection.start = (struct coord){-1, -1};
     term->selection.end = (struct coord){-1, -1};
+    term->selection.pivot.start = (struct coord){-1, -1};
+    term->selection.pivot.end = (struct coord){-1, -1};
     term->selection.direction = SELECTION_UNDIR;
     term->selection.ongoing = false;
 }
