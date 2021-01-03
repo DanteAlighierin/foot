@@ -48,6 +48,7 @@
 ### Contributors
 
 * [birger](https://codeberg.org/birger)
+* [pc](https://codeberg.org/pc)
 
 
 ## 1.6.2
