@@ -243,6 +243,14 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
     const struct row *r = grid_row_in_view(term->grid, pos->row);
     wchar_t c = r->cells[pos->col].wc;
 
+    while (c == CELL_MULT_COL_SPACER) {
+        assert(pos->col > 0);
+        if (pos->col == 0)
+            return;
+        pos->col--;
+        c = r->cells[pos->col].wc;
+    }
+
     if (c >= CELL_COMB_CHARS_LO &&
         c < (CELL_COMB_CHARS_LO + term->composed_count))
     {
@@ -250,8 +258,8 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
     }
 
     bool initial_is_space = c == 0 || iswspace(c);
-    bool initial_is_delim = c != 0 && c != CELL_MULT_COL_SPACER &&
-        !isword(c, spaces_only, term->conf->word_delimiters);
+    bool initial_is_delim =
+        c != 0 && !isword(c, spaces_only, term->conf->word_delimiters);
 
     while (true) {
         int next_col = pos->col - 1;
@@ -267,6 +275,13 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
         const struct row *row = grid_row_in_view(term->grid, next_row);
 
         c = row->cells[next_col].wc;
+        while (c == CELL_MULT_COL_SPACER) {
+            assert(next_col > 0);
+            if (--next_col < 0)
+                return;
+            c = row->cells[next_col].wc;
+        }
+
         if (c >= CELL_COMB_CHARS_LO &&
             c < (CELL_COMB_CHARS_LO + term->composed_count))
         {
@@ -278,8 +293,8 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
             break;
 
         if (!initial_is_space) {
-            bool is_word = c != 0 && c != CELL_MULT_COL_SPACER &&
-                isword(c, spaces_only, term->conf->word_delimiters);
+            bool is_word =
+                c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
 
             if ((initial_is_delim && (is_word || is_space)) ||
                 (!initial_is_delim && !is_word))
@@ -300,6 +315,14 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
     const struct row *r = grid_row_in_view(term->grid, pos->row);
     wchar_t c = r->cells[pos->col].wc;
 
+    while (c == CELL_MULT_COL_SPACER) {
+        assert(pos->col > 0);
+        if (pos->col == 0)
+            return;
+        pos->col--;
+        c = r->cells[pos->col].wc;
+    }
+
     if (c >= CELL_COMB_CHARS_LO &&
         c < (CELL_COMB_CHARS_LO + term->composed_count))
     {
@@ -307,8 +330,8 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
     }
 
     bool initial_is_space = c == 0 || iswspace(c);
-    bool initial_is_delim = c != 0 && c != CELL_MULT_COL_SPACER &&
-        !isword(c, spaces_only, term->conf->word_delimiters);
+    bool initial_is_delim =
+        c != 0 && !isword(c, spaces_only, term->conf->word_delimiters);
 
     while (true) {
         int next_col = pos->col + 1;
@@ -324,6 +347,15 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
         const struct row *row = grid_row_in_view(term->grid, next_row);
 
         c = row->cells[next_col].wc;
+        while (c == CELL_MULT_COL_SPACER) {
+            if (++next_col >= term->cols) {
+                next_col = 0;
+                if (++next_row >= term->rows)
+                    return;
+            }
+            c = row->cells[next_col].wc;
+        }
+
         if (c >= CELL_COMB_CHARS_LO &&
             c < (CELL_COMB_CHARS_LO + term->composed_count))
         {
@@ -335,8 +367,8 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
             break;
 
         if (!initial_is_space) {
-            bool is_word = c != 0 && c != CELL_MULT_COL_SPACER &&
-                isword(c, spaces_only, term->conf->word_delimiters);
+            bool is_word =
+                c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
 
             if ((initial_is_delim && (is_word || is_space)) ||
                 (!initial_is_delim && !is_word))
