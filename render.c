@@ -80,7 +80,7 @@ render_destroy(struct renderer *renderer)
     free(renderer);
 }
 
-static void __attribute__((destructor))
+static void DESTRUCTOR
 log_presentation_statistics(void)
 {
     if (presentation_statistics.total == 0)

@@ -45,6 +45,18 @@
     #define MALLOC
 #endif
 
+#if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(constructor)
+    #define CONSTRUCTOR __attribute__((__constructor__))
+#else
+    #define CONSTRUCTOR
+#endif
+
+#if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(destructor)
+    #define DESTRUCTOR __attribute__((__destructor__))
+#else
+    #define DESTRUCTOR
+#endif
+
 #if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(format)
     #define PRINTF(x) __attribute__((__format__(__printf__, (x), (x + 1))))
     #define VPRINTF(x) __attribute__((__format__(__printf__, (x), 0)))
