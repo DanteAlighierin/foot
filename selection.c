@@ -243,7 +243,9 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
     const struct row *r = grid_row_in_view(term->grid, pos->row);
     wchar_t c = r->cells[pos->col].wc;
 
-    if (!(c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))) {
+    if (!(c != CELL_MULT_COL_SPACER &&
+          (c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))))
+    {
         while (true) {
             int next_col = pos->col - 1;
             int next_row = pos->row;
@@ -258,8 +260,12 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
             const struct row *row = grid_row_in_view(term->grid, next_row);
 
             c = row->cells[next_col].wc;
-            if (c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))
+            if (c != CELL_MULT_COL_SPACER &&
+                (c == 0 ||
+                 !isword(c, spaces_only, term->conf->word_delimiters)))
+            {
                 break;
+            }
 
             pos->col = next_col;
             pos->row = next_row;
@@ -274,7 +280,9 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
     const struct row *r = grid_row_in_view(term->grid, pos->row);
     wchar_t c = r->cells[pos->col].wc;
 
-    if (!(c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))) {
+    if (!(c != CELL_MULT_COL_SPACER &&
+          (c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))))
+    {
         while (true) {
             int next_col = pos->col + 1;
             int next_row = pos->row;
@@ -289,8 +297,12 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
             const struct row *row = grid_row_in_view(term->grid, next_row);
 
             c = row->cells[next_col].wc;
-            if (c == '\0' || !isword(c, spaces_only, term->conf->word_delimiters))
+            if (c != CELL_MULT_COL_SPACER &&
+                (c == 0 ||
+                 !isword(c, spaces_only, term->conf->word_delimiters)))
+            {
                 break;
+            }
 
             pos->col = next_col;
             pos->row = next_row;
