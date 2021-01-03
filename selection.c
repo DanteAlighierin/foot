@@ -259,7 +259,9 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
 
     bool initial_is_space = c == 0 || iswspace(c);
     bool initial_is_delim =
-        c != 0 && !isword(c, spaces_only, term->conf->word_delimiters);
+        !initial_is_space && !isword(c, spaces_only, term->conf->word_delimiters);
+    bool initial_is_word =
+        c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
 
     while (true) {
         int next_col = pos->col - 1;
@@ -289,19 +291,17 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
         }
 
         bool is_space = c == 0 || iswspace(c);
+        bool is_delim =
+            !is_space && !isword(c, spaces_only, term->conf->word_delimiters);
+        bool is_word =
+            c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
+
         if (initial_is_space && !is_space)
             break;
-
-        if (!initial_is_space) {
-            bool is_word =
-                c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
-
-            if ((initial_is_delim && (is_word || is_space)) ||
-                (!initial_is_delim && !is_word))
-            {
-                break;
-            }
-        }
+        if (initial_is_delim && !is_delim)
+            break;
+        if (initial_is_word && !is_word)
+            break;
 
         pos->col = next_col;
         pos->row = next_row;
@@ -331,7 +331,9 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
 
     bool initial_is_space = c == 0 || iswspace(c);
     bool initial_is_delim =
-        c != 0 && !isword(c, spaces_only, term->conf->word_delimiters);
+        !initial_is_space && !isword(c, spaces_only, term->conf->word_delimiters);
+    bool initial_is_word =
+        c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
 
     while (true) {
         int next_col = pos->col + 1;
@@ -363,19 +365,17 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
         }
 
         bool is_space = c == 0 || iswspace(c);
+        bool is_delim =
+            !is_space && !isword(c, spaces_only, term->conf->word_delimiters);
+        bool is_word =
+            c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
+
         if (initial_is_space && !is_space)
             break;
-
-        if (!initial_is_space) {
-            bool is_word =
-                c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
-
-            if ((initial_is_delim && (is_word || is_space)) ||
-                (!initial_is_delim && !is_word))
-            {
-                break;
-            }
-        }
+        if (initial_is_delim && !is_delim)
+            break;
+        if (initial_is_word && !is_word)
+            break;
 
         pos->col = next_col;
         pos->row = next_row;
