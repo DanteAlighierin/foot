@@ -1731,9 +1731,18 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         if (line[0] == '\0' || line[0] == '#')
             continue;
 
-        /* Split up into key/value pair + trailing comment */
-        char *key_value = strtok(line, "#");
-        char UNUSED *comment = strtok(NULL, "\n");
+        /* Split up into key/value pair + trailing comment separated by blank */
+        char *key_value = line;
+        char *comment = line;
+        while (comment[0] != '\0') {
+            const char c = comment[0];
+            comment++;
+            if (isblank(c) && comment[0] == '#') {
+                comment[0] = '\0'; /* Terminate key/value pair */
+                comment++;
+                break;
+            }
+        }
 
         /* Check for new section */
         if (key_value[0] == '[') {
