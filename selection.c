@@ -667,13 +667,19 @@ selection_update(struct terminal *term, int col, int row)
 
     case SELECTION_SEMANTIC_WORD:
         switch (term->selection.direction) {
-        case SELECTION_LEFT:
-            find_word_boundary_left(term, &new_end, term->selection.spaces_only);
+        case SELECTION_LEFT: {
+            struct coord end = {col, row};
+            find_word_boundary_left(term, &end, term->selection.spaces_only);
+            new_end = (struct coord){end.col, term->grid->view + end.row};
             break;
+        }
 
-        case SELECTION_RIGHT:
-            find_word_boundary_right(term, &new_end, term->selection.spaces_only);
+        case SELECTION_RIGHT: {
+            struct coord end = {col, row};
+            find_word_boundary_right(term, &end, term->selection.spaces_only);
+            new_end = (struct coord){end.col, term->grid->view + end.row};
             break;
+        }
 
         case SELECTION_UNDIR:
             break;
