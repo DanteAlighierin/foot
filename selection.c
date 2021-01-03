@@ -352,11 +352,13 @@ selection_start(struct terminal *term, int col, int row,
     term->selection.ongoing = true;
     term->selection.spaces_only = spaces_only;
 
-
     switch (semantic) {
     case SELECTION_SEMANTIC_NONE:
         term->selection.start = (struct coord){col, term->grid->view + row};
         term->selection.end = (struct coord){-1, -1};
+
+        term->selection.pivot.start = term->selection.start;
+        term->selection.pivot.end = term->selection.end;
         break;
 
     case SELECTION_SEMANTIC_WORD: {
@@ -367,15 +369,22 @@ selection_start(struct terminal *term, int col, int row,
         term->selection.start = (struct coord){
             start.col, term->grid->view + start.row};
 
+        term->selection.pivot.start = term->selection.start;
+        term->selection.pivot.end = (struct coord){end.col, term->grid->view + end.row};
+
         selection_update(term, end.col, end.row);
         break;
     }
 
     case SELECTION_SEMANTIC_ROW:
         term->selection.start = (struct coord){0, term->grid->view + row};
+        term->selection.pivot.start = term->selection.start;
+        term->selection.pivot.end = (struct coord){term->cols - 1, term->grid->view + row};
+
         selection_update(term, term->cols - 1, row);
         break;
     }
+
 }
 
 /* Context used while (un)marking selected cells, to be able to
@@ -511,49 +520,94 @@ selection_update(struct terminal *term, int col, int row)
 
     /* Adjust start point if the selection has changed 'direction' */
     if (!(new_end.row == new_start.row && new_end.col == new_start.col)) {
-        enum selection_direction new_direction;
+        enum selection_direction new_direction = term->selection.direction;
 
-        if (new_end.row > new_start.row ||
-            (new_end.row == new_start.row && new_end.col > new_start.col))
+        struct coord *pivot_start = &term->selection.pivot.start;
+        struct coord *pivot_end = &term->selection.pivot.end;
+
+        if (new_end.row < pivot_start->row ||
+            (new_end.row == pivot_start->row && new_end.col < pivot_start->col))
         {
-            /* New end point is after the start point */
-            new_direction = SELECTION_RIGHT;
-        } else {
-            /* The new end point is before the start point */
+            /* New end point is before the start point */
             new_direction = SELECTION_LEFT;
+        } else {
+            /* The new end point is after the start point */
+            new_direction = SELECTION_RIGHT;
         }
 
         if (term->selection.direction != new_direction) {
-            if (term->selection.direction != SELECTION_UNDIR) {
-                if (new_direction == SELECTION_LEFT) {
+            if (term->selection.direction == SELECTION_UNDIR &&
+                pivot_end->row < 0)
+            {
+                /* First, make sure ‘start’ isn’t in the middle of a
+                 * multi-column character */
+                while (true) {
+                    const struct row *row = term->grid->rows[pivot_start->row];
+                    const struct cell *cell = &row->cells[pivot_start->col];
+
+                    if (cell->wc != CELL_MULT_COL_SPACER)
+                        break;
+
+                    /* Multi-column chars don’t cross rows */
+                    assert(pivot_start->col > 0);
+                    if (pivot_start->col == 0)
+                        break;
+
+                    pivot_start->col--;
+                }
+
+                /*
+                 * Setup pivot end to be one character *before* start
+                 * Which one we move, the end or start point, depends
+                 * on the initial selection direction.
+                 */
+
+                *pivot_end = *pivot_start;
+
+                if (new_direction == SELECTION_RIGHT) {
                     bool keep_going = true;
                     while (keep_going) {
-                        const wchar_t wc = row_start->cells[new_start.col].wc;
+                        const struct row *row = term->grid->rows[pivot_end->row];
+                        const wchar_t wc = row->cells[pivot_end->col].wc;
+
                         keep_going = wc == CELL_MULT_COL_SPACER;
 
-                        new_start.col--;
-                        if (new_start.col < 0) {
-                            new_start.col = term->cols - 1;
-                            new_start.row--;
-                        }
+                        if (pivot_end->col == 0) {
+                            if (pivot_end->row > 0) {
+                                pivot_end->col = term->cols - 1;
+                                pivot_end->row--;
+                            }
+                        } else
+                            pivot_end->col--;
                     }
                 } else {
                     bool keep_going = true;
                     while (keep_going) {
-                        const wchar_t wc = new_start.col < term->cols - 1
-                            ? row_start->cells[new_start.col + 1].wc
-                            : 0;
+                        const struct row *row = term->grid->rows[pivot_start->row];
+                        const wchar_t wc = pivot_start->col < term->cols - 1
+                            ? row->cells[pivot_start->col + 1].wc : 0;
 
                         keep_going = wc == CELL_MULT_COL_SPACER;
 
-                        new_start.col++;
-                        if (new_start.col >= term->cols) {
-                            new_start.col = 0;
-                            new_start.row++;
-                        }
+                        if (pivot_start->col >= term->cols - 1) {
+                            if (pivot_start->row < term->rows - 1) {
+                                pivot_start->col = 0;
+                                pivot_start->row++;
+                            }
+                        } else
+                            pivot_start->col++;
                     }
                 }
+
+                assert(term->grid->rows[pivot_start->row]->cells[pivot_start->col].wc != CELL_MULT_COL_SPACER);
+                assert(term->grid->rows[pivot_end->row]->cells[pivot_end->col].wc != CELL_MULT_COL_SPACER);
             }
+
+            if (new_direction == SELECTION_LEFT) {
+                assert(pivot_end->row >= 0);
+                new_start = *pivot_end;
+            } else
+                new_start = *pivot_start;
 
             term->selection.direction = new_direction;
         }
@@ -574,7 +628,6 @@ selection_update(struct terminal *term, int col, int row)
             break;
 
         case SELECTION_UNDIR:
-            assert(false);
             break;
         }
         break;
@@ -590,7 +643,6 @@ selection_update(struct terminal *term, int col, int row)
             break;
 
         case SELECTION_UNDIR:
-            assert(false);
             break;
         }
         break;

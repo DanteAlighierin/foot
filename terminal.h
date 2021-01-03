@@ -368,6 +368,11 @@ struct terminal {
         bool spaces_only; /* SELECTION_SEMANTIC_WORD */
 
         struct {
+            struct coord start;
+            struct coord end;
+        } pivot;
+
+        struct {
             int fd;
             int col;
             enum selection_scroll_direction direction;
