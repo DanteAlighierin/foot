@@ -149,6 +149,7 @@ executable(
 executable(
   'foot',
   'async.c', 'async.h',
+  'box-drawing.c', 'box-drawing.h',
   'config.c', 'config.h',
   'commands.c', 'commands.h',
   'extract.c', 'extract.h',

@@ -16,6 +16,7 @@
 #define LOG_MODULE "render"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "box-drawing.h"
 #include "config.h"
 #include "grid.h"
 #include "hsl.h"
@@ -449,7 +450,27 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             base = composed->base;
         }
 
-        glyph = fcft_glyph_rasterize(font, base, term->font_subpixel);
+        if (unlikely((base >= 0x2500 && base <= 0x259f) ||
+                     (base >= 0x1fb00 && base <= 0x1fb3b))) {
+            /* Box drawing characters */
+            size_t idx = base >= 0x1fb00 ? base - 0x1fb00 + 160 : base - 0x2500;
+            assert(idx < ALEN(term->box_drawing));
+
+            if (likely(term->box_drawing[idx] != NULL))
+                glyph = term->box_drawing[idx];
+            else {
+                mtx_lock(&term->render.workers.lock);
+
+                /* Parallel thread may have instantiated it while we took the lock */
+                if (term->box_drawing[idx] == NULL)
+                    term->box_drawing[idx] = box_drawing(term, base);
+                mtx_unlock(&term->render.workers.lock);
+
+                glyph = term->box_drawing[idx];
+                assert(glyph != NULL);
+            }
+        } else
+            glyph = fcft_glyph_rasterize(font, base, term->font_subpixel);
     }
 
     const int cols_left = term->cols - col;
@@ -481,7 +502,16 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         col < term->cols - 1 &&
         (row->cells[col + 1].wc == 0 || row->cells[col + 1].wc == L' '))
     {
-        cell_cols = min(2, cols_left);
+        cell_cols = 2;
+
+        /*
+         * Ensure the cell we’re overflowing into gets re-rendered, to
+         * ensure it is erased if *this* cell is erased. Note that we
+         * do *not* mark the row as dirty - we don’t need to re-render
+         * the cell if nothing else on the row has changed.
+         */
+        row->cells[col].attrs.clean = 0;
+        row->cells[col + 1].attrs.clean = 0;
     }
 
     pixman_region32_t clip;

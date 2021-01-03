@@ -28,6 +28,8 @@
 * The fcft and tllist library subprojects are now handled via Meson
   [wrap files](https://mesonbuild.com/Wrap-dependency-system-manual.html)
   instead of needing to be manually cloned.
+* Box drawing characters are now rendered by foot, instead of using
+  font glyphs (https://codeberg.org/dnkl/foot/issues/198)
 
 
 ### Deprecated
@@ -38,6 +40,9 @@
   descriptor is closed.
 * Crash on compositors not implementing the _text input_ interface
   (https://codeberg.org/dnkl/foot/issues/259).
+* Erased, overflowing glyphs (when
+  `tweak.allow-overflowing-double-width-glyphs=yes` - the default) not
+  properly erasing the cell overflowed **into**.
 
 
 ### Security
