@@ -24,6 +24,11 @@
 ## 1.6.3
 ### Added
 ### Changed
+
+* Trailing comments in `foot.ini` must now be preceded by a space or tab
+  (https://codeberg.org/dnkl/foot/issues/270)
+
+
 ### Deprecated
 ### Removed
 ### Fixed
@@ -35,6 +40,8 @@
 * Erased, overflowing glyphs (when
   `tweak.allow-overflowing-double-width-glyphs=yes` - the default) not
   properly erasing the cell overflowed **into**.
+* `word-delimiters` option ignores `#` and subsequent characters
+  (https://codeberg.org/dnkl/foot/issues/270)
 
 
 ### Security
