@@ -1537,6 +1537,11 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             assert(it->item.button != button);
 #endif
 
+        /*
+         * Remember which surface "owns" this button, so that we can
+         * send motion and button release events to that surface, even
+         * if the pointer is no longer over it.
+         */
         tll_push_back(
             seat->mouse.buttons,
             ((struct button_tracker){
@@ -1559,7 +1564,21 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 break;
             }
         }
-        assert(have_button);
+
+        if (!have_button) {
+            /*
+             * Seen on Sway with slurp
+             *
+             *  1. Run slurp
+             *  2. Press, and hold left mouse button
+             *  3. Press escape, to cancel slurp
+             *  4. Release mouse button
+             *  5. BAM!
+             */
+            LOG_WARN("stray button release event");
+            return;
+        }
+
         seat->mouse.last_released_button = button;
     }
 
