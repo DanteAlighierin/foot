@@ -10,7 +10,9 @@ extern const struct zwp_primary_selection_device_v1_listener primary_selection_d
 
 bool selection_enabled(const struct terminal *term, struct seat *seat);
 void selection_start(
-    struct terminal *term, int col, int row, enum selection_kind kind);
+    struct terminal *term, int col, int row,
+    enum selection_kind kind, enum selection_semantic semantic,
+    bool spaces_only);
 void selection_update(struct terminal *term, int col, int row);
 void selection_finalize(
     struct seat *seat, struct terminal *term, uint32_t serial);
@@ -23,12 +25,6 @@ bool selection_on_rows(const struct terminal *term, int start, int end);
 
 void selection_view_up(struct terminal *term, int new_view);
 void selection_view_down(struct terminal *term, int new_view);
-
-void selection_mark_word(
-    struct seat *seat, struct terminal *term, int col, int row,
-    bool spaces_only, uint32_t serial);
-void selection_mark_row(
-    struct seat *seat, struct terminal *term, int row, uint32_t serial);
 
 void selection_clipboard_unset(struct seat *seat);
 void selection_primary_unset(struct seat *seat);

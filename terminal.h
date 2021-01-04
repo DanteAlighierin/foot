@@ -181,6 +181,7 @@ enum mouse_reporting {
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
 
 enum selection_kind { SELECTION_NONE, SELECTION_NORMAL, SELECTION_BLOCK };
+enum selection_semantic { SELECTION_SEMANTIC_NONE, SELECTION_SEMANTIC_WORD, SELECTION_SEMANTIC_ROW};
 enum selection_direction {SELECTION_UNDIR, SELECTION_LEFT, SELECTION_RIGHT};
 enum selection_scroll_direction {SELECTION_SCROLL_NOT, SELECTION_SCROLL_UP, SELECTION_SCROLL_DOWN};
 
@@ -359,10 +360,17 @@ struct terminal {
 
     struct {
         enum selection_kind kind;
+        enum selection_semantic semantic;
         enum selection_direction direction;
         struct coord start;
         struct coord end;
         bool ongoing;
+        bool spaces_only; /* SELECTION_SEMANTIC_WORD */
+
+        struct {
+            struct coord start;
+            struct coord end;
+        } pivot;
 
         struct {
             int fd;

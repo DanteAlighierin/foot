@@ -69,14 +69,17 @@ extract_finish(struct extraction_context *ctx, char **text, size_t *len)
         /* Selection of empty cells only */
         if (!ensure_size(ctx, 1))
             goto out;
-        ctx->buf[ctx->idx] = L'\0';
+        ctx->buf[ctx->idx++] = L'\0';
     } else {
         assert(ctx->idx > 0);
-        assert(ctx->idx < ctx->size);
+        assert(ctx->idx <= ctx->size);
         if (ctx->buf[ctx->idx - 1] == L'\n')
             ctx->buf[ctx->idx - 1] = L'\0';
-        else
-            ctx->buf[ctx->idx] = L'\0';
+        else {
+            if (!ensure_size(ctx, 1))
+                goto out;
+            ctx->buf[ctx->idx++] = L'\0';
+        }
     }
 
     size_t _len = wcstombs(NULL, ctx->buf, 0);
