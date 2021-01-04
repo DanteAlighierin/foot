@@ -1596,7 +1596,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                     xdg_toplevel_set_maximized(win->xdg_toplevel);
             }
 
-            else if (button == BTN_LEFT && win->csd.move_timeout_fd == -1) {
+            else if (button == BTN_LEFT && win->csd.move_timeout_fd < 0) {
                 const struct itimerspec timeout = {
                     .it_value = {.tv_nsec = 200000000},
                 };
@@ -1610,14 +1610,15 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                     win->csd.serial = serial;
                 } else {
                     LOG_ERRNO("failed to configure XDG toplevel move timer FD");
-                    close(fd);
+                    if (fd >= 0)
+                        close(fd);
                 }
             }
         }
 
         else if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
             struct wl_window *win = term->window;
-            if (win->csd.move_timeout_fd != -1) {
+            if (win->csd.move_timeout_fd >= 0) {
                 fdm_del(wayl->fdm, win->csd.move_timeout_fd);
                 win->csd.move_timeout_fd = -1;
             }
