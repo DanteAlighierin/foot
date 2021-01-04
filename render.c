@@ -572,7 +572,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                      * offsets for combining glyphs.
                      *
                      * Not all fonts behave like this however, and we
-                     * try to accomodate both variants.
+                     * try to accommodate both variants.
                      *
                      * Since we haven't moved our pen position yet, we
                      * add a full cell width to the offset (or two, in
