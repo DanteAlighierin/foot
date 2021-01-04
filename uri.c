@@ -16,7 +16,7 @@ enum {
 };
 
 static uint8_t
-nibble2hex(char c)
+hex2nibble(char c)
 {
     switch (c) {
     case '0': case '1': case '2': case '3': case '4':
@@ -201,8 +201,8 @@ uri_parse(const char *uri, size_t len,
             encoded_len -= prefix_len;
             decoded_len += prefix_len;
 
-            if (nibble2hex(next[1]) <= 15 && nibble2hex(next[2]) <= 15) {
-                *p++ = nibble2hex(next[1]) << 4 | nibble2hex(next[2]);
+            if (hex2nibble(next[1]) <= 15 && hex2nibble(next[2]) <= 15) {
+                *p++ = hex2nibble(next[1]) << 4 | hex2nibble(next[2]);
                 decoded_len++;
                 encoded_len -= 3;
                 encoded = next + 3;
