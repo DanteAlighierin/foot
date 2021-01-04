@@ -534,26 +534,44 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                 x + glyph->x, y + font_baseline(term) - glyph->y,
                 glyph->width, glyph->height);
 
-            /* Combining characters */
-            if (composed != NULL) {
-                for (size_t i = 0; i < composed->count; i++) {
-                    const struct fcft_glyph *g = fcft_glyph_rasterize(
-                        font, composed->combining[i], term->font_subpixel);
-
-                    if (g == NULL)
-                        continue;
-
-                    pixman_image_composite32(
-                        PIXMAN_OP_OVER, clr_pix, g->pix, pix, 0, 0, 0, 0,
-                        /* Some fonts use a negative offset, while others use a
-                         * "normal" offset */
-                        x + (g->x < 0 ? term->cell_width : 0) + g->x,
-                        y + font_baseline(term) - g->y,
-                        g->width, g->height);
-                }
-            }
         }
 
+        /* Combining characters */
+        if (composed != NULL) {
+            for (size_t i = 0; i < composed->count; i++) {
+                const struct fcft_glyph *g = fcft_glyph_rasterize(
+                    font, composed->combining[i], term->font_subpixel);
+
+                if (g == NULL)
+                    continue;
+
+                    /*
+                     * Fonts _should_ assume the pen position is now
+                     * *after* the base glyph, and thus use negative
+                     * offsets for combining glyphs.
+                     *
+                     * Not all fonts behave like this however, and we
+                     * try to accomodate both variants.
+                     *
+                     * Since we haven't moved our pen position yet, we
+                     * add a full cell width to the offset (or two, in
+                     * case of double-width characters).
+                     *
+                     * If the font does *not* use negative offsets,
+                     * we'd normally use an offset of 0. However, to
+                     * somewhat deal with double-width glyphs we use
+                     * an offset of *one* cell.
+                     */
+                int x_ofs = g->x < 0
+                    ? cell_cols * term->cell_width
+                    : (cell_cols - 1) * term->cell_width;
+
+                pixman_image_composite32(
+                    PIXMAN_OP_OVER, clr_pix, g->pix, pix, 0, 0, 0, 0,
+                    x + x_ofs + g->x, y + font_baseline(term) - g->y,
+                    g->width, g->height);
+            }
+        }
     }
 
     pixman_image_unref(clr_pix);
