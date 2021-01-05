@@ -275,7 +275,8 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SELECT_BEGIN:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
-                term, seat->mouse.col, seat->mouse.row, SELECTION_NORMAL);
+                term, seat->mouse.col, seat->mouse.row,
+                SELECTION_NORMAL, SELECTION_SEMANTIC_NONE, false);
             return true;
         }
         return false;
@@ -283,7 +284,8 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SELECT_BEGIN_BLOCK:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
-                term, seat->mouse.col, seat->mouse.row, SELECTION_BLOCK);
+                term, seat->mouse.col, seat->mouse.row,
+                SELECTION_BLOCK, SELECTION_SEMANTIC_NONE, false);
             return true;
         }
         return false;
@@ -298,23 +300,26 @@ execute_binding(struct seat *seat, struct terminal *term,
 
     case BIND_ACTION_SELECT_WORD:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_mark_word(
-                seat, term, seat->mouse.col, seat->mouse.row, false, serial);
+            selection_start(
+                term, seat->mouse.col, seat->mouse.row,
+                SELECTION_NORMAL, SELECTION_SEMANTIC_WORD, false);
             return true;
         }
         return false;
 
     case BIND_ACTION_SELECT_WORD_WS:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_mark_word(
-                seat, term, seat->mouse.col, seat->mouse.row, true, serial);
+            selection_start(
+                term, seat->mouse.col, seat->mouse.row,
+                SELECTION_NORMAL, SELECTION_SEMANTIC_WORD, true);
             return true;
         }
         return false;
 
     case BIND_ACTION_SELECT_ROW:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_mark_row(seat, term, seat->mouse.row, serial);
+            selection_start(term, seat->mouse.col, seat->mouse.row,
+                            SELECTION_NORMAL, SELECTION_SEMANTIC_ROW, false);
             return true;
         }
         return false;
@@ -1537,6 +1542,11 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             assert(it->item.button != button);
 #endif
 
+        /*
+         * Remember which surface "owns" this button, so that we can
+         * send motion and button release events to that surface, even
+         * if the pointer is no longer over it.
+         */
         tll_push_back(
             seat->mouse.buttons,
             ((struct button_tracker){
@@ -1559,7 +1569,21 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 break;
             }
         }
-        assert(have_button);
+
+        if (!have_button) {
+            /*
+             * Seen on Sway with slurp
+             *
+             *  1. Run slurp
+             *  2. Press, and hold left mouse button
+             *  3. Press escape, to cancel slurp
+             *  4. Release mouse button
+             *  5. BAM!
+             */
+            LOG_WARN("stray button release event");
+            return;
+        }
+
         seat->mouse.last_released_button = button;
     }
 
@@ -1577,7 +1601,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                     xdg_toplevel_set_maximized(win->xdg_toplevel);
             }
 
-            else if (button == BTN_LEFT && win->csd.move_timeout_fd == -1) {
+            else if (button == BTN_LEFT && win->csd.move_timeout_fd < 0) {
                 const struct itimerspec timeout = {
                     .it_value = {.tv_nsec = 200000000},
                 };
@@ -1591,14 +1615,15 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                     win->csd.serial = serial;
                 } else {
                     LOG_ERRNO("failed to configure XDG toplevel move timer FD");
-                    close(fd);
+                    if (fd >= 0)
+                        close(fd);
                 }
             }
         }
 
         else if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
             struct wl_window *win = term->window;
-            if (win->csd.move_timeout_fd != -1) {
+            if (win->csd.move_timeout_fd >= 0) {
                 fdm_del(wayl->fdm, win->csd.move_timeout_fd);
                 win->csd.move_timeout_fd = -1;
             }

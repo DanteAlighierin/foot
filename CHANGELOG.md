@@ -30,6 +30,10 @@
   instead of needing to be manually cloned.
 * Box drawing characters are now rendered by foot, instead of using
   font glyphs (https://codeberg.org/dnkl/foot/issues/198)
+* Trailing comments in `foot.ini` must now be preceded by a space or tab
+  (https://codeberg.org/dnkl/foot/issues/270)
+* Double- or triple clicking then dragging now extends the selection
+  word- or line-wise (https://codeberg.org/dnkl/foot/issues/267).
 
 
 ### Deprecated
@@ -43,6 +47,10 @@
 * Erased, overflowing glyphs (when
   `tweak.allow-overflowing-double-width-glyphs=yes` - the default) not
   properly erasing the cell overflowed **into**.
+* `word-delimiters` option ignores `#` and subsequent characters
+  (https://codeberg.org/dnkl/foot/issues/270)
+* Combining characters not being rendered when composed with colored
+  bitmap glyhps (i.e. colored emojis).
 
 
 ### Security
@@ -50,6 +58,7 @@
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
 * [birger](https://codeberg.org/birger)
+* [pc](https://codeberg.org/pc)
 
 
 ## 1.6.2

@@ -236,9 +236,157 @@ selection_to_text(const struct terminal *term)
     return extract_finish(ctx, &text, NULL) ? text : NULL;
 }
 
+static void
+find_word_boundary_left(struct terminal *term, struct coord *pos,
+                        bool spaces_only)
+{
+    const struct row *r = grid_row_in_view(term->grid, pos->row);
+    wchar_t c = r->cells[pos->col].wc;
+
+    while (c == CELL_MULT_COL_SPACER) {
+        assert(pos->col > 0);
+        if (pos->col == 0)
+            return;
+        pos->col--;
+        c = r->cells[pos->col].wc;
+    }
+
+    if (c >= CELL_COMB_CHARS_LO &&
+        c < (CELL_COMB_CHARS_LO + term->composed_count))
+    {
+        c = term->composed[c - CELL_COMB_CHARS_LO].base;
+    }
+
+    bool initial_is_space = c == 0 || iswspace(c);
+    bool initial_is_delim =
+        !initial_is_space && !isword(c, spaces_only, term->conf->word_delimiters);
+    bool initial_is_word =
+        c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
+
+    while (true) {
+        int next_col = pos->col - 1;
+        int next_row = pos->row;
+
+        /* Linewrap */
+        if (next_col < 0) {
+            next_col = term->cols - 1;
+            if (--next_row < 0)
+                break;
+        }
+
+        const struct row *row = grid_row_in_view(term->grid, next_row);
+
+        c = row->cells[next_col].wc;
+        while (c == CELL_MULT_COL_SPACER) {
+            assert(next_col > 0);
+            if (--next_col < 0)
+                return;
+            c = row->cells[next_col].wc;
+        }
+
+        if (c >= CELL_COMB_CHARS_LO &&
+            c < (CELL_COMB_CHARS_LO + term->composed_count))
+        {
+            c = term->composed[c - CELL_COMB_CHARS_LO].base;
+        }
+
+        bool is_space = c == 0 || iswspace(c);
+        bool is_delim =
+            !is_space && !isword(c, spaces_only, term->conf->word_delimiters);
+        bool is_word =
+            c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
+
+        if (initial_is_space && !is_space)
+            break;
+        if (initial_is_delim && !is_delim)
+            break;
+        if (initial_is_word && !is_word)
+            break;
+
+        pos->col = next_col;
+        pos->row = next_row;
+    }
+}
+
+static void
+find_word_boundary_right(struct terminal *term, struct coord *pos,
+                         bool spaces_only)
+{
+    const struct row *r = grid_row_in_view(term->grid, pos->row);
+    wchar_t c = r->cells[pos->col].wc;
+
+    while (c == CELL_MULT_COL_SPACER) {
+        assert(pos->col > 0);
+        if (pos->col == 0)
+            return;
+        pos->col--;
+        c = r->cells[pos->col].wc;
+    }
+
+    if (c >= CELL_COMB_CHARS_LO &&
+        c < (CELL_COMB_CHARS_LO + term->composed_count))
+    {
+        c = term->composed[c - CELL_COMB_CHARS_LO].base;
+    }
+
+    bool initial_is_space = c == 0 || iswspace(c);
+    bool initial_is_delim =
+        !initial_is_space && !isword(c, spaces_only, term->conf->word_delimiters);
+    bool initial_is_word =
+        c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
+
+    while (true) {
+        int next_col = pos->col + 1;
+        int next_row = pos->row;
+
+        /* Linewrap */
+        if (next_col >= term->cols) {
+            next_col = 0;
+            if (++next_row >= term->rows)
+                break;
+        }
+
+        const struct row *row = grid_row_in_view(term->grid, next_row);
+
+        c = row->cells[next_col].wc;
+        while (c == CELL_MULT_COL_SPACER) {
+            if (++next_col >= term->cols) {
+                next_col = 0;
+                if (++next_row >= term->rows)
+                    return;
+            }
+            c = row->cells[next_col].wc;
+        }
+
+        if (c >= CELL_COMB_CHARS_LO &&
+            c < (CELL_COMB_CHARS_LO + term->composed_count))
+        {
+            c = term->composed[c - CELL_COMB_CHARS_LO].base;
+        }
+
+        bool is_space = c == 0 || iswspace(c);
+        bool is_delim =
+            !is_space && !isword(c, spaces_only, term->conf->word_delimiters);
+        bool is_word =
+            c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
+
+        if (initial_is_space && !is_space)
+            break;
+        if (initial_is_delim && !is_delim)
+            break;
+        if (initial_is_word && !is_word)
+            break;
+
+        pos->col = next_col;
+        pos->row = next_row;
+    }
+}
+
 void
 selection_start(struct terminal *term, int col, int row,
-                enum selection_kind kind)
+                enum selection_kind kind,
+                enum selection_semantic semantic,
+                bool spaces_only)
 {
     selection_cancel(term);
 
@@ -248,9 +396,43 @@ selection_start(struct terminal *term, int col, int row,
             row, col);
 
     term->selection.kind = kind;
-    term->selection.start = (struct coord){col, term->grid->view + row};
-    term->selection.end = (struct coord){-1, -1};
+    term->selection.semantic = semantic;
     term->selection.ongoing = true;
+    term->selection.spaces_only = spaces_only;
+
+    switch (semantic) {
+    case SELECTION_SEMANTIC_NONE:
+        term->selection.start = (struct coord){col, term->grid->view + row};
+        term->selection.end = (struct coord){-1, -1};
+
+        term->selection.pivot.start = term->selection.start;
+        term->selection.pivot.end = term->selection.end;
+        break;
+
+    case SELECTION_SEMANTIC_WORD: {
+        struct coord start = {col, row}, end = {col, row};
+        find_word_boundary_left(term, &start, spaces_only);
+        find_word_boundary_right(term, &end, spaces_only);
+
+        term->selection.start = (struct coord){
+            start.col, term->grid->view + start.row};
+
+        term->selection.pivot.start = term->selection.start;
+        term->selection.pivot.end = (struct coord){end.col, term->grid->view + end.row};
+
+        selection_update(term, end.col, end.row);
+        break;
+    }
+
+    case SELECTION_SEMANTIC_ROW:
+        term->selection.start = (struct coord){0, term->grid->view + row};
+        term->selection.pivot.start = term->selection.start;
+        term->selection.pivot.end = (struct coord){term->cols - 1, term->grid->view + row};
+
+        selection_update(term, term->cols - 1, row);
+        break;
+    }
+
 }
 
 /* Context used while (un)marking selected cells, to be able to
@@ -379,60 +561,149 @@ selection_update(struct terminal *term, int col, int row)
     struct coord new_start = term->selection.start;
     struct coord new_end = {col, term->grid->view + row};
 
-    size_t start_row_idx = new_start.row & (term->grid->num_rows - 1);
-    size_t end_row_idx = new_end.row & (term->grid->num_rows - 1);
-    const struct row *row_start = term->grid->rows[start_row_idx];
-    const struct row *row_end = term->grid->rows[end_row_idx];
-
     /* Adjust start point if the selection has changed 'direction' */
     if (!(new_end.row == new_start.row && new_end.col == new_start.col)) {
-        enum selection_direction new_direction;
+        enum selection_direction new_direction = term->selection.direction;
 
-        if (new_end.row > new_start.row ||
-            (new_end.row == new_start.row && new_end.col > new_start.col))
+        struct coord *pivot_start = &term->selection.pivot.start;
+        struct coord *pivot_end = &term->selection.pivot.end;
+
+        if (new_end.row < pivot_start->row ||
+            (new_end.row == pivot_start->row && new_end.col < pivot_start->col))
         {
-            /* New end point is after the start point */
-            new_direction = SELECTION_RIGHT;
-        } else {
-            /* The new end point is before the start point */
+            /* New end point is before the start point */
             new_direction = SELECTION_LEFT;
+        } else {
+            /* The new end point is after the start point */
+            new_direction = SELECTION_RIGHT;
         }
 
         if (term->selection.direction != new_direction) {
-            if (term->selection.direction != SELECTION_UNDIR) {
-                if (new_direction == SELECTION_LEFT) {
+            if (term->selection.direction == SELECTION_UNDIR &&
+                pivot_end->row < 0)
+            {
+                /* First, make sure ‘start’ isn’t in the middle of a
+                 * multi-column character */
+                while (true) {
+                    const struct row *row = term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)];
+                    const struct cell *cell = &row->cells[pivot_start->col];
+
+                    if (cell->wc != CELL_MULT_COL_SPACER)
+                        break;
+
+                    /* Multi-column chars don’t cross rows */
+                    assert(pivot_start->col > 0);
+                    if (pivot_start->col == 0)
+                        break;
+
+                    pivot_start->col--;
+                }
+
+                /*
+                 * Setup pivot end to be one character *before* start
+                 * Which one we move, the end or start point, depends
+                 * on the initial selection direction.
+                 */
+
+                *pivot_end = *pivot_start;
+
+                if (new_direction == SELECTION_RIGHT) {
                     bool keep_going = true;
                     while (keep_going) {
-                        const wchar_t wc = row_start->cells[new_start.col].wc;
+                        const struct row *row = term->grid->rows[pivot_end->row & (term->grid->num_rows - 1)];
+                        const wchar_t wc = row->cells[pivot_end->col].wc;
+
                         keep_going = wc == CELL_MULT_COL_SPACER;
 
-                        new_start.col--;
-                        if (new_start.col < 0) {
-                            new_start.col = term->cols - 1;
-                            new_start.row--;
-                        }
+                        if (pivot_end->col == 0) {
+                            if (pivot_end->row - term->grid->view <= 0)
+                                break;
+                            pivot_end->col = term->cols - 1;
+                            pivot_end->row--;
+                        } else
+                              pivot_end->col--;
                     }
                 } else {
                     bool keep_going = true;
                     while (keep_going) {
-                        const wchar_t wc = new_start.col < term->cols - 1
-                            ? row_start->cells[new_start.col + 1].wc
-                            : 0;
+                        const struct row *row = term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)];
+                        const wchar_t wc = pivot_start->col < term->cols - 1
+                            ? row->cells[pivot_start->col + 1].wc : 0;
 
                         keep_going = wc == CELL_MULT_COL_SPACER;
 
-                        new_start.col++;
-                        if (new_start.col >= term->cols) {
-                            new_start.col = 0;
-                            new_start.row++;
-                        }
+                        if (pivot_start->col >= term->cols - 1) {
+                            if (pivot_start->row - term->grid->view >= term->rows - 1)
+                                break;
+                            pivot_start->col = 0;
+                            pivot_start->row++;
+                        } else
+                            pivot_start->col++;
                     }
                 }
+
+                assert(term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)]->
+                       cells[pivot_start->col].wc != CELL_MULT_COL_SPACER);
+                assert(term->grid->rows[pivot_end->row & (term->grid->num_rows - 1)]->
+                       cells[pivot_end->col].wc != CELL_MULT_COL_SPACER);
             }
+
+            if (new_direction == SELECTION_LEFT) {
+                assert(pivot_end->row >= 0);
+                new_start = *pivot_end;
+            } else
+                new_start = *pivot_start;
 
             term->selection.direction = new_direction;
         }
     }
+
+    switch (term->selection.semantic) {
+    case SELECTION_SEMANTIC_NONE:
+        break;
+
+    case SELECTION_SEMANTIC_WORD:
+        switch (term->selection.direction) {
+        case SELECTION_LEFT: {
+            struct coord end = {col, row};
+            find_word_boundary_left(term, &end, term->selection.spaces_only);
+            new_end = (struct coord){end.col, term->grid->view + end.row};
+            break;
+        }
+
+        case SELECTION_RIGHT: {
+            struct coord end = {col, row};
+            find_word_boundary_right(term, &end, term->selection.spaces_only);
+            new_end = (struct coord){end.col, term->grid->view + end.row};
+            break;
+        }
+
+        case SELECTION_UNDIR:
+            break;
+        }
+        break;
+
+    case SELECTION_SEMANTIC_ROW:
+        switch (term->selection.direction) {
+        case SELECTION_LEFT:
+            new_end.col = 0;
+            break;
+
+        case SELECTION_RIGHT:
+            new_end.col = term->cols - 1;
+            break;
+
+        case SELECTION_UNDIR:
+            break;
+        }
+        break;
+    }
+
+    size_t start_row_idx = new_start.row & (term->grid->num_rows - 1);
+    size_t end_row_idx = new_end.row & (term->grid->num_rows - 1);
+
+    const struct row *row_start = term->grid->rows[start_row_idx];
+    const struct row *row_end = term->grid->rows[end_row_idx];
 
     /* If an end point is in the middle of a multi-column character,
      * expand the selection to cover the entire character */
@@ -677,6 +948,8 @@ selection_cancel(struct terminal *term)
     term->selection.kind = SELECTION_NONE;
     term->selection.start = (struct coord){-1, -1};
     term->selection.end = (struct coord){-1, -1};
+    term->selection.pivot.start = (struct coord){-1, -1};
+    term->selection.pivot.end = (struct coord){-1, -1};
     term->selection.direction = SELECTION_UNDIR;
     term->selection.ongoing = false;
 }
@@ -731,81 +1004,6 @@ selection_primary_unset(struct seat *seat)
 
     free(primary->text);
     primary->text = NULL;
-}
-
-void
-selection_mark_word(struct seat *seat, struct terminal *term, int col, int row,
-                    bool spaces_only, uint32_t serial)
-{
-    selection_cancel(term);
-
-    struct coord start = {col, row};
-    struct coord end = {col, row};
-
-    const struct row *r = grid_row_in_view(term->grid, start.row);
-    wchar_t c = r->cells[start.col].wc;
-
-    if (!(c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))) {
-        while (true) {
-            int next_col = start.col - 1;
-            int next_row = start.row;
-
-            /* Linewrap */
-            if (next_col < 0) {
-                next_col = term->cols - 1;
-                if (--next_row < 0)
-                    break;
-            }
-
-            const struct row *row = grid_row_in_view(term->grid, next_row);
-
-            c = row->cells[next_col].wc;
-            if (c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))
-                break;
-
-            start.col = next_col;
-            start.row = next_row;
-        }
-    }
-
-    r = grid_row_in_view(term->grid, end.row);
-    c = r->cells[end.col].wc;
-
-    if (!(c == 0 || !isword(c, spaces_only, term->conf->word_delimiters))) {
-        while (true) {
-            int next_col = end.col + 1;
-            int next_row = end.row;
-
-            /* Linewrap */
-            if (next_col >= term->cols) {
-                next_col = 0;
-                if (++next_row >= term->rows)
-                    break;
-            }
-
-            const struct row *row = grid_row_in_view(term->grid, next_row);
-
-            c = row->cells[next_col].wc;
-            if (c == '\0' || !isword(c, spaces_only, term->conf->word_delimiters))
-                break;
-
-            end.col = next_col;
-            end.row = next_row;
-        }
-    }
-
-    selection_start(term, start.col, start.row, SELECTION_NORMAL);
-    selection_update(term, end.col, end.row);
-    selection_finalize(seat, term, serial);
-}
-
-void
-selection_mark_row(
-    struct seat *seat, struct terminal *term, int row, uint32_t serial)
-{
-    selection_start(term, 0, row, SELECTION_NORMAL);
-    selection_update(term, term->cols - 1, row);
-    selection_finalize(seat, term, serial);
 }
 
 static bool

@@ -1861,10 +1861,7 @@ draw_sextant(wchar_t wc, struct buf *buf)
 static void
 draw_glyph(wchar_t wc, struct buf *buf)
 {
-#if defined(__GNUC__)
- #pragma GCC diagnostic push
- #pragma GCC diagnostic ignored "-Wpedantic"
-#endif
+    IGNORE_WARNING("-Wpedantic")
 
     switch (wc) {
     case 0x2500: draw_box_drawings_light_horizontal(buf); break;
@@ -2037,9 +2034,7 @@ draw_glyph(wchar_t wc, struct buf *buf)
     case 0x1fb00 ... 0x1fb3b: draw_sextant(wc, buf); break;
     }
 
-#if defined(__GNUC__)
- #pragma GCC diagnostic pop
-#endif
+    UNIGNORE_WARNINGS
 }
 
 struct fcft_glyph * COLD
