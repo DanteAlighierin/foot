@@ -872,8 +872,8 @@ render_sixel_chunk(struct terminal *term, pixman_image_t *pix, const struct sixe
     /* Verify we're not stepping outside the grid */
     assert(x >= term->margins.left);
     assert(y >= term->margins.top);
-    assert(x + width <= term->width - term->margins.right);
-    assert(y + height <= term->height - term->margins.bottom);
+    assert(width == 0 || x + width <= term->width - term->margins.right);
+    assert(height == 0 || y + height <= term->height - term->margins.bottom);
 
     //LOG_DBG("sixel chunk: %dx%d %dx%d", x, y, width, height);
 
