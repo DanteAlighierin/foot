@@ -900,6 +900,8 @@ selection_extend_block(struct terminal *term, int col, int row, uint32_t serial)
     struct coord new_start;
     struct coord new_end;
 
+    enum selection_direction direction = SELECTION_UNDIR;
+
     if (row <= top_left.row ||
         abs(row - top_left.row) < abs(row - bottom_left.row))
     {
@@ -930,6 +932,10 @@ selection_extend_block(struct terminal *term, int col, int row, uint32_t serial)
         }
     }
 
+    direction = col > new_start.col ? SELECTION_RIGHT : SELECTION_LEFT;
+    set_pivot_point_for_block_and_char_wise(term, new_start, direction);
+
+    term->selection.direction = direction;
     selection_modify(term, new_start, new_end);
 }
 
