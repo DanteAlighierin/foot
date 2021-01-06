@@ -837,6 +837,36 @@ selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial
         }
     }
 
+    switch (term->selection.kind) {
+    case SELECTION_CHAR_WISE:
+        set_pivot_point_for_block_and_char_wise(term, new_start, direction);
+        break;
+
+    case SELECTION_WORD_WISE: {
+        struct coord pivot_start = {new_start.col, new_start.row - term->grid->view};
+        struct coord pivot_end = pivot_start;
+
+        find_word_boundary_left(term, &pivot_start, term->selection.spaces_only);
+        find_word_boundary_right(term, &pivot_end, term->selection.spaces_only);
+
+        term->selection.pivot.start =
+            (struct coord){pivot_start.col, term->grid->view + pivot_start.row};
+        term->selection.pivot.end =
+            (struct coord){pivot_end.col, term->grid->view + pivot_end.row};
+        break;
+    }
+
+    case SELECTION_LINE_WISE:
+        term->selection.pivot.start = (struct coord){0, new_start.row};
+        term->selection.pivot.end = (struct coord){term->cols - 1, new_start.row};
+        break;
+
+    case SELECTION_BLOCK:
+    case SELECTION_NONE:
+        assert(false);
+        break;
+    }
+
     term->selection.direction = direction;
     selection_modify(term, new_start, new_end);
 }
