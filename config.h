@@ -70,6 +70,7 @@ struct config {
 
     unsigned pad_x;
     unsigned pad_y;
+    bool center;
 
     bool bold_in_bright;
     enum {
