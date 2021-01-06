@@ -11,8 +11,7 @@ extern const struct zwp_primary_selection_device_v1_listener primary_selection_d
 bool selection_enabled(const struct terminal *term, struct seat *seat);
 void selection_start(
     struct terminal *term, int col, int row,
-    enum selection_kind kind, enum selection_semantic semantic,
-    bool spaces_only);
+    enum selection_kind new_kind, bool spaces_only);
 void selection_update(struct terminal *term, int col, int row);
 void selection_finalize(
     struct seat *seat, struct terminal *term, uint32_t serial);
