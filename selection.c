@@ -968,8 +968,6 @@ selection_extend(struct seat *seat, struct terminal *term,
         selection_extend_block(term, col, row, serial);
         break;
     }
-
-    selection_to_primary(seat, term, serial);
 }
 
 //static const struct zwp_primary_selection_source_v1_listener primary_selection_source_listener;
