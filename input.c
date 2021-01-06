@@ -275,8 +275,7 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SELECT_BEGIN:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
-                term, seat->mouse.col, seat->mouse.row,
-                SELECTION_NORMAL, SELECTION_SEMANTIC_NONE, false);
+                term, seat->mouse.col, seat->mouse.row, SELECTION_CHAR_WISE, false);
             return true;
         }
         return false;
@@ -284,8 +283,7 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SELECT_BEGIN_BLOCK:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
-                term, seat->mouse.col, seat->mouse.row,
-                SELECTION_BLOCK, SELECTION_SEMANTIC_NONE, false);
+                term, seat->mouse.col, seat->mouse.row, SELECTION_BLOCK, false);
             return true;
         }
         return false;
@@ -301,8 +299,7 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SELECT_WORD:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
-                term, seat->mouse.col, seat->mouse.row,
-                SELECTION_NORMAL, SELECTION_SEMANTIC_WORD, false);
+                term, seat->mouse.col, seat->mouse.row, SELECTION_WORD_WISE, false);
             return true;
         }
         return false;
@@ -310,16 +307,15 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SELECT_WORD_WS:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_start(
-                term, seat->mouse.col, seat->mouse.row,
-                SELECTION_NORMAL, SELECTION_SEMANTIC_WORD, true);
+                term, seat->mouse.col, seat->mouse.row, SELECTION_WORD_WISE, true);
             return true;
         }
         return false;
 
     case BIND_ACTION_SELECT_ROW:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_start(term, seat->mouse.col, seat->mouse.row,
-                            SELECTION_NORMAL, SELECTION_SEMANTIC_ROW, false);
+            selection_start(
+                term, seat->mouse.col, seat->mouse.row, SELECTION_LINE_WISE, false);
             return true;
         }
         return false;

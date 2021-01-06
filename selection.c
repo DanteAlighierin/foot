@@ -194,7 +194,9 @@ foreach_selected(
     void *data)
 {
     switch (term->selection.kind) {
-    case SELECTION_NORMAL:
+    case SELECTION_CHAR_WISE:
+    case SELECTION_WORD_WISE:
+    case SELECTION_LINE_WISE:
         foreach_selected_normal(term, start, end, cb, data);
         return;
 
@@ -385,23 +387,24 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
 void
 selection_start(struct terminal *term, int col, int row,
                 enum selection_kind kind,
-                enum selection_semantic semantic,
                 bool spaces_only)
 {
     selection_cancel(term);
 
     LOG_DBG("%s selection started at %d,%d",
-            kind == SELECTION_NORMAL ? "normal" :
+            kind == SELECTION_CHAR_WISE ? "character-wise" :
+            kind == SELECTION_WORD_WISE ? "word-wise" :
+            kind == SELECTION_LINE_WISE ? "line-wise" :
             kind == SELECTION_BLOCK ? "block" : "<unknown>",
             row, col);
 
     term->selection.kind = kind;
-    term->selection.semantic = semantic;
     term->selection.ongoing = true;
     term->selection.spaces_only = spaces_only;
 
-    switch (semantic) {
-    case SELECTION_SEMANTIC_NONE:
+    switch (kind) {
+    case SELECTION_CHAR_WISE:
+    case SELECTION_BLOCK:
         term->selection.start = (struct coord){col, term->grid->view + row};
         term->selection.end = (struct coord){-1, -1};
 
@@ -409,7 +412,7 @@ selection_start(struct terminal *term, int col, int row,
         term->selection.pivot.end = term->selection.end;
         break;
 
-    case SELECTION_SEMANTIC_WORD: {
+    case SELECTION_WORD_WISE: {
         struct coord start = {col, row}, end = {col, row};
         find_word_boundary_left(term, &start, spaces_only);
         find_word_boundary_right(term, &end, spaces_only);
@@ -424,12 +427,16 @@ selection_start(struct terminal *term, int col, int row,
         break;
     }
 
-    case SELECTION_SEMANTIC_ROW:
+    case SELECTION_LINE_WISE:
         term->selection.start = (struct coord){0, term->grid->view + row};
         term->selection.pivot.start = term->selection.start;
         term->selection.pivot.end = (struct coord){term->cols - 1, term->grid->view + row};
 
         selection_update(term, term->cols - 1, row);
+        break;
+
+    case SELECTION_NONE:
+        assert(false);
         break;
     }
 
@@ -470,7 +477,7 @@ premark_selected(struct terminal *term, struct row *row, struct cell *cell,
         ctx->empty_count = 0;
     }
 
-    if (cell->wc == 0 && term->selection.kind == SELECTION_NORMAL) {
+    if (cell->wc == 0 && term->selection.kind != SELECTION_BLOCK) {
         ctx->empty_count++;
         return true;
     }
@@ -494,7 +501,7 @@ mark_selected(struct terminal *term, struct row *row, struct cell *cell,
         ctx->empty_count = 0;
     }
 
-    if (cell->wc == 0 && term->selection.kind == SELECTION_NORMAL) {
+    if (cell->wc == 0 && term->selection.kind != SELECTION_BLOCK) {
         ctx->empty_count++;
         return true;
     }
@@ -658,11 +665,12 @@ selection_update(struct terminal *term, int col, int row)
         }
     }
 
-    switch (term->selection.semantic) {
-    case SELECTION_SEMANTIC_NONE:
+    switch (term->selection.kind) {
+    case SELECTION_CHAR_WISE:
+    case SELECTION_BLOCK:
         break;
 
-    case SELECTION_SEMANTIC_WORD:
+    case SELECTION_WORD_WISE:
         switch (term->selection.direction) {
         case SELECTION_LEFT: {
             struct coord end = {col, row};
@@ -683,7 +691,7 @@ selection_update(struct terminal *term, int col, int row)
         }
         break;
 
-    case SELECTION_SEMANTIC_ROW:
+    case SELECTION_LINE_WISE:
         switch (term->selection.direction) {
         case SELECTION_LEFT:
             new_end.col = 0;
@@ -696,6 +704,10 @@ selection_update(struct terminal *term, int col, int row)
         case SELECTION_UNDIR:
             break;
         }
+        break;
+
+    case SELECTION_NONE:
+        assert(false);
         break;
     }
 
@@ -885,7 +897,9 @@ selection_extend(struct seat *seat, struct terminal *term,
         assert(false);
         return;
 
-    case SELECTION_NORMAL:
+    case SELECTION_CHAR_WISE:
+    case SELECTION_WORD_WISE:
+    case SELECTION_LINE_WISE:
         selection_extend_normal(term, col, row, serial);
         break;
 

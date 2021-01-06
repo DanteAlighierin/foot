@@ -119,9 +119,7 @@ extract_one(const struct terminal *term, const struct row *row,
     if (ctx->last_row != NULL && row != ctx->last_row) {
         /* New row - determine if we should insert a newline or not */
 
-        if (ctx->selection_kind == SELECTION_NONE ||
-            ctx->selection_kind == SELECTION_NORMAL)
-        {
+        if (ctx->selection_kind != SELECTION_BLOCK) {
             if (ctx->last_row->linebreak ||
                 ctx->empty_count > 0 ||
                 cell->wc == 0)
@@ -134,9 +132,7 @@ extract_one(const struct terminal *term, const struct row *row,
                 ctx->newline_count++;
                 ctx->empty_count = 0;
             }
-        }
-
-        else if (ctx->selection_kind == SELECTION_BLOCK) {
+        } else {
             /* Always insert a linebreak */
             if (!ensure_size(ctx, 1))
                 goto err;
