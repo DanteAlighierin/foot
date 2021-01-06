@@ -34,6 +34,8 @@
   `vertical-letter-offset` to `foot.ini`. These options let you tweak
   cell size and glyph positioning
   (https://codeberg.org/dnkl/foot/issues/244).
+* Key/mouse binding `select-extend-character-wise`, which forces the
+  selection mode to 'character-wise' when extending a selection.
 
 
 ### Changed
@@ -49,6 +51,8 @@
   word- or line-wise (https://codeberg.org/dnkl/foot/issues/267).
 * The line thickness of box drawing characters now depend on the font
   size (https://codeberg.org/dnkl/foot/issues/281).
+* Extending a word/line-wise selection now uses the original selection
+  mode instead of switching to character-wise.
 
 
 ### Deprecated

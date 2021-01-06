@@ -17,8 +17,9 @@ void selection_finalize(
     struct seat *seat, struct terminal *term, uint32_t serial);
 void selection_dirty_cells(struct terminal *term);
 void selection_cancel(struct terminal *term);
-void selection_extend( struct seat *seat, struct terminal *term,
-                       int col, int row, uint32_t serial);
+void selection_extend(
+    struct seat *seat, struct terminal *term,
+    int col, int row, enum selection_kind kind);
 
 bool selection_on_rows(const struct terminal *term, int start, int end);
 
