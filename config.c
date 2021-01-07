@@ -555,6 +555,50 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         free(copy);
     }
 
+    else if (strcmp(key, "line-height") == 0) {
+        unsigned long height;
+        if (!str_to_ulong(value, 10, &height)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: line-height: expected an integer, got '%s'",
+                path, lineno, value);
+            return false;
+        }
+        conf->line_height = height;
+    }
+
+    else if (strcmp(key, "letter-spacing") == 0) {
+        unsigned long spacing;
+        if (!str_to_ulong(value, 10, &spacing)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: letter-spacing: expected an integer, got '%s'",
+                path, lineno, value);
+            return false;
+        }
+        conf->letter_spacing = spacing;
+    }
+
+    else if (strcmp(key, "horizontal-letter-offset") == 0) {
+        unsigned long offset;
+        if (!str_to_ulong(value, 10, &offset)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: horizontal-letter-offset: "
+                "expected an integer, got '%s'", path, lineno, value);
+            return false;
+        }
+        conf->horizontal_letter_offset = offset;
+    }
+
+    else if (strcmp(key, "vertical-letter-offset") == 0) {
+        unsigned long offset;
+        if (!str_to_ulong(value, 10, &offset)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: horizontal-letter-offset: "
+                "expected an integer, got '%s'", path, lineno, value);
+            return false;
+        }
+        conf->vertical_letter_offset = offset;
+    }
+
     else if (strcmp(key, "dpi-aware") == 0) {
         if (strcmp(value, "auto") == 0)
             conf->dpi_aware = DPI_AWARE_AUTO;
@@ -1979,6 +2023,10 @@ config_load(struct config *conf, const char *conf_path,
         .bell_action = BELL_ACTION_NONE,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
+        .line_height = -1,
+        .letter_spacing = -1,
+        .horizontal_letter_offset = 0,
+        .vertical_letter_offset = 0,
         .dpi_aware = DPI_AWARE_AUTO, /* DPI-aware when scaling-factor == 1 */
         .scrollback = {
             .lines = 1000,

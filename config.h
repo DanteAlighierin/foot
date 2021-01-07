@@ -84,6 +84,14 @@ struct config {
     enum {DPI_AWARE_AUTO, DPI_AWARE_YES, DPI_AWARE_NO} dpi_aware;
     config_font_list_t fonts[4];
 
+    /* Custom font metrics (-1 = use real font metrics) */
+    int16_t line_height;
+    int16_t letter_spacing;
+
+    /* Adjusted letter x/y offsets */
+    int16_t horizontal_letter_offset;
+    int16_t vertical_letter_offset;
+
     struct {
         int lines;
 
