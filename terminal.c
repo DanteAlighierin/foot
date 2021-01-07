@@ -629,15 +629,30 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
     const int old_cell_width = term->cell_width;
     const int old_cell_height = term->cell_height;
 
-    term->cell_width = (term->fonts[0]->space_advance.x > 0
-                        ? term->fonts[0]->space_advance.x
-                        : term->fonts[0]->max_advance.x)
-        + term->conf->letter_spacing;
+    const struct config *conf = term->conf;
 
-    term->cell_height = term->conf->line_height >= 0
-        ? term->conf->line_height
+    term->cell_width =
+        (term->fonts[0]->space_advance.x > 0
+         ? term->fonts[0]->space_advance.x
+         : term->fonts[0]->max_advance.x)
+        + (conf->letter_spacing.px > 0
+           ? conf->letter_spacing.px
+           : conf->letter_spacing.pt * term->font_dpi / 72.);
+
+    term->cell_height = conf->line_height.px >= 0
+        ? (conf->line_height.px > 0
+           ? conf->line_height.px
+           : conf->line_height.pt * term->font_dpi / 72.)
         : max(term->fonts[0]->height,
               term->fonts[0]->ascent + term->fonts[0]->descent);
+
+    term->font_x_ofs = conf->horizontal_letter_offset.px > 0
+        ? conf->horizontal_letter_offset.px
+        : conf->horizontal_letter_offset.pt * term->font_dpi / 72.;
+    term->font_y_ofs = conf->vertical_letter_offset.px > 0
+        ? conf->vertical_letter_offset.px
+        : conf->vertical_letter_offset.pt * term->font_dpi / 72.;
+
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
     if (term->cell_width < old_cell_width ||

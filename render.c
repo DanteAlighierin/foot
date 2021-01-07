@@ -256,7 +256,7 @@ color_dim_for_search(pixman_color_t *color)
 static inline int
 font_baseline(const struct terminal *term)
 {
-    return term->conf->vertical_letter_offset + term->fonts[0]->ascent;
+    return term->font_y_ofs + term->fonts[0]->ascent;
 }
 
 static void
@@ -541,7 +541,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     pixman_image_t *clr_pix = pixman_image_create_solid_fill(&fg);
 
     if (glyph != NULL) {
-        const int letter_x_ofs = term->conf->horizontal_letter_offset;
+        const int letter_x_ofs = term->font_x_ofs;
 
         if (unlikely(pixman_image_get_format(glyph->pix) == PIXMAN_a8r8g8b8)) {
             /* Glyph surface is a pre-rendered image (typically a color emoji...) */
@@ -1693,7 +1693,7 @@ render_osd(struct terminal *term,
     struct fcft_font *font = term->fonts[0];
     pixman_color_t fg = color_hex_to_pixman(_fg);
 
-    const int x_ofs = term->conf->horizontal_letter_offset;
+    const int x_ofs = term->font_x_ofs;
 
     for (size_t i = 0; i < wcslen(text); i++) {
         const struct fcft_glyph *glyph = fcft_glyph_rasterize(
@@ -2272,7 +2272,7 @@ render_search_box(struct terminal *term)
 
     struct fcft_font *font = term->fonts[0];
     const int x_left = width - visible_width + margin;
-    const int x_ofs = term->conf->horizontal_letter_offset;
+    const int x_ofs = term->font_x_ofs;
     int x = x_left;
     int y = margin;
     pixman_color_t fg = color_hex_to_pixman(term->colors.table[0]);

@@ -54,6 +54,12 @@ struct config_mouse_binding {
     } pipe;
 };
 
+/* If px == -1, neither px nor pt is valid. If px == 0, pt is valid, else px */
+union pt_or_px {
+    int16_t px;
+    float pt;
+};
+
 struct config {
     char *term;
     char *shell;
@@ -85,12 +91,12 @@ struct config {
     config_font_list_t fonts[4];
 
     /* Custom font metrics (-1 = use real font metrics) */
-    int16_t line_height;
-    int16_t letter_spacing;
+    union pt_or_px line_height;
+    union pt_or_px letter_spacing;
 
     /* Adjusted letter x/y offsets */
-    int16_t horizontal_letter_offset;
-    int16_t vertical_letter_offset;
+    union pt_or_px horizontal_letter_offset;
+    union pt_or_px vertical_letter_offset;
 
     struct {
         int lines;

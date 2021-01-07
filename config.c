@@ -361,19 +361,6 @@ str_to_bool(const char *s)
 }
 
 static bool
-str_to_long(const char *s, int base, long *res)
-{
-    if (s == NULL)
-        return false;
-
-    errno = 0;
-    char *end = NULL;
-
-    *res = strtol(s, &end, base);
-    return errno == 0 && *end == '\0';
-}
-
-static bool
 str_to_ulong(const char *s, int base, unsigned long *res)
 {
     if (s == NULL)
@@ -419,6 +406,40 @@ str_to_color(const char *s, uint32_t *color, bool allow_alpha,
     }
 
     *color = value;
+    return true;
+}
+
+static bool
+str_to_pt_or_px(const char *s, union pt_or_px *res, struct config *conf,
+                const char *path, int lineno, const char *section, const char *key)
+{
+    size_t len = s != NULL ? strlen(s) : 0;
+    if (len >= 2 && s[len - 2] == 'p' && s[len - 1] == 'x') {
+        errno = 0;
+        char *end = NULL;
+
+        long value = strtol(s, &end, 10);
+        if (!(errno == 0 && end == s + len - 2)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [%s]: %s: "
+                "expected an integer directly followed by 'px', got '%s'",
+                path, lineno, section, key, s);
+            return false;
+        }
+        res->pt = 0;
+        res->px = value;
+    } else {
+        double value;
+        if (!str_to_double(s, &value)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [%s]: %s: expected a decimal value, got '%s'",
+                path, lineno, section, key, s);
+            return false;
+        }
+        res->pt = value;
+        res->px = 0;
+    }
+
     return true;
 }
 
@@ -572,47 +593,29 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "line-height") == 0) {
-        unsigned long height;
-        if (!str_to_ulong(value, 10, &height)) {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: line-height: expected an integer, got '%s'",
-                path, lineno, value);
+        if (!str_to_pt_or_px(value, &conf->line_height,
+                             conf, path, lineno, "default", "line-height"))
             return false;
-        }
-        conf->line_height = height;
     }
 
     else if (strcmp(key, "letter-spacing") == 0) {
-        long spacing;
-        if (!str_to_long(value, 10, &spacing)) {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: letter-spacing: expected an integer, got '%s'",
-                path, lineno, value);
+        if (!str_to_pt_or_px(value, &conf->letter_spacing,
+                             conf, path, lineno, "default", "letter-spacing"))
             return false;
-        }
-        conf->letter_spacing = spacing;
     }
 
     else if (strcmp(key, "horizontal-letter-offset") == 0) {
-        long offset;
-        if (!str_to_long(value, 10, &offset)) {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: horizontal-letter-offset: "
-                "expected an integer, got '%s'", path, lineno, value);
+        if (!str_to_pt_or_px(
+                value, &conf->horizontal_letter_offset,
+                conf, path, lineno, "default", "horizontal-letter-offset"))
             return false;
-        }
-        conf->horizontal_letter_offset = offset;
     }
 
     else if (strcmp(key, "vertical-letter-offset") == 0) {
-        long offset;
-        if (!str_to_long(value, 10, &offset)) {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: horizontal-letter-offset: "
-                "expected an integer, got '%s'", path, lineno, value);
+        if (!str_to_pt_or_px(
+                value, &conf->horizontal_letter_offset,
+                conf, path, lineno, "default", "vertical-letter-offset"))
             return false;
-        }
-        conf->vertical_letter_offset = offset;
     }
 
     else if (strcmp(key, "dpi-aware") == 0) {
@@ -2039,10 +2042,10 @@ config_load(struct config *conf, const char *conf_path,
         .bell_action = BELL_ACTION_NONE,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
-        .line_height = -1,
-        .letter_spacing = -1,
-        .horizontal_letter_offset = 0,
-        .vertical_letter_offset = 0,
+        .line_height = { .pt = 0, .px = -1, },
+        .letter_spacing = { .pt = 0, .px = 0, },
+        .horizontal_letter_offset = {.pt = 0, .px = 0, },
+        .vertical_letter_offset = {.pt = 0, .px = 0, },
         .dpi_aware = DPI_AWARE_AUTO, /* DPI-aware when scaling-factor == 1 */
         .scrollback = {
             .lines = 1000,

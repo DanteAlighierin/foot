@@ -2064,13 +2064,23 @@ box_drawing(const struct terminal *term, wchar_t wc)
     };
     draw_glyph(wc, &buf);
 
+    const struct config *conf = term->conf;
+
+    int x_ofs = conf->horizontal_letter_offset.px > 0
+        ? conf->horizontal_letter_offset.px
+        : conf->horizontal_letter_offset.pt * term->font_dpi / 72.;
+    int y_ofs = conf->vertical_letter_offset.px > 0
+        ? conf->vertical_letter_offset.px
+        : conf->vertical_letter_offset.pt * term->font_dpi / 72.;
+
+
     struct fcft_glyph *glyph = xmalloc(sizeof(*glyph));
     *glyph = (struct fcft_glyph){
         .wc = wc,
         .cols = 1,
         .pix = pix,
-        .x = -term->conf->horizontal_letter_offset,
-        .y = term->conf->vertical_letter_offset + term->fonts[0]->ascent,
+        .x = -x_ofs,
+        .y = y_ofs + term->fonts[0]->ascent,
         .width = width,
         .height = height,
         .advance = {
