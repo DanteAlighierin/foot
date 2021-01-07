@@ -64,6 +64,28 @@ in this order:
 	Default: _monospace:size=8_ (*font*), _not set_ (*font-bold*,
 	*font-italic*, *font-bold-italic*).
 
+*line-height*
+	An absolute value, in pixels, that override line height from the
+	font metrics.
+	
+	See also: *vertical-letter-offset*
+	
+	Default: _no set_.
+
+*letter-spacing*
+	Spacing between letters. A positive value will increase the cell
+	size, and a negative value shrinks it.
+	
+	See also: *horizontal-letter-offset*
+	
+	Default: _0_.
+
+*horizontal-letter-offset*, *vertical-letter-offset*
+	Configure the horizontal and vertical offsets used when
+	positioning glyphs within cells, relative to the top left corner.
+	
+	Default: _0_.
+
 *dpi-aware*
 	*auto*, *yes*, or *no*. When set to *yes*, fonts are sized using
 	the monitor's DPI, making a font of a given size have the same
