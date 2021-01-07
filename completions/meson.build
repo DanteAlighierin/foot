@@ -1,3 +1,6 @@
 zsh_install_dir = join_paths(get_option('datadir'), 'zsh', 'site-functions')
+fish_install_dir = join_paths(get_option('datadir'), 'fish', 'vendor_completions.d')
 install_data('zsh/_foot', install_dir: zsh_install_dir)
 install_data('zsh/_footclient', install_dir: zsh_install_dir)
+install_data('fish/foot.fish', install_dir: fish_install_dir)
+install_data('fish/footclient.fish', install_dir: fish_install_dir)

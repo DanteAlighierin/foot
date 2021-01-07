@@ -28,6 +28,8 @@
   (e.g. `pad=5x5 center`), causing the grid to be centered in the
   window, with equal amount of padding of the left/right and
   top/bottom side (https://codeberg.org/dnkl/foot/issues/273).
+* Completions for fish shell
+  (https://codeberg.org/dnkl/foot/issues/11)
 
 
 ### Changed
@@ -66,6 +68,7 @@
 * [craigbarnes](https://codeberg.org/craigbarnes)
 * [birger](https://codeberg.org/birger)
 * [pc](https://codeberg.org/pc)
+* [FollieHiyuki](https://codeberg.org/FollieHiyuki)
 
 
 ## 1.6.2
