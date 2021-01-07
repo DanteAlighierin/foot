@@ -591,8 +591,8 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "horizontal-letter-offset") == 0) {
-        unsigned long offset;
-        if (!str_to_ulong(value, 10, &offset)) {
+        long offset;
+        if (!str_to_long(value, 10, &offset)) {
             LOG_AND_NOTIFY_ERR(
                 "%s:%d: [default]: horizontal-letter-offset: "
                 "expected an integer, got '%s'", path, lineno, value);
@@ -602,8 +602,8 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "vertical-letter-offset") == 0) {
-        unsigned long offset;
-        if (!str_to_ulong(value, 10, &offset)) {
+        long offset;
+        if (!str_to_long(value, 10, &offset)) {
             LOG_AND_NOTIFY_ERR(
                 "%s:%d: [default]: horizontal-letter-offset: "
                 "expected an integer, got '%s'", path, lineno, value);
