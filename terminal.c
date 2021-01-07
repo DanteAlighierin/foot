@@ -629,10 +629,14 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
     const int old_cell_width = term->cell_width;
     const int old_cell_height = term->cell_height;
 
-    term->cell_width = term->fonts[0]->space_advance.x > 0
-        ? term->fonts[0]->space_advance.x : term->fonts[0]->max_advance.x;
-    term->cell_height = max(term->fonts[0]->height,
-                            term->fonts[0]->ascent + term->fonts[0]->descent);
+    term->cell_width = term->conf->letter_spacing >= 0
+        ? term->conf->letter_spacing
+        : (term->fonts[0]->space_advance.x > 0
+           ? term->fonts[0]->space_advance.x : term->fonts[0]->max_advance.x);
+    term->cell_height = term->conf->line_height >= 0
+        ? term->conf->line_height
+        : max(term->fonts[0]->height,
+              term->fonts[0]->ascent + term->fonts[0]->descent);
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
     if (term->cell_width < old_cell_width ||
