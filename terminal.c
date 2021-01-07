@@ -644,23 +644,15 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
         (term->fonts[0]->space_advance.x > 0
          ? term->fonts[0]->space_advance.x
          : term->fonts[0]->max_advance.x)
-        + (conf->letter_spacing.px > 0
-           ? conf->letter_spacing.px
-           : conf->letter_spacing.pt * term->font_dpi / 72.);
+        + pt_or_px_as_pixels(term, &conf->letter_spacing);
 
     term->cell_height = conf->line_height.px >= 0
-        ? (conf->line_height.px > 0
-           ? conf->line_height.px
-           : conf->line_height.pt * term->font_dpi / 72.)
+        ? pt_or_px_as_pixels(term, &conf->line_height)
         : max(term->fonts[0]->height,
               term->fonts[0]->ascent + term->fonts[0]->descent);
 
-    term->font_x_ofs = conf->horizontal_letter_offset.px > 0
-        ? conf->horizontal_letter_offset.px
-        : conf->horizontal_letter_offset.pt * term->font_dpi / 72.;
-    term->font_y_ofs = conf->vertical_letter_offset.px > 0
-        ? conf->vertical_letter_offset.px
-        : conf->vertical_letter_offset.pt * term->font_dpi / 72.;
+    term->font_x_ofs = pt_or_px_as_pixels(term, &conf->horizontal_letter_offset);
+    term->font_y_ofs = pt_or_px_as_pixels(term, &conf->vertical_letter_offset);
 
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
