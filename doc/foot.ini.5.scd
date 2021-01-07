@@ -65,24 +65,34 @@ in this order:
 	*font-italic*, *font-bold-italic*).
 
 *line-height*
-	An absolute value, in pixels, that override line height from the
+	An absolute value, in _points_, that override line height from the
 	font metrics.
 	
-	See also: *vertical-letter-offset*
+	You can specify a height in _pixels_ by using the _px_ suffix:
+	e.g. *line-height=12px*.
+	
+	See also: *vertical-letter-offset*.
 	
 	Default: _no set_.
 
 *letter-spacing*
-	Spacing between letters. A positive value will increase the cell
-	size, and a negative value shrinks it.
+	Spacing between letters, in _points_. A positive value will
+	increase the cell size, and a negative value shrinks it.
 	
-	See also: *horizontal-letter-offset*
+	You can specify a letter spacing in _pixels_ by using the _px_
+	suffix: e.g. *letter-spacing=2px*.
+	
+	See also: *horizontal-letter-offset*.
 	
 	Default: _0_.
 
 *horizontal-letter-offset*, *vertical-letter-offset*
 	Configure the horizontal and vertical offsets used when
-	positioning glyphs within cells, relative to the top left corner.
+	positioning glyphs within cells, in _points_, relative to the top
+	left corner.
+	
+	To specify an offset in _pixels_, append _px_:
+	e.g. *horizontal-letter-offset=2px*.
 	
 	Default: _0_.
 
