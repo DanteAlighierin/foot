@@ -23,6 +23,11 @@
 
 ## 1.6.3
 ### Added
+
+* Completions for fish shell
+  (https://codeberg.org/dnkl/foot/issues/11)
+
+
 ### Changed
 
 * Trailing comments in `foot.ini` must now be preceded by a space or tab
@@ -51,6 +56,7 @@
 
 * [birger](https://codeberg.org/birger)
 * [pc](https://codeberg.org/pc)
+* [FollieHiyuki](https://codeberg.org/FollieHiyuki)
 
 
 ## 1.6.2
