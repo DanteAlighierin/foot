@@ -361,6 +361,19 @@ str_to_bool(const char *s)
 }
 
 static bool
+str_to_long(const char *s, int base, long *res)
+{
+    if (s == NULL)
+        return false;
+
+    errno = 0;
+    char *end = NULL;
+
+    *res = strtol(s, &end, base);
+    return errno == 0 && *end == '\0';
+}
+
+static bool
 str_to_ulong(const char *s, int base, unsigned long *res)
 {
     if (s == NULL)
@@ -567,8 +580,8 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "letter-spacing") == 0) {
-        unsigned long spacing;
-        if (!str_to_ulong(value, 10, &spacing)) {
+        long spacing;
+        if (!str_to_long(value, 10, &spacing)) {
             LOG_AND_NOTIFY_ERR(
                 "%s:%d: [default]: letter-spacing: expected an integer, got '%s'",
                 path, lineno, value);
