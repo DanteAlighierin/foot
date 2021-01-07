@@ -43,6 +43,10 @@
   (https://codeberg.org/dnkl/foot/issues/270)
 * Double- or triple clicking then dragging now extends the selection
   word- or line-wise (https://codeberg.org/dnkl/foot/issues/267).
+* `line-height`, `letter-spacing`, `horizontal-letter-offset` and
+  `vertical-letter-offset` to `foot.ini`. These options let you tweak
+  cell size and glyph positioning
+  (https://codeberg.org/dnkl/foot/issues/244).
 
 
 ### Deprecated
