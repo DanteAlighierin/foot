@@ -18,6 +18,19 @@ in this order:
 
 # SECTION: default
 
+*shell*
+	Executable to launch. Typically a shell. Default: _$SHELL_ if set,
+	otherwise the user's default shell (as specified in
+	_/etc/passwd_). You can also pass arguments. For example
+	*/bin/bash --norc*.
+
+*login-shell*
+	Boolean. If enabled, the shell will be launched as a login shell,
+	by prepending a '-' to argv[0]. Default: _no_.
+
+*term*
+	Value to set the environment variable *TERM* to. Default: _foot_.
+
 *font*, *font-bold*, *font-italic*, *font-bold-italic*
 
 	Comma separated list of fonts to use, in fontconfig format. That
@@ -110,19 +123,6 @@ in this order:
 
 *geometry*
 	Deprecated. Alias for *initial-window-size-pixels*.
-
-*shell*
-	Executable to launch. Typically a shell. Default: _$SHELL_ if set,
-	otherwise the user's default shell (as specified in
-	_/etc/passwd_). You can also pass arguments. For example
-	*/bin/bash --norc*.
-
-*login-shell*
-	Boolean. If enabled, the shell will be launched as a login shell,
-	by prepending a '-' to argv[0]. Default: _no_.
-
-*term*
-	Value to set the environment variable *TERM* to. Default: _foot_.
 
 *title*
 	Initial window title. Default: _foot_.
