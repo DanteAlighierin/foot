@@ -400,18 +400,21 @@ str_to_double(const char *s, double *res)
 }
 
 static bool
-str_to_color(const char *s, uint32_t *color, bool allow_alpha, const char *path, int lineno,
+str_to_color(const char *s, uint32_t *color, bool allow_alpha,
+             struct config *conf, const char *path, int lineno,
              const char *section, const char *key)
 {
     unsigned long value;
     if (!str_to_ulong(s, 16, &value)) {
-        LOG_ERRNO("%s:%d: [%s]: %s: invalid color: %s", path, lineno, section, key, s);
+        LOG_AND_NOTIFY_ERRNO(
+            "%s:%d: [%s]: %s: invalid color: %s", path, lineno, section, key, s);
         return false;
     }
 
     if (!allow_alpha && (value & 0xff000000) != 0) {
-        LOG_ERR("%s:%d: [%s]: %s: color value must not have an alpha component: %s",
-                path, lineno, section, key, s);
+        LOG_AND_NOTIFY_ERR(
+            "%s:%d: [%s]: %s: color value must not have an alpha component: %s",
+            path, lineno, section, key, s);
         return false;
     }
 
@@ -789,7 +792,7 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
     }
 
     uint32_t color_value;
-    if (!str_to_color(value, &color_value, false, path, lineno, "colors", key))
+    if (!str_to_color(value, &color_value, false, conf, path, lineno, "colors", key))
         return false;
 
     *color = color_value;
@@ -824,8 +827,8 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
 
         uint32_t text_color, cursor_color;
         if (text == NULL || cursor == NULL ||
-            !str_to_color(text, &text_color, false, path, lineno, "cursor", "color") ||
-            !str_to_color(cursor, &cursor_color, false, path, lineno, "cursor", "color"))
+            !str_to_color(text, &text_color, false, conf, path, lineno, "cursor", "color") ||
+            !str_to_color(cursor, &cursor_color, false, conf, path, lineno, "cursor", "color"))
         {
             LOG_AND_NOTIFY_ERR("%s:%d: invalid cursor colors: %s", path, lineno, value);
             free(value_copy);
@@ -884,7 +887,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno, "csd", "color")) {
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "color")) {
             LOG_AND_NOTIFY_ERR("%s:%d: invalid titlebar-color: %s", path, lineno, value);
             return false;
         }
@@ -915,7 +918,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-minimize-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno, "csd", "button-minimize-color")) {
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-minimize-color")) {
             LOG_AND_NOTIFY_ERR("%s:%d: invalid button-minimize-color: %s", path, lineno, value);
             return false;
         }
@@ -926,7 +929,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-maximize-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno, "csd", "button-maximize-color")) {
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-maximize-color")) {
             LOG_AND_NOTIFY_ERR("%s:%d: invalid button-maximize-color: %s", path, lineno, value);
             return false;
         }
@@ -937,7 +940,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-close-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno, "csd", "button-close-color")) {
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-close-color")) {
             LOG_AND_NOTIFY_ERR("%s:%d: invalid button-close-color: %s", path, lineno, value);
             return false;
         }
