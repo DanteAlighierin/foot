@@ -6,6 +6,7 @@
 #define LOG_MODULE "box-drawing"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "config.h"
 #include "macros.h"
 #include "stride.h"
 #include "terminal.h"
@@ -2068,8 +2069,8 @@ box_drawing(const struct terminal *term, wchar_t wc)
         .wc = wc,
         .cols = 1,
         .pix = pix,
-        .x = 0,
-        .y = term->fonts[0]->ascent,
+        .x = -term->conf->horizontal_letter_offset,
+        .y = term->conf->vertical_letter_offset + term->fonts[0]->ascent,
         .width = width,
         .height = height,
         .advance = {
