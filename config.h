@@ -54,7 +54,7 @@ struct config_mouse_binding {
     } pipe;
 };
 
-/* If px == -1, neither px nor pt is valid. If px == 0, pt is valid, else px */
+/* If px != 0 then px is valid, otherwise pt is valid */
 union pt_or_px {
     int16_t px;
     float pt;
