@@ -466,9 +466,15 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "pad") == 0) {
         unsigned x, y;
-        if (sscanf(value, "%ux%u", &x, &y) != 2) {
+        char mode[16] = {0};
+
+        int ret = sscanf(value, "%ux%u %15s", &x, &y, mode);
+        bool center = strcasecmp(mode, "center") == 0;
+        bool invalid_mode = !center && mode[0] != '\0';
+
+        if ((ret != 2 && ret != 3) || invalid_mode) {
             LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: pad: expected PAD_XxPAD_Y, "
+                "%s:%d: [default]: pad: expected PAD_XxPAD_Y [center], "
                 "where both are positive integers, got '%s'",
                 path, lineno, value);
             return false;
@@ -476,6 +482,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
         conf->pad_x = x;
         conf->pad_y = y;
+        conf->center = center;
     }
 
     else if (strcmp(key, "bold-text-in-bright") == 0)

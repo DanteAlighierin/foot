@@ -893,8 +893,8 @@ render_sixel_chunk(struct terminal *term, pixman_image_t *pix, const struct sixe
     /* Verify we're not stepping outside the grid */
     assert(x >= term->margins.left);
     assert(y >= term->margins.top);
-    assert(x + width <= term->width - term->margins.right);
-    assert(y + height <= term->height - term->margins.bottom);
+    assert(width == 0 || x + width <= term->width - term->margins.right);
+    assert(height == 0 || y + height <= term->height - term->margins.bottom);
 
     //LOG_DBG("sixel chunk: %dx%d %dx%d", x, y, width, height);
 
@@ -2638,10 +2638,20 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     assert(new_rows >= 1);
 
     /* Margins */
-    term->margins.left = pad_x;
-    term->margins.top = pad_y;
-    term->margins.right = term->width - new_cols * term->cell_width - term->margins.left;
-    term->margins.bottom = term->height - new_rows * term->cell_height - term->margins.top;
+    const int grid_width = new_cols * term->cell_width;
+    const int grid_height = new_rows * term->cell_height;
+    const int total_x_pad = term->width - grid_width;
+    const int total_y_pad = term->height - grid_height;
+
+    if (term->conf->center) {
+        term->margins.left = total_x_pad / 2;
+        term->margins.top = total_y_pad / 2;
+    } else {
+        term->margins.left = pad_x;
+        term->margins.top = pad_y;
+    }
+    term->margins.right = total_x_pad - term->margins.left;
+    term->margins.bottom = total_y_pad - term->margins.top;
 
     assert(term->margins.left >= pad_x);
     assert(term->margins.right >= pad_x);

@@ -23,6 +23,13 @@
 
 ## Unreleased
 ### Added
+
+* The `pad` option now accepts an optional third argument, `center`
+  (e.g. `pad=5x5 center`), causing the grid to be centered in the
+  window, with equal amount of padding of the left/right and
+  top/bottom side (https://codeberg.org/dnkl/foot/issues/273).
+
+
 ### Changed
 
 * The fcft and tllist library subprojects are now handled via Meson

@@ -73,7 +73,18 @@ in this order:
 
 *pad*
 	Padding between border and glyphs, in pixels (subject to output
-	scaling), on the form _XxY_. Default: _2x2_.
+	scaling), on the form _XxY_.
+	
+	This will add _at least_ X pixels on both the left and right
+	sides, and Y pixels on the top and bottom sides. The grid content
+	will be anchored in the top left corner. I.e. if the window
+	manager forces an odd window size on foot, the additional pixels
+	will be added to the right and bottom sides.
+	
+	To instead center the grid content, append *center* (e.g. *pad=5x5
+	center*).
+	
+	Default: _2x2_.
 
 *initial-window-size-pixels*
 	Initial window width and height in _pixels_ (subject to output
