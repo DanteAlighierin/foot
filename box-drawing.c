@@ -37,7 +37,7 @@ _hline(struct buf *buf, int x1, int x2, int y, int thick)
     x1 = min(max(x1, 0), buf->width);
     x2 = min(max(x2, 0), buf->width);
 
-    for (size_t row = max(y, 0); row < min(y + thick, buf->height); row++) {
+    for (size_t row = max(y, 0); row < max(min(y + thick, buf->height), 0); row++) {
         for (size_t col = x1; col < x2; col++) {
             size_t idx = col / 8;
             size_t bit_no = col % 8;
@@ -55,7 +55,7 @@ _vline(struct buf *buf, int y1, int y2, int x, int thick)
     y2 = min(max(y2, 0), buf->height);
 
     for (size_t row = y1; row < y2; row++) {
-        for (size_t col = max(x, 0); col < min(x + thick, buf->width); col++) {
+        for (size_t col = max(x, 0); col < max(min(x + thick, buf->width), 0); col++) {
             size_t idx = col / 8;
             size_t bit_no = col % 8;
             buf->data[row * buf->stride + idx] |= 1 << bit_no;
@@ -69,7 +69,7 @@ static void NOINLINE
 _rect(struct buf *buf, int x1, int y1, int x2, int y2)
 {
     for (size_t row = max(y1, 0); row < min(y2, buf->height); row++) {
-        for (size_t col = max(x1, 0); col < min(x2, buf->width); col++) {
+        for (size_t col = max(x1, 0); col < max(min(x2, buf->width), 0); col++) {
             size_t idx = col / 8;
             size_t bit_no = col % 8;
             buf->data[row * buf->stride + idx] |= 1 << bit_no;
