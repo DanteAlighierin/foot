@@ -1708,6 +1708,20 @@ parse_section_tweak(
                  (long long)conf->tweak.max_shm_pool_size);
     }
 
+    else if (strcmp(key, "box-drawing-base-thickness") == 0) {
+        double base_thickness;
+        if (!str_to_double(value, &base_thickness)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [tweak]: box-drawing-base-thickness: "
+                "expected a decimal value, got '%s'", path, lineno, value);
+            return false;
+        }
+
+        conf->tweak.box_drawing_base_thickness = base_thickness;
+        LOG_WARN("tweak: box-drawing-base-thickness=%f",
+                 conf->tweak.box_drawing_base_thickness);
+    }
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [tweak]: %s: invalid key", path, lineno, key);
         return false;
@@ -2122,6 +2136,7 @@ config_load(struct config *conf, const char *conf_path,
             .render_timer_osd = false,
             .render_timer_log = false,
             .damage_whole_window = false,
+            .box_drawing_base_thickness = 0.02,
         },
 
         .notifications = tll_init(),
