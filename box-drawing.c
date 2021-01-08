@@ -13,8 +13,10 @@
 #include "util.h"
 #include "xmalloc.h"
 
-#define LIGHT 1.0
-#define HEAVY 2.0
+enum thickness {
+    LIGHT = 1,
+    HEAVY = 3,
+};
 
 struct buf {
     uint8_t *data;
@@ -22,14 +24,16 @@ struct buf {
     int height;
     int stride;
     int dpi;
+    float cell_size;
+    float base_thickness;
 };
 
 static int
-_thickness(struct buf *buf, float pts)
+_thickness(struct buf *buf, enum thickness thick)
 {
-    return max(pts * buf->dpi / 72.0, 1);
+    return max((int)(buf->base_thickness * buf->dpi / 72.0 * buf->cell_size), 1) * thick;
 }
-#define thickness(pts) _thickness(buf, pts)
+#define thickness(thick) _thickness(buf, thick)
 
 static void NOINLINE
 _hline(struct buf *buf, int x1, int x2, int y, int thick)
@@ -80,14 +84,14 @@ _rect(struct buf *buf, int x1, int y1, int x2, int y2)
 #define rect(x1, y1, x2, y2) _rect(buf, x1, y1, x2, y2)
 
 static void NOINLINE
-_hline_middle(struct buf *buf, float _thick)
+_hline_middle(struct buf *buf, enum thickness _thick)
 {
     int thick = thickness(_thick);
     hline(0, buf->width, (buf->height - thick) / 2, thick);
 }
 
 static void NOINLINE
-_hline_middle_left(struct buf *buf, float _vthick, float _hthick)
+_hline_middle_left(struct buf *buf, enum thickness _vthick, enum thickness _hthick)
 {
     int vthick = thickness(_vthick);
     int hthick = thickness(_hthick);
@@ -95,7 +99,7 @@ _hline_middle_left(struct buf *buf, float _vthick, float _hthick)
 }
 
 static void NOINLINE
-_hline_middle_right(struct buf *buf, float _vthick, float _hthick)
+_hline_middle_right(struct buf *buf, enum thickness _vthick, enum thickness _hthick)
 {
     int vthick = thickness(_vthick);
     int hthick = thickness(_hthick);
@@ -103,14 +107,14 @@ _hline_middle_right(struct buf *buf, float _vthick, float _hthick)
 }
 
 static void NOINLINE
-_vline_middle(struct buf *buf, float _thick)
+_vline_middle(struct buf *buf, enum thickness _thick)
 {
     int thick = thickness(_thick);
     vline(0, buf->height, (buf->width - thick) / 2, thick);
 }
 
 static void NOINLINE
-_vline_middle_up(struct buf *buf, float _vthick, float _hthick)
+_vline_middle_up(struct buf *buf, enum thickness _vthick, enum thickness _hthick)
 {
     int vthick = thickness(_vthick);
     int hthick = thickness(_hthick);
@@ -118,7 +122,7 @@ _vline_middle_up(struct buf *buf, float _vthick, float _hthick)
 }
 
 static void NOINLINE
-_vline_middle_down(struct buf *buf, float _vthick, float _hthick)
+_vline_middle_down(struct buf *buf, enum thickness _vthick, enum thickness _hthick)
 {
     int vthick = thickness(_vthick);
     int hthick = thickness(_hthick);
@@ -2065,7 +2069,13 @@ box_drawing(const struct terminal *term, wchar_t wc)
         .height = height,
         .stride = stride,
         .dpi = term->font_dpi,
+        .cell_size = sqrt(pow(term->cell_width, 2) + pow(term->cell_height, 2)),
+        .base_thickness = term->conf->tweak.box_drawing_base_thickness,
     };
+
+    LOG_DBG("LIGHT=%d, HEAVY=%d",
+            _thickness(&buf, LIGHT), _thickness(&buf, HEAVY));
+
     draw_glyph(wc, &buf);
 
     struct fcft_glyph *glyph = xmalloc(sizeof(*glyph));
