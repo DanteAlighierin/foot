@@ -1303,8 +1303,8 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
         assert(row_end > row_start);
         assert(col_end > col_start);
 
-        for (int r = max(row_start, 0); r < min(row_end, buf->height); r++) {
-            for (int c = max(col_start, 0); c < min(col_end, buf->width); c++) {
+        for (int r = max(row_start, 0); r < max(min(row_end, buf->height), 0); r++) {
+            for (int c = max(col_start, 0); c < max(min(col_end, buf->width), 0); c++) {
                 size_t idx = c / 8;
                 size_t bit_no = c % 8;
                 buf->data[r * buf->stride + idx] |= 1 << bit_no;
@@ -1323,9 +1323,11 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
         for (int y = 0; y < thick; y++) {
             int row = (buf->height - thick) / 2 + y;
             int col = buf->width - 1;
-            size_t ofs = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            if (row >= 0 && row < buf->height && col >= 0 && col < buf->width) {
+                size_t ofs = col / 8;
+                size_t bit_no = col % 8;
+                buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            }
         }
     }
 
@@ -1333,9 +1335,11 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
         for (int x = 0; x < thick; x++) {
             int row = buf->height - 1;
             int col = (buf->width - thick) / 2 + x;
-            size_t ofs = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            if (row >= 0 && row < buf->height && col >= 0 && col < buf->width) {
+                size_t ofs = col / 8;
+                size_t bit_no = col % 8;
+                buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            }
         }
     }
 }
