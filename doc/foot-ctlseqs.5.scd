@@ -50,10 +50,9 @@ Foot does not support any CC1 control sequences.
 
 # CSI
 
-All sequences begin with *\\E[*, denoted _CSI_ in the tables
-below. Spaces are used in the sequence strings to make them easier to
-read, but are not actually part of the string. I.e. *CSI 1 m* is
-really *\\E1m*.
+All sequences begin with *\\E[*, from here on denoted _CSI_. Spaces
+are used in the sequence strings to make them easier to read, but are
+not actually part of the string. I.e. *CSI 1 m* is really *\\E1m*.
 
 ## SGR
 
