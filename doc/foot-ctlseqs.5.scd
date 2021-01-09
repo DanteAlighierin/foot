@@ -148,8 +148,53 @@ above categories.
 
 # OSC
 
-*TODO*
 All _OSC_ sequences begin with *\\E]*, from here on denoted _OSC_.
+
+[[ *Sequence*
+:[ *Description*
+|  OSC 0 ; _Pt_ ST
+:  Set window icon and title to _Pt_ (foot does not support setting the
+   icon)
+|  OSC 2 ; _Pt_ ST
+:  Set window title to _Pt_
+|  OSC 4 ; _c_ ; _spec_ ST
+:  Change color number _c_ to _spec_, where _spec_ is a color in
+   *XParseColor* format. foot only supports RGB colors; either
+   *rgb:<red>/<green>/<blue>*, or the legacy format (*#rgb*).
+|  OSC 7 ; _Uri_ ST
+:  Update the terminal's current working directory. Newly spawned
+   terminals will launch in this directory. _Uri_ must be on the format
+   *file://<hostname>/<path>*. *hostname* must refer to your local host.
+|  OSC 10 ; _spec_ ST
+:  Change the default foreground color to _spec_, a color in
+   *XParseColor* format.
+|  OSC 11 ; _spec_ ST
+:  Change the default background color to _spec_, a color in
+   *XParseColor* format.
+|  OSC 12 ; _spec_ ST
+:  Change cursor color to _spec_, a color in *XParseColor* format.
+|  OSC 52 ; _Pc_ ; ? ST
+:  Send clipboard data. _Pc_ can be either *c*, *s* or *p*. *c* uses
+   the clipboard as source, and *s* and *p* uses the primary
+   selection. The response is *OSC 52 ; Pc ; <base64-encoded data>*,
+   where _Pc_ indicates the source used.
+|  OSC 52 ; _Pc_ ; _Pd_ ST
+:  Copy _Pd_ (base64 encoded text) to the clipboard. _Pc_ indicates the
+   target: *c* targets the clipboard and *s* and *p* the primary
+   selection.
+|  OSC 104 [; _c_] ST
+:  Reset color number _c_, or all colors (excluding the default
+   foreground/background colors) if _c_ is omitted.
+|  OSC 110 ST
+:  Reset default foreground color
+|  OSC 111 ST
+:  Reset default background color
+|  OSC 112 ST
+:  Reset cursor color
+|  OSC 555 ST
+:  Flash the entire terminal (foot extension)
+|  OSC 777 ; notify ; _summary_ ; _message_ ST
+:  Desktop notification, uses *notify* in *foot.ini*(5).
 
 # DCS
 
