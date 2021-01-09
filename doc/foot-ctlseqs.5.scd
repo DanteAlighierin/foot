@@ -77,7 +77,7 @@ single CSI sequence by separating them with semicolons: *CSI 1;2;3 m*
 |  7
 :  Reverse video; swap foreground and background colors
 |  8
-:  Conceal; text is not visible, but is copyable
+:  Conceal; text is not visible, but is copiable
 |  9
 :  Crossed-out/strike
 |  22
