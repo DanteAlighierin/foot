@@ -17,7 +17,7 @@ This document describes all the control sequences supported by foot.
 :[ *Description*
 |  *\\a*
 :  BEL
-:  Depends on what *bell* in *foot.ini*(5)
+:  Depends on what *bell* in *foot.ini*(5) is set to.
 |  *\\b*
 :  BS
 :  Backspace; move the cursor left one step. Wrap if _bw_ is enabled.
