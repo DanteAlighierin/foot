@@ -153,6 +153,15 @@ All _OSC_ sequences begin with *\\E]*, from here on denoted _OSC_.
 
 # DCS
 
-*TODO*
 All _DCS_ sequences begin with *\\EP* (from here denoted _DCS_), and
 are terminated by *\\E\\* (ST).
+
+[[ *Sequence*
+:[ *Description*
+|  DCS q <sixel data> ST
+:  Emit a sixel image at the current cursor position
+|  DCS = 1 s ST
+:  Begin application synchronized updates
+|  DCS = 2 s ST
+:  End application synchronized updates
+
