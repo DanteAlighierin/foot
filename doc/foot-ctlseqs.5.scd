@@ -149,10 +149,10 @@ above categories.
 # OSC
 
 *TODO*
-All _OSC_ sequences begin with *\\E]*.
+All _OSC_ sequences begin with *\\E]*, from here on denoted _OSC_.
 
 # DCS
 
 *TODO*
-All _DCS_ sequences begin with *\\EP*, and are terminated by *\\E\\*
-(ST).
+All _DCS_ sequences begin with *\\EP* (from here denoted _DCS_), and
+are terminated by *\\E\\* (ST).
