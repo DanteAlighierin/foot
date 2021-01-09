@@ -36,7 +36,7 @@ This document describes all the control sequences supported by foot.
 :  Form feed; identical to _LF_.
 |  *\\r*
 :  CR
-:  Carriage ret; move the cursor to the left most column.
+:  Carriage ret; move the cursor to the leftmost column.
 |  *\\x0E*
 :  SS0
 :  Shift out; select the _G1_ character set.
