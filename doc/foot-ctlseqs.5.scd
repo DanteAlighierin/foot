@@ -63,7 +63,7 @@ single CSI sequence by separating them with semicolons: *CSI 1;2;3 m*
 [[ *Sequence*
 :[ *Description*
 |  0
-:  Reset all attributes.
+:  Reset all attributes
 |  1
 :  Bold
 |  2
@@ -97,13 +97,13 @@ single CSI sequence by separating them with semicolons: *CSI 1;2;3 m*
 |  30-37
 :  Select foreground color (using *regularN* in *foot.ini*(5))
 |  38
-:  See indexed and RGB colors below
+:  See "indexed and RGB colors" below
 |  39
 :  Use the default foreground color (*foreground* in *foot.ini*(5))
 |  40-47
 :  Select background color (using *regularN* in *foot.ini*(5))
 |  48
-:  See indexed and RGB colors below
+:  See "indexed and RGB colors" below
 |  49
 :  Use the default background color (*background* in *foot.ini*(5))
 |  90-97
