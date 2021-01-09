@@ -50,10 +50,10 @@ Foot does not support any CC1 control sequences.
 
 # CSI
 
-All sequences begin with *\E[*, denoted _CSI_ in the tables
+All sequences begin with *\\E[*, denoted _CSI_ in the tables
 below. Spaces are used in the sequence strings to make them easier to
 read, but are not actually part of the string. I.e. *CSI 1 m* is
-really *\E1m*.
+really *\\E1m*.
 
 ## SGR
 
@@ -150,10 +150,10 @@ above categories.
 # OSC
 
 *TODO*
-All _OSC_ sequences begin with *\E]*.
+All _OSC_ sequences begin with *\\E]*.
 
 # DCS
 
 *TODO*
-All _DCS_ sequences begin with *\EP*, and are terminated by *\E\\*
+All _DCS_ sequences begin with *\\EP*, and are terminated by *\\E\\*
 (ST).
