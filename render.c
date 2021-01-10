@@ -2671,7 +2671,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     const int total_x_pad = term->width - grid_width;
     const int total_y_pad = term->height - grid_height;
 
-    if (term->conf->center) {
+    if (term->conf->center && !term->window->is_resizing) {
         term->margins.left = total_x_pad / 2;
         term->margins.top = total_y_pad / 2;
     } else {
