@@ -378,15 +378,15 @@ struct wl_window {
     bool is_tiled_right;
     bool is_tiled;  /* At least one of is_tiled_{top,bottom,left,right} is true */
     struct {
-        bool is_activated;
-        bool is_fullscreen;
-        bool is_maximized;
-        bool is_tiled_top;
-        bool is_tiled_bottom;
-        bool is_tiled_left;
-        bool is_tiled_right;
         int width;
         int height;
+        uint8_t is_activated:1;
+        uint8_t is_fullscreen:1;
+        uint8_t is_maximized:1;
+        uint8_t is_tiled_top:1;
+        uint8_t is_tiled_bottom:1;
+        uint8_t is_tiled_left:1;
+        uint8_t is_tiled_right:1;
     } configure;
 };
 
