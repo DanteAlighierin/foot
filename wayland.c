@@ -535,6 +535,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     bool is_activated = false;
     bool is_fullscreen = false;
     bool is_maximized = false;
+    bool is_resizing = false;
     bool is_tiled_top = false;
     bool is_tiled_bottom = false;
     bool is_tiled_left = false;
@@ -566,11 +567,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
         case XDG_TOPLEVEL_STATE_TILED_RIGHT:  is_tiled_right = true; break;
         case XDG_TOPLEVEL_STATE_TILED_TOP:    is_tiled_top = true; break;
         case XDG_TOPLEVEL_STATE_TILED_BOTTOM: is_tiled_bottom = true; break;
-
-        case XDG_TOPLEVEL_STATE_RESIZING:
-            /* Ignored */
-            /* TODO: throttle? */
-            break;
+        case XDG_TOPLEVEL_STATE_RESIZING:     is_resizing = true; break;
         }
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
@@ -614,6 +611,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     win->configure.is_activated = is_activated;
     win->configure.is_fullscreen = is_fullscreen;
     win->configure.is_maximized = is_maximized;
+    win->configure.is_resizing = is_resizing;
     win->configure.is_tiled_top = is_tiled_top;
     win->configure.is_tiled_bottom = is_tiled_bottom;
     win->configure.is_tiled_left = is_tiled_left;
@@ -648,6 +646,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     bool wasnt_configured = !win->is_configured;
     win->is_configured = true;
     win->is_maximized = win->configure.is_maximized;
+    win->is_resizing = win->configure.is_resizing;
     win->is_tiled_top = win->configure.is_tiled_top;
     win->is_tiled_bottom = win->configure.is_tiled_bottom;
     win->is_tiled_left = win->configure.is_tiled_left;

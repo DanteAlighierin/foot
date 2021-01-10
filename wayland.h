@@ -372,6 +372,7 @@ struct wl_window {
     bool is_configured;
     bool is_fullscreen;
     bool is_maximized;
+    bool is_resizing;
     bool is_tiled_top;
     bool is_tiled_bottom;
     bool is_tiled_left;
@@ -383,6 +384,7 @@ struct wl_window {
         uint8_t is_activated:1;
         uint8_t is_fullscreen:1;
         uint8_t is_maximized:1;
+        uint8_t is_resizing:1;
         uint8_t is_tiled_top:1;
         uint8_t is_tiled_bottom:1;
         uint8_t is_tiled_left:1;
