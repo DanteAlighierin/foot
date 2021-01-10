@@ -644,6 +644,8 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     struct terminal *term = win->term;
 
     bool wasnt_configured = !win->is_configured;
+    bool was_resizing = win->is_resizing;
+
     win->is_configured = true;
     win->is_maximized = win->configure.is_maximized;
     win->is_resizing = win->configure.is_resizing;
@@ -675,8 +677,9 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
         term->window->frame_callback = NULL;
     }
 
-    bool resized = render_resize(
-        term, win->configure.width, win->configure.height);
+    bool resized = was_resizing && !win->is_resizing
+        ? render_resize_force(term, win->configure.width, win->configure.height)
+        : render_resize(term, win->configure.width, win->configure.height);
 
     if (win->configure.is_activated)
         term_visual_focus_in(term);
