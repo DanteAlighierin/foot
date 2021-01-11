@@ -2136,7 +2136,7 @@ config_load(struct config *conf, const char *conf_path,
             .render_timer_osd = false,
             .render_timer_log = false,
             .damage_whole_window = false,
-            .box_drawing_base_thickness = 0.02,
+            .box_drawing_base_thickness = 0.04,
         },
 
         .notifications = tll_init(),
