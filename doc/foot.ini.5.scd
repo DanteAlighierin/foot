@@ -32,7 +32,6 @@ in this order:
 	Value to set the environment variable *TERM* to. Default: _foot_.
 
 *font*, *font-bold*, *font-italic*, *font-bold-italic*
-
 	Comma separated list of fonts to use, in fontconfig format. That
 	is, a font name followed by a list of colon-separated
 	options. Most noteworthy is *:size=n*, which is used to set the
