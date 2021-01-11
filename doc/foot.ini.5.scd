@@ -72,7 +72,7 @@ in this order:
 	
 	See also: *vertical-letter-offset*.
 	
-	Default: _no set_.
+	Default: _not set_.
 
 *letter-spacing*
 	Spacing between letters, in _points_. A positive value will
