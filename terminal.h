@@ -265,6 +265,8 @@ struct terminal {
     struct config_font *font_sizes[4];
     float font_dpi;
     int font_scale;
+    int16_t font_x_ofs;
+    int16_t font_y_ofs;
     enum fcft_subpixel font_subpixel;
 
     /*

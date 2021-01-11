@@ -608,6 +608,15 @@ err_sem_destroy:
     return false;
 }
 
+static int
+pt_or_px_as_pixels(const struct terminal *term,
+                        const union pt_or_px *pt_or_px)
+{
+    return pt_or_px->px == 0
+        ? pt_or_px->pt * term->font_dpi / 72
+        : pt_or_px->px;
+}
+
 static bool
 term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
 {
@@ -629,10 +638,22 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
     const int old_cell_width = term->cell_width;
     const int old_cell_height = term->cell_height;
 
-    term->cell_width = term->fonts[0]->space_advance.x > 0
-        ? term->fonts[0]->space_advance.x : term->fonts[0]->max_advance.x;
-    term->cell_height = max(term->fonts[0]->height,
-                            term->fonts[0]->ascent + term->fonts[0]->descent);
+    const struct config *conf = term->conf;
+
+    term->cell_width =
+        (term->fonts[0]->space_advance.x > 0
+         ? term->fonts[0]->space_advance.x
+         : term->fonts[0]->max_advance.x)
+        + pt_or_px_as_pixels(term, &conf->letter_spacing);
+
+    term->cell_height = conf->line_height.px >= 0
+        ? pt_or_px_as_pixels(term, &conf->line_height)
+        : max(term->fonts[0]->height,
+              term->fonts[0]->ascent + term->fonts[0]->descent);
+
+    term->font_x_ofs = pt_or_px_as_pixels(term, &conf->horizontal_letter_offset);
+    term->font_y_ofs = pt_or_px_as_pixels(term, &conf->vertical_letter_offset);
+
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
     if (term->cell_width < old_cell_width ||

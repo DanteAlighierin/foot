@@ -30,6 +30,10 @@
   top/bottom side (https://codeberg.org/dnkl/foot/issues/273).
 * Completions for fish shell
   (https://codeberg.org/dnkl/foot/issues/11)
+* `line-height`, `letter-spacing`, `horizontal-letter-offset` and
+  `vertical-letter-offset` to `foot.ini`. These options let you tweak
+  cell size and glyph positioning
+  (https://codeberg.org/dnkl/foot/issues/244).
 
 
 ### Changed

@@ -387,22 +387,59 @@ str_to_double(const char *s, double *res)
 }
 
 static bool
-str_to_color(const char *s, uint32_t *color, bool allow_alpha, const char *path, int lineno,
+str_to_color(const char *s, uint32_t *color, bool allow_alpha,
+             struct config *conf, const char *path, int lineno,
              const char *section, const char *key)
 {
     unsigned long value;
     if (!str_to_ulong(s, 16, &value)) {
-        LOG_ERRNO("%s:%d: [%s]: %s: invalid color: %s", path, lineno, section, key, s);
+        LOG_AND_NOTIFY_ERRNO(
+            "%s:%d: [%s]: %s: invalid color: %s", path, lineno, section, key, s);
         return false;
     }
 
     if (!allow_alpha && (value & 0xff000000) != 0) {
-        LOG_ERR("%s:%d: [%s]: %s: color value must not have an alpha component: %s",
-                path, lineno, section, key, s);
+        LOG_AND_NOTIFY_ERR(
+            "%s:%d: [%s]: %s: color value must not have an alpha component: %s",
+            path, lineno, section, key, s);
         return false;
     }
 
     *color = value;
+    return true;
+}
+
+static bool
+str_to_pt_or_px(const char *s, union pt_or_px *res, struct config *conf,
+                const char *path, int lineno, const char *section, const char *key)
+{
+    size_t len = s != NULL ? strlen(s) : 0;
+    if (len >= 2 && s[len - 2] == 'p' && s[len - 1] == 'x') {
+        errno = 0;
+        char *end = NULL;
+
+        long value = strtol(s, &end, 10);
+        if (!(errno == 0 && end == s + len - 2)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [%s]: %s: "
+                "expected an integer directly followed by 'px', got '%s'",
+                path, lineno, section, key, s);
+            return false;
+        }
+        res->pt = 0;
+        res->px = value;
+    } else {
+        double value;
+        if (!str_to_double(s, &value)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [%s]: %s: expected a decimal value, got '%s'",
+                path, lineno, section, key, s);
+            return false;
+        }
+        res->pt = value;
+        res->px = 0;
+    }
+
     return true;
 }
 
@@ -553,6 +590,32 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             }
         }
         free(copy);
+    }
+
+    else if (strcmp(key, "line-height") == 0) {
+        if (!str_to_pt_or_px(value, &conf->line_height,
+                             conf, path, lineno, "default", "line-height"))
+            return false;
+    }
+
+    else if (strcmp(key, "letter-spacing") == 0) {
+        if (!str_to_pt_or_px(value, &conf->letter_spacing,
+                             conf, path, lineno, "default", "letter-spacing"))
+            return false;
+    }
+
+    else if (strcmp(key, "horizontal-letter-offset") == 0) {
+        if (!str_to_pt_or_px(
+                value, &conf->horizontal_letter_offset,
+                conf, path, lineno, "default", "horizontal-letter-offset"))
+            return false;
+    }
+
+    else if (strcmp(key, "vertical-letter-offset") == 0) {
+        if (!str_to_pt_or_px(
+                value, &conf->horizontal_letter_offset,
+                conf, path, lineno, "default", "vertical-letter-offset"))
+            return false;
     }
 
     else if (strcmp(key, "dpi-aware") == 0) {
@@ -732,7 +795,7 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
     }
 
     uint32_t color_value;
-    if (!str_to_color(value, &color_value, false, path, lineno, "colors", key))
+    if (!str_to_color(value, &color_value, false, conf, path, lineno, "colors", key))
         return false;
 
     *color = color_value;
@@ -767,8 +830,8 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
 
         uint32_t text_color, cursor_color;
         if (text == NULL || cursor == NULL ||
-            !str_to_color(text, &text_color, false, path, lineno, "cursor", "color") ||
-            !str_to_color(cursor, &cursor_color, false, path, lineno, "cursor", "color"))
+            !str_to_color(text, &text_color, false, conf, path, lineno, "cursor", "color") ||
+            !str_to_color(cursor, &cursor_color, false, conf, path, lineno, "cursor", "color"))
         {
             LOG_AND_NOTIFY_ERR("%s:%d: invalid cursor colors: %s", path, lineno, value);
             free(value_copy);
@@ -827,7 +890,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno, "csd", "color")) {
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "color")) {
             LOG_AND_NOTIFY_ERR("%s:%d: invalid titlebar-color: %s", path, lineno, value);
             return false;
         }
@@ -858,7 +921,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-minimize-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno, "csd", "button-minimize-color")) {
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-minimize-color")) {
             LOG_AND_NOTIFY_ERR("%s:%d: invalid button-minimize-color: %s", path, lineno, value);
             return false;
         }
@@ -869,7 +932,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-maximize-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno, "csd", "button-maximize-color")) {
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-maximize-color")) {
             LOG_AND_NOTIFY_ERR("%s:%d: invalid button-maximize-color: %s", path, lineno, value);
             return false;
         }
@@ -880,7 +943,7 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-close-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, path, lineno, "csd", "button-close-color")) {
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-close-color")) {
             LOG_AND_NOTIFY_ERR("%s:%d: invalid button-close-color: %s", path, lineno, value);
             return false;
         }
@@ -1979,6 +2042,10 @@ config_load(struct config *conf, const char *conf_path,
         .bell_action = BELL_ACTION_NONE,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
+        .line_height = { .pt = 0, .px = -1, },
+        .letter_spacing = { .pt = 0, .px = 0, },
+        .horizontal_letter_offset = {.pt = 0, .px = 0, },
+        .vertical_letter_offset = {.pt = 0, .px = 0, },
         .dpi_aware = DPI_AWARE_AUTO, /* DPI-aware when scaling-factor == 1 */
         .scrollback = {
             .lines = 1000,

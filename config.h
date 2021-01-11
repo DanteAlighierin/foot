@@ -54,6 +54,12 @@ struct config_mouse_binding {
     } pipe;
 };
 
+/* If px != 0 then px is valid, otherwise pt is valid */
+union pt_or_px {
+    int16_t px;
+    float pt;
+};
+
 struct config {
     char *term;
     char *shell;
@@ -83,6 +89,14 @@ struct config {
 
     enum {DPI_AWARE_AUTO, DPI_AWARE_YES, DPI_AWARE_NO} dpi_aware;
     config_font_list_t fonts[4];
+
+    /* Custom font metrics (-1 = use real font metrics) */
+    union pt_or_px line_height;
+    union pt_or_px letter_spacing;
+
+    /* Adjusted letter x/y offsets */
+    union pt_or_px horizontal_letter_offset;
+    union pt_or_px vertical_letter_offset;
 
     struct {
         int lines;

@@ -18,6 +18,19 @@ in this order:
 
 # SECTION: default
 
+*shell*
+	Executable to launch. Typically a shell. Default: _$SHELL_ if set,
+	otherwise the user's default shell (as specified in
+	_/etc/passwd_). You can also pass arguments. For example
+	*/bin/bash --norc*.
+
+*login-shell*
+	Boolean. If enabled, the shell will be launched as a login shell,
+	by prepending a '-' to argv[0]. Default: _no_.
+
+*term*
+	Value to set the environment variable *TERM* to. Default: _foot_.
+
 *font*, *font-bold*, *font-italic*, *font-bold-italic*
 
 	Comma separated list of fonts to use, in fontconfig format. That
@@ -50,6 +63,38 @@ in this order:
 	
 	Default: _monospace:size=8_ (*font*), _not set_ (*font-bold*,
 	*font-italic*, *font-bold-italic*).
+
+*line-height*
+	An absolute value, in _points_, that override line height from the
+	font metrics.
+	
+	You can specify a height in _pixels_ by using the _px_ suffix:
+	e.g. *line-height=12px*.
+	
+	See also: *vertical-letter-offset*.
+	
+	Default: _no set_.
+
+*letter-spacing*
+	Spacing between letters, in _points_. A positive value will
+	increase the cell size, and a negative value shrinks it.
+	
+	You can specify a letter spacing in _pixels_ by using the _px_
+	suffix: e.g. *letter-spacing=2px*.
+	
+	See also: *horizontal-letter-offset*.
+	
+	Default: _0_.
+
+*horizontal-letter-offset*, *vertical-letter-offset*
+	Configure the horizontal and vertical offsets used when
+	positioning glyphs within cells, in _points_, relative to the top
+	left corner.
+	
+	To specify an offset in _pixels_, append _px_:
+	e.g. *horizontal-letter-offset=2px*.
+	
+	Default: _0_.
 
 *dpi-aware*
 	*auto*, *yes*, or *no*. When set to *yes*, fonts are sized using
@@ -110,19 +155,6 @@ in this order:
 
 *geometry*
 	Deprecated. Alias for *initial-window-size-pixels*.
-
-*shell*
-	Executable to launch. Typically a shell. Default: _$SHELL_ if set,
-	otherwise the user's default shell (as specified in
-	_/etc/passwd_). You can also pass arguments. For example
-	*/bin/bash --norc*.
-
-*login-shell*
-	Boolean. If enabled, the shell will be launched as a login shell,
-	by prepending a '-' to argv[0]. Default: _no_.
-
-*term*
-	Value to set the environment variable *TERM* to. Default: _foot_.
 
 *title*
 	Initial window title. Default: _foot_.
