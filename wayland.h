@@ -381,14 +381,14 @@ struct wl_window {
     struct {
         int width;
         int height;
-        uint8_t is_activated:1;
-        uint8_t is_fullscreen:1;
-        uint8_t is_maximized:1;
-        uint8_t is_resizing:1;
-        uint8_t is_tiled_top:1;
-        uint8_t is_tiled_bottom:1;
-        uint8_t is_tiled_left:1;
-        uint8_t is_tiled_right:1;
+        bool is_activated:1;
+        bool is_fullscreen:1;
+        bool is_maximized:1;
+        bool is_resizing:1;
+        bool is_tiled_top:1;
+        bool is_tiled_bottom:1;
+        bool is_tiled_left:1;
+        bool is_tiled_right:1;
     } configure;
 };
 
