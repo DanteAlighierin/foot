@@ -48,7 +48,7 @@
 * `word-delimiters` option ignores `#` and subsequent characters
   (https://codeberg.org/dnkl/foot/issues/270)
 * Combining characters not being rendered when composed with colored
-  bitmap glyhps (i.e. colored emojis).
+  bitmap glyphs (i.e. colored emojis).
 
 
 ### Security
