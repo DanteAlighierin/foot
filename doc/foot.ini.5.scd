@@ -152,9 +152,6 @@ in this order:
 	Initial window mode for each newly spawned window: *windowed*,
 	*maximized* or *fullscreen*. Default: _windowed_.
 
-*geometry*
-	Deprecated. Alias for *initial-window-size-pixels*.
-
 *title*
 	Initial window title. Default: _foot_.
 
