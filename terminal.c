@@ -610,7 +610,7 @@ err_sem_destroy:
 
 static int
 pt_or_px_as_pixels(const struct terminal *term,
-                        const union pt_or_px *pt_or_px)
+                   const struct pt_or_px *pt_or_px)
 {
     return pt_or_px->px == 0
         ? pt_or_px->pt * term->font_dpi / 72

@@ -410,7 +410,7 @@ str_to_color(const char *s, uint32_t *color, bool allow_alpha,
 }
 
 static bool
-str_to_pt_or_px(const char *s, union pt_or_px *res, struct config *conf,
+str_to_pt_or_px(const char *s, struct pt_or_px *res, struct config *conf,
                 const char *path, int lineno, const char *section, const char *key)
 {
     size_t len = s != NULL ? strlen(s) : 0;
