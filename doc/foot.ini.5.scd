@@ -110,8 +110,8 @@ in this order:
 	scaling factor *does* double the font size.
 	
 	Finally, if set to *auto*, fonts will be sized using the monitor's
-	DPI on monitors with a scaling factor of 1, but otherwise size
-	fonts using the scaling factor.
+	DPI on monitors with a scaling factor of 1, but otherwise using
+	the scaling factor.
 	
 	Default: _auto_
 
