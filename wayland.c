@@ -331,6 +331,25 @@ output_update_ppi(struct monitor *mon)
     mon->ppi.real.x = mon->dim.px_real.width / x_inches;
     mon->ppi.real.y = mon->dim.px_real.height / y_inches;
 
+    /* The *logical* size is affected by the transform */
+    switch (mon->transform) {
+    case WL_OUTPUT_TRANSFORM_90:
+    case WL_OUTPUT_TRANSFORM_270:
+    case WL_OUTPUT_TRANSFORM_FLIPPED_90:
+    case WL_OUTPUT_TRANSFORM_FLIPPED_270: {
+        int swap = x_inches;
+        x_inches = y_inches;
+        y_inches = swap;
+        break;
+    }
+
+    case WL_OUTPUT_TRANSFORM_NORMAL:
+    case WL_OUTPUT_TRANSFORM_180:
+    case WL_OUTPUT_TRANSFORM_FLIPPED:
+    case WL_OUTPUT_TRANSFORM_FLIPPED_180:
+        break;
+    }
+
     mon->ppi.scaled.x = mon->dim.px_scaled.width / x_inches;
     mon->ppi.scaled.y = mon->dim.px_scaled.height / y_inches;
 
@@ -354,6 +373,7 @@ output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
     mon->make = make != NULL ? xstrdup(make) : NULL;
     mon->model = model != NULL ? xstrdup(model) : NULL;
     mon->subpixel = subpixel;
+    mon->transform = transform;
     output_update_ppi(mon);
 }
 
