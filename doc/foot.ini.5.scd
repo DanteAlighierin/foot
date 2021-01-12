@@ -648,6 +648,13 @@ any of these options.
 	or both. Valid values are *none*, *osd*, *log* and
 	*both*. Default: _none_.
 
+*box-drawing-base-thickness*
+	Line thickness to use for *LIGHT* box drawing line characters, in
+	points. This value is converted to pixels using the monitor's DPI,
+	and then multiplied with the cell size. The end result is that a
+	larger font (and thus larger cells) result in thicker
+	lines. Default: _0.04_.
+
 *delayed-render-lower*, *delayed-render-upper*
 	These two values control the timeouts (in nanoseconds) that are
 	used to mitigate screen flicker caused by clients writing large,
