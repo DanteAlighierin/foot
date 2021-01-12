@@ -1305,6 +1305,9 @@ term_shutdown(struct terminal *term)
     fdm_del(term->fdm, term->blink.fd);
     fdm_del(term->fdm, term->flash.fd);
 
+    /* We’ll deal with this explicitly */
+    reaper_del(term->reaper, term->slave);
+
     if (term->window != NULL && term->window->is_configured)
         fdm_del(term->fdm, term->ptmx);
     else
