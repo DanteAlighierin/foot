@@ -1213,6 +1213,9 @@ decode_one_uri(struct clipboard_receive *ctx, char *uri, size_t len)
 {
     LOG_DBG("URI: \"%.*s\"", (int)len, uri);
 
+    if (len == 0)
+        return false;
+
     char *scheme, *host, *path;
     if (!uri_parse(uri, len, &scheme, NULL, NULL, &host, NULL, &path, NULL, NULL)) {
         LOG_ERR("drag-and-drop: invalid URI: %.*s", (int)len, uri);
@@ -1267,8 +1270,7 @@ static void
 fdm_receive_finish_uri(struct clipboard_receive *ctx)
 {
     LOG_DBG("finish: %.*s", (int)ctx->buf.idx, ctx->buf.data);
-    if (ctx->buf.idx > 0)
-        decode_one_uri(ctx, ctx->buf.data, ctx->buf.idx);
+    decode_one_uri(ctx, ctx->buf.data, ctx->buf.idx);
 }
 
 static bool
