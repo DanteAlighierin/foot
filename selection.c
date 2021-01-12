@@ -1202,6 +1202,34 @@ fdm_receive_decoder_plain(struct clipboard_receive *ctx, char *data, size_t size
     ctx->cb(data, size, ctx->user);
 }
 
+static bool
+decode_one_uri(struct clipboard_receive *ctx, char *uri, size_t len)
+{
+    LOG_DBG("URI: \"%.*s\"", (int)len, uri);
+
+    char *scheme, *host, *path;
+    if (!uri_parse(uri, len, &scheme, NULL, NULL, &host, NULL, &path, NULL, NULL)) {
+        LOG_ERR("drag-and-drop: invalid URI: %.*s", (int)len, uri);
+        return false;
+    }
+
+    if (ctx->add_space)
+        ctx->cb(" ", 1, ctx->user);
+    ctx->add_space = true;
+
+    if (strcmp(scheme, "file") == 0 && hostname_is_localhost(host)) {
+        ctx->cb("'", 1, ctx->user);
+        ctx->cb(path, strlen(path), ctx->user);
+        ctx->cb("'", 1, ctx->user);
+    } else
+        ctx->cb(uri, len, ctx->user);
+
+    free(scheme);
+    free(host);
+    free(path);
+    return true;
+}
+
 static void
 fdm_receive_decoder_uri(struct clipboard_receive *ctx, char *data, size_t size)
 {
@@ -1218,34 +1246,8 @@ fdm_receive_decoder_uri(struct clipboard_receive *ctx, char *data, size_t size)
     char *end = NULL;
 
     while ((end = memchr(start, '\n', ctx->buf.idx - (start - ctx->buf.data))) != NULL) {
-        const size_t len = end - start;
-
-        LOG_DBG("URI: \"%.*s\"", (int)len, start);
-
-        char *scheme, *host, *path;
-        if (!uri_parse(start, len, &scheme, NULL, NULL, &host, NULL, &path, NULL, NULL)) {
-            LOG_ERR("drag-and-drop: invalid URI: %.*s", (int)len, start);
-            start = end + 1;
-            continue;
-        }
-
-        if (ctx->add_space)
-            ctx->cb(" ", 1, ctx->user);
-        ctx->add_space = true;
-
-
-        if (strcmp(scheme, "file") == 0 && hostname_is_localhost(host)) {
-            ctx->cb("'", 1, ctx->user);
-            ctx->cb(path, strlen(path), ctx->user);
-            ctx->cb("'", 1, ctx->user);
-        } else
-            ctx->cb(start, len, ctx->user);
-
+        decode_one_uri(ctx, start, end - start);
         start = end + 1;
-
-        free(scheme);
-        free(host);
-        free(path);
     }
 
     const size_t ofs = start - ctx->buf.data;
