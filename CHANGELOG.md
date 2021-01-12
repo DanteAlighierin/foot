@@ -64,6 +64,8 @@
   (https://codeberg.org/dnkl/foot/issues/270)
 * Combining characters not being rendered when composed with colored
   bitmap glyphs (i.e. colored emojis).
+* Pasting URIs from the clipboard when the source has not newline
+  terminated the last URI (https://codeberg.org/dnkl/foot/issues/291).
 
 
 ### Security
