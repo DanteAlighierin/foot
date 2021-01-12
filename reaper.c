@@ -98,6 +98,17 @@ reaper_add(struct reaper *reaper, pid_t pid, reaper_cb cb, void *cb_data)
         ((struct child){.pid = pid, .cb = cb, .cb_data = cb_data}));
 }
 
+void
+reaper_del(struct reaper *reaper, pid_t pid)
+{
+    tll_foreach(reaper->children, it) {
+        if (it->item.pid == pid) {
+            tll_remove(reaper->children, it);
+            break;
+        }
+    }
+}
+
 static bool
 fdm_reap(struct fdm *fdm, int fd, int events, void *data)
 {
