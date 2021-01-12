@@ -13,3 +13,4 @@ void reaper_destroy(struct reaper *reaper);
 typedef bool (*reaper_cb)(struct reaper *reaper, pid_t pid, void *data);
 
 void reaper_add(struct reaper *reaper, pid_t pid, reaper_cb cb, void *cb_data);
+void reaper_del(struct reaper *reaper, pid_t pid);
