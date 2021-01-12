@@ -1422,6 +1422,7 @@ struct clipboard_receive {
     struct itimerspec timeout;
 
     void (*decoder)(struct clipboard_receive *ctx, char *data, size_t size);
+    void (*finish)(struct clipboard_receive *ctx);
 
     /* URI state */
     bool add_space;
@@ -1479,6 +1480,11 @@ fdm_receive_decoder_plain(struct clipboard_receive *ctx, char *data, size_t size
     ctx->cb(data, size, ctx->user);
 }
 
+static void
+fdm_receive_finish_plain(struct clipboard_receive *ctx)
+{
+}
+
 static bool
 decode_one_uri(struct clipboard_receive *ctx, char *uri, size_t len)
 {
@@ -1534,6 +1540,14 @@ fdm_receive_decoder_uri(struct clipboard_receive *ctx, char *data, size_t size)
     ctx->buf.idx = left;
 }
 
+static void
+fdm_receive_finish_uri(struct clipboard_receive *ctx)
+{
+    LOG_DBG("finish: %.*s", (int)ctx->buf.idx, ctx->buf.data);
+    if (ctx->buf.idx > 0)
+        decode_one_uri(ctx, ctx->buf.data, ctx->buf.idx);
+}
+
 static bool
 fdm_receive(struct fdm *fdm, int fd, int events, void *data)
 {
@@ -1584,6 +1598,7 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
     }
 
 done:
+    ctx->finish(ctx);
     clipboard_receive_done(fdm, ctx);
     return true;
 }
@@ -1625,6 +1640,9 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
         .decoder = (mime_type == DATA_OFFER_MIME_URI_LIST
                     ? &fdm_receive_decoder_uri
                     : &fdm_receive_decoder_plain),
+        .finish = (mime_type == DATA_OFFER_MIME_URI_LIST
+                   ? &fdm_receive_finish_uri
+                   : &fdm_receive_finish_plain),
         .cb = cb,
         .done = done,
         .user = user,
@@ -1665,6 +1683,9 @@ text_from_clipboard(struct seat *seat, struct terminal *term,
         done(user);
         return;
     }
+
+    LOG_DBG("receive from clipboard: mime-type=%s",
+            mime_type_map[clipboard->mime_type]);
 
     int read_fd = fds[0];
     int write_fd = fds[1];
@@ -1809,6 +1830,9 @@ text_from_primary(
         done(user);
         return;
     }
+
+    LOG_DBG("receive from primary: mime-type=%s",
+            mime_type_map[primary->mime_type]);
 
     int read_fd = fds[0];
     int write_fd = fds[1];
