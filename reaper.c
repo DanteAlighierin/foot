@@ -138,23 +138,27 @@ fdm_reap(struct fdm *fdm, int fd, int events, void *data)
     }
 
     tll_foreach(reaper->children, it) {
-        struct child *child = &it->item;
-        pid_t pid = child->pid;
+        struct child *_child = &it->item;
 
-        if (pid != (pid_t)info.ssi_pid)
+        if (_child->pid != (pid_t)info.ssi_pid)
             continue;
 
+        /* Make sure we remove it *before* the callback, since it too
+         * may remove it */
+        struct child child = it->item;
+        tll_remove(reaper->children, it);
+
         bool reap_ourselves = true;
-        if (child->cb != NULL)
-            reap_ourselves = !child->cb(reaper, pid, child->cb_data);
+        if (child.cb != NULL)
+            reap_ourselves = !child.cb(reaper, child.pid, child.cb_data);
 
         if (reap_ourselves) {
             int result;
-            int res = waitpid(pid, &result, WNOHANG);
+            int res = waitpid(child.pid, &result, WNOHANG);
 
             if (res <= 0) {
                 if (res < 0)
-                    LOG_ERRNO("waitpid failed for pid=%d", pid);
+                    LOG_ERRNO("waitpid failed for pid=%d", child.pid);
                 continue;
             }
 
@@ -165,8 +169,6 @@ fdm_reap(struct fdm *fdm, int fd, int events, void *data)
             else
                 LOG_DBG("pid=%d: died of unknown resason", pid);
         }
-
-        tll_remove(reaper->children, it);
     }
 
     if (hup)
