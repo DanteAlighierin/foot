@@ -136,6 +136,7 @@ notify_notify(const struct terminal *term, const char *title, const char *body)
 }
 
 void reaper_add(struct reaper *reaper, pid_t pid, reaper_cb cb, void *cb_data) {}
+void reaper_del(struct reaper *reaper, pid_t pid) {}
 
 
 int
