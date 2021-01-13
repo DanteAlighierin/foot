@@ -1422,6 +1422,7 @@ struct clipboard_receive {
     struct itimerspec timeout;
 
     void (*decoder)(struct clipboard_receive *ctx, char *data, size_t size);
+    void (*finish)(struct clipboard_receive *ctx);
 
     /* URI state */
     bool add_space;
@@ -1480,6 +1481,42 @@ fdm_receive_decoder_plain(struct clipboard_receive *ctx, char *data, size_t size
 }
 
 static void
+fdm_receive_finish_plain(struct clipboard_receive *ctx)
+{
+}
+
+static bool
+decode_one_uri(struct clipboard_receive *ctx, char *uri, size_t len)
+{
+    LOG_DBG("URI: \"%.*s\"", (int)len, uri);
+
+    if (len == 0)
+        return false;
+
+    char *scheme, *host, *path;
+    if (!uri_parse(uri, len, &scheme, NULL, NULL, &host, NULL, &path, NULL, NULL)) {
+        LOG_ERR("drag-and-drop: invalid URI: %.*s", (int)len, uri);
+        return false;
+    }
+
+    if (ctx->add_space)
+        ctx->cb(" ", 1, ctx->user);
+    ctx->add_space = true;
+
+    if (strcmp(scheme, "file") == 0 && hostname_is_localhost(host)) {
+        ctx->cb("'", 1, ctx->user);
+        ctx->cb(path, strlen(path), ctx->user);
+        ctx->cb("'", 1, ctx->user);
+    } else
+        ctx->cb(uri, len, ctx->user);
+
+    free(scheme);
+    free(host);
+    free(path);
+    return true;
+}
+
+static void
 fdm_receive_decoder_uri(struct clipboard_receive *ctx, char *data, size_t size)
 {
     while (ctx->buf.idx + size > ctx->buf.sz) {
@@ -1495,34 +1532,8 @@ fdm_receive_decoder_uri(struct clipboard_receive *ctx, char *data, size_t size)
     char *end = NULL;
 
     while ((end = memchr(start, '\n', ctx->buf.idx - (start - ctx->buf.data))) != NULL) {
-        const size_t len = end - start;
-
-        LOG_DBG("URI: \"%.*s\"", (int)len, start);
-
-        char *scheme, *host, *path;
-        if (!uri_parse(start, len, &scheme, NULL, NULL, &host, NULL, &path, NULL, NULL)) {
-            LOG_ERR("drag-and-drop: invalid URI: %.*s", (int)len, start);
-            start = end + 1;
-            continue;
-        }
-
-        if (ctx->add_space)
-            ctx->cb(" ", 1, ctx->user);
-        ctx->add_space = true;
-
-
-        if (strcmp(scheme, "file") == 0 && hostname_is_localhost(host)) {
-            ctx->cb("'", 1, ctx->user);
-            ctx->cb(path, strlen(path), ctx->user);
-            ctx->cb("'", 1, ctx->user);
-        } else
-            ctx->cb(start, len, ctx->user);
-
+        decode_one_uri(ctx, start, end - start);
         start = end + 1;
-
-        free(scheme);
-        free(host);
-        free(path);
     }
 
     const size_t ofs = start - ctx->buf.data;
@@ -1530,6 +1541,13 @@ fdm_receive_decoder_uri(struct clipboard_receive *ctx, char *data, size_t size)
 
     memmove(&ctx->buf.data[0], &ctx->buf.data[ofs], left);
     ctx->buf.idx = left;
+}
+
+static void
+fdm_receive_finish_uri(struct clipboard_receive *ctx)
+{
+    LOG_DBG("finish: %.*s", (int)ctx->buf.idx, ctx->buf.data);
+    decode_one_uri(ctx, ctx->buf.data, ctx->buf.idx);
 }
 
 static bool
@@ -1582,6 +1600,7 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
     }
 
 done:
+    ctx->finish(ctx);
     clipboard_receive_done(fdm, ctx);
     return true;
 }
@@ -1623,6 +1642,9 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
         .decoder = (mime_type == DATA_OFFER_MIME_URI_LIST
                     ? &fdm_receive_decoder_uri
                     : &fdm_receive_decoder_plain),
+        .finish = (mime_type == DATA_OFFER_MIME_URI_LIST
+                   ? &fdm_receive_finish_uri
+                   : &fdm_receive_finish_plain),
         .cb = cb,
         .done = done,
         .user = user,
@@ -1663,6 +1685,9 @@ text_from_clipboard(struct seat *seat, struct terminal *term,
         done(user);
         return;
     }
+
+    LOG_DBG("receive from clipboard: mime-type=%s",
+            mime_type_map[clipboard->mime_type]);
 
     int read_fd = fds[0];
     int write_fd = fds[1];
@@ -1807,6 +1832,9 @@ text_from_primary(
         done(user);
         return;
     }
+
+    LOG_DBG("receive from primary: mime-type=%s",
+            mime_type_map[primary->mime_type]);
 
     int read_fd = fds[0];
     int write_fd = fds[1];

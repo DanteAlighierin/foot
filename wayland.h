@@ -321,6 +321,7 @@ struct monitor {
     int scale;
     float refresh;
     enum wl_output_subpixel subpixel;
+    enum wl_output_transform transform;
 
     /* From wl_output */
     char *make;
