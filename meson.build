@@ -112,6 +112,7 @@ misc = static_library(
   'misc.c', 'misc.h',
   'uri.c', 'uri.h',
   'xmalloc.c', 'xmalloc.h',
+  'xsnprintf.c', 'xsnprintf.h',
 )
 
 vtlib = static_library(
