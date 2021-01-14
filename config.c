@@ -80,6 +80,7 @@ static const char *const binding_action_map[] = {
     [BIND_ACTION_SELECT_BEGIN] = "select-begin",
     [BIND_ACTION_SELECT_BEGIN_BLOCK] = "select-begin-block",
     [BIND_ACTION_SELECT_EXTEND] = "select-extend",
+    [BIND_ACTION_SELECT_EXTEND_CHAR_WISE] = "select-extend-character-wise",
     [BIND_ACTION_SELECT_WORD] = "select-word",
     [BIND_ACTION_SELECT_WORD_WS] = "select-word-whitespace",
     [BIND_ACTION_SELECT_ROW] = "select-row",
@@ -2026,6 +2027,7 @@ add_default_mouse_bindings(struct config *conf)
     add_binding(BIND_ACTION_SELECT_BEGIN, none, BTN_LEFT, 1);
     add_binding(BIND_ACTION_SELECT_BEGIN_BLOCK, ctrl, BTN_LEFT, 1);
     add_binding(BIND_ACTION_SELECT_EXTEND, none, BTN_RIGHT, 1);
+    add_binding(BIND_ACTION_SELECT_EXTEND_CHAR_WISE, ctrl, BTN_RIGHT, 1);
     add_binding(BIND_ACTION_SELECT_WORD, none, BTN_LEFT, 2);
     add_binding(BIND_ACTION_SELECT_WORD_WS, ctrl, BTN_LEFT, 2);
     add_binding(BIND_ACTION_SELECT_ROW, none, BTN_LEFT, 3);
