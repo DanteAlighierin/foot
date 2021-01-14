@@ -52,6 +52,8 @@
 * Pasting URIs from the clipboard when the source has not
   newline-terminated the last URI
   (https://codeberg.org/dnkl/foot/issues/291).
+* Sixel “current geometry” query response not being bounded by the
+  current window dimensions (fixes `lsix` output)
 
 
 ### Security
