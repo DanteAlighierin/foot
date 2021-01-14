@@ -51,9 +51,6 @@ the foot command line
 *-W*,*--window-size-chars*=_WIDTHxHEIGHT_
 	Set initial window width and height, in characters. Default: _not set_.
 
-*-g*,*--geometry*=_WIDTHxHEIGHT_
-	Deprecated. Alias for *-w*,*--window-size-pixels*.
-
 *-t*,*--term*=_TERM_
 	Value to set the environment variable *TERM* to. Default: _foot_.
 
