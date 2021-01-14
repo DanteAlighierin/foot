@@ -47,6 +47,8 @@
   (https://codeberg.org/dnkl/foot/issues/270)
 * Double- or triple clicking then dragging now extends the selection
   word- or line-wise (https://codeberg.org/dnkl/foot/issues/267).
+* The line thickness of box drawing characters now depend on the font
+  size (https://codeberg.org/dnkl/foot/issues/281).
 
 
 ### Deprecated

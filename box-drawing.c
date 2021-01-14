@@ -13,8 +13,10 @@
 #include "util.h"
 #include "xmalloc.h"
 
-#define LIGHT 1.0
-#define HEAVY 2.0
+enum thickness {
+    LIGHT = 1,
+    HEAVY = 3,
+};
 
 struct buf {
     uint8_t *data;
@@ -22,14 +24,16 @@ struct buf {
     int height;
     int stride;
     int dpi;
+    float cell_size;
+    float base_thickness;
 };
 
 static int
-_thickness(struct buf *buf, float pts)
+_thickness(struct buf *buf, enum thickness thick)
 {
-    return max(pts * buf->dpi / 72.0, 1);
+    return max((int)(buf->base_thickness * buf->dpi / 72.0 * buf->cell_size), 1) * thick;
 }
-#define thickness(pts) _thickness(buf, pts)
+#define thickness(thick) _thickness(buf, thick)
 
 static void NOINLINE
 _hline(struct buf *buf, int x1, int x2, int y, int thick)
@@ -37,7 +41,7 @@ _hline(struct buf *buf, int x1, int x2, int y, int thick)
     x1 = min(max(x1, 0), buf->width);
     x2 = min(max(x2, 0), buf->width);
 
-    for (size_t row = max(y, 0); row < min(y + thick, buf->height); row++) {
+    for (size_t row = max(y, 0); row < max(min(y + thick, buf->height), 0); row++) {
         for (size_t col = x1; col < x2; col++) {
             size_t idx = col / 8;
             size_t bit_no = col % 8;
@@ -55,7 +59,7 @@ _vline(struct buf *buf, int y1, int y2, int x, int thick)
     y2 = min(max(y2, 0), buf->height);
 
     for (size_t row = y1; row < y2; row++) {
-        for (size_t col = max(x, 0); col < min(x + thick, buf->width); col++) {
+        for (size_t col = max(x, 0); col < max(min(x + thick, buf->width), 0); col++) {
             size_t idx = col / 8;
             size_t bit_no = col % 8;
             buf->data[row * buf->stride + idx] |= 1 << bit_no;
@@ -69,7 +73,7 @@ static void NOINLINE
 _rect(struct buf *buf, int x1, int y1, int x2, int y2)
 {
     for (size_t row = max(y1, 0); row < min(y2, buf->height); row++) {
-        for (size_t col = max(x1, 0); col < min(x2, buf->width); col++) {
+        for (size_t col = max(x1, 0); col < max(min(x2, buf->width), 0); col++) {
             size_t idx = col / 8;
             size_t bit_no = col % 8;
             buf->data[row * buf->stride + idx] |= 1 << bit_no;
@@ -80,14 +84,14 @@ _rect(struct buf *buf, int x1, int y1, int x2, int y2)
 #define rect(x1, y1, x2, y2) _rect(buf, x1, y1, x2, y2)
 
 static void NOINLINE
-_hline_middle(struct buf *buf, float _thick)
+_hline_middle(struct buf *buf, enum thickness _thick)
 {
     int thick = thickness(_thick);
     hline(0, buf->width, (buf->height - thick) / 2, thick);
 }
 
 static void NOINLINE
-_hline_middle_left(struct buf *buf, float _vthick, float _hthick)
+_hline_middle_left(struct buf *buf, enum thickness _vthick, enum thickness _hthick)
 {
     int vthick = thickness(_vthick);
     int hthick = thickness(_hthick);
@@ -95,7 +99,7 @@ _hline_middle_left(struct buf *buf, float _vthick, float _hthick)
 }
 
 static void NOINLINE
-_hline_middle_right(struct buf *buf, float _vthick, float _hthick)
+_hline_middle_right(struct buf *buf, enum thickness _vthick, enum thickness _hthick)
 {
     int vthick = thickness(_vthick);
     int hthick = thickness(_hthick);
@@ -103,14 +107,14 @@ _hline_middle_right(struct buf *buf, float _vthick, float _hthick)
 }
 
 static void NOINLINE
-_vline_middle(struct buf *buf, float _thick)
+_vline_middle(struct buf *buf, enum thickness _thick)
 {
     int thick = thickness(_thick);
     vline(0, buf->height, (buf->width - thick) / 2, thick);
 }
 
 static void NOINLINE
-_vline_middle_up(struct buf *buf, float _vthick, float _hthick)
+_vline_middle_up(struct buf *buf, enum thickness _vthick, enum thickness _hthick)
 {
     int vthick = thickness(_vthick);
     int hthick = thickness(_hthick);
@@ -118,7 +122,7 @@ _vline_middle_up(struct buf *buf, float _vthick, float _hthick)
 }
 
 static void NOINLINE
-_vline_middle_down(struct buf *buf, float _vthick, float _hthick)
+_vline_middle_down(struct buf *buf, enum thickness _vthick, enum thickness _hthick)
 {
     int vthick = thickness(_vthick);
     int hthick = thickness(_hthick);
@@ -1303,8 +1307,8 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
         assert(row_end > row_start);
         assert(col_end > col_start);
 
-        for (int r = max(row_start, 0); r < min(row_end, buf->height); r++) {
-            for (int c = max(col_start, 0); c < min(col_end, buf->width); c++) {
+        for (int r = max(row_start, 0); r < max(min(row_end, buf->height), 0); r++) {
+            for (int c = max(col_start, 0); c < max(min(col_end, buf->width), 0); c++) {
                 size_t idx = c / 8;
                 size_t bit_no = c % 8;
                 buf->data[r * buf->stride + idx] |= 1 << bit_no;
@@ -1323,9 +1327,11 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
         for (int y = 0; y < thick; y++) {
             int row = (buf->height - thick) / 2 + y;
             int col = buf->width - 1;
-            size_t ofs = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            if (row >= 0 && row < buf->height && col >= 0 && col < buf->width) {
+                size_t ofs = col / 8;
+                size_t bit_no = col % 8;
+                buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            }
         }
     }
 
@@ -1333,9 +1339,11 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
         for (int x = 0; x < thick; x++) {
             int row = buf->height - 1;
             int col = (buf->width - thick) / 2 + x;
-            size_t ofs = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            if (row >= 0 && row < buf->height && col >= 0 && col < buf->width) {
+                size_t ofs = col / 8;
+                size_t bit_no = col % 8;
+                buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            }
         }
     }
 }
@@ -2061,7 +2069,13 @@ box_drawing(const struct terminal *term, wchar_t wc)
         .height = height,
         .stride = stride,
         .dpi = term->font_dpi,
+        .cell_size = sqrt(pow(term->cell_width, 2) + pow(term->cell_height, 2)),
+        .base_thickness = term->conf->tweak.box_drawing_base_thickness,
     };
+
+    LOG_DBG("LIGHT=%d, HEAVY=%d",
+            _thickness(&buf, LIGHT), _thickness(&buf, HEAVY));
+
     draw_glyph(wc, &buf);
 
     struct fcft_glyph *glyph = xmalloc(sizeof(*glyph));
