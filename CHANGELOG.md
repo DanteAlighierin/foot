@@ -55,7 +55,7 @@
 ### Removed
 
 * The `-g,--geometry` command-line option (which had been deprecated and
-  superceded by `-w,--window-size-pixels` since 1.5.0).
+  superseded by `-w,--window-size-pixels` since 1.5.0).
 
 
 ### Fixed
