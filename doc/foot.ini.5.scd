@@ -581,21 +581,37 @@ All actions listed under *key-bindings* can be user here as well.
 	and copied to the _primary selection_, when the button is
 	released. Default: _Control+BTN\_LEFT_.
 
-*select-extend*
-	Interactively extend an existing selection. The selection is
-	finalized, and copied to the _primary selection_, when the button
-	is released. Default: _BTN\_RIGHT_.
-
 *select-word*
-	Select the _word_ (separated by spaces, period, comma, parenthesis
-	etc) under the pointer. Default: _BTN\_LEFT-2_.
+	Begin an interactive word-wise selection, where words are
+	separated by whitespace and all characters defined by the
+	*word-delimiters* option. The selection is finalized, and copied
+	to the _primary selection_, when the button is released. Default:
+	_BTN\_LEFT-2_.
 
 *select-word-whitespace*
-	Select the _word_ (separated by spaces _only_) under the
-	pointer. Default: Control+_BTN\_LEFT-2_.
+	Same as *select-word*, but the characters in the *word-delimiters*
+	option are ignored. I.e only whitespace characters act as
+	delimiters. The selection is finalized, and copied to the _primary
+	selection_, when the button is released. Default:
+	_Control+_BTN\_LEFT-2_.
 
 *select-row*
-	Select the whole row under the pointer. Default: _BTN\_LEFT-3_.
+	Begin an interactive row-wise selection. The selection is
+	finalized, and copied to the _primary selection_, when the button
+	is released. Default: _BTN\_LEFT-3_.
+
+*select-extend*
+	Interactively extend an existing selection, using the original
+	selection mode (normal, block, word-wise or row-wise). The
+	selection is finalized, and copied to the _primary selection_,
+	when the button is released. Default: _BTN\_RIGHT_.
+
+*select-extend-character-wise*
+	Same as *select-extend*, but forces the selection mode to _normal_
+	(i.e. character wise). Note that this causes subsequent
+	*select-extend* operations to be character wise. This action is
+	ignored for block selections. Default: _Control+BTN\_RIGHT_.
+
 
 *primary-paste*
 	Pastes from the _primary selection_. Default: _BTN\_MIDDLE_.
@@ -647,6 +663,13 @@ any of these options.
 	render each frame, in microseconds, either on-screen, to stderr,
 	or both. Valid values are *none*, *osd*, *log* and
 	*both*. Default: _none_.
+
+*box-drawing-base-thickness*
+	Line thickness to use for *LIGHT* box drawing line characters, in
+	points. This value is converted to pixels using the monitor's DPI,
+	and then multiplied with the cell size. The end result is that a
+	larger font (and thus larger cells) result in thicker
+	lines. Default: _0.04_.
 
 *delayed-render-lower*, *delayed-render-upper*
 	These two values control the timeouts (in nanoseconds) that are

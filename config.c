@@ -80,6 +80,7 @@ static const char *const binding_action_map[] = {
     [BIND_ACTION_SELECT_BEGIN] = "select-begin",
     [BIND_ACTION_SELECT_BEGIN_BLOCK] = "select-begin-block",
     [BIND_ACTION_SELECT_EXTEND] = "select-extend",
+    [BIND_ACTION_SELECT_EXTEND_CHAR_WISE] = "select-extend-character-wise",
     [BIND_ACTION_SELECT_WORD] = "select-word",
     [BIND_ACTION_SELECT_WORD_WS] = "select-word-whitespace",
     [BIND_ACTION_SELECT_ROW] = "select-row",
@@ -1708,6 +1709,20 @@ parse_section_tweak(
                  (long long)conf->tweak.max_shm_pool_size);
     }
 
+    else if (strcmp(key, "box-drawing-base-thickness") == 0) {
+        double base_thickness;
+        if (!str_to_double(value, &base_thickness)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [tweak]: box-drawing-base-thickness: "
+                "expected a decimal value, got '%s'", path, lineno, value);
+            return false;
+        }
+
+        conf->tweak.box_drawing_base_thickness = base_thickness;
+        LOG_WARN("tweak: box-drawing-base-thickness=%f",
+                 conf->tweak.box_drawing_base_thickness);
+    }
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [tweak]: %s: invalid key", path, lineno, key);
         return false;
@@ -2012,6 +2027,7 @@ add_default_mouse_bindings(struct config *conf)
     add_binding(BIND_ACTION_SELECT_BEGIN, none, BTN_LEFT, 1);
     add_binding(BIND_ACTION_SELECT_BEGIN_BLOCK, ctrl, BTN_LEFT, 1);
     add_binding(BIND_ACTION_SELECT_EXTEND, none, BTN_RIGHT, 1);
+    add_binding(BIND_ACTION_SELECT_EXTEND_CHAR_WISE, ctrl, BTN_RIGHT, 1);
     add_binding(BIND_ACTION_SELECT_WORD, none, BTN_LEFT, 2);
     add_binding(BIND_ACTION_SELECT_WORD_WS, ctrl, BTN_LEFT, 2);
     add_binding(BIND_ACTION_SELECT_ROW, none, BTN_LEFT, 3);
@@ -2122,6 +2138,7 @@ config_load(struct config *conf, const char *conf_path,
             .render_timer_osd = false,
             .render_timer_log = false,
             .damage_whole_window = false,
+            .box_drawing_base_thickness = 0.04,
         },
 
         .notifications = tll_init(),

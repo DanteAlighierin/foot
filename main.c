@@ -66,8 +66,8 @@ print_usage(const char *prog_name)
         "     --maximized                        start in maximized mode\n"
         "     --fullscreen                       start in fullscreen mode\n"
         "     --login-shell                      start shell as a login shell\n"
-        "  -w,--window-size-pixels=WIDTHxHEIGHT  initial width and height, in pixels (alternative to '--dimensions')\n"
-        "  -W,--window-size-chars=WIDTHxHEIGHT   initial width and height, in characters (alternative to '--geometry')\n"
+        "  -w,--window-size-pixels=WIDTHxHEIGHT  initial width and height, in pixels\n"
+        "  -W,--window-size-chars=WIDTHxHEIGHT   initial width and height, in characters\n"
         "  -s,--server[=PATH]                    run as a server (use 'footclient' to start terminals).\n"
         "                                        Without PATH, $XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock will be used.\n"
         "     --hold                             remain open after child process exits\n"
@@ -162,7 +162,6 @@ main(int argc, char *const *argv)
         {"app-id",                 required_argument, NULL, 'a'},
         {"login-shell",            no_argument,       NULL, 'L'},
         {"font",                   required_argument, NULL, 'f'},
-        {"geometry",               required_argument, NULL, 'g'},  /* Deprecated */
         {"window-size-pixels",     required_argument, NULL, 'w'},
         {"window-size-chars",      required_argument, NULL, 'W'},
         {"server",                 optional_argument, NULL, 's'},
@@ -201,7 +200,7 @@ main(int argc, char *const *argv)
     user_notifications_t user_notifications = tll_init();
 
     while (true) {
-        int c = getopt_long(argc, argv, "+c:Ct:T:a:Lf:g:w:W:s::HmFPp:l::Svh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+c:Ct:T:a:Lf:w:W:s::HmFPp:l::Svh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -252,17 +251,6 @@ main(int argc, char *const *argv)
             }
             break;
 
-        case 'g': {
-            LOG_WARN("deprecated: -g,--geometry command line option. Use -w,--window-size-pixels instead");
-            struct user_notification deprecation = {
-                .kind = USER_NOTIFICATION_DEPRECATED,
-                .text = xstrdup(
-                    "\033[1m-g,--geometry\033[21m command line option. "
-                    "Use \033[1m-w,--window-size-pixels\033[21m instead"),
-            };
-            tll_push_back(user_notifications, deprecation);
-            /* FALLTHROUGH */
-        }
         case 'w': {
             unsigned width, height;
             if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {

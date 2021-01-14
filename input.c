@@ -291,7 +291,17 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SELECT_EXTEND:
         if (selection_enabled(term, seat) && cursor_is_on_grid) {
             selection_extend(
-                seat, term, seat->mouse.col, seat->mouse.row, serial);
+                seat, term, seat->mouse.col, seat->mouse.row, term->selection.kind);
+            return true;
+        }
+        return false;
+
+    case BIND_ACTION_SELECT_EXTEND_CHAR_WISE:
+        if (selection_enabled(term, seat) && cursor_is_on_grid &&
+            term->selection.kind != SELECTION_BLOCK)
+        {
+            selection_extend(
+                seat, term, seat->mouse.col, seat->mouse.row, SELECTION_CHAR_WISE);
             return true;
         }
         return false;

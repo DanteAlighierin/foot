@@ -34,6 +34,8 @@
   `vertical-letter-offset` to `foot.ini`. These options let you tweak
   cell size and glyph positioning
   (https://codeberg.org/dnkl/foot/issues/244).
+* Key/mouse binding `select-extend-character-wise`, which forces the
+  selection mode to 'character-wise' when extending a selection.
 
 
 ### Changed
@@ -47,10 +49,19 @@
   (https://codeberg.org/dnkl/foot/issues/270)
 * Double- or triple clicking then dragging now extends the selection
   word- or line-wise (https://codeberg.org/dnkl/foot/issues/267).
+* The line thickness of box drawing characters now depend on the font
+  size (https://codeberg.org/dnkl/foot/issues/281).
+* Extending a word/line-wise selection now uses the original selection
+  mode instead of switching to character-wise.
 
 
 ### Deprecated
 ### Removed
+
+* The `-g,--geometry` command-line option (which had been deprecated and
+  superseded by `-w,--window-size-pixels` since 1.5.0).
+
+
 ### Fixed
 
 * Exit when the client application terminates, not when the TTY file
@@ -67,6 +78,8 @@
 * Pasting URIs from the clipboard when the source has not
   newline-terminated the last URI
   (https://codeberg.org/dnkl/foot/issues/291).
+* Sixel “current geometry” query response not being bounded by the
+  current window dimensions (fixes `lsix` output)
 
 
 ### Security

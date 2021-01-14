@@ -783,7 +783,8 @@ selection_dirty_cells(struct terminal *term)
 }
 
 static void
-selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial)
+selection_extend_normal(struct terminal *term, int col, int row,
+                        enum selection_kind new_kind)
 {
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
@@ -839,10 +840,14 @@ selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial
 
     switch (term->selection.kind) {
     case SELECTION_CHAR_WISE:
+        assert(new_kind == SELECTION_CHAR_WISE);
         set_pivot_point_for_block_and_char_wise(term, new_start, direction);
         break;
 
     case SELECTION_WORD_WISE: {
+        assert(new_kind == SELECTION_CHAR_WISE ||
+               new_kind == SELECTION_WORD_WISE);
+
         struct coord pivot_start = {new_start.col, new_start.row - term->grid->view};
         struct coord pivot_end = pivot_start;
 
@@ -857,6 +862,9 @@ selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial
     }
 
     case SELECTION_LINE_WISE:
+        assert(new_kind == SELECTION_CHAR_WISE ||
+               new_kind == SELECTION_LINE_WISE);
+
         term->selection.pivot.start = (struct coord){0, new_start.row};
         term->selection.pivot.end = (struct coord){term->cols - 1, new_start.row};
         break;
@@ -867,12 +875,13 @@ selection_extend_normal(struct terminal *term, int col, int row, uint32_t serial
         break;
     }
 
+    term->selection.kind = new_kind;
     term->selection.direction = direction;
     selection_modify(term, new_start, new_end);
 }
 
 static void
-selection_extend_block(struct terminal *term, int col, int row, uint32_t serial)
+selection_extend_block(struct terminal *term, int col, int row)
 {
     const struct coord *start = &term->selection.start;
     const struct coord *end = &term->selection.end;
@@ -941,12 +950,15 @@ selection_extend_block(struct terminal *term, int col, int row, uint32_t serial)
 
 void
 selection_extend(struct seat *seat, struct terminal *term,
-                 int col, int row, uint32_t serial)
+                 int col, int row, enum selection_kind new_kind)
 {
     if (term->selection.start.row < 0 || term->selection.end.row < 0) {
         /* No existing selection */
         return;
     }
+
+    if (term->selection.kind == SELECTION_BLOCK && new_kind != SELECTION_BLOCK)
+        return;
 
     term->selection.ongoing = true;
 
@@ -967,11 +979,11 @@ selection_extend(struct seat *seat, struct terminal *term,
     case SELECTION_CHAR_WISE:
     case SELECTION_WORD_WISE:
     case SELECTION_LINE_WISE:
-        selection_extend_normal(term, col, row, serial);
+        selection_extend_normal(term, col, row, new_kind);
         break;
 
     case SELECTION_BLOCK:
-        selection_extend_block(term, col, row, serial);
+        selection_extend_block(term, col, row);
         break;
     }
 }

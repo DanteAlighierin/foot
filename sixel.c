@@ -1145,7 +1145,8 @@ sixel_geometry_report_current(struct terminal *term)
 {
     char reply[64];
     snprintf(reply, sizeof(reply), "\033[?2;0;%u;%uS",
-             term->sixel.max_width, term->sixel.max_height);
+             min(term->cols * term->cell_width, term->sixel.max_width),
+             min(term->rows * term->cell_height, term->sixel.max_height));
     term_to_slave(term, reply, strlen(reply));
 
     LOG_DBG("query response for current sixel geometry: %ux%u",
