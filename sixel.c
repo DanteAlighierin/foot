@@ -10,6 +10,7 @@
 #include "hsl.h"
 #include "util.h"
 #include "xmalloc.h"
+#include "xsnprintf.h"
 
 static size_t count;
 
@@ -1101,8 +1102,8 @@ void
 sixel_colors_report_current(struct terminal *term)
 {
     char reply[24];
-    snprintf(reply, sizeof(reply), "\033[?1;0;%uS", term->sixel.palette_size);
-    term_to_slave(term, reply, strlen(reply));
+    size_t n = xsnprintf(reply, sizeof(reply), "\033[?1;0;%uS", term->sixel.palette_size);
+    term_to_slave(term, reply, n);
     LOG_DBG("query response for current color count: %u", term->sixel.palette_size);
 }
 
@@ -1135,8 +1136,8 @@ void
 sixel_colors_report_max(struct terminal *term)
 {
     char reply[24];
-    snprintf(reply, sizeof(reply), "\033[?1;0;%uS", SIXEL_MAX_COLORS);
-    term_to_slave(term, reply, strlen(reply));
+    size_t n = xsnprintf(reply, sizeof(reply), "\033[?1;0;%uS", SIXEL_MAX_COLORS);
+    term_to_slave(term, reply, n);
     LOG_DBG("query response for max color count: %u", SIXEL_MAX_COLORS);
 }
 
@@ -1144,10 +1145,10 @@ void
 sixel_geometry_report_current(struct terminal *term)
 {
     char reply[64];
-    snprintf(reply, sizeof(reply), "\033[?2;0;%u;%uS",
+    size_t n = xsnprintf(reply, sizeof(reply), "\033[?2;0;%u;%uS",
              min(term->cols * term->cell_width, term->sixel.max_width),
              min(term->rows * term->cell_height, term->sixel.max_height));
-    term_to_slave(term, reply, strlen(reply));
+    term_to_slave(term, reply, n);
 
     LOG_DBG("query response for current sixel geometry: %ux%u",
             term->sixel.max_width, term->sixel.max_height);
@@ -1178,8 +1179,8 @@ sixel_geometry_report_max(struct terminal *term)
     unsigned max_height = term->rows * term->cell_height;
 
     char reply[64];
-    snprintf(reply, sizeof(reply), "\033[?2;0;%u;%uS", max_width, max_height);
-    term_to_slave(term, reply, strlen(reply));
+    size_t n = xsnprintf(reply, sizeof(reply), "\033[?2;0;%u;%uS", max_width, max_height);
+    term_to_slave(term, reply, n);
 
     LOG_DBG("query response for max sixel geometry: %ux%u",
             max_width, max_height);

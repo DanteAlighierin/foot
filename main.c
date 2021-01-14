@@ -31,6 +31,7 @@
 #include "util.h"
 #include "version.h"
 #include "xmalloc.h"
+#include "xsnprintf.h"
 
 static volatile sig_atomic_t aborted = 0;
 
@@ -127,9 +128,9 @@ print_pid(const char *pid_file, bool *unlink_at_exit)
 
     if (pid_fd >= 0) {
         char pid[32];
-        snprintf(pid, sizeof(pid), "%u\n", getpid());
+        size_t n = xsnprintf(pid, sizeof(pid), "%u\n", getpid());
 
-        ssize_t bytes = write(pid_fd, pid, strlen(pid));
+        ssize_t bytes = write(pid_fd, pid, n);
         close(pid_fd);
 
         if (bytes < 0) {

@@ -23,6 +23,7 @@
 #include "version.h"
 #include "vt.h"
 #include "xmalloc.h"
+#include "xsnprintf.h"
 
 #define UNHANDLED()        LOG_DBG("unhandled: %s", csi_as_string(term, final, -1))
 #define UNHANDLED_SGR(idx) LOG_DBG("unhandled: %s", csi_as_string(term, 'm', idx))
@@ -1204,9 +1205,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 if (x >= 0 && y >= 0) {
                     char reply[64];
-                    snprintf(reply, sizeof(reply), "\033[3;%d;%dt",
+                    size_t n = xsnprintf(reply, sizeof(reply), "\033[3;%d;%dt",
                              x / term->scale, y / term->scale);
-                    term_to_slave(term, reply, strlen(reply));
+                    term_to_slave(term, reply, n);
                 }
                 break;
             }
@@ -1235,9 +1236,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 if (width >= 0 && height >= 0) {
                     char reply[64];
-                    snprintf(reply, sizeof(reply), "\033[4;%d;%dt",
+                    size_t n = xsnprintf(reply, sizeof(reply), "\033[4;%d;%dt",
                              height / term->scale, width / term->scale);
-                    term_to_slave(term, reply, strlen(reply));
+                    term_to_slave(term, reply, n);
                 }
                 break;
             }
@@ -1245,10 +1246,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
             case 15:   /* report screen size in pixels */
                 tll_foreach(term->window->on_outputs, it) {
                     char reply[64];
-                    snprintf(reply, sizeof(reply), "\033[5;%d;%dt",
+                    size_t n = xsnprintf(reply, sizeof(reply), "\033[5;%d;%dt",
                              it->item->dim.px_scaled.height,
                              it->item->dim.px_scaled.width);
-                    term_to_slave(term, reply, strlen(reply));
+                    term_to_slave(term, reply, n);
                     break;
                 }
 
@@ -1258,28 +1259,28 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             case 16: { /* report cell size in pixels */
                 char reply[64];
-                snprintf(reply, sizeof(reply), "\033[6;%d;%dt",
+                size_t n = xsnprintf(reply, sizeof(reply), "\033[6;%d;%dt",
                          term->cell_height / term->scale,
                          term->cell_width / term->scale);
-                term_to_slave(term, reply, strlen(reply));
+                term_to_slave(term, reply, n);
                 break;
             }
 
             case 18: { /* text area size in chars */
                 char reply[64];
-                snprintf(reply, sizeof(reply), "\033[8;%d;%dt",
+                size_t n = xsnprintf(reply, sizeof(reply), "\033[8;%d;%dt",
                          term->rows, term->cols);
-                term_to_slave(term, reply, strlen(reply));
+                term_to_slave(term, reply, n);
                 break;
             }
 
             case 19: { /* report screen size in chars */
                 tll_foreach(term->window->on_outputs, it) {
                     char reply[64];
-                    snprintf(reply, sizeof(reply), "\033[9;%d;%dt",
+                    size_t n = xsnprintf(reply, sizeof(reply), "\033[9;%d;%dt",
                              it->item->dim.px_real.height / term->cell_height / term->scale,
                              it->item->dim.px_real.width / term->cell_width / term->scale);
-                    term_to_slave(term, reply, strlen(reply));
+                    term_to_slave(term, reply, n);
                     break;
                 }
 
@@ -1341,9 +1342,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
                      * terminfo says the receiver of the reply should
                      * decrement, hence we must add 1 */
                     char reply[64];
-                    snprintf(reply, sizeof(reply), "\x1b[%d;%dR",
+                    size_t n = xsnprintf(reply, sizeof(reply), "\x1b[%d;%dR",
                              row + 1, term->grid->cursor.point.col + 1);
-                    term_to_slave(term, reply, strlen(reply));
+                    term_to_slave(term, reply, n);
                     break;
                 }
 
@@ -1468,10 +1469,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 static_assert(FOOT_PATCH < 100, "Patch version must not exceed 99");
 
                 char reply[64];
-                snprintf(reply, sizeof(reply), "\033[>1;%02u%02u%02u;0c",
+                size_t n = xsnprintf(reply, sizeof(reply), "\033[>1;%02u%02u%02u;0c",
                          FOOT_MAJOR, FOOT_MINOR, FOOT_PATCH);
 
-                term_to_slave(term, reply, strlen(reply));
+                term_to_slave(term, reply, n);
                 break;
 
         case 'm':
@@ -1625,8 +1626,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 value = 0;
 
             char reply[32];
-            snprintf(reply, sizeof(reply), "\033[?%u;%u$y", param, value);
-            term_to_slave(term, reply, strlen(reply));
+            size_t n = xsnprintf(reply, sizeof(reply), "\033[?%u;%u$y", param, value);
+            term_to_slave(term, reply, n);
             break;
 
         }
