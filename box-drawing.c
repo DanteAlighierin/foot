@@ -1765,12 +1765,14 @@ draw_sextant(wchar_t wc, struct buf *buf)
      *   4      middle right
      *   5      lower right
      */
-#define UPPER_LEFT (1 << 0)
-#define MIDDLE_LEFT (1 << 1)
-#define LOWER_LEFT (1 << 2)
-#define UPPER_RIGHT (1 << 3)
-#define MIDDLE_RIGHT (1 << 4)
-#define LOWER_RIGHT (1 << 5)
+    enum {
+        UPPER_LEFT = 1 << 0,
+        MIDDLE_LEFT = 1 << 1,
+        LOWER_LEFT = 1 << 2,
+        UPPER_RIGHT = 1 << 3,
+        MIDDLE_RIGHT = 1 << 4,
+        LOWER_RIGHT = 1 << 5,
+    };
 
     static const uint8_t matrix[60] = {
         /* U+1fb00 - U+1fb0f */
