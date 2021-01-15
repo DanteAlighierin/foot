@@ -36,6 +36,7 @@
   (https://codeberg.org/dnkl/foot/issues/244).
 * Key/mouse binding `select-extend-character-wise`, which forces the
   selection mode to 'character-wise' when extending a selection.
+* Implemented `DECSET 1047` and `DECSET 1048`.
 
 
 ### Changed
