@@ -3,7 +3,6 @@
 #include <malloc.h>
 #include <string.h>
 #include <unistd.h>
-#include <assert.h>
 #include <errno.h>
 
 #include <sys/stat.h>
@@ -22,6 +21,7 @@
 
 #include "async.h"
 #include "config.h"
+#include "debug.h"
 #include "extract.h"
 #include "grid.h"
 #include "ime.h"

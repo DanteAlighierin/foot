@@ -593,7 +593,6 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SEARCH_EDIT_LEFT_WORD: {
         size_t diff = distance_prev_word(term);
         term->search.cursor -= diff;
-        assert(term->search.cursor >= 0);
         assert(term->search.cursor <= term->search.len);
         return false;
     }
@@ -606,7 +605,6 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SEARCH_EDIT_RIGHT_WORD: {
         size_t diff = distance_next_word(term);
         term->search.cursor += diff;
-        assert(term->search.cursor >= 0);
         assert(term->search.cursor <= term->search.len);
         return false;
     }

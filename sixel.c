@@ -6,6 +6,7 @@
 #define LOG_MODULE "sixel"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "debug.h"
 #include "render.h"
 #include "hsl.h"
 #include "util.h"

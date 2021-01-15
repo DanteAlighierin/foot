@@ -4,12 +4,12 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <assert.h>
 #include <errno.h>
 
 #define LOG_MODULE "base64"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "debug.h"
 
 enum {
     P = 1 << 6, // Padding byte (=)

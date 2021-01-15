@@ -1,11 +1,11 @@
 #include "grid.h"
 
 #include <string.h>
-#include <assert.h>
 
 #define LOG_MODULE "grid"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "debug.h"
 #include "macros.h"
 #include "sixel.h"
 #include "util.h"

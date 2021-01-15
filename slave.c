@@ -6,7 +6,6 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
-#include <assert.h>
 #include <signal.h>
 #include <termios.h>
 
@@ -18,6 +17,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
+#include "debug.h"
 #include "terminal.h"
 #include "tokenize.h"
 #include "xmalloc.h"

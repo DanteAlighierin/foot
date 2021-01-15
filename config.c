@@ -6,7 +6,6 @@
 #include <stdbool.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <assert.h>
 #include <errno.h>
 #include <pwd.h>
 #include <fcntl.h>
@@ -21,6 +20,7 @@
 #define LOG_MODULE "config"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "debug.h"
 #include "input.h"
 #include "macros.h"
 #include "tokenize.h"

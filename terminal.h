@@ -12,6 +12,7 @@
 #include <fcft/fcft.h>
 
 //#include "config.h"
+#include "debug.h"
 #include "fdm.h"
 #include "macros.h"
 #include "reaper.h"

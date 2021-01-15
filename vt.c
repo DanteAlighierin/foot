@@ -3,13 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <assert.h>
 
 #define LOG_MODULE "vt"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "csi.h"
 #include "dcs.h"
+#include "debug.h"
 #include "grid.h"
 #include "osc.h"
 #include "util.h"

@@ -5,11 +5,12 @@
 #include <sys/epoll.h>
 #include <sys/wait.h>
 #include <sys/signalfd.h>
+#include <tllist.h>
 
 #define LOG_MODULE "reaper"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "tllist.h"
+#include "debug.h"
 
 struct child {
     pid_t pid;

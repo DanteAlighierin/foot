@@ -1,8 +1,8 @@
 #include "xsnprintf.h"
 
-#include <assert.h>
 #include <limits.h>
 #include <stdio.h>
+#include "debug.h"
 
 size_t
 xvsnprintf(char *buf, size_t n, const char *format, va_list ap)

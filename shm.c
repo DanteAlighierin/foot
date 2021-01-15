@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 #include <errno.h>
 #include <unistd.h>
 #include <limits.h>
@@ -22,6 +21,7 @@
 #define LOG_MODULE "shm"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "debug.h"
 #include "macros.h"
 #include "xmalloc.h"
 

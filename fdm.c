@@ -5,7 +5,6 @@
 #include <inttypes.h>
 #include <unistd.h>
 #include <errno.h>
-#include <assert.h>
 #include <fcntl.h>
 
 #include <sys/epoll.h>
@@ -15,6 +14,7 @@
 #define LOG_MODULE "fdm"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "debug.h"
 
 struct handler {
     int fd;

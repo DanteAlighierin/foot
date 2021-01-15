@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <assert.h>
 #include <errno.h>
 
 #if defined(_DEBUG)
@@ -16,6 +15,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "config.h"
+#include "debug.h"
 #include "grid.h"
 #include "selection.h"
 #include "sixel.h"

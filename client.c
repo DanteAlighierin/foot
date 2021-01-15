@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <assert.h>
 #include <getopt.h>
 #include <signal.h>
 #include <errno.h>
@@ -16,6 +15,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "client-protocol.h"
+#include "debug.h"
 #include "foot-features.h"
 #include "version.h"
 #include "xmalloc.h"
