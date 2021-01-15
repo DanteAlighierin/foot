@@ -507,7 +507,6 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
             term->grid = &term->alt;
 
             /* Cursor retains its position from the normal grid */
-            /* TODO: don’t need separate cursors */
             term_cursor_to(
                 term,
                 min(term->normal.cursor.point.row, term->rows - 1),
@@ -526,7 +525,6 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
             term->grid = &term->normal;
 
             /* Cursor retains its position from the alt grid */
-            /* TODO: don’t need separate cursors */
             term_cursor_to(
                 term, min(term->alt.cursor.point.row, term->rows - 1),
                 min(term->alt.cursor.point.col, term->cols - 1));

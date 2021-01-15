@@ -106,6 +106,14 @@ struct grid {
     int offset;
     int view;
 
+    /*
+     * Note: the cursor (not the *saved* cursor) could most likely be
+     * global state in the term struct.
+     *
+     * However, we have grid specific functions that does not have
+     * access to the owning term struct, but does need access to the
+     * cursor.
+     */
     struct cursor cursor;
     struct cursor saved_cursor;
 
