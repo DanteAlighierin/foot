@@ -24,6 +24,14 @@
 
 ## 1.6.4
 ### Added
+
+* `selection-target=none|primary|clipboard|both` to `foot.ini`. It can
+  be used to configure which clipboard(s) selected text should be
+  copied to. The default is `primary`, which corresponds to the
+  behavior in older foot releases
+  (https://codeberg.org/dnkl/foot/issues/288).
+
+
 ### Changed
 
 * The IME state no longer stays stuck in the terminal if the IME goes
