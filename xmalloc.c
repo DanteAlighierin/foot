@@ -28,7 +28,7 @@ xmalloc(size_t size)
 void *
 xcalloc(size_t nmemb, size_t size)
 {
-    assert(size != 0);
+    xassert(size != 0);
     return check_alloc(calloc(likely(nmemb) ? nmemb : 1, size));
 }
 

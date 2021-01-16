@@ -41,7 +41,7 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
             (void)!write(pipe_fds[1], &errno, sizeof(errno));
             _exit(errno);
         }
-        assert(false);
+        xassert(false);
         _exit(errno);
     }
 

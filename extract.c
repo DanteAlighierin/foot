@@ -46,7 +46,7 @@ ensure_size(struct extraction_context *ctx, size_t additional_chars)
         ctx->size = new_size;
     }
 
-    assert(ctx->size >= ctx->idx + additional_chars);
+    xassert(ctx->size >= ctx->idx + additional_chars);
     return true;
 }
 
@@ -71,8 +71,8 @@ extract_finish(struct extraction_context *ctx, char **text, size_t *len)
             goto out;
         ctx->buf[ctx->idx++] = L'\0';
     } else {
-        assert(ctx->idx > 0);
-        assert(ctx->idx <= ctx->size);
+        xassert(ctx->idx > 0);
+        xassert(ctx->idx <= ctx->size);
         if (ctx->buf[ctx->idx - 1] == L'\n')
             ctx->buf[ctx->idx - 1] = L'\0';
         else {

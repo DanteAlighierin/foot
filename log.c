@@ -94,11 +94,11 @@ _sys_log(enum log_class log_class, const char *module,
     case LOG_CLASS_DEBUG:    level = LOG_DEBUG; break;
     }
 
-    assert(level != -1);
+    xassert(level != -1);
 
     char msg[4096];
     int n = vsnprintf(msg, sizeof(msg), fmt, va);
-    assert(n >= 0);
+    xassert(n >= 0);
 
     if (sys_errno != 0 && (size_t)n < sizeof(msg))
         snprintf(msg + n, sizeof(msg) - n, ": %s", strerror(sys_errno));

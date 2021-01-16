@@ -123,7 +123,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     if (events & EPOLLHUP)
         goto shutdown;
 
-    assert(events & EPOLLIN);
+    xassert(events & EPOLLIN);
 
     if (client->term != NULL) {
         uint8_t dummy[128];
@@ -186,9 +186,9 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     /* All initialization data received - time to instantiate a terminal! */
 
-    assert(client->term == NULL);
-    assert(client->buffer.data != NULL);
-    assert(client->buffer.left == 0);
+    xassert(client->term == NULL);
+    xassert(client->buffer.data != NULL);
+    xassert(client->buffer.left == 0);
 
     /*
      * Parse the received buffer, verifying lengths etc

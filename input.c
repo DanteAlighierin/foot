@@ -53,7 +53,7 @@ fdm_write_pipe(struct fdm *fdm, int fd, int events, void *data)
     if (events & EPOLLHUP)
         goto pipe_closed;
 
-    assert(events & EPOLLOUT);
+    xassert(events & EPOLLOUT);
     ssize_t written = write(fd, &ctx->text[ctx->idx], ctx->left);
 
     if (written < 0) {
@@ -61,7 +61,7 @@ fdm_write_pipe(struct fdm *fdm, int fd, int events, void *data)
         goto pipe_closed;
     }
 
-    assert(written <= ctx->left);
+    xassert(written <= ctx->left);
     ctx->idx += written;
     ctx->left -= written;
 
@@ -210,7 +210,7 @@ execute_binding(struct seat *seat, struct terminal *term,
             break;
 
         default:
-            assert(false);
+            xassert(false);
             success = false;
             break;
         }
@@ -332,7 +332,7 @@ execute_binding(struct seat *seat, struct terminal *term,
         return false;
 
     case BIND_ACTION_COUNT:
-        assert(false);
+        xassert(false);
         return false;
     }
 
@@ -557,7 +557,7 @@ static void
 keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface, struct wl_array *keys)
 {
-    assert(surface != NULL);
+    xassert(surface != NULL);
 
     struct seat *seat = data;
     struct wl_window *win = wl_surface_get_user_data(surface);
@@ -631,7 +631,7 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     if (seat->kbd.xkb == NULL)
         return;
 
-    assert(
+    xassert(
         seat->kbd_focus == NULL ||
         surface == NULL ||  /* Seen on Sway 1.2 */
         ((const struct wl_window *)wl_surface_get_user_data(surface))->term == seat->kbd_focus
@@ -923,7 +923,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
      * Compose, and maybe emit "normal" character
      */
 
-    assert(seat->kbd.xkb_compose_state != NULL ||
+    xassert(seat->kbd.xkb_compose_state != NULL ||
            compose_status != XKB_COMPOSE_COMPOSED);
 
     int count = compose_status == XKB_COMPOSE_COMPOSED
@@ -973,9 +973,9 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
             [MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL] = 16,
         };
 
-        assert(keymap_mods < sizeof(mod_param_map) / sizeof(mod_param_map[0]));
+        xassert(keymap_mods < sizeof(mod_param_map) / sizeof(mod_param_map[0]));
         int modify_param = mod_param_map[keymap_mods];
-        assert(modify_param != 0);
+        xassert(modify_param != 0);
 
         char reply[1024];
         size_t n = xsnprintf(reply, sizeof(reply), "\x1b[27;%d;%d~", modify_param, sym);
@@ -1101,7 +1101,7 @@ void
 input_repeat(struct seat *seat, uint32_t key)
 {
     /* Should be cleared as soon as we loose focus */
-    assert(seat->kbd_focus != NULL);
+    xassert(seat->kbd_focus != NULL);
     struct terminal *term = seat->kbd_focus;
 
     key_press_release(seat, term, seat->kbd.serial, key, XKB_KEY_DOWN);
@@ -1161,7 +1161,7 @@ xcursor_for_csd_border(struct terminal *term, int x, int y)
     else if (term->active_surface == TERM_SURF_BORDER_TOP)    return XCURSOR_TOP_SIDE;
     else if (term->active_surface == TERM_SURF_BORDER_BOTTOM) return XCURSOR_BOTTOM_SIDE;
     else {
-        assert(false);
+        xassert(false);
         return NULL;
     }
 }
@@ -1171,7 +1171,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
                  uint32_t serial, struct wl_surface *surface,
                  wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
-    assert(surface != NULL);
+    xassert(surface != NULL);
 
     struct seat *seat = data;
     struct wl_window *win = wl_surface_get_user_data(surface);
@@ -1235,7 +1235,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_NONE:
-        assert(false);
+        xassert(false);
         break;
     }
 }
@@ -1281,7 +1281,7 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         if (surface != NULL) {
             /* Sway 1.4 sends this event with a NULL surface when we destroy the window */
             const struct wl_window UNUSED *win = wl_surface_get_user_data(surface);
-            assert(old_moused == win->term);
+            xassert(old_moused == win->term);
         }
 
         enum term_surface active_surface = old_moused->active_surface;
@@ -1327,7 +1327,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     LOG_DBG("pointer_motion: pointer=%p, x=%d, y=%d", (void *)wl_pointer,
             wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y));
 
-    assert(term != NULL);
+    xassert(term != NULL);
 
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
@@ -1420,8 +1420,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
             seat->mouse.row = selection_row;
         }
 
-        assert(seat->mouse.col == -1 || (seat->mouse.col >= 0 && seat->mouse.col < term->cols));
-        assert(seat->mouse.row == -1 || (seat->mouse.row >= 0 && seat->mouse.row < term->rows));
+        xassert(seat->mouse.col == -1 || (seat->mouse.col >= 0 && seat->mouse.col < term->cols));
+        xassert(seat->mouse.row == -1 || (seat->mouse.row >= 0 && seat->mouse.row < term->rows));
 
         term_xcursor_update_for_seat(term, seat);
 
@@ -1461,7 +1461,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
                     ? term->margins.top - y
                     : y - (term->height - term->margins.bottom);
 
-                assert(distance > 0);
+                xassert(distance > 0);
                 int divisor
                     = distance * term->conf->scrollback.multiplier / term->scale;
 
@@ -1483,8 +1483,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
             ((button == 0 && cursor_is_on_grid) ||
              (button != 0 && send_to_client)))
         {
-            assert(seat->mouse.col < term->cols);
-            assert(seat->mouse.row < term->rows);
+            xassert(seat->mouse.col < term->cols);
+            xassert(seat->mouse.row < term->rows);
 
             term_mouse_motion(
                 term, button,
@@ -1529,7 +1529,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     seat->pointer.hidden = false;
 
-    assert(term != NULL);
+    xassert(term != NULL);
 
     enum term_surface surf_kind = TERM_SURF_NONE;
     bool send_to_client = false;
@@ -1549,7 +1549,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
 #if defined(_DEBUG)
         tll_foreach(seat->mouse.buttons, it)
-            assert(it->item.button != button);
+            xassert(it->item.button != button);
 #endif
 
         /*
@@ -1811,7 +1811,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     }
 
     case TERM_SURF_NONE:
-        assert(false);
+        xassert(false);
         break;
 
     }
@@ -1824,7 +1824,7 @@ alternate_scroll(struct seat *seat, int amount, int button)
         return;
 
     /* Should be cleared in leave event */
-    assert(seat->mouse_focus != NULL);
+    xassert(seat->mouse_focus != NULL);
     struct terminal *term = seat->mouse_focus;
 
     xkb_keycode_t key = button == BTN_BACK
@@ -1839,7 +1839,7 @@ static void
 mouse_scroll(struct seat *seat, int amount)
 {
     struct terminal *term = seat->mouse_focus;
-    assert(term != NULL);
+    xassert(term != NULL);
 
     int button = amount < 0 ? BTN_BACK : BTN_FORWARD;
     amount = abs(amount);
@@ -1857,8 +1857,8 @@ mouse_scroll(struct seat *seat, int amount)
     } else if (!term_mouse_grabbed(term, seat) &&
                seat->mouse.col >= 0 && seat->mouse.row >= 0)
     {
-        assert(seat->mouse.col < term->cols);
-        assert(seat->mouse.row < term->rows);
+        xassert(seat->mouse.col < term->cols);
+        xassert(seat->mouse.row < term->rows);
 
         for (int i = 0; i < amount; i++) {
             term_mouse_down(
@@ -1884,7 +1884,7 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
     if (seat->mouse.have_discrete)
         return;
 
-    assert(seat->mouse_focus != NULL);
+    xassert(seat->mouse_focus != NULL);
 
     /*
      * Aggregate scrolled amount until we get at least 1.0

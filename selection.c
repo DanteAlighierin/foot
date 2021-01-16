@@ -53,7 +53,7 @@ selection_on_rows(const struct terminal *term, int row_start, int row_end)
     if (term->selection.end.row < 0)
         return false;
 
-    assert(term->selection.start.row != -1);
+    xassert(term->selection.start.row != -1);
 
     row_start += term->grid->offset;
     row_end += term->grid->offset;
@@ -142,7 +142,7 @@ foreach_selected_normal(
     for (int r = start_row; r <= end_row; r++) {
         size_t real_r = r & (term->grid->num_rows - 1);
         struct row *row = term->grid->rows[real_r];
-        assert(row != NULL);
+        xassert(row != NULL);
 
         for (int c = start_col;
              c <= (r == end_row ? end_col : term->cols - 1);
@@ -178,7 +178,7 @@ foreach_selected_block(
     for (int r = top_left.row; r <= bottom_right.row; r++) {
         size_t real_r = r & (term->grid->num_rows - 1);
         struct row *row = term->grid->rows[real_r];
-        assert(row != NULL);
+        xassert(row != NULL);
 
         for (int c = top_left.col; c <= bottom_right.col; c++) {
             if (!cb(term, row, &row->cells[c], c, data))
@@ -205,11 +205,11 @@ foreach_selected(
         return;
 
     case SELECTION_NONE:
-        assert(false);
+        xassert(false);
         return;
     }
 
-    assert(false);
+    xassert(false);
 }
 
 static bool
@@ -246,7 +246,7 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
     wchar_t c = r->cells[pos->col].wc;
 
     while (c == CELL_MULT_COL_SPACER) {
-        assert(pos->col > 0);
+        xassert(pos->col > 0);
         if (pos->col == 0)
             return;
         pos->col--;
@@ -280,7 +280,7 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
 
         c = row->cells[next_col].wc;
         while (c == CELL_MULT_COL_SPACER) {
-            assert(next_col > 0);
+            xassert(next_col > 0);
             if (--next_col < 0)
                 return;
             c = row->cells[next_col].wc;
@@ -318,7 +318,7 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
     wchar_t c = r->cells[pos->col].wc;
 
     while (c == CELL_MULT_COL_SPACER) {
-        assert(pos->col > 0);
+        xassert(pos->col > 0);
         if (pos->col == 0)
             return;
         pos->col--;
@@ -436,7 +436,7 @@ selection_start(struct terminal *term, int col, int row,
         break;
 
     case SELECTION_NONE:
-        assert(false);
+        xassert(false);
         break;
     }
 
@@ -470,7 +470,7 @@ premark_selected(struct terminal *term, struct row *row, struct cell *cell,
                  int col, void *data)
 {
     struct mark_context *ctx = data;
-    assert(ctx != NULL);
+    xassert(ctx != NULL);
 
     if (ctx->last_row != row) {
         ctx->last_row = row;
@@ -494,7 +494,7 @@ mark_selected(struct terminal *term, struct row *row, struct cell *cell,
               int col, void *data)
 {
     struct mark_context *ctx = data;
-    assert(ctx != NULL);
+    xassert(ctx != NULL);
 
     if (ctx->last_row != row) {
         ctx->last_row = row;
@@ -523,9 +523,9 @@ mark_selected(struct terminal *term, struct row *row, struct cell *cell,
 static void
 selection_modify(struct terminal *term, struct coord start, struct coord end)
 {
-    assert(term->selection.start.row != -1);
-    assert(start.row != -1 && start.col != -1);
-    assert(end.row != -1 && end.col != -1);
+    xassert(term->selection.start.row != -1);
+    xassert(start.row != -1 && start.col != -1);
+    xassert(end.row != -1 && end.col != -1);
 
     struct mark_context ctx = {0};
 
@@ -569,7 +569,7 @@ set_pivot_point_for_block_and_char_wise(struct terminal *term,
             break;
 
         /* Multi-column chars don’t cross rows */
-        assert(pivot_start->col > 0);
+        xassert(pivot_start->col > 0);
         if (pivot_start->col == 0)
             break;
 
@@ -619,9 +619,9 @@ set_pivot_point_for_block_and_char_wise(struct terminal *term,
         }
     }
 
-    assert(term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)]->
+    xassert(term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)]->
            cells[pivot_start->col].wc != CELL_MULT_COL_SPACER);
-    assert(term->grid->rows[pivot_end->row & (term->grid->num_rows - 1)]->
+    xassert(term->grid->rows[pivot_end->row & (term->grid->num_rows - 1)]->
            cells[pivot_end->col].wc != CELL_MULT_COL_SPACER);
 }
 
@@ -639,7 +639,7 @@ selection_update(struct terminal *term, int col, int row)
             term->selection.end.row, term->selection.end.col,
             row, col);
 
-    assert(term->grid->view + row != -1);
+    xassert(term->grid->view + row != -1);
 
     struct coord new_start = term->selection.start;
     struct coord new_end = {col, term->grid->view + row};
@@ -686,7 +686,7 @@ selection_update(struct terminal *term, int col, int row)
                 }
 
                 if (new_direction == SELECTION_LEFT) {
-                    assert(pivot_end->row >= 0);
+                    xassert(pivot_end->row >= 0);
                     new_start = *pivot_end;
                 } else
                     new_start = *pivot_start;
@@ -738,7 +738,7 @@ selection_update(struct terminal *term, int col, int row)
         break;
 
     case SELECTION_NONE:
-        assert(false);
+        xassert(false);
         break;
     }
 
@@ -797,7 +797,7 @@ selection_extend_normal(struct terminal *term, int col, int row,
         end = tmp;
     }
 
-    assert(start->row < end->row || start->col < end->col);
+    xassert(start->row < end->row || start->col < end->col);
 
     struct coord new_start, new_end;
     enum selection_direction direction;
@@ -840,12 +840,12 @@ selection_extend_normal(struct terminal *term, int col, int row,
 
     switch (term->selection.kind) {
     case SELECTION_CHAR_WISE:
-        assert(new_kind == SELECTION_CHAR_WISE);
+        xassert(new_kind == SELECTION_CHAR_WISE);
         set_pivot_point_for_block_and_char_wise(term, new_start, direction);
         break;
 
     case SELECTION_WORD_WISE: {
-        assert(new_kind == SELECTION_CHAR_WISE ||
+        xassert(new_kind == SELECTION_CHAR_WISE ||
                new_kind == SELECTION_WORD_WISE);
 
         struct coord pivot_start = {new_start.col, new_start.row - term->grid->view};
@@ -862,7 +862,7 @@ selection_extend_normal(struct terminal *term, int col, int row,
     }
 
     case SELECTION_LINE_WISE:
-        assert(new_kind == SELECTION_CHAR_WISE ||
+        xassert(new_kind == SELECTION_CHAR_WISE ||
                new_kind == SELECTION_LINE_WISE);
 
         term->selection.pivot.start = (struct coord){0, new_start.row};
@@ -871,7 +871,7 @@ selection_extend_normal(struct terminal *term, int col, int row,
 
     case SELECTION_BLOCK:
     case SELECTION_NONE:
-        assert(false);
+        xassert(false);
         break;
     }
 
@@ -973,7 +973,7 @@ selection_extend(struct seat *seat, struct terminal *term,
 
     switch (term->selection.kind) {
     case SELECTION_NONE:
-        assert(false);
+        xassert(false);
         return;
 
     case SELECTION_CHAR_WISE:
@@ -1004,8 +1004,8 @@ selection_finalize(struct seat *seat, struct terminal *term, uint32_t serial)
     if (term->selection.start.row < 0 || term->selection.end.row < 0)
         return;
 
-    assert(term->selection.start.row != -1);
-    assert(term->selection.end.row != -1);
+    xassert(term->selection.start.row != -1);
+    xassert(term->selection.end.row != -1);
 
     if (term->selection.start.row > term->selection.end.row ||
         (term->selection.start.row == term->selection.end.row &&
@@ -1016,7 +1016,7 @@ selection_finalize(struct seat *seat, struct terminal *term, uint32_t serial)
         term->selection.end = tmp;
     }
 
-    assert(term->selection.start.row <= term->selection.end.row);
+    xassert(term->selection.start.row <= term->selection.end.row);
     selection_to_primary(seat, term, serial);
 }
 
@@ -1066,7 +1066,7 @@ selection_clipboard_unset(struct seat *seat)
         return;
 
     /* Kill previous data source */
-    assert(clipboard->serial != 0);
+    xassert(clipboard->serial != 0);
     wl_data_device_set_selection(seat->data_device, NULL, clipboard->serial);
     wl_data_source_destroy(clipboard->data_source);
 
@@ -1085,7 +1085,7 @@ selection_primary_unset(struct seat *seat)
     if (primary->data_source == NULL)
         return;
 
-    assert(primary->serial != 0);
+    xassert(primary->serial != 0);
     zwp_primary_selection_device_v1_set_selection(
         seat->primary_selection_device, NULL, primary->serial);
     zwp_primary_selection_source_v1_destroy(primary->data_source);
@@ -1141,7 +1141,7 @@ void
 selection_start_scroll_timer(struct terminal *term, int interval_ns,
                              enum selection_scroll_direction direction, int col)
 {
-    assert(direction != SELECTION_SCROLL_NOT);
+    xassert(direction != SELECTION_SCROLL_NOT);
 
     if (!term->selection.ongoing)
         return;
@@ -1191,7 +1191,7 @@ void
 selection_stop_scroll_timer(struct terminal *term)
 {
     if (term->selection.auto_scroll.fd < 0) {
-        assert(term->selection.auto_scroll.direction == SELECTION_SCROLL_NOT);
+        xassert(term->selection.auto_scroll.direction == SELECTION_SCROLL_NOT);
         return;
     }
 
@@ -1294,7 +1294,7 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
     struct seat *seat = data;
     const struct wl_clipboard *clipboard = &seat->clipboard;
 
-    assert(clipboard->text != NULL);
+    xassert(clipboard->text != NULL);
     send_clipboard_or_primary(seat, fd, clipboard->text, "clipboard");
 }
 
@@ -1303,7 +1303,7 @@ cancelled(void *data, struct wl_data_source *wl_data_source)
 {
     struct seat *seat = data;
     struct wl_clipboard *clipboard = &seat->clipboard;
-    assert(clipboard->data_source == wl_data_source);
+    xassert(clipboard->data_source == wl_data_source);
 
     wl_data_source_destroy(clipboard->data_source);
     clipboard->data_source = NULL;
@@ -1349,7 +1349,7 @@ primary_send(void *data,
     struct seat *seat = data;
     const struct wl_primary *primary = &seat->primary;
 
-    assert(primary->text != NULL);
+    xassert(primary->text != NULL);
     send_clipboard_or_primary(seat, fd, primary->text, "primary");
 }
 
@@ -1380,7 +1380,7 @@ text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t
 
     if (clipboard->data_source != NULL) {
         /* Kill previous data source */
-        assert(clipboard->serial != 0);
+        xassert(clipboard->serial != 0);
         wl_data_device_set_selection(seat->data_device, NULL, clipboard->serial);
         wl_data_source_destroy(clipboard->data_source);
         free(clipboard->text);
@@ -1411,7 +1411,7 @@ text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t
     wl_data_device_set_selection(seat->data_device, clipboard->data_source, serial);
 
     /* Needed when sending the selection to other client */
-    assert(serial != 0);
+    xassert(serial != 0);
     clipboard->serial = serial;
     return true;
 }
@@ -1467,7 +1467,7 @@ fdm_receive_timeout(struct fdm *fdm, int fd, int events, void *data)
     if (events & EPOLLHUP)
         return false;
 
-    assert(events & EPOLLIN);
+    xassert(events & EPOLLIN);
 
     uint64_t expire_count;
     ssize_t ret = read(fd, &expire_count, sizeof(expire_count));
@@ -1600,7 +1600,7 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
             if (p[i] == '\r' && p[i + 1] == '\n') {
                 ctx->decoder(ctx, p, i);
 
-                assert(i + 1 <= left);
+                xassert(i + 1 <= left);
                 p += i + 1;
                 left -= i + 1;
                 goto again;
@@ -1718,7 +1718,7 @@ static void
 receive_offer(char *data, size_t size, void *user)
 {
     struct terminal *term = user;
-    assert(term->is_sending_paste_data);
+    xassert(term->is_sending_paste_data);
     term_paste_data_to_slave(term, data, size);
 }
 static void
@@ -1768,7 +1768,7 @@ text_to_primary(struct seat *seat, struct terminal *term, char *text, uint32_t s
     if (seat->primary.data_source != NULL) {
         /* Kill previous data source */
 
-        assert(primary->serial != 0);
+        xassert(primary->serial != 0);
         zwp_primary_selection_device_v1_set_selection(
             seat->primary_selection_device, NULL, primary->serial);
         zwp_primary_selection_source_v1_destroy(primary->data_source);
@@ -2046,10 +2046,10 @@ enter(void *data, struct wl_data_device *wl_data_device, uint32_t serial,
     struct seat *seat = data;
     struct wayland *wayl = seat->wayl;
 
-    assert(offer == seat->clipboard.data_offer);
+    xassert(offer == seat->clipboard.data_offer);
 
     /* Remember _which_ terminal the current DnD offer is targeting */
-    assert(seat->clipboard.window == NULL);
+    xassert(seat->clipboard.window == NULL);
     tll_foreach(wayl->terms, it) {
         if (term_surface_kind(it->item, surface) == TERM_SURF_GRID &&
             !it->item->is_sending_paste_data)
@@ -2113,7 +2113,7 @@ drop(void *data, struct wl_data_device *wl_data_device)
 {
     struct seat *seat = data;
 
-    assert(seat->clipboard.window != NULL);
+    xassert(seat->clipboard.window != NULL);
     struct terminal *term = seat->clipboard.window->term;
 
     struct wl_clipboard *clipboard = &seat->clipboard;
@@ -2167,7 +2167,7 @@ selection(void *data, struct wl_data_device *wl_data_device,
     if (offer == NULL)
         data_offer_reset(&seat->clipboard);
     else
-        assert(offer == seat->clipboard.data_offer);
+        xassert(offer == seat->clipboard.data_offer);
 }
 
 const struct wl_data_device_listener data_device_listener = {
@@ -2227,7 +2227,7 @@ primary_selection(void *data,
     if (offer == NULL)
         primary_offer_reset(&seat->primary);
     else
-        assert(seat->primary.data_offer == offer);
+        xassert(seat->primary.data_offer == offer);
 }
 
 const struct zwp_primary_selection_device_v1_listener primary_selection_device_listener = {

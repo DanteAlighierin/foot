@@ -84,11 +84,11 @@ fdm_destroy(struct fdm *fdm)
         LOG_WARN("hook list not empty");
     }
 
-    assert(tll_length(fdm->fds) == 0);
-    assert(tll_length(fdm->deferred_delete) == 0);
-    assert(tll_length(fdm->hooks_low) == 0);
-    assert(tll_length(fdm->hooks_normal) == 0);
-    assert(tll_length(fdm->hooks_high) == 0);
+    xassert(tll_length(fdm->fds) == 0);
+    xassert(tll_length(fdm->deferred_delete) == 0);
+    xassert(tll_length(fdm->hooks_low) == 0);
+    xassert(tll_length(fdm->hooks_normal) == 0);
+    xassert(tll_length(fdm->hooks_high) == 0);
 
     tll_free(fdm->fds);
     tll_free(fdm->deferred_delete);
@@ -106,14 +106,14 @@ fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
     int flags = fcntl(fd, F_GETFL);
     if (!(flags & O_NONBLOCK)) {
         LOG_ERR("FD=%d is in blocking mode", fd);
-        assert(false);
+        xassert(false);
         return false;
     }
 
     tll_foreach(fdm->fds, it) {
         if (it->item->fd == fd) {
             LOG_ERR("FD=%d already registered", fd);
-            assert(false);
+            xassert(false);
             return false;
         }
     }
@@ -251,7 +251,7 @@ hook_priority_to_list(struct fdm *fdm, enum fdm_hook_priority priority)
     case FDM_HOOK_PRIORITY_HIGH:   return &fdm->hooks_high;
     }
 
-    assert(false);
+    xassert(false);
     return NULL;
 }
 
@@ -294,7 +294,7 @@ fdm_hook_del(struct fdm *fdm, fdm_hook_t hook, enum fdm_hook_priority priority)
 bool
 fdm_poll(struct fdm *fdm)
 {
-    assert(!fdm->is_polling && "nested calls to fdm_poll() not allowed");
+    xassert(!fdm->is_polling && "nested calls to fdm_poll() not allowed");
     if (fdm->is_polling) {
         LOG_ERR("nested calls to fdm_poll() not allowed");
         return false;

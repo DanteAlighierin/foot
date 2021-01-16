@@ -121,7 +121,7 @@ fdm_reap(struct fdm *fdm, int fd, int events, void *data)
     if (hup && !pollin)
         return false;
 
-    assert(pollin);
+    xassert(pollin);
 
     struct signalfd_siginfo info;
     ssize_t amount = read(reaper->fd, &info, sizeof(info));
@@ -131,7 +131,7 @@ fdm_reap(struct fdm *fdm, int fd, int events, void *data)
         return false;
     }
 
-    assert((size_t)amount >= sizeof(info));
+    xassert((size_t)amount >= sizeof(info));
 
     if (info.ssi_signo != SIGCHLD) {
         LOG_WARN("got non-SIGCHLD signal: %d", info.ssi_signo);

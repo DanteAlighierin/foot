@@ -170,7 +170,7 @@ draw_box_drawings_dash_horizontal(struct buf *buf, int count, int thick, int gap
     int width = buf->width;
     int height = buf->height;
 
-    assert(count >= 2 && count <= 4);
+    xassert(count >= 2 && count <= 4);
     const int gap_count = count - 1;
 
     int dash_width = (width - (gap_count * gap)) / count;
@@ -184,7 +184,7 @@ draw_box_drawings_dash_horizontal(struct buf *buf, int count, int thick, int gap
         return;
     }
 
-    assert(count * dash_width + gap_count * gap <= width);
+    xassert(count * dash_width + gap_count * gap <= width);
 
     int remaining = width - count * dash_width - gap_count * gap;
 
@@ -228,7 +228,7 @@ draw_box_drawings_dash_vertical(struct buf *buf, int count, int thick, int gap)
     int width = buf->width;
     int height = buf->height;
 
-    assert(count >= 2 && count <= 4);
+    xassert(count >= 2 && count <= 4);
     const int gap_count = count - 1;
 
     int dash_height = (height - (gap_count * gap)) / count;
@@ -242,7 +242,7 @@ draw_box_drawings_dash_vertical(struct buf *buf, int count, int thick, int gap)
         return;
     }
 
-    assert(count * dash_height + gap_count * gap <= height);
+    xassert(count * dash_height + gap_count * gap <= height);
 
     int remaining = height - count * dash_height - gap_count * gap;
 
@@ -1304,8 +1304,8 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
             break;
         }
 
-        assert(row_end > row_start);
-        assert(col_end > col_start);
+        xassert(row_end > row_start);
+        xassert(col_end > col_start);
 
         for (int r = max(row_start, 0); r < max(min(row_end, buf->height), 0); r++) {
             for (int c = max(col_start, 0); c < max(min(col_end, buf->width), 0); c++) {
@@ -1844,10 +1844,10 @@ draw_sextant(wchar_t wc, struct buf *buf)
         UPPER_RIGHT | MIDDLE_LEFT | MIDDLE_RIGHT | LOWER_LEFT | LOWER_RIGHT,
     };
 
-    assert(wc >= 0x1fb00 && wc <= 0x1fb3b);
+    xassert(wc >= 0x1fb00 && wc <= 0x1fb3b);
     const size_t idx = wc - 0x1fb00;
 
-    assert(idx < ALEN(matrix));
+    xassert(idx < ALEN(matrix));
     uint8_t encoded = matrix[idx];
 
     if (encoded & UPPER_LEFT)

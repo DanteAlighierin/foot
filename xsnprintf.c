@@ -7,7 +7,7 @@
 size_t
 xvsnprintf(char *buf, size_t n, const char *format, va_list ap)
 {
-    assert(n <= INT_MAX);
+    xassert(n <= INT_MAX);
     int len = vsnprintf(buf, n, format, ap);
 
     /*
@@ -19,8 +19,8 @@ xvsnprintf(char *buf, size_t n, const char *format, va_list ap)
      * has been completely written if and only if the returned value
      * is nonnegative and less than n."
      */
-    assert(len >= 0);
-    assert(len < (int)n);
+    xassert(len >= 0);
+    xassert(len < (int)n);
 
     return (size_t)len;
 }

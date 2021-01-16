@@ -184,8 +184,8 @@ typedef tll(struct path_component) path_components_t;
 static void
 path_component_add(path_components_t *components, const char *comp, int fd)
 {
-    assert(comp != NULL);
-    assert(fd >= 0);
+    xassert(comp != NULL);
+    xassert(fd >= 0);
 
     struct path_component pc = {.component = comp, .fd = fd};
     tll_push_back(*components, pc);
@@ -194,7 +194,7 @@ path_component_add(path_components_t *components, const char *comp, int fd)
 static void
 path_component_destroy(struct path_component *component)
 {
-    assert(component->fd >= 0);
+    xassert(component->fd >= 0);
     close(component->fd);
 }
 
@@ -332,7 +332,7 @@ open_config(struct config *conf)
                 continue;
             }
 
-            assert(tll_length(components) == 0);
+            xassert(tll_length(components) == 0);
             path_component_add(&components, xdg_dir, xdg_fd);
             path_component_add(&components, "foot", foot_fd);
 
@@ -347,7 +347,7 @@ out:
     return ret;
 
 done:
-    assert(tll_length(components) > 0);
+    xassert(tll_length(components) > 0);
     ret = path_components_to_config_file(&components);
     goto out;
 }
@@ -1023,7 +1023,7 @@ static bool
 parse_key_combos(struct config *conf, const char *combos, key_combo_list_t *key_combos,
                  const char *path, unsigned lineno)
 {
-    assert(tll_length(*key_combos) == 0);
+    xassert(tll_length(*key_combos) == 0);
 
     char *copy = xstrdup(combos);
 
@@ -1136,8 +1136,8 @@ has_search_binding_collisions(struct config *conf, enum bind_action_search actio
 static int
 argv_compare(char *const *argv1, char *const *argv2)
 {
-    assert(argv1 != NULL);
-    assert(argv2 != NULL);
+    xassert(argv1 != NULL);
+    xassert(argv2 != NULL);
 
     for (size_t i = 0; ; i++) {
         if (argv1[i] == NULL && argv2[i] == NULL)
@@ -1152,7 +1152,7 @@ argv_compare(char *const *argv1, char *const *argv2)
             return ret;
     }
 
-    assert(false);
+    xassert(false);
     return 1;
 }
 
@@ -1372,7 +1372,7 @@ static bool
 parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *key_combos,
                    const char *path, unsigned lineno)
 {
-    assert(tll_length(*key_combos) == 0);
+    xassert(tll_length(*key_combos) == 0);
 
     char *copy = xstrdup(combos);
 
@@ -1874,7 +1874,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
 
         /* Strip trailing whitespace from key (leading stripped earlier) */
         {
-            assert(!isspace(*key));
+            xassert(!isspace(*key));
 
             char *end = key + strlen(key) - 1;
             while (isspace(*end))
@@ -1898,10 +1898,10 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         LOG_DBG("section=%s, key='%s', value='%s', comment='%s'",
                 section_info[section].name, key, value, comment);
 
-        assert(section >= 0 && section < SECTION_COUNT);
+        xassert(section >= 0 && section < SECTION_COUNT);
 
         parser_fun_t section_parser = section_info[section].fun;
-        assert(section_parser != NULL);
+        xassert(section_parser != NULL);
 
         if (!section_parser(key, value, conf, path, lineno))
             error_or_continue();
@@ -2176,8 +2176,8 @@ config_load(struct config *conf, const char *conf_path,
         }
     }
 
-    assert(conf_file.path != NULL);
-    assert(conf_file.fd >= 0);
+    xassert(conf_file.path != NULL);
+    xassert(conf_file.fd >= 0);
     LOG_INFO("loading configuration from %s", conf_file.path);
 
     FILE *f = fdopen(conf_file.fd, "r");

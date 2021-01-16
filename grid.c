@@ -14,8 +14,8 @@
 void
 grid_swap_row(struct grid *grid, int row_a, int row_b)
 {
-    assert(grid->offset >= 0);
-    assert(row_a != row_b);
+    xassert(grid->offset >= 0);
+    xassert(row_a != row_b);
 
     int real_a = (grid->offset + row_a) & (grid->num_rows - 1);
     int real_b = (grid->offset + row_b) & (grid->num_rows - 1);
@@ -78,7 +78,7 @@ grid_resize_without_reflow(
         const int new_row_idx = (new_offset + r) & (new_rows - 1);
 
         const struct row *old_row = old_grid[old_row_idx];
-        assert(old_row != NULL);
+        xassert(old_row != NULL);
 
         struct row *new_row = grid_row_alloc(new_cols, false);
         new_grid[new_row_idx] = new_row;
@@ -188,7 +188,7 @@ grid_resize_and_reflow(
     struct row **new_grid = xcalloc(new_rows, sizeof(new_grid[0]));
     struct row *new_row = new_grid[new_row_idx];
 
-    assert(new_row == NULL);
+    xassert(new_row == NULL);
     new_row = grid_row_alloc(new_cols, true);
     new_grid[new_row_idx] = new_row;
 
@@ -317,7 +317,7 @@ grid_resize_and_reflow(
             int width = max(1, wcwidth(wc));
 
             /* Multi-column characters are never cut in half */
-            assert(c + width <= old_cols);
+            xassert(c + width <= old_cols);
 
             for (int i = 0; i < empty_count + 1; i++) {
                 const struct cell *old_cell = &old_row->cells[c - empty_count + i];
@@ -340,9 +340,9 @@ grid_resize_and_reflow(
                     line_wrap();
                 }
 
-                assert(new_row != NULL);
-                assert(new_col_idx >= 0);
-                assert(new_col_idx < new_cols);
+                xassert(new_row != NULL);
+                xassert(new_col_idx >= 0);
+                xassert(new_col_idx < new_cols);
 
                 new_row->cells[new_col_idx] = *old_cell;
                 new_row->cells[new_col_idx].attrs.clean = 1;
@@ -364,7 +364,7 @@ grid_resize_and_reflow(
              * subsequent cells */
             const struct cell *old_cell = &old_row->cells[c];
             for (size_t i = 0; i < width - 1; i++) {
-                assert(new_col_idx < new_cols);
+                xassert(new_col_idx < new_cols);
                 print_spacer();
                 new_col_idx++;
             }
@@ -410,7 +410,7 @@ grid_resize_and_reflow(
     }
     for (size_t r = 0; r < new_screen_rows; r++) {
         int UNUSED idx = (grid->view + r) & (new_rows - 1);
-        assert(new_grid[idx] != NULL);
+        xassert(new_grid[idx] != NULL);
     }
 
     /* Free old grid */

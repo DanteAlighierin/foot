@@ -1083,7 +1083,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         break;
                     }
                 }
-                assert(new_col >= term->grid->cursor.point.col);
+                xassert(new_col >= term->grid->cursor.point.col);
                 term_cursor_right(term, new_col - term->grid->cursor.point.col);
             }
             break;
@@ -1099,7 +1099,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                         break;
                     }
                 }
-                assert(term->grid->cursor.point.col >= new_col);
+                xassert(term->grid->cursor.point.col >= new_col);
                 term_cursor_left(term, term->grid->cursor.point.col - new_col);
             }
             break;

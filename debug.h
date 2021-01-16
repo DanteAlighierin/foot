@@ -8,9 +8,7 @@
     #define BUG(...) bug(__FILE__, __LINE__, __func__, __VA_ARGS__)
 #endif
 
-#undef assert
-
-#define assert(x) do { \
+#define xassert(x) do { \
     IGNORE_WARNING("-Wtautological-compare") \
     if (unlikely(!(x))) { \
         BUG("assertion failed: '%s'", #x); \
