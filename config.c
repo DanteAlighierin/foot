@@ -603,19 +603,25 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "selection-target") == 0) {
-        if (strcasecmp(value, "primary") == 0)
-            conf->selection_target = SELECTION_TARGET_PRIMARY;
-        else if (strcasecmp(value, "clipboard") == 0)
-            conf->selection_target = SELECTION_TARGET_CLIPBOARD;
-        else if (strcasecmp(value, "both") == 0)
-            conf->selection_target = SELECTION_TARGET_BOTH;
-        else {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: %s: invalid 'selection-target'; "
-                "must be one of 'primary', 'clipboard' or 'both",
-                path, lineno, value);
-            return false;
+        static const char *const values[] = {
+            [SELECTION_TARGET_NONE] = "none",
+            [SELECTION_TARGET_PRIMARY] = "primary",
+            [SELECTION_TARGET_CLIPBOARD] = "clipboard",
+            [SELECTION_TARGET_BOTH] = "both",
+        };
+
+        for (size_t i = 0; i < ALEN(values); i++) {
+            if (strcasecmp(value, values[i]) == 0) {
+                conf->selection_target = i;
+                return true;
+            }
         }
+
+        LOG_AND_NOTIFY_ERR(
+            "%s:%d: [default]: %s: invalid 'selection-target'; "
+            "must be one of 'none', 'primary', 'clipboard' or 'both",
+            path, lineno, value);
+        return false;
     }
 
     else {

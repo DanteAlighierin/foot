@@ -657,6 +657,9 @@ selection_finalize(struct seat *seat, struct terminal *term, uint32_t serial)
     assert(term->selection.start.row <= term->selection.end.row);
 
     switch (term->conf->selection_target) {
+    case SELECTION_TARGET_NONE:
+        break;
+
     case SELECTION_TARGET_PRIMARY:
         selection_to_primary(seat, term, serial);
         break;
