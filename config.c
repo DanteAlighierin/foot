@@ -602,6 +602,22 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->notify.argv = argv;
     }
 
+    else if (strcmp(key, "selection-target") == 0) {
+        if (strcasecmp(value, "primary") == 0)
+            conf->selection_target = SELECTION_TARGET_PRIMARY;
+        else if (strcasecmp(value, "clipboard") == 0)
+            conf->selection_target = SELECTION_TARGET_CLIPBOARD;
+        else if (strcasecmp(value, "both") == 0)
+            conf->selection_target = SELECTION_TARGET_BOTH;
+        else {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: %s: invalid 'selection-target'; "
+                "must be one of 'primary', 'clipboard' or 'both",
+                path, lineno, value);
+            return false;
+        }
+    }
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [default]: %s: invalid key", path, lineno, key);
         return false;
@@ -2037,6 +2053,7 @@ config_load(struct config *conf, const char *conf_path,
         .render_worker_count = sysconf(_SC_NPROCESSORS_ONLN),
         .server_socket_path = get_server_socket_path(),
         .presentation_timings = false,
+        .selection_target = SELECTION_TARGET_PRIMARY,
         .hold_at_exit = false,
         .notify = {
             .raw_cmd = NULL,
