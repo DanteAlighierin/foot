@@ -54,6 +54,7 @@
   (https://codeberg.org/dnkl/foot/issues/291).
 * Sixel “current geometry” query response not being bounded by the
   current window dimensions (fixes `lsix` output)
+* Crash on keyboard input when repeat rate was zero (i.e. no repeat).
 
 
 ### Security
