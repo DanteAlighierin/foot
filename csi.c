@@ -489,19 +489,31 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         break;
 #endif
 
+    case 1048:
+        if (enable)
+            term_save_cursor(term);
+        else
+            term_restore_cursor(term, &term->grid->saved_cursor);
+        break;
+
+    case 47:
+    case 1047:
     case 1049:
         if (enable && term->grid != &term->alt) {
             selection_cancel(term);
 
+            if (param == 1049)
+                term_save_cursor(term);
+
             term->grid = &term->alt;
 
+            /* Cursor retains its position from the normal grid */
             term_cursor_to(
                 term,
-                min(term->grid->cursor.point.row, term->rows - 1),
-                min(term->grid->cursor.point.col, term->cols - 1));
+                min(term->normal.cursor.point.row, term->rows - 1),
+                min(term->normal.cursor.point.col, term->cols - 1));
 
-            tll_free(term->alt.scroll_damage);
-
+            tll_free(term->normal.scroll_damage);
             term_erase(
                 term,
                 &(struct coord){0, 0},
@@ -513,12 +525,13 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
 
             term->grid = &term->normal;
 
+            /* Cursor retains its position from the alt grid */
             term_cursor_to(
-                term,
-                min(term->grid->cursor.point.row, term->rows - 1),
-                min(term->grid->cursor.point.col, term->cols - 1));
+                term, min(term->alt.cursor.point.row, term->rows - 1),
+                min(term->alt.cursor.point.col, term->cols - 1));
 
-            tll_free(term->alt.scroll_damage);
+            if (param == 1049)
+                term_restore_cursor(term, &term->grid->saved_cursor);
 
             /* Delete all sixel images on the alt screen */
             tll_foreach(term->alt.sixel_images, it) {
@@ -526,6 +539,7 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
                 tll_remove(term->alt.sixel_images, it);
             }
 
+            tll_free(term->alt.scroll_damage);
             term_damage_all(term);
         }
         break;
@@ -613,6 +627,7 @@ xtsave(struct terminal *term, unsigned param)
     case 12: term->xtsave.cursor_blink = term->cursor_blink.decset; break;
     case 25: term->xtsave.show_cursor = !term->hide_cursor; break;
     case 45: term->xtsave.reverse_wrap = term->reverse_wrap; break;
+    case 47: term->xtsave.alt_screen = term->grid == &term->alt; break;
     case 1000: term->xtsave.mouse_click = term->mouse_tracking == MOUSE_CLICK; break;
     case 1001: break;
     case 1002: term->xtsave.mouse_drag = term->mouse_tracking == MOUSE_DRAG; break;
@@ -626,6 +641,8 @@ xtsave(struct terminal *term, unsigned param)
     case 1035: term->xtsave.num_lock_modifier = term->num_lock_modifier; break;
     case 1036: term->xtsave.meta_esc_prefix = term->meta.esc_prefix; break;
     case 1042: term->xtsave.bell_action_enabled = term->bell_action_enabled; break;
+    case 1047: term->xtsave.alt_screen = term->grid == &term->alt; break;
+    case 1048: term_save_cursor(term); break;
     case 1049: term->xtsave.alt_screen = term->grid == &term->alt; break;
     case 2004: term->xtsave.bracketed_paste = term->bracketed_paste; break;
     case 27127: term->xtsave.modify_escape_key = term->modify_escape_key; break;
@@ -648,6 +665,7 @@ xtrestore(struct terminal *term, unsigned param)
     case 12: enable = term->xtsave.cursor_blink; break;
     case 25: enable = term->xtsave.show_cursor; break;
     case 45: enable = term->xtsave.reverse_wrap; break;
+    case 47: enable = term->xtsave.alt_screen; break;
     case 1000: enable = term->xtsave.mouse_click; break;
     case 1001: return;
     case 1002: enable = term->xtsave.mouse_drag; break;
@@ -661,6 +679,8 @@ xtrestore(struct terminal *term, unsigned param)
     case 1035: enable = term->xtsave.num_lock_modifier; break;
     case 1036: enable = term->xtsave.meta_esc_prefix; break;
     case 1042: enable = term->xtsave.bell_action_enabled; break;
+    case 1047: enable = term->xtsave.alt_screen; break;
+    case 1048: enable = true; break;
     case 1049: enable = term->xtsave.alt_screen; break;
     case 2004: enable = term->xtsave.bracketed_paste; break;
     case 27127: enable = term->xtsave.modify_escape_key; break;
@@ -1141,15 +1161,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         case 's':
-            term->grid->saved_cursor = term->grid->cursor;
-            term->vt.saved_attrs = term->vt.attrs;
-            term->saved_charsets = term->charsets;
+            term_save_cursor(term);
             break;
 
         case 'u':
             term_restore_cursor(term, &term->grid->saved_cursor);
-            term->vt.attrs = term->vt.saved_attrs;
-            term->charsets = term->saved_charsets;
             break;
 
         case 't': {
