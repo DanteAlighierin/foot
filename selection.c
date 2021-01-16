@@ -1017,7 +1017,20 @@ selection_finalize(struct seat *seat, struct terminal *term, uint32_t serial)
     }
 
     xassert(term->selection.start.row <= term->selection.end.row);
-    selection_to_primary(seat, term, serial);
+
+    switch (term->conf->selection_target) {
+    case SELECTION_TARGET_PRIMARY:
+        selection_to_primary(seat, term, serial);
+        break;
+    case SELECTION_TARGET_CLIPBOARD:
+        selection_to_clipboard(seat, term, serial);
+        break;
+
+    case SELECTION_TARGET_BOTH:
+        selection_to_primary(seat, term, serial);
+        selection_to_clipboard(seat, term, serial);
+        break;
+    }
 }
 
 void
