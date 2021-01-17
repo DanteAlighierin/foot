@@ -2568,10 +2568,8 @@ fdm_tiocswinsz(struct fdm *fdm, int fd, int events, void *data)
 {
     struct terminal *term = data;
 
-    if (events & EPOLLIN) {
+    if (events & EPOLLIN)
         tiocswinsz(term);
-        LOG_WARN("DELAYED");
-    }
 
     fdm_del(fdm, fd);
     term->window->resize_timeout_fd = -1;
@@ -2586,7 +2584,6 @@ send_dimensions_to_client(struct terminal *term)
     if (!win->is_resizing || term->conf->tweak.resize_delay_ms == 0) {
         /* Send new dimensions to client immediately */
         tiocswinsz(term);
-        LOG_ERR("IMMEDIATELY");
 
         /* And make sure to reset and deallocate a lingering timer */
         if (win->resize_timeout_fd >= 0) {
