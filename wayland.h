@@ -390,6 +390,8 @@ struct wl_window {
         bool is_tiled_left:1;
         bool is_tiled_right:1;
     } configure;
+
+    int resize_timeout_fd;
 };
 
 struct config;

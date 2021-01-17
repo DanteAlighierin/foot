@@ -677,9 +677,22 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
         term->window->frame_callback = NULL;
     }
 
+#if 1
+    /*
+     * TODO: decide if we should to the last “forced” call when ending
+     * an interactive resize.
+     *
+     * Without it, the last TIOCSWINSZ sent to the client will be a
+     * scheduled one. I.e. there will be a small delay after the user
+     * has *stopped* resizing, and the client application receives the
+     * final size.
+     */
     bool resized = was_resizing && !win->is_resizing
         ? render_resize_force(term, win->configure.width, win->configure.height)
         : render_resize(term, win->configure.width, win->configure.height);
+#else
+    bool resized = render_resize(term, win->configure.width, win->configure.height);
+#endif
 
     if (win->configure.is_activated)
         term_visual_focus_in(term);
@@ -1278,6 +1291,7 @@ wayl_win_init(struct terminal *term)
     win->term = term;
     win->use_csd = CSD_UNKNOWN;
     win->csd.move_timeout_fd = -1;
+    win->resize_timeout_fd = -1;
 
     win->surface = wl_compositor_create_surface(wayl->compositor);
     if (win->surface == NULL) {
@@ -1430,6 +1444,9 @@ wayl_win_destroy(struct wl_window *win)
         wl_surface_destroy(win->surface);
 
     wayl_roundtrip(win->term->wl);
+
+    if (win->resize_timeout_fd >= 0)
+        fdm_del(win->term->wl->fdm, win->resize_timeout_fd);
     free(win);
 }
 
