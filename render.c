@@ -2615,7 +2615,7 @@ send_dimensions_to_client(struct terminal *term)
         }
 
         if (fd >= 0) {
-            /* Reset tiemout */
+            /* Reset timeout */
             const struct itimerspec timeout = {
                 .it_value = {.tv_sec = 0, .tv_nsec = delay_ms * 1000000},
             };
