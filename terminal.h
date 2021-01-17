@@ -106,6 +106,14 @@ struct grid {
     int offset;
     int view;
 
+    /*
+     * Note: the cursor (not the *saved* cursor) could most likely be
+     * global state in the term struct.
+     *
+     * However, we have grid specific functions that does not have
+     * access to the owning term struct, but does need access to the
+     * cursor.
+     */
     struct cursor cursor;
     struct cursor saved_cursor;
 
@@ -595,6 +603,7 @@ void term_reverse_index(struct terminal *term);
 
 void term_arm_blink_timer(struct terminal *term);
 
+void term_save_cursor(struct terminal *term);
 void term_restore_cursor(struct terminal *term, const struct cursor *cursor);
 
 void term_visual_focus_in(struct terminal *term);

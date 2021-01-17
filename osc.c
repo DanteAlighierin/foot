@@ -17,6 +17,7 @@
 #include "uri.h"
 #include "vt.h"
 #include "xmalloc.h"
+#include "xsnprintf.h"
 
 #define UNHANDLED() LOG_DBG("unhandled: OSC: %.*s", (int)term->vt.osc.idx, term->vt.osc.data)
 
@@ -522,9 +523,9 @@ osc_dispatch(struct terminal *term)
                 uint8_t b = (color >>  0) & 0xff;
 
                 char reply[32];
-                snprintf(reply, sizeof(reply), "\033]4;%u;rgb:%02x/%02x/%02x\033\\",
+                size_t n = xsnprintf(reply, sizeof(reply), "\033]4;%u;rgb:%02x/%02x/%02x\033\\",
                          idx, r, g, b);
-                term_to_slave(term, reply, strlen(reply));
+                term_to_slave(term, reply, n);
             }
 
             else {
@@ -568,11 +569,11 @@ osc_dispatch(struct terminal *term)
              * E.g. for color 0xdcdccc we reply "\033]10;rgb:dc/dc/cc\033\\"
              */
             char reply[32];
-            snprintf(
+            size_t n = xsnprintf(
                 reply, sizeof(reply), "\033]%u;rgb:%02x/%02x/%02x\033\\",
                 param, r, g, b);
 
-            term_to_slave(term, reply, strlen(reply));
+            term_to_slave(term, reply, n);
             break;
         }
 
@@ -602,8 +603,8 @@ osc_dispatch(struct terminal *term)
             uint8_t b = (term->cursor_color.cursor >>  0) & 0xff;
 
             char reply[32];
-            snprintf(reply, sizeof(reply), "\033]12;rgb:%02x/%02x/%02x\033\\", r, g, b);
-            term_to_slave(term, reply, strlen(reply));
+            size_t n = xsnprintf(reply, sizeof(reply), "\033]12;rgb:%02x/%02x/%02x\033\\", r, g, b);
+            term_to_slave(term, reply, n);
             break;
         }
 

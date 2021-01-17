@@ -129,10 +129,22 @@ action_execute(struct terminal *term, uint8_t c)
 
     case '\b':
         /* backspace */
+#if 0
+        /*
+         * This is the “correct” BS behavior. However, it doesn’t play
+         * nicely with bw/auto_left_margin, hence the alternative
+         * implementation below.
+         *
+         * Note that it breaks vttest “1. Test of cursor movements ->
+         * Test of autowrap”
+         */
+        term_cursor_left(term, 1);
+#else
         if (term->grid->cursor.lcf)
             term->grid->cursor.lcf = false;
         else
             term_cursor_left(term, 1);
+#endif
         break;
 
     case '\t': {
@@ -366,15 +378,11 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
     case 0:
         switch (final) {
         case '7':
-            term->grid->saved_cursor = term->grid->cursor;
-            term->vt.saved_attrs = term->vt.attrs;
-            term->saved_charsets = term->charsets;
+            term_save_cursor(term);
             break;
 
         case '8':
             term_restore_cursor(term, &term->grid->saved_cursor);
-            term->vt.attrs = term->vt.saved_attrs;
-            term->charsets = term->saved_charsets;
             break;
 
         case 'c':

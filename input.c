@@ -37,6 +37,7 @@
 #include "util.h"
 #include "vt.h"
 #include "xmalloc.h"
+#include "xsnprintf.h"
 
 struct pipe_context {
     char *text;
@@ -579,6 +580,9 @@ start_repeater(struct seat *seat, uint32_t key)
     if (seat->kbd.repeat.dont_re_repeat)
         return true;
 
+    if (seat->kbd.repeat.rate == 0)
+        return true;
+
     struct itimerspec t = {
         .it_value = {.tv_sec = 0, .tv_nsec = seat->kbd.repeat.delay * 1000000},
         .it_interval = {.tv_sec = 0, .tv_nsec = 1000000000 / seat->kbd.repeat.rate},
@@ -974,8 +978,8 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
         assert(modify_param != 0);
 
         char reply[1024];
-        snprintf(reply, sizeof(reply), "\x1b[27;%d;%d~", modify_param, sym);
-        term_to_slave(term, reply, strlen(reply));
+        size_t n = xsnprintf(reply, sizeof(reply), "\x1b[27;%d;%d~", modify_param, sym);
+        term_to_slave(term, reply, n);
     }
 
     else {

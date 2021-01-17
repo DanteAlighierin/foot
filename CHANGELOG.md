@@ -36,6 +36,7 @@
   (https://codeberg.org/dnkl/foot/issues/244).
 * Key/mouse binding `select-extend-character-wise`, which forces the
   selection mode to 'character-wise' when extending a selection.
+* `DECSET` `47`, `1047` and `1048`.
 
 
 ### Changed
@@ -80,6 +81,7 @@
   (https://codeberg.org/dnkl/foot/issues/291).
 * Sixel “current geometry” query response not being bounded by the
   current window dimensions (fixes `lsix` output)
+* Crash on keyboard input when repeat rate was zero (i.e. no repeat).
 
 
 ### Security
