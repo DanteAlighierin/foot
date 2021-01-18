@@ -686,6 +686,9 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
      * scheduled one. I.e. there will be a small delay after the user
      * has *stopped* resizing, and the client application receives the
      * final size.
+     *
+     * Note: if we also disable content centering while resizing, then
+     * the last, forced, resize *is* necessary.
      */
     bool resized = was_resizing && !win->is_resizing
         ? render_resize_force(term, win->configure.width, win->configure.height)
