@@ -61,6 +61,7 @@ endif
 
 math = cc.find_library('m')
 threads = [dependency('threads'), cc.find_library('stdthreads', required: false)]
+libepoll = dependency('epoll-shim', required: false)
 pixman = dependency('pixman-1')
 wayland_protocols = dependency('wayland-protocols')
 wayland_client = dependency('wayland-client')
@@ -130,7 +131,7 @@ vtlib = static_library(
   'vt.c', 'vt.h',
   wl_proto_src + wl_proto_headers,
   version,
-  dependencies: [pixman, fcft, tllist],
+  dependencies: [libepoll, pixman, fcft, tllist],
   link_with: misc,
 )
 
@@ -140,7 +141,7 @@ pgolib = static_library(
   'selection.c', 'selection.h',
   'terminal.c', 'terminal.h',
   wl_proto_src + wl_proto_headers,
-  dependencies: [pixman, fcft, tllist],
+  dependencies: [libepoll, pixman, fcft, tllist],
   link_with: vtlib,
 )
 
@@ -148,7 +149,7 @@ executable(
   'pgo',
   'pgo/pgo.c',
   wl_proto_src + wl_proto_headers,
-  dependencies: [math, threads, pixman, wayland_client, fcft, tllist],
+  dependencies: [math, threads, libepoll, pixman, wayland_client, fcft, tllist],
   link_with: pgolib,
 )
 
@@ -177,7 +178,7 @@ executable(
   'user-notification.h',
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
-  dependencies: [math, threads, pixman, wayland_client, wayland_cursor, xkb, fontconfig,
+  dependencies: [math, threads, libepoll, pixman, wayland_client, wayland_cursor, xkb, fontconfig,
                  tllist, fcft],
   link_with: pgolib,
   install: true)
