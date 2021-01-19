@@ -299,7 +299,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
 
     if (!can_punch_hole_initialized) {
         can_punch_hole_initialized = true;
-#if defined(__x86_64__)
+#if defined(__x86_64__) && defined(FALLOC_FL_PUNCH_HOLE)
         can_punch_hole = fallocate(
             pool_fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1) == 0;
 
@@ -410,6 +410,7 @@ shm_can_scroll(const struct buffer *buf)
 #endif
 }
 
+#if defined(FALLOC_FL_PUNCH_HOLE)
 static bool
 wrap_buffer(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
 {
@@ -642,12 +643,14 @@ err:
     abort();
     return false;
 }
+#endif /* FALLOC_FL_PUNCH_HOLE */
 
 bool
 shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
            int top_margin, int top_keep_rows,
            int bottom_margin, int bottom_keep_rows)
 {
+#if defined(FALLOC_FL_PUNCH_HOLE)
     if (!shm_can_scroll(buf))
         return false;
 
@@ -655,6 +658,9 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
     return rows > 0
         ? shm_scroll_forward(shm, buf, rows, top_margin, top_keep_rows, bottom_margin, bottom_keep_rows)
         : shm_scroll_reverse(shm, buf, -rows, top_margin, top_keep_rows, bottom_margin, bottom_keep_rows);
+#else
+    return false;
+#endif
 }
 
 void
