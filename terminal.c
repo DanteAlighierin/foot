@@ -1,6 +1,9 @@
 #include "terminal.h"
 
+#if defined(__GLIBC__)
 #include <malloc.h>
+#endif
+#include <signal.h>
 #include <string.h>
 #include <unistd.h>
 #include <assert.h>
