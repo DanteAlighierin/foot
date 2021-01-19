@@ -60,7 +60,7 @@ if cc.has_argument('-fmacro-prefix-map=/foo=')
 endif
 
 math = cc.find_library('m')
-threads = dependency('threads')
+threads = [dependency('threads'), cc.find_library('stdthreads', required: false)]
 pixman = dependency('pixman-1')
 wayland_protocols = dependency('wayland-protocols')
 wayland_client = dependency('wayland-client')
