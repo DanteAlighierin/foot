@@ -9,8 +9,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/time.h>
-#include <linux/mman.h>
-#include <linux/memfd.h>
+#include <sys/mman.h>
 #include <fcntl.h>
 
 #include <pixman.h>
@@ -276,7 +275,16 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
     LOG_DBG("cookie=%lx: allocating new buffer: %zu KB", cookie, size / 1024);
 
     /* Backing memory for SHM */
+#if defined(MEMFD_CREATE)
     pool_fd = memfd_create("foot-wayland-shm-buffer-pool", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+#elif defined(__FreeBSD__)
+    // memfd_create on FreeBSD 13 is SHM_ANON without sealing support
+    pool_fd = shm_open(SHM_ANON, O_RDWR | O_CLOEXEC, 0600);
+#else
+    char name[] = "/tmp/foot-wayland-shm-buffer-pool-XXXXXX";
+    pool_fd = mkostemp(name, O_CLOEXEC);
+    unlink(name);
+#endif
     if (pool_fd == -1) {
         LOG_ERRNO("failed to create SHM backing memory file");
         goto err;
@@ -335,6 +343,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
         goto err;
     }
 
+#if defined(MEMFD_CREATE)
     /* Seal file - we no longer allow any kind of resizing */
     /* TODO: wayland mmaps(PROT_WRITE), for some unknown reason, hence we cannot use F_SEAL_FUTURE_WRITE */
     if (fcntl(pool_fd, F_ADD_SEALS,
@@ -343,6 +352,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
         LOG_ERRNO("failed to seal SHM backing memory file");
         /* This is not a fatal error */
     }
+#endif
 
     pool = wl_shm_create_pool(shm, pool_fd, memfd_size);
     if (pool == NULL) {

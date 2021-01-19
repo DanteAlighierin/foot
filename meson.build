@@ -12,6 +12,10 @@ is_debug_build = get_option('buildtype').startswith('debug')
 
 cc = meson.get_compiler('c')
 
+if cc.has_function('memfd_create')
+  add_project_arguments('-DMEMFD_CREATE', language: 'c')
+endif
+
 add_project_arguments(
   ['-D_POSIX_C_SOURCE=200809L', '-D_GNU_SOURCE=200809L'] +
   (is_debug_build
