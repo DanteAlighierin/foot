@@ -17,7 +17,7 @@ if cc.has_function('memfd_create')
 endif
 
 add_project_arguments(
-  ['-D_POSIX_C_SOURCE=200809L', '-D_GNU_SOURCE=200809L'] +
+  ['-D_GNU_SOURCE=200809L'] +
   (is_debug_build
     ? ['-D_DEBUG']
     : [cc.get_supported_arguments('-fno-asynchronous-unwind-tables')]) +
