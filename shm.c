@@ -130,6 +130,7 @@ static const struct wl_buffer_listener buffer_listener = {
     .release = &buffer_release,
 };
 
+#if !defined(__i386__)
 static size_t
 page_size(void)
 {
@@ -146,6 +147,7 @@ page_size(void)
     xassert(size > 0);
     return size;
 }
+#endif
 
 static bool
 instantiate_offset(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
