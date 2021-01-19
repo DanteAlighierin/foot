@@ -10,7 +10,7 @@
 #include <errno.h>
 
 #include <sys/socket.h>
-#include <linux/un.h>
+#include <sys/un.h>
 
 #define LOG_MODULE "foot-client"
 #define LOG_ENABLE_DBG 0
