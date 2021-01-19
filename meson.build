@@ -72,6 +72,11 @@ fontconfig = dependency('fontconfig')
 tllist = dependency('tllist', version: '>=1.0.4', fallback: 'tllist')
 fcft = dependency('fcft', version: ['>=2.3.0', '<3.0.0'], fallback: 'fcft')
 
+tic = find_program('tic', native: true, required: get_option('terminfo'))
+if tic.found()
+  add_project_arguments('-DHAVE_TERMINFO', language: 'c')
+endif
+
 wayland_protocols_datadir = wayland_protocols.get_pkgconfig_variable('pkgdatadir')
 
 wscanner = dependency('wayland-scanner', native: true)
@@ -191,14 +196,15 @@ executable(
   version,
   install: true)
 
-tic = find_program('tic', native: true)
-custom_target(
-  'terminfo',
-  output: 'f',
-  input: 'foot.info',
-  command: [tic, '-x', '-o', '@OUTDIR@', '-e', 'foot,foot-direct', '@INPUT@'],
-  install: true,
-  install_dir: join_paths(get_option('datadir'), 'terminfo'))
+if tic.found()
+  custom_target(
+    'terminfo',
+    output: 'f',
+    input: 'foot.info',
+    command: [tic, '-x', '-o', '@OUTDIR@', '-e', 'foot,foot-direct', '@INPUT@'],
+    install: true,
+    install_dir: join_paths(get_option('datadir'), 'terminfo'))
+endif
 
 install_data(
   'LICENSE', 'README.md', 'CHANGELOG.md',

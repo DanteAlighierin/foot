@@ -1956,7 +1956,11 @@ config_load(struct config *conf, const char *conf_path,
     bool ret = false;
 
     *conf = (struct config) {
+#ifdef HAVE_TERMINFO
         .term = xstrdup("foot"),
+#else
+        .term = xstrdup("xterm-256color"),
+#endif
         .shell = get_shell(),
         .title = xstrdup("foot"),
         .app_id = xstrdup("foot"),

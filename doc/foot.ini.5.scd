@@ -111,7 +111,8 @@ in this order:
 	by prepending a '-' to argv[0]. Default: _no_.
 
 *term*
-	Value to set the environment variable *TERM* to. Default: _foot_.
+	Value to set the environment variable *TERM* to. Default: _foot_
+	or _xterm-256color_ if built with _-Dterminfo=false_
 
 *title*
 	Initial window title. Default: _foot_.
