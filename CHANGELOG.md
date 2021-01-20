@@ -63,6 +63,11 @@
 * The scrollback search box no longer accepts non-printable characters.
 * Non-formatting C0 control characters, `BS`, `HT` and `DEL` are now
   stripped from pasted text.
+* While doing an interactive resize of a foot window, foot now
+  requires 100ms of idle time (where the window size does not change)
+  before sending the new dimensions to the client application. The
+  timing can be tweaked, or completely disabled, by setting
+  `tweak.resize-delay-ms` (https://codeberg.org/dnkl/foot/issues/301).
 
 
 ### Deprecated
