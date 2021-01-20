@@ -1303,12 +1303,36 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
         if (count == 0)
             break;
 
-        /* Call cb while at same time replacing \r\n with \n */
+        /*
+         * Call cb while at same time replace:
+         *   - \r\n -> \r
+         *   - \n -> \r
+         *   - \e -> <nothing>  (i.e. strip ESC)
+         */
         char *p = text;
         size_t left = count;
     again:
-        for (size_t i = 0; i < left - 1; i++) {
-            if (p[i] == '\r' && p[i + 1] == '\n') {
+        for (size_t i = 0; i < left; i++) {
+            switch (p[i]) {
+            default:
+                break;
+
+            case '\n':
+                p[i] = '\r';
+                break;
+
+            case '\r':
+                if (i + 1 < left && p[i + 1] == '\n') {
+                    ctx->decoder(ctx, p, i + 1);
+
+                    xassert(i + 2 <= left);
+                    p += i + 2;
+                    left -= i + 2;
+                    goto again;
+                }
+                break;
+
+            case '\x1b':
                 ctx->decoder(ctx, p, i);
 
                 assert(i + 1 <= left);
