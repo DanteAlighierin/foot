@@ -677,6 +677,23 @@ any of these options.
 	larger font (and thus larger cells) result in thicker
 	lines. Default: _0.04_.
 
+*resize-delay-ms*
+
+	Time, in milliseconds, of "idle time" "before foot sends the new
+	window dimensions to the client application while doing an
+	interactive resize of a foot window. Idle time in this context is
+	a period of time where the window size is not changing.
+	
+	In other words, while you fiddle with window size, foot does not
+	send the updated dimensions to the client. Only when you pause the
+	fiddling for *relay-size-ms* milliseconds is the client updated.
+	
+	Emphasis is on _while_ here; as soon as the interactive resize
+	ends (i.e. when you let go of the window border), the final
+	dimensions is sent to the client, without any delays.
+	
+	Default: _100_.
+
 *delayed-render-lower*, *delayed-render-upper*
 	These two values control the timeouts (in nanoseconds) that are
 	used to mitigate screen flicker caused by clients writing large,
