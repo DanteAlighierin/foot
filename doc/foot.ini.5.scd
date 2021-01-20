@@ -678,7 +678,6 @@ any of these options.
 	lines. Default: _0.04_.
 
 *resize-delay-ms*
-
 	Time, in milliseconds, of "idle time" "before foot sends the new
 	window dimensions to the client application while doing an
 	interactive resize of a foot window. Idle time in this context is
@@ -691,6 +690,8 @@ any of these options.
 	Emphasis is on _while_ here; as soon as the interactive resize
 	ends (i.e. when you let go of the window border), the final
 	dimensions is sent to the client, without any delays.
+	
+	Setting it to 0 disables the delay completely.
 	
 	Default: _100_.
 
