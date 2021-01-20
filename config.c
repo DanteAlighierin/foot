@@ -674,7 +674,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "selection-target") == 0) {
-        static const char *const values[] = {
+        static const char values[][12] = {
             [SELECTION_TARGET_NONE] = "none",
             [SELECTION_TARGET_PRIMARY] = "primary",
             [SELECTION_TARGET_CLIPBOARD] = "clipboard",
