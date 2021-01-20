@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <assert.h>
 #include <getopt.h>
 #include <signal.h>
 #include <errno.h>
@@ -16,6 +15,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "client-protocol.h"
+#include "debug.h"
 #include "foot-features.h"
 #include "version.h"
 #include "xmalloc.h"
@@ -329,7 +329,7 @@ main(int argc, char *const *argv)
     ssize_t rcvd = recv(fd, &exit_code, sizeof(exit_code), 0);
 
     if (rcvd == -1 && errno == EINTR)
-        assert(aborted);
+        xassert(aborted);
     else if (rcvd != sizeof(exit_code))
         LOG_ERRNO("failed to read server response");
     else

@@ -19,15 +19,15 @@ cmd_scrollback_up(struct terminal *term, int rows)
         return;
 
     rows = min(rows, term->rows);
-    assert(term->grid->offset >= 0);
+    xassert(term->grid->offset >= 0);
 
     int new_view = term->grid->view - rows;
     while (new_view < 0)
         new_view += term->grid->num_rows;
     new_view %= term->grid->num_rows;
 
-    assert(new_view >= 0);
-    assert(new_view < term->grid->num_rows);
+    xassert(new_view >= 0);
+    xassert(new_view < term->grid->num_rows);
 
     /* Avoid scrolling in uninitialized rows */
     while (term->grid->rows[new_view] == NULL)
@@ -59,7 +59,7 @@ cmd_scrollback_up(struct terminal *term, int rows)
 
 #if defined(_DEBUG)
     for (int r = 0; r < term->rows; r++)
-        assert(term->grid->rows[(new_view + r) % term->grid->num_rows] != NULL);
+        xassert(term->grid->rows[(new_view + r) % term->grid->num_rows] != NULL);
 #endif
 
     LOG_DBG("scrollback UP: %d -> %d (offset = %d, end = %d, rows = %d)",
@@ -99,11 +99,11 @@ cmd_scrollback_down(struct terminal *term, int rows)
         return;
 
     rows = min(rows, term->rows);
-    assert(term->grid->offset >= 0);
+    xassert(term->grid->offset >= 0);
 
     int new_view = (term->grid->view + rows) % term->grid->num_rows;
-    assert(new_view >= 0);
-    assert(new_view < term->grid->num_rows);
+    xassert(new_view >= 0);
+    xassert(new_view < term->grid->num_rows);
 
     /* Prevent scrolling in uninitialized rows */
     bool all_initialized = false;
@@ -133,7 +133,7 @@ cmd_scrollback_down(struct terminal *term, int rows)
 
 #if defined(_DEBUG)
     for (int r = 0; r < term->rows; r++)
-        assert(term->grid->rows[(new_view + r) % term->grid->num_rows] != NULL);
+        xassert(term->grid->rows[(new_view + r) % term->grid->num_rows] != NULL);
 #endif
 
     LOG_DBG("scrollback DOWN: %d -> %d (offset = %d, end = %d, rows = %d)",

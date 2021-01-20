@@ -37,11 +37,11 @@ static void
 csd_instantiate(struct wl_window *win)
 {
     struct wayland *wayl = win->term->wl;
-    assert(wayl != NULL);
+    xassert(wayl != NULL);
 
     for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
-        assert(win->csd.surface[i] == NULL);
-        assert(win->csd.sub_surface[i] == NULL);
+        xassert(win->csd.surface[i] == NULL);
+        xassert(win->csd.sub_surface[i] == NULL);
 
         win->csd.surface[i] = wl_compositor_create_surface(wayl->compositor);
 
@@ -231,7 +231,7 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
                          enum wl_seat_capability caps)
 {
     struct seat *seat = data;
-    assert(seat->wl_seat == wl_seat);
+    xassert(seat->wl_seat == wl_seat);
 
     LOG_DBG("%s: keyboard=%s, pointer=%s", seat->name,
             (caps & WL_SEAT_CAPABILITY_KEYBOARD) ? "yes" : "no",
@@ -251,7 +251,7 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
 
     if (caps & WL_SEAT_CAPABILITY_POINTER) {
         if (seat->wl_pointer == NULL) {
-            assert(seat->pointer.surface == NULL);
+            xassert(seat->pointer.surface == NULL);
             seat->pointer.surface = wl_compositor_create_surface(seat->wayl->compositor);
 
             if (seat->pointer.surface == NULL) {
@@ -708,7 +708,7 @@ xdg_toplevel_decoration_configure(void *data,
 {
     struct wl_window *win = data;
 
-    assert(win->term->conf->csd.preferred != CONF_CSD_PREFER_NONE);
+    xassert(win->term->conf->csd.preferred != CONF_CSD_PREFER_NONE);
     switch (mode) {
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
         LOG_INFO("using CSD decorations");
@@ -1440,7 +1440,7 @@ wayl_reload_xcursor_theme(struct seat *seat, int new_scale)
     }
 
     if (seat->pointer.theme != NULL) {
-        assert(seat->pointer.scale != new_scale);
+        xassert(seat->pointer.scale != new_scale);
         wl_cursor_theme_destroy(seat->pointer.theme);
         seat->pointer.theme = NULL;
         seat->pointer.cursor = NULL;
@@ -1495,7 +1495,7 @@ wayl_flush(struct wayland *wayl)
 
         /* Socket buffer is full - need to wait for it to become
            writeable again */
-        assert(errno == EAGAIN);
+        xassert(errno == EAGAIN);
 
         while (true) {
             struct pollfd fds[] = {{.fd = wayl->fd, .events = POLLOUT}};
@@ -1513,7 +1513,7 @@ wayl_flush(struct wayland *wayl)
             if (fds[0].revents & POLLHUP)
                 return;
 
-            assert(fds[0].revents & POLLOUT);
+            xassert(fds[0].revents & POLLOUT);
             break;
         }
     }

@@ -2,7 +2,6 @@
 
 #include <unistd.h>
 #include <errno.h>
-#include <assert.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -11,6 +10,7 @@
 #define LOG_MODULE "spawn"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "debug.h"
 
 bool
 spawn(struct reaper *reaper, const char *cwd, char *const argv[],
@@ -41,7 +41,7 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
             (void)!write(pipe_fds[1], &errno, sizeof(errno));
             _exit(errno);
         }
-        assert(false);
+        xassert(false);
         _exit(errno);
     }
 

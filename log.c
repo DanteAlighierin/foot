@@ -1,15 +1,15 @@
 #include "log.h"
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <string.h>
-#include <stdbool.h>
 #include <errno.h>
-#include <assert.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
 #include <unistd.h>
 
-#include <syslog.h>
+#include "debug.h"
 
 static bool colorize = false;
 static bool do_syslog = true;
@@ -94,11 +94,11 @@ _sys_log(enum log_class log_class, const char *module,
     case LOG_CLASS_DEBUG:    level = LOG_DEBUG; break;
     }
 
-    assert(level != -1);
+    xassert(level != -1);
 
     char msg[4096];
     int n = vsnprintf(msg, sizeof(msg), fmt, va);
-    assert(n >= 0);
+    xassert(n >= 0);
 
     if (sys_errno != 0 && (size_t)n < sizeof(msg))
         snprintf(msg + n, sizeof(msg) - n, ": %s", strerror(sys_errno));

@@ -1,21 +1,11 @@
-#include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
-#include <syslog.h>
 #include "xmalloc.h"
-
-static NORETURN COLD void
-fatal_error(const char *msg, int err)
-{
-    syslog(LOG_ERR, "%s: %s", msg, strerror(err));
-    errno = err;
-    perror(msg);
-    abort();
-}
+#include "debug.h"
 
 static void *
 check_alloc(void *alloc)
@@ -38,7 +28,7 @@ xmalloc(size_t size)
 void *
 xcalloc(size_t nmemb, size_t size)
 {
-    assert(size != 0);
+    xassert(size != 0);
     return check_alloc(calloc(likely(nmemb) ? nmemb : 1, size));
 }
 

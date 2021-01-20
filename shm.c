@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 #include <errno.h>
 #include <unistd.h>
 #include <limits.h>
@@ -22,6 +21,7 @@
 #define LOG_MODULE "shm"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "debug.h"
 #include "macros.h"
 #include "xmalloc.h"
 
@@ -121,8 +121,8 @@ buffer_release(void *data, struct wl_buffer *wl_buffer)
 {
     struct buffer *buffer = data;
     LOG_DBG("release: cookie=%lx (buf=%p)", buffer->cookie, (void *)buffer);
-    assert(buffer->wl_buf == wl_buffer);
-    assert(buffer->busy);
+    xassert(buffer->wl_buf == wl_buffer);
+    xassert(buffer->busy);
     buffer->busy = false;
 }
 
@@ -143,17 +143,17 @@ page_size(void)
             size = (size_t)n;
         }
     }
-    assert(size > 0);
+    xassert(size > 0);
     return size;
 }
 
 static bool
 instantiate_offset(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
 {
-    assert(buf->fd >= 0);
-    assert(buf->mmapped == NULL);
-    assert(buf->wl_buf == NULL);
-    assert(buf->pix == NULL);
+    xassert(buf->fd >= 0);
+    xassert(buf->mmapped == NULL);
+    xassert(buf->wl_buf == NULL);
+    xassert(buf->pix == NULL);
 
     void *mmapped = MAP_FAILED;
     struct wl_buffer *wl_buf = NULL;
@@ -211,7 +211,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
         if (!it->item.purge)
             continue;
 
-        assert(!it->item.busy);
+        xassert(!it->item.busy);
 
         LOG_DBG("cookie=%lx: purging buffer %p (width=%d, height=%d): %zu KB",
                 cookie, (void *)&it->item, it->item.width, it->item.height,
@@ -234,7 +234,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
                     cookie, (void *)&it->item);
             it->item.busy = true;
             it->item.purge = false;
-            assert(it->item.pix_instances == pix_instances);
+            xassert(it->item.pix_instances == pix_instances);
             return &it->item;
         }
     }
@@ -414,7 +414,7 @@ wrap_buffer(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
     /* We don't allow overlapping offsets */
     off_t UNUSED diff =
         new_offset < buf->offset ? buf->offset - new_offset : new_offset - buf->offset;
-    assert(diff > buf->size);
+    xassert(diff > buf->size);
 
     memcpy((uint8_t *)buf->real_mmapped + new_offset, buf->mmapped, buf->size);
 
@@ -448,17 +448,17 @@ shm_scroll_forward(struct wl_shm *shm, struct buffer *buf, int rows,
                    int top_margin, int top_keep_rows,
                    int bottom_margin, int bottom_keep_rows)
 {
-    assert(can_punch_hole);
-    assert(buf->busy);
-    assert(buf->pix);
-    assert(buf->wl_buf);
-    assert(buf->fd >= 0);
+    xassert(can_punch_hole);
+    xassert(buf->busy);
+    xassert(buf->pix);
+    xassert(buf->wl_buf);
+    xassert(buf->fd >= 0);
 
     LOG_DBG("scrolling %d rows (%d bytes)", rows, rows * buf->stride);
 
     const off_t diff = rows * buf->stride;
-    assert(rows > 0);
-    assert(diff < buf->size);
+    xassert(rows > 0);
+    xassert(diff < buf->size);
 
     if (buf->offset + diff + buf->size > max_pool_size) {
         LOG_DBG("memfd offset wrap around");
@@ -467,8 +467,8 @@ shm_scroll_forward(struct wl_shm *shm, struct buffer *buf, int rows,
     }
 
     off_t new_offset = buf->offset + diff;
-    assert(new_offset > buf->offset);
-    assert(new_offset + buf->size <= max_pool_size);
+    xassert(new_offset > buf->offset);
+    xassert(new_offset + buf->size <= max_pool_size);
 
 #if TIME_SCROLL
     struct timeval time1;
@@ -552,7 +552,7 @@ shm_scroll_reverse(struct wl_shm *shm, struct buffer *buf, int rows,
                    int top_margin, int top_keep_rows,
                    int bottom_margin, int bottom_keep_rows)
 {
-    assert(rows > 0);
+    xassert(rows > 0);
 
     const off_t diff = rows * buf->stride;
     if (diff > buf->offset) {
@@ -562,8 +562,8 @@ shm_scroll_reverse(struct wl_shm *shm, struct buffer *buf, int rows,
     }
 
     off_t new_offset = buf->offset - diff;
-    assert(new_offset < buf->offset);
-    assert(new_offset <= max_pool_size);
+    xassert(new_offset < buf->offset);
+    xassert(new_offset <= max_pool_size);
 
 #if TIME_SCROLL
     struct timeval time0;
@@ -649,7 +649,7 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
     if (!shm_can_scroll(buf))
         return false;
 
-    assert(rows != 0);
+    xassert(rows != 0);
     return rows > 0
         ? shm_scroll_forward(shm, buf, rows, top_margin, top_keep_rows, bottom_margin, bottom_keep_rows)
         : shm_scroll_reverse(shm, buf, -rows, top_margin, top_keep_rows, bottom_margin, bottom_keep_rows);
@@ -665,7 +665,7 @@ shm_purge(struct wl_shm *shm, unsigned long cookie)
         if (it->item.cookie != cookie)
             continue;
 
-        assert(!it->item.busy);
+        xassert(!it->item.busy);
 
         buffer_destroy(&it->item);
         tll_remove(buffers, it);

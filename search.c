@@ -52,7 +52,7 @@ ensure_view_is_allocated(struct terminal *term, int new_view)
 
 #if defined(_DEBUG)
     for (size_t r = 0; r < term->rows; r++)
-        assert(term->grid->rows[(new_view + r) & (term->grid->num_rows - 1)] != NULL);
+        xassert(term->grid->rows[(new_view + r) & (term->grid->num_rows - 1)] != NULL);
 #endif
 
     return new_view;
@@ -197,7 +197,7 @@ search_update_selection(struct terminal *term,
 #if defined(_DEBUG)
         /* Verify all to-be-visible rows have been allocated */
         for (int r = 0; r < term->rows; r++)
-            assert(term->grid->rows[(new_view + r) & (term->grid->num_rows - 1)] != NULL);
+            xassert(term->grid->rows[(new_view + r) & (term->grid->num_rows - 1)] != NULL);
 #endif
 
         /* Update view */
@@ -220,7 +220,7 @@ search_update_selection(struct terminal *term,
         while (selection_row < 0)
             selection_row += term->grid->num_rows;
 
-        assert(selection_row >= 0 &&
+        xassert(selection_row >= 0 &&
                selection_row < term->grid->num_rows);
         selection_start(
             term, start_col, selection_row, SELECTION_CHAR_WISE, false);
@@ -232,7 +232,7 @@ search_update_selection(struct terminal *term,
         while (selection_row < 0)
             selection_row += term->grid->num_rows;
 
-        assert(selection_row >= 0 &&
+        xassert(selection_row >= 0 &&
                selection_row < term->grid->num_rows);
         selection_update(term, end_col, selection_row);
     }
@@ -255,7 +255,7 @@ search_find_next(struct terminal *term)
     int start_col = term->search.match.col;
     size_t len = term->search.match_len;
 
-    assert((len == 0 && start_row == -1 && start_col == -1) ||
+    xassert((len == 0 && start_row == -1 && start_col == -1) ||
            (len > 0 && start_row >= 0 && start_col >= 0));
 
     if (len == 0) {
@@ -365,7 +365,7 @@ search_add_chars(struct terminal *term, const char *src, size_t count)
     if (!search_ensure_size(term, term->search.len + wchars))
         return;
 
-    assert(term->search.len + wchars < term->search.sz);
+    xassert(term->search.len + wchars < term->search.sz);
 
     memmove(&term->search.buf[term->search.cursor + wchars],
             &term->search.buf[term->search.cursor],
@@ -386,8 +386,8 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
     if (term->search.match_len == 0)
         return;
 
-    assert(term->search.match.row != -1);
-    assert(term->search.match.col != -1);
+    xassert(term->search.match.row != -1);
+    xassert(term->search.match.col != -1);
 
     int end_row = term->search.match.row;
     int end_col = term->search.match.col;
@@ -466,7 +466,7 @@ distance_next_word(const struct terminal *term)
             break;
     }
 
-    assert(cursor == term->search.len || iswspace(term->search.buf[cursor - 1]));
+    xassert(cursor == term->search.len || iswspace(term->search.buf[cursor - 1]));
 
     /* Now skip past whitespace, so that we end up at the beginning of
      * the next word */
@@ -475,7 +475,7 @@ distance_next_word(const struct terminal *term)
             break;
     }
 
-    assert(cursor == term->search.len || !iswspace(term->search.buf[cursor - 1]));
+    xassert(cursor == term->search.len || !iswspace(term->search.buf[cursor - 1]));
 
     if (cursor < term->search.len && !iswspace(term->search.buf[cursor]))
         cursor--;
@@ -494,7 +494,7 @@ distance_prev_word(const struct terminal *term)
             break;
     }
 
-    assert(cursor == 0 || !iswspace(term->search.buf[cursor]));
+    xassert(cursor == 0 || !iswspace(term->search.buf[cursor]));
 
     /* Now eat non-whitespace. This is the word we're skipping past */
     while (cursor > 0) {
@@ -502,7 +502,7 @@ distance_prev_word(const struct terminal *term)
             break;
     }
 
-    assert(cursor == 0 || iswspace(term->search.buf[cursor]));
+    xassert(cursor == 0 || iswspace(term->search.buf[cursor]));
     if (cursor > 0 && iswspace(term->search.buf[cursor]))
         cursor++;
 
@@ -593,8 +593,7 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SEARCH_EDIT_LEFT_WORD: {
         size_t diff = distance_prev_word(term);
         term->search.cursor -= diff;
-        assert(term->search.cursor >= 0);
-        assert(term->search.cursor <= term->search.len);
+        xassert(term->search.cursor <= term->search.len);
         return false;
     }
 
@@ -606,8 +605,7 @@ execute_binding(struct seat *seat, struct terminal *term,
     case BIND_ACTION_SEARCH_EDIT_RIGHT_WORD: {
         size_t diff = distance_next_word(term);
         term->search.cursor += diff;
-        assert(term->search.cursor >= 0);
-        assert(term->search.cursor <= term->search.len);
+        xassert(term->search.cursor <= term->search.len);
         return false;
     }
 
@@ -685,11 +683,11 @@ execute_binding(struct seat *seat, struct terminal *term,
         return false;
 
     case BIND_ACTION_SEARCH_COUNT:
-        assert(false);
+        xassert(false);
         return false;
     }
 
-    assert(false);
+    xassert(false);
     return false;
 }
 

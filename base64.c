@@ -4,12 +4,12 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <assert.h>
 #include <errno.h>
 
 #define LOG_MODULE "base64"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "debug.h"
 
 enum {
     P = 1 << 6, // Padding byte (=)
@@ -98,7 +98,7 @@ invalid:
 char *
 base64_encode(const uint8_t *data, size_t size)
 {
-    assert(size % 3 == 0);
+    xassert(size % 3 == 0);
     if (unlikely(size % 3 != 0))
         return NULL;
 
@@ -138,8 +138,8 @@ base64_encode(const uint8_t *data, size_t size)
 void
 base64_encode_final(const uint8_t *data, size_t size, char result[4])
 {
-    assert(size > 0);
-    assert(size < 3);
+    xassert(size > 0);
+    xassert(size < 3);
 
     uint32_t v = 0;
     if (size >= 1)

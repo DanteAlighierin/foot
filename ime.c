@@ -27,8 +27,8 @@ enter(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     /* The main grid is the *only* input-receiving surface we have */
     /* TODO: can we receive text_input::enter() _before_ keyboard_enter()? */
     struct terminal UNUSED *term = seat->kbd_focus;
-    assert(term != NULL);
-    assert(term_surface_kind(term, surface) == TERM_SURF_GRID);
+    xassert(term != NULL);
+    xassert(term_surface_kind(term, surface) == TERM_SURF_GRID);
 
     ime_enable(seat);
 }
@@ -111,7 +111,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         return;
     }
 
-    assert(seat->kbd_focus);
+    xassert(seat->kbd_focus);
     struct terminal *term = seat->kbd_focus;
 
     /* 1. Delete existing pre-edit text */
@@ -272,11 +272,11 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
         LOG_DBG("pre-edit cursor: begin=%d, end=%d", cell_begin, cell_end);
 
-        assert(cell_begin >= 0);
-        assert(cell_begin < cell_count);
-        assert(cell_begin <= cell_end);
-        assert(cell_end >= 0);
-        assert(cell_end <= cell_count);
+        xassert(cell_begin >= 0);
+        xassert(cell_begin < cell_count);
+        xassert(cell_begin <= cell_end);
+        xassert(cell_end >= 0);
+        xassert(cell_end <= cell_count);
 
         term->ime.preedit.cursor.hidden = false;
         term->ime.preedit.cursor.start = cell_begin;
@@ -331,7 +331,7 @@ ime_enable(struct seat *seat)
         return;
 
     struct terminal *term = seat->kbd_focus;
-    assert(term != NULL);
+    xassert(term != NULL);
 
     if (!term->ime.enabled)
         return;

@@ -106,7 +106,7 @@ from_clipboard_cb(char *text, size_t size, void *user)
     struct clip_context *ctx = user;
     struct terminal *term = ctx->term;
 
-    assert(ctx->idx >= 0 && ctx->idx <= 2);
+    xassert(ctx->idx >= 0 && ctx->idx <= 2);
 
     const char *t = text;
     size_t left = size;
@@ -115,11 +115,11 @@ from_clipboard_cb(char *text, size_t size, void *user)
         for (size_t i = ctx->idx; i < 3 && left > 0; i++, t++, left--)
             ctx->buf[ctx->idx++] = *t;
 
-        assert(ctx->idx <= 3);
+        xassert(ctx->idx <= 3);
         if (ctx->idx == 3) {
             char *chunk = base64_encode(ctx->buf, 3);
-            assert(chunk != NULL);
-            assert(strlen(chunk) == 4);
+            xassert(chunk != NULL);
+            xassert(strlen(chunk) == 4);
 
             term_to_slave(term, chunk, 4);
             free(chunk);
@@ -131,16 +131,16 @@ from_clipboard_cb(char *text, size_t size, void *user)
     if (left == 0)
         return;
 
-    assert(ctx->idx == 0);
+    xassert(ctx->idx == 0);
 
     int remaining = left % 3;
     for (int i = remaining; i > 0; i--)
         ctx->buf[ctx->idx++] = text[size - i];
-    assert(ctx->idx == remaining);
+    xassert(ctx->idx == remaining);
 
     char *chunk = base64_encode((const uint8_t *)t, left / 3 * 3);
-    assert(chunk != NULL);
-    assert(strlen(chunk) % 4 == 0);
+    xassert(chunk != NULL);
+    xassert(strlen(chunk) % 4 == 0);
     term_to_slave(term, chunk, strlen(chunk));
     free(chunk);
 }
@@ -437,7 +437,7 @@ update_color_in_grids(struct terminal *term, uint32_t old_color,
 
         for (size_t r = 0; r < term->rows; r++) {
             struct row *row = grid_row(grid, r);
-            assert(row != NULL);
+            xassert(row != NULL);
 
             for (size_t c = 0; c < term->grid->num_cols; c++) {
                 struct cell *cell = &row->cells[c];
@@ -501,7 +501,7 @@ osc_dispatch(struct terminal *term)
         if (*string != ';')
             break;
 
-        assert(*string == ';');
+        xassert(*string == ';');
 
         for (const char *s_idx = strtok(string, ";"), *s_color = strtok(NULL, ";");
              s_idx != NULL && s_color != NULL;
@@ -725,7 +725,7 @@ osc_ensure_size(struct terminal *term, size_t required_size)
         return true;
 
     size_t new_size = (required_size + 127) / 128 * 128;
-    assert(new_size > 0);
+    xassert(new_size > 0);
 
     uint8_t *new_data = realloc(term->vt.osc.data, new_size);
     if (new_data == NULL) {

@@ -34,10 +34,10 @@ dcs_hook(struct terminal *term, uint8_t final)
     LOG_DBG("hook: %c (intermediate(s): %.2s, param=%d)", final,
             (const char *)&term->vt.private, vt_param_get(term, 0, 0));
 
-    assert(term->vt.dcs.data == NULL);
-    assert(term->vt.dcs.size == 0);
-    assert(term->vt.dcs.put_handler == NULL);
-    assert(term->vt.dcs.unhook_handler == NULL);
+    xassert(term->vt.dcs.data == NULL);
+    xassert(term->vt.dcs.size == 0);
+    xassert(term->vt.dcs.put_handler == NULL);
+    xassert(term->vt.dcs.unhook_handler == NULL);
 
     switch (term->vt.private) {
     case 0:
@@ -70,7 +70,7 @@ ensure_size(struct terminal *term, size_t required_size)
         return true;
 
     size_t new_size = (required_size + 127) / 128 * 128;
-    assert(new_size > 0);
+    xassert(new_size > 0);
 
     uint8_t *new_data = realloc(term->vt.dcs.data, new_size);
     if (new_data == NULL) {

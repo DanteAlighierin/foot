@@ -6,7 +6,6 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
-#include <assert.h>
 #include <signal.h>
 #include <termios.h>
 
@@ -18,6 +17,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 
+#include "debug.h"
 #include "terminal.h"
 #include "tokenize.h"
 #include "xmalloc.h"
@@ -90,7 +90,7 @@ emit_one_notification(int fd, const struct user_notification *notif)
         break;
     }
 
-    assert(prefix != NULL);
+    xassert(prefix != NULL);
 
     if (write(fd, prefix, strlen(prefix)) < 0 ||
         write(fd, notif->text, strlen(notif->text)) < 0 ||
@@ -314,7 +314,7 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
             setenv("SHELL", shell_argv[0], 1);
 
         slave_exec(ptmx, shell_argv, fork_pipe[1], login_shell, notifications);
-        assert(false);
+        xassert(false);
         break;
 
     default: {
