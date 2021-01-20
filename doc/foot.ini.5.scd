@@ -161,12 +161,6 @@ in this order:
 	compositor can use this value to e.g. group multiple windows, or
 	apply window management rules. Default: _foot_.
 
-*workers*
-	Number of threads to use for rendering. Set to 0 to disable
-	multithreading. Default: the number of available logical CPUs
-	(including SMT). Note that this is not always the best value. In
-	some cases, the number of physical _cores_ is better.
-
 *bold-text-in-bright*
 	Boolean. When enabled, bold text is rendered in a brighter color
 	(in addition to using a bold font). Default: _no_.
@@ -211,6 +205,17 @@ in this order:
 	- OSC 777: *\\e]777;notify;<title>;<body>\\e\\\\*
 	
 	Default: _notify-send -a foot -i foot ${title} ${body}_.
+
+*selection-target*
+	Clipboard target to automatically copy selected text to. One of
+	*none*, *primary*, *clipboard* or *both*. Default: _primary_.
+
+
+*workers*
+	Number of threads to use for rendering. Set to 0 to disable
+	multithreading. Default: the number of available logical CPUs
+	(including SMT). Note that this is not always the best value. In
+	some cases, the number of physical _cores_ is better.
 
 
 # SECTION: scrollback
