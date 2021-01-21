@@ -129,7 +129,7 @@ static const struct wl_buffer_listener buffer_listener = {
     .release = &buffer_release,
 };
 
-#if !defined(__i386__)
+#if __SIZEOF_POINTER__ == 8
 static size_t
 page_size(void)
 {
@@ -290,12 +290,12 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
         goto err;
     }
 
-#if defined(__i386__)
-    off_t initial_offset = 0;
-    off_t memfd_size = size;
-#else
+#if __SIZEOF_POINTER__ == 8
     off_t initial_offset = scrollable && max_pool_size > 0 ? (max_pool_size / 4) & ~(page_size() - 1) : 0;
     off_t memfd_size = scrollable && max_pool_size > 0 ? max_pool_size : size;
+#else
+    off_t initial_offset = 0;
+    off_t memfd_size = size;
 #endif
 
     LOG_DBG("memfd-size: %lu, initial offset: %lu", memfd_size, initial_offset);
@@ -307,7 +307,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
 
     if (!can_punch_hole_initialized) {
         can_punch_hole_initialized = true;
-#if defined(__x86_64__) && defined(FALLOC_FL_PUNCH_HOLE)
+#if __SIZEOF_POINTER__ == 8 && defined(FALLOC_FL_PUNCH_HOLE)
         can_punch_hole = fallocate(
             pool_fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1) == 0;
 
@@ -412,15 +412,15 @@ err:
 bool
 shm_can_scroll(const struct buffer *buf)
 {
-#if defined(__i386__)
+#if __SIZEOF_POINTER__ == 8
+    return can_punch_hole && max_pool_size > 0 && buf->scrollable;
+#else
     /* Not enough virtual address space in 32-bit */
     return false;
-#else
-    return can_punch_hole && max_pool_size > 0 && buf->scrollable;
 #endif
 }
 
-#if defined(FALLOC_FL_PUNCH_HOLE)
+#if __SIZEOF_POINTER__ == 8 && defined(FALLOC_FL_PUNCH_HOLE)
 static bool
 wrap_buffer(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
 {
@@ -660,7 +660,7 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
            int top_margin, int top_keep_rows,
            int bottom_margin, int bottom_keep_rows)
 {
-#if defined(FALLOC_FL_PUNCH_HOLE)
+#if __SIZEOF_POINTER__ == 8 && defined(FALLOC_FL_PUNCH_HOLE)
     if (!shm_can_scroll(buf))
         return false;
 
