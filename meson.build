@@ -130,7 +130,7 @@ vtlib = static_library(
   'vt.c', 'vt.h',
   wl_proto_src + wl_proto_headers,
   version,
-  dependencies: [libepoll, pixman, fcft, tllist],
+  dependencies: [libepoll, pixman, fcft, tllist, wayland_client],
   link_with: misc,
 )
 
@@ -140,7 +140,7 @@ pgolib = static_library(
   'selection.c', 'selection.h',
   'terminal.c', 'terminal.h',
   wl_proto_src + wl_proto_headers,
-  dependencies: [libepoll, pixman, fcft, tllist],
+  dependencies: [libepoll, pixman, fcft, tllist, wayland_client],
   link_with: vtlib,
 )
 
