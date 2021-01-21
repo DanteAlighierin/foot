@@ -1,0 +1,26 @@
+# Selenized white
+
+[cursor]
+color=ffffff 009a8a
+
+[colors]
+background= ffffff
+foreground= 474747
+
+regular0=   ebebeb
+regular1=   d6000c
+regular2=   1d9700
+regular3=   c49700
+regular4=   0064e4
+regular5=   dd0f9d
+regular6=   00ad9c
+regular7=   878787
+
+bright0=    cdcdcd
+bright1=    bf0000
+bright2=    008400
+bright3=    af8500
+bright4=    0054cf
+bright5=    c7008b
+bright6=    009a8a
+bright7=    282828
