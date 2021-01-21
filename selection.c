@@ -1559,7 +1559,7 @@ fdm_receive_decoder_uri(struct clipboard_receive *ctx, char *data, size_t size)
     char *start = ctx->buf.data;
     char *end = NULL;
 
-    while ((end = memchr(start, '\n', ctx->buf.idx - (start - ctx->buf.data))) != NULL) {
+    while ((end = memchr(start, '\r', ctx->buf.idx - (start - ctx->buf.data))) != NULL) {
         decode_one_uri(ctx, start, end - start);
         start = end + 1;
     }
