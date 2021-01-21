@@ -523,6 +523,19 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->center = center;
     }
 
+    else if (strcmp(key, "resize-delay-ms") == 0) {
+        unsigned long ms;
+        if (!str_to_ulong(value, 10, &ms)) {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: resize-delay-ms: "
+                "expected an integer, got '%s'",
+                path, lineno, value);
+            return false;
+        }
+
+        conf->resize_delay_ms = ms;
+    }
+
     else if (strcmp(key, "bold-text-in-bright") == 0)
         conf->bold_in_bright = str_to_bool(value);
 
@@ -1745,19 +1758,6 @@ parse_section_tweak(
                  conf->tweak.box_drawing_base_thickness);
     }
 
-    else if (strcmp(key, "resize-delay-ms") == 0) {
-        unsigned long ms;
-        if (!str_to_ulong(value, 10, &ms)) {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [tweak]: resize-delay-ms: expected an integer, got '%s'",
-                path, lineno, value);
-            return false;
-        }
-
-        conf->tweak.resize_delay_ms = ms;
-        LOG_WARN("tweak: resize-delay-ms=%hu", conf->tweak.resize_delay_ms);
-    }
-
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [tweak]: %s: invalid key", path, lineno, key);
         return false;
@@ -2093,6 +2093,7 @@ config_load(struct config *conf, const char *conf_path,
         },
         .pad_x = 2,
         .pad_y = 2,
+        .resize_delay_ms = 100,
         .bold_in_bright = false,
         .bell_action = BELL_ACTION_NONE,
         .startup_mode = STARTUP_WINDOWED,
@@ -2179,7 +2180,6 @@ config_load(struct config *conf, const char *conf_path,
             .render_timer_log = false,
             .damage_whole_window = false,
             .box_drawing_base_thickness = 0.04,
-            .resize_delay_ms = 100,
         },
 
         .notifications = tll_init(),

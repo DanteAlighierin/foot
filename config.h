@@ -77,6 +77,7 @@ struct config {
     unsigned pad_x;
     unsigned pad_y;
     bool center;
+    uint16_t resize_delay_ms;
 
     bool bold_in_bright;
     enum {
@@ -203,7 +204,6 @@ struct config {
         uint64_t delayed_render_upper_ns;
         off_t max_shm_pool_size;
         float box_drawing_base_thickness;
-        uint16_t resize_delay_ms;
     } tweak;
 
     user_notifications_t notifications;

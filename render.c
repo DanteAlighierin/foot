@@ -2581,7 +2581,7 @@ send_dimensions_to_client(struct terminal *term)
 {
     struct wl_window *win = term->window;
 
-    if (!win->is_resizing || term->conf->tweak.resize_delay_ms == 0) {
+    if (!win->is_resizing || term->conf->resize_delay_ms == 0) {
         /* Send new dimensions to client immediately */
         tiocswinsz(term);
 
@@ -2592,10 +2592,10 @@ send_dimensions_to_client(struct terminal *term)
         }
     } else {
         /* Send new dimensions to client “in a while” */
-        assert(win->is_resizing && term->conf->tweak.resize_delay_ms > 0);
+        assert(win->is_resizing && term->conf->resize_delay_ms > 0);
 
         int fd = win->resize_timeout_fd;
-        uint16_t delay_ms = term->conf->tweak.resize_delay_ms;
+        uint16_t delay_ms = term->conf->resize_delay_ms;
         bool successfully_scheduled = false;
 
         if (fd < 0) {
