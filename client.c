@@ -263,7 +263,7 @@ main(int argc, char *const *argv)
     };
 
     /* Total packet length, not (yet) including argv[] */
-    size_t total_len = (
+    uint64_t total_len = (
         sizeof(data) +
         cwd_len +
         term_len +
