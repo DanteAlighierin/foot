@@ -1,7 +1,7 @@
 # Selenized black
 
 [cursor]
-colors = 181818 56d8c9
+color = 181818 56d8c9
 
 [colors]
 background= 181818
@@ -16,7 +16,7 @@ regular5=   eb6eb7
 regular6=   3fc5b7
 regular7=   777777
 
-color0=     3b3b3b
+bright0=    3b3b3b
 bright1=    ff5e56
 bright2=    83c746
 bright3=    efc541
