@@ -56,6 +56,7 @@
 * Sixel “current geometry” query response not being bounded by the
   current window dimensions (fixes `lsix` output)
 * Crash on keyboard input when repeat rate was zero (i.e. no repeat).
+* Wrong button encoding of mouse buttons 6 and 7 in mouse events.
 
 
 ### Security
