@@ -4,11 +4,11 @@
 #include <string.h>
 #include <limits.h>
 #include <unistd.h>
-#include <assert.h>
 
 #define LOG_MODULE "uri"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "debug.h"
 #include "xmalloc.h"
 
 enum {

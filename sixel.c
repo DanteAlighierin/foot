@@ -6,6 +6,7 @@
 #define LOG_MODULE "sixel"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "debug.h"
 #include "render.h"
 #include "hsl.h"
 #include "util.h"
@@ -30,8 +31,8 @@ color_with_alpha(const struct terminal *term, uint32_t color)
 void
 sixel_init(struct terminal *term)
 {
-    assert(term->sixel.image.data == NULL);
-    assert(term->sixel.palette_size <= SIXEL_MAX_COLORS);
+    xassert(term->sixel.image.data == NULL);
+    xassert(term->sixel.palette_size <= SIXEL_MAX_COLORS);
 
     term->sixel.state = SIXEL_DECSIXEL;
     term->sixel.pos = (struct coord){0, 0};
@@ -141,13 +142,13 @@ verify_list_order(const struct terminal *term)
         int col = it->item.pos.col;
         int col_count = it->item.cols;
 
-        assert(row <= prev_row);
+        xassert(row <= prev_row);
 
         if (row == prev_row) {
             /* Allowed to be on the same row only if their columns
              * don't overlap */
 
-            assert(col + col_count <= prev_col ||
+            xassert(col + col_count <= prev_col ||
                    prev_col + prev_col_count <= col);
         }
 
@@ -171,11 +172,11 @@ verify_no_wraparound_crossover(const struct terminal *term)
     tll_foreach(term->grid->sixel_images, it) {
         const struct sixel *six = &it->item;
 
-        assert(six->pos.row >= 0);
-        assert(six->pos.row < term->grid->num_rows);
+        xassert(six->pos.row >= 0);
+        xassert(six->pos.row < term->grid->num_rows);
 
         int end = (six->pos.row + six->rows - 1) & (term->grid->num_rows - 1);
-        assert(end >= six->pos.row);
+        xassert(end >= six->pos.row);
     }
 #endif
 }
@@ -197,7 +198,7 @@ verify_scrollback_consistency(const struct terminal *term)
             int row_no = rebase_row(term, six->pos.row + i);
 
             if (last_row != -1)
-                assert(last_row < row_no);
+                xassert(last_row < row_no);
 
             last_row = row_no;
         }
@@ -234,7 +235,7 @@ verify_no_overlap(const struct terminal *term)
             pixman_region32_init(&intersection);
             pixman_region32_intersect(&intersection, &rect1, &rect2);
 
-            assert(!pixman_region32_not_empty(&intersection));
+            xassert(!pixman_region32_not_empty(&intersection));
 
             pixman_region32_fini(&intersection);
             pixman_region32_fini(&rect2);
@@ -314,7 +315,7 @@ sixel_scroll_down(struct terminal *term, int rows)
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
 
-    assert(term->grid->num_rows >= rows);
+    xassert(term->grid->num_rows >= rows);
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
@@ -350,7 +351,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
     pixman_region32_t intersection;
     pixman_region32_init(&intersection);
     pixman_region32_intersect(&intersection, &six_rect, &overwrite_rect);
-    assert(pixman_region32_not_empty(&intersection));
+    xassert(pixman_region32_not_empty(&intersection));
     pixman_region32_fini(&intersection);
 #endif
 
@@ -368,14 +369,14 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
         LOG_DBG("box #%d: x1=%d, y1=%d, x2=%d, y2=%d", i,
                 boxes[i].x1, boxes[i].y1, boxes[i].x2, boxes[i].y2);
 
-        assert(boxes[i].x1 % term->cell_width == 0);
-        assert(boxes[i].y1 % term->cell_height == 0);
+        xassert(boxes[i].x1 % term->cell_width == 0);
+        xassert(boxes[i].y1 % term->cell_height == 0);
 
         /* New image's position, in cells */
         const int new_col = boxes[i].x1 / term->cell_width;
         const int new_row = boxes[i].y1 / term->cell_height;
 
-        assert(new_row < term->grid->num_rows);
+        xassert(new_row < term->grid->num_rows);
 
         /* New image's width and height, in pixels */
         const int new_width = boxes[i].x2 - boxes[i].x1;
@@ -413,7 +414,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
 #if defined(_DEBUG)
         /* Assert we don't cross the scrollback wrap-around */
         const int new_end = new_six.pos.row + new_six.rows - 1;
-        assert(new_end < term->grid->num_rows);
+        xassert(new_end < term->grid->num_rows);
 #endif
 
         sixel_insert(term, new_six);
@@ -438,7 +439,7 @@ _sixel_overwrite_by_rectangle(
     const int end = row + height - 1;
 
     /* We should never generate scrollback wrapping sixels */
-    assert(end < term->grid->num_rows);
+    xassert(end < term->grid->num_rows);
 
     const int scrollback_rel_start = rebase_row(term, start);
 
@@ -452,7 +453,7 @@ _sixel_overwrite_by_rectangle(
         const int six_scrollback_rel_end = rebase_row(term, six_end);
 
         /* We should never generate scrollback wrapping sixels */
-        assert(six_end < term->grid->num_rows);
+        xassert(six_end < term->grid->num_rows);
 
         if (six_scrollback_rel_end < scrollback_rel_start) {
             /* All remaining sixels are *before* our rectangle */
@@ -484,7 +485,7 @@ _sixel_overwrite_by_rectangle(
                 (col <= col_end && col + width - 1 >= col_end) ||
                 (col >= col_start && col + width - 1 <= col_end))
             {
-                assert(!would_have_breaked);
+                xassert(!would_have_breaked);
 
                 struct sixel to_be_erased = *six;
                 tll_remove(term->grid->sixel_images, it);
@@ -492,9 +493,9 @@ _sixel_overwrite_by_rectangle(
                 sixel_overwrite(term, &to_be_erased, start, col, height, width);
                 sixel_erase(term, &to_be_erased);
             } else
-                assert(!collides);
+                xassert(!collides);
         } else
-            assert(!collides);
+            xassert(!collides);
 
 #if defined(_DEBUG)
         pixman_region32_fini(&intersection);
@@ -520,7 +521,7 @@ sixel_overwrite_by_rectangle(
 
     if (wraps) {
         int rows_to_wrap_around = term->grid->num_rows - start;
-        assert(height - rows_to_wrap_around > 0);
+        xassert(height - rows_to_wrap_around > 0);
         _sixel_overwrite_by_rectangle(term, start, col, rows_to_wrap_around, width);
         _sixel_overwrite_by_rectangle(term, 0, col, height - rows_to_wrap_around, width);
     } else
@@ -531,12 +532,12 @@ sixel_overwrite_by_rectangle(
 void
 sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
 {
-    assert(col >= 0);
+    xassert(col >= 0);
 
-    assert(_row >= 0);
-    assert(_row < term->rows);
-    assert(col >= 0);
-    assert(col < term->grid->num_cols);
+    xassert(_row >= 0);
+    xassert(_row < term->rows);
+    xassert(col >= 0);
+    xassert(col < term->grid->num_cols);
 
     if (likely(tll_length(term->grid->sixel_images) == 0))
         return;
@@ -553,7 +554,7 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
         const int six_end = (six_start + six->rows - 1) & (term->grid->num_rows - 1);
 
         /* We should never generate scrollback wrapping sixels */
-        assert(six_end >= six_start);
+        xassert(six_end >= six_start);
 
         const int six_scrollback_rel_end = rebase_row(term, six_end);
 
@@ -730,8 +731,8 @@ sixel_unhook(struct terminal *term)
             .pos = (struct coord){start_col, cur_row},
         };
 
-        assert(image.rows < term->grid->num_rows);
-        assert(image.pos.row + image.rows - 1 < term->grid->num_rows);
+        xassert(image.rows < term->grid->num_rows);
+        xassert(image.pos.row + image.rows - 1 < term->grid->num_rows);
 
         LOG_DBG("generating %dx%d pixman image at %d-%d",
                 image.width, image.height,
@@ -795,8 +796,8 @@ resize(struct terminal *term, int new_width, int new_height)
 
     int alloc_new_width = new_width;
     int alloc_new_height = (new_height + 6 - 1) / 6 * 6;
-    assert(alloc_new_height >= new_height);
-    assert(alloc_new_height - new_height < 6);
+    xassert(alloc_new_height >= new_height);
+    xassert(alloc_new_height - new_height < 6);
 
     uint32_t *new_data = NULL;
 
@@ -810,11 +811,11 @@ resize(struct terminal *term, int new_width, int new_height)
             return false;
         }
 
-        assert(new_height > old_height);
+        xassert(new_height > old_height);
 
     } else {
         /* Width (and thus stride) change - need to allocate a new buffer */
-        assert(new_width > old_width);
+        xassert(new_width > old_width);
         new_data = xmalloc(alloc_new_width * alloc_new_height * sizeof(uint32_t));
 
         /* Copy old rows, and initialize new columns to background color */
@@ -833,7 +834,7 @@ resize(struct terminal *term, int new_width, int new_height)
             new_data[r * new_width + c] = color_with_alpha(term, term->colors.bg);
     }
 
-    assert(new_data != NULL);
+    xassert(new_data != NULL);
     term->sixel.image.data = new_data;
     term->sixel.image.width = new_width;
     term->sixel.image.height = new_height;
@@ -876,7 +877,7 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
         }
     }
 
-    assert(sixel == 0);
+    xassert(sixel == 0);
     term->sixel.pos.col++;
 }
 

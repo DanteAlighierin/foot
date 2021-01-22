@@ -27,6 +27,21 @@
     #define HAS_BUILTIN(x) 0
 #endif
 
+#ifdef __has_feature
+    #define HAS_FEATURE(x) __has_feature(x)
+#else
+    #define HAS_FEATURE(x) 0
+#endif
+
+// __has_extension() is a Clang macro used to determine if a feature is
+// available even if not standardized in the current "-std" mode.
+#ifdef __has_extension
+    #define HAS_EXTENSION(x) __has_extension(x)
+#else
+    // Clang versions prior to 3.0 only supported __has_feature()
+    #define HAS_EXTENSION(x) HAS_FEATURE(x)
+#endif
+
 #if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(unused) || defined(__TINYC__)
     #define UNUSED __attribute__((__unused__))
 #else
@@ -139,11 +154,11 @@
 #define XSTRDUP XMALLOC NONNULL_ARGS
 
 #if __STDC_VERSION__ >= 201112L
-    #define NORETURN _Noreturn
+    #define noreturn _Noreturn
 #elif GNUC_AT_LEAST(3, 0)
-    #define NORETURN __attribute__((__noreturn__))
+    #define noreturn __attribute__((__noreturn__))
 #else
-    #define NORETURN
+    #define noreturn
 #endif
 
 #if CLANG_AT_LEAST(3, 6)

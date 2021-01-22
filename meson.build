@@ -106,6 +106,7 @@ version = custom_target(
 
 misc = static_library(
   'misc',
+  'debug.c', 'debug.h',
   'hsl.c', 'hsl.h',
   'log.c', 'log.h',
   'macros.h',
@@ -180,6 +181,7 @@ executable(
 executable(
   'footclient',
   'client.c', 'client-protocol.h',
+  'debug.c', 'debug.h',
   'foot-features.h',
   'log.c', 'log.h',
   'macros.h',

@@ -150,10 +150,10 @@ presented(void *data,
         "commit - %llu µs -> ", (unsigned long long)diff.tv_usec);
 
     if (use_input) {
-        assert(timercmp(&presented, input, >));
+        xassert(timercmp(&presented, input, >));
         timersub(&presented, input, &diff);
     } else {
-        assert(timercmp(&presented, commit, >));
+        xassert(timercmp(&presented, commit, >));
         timersub(&presented, commit, &diff);
     }
 
@@ -396,7 +396,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     int x = term->margins.left + col * width;
     int y = term->margins.top + row_no * height;
 
-    assert(cell->attrs.selected == 0 || cell->attrs.selected == 1);
+    xassert(cell->attrs.selected == 0 || cell->attrs.selected == 1);
     bool is_selected = cell->attrs.selected;
 
     uint32_t _fg = 0;
@@ -454,7 +454,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                      (base >= 0x1fb00 && base <= 0x1fb3b))) {
             /* Box drawing characters */
             size_t idx = base >= 0x1fb00 ? base - 0x1fb00 + 160 : base - 0x2500;
-            assert(idx < ALEN(term->box_drawing));
+            xassert(idx < ALEN(term->box_drawing));
 
             if (likely(term->box_drawing[idx] != NULL))
                 glyph = term->box_drawing[idx];
@@ -467,7 +467,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                 mtx_unlock(&term->render.workers.lock);
 
                 glyph = term->box_drawing[idx];
-                assert(glyph != NULL);
+                xassert(glyph != NULL);
             }
         } else
             glyph = fcft_glyph_rasterize(font, base, term->font_subpixel);
@@ -893,10 +893,10 @@ render_sixel_chunk(struct terminal *term, pixman_image_t *pix, const struct sixe
             term->height - y - term->margins.bottom));
 
     /* Verify we're not stepping outside the grid */
-    assert(x >= term->margins.left);
-    assert(y >= term->margins.top);
-    assert(width == 0 || x + width <= term->width - term->margins.right);
-    assert(height == 0 || y + height <= term->height - term->margins.bottom);
+    xassert(x >= term->margins.left);
+    xassert(y >= term->margins.top);
+    xassert(width == 0 || x + width <= term->width - term->margins.right);
+    xassert(height == 0 || y + height <= term->height - term->margins.bottom);
 
     //LOG_DBG("sixel chunk: %dx%d %dx%d", x, y, width, height);
 
@@ -980,7 +980,7 @@ render_sixel(struct terminal *term, pixman_image_t *pix,
 
         /* Is the row dirty? */
         struct row *row = term->grid->rows[abs_row_no];
-        assert(row != NULL);  /* Should be visible */
+        xassert(row != NULL);  /* Should be visible */
 
         if (!row->dirty) {
             maybe_emit_sixel_chunk_then_reset();
@@ -1014,7 +1014,7 @@ render_sixel(struct terminal *term, pixman_image_t *pix,
         }
 
         if (chunk_term_start == -1) {
-            assert(chunk_img_start == -1);
+            xassert(chunk_img_start == -1);
             chunk_term_start = term_row_no;
             chunk_img_start = _abs_row_no - sixel->pos.row;
             chunk_row_count = 1;
@@ -1125,8 +1125,8 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
         }
     }
 
-    assert(col_idx >= 0);
-    assert(col_idx < term->cols);
+    xassert(col_idx >= 0);
+    xassert(col_idx < term->cols);
 
     struct row *row = grid_row_in_view(term->grid, row_idx);
 
@@ -1143,14 +1143,14 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
      */
     struct cell *real_cells = malloc(cells_used * sizeof(real_cells[0]));
     for (int i = 0; i < cells_used; i++) {
-        assert(col_idx + i < term->cols);
+        xassert(col_idx + i < term->cols);
         real_cells[i] = row->cells[col_idx + i];
         real_cells[i].attrs.clean = 0;
     }
     row->dirty = true;
 
     /* Render pre-edit text */
-    assert(term->ime.preedit.cells[ime_ofs].wc != CELL_MULT_COL_SPACER);
+    xassert(term->ime.preedit.cells[ime_ofs].wc != CELL_MULT_COL_SPACER);
     for (int i = 0, idx = ime_ofs; idx < term->ime.preedit.count; i++, idx++) {
         const struct cell *cell = &term->ime.preedit.cells[idx];
 
@@ -1255,14 +1255,14 @@ render_worker_thread(void *_ctx)
 
         while (!frame_done) {
             mtx_lock(lock);
-            assert(tll_length(term->render.workers.queue) > 0);
+            xassert(tll_length(term->render.workers.queue) > 0);
 
             int row_no = tll_pop_front(term->render.workers.queue);
             mtx_unlock(lock);
 
             switch (row_no) {
             default: {
-                assert(buf != NULL);
+                xassert(buf != NULL);
 
                 struct row *row = grid_row_in_view(term->grid, row_no);
                 int cursor_col = cursor.row == row_no ? cursor.col : -1;
@@ -1295,7 +1295,7 @@ struct csd_data {
 static struct csd_data
 get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
 {
-    assert(term->window->use_csd == CSD_YES);
+    xassert(term->window->use_csd == CSD_YES);
 
     /* Only title bar is rendered in maximized mode */
     const int border_width = !term->window->is_maximized
@@ -1330,11 +1330,11 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
     case CSD_SURF_CLOSE:    return (struct csd_data){term->width - 1 * button_width, 0, button_close_width,    title_height};
 
     case CSD_SURF_COUNT:
-        assert(false);
+        xassert(false);
         return (struct csd_data){0};
     }
 
-    assert(false);
+    xassert(false);
     return (struct csd_data){0};
 }
 
@@ -1352,7 +1352,7 @@ render_csd_part(struct terminal *term,
                 struct wl_surface *surf, struct buffer *buf,
                 int width, int height, pixman_color_t *color)
 {
-    assert(term->window->use_csd == CSD_YES);
+    xassert(term->window->use_csd == CSD_YES);
 
     pixman_image_t *src = pixman_image_create_solid_fill(color);
 
@@ -1365,12 +1365,12 @@ render_csd_part(struct terminal *term,
 static void
 render_csd_title(struct terminal *term)
 {
-    assert(term->window->use_csd == CSD_YES);
+    xassert(term->window->use_csd == CSD_YES);
 
     struct csd_data info = get_csd_data(term, CSD_SURF_TITLE);
     struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE];
 
-    assert(info.width > 0 && info.height > 0);
+    xassert(info.width > 0 && info.height > 0);
 
     unsigned long cookie = shm_cookie_csd(term, CSD_SURF_TITLE);
     struct buffer *buf = shm_get_buffer(
@@ -1395,8 +1395,8 @@ render_csd_title(struct terminal *term)
 static void
 render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 {
-    assert(term->window->use_csd == CSD_YES);
-    assert(surf_idx >= CSD_SURF_LEFT && surf_idx <= CSD_SURF_BOTTOM);
+    xassert(term->window->use_csd == CSD_YES);
+    xassert(surf_idx >= CSD_SURF_LEFT && surf_idx <= CSD_SURF_BOTTOM);
 
     struct csd_data info = get_csd_data(term, surf_idx);
     struct wl_surface *surf = term->window->csd.surface[surf_idx];
@@ -1430,8 +1430,8 @@ render_csd_button_minimize(struct terminal *term, struct buffer *buf)
         width = height * 2;
     }
 
-    assert(width <= max_width);
-    assert(height <= max_height);
+    xassert(width <= max_width);
+    xassert(height <= max_height);
 
     int x_margin = (buf->width - width) / 2.;
     int y_margin = (buf->height - height) / 2.;
@@ -1503,8 +1503,8 @@ render_csd_button_maximize_window(
         width = height * 2;
     }
 
-    assert(width <= max_width);
-    assert(height <= max_height);
+    xassert(width <= max_width);
+    xassert(height <= max_height);
 
     int x_margin = (buf->width - width) / 2.;
     int y_margin = (buf->height - height) / 2.;
@@ -1564,8 +1564,8 @@ render_csd_button_close(struct terminal *term, struct buffer *buf)
 static void
 render_csd_button(struct terminal *term, enum csd_surface surf_idx)
 {
-    assert(term->window->use_csd == CSD_YES);
-    assert(surf_idx >= CSD_SURF_MINIMIZE && surf_idx <= CSD_SURF_CLOSE);
+    xassert(term->window->use_csd == CSD_YES);
+    xassert(surf_idx >= CSD_SURF_MINIMIZE && surf_idx <= CSD_SURF_CLOSE);
 
     struct csd_data info = get_csd_data(term, surf_idx);
     struct wl_surface *surf = term->window->csd.surface[surf_idx];
@@ -1606,7 +1606,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
         break;
 
     default:
-        assert(false);
+        xassert(false);
         break;
     }
 
@@ -1633,7 +1633,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
         break;
 
     default:
-        assert(false);
+        xassert(false);
         break;
     }
 
@@ -1643,7 +1643,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
 static void
 render_csd(struct terminal *term)
 {
-    assert(term->window->use_csd == CSD_YES);
+    xassert(term->window->use_csd == CSD_YES);
 
     if (term->window->is_fullscreen)
         return;
@@ -1658,8 +1658,8 @@ render_csd(struct terminal *term)
         struct wl_surface *surf = term->window->csd.surface[i];
         struct wl_subsurface *sub = term->window->csd.sub_surface[i];
 
-        assert(surf != NULL);
-        assert(sub != NULL);
+        xassert(surf != NULL);
+        xassert(sub != NULL);
 
         if (width == 0 || height == 0) {
             wl_subsurface_set_position(sub, 0, 0);
@@ -1775,8 +1775,8 @@ render_scrollback_position(struct terminal *term)
         wl_subsurface_set_sync(win->scrollback_indicator_sub_surface);
     }
 
-    assert(win->scrollback_indicator_surface != NULL);
-    assert(win->scrollback_indicator_sub_surface != NULL);
+    xassert(win->scrollback_indicator_surface != NULL);
+    xassert(win->scrollback_indicator_sub_surface != NULL);
 
     /* Find absolute row number of the scrollback start */
     int scrollback_start = term->grid->offset + term->rows;
@@ -1793,8 +1793,8 @@ render_scrollback_position(struct terminal *term)
 
     /* How much of the scrollback is actually used? */
     int populated_rows = term->grid->num_rows - empty_rows;
-    assert(populated_rows > 0);
-    assert(populated_rows <= term->grid->num_rows);
+    xassert(populated_rows > 0);
+    xassert(populated_rows <= term->grid->num_rows);
 
     /*
      * How far down in the scrollback we are.
@@ -1842,7 +1842,7 @@ render_scrollback_position(struct terminal *term)
     int surf_top = 0;
     switch (term->conf->scrollback.indicator.position) {
     case SCROLLBACK_INDICATOR_POSITION_NONE:
-        assert(false);
+        xassert(false);
         return;
 
     case SCROLLBACK_INDICATOR_POSITION_FIXED:
@@ -1855,7 +1855,7 @@ render_scrollback_position(struct terminal *term)
             /* Make sure we don't collide with the scrollback search box */
             lines--;
         }
-        assert(lines > 0);
+        xassert(lines > 0);
 
         int pixels = lines * term->cell_height - height + 2 * margin;
         surf_top = term->cell_height - margin + (int)(percent * pixels);
@@ -1925,8 +1925,8 @@ grid_render(struct terminal *term)
     if (term->conf->tweak.render_timer_osd || term->conf->tweak.render_timer_log)
         gettimeofday(&start_time, NULL);
 
-    assert(term->width > 0);
-    assert(term->height > 0);
+    xassert(term->width > 0);
+    xassert(term->height > 0);
 
     unsigned long cookie = shm_cookie_grid(term);
     struct buffer *buf = shm_get_buffer(
@@ -1955,7 +1955,7 @@ grid_render(struct terminal *term)
                 has_warned = true;
             }
 
-            assert(term->render.last_buf->size == buf->size);
+            xassert(term->render.last_buf->size == buf->size);
             memcpy(buf->mmapped, term->render.last_buf->mmapped, buf->size);
         }
 
@@ -2054,7 +2054,7 @@ grid_render(struct terminal *term)
         for (size_t i = 0; i < term->render.workers.count; i++)
             sem_post(&term->render.workers.start);
 
-        assert(tll_length(term->render.workers.queue) == 0);
+        xassert(tll_length(term->render.workers.queue) == 0);
     }
 
     int first_dirty_row = -1;
@@ -2142,10 +2142,10 @@ grid_render(struct terminal *term)
             render_render_timer(term, render_time);
     }
 
-    assert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
-    assert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
+    xassert(term->grid->offset >= 0 && term->grid->offset < term->grid->num_rows);
+    xassert(term->grid->view >= 0 && term->grid->view < term->grid->num_rows);
 
-    assert(term->window->frame_callback == NULL);
+    xassert(term->window->frame_callback == NULL);
     term->window->frame_callback = wl_surface_frame(term->window->surface);
     wl_callback_add_listener(term->window->frame_callback, &frame_listener, term);
 
@@ -2191,7 +2191,7 @@ grid_render(struct terminal *term)
 static void
 render_search_box(struct terminal *term)
 {
-    assert(term->window->search_sub_surface != NULL);
+    xassert(term->window->search_sub_surface != NULL);
 
     /*
      * We treat the search box pretty much like a row of cells. That
@@ -2237,7 +2237,7 @@ render_search_box(struct terminal *term)
     const size_t total_cells = wcswidth(text, text_len);
     const size_t wanted_visible_cells = max(20, total_cells);
 
-    assert(term->scale >= 1);
+    xassert(term->scale >= 1);
     const int scale = term->scale;
 
     const size_t margin = 3 * scale;
@@ -2391,8 +2391,8 @@ render_search_box(struct terminal *term)
 #endif
             {
                 /* Cursor *should* be in the visible area */
-                assert(cell_idx >= glyph_offset);
-                assert(cell_idx <= glyph_offset + visible_cells);
+                xassert(cell_idx >= glyph_offset);
+                xassert(cell_idx <= glyph_offset + visible_cells);
                 draw_bar(term, buf->pix[0], font, &fg, x, y);
             }
         }
@@ -2492,7 +2492,7 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 {
     struct terminal *term = data;
 
-    assert(term->window->frame_callback == wl_callback);
+    xassert(term->window->frame_callback == wl_callback);
     wl_callback_destroy(wl_callback);
     term->window->frame_callback = NULL;
 
@@ -2567,7 +2567,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
                 if (term->window->use_csd == CSD_YES) {
                     /* Take CSD title bar into account */
-                    assert(!term->window->is_fullscreen);
+                    xassert(!term->window->is_fullscreen);
                     height -= term->conf->csd.title_height;
                 }
 
@@ -2591,8 +2591,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
                 if (height % scale)
                     height += scale - height % scale;
 
-                assert(width % scale == 0);
-                assert(height % scale == 0);
+                xassert(width % scale == 0);
+                xassert(height % scale == 0);
                 break;
             }
         }
@@ -2639,8 +2639,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     const int new_normal_grid_rows = 1 << (32 - __builtin_clz(new_rows + scrollback_lines - 1));
     const int new_alt_grid_rows = 1 << (32  - __builtin_clz(new_rows));
 
-    assert(new_cols >= 1);
-    assert(new_rows >= 1);
+    xassert(new_cols >= 1);
+    xassert(new_rows >= 1);
 
     /* Margins */
     const int grid_width = new_cols * term->cell_width;
@@ -2658,10 +2658,10 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->margins.right = total_x_pad - term->margins.left;
     term->margins.bottom = total_y_pad - term->margins.top;
 
-    assert(term->margins.left >= pad_x);
-    assert(term->margins.right >= pad_x);
-    assert(term->margins.top >= pad_y);
-    assert(term->margins.bottom >= pad_y);
+    xassert(term->margins.left >= pad_x);
+    xassert(term->margins.right >= pad_x);
+    xassert(term->margins.top >= pad_y);
+    xassert(term->margins.bottom >= pad_y);
 
     if (new_cols == old_cols && new_rows == old_rows) {
         LOG_DBG("grid layout unaffected; skipping reflow");
@@ -2786,7 +2786,7 @@ render_xcursor_update(struct seat *seat)
     if (!seat->mouse_focus)
         return;
 
-    assert(seat->pointer.xcursor != NULL);
+    xassert(seat->pointer.xcursor != NULL);
 
     if (seat->pointer.xcursor == XCURSOR_HIDDEN) {
         /* Hide cursor */
@@ -2819,7 +2819,7 @@ render_xcursor_update(struct seat *seat)
 
     wl_surface_set_buffer_scale(seat->pointer.surface, scale);
 
-    assert(seat->pointer.xcursor_callback == NULL);
+    xassert(seat->pointer.xcursor_callback == NULL);
     seat->pointer.xcursor_callback = wl_surface_frame(seat->pointer.surface);
     wl_callback_add_listener(seat->pointer.xcursor_callback, &xcursor_listener, seat);
 
@@ -2831,7 +2831,7 @@ xcursor_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_
 {
     struct seat *seat = data;
 
-    assert(seat->pointer.xcursor_callback == wl_callback);
+    xassert(seat->pointer.xcursor_callback == wl_callback);
     wl_callback_destroy(wl_callback);
     seat->pointer.xcursor_callback = NULL;
 

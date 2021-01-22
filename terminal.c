@@ -3,7 +3,6 @@
 #include <malloc.h>
 #include <string.h>
 #include <unistd.h>
-#include <assert.h>
 #include <errno.h>
 
 #include <sys/stat.h>
@@ -22,6 +21,7 @@
 
 #include "async.h"
 #include "config.h"
+#include "debug.h"
 #include "extract.h"
 #include "grid.h"
 #include "ime.h"
@@ -94,14 +94,14 @@ data_to_slave(struct terminal *term, const void *data, size_t len,
     }
 
     /* Shouldn't get here */
-    assert(false);
+    xassert(false);
     return false;
 }
 
 bool
 term_paste_data_to_slave(struct terminal *term, const void *data, size_t len)
 {
-    assert(term->is_sending_paste_data);
+    xassert(term->is_sending_paste_data);
 
     if (term->ptmx < 0) {
         /* We're probably in "hold" */
@@ -150,7 +150,7 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
     struct terminal *term = data;
 
     /* If there is no queued data, then we shouldn't be in asynchronous mode */
-    assert(tll_length(term->ptmx_buffers) > 0 ||
+    xassert(tll_length(term->ptmx_buffers) > 0 ||
            tll_length(term->ptmx_paste_buffers) > 0);
 
     /* Writes a single buffer, returns if not all of it could be written */
@@ -230,7 +230,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     const size_t max_iterations = 10;
 
     for (size_t i = 0; i < max_iterations && pollin && count == sizeof(buf); i++) {
-        assert(pollin);
+        xassert(pollin);
         count = read(term->ptmx, buf, sizeof(buf));
 
         if (count < 0) {
@@ -291,9 +291,9 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
             last = now;
 #endif
 
-            assert(lower_ns < 1000000000);
-            assert(upper_ns < 1000000000);
-            assert(upper_ns > lower_ns);
+            xassert(lower_ns < 1000000000);
+            xassert(upper_ns < 1000000000);
+            xassert(upper_ns > lower_ns);
 
             timerfd_settime(
                 term->delayed_render_timer.lower_fd, 0,
@@ -621,7 +621,7 @@ static bool
 term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
 {
     for (size_t i = 0; i < 4; i++) {
-        assert(fonts[i] != NULL);
+        xassert(fonts[i] != NULL);
 
         fcft_destroy(term->fonts[i]);
         term->fonts[i] = fonts[i];
@@ -710,7 +710,7 @@ get_font_dpi(const struct terminal *term)
 
     /* Use highest DPI from outputs we're mapped on */
     double dpi = 0.0;
-    assert(term->window != NULL);
+    xassert(term->window != NULL);
     tll_foreach(term->window->on_outputs, it) {
         if (it->item->dpi > dpi)
             dpi = it->item->dpi;
@@ -738,7 +738,7 @@ get_font_scale(const struct terminal *term)
     /* Same as get_font_dpi(), but returns output scale factor instead */
     int scale = 0;
 
-    assert(term->window != NULL);
+    xassert(term->window != NULL);
     tll_foreach(term->window->on_outputs, it) {
         if (it->item->scale > scale)
             scale = it->item->scale;
@@ -1267,7 +1267,7 @@ term_window_configured(struct terminal *term)
 {
     /* Enable ptmx FDM callback */
     if (!term->is_shutting_down) {
-        assert(term->window->is_configured);
+        xassert(term->window->is_configured);
         fdm_add(term->fdm, term->ptmx, EPOLLIN, &fdm_ptmx, term);
     }
 }
@@ -1325,7 +1325,7 @@ term_shutdown(struct terminal *term)
      */
 
     term_cursor_blink_update(term);
-    assert(term->cursor_blink.fd < 0);
+    xassert(term->cursor_blink.fd < 0);
 
     fdm_del(term->fdm, term->selection.auto_scroll.fd);
     fdm_del(term->fdm, term->render.app_sync_updates.timer_fd);
@@ -1405,7 +1405,7 @@ term_destroy(struct terminal *term)
         wayl_win_destroy(term->window);
 
     mtx_lock(&term->render.workers.lock);
-    assert(tll_length(term->render.workers.queue) == 0);
+    xassert(tll_length(term->render.workers.queue) == 0);
 
     /* Count livinig threads - we may get here when only some of the
      * threads have been successfully started */
@@ -1463,7 +1463,7 @@ term_destroy(struct terminal *term)
     mtx_destroy(&term->render.workers.lock);
     sem_destroy(&term->render.workers.start);
     sem_destroy(&term->render.workers.done);
-    assert(tll_length(term->render.workers.queue) == 0);
+    xassert(tll_length(term->render.workers.queue) == 0);
     tll_free(term->render.workers.queue);
 
     tll_foreach(term->ptmx_buffers, it)
@@ -1522,7 +1522,7 @@ term_destroy(struct terminal *term)
                 break;
 
             if (r == -1) {
-                assert(errno == EINTR);
+                xassert(errno == EINTR);
 
                 if (alarm_raised) {
                     LOG_DBG("slave hasn't died yet, sending: %s (%d)",
@@ -1570,8 +1570,8 @@ term_destroy(struct terminal *term)
 static inline void
 erase_cell_range(struct terminal *term, struct row *row, int start, int end)
 {
-    assert(start < term->cols);
-    assert(end < term->cols);
+    xassert(start < term->cols);
+    xassert(end < term->cols);
 
     row->dirty = true;
 
@@ -1807,7 +1807,7 @@ term_font_subpixel_changed(struct terminal *term)
 void
 term_damage_rows(struct terminal *term, int start, int end)
 {
-    assert(start <= end);
+    xassert(start <= end);
     for (int r = start; r <= end; r++) {
         struct row *row = grid_row(term->grid, r);
         row->dirty = true;
@@ -1819,7 +1819,7 @@ term_damage_rows(struct terminal *term, int start, int end)
 void
 term_damage_rows_in_view(struct terminal *term, int start, int end)
 {
-    assert(start <= end);
+    xassert(start <= end);
     for (int r = start; r <= end; r++) {
         struct row *row = grid_row_in_view(term->grid, r);
         row->dirty = true;
@@ -1879,8 +1879,8 @@ term_damage_scroll(struct terminal *term, enum damage_type damage_type,
 void
 term_erase(struct terminal *term, const struct coord *start, const struct coord *end)
 {
-    assert(start->row <= end->row);
-    assert(start->col <= end->col || start->row < end->row);
+    xassert(start->row <= end->row);
+    xassert(start->col <= end->col || start->row < end->row);
 
     if (start->row == end->row) {
         struct row *row = grid_row(term->grid, start->row);
@@ -1889,7 +1889,7 @@ term_erase(struct terminal *term, const struct coord *start, const struct coord 
         return;
     }
 
-    assert(end->row > start->row);
+    xassert(end->row > start->row);
 
     erase_cell_range(
         term, grid_row(term->grid, start->row), start->col, term->cols - 1);
@@ -1915,15 +1915,15 @@ term_row_rel_to_abs(const struct terminal *term, int row)
         return min(row + term->scroll_region.start, term->scroll_region.end - 1);
     }
 
-    assert(false);
+    xassert(false);
     return -1;
 }
 
 void
 term_cursor_to(struct terminal *term, int row, int col)
 {
-    assert(row < term->rows);
-    assert(col < term->cols);
+    xassert(row < term->rows);
+    xassert(col < term->cols);
 
     term->grid->cursor.lcf = false;
 
@@ -1942,7 +1942,7 @@ term_cursor_home(struct terminal *term)
 void
 term_cursor_left(struct terminal *term, int count)
 {
-    assert(count >= 0);
+    xassert(count >= 0);
     int new_col = term->grid->cursor.point.col - count;
 
     /* Reverse wrap */
@@ -1957,7 +1957,7 @@ term_cursor_left(struct terminal *term, int count)
 
             /* New column number */
             new_col = term->cols - ((abs(new_col) - 1) % term->cols + 1);
-            assert(new_col >= 0 && new_col < term->cols);
+            xassert(new_col >= 0 && new_col < term->cols);
 
             /* Don't back up past the scroll region */
             /* TODO: should this be allowed? */
@@ -1978,7 +1978,7 @@ term_cursor_left(struct terminal *term, int count)
         new_col = 0;
     }
 
-    assert(new_col >= 0);
+    xassert(new_col >= 0);
     term->grid->cursor.point.col = new_col;
     term->grid->cursor.lcf = false;
 }
@@ -1988,7 +1988,7 @@ term_cursor_right(struct terminal *term, int count)
 {
     int move_amount = min(term->cols - term->grid->cursor.point.col - 1, count);
     term->grid->cursor.point.col += move_amount;
-    assert(term->grid->cursor.point.col < term->cols);
+    xassert(term->grid->cursor.point.col < term->cols);
     term->grid->cursor.lcf = false;
 }
 
@@ -1996,7 +1996,7 @@ void
 term_cursor_up(struct terminal *term, int count)
 {
     int top = term->origin == ORIGIN_ABSOLUTE ? 0 : term->scroll_region.start;
-    assert(term->grid->cursor.point.row >= top);
+    xassert(term->grid->cursor.point.row >= top);
 
     int move_amount = min(term->grid->cursor.point.row - top, count);
     term_cursor_to(term, term->grid->cursor.point.row - move_amount, term->grid->cursor.point.col);
@@ -2006,7 +2006,7 @@ void
 term_cursor_down(struct terminal *term, int count)
 {
     int bottom = term->origin == ORIGIN_ABSOLUTE ? term->rows : term->scroll_region.end;
-    assert(bottom >= term->grid->cursor.point.row);
+    xassert(bottom >= term->grid->cursor.point.row);
 
     int move_amount = min(bottom - term->grid->cursor.point.row - 1, count);
     term_cursor_to(term, term->grid->cursor.point.row + move_amount, term->grid->cursor.point.col);
@@ -2094,7 +2094,7 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
             rows, region.start, region.end);
 
     /* Verify scroll amount has been clamped */
-    assert(rows <= region.end - region.start);
+    xassert(rows <= region.end - region.start);
 
     /* Cancel selections that cannot be scrolled */
     if (unlikely(term->selection.end.row >= 0)) {
@@ -2139,7 +2139,7 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
 
 #if defined(_DEBUG)
     for (int r = 0; r < term->rows; r++)
-        assert(grid_row(term->grid, r) != NULL);
+        xassert(grid_row(term->grid, r) != NULL);
 #endif
 }
 
@@ -2157,7 +2157,7 @@ term_scroll_reverse_partial(struct terminal *term,
             rows, region.start, region.end);
 
     /* Verify scroll amount has been clamped */
-    assert(rows <= region.end - region.start);
+    xassert(rows <= region.end - region.start);
 
     /* Cancel selections that cannot be scrolled */
     if (unlikely(term->selection.end.row >= 0)) {
@@ -2182,8 +2182,8 @@ term_scroll_reverse_partial(struct terminal *term,
         term->grid->offset += term->grid->num_rows;
     term->grid->offset &= term->grid->num_rows - 1;
 
-    assert(term->grid->offset >= 0);
-    assert(term->grid->offset < term->grid->num_rows);
+    xassert(term->grid->offset >= 0);
+    xassert(term->grid->offset < term->grid->num_rows);
 
     if (view_follows) {
         selection_view_up(term, term->grid->offset);
@@ -2207,7 +2207,7 @@ term_scroll_reverse_partial(struct terminal *term,
 
 #if defined(_DEBUG)
     for (int r = 0; r < term->rows; r++)
-        assert(grid_row(term->grid, r) != NULL);
+        xassert(grid_row(term->grid, r) != NULL);
 #endif
 }
 
@@ -2470,7 +2470,7 @@ term_mouse_down(struct terminal *term, int button, int row, int col,
 
     case MOUSE_X10:
         /* Never enabled */
-        assert(false && "unimplemented");
+        xassert(false && "unimplemented");
         break;
     }
 }
@@ -2512,7 +2512,7 @@ term_mouse_up(struct terminal *term, int button, int row, int col,
 
     case MOUSE_X10:
         /* Never enabled */
-        assert(false && "unimplemented");
+        xassert(false && "unimplemented");
         break;
     }
 }
@@ -2559,7 +2559,7 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
 
     case MOUSE_X10:
         /* Never enabled */
-        assert(false && "unimplemented");
+        xassert(false && "unimplemented");
         break;
     }
 }
@@ -2720,7 +2720,7 @@ print_insert(struct terminal *term, int width)
     if (likely(!term->insert_mode))
         return;
 
-    assert(width > 0);
+    xassert(width > 0);
 
     struct row *row = term->grid->cur_row;
     const size_t move_count = max(0, term->cols - term->grid->cursor.point.col - width);
@@ -2749,7 +2749,7 @@ print_spacer(struct terminal *term, int col)
 void
 term_print(struct terminal *term, wchar_t wc, int width)
 {
-    assert(width > 0);
+    xassert(width > 0);
 
     print_linewrap(term);
     print_insert(term, width);
@@ -2788,7 +2788,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     /* Advance cursor */
     if (term->grid->cursor.point.col < term->cols - 1) {
         term->grid->cursor.point.col++;
-        assert(!term->grid->cursor.lcf);
+        xassert(!term->grid->cursor.lcf);
     } else
         term->grid->cursor.lcf = true;
 }
@@ -2837,7 +2837,7 @@ rows_to_text(const struct terminal *term, int start, int end,
          r = (r + 1) & (term->grid->num_rows - 1))
     {
         const struct row *row = term->grid->rows[r];
-        assert(row != NULL);
+        xassert(row != NULL);
 
         for (int c = 0; c < term->cols; c++)
             if (!extract_one(term, row, &row->cells[c], c, ctx))

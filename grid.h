@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stddef.h>
+#include "debug.h"
 #include "terminal.h"
 
 void grid_swap_row(struct grid *grid, int row_a, int row_b);
@@ -34,7 +35,7 @@ grid_row_absolute_in_view(const struct grid *grid, int row_no)
 static inline struct row *
 _grid_row_maybe_alloc(struct grid *grid, int row_no, bool alloc_if_null)
 {
-    assert(grid->offset >= 0);
+    xassert(grid->offset >= 0);
 
     int real_row = grid_row_absolute(grid, row_no);
     struct row *row = grid->rows[real_row];
@@ -44,7 +45,7 @@ _grid_row_maybe_alloc(struct grid *grid, int row_no, bool alloc_if_null)
         grid->rows[real_row] = row;
     }
 
-    assert(row != NULL);
+    xassert(row != NULL);
     return row;
 }
 
@@ -63,11 +64,11 @@ grid_row_and_alloc(struct grid *grid, int row_no)
 static inline struct row *
 grid_row_in_view(struct grid *grid, int row_no)
 {
-    assert(grid->view >= 0);
+    xassert(grid->view >= 0);
 
     int real_row = grid_row_absolute_in_view(grid, row_no);
     struct row *row = grid->rows[real_row];
 
-    assert(row != NULL);
+    xassert(row != NULL);
     return row;
 }

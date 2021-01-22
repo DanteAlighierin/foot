@@ -82,7 +82,7 @@ print_usage(const char *prog_name)
 bool
 locale_is_utf8(void)
 {
-    assert(strlen(u8"ö") == 2);
+    xassert(strlen(u8"ö") == 2);
 
     wchar_t w;
     if (mbtowc(&w, u8"ö", 2) != 2)
@@ -240,7 +240,7 @@ main(int argc, char *const *argv)
 
                 /* Strip trailing spaces */
                 char *end = font + strlen(font);
-                assert(*end == '\0');
+                xassert(*end == '\0');
                 end--;
                 while (end > font && isspace(*end))
                     *(end--) = '\0';

@@ -3,13 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <assert.h>
 
 #define LOG_MODULE "vt"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "csi.h"
 #include "dcs.h"
+#include "debug.h"
 #include "grid.h"
 #include "osc.h"
 #include "util.h"
@@ -89,7 +89,7 @@ esc_as_string(struct terminal *term, uint8_t final)
         c += snprintf(&msg[c], sizeof(msg) - c, "%c", value);
     }
 
-    assert(term->vt.params.idx == 0);
+    xassert(term->vt.params.idx == 0);
 
     snprintf(&msg[c], sizeof(msg) - c, "%c", final);
     return msg;
@@ -156,7 +156,7 @@ action_execute(struct terminal *term, uint8_t c)
                 break;
             }
         }
-        assert(new_col >= term->grid->cursor.point.col);
+        xassert(new_col >= term->grid->cursor.point.col);
 
         /* According to the specification, HT _should_ cancel LCF. But
          * XTerm, and nearly all other emulators, don't. So we follow
@@ -238,7 +238,7 @@ action_print(struct terminal *term, uint8_t c)
         L'│', L'≤', L'≥', L'π', L'≠', L'£', L'·',       /* x - ~ */
     };
 
-    assert(wcwidth(c) == 1);
+    xassert(wcwidth(c) == 1);
 
     if (unlikely(term->charsets.set[term->charsets.selected] == CHARSET_GRAPHIC) &&
         c >= 0x60 && c <= 0x7e)
@@ -259,7 +259,7 @@ action_param(struct terminal *term, uint8_t c)
         term->vt.params.idx = 1;
     }
 
-    assert(term->vt.params.idx > 0);
+    xassert(term->vt.params.idx > 0);
 
     const size_t max_params
         = sizeof(term->vt.params.v) / sizeof(term->vt.params.v[0]);
@@ -309,9 +309,9 @@ action_param(struct terminal *term, uint8_t c)
 
 #if defined(_DEBUG)
     /* The rest of the code assumes 'idx' *never* points outside the array */
-    assert(term->vt.params.idx <= max_params);
+    xassert(term->vt.params.idx <= max_params);
     for (size_t i = 0; i < term->vt.params.idx; i++)
-        assert(term->vt.params.v[i].sub.idx <= max_sub_params);
+        xassert(term->vt.params.v[i].sub.idx <= max_sub_params);
 #endif
 
     return;
@@ -453,7 +453,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
                 ')' ? 1 :
                 '*' ? 2 :
                 '+' ? 3 : -1;
-            assert(idx != -1);
+            xassert(idx != -1);
             term->charsets.set[idx] = CHARSET_GRAPHIC;
             break;
         }
@@ -465,7 +465,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
                 ')' ? 1 :
                 '*' ? 2 :
                 '+' ? 3 : -1;
-            assert(idx != -1);
+            xassert(idx != -1);
             term->charsets.set[idx] = CHARSET_ASCII;
 
             break;
@@ -570,7 +570,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         while (row->cells[base_col].wc == CELL_MULT_COL_SPACER && base_col > 0)
             base_col--;
 
-        assert(base_col >= 0 && base_col < term->cols);
+        xassert(base_col >= 0 && base_col < term->cols);
         wchar_t base = row->cells[base_col].wc;
 
         const struct composed *composed =
@@ -632,7 +632,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
 
             size_t wanted_count = composed != NULL ? composed->count + 1 : 1;
             if (wanted_count > ALEN(composed->combining)) {
-                assert(composed != NULL);
+                xassert(composed != NULL);
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
                 LOG_WARN("combining character overflow:");
@@ -645,7 +645,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                 wanted_count--;
             }
 
-            assert(wanted_count <= ALEN(composed->combining));
+            xassert(wanted_count <= ALEN(composed->combining));
 
             /* Look for existing combining chain */
             for (size_t i = 0; i < term->composed_count; i++) {
