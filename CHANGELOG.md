@@ -26,7 +26,7 @@
 
 * Completions for fish shell
   (https://codeberg.org/dnkl/foot/issues/11)
-* FreeBSD support
+* FreeBSD support (https://codeberg.org/dnkl/foot/issues/238).
 
 
 ### Changed
