@@ -1346,10 +1346,6 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
             /* Additional control characters stripped by default (but
              * configurable) in XTerm: BS, HT, DEL */
             case '\b': case '\t': case '\x7f':
-                /* FALLTHROUGH */
-
-            /* ESC */
-            case '\x1b':
                 ctx->decoder(ctx, p, i);
 
                 assert(i + 1 <= left);
