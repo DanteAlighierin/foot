@@ -9,8 +9,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/time.h>
-#include <linux/mman.h>
-#include <linux/memfd.h>
+#include <sys/mman.h>
 #include <fcntl.h>
 
 #include <pixman.h>
@@ -130,6 +129,7 @@ static const struct wl_buffer_listener buffer_listener = {
     .release = &buffer_release,
 };
 
+#if __SIZEOF_POINTER__ == 8
 static size_t
 page_size(void)
 {
@@ -146,6 +146,7 @@ page_size(void)
     xassert(size > 0);
     return size;
 }
+#endif
 
 static bool
 instantiate_offset(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
@@ -274,18 +275,27 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
     LOG_DBG("cookie=%lx: allocating new buffer: %zu KB", cookie, size / 1024);
 
     /* Backing memory for SHM */
+#if defined(MEMFD_CREATE)
     pool_fd = memfd_create("foot-wayland-shm-buffer-pool", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+#elif defined(__FreeBSD__)
+    // memfd_create on FreeBSD 13 is SHM_ANON without sealing support
+    pool_fd = shm_open(SHM_ANON, O_RDWR | O_CLOEXEC, 0600);
+#else
+    char name[] = "/tmp/foot-wayland-shm-buffer-pool-XXXXXX";
+    pool_fd = mkostemp(name, O_CLOEXEC);
+    unlink(name);
+#endif
     if (pool_fd == -1) {
         LOG_ERRNO("failed to create SHM backing memory file");
         goto err;
     }
 
-#if defined(__i386__)
-    off_t initial_offset = 0;
-    off_t memfd_size = size;
-#else
+#if __SIZEOF_POINTER__ == 8
     off_t initial_offset = scrollable && max_pool_size > 0 ? (max_pool_size / 4) & ~(page_size() - 1) : 0;
     off_t memfd_size = scrollable && max_pool_size > 0 ? max_pool_size : size;
+#else
+    off_t initial_offset = 0;
+    off_t memfd_size = size;
 #endif
 
     LOG_DBG("memfd-size: %lu, initial offset: %lu", memfd_size, initial_offset);
@@ -297,7 +307,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
 
     if (!can_punch_hole_initialized) {
         can_punch_hole_initialized = true;
-#if defined(__x86_64__)
+#if __SIZEOF_POINTER__ == 8 && defined(FALLOC_FL_PUNCH_HOLE)
         can_punch_hole = fallocate(
             pool_fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0, 1) == 0;
 
@@ -333,6 +343,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
         goto err;
     }
 
+#if defined(MEMFD_CREATE)
     /* Seal file - we no longer allow any kind of resizing */
     /* TODO: wayland mmaps(PROT_WRITE), for some unknown reason, hence we cannot use F_SEAL_FUTURE_WRITE */
     if (fcntl(pool_fd, F_ADD_SEALS,
@@ -341,6 +352,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
         LOG_ERRNO("failed to seal SHM backing memory file");
         /* This is not a fatal error */
     }
+#endif
 
     pool = wl_shm_create_pool(shm, pool_fd, memfd_size);
     if (pool == NULL) {
@@ -400,14 +412,15 @@ err:
 bool
 shm_can_scroll(const struct buffer *buf)
 {
-#if defined(__i386__)
+#if __SIZEOF_POINTER__ == 8
+    return can_punch_hole && max_pool_size > 0 && buf->scrollable;
+#else
     /* Not enough virtual address space in 32-bit */
     return false;
-#else
-    return can_punch_hole && max_pool_size > 0 && buf->scrollable;
 #endif
 }
 
+#if __SIZEOF_POINTER__ == 8 && defined(FALLOC_FL_PUNCH_HOLE)
 static bool
 wrap_buffer(struct wl_shm *shm, struct buffer *buf, off_t new_offset)
 {
@@ -640,12 +653,14 @@ err:
     abort();
     return false;
 }
+#endif /* FALLOC_FL_PUNCH_HOLE */
 
 bool
 shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
            int top_margin, int top_keep_rows,
            int bottom_margin, int bottom_keep_rows)
 {
+#if __SIZEOF_POINTER__ == 8 && defined(FALLOC_FL_PUNCH_HOLE)
     if (!shm_can_scroll(buf))
         return false;
 
@@ -653,6 +668,9 @@ shm_scroll(struct wl_shm *shm, struct buffer *buf, int rows,
     return rows > 0
         ? shm_scroll_forward(shm, buf, rows, top_margin, top_keep_rows, bottom_margin, bottom_keep_rows)
         : shm_scroll_reverse(shm, buf, -rows, top_margin, top_keep_rows, bottom_margin, bottom_keep_rows);
+#else
+    return false;
+#endif
 }
 
 void

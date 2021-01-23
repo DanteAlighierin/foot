@@ -5,7 +5,13 @@
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
-#include <sys/prctl.h>
+#include <pthread.h>
+#if __has_include(<pthread_np.h>)
+#include <pthread_np.h>
+#define pthread_setname_np(thread, name) (pthread_set_name_np(thread, name), 0)
+#elif defined(__NetBSD__)
+#define pthread_setname_np(thread, name) pthread_setname_np(thread, "%s", (void *)name)
+#endif
 
 #include <wayland-cursor.h>
 #include <xdg-shell.h>
@@ -1231,7 +1237,7 @@ render_worker_thread(void *_ctx)
     char proc_title[16];
     snprintf(proc_title, sizeof(proc_title), "foot:render:%d", my_id);
 
-    if (prctl(PR_SET_NAME, proc_title, 0, 0, 0) < 0)
+    if (pthread_setname_np(pthread_self(), proc_title) < 0)
         LOG_ERRNO("render worker %d: failed to set process title", my_id);
 
     sem_t *start = &term->render.workers.start;

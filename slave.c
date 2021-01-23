@@ -178,6 +178,7 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
         goto err;
     }
 
+#ifdef IUTF8
     {
         struct termios flags;
         if (tcgetattr(pts, &flags) < 0) {
@@ -191,6 +192,7 @@ slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
             goto err;
         }
     }
+#endif
 
     if (tll_length(*notifications) > 0) {
         int flags = fcntl(pts, F_GETFL);

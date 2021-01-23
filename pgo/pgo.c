@@ -257,7 +257,16 @@ main(int argc, const char *const *argv)
 
         close(fd);
 
+#if defined(MEMFD_CREATE)
         int mem_fd = memfd_create("foot-pgo-ptmx", MFD_CLOEXEC);
+#elif defined(__FreeBSD__)
+        // memfd_create on FreeBSD 13 is SHM_ANON without sealing support
+        int mem_fd = shm_open(SHM_ANON, O_RDWR | O_CLOEXEC, 0600);
+#else
+        char name[] = "/tmp/foot-pgo-ptmx-XXXXXX";
+        int mem_fd = mkostemp(name, O_CLOEXEC);
+        unlink(name);
+#endif
         if (mem_fd < 0) {
             fprintf(stderr, "error: failed to create memory FD\n");
             goto out;

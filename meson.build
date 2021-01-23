@@ -12,8 +12,12 @@ is_debug_build = get_option('buildtype').startswith('debug')
 
 cc = meson.get_compiler('c')
 
+if cc.has_function('memfd_create')
+  add_project_arguments('-DMEMFD_CREATE', language: 'c')
+endif
+
 add_project_arguments(
-  ['-D_POSIX_C_SOURCE=200809L', '-D_GNU_SOURCE=200809L'] +
+  ['-D_GNU_SOURCE=200809L'] +
   (is_debug_build
     ? ['-D_DEBUG']
     : [cc.get_supported_arguments('-fno-asynchronous-unwind-tables')]) +
@@ -56,7 +60,8 @@ if cc.has_argument('-fmacro-prefix-map=/foo=')
 endif
 
 math = cc.find_library('m')
-threads = dependency('threads')
+threads = [dependency('threads'), cc.find_library('stdthreads', required: false)]
+libepoll = dependency('epoll-shim', required: false)
 pixman = dependency('pixman-1')
 wayland_protocols = dependency('wayland-protocols')
 wayland_client = dependency('wayland-client')
@@ -66,6 +71,11 @@ fontconfig = dependency('fontconfig')
 
 tllist = dependency('tllist', version: '>=1.0.4', fallback: 'tllist')
 fcft = dependency('fcft', version: ['>=2.3.0', '<3.0.0'], fallback: 'fcft')
+
+tic = find_program('tic', native: true, required: get_option('terminfo'))
+if tic.found()
+  add_project_arguments('-DHAVE_TERMINFO', language: 'c')
+endif
 
 wayland_protocols_datadir = wayland_protocols.get_pkgconfig_variable('pkgdatadir')
 
@@ -126,7 +136,7 @@ vtlib = static_library(
   'vt.c', 'vt.h',
   wl_proto_src + wl_proto_headers,
   version,
-  dependencies: [pixman, fcft, tllist],
+  dependencies: [libepoll, pixman, fcft, tllist, wayland_client],
   link_with: misc,
 )
 
@@ -136,7 +146,7 @@ pgolib = static_library(
   'selection.c', 'selection.h',
   'terminal.c', 'terminal.h',
   wl_proto_src + wl_proto_headers,
-  dependencies: [pixman, fcft, tllist],
+  dependencies: [libepoll, pixman, fcft, tllist, wayland_client],
   link_with: vtlib,
 )
 
@@ -144,7 +154,7 @@ executable(
   'pgo',
   'pgo/pgo.c',
   wl_proto_src + wl_proto_headers,
-  dependencies: [math, threads, pixman, wayland_client, fcft, tllist],
+  dependencies: [math, threads, libepoll, pixman, wayland_client, fcft, tllist],
   link_with: pgolib,
 )
 
@@ -173,7 +183,7 @@ executable(
   'user-notification.h',
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
-  dependencies: [math, threads, pixman, wayland_client, wayland_cursor, xkb, fontconfig,
+  dependencies: [math, threads, libepoll, pixman, wayland_client, wayland_cursor, xkb, fontconfig,
                  tllist, fcft],
   link_with: pgolib,
   install: true)
@@ -189,14 +199,15 @@ executable(
   version,
   install: true)
 
-tic = find_program('tic', native: true)
-custom_target(
-  'terminfo',
-  output: 'f',
-  input: 'foot.info',
-  command: [tic, '-x', '-o', '@OUTDIR@', '-e', 'foot,foot-direct', '@INPUT@'],
-  install: true,
-  install_dir: join_paths(get_option('datadir'), 'terminfo'))
+if tic.found()
+  custom_target(
+    'terminfo',
+    output: 'f',
+    input: 'foot.info',
+    command: [tic, '-x', '-o', '@OUTDIR@', '-e', 'foot,foot-direct', '@INPUT@'],
+    install: true,
+    install_dir: join_paths(get_option('datadir'), 'terminfo'))
+endif
 
 install_data(
   'LICENSE', 'README.md', 'CHANGELOG.md',

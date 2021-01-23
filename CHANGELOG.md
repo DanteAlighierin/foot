@@ -37,6 +37,12 @@
 * Key/mouse binding `select-extend-character-wise`, which forces the
   selection mode to 'character-wise' when extending a selection.
 * `DECSET` `47`, `1047` and `1048`.
+* FreeBSD support (https://codeberg.org/dnkl/foot/issues/238).
+* `selection-target=none|primary|clipboard|both` to `foot.ini`. It can
+  be used to configure which clipboard(s) selected text should be
+  copied to. The default is `primary`, which corresponds to the
+  behavior in older foot releases
+  (https://codeberg.org/dnkl/foot/issues/288).
 
 
 ### Changed
@@ -82,6 +88,7 @@
 * Sixel “current geometry” query response not being bounded by the
   current window dimensions (fixes `lsix` output)
 * Crash on keyboard input when repeat rate was zero (i.e. no repeat).
+* Wrong button encoding of mouse buttons 6 and 7 in mouse events.
 
 
 ### Security
@@ -91,6 +98,7 @@
 * [birger](https://codeberg.org/birger)
 * [pc](https://codeberg.org/pc)
 * [FollieHiyuki](https://codeberg.org/FollieHiyuki)
+* jbeich
 
 
 ## 1.6.2

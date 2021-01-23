@@ -266,7 +266,7 @@ err:
 bool
 hostname_is_localhost(const char *hostname)
 {
-    char this_host[HOST_NAME_MAX];
+    char this_host[_POSIX_HOST_NAME_MAX];
     if (gethostname(this_host, sizeof(this_host)) < 0)
         this_host[0] = '\0';
 
