@@ -1307,7 +1307,7 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
          * Call cb while at same time replace:
          *   - \r\n -> \r
          *   - \n -> \r
-         *   - C0 -> <nothing>  (stript non-formatting C0 characters)
+         *   - C0 -> <nothing>  (strip non-formatting C0 characters)
          *   - \e -> <nothing>  (i.e. strip ESC)
          */
         char *p = text;
