@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <sys/epoll.h>
 
-#include <linux/un.h>
+#include <sys/un.h>
 
 #include <tllist.h>
 

@@ -1,5 +1,7 @@
 image: freebsd/latest
 packages:
+  - evdev-proto
+  - libepoll-shim
   - meson
   - ninja
   - pkgconf
@@ -11,10 +13,9 @@ packages:
   - harfbuzz
   - pixman
   - libxkbcommon
-  - ncurses
   - check
-  - ttf-hack
-  - font-noto-emoji
+  - hack-font
+  - noto-emoji
 
 sources:
   - https://codeberg.org/dnkl/foot
@@ -24,14 +25,16 @@ sources:
 #     condition: failure
 #     to: <committer>
 
+# TODO: drop -Dc_args=-Wno-missing-braces when freebsd/latest is >= 13
+
 tasks:
   - debug: |
       mkdir -p bld/debug
-      meson --buildtype=debug -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true foot bld/debug
+      meson --buildtype=debug -Dc_args=-Wno-missing-braces -Dterminfo=false -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true foot bld/debug
       ninja -C bld/debug -k0
       meson test -C bld/debug --print-errorlogs
   - release: |
       mkdir -p bld/release
-      meson --buildtype=minsize -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true foot bld/release
+      meson --buildtype=minsize -Dc_args=-Wno-missing-braces -Dterminfo=false -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true foot bld/release
       ninja -C bld/release -k0
       meson test -C bld/release --print-errorlogs

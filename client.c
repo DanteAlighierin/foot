@@ -9,7 +9,7 @@
 #include <errno.h>
 
 #include <sys/socket.h>
-#include <linux/un.h>
+#include <sys/un.h>
 
 #define LOG_MODULE "foot-client"
 #define LOG_ENABLE_DBG 0
@@ -263,7 +263,7 @@ main(int argc, char *const *argv)
     };
 
     /* Total packet length, not (yet) including argv[] */
-    size_t total_len = (
+    uint64_t total_len = (
         sizeof(data) +
         cwd_len +
         term_len +
