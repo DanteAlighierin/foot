@@ -2369,13 +2369,9 @@ encode_xbutton(int xbutton)
     case 1: case 2: case 3:
         return xbutton - 1;
 
-    case 4: case 5:
+    case 4: case 5: case 6: case 7:
         /* Like button 1 and 2, but with 64 added */
         return xbutton - 4 + 64;
-
-    case 6: case 7:
-        /* Same as 4 and 5. Note: the offset should be something else? */
-        return xbutton - 6 + 64;
 
     case 8: case 9: case 10: case 11:
         /* Similar to 4 and 5, but adding 128 instead of 64 */
