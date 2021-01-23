@@ -37,7 +37,7 @@
 * Key/mouse binding `select-extend-character-wise`, which forces the
   selection mode to 'character-wise' when extending a selection.
 * `DECSET` `47`, `1047` and `1048`.
-* FreeBSD support
+* FreeBSD support (https://codeberg.org/dnkl/foot/issues/238).
 
 
 ### Changed
