@@ -673,6 +673,28 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->notify.argv = argv;
     }
 
+    else if (strcmp(key, "selection-target") == 0) {
+        static const char values[][12] = {
+            [SELECTION_TARGET_NONE] = "none",
+            [SELECTION_TARGET_PRIMARY] = "primary",
+            [SELECTION_TARGET_CLIPBOARD] = "clipboard",
+            [SELECTION_TARGET_BOTH] = "both",
+        };
+
+        for (size_t i = 0; i < ALEN(values); i++) {
+            if (strcasecmp(value, values[i]) == 0) {
+                conf->selection_target = i;
+                return true;
+            }
+        }
+
+        LOG_AND_NOTIFY_ERR(
+            "%s:%d: [default]: %s: invalid 'selection-target'; "
+            "must be one of 'none', 'primary', 'clipboard' or 'both",
+            path, lineno, value);
+        return false;
+    }
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [default]: %s: invalid key", path, lineno, key);
         return false;
@@ -2127,6 +2149,7 @@ config_load(struct config *conf, const char *conf_path,
         .render_worker_count = sysconf(_SC_NPROCESSORS_ONLN),
         .server_socket_path = get_server_socket_path(),
         .presentation_timings = false,
+        .selection_target = SELECTION_TARGET_PRIMARY,
         .hold_at_exit = false,
         .notify = {
             .raw_cmd = NULL,

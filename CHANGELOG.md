@@ -38,6 +38,11 @@
   selection mode to 'character-wise' when extending a selection.
 * `DECSET` `47`, `1047` and `1048`.
 * FreeBSD support (https://codeberg.org/dnkl/foot/issues/238).
+* `selection-target=none|primary|clipboard|both` to `foot.ini`. It can
+  be used to configure which clipboard(s) selected text should be
+  copied to. The default is `primary`, which corresponds to the
+  behavior in older foot releases
+  (https://codeberg.org/dnkl/foot/issues/288).
 
 
 ### Changed

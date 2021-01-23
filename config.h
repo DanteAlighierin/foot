@@ -181,6 +181,12 @@ struct config {
     char *server_socket_path;
     bool presentation_timings;
     bool hold_at_exit;
+    enum {
+        SELECTION_TARGET_NONE,
+        SELECTION_TARGET_PRIMARY,
+        SELECTION_TARGET_CLIPBOARD,
+        SELECTION_TARGET_BOTH
+    } selection_target;
 
     struct {
         char *raw_cmd;
