@@ -1307,6 +1307,7 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
          * Call cb while at same time replace:
          *   - \r\n -> \r
          *   - \n -> \r
+         *   - C0 -> <nothing>  (stript non-formatting C0 characters)
          *   - \e -> <nothing>  (i.e. strip ESC)
          */
         char *p = text;
@@ -1322,6 +1323,7 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
                 break;
 
             case '\r':
+                /* Convert \r\n -> \r */
                 if (i + 1 < left && p[i + 1] == '\n') {
                     ctx->decoder(ctx, p, i + 1);
 
@@ -1332,6 +1334,21 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
                 }
                 break;
 
+            /* C0 non-formatting control characters (\b \t \n \r excluded) */
+            case '\x01': case '\x02': case '\x03': case '\x04': case '\x05':
+            case '\x06': case '\x07': case '\x0b': case '\x0c': case '\x0e':
+            case '\x0f': case '\x10': case '\x11': case '\x12': case '\x13':
+            case '\x14': case '\x15': case '\x16': case '\x17': case '\x18':
+            case '\x19': case '\x1a': case '\x1b': case '\x1c': case '\x1d':
+            case '\x1e': case '\x1f':
+                /* FALLTHROUGH */
+
+            /* Additional control characters stripped by default (but
+             * configurable) in XTerm: BS, HT, DEL */
+            case '\b': case '\t': case '\x1f':
+                /* FALLTHROUGH */
+
+            /* ESC */
             case '\x1b':
                 ctx->decoder(ctx, p, i);
 

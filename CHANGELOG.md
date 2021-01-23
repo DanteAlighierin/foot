@@ -34,6 +34,8 @@
 * Trailing comments in `foot.ini` must now be preceded by a space or tab
   (https://codeberg.org/dnkl/foot/issues/270)
 * The scrollback search box no longer accepts non-printable characters.
+* Non-formatting C0 control characters, `BS`, `HT` and `DEL` are now
+  stripped from pasted text.
 
 
 ### Deprecated
