@@ -58,6 +58,7 @@
   current window dimensions (fixes `lsix` output)
 * Crash on keyboard input when repeat rate was zero (i.e. no repeat).
 * Wrong button encoding of mouse buttons 6 and 7 in mouse events.
+* Scrollback search not matching composed characters.
 
 
 ### Security

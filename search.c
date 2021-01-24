@@ -237,6 +237,37 @@ search_update_selection(struct terminal *term,
     }
 }
 
+static ssize_t
+matches_cell(const struct terminal *term, const struct cell *cell, size_t search_ofs)
+{
+    assert(search_ofs < term->search.len);
+
+    wchar_t base = cell->wc;
+    const struct composed *composed = NULL;
+
+    if (base >= CELL_COMB_CHARS_LO &&
+        base < (CELL_COMB_CHARS_LO + term->composed_count))
+    {
+        composed = &term->composed[base - CELL_COMB_CHARS_LO];
+        base = composed->base;
+    }
+
+    if (wcsncasecmp(&base, &term->search.buf[search_ofs], 1) != 0)
+        return -1;
+
+    if (composed != NULL) {
+        if (search_ofs + 1 + composed->count > term->search.len)
+            return -1;
+
+        for (size_t j = 0; j < composed->count; j++) {
+            if (composed->combining[j] != term->search.buf[search_ofs + 1 + j])
+                return -1;
+        }
+    }
+
+    return composed != NULL ? 1 + composed->count : 1;
+}
+
 static void
 search_find_next(struct terminal *term)
 {
@@ -288,7 +319,7 @@ search_find_next(struct terminal *term)
             if (row == NULL)
                 continue;
 
-            if (wcsncasecmp(&row->cells[start_col].wc, term->search.buf, 1) != 0)
+            if (matches_cell(term, &row->cells[start_col], 0) < 0)
                 continue;
 
             /*
@@ -302,7 +333,7 @@ search_find_next(struct terminal *term)
             int end_col = start_col;
             size_t match_len = 0;
 
-            for (size_t i = 0; i < term->search.len; i++, match_len++) {
+            for (size_t i = 0; i < term->search.len;) {
                 if (end_col >= term->cols) {
                     if (end_row + 1 > grid_row_absolute(term->grid, term->grid->offset + term->rows - 1)) {
                         /* Don't continue past end of the world */
@@ -314,9 +345,12 @@ search_find_next(struct terminal *term)
                     row = term->grid->rows[end_row];
                 }
 
-                if (wcsncasecmp(&row->cells[end_col].wc, &term->search.buf[i], 1) != 0)
+                ssize_t additional_chars = matches_cell(term, &row->cells[end_col], i);
+                if (additional_chars < 0)
                     break;
 
+                i += additional_chars;
+                match_len += additional_chars;
                 end_col++;
             }
 
