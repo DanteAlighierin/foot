@@ -353,12 +353,26 @@ search_find_next(struct terminal *term)
 void
 search_add_chars(struct terminal *term, const char *src, size_t count)
 {
+    const char *_src = src;
     mbstate_t ps = {0};
-    size_t wchars = mbsnrtowcs(NULL, &src, count, 0, &ps);
+    size_t wchars = mbsnrtowcs(NULL, &_src, count, 0, &ps);
 
     if (wchars == -1) {
         LOG_ERRNO("failed to convert %.*s to wchars", (int)count, src);
         return;
+    }
+
+    _src = src;
+    ps = (mbstate_t){0};
+    wchar_t wcs[wchars + 1];
+    mbsnrtowcs(wcs, &_src, count, wchars, &ps);
+
+    /* Strip non-printable characters */
+    for (size_t i = 0, j = 0, orig_wchars = wchars; i < orig_wchars; i++) {
+        if (iswprint(wcs[i]))
+            wcs[j++] = wcs[i];
+        else
+            wchars--;
     }
 
     if (!search_ensure_size(term, term->search.len + wchars))
@@ -370,9 +384,7 @@ search_add_chars(struct terminal *term, const char *src, size_t count)
             &term->search.buf[term->search.cursor],
             (term->search.len - term->search.cursor) * sizeof(wchar_t));
 
-    memset(&ps, 0, sizeof(ps));
-    mbsnrtowcs(&term->search.buf[term->search.cursor], &src, count,
-               wchars, &ps);
+    memcpy(&term->search.buf[term->search.cursor], wcs, wchars * sizeof(wchar_t));
 
     term->search.len += wchars;
     term->search.cursor += wchars;
