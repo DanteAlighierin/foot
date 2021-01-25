@@ -62,6 +62,8 @@
 * High CPU usage when holding down e.g. arrow keys while in scrollback
   search mode.
 * Rendering of composed characters in the scrollback search box.
+* IME pre-edit cursor when positioned at the end of the pre-edit
+  string.
 
 
 ### Security
