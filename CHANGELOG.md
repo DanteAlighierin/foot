@@ -93,6 +93,7 @@
 * Scrollback search not matching composed characters.
 * High CPU usage when holding down e.g. arrow keys while in scrollback
   search mode.
+* Rendering of composed characters in the scrollback search box.
 
 
 ### Security
