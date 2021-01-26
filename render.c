@@ -1096,6 +1096,17 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
 
     int cells_needed = term->ime.preedit.count;
 
+    if (term->ime.preedit.cursor.start == cells_needed &&
+        term->ime.preedit.cursor.end == cells_needed)
+    {
+        /* Cursor will be drawn *after* the pre-edit string, i.e. in
+         * the cell *after*. This means we need to copy, and dirty,
+         * one extra cell from the original grid, or we’ll leave
+         * trailing “cursors” after us if the user deletes text while
+         * pre-editing */
+        cells_needed++;
+    }
+
     int row_idx = cursor.row;
     int col_idx = cursor.col;
     int ime_ofs = 0;  /* Offset into pre-edit string to start rendering at */
@@ -1175,7 +1186,7 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
     int end = term->ime.preedit.cursor.end - ime_ofs;
 
     if (!term->ime.preedit.cursor.hidden) {
-        const struct cell *start_cell = &term->ime.preedit.cells[start + ime_ofs];
+        const struct cell *start_cell = &term->ime.preedit.cells[0];
 
         pixman_color_t fg = color_hex_to_pixman(term->colors.fg);
         pixman_color_t bg = color_hex_to_pixman(term->colors.bg);
