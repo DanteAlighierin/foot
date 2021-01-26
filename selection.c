@@ -1327,7 +1327,7 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
                 if (i + 1 < left && p[i + 1] == '\n') {
                     ctx->decoder(ctx, p, i + 1);
 
-                    xassert(i + 2 <= left);
+                    assert(i + 2 <= left);
                     p += i + 2;
                     left -= i + 2;
                     goto again;
