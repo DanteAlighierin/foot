@@ -2237,7 +2237,7 @@ render_search_box(struct terminal *term)
     /* Calculate the width of each character */
     int widths[text_len + 1];
     for (size_t i = 0; i < text_len; i++)
-        widths[i] = max(1, wcwidth(text[i]));
+        widths[i] = max(0, wcwidth(text[i]));
     widths[text_len] = 0;
 
     const size_t total_cells = wcswidth(text, text_len);
@@ -2429,10 +2429,16 @@ render_search_box(struct terminal *term)
                 x + x_ofs + glyph->x, y + font_baseline(term) - glyph->y,
                 glyph->width, glyph->height);
         } else {
+            int combining_ofs = width == 0
+                ? (glyph->x < 0
+                   ? width * term->cell_width
+                   : (width - 1) * term->cell_width)
+                : 0;  /* Not a zero-width character - no additional offset */
             pixman_image_t *src = pixman_image_create_solid_fill(&fg);
             pixman_image_composite32(
                 PIXMAN_OP_OVER, src, glyph->pix, buf->pix[0], 0, 0, 0, 0,
-                x + x_ofs + glyph->x, y + font_baseline(term) - glyph->y,
+                x + x_ofs + combining_ofs + glyph->x,
+                y + font_baseline(term) - glyph->y,
             glyph->width, glyph->height);
             pixman_image_unref(src);
         }
