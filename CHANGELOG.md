@@ -98,6 +98,7 @@
 * Rendering of composed characters in the scrollback search box.
 * IME pre-edit cursor when positioned at the end of the pre-edit
   string.
+* Scrollback search not matching multi-column characters.
 
 
 ### Security
