@@ -346,6 +346,11 @@ search_find_next(struct terminal *term)
                     row = term->grid->rows[end_row];
                 }
 
+                if (row->cells[end_col].wc == CELL_MULT_COL_SPACER) {
+                    end_col++;
+                    continue;
+                }
+
                 ssize_t additional_chars = matches_cell(term, &row->cells[end_col], i);
                 if (additional_chars < 0)
                     break;
@@ -441,9 +446,11 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 
     /* Calculate end coord - note: assumed to be valid */
     for (size_t i = 0; i < len; i++) {
-        if (++end_col >= term->cols) {
-            end_row = (end_row + 1) & (term->grid->num_rows - 1);
-            end_col = 0;
+        for (size_t j = 0; j < wcwidth(term->search.buf[i]); j++) {
+            if (++end_col >= term->cols) {
+                end_row = (end_row + 1) & (term->grid->num_rows - 1);
+                end_col = 0;
+            }
         }
     }
 
@@ -463,6 +470,9 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
         bool done = false;
         for (; end_col < term->cols; end_col++) {
             wchar_t wc = row->cells[end_col].wc;
+            if (wc == CELL_MULT_COL_SPACER)
+                continue;
+
             if (wc == 0 || (!first && !isword(wc, spaces_only, term->conf->word_delimiters))) {
                 done = true;
                 break;
