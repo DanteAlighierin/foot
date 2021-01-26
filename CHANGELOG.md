@@ -91,6 +91,8 @@
 * Crash on keyboard input when repeat rate was zero (i.e. no repeat).
 * Wrong button encoding of mouse buttons 6 and 7 in mouse events.
 * Scrollback search not matching composed characters.
+* High CPU usage when holding down e.g. arrow keys while in scrollback
+  search mode.
 
 
 ### Security
