@@ -60,6 +60,7 @@
   size (https://codeberg.org/dnkl/foot/issues/281).
 * Extending a word/line-wise selection now uses the original selection
   mode instead of switching to character-wise.
+* The scrollback search box no longer accepts non-printable characters.
 
 
 ### Deprecated
