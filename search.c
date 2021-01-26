@@ -473,6 +473,14 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
             if (wc == CELL_MULT_COL_SPACER)
                 continue;
 
+            const struct composed *composed = NULL;
+            if (wc >= CELL_COMB_CHARS_LO &&
+                wc < (CELL_COMB_CHARS_LO + term->composed_count))
+            {
+                composed = &term->composed[wc - CELL_COMB_CHARS_LO];
+                wc = composed->base;
+            }
+
             if (wc == 0 || (!first && !isword(wc, spaces_only, term->conf->word_delimiters))) {
                 done = true;
                 break;
@@ -480,6 +488,11 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 
             first = false;
             tll_push_back(new_chars, wc);
+
+            if (composed != NULL) {
+                for (size_t i = 0; i < composed->count; i++)
+                    tll_push_back(new_chars, composed->combining[i]);
+            }
         }
 
         if (done)
