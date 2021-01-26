@@ -1,10 +1,12 @@
 #include "render.h"
 
 #include <string.h>
+#include <unistd.h>
 
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
+#include <sys/epoll.h>
 #include <pthread.h>
 #if __has_include(<pthread_np.h>)
 #include <pthread_np.h>
@@ -2545,6 +2547,89 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
         grid_render(term);
 }
 
+static void
+tiocswinsz(struct terminal *term)
+{
+    if (term->ptmx >= 0) {
+        if (ioctl(term->ptmx, (unsigned int)TIOCSWINSZ,
+                     &(struct winsize){
+                         .ws_row = term->rows,
+                         .ws_col = term->cols,
+                         .ws_xpixel = term->cols * term->cell_width,
+                         .ws_ypixel = term->rows * term->cell_height}) < 0)
+        {
+            LOG_ERRNO("TIOCSWINSZ");
+        }
+    }
+}
+
+static bool
+fdm_tiocswinsz(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct terminal *term = data;
+
+    if (events & EPOLLIN)
+        tiocswinsz(term);
+
+    fdm_del(fdm, fd);
+    term->window->resize_timeout_fd = -1;
+    return true;
+}
+
+static void
+send_dimensions_to_client(struct terminal *term)
+{
+    struct wl_window *win = term->window;
+
+    if (!win->is_resizing || term->conf->resize_delay_ms == 0) {
+        /* Send new dimensions to client immediately */
+        tiocswinsz(term);
+
+        /* And make sure to reset and deallocate a lingering timer */
+        if (win->resize_timeout_fd >= 0) {
+            fdm_del(term->fdm, win->resize_timeout_fd);
+            win->resize_timeout_fd = -1;
+        }
+    } else {
+        /* Send new dimensions to client “in a while” */
+        assert(win->is_resizing && term->conf->resize_delay_ms > 0);
+
+        int fd = win->resize_timeout_fd;
+        uint16_t delay_ms = term->conf->resize_delay_ms;
+        bool successfully_scheduled = false;
+
+        if (fd < 0) {
+            /* Lazy create timer fd */
+            fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+            if (fd < 0)
+                LOG_ERRNO("failed to create TIOCSWINSZ timer");
+            else if (!fdm_add(term->fdm, fd, EPOLLIN, &fdm_tiocswinsz, term)) {
+                close(fd);
+                fd = -1;
+            }
+
+            win->resize_timeout_fd = fd;
+        }
+
+        if (fd >= 0) {
+            /* Reset timeout */
+            const struct itimerspec timeout = {
+                .it_value = {.tv_sec = 0, .tv_nsec = delay_ms * 1000000},
+            };
+
+            if (timerfd_settime(fd, 0, &timeout, NULL) < 0) {
+                LOG_ERRNO("failed to arm TIOCSWINSZ timer");
+                fdm_del(term->fdm, fd);
+                win->resize_timeout_fd = -1;
+            } else
+                successfully_scheduled = true;
+        }
+
+        if (!successfully_scheduled)
+            tiocswinsz(term);
+    }
+}
+
 /* Move to terminal.c? */
 static bool
 maybe_resize(struct terminal *term, int width, int height, bool force)
@@ -2671,7 +2756,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     const int total_x_pad = term->width - grid_width;
     const int total_y_pad = term->height - grid_height;
 
-    if (term->conf->center) {
+    if (term->conf->center && !term->window->is_resizing) {
         term->margins.left = total_x_pad / 2;
         term->margins.top = total_y_pad / 2;
     } else {
@@ -2723,17 +2808,6 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
             term->width, term->height, term->cols, term->rows,
             term->margins.left, term->margins.right, term->margins.top, term->margins.bottom);
 
-    /* Signal TIOCSWINSZ */
-    if (term->ptmx >= 0 && ioctl(term->ptmx, (unsigned int)TIOCSWINSZ,
-              &(struct winsize){
-                  .ws_row = term->rows,
-                  .ws_col = term->cols,
-                  .ws_xpixel = term->cols * term->cell_width,
-                  .ws_ypixel = term->rows * term->cell_height}) == -1)
-    {
-        LOG_ERRNO("TIOCSWINSZ");
-    }
-
     if (term->scroll_region.start >= term->rows)
         term->scroll_region.start = 0;
 
@@ -2743,6 +2817,9 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->render.last_cursor.row = NULL;
 
 damage_view:
+    /* Signal TIOCSWINSZ */
+    send_dimensions_to_client(term);
+
     if (!term->window->is_maximized &&
         !term->window->is_fullscreen &&
         !term->window->is_tiled)
