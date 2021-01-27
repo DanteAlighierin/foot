@@ -1448,6 +1448,7 @@ struct clipboard_receive {
     int read_fd;
     int timeout_fd;
     struct itimerspec timeout;
+    bool bracketed;
 
     void (*decoder)(struct clipboard_receive *ctx, char *data, size_t size);
     void (*finish)(struct clipboard_receive *ctx);
@@ -1559,7 +1560,15 @@ fdm_receive_decoder_uri(struct clipboard_receive *ctx, char *data, size_t size)
     char *start = ctx->buf.data;
     char *end = NULL;
 
-    while ((end = memchr(start, '\r', ctx->buf.idx - (start - ctx->buf.data))) != NULL) {
+    while (true) {
+        for (end = start; end < &ctx->buf.data[ctx->buf.idx]; end++) {
+            if (*end == '\r' || *end == '\n')
+                break;
+        }
+
+        if (end >= &ctx->buf.data[ctx->buf.idx])
+            break;
+
         decode_one_uri(ctx, start, end - start);
         start = end + 1;
     }
@@ -1624,12 +1633,13 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
                 break;
 
             case '\n':
-                p[i] = '\r';
+                if (!ctx->bracketed)
+                    p[i] = '\r';
                 break;
 
             case '\r':
                 /* Convert \r\n -> \r */
-                if (i + 1 < left && p[i + 1] == '\n') {
+                if (!ctx->bracketed && i + 1 < left && p[i + 1] == '\n') {
                     ctx->decoder(ctx, p, i + 1);
 
                     xassert(i + 2 <= left);
@@ -1704,6 +1714,7 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
         .read_fd = read_fd,
         .timeout_fd = timeout_fd,
         .timeout = timeout,
+        .bracketed = term->bracketed_paste,
         .decoder = (mime_type == DATA_OFFER_MIME_URI_LIST
                     ? &fdm_receive_decoder_uri
                     : &fdm_receive_decoder_plain),
