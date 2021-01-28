@@ -20,6 +20,6 @@ _arguments \
 
 case ${state} in
     terms)
-        _values 'terminal definitions' $(find /usr/share/terminfo -type f -printf "%f\n")
+        _values 'terminal definitions' /usr/share/terminfo/**/*(.:t)
         ;;
 esac

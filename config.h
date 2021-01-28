@@ -77,6 +77,7 @@ struct config {
     unsigned pad_x;
     unsigned pad_y;
     bool center;
+    uint16_t resize_delay_ms;
 
     bool bold_in_bright;
     enum {

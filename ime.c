@@ -194,6 +194,8 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         cell_idx += width;
     }
 
+    const size_t byte_len = strlen(seat->ime.preedit.pending.text);
+
     /* Pre-edit cursor - hidden */
     if (seat->ime.preedit.pending.cursor_begin == -1 ||
         seat->ime.preedit.pending.cursor_end == -1)
@@ -204,6 +206,15 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         term->ime.preedit.cursor.hidden = true;
         term->ime.preedit.cursor.start = -1;
         term->ime.preedit.cursor.end = -1;
+    }
+
+    else if (seat->ime.preedit.pending.cursor_begin == byte_len &&
+             seat->ime.preedit.pending.cursor_end == byte_len)
+    {
+        /* Cursor is *after* the entire pre-edit string */
+        term->ime.preedit.cursor.hidden = false;
+        term->ime.preedit.cursor.start = cell_count;
+        term->ime.preedit.cursor.end = cell_count;
     }
 
     else {
@@ -220,15 +231,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
          *
          * When we find the matching *byte* index, we at the same
          * time know both the unicode *and* cell index.
-         *
-         * Note that this has only been tested with
-         *
-         *   cursor_begin == cursor_end == 0
-         *
-         * I haven't found an IME that requests anything else
          */
-
-        const size_t byte_len = strlen(seat->ime.preedit.pending.text);
 
         int cell_begin = -1, cell_end = -1;
         for (size_t byte_idx = 0, wc_idx = 0, cell_idx = 0;

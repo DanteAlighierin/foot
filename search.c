@@ -238,6 +238,37 @@ search_update_selection(struct terminal *term,
     }
 }
 
+static ssize_t
+matches_cell(const struct terminal *term, const struct cell *cell, size_t search_ofs)
+{
+    assert(search_ofs < term->search.len);
+
+    wchar_t base = cell->wc;
+    const struct composed *composed = NULL;
+
+    if (base >= CELL_COMB_CHARS_LO &&
+        base < (CELL_COMB_CHARS_LO + term->composed_count))
+    {
+        composed = &term->composed[base - CELL_COMB_CHARS_LO];
+        base = composed->base;
+    }
+
+    if (wcsncasecmp(&base, &term->search.buf[search_ofs], 1) != 0)
+        return -1;
+
+    if (composed != NULL) {
+        if (search_ofs + 1 + composed->count > term->search.len)
+            return -1;
+
+        for (size_t j = 0; j < composed->count; j++) {
+            if (composed->combining[j] != term->search.buf[search_ofs + 1 + j])
+                return -1;
+        }
+    }
+
+    return composed != NULL ? 1 + composed->count : 1;
+}
+
 static void
 search_find_next(struct terminal *term)
 {
@@ -289,7 +320,7 @@ search_find_next(struct terminal *term)
             if (row == NULL)
                 continue;
 
-            if (wcsncasecmp(&row->cells[start_col].wc, term->search.buf, 1) != 0)
+            if (matches_cell(term, &row->cells[start_col], 0) < 0)
                 continue;
 
             /*
@@ -303,7 +334,7 @@ search_find_next(struct terminal *term)
             int end_col = start_col;
             size_t match_len = 0;
 
-            for (size_t i = 0; i < term->search.len; i++, match_len++) {
+            for (size_t i = 0; i < term->search.len;) {
                 if (end_col >= term->cols) {
                     if (end_row + 1 > grid_row_absolute(term->grid, term->grid->offset + term->rows - 1)) {
                         /* Don't continue past end of the world */
@@ -315,9 +346,17 @@ search_find_next(struct terminal *term)
                     row = term->grid->rows[end_row];
                 }
 
-                if (wcsncasecmp(&row->cells[end_col].wc, &term->search.buf[i], 1) != 0)
+                if (row->cells[end_col].wc == CELL_MULT_COL_SPACER) {
+                    end_col++;
+                    continue;
+                }
+
+                ssize_t additional_chars = matches_cell(term, &row->cells[end_col], i);
+                if (additional_chars < 0)
                     break;
 
+                i += additional_chars;
+                match_len += additional_chars;
                 end_col++;
             }
 
@@ -354,12 +393,26 @@ search_find_next(struct terminal *term)
 void
 search_add_chars(struct terminal *term, const char *src, size_t count)
 {
+    const char *_src = src;
     mbstate_t ps = {0};
-    size_t wchars = mbsnrtowcs(NULL, &src, count, 0, &ps);
+    size_t wchars = mbsnrtowcs(NULL, &_src, count, 0, &ps);
 
     if (wchars == -1) {
         LOG_ERRNO("failed to convert %.*s to wchars", (int)count, src);
         return;
+    }
+
+    _src = src;
+    ps = (mbstate_t){0};
+    wchar_t wcs[wchars + 1];
+    mbsnrtowcs(wcs, &_src, count, wchars, &ps);
+
+    /* Strip non-printable characters */
+    for (size_t i = 0, j = 0, orig_wchars = wchars; i < orig_wchars; i++) {
+        if (iswprint(wcs[i]))
+            wcs[j++] = wcs[i];
+        else
+            wchars--;
     }
 
     if (!search_ensure_size(term, term->search.len + wchars))
@@ -371,9 +424,7 @@ search_add_chars(struct terminal *term, const char *src, size_t count)
             &term->search.buf[term->search.cursor],
             (term->search.len - term->search.cursor) * sizeof(wchar_t));
 
-    memset(&ps, 0, sizeof(ps));
-    mbsnrtowcs(&term->search.buf[term->search.cursor], &src, count,
-               wchars, &ps);
+    memcpy(&term->search.buf[term->search.cursor], wcs, wchars * sizeof(wchar_t));
 
     term->search.len += wchars;
     term->search.cursor += wchars;
@@ -395,9 +446,11 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 
     /* Calculate end coord - note: assumed to be valid */
     for (size_t i = 0; i < len; i++) {
-        if (++end_col >= term->cols) {
-            end_row = (end_row + 1) & (term->grid->num_rows - 1);
-            end_col = 0;
+        for (size_t j = 0; j < wcwidth(term->search.buf[i]); j++) {
+            if (++end_col >= term->cols) {
+                end_row = (end_row + 1) & (term->grid->num_rows - 1);
+                end_col = 0;
+            }
         }
     }
 
@@ -417,6 +470,17 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
         bool done = false;
         for (; end_col < term->cols; end_col++) {
             wchar_t wc = row->cells[end_col].wc;
+            if (wc == CELL_MULT_COL_SPACER)
+                continue;
+
+            const struct composed *composed = NULL;
+            if (wc >= CELL_COMB_CHARS_LO &&
+                wc < (CELL_COMB_CHARS_LO + term->composed_count))
+            {
+                composed = &term->composed[wc - CELL_COMB_CHARS_LO];
+                wc = composed->base;
+            }
+
             if (wc == 0 || (!first && !isword(wc, spaces_only, term->conf->word_delimiters))) {
                 done = true;
                 break;
@@ -424,6 +488,11 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 
             first = false;
             tll_push_back(new_chars, wc);
+
+            if (composed != NULL) {
+                for (size_t i = 0; i < composed->count; i++)
+                    tll_push_back(new_chars, composed->combining[i]);
+            }
         }
 
         if (done)
@@ -528,8 +597,11 @@ from_clipboard_done(void *user)
 
 static bool
 execute_binding(struct seat *seat, struct terminal *term,
-                enum bind_action_search action, uint32_t serial)
+                enum bind_action_search action, uint32_t serial,
+                bool *update_search_result, bool *redraw)
 {
+    *update_search_result = *redraw = false;
+
     switch (action) {
     case BIND_ACTION_SEARCH_NONE:
         return false;
@@ -565,7 +637,8 @@ execute_binding(struct seat *seat, struct terminal *term,
                 term->search.match.row = new_row;
             }
         }
-        return false;
+        *update_search_result = *redraw = true;
+        return true;
 
     case BIND_ACTION_SEARCH_FIND_NEXT:
         if (term->search.match_len > 0) {
@@ -581,41 +654,58 @@ execute_binding(struct seat *seat, struct terminal *term,
                 term->search.match.col = new_col;
                 term->search.match.row = new_row;
                 term->search.direction = SEARCH_FORWARD;
-            }
+             }
         }
-        return false;
+        *update_search_result = *redraw = true;
+        return true;
 
     case BIND_ACTION_SEARCH_EDIT_LEFT:
-        if (term->search.cursor > 0)
+        if (term->search.cursor > 0) {
             term->search.cursor--;
-        return false;
+            *redraw = true;
+        }
+        return true;
 
     case BIND_ACTION_SEARCH_EDIT_LEFT_WORD: {
         size_t diff = distance_prev_word(term);
         term->search.cursor -= diff;
         xassert(term->search.cursor <= term->search.len);
-        return false;
+
+        if (diff > 0)
+            *redraw = true;
+        return true;
     }
 
     case BIND_ACTION_SEARCH_EDIT_RIGHT:
-        if (term->search.cursor < term->search.len)
+        if (term->search.cursor < term->search.len) {
             term->search.cursor++;
-        return false;
+            *redraw = true;
+        }
+        return true;
 
     case BIND_ACTION_SEARCH_EDIT_RIGHT_WORD: {
         size_t diff = distance_next_word(term);
         term->search.cursor += diff;
         xassert(term->search.cursor <= term->search.len);
-        return false;
+
+        if (diff > 0)
+            *redraw = true;
+        return true;
     }
 
     case BIND_ACTION_SEARCH_EDIT_HOME:
-        term->search.cursor = 0;
-        return false;
+        if (term->search.cursor != 0) {
+            term->search.cursor = 0;
+            *redraw = true;
+        }
+        return true;
 
     case BIND_ACTION_SEARCH_EDIT_END:
-        term->search.cursor = term->search.len;
-        return false;
+        if (term->search.cursor != term->search.len) {
+            term->search.cursor = term->search.len;
+            *redraw = true;
+        }
+        return true;
 
     case BIND_ACTION_SEARCH_DELETE_PREV:
         if (term->search.cursor > 0) {
@@ -625,21 +715,25 @@ execute_binding(struct seat *seat, struct terminal *term,
                 (term->search.len - term->search.cursor) * sizeof(wchar_t));
             term->search.cursor--;
             term->search.buf[--term->search.len] = L'\0';
+            *update_search_result = *redraw = true;
         }
-        return false;
+        return true;
 
     case BIND_ACTION_SEARCH_DELETE_PREV_WORD: {
         size_t diff = distance_prev_word(term);
         size_t old_cursor = term->search.cursor;
         size_t new_cursor = old_cursor - diff;
 
-        memmove(&term->search.buf[new_cursor],
-                &term->search.buf[old_cursor],
-                (term->search.len - old_cursor) * sizeof(wchar_t));
+        if (diff > 0) {
+            memmove(&term->search.buf[new_cursor],
+                    &term->search.buf[old_cursor],
+                    (term->search.len - old_cursor) * sizeof(wchar_t));
 
-        term->search.len -= diff;
-        term->search.cursor = new_cursor;
-        return false;
+            term->search.len -= diff;
+            term->search.cursor = new_cursor;
+            *update_search_result = *redraw = true;
+        }
+        return true;
     }
 
     case BIND_ACTION_SEARCH_DELETE_NEXT:
@@ -649,42 +743,50 @@ execute_binding(struct seat *seat, struct terminal *term,
                 &term->search.buf[term->search.cursor + 1],
                 (term->search.len - term->search.cursor - 1) * sizeof(wchar_t));
             term->search.buf[--term->search.len] = L'\0';
+            *update_search_result = *redraw = true;
         }
-        return false;
+        return true;
 
     case BIND_ACTION_SEARCH_DELETE_NEXT_WORD: {
         size_t diff = distance_next_word(term);
         size_t cursor = term->search.cursor;
 
-        memmove(&term->search.buf[cursor],
-                &term->search.buf[cursor + diff],
-                (term->search.len - (cursor + diff)) * sizeof(wchar_t));
+        if (diff > 0) {
+            memmove(&term->search.buf[cursor],
+                    &term->search.buf[cursor + diff],
+                    (term->search.len - (cursor + diff)) * sizeof(wchar_t));
 
-        term->search.len -= diff;
-        return false;
+            term->search.len -= diff;
+            *update_search_result = *redraw = true;
+        }
+        return true;
     }
 
     case BIND_ACTION_SEARCH_EXTEND_WORD:
         search_match_to_end_of_word(term, false);
-        return false;
+        *update_search_result = *redraw = true;
+        return true;
 
     case BIND_ACTION_SEARCH_EXTEND_WORD_WS:
         search_match_to_end_of_word(term, true);
-        return false;
+        *update_search_result = *redraw = true;
+        return true;
 
     case BIND_ACTION_SEARCH_CLIPBOARD_PASTE:
         text_from_clipboard(
             seat, term, &from_clipboard_cb, &from_clipboard_done, term);
-        return false;
+        *update_search_result = *redraw = true;
+        return true;
 
     case BIND_ACTION_SEARCH_PRIMARY_PASTE:
         text_from_primary(
             seat, term, &from_clipboard_cb, &from_clipboard_done, term);
-        return false;
+        *update_search_result = *redraw = true;
+        return true;
 
     case BIND_ACTION_SEARCH_COUNT:
         xassert(false);
-        return false;
+        return true;
     }
 
     xassert(false);
@@ -700,6 +802,9 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
     enum xkb_compose_status compose_status = xkb_compose_state_get_status(
         seat->kbd.xkb_compose_state);
 
+    bool update_search_result = false;
+    bool redraw = false;
+
     /* Key bindings */
     tll_foreach(seat->kbd.bindings.search, it) {
         if (it->item.bind.mods != mods)
@@ -707,16 +812,22 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
 
         /* Match symbol */
         if (it->item.bind.sym == sym) {
-            if (!execute_binding(seat, term, it->item.action, serial))
+            if (execute_binding(seat, term, it->item.action, serial,
+                                &update_search_result, &redraw))
+            {
                 goto update_search;
+            }
             return;
         }
 
         /* Match raw key code */
         tll_foreach(it->item.bind.key_codes, code) {
             if (code->item == key) {
-                if (!execute_binding(seat, term, it->item.action, serial))
+                if (execute_binding(seat, term, it->item.action, serial,
+                                    &update_search_result, &redraw))
+                {
                     goto update_search;
+                }
                 return;
             }
         }
@@ -736,6 +847,8 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
             seat->kbd.xkb_state, key, (char *)buf, sizeof(buf));
     }
 
+    update_search_result = redraw = count > 0;
+
     if (count == 0)
         return;
 
@@ -743,6 +856,8 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
 
 update_search:
     LOG_DBG("search: buffer: %ls", term->search.buf);
-    search_find_next(term);
-    render_refresh_search(term);
+    if (update_search_result)
+        search_find_next(term);
+    if (redraw)
+        render_refresh_search(term);
 }

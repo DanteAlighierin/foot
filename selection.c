@@ -1448,6 +1448,7 @@ struct clipboard_receive {
     int read_fd;
     int timeout_fd;
     struct itimerspec timeout;
+    bool bracketed;
 
     void (*decoder)(struct clipboard_receive *ctx, char *data, size_t size);
     void (*finish)(struct clipboard_receive *ctx);
@@ -1559,7 +1560,15 @@ fdm_receive_decoder_uri(struct clipboard_receive *ctx, char *data, size_t size)
     char *start = ctx->buf.data;
     char *end = NULL;
 
-    while ((end = memchr(start, '\n', ctx->buf.idx - (start - ctx->buf.data))) != NULL) {
+    while (true) {
+        for (end = start; end < &ctx->buf.data[ctx->buf.idx]; end++) {
+            if (*end == '\r' || *end == '\n')
+                break;
+        }
+
+        if (end >= &ctx->buf.data[ctx->buf.idx])
+            break;
+
         decode_one_uri(ctx, start, end - start);
         start = end + 1;
     }
@@ -1608,12 +1617,50 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
         if (count == 0)
             break;
 
-        /* Call cb while at same time replacing \r\n with \n */
+        /*
+         * Call cb while at same time replace:
+         *   - \r\n -> \r
+         *   - \n -> \r
+         *   - C0 -> <nothing>  (strip non-formatting C0 characters)
+         *   - \e -> <nothing>  (i.e. strip ESC)
+         */
         char *p = text;
         size_t left = count;
     again:
-        for (size_t i = 0; i < left - 1; i++) {
-            if (p[i] == '\r' && p[i + 1] == '\n') {
+        for (size_t i = 0; i < left; i++) {
+            switch (p[i]) {
+            default:
+                break;
+
+            case '\n':
+                if (!ctx->bracketed)
+                    p[i] = '\r';
+                break;
+
+            case '\r':
+                /* Convert \r\n -> \r */
+                if (!ctx->bracketed && i + 1 < left && p[i + 1] == '\n') {
+                    ctx->decoder(ctx, p, i + 1);
+
+                    xassert(i + 2 <= left);
+                    p += i + 2;
+                    left -= i + 2;
+                    goto again;
+                }
+                break;
+
+            /* C0 non-formatting control characters (\b \t \n \r excluded) */
+            case '\x01': case '\x02': case '\x03': case '\x04': case '\x05':
+            case '\x06': case '\x07': case '\x0b': case '\x0c': case '\x0e':
+            case '\x0f': case '\x10': case '\x11': case '\x12': case '\x13':
+            case '\x14': case '\x15': case '\x16': case '\x17': case '\x18':
+            case '\x19': case '\x1a': case '\x1b': case '\x1c': case '\x1d':
+            case '\x1e': case '\x1f':
+                /* FALLTHROUGH */
+
+            /* Additional control characters stripped by default (but
+             * configurable) in XTerm: BS, HT, DEL */
+            case '\b': case '\t': case '\x7f':
                 ctx->decoder(ctx, p, i);
 
                 xassert(i + 1 <= left);
@@ -1667,6 +1714,7 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
         .read_fd = read_fd,
         .timeout_fd = timeout_fd,
         .timeout = timeout,
+        .bracketed = term->bracketed_paste,
         .decoder = (mime_type == DATA_OFFER_MIME_URI_LIST
                     ? &fdm_receive_decoder_uri
                     : &fdm_receive_decoder_plain),

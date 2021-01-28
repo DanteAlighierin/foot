@@ -1,10 +1,12 @@
 #include "render.h"
 
 #include <string.h>
+#include <unistd.h>
 
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
+#include <sys/epoll.h>
 #include <pthread.h>
 #if __has_include(<pthread_np.h>)
 #include <pthread_np.h>
@@ -1096,6 +1098,17 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
 
     int cells_needed = term->ime.preedit.count;
 
+    if (term->ime.preedit.cursor.start == cells_needed &&
+        term->ime.preedit.cursor.end == cells_needed)
+    {
+        /* Cursor will be drawn *after* the pre-edit string, i.e. in
+         * the cell *after*. This means we need to copy, and dirty,
+         * one extra cell from the original grid, or we’ll leave
+         * trailing “cursors” after us if the user deletes text while
+         * pre-editing */
+        cells_needed++;
+    }
+
     int row_idx = cursor.row;
     int col_idx = cursor.col;
     int ime_ofs = 0;  /* Offset into pre-edit string to start rendering at */
@@ -1175,7 +1188,7 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
     int end = term->ime.preedit.cursor.end - ime_ofs;
 
     if (!term->ime.preedit.cursor.hidden) {
-        const struct cell *start_cell = &term->ime.preedit.cells[start + ime_ofs];
+        const struct cell *start_cell = &term->ime.preedit.cells[0];
 
         pixman_color_t fg = color_hex_to_pixman(term->colors.fg);
         pixman_color_t bg = color_hex_to_pixman(term->colors.bg);
@@ -2237,7 +2250,7 @@ render_search_box(struct terminal *term)
     /* Calculate the width of each character */
     int widths[text_len + 1];
     for (size_t i = 0; i < text_len; i++)
-        widths[i] = max(1, wcwidth(text[i]));
+        widths[i] = max(0, wcwidth(text[i]));
     widths[text_len] = 0;
 
     const size_t total_cells = wcswidth(text, text_len);
@@ -2429,10 +2442,16 @@ render_search_box(struct terminal *term)
                 x + x_ofs + glyph->x, y + font_baseline(term) - glyph->y,
                 glyph->width, glyph->height);
         } else {
+            int combining_ofs = width == 0
+                ? (glyph->x < 0
+                   ? width * term->cell_width
+                   : (width - 1) * term->cell_width)
+                : 0;  /* Not a zero-width character - no additional offset */
             pixman_image_t *src = pixman_image_create_solid_fill(&fg);
             pixman_image_composite32(
                 PIXMAN_OP_OVER, src, glyph->pix, buf->pix[0], 0, 0, 0, 0,
-                x + x_ofs + glyph->x, y + font_baseline(term) - glyph->y,
+                x + x_ofs + combining_ofs + glyph->x,
+                y + font_baseline(term) - glyph->y,
             glyph->width, glyph->height);
             pixman_image_unref(src);
         }
@@ -2526,6 +2545,89 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 
     if (grid && (!term->delayed_render_timer.is_armed || csd || search))
         grid_render(term);
+}
+
+static void
+tiocswinsz(struct terminal *term)
+{
+    if (term->ptmx >= 0) {
+        if (ioctl(term->ptmx, (unsigned int)TIOCSWINSZ,
+                     &(struct winsize){
+                         .ws_row = term->rows,
+                         .ws_col = term->cols,
+                         .ws_xpixel = term->cols * term->cell_width,
+                         .ws_ypixel = term->rows * term->cell_height}) < 0)
+        {
+            LOG_ERRNO("TIOCSWINSZ");
+        }
+    }
+}
+
+static bool
+fdm_tiocswinsz(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct terminal *term = data;
+
+    if (events & EPOLLIN)
+        tiocswinsz(term);
+
+    fdm_del(fdm, fd);
+    term->window->resize_timeout_fd = -1;
+    return true;
+}
+
+static void
+send_dimensions_to_client(struct terminal *term)
+{
+    struct wl_window *win = term->window;
+
+    if (!win->is_resizing || term->conf->resize_delay_ms == 0) {
+        /* Send new dimensions to client immediately */
+        tiocswinsz(term);
+
+        /* And make sure to reset and deallocate a lingering timer */
+        if (win->resize_timeout_fd >= 0) {
+            fdm_del(term->fdm, win->resize_timeout_fd);
+            win->resize_timeout_fd = -1;
+        }
+    } else {
+        /* Send new dimensions to client “in a while” */
+        assert(win->is_resizing && term->conf->resize_delay_ms > 0);
+
+        int fd = win->resize_timeout_fd;
+        uint16_t delay_ms = term->conf->resize_delay_ms;
+        bool successfully_scheduled = false;
+
+        if (fd < 0) {
+            /* Lazy create timer fd */
+            fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+            if (fd < 0)
+                LOG_ERRNO("failed to create TIOCSWINSZ timer");
+            else if (!fdm_add(term->fdm, fd, EPOLLIN, &fdm_tiocswinsz, term)) {
+                close(fd);
+                fd = -1;
+            }
+
+            win->resize_timeout_fd = fd;
+        }
+
+        if (fd >= 0) {
+            /* Reset timeout */
+            const struct itimerspec timeout = {
+                .it_value = {.tv_sec = 0, .tv_nsec = delay_ms * 1000000},
+            };
+
+            if (timerfd_settime(fd, 0, &timeout, NULL) < 0) {
+                LOG_ERRNO("failed to arm TIOCSWINSZ timer");
+                fdm_del(term->fdm, fd);
+                win->resize_timeout_fd = -1;
+            } else
+                successfully_scheduled = true;
+        }
+
+        if (!successfully_scheduled)
+            tiocswinsz(term);
+    }
 }
 
 /* Move to terminal.c? */
@@ -2654,7 +2756,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     const int total_x_pad = term->width - grid_width;
     const int total_y_pad = term->height - grid_height;
 
-    if (term->conf->center) {
+    if (term->conf->center && !term->window->is_resizing) {
         term->margins.left = total_x_pad / 2;
         term->margins.top = total_y_pad / 2;
     } else {
@@ -2706,17 +2808,6 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
             term->width, term->height, term->cols, term->rows,
             term->margins.left, term->margins.right, term->margins.top, term->margins.bottom);
 
-    /* Signal TIOCSWINSZ */
-    if (term->ptmx >= 0 && ioctl(term->ptmx, (unsigned int)TIOCSWINSZ,
-              &(struct winsize){
-                  .ws_row = term->rows,
-                  .ws_col = term->cols,
-                  .ws_xpixel = term->cols * term->cell_width,
-                  .ws_ypixel = term->rows * term->cell_height}) == -1)
-    {
-        LOG_ERRNO("TIOCSWINSZ");
-    }
-
     if (term->scroll_region.start >= term->rows)
         term->scroll_region.start = 0;
 
@@ -2726,6 +2817,9 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     term->render.last_cursor.row = NULL;
 
 damage_view:
+    /* Signal TIOCSWINSZ */
+    send_dimensions_to_client(term);
+
     if (!term->window->is_maximized &&
         !term->window->is_fullscreen &&
         !term->window->is_tiled)

@@ -535,6 +535,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     bool is_activated = false;
     bool is_fullscreen = false;
     bool is_maximized = false;
+    bool is_resizing = false;
     bool is_tiled_top = false;
     bool is_tiled_bottom = false;
     bool is_tiled_left = false;
@@ -566,11 +567,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
         case XDG_TOPLEVEL_STATE_TILED_RIGHT:  is_tiled_right = true; break;
         case XDG_TOPLEVEL_STATE_TILED_TOP:    is_tiled_top = true; break;
         case XDG_TOPLEVEL_STATE_TILED_BOTTOM: is_tiled_bottom = true; break;
-
-        case XDG_TOPLEVEL_STATE_RESIZING:
-            /* Ignored */
-            /* TODO: throttle? */
-            break;
+        case XDG_TOPLEVEL_STATE_RESIZING:     is_resizing = true; break;
         }
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
@@ -614,6 +611,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     win->configure.is_activated = is_activated;
     win->configure.is_fullscreen = is_fullscreen;
     win->configure.is_maximized = is_maximized;
+    win->configure.is_resizing = is_resizing;
     win->configure.is_tiled_top = is_tiled_top;
     win->configure.is_tiled_bottom = is_tiled_bottom;
     win->configure.is_tiled_left = is_tiled_left;
@@ -646,8 +644,11 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     struct terminal *term = win->term;
 
     bool wasnt_configured = !win->is_configured;
+    bool was_resizing = win->is_resizing;
+
     win->is_configured = true;
     win->is_maximized = win->configure.is_maximized;
+    win->is_resizing = win->configure.is_resizing;
     win->is_tiled_top = win->configure.is_tiled_top;
     win->is_tiled_bottom = win->configure.is_tiled_bottom;
     win->is_tiled_left = win->configure.is_tiled_left;
@@ -676,8 +677,25 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
         term->window->frame_callback = NULL;
     }
 
-    bool resized = render_resize(
-        term, win->configure.width, win->configure.height);
+#if 1
+    /*
+     * TODO: decide if we should to the last “forced” call when ending
+     * an interactive resize.
+     *
+     * Without it, the last TIOCSWINSZ sent to the client will be a
+     * scheduled one. I.e. there will be a small delay after the user
+     * has *stopped* resizing, and the client application receives the
+     * final size.
+     *
+     * Note: if we also disable content centering while resizing, then
+     * the last, forced, resize *is* necessary.
+     */
+    bool resized = was_resizing && !win->is_resizing
+        ? render_resize_force(term, win->configure.width, win->configure.height)
+        : render_resize(term, win->configure.width, win->configure.height);
+#else
+    bool resized = render_resize(term, win->configure.width, win->configure.height);
+#endif
 
     if (win->configure.is_activated)
         term_visual_focus_in(term);
@@ -1276,6 +1294,7 @@ wayl_win_init(struct terminal *term)
     win->term = term;
     win->use_csd = CSD_UNKNOWN;
     win->csd.move_timeout_fd = -1;
+    win->resize_timeout_fd = -1;
 
     win->surface = wl_compositor_create_surface(wayl->compositor);
     if (win->surface == NULL) {
@@ -1428,6 +1447,9 @@ wayl_win_destroy(struct wl_window *win)
         wl_surface_destroy(win->surface);
 
     wayl_roundtrip(win->term->wl);
+
+    if (win->resize_timeout_fd >= 0)
+        fdm_del(win->term->wl->fdm, win->resize_timeout_fd);
     free(win);
 }
 

@@ -60,6 +60,14 @@
   size (https://codeberg.org/dnkl/foot/issues/281).
 * Extending a word/line-wise selection now uses the original selection
   mode instead of switching to character-wise.
+* The scrollback search box no longer accepts non-printable characters.
+* Non-formatting C0 control characters, `BS`, `HT` and `DEL` are now
+  stripped from pasted text.
+* While doing an interactive resize of a foot window, foot now
+  requires 100ms of idle time (where the window size does not change)
+  before sending the new dimensions to the client application. The
+  timing can be tweaked, or completely disabled, by setting
+  `resize-delay-ms` (https://codeberg.org/dnkl/foot/issues/301).
 
 
 ### Deprecated
@@ -89,6 +97,13 @@
   current window dimensions (fixes `lsix` output)
 * Crash on keyboard input when repeat rate was zero (i.e. no repeat).
 * Wrong button encoding of mouse buttons 6 and 7 in mouse events.
+* Scrollback search not matching composed characters.
+* High CPU usage when holding down e.g. arrow keys while in scrollback
+  search mode.
+* Rendering of composed characters in the scrollback search box.
+* IME pre-edit cursor when positioned at the end of the pre-edit
+  string.
+* Scrollback search not matching multi-column characters.
 
 
 ### Security
