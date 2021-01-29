@@ -1,6 +1,7 @@
 # Changelog
 
 * [Unreleased](#Unreleased)
+* [1.6.3](#1-6-3)
 * [1.6.2](#1-6-2)
 * [1.6.1](#1-6-1)
 * [1.6.0](#1-6-0)
@@ -28,8 +29,6 @@
   (e.g. `pad=5x5 center`), causing the grid to be centered in the
   window, with equal amount of padding of the left/right and
   top/bottom side (https://codeberg.org/dnkl/foot/issues/273).
-* Completions for fish shell
-  (https://codeberg.org/dnkl/foot/issues/11)
 * `line-height`, `letter-spacing`, `horizontal-letter-offset` and
   `vertical-letter-offset` to `foot.ini`. These options let you tweak
   cell size and glyph positioning
@@ -37,14 +36,12 @@
 * Key/mouse binding `select-extend-character-wise`, which forces the
   selection mode to 'character-wise' when extending a selection.
 * `DECSET` `47`, `1047` and `1048`.
-* FreeBSD support (https://codeberg.org/dnkl/foot/issues/238).
 * `selection-target=none|primary|clipboard|both` to `foot.ini`. It can
   be used to configure which clipboard(s) selected text should be
   copied to. The default is `primary`, which corresponds to the
   behavior in older foot releases
   (https://codeberg.org/dnkl/foot/issues/288).
-* IME popup location support: foot now sends the location of the cursor
-  so any popup can be displayed near the text that is being typed.
+
 
 ### Changed
 
@@ -53,17 +50,12 @@
   instead of needing to be manually cloned.
 * Box drawing characters are now rendered by foot, instead of using
   font glyphs (https://codeberg.org/dnkl/foot/issues/198)
-* Trailing comments in `foot.ini` must now be preceded by a space or tab
-  (https://codeberg.org/dnkl/foot/issues/270)
 * Double- or triple clicking then dragging now extends the selection
   word- or line-wise (https://codeberg.org/dnkl/foot/issues/267).
 * The line thickness of box drawing characters now depend on the font
   size (https://codeberg.org/dnkl/foot/issues/281).
 * Extending a word/line-wise selection now uses the original selection
   mode instead of switching to character-wise.
-* The scrollback search box no longer accepts non-printable characters.
-* Non-formatting C0 control characters, `BS`, `HT` and `DEL` are now
-  stripped from pasted text.
 * While doing an interactive resize of a foot window, foot now
   requires 100ms of idle time (where the window size does not change)
   before sending the new dimensions to the client application. The
@@ -76,6 +68,33 @@
 
 * The `-g,--geometry` command-line option (which had been deprecated and
   superseded by `-w,--window-size-pixels` since 1.5.0).
+
+
+### Fixed
+### Security
+### Contributors
+
+* [craigbarnes](https://codeberg.org/craigbarnes)
+
+
+## 1.6.3
+
+### Added
+
+* Completions for fish shell
+  (https://codeberg.org/dnkl/foot/issues/11)
+* FreeBSD support (https://codeberg.org/dnkl/foot/issues/238).
+* IME popup location support: foot now sends the location of the cursor
+  so any popup can be displayed near the text that is being typed.
+
+
+### Changed
+
+* Trailing comments in `foot.ini` must now be preceded by a space or tab
+  (https://codeberg.org/dnkl/foot/issues/270)
+* The scrollback search box no longer accepts non-printable characters.
+* Non-formatting C0 control characters, `BS`, `HT` and `DEL` are now
+  stripped from pasted text.
 
 
 ### Fixed
@@ -107,11 +126,8 @@
 * Scrollback search not matching multi-column characters.
 
 
-### Security
 ### Contributors
 
-* [craigbarnes](https://codeberg.org/craigbarnes)
-* [birger](https://codeberg.org/birger)
 * [pc](https://codeberg.org/pc)
 * [FollieHiyuki](https://codeberg.org/FollieHiyuki)
 * jbeich
