@@ -22,6 +22,7 @@
 
 
 ## 1.6.3
+
 ### Added
 
 * Completions for fish shell
@@ -40,8 +41,6 @@
   stripped from pasted text.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Exit when the client application terminates, not when the TTY file
@@ -71,7 +70,6 @@
 * Scrollback search not matching multi-column characters.
 
 
-### Security
 ### Contributors
 
 * [birger](https://codeberg.org/birger)
