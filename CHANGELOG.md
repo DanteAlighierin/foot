@@ -25,11 +25,18 @@
 ## 1.6.4
 ### Added
 ### Changed
+
+* The IME state no longer stays stuck in the terminal if the IME goes
+  away during preedit.
+
+
 ### Deprecated
 ### Removed
 ### Fixed
 ### Security
 ### Contributors
+
+* [tdeo](https://codeberg.org/tdeo)
 
 
 ## 1.6.3

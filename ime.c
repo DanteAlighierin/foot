@@ -39,6 +39,11 @@ leave(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 {
     struct seat *seat = data;
     LOG_DBG("leave: seat=%s", seat->name);
+
+    struct terminal *term = seat->kbd_focus;
+    if (term != NULL)
+        term_ime_reset(term);
+
     ime_disable(seat);
 }
 
