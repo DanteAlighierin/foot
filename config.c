@@ -75,6 +75,7 @@ static const char *const binding_action_map[] = {
     [BIND_ACTION_PIPE_SCROLLBACK] = "pipe-scrollback",
     [BIND_ACTION_PIPE_VIEW] = "pipe-visible",
     [BIND_ACTION_PIPE_SELECTED] = "pipe-selected",
+    [BIND_ACTION_SHOW_URLS] = "show-urls",
 
     /* Mouse-specific actions */
     [BIND_ACTION_SELECT_BEGIN] = "select-begin",
@@ -113,6 +114,14 @@ static const char *const search_binding_action_map[] = {
 
 static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
               "search binding action map size mismatch");
+
+static const char *const url_binding_action_map[] = {
+    [BIND_ACTION_URL_NONE] = NULL,
+    [BIND_ACTION_URL_CANCEL] = "cancel",
+};
+
+static_assert(ALEN(url_binding_action_map) == BIND_ACTION_URL_COUNT,
+              "URL binding action map size mismatch");
 
 #define LOG_AND_NOTIFY_ERR(...)                                     \
     do {                                                            \
@@ -1168,6 +1177,37 @@ has_search_binding_collisions(struct config *conf, enum bind_action_search actio
     return false;
 }
 
+static bool
+has_url_binding_collisions(struct config *conf, enum bind_action_url action,
+                           const key_combo_list_t *key_combos,
+                           const char *path, unsigned lineno)
+{
+    tll_foreach(conf->bindings.url, it) {
+        if (it->item.action == action)
+            continue;
+
+        tll_foreach(*key_combos, it2) {
+            const struct config_key_modifiers *mods1 = &it->item.modifiers;
+            const struct config_key_modifiers *mods2 = &it2->item.modifiers;
+
+            bool shift = mods1->shift == mods2->shift;
+            bool alt = mods1->alt == mods2->alt;
+            bool ctrl = mods1->ctrl == mods2->ctrl;
+            bool meta = mods1->meta == mods2->meta;
+            bool sym = it->item.sym == it2->item.sym;
+
+            if (shift && alt && ctrl && meta && sym) {
+                LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s'",
+                                   path, lineno, it2->item.text,
+                                   url_binding_action_map[it->item.action]);
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 static int
 argv_compare(char *const *argv1, char *const *argv2)
 {
@@ -1399,6 +1439,63 @@ parse_section_search_bindings(
     }
 
     LOG_AND_NOTIFY_ERR("%s:%u: [search-bindings]: %s: invalid key", path, lineno, key);
+    return false;
+
+}
+
+static bool
+parse_section_url_bindings(
+    const char *key, const char *value, struct config *conf,
+    const char *path, unsigned lineno)
+{
+    for (enum bind_action_url action = 0;
+         action < BIND_ACTION_URL_COUNT;
+         action++)
+    {
+        if (url_binding_action_map[action] == NULL)
+            continue;
+
+        if (strcmp(key, url_binding_action_map[action]) != 0)
+            continue;
+
+        /* Unset binding */
+        if (strcasecmp(value, "none") == 0) {
+            tll_foreach(conf->bindings.url, it) {
+                if (it->item.action == action)
+                    tll_remove(conf->bindings.url, it);
+            }
+            return true;
+        }
+
+        key_combo_list_t key_combos = tll_init();
+        if (!parse_key_combos(conf, value, &key_combos, path, lineno) ||
+            has_url_binding_collisions(conf, action, &key_combos, path, lineno))
+        {
+            free_key_combo_list(&key_combos);
+            return false;
+        }
+
+        /* Remove existing bindings for this action */
+        tll_foreach(conf->bindings.url, it) {
+            if (it->item.action == action)
+                tll_remove(conf->bindings.url, it);
+        }
+
+        /* Emit key bindings */
+        tll_foreach(key_combos, it) {
+            struct config_key_binding_url binding = {
+                .action = action,
+                .modifiers = it->item.modifiers,
+                .sym = it->item.sym,
+            };
+            tll_push_back(conf->bindings.url, binding);
+        }
+
+        free_key_combo_list(&key_combos);
+        return true;
+    }
+
+    LOG_AND_NOTIFY_ERR("%s:%u: [url-bindings]: %s: invalid key", path, lineno, key);
     return false;
 
 }
@@ -1778,6 +1875,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         SECTION_CSD,
         SECTION_KEY_BINDINGS,
         SECTION_SEARCH_BINDINGS,
+        SECTION_URL_BINDINGS,
         SECTION_MOUSE_BINDINGS,
         SECTION_TWEAK,
         SECTION_COUNT,
@@ -1800,6 +1898,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         [SECTION_CSD] =             {&parse_section_csd, "csd"},
         [SECTION_KEY_BINDINGS] =    {&parse_section_key_bindings, "key-bindings"},
         [SECTION_SEARCH_BINDINGS] = {&parse_section_search_bindings, "search-bindings"},
+        [SECTION_URL_BINDINGS] =    {&parse_section_url_bindings, "url-bindings"},
         [SECTION_MOUSE_BINDINGS] =  {&parse_section_mouse_bindings, "mouse-bindings"},
         [SECTION_TWEAK] =           {&parse_section_tweak, "tweak"},
     };
@@ -1993,6 +2092,7 @@ add_default_key_bindings(struct config *conf)
     add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_0);
     add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_KP_0);
     add_binding(BIND_ACTION_SPAWN_TERMINAL, ctrl_shift, XKB_KEY_N);
+    add_binding(BIND_ACTION_SHOW_URLS, ctrl_shift, XKB_KEY_F);
 
 #undef add_binding
 }
@@ -2041,6 +2141,25 @@ add_default_search_bindings(struct config *conf)
     add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_v);
     add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_y);
     add_binding(BIND_ACTION_SEARCH_PRIMARY_PASTE, shift, XKB_KEY_Insert);
+
+#undef add_binding
+}
+
+static void
+add_default_url_bindings(struct config *conf)
+{
+#define add_binding(action, mods, sym)                                  \
+    do {                                                                \
+        tll_push_back(                                                  \
+            conf->bindings.url,                                         \
+            ((struct config_key_binding_url){action, mods, sym}));      \
+} while (0)
+
+    const struct config_key_modifiers none = {0};
+    const struct config_key_modifiers ctrl = {.ctrl = true};
+
+    add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_g);
+    add_binding(BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape);
 
 #undef add_binding
 }
@@ -2195,6 +2314,7 @@ config_load(struct config *conf, const char *conf_path,
 
     add_default_key_bindings(conf);
     add_default_search_bindings(conf);
+    add_default_url_bindings(conf);
     add_default_mouse_bindings(conf);
 
     struct config_file conf_file = {.path = NULL, .fd = -1};

@@ -271,6 +271,10 @@ execute_binding(struct seat *seat, struct terminal *term,
         return true;
     }
 
+    case BIND_ACTION_SHOW_URLS:
+        assert(false);
+        break;
+
     case BIND_ACTION_SELECT_BEGIN:
         selection_start(
             term, seat->mouse.col, seat->mouse.row, SELECTION_CHAR_WISE, false);
@@ -404,6 +408,29 @@ convert_search_bindings(const struct config *conf, struct seat *seat)
 }
 
 static void
+convert_url_binding(struct seat *seat,
+                    const struct config_key_binding_url *conf_binding)
+{
+    struct key_binding_url binding = {
+        .action = conf_binding->action,
+        .bind = {
+            .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
+            .sym = conf_binding->sym,
+            .key_codes = key_codes_for_xkb_sym(
+                seat->kbd.xkb_keymap, conf_binding->sym),
+        },
+    };
+    tll_push_back(seat->kbd.bindings.url, binding);
+}
+
+static void
+convert_url_bindings(const struct config *conf, struct seat *seat)
+{
+    tll_foreach(conf->bindings.url, it)
+        convert_url_binding(seat, &it->item);
+}
+
+static void
 convert_mouse_binding(struct seat *seat,
                       const struct config_mouse_binding *conf_binding)
 {
@@ -528,6 +555,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
 
     convert_key_bindings(wayl->conf, seat);
     convert_search_bindings(wayl->conf, seat);
+    convert_url_bindings(wayl->conf, seat);
     convert_mouse_bindings(wayl->conf, seat);
 }
 

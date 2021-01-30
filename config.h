@@ -42,6 +42,12 @@ struct config_key_binding_search {
     xkb_keysym_t sym;
 };
 
+struct config_key_binding_url {
+    enum bind_action_url action;
+    struct config_key_modifiers modifiers;
+    xkb_keysym_t sym;
+};
+
 struct config_mouse_binding {
     enum bind_action_normal action;
     struct config_key_modifiers modifiers;
@@ -157,6 +163,9 @@ struct config {
         /* While searching (not - action to *start* a search is in the
          * 'key' bindings above */
         tll(struct config_key_binding_search) search;
+
+        /* While showing URL jump labels */
+        tll(struct config_key_binding_url) url;
     } bindings;
 
     struct {

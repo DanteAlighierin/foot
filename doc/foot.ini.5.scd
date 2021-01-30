@@ -491,6 +491,11 @@ e.g. *search-start=none*.
 	
 	Default: _not bound_
 
+*show-urls*
+	Enters URL mode, where all currently visible URLs are tagged with
+	a jump label with a key sequence that will open the URL. Default:
+	_Control+Shift+F_.
+
 
 # SECTION: search-bindings
 
@@ -568,6 +573,17 @@ scrollback search mode. The syntax is exactly the same as the regular
 *primary-paste*
 	Paste from the _primary selection_ into the search
 	buffer. Default: _Shift+Insert_.
+
+
+# SECTION: url-bindings
+
+This section lets you override the default key bindings used in URL
+mode. The syntax is exactly the same as the regular **key-bindings**.
+
+*cancel*
+	Exits URL mode without opening an URL. Default: _Control+g
+	Escape_.
+
 
 # SECTION: mouse-bindings
 
