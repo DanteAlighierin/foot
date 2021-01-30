@@ -2406,6 +2406,7 @@ config_free(struct config conf)
     tll_free(conf.bindings.key);
     tll_free(conf.bindings.mouse);
     tll_free(conf.bindings.search);
+    tll_free(conf.bindings.url);
 
     user_notifications_free(&conf.notifications);
 }

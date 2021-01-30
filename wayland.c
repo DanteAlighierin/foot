@@ -148,6 +148,10 @@ seat_destroy(struct seat *seat)
         tll_free(it->item.bind.key_codes);
     tll_free(seat->kbd.bindings.search);
 
+    tll_foreach(seat->kbd.bindings.url, it)
+        tll_free(it->item.bind.key_codes);
+    tll_free(seat->kbd.bindings.url);
+
     tll_free(seat->mouse.bindings);
 
     if (seat->kbd.xkb_compose_state != NULL)
