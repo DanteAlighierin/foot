@@ -90,7 +90,22 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
         if (chars != (size_t)-1) {
             char url_utf8[chars + 1];
             wcstombs(url_utf8, match->url, chars + 1);
-            spawn(term->reaper, term->cwd, (char *const[]){"xdg-open", url_utf8, NULL}, -1, -1, -1);
+
+            size_t argc;
+            char **argv;
+
+            if (spawn_expand_template(
+                    &term->conf->url_launch, 1,
+                    (const char *[]){"url"},
+                    (const char *[]){url_utf8},
+                    &argc, &argv))
+            {
+                spawn(term->reaper, term->cwd, argv, -1, -1, -1);
+
+                for (size_t i = 0; i < argc; i++)
+                    free(argv[i]);
+                free(argv);
+            }
         }
 
         urls_reset(term);
