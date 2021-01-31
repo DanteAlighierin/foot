@@ -454,6 +454,33 @@ str_to_pt_or_px(const char *s, struct pt_or_px *res, struct config *conf,
 }
 
 static bool
+str_to_spawn_template(struct config *conf,
+                      const char *s, struct config_spawn_template *template,
+                      const char *path, int lineno, const char *section,
+                      const char *key)
+{
+    free(template->raw_cmd);
+    free(template->argv);
+
+    template->raw_cmd = NULL;
+    template->argv = NULL;
+
+    char *raw_cmd = xstrdup(s);
+    char **argv = NULL;
+
+    if (!tokenize_cmdline(raw_cmd, &argv)) {
+        LOG_AND_NOTIFY_ERR(
+            "%s:%d: [%s]: %s: syntax error in command line",
+            path, lineno, section, key);
+        return false;
+    }
+
+    template->raw_cmd = raw_cmd;
+    template->argv = argv;
+    return true;
+}
+
+static bool
 parse_section_main(const char *key, const char *value, struct config *conf,
                    const char *path, unsigned lineno)
 {
@@ -675,24 +702,19 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "notify") == 0) {
-        free(conf->notify.raw_cmd);
-        free(conf->notify.argv);
-
-        conf->notify.raw_cmd = NULL;
-        conf->notify.argv = NULL;
-
-        char *raw_cmd = xstrdup(value);
-        char **argv = NULL;
-
-        if (!tokenize_cmdline(raw_cmd, &argv)) {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: notify: syntax error in command line",
-                path, lineno);
+        if (!str_to_spawn_template(conf, value, &conf->notify, path, lineno,
+                                   "default", "notify"))
+        {
             return false;
         }
+    }
 
-        conf->notify.raw_cmd = raw_cmd;
-        conf->notify.argv = argv;
+    else if (strcmp(key, "url-launch") == 0) {
+        if (!str_to_spawn_template(conf, value, &conf->url_launch, path, lineno,
+                                   "default", "url-launch"))
+        {
+            return false;
+        }
     }
 
     else if (strcmp(key, "selection-target") == 0) {
@@ -2308,6 +2330,9 @@ config_load(struct config *conf, const char *conf_path,
         "notify-send -a foot -i foot ${title} ${body}");
     tokenize_cmdline(conf->notify.raw_cmd, &conf->notify.argv);
 
+    conf->url_launch.raw_cmd = xstrdup("xdg-open ${url}");
+    tokenize_cmdline(conf->url_launch.raw_cmd, &conf->url_launch.argv);
+
     tll_foreach(*initial_user_notifications, it)
         tll_push_back(conf->notifications, it->item);
     tll_free(*initial_user_notifications);
@@ -2372,6 +2397,13 @@ out:
     return ret;
 }
 
+static void
+free_spawn_template(struct config_spawn_template *template)
+{
+    free(template->raw_cmd);
+    free(template->argv);
+}
+
 void
 config_free(struct config conf)
 {
@@ -2381,8 +2413,8 @@ config_free(struct config conf)
     free(conf.app_id);
     free(conf.word_delimiters);
     free(conf.scrollback.indicator.text);
-    free(conf.notify.raw_cmd);
-    free(conf.notify.argv);
+    free_spawn_template(&conf.notify);
+    free_spawn_template(&conf.url_launch);
     for (size_t i = 0; i < ALEN(conf.fonts); i++) {
         tll_foreach(conf.fonts[i], it)
             config_font_destroy(&it->item);

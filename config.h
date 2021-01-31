@@ -66,6 +66,11 @@ struct pt_or_px {
     float pt;
 };
 
+struct config_spawn_template {
+    char *raw_cmd;
+    char **argv;
+};
+
 struct config {
     char *term;
     char *shell;
@@ -198,10 +203,8 @@ struct config {
         SELECTION_TARGET_BOTH
     } selection_target;
 
-    struct {
-        char *raw_cmd;
-        char **argv;
-    } notify;
+    struct config_spawn_template notify;
+    struct config_spawn_template url_launch;
 
     struct {
         enum fcft_scaling_filter fcft_filter;

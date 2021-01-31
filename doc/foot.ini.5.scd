@@ -225,6 +225,10 @@ in this order:
 	
 	Default: _notify-send -a foot -i foot ${title} ${body}_.
 
+*url-launch*
+	Command to execute when opening URLs. _${url}_ will be replaced
+	with the actual URL. Default: _xdg-open ${url}_.
+
 *selection-target*
 	Clipboard target to automatically copy selected text to. One of
 	*none*, *primary*, *clipboard* or *both*. Default: _primary_.
