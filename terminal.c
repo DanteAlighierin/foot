@@ -1405,8 +1405,10 @@ term_destroy(struct terminal *term)
     fdm_del(term->fdm, term->flash.fd);
     fdm_del(term->fdm, term->ptmx);
 
-    if (term->window != NULL)
+    if (term->window != NULL) {
         wayl_win_destroy(term->window);
+        term->window = NULL;
+    }
 
     mtx_lock(&term->render.workers.lock);
     xassert(tll_length(term->render.workers.queue) == 0);
