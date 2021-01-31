@@ -2565,8 +2565,8 @@ render_urls(struct terminal *term)
         const struct coord *pos = &url->start;
         wl_subsurface_set_position(
             sub_surf,
-            (term->margins.left + pos->col * term->cell_width - term->cell_width) / term->scale,
-            (term->margins.top + pos->row * term->cell_height - term->cell_height / 2) / term->scale);
+            (term->margins.left + pos->col * term->cell_width - 2 * term->cell_width) / term->scale,
+            (term->margins.top + pos->row * term->cell_height - term->cell_height) / term->scale);
         render_osd(term, surf, sub_surf, buf, label,
                    term->colors.table[0], term->colors.table[3], 0xf000,
                    width, height, margin, margin);
