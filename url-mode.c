@@ -321,6 +321,9 @@ urls_collect(struct terminal *term)
 void
 urls_reset(struct terminal *term)
 {
+    if (likely(tll_length(term->urls) == 0))
+        return;
+
     if (term->window != NULL) {
         tll_foreach(term->window->urls, it) {
             if (it->item.sub_surf != NULL)
