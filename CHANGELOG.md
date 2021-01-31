@@ -61,6 +61,8 @@
   before sending the new dimensions to the client application. The
   timing can be tweaked, or completely disabled, by setting
   `resize-delay-ms` (https://codeberg.org/dnkl/foot/issues/301).
+* The IME state no longer stays stuck in the terminal if the IME goes
+  away during preedit.
 
 
 ### Deprecated
@@ -75,6 +77,7 @@
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
+* [tdeo](https://codeberg.org/tdeo)
 
 
 ## 1.6.3
