@@ -34,6 +34,7 @@
 #include "spawn.h"
 #include "terminal.h"
 #include "tokenize.h"
+#include "url-mode.h"
 #include "util.h"
 #include "vt.h"
 #include "xmalloc.h"
@@ -272,8 +273,11 @@ execute_binding(struct seat *seat, struct terminal *term,
     }
 
     case BIND_ACTION_SHOW_URLS:
-        assert(false);
-        break;
+        xassert(!urls_mode_is_active(term));
+
+        urls_collect(term);
+        render_refresh_urls(term);
+        return true;
 
     case BIND_ACTION_SELECT_BEGIN:
         selection_start(
@@ -853,6 +857,11 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
         if (should_repeat)
             start_repeater(seat, key);
         search_input(seat, term, key, sym, effective_mods, serial);
+        return;
+    } else  if (urls_mode_is_active(term)) {
+        if (should_repeat)
+            start_repeater(seat, key);
+        urls_input(seat, term, key, sym, effective_mods, serial);
         return;
     }
 

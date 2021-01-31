@@ -362,6 +362,12 @@ struct monitor {
     bool use_output_release;
 };
 
+struct wl_url {
+    const struct url *url;
+    struct wl_surface *surf;
+    struct wl_subsurface *sub_surf;
+};
+
 struct wayland;
 struct wl_window {
     struct terminal *term;
@@ -393,6 +399,7 @@ struct wl_window {
     struct wl_callback *frame_callback;
 
     tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
+    tll(struct wl_url) urls;
 
     bool is_configured;
     bool is_fullscreen;

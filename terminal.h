@@ -223,6 +223,14 @@ enum term_surface {
 
 typedef tll(struct ptmx_buffer) ptmx_buffer_list_t;
 
+struct url {
+    wchar_t *url;
+    wchar_t *text;
+    wchar_t key[4];
+    struct coord start;
+    struct coord end;
+};
+
 struct terminal {
     struct fdm *fdm;
     struct reaper *reaper;
@@ -421,6 +429,7 @@ struct terminal {
             bool csd;
             bool search;
             bool title;
+            bool urls;
         } refresh;
 
         /* Scheduled for rendering, in the next frame callback */
@@ -429,6 +438,7 @@ struct terminal {
             bool csd;
             bool search;
             bool title;
+            bool urls;
         } pending;
 
         bool margins;  /* Someone explicitly requested a refresh of the margins */
@@ -498,6 +508,9 @@ struct terminal {
         unsigned max_width;     /* Maximum image width, in pixels */
         unsigned max_height;    /* Maximum image height, in pixels */
     } sixel;
+
+    tll(struct url) urls;
+    wchar_t url_keys[5];
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     struct {
@@ -646,3 +659,6 @@ void term_ime_disable(struct terminal *term);
 void term_ime_reset(struct terminal *term);
 void term_ime_set_cursor_rect(
     struct terminal *term, int x, int y, int width, int height);
+
+void term_urls_reset(struct terminal *term);
+void term_collect_urls(struct terminal *term);

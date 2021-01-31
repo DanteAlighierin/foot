@@ -28,13 +28,14 @@
 #include "config.h"
 #include "grid.h"
 #include "hsl.h"
+#include "ime.h"
 #include "quirks.h"
 #include "selection.h"
-#include "sixel.h"
 #include "shm.h"
+#include "sixel.h"
+#include "url-mode.h"
 #include "util.h"
 #include "xmalloc.h"
-#include "ime.h"
 
 #define TIME_SCROLL_DAMAGE 0
 
@@ -1706,10 +1707,10 @@ static void
 render_osd(struct terminal *term,
            struct wl_surface *surf, struct wl_subsurface *sub_surf,
            struct buffer *buf,
-           const wchar_t *text, uint32_t _fg, uint32_t _bg,
+           const wchar_t *text, uint32_t _fg, uint32_t _bg, int alpha,
            unsigned width, unsigned height, unsigned x, unsigned y)
 {
-    pixman_color_t bg = color_hex_to_pixman(_bg);
+    pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, alpha);
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
         &(pixman_rectangle16_t){0, 0, width, height});
@@ -1896,7 +1897,7 @@ render_scrollback_position(struct terminal *term)
         term,
         win->scrollback_indicator_surface, win->scrollback_indicator_sub_surface,
         buf, text,
-        term->colors.table[0], term->colors.table[8 + 4],
+        term->colors.table[0], term->colors.table[8 + 4], 0xffff,
         width, height, width - margin - wcslen(text) * term->cell_width, margin);
 
 }
@@ -1928,7 +1929,7 @@ render_render_timer(struct terminal *term, struct timeval render_time)
         term,
         win->render_timer_surface, win->render_timer_sub_surface,
         buf, text,
-        term->colors.table[0], term->colors.table[8 + 1],
+        term->colors.table[0], term->colors.table[8 + 1], 0xffff,
         width, height, margin, margin);
 }
 
@@ -2518,6 +2519,61 @@ render_search_box(struct terminal *term)
 }
 
 static void
+render_urls(struct terminal *term)
+{
+    struct wl_window *win = term->window;
+    xassert(tll_length(win->urls) > 0);
+
+    tll_foreach(win->urls, it) {
+        const struct url *url = it->item.url;
+        const wchar_t *text = url->text;
+        const wchar_t *key = url->key;
+
+        struct wl_surface *surf = it->item.surf;
+        struct wl_subsurface *sub_surf = it->item.sub_surf;
+
+        if (surf == NULL || sub_surf == NULL)
+            continue;
+
+        size_t text_len = wcslen(text);
+        size_t chars = wcslen(key) + (text_len > 0 ? 3 + text_len : 0);
+
+        const size_t max_chars = 50;
+        chars = max(chars, max_chars);
+
+        wchar_t label[chars + 2];
+        if (text_len == 0)
+            wcscpy(label, key);
+        else {
+            int count = swprintf(label, chars, L"%s - %s", key, text);
+            if (count >= max_chars) {
+                label[max_chars] = L'…';
+                label[max_chars + 1] = L'\0';
+            }
+        }
+
+        size_t len = wcslen(label);
+        int cols = wcswidth(label, len);
+
+        const int margin = 3 * term->scale;
+        int width = 2 * margin + cols * term->cell_width;
+        int height = 2 * margin + term->cell_height;
+
+        struct buffer *buf = shm_get_buffer(
+            term->wl->shm, width, height, shm_cookie_url(url), false, 1);
+
+        const struct coord *pos = &url->start;
+        wl_subsurface_set_position(
+            sub_surf,
+            (term->margins.left + pos->col * term->cell_width - term->cell_width) / term->scale,
+            (term->margins.top + pos->row * term->cell_height - term->cell_height / 2) / term->scale);
+        render_osd(term, surf, sub_surf, buf, label,
+                   term->colors.table[0], term->colors.table[3], 0xf000,
+                   width, height, margin, margin);
+    }
+}
+
+static void
 render_update_title(struct terminal *term)
 {
     static const size_t max_len = 2048;
@@ -2545,13 +2601,15 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 
     bool grid = term->render.pending.grid;
     bool csd = term->render.pending.csd;
-    bool search = term->render.pending.search;
+    bool search = term->is_searching && term->render.pending.search;
     bool title = term->render.pending.title;
+    bool urls = urls_mode_is_active(term) > 0 && term->render.pending.urls;
 
     term->render.pending.grid = false;
     term->render.pending.csd = false;
     term->render.pending.search = false;
     term->render.pending.title = false;
+    term->render.pending.urls = false;
 
     if (csd && term->window->use_csd == CSD_YES) {
         quirk_weston_csd_on(term);
@@ -2562,15 +2620,19 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     if (title)
         render_update_title(term);
 
-    if (search && term->is_searching)
+    if (search)
         render_search_box(term);
 
-    tll_foreach(term->wl->seats, it)
+    if (urls)
+        render_urls(term);
+
+    if (grid && (!term->delayed_render_timer.is_armed | csd | search | urls))
+        grid_render(term);
+
+    tll_foreach(term->wl->seats, it) {
         if (it->item.kbd_focus == term)
             ime_update_cursor_rect(&it->item, term);
-
-    if (grid && (!term->delayed_render_timer.is_armed || csd || search))
-        grid_render(term);
+    }
 }
 
 static void
@@ -2754,6 +2816,9 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     /* Cancel an application initiated "Synchronized Update" */
     term_disable_app_sync_updates(term);
+
+    /* Drop out of URL mode */
+    urls_reset(term);
 
     term->width = width;
     term->height = height;
@@ -2981,27 +3046,21 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
 
         bool grid = term->render.refresh.grid;
         bool csd = term->render.refresh.csd;
-        bool search = term->render.refresh.search;
+        bool search = term->is_searching && term->render.refresh.search;
         bool title = term->render.refresh.title;
+        bool urls = urls_mode_is_active(term) && term->render.refresh.urls;
 
-        if (!term->is_searching)
-            search = false;
-
-        if (!(grid | csd | search | title))
+        if (!(grid | csd | search | title | urls))
             continue;
 
-        if (term->render.app_sync_updates.enabled && !(csd | search | title))
+        if (term->render.app_sync_updates.enabled && !(csd | search | title | urls))
             continue;
-
-        if (csd | search) {
-            /* Force update of parent surface */
-            grid = true;
-        }
 
         term->render.refresh.grid = false;
         term->render.refresh.csd = false;
         term->render.refresh.search = false;
         term->render.refresh.title = false;
+        term->render.refresh.urls = false;
 
         if (term->window->frame_callback == NULL) {
             if (csd && term->window->use_csd == CSD_YES) {
@@ -3013,17 +3072,22 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
                 render_update_title(term);
             if (search)
                 render_search_box(term);
-            tll_foreach(term->wl->seats, it)
+            if (urls)
+                render_urls(term);
+            if (grid | csd | search | urls)
+                grid_render(term);
+
+            tll_foreach(term->wl->seats, it) {
                 if (it->item.kbd_focus == term)
                     ime_update_cursor_rect(&it->item, term);
-            if (grid)
-                grid_render(term);
+            }
         } else {
             /* Tells the frame callback to render again */
             term->render.pending.grid |= grid;
             term->render.pending.csd |= csd;
             term->render.pending.search |= search;
             term->render.pending.title |= title;
+            term->render.pending.urls |= urls;
         }
     }
 
@@ -3063,6 +3127,13 @@ render_refresh_search(struct terminal *term)
 {
     if (term->is_searching)
         term->render.refresh.search = true;
+}
+
+void
+render_refresh_urls(struct terminal *term)
+{
+    if (urls_mode_is_active(term))
+        term->render.refresh.urls = true;
 }
 
 bool

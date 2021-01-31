@@ -36,6 +36,7 @@
 #include "sixel.h"
 #include "slave.h"
 #include "spawn.h"
+#include "url-mode.h"
 #include "util.h"
 #include "vt.h"
 #include "xmalloc.h"
@@ -1485,6 +1486,7 @@ term_destroy(struct terminal *term)
     tll_free(term->alt.sixel_images);
     sixel_fini(term);
 
+    urls_reset(term);
     term_ime_reset(term);
 
     free(term->foot_exe);
@@ -2963,3 +2965,4 @@ term_ime_set_cursor_rect(struct terminal *term, int x, int y, int width,
     }
 #endif
 }
+

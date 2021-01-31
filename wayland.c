@@ -1426,6 +1426,14 @@ wayl_win_destroy(struct wl_window *win)
 
     tll_free(win->on_outputs);
 
+    tll_foreach(win->urls, it) {
+        if (it->item.sub_surf != NULL)
+            wl_subsurface_destroy(it->item.sub_surf);
+        if (it->item.surf != NULL)
+            wl_surface_destroy(it->item.surf);
+    }
+    tll_free(win->urls);
+
     csd_destroy(win);
     if (win->render_timer_sub_surface != NULL)
         wl_subsurface_destroy(win->render_timer_sub_surface);
