@@ -87,12 +87,16 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
     if (match) {
         size_t chars = wcstombs(NULL, match->url, 0);
 
-        char url_utf8[chars + 1];
-        wcstombs(url_utf8, match->url, chars);
+        if (chars != (size_t)-1) {
+            char url_utf8[chars + 1];
+            wcstombs(url_utf8, match->url, chars + 1);
+            spawn(term->reaper, term->cwd, (char *const[]){"xdg-open", url_utf8, NULL}, -1, -1, -1);
+        }
 
-        spawn(term->reaper, term->cwd, (char *const[]){"xdg-open", url_utf8, NULL}, -1, -1, -1);
         urls_reset(term);
-    } else if (is_valid) {
+    }
+
+    else if (is_valid) {
         xassert(seq_len + 1 <= ALEN(term->url_keys));
         term->url_keys[seq_len] = wc;
     }
