@@ -238,6 +238,9 @@ auto_detected(struct terminal *term)
                     break;
                 }
 
+                if (c >= term->cols - 1 && row->linebreak)
+                    emit_url = true;
+
                 if (emit_url) {
                     /* Heuristic to remove trailing characters that
                      * are valid URL characters, but typically not at
