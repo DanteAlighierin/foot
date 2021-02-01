@@ -2563,10 +2563,19 @@ render_urls(struct terminal *term)
             term->wl->shm, width, height, shm_cookie_url(url), false, 1);
 
         const struct coord *pos = &url->start;
+        int x = pos->col * term->cell_width - 2 * term->cell_width;
+        int y = pos->row * term->cell_height - term->cell_height;
+
+        if (x < 0)
+            x += 4 * term->cell_width;
+        if (y < 0)
+            y += 2 * term->cell_height;
+
         wl_subsurface_set_position(
             sub_surf,
-            (term->margins.left + pos->col * term->cell_width - 2 * term->cell_width) / term->scale,
-            (term->margins.top + pos->row * term->cell_height - term->cell_height) / term->scale);
+            (term->margins.left + x) / term->scale,
+            (term->margins.top + y) / term->scale);
+
         render_osd(term, surf, sub_surf, buf, label,
                    term->colors.table[0], term->colors.table[3], 0xf000,
                    width, height, margin, margin);
