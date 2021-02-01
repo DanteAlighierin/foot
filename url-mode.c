@@ -147,6 +147,9 @@ auto_detected(struct terminal *term)
     wchar_t url[term->cols * term->rows + 1];
     size_t len = 0;
 
+    ssize_t parenthesis = 0;
+    ssize_t brackets = 0;
+
     for (int r = 0; r < term->rows; r++) {
         const struct row *row = grid_row_in_view(term->grid, r);
 
@@ -182,6 +185,8 @@ auto_detected(struct terminal *term)
 
                         wcsncpy(url, proto, prot_len);
                         len = prot_len;
+
+                        parenthesis = brackets = 0;
                         break;
                     }
                 }
@@ -193,18 +198,47 @@ auto_detected(struct terminal *term)
                 // static const wchar_t unwise[] = L"{}|\\^[]`";
                 // static const wchar_t reserved[] = L";/?:@&=+$,";
 
+                bool emit_url = false;
                 switch (wc) {
                 case L'a'...L'z':
                 case L'0'...L'9':
                 case L'-': case L'.': case L'_': case L'~': case L':':
-                case L'/': case L'?': case L'#': case L'[': case L']':
-                case L'@': case L'!': case L'$': case L'&': case L'\'':
-                case L'(': case L')': case L'*': case L'+': case L',':
-                case L';': case L'=': case L'"':
+                case L'/': case L'?': case L'#': case L'@': case L'!':
+                case L'$': case L'&': case L'\'': case L'*': case L'+':
+                case L',': case L';': case L'=': case L'"':
                     url[len++] = wc;
                     break;
 
-                default: {
+                case L'(':
+                    parenthesis++;
+                    url[len++] = wc;
+                    break;
+
+                case L'[':
+                    brackets++;
+                    url[len++] = wc;
+                    break;
+
+                case L')':
+                    if (--parenthesis < 0)
+                        emit_url = true;
+                    else
+                        url[len++] = wc;
+                    break;
+
+                case L']':
+                    if (--brackets < 0)
+                        emit_url = true;
+                    else
+                        url[len++] = wc;
+                    break;
+
+                default:
+                    emit_url = true;
+                    break;
+                }
+
+                if (emit_url) {
                     /* Heuristic to remove trailing characters that
                      * are valid URL characters, but typically not at
                      * the end of the URL */
@@ -241,8 +275,7 @@ auto_detected(struct terminal *term)
 
                     state = STATE_PROTOCOL;
                     len = 0;
-                    break;
-                }
+                    parenthesis = brackets = 0;
                 }
                 break;
             }
