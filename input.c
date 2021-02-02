@@ -82,8 +82,6 @@ execute_binding(struct seat *seat, struct terminal *term,
                 enum bind_action_normal action, char *const *pipe_argv,
                 uint32_t serial)
 {
-    const bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
-
     switch (action) {
     case BIND_ACTION_NONE:
         return true;
@@ -274,33 +272,22 @@ execute_binding(struct seat *seat, struct terminal *term,
     }
 
     case BIND_ACTION_SELECT_BEGIN:
-        if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_start(
-                term, seat->mouse.col, seat->mouse.row, SELECTION_CHAR_WISE, false);
-            return true;
-        }
-        return false;
+        selection_start(
+            term, seat->mouse.col, seat->mouse.row, SELECTION_CHAR_WISE, false);
+        return true;
 
     case BIND_ACTION_SELECT_BEGIN_BLOCK:
-        if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_start(
-                term, seat->mouse.col, seat->mouse.row, SELECTION_BLOCK, false);
-            return true;
-        }
-        return false;
+        selection_start(
+            term, seat->mouse.col, seat->mouse.row, SELECTION_BLOCK, false);
+        return true;
 
     case BIND_ACTION_SELECT_EXTEND:
-        if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_extend(
-                seat, term, seat->mouse.col, seat->mouse.row, term->selection.kind);
-            return true;
-        }
-        return false;
+        selection_extend(
+            seat, term, seat->mouse.col, seat->mouse.row, term->selection.kind);
+        return true;
 
     case BIND_ACTION_SELECT_EXTEND_CHAR_WISE:
-        if (selection_enabled(term, seat) && cursor_is_on_grid &&
-            term->selection.kind != SELECTION_BLOCK)
-        {
+        if (term->selection.kind != SELECTION_BLOCK) {
             selection_extend(
                 seat, term, seat->mouse.col, seat->mouse.row, SELECTION_CHAR_WISE);
             return true;
@@ -308,28 +295,19 @@ execute_binding(struct seat *seat, struct terminal *term,
         return false;
 
     case BIND_ACTION_SELECT_WORD:
-        if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_start(
-                term, seat->mouse.col, seat->mouse.row, SELECTION_WORD_WISE, false);
-            return true;
-        }
-        return false;
+        selection_start(
+            term, seat->mouse.col, seat->mouse.row, SELECTION_WORD_WISE, false);
+        return true;
 
     case BIND_ACTION_SELECT_WORD_WS:
-        if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_start(
-                term, seat->mouse.col, seat->mouse.row, SELECTION_WORD_WISE, true);
-            return true;
-        }
-        return false;
+        selection_start(
+            term, seat->mouse.col, seat->mouse.row, SELECTION_WORD_WISE, true);
+        return true;
 
     case BIND_ACTION_SELECT_ROW:
-        if (selection_enabled(term, seat) && cursor_is_on_grid) {
-            selection_start(
-                term, seat->mouse.col, seat->mouse.row, SELECTION_LINE_WISE, false);
-            return true;
-        }
-        return false;
+        selection_start(
+            term, seat->mouse.col, seat->mouse.row, SELECTION_LINE_WISE, false);
+        return true;
 
     case BIND_ACTION_COUNT:
         xassert(false);
@@ -1707,77 +1685,79 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         case WL_POINTER_BUTTON_STATE_PRESSED: {
             bool consumed = false;
 
-            if (seat->wl_keyboard != NULL && seat->kbd.xkb_state != NULL) {
-                /* Seat has keyboard - use mouse bindings *with* modifiers */
+            if (cursor_is_on_grid && term_mouse_grabbed(term, seat)) {
+                if (seat->wl_keyboard != NULL && seat->kbd.xkb_state != NULL) {
+                    /* Seat has keyboard - use mouse bindings *with* modifiers */
 
-                xkb_mod_mask_t mods = xkb_state_serialize_mods(
-                    seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
+                    xkb_mod_mask_t mods = xkb_state_serialize_mods(
+                        seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
 
-                /* Ignore Shift when matching modifiers, since it is
-                 * used to enable selection in mouse grabbing client
-                 * applications */
-                mods &= ~(1 << seat->kbd.mod_shift);
+                    /* Ignore Shift when matching modifiers, since it is
+                     * used to enable selection in mouse grabbing client
+                     * applications */
+                    mods &= ~(1 << seat->kbd.mod_shift);
 
-                const struct mouse_binding *match = NULL;
+                    const struct mouse_binding *match = NULL;
 
-                tll_foreach(seat->mouse.bindings, it) {
-                    const struct mouse_binding *binding = &it->item;
+                    tll_foreach(seat->mouse.bindings, it) {
+                        const struct mouse_binding *binding = &it->item;
 
-                    if (binding->button != button) {
-                        /* Wrong button */
-                        continue;
+                        if (binding->button != button) {
+                            /* Wrong button */
+                            continue;
+                        }
+
+                        if (binding->mods != mods) {
+                            /* Modifier mismatch */
+                            continue;
+                        }
+
+                        if  (binding->count > seat->mouse.count) {
+                            /* Not correct click count */
+                            continue;
+                        }
+
+                        if (match == NULL || binding->count > match->count)
+                            match = binding;
                     }
 
-                    if (binding->mods != mods) {
-                        /* Modifier mismatch */
-                        continue;
+                    if (match != NULL) {
+                        consumed = execute_binding(
+                            seat, term, match->action, match->pipe_argv, serial);
                     }
-
-                    if  (binding->count > seat->mouse.count) {
-                        /* Not correct click count */
-                        continue;
-                    }
-
-                    if (match == NULL || binding->count > match->count)
-                        match = binding;
                 }
 
-                if (match != NULL) {
-                    consumed = execute_binding(
-                        seat, term, match->action, match->pipe_argv, serial);
-                }
-            }
+                else {
+                    /* Seat does NOT have a keyboard - use mouse bindings *without* modifiers */
+                    const struct config_mouse_binding *match = NULL;
 
-            else {
-                /* Seat does NOT have a keyboard - use mouse bindings *without* modifiers */
-                const struct config_mouse_binding *match = NULL;
+                    tll_foreach(seat->wayl->conf->bindings.mouse, it) {
+                        const struct config_mouse_binding *binding = &it->item;
 
-                tll_foreach(seat->wayl->conf->bindings.mouse, it) {
-                    const struct config_mouse_binding *binding = &it->item;
+                        if (binding->button != button) {
+                            /* Wrong button */
+                            continue;
+                        }
 
-                    if (binding->button != button) {
-                        /* Wrong button */
-                        continue;
+                        if (binding->count > seat->mouse.count) {
+                            /* Incorrect click count */
+                            continue;
+                        }
+
+                        const struct config_key_modifiers no_mods = {0};
+                        if (memcmp(&binding->modifiers, &no_mods, sizeof(no_mods)) != 0) {
+                            /* Binding has modifiers */
+                            continue;
+                        }
+
+                        if (match == NULL || binding->count > match->count)
+                            match = binding;
                     }
 
-                    if (binding->count > seat->mouse.count) {
-                        /* Incorrect click count */
-                        continue;
+                    if (match != NULL) {
+                        consumed = execute_binding(
+                            seat, term, match->action, match->pipe.argv, serial);
                     }
-
-                    const struct config_key_modifiers no_mods = {0};
-                    if (memcmp(&binding->modifiers, &no_mods, sizeof(no_mods)) != 0) {
-                        /* Binding has modifiers */
-                        continue;
-                    }
-
-                    if (match == NULL || binding->count > match->count)
-                        match = binding;
-                }
-
-                if (match != NULL) {
-                    consumed = execute_binding(
-                        seat, term, match->action, match->pipe.argv, serial);
                 }
             }
 
