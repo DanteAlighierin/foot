@@ -2431,9 +2431,10 @@ term_mouse_grabbed(const struct terminal *term, struct seat *seat)
     /*
      * Mouse is grabbed by us, regardless of whether mouse tracking has been enabled or not.
      */
-    return seat->kbd_focus == term &&
-        seat->kbd.shift &&
-        !seat->kbd.alt && /*!seat->kbd.ctrl &&*/ !seat->kbd.meta;
+    return term->mouse_tracking == MOUSE_NONE ||
+        (seat->kbd_focus == term &&
+         seat->kbd.shift &&
+         !seat->kbd.alt && /*!seat->kbd.ctrl &&*/ !seat->kbd.meta);
 }
 
 void
