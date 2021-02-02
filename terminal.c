@@ -2570,7 +2570,10 @@ term_xcursor_update_for_seat(struct terminal *term, struct seat *seat)
     const char *xcursor
         = seat->pointer.hidden ? XCURSOR_HIDDEN
         : term->is_searching ? XCURSOR_LEFT_PTR
-        : selection_enabled(term, seat) ? XCURSOR_TEXT
+        : (seat->mouse.col >= 0 &&
+           seat->mouse.row >= 0 &&
+           term_mouse_grabbed(term, seat)) ? XCURSOR_TEXT
+        : term->is_searching ? XCURSOR_TEXT
         : XCURSOR_LEFT_PTR;
 
     render_xcursor_set(seat, term, xcursor);
