@@ -2114,7 +2114,7 @@ add_default_key_bindings(struct config *conf)
     add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_0);
     add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_KP_0);
     add_binding(BIND_ACTION_SPAWN_TERMINAL, ctrl_shift, XKB_KEY_N);
-    add_binding(BIND_ACTION_SHOW_URLS_LAUNCH, ctrl_shift, XKB_KEY_F);
+    add_binding(BIND_ACTION_SHOW_URLS_LAUNCH, ctrl_shift, XKB_KEY_U);
 
 #undef add_binding
 }
