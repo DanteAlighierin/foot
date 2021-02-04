@@ -2181,6 +2181,7 @@ add_default_url_bindings(struct config *conf)
     const struct config_key_modifiers ctrl = {.ctrl = true};
 
     add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_g);
+    add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_d);
     add_binding(BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape);
 
 #undef add_binding

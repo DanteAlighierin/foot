@@ -586,7 +586,7 @@ mode. The syntax is exactly the same as the regular **key-bindings**.
 
 *cancel*
 	Exits URL mode without opening an URL. Default: _Control+g
-	Escape_.
+	Control+d Escape_.
 
 
 # SECTION: mouse-bindings
