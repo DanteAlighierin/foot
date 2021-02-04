@@ -49,7 +49,7 @@ enum bind_action_normal {
     BIND_ACTION_PIPE_SCROLLBACK,
     BIND_ACTION_PIPE_VIEW,
     BIND_ACTION_PIPE_SELECTED,
-    BIND_ACTION_SHOW_URLS,
+    BIND_ACTION_SHOW_URLS_LAUNCH,
 
     /* Mouse specific actions - i.e. they require a mouse coordinate */
     BIND_ACTION_SELECT_BEGIN,
@@ -60,7 +60,7 @@ enum bind_action_normal {
     BIND_ACTION_SELECT_WORD_WS,
     BIND_ACTION_SELECT_ROW,
 
-    BIND_ACTION_KEY_COUNT = BIND_ACTION_SHOW_URLS + 1,
+    BIND_ACTION_KEY_COUNT = BIND_ACTION_SHOW_URLS_LAUNCH + 1,
     BIND_ACTION_COUNT = BIND_ACTION_SELECT_ROW + 1,
 };
 

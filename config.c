@@ -75,7 +75,7 @@ static const char *const binding_action_map[] = {
     [BIND_ACTION_PIPE_SCROLLBACK] = "pipe-scrollback",
     [BIND_ACTION_PIPE_VIEW] = "pipe-visible",
     [BIND_ACTION_PIPE_SELECTED] = "pipe-selected",
-    [BIND_ACTION_SHOW_URLS] = "show-urls",
+    [BIND_ACTION_SHOW_URLS_LAUNCH] = "show-urls-launch",
 
     /* Mouse-specific actions */
     [BIND_ACTION_SELECT_BEGIN] = "select-begin",
@@ -2114,7 +2114,7 @@ add_default_key_bindings(struct config *conf)
     add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_0);
     add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_KP_0);
     add_binding(BIND_ACTION_SPAWN_TERMINAL, ctrl_shift, XKB_KEY_N);
-    add_binding(BIND_ACTION_SHOW_URLS, ctrl_shift, XKB_KEY_F);
+    add_binding(BIND_ACTION_SHOW_URLS_LAUNCH, ctrl_shift, XKB_KEY_F);
 
 #undef add_binding
 }

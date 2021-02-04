@@ -495,7 +495,7 @@ e.g. *search-start=none*.
 	
 	Default: _not bound_
 
-*show-urls*
+*show-urls-launch*
 	Enters URL mode, where all currently visible URLs are tagged with
 	a jump label with a key sequence that will open the URL. Default:
 	_Control+Shift+F_.

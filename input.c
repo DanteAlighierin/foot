@@ -272,7 +272,7 @@ execute_binding(struct seat *seat, struct terminal *term,
         return true;
     }
 
-    case BIND_ACTION_SHOW_URLS:
+    case BIND_ACTION_SHOW_URLS_LAUNCH:
         xassert(!urls_mode_is_active(term));
 
         urls_collect(term);
