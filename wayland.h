@@ -49,6 +49,7 @@ enum bind_action_normal {
     BIND_ACTION_PIPE_SCROLLBACK,
     BIND_ACTION_PIPE_VIEW,
     BIND_ACTION_PIPE_SELECTED,
+    BIND_ACTION_SHOW_URLS_COPY,
     BIND_ACTION_SHOW_URLS_LAUNCH,
 
     /* Mouse specific actions - i.e. they require a mouse coordinate */

@@ -75,6 +75,7 @@ static const char *const binding_action_map[] = {
     [BIND_ACTION_PIPE_SCROLLBACK] = "pipe-scrollback",
     [BIND_ACTION_PIPE_VIEW] = "pipe-visible",
     [BIND_ACTION_PIPE_SELECTED] = "pipe-selected",
+    [BIND_ACTION_SHOW_URLS_COPY] = "show-urls-copy",
     [BIND_ACTION_SHOW_URLS_LAUNCH] = "show-urls-launch",
 
     /* Mouse-specific actions */

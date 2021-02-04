@@ -7,6 +7,7 @@
 #define LOG_ENABLE_DBG 1
 #include "log.h"
 #include "grid.h"
+#include "selection.h"
 #include "spawn.h"
 #include "terminal.h"
 #include "util.h"
@@ -88,24 +89,38 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
         size_t chars = wcstombs(NULL, match->url, 0);
 
         if (chars != (size_t)-1) {
-            char url_utf8[chars + 1];
+            char *url_utf8 = malloc(chars + 1);
             wcstombs(url_utf8, match->url, chars + 1);
 
-            size_t argc;
-            char **argv;
+            switch (match->action) {
+            case URL_ACTION_COPY:
+                if (text_to_clipboard(seat, term, url_utf8, seat->kbd.serial)) {
+                    /* Now owned by our clipboard “manager” */
+                    url_utf8 = NULL;
+                }
+                break;
 
-            if (spawn_expand_template(
-                    &term->conf->url_launch, 1,
-                    (const char *[]){"url"},
-                    (const char *[]){url_utf8},
-                    &argc, &argv))
-            {
-                spawn(term->reaper, term->cwd, argv, -1, -1, -1);
+            case URL_ACTION_LAUNCH: {
+                size_t argc;
+                char **argv;
 
-                for (size_t i = 0; i < argc; i++)
-                    free(argv[i]);
-                free(argv);
+                if (spawn_expand_template(
+                        &term->conf->url_launch, 1,
+                        (const char *[]){"url"},
+                        (const char *[]){url_utf8},
+                        &argc, &argv))
+                {
+                    spawn(term->reaper, term->cwd, argv, -1, -1, -1);
+
+                    for (size_t i = 0; i < argc; i++)
+                        free(argv[i]);
+                    free(argv);
+                }
+                break;
             }
+            }
+
+            free(url_utf8);
         }
 
         urls_reset(term);
@@ -120,7 +135,7 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
 IGNORE_WARNING("-Wpedantic")
 
 static void
-auto_detected(struct terminal *term)
+auto_detected(struct terminal *term, enum url_action action)
 {
     static const wchar_t *const prots[] = {
         L"http://",
@@ -274,7 +289,8 @@ auto_detected(struct terminal *term)
                             .url = xwcsdup(url),
                             .text = xwcsdup(L""),
                             .start = start,
-                            .end = end}));
+                            .end = end,
+                            .action = action}));
 
                     state = STATE_PROTOCOL;
                     len = 0;
@@ -290,10 +306,10 @@ auto_detected(struct terminal *term)
 UNIGNORE_WARNINGS
 
 void
-urls_collect(struct terminal *term)
+urls_collect(struct terminal *term, enum url_action action)
 {
     xassert(tll_length(term->urls) == 0);
-    auto_detected(term);
+    auto_detected(term, action);
 
     size_t count = tll_length(term->urls);
 

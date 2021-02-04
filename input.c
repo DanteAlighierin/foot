@@ -272,12 +272,18 @@ execute_binding(struct seat *seat, struct terminal *term,
         return true;
     }
 
-    case BIND_ACTION_SHOW_URLS_LAUNCH:
+    case BIND_ACTION_SHOW_URLS_COPY:
+    case BIND_ACTION_SHOW_URLS_LAUNCH: {
         xassert(!urls_mode_is_active(term));
 
-        urls_collect(term);
+        enum url_action url_action = action == BIND_ACTION_SHOW_URLS_COPY
+            ? URL_ACTION_COPY
+            : URL_ACTION_LAUNCH;
+
+        urls_collect(term, url_action);
         render_refresh_urls(term);
         return true;
+    }
 
     case BIND_ACTION_SELECT_BEGIN:
         selection_start(
