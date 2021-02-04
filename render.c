@@ -2555,7 +2555,7 @@ render_urls(struct terminal *term)
         size_t len = wcslen(label);
         int cols = wcswidth(label, len);
 
-        const int margin = 3 * term->scale;
+        const int margin = 2 * term->scale;
         int width = 2 * margin + cols * term->cell_width;
         int height = 2 * margin + term->cell_height;
 
