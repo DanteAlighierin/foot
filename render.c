@@ -2563,13 +2563,15 @@ render_urls(struct terminal *term)
             term->wl->shm, width, height, shm_cookie_url(url), false, 1);
 
         const struct coord *pos = &url->start;
-        int x = pos->col * term->cell_width - 2 * term->cell_width;
-        int y = pos->row * term->cell_height - term->cell_height;
+        int x = pos->col * term->cell_width - 15 * term->cell_width / 10;
+        int y = pos->row * term->cell_height - 5 * term->cell_height / 10;
 
         if (x < 0)
-            x += 4 * term->cell_width;
+            x = 0;
+#if 0
         if (y < 0)
-            y += 2 * term->cell_height;
+            y += 15 * term->cell_height / 10;
+#endif
 
         wl_subsurface_set_position(
             sub_surf,
