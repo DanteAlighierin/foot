@@ -170,7 +170,7 @@ auto_detected(struct terminal *term, enum url_action action)
 
         for (int c = 0; c < term->cols; c++) {
             const struct cell *cell = &row->cells[c];
-            wchar_t wc = towlower(cell->wc);
+            wchar_t wc = cell->wc;
 
             switch (state) {
             case STATE_PROTOCOL:
@@ -194,7 +194,7 @@ auto_detected(struct terminal *term, enum url_action action)
 
                     const wchar_t *proto = &proto_chars[max_prot_len - prot_len];
 
-                    if (wcsncmp(prots[i], proto, prot_len) == 0) {
+                    if (wcsncasecmp(prots[i], proto, prot_len) == 0) {
                         state = STATE_URL;
                         start = proto_start[max_prot_len - prot_len];
 
@@ -216,36 +216,37 @@ auto_detected(struct terminal *term, enum url_action action)
                 bool emit_url = false;
                 switch (wc) {
                 case L'a'...L'z':
+                case L'A'...L'Z':
                 case L'0'...L'9':
                 case L'-': case L'.': case L'_': case L'~': case L':':
                 case L'/': case L'?': case L'#': case L'@': case L'!':
                 case L'$': case L'&': case L'\'': case L'*': case L'+':
                 case L',': case L';': case L'=': case L'"':
-                    url[len++] = cell->wc;
+                    url[len++] = wc;
                     break;
 
                 case L'(':
                     parenthesis++;
-                    url[len++] = cell->wc;
+                    url[len++] = wc;
                     break;
 
                 case L'[':
                     brackets++;
-                    url[len++] = cell->wc;
+                    url[len++] = wc;
                     break;
 
                 case L')':
                     if (--parenthesis < 0)
                         emit_url = true;
                     else
-                        url[len++] = cell->wc;
+                        url[len++] = wc;
                     break;
 
                 case L']':
                     if (--brackets < 0)
                         emit_url = true;
                     else
-                        url[len++] = cell->wc;
+                        url[len++] = wc;
                     break;
 
                 default:
