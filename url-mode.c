@@ -32,6 +32,47 @@ execute_binding(struct seat *seat, struct terminal *term,
     return true;
 }
 
+static void
+activate_url(struct seat *seat, struct terminal *term, const struct url *url)
+{
+    size_t chars = wcstombs(NULL, url->url, 0);
+
+    if (chars != (size_t)-1) {
+        char *url_utf8 = malloc(chars + 1);
+        wcstombs(url_utf8, url->url, chars + 1);
+
+        switch (url->action) {
+        case URL_ACTION_COPY:
+            if (text_to_clipboard(seat, term, url_utf8, seat->kbd.serial)) {
+                /* Now owned by our clipboard “manager” */
+                url_utf8 = NULL;
+            }
+            break;
+
+        case URL_ACTION_LAUNCH: {
+            size_t argc;
+            char **argv;
+
+            if (spawn_expand_template(
+                    &term->conf->url_launch, 1,
+                    (const char *[]){"url"},
+                    (const char *[]){url_utf8},
+                    &argc, &argv))
+            {
+                spawn(term->reaper, term->cwd, argv, -1, -1, -1);
+
+                for (size_t i = 0; i < argc; i++)
+                    free(argv[i]);
+                free(argv);
+            }
+            break;
+        }
+        }
+
+        free(url_utf8);
+    }
+}
+
 void
 urls_input(struct seat *seat, struct terminal *term, uint32_t key,
            xkb_keysym_t sym, xkb_mod_mask_t mods, uint32_t serial)
@@ -86,43 +127,7 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
     }
 
     if (match) {
-        size_t chars = wcstombs(NULL, match->url, 0);
-
-        if (chars != (size_t)-1) {
-            char *url_utf8 = malloc(chars + 1);
-            wcstombs(url_utf8, match->url, chars + 1);
-
-            switch (match->action) {
-            case URL_ACTION_COPY:
-                if (text_to_clipboard(seat, term, url_utf8, seat->kbd.serial)) {
-                    /* Now owned by our clipboard “manager” */
-                    url_utf8 = NULL;
-                }
-                break;
-
-            case URL_ACTION_LAUNCH: {
-                size_t argc;
-                char **argv;
-
-                if (spawn_expand_template(
-                        &term->conf->url_launch, 1,
-                        (const char *[]){"url"},
-                        (const char *[]){url_utf8},
-                        &argc, &argv))
-                {
-                    spawn(term->reaper, term->cwd, argv, -1, -1, -1);
-
-                    for (size_t i = 0; i < argc; i++)
-                        free(argv[i]);
-                    free(argv);
-                }
-                break;
-            }
-            }
-
-            free(url_utf8);
-        }
-
+        activate_url(seat, term, match);
         urls_reset(term);
     }
 
