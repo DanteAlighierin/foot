@@ -73,6 +73,13 @@
 
 
 ### Fixed
+
+* Some mouse bindings (_primary paste_, for example) did not require
+  `shift` to be pressed while used in a mouse grabbing
+  application. This meant the mouse event was never seen by the
+  application.
+
+
 ### Security
 ### Contributors
 

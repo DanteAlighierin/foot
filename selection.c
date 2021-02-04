@@ -34,16 +34,6 @@ static const char *const mime_type_map[] = {
 };
 
 bool
-selection_enabled(const struct terminal *term, struct seat *seat)
-{
-    return
-        seat->mouse.col >= 0 && seat->mouse.row >= 0 &&
-        (term->mouse_tracking == MOUSE_NONE ||
-         term_mouse_grabbed(term, seat) ||
-         term->is_searching);
-}
-
-bool
 selection_on_rows(const struct terminal *term, int row_start, int row_end)
 {
     LOG_DBG("on rows: %d-%d, range: %d-%d (offset=%d)",
