@@ -221,31 +221,31 @@ auto_detected(struct terminal *term, enum url_action action)
                 case L'/': case L'?': case L'#': case L'@': case L'!':
                 case L'$': case L'&': case L'\'': case L'*': case L'+':
                 case L',': case L';': case L'=': case L'"':
-                    url[len++] = wc;
+                    url[len++] = cell->wc;
                     break;
 
                 case L'(':
                     parenthesis++;
-                    url[len++] = wc;
+                    url[len++] = cell->wc;
                     break;
 
                 case L'[':
                     brackets++;
-                    url[len++] = wc;
+                    url[len++] = cell->wc;
                     break;
 
                 case L')':
                     if (--parenthesis < 0)
                         emit_url = true;
                     else
-                        url[len++] = wc;
+                        url[len++] = cell->wc;
                     break;
 
                 case L']':
                     if (--brackets < 0)
                         emit_url = true;
                     else
-                        url[len++] = wc;
+                        url[len++] = cell->wc;
                     break;
 
                 default:
