@@ -2431,9 +2431,10 @@ term_mouse_grabbed(const struct terminal *term, struct seat *seat)
     /*
      * Mouse is grabbed by us, regardless of whether mouse tracking has been enabled or not.
      */
-    return seat->kbd_focus == term &&
-        seat->kbd.shift &&
-        !seat->kbd.alt && /*!seat->kbd.ctrl &&*/ !seat->kbd.meta;
+    return term->mouse_tracking == MOUSE_NONE ||
+        (seat->kbd_focus == term &&
+         seat->kbd.shift &&
+         !seat->kbd.alt && /*!seat->kbd.ctrl &&*/ !seat->kbd.meta);
 }
 
 void
@@ -2569,7 +2570,10 @@ term_xcursor_update_for_seat(struct terminal *term, struct seat *seat)
     const char *xcursor
         = seat->pointer.hidden ? XCURSOR_HIDDEN
         : term->is_searching ? XCURSOR_LEFT_PTR
-        : selection_enabled(term, seat) ? XCURSOR_TEXT
+        : (seat->mouse.col >= 0 &&
+           seat->mouse.row >= 0 &&
+           term_mouse_grabbed(term, seat)) ? XCURSOR_TEXT
+        : term->is_searching ? XCURSOR_TEXT
         : XCURSOR_LEFT_PTR;
 
     render_xcursor_set(seat, term, xcursor);
@@ -2940,6 +2944,22 @@ term_ime_reset(struct terminal *term)
         term->ime.preedit.text = NULL;
         term->ime.preedit.cells = NULL;
         term->ime.preedit.count = 0;
+    }
+#endif
+}
+
+void
+term_ime_set_cursor_rect(struct terminal *term, int x, int y, int width,
+                         int height)
+{
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term) {
+            it->item.ime.cursor_rect.pending.x = x;
+            it->item.ime.cursor_rect.pending.y = y;
+            it->item.ime.cursor_rect.pending.width = width;
+            it->item.ime.cursor_rect.pending.height = height;
+        }
     }
 #endif
 }
