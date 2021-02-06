@@ -1605,27 +1605,27 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
     uint32_t _color;
     uint16_t alpha = 0xffff;
     bool is_active = false;
-    const bool *is_set = NULL;
+    bool is_set = false;
     const uint32_t *conf_color = NULL;
 
     switch (surf_idx) {
     case CSD_SURF_MINIMIZE:
         _color = term->colors.default_table[4];  /* blue */
-        is_set = &term->conf->csd.color.minimize_set;
+        is_set = term->conf->csd.color.minimize_set;
         conf_color = &term->conf->csd.color.minimize;
         is_active = term->active_surface == TERM_SURF_BUTTON_MINIMIZE;
         break;
 
     case CSD_SURF_MAXIMIZE:
         _color = term->colors.default_table[2];  /* green */
-        is_set = &term->conf->csd.color.maximize_set;
+        is_set = term->conf->csd.color.maximize_set;
         conf_color = &term->conf->csd.color.maximize;
         is_active = term->active_surface == TERM_SURF_BUTTON_MAXIMIZE;
         break;
 
     case CSD_SURF_CLOSE:
         _color = term->colors.default_table[1];  /* red */
-        is_set = &term->conf->csd.color.close_set;
+        is_set = term->conf->csd.color.close_set;
         conf_color = &term->conf->csd.color.close;
         is_active = term->active_surface == TERM_SURF_BUTTON_CLOSE;
         break;
@@ -1636,7 +1636,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
     }
 
     if (is_active) {
-        if (*is_set) {
+        if (is_set) {
             _color = *conf_color;
             alpha = _color >> 24 | (_color >> 24 << 8);
         }
