@@ -2578,9 +2578,17 @@ render_urls(struct terminal *term)
             (term->margins.left + x) / term->scale,
             (term->margins.top + y) / term->scale);
 
+        uint32_t fg = term->conf->colors.use_custom.jump_label
+            ? term->conf->colors.jump_label.fg
+            : term->colors.table[0];
+        uint32_t bg = term->conf->colors.use_custom.jump_label
+            ? term->conf->colors.jump_label.bg
+            : term->colors.table[3];
+
+        uint16_t alpha = 0xffff;
+
         render_osd(term, surf, sub_surf, buf, label,
-                   term->colors.table[0], term->colors.table[3], 0xf000,
-                   width, height, margin, margin);
+                   fg, bg, alpha, width, height, margin, margin);
     }
 }
 

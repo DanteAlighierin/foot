@@ -421,6 +421,30 @@ str_to_color(const char *s, uint32_t *color, bool allow_alpha,
 }
 
 static bool
+str_to_two_colors(const char *s, uint32_t *first, uint32_t *second,
+                  bool allow_alpha, struct config *conf, const char *path,
+                  int lineno, const char *section, const char *key)
+{
+    /* TODO: do this without strdup() */
+    char *value_copy = xstrdup(s);
+    const char *first_as_str = strtok(value_copy, " ");
+    const char *second_as_str = strtok(NULL, " ");
+
+    if (first_as_str == NULL || second_as_str == NULL ||
+        !str_to_color(first_as_str, first, allow_alpha, conf, path, lineno, section, key) ||
+        !str_to_color(second_as_str, second, allow_alpha, conf, path, lineno, section, key))
+    {
+        LOG_AND_NOTIFY_ERR("%s:%d: [%s]: %s: invalid colors: %s",
+                           path, lineno, section, key, s);
+        free(value_copy);
+        return false;
+    }
+
+    free(value_copy);
+    return true;
+}
+
+static bool
 str_to_pt_or_px(const char *s, struct pt_or_px *res, struct config *conf,
                 const char *path, int lineno, const char *section, const char *key)
 {
@@ -845,6 +869,30 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "bright7") == 0)    color = &conf->colors.bright[7];
     else if (strcmp(key, "selection-foreground") == 0) color = &conf->colors.selection_fg;
     else if (strcmp(key, "selection-background") == 0) color = &conf->colors.selection_bg;
+
+    else if (strcmp(key, "jump-labels") == 0) {
+        if (!str_to_two_colors(
+                value, &conf->colors.jump_label.fg, &conf->colors.jump_label.bg,
+                false, conf, path, lineno, "colors", "jump-labels"))
+        {
+            return false;
+        }
+
+        conf->colors.use_custom.jump_label = true;
+        return true;
+    }
+
+    else if (strcmp(key, "urls") == 0) {
+        if (!str_to_color(value, &conf->colors.url, false,
+                          conf, path, lineno, "colors", "urls"))
+        {
+            return false;
+        }
+
+        conf->colors.use_custom.url = true;
+        return true;
+    }
+
     else if (strcmp(key, "alpha") == 0) {
         double alpha;
         if (!str_to_double(value, &alpha) || alpha < 0. || alpha > 1.) {
@@ -892,23 +940,15 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
         conf->cursor.blink = str_to_bool(value);
 
     else if (strcmp(key, "color") == 0) {
-        char *value_copy = xstrdup(value);
-        const char *text = strtok(value_copy, " ");
-        const char *cursor = strtok(NULL, " ");
-
-        uint32_t text_color, cursor_color;
-        if (text == NULL || cursor == NULL ||
-            !str_to_color(text, &text_color, false, conf, path, lineno, "cursor", "color") ||
-            !str_to_color(cursor, &cursor_color, false, conf, path, lineno, "cursor", "color"))
+        if (!str_to_two_colors(
+                value, &conf->cursor.color.text, &conf->cursor.color.cursor,
+                false, conf, path, lineno, "cursor", "color"))
         {
-            LOG_AND_NOTIFY_ERR("%s:%d: invalid cursor colors: %s", path, lineno, value);
-            free(value_copy);
             return false;
         }
 
-        conf->cursor.color.text = 1u << 31 | text_color;
-        conf->cursor.color.cursor = 1u << 31 | cursor_color;
-        free(value_copy);
+        conf->cursor.color.text |= 1u << 31;
+        conf->cursor.color.cursor |= 1u << 31;
     }
 
     else {
@@ -2283,6 +2323,8 @@ config_load(struct config *conf, const char *conf_path,
             .selection_bg = 0x80000000,  /* Use default fg */
             .use_custom = {
                 .selection = false,
+                .jump_label = false,
+                .url = false,
             },
         },
 

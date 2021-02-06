@@ -139,9 +139,17 @@ struct config {
         uint16_t alpha;
         uint32_t selection_fg;
         uint32_t selection_bg;
+        uint32_t url;
+
+        struct {
+            uint32_t fg;
+            uint32_t bg;
+        } jump_label;
 
         struct {
             bool selection:1;
+            bool jump_label:1;
+            bool url:1;
         } use_custom;
     } colors;
 

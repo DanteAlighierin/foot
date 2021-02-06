@@ -351,6 +351,15 @@ _alpha_ option.
 	text. Note that *both* options must be set, or the default will be
 	used. Default: _inverse foreground/background_.
 
+*jump-labels*
+	To RRGGBB values specifying the foreground (text) and background
+	colors to use when rendering jump labels in URL mode. Default:
+	_regular0 regular3_.
+
+*urls*
+	Color to use for the underline used to highlight URLs in URL
+	mode. Default: _regular3_.
+
 
 # SECTION: csd
 
