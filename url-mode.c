@@ -332,27 +332,30 @@ urls_collect(const struct terminal *term, enum url_action action, url_list_t *ur
     auto_detected(term, action, urls);
 }
 
+static void url_destroy(struct url *url);
+
 void
 urls_assign_key_combos(url_list_t *urls)
 {
-    size_t count = tll_length(*urls);
-
-    /* Assign key combos */
-
-    static const wchar_t *const single[] = {
+    static const wchar_t *const combos[] = {
         L"f", L"j", L"d", L"k", L"e", L"i", L"c", L"m", L"r",
         L"u", L"s", L"l", L"w", L"o", L"x", L"a", L"q", L"p",
     };
 
-    if (count < ALEN(single)) {
-        size_t idx = 0;
-        tll_foreach(*urls, it) {
-            xassert(wcslen(single[idx]) < ALEN(it->item.key) - 1);
-            wcscpy(it->item.key, single[idx++]);
+    size_t idx = 0;
+    tll_foreach(*urls, it) {
+        if (idx < ALEN(combos)) {
+            xassert(wcslen(combos[idx]) < ALEN(it->item.key) - 1);
+            wcscpy(it->item.key, combos[idx]);
+        } else {
+            url_destroy(&it->item);
+            tll_remove(*urls, it);
         }
-    } else {
-        LOG_ERR("unimplemented: more URLs than %zu", ALEN(single));
-        assert(false);
+
+        if (++idx == ALEN(combos)) {
+            LOG_WARN("not enough key combos (%zu) for %zu URLs",
+                     ALEN(combos), tll_length(*urls));
+        }
     }
 
 #if defined(_DEBUG) && LOG_ENABLE_DBG
@@ -450,6 +453,13 @@ urls_render(struct terminal *term)
     render_refresh(term);
 }
 
+static void
+url_destroy(struct url *url)
+{
+    free(url->url);
+    free(url->text);
+}
+
 void
 urls_reset(struct terminal *term)
 {
@@ -468,8 +478,7 @@ urls_reset(struct terminal *term)
 
     tll_foreach(term->urls, it) {
         tag_cells_for_url(term, &it->item, false);
-        free(it->item.url);
-        free(it->item.text);
+        url_destroy(&it->item);
     }
     tll_free(term->urls);
 
