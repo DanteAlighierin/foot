@@ -2281,7 +2281,9 @@ config_load(struct config *conf, const char *conf_path,
             .alpha = 0xffff,
             .selection_fg = 0x80000000,  /* Use default bg */
             .selection_bg = 0x80000000,  /* Use default fg */
-            .selection_uses_custom_colors = false,
+            .use_custom = {
+                .selection = false,
+            },
         },
 
         .cursor = {
@@ -2378,7 +2380,7 @@ config_load(struct config *conf, const char *conf_path,
     ret = parse_config_file(f, conf, conf_file.path, errors_are_fatal);
     fclose(f);
 
-    conf->colors.selection_uses_custom_colors =
+    conf->colors.use_custom.selection =
         conf->colors.selection_fg >> 24 == 0 &&
         conf->colors.selection_bg >> 24 == 0;
 

@@ -139,7 +139,10 @@ struct config {
         uint16_t alpha;
         uint32_t selection_fg;
         uint32_t selection_bg;
-        bool selection_uses_custom_colors;
+
+        struct {
+            bool selection:1;
+        } use_custom;
     } colors;
 
     struct {

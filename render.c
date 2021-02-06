@@ -412,7 +412,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     uint32_t _fg = 0;
     uint32_t _bg = 0;
 
-    if (is_selected && term->conf->colors.selection_uses_custom_colors) {
+    if (is_selected && term->conf->colors.use_custom.selection) {
         _fg = term->conf->colors.selection_fg;
         _bg = term->conf->colors.selection_bg;
     } else {
