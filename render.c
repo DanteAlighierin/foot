@@ -2633,6 +2633,12 @@ render_urls(struct terminal *term)
 
         render_osd(term, surf, sub_surf, buf, label,
                    fg, bg, alpha, width, height, margin, margin);
+
+#if 0
+        /* TODO: somehow highlight the key(s) entered so far */
+        pixman_color_t color = color_hex_to_pixman(fg);
+        draw_strikeout(term, buf->pix[0], term->fonts[0], &color, margin, margin, entered_key_len);
+#endif
     }
 }
 
