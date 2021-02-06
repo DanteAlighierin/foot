@@ -146,6 +146,11 @@ auto_detected(const struct terminal *term, enum url_action action, url_list_t *u
     static const wchar_t *const prots[] = {
         L"http://",
         L"https://",
+        L"ftp://",
+        L"ftps://",
+        L"file://",
+        L"gemini://",
+        L"gopher://",
     };
 
     size_t max_prot_len = 0;
