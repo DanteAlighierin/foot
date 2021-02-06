@@ -154,6 +154,10 @@ These are the default shortcuts. See `man foot.ini` and the example
   sequence](https://codeberg.org/dnkl/foot/wiki#user-content-how-to-configure-my-shell-to-emit-the-osc-7-escape-sequence),
   the new terminal will start in the current working directory.
 
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>u</kbd>
+: Enter URL mode, where all currently visible URLs are tagged with a
+  jump label with a key sequence that will open the URL.
+
 
 #### Scrollback search
 

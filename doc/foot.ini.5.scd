@@ -505,13 +505,13 @@ e.g. *search-start=none*.
 	Default: _not bound_
 
 *show-urls-launch*
-	Enters URL mode, where all currently visible URLs are tagged with
-	a jump label with a key sequence that will open the URL. Default:
+	Enter URL mode, where all currently visible URLs are tagged with a
+	jump label with a key sequence that will open the URL. Default:
 	_Control+Shift+U_.
 
 *show-urls-copy*
-	Enters URL mode, where all currently visible URLs are tagged with
-	a jump label with a key sequence that will place the URL in the
+	Enter URL mode, where all currently visible URLs are tagged with a
+	jump label with a key sequence that will place the URL in the
 	clipboard. Default: _none_.
 
 
