@@ -2598,9 +2598,10 @@ render_urls(struct terminal *term)
         size_t len = wcslen(label);
         int cols = wcswidth(label, len);
 
-        const int margin = 2 * term->scale;
-        int width = 2 * margin + cols * term->cell_width;
-        int height = 2 * margin + term->cell_height;
+        const int x_margin = 2 * term->scale;
+        const int y_margin = 1 * term->scale;
+        int width = 2 * x_margin + cols * term->cell_width;
+        int height = 2 * y_margin + term->cell_height;
 
         struct buffer *buf = shm_get_buffer(
             term->wl->shm, width, height, shm_cookie_url(url), false, 1);
@@ -2636,12 +2637,12 @@ render_urls(struct terminal *term)
         uint16_t alpha = 0xffff;
 
         render_osd(term, surf, sub_surf, buf, label,
-                   fg, bg, alpha, width, height, margin, margin);
+                   fg, bg, alpha, width, height, x_margin, y_margin);
 
 #if 0
         /* TODO: somehow highlight the key(s) entered so far */
         pixman_color_t color = color_hex_to_pixman(fg);
-        draw_strikeout(term, buf->pix[0], term->fonts[0], &color, margin, margin, entered_key_len);
+        draw_strikeout(term, buf->pix[0], term->fonts[0], &color, x_margin, y_margin, entered_key_len);
 #endif
     }
 }
