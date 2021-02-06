@@ -2827,8 +2827,13 @@ term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
         return TERM_SURF_BUTTON_MAXIMIZE;
     else if (surface == term->window->csd.surface[CSD_SURF_CLOSE])
         return TERM_SURF_BUTTON_CLOSE;
-    else
+    else {
+        tll_foreach(term->window->urls, it) {
+            if (surface == it->item.surf)
+                return TERM_SURF_JUMP_LABEL;
+        }
         return TERM_SURF_NONE;
+    }
 }
 
 static bool
