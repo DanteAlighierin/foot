@@ -2546,6 +2546,7 @@ render_urls(struct terminal *term)
         const struct url *url = it->item.url;
         const wchar_t *text = url->text;
         const wchar_t *key = url->key;
+        const size_t entered_key_len = wcslen(term->url_keys);
 
         struct wl_surface *surf = it->item.surf;
         struct wl_subsurface *sub_surf = it->item.sub_surf;
@@ -2553,13 +2554,21 @@ render_urls(struct terminal *term)
         if (surf == NULL || sub_surf == NULL)
             continue;
 
+        bool hide = false;
         const struct coord *pos = &url->start;
         const int _row
             = (pos->row
                - scrollback_end
                + term->grid->num_rows) & (term->grid->num_rows - 1);
 
-        if (_row < view_start || _row > view_end) {
+        if (_row < view_start || _row > view_end)
+            hide = true;
+        if (wcslen(key) <= entered_key_len)
+            hide = true;
+        if (wcsncmp(term->url_keys, key, entered_key_len) != 0)
+            hide = true;
+
+        if (hide) {
             wl_surface_attach(surf, NULL, 0, 0);
             wl_surface_commit(surf);
             continue;
