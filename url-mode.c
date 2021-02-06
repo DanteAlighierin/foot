@@ -335,58 +335,80 @@ urls_collect(const struct terminal *term, enum url_action action, url_list_t *ur
 
 static void url_destroy(struct url *url);
 
+static int
+wcscmp_qsort_wrapper(const void *_a, const void *_b)
+{
+    const wchar_t *a = *(const wchar_t **)_a;
+    const wchar_t *b = *(const wchar_t **)_b;
+    return wcscmp(a, b);
+}
+
 static void
 generate_key_combos(size_t count, wchar_t *combos[static count])
 {
     /* vimium default */
     static const wchar_t alphabet[] = L"sadfjklewcmpgh";
+    static const size_t alphabet_len = ALEN(alphabet) - 1;
 
-    tll(wchar_t *) hints = tll_init();
-    tll_push_back(hints, xwcsdup(L""));
+    size_t hints_count = 1;
+    wchar_t **hints = malloc(hints_count * sizeof(hints[0]));
+
+    hints[0] = xwcsdup(L"");
 
     size_t offset = 0;
-    while (tll_length(hints) - offset < count || tll_length(hints) == 1) {
-        wchar_t *hint = tll_back(hints);
-        offset++;
+    while (hints_count - offset < count || hints_count == 1) {
+        const wchar_t *prefix = hints[offset++];
 
-        for (size_t i = 0; i < ALEN(alphabet); i++) {
+        hints = realloc(hints, (hints_count + alphabet_len) * sizeof(hints[0]));
+
+        for (size_t i = 0; i < alphabet_len; i++) {
             wchar_t wc = alphabet[i];
-            wchar_t *next_hint = malloc((wcslen(hint) + 1 + 1) * sizeof(wchar_t));
-            next_hint[0] = wc;
-            wcscpy(&next_hint[1], hint);
-            tll_push_back(hints, next_hint);
+            wchar_t *hint = malloc((wcslen(prefix) + 1 + 1) * sizeof(wchar_t));
+
+            /* Will be reversed later */
+            hint[0] = wc;
+            wcscpy(&hint[1], prefix);
+            hints[hints_count + i] = hint;
+        }
+        hints_count += alphabet_len;
+    }
+
+    xassert(hints_count - offset >= count);
+
+    /* Copy slice of ‘hints’ array to the caller provided array */
+    for (size_t i = 0; i < hints_count; i++) {
+        if (i >= offset && i < offset + count)
+            combos[i - offset] = hints[i];
+        else
+            free(hints[i]);
+    }
+    free(hints);
+
+    /* Sorting is a kind of shuffle, since we’re sorting on the
+     * *reversed* strings */
+    qsort(combos, count, sizeof(wchar_t *), &wcscmp_qsort_wrapper);
+
+    /* Reverse all strings */
+    for (size_t i = 0; i < count; i++) {
+        const size_t len = wcslen(combos[i]);
+        for (size_t j = 0; j < len / 2; j++) {
+            wchar_t tmp = combos[i][j];
+            combos[i][j] = combos[i][len - j - 1];
+            combos[i][len - j - 1] = tmp;
         }
     }
-
-    /* Slice the list */
-    for (size_t i = 0; i < offset; i++)
-        free(tll_pop_front(hints));
-
-    xassert(tll_length(hints) >= count);
-
-    /* Fill in the callers array */
-    size_t idx = 0;
-    tll_foreach(hints, it) {
-        if (idx >= count)
-            free(it->item);
-        else
-            combos[idx] = it->item;
-        idx++;
-    }
-    tll_free(hints);
 }
 
 void
 urls_assign_key_combos(url_list_t *urls)
 {
-    wchar_t *combos[tll_length(*urls)];
-    generate_key_combos(tll_length(*urls), combos);
+    const size_t count = tll_length(*urls);
+    wchar_t *combos[count];
+    generate_key_combos(count, combos);
 
     size_t idx = 0;
-    tll_foreach(*urls, it) {
-        xassert(wcslen(combos[idx]) < ALEN(it->item.key) - 1);
-        wcscpy(it->item.key, combos[idx++]);
-    }
+    tll_foreach(*urls, it)
+        it->item.key = combos[idx++];
 
 #if defined(_DEBUG) && LOG_ENABLE_DBG
     tll_foreach(*urls, it) {
@@ -399,9 +421,6 @@ urls_assign_key_combos(url_list_t *urls)
         LOG_DBG("URL: %s (%s)", url, key);
     }
 #endif
-
-    for (size_t i = 0; i < tll_length(*urls); i++)
-        free(combos[i]);
 }
 
 static void
@@ -490,6 +509,7 @@ url_destroy(struct url *url)
 {
     free(url->url);
     free(url->text);
+    free(url->key);
 }
 
 void

@@ -229,7 +229,7 @@ enum url_action { URL_ACTION_COPY, URL_ACTION_LAUNCH };
 struct url {
     wchar_t *url;
     wchar_t *text;
-    wchar_t key[4];
+    wchar_t *key;
     struct coord start;
     struct coord end;
     enum url_action action;
