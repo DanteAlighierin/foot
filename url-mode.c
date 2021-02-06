@@ -269,6 +269,11 @@ auto_detected(struct terminal *term, enum url_action action)
                     bool done = false;
                     struct coord end = {c, r};
 
+                    if (--end.col < 0) {
+                        end.row--;
+                        end.col = term->cols - 1;
+                    }
+
                     do {
                         switch (url[len - 1]) {
                         case L'.': case L',': case L':': case L';': case L'?':
