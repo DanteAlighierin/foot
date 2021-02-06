@@ -135,6 +135,7 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
     else if (is_valid) {
         xassert(seq_len + 1 <= ALEN(term->url_keys));
         term->url_keys[seq_len] = wc;
+        render_refresh_urls(term);
     }
 }
 
