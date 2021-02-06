@@ -1,6 +1,7 @@
 #include "render.h"
 
 #include <string.h>
+#include <wctype.h>
 #include <unistd.h>
 
 #include <sys/ioctl.h>
@@ -2590,6 +2591,9 @@ render_urls(struct terminal *term)
                 label[max_chars + 1] = L'\0';
             }
         }
+
+        for (size_t i = 0; i < wcslen(key); i++)
+            label[i] = towupper(label[i]);
 
         size_t len = wcslen(label);
         int cols = wcswidth(label, len);
