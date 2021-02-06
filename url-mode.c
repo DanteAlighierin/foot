@@ -141,7 +141,7 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
 IGNORE_WARNING("-Wpedantic")
 
 static void
-auto_detected(struct terminal *term, enum url_action action)
+auto_detected(const struct terminal *term, enum url_action action, url_list_t *urls)
 {
     static const wchar_t *const prots[] = {
         L"http://",
@@ -299,7 +299,7 @@ auto_detected(struct terminal *term, enum url_action action)
                     end.row += term->grid->view;
 
                     tll_push_back(
-                        term->urls,
+                        *urls,
                         ((struct url){
                             .url = xwcsdup(url),
                             .text = xwcsdup(L""),
@@ -321,12 +321,16 @@ auto_detected(struct terminal *term, enum url_action action)
 UNIGNORE_WARNINGS
 
 void
-urls_collect(struct terminal *term, enum url_action action)
+urls_collect(const struct terminal *term, enum url_action action, url_list_t *urls)
 {
     xassert(tll_length(term->urls) == 0);
-    auto_detected(term, action);
+    auto_detected(term, action, urls);
+}
 
-    size_t count = tll_length(term->urls);
+void
+urls_assign_key_combos(url_list_t *urls)
+{
+    size_t count = tll_length(*urls);
 
     /* Assign key combos */
 
@@ -337,7 +341,7 @@ urls_collect(struct terminal *term, enum url_action action)
 
     if (count < ALEN(single)) {
         size_t idx = 0;
-        tll_foreach(term->urls, it) {
+        tll_foreach(*urls, it) {
             xassert(wcslen(single[idx]) < ALEN(it->item.key) - 1);
             wcscpy(it->item.key, single[idx++]);
         }
@@ -347,7 +351,7 @@ urls_collect(struct terminal *term, enum url_action action)
     }
 
 #if defined(_DEBUG) && LOG_ENABLE_DBG
-    tll_foreach(term->urls, it) {
+    tll_foreach(*urls, it) {
         char url[1024];
         wcstombs(url, it->item.url, sizeof(url) - 1);
 
@@ -358,6 +362,43 @@ urls_collect(struct terminal *term, enum url_action action)
     }
 #endif
 
+}
+
+static void
+tag_cells_for_url(struct terminal *term, const struct url *url, bool value)
+{
+    const struct coord *start = &url->start;
+    const struct coord *end = &url->end;
+
+    size_t end_r = end->row & (term->grid->num_rows - 1);
+
+    size_t r = start->row & (term->grid->num_rows - 1);
+    size_t c = start->col;
+
+    struct row *row = term->grid->rows[r];
+    row->dirty = true;
+
+    while (true) {
+        struct cell *cell = &row->cells[c];
+        cell->attrs.url = value;
+        cell->attrs.clean = 0;
+
+        if (r == end_r && c == end->col)
+            break;
+
+        if (++c >= term->cols) {
+            r = (r + 1) & (term->grid->num_rows - 1);
+            c = 0;
+
+            row = term->grid->rows[r];
+            row->dirty = true;
+        }
+    }
+}
+
+void
+urls_render(struct terminal *term)
+{
     struct wl_window *win = term->window;
     struct wayland *wayl = term->wl;
 
@@ -397,49 +438,10 @@ urls_collect(struct terminal *term, enum url_action action)
         };
 
         tll_push_back(win->urls, url);
-    }
-}
-
-static void
-tag_cells_for_url(struct terminal *term, const struct url *url, bool value)
-{
-    const struct coord *start = &url->start;
-    const struct coord *end = &url->end;
-
-    size_t end_r = end->row & (term->grid->num_rows - 1);
-
-    size_t r = start->row & (term->grid->num_rows - 1);
-    size_t c = start->col;
-
-    struct row *row = term->grid->rows[r];
-    row->dirty = true;
-
-    while (true) {
-        struct cell *cell = &row->cells[c];
-        cell->attrs.url = value;
-        cell->attrs.clean = 0;
-
-        if (r == end_r && c == end->col)
-            break;
-
-        if (++c >= term->cols) {
-            r = (r + 1) & (term->grid->num_rows - 1);
-            c = 0;
-
-            row = term->grid->rows[r];
-            row->dirty = true;
-        }
-    }
-}
-
-void
-urls_tag_cells(struct terminal *term)
-{
-    if (unlikely(tll_length(term->urls)) == 0)
-        return;
-
-    tll_foreach(term->urls, it)
         tag_cells_for_url(term, &it->item, true);
+    }
+
+    render_refresh_urls(term);
     render_refresh(term);
 }
 

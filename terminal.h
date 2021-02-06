@@ -234,6 +234,7 @@ struct url {
     struct coord end;
     enum url_action action;
 };
+typedef tll(struct url) url_list_t;
 
 struct terminal {
     struct fdm *fdm;
@@ -513,7 +514,7 @@ struct terminal {
         unsigned max_height;    /* Maximum image height, in pixels */
     } sixel;
 
-    tll(struct url) urls;
+    url_list_t urls;
     wchar_t url_keys[5];
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED

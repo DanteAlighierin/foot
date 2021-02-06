@@ -280,9 +280,9 @@ execute_binding(struct seat *seat, struct terminal *term,
             ? URL_ACTION_COPY
             : URL_ACTION_LAUNCH;
 
-        urls_collect(term, url_action);
-        urls_tag_cells(term);
-        render_refresh_urls(term);
+        urls_collect(term, url_action, &term->urls);
+        urls_assign_key_combos(&term->urls);
+        urls_render(term);
         return true;
     }
 
