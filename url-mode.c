@@ -7,6 +7,7 @@
 #define LOG_ENABLE_DBG 1
 #include "log.h"
 #include "grid.h"
+#include "render.h"
 #include "selection.h"
 #include "spawn.h"
 #include "terminal.h"
@@ -399,6 +400,49 @@ urls_collect(struct terminal *term, enum url_action action)
     }
 }
 
+static void
+tag_cells_for_url(struct terminal *term, const struct url *url, bool value)
+{
+    const struct coord *start = &url->start;
+    const struct coord *end = &url->end;
+
+    size_t end_r = end->row & (term->grid->num_rows - 1);
+
+    size_t r = start->row & (term->grid->num_rows - 1);
+    size_t c = start->col;
+
+    struct row *row = term->grid->rows[r];
+    row->dirty = true;
+
+    while (true) {
+        struct cell *cell = &row->cells[c];
+        cell->attrs.url = value;
+        cell->attrs.clean = 0;
+
+        if (r == end_r && c == end->col)
+            break;
+
+        if (++c >= term->cols) {
+            r = (r + 1) & (term->grid->num_rows - 1);
+            c = 0;
+
+            row = term->grid->rows[r];
+            row->dirty = true;
+        }
+    }
+}
+
+void
+urls_tag_cells(struct terminal *term)
+{
+    if (unlikely(tll_length(term->urls)) == 0)
+        return;
+
+    tll_foreach(term->urls, it)
+        tag_cells_for_url(term, &it->item, true);
+    render_refresh(term);
+}
+
 void
 urls_reset(struct terminal *term)
 {
@@ -416,10 +460,12 @@ urls_reset(struct terminal *term)
     }
 
     tll_foreach(term->urls, it) {
+        tag_cells_for_url(term, &it->item, false);
         free(it->item.url);
         free(it->item.text);
     }
     tll_free(term->urls);
 
     memset(term->url_keys, 0, sizeof(term->url_keys));
+    render_refresh(term);
 }

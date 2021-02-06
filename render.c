@@ -616,6 +616,15 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     if (cell->attrs.strikethrough)
         draw_strikeout(term, pix, font, &fg, x, y, cell_cols);
 
+    if (unlikely(cell->attrs.url)) {
+        pixman_color_t url_color = color_hex_to_pixman(
+            term->conf->colors.use_custom.url
+            ? term->conf->colors.url
+            : term->colors.table[3]
+            );
+        draw_underline(term, pix, font, &url_color, x, y, cell_cols);
+    }
+
 draw_cursor:
     if (has_cursor && (term->cursor_style != CURSOR_BLOCK || !term->kbd_focus))
         draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
