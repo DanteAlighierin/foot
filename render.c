@@ -2524,6 +2524,15 @@ render_urls(struct terminal *term)
     struct wl_window *win = term->window;
     xassert(tll_length(win->urls) > 0);
 
+    /* Calculate view start, counted from the *current* scrollback start */
+    const int scrollback_end
+        = (term->grid->offset + term->rows) & (term->grid->num_rows - 1);
+    const int view_start
+        = (term->grid->view
+           - scrollback_end
+           + term->grid->num_rows) & (term->grid->num_rows - 1);
+    const int view_end = view_start + term->rows - 1;
+
     tll_foreach(win->urls, it) {
         const struct url *url = it->item.url;
         const wchar_t *text = url->text;
@@ -2534,6 +2543,18 @@ render_urls(struct terminal *term)
 
         if (surf == NULL || sub_surf == NULL)
             continue;
+
+        const struct coord *pos = &url->start;
+        const int _row
+            = (pos->row
+               - scrollback_end
+               + term->grid->num_rows) & (term->grid->num_rows - 1);
+
+        if (_row < view_start || _row > view_end) {
+            wl_surface_attach(surf, NULL, 0, 0);
+            wl_surface_commit(surf);
+            continue;
+        }
 
         size_t text_len = wcslen(text);
         size_t chars = wcslen(key) + (text_len > 0 ? 3 + text_len : 0);
@@ -2562,9 +2583,14 @@ render_urls(struct terminal *term)
         struct buffer *buf = shm_get_buffer(
             term->wl->shm, width, height, shm_cookie_url(url), false, 1);
 
-        const struct coord *pos = &url->start;
-        int x = pos->col * term->cell_width - 15 * term->cell_width / 10;
-        int y = pos->row * term->cell_height - 5 * term->cell_height / 10;
+        int col = pos->col;
+        int row = pos->row - term->grid->view;
+        while (row < 0)
+            row += term->grid->num_rows;
+        row &= (term->grid->num_rows - 1);
+
+        int x = col * term->cell_width - 15 * term->cell_width / 10;
+        int y = row * term->cell_height - 5 * term->cell_height / 10;
 
         if (x < 0)
             x = 0;

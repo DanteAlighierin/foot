@@ -294,6 +294,9 @@ auto_detected(struct terminal *term, enum url_action action)
 
                     url[len] = L'\0';
 
+                    start.row += term->grid->view;
+                    end.row += term->grid->view;
+
                     tll_push_back(
                         term->urls,
                         ((struct url){
