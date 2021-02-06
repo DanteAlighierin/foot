@@ -335,28 +335,57 @@ urls_collect(const struct terminal *term, enum url_action action, url_list_t *ur
 
 static void url_destroy(struct url *url);
 
+static void
+generate_key_combos(size_t count, wchar_t *combos[static count])
+{
+    /* vimium default */
+    static const wchar_t alphabet[] = L"sadfjklewcmpgh";
+
+    tll(wchar_t *) hints = tll_init();
+    tll_push_back(hints, xwcsdup(L""));
+
+    size_t offset = 0;
+    while (tll_length(hints) - offset < count || tll_length(hints) == 1) {
+        wchar_t *hint = tll_back(hints);
+        offset++;
+
+        for (size_t i = 0; i < ALEN(alphabet); i++) {
+            wchar_t wc = alphabet[i];
+            wchar_t *next_hint = malloc((wcslen(hint) + 1 + 1) * sizeof(wchar_t));
+            next_hint[0] = wc;
+            wcscpy(&next_hint[1], hint);
+            tll_push_back(hints, next_hint);
+        }
+    }
+
+    /* Slice the list */
+    for (size_t i = 0; i < offset; i++)
+        free(tll_pop_front(hints));
+
+    xassert(tll_length(hints) >= count);
+
+    /* Fill in the callers array */
+    size_t idx = 0;
+    tll_foreach(hints, it) {
+        if (idx >= count)
+            free(it->item);
+        else
+            combos[idx] = it->item;
+        idx++;
+    }
+    tll_free(hints);
+}
+
 void
 urls_assign_key_combos(url_list_t *urls)
 {
-    static const wchar_t *const combos[] = {
-        L"f", L"j", L"d", L"k", L"e", L"i", L"c", L"m", L"r",
-        L"u", L"s", L"l", L"w", L"o", L"x", L"a", L"q", L"p",
-    };
+    wchar_t *combos[tll_length(*urls)];
+    generate_key_combos(tll_length(*urls), combos);
 
     size_t idx = 0;
     tll_foreach(*urls, it) {
-        if (idx < ALEN(combos)) {
-            xassert(wcslen(combos[idx]) < ALEN(it->item.key) - 1);
-            wcscpy(it->item.key, combos[idx]);
-        } else {
-            url_destroy(&it->item);
-            tll_remove(*urls, it);
-        }
-
-        if (++idx == ALEN(combos)) {
-            LOG_WARN("not enough key combos (%zu) for %zu URLs",
-                     ALEN(combos), tll_length(*urls));
-        }
+        xassert(wcslen(combos[idx]) < ALEN(it->item.key) - 1);
+        wcscpy(it->item.key, combos[idx++]);
     }
 
 #if defined(_DEBUG) && LOG_ENABLE_DBG
@@ -371,6 +400,8 @@ urls_assign_key_combos(url_list_t *urls)
     }
 #endif
 
+    for (size_t i = 0; i < tll_length(*urls); i++)
+        free(combos[i]);
 }
 
 static void
