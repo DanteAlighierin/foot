@@ -2379,9 +2379,10 @@ config_load(struct config *conf, const char *conf_path,
     conf->url_launch.raw_cmd = xstrdup("xdg-open ${url}");
     tokenize_cmdline(conf->url_launch.raw_cmd, &conf->url_launch.argv);
 
-    tll_foreach(*initial_user_notifications, it)
+    tll_foreach(*initial_user_notifications, it) {
         tll_push_back(conf->notifications, it->item);
-    tll_free(*initial_user_notifications);
+        tll_remove(*initial_user_notifications, it);
+    }
 
     add_default_key_bindings(conf);
     add_default_search_bindings(conf);
@@ -2462,9 +2463,10 @@ config_free(struct config conf)
     free_spawn_template(&conf.notify);
     free_spawn_template(&conf.url_launch);
     for (size_t i = 0; i < ALEN(conf.fonts); i++) {
-        tll_foreach(conf.fonts[i], it)
+        tll_foreach(conf.fonts[i], it) {
             config_font_destroy(&it->item);
-        tll_free(conf.fonts[i]);
+            tll_remove(conf.fonts[i], it);
+        }
     }
     free(conf.server_socket_path);
 

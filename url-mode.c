@@ -540,15 +540,15 @@ urls_reset(struct terminal *term)
                 wl_subsurface_destroy(it->item.sub_surf);
             if (it->item.surf != NULL)
                 wl_surface_destroy(it->item.surf);
+            tll_remove(term->window->urls, it);
         }
-        tll_free(term->window->urls);
     }
 
     tll_foreach(term->urls, it) {
         tag_cells_for_url(term, &it->item, false);
         url_destroy(&it->item);
+        tll_remove(term->urls, it);
     }
-    tll_free(term->urls);
 
     memset(term->url_keys, 0, sizeof(term->url_keys));
     render_refresh(term);

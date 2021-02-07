@@ -1474,20 +1474,25 @@ term_destroy(struct terminal *term)
     xassert(tll_length(term->render.workers.queue) == 0);
     tll_free(term->render.workers.queue);
 
-    tll_foreach(term->ptmx_buffers, it)
-        free(it->item.data);
-    tll_free(term->ptmx_buffers);
-    tll_foreach(term->ptmx_paste_buffers, it)
-        free(it->item.data);
-    tll_free(term->ptmx_paste_buffers);
     tll_free(term->tab_stops);
 
-    tll_foreach(term->normal.sixel_images, it)
+    tll_foreach(term->ptmx_buffers, it) {
+        free(it->item.data);
+        tll_remove(term->ptmx_buffers, it);
+    }
+    tll_foreach(term->ptmx_paste_buffers, it) {
+        free(it->item.data);
+        tll_remove(term->ptmx_paste_buffers, it);
+    }
+
+    tll_foreach(term->normal.sixel_images, it) {
         sixel_destroy(&it->item);
-    tll_free(term->normal.sixel_images);
-    tll_foreach(term->alt.sixel_images, it)
+        tll_remove(term->normal.sixel_images, it);
+    }
+    tll_foreach(term->alt.sixel_images, it) {
         sixel_destroy(&it->item);
-    tll_free(term->alt.sixel_images);
+        tll_remove(term->alt.sixel_images, it);
+    }
     sixel_fini(term);
 
     urls_reset(term);
@@ -1642,12 +1647,14 @@ term_reset(struct terminal *term, bool hard)
     term->meta.esc_prefix = true;
     term->meta.eight_bit = true;
 
-    tll_foreach(term->normal.sixel_images, it)
+    tll_foreach(term->normal.sixel_images, it) {
         sixel_destroy(&it->item);
-    tll_free(term->normal.sixel_images);
-    tll_foreach(term->alt.sixel_images, it)
+        tll_remove(term->normal.sixel_images, it);
+    }
+    tll_foreach(term->alt.sixel_images, it) {
         sixel_destroy(&it->item);
-    tll_free(term->alt.sixel_images);
+        tll_remove(term->alt.sixel_images, it);
+    }
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     term_ime_enable(term);
