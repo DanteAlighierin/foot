@@ -98,6 +98,17 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
         }
     }
 
+    size_t seq_len = wcslen(term->url_keys);
+
+    if (sym == XKB_KEY_BackSpace) {
+        if (seq_len > 0) {
+            term->url_keys[seq_len - 1] = L'\0';
+            render_refresh_urls(term);
+        }
+
+        return;
+    }
+
     wchar_t wc = xkb_state_key_get_utf32(seat->kbd.xkb_state, key);
 
     /*
@@ -105,8 +116,6 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
      * label with a key combo where this key is the next in
      * sequence.
      */
-
-    size_t seq_len = wcslen(term->url_keys);
 
     bool is_valid = false;
     const struct url *match = NULL;
