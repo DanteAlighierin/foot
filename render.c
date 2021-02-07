@@ -2585,7 +2585,7 @@ render_urls(struct terminal *term)
         if (text_len == 0)
             wcscpy(label, key);
         else {
-            int count = swprintf(label, chars, L"%s - %s", key, text);
+            int count = swprintf(label, chars + 1, L"%ls - %ls", key, text);
             if (count >= max_chars) {
                 label[max_chars] = L'…';
                 label[max_chars + 1] = L'\0';
