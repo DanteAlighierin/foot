@@ -1175,11 +1175,13 @@ err:
 }
 
 static bool
-has_key_binding_collisions(struct config *conf, enum bind_action_normal action,
+has_key_binding_collisions(struct config *conf,
+                           int action, const char *const action_map[],
+                           config_key_binding_list_t *bindings,
                            const key_combo_list_t *key_combos,
                            const char *path, unsigned lineno)
 {
-    tll_foreach(conf->bindings.key, it) {
+    tll_foreach(*bindings, it) {
         if (it->item.action == action)
             continue;
 
@@ -1197,72 +1199,10 @@ has_key_binding_collisions(struct config *conf, enum bind_action_normal action,
                 bool has_pipe = it->item.pipe.cmd != NULL;
                 LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s%s%s%s'",
                                    path, lineno, it2->item.text,
-                                   binding_action_map[it->item.action],
+                                   action_map[it->item.action],
                                    has_pipe ? " [" : "",
                                    has_pipe ? it->item.pipe.cmd : "",
                                    has_pipe ? "]" : "");
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-static bool
-has_search_binding_collisions(struct config *conf, enum bind_action_search action,
-                              const key_combo_list_t *key_combos,
-                              const char *path, unsigned lineno)
-{
-    tll_foreach(conf->bindings.search, it) {
-        if (it->item.action == action)
-            continue;
-
-        tll_foreach(*key_combos, it2) {
-            const struct config_key_modifiers *mods1 = &it->item.modifiers;
-            const struct config_key_modifiers *mods2 = &it2->item.modifiers;
-
-            bool shift = mods1->shift == mods2->shift;
-            bool alt = mods1->alt == mods2->alt;
-            bool ctrl = mods1->ctrl == mods2->ctrl;
-            bool meta = mods1->meta == mods2->meta;
-            bool sym = it->item.sym == it2->item.sym;
-
-            if (shift && alt && ctrl && meta && sym) {
-                LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s'",
-                                   path, lineno, it2->item.text,
-                                   search_binding_action_map[it->item.action]);
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-static bool
-has_url_binding_collisions(struct config *conf, enum bind_action_url action,
-                           const key_combo_list_t *key_combos,
-                           const char *path, unsigned lineno)
-{
-    tll_foreach(conf->bindings.url, it) {
-        if (it->item.action == action)
-            continue;
-
-        tll_foreach(*key_combos, it2) {
-            const struct config_key_modifiers *mods1 = &it->item.modifiers;
-            const struct config_key_modifiers *mods2 = &it2->item.modifiers;
-
-            bool shift = mods1->shift == mods2->shift;
-            bool alt = mods1->alt == mods2->alt;
-            bool ctrl = mods1->ctrl == mods2->ctrl;
-            bool meta = mods1->meta == mods2->meta;
-            bool sym = it->item.sym == it2->item.sym;
-
-            if (shift && alt && ctrl && meta && sym) {
-                LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s'",
-                                   path, lineno, it2->item.text,
-                                   url_binding_action_map[it->item.action]);
                 return true;
             }
         }
@@ -1351,10 +1291,12 @@ pipe_argv_from_string(const char *value, char **cmd, char ***argv,
     return remove_len;
 }
 
-static bool
-parse_section_key_bindings(
-    const char *key, const char *value, struct config *conf,
-    const char *path, unsigned lineno)
+static bool NOINLINE
+parse_key_binding_section(
+    const char *section, const char *key, const char *value,
+    int action_count, const char *const action_map[static action_count],
+    config_key_binding_list_t *bindings,
+    struct config *conf, const char *path, unsigned lineno)
 {
     char *pipe_cmd;
     char **pipe_argv;
@@ -1367,25 +1309,22 @@ parse_section_key_bindings(
 
     value += pipe_remove_len;
 
-    for (enum bind_action_normal action = 0;
-         action < BIND_ACTION_KEY_COUNT;
-         action++)
-    {
-        if (binding_action_map[action] == NULL)
+    for (int action = 0; action < action_count; action++) {
+        if (action_map[action] == NULL)
             continue;
 
-        if (strcmp(key, binding_action_map[action]) != 0)
+        if (strcmp(key, action_map[action]) != 0)
             continue;
 
         /* Unset binding */
         if (strcasecmp(value, "none") == 0) {
-            tll_foreach(conf->bindings.key, it) {
+            tll_foreach(*bindings, it) {
                 if (it->item.action == action) {
                     if (it->item.pipe.master_copy) {
                         free(it->item.pipe.cmd);
                         free(it->item.pipe.argv);
                     }
-                    tll_remove(conf->bindings.key, it);
+                    tll_remove(*bindings, it);
                 }
             }
             free(pipe_argv);
@@ -1395,7 +1334,9 @@ parse_section_key_bindings(
 
         key_combo_list_t key_combos = tll_init();
         if (!parse_key_combos(conf, value, &key_combos, path, lineno) ||
-            has_key_binding_collisions(conf, action, &key_combos, path, lineno))
+            has_key_binding_collisions(
+                conf, action, binding_action_map, bindings, &key_combos,
+                path, lineno))
         {
             free(pipe_argv);
             free(pipe_cmd);
@@ -1404,7 +1345,7 @@ parse_section_key_bindings(
         }
 
         /* Remove existing bindings for this action+pipe */
-        tll_foreach(conf->bindings.key, it) {
+        tll_foreach(*bindings, it) {
             if (it->item.action == action &&
                 ((it->item.pipe.argv == NULL && pipe_argv == NULL) ||
                  (it->item.pipe.argv != NULL && pipe_argv != NULL &&
@@ -1415,14 +1356,14 @@ parse_section_key_bindings(
                     free(it->item.pipe.cmd);
                     free(it->item.pipe.argv);
                 }
-                tll_remove(conf->bindings.key, it);
+                tll_remove(*bindings, it);
             }
         }
 
         /* Emit key bindings */
         bool first = true;
         tll_foreach(key_combos, it) {
-            struct config_key_binding_normal binding = {
+            struct config_key_binding binding = {
                 .action = action,
                 .modifiers = it->item.modifiers,
                 .sym = it->item.sym,
@@ -1433,7 +1374,7 @@ parse_section_key_bindings(
                 },
             };
 
-            tll_push_back(conf->bindings.key, binding);
+            tll_push_back(*bindings, binding);
             first = false;
         }
 
@@ -1441,12 +1382,21 @@ parse_section_key_bindings(
         return true;
     }
 
-    LOG_AND_NOTIFY_ERR("%s:%u: [key-bindings]: %s: invalid action",
-                       path, lineno, key);
+    LOG_AND_NOTIFY_ERR("%s:%u: [%s]: %s: invalid action",
+                       path, lineno, section, key);
     free(pipe_cmd);
     free(pipe_argv);
     return false;
+}
 
+static bool
+parse_section_key_bindings(
+    const char *key, const char *value, struct config *conf,
+    const char *path, unsigned lineno)
+{
+    return parse_key_binding_section(
+        "key-bindings", key, value, BIND_ACTION_KEY_COUNT, binding_action_map,
+        &conf->bindings.key, conf, path, lineno);
 }
 
 static bool
@@ -1454,56 +1404,9 @@ parse_section_search_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    for (enum bind_action_search action = 0;
-         action < BIND_ACTION_SEARCH_COUNT;
-         action++)
-    {
-        if (search_binding_action_map[action] == NULL)
-            continue;
-
-        if (strcmp(key, search_binding_action_map[action]) != 0)
-            continue;
-
-        /* Unset binding */
-        if (strcasecmp(value, "none") == 0) {
-            tll_foreach(conf->bindings.search, it) {
-                if (it->item.action == action)
-                    tll_remove(conf->bindings.search, it);
-            }
-            return true;
-        }
-
-        key_combo_list_t key_combos = tll_init();
-        if (!parse_key_combos(conf, value, &key_combos, path, lineno) ||
-            has_search_binding_collisions(conf, action, &key_combos, path, lineno))
-        {
-            free_key_combo_list(&key_combos);
-            return false;
-        }
-
-        /* Remove existing bindings for this action */
-        tll_foreach(conf->bindings.search, it) {
-            if (it->item.action == action)
-                tll_remove(conf->bindings.search, it);
-        }
-
-        /* Emit key bindings */
-        tll_foreach(key_combos, it) {
-            struct config_key_binding_search binding = {
-                .action = action,
-                .modifiers = it->item.modifiers,
-                .sym = it->item.sym,
-            };
-            tll_push_back(conf->bindings.search, binding);
-        }
-
-        free_key_combo_list(&key_combos);
-        return true;
-    }
-
-    LOG_AND_NOTIFY_ERR("%s:%u: [search-bindings]: %s: invalid key", path, lineno, key);
-    return false;
-
+    return parse_key_binding_section(
+        "search-bindings", key, value, BIND_ACTION_SEARCH_COUNT,
+        search_binding_action_map, &conf->bindings.search, conf, path, lineno);
 }
 
 static bool
@@ -1511,56 +1414,9 @@ parse_section_url_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
-    for (enum bind_action_url action = 0;
-         action < BIND_ACTION_URL_COUNT;
-         action++)
-    {
-        if (url_binding_action_map[action] == NULL)
-            continue;
-
-        if (strcmp(key, url_binding_action_map[action]) != 0)
-            continue;
-
-        /* Unset binding */
-        if (strcasecmp(value, "none") == 0) {
-            tll_foreach(conf->bindings.url, it) {
-                if (it->item.action == action)
-                    tll_remove(conf->bindings.url, it);
-            }
-            return true;
-        }
-
-        key_combo_list_t key_combos = tll_init();
-        if (!parse_key_combos(conf, value, &key_combos, path, lineno) ||
-            has_url_binding_collisions(conf, action, &key_combos, path, lineno))
-        {
-            free_key_combo_list(&key_combos);
-            return false;
-        }
-
-        /* Remove existing bindings for this action */
-        tll_foreach(conf->bindings.url, it) {
-            if (it->item.action == action)
-                tll_remove(conf->bindings.url, it);
-        }
-
-        /* Emit key bindings */
-        tll_foreach(key_combos, it) {
-            struct config_key_binding_url binding = {
-                .action = action,
-                .modifiers = it->item.modifiers,
-                .sym = it->item.sym,
-            };
-            tll_push_back(conf->bindings.url, binding);
-        }
-
-        free_key_combo_list(&key_combos);
-        return true;
-    }
-
-    LOG_AND_NOTIFY_ERR("%s:%u: [url-bindings]: %s: invalid key", path, lineno, key);
-    return false;
-
+    return parse_key_binding_section(
+        "url-bindings", key, value, BIND_ACTION_URL_COUNT,
+        url_binding_action_map, &conf->bindings.url, conf, path, lineno);
 }
 
 static bool
@@ -1659,9 +1515,10 @@ parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *ke
     return true;
 
 err:
-    tll_foreach(*key_combos, it)
+    tll_foreach(*key_combos, it) {
         free(it->item.text);
-    tll_free(*key_combos);
+        tll_remove(*key_combos, it);
+    }
     free(copy);
     return false;
 }
@@ -2134,7 +1991,7 @@ add_default_key_bindings(struct config *conf)
     do {                                                                \
         tll_push_back(                                                  \
             conf->bindings.key,                                         \
-            ((struct config_key_binding_normal){action, mods, sym}));   \
+            ((struct config_key_binding){action, mods, sym}));   \
     } while (0)
 
     const struct config_key_modifiers shift = {.shift = true};
@@ -2167,7 +2024,7 @@ add_default_search_bindings(struct config *conf)
     do {                                                                \
         tll_push_back(                                                  \
             conf->bindings.search,                                      \
-            ((struct config_key_binding_search){action, mods, sym}));   \
+            ((struct config_key_binding){action, mods, sym}));   \
 } while (0)
 
     const struct config_key_modifiers none = {0};
@@ -2215,7 +2072,7 @@ add_default_url_bindings(struct config *conf)
     do {                                                                \
         tll_push_back(                                                  \
             conf->bindings.url,                                         \
-            ((struct config_key_binding_url){action, mods, sym}));      \
+            ((struct config_key_binding){action, mods, sym}));      \
 } while (0)
 
     const struct config_key_modifiers none = {0};
@@ -2450,6 +2307,30 @@ free_spawn_template(struct config_spawn_template *template)
     free(template->argv);
 }
 
+static void
+binding_pipe_free(struct config_binding_pipe *pipe)
+{
+    if (pipe->master_copy) {
+        free(pipe->cmd);
+        free(pipe->argv);
+    }
+}
+
+static void
+key_binding_free(struct config_key_binding *binding)
+{
+    binding_pipe_free(&binding->pipe);
+}
+
+static void
+key_binding_list_free(config_key_binding_list_t *bindings)
+{
+    tll_foreach(*bindings, it) {
+        key_binding_free(&it->item);
+        tll_remove(*bindings, it);
+    }
+}
+
 void
 config_free(struct config conf)
 {
@@ -2468,23 +2349,14 @@ config_free(struct config conf)
     }
     free(conf.server_socket_path);
 
-    tll_foreach(conf.bindings.key, it) {
-        if (it->item.pipe.master_copy) {
-            free(it->item.pipe.cmd);
-            free(it->item.pipe.argv);
-        }
-    }
-    tll_foreach(conf.bindings.mouse, it) {
-        if (it->item.pipe.master_copy) {
-            free(it->item.pipe.cmd);
-            free(it->item.pipe.argv);
-        }
-    }
+    key_binding_list_free(&conf.bindings.key);
+    key_binding_list_free(&conf.bindings.search);
+    key_binding_list_free(&conf.bindings.url);
 
-    tll_free(conf.bindings.key);
-    tll_free(conf.bindings.mouse);
-    tll_free(conf.bindings.search);
-    tll_free(conf.bindings.url);
+    tll_foreach(conf.bindings.mouse, it) {
+        binding_pipe_free(&it->item.pipe);
+        tll_remove(conf.bindings.mouse, it);
+    }
 
     user_notifications_free(&conf.notifications);
 }

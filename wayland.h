@@ -18,15 +18,6 @@
 /* Forward declarations */
 struct terminal;
 
-typedef tll(xkb_keycode_t) xkb_keycode_list_t;
-
-struct key_binding {
-    xkb_mod_mask_t mods;
-    xkb_keysym_t sym;
-    xkb_keycode_list_t key_codes;
-};
-typedef tll(struct key_binding) key_binding_list_t;
-
 enum bind_action_normal {
     BIND_ACTION_NONE,
     BIND_ACTION_SCROLLBACK_UP_PAGE,
@@ -65,21 +56,6 @@ enum bind_action_normal {
     BIND_ACTION_COUNT = BIND_ACTION_SELECT_ROW + 1,
 };
 
-struct key_binding_normal {
-    struct key_binding bind;
-    enum bind_action_normal action;
-    char **pipe_argv;
-};
-
-struct mouse_binding {
-    enum bind_action_normal action;
-    xkb_mod_mask_t mods;
-    uint32_t button;
-    int count;
-    char **pipe_argv;
-};
-typedef tll(struct mouse_binding) mouse_binding_list_t;
-
 enum bind_action_search {
     BIND_ACTION_SEARCH_NONE,
     BIND_ACTION_SEARCH_CANCEL,
@@ -103,21 +79,32 @@ enum bind_action_search {
     BIND_ACTION_SEARCH_COUNT,
 };
 
-struct key_binding_search {
-    struct key_binding bind;
-    enum bind_action_search action;
-};
-
 enum bind_action_url {
     BIND_ACTION_URL_NONE,
     BIND_ACTION_URL_CANCEL,
     BIND_ACTION_URL_COUNT,
 };
 
-struct key_binding_url {
-    struct key_binding bind;
-    enum bind_action_url action;
+typedef tll(xkb_keycode_t) xkb_keycode_list_t;
+
+struct key_binding {
+    xkb_mod_mask_t mods;
+    xkb_keysym_t sym;
+    xkb_keycode_list_t key_codes;
+
+    int action; /* enum bind_action_* */
+    char **pipe_argv;
 };
+typedef tll(struct key_binding) key_binding_list_t;
+
+struct mouse_binding {
+    enum bind_action_normal action;
+    xkb_mod_mask_t mods;
+    uint32_t button;
+    int count;
+    char **pipe_argv;
+};
+typedef tll(struct mouse_binding) mouse_binding_list_t;
 
 /* Mime-types we support when dealing with data offers (e.g. copy-paste, or DnD) */
 enum data_offer_mime_type {
@@ -203,9 +190,9 @@ struct seat {
         bool meta;
 
         struct {
-            tll(struct key_binding_normal) key;
-            tll(struct key_binding_search) search;
-            tll(struct key_binding_url) url;
+            key_binding_list_t key;
+            key_binding_list_t search;
+            key_binding_list_t url;
         } bindings;
     } kbd;
 

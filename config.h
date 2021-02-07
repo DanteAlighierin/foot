@@ -25,39 +25,26 @@ struct config_key_modifiers {
     bool meta;
 };
 
-struct config_key_binding_normal {
-    enum bind_action_normal action;
-    struct config_key_modifiers modifiers;
-    xkb_keysym_t sym;
-    struct {
-        char *cmd;
-        char **argv;
-        bool master_copy;
-    } pipe;
+struct config_binding_pipe {
+    char *cmd;
+    char **argv;
+    bool master_copy;
 };
 
-struct config_key_binding_search {
-    enum bind_action_search action;
+struct config_key_binding {
+    int action;  /* One of the varios bind_action_* enums from wayland.h */
     struct config_key_modifiers modifiers;
     xkb_keysym_t sym;
+    struct config_binding_pipe pipe;
 };
-
-struct config_key_binding_url {
-    enum bind_action_url action;
-    struct config_key_modifiers modifiers;
-    xkb_keysym_t sym;
-};
+typedef tll(struct config_key_binding) config_key_binding_list_t;
 
 struct config_mouse_binding {
     enum bind_action_normal action;
     struct config_key_modifiers modifiers;
     int button;
     int count;
-    struct {
-        char *cmd;
-        char **argv;
-        bool master_copy;
-    } pipe;
+    struct config_binding_pipe pipe;
 };
 
 /* If px != 0 then px is valid, otherwise pt is valid */
@@ -169,7 +156,7 @@ struct config {
 
     struct {
         /* Bindings for "normal" mode */
-        tll(struct config_key_binding_normal) key;
+        config_key_binding_list_t key;
         tll(struct config_mouse_binding) mouse;
 
         /*
@@ -178,10 +165,10 @@ struct config {
 
         /* While searching (not - action to *start* a search is in the
          * 'key' bindings above */
-        tll(struct config_key_binding_search) search;
+        config_key_binding_list_t search;
 
         /* While showing URL jump labels */
-        tll(struct config_key_binding_url) url;
+        config_key_binding_list_t url;
     } bindings;
 
     struct {
