@@ -1717,10 +1717,10 @@ static void
 render_osd(struct terminal *term,
            struct wl_surface *surf, struct wl_subsurface *sub_surf,
            struct buffer *buf,
-           const wchar_t *text, uint32_t _fg, uint32_t _bg, int alpha,
+           const wchar_t *text, uint32_t _fg, uint32_t _bg,
            unsigned width, unsigned height, unsigned x, unsigned y)
 {
-    pixman_color_t bg = color_hex_to_pixman_with_alpha(_bg, alpha);
+    pixman_color_t bg = color_hex_to_pixman(_bg);
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
         &(pixman_rectangle16_t){0, 0, width, height});
@@ -1907,7 +1907,7 @@ render_scrollback_position(struct terminal *term)
         term,
         win->scrollback_indicator_surface, win->scrollback_indicator_sub_surface,
         buf, text,
-        term->colors.table[0], term->colors.table[8 + 4], 0xffff,
+        term->colors.table[0], term->colors.table[8 + 4],
         width, height, width - margin - wcslen(text) * term->cell_width, margin);
 
 }
@@ -1939,7 +1939,7 @@ render_render_timer(struct terminal *term, struct timeval render_time)
         term,
         win->render_timer_surface, win->render_timer_sub_surface,
         buf, text,
-        term->colors.table[0], term->colors.table[8 + 1], 0xffff,
+        term->colors.table[0], term->colors.table[8 + 1],
         width, height, margin, margin);
 }
 
@@ -2634,12 +2634,10 @@ render_urls(struct terminal *term)
             ? term->conf->colors.jump_label.bg
             : term->colors.table[3];
 
-        uint16_t alpha = 0xffff;
-
         render_osd(term, surf, sub_surf, buf, label,
-                   fg, bg, alpha, width, height, x_margin, y_margin);
+                   fg, bg, width, height, x_margin, y_margin);
 
-#if 0
+#if 1
         /* TODO: somehow highlight the key(s) entered so far */
         pixman_color_t color = color_hex_to_pixman(fg);
         draw_strikeout(term, buf->pix[0], term->fonts[0], &color, x_margin, y_margin, entered_key_len);
