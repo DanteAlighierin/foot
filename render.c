@@ -2595,6 +2595,9 @@ render_urls(struct terminal *term)
         for (size_t i = 0; i < wcslen(key); i++)
             label[i] = towupper(label[i]);
 
+        for (size_t i = 0; i < entered_key_len; i++)
+            label[i] = L' ';
+
         size_t len = wcslen(label);
         int cols = wcswidth(label, len);
 
@@ -2636,12 +2639,6 @@ render_urls(struct terminal *term)
 
         render_osd(term, surf, sub_surf, buf, label,
                    fg, bg, width, height, x_margin, y_margin);
-
-#if 1
-        /* TODO: somehow highlight the key(s) entered so far */
-        pixman_color_t color = color_hex_to_pixman(fg);
-        draw_strikeout(term, buf->pix[0], term->fonts[0], &color, x_margin, y_margin, entered_key_len);
-#endif
     }
 }
 
