@@ -412,6 +412,9 @@ void
 urls_assign_key_combos(url_list_t *urls)
 {
     const size_t count = tll_length(*urls);
+    if (count == 0)
+        return;
+
     wchar_t *combos[count];
     generate_key_combos(count, combos);
 
