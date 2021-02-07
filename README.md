@@ -22,6 +22,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
       1. [Scrollback search](#scrollback-search)
    1. [Mouse](#mouse)
 1. [Server (daemon) mode](#server-daemon-mode)
+1. [URLs](#urls)
 1. [Alt/meta](#alt-meta)
 1. [Backspace](#backspace)
 1. [Keypad](#keypad)
@@ -250,6 +251,32 @@ Typical usage would be to start the server process (`foot --server`)
 when starting your Wayland compositor (i.e. logging in to your
 desktop), and then run `footclient` instead of `foot` whenever you
 want to launch a new terminal.
+
+
+## URLs
+
+Foot supports URL detection. But, unlike many other terminal
+emulators, where URLs are highlighted when they are hovered and opened
+by clicking on them, foot uses a keyboard driven approach.
+
+Pressing <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>u</kbd> enters _“URL
+mode”_, where all currently visible URLs are underlined, and is
+associated with a _“jump-label”_. The jump-label indicates the _key
+sequence_ (e.g. **”AF”**) to use to activate the URL.
+
+The key binding can, of course, be customized, like all other key
+bindings in foot. See `show-urls-launch` and `show-urls-copy` in the
+`foot.ini` man page.
+
+`show-urls-launch` by default opens the URL with `xdg-open`. This can
+be changed with the `url-launch` option.
+
+`show-urls-copy` is an alternative to `show-urls-launch`, that changes
+what activating an URL _does_; instead of opening it, it copies it to
+the clipboard. It is unbound by default.
+
+Both the jump label colors, and the URL underline color can be
+configured, independently.
 
 
 ## Alt/meta
