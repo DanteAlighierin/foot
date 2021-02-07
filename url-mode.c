@@ -365,22 +365,23 @@ generate_key_combos(size_t count, wchar_t *combos[static count])
     hints[0] = xwcsdup(L"");
 
     size_t offset = 0;
-    while (hints_count - offset < count || hints_count == 1) {
+    do {
         const wchar_t *prefix = hints[offset++];
+        const size_t prefix_len = wcslen(prefix);
 
         hints = xrealloc(hints, (hints_count + alphabet_len) * sizeof(hints[0]));
 
-        for (size_t i = 0; i < alphabet_len; i++) {
-            wchar_t wc = alphabet[i];
-            wchar_t *hint = xmalloc((wcslen(prefix) + 1 + 1) * sizeof(wchar_t));
+        const wchar_t *wc = &alphabet[0];
+        for (size_t i = 0; i < alphabet_len; i++, wc++) {
+            wchar_t *hint = xmalloc((prefix_len + 1 + 1) * sizeof(wchar_t));
+            hints[hints_count + i] = hint;
 
             /* Will be reversed later */
-            hint[0] = wc;
+            hint[0] = *wc;
             wcscpy(&hint[1], prefix);
-            hints[hints_count + i] = hint;
         }
         hints_count += alphabet_len;
-    }
+    } while (hints_count - offset < count);
 
     xassert(hints_count - offset >= count);
 
