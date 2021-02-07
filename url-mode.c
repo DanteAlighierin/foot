@@ -474,6 +474,9 @@ urls_render(struct terminal *term)
     struct wl_window *win = term->window;
     struct wayland *wayl = term->wl;
 
+    if (tll_length(win->term->urls) == 0)
+        return;
+
     xassert(tll_length(win->urls) == 0);
     tll_foreach(win->term->urls, it) {
         struct wl_surface *surf = wl_compositor_create_surface(wayl->compositor);
