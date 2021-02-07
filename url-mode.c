@@ -39,7 +39,7 @@ activate_url(struct seat *seat, struct terminal *term, const struct url *url)
     size_t chars = wcstombs(NULL, url->url, 0);
 
     if (chars != (size_t)-1) {
-        char *url_utf8 = malloc(chars + 1);
+        char *url_utf8 = xmalloc(chars + 1);
         wcstombs(url_utf8, url->url, chars + 1);
 
         switch (url->action) {
@@ -360,7 +360,7 @@ generate_key_combos(size_t count, wchar_t *combos[static count])
     static const size_t alphabet_len = ALEN(alphabet) - 1;
 
     size_t hints_count = 1;
-    wchar_t **hints = malloc(hints_count * sizeof(hints[0]));
+    wchar_t **hints = xmalloc(hints_count * sizeof(hints[0]));
 
     hints[0] = xwcsdup(L"");
 
@@ -368,11 +368,11 @@ generate_key_combos(size_t count, wchar_t *combos[static count])
     while (hints_count - offset < count || hints_count == 1) {
         const wchar_t *prefix = hints[offset++];
 
-        hints = realloc(hints, (hints_count + alphabet_len) * sizeof(hints[0]));
+        hints = xrealloc(hints, (hints_count + alphabet_len) * sizeof(hints[0]));
 
         for (size_t i = 0; i < alphabet_len; i++) {
             wchar_t wc = alphabet[i];
-            wchar_t *hint = malloc((wcslen(prefix) + 1 + 1) * sizeof(wchar_t));
+            wchar_t *hint = xmalloc((wcslen(prefix) + 1 + 1) * sizeof(wchar_t));
 
             /* Will be reversed later */
             hint[0] = wc;
