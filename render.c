@@ -2579,7 +2579,7 @@ render_urls(struct terminal *term)
         size_t chars = wcslen(key) + (text_len > 0 ? 3 + text_len : 0);
 
         const size_t max_chars = 50;
-        chars = max(chars, max_chars);
+        chars = min(chars, max_chars);
 
         wchar_t label[chars + 2];
         if (text_len == 0)
