@@ -75,6 +75,8 @@ static const char *const binding_action_map[] = {
     [BIND_ACTION_PIPE_SCROLLBACK] = "pipe-scrollback",
     [BIND_ACTION_PIPE_VIEW] = "pipe-visible",
     [BIND_ACTION_PIPE_SELECTED] = "pipe-selected",
+    [BIND_ACTION_SHOW_URLS_COPY] = "show-urls-copy",
+    [BIND_ACTION_SHOW_URLS_LAUNCH] = "show-urls-launch",
 
     /* Mouse-specific actions */
     [BIND_ACTION_SELECT_BEGIN] = "select-begin",
@@ -113,6 +115,14 @@ static const char *const search_binding_action_map[] = {
 
 static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
               "search binding action map size mismatch");
+
+static const char *const url_binding_action_map[] = {
+    [BIND_ACTION_URL_NONE] = NULL,
+    [BIND_ACTION_URL_CANCEL] = "cancel",
+};
+
+static_assert(ALEN(url_binding_action_map) == BIND_ACTION_URL_COUNT,
+              "URL binding action map size mismatch");
 
 #define LOG_AND_NOTIFY_ERR(...)                                     \
     do {                                                            \
@@ -411,6 +421,30 @@ str_to_color(const char *s, uint32_t *color, bool allow_alpha,
 }
 
 static bool
+str_to_two_colors(const char *s, uint32_t *first, uint32_t *second,
+                  bool allow_alpha, struct config *conf, const char *path,
+                  int lineno, const char *section, const char *key)
+{
+    /* TODO: do this without strdup() */
+    char *value_copy = xstrdup(s);
+    const char *first_as_str = strtok(value_copy, " ");
+    const char *second_as_str = strtok(NULL, " ");
+
+    if (first_as_str == NULL || second_as_str == NULL ||
+        !str_to_color(first_as_str, first, allow_alpha, conf, path, lineno, section, key) ||
+        !str_to_color(second_as_str, second, allow_alpha, conf, path, lineno, section, key))
+    {
+        LOG_AND_NOTIFY_ERR("%s:%d: [%s]: %s: invalid colors: %s",
+                           path, lineno, section, key, s);
+        free(value_copy);
+        return false;
+    }
+
+    free(value_copy);
+    return true;
+}
+
+static bool
 str_to_pt_or_px(const char *s, struct pt_or_px *res, struct config *conf,
                 const char *path, int lineno, const char *section, const char *key)
 {
@@ -441,6 +475,33 @@ str_to_pt_or_px(const char *s, struct pt_or_px *res, struct config *conf,
         res->px = 0;
     }
 
+    return true;
+}
+
+static bool
+str_to_spawn_template(struct config *conf,
+                      const char *s, struct config_spawn_template *template,
+                      const char *path, int lineno, const char *section,
+                      const char *key)
+{
+    free(template->raw_cmd);
+    free(template->argv);
+
+    template->raw_cmd = NULL;
+    template->argv = NULL;
+
+    char *raw_cmd = xstrdup(s);
+    char **argv = NULL;
+
+    if (!tokenize_cmdline(raw_cmd, &argv)) {
+        LOG_AND_NOTIFY_ERR(
+            "%s:%d: [%s]: %s: syntax error in command line",
+            path, lineno, section, key);
+        return false;
+    }
+
+    template->raw_cmd = raw_cmd;
+    template->argv = argv;
     return true;
 }
 
@@ -666,24 +727,19 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "notify") == 0) {
-        free(conf->notify.raw_cmd);
-        free(conf->notify.argv);
-
-        conf->notify.raw_cmd = NULL;
-        conf->notify.argv = NULL;
-
-        char *raw_cmd = xstrdup(value);
-        char **argv = NULL;
-
-        if (!tokenize_cmdline(raw_cmd, &argv)) {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: notify: syntax error in command line",
-                path, lineno);
+        if (!str_to_spawn_template(conf, value, &conf->notify, path, lineno,
+                                   "default", "notify"))
+        {
             return false;
         }
+    }
 
-        conf->notify.raw_cmd = raw_cmd;
-        conf->notify.argv = argv;
+    else if (strcmp(key, "url-launch") == 0) {
+        if (!str_to_spawn_template(conf, value, &conf->url_launch, path, lineno,
+                                   "default", "url-launch"))
+        {
+            return false;
+        }
     }
 
     else if (strcmp(key, "selection-target") == 0) {
@@ -813,6 +869,30 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "bright7") == 0)    color = &conf->colors.bright[7];
     else if (strcmp(key, "selection-foreground") == 0) color = &conf->colors.selection_fg;
     else if (strcmp(key, "selection-background") == 0) color = &conf->colors.selection_bg;
+
+    else if (strcmp(key, "jump-labels") == 0) {
+        if (!str_to_two_colors(
+                value, &conf->colors.jump_label.fg, &conf->colors.jump_label.bg,
+                false, conf, path, lineno, "colors", "jump-labels"))
+        {
+            return false;
+        }
+
+        conf->colors.use_custom.jump_label = true;
+        return true;
+    }
+
+    else if (strcmp(key, "urls") == 0) {
+        if (!str_to_color(value, &conf->colors.url, false,
+                          conf, path, lineno, "colors", "urls"))
+        {
+            return false;
+        }
+
+        conf->colors.use_custom.url = true;
+        return true;
+    }
+
     else if (strcmp(key, "alpha") == 0) {
         double alpha;
         if (!str_to_double(value, &alpha) || alpha < 0. || alpha > 1.) {
@@ -860,23 +940,15 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
         conf->cursor.blink = str_to_bool(value);
 
     else if (strcmp(key, "color") == 0) {
-        char *value_copy = xstrdup(value);
-        const char *text = strtok(value_copy, " ");
-        const char *cursor = strtok(NULL, " ");
-
-        uint32_t text_color, cursor_color;
-        if (text == NULL || cursor == NULL ||
-            !str_to_color(text, &text_color, false, conf, path, lineno, "cursor", "color") ||
-            !str_to_color(cursor, &cursor_color, false, conf, path, lineno, "cursor", "color"))
+        if (!str_to_two_colors(
+                value, &conf->cursor.color.text, &conf->cursor.color.cursor,
+                false, conf, path, lineno, "cursor", "color"))
         {
-            LOG_AND_NOTIFY_ERR("%s:%d: invalid cursor colors: %s", path, lineno, value);
-            free(value_copy);
             return false;
         }
 
-        conf->cursor.color.text = 1u << 31 | text_color;
-        conf->cursor.color.cursor = 1u << 31 | cursor_color;
-        free(value_copy);
+        conf->cursor.color.text |= 1u << 31;
+        conf->cursor.color.cursor |= 1u << 31;
     }
 
     else {
@@ -1168,6 +1240,37 @@ has_search_binding_collisions(struct config *conf, enum bind_action_search actio
     return false;
 }
 
+static bool
+has_url_binding_collisions(struct config *conf, enum bind_action_url action,
+                           const key_combo_list_t *key_combos,
+                           const char *path, unsigned lineno)
+{
+    tll_foreach(conf->bindings.url, it) {
+        if (it->item.action == action)
+            continue;
+
+        tll_foreach(*key_combos, it2) {
+            const struct config_key_modifiers *mods1 = &it->item.modifiers;
+            const struct config_key_modifiers *mods2 = &it2->item.modifiers;
+
+            bool shift = mods1->shift == mods2->shift;
+            bool alt = mods1->alt == mods2->alt;
+            bool ctrl = mods1->ctrl == mods2->ctrl;
+            bool meta = mods1->meta == mods2->meta;
+            bool sym = it->item.sym == it2->item.sym;
+
+            if (shift && alt && ctrl && meta && sym) {
+                LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s'",
+                                   path, lineno, it2->item.text,
+                                   url_binding_action_map[it->item.action]);
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 static int
 argv_compare(char *const *argv1, char *const *argv2)
 {
@@ -1399,6 +1502,63 @@ parse_section_search_bindings(
     }
 
     LOG_AND_NOTIFY_ERR("%s:%u: [search-bindings]: %s: invalid key", path, lineno, key);
+    return false;
+
+}
+
+static bool
+parse_section_url_bindings(
+    const char *key, const char *value, struct config *conf,
+    const char *path, unsigned lineno)
+{
+    for (enum bind_action_url action = 0;
+         action < BIND_ACTION_URL_COUNT;
+         action++)
+    {
+        if (url_binding_action_map[action] == NULL)
+            continue;
+
+        if (strcmp(key, url_binding_action_map[action]) != 0)
+            continue;
+
+        /* Unset binding */
+        if (strcasecmp(value, "none") == 0) {
+            tll_foreach(conf->bindings.url, it) {
+                if (it->item.action == action)
+                    tll_remove(conf->bindings.url, it);
+            }
+            return true;
+        }
+
+        key_combo_list_t key_combos = tll_init();
+        if (!parse_key_combos(conf, value, &key_combos, path, lineno) ||
+            has_url_binding_collisions(conf, action, &key_combos, path, lineno))
+        {
+            free_key_combo_list(&key_combos);
+            return false;
+        }
+
+        /* Remove existing bindings for this action */
+        tll_foreach(conf->bindings.url, it) {
+            if (it->item.action == action)
+                tll_remove(conf->bindings.url, it);
+        }
+
+        /* Emit key bindings */
+        tll_foreach(key_combos, it) {
+            struct config_key_binding_url binding = {
+                .action = action,
+                .modifiers = it->item.modifiers,
+                .sym = it->item.sym,
+            };
+            tll_push_back(conf->bindings.url, binding);
+        }
+
+        free_key_combo_list(&key_combos);
+        return true;
+    }
+
+    LOG_AND_NOTIFY_ERR("%s:%u: [url-bindings]: %s: invalid key", path, lineno, key);
     return false;
 
 }
@@ -1778,6 +1938,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         SECTION_CSD,
         SECTION_KEY_BINDINGS,
         SECTION_SEARCH_BINDINGS,
+        SECTION_URL_BINDINGS,
         SECTION_MOUSE_BINDINGS,
         SECTION_TWEAK,
         SECTION_COUNT,
@@ -1800,6 +1961,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         [SECTION_CSD] =             {&parse_section_csd, "csd"},
         [SECTION_KEY_BINDINGS] =    {&parse_section_key_bindings, "key-bindings"},
         [SECTION_SEARCH_BINDINGS] = {&parse_section_search_bindings, "search-bindings"},
+        [SECTION_URL_BINDINGS] =    {&parse_section_url_bindings, "url-bindings"},
         [SECTION_MOUSE_BINDINGS] =  {&parse_section_mouse_bindings, "mouse-bindings"},
         [SECTION_TWEAK] =           {&parse_section_tweak, "tweak"},
     };
@@ -1993,6 +2155,7 @@ add_default_key_bindings(struct config *conf)
     add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_0);
     add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_KP_0);
     add_binding(BIND_ACTION_SPAWN_TERMINAL, ctrl_shift, XKB_KEY_N);
+    add_binding(BIND_ACTION_SHOW_URLS_LAUNCH, ctrl_shift, XKB_KEY_U);
 
 #undef add_binding
 }
@@ -2041,6 +2204,26 @@ add_default_search_bindings(struct config *conf)
     add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_v);
     add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_y);
     add_binding(BIND_ACTION_SEARCH_PRIMARY_PASTE, shift, XKB_KEY_Insert);
+
+#undef add_binding
+}
+
+static void
+add_default_url_bindings(struct config *conf)
+{
+#define add_binding(action, mods, sym)                                  \
+    do {                                                                \
+        tll_push_back(                                                  \
+            conf->bindings.url,                                         \
+            ((struct config_key_binding_url){action, mods, sym}));      \
+} while (0)
+
+    const struct config_key_modifiers none = {0};
+    const struct config_key_modifiers ctrl = {.ctrl = true};
+
+    add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_g);
+    add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_d);
+    add_binding(BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape);
 
 #undef add_binding
 }
@@ -2138,7 +2321,11 @@ config_load(struct config *conf, const char *conf_path,
             .alpha = 0xffff,
             .selection_fg = 0x80000000,  /* Use default bg */
             .selection_bg = 0x80000000,  /* Use default fg */
-            .selection_uses_custom_colors = false,
+            .use_custom = {
+                .selection = false,
+                .jump_label = false,
+                .url = false,
+            },
         },
 
         .cursor = {
@@ -2189,12 +2376,16 @@ config_load(struct config *conf, const char *conf_path,
         "notify-send -a foot -i foot ${title} ${body}");
     tokenize_cmdline(conf->notify.raw_cmd, &conf->notify.argv);
 
+    conf->url_launch.raw_cmd = xstrdup("xdg-open ${url}");
+    tokenize_cmdline(conf->url_launch.raw_cmd, &conf->url_launch.argv);
+
     tll_foreach(*initial_user_notifications, it)
         tll_push_back(conf->notifications, it->item);
     tll_free(*initial_user_notifications);
 
     add_default_key_bindings(conf);
     add_default_search_bindings(conf);
+    add_default_url_bindings(conf);
     add_default_mouse_bindings(conf);
 
     struct config_file conf_file = {.path = NULL, .fd = -1};
@@ -2231,7 +2422,7 @@ config_load(struct config *conf, const char *conf_path,
     ret = parse_config_file(f, conf, conf_file.path, errors_are_fatal);
     fclose(f);
 
-    conf->colors.selection_uses_custom_colors =
+    conf->colors.use_custom.selection =
         conf->colors.selection_fg >> 24 == 0 &&
         conf->colors.selection_bg >> 24 == 0;
 
@@ -2252,6 +2443,13 @@ out:
     return ret;
 }
 
+static void
+free_spawn_template(struct config_spawn_template *template)
+{
+    free(template->raw_cmd);
+    free(template->argv);
+}
+
 void
 config_free(struct config conf)
 {
@@ -2261,8 +2459,8 @@ config_free(struct config conf)
     free(conf.app_id);
     free(conf.word_delimiters);
     free(conf.scrollback.indicator.text);
-    free(conf.notify.raw_cmd);
-    free(conf.notify.argv);
+    free_spawn_template(&conf.notify);
+    free_spawn_template(&conf.url_launch);
     for (size_t i = 0; i < ALEN(conf.fonts); i++) {
         tll_foreach(conf.fonts[i], it)
             config_font_destroy(&it->item);
@@ -2286,6 +2484,7 @@ config_free(struct config conf)
     tll_free(conf.bindings.key);
     tll_free(conf.bindings.mouse);
     tll_free(conf.bindings.search);
+    tll_free(conf.bindings.url);
 
     user_notifications_free(&conf.notifications);
 }

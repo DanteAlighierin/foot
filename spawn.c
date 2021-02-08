@@ -1,5 +1,6 @@
 #include "spawn.h"
 
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -11,6 +12,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "debug.h"
+#include "xmalloc.h"
 
 bool
 spawn(struct reaper *reaper, const char *cwd, char *const argv[],
@@ -73,4 +75,82 @@ err:
     if (pipe_fds[1] != -1)
         close(pipe_fds[1]);
     return false;
+}
+
+bool
+spawn_expand_template(const struct config_spawn_template *template,
+                      size_t key_count,
+                      const char *key_names[static key_count],
+                      const char *key_values[static key_count],
+                      size_t *argc, char ***argv)
+{
+    *argc = 0;
+    *argv = NULL;
+
+    for (; template->argv[*argc] != NULL; (*argc)++)
+        ;
+
+#define append(s, n)                                        \
+    do {                                                    \
+        expanded = xrealloc(expanded, len + (n) + 1);       \
+        memcpy(&expanded[len], s, n);                       \
+        len += n;                                           \
+        expanded[len] = '\0';                               \
+    } while (0)
+
+    *argv = malloc((*argc + 1) * sizeof((*argv)[0]));
+
+    /* Expand the provided keys */
+    for (size_t i = 0; i < *argc; i++) {
+        size_t len = 0;
+        char *expanded = NULL;
+
+        char *start = NULL;
+        char *last_end = template->argv[i];
+
+        while ((start = strstr(last_end, "${")) != NULL) {
+            /* Append everything from the last template's end to this
+             * one's beginning */
+            append(last_end, start - last_end);
+
+            /* Find end of template */
+            start += 2;
+            char *end = strstr(start, "}");
+
+            if (end == NULL) {
+                /* Ensure final append() copies the unclosed '${' */
+                last_end = start - 2;
+                LOG_WARN("notify: unclosed template: %s", last_end);
+                break;
+            }
+
+            /* Expand template */
+            bool valid_key = false;
+            for (size_t j = 0; j < key_count; j++) {
+                if (strncmp(start, key_names[j], end - start) != 0)
+                    continue;
+
+                append(key_values[j], strlen(key_values[j]));
+                valid_key = true;
+                break;
+            }
+
+            if (!valid_key) {
+                /* Unrecognized template - append it as-is */
+                start -= 2;
+                append(start, end + 1 - start);
+                LOG_WARN("notify: unrecognized template: %.*s",
+                         (int)(end + 1 - start), start);
+            }
+
+            last_end = end + 1;
+        }
+
+        append(last_end, template->argv[i] + strlen(template->argv[i]) - last_end);
+        (*argv)[i] = expanded;
+    }
+    (*argv)[*argc] = NULL;
+
+#undef append
+    return true;
 }

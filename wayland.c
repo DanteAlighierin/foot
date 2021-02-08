@@ -148,6 +148,10 @@ seat_destroy(struct seat *seat)
         tll_free(it->item.bind.key_codes);
     tll_free(seat->kbd.bindings.search);
 
+    tll_foreach(seat->kbd.bindings.url, it)
+        tll_free(it->item.bind.key_codes);
+    tll_free(seat->kbd.bindings.url);
+
     tll_free(seat->mouse.bindings);
 
     if (seat->kbd.xkb_compose_state != NULL)
@@ -1421,6 +1425,14 @@ wayl_win_destroy(struct wl_window *win)
     wayl_roundtrip(win->term->wl);
 
     tll_free(win->on_outputs);
+
+    tll_foreach(win->urls, it) {
+        if (it->item.sub_surf != NULL)
+            wl_subsurface_destroy(it->item.sub_surf);
+        if (it->item.surf != NULL)
+            wl_surface_destroy(it->item.surf);
+    }
+    tll_free(win->urls);
 
     csd_destroy(win);
     if (win->render_timer_sub_surface != NULL)

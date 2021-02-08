@@ -34,6 +34,7 @@
 #include "spawn.h"
 #include "terminal.h"
 #include "tokenize.h"
+#include "url-mode.h"
 #include "util.h"
 #include "vt.h"
 #include "xmalloc.h"
@@ -271,6 +272,20 @@ execute_binding(struct seat *seat, struct terminal *term,
         return true;
     }
 
+    case BIND_ACTION_SHOW_URLS_COPY:
+    case BIND_ACTION_SHOW_URLS_LAUNCH: {
+        xassert(!urls_mode_is_active(term));
+
+        enum url_action url_action = action == BIND_ACTION_SHOW_URLS_COPY
+            ? URL_ACTION_COPY
+            : URL_ACTION_LAUNCH;
+
+        urls_collect(term, url_action, &term->urls);
+        urls_assign_key_combos(&term->urls);
+        urls_render(term);
+        return true;
+    }
+
     case BIND_ACTION_SELECT_BEGIN:
         selection_start(
             term, seat->mouse.col, seat->mouse.row, SELECTION_CHAR_WISE, false);
@@ -404,6 +419,29 @@ convert_search_bindings(const struct config *conf, struct seat *seat)
 }
 
 static void
+convert_url_binding(struct seat *seat,
+                    const struct config_key_binding_url *conf_binding)
+{
+    struct key_binding_url binding = {
+        .action = conf_binding->action,
+        .bind = {
+            .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
+            .sym = conf_binding->sym,
+            .key_codes = key_codes_for_xkb_sym(
+                seat->kbd.xkb_keymap, conf_binding->sym),
+        },
+    };
+    tll_push_back(seat->kbd.bindings.url, binding);
+}
+
+static void
+convert_url_bindings(const struct config *conf, struct seat *seat)
+{
+    tll_foreach(conf->bindings.url, it)
+        convert_url_binding(seat, &it->item);
+}
+
+static void
 convert_mouse_binding(struct seat *seat,
                       const struct config_mouse_binding *conf_binding)
 {
@@ -528,6 +566,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
 
     convert_key_bindings(wayl->conf, seat);
     convert_search_bindings(wayl->conf, seat);
+    convert_url_bindings(wayl->conf, seat);
     convert_mouse_bindings(wayl->conf, seat);
 }
 
@@ -825,6 +864,11 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
         if (should_repeat)
             start_repeater(seat, key);
         search_input(seat, term, key, sym, effective_mods, serial);
+        return;
+    } else  if (urls_mode_is_active(term)) {
+        if (should_repeat)
+            start_repeater(seat, key);
+        urls_input(seat, term, key, sym, effective_mods, serial);
         return;
     }
 
@@ -1194,6 +1238,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_SEARCH:
     case TERM_SURF_SCROLLBACK_INDICATOR:
     case TERM_SURF_RENDER_TIMER:
+    case TERM_SURF_JUMP_LABEL:
     case TERM_SURF_TITLE:
         render_xcursor_set(seat, term, XCURSOR_LEFT_PTR);
         break;
@@ -1282,6 +1327,7 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         case TERM_SURF_SEARCH:
         case TERM_SURF_SCROLLBACK_INDICATOR:
         case TERM_SURF_RENDER_TIMER:
+        case TERM_SURF_JUMP_LABEL:
         case TERM_SURF_TITLE:
         case TERM_SURF_BORDER_LEFT:
         case TERM_SURF_BORDER_RIGHT:
@@ -1330,6 +1376,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_SEARCH:
     case TERM_SURF_SCROLLBACK_INDICATOR:
     case TERM_SURF_RENDER_TIMER:
+    case TERM_SURF_JUMP_LABEL:
     case TERM_SURF_BUTTON_MINIMIZE:
     case TERM_SURF_BUTTON_MAXIMIZE:
     case TERM_SURF_BUTTON_CLOSE:
@@ -1674,6 +1721,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_SEARCH:
     case TERM_SURF_SCROLLBACK_INDICATOR:
     case TERM_SURF_RENDER_TIMER:
+    case TERM_SURF_JUMP_LABEL:
         break;
 
     case TERM_SURF_GRID: {

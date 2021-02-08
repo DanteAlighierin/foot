@@ -42,6 +42,12 @@ struct config_key_binding_search {
     xkb_keysym_t sym;
 };
 
+struct config_key_binding_url {
+    enum bind_action_url action;
+    struct config_key_modifiers modifiers;
+    xkb_keysym_t sym;
+};
+
 struct config_mouse_binding {
     enum bind_action_normal action;
     struct config_key_modifiers modifiers;
@@ -58,6 +64,11 @@ struct config_mouse_binding {
 struct pt_or_px {
     int16_t px;
     float pt;
+};
+
+struct config_spawn_template {
+    char *raw_cmd;
+    char **argv;
 };
 
 struct config {
@@ -128,7 +139,18 @@ struct config {
         uint16_t alpha;
         uint32_t selection_fg;
         uint32_t selection_bg;
-        bool selection_uses_custom_colors;
+        uint32_t url;
+
+        struct {
+            uint32_t fg;
+            uint32_t bg;
+        } jump_label;
+
+        struct {
+            bool selection:1;
+            bool jump_label:1;
+            bool url:1;
+        } use_custom;
     } colors;
 
     struct {
@@ -157,6 +179,9 @@ struct config {
         /* While searching (not - action to *start* a search is in the
          * 'key' bindings above */
         tll(struct config_key_binding_search) search;
+
+        /* While showing URL jump labels */
+        tll(struct config_key_binding_url) url;
     } bindings;
 
     struct {
@@ -167,10 +192,10 @@ struct config {
         int button_width;
 
         struct {
-            bool title_set;
-            bool minimize_set;
-            bool maximize_set;
-            bool close_set;
+            bool title_set:1;
+            bool minimize_set:1;
+            bool maximize_set:1;
+            bool close_set:1;
             uint32_t title;
             uint32_t minimize;
             uint32_t maximize;
@@ -189,10 +214,8 @@ struct config {
         SELECTION_TARGET_BOTH
     } selection_target;
 
-    struct {
-        char *raw_cmd;
-        char **argv;
-    } notify;
+    struct config_spawn_template notify;
+    struct config_spawn_template url_launch;
 
     struct {
         enum fcft_scaling_filter fcft_filter;

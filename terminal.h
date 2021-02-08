@@ -40,7 +40,8 @@ struct attributes {
     uint32_t have_fg:1;
     uint32_t have_bg:1;
     uint32_t selected:2;
-    uint32_t reserved:3;
+    uint32_t url:1;
+    uint32_t reserved:2;
     uint32_t bg:24;
 };
 static_assert(sizeof(struct attributes) == 8, "bad size");
@@ -211,6 +212,7 @@ enum term_surface {
     TERM_SURF_SEARCH,
     TERM_SURF_SCROLLBACK_INDICATOR,
     TERM_SURF_RENDER_TIMER,
+    TERM_SURF_JUMP_LABEL,
     TERM_SURF_TITLE,
     TERM_SURF_BORDER_LEFT,
     TERM_SURF_BORDER_RIGHT,
@@ -222,6 +224,17 @@ enum term_surface {
 };
 
 typedef tll(struct ptmx_buffer) ptmx_buffer_list_t;
+
+enum url_action { URL_ACTION_COPY, URL_ACTION_LAUNCH };
+struct url {
+    wchar_t *url;
+    wchar_t *text;
+    wchar_t *key;
+    struct coord start;
+    struct coord end;
+    enum url_action action;
+};
+typedef tll(struct url) url_list_t;
 
 struct terminal {
     struct fdm *fdm;
@@ -421,6 +434,7 @@ struct terminal {
             bool csd;
             bool search;
             bool title;
+            bool urls;
         } refresh;
 
         /* Scheduled for rendering, in the next frame callback */
@@ -429,6 +443,7 @@ struct terminal {
             bool csd;
             bool search;
             bool title;
+            bool urls;
         } pending;
 
         bool margins;  /* Someone explicitly requested a refresh of the margins */
@@ -498,6 +513,9 @@ struct terminal {
         unsigned max_width;     /* Maximum image width, in pixels */
         unsigned max_height;    /* Maximum image height, in pixels */
     } sixel;
+
+    url_list_t urls;
+    wchar_t url_keys[5];
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     struct {
@@ -646,3 +664,6 @@ void term_ime_disable(struct terminal *term);
 void term_ime_reset(struct terminal *term);
 void term_ime_set_cursor_rect(
     struct terminal *term, int x, int y, int width, int height);
+
+void term_urls_reset(struct terminal *term);
+void term_collect_urls(struct terminal *term);

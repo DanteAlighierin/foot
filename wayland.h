@@ -49,6 +49,8 @@ enum bind_action_normal {
     BIND_ACTION_PIPE_SCROLLBACK,
     BIND_ACTION_PIPE_VIEW,
     BIND_ACTION_PIPE_SELECTED,
+    BIND_ACTION_SHOW_URLS_COPY,
+    BIND_ACTION_SHOW_URLS_LAUNCH,
 
     /* Mouse specific actions - i.e. they require a mouse coordinate */
     BIND_ACTION_SELECT_BEGIN,
@@ -59,7 +61,7 @@ enum bind_action_normal {
     BIND_ACTION_SELECT_WORD_WS,
     BIND_ACTION_SELECT_ROW,
 
-    BIND_ACTION_KEY_COUNT = BIND_ACTION_PIPE_SELECTED + 1,
+    BIND_ACTION_KEY_COUNT = BIND_ACTION_SHOW_URLS_LAUNCH + 1,
     BIND_ACTION_COUNT = BIND_ACTION_SELECT_ROW + 1,
 };
 
@@ -104,6 +106,17 @@ enum bind_action_search {
 struct key_binding_search {
     struct key_binding bind;
     enum bind_action_search action;
+};
+
+enum bind_action_url {
+    BIND_ACTION_URL_NONE,
+    BIND_ACTION_URL_CANCEL,
+    BIND_ACTION_URL_COUNT,
+};
+
+struct key_binding_url {
+    struct key_binding bind;
+    enum bind_action_url action;
 };
 
 /* Mime-types we support when dealing with data offers (e.g. copy-paste, or DnD) */
@@ -192,6 +205,7 @@ struct seat {
         struct {
             tll(struct key_binding_normal) key;
             tll(struct key_binding_search) search;
+            tll(struct key_binding_url) url;
         } bindings;
     } kbd;
 
@@ -349,6 +363,12 @@ struct monitor {
     bool use_output_release;
 };
 
+struct wl_url {
+    const struct url *url;
+    struct wl_surface *surf;
+    struct wl_subsurface *sub_surf;
+};
+
 struct wayland;
 struct wl_window {
     struct terminal *term;
@@ -380,6 +400,7 @@ struct wl_window {
     struct wl_callback *frame_callback;
 
     tll(const struct monitor *) on_outputs; /* Outputs we're mapped on */
+    tll(struct wl_url) urls;
 
     bool is_configured;
     bool is_fullscreen;
