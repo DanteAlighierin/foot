@@ -242,7 +242,7 @@ auto_detected(const struct terminal *term, enum url_action action, url_list_t *u
                 case L'-': case L'.': case L'_': case L'~': case L':':
                 case L'/': case L'?': case L'#': case L'@': case L'!':
                 case L'$': case L'&': case L'\'': case L'*': case L'+':
-                case L',': case L';': case L'=': case L'"':
+                case L',': case L';': case L'=': case L'"': case L'%':
                     url[len++] = wc;
                     break;
 
@@ -293,7 +293,7 @@ auto_detected(const struct terminal *term, enum url_action action, url_list_t *u
                     do {
                         switch (url[len - 1]) {
                         case L'.': case L',': case L':': case L';': case L'?':
-                        case L'!': case L'"': case L'\'':
+                        case L'!': case L'"': case L'\'': case L'%':
                             len--;
                             end.col--;
                             if (end.col < 0) {
