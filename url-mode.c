@@ -80,17 +80,17 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
 {
     /* Key bindings */
     tll_foreach(seat->kbd.bindings.url, it) {
-        if (it->item.bind.mods != mods)
+        if (it->item.mods != mods)
             continue;
 
         /* Match symbol */
-        if (it->item.bind.sym == sym) {
+        if (it->item.sym == sym) {
             execute_binding(seat, term, it->item.action, serial);
             return;
         }
 
         /* Match raw key code */
-        tll_foreach(it->item.bind.key_codes, code) {
+        tll_foreach(it->item.key_codes, code) {
             if (code->item == key) {
                 execute_binding(seat, term, it->item.action, serial);
                 return;

@@ -373,72 +373,39 @@ key_codes_for_xkb_sym(struct xkb_keymap *keymap, xkb_keysym_t sym)
 
 static void
 convert_key_binding(struct seat *seat,
-                    const struct config_key_binding_normal *conf_binding)
+                    const struct config_key_binding *conf_binding,
+                    key_binding_list_t *bindings)
 {
-    struct key_binding_normal binding = {
+    struct key_binding binding = {
+        .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
+        .sym = conf_binding->sym,
+        .key_codes = key_codes_for_xkb_sym(
+            seat->kbd.xkb_keymap, conf_binding->sym),
         .action = conf_binding->action,
-        .bind = {
-            .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
-            .sym = conf_binding->sym,
-            .key_codes = key_codes_for_xkb_sym(
-                seat->kbd.xkb_keymap, conf_binding->sym),
-        },
         .pipe_argv = conf_binding->pipe.argv,
     };
-    tll_push_back(seat->kbd.bindings.key, binding);
+    tll_push_back(*bindings, binding);
 }
 
 static void
 convert_key_bindings(const struct config *conf, struct seat *seat)
 {
     tll_foreach(conf->bindings.key, it)
-        convert_key_binding(seat, &it->item);
-}
-
-static void
-convert_search_binding(struct seat *seat,
-                       const struct config_key_binding_search *conf_binding)
-{
-    struct key_binding_search binding = {
-        .action = conf_binding->action,
-        .bind = {
-            .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
-            .sym = conf_binding->sym,
-            .key_codes = key_codes_for_xkb_sym(
-                seat->kbd.xkb_keymap, conf_binding->sym),
-        },
-    };
-    tll_push_back(seat->kbd.bindings.search, binding);
+        convert_key_binding(seat, &it->item, &seat->kbd.bindings.key);
 }
 
 static void
 convert_search_bindings(const struct config *conf, struct seat *seat)
 {
     tll_foreach(conf->bindings.search, it)
-        convert_search_binding(seat, &it->item);
-}
-
-static void
-convert_url_binding(struct seat *seat,
-                    const struct config_key_binding_url *conf_binding)
-{
-    struct key_binding_url binding = {
-        .action = conf_binding->action,
-        .bind = {
-            .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
-            .sym = conf_binding->sym,
-            .key_codes = key_codes_for_xkb_sym(
-                seat->kbd.xkb_keymap, conf_binding->sym),
-        },
-    };
-    tll_push_back(seat->kbd.bindings.url, binding);
+        convert_key_binding(seat, &it->item, &seat->kbd.bindings.search);
 }
 
 static void
 convert_url_bindings(const struct config *conf, struct seat *seat)
 {
     tll_foreach(conf->bindings.url, it)
-        convert_url_binding(seat, &it->item);
+        convert_key_binding(seat, &it->item, &seat->kbd.bindings.url);
 }
 
 static void
@@ -498,11 +465,11 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     }
 
     tll_foreach(seat->kbd.bindings.key, it)
-        tll_free(it->item.bind.key_codes);
+        tll_free(it->item.key_codes);
     tll_free(seat->kbd.bindings.key);
 
     tll_foreach(seat->kbd.bindings.search, it)
-        tll_free(it->item.bind.key_codes);
+        tll_free(it->item.key_codes);
     tll_free(seat->kbd.bindings.search);
 
     tll_free(seat->mouse.bindings);
@@ -895,17 +862,17 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
      * User configurable bindings
      */
     tll_foreach(seat->kbd.bindings.key, it) {
-        if (it->item.bind.mods != effective_mods)
+        if (it->item.mods != effective_mods)
             continue;
 
         /* Match symbol */
-        if (it->item.bind.sym == sym) {
+        if (it->item.sym == sym) {
             if (execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial))
                 goto maybe_repeat;
         }
 
         /* Match raw key code */
-        tll_foreach(it->item.bind.key_codes, code) {
+        tll_foreach(it->item.key_codes, code) {
             if (code->item == key) {
                 if (execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial))
                     goto maybe_repeat;

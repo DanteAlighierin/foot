@@ -133,6 +133,15 @@ seat_add_text_input(struct seat *seat)
 }
 
 static void
+key_bindings_destroy(key_binding_list_t *bindings)
+{
+    tll_foreach(*bindings, it) {
+        tll_free(it->item.key_codes);
+        tll_remove(*bindings, it);
+    }
+}
+
+static void
 seat_destroy(struct seat *seat)
 {
     if (seat == NULL)
@@ -140,17 +149,9 @@ seat_destroy(struct seat *seat)
 
     tll_free(seat->mouse.buttons);
 
-    tll_foreach(seat->kbd.bindings.key, it)
-        tll_free(it->item.bind.key_codes);
-    tll_free(seat->kbd.bindings.key);
-
-    tll_foreach(seat->kbd.bindings.search, it)
-        tll_free(it->item.bind.key_codes);
-    tll_free(seat->kbd.bindings.search);
-
-    tll_foreach(seat->kbd.bindings.url, it)
-        tll_free(it->item.bind.key_codes);
-    tll_free(seat->kbd.bindings.url);
+    key_bindings_destroy(&seat->kbd.bindings.key);
+    key_bindings_destroy(&seat->kbd.bindings.search);
+    key_bindings_destroy(&seat->kbd.bindings.url);
 
     tll_free(seat->mouse.bindings);
 

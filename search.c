@@ -807,11 +807,11 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
 
     /* Key bindings */
     tll_foreach(seat->kbd.bindings.search, it) {
-        if (it->item.bind.mods != mods)
+        if (it->item.mods != mods)
             continue;
 
         /* Match symbol */
-        if (it->item.bind.sym == sym) {
+        if (it->item.sym == sym) {
             if (execute_binding(seat, term, it->item.action, serial,
                                 &update_search_result, &redraw))
             {
@@ -821,7 +821,7 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
         }
 
         /* Match raw key code */
-        tll_foreach(it->item.bind.key_codes, code) {
+        tll_foreach(it->item.key_codes, code) {
             if (code->item == key) {
                 if (execute_binding(seat, term, it->item.action, serial,
                                     &update_search_result, &redraw))
