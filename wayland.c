@@ -1240,13 +1240,15 @@ wayl_destroy(struct wayland *wayl)
 
     fdm_hook_del(wayl->fdm, &fdm_hook, FDM_HOOK_PRIORITY_LOW);
 
-    tll_foreach(wayl->monitors, it)
+    tll_foreach(wayl->monitors, it) {
         monitor_destroy(&it->item);
-    tll_free(wayl->monitors);
+        tll_remove(wayl->monitors, it);
+    }
 
-    tll_foreach(wayl->seats, it)
+    tll_foreach(wayl->seats, it) {
         seat_destroy(&it->item);
-    tll_free(wayl->seats);
+        tll_remove(wayl->seats, it);
+    }
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     if (wayl->text_input_manager != NULL)
@@ -1431,8 +1433,8 @@ wayl_win_destroy(struct wl_window *win)
             wl_subsurface_destroy(it->item.sub_surf);
         if (it->item.surf != NULL)
             wl_surface_destroy(it->item.surf);
+        tll_remove(win->urls, it);
     }
-    tll_free(win->urls);
 
     csd_destroy(win);
     if (win->render_timer_sub_surface != NULL)
