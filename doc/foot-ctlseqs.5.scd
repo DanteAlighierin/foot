@@ -136,10 +136,101 @@ ID, _cs_.
 The sub-parameter based variants are preferred, and what foot's
 terminfo uses.
 
+## Private Modes
 
-## DECSET/DECRST
+There are several Boolean-like "modes" that affect certain aspects
+of the terminal's behavior. These modes can be manipulated with the
+following 4 escape sequences:
 
-*TODO*
+[[ *Sequence*
+:[ *Name*
+:[ *Description*
+|  CSI ? _Pm_ *h*
+:  DECSET
+:  Enable private mode
+|  CSI ? _Pm_ *l*
+:  DECRST
+:  Disable private mode
+|  CSI ? _Pm_ *s*
+:  XTSAVE
+:  Save private mode
+|  CSI ? _Pm_ *r*
+:  XTRESTORE
+:  Restore private mode
+
+
+The _Pm_ parameter in the above sequences denotes a numerical ID
+that corresponds to one of the following modes:
+
+[[ *Parameter*
+:[ *Origin*
+:[ *Description*
+|  1
+:  VT100
+:  Cursor keys mode (DECCKM)
+|  5
+:  VT100
+:  Reverse video (DECSCNM)
+|  6
+:  VT100
+:  Origin mode (DECOM)
+|  7
+:  VT100
+:  Auto-wrap mode (DECAWM)
+|  12
+:  AT&T 610
+:  Cursor blink
+|  25
+:  VT220
+:  Cursor visibility (DECTCEM)
+|  45
+:  xterm
+:  Reverse-wraparound mode
+|  1000
+:  xterm
+:  Send mouse x/y on button press/release
+|  1001
+:  xterm
+:  Use hilite mouse tracking
+|  1002
+:  xterm
+:  Use cell motion mouse tracking
+|  1003
+:  xterm
+:  Use all motion mouse tracking
+|  1004
+:  xterm
+:  Send FocusIn/FocusOut events
+|  1006
+:  xterm
+:  SGR mouse mode
+|  1007
+:  xterm
+:  Alternate scroll mode
+|  1015
+:  urxvt
+:  urxvt mouse mode
+|  1034
+:  xterm
+:  8-bit Meta mode
+|  1035
+:  xterm
+:  Num Lock modifier (see xterm numLock option)
+|  1036
+:  xterm
+:  Send ESC when Meta modifies a key (see xterm metaSendsEscape option)
+|  1042
+:  xterm
+:  Perform action for BEL character (see *bell* in *foot.ini*(5))
+|  1049
+:  xterm
+:  Save cursor (like DECSC) and switch to alternate screen buffer
+|  2004
+:  xterm
+:  Wrap pasted text with start/end delimiters (bracketed paste mode)
+|  737769
+:  foot
+:  Input Method Editor (IME) mode
 
 ## Other
 
