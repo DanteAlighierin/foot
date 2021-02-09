@@ -186,6 +186,9 @@ that corresponds to one of the following modes:
 |  45
 :  xterm
 :  Reverse-wraparound mode
+|  47
+:  xterm
+:  Same as 1047 (see below)
 |  1000
 :  xterm
 :  Send mouse x/y on button press/release
@@ -222,9 +225,15 @@ that corresponds to one of the following modes:
 |  1042
 :  xterm
 :  Perform action for BEL character (see *bell* in *foot.ini*(5))
+|  1047
+:  xterm
+:  Use alternate screen buffer
+|  1048
+:  xterm
+:  Save/restore cursor (DECSET=save, DECRST=restore)
 |  1049
 :  xterm
-:  Save cursor (like DECSC) and switch to alternate screen buffer
+:  Equivalent to 1048 and 1047 combined
 |  2004
 :  xterm
 :  Wrap pasted text with start/end delimiters (bracketed paste mode)
