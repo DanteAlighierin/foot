@@ -30,7 +30,7 @@ in this order:
 
 *term*
 	Value to set the environment variable *TERM* to. Default: _foot_
-	or _xterm-256color_ if built with _-Dterminfo=false_
+	or _xterm-256color_ if built with _-Dterminfo=disabled_
 
 *font*, *font-bold*, *font-italic*, *font-bold-italic*
 	Comma separated list of fonts to use, in fontconfig format. That

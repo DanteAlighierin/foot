@@ -28,11 +28,11 @@ sources:
 tasks:
   - debug: |
       mkdir -p bld/debug
-      meson --buildtype=debug -Dterminfo=false -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true foot bld/debug
+      meson --buildtype=debug -Dterminfo=disabled -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true foot bld/debug
       ninja -C bld/debug -k0
       meson test -C bld/debug --print-errorlogs
   - release: |
       mkdir -p bld/release
-      meson --buildtype=minsize -Dterminfo=false -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true foot bld/release
+      meson --buildtype=minsize -Dterminfo=disabled -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true foot bld/release
       ninja -C bld/release -k0
       meson test -C bld/release --print-errorlogs
