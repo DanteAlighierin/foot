@@ -13,10 +13,11 @@
 
 static bool colorize = false;
 static bool do_syslog = true;
+static enum log_class log_level = LOG_CLASS_INFO;
 
 void
 log_init(enum log_colorize _colorize, bool _do_syslog,
-         enum log_facility syslog_facility, enum log_class syslog_level)
+         enum log_facility syslog_facility, enum log_class _log_level)
 {
     static const int facility_map[] = {
         [LOG_FACILITY_USER] = LOG_USER,
@@ -32,10 +33,11 @@ log_init(enum log_colorize _colorize, bool _do_syslog,
 
     colorize = _colorize == LOG_COLORIZE_NEVER ? false : _colorize == LOG_COLORIZE_ALWAYS ? true : isatty(STDERR_FILENO);
     do_syslog = _do_syslog;
+    log_level = _log_level;
 
     if (do_syslog) {
         openlog(NULL, /*LOG_PID*/0, facility_map[syslog_facility]);
-        setlogmask(LOG_UPTO(level_map[syslog_level]));
+        setlogmask(LOG_UPTO(level_map[_log_level]));
     }
 }
 
@@ -50,6 +52,9 @@ static void
 _log(enum log_class log_class, const char *module, const char *file, int lineno,
      const char *fmt, int sys_errno, va_list va)
 {
+    if (log_class > log_level)
+        return;
+
     const char *class = "abcd";
     int class_clr = 0;
     switch (log_class) {
