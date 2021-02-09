@@ -209,7 +209,7 @@ execute_binding(struct seat *seat, struct terminal *term,
             break;
 
         default:
-            xassert(false);
+            BUG("Unhandled action type");
             success = false;
             break;
         }

@@ -1367,11 +1367,10 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
     case CSD_SURF_CLOSE:    return (struct csd_data){term->width - 1 * button_width, 0, button_close_width,    title_height};
 
     case CSD_SURF_COUNT:
-        xassert(false);
-        return (struct csd_data){0};
+        break;
     }
 
-    xassert(false);
+    BUG("Invalid csd_surface type");
     return (struct csd_data){0};
 }
 

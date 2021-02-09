@@ -251,7 +251,7 @@ hook_priority_to_list(struct fdm *fdm, enum fdm_hook_priority priority)
     case FDM_HOOK_PRIORITY_HIGH:   return &fdm->hooks_high;
     }
 
-    xassert(false);
+    BUG("unhandled priority type");
     return NULL;
 }
 
