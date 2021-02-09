@@ -120,9 +120,10 @@ mkdir -p bld/release && cd bld/release
 
 Available compile-time options:
 
-| Option   | Type | Default | Description         | Extra dependencies |
-|----------|------|---------|---------------------|--------------------|
-| `-Dime`  | bool | `true`  | Enables IME support | None               |
+| Option      | Type    | Default | Description         | Extra dependencies |
+|-------------|---------|---------|---------------------|--------------------|
+| `-Dime`     | bool    | `true`  | Enables IME support | None               |
+| `-Dterminfo | feature | `auto`  | Build terminfo      | `tic` (ncurses)    |
 
 
 ### Release build
