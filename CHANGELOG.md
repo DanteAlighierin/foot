@@ -28,6 +28,7 @@
 
 * The IME state no longer stays stuck in the terminal if the IME goes
   away during preedit.
+* `-Dterminfo` changed from a `boolean` to a `feature` option.
 
 
 ### Deprecated
@@ -37,6 +38,7 @@
 ### Contributors
 
 * [tdeo](https://codeberg.org/tdeo)
+* jbeich
 
 
 ## 1.6.3
