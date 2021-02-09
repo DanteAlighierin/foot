@@ -17,6 +17,7 @@
 #include "client-protocol.h"
 #include "debug.h"
 #include "foot-features.h"
+#include "util.h"
 #include "version.h"
 #include "xmalloc.h"
 
@@ -44,18 +45,19 @@ print_usage(const char *prog_name)
     printf("Usage: %s [OPTIONS...] [ARGS...]\n", prog_name);
     printf("\n");
     printf("Options:\n");
-    printf("  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
-           "     --title=TITLE                      initial window title (foot)\n"
-           "  -a,--app-id=ID                        window application ID (foot)\n"
-           "  -w,--window-size-pixels=WIDTHxHEIGHT  initial width and height, in pixels\n"
-           "  -W,--window-size-chars=WIDTHxHEIGHT   initial width and height, in characters\n"
-           "     --maximized                        start in maximized mode\n"
-           "     --fullscreen                       start in fullscreen mode\n"
-           "     --login-shell                      start shell as a login shell\n"
-           "  -s,--server-socket=PATH               path to the server UNIX domain socket (default=$XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)\n"
-           "     --hold                             remain open after child process exits\n"
-           "  -l,--log-colorize=[never|always|auto] enable/disable colorization of log output on stderr\n"
-           "  -v,--version                          show the version number and quit\n");
+    printf("  -t,--term=TERM                          value to set the environment variable TERM to (foot)\n"
+           "     --title=TITLE                        initial window title (foot)\n"
+           "  -a,--app-id=ID                          window application ID (foot)\n"
+           "  -w,--window-size-pixels=WIDTHxHEIGHT    initial width and height, in pixels\n"
+           "  -W,--window-size-chars=WIDTHxHEIGHT     initial width and height, in characters\n"
+           "     --maximized                          start in maximized mode\n"
+           "     --fullscreen                         start in fullscreen mode\n"
+           "     --login-shell                        start shell as a login shell\n"
+           "  -s,--server-socket=PATH                 path to the server UNIX domain socket (default=$XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)\n"
+           "     --hold                               remain open after child process exits\n"
+           "  -d,---log-level={info|warning|error}    log level (info)\n"
+           "  -l,--log-colorize=[{never|always|auto}] enable/disable colorization of log output on stderr\n"
+           "  -v,--version                            show the version number and quit\n");
 }
 
 int
@@ -76,6 +78,7 @@ main(int argc, char *const *argv)
         {"login-shell",        no_argument,       NULL, 'L'},
         {"server-socket",      required_argument, NULL, 's'},
         {"hold",               no_argument,       NULL, 'H'},
+        {"log-level",          required_argument, NULL, 'd'},
         {"log-colorize",       optional_argument, NULL, 'l'},
         {"version",            no_argument,       NULL, 'v'},
         {"help",               no_argument,       NULL, 'h'},
@@ -89,6 +92,7 @@ main(int argc, char *const *argv)
     unsigned width = 0;
     unsigned height = 0;
     const char *server_socket_path = NULL;
+    enum log_class log_level = LOG_CLASS_INFO;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
     bool login_shell = false;
     bool maximized = false;
@@ -96,7 +100,7 @@ main(int argc, char *const *argv)
     bool hold = false;
 
     while (true) {
-        int c = getopt_long(argc, argv, "+t:T:a:w:W:mFLs:Hl::vh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+t:T:a:w:W:mFLs:Hd:l::vh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -151,6 +155,42 @@ main(int argc, char *const *argv)
             hold = true;
             break;
 
+        case 'd': {
+            static const char *log_level_map[] = {
+#if defined(_DEBUG)
+                [LOG_CLASS_DEBUG] = "debug",
+#endif
+                [LOG_CLASS_INFO] = "info",
+                [LOG_CLASS_WARNING] = "warning",
+                [LOG_CLASS_ERROR] = "error",
+            };
+
+            bool valid_log_level = false;
+            for (size_t i = 0; i < ALEN(log_level_map); i++) {
+                if (strcmp(optarg, log_level_map[i]) == 0) {
+                    log_level = i;
+                    valid_log_level = true;
+                    break;
+                }
+            }
+
+            if (!valid_log_level) {
+                fprintf(
+                    stderr, "-d,--log-level: %s: argument must be one of ",
+                    optarg);
+
+                for (size_t i = 0; i < ALEN(log_level_map); i++) {
+                    fprintf(stderr, "'%s'%s",
+                            log_level_map[i],
+                            i < ALEN(log_level_map) - 1 ? " , " : "");
+                }
+                fprintf(stderr, "\n");
+
+                return EXIT_FAILURE;
+            }
+            break;
+        }
+
         case 'l':
             if (optarg == NULL || strcmp(optarg, "auto") == 0)
                 log_colorize = LOG_COLORIZE_AUTO;
@@ -180,7 +220,7 @@ main(int argc, char *const *argv)
     argc -= optind;
     argv += optind;
 
-    log_init(log_colorize, false, LOG_FACILITY_USER, LOG_CLASS_WARNING);
+    log_init(log_colorize, false, LOG_FACILITY_USER, log_level);
 
     /* malloc:ed and needs to be in scope of all goto's */
     char *cwd = NULL;
