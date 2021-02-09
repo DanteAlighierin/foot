@@ -225,6 +225,10 @@ in this order:
 	
 	Default: _notify-send -a foot -i foot ${title} ${body}_.
 
+*url-launch*
+	Command to execute when opening URLs. _${url}_ will be replaced
+	with the actual URL. Default: _xdg-open ${url}_.
+
 *selection-target*
 	Clipboard target to automatically copy selected text to. One of
 	*none*, *primary*, *clipboard* or *both*. Default: _primary_.
@@ -346,6 +350,15 @@ _alpha_ option.
 	Foreground (text) and background color to use in selected
 	text. Note that *both* options must be set, or the default will be
 	used. Default: _inverse foreground/background_.
+
+*jump-labels*
+	To RRGGBB values specifying the foreground (text) and background
+	colors to use when rendering jump labels in URL mode. Default:
+	_regular0 regular3_.
+
+*urls*
+	Color to use for the underline used to highlight URLs in URL
+	mode. Default: _regular3_.
 
 
 # SECTION: csd
@@ -491,6 +504,16 @@ e.g. *search-start=none*.
 	
 	Default: _not bound_
 
+*show-urls-launch*
+	Enter URL mode, where all currently visible URLs are tagged with a
+	jump label with a key sequence that will open the URL. Default:
+	_Control+Shift+U_.
+
+*show-urls-copy*
+	Enter URL mode, where all currently visible URLs are tagged with a
+	jump label with a key sequence that will place the URL in the
+	clipboard. Default: _none_.
+
 
 # SECTION: search-bindings
 
@@ -568,6 +591,17 @@ scrollback search mode. The syntax is exactly the same as the regular
 *primary-paste*
 	Paste from the _primary selection_ into the search
 	buffer. Default: _Shift+Insert_.
+
+
+# SECTION: url-bindings
+
+This section lets you override the default key bindings used in URL
+mode. The syntax is exactly the same as the regular **key-bindings**.
+
+*cancel*
+	Exits URL mode without opening an URL. Default: _Control+g
+	Control+d Escape_.
+
 
 # SECTION: mouse-bindings
 

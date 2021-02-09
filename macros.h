@@ -27,6 +27,12 @@
     #define HAS_BUILTIN(x) 0
 #endif
 
+#ifdef __has_include
+    #define HAS_INCLUDE(x) __has_include(x)
+#else
+    #define HAS_INCLUDE(x) 0
+#endif
+
 #ifdef __has_feature
     #define HAS_FEATURE(x) __has_feature(x)
 #else

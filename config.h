@@ -25,39 +25,37 @@ struct config_key_modifiers {
     bool meta;
 };
 
-struct config_key_binding_normal {
-    enum bind_action_normal action;
-    struct config_key_modifiers modifiers;
-    xkb_keysym_t sym;
-    struct {
-        char *cmd;
-        char **argv;
-        bool master_copy;
-    } pipe;
+struct config_binding_pipe {
+    char *cmd;
+    char **argv;
+    bool master_copy;
 };
 
-struct config_key_binding_search {
-    enum bind_action_search action;
+struct config_key_binding {
+    int action;  /* One of the varios bind_action_* enums from wayland.h */
     struct config_key_modifiers modifiers;
     xkb_keysym_t sym;
+    struct config_binding_pipe pipe;
 };
+typedef tll(struct config_key_binding) config_key_binding_list_t;
 
 struct config_mouse_binding {
     enum bind_action_normal action;
     struct config_key_modifiers modifiers;
     int button;
     int count;
-    struct {
-        char *cmd;
-        char **argv;
-        bool master_copy;
-    } pipe;
+    struct config_binding_pipe pipe;
 };
 
 /* If px != 0 then px is valid, otherwise pt is valid */
 struct pt_or_px {
     int16_t px;
     float pt;
+};
+
+struct config_spawn_template {
+    char *raw_cmd;
+    char **argv;
 };
 
 struct config {
@@ -128,7 +126,18 @@ struct config {
         uint16_t alpha;
         uint32_t selection_fg;
         uint32_t selection_bg;
-        bool selection_uses_custom_colors;
+        uint32_t url;
+
+        struct {
+            uint32_t fg;
+            uint32_t bg;
+        } jump_label;
+
+        struct {
+            bool selection:1;
+            bool jump_label:1;
+            bool url:1;
+        } use_custom;
     } colors;
 
     struct {
@@ -147,7 +156,7 @@ struct config {
 
     struct {
         /* Bindings for "normal" mode */
-        tll(struct config_key_binding_normal) key;
+        config_key_binding_list_t key;
         tll(struct config_mouse_binding) mouse;
 
         /*
@@ -156,7 +165,10 @@ struct config {
 
         /* While searching (not - action to *start* a search is in the
          * 'key' bindings above */
-        tll(struct config_key_binding_search) search;
+        config_key_binding_list_t search;
+
+        /* While showing URL jump labels */
+        config_key_binding_list_t url;
     } bindings;
 
     struct {
@@ -167,10 +179,10 @@ struct config {
         int button_width;
 
         struct {
-            bool title_set;
-            bool minimize_set;
-            bool maximize_set;
-            bool close_set;
+            bool title_set:1;
+            bool minimize_set:1;
+            bool maximize_set:1;
+            bool close_set:1;
             uint32_t title;
             uint32_t minimize;
             uint32_t maximize;
@@ -189,10 +201,8 @@ struct config {
         SELECTION_TARGET_BOTH
     } selection_target;
 
-    struct {
-        char *raw_cmd;
-        char **argv;
-    } notify;
+    struct config_spawn_template notify;
+    struct config_spawn_template url_launch;
 
     struct {
         enum fcft_scaling_filter fcft_filter;

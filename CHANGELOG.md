@@ -41,6 +41,10 @@
   copied to. The default is `primary`, which corresponds to the
   behavior in older foot releases
   (https://codeberg.org/dnkl/foot/issues/288).
+* URL detection. URLs are highlighted and activated using the keyboard
+  (**no** mouse support). See **foot**(1)::URLs, or
+  [README.md](README.md#urls) for details
+  (https://codeberg.org/dnkl/foot/issues/14).
 
 
 ### Changed

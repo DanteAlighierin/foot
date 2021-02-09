@@ -133,6 +133,15 @@ seat_add_text_input(struct seat *seat)
 }
 
 static void
+key_bindings_destroy(key_binding_list_t *bindings)
+{
+    tll_foreach(*bindings, it) {
+        tll_free(it->item.key_codes);
+        tll_remove(*bindings, it);
+    }
+}
+
+static void
 seat_destroy(struct seat *seat)
 {
     if (seat == NULL)
@@ -140,13 +149,9 @@ seat_destroy(struct seat *seat)
 
     tll_free(seat->mouse.buttons);
 
-    tll_foreach(seat->kbd.bindings.key, it)
-        tll_free(it->item.bind.key_codes);
-    tll_free(seat->kbd.bindings.key);
-
-    tll_foreach(seat->kbd.bindings.search, it)
-        tll_free(it->item.bind.key_codes);
-    tll_free(seat->kbd.bindings.search);
+    key_bindings_destroy(&seat->kbd.bindings.key);
+    key_bindings_destroy(&seat->kbd.bindings.search);
+    key_bindings_destroy(&seat->kbd.bindings.url);
 
     tll_free(seat->mouse.bindings);
 
@@ -1236,13 +1241,15 @@ wayl_destroy(struct wayland *wayl)
 
     fdm_hook_del(wayl->fdm, &fdm_hook, FDM_HOOK_PRIORITY_LOW);
 
-    tll_foreach(wayl->monitors, it)
+    tll_foreach(wayl->monitors, it) {
         monitor_destroy(&it->item);
-    tll_free(wayl->monitors);
+        tll_remove(wayl->monitors, it);
+    }
 
-    tll_foreach(wayl->seats, it)
+    tll_foreach(wayl->seats, it) {
         seat_destroy(&it->item);
-    tll_free(wayl->seats);
+        tll_remove(wayl->seats, it);
+    }
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     if (wayl->text_input_manager != NULL)
@@ -1421,6 +1428,14 @@ wayl_win_destroy(struct wl_window *win)
     wayl_roundtrip(win->term->wl);
 
     tll_free(win->on_outputs);
+
+    tll_foreach(win->urls, it) {
+        if (it->item.sub_surf != NULL)
+            wl_subsurface_destroy(it->item.sub_surf);
+        if (it->item.surf != NULL)
+            wl_surface_destroy(it->item.surf);
+        tll_remove(win->urls, it);
+    }
 
     csd_destroy(win);
     if (win->render_timer_sub_surface != NULL)

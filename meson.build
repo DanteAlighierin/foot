@@ -180,6 +180,7 @@ executable(
   'slave.c', 'slave.h',
   'spawn.c', 'spawn.h',
   'tokenize.c', 'tokenize.h',
+  'url-mode.c', 'url-mode.h',
   'user-notification.h',
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,

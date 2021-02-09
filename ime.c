@@ -25,11 +25,7 @@ enter(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     LOG_DBG("enter: seat=%s", seat->name);
 
     /* The main grid is the *only* input-receiving surface we have */
-    /* TODO: can we receive text_input::enter() _before_ keyboard_enter()? */
-    struct terminal UNUSED *term = seat->kbd_focus;
-    xassert(term != NULL);
-    xassert(term_surface_kind(term, surface) == TERM_SURF_GRID);
-
+    xassert(seat->kbd_focus != NULL);
     ime_enable(seat);
 }
 

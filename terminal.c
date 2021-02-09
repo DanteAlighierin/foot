@@ -36,6 +36,7 @@
 #include "sixel.h"
 #include "slave.h"
 #include "spawn.h"
+#include "url-mode.h"
 #include "util.h"
 #include "vt.h"
 #include "xmalloc.h"
@@ -226,6 +227,8 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         term->cursor_blink.state = CURSOR_BLINK_ON;
         cursor_blink_rearm_timer(term);
     }
+
+    urls_reset(term);
 
     uint8_t buf[24 * 1024];
     ssize_t count = sizeof(buf);
@@ -1404,8 +1407,10 @@ term_destroy(struct terminal *term)
     fdm_del(term->fdm, term->flash.fd);
     fdm_del(term->fdm, term->ptmx);
 
-    if (term->window != NULL)
+    if (term->window != NULL) {
         wayl_win_destroy(term->window);
+        term->window = NULL;
+    }
 
     mtx_lock(&term->render.workers.lock);
     xassert(tll_length(term->render.workers.queue) == 0);
@@ -1469,22 +1474,28 @@ term_destroy(struct terminal *term)
     xassert(tll_length(term->render.workers.queue) == 0);
     tll_free(term->render.workers.queue);
 
-    tll_foreach(term->ptmx_buffers, it)
-        free(it->item.data);
-    tll_free(term->ptmx_buffers);
-    tll_foreach(term->ptmx_paste_buffers, it)
-        free(it->item.data);
-    tll_free(term->ptmx_paste_buffers);
     tll_free(term->tab_stops);
 
-    tll_foreach(term->normal.sixel_images, it)
+    tll_foreach(term->ptmx_buffers, it) {
+        free(it->item.data);
+        tll_remove(term->ptmx_buffers, it);
+    }
+    tll_foreach(term->ptmx_paste_buffers, it) {
+        free(it->item.data);
+        tll_remove(term->ptmx_paste_buffers, it);
+    }
+
+    tll_foreach(term->normal.sixel_images, it) {
         sixel_destroy(&it->item);
-    tll_free(term->normal.sixel_images);
-    tll_foreach(term->alt.sixel_images, it)
+        tll_remove(term->normal.sixel_images, it);
+    }
+    tll_foreach(term->alt.sixel_images, it) {
         sixel_destroy(&it->item);
-    tll_free(term->alt.sixel_images);
+        tll_remove(term->alt.sixel_images, it);
+    }
     sixel_fini(term);
 
+    urls_reset(term);
     term_ime_reset(term);
 
     free(term->foot_exe);
@@ -1636,12 +1647,14 @@ term_reset(struct terminal *term, bool hard)
     term->meta.esc_prefix = true;
     term->meta.eight_bit = true;
 
-    tll_foreach(term->normal.sixel_images, it)
+    tll_foreach(term->normal.sixel_images, it) {
         sixel_destroy(&it->item);
-    tll_free(term->normal.sixel_images);
-    tll_foreach(term->alt.sixel_images, it)
+        tll_remove(term->normal.sixel_images, it);
+    }
+    tll_foreach(term->alt.sixel_images, it) {
         sixel_destroy(&it->item);
-    tll_free(term->alt.sixel_images);
+        tll_remove(term->alt.sixel_images, it);
+    }
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     term_ime_enable(term);
@@ -2823,8 +2836,13 @@ term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
         return TERM_SURF_BUTTON_MAXIMIZE;
     else if (surface == term->window->csd.surface[CSD_SURF_CLOSE])
         return TERM_SURF_BUTTON_CLOSE;
-    else
+    else {
+        tll_foreach(term->window->urls, it) {
+            if (surface == it->item.surf)
+                return TERM_SURF_JUMP_LABEL;
+        }
         return TERM_SURF_NONE;
+    }
 }
 
 static bool
@@ -2963,3 +2981,4 @@ term_ime_set_cursor_rect(struct terminal *term, int x, int y, int width,
     }
 #endif
 }
+

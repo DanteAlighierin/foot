@@ -236,6 +236,31 @@ _Examples_:
 - Dina:weight=bold:slant=italic
 - Courier New:size=12
 
+# URLs
+
+Foot supports URL detection. But, unlike many other terminal
+emulators, where URLs are highlighted when they are hovered and opened
+by clicking on them, foot uses a keyboard driven approach.
+
+Pressing *ctrl*+*shift*+*u* enters _“URL mode”_, where all currently
+visible URLs are underlined, and is associated with a
+_“jump-label”_. The jump-label indicates the _key sequence_
+(e.g. *”AF”*) to use to activate the URL.
+
+The key binding can, of course, be customized, like all other key
+bindings in foot. See *show-urls-launch* and *show-urls-copy* in
+*foot.ini*(5).
+
+*show-urls-launch* by default opens the URL with *xdg-open*. This can
+be changed with the *url-launch* option.
+
+*show-urls-copy* is an alternative to *show-urls-launch*, that changes
+what activating an URL _does_; instead of opening it, it copies it to
+the clipboard. It is unbound by default.
+
+Both the jump label colors, and the URL underline color can be
+configured, independently.
+
 # ALT/META CHARACTERS
 
 By default, foot prefixes meta characters with *ESC*. This corresponds

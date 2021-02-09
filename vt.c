@@ -238,8 +238,6 @@ action_print(struct terminal *term, uint8_t c)
         L'│', L'≤', L'≥', L'π', L'≠', L'£', L'·',       /* x - ~ */
     };
 
-    xassert(wcwidth(c) == 1);
-
     if (unlikely(term->charsets.set[term->charsets.selected] == CHARSET_GRAPHIC) &&
         c >= 0x60 && c <= 0x7e)
     {
