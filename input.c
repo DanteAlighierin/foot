@@ -325,7 +325,7 @@ execute_binding(struct seat *seat, struct terminal *term,
         return true;
 
     case BIND_ACTION_COUNT:
-        xassert(false);
+        BUG("Invalid action type");
         return false;
     }
 
@@ -1150,7 +1150,7 @@ xcursor_for_csd_border(struct terminal *term, int x, int y)
     else if (term->active_surface == TERM_SURF_BORDER_TOP)    return XCURSOR_TOP_SIDE;
     else if (term->active_surface == TERM_SURF_BORDER_BOTTOM) return XCURSOR_BOTTOM_SIDE;
     else {
-        xassert(false);
+        BUG("Unreachable");
         return NULL;
     }
 }

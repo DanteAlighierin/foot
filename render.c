@@ -1669,7 +1669,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
         break;
 
     default:
-        xassert(false);
+        BUG("unhandled surface type: %u", (unsigned)surf_idx);
         break;
     }
 
