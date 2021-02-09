@@ -9,7 +9,9 @@
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
 #include <pthread.h>
-#if __has_include(<pthread_np.h>)
+
+#include "macros.h"
+#if HAS_INCLUDE(<pthread_np.h>)
 #include <pthread_np.h>
 #define pthread_setname_np(thread, name) (pthread_set_name_np(thread, name), 0)
 #elif defined(__NetBSD__)
