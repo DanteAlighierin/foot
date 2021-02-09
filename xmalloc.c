@@ -11,7 +11,7 @@ static void *
 check_alloc(void *alloc)
 {
     if (unlikely(alloc == NULL)) {
-        fatal_error(__func__, ENOMEM);
+        FATAL_ERROR(__func__, ENOMEM);
     }
     return alloc;
 }
@@ -64,7 +64,7 @@ xvasprintf_(char **strp, const char *format, va_list ap)
     va_copy(ap2, ap);
     int n = vsnprintf(NULL, 0, format, ap2);
     if (unlikely(n < 0)) {
-        fatal_error("vsnprintf", EILSEQ);
+        FATAL_ERROR("vsnprintf", EILSEQ);
     }
     va_end(ap2);
     *strp = xmalloc(n + 1);
