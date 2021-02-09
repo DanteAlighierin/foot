@@ -2,6 +2,8 @@
 
 #include "macros.h"
 
+#define FATAL_ERROR(...) fatal_error(__FILE__, __LINE__, __VA_ARGS__)
+
 #ifdef NDEBUG
     #define BUG(...) UNREACHABLE()
 #else
@@ -26,5 +28,5 @@
     #endif
 #endif
 
-noreturn void fatal_error(const char *msg, int err) COLD;
+noreturn void fatal_error(const char *file, int line, const char *msg, int err) COLD;
 noreturn void bug(const char *file, int line, const char *func, const char *fmt, ...) PRINTF(4) COLD;
