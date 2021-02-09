@@ -16,6 +16,7 @@ _arguments \
     '(-s --server)'{-s,--server}'[run as server; open terminals by running footclient]:server:_files' \
     '(-H --hold)'{-H,--hold}'[remain open after child process exits]' \
     '(-p --print-pid)'{-p,--print-pid}'[print PID to this file or FD when up and running (server mode only)]:pidfile:_files' \
+    '(-d --log-level)'{-d,--log-level}'[log level (info)]:loglevel:(info warning error)' \
     '(-l --log-colorize)'{-l,--log-colorize}'[enable or disable colorization of log output on stderr]:logcolor:(never always auto)' \
     '(-S --log-no-syslog)'{-s,--log-no-syslog}'[disable syslog logging (server mode only)]' \
     '(-v --version)'{-v,--version}'[show the version number and quit]' \
