@@ -953,11 +953,14 @@ load_fonts_from_conf(struct terminal *term)
     return reload_fonts(term);
 }
 
-static bool
-slave_died(struct reaper *reaper, pid_t pid, void *data)
+static void
+slave_died(struct reaper *reaper, pid_t pid, int status, void *data)
 {
     struct terminal *term = data;
     LOG_DBG("slave (PID=%u) died", pid);
+
+    term->slave_has_been_reaped = true;
+    term->exit_status = status;
 
     if (term->conf->hold_at_exit) {
         /* The PTMX FDM handler may already have closed our end */
@@ -965,10 +968,10 @@ slave_died(struct reaper *reaper, pid_t pid, void *data)
             fdm_del(term->fdm, term->ptmx);
             term->ptmx = -1;
         }
-        return true;
+        return;
     }
 
-    return term_shutdown(term);
+    term_shutdown(term);
 }
 
 struct terminal *
@@ -1044,7 +1047,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .fdm = fdm,
         .reaper = reaper,
         .conf = conf,
-        .quit = false,
         .ptmx = ptmx,
         .ptmx_buffers = tll_init(),
         .ptmx_paste_buffers = tll_init(),
@@ -1457,70 +1459,76 @@ term_destroy(struct terminal *term)
     int ret = EXIT_SUCCESS;
 
     if (term->slave > 0) {
-        LOG_DBG("waiting for slave (PID=%u) to die", term->slave);
+        int exit_status;
 
-        /*
-         * Note: we've closed ptmx, so the slave *should* exit...
-         *
-         * But, since it is possible to write clients that ignore
-         * this, we need to handle it in *some* way.
-         *
-         * So, what we do is register a SIGALRM handler, and configure
-         * a 2 second alarm. If the slave hasn't died after this time,
-         * we send it a SIGTERM, then wait another 2 seconds (using
-         * the same alarm mechanism). If it still hasn't died, we send
-         * it a SIGKILL.
-         *
-         * Note that this solution is *not* asynchronous, and any
-         * other events etc will be ignored during this time. This of
-         * course only applies to a 'foot --server' instance, where
-         * there might be other terminals running.
-         */
-        sigaction(SIGALRM, &(const struct sigaction){.sa_handler = &sig_alarm}, NULL);
-        alarm(2);
+        if (term->slave_has_been_reaped)
+            exit_status = term->exit_status;
+        else {
+            LOG_DBG("waiting for slave (PID=%u) to die", term->slave);
 
-        int status;
-        int kill_signal = SIGTERM;
+            /*
+             * Note: we've closed ptmx, so the slave *should* exit...
+             *
+             * But, since it is possible to write clients that ignore
+             * this, we need to handle it in *some* way.
+             *
+             * So, what we do is register a SIGALRM handler, and configure
+             * a 2 second alarm. If the slave hasn't died after this time,
+             * we send it a SIGTERM, then wait another 2 seconds (using
+             * the same alarm mechanism). If it still hasn't died, we send
+             * it a SIGKILL.
+             *
+             * Note that this solution is *not* asynchronous, and any
+             * other events etc will be ignored during this time. This of
+             * course only applies to a 'foot --server' instance, where
+             * there might be other terminals running.
+             */
+            sigaction(SIGALRM, &(const struct sigaction){.sa_handler = &sig_alarm}, NULL);
+            alarm(2);
 
-        while (true) {
-            int r = waitpid(term->slave, &status, 0);
+            int kill_signal = SIGTERM;
 
-            if (r == term->slave)
-                break;
+            while (true) {
+                int r = waitpid(term->slave, &exit_status, 0);
 
-            if (r == -1) {
-                assert(errno == EINTR);
+                if (r == term->slave)
+                    break;
 
-                if (alarm_raised) {
-                    LOG_DBG("slave hasn't died yet, sending: %s (%d)",
-                            kill_signal == SIGTERM ? "SIGTERM" : "SIGKILL",
-                            kill_signal);
+                if (r == -1) {
+                    assert(errno == EINTR);
 
-                    kill(term->slave, kill_signal);
+                    if (alarm_raised) {
+                        LOG_DBG("slave hasn't died yet, sending: %s (%d)",
+                                kill_signal == SIGTERM ? "SIGTERM" : "SIGKILL",
+                                kill_signal);
 
-                    alarm_raised = 0;
-                    if (kill_signal != SIGKILL)
-                        alarm(2);
+                        kill(term->slave, kill_signal);
 
-                    kill_signal = SIGKILL;
+                        alarm_raised = 0;
+                        if (kill_signal != SIGKILL)
+                            alarm(2);
 
+                        kill_signal = SIGKILL;
+
+                    }
                 }
             }
+
+            /* Cancel alarm */
+            alarm(0);
+            sigaction(SIGALRM, &(const struct sigaction){.sa_handler = SIG_DFL}, NULL);
         }
 
-        /* Cancel alarm */
-        alarm(0);
-        sigaction(SIGALRM, &(const struct sigaction){.sa_handler = SIG_DFL}, NULL);
-
         ret = EXIT_FAILURE;
-        if (WIFEXITED(status)) {
-            ret = WEXITSTATUS(status);
+        if (WIFEXITED(exit_status)) {
+            ret = WEXITSTATUS(exit_status);
             LOG_DBG("slave exited with code %d", ret);
-        } else if (WIFSIGNALED(status)) {
-            ret = WTERMSIG(status);
+        } else if (WIFSIGNALED(exit_status)) {
+            ret = WTERMSIG(exit_status);
             LOG_WARN("slave exited with signal %d (%s)", ret, strsignal(ret));
         } else {
-            LOG_WARN("slave exited for unknown reason (status = 0x%08x)", status);
+            LOG_WARN("slave exited for unknown reason (status = 0x%08x)",
+                     exit_status);
         }
     }
 
