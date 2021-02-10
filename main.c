@@ -33,12 +33,11 @@
 #include "xmalloc.h"
 #include "xsnprintf.h"
 
-static volatile sig_atomic_t aborted = 0;
-
-static void
-sig_handler(int signo)
+static bool
+fdm_sigint(struct fdm *fdm, int signo, void *data)
 {
-    aborted = 1;
+    *(volatile sig_atomic_t *)data = true;
+    return true;
 }
 
 static const char *
@@ -465,10 +464,10 @@ main(int argc, char *const *argv)
     if (as_server && (server = server_init(&conf, fdm, reaper, wayl)) == NULL)
         goto out;
 
-    /* Remember to restore signals in slave */
-    const struct sigaction sa = {.sa_handler = &sig_handler};
-    if (sigaction(SIGINT, &sa, NULL) < 0 || sigaction(SIGTERM, &sa, NULL) < 0) {
-        LOG_ERRNO("failed to register signal handlers");
+    volatile sig_atomic_t aborted = false;
+    if (!fdm_signal_add(fdm, SIGINT, &fdm_sigint, (void *)&aborted) ||
+        !fdm_signal_add(fdm, SIGTERM, &fdm_sigint, (void *)&aborted))
+    {
         goto out;
     }
 
@@ -501,6 +500,8 @@ out:
     render_destroy(renderer);
     wayl_destroy(wayl);
     reaper_destroy(reaper);
+    fdm_signal_del(fdm, SIGTERM);
+    fdm_signal_del(fdm, SIGINT);
     fdm_destroy(fdm);
 
     config_free(conf);
