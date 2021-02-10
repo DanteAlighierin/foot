@@ -1225,7 +1225,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_NONE:
-        xassert(false);
+        BUG("Invalid surface type");
         break;
     }
 }
@@ -1806,7 +1806,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     }
 
     case TERM_SURF_NONE:
-        xassert(false);
+        BUG("Invalid surface type");
         break;
 
     }

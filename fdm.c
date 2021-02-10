@@ -105,16 +105,12 @@ fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
 #if defined(_DEBUG)
     int flags = fcntl(fd, F_GETFL);
     if (!(flags & O_NONBLOCK)) {
-        LOG_ERR("FD=%d is in blocking mode", fd);
-        xassert(false);
-        return false;
+        BUG("FD=%d is in blocking mode", fd);
     }
 
     tll_foreach(fdm->fds, it) {
         if (it->item->fd == fd) {
-            LOG_ERR("FD=%d already registered", fd);
-            xassert(false);
-            return false;
+            BUG("FD=%d already registered", fd);
         }
     }
 #endif
