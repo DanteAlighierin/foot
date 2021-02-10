@@ -1,6 +1,7 @@
 #include "render.h"
 
 #include <string.h>
+#include <signal.h>
 
 #include <sys/ioctl.h>
 #include <sys/time.h>
@@ -1226,6 +1227,10 @@ render_worker_thread(void *_ctx)
     struct terminal *term = ctx->term;
     const int my_id = ctx->my_id;
     free(ctx);
+
+    sigset_t mask;
+    sigfillset(&mask);
+    pthread_sigmask(SIG_SETMASK, &mask, NULL);
 
     char proc_title[16];
     snprintf(proc_title, sizeof(proc_title), "foot:render:%d", my_id);
