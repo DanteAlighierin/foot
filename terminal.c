@@ -97,8 +97,7 @@ data_to_slave(struct terminal *term, const void *data, size_t len,
         return false;
     }
 
-    /* Shouldn't get here */
-    xassert(false);
+    BUG("Unexpected async_write() return value");
     return false;
 }
 
@@ -1931,7 +1930,7 @@ term_row_rel_to_abs(const struct terminal *term, int row)
         return min(row + term->scroll_region.start, term->scroll_region.end - 1);
     }
 
-    xassert(false);
+    BUG("Invalid cursor_origin value");
     return -1;
 }
 
@@ -2483,7 +2482,7 @@ term_mouse_down(struct terminal *term, int button, int row, int col,
 
     case MOUSE_X10:
         /* Never enabled */
-        xassert(false && "unimplemented");
+        BUG("X10 mouse mode not implemented");
         break;
     }
 }
@@ -2525,7 +2524,7 @@ term_mouse_up(struct terminal *term, int button, int row, int col,
 
     case MOUSE_X10:
         /* Never enabled */
-        xassert(false && "unimplemented");
+        BUG("X10 mouse mode not implemented");
         break;
     }
 }
@@ -2572,7 +2571,7 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
 
     case MOUSE_X10:
         /* Never enabled */
-        xassert(false && "unimplemented");
+        BUG("X10 mouse mode not implemented");
         break;
     }
 }

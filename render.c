@@ -1367,11 +1367,10 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
     case CSD_SURF_CLOSE:    return (struct csd_data){term->width - 1 * button_width, 0, button_close_width,    title_height};
 
     case CSD_SURF_COUNT:
-        xassert(false);
-        return (struct csd_data){0};
+        break;
     }
 
-    xassert(false);
+    BUG("Invalid csd_surface type");
     return (struct csd_data){0};
 }
 
@@ -1643,7 +1642,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
         break;
 
     default:
-        xassert(false);
+        BUG("unhandled surface type: %u", (unsigned)surf_idx);
         break;
     }
 
@@ -1670,7 +1669,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
         break;
 
     default:
-        xassert(false);
+        BUG("unhandled surface type: %u", (unsigned)surf_idx);
         break;
     }
 
@@ -1879,7 +1878,7 @@ render_scrollback_position(struct terminal *term)
     int surf_top = 0;
     switch (term->conf->scrollback.indicator.position) {
     case SCROLLBACK_INDICATOR_POSITION_NONE:
-        xassert(false);
+        BUG("Invalid scrollback indicator position type");
         return;
 
     case SCROLLBACK_INDICATOR_POSITION_FIXED:

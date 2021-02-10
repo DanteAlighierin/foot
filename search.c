@@ -785,11 +785,11 @@ execute_binding(struct seat *seat, struct terminal *term,
         return true;
 
     case BIND_ACTION_SEARCH_COUNT:
-        xassert(false);
+        BUG("Invalid action type");
         return true;
     }
 
-    xassert(false);
+    BUG("Unhandled action type");
     return false;
 }
 

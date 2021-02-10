@@ -1230,7 +1230,7 @@ argv_compare(char *const *argv1, char *const *argv2)
             return ret;
     }
 
-    xassert(false);
+    BUG("unexpected loop break");
     return 1;
 }
 

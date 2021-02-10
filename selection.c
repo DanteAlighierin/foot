@@ -195,11 +195,10 @@ foreach_selected(
         return;
 
     case SELECTION_NONE:
-        xassert(false);
-        return;
+        break;
     }
 
-    xassert(false);
+    BUG("Invalid selection kind");
 }
 
 static bool
@@ -426,7 +425,7 @@ selection_start(struct terminal *term, int col, int row,
         break;
 
     case SELECTION_NONE:
-        xassert(false);
+        BUG("Invalid selection kind");
         break;
     }
 
@@ -728,7 +727,7 @@ selection_update(struct terminal *term, int col, int row)
         break;
 
     case SELECTION_NONE:
-        xassert(false);
+        BUG("Invalid selection kind");
         break;
     }
 
@@ -861,7 +860,7 @@ selection_extend_normal(struct terminal *term, int col, int row,
 
     case SELECTION_BLOCK:
     case SELECTION_NONE:
-        xassert(false);
+        BUG("Invalid selection kind in this context");
         break;
     }
 
@@ -963,7 +962,7 @@ selection_extend(struct seat *seat, struct terminal *term,
 
     switch (term->selection.kind) {
     case SELECTION_NONE:
-        xassert(false);
+        BUG("Invalid selection kind");
         return;
 
     case SELECTION_CHAR_WISE:
