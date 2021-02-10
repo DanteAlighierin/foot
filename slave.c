@@ -18,6 +18,7 @@
 #include "log.h"
 
 #include "debug.h"
+#include "macros.h"
 #include "terminal.h"
 #include "tokenize.h"
 #include "xmalloc.h"
@@ -143,7 +144,7 @@ emit_notifications(int fd, const user_notifications_t *notifications)
         emit_notifications_of_kind(fd, notifications, USER_NOTIFICATION_DEPRECATED);
 }
 
-static void
+static noreturn void
 slave_exec(int ptmx, char *argv[], int err_fd, bool login_shell,
            const user_notifications_t *notifications)
 {
@@ -316,7 +317,7 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
             setenv("SHELL", shell_argv[0], 1);
 
         slave_exec(ptmx, shell_argv, fork_pipe[1], login_shell, notifications);
-        xassert(false);
+        BUG("Unexpected return from slave_exec()");
         break;
 
     default: {
