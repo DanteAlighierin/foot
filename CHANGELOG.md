@@ -70,13 +70,16 @@
 * The IME state no longer stays stuck in the terminal if the IME goes
   away during preedit.
 * `-Dterminfo` changed from a `boolean` to a `feature` option.
+* Use standard signals instead of a signalfd to handle
+  `SIGCHLD`. Fixes an issue on FreeBSD where foot did not detect when
+  the client application had terminated.
 
 
 ### Deprecated
 ### Removed
 
-* The `-g,--geometry` command-line option (which had been deprecated and
-  superseded by `-w,--window-size-pixels` since 1.5.0).
+* The `-g,--geometry` command-line option (which had been deprecated
+  and superseded by `-w,--window-size-pixels` since 1.5.0).
 
 
 ### Fixed
