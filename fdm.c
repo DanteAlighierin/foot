@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
 
 #include <sys/epoll.h>
 
@@ -15,13 +16,20 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "debug.h"
+#include "xmalloc.h"
 
-struct handler {
+struct fd_handler {
     int fd;
     int events;
-    fdm_handler_t callback;
+    fdm_fd_handler_t callback;
     void *callback_data;
     bool deleted;
+};
+
+struct sig_handler {
+    int signo;
+    fdm_signal_handler_t callback;
+    void *callback_data;
 };
 
 struct hook {
@@ -34,25 +42,48 @@ typedef tll(struct hook) hooks_t;
 struct fdm {
     int epoll_fd;
     bool is_polling;
-    tll(struct handler *) fds;
-    tll(struct handler *) deferred_delete;
+    tll(struct fd_handler *) fds;
+    tll(struct fd_handler *) deferred_delete;
+
+    sigset_t sigmask;
+    struct sig_handler *signal_handlers;
+
     hooks_t hooks_low;
     hooks_t hooks_normal;
     hooks_t hooks_high;
 };
 
+static volatile sig_atomic_t *received_signals = NULL;
+
 struct fdm *
 fdm_init(void)
 {
+    sigset_t sigmask;
+    if (sigprocmask(0, NULL, &sigmask) < 0) {
+        LOG_ERRNO("failed to get process signal mask");
+        return NULL;
+    }
+
     int epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     if (epoll_fd == -1) {
         LOG_ERRNO("failed to create epoll FD");
         return NULL;
     }
 
+    xassert(received_signals == NULL); /* Only one FDM instance supported */
+    received_signals = xcalloc(SIGRTMAX, sizeof(received_signals[0]));
+
     struct fdm *fdm = malloc(sizeof(*fdm));
     if (unlikely(fdm == NULL)) {
         LOG_ERRNO("malloc() failed");
+        return NULL;
+    }
+
+    struct sig_handler *sig_handlers = calloc(SIGRTMAX, sizeof(sig_handlers[0]));
+
+    if (sig_handlers == NULL) {
+        LOG_ERRNO("failed to allocate signal handler array");
+        free(fdm);
         return NULL;
     }
 
@@ -61,6 +92,8 @@ fdm_init(void)
         .is_polling = false,
         .fds = tll_init(),
         .deferred_delete = tll_init(),
+        .sigmask = sigmask,
+        .signal_handlers = sig_handlers,
         .hooks_low = tll_init(),
         .hooks_normal = tll_init(),
         .hooks_high = tll_init(),
@@ -77,6 +110,11 @@ fdm_destroy(struct fdm *fdm)
     if (tll_length(fdm->fds) > 0)
         LOG_WARN("FD list not empty");
 
+    for (int i = 0; i < SIGRTMAX; i++) {
+        if (fdm->signal_handlers[i].callback != NULL)
+            LOG_WARN("handler for signal %d not removed", i);
+    }
+
     if (tll_length(fdm->hooks_low) > 0 ||
         tll_length(fdm->hooks_normal) > 0 ||
         tll_length(fdm->hooks_high) > 0)
@@ -90,6 +128,9 @@ fdm_destroy(struct fdm *fdm)
     xassert(tll_length(fdm->hooks_normal) == 0);
     xassert(tll_length(fdm->hooks_high) == 0);
 
+    sigprocmask(SIG_SETMASK, &fdm->sigmask, NULL);
+    free(fdm->signal_handlers);
+
     tll_free(fdm->fds);
     tll_free(fdm->deferred_delete);
     tll_free(fdm->hooks_low);
@@ -97,17 +138,15 @@ fdm_destroy(struct fdm *fdm)
     tll_free(fdm->hooks_high);
     close(fdm->epoll_fd);
     free(fdm);
+
+    free((void *)received_signals);
+    received_signals = NULL;
 }
 
 bool
-fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
+fdm_add(struct fdm *fdm, int fd, int events, fdm_fd_handler_t cb, void *data)
 {
 #if defined(_DEBUG)
-    int flags = fcntl(fd, F_GETFL);
-    if (!(flags & O_NONBLOCK)) {
-        BUG("FD=%d is in blocking mode", fd);
-    }
-
     tll_foreach(fdm->fds, it) {
         if (it->item->fd == fd) {
             BUG("FD=%d already registered", fd);
@@ -115,30 +154,30 @@ fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
     }
 #endif
 
-    struct handler *fd_data = malloc(sizeof(*fd_data));
-    if (unlikely(fd_data == NULL)) {
+    struct fd_handler *handler = malloc(sizeof(*handler));
+    if (unlikely(handler == NULL)) {
         LOG_ERRNO("malloc() failed");
         return false;
     }
 
-    *fd_data = (struct handler) {
+    *handler = (struct fd_handler) {
         .fd = fd,
         .events = events,
-        .callback = handler,
+        .callback = cb,
         .callback_data = data,
         .deleted = false,
     };
 
-    tll_push_back(fdm->fds, fd_data);
+    tll_push_back(fdm->fds, handler);
 
     struct epoll_event ev = {
         .events = events,
-        .data = {.ptr = fd_data},
+        .data = {.ptr = handler},
     };
 
     if (epoll_ctl(fdm->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
         LOG_ERRNO("failed to register FD=%d with epoll", fd);
-        free(fd_data);
+        free(handler);
         tll_pop_back(fdm->fds);
         return false;
     }
@@ -190,7 +229,7 @@ fdm_del_no_close(struct fdm *fdm, int fd)
 }
 
 static bool
-event_modify(struct fdm *fdm, struct handler *fd, int new_events)
+event_modify(struct fdm *fdm, struct fd_handler *fd, int new_events)
 {
     if (new_events == fd->events)
         return true;
@@ -287,6 +326,69 @@ fdm_hook_del(struct fdm *fdm, fdm_hook_t hook, enum fdm_hook_priority priority)
     return false;
 }
 
+static void
+signal_handler(int signo)
+{
+    received_signals[signo] = true;
+}
+
+bool
+fdm_signal_add(struct fdm *fdm, int signo, fdm_signal_handler_t handler, void *data)
+{
+    if (fdm->signal_handlers[signo].callback != NULL) {
+        LOG_ERR("signal %d already has a handler", signo);
+        return false;
+    }
+
+    sigset_t mask, original;
+    sigemptyset(&mask);
+    sigaddset(&mask, signo);
+
+    if (sigprocmask(SIG_BLOCK, &mask, &original) < 0) {
+        LOG_ERRNO("failed to block signal %d", signo);
+        return false;
+    }
+
+    struct sigaction action = {.sa_handler = &signal_handler};
+    if (sigaction(signo, &action, NULL) < 0) {
+        LOG_ERRNO("failed to set signal handler for signal %d", signo);
+        sigprocmask(SIG_SETMASK, &original, NULL);
+        return false;
+    }
+
+    received_signals[signo] = false;
+    fdm->signal_handlers[signo].callback = handler;
+    fdm->signal_handlers[signo].callback_data = data;
+    return true;
+}
+
+bool
+fdm_signal_del(struct fdm *fdm, int signo)
+{
+    if (fdm->signal_handlers[signo].callback == NULL)
+        return false;
+
+    struct sigaction action = {.sa_handler = SIG_DFL};
+    if (sigaction(signo, &action, NULL) < 0) {
+        LOG_ERRNO("failed to restore signal handler for signal %d", signo);
+        return false;
+    }
+
+    received_signals[signo] = false;
+    fdm->signal_handlers[signo].callback = NULL;
+    fdm->signal_handlers[signo].callback_data = NULL;
+
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, signo);
+    if (sigprocmask(SIG_UNBLOCK, &mask, NULL) < 0) {
+        LOG_ERRNO("failed to unblock signal %d", signo);
+        return false;
+    }
+
+    return true;
+}
+
 bool
 fdm_poll(struct fdm *fdm)
 {
@@ -320,10 +422,28 @@ fdm_poll(struct fdm *fdm)
 
     struct epoll_event events[tll_length(fdm->fds)];
 
-    int r = epoll_wait(fdm->epoll_fd, events, tll_length(fdm->fds), -1);
+    int r = epoll_pwait(
+        fdm->epoll_fd, events, tll_length(fdm->fds), -1, &fdm->sigmask);
+
     if (unlikely(r < 0)) {
-        if (errno == EINTR)
+        if (errno == EINTR) {
+            /* TODO: is it possible to receive a signal without
+             * getting EINTR here? */
+
+            for (int i = 0; i < SIGRTMAX; i++) {
+                if (received_signals[i]) {
+
+                    received_signals[i] = false;
+                    struct sig_handler *handler = &fdm->signal_handlers[i];
+
+                    xassert(handler->callback != NULL);
+                    if (!handler->callback(fdm, i, handler->callback_data))
+                        return false;
+                }
+            }
+
             return true;
+        }
 
         LOG_ERRNO("failed to epoll");
         return false;
@@ -333,7 +453,7 @@ fdm_poll(struct fdm *fdm)
 
     fdm->is_polling = true;
     for (int i = 0; i < r; i++) {
-        struct handler *fd = events[i].data.ptr;
+        struct fd_handler *fd = events[i].data.ptr;
         if (fd->deleted)
             continue;
 
