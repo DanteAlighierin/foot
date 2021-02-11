@@ -45,6 +45,8 @@
   (**no** mouse support). See **foot**(1)::URLs, or
   [README.md](README.md#urls) for details
   (https://codeberg.org/dnkl/foot/issues/14).
+* `-d,--log-level={info|warning|error}` to both `foot` and
+  `footclient` (https://codeberg.org/dnkl/foot/issues/337).
 
 
 ### Changed

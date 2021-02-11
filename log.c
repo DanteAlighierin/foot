@@ -10,13 +10,25 @@
 #include <unistd.h>
 
 #include "debug.h"
+#include "util.h"
+#include "xsnprintf.h"
 
 static bool colorize = false;
 static bool do_syslog = true;
+static enum log_class log_level = LOG_CLASS_INFO;
+
+static const char log_level_map[][8] = {
+    [LOG_CLASS_ERROR] = "error",
+    [LOG_CLASS_WARNING] = "warning",
+    [LOG_CLASS_INFO] = "info",
+#if defined(_DEBUG)
+    [LOG_CLASS_DEBUG] = "debug",
+#endif
+};
 
 void
 log_init(enum log_colorize _colorize, bool _do_syslog,
-         enum log_facility syslog_facility, enum log_class syslog_level)
+         enum log_facility syslog_facility, enum log_class _log_level)
 {
     static const int facility_map[] = {
         [LOG_FACILITY_USER] = LOG_USER,
@@ -32,10 +44,11 @@ log_init(enum log_colorize _colorize, bool _do_syslog,
 
     colorize = _colorize == LOG_COLORIZE_NEVER ? false : _colorize == LOG_COLORIZE_ALWAYS ? true : isatty(STDERR_FILENO);
     do_syslog = _do_syslog;
+    log_level = _log_level;
 
     if (do_syslog) {
         openlog(NULL, /*LOG_PID*/0, facility_map[syslog_facility]);
-        setlogmask(LOG_UPTO(level_map[syslog_level]));
+        setlogmask(LOG_UPTO(level_map[_log_level]));
     }
 }
 
@@ -50,6 +63,9 @@ static void
 _log(enum log_class log_class, const char *module, const char *file, int lineno,
      const char *fmt, int sys_errno, va_list va)
 {
+    if (log_class > log_level)
+        return;
+
     const char *class = "abcd";
     int class_clr = 0;
     switch (log_class) {
@@ -143,4 +159,33 @@ void log_errno_provided(enum log_class log_class, const char *module,
     _sys_log(log_class, module, file, lineno, fmt, _errno, ap2);
     va_end(ap1);
     va_end(ap2);
+}
+
+int
+log_level_from_string(const char *str)
+{
+    if (unlikely(str[0] == '\0'))
+        return -1;
+
+    for (int i = 0, n = ALEN(log_level_map); i < n; i++)
+        if (strcmp(str, log_level_map[i]) == 0)
+            return i;
+
+    return -1;
+}
+
+const char *
+log_level_string_hint(void)
+{
+    static char buf[64];
+    if (buf[0] != '\0')
+        return buf;
+
+    for (size_t i = 0, pos = 0, n = ALEN(log_level_map); i < n; i++) {
+        const char *entry = log_level_map[i];
+        const char *delim = (i + 1 < n) ? ", " : "";
+        pos += xsnprintf(buf + pos, sizeof(buf) - pos, "'%s'%s", entry, delim);
+    }
+
+    return buf;
 }
