@@ -17,6 +17,7 @@
 #include "client-protocol.h"
 #include "debug.h"
 #include "foot-features.h"
+#include "macros.h"
 #include "util.h"
 #include "version.h"
 #include "xmalloc.h"
@@ -156,38 +157,16 @@ main(int argc, char *const *argv)
             break;
 
         case 'd': {
-            static const char *log_level_map[] = {
-#if defined(_DEBUG)
-                [LOG_CLASS_DEBUG] = "debug",
-#endif
-                [LOG_CLASS_INFO] = "info",
-                [LOG_CLASS_WARNING] = "warning",
-                [LOG_CLASS_ERROR] = "error",
-            };
-
-            bool valid_log_level = false;
-            for (size_t i = 0; i < ALEN(log_level_map); i++) {
-                if (strcmp(optarg, log_level_map[i]) == 0) {
-                    log_level = i;
-                    valid_log_level = true;
-                    break;
-                }
-            }
-
-            if (!valid_log_level) {
+            int lvl = log_level_from_string(optarg);
+            if (unlikely(lvl < 0)) {
                 fprintf(
-                    stderr, "-d,--log-level: %s: argument must be one of ",
-                    optarg);
-
-                for (size_t i = 0; i < ALEN(log_level_map); i++) {
-                    fprintf(stderr, "'%s'%s",
-                            log_level_map[i],
-                            i < ALEN(log_level_map) - 1 ? " , " : "");
-                }
-                fprintf(stderr, "\n");
-
+                    stderr,
+                    "-d,--log-level: %s: argument must be one of %s\n",
+                    optarg,
+                    log_level_string_hint());
                 return EXIT_FAILURE;
             }
+            log_level = lvl;
             break;
         }
 

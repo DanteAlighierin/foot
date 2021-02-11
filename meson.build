@@ -196,7 +196,9 @@ executable(
   'foot-features.h',
   'log.c', 'log.h',
   'macros.h',
+  'util.h',
   'xmalloc.c', 'xmalloc.h',
+  'xsnprintf.c', 'xsnprintf.h',
   version,
   install: true)
 

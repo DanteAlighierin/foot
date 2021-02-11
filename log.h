@@ -23,6 +23,9 @@ void log_errno_provided(
     const char *file, int lineno, int _errno,
     const char *fmt, ...) PRINTF(6);
 
+int log_level_from_string(const char *str);
+const char *log_level_string_hint(void);
+
 #define LOG_ERR(...)  \
     log_msg(LOG_CLASS_ERROR, LOG_MODULE, __FILE__, __LINE__, __VA_ARGS__)
 #define LOG_ERRNO(...) \

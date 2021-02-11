@@ -10,10 +10,21 @@
 #include <unistd.h>
 
 #include "debug.h"
+#include "util.h"
+#include "xsnprintf.h"
 
 static bool colorize = false;
 static bool do_syslog = true;
 static enum log_class log_level = LOG_CLASS_INFO;
+
+static const char log_level_map[][8] = {
+    [LOG_CLASS_ERROR] = "error",
+    [LOG_CLASS_WARNING] = "warning",
+    [LOG_CLASS_INFO] = "info",
+#if defined(_DEBUG)
+    [LOG_CLASS_DEBUG] = "debug",
+#endif
+};
 
 void
 log_init(enum log_colorize _colorize, bool _do_syslog,
@@ -148,4 +159,33 @@ void log_errno_provided(enum log_class log_class, const char *module,
     _sys_log(log_class, module, file, lineno, fmt, _errno, ap2);
     va_end(ap1);
     va_end(ap2);
+}
+
+int
+log_level_from_string(const char *str)
+{
+    if (unlikely(str[0] == '\0'))
+        return -1;
+
+    for (int i = 0, n = ALEN(log_level_map); i < n; i++)
+        if (strcmp(str, log_level_map[i]) == 0)
+            return i;
+
+    return -1;
+}
+
+const char *
+log_level_string_hint(void)
+{
+    static char buf[64];
+    if (buf[0] != '\0')
+        return buf;
+
+    for (size_t i = 0, pos = 0, n = ALEN(log_level_map); i < n; i++) {
+        const char *entry = log_level_map[i];
+        const char *delim = (i + 1 < n) ? ", " : "";
+        pos += xsnprintf(buf + pos, sizeof(buf) - pos, "'%s'%s", entry, delim);
+    }
+
+    return buf;
 }
