@@ -88,6 +88,7 @@
   `shift` to be pressed while used in a mouse grabbing
   application. This meant the mouse event was never seen by the
   application.
+* `BS`, `HT` and `DEL` from being stripped in bracketed paste mode.
 
 
 ### Security
