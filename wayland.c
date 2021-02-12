@@ -1430,10 +1430,7 @@ wayl_win_destroy(struct wl_window *win)
     tll_free(win->on_outputs);
 
     tll_foreach(win->urls, it) {
-        if (it->item.sub_surf != NULL)
-            wl_subsurface_destroy(it->item.sub_surf);
-        if (it->item.surf != NULL)
-            wl_surface_destroy(it->item.surf);
+        wayl_win_subsurface_destroy(&it->item.surf);
         tll_remove(win->urls, it);
     }
 

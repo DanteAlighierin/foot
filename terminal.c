@@ -2845,7 +2845,7 @@ term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
         return TERM_SURF_BUTTON_CLOSE;
     else {
         tll_foreach(term->window->urls, it) {
-            if (surface == it->item.surf)
+            if (surface == it->item.surf.surf)
                 return TERM_SURF_JUMP_LABEL;
         }
         return TERM_SURF_NONE;

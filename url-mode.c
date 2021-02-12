@@ -472,45 +472,14 @@ void
 urls_render(struct terminal *term)
 {
     struct wl_window *win = term->window;
-    struct wayland *wayl = term->wl;
 
     if (tll_length(win->term->urls) == 0)
         return;
 
     xassert(tll_length(win->urls) == 0);
     tll_foreach(win->term->urls, it) {
-        struct wl_surface *surf = wl_compositor_create_surface(wayl->compositor);
-        wl_surface_set_user_data(surf, win);
-
-        struct wl_subsurface *sub_surf = NULL;
-
-        if (surf != NULL) {
-            sub_surf = wl_subcompositor_get_subsurface(
-                wayl->sub_compositor, surf, win->surface);
-
-            if (sub_surf != NULL)
-                wl_subsurface_set_sync(sub_surf);
-        }
-
-        if (surf == NULL || sub_surf == NULL) {
-            LOG_WARN("failed to create URL (sub)-surface");
-
-            if (surf != NULL) {
-                wl_surface_destroy(surf);
-                surf = NULL;
-            }
-
-            if (sub_surf != NULL) {
-                wl_subsurface_destroy(sub_surf);
-                sub_surf = NULL;
-            }
-        }
-
-        struct wl_url url = {
-            .url = &it->item,
-            .surf = surf,
-            .sub_surf = sub_surf,
-        };
+        struct wl_url url = {.url = &it->item};
+        wayl_win_subsurface_new(win, &url.surf);
 
         tll_push_back(win->urls, url);
         tag_cells_for_url(term, &it->item, true);
@@ -536,10 +505,7 @@ urls_reset(struct terminal *term)
 
     if (term->window != NULL) {
         tll_foreach(term->window->urls, it) {
-            if (it->item.sub_surf != NULL)
-                wl_subsurface_destroy(it->item.sub_surf);
-            if (it->item.surf != NULL)
-                wl_surface_destroy(it->item.surf);
+            wayl_win_subsurface_destroy(&it->item.surf);
             tll_remove(term->window->urls, it);
         }
     }

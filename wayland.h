@@ -357,8 +357,7 @@ struct wl_surf_subsurf {
 
 struct wl_url {
     const struct url *url;
-    struct wl_surface *surf;
-    struct wl_subsurface *sub_surf;
+    struct wl_surf_subsurf surf;
 };
 
 struct wayland;

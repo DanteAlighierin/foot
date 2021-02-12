@@ -2555,8 +2555,8 @@ render_urls(struct terminal *term)
         const wchar_t *key = url->key;
         const size_t entered_key_len = wcslen(term->url_keys);
 
-        struct wl_surface *surf = it->item.surf;
-        struct wl_subsurface *sub_surf = it->item.sub_surf;
+        struct wl_surface *surf = it->item.surf.surf;
+        struct wl_subsurface *sub_surf = it->item.surf.sub;
 
         if (surf == NULL || sub_surf == NULL)
             continue;
