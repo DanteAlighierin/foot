@@ -54,6 +54,7 @@ print_usage(const char *prog_name)
            "  -m,--maximized                          start in maximized mode\n"
            "  -F,--fullscreen                         start in fullscreen mode\n"
            "  -L,--login-shell                        start shell as a login shell\n"
+           "  -D,--working-directory=DIR              directory to start in (CWD)\n"
            "  -s,--server-socket=PATH                 path to the server UNIX domain socket (default=$XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)\n"
            "  -H,--hold                               remain open after child process exits\n"
            "  -d,---log-level={info|warning|error}    log level (info)\n"
@@ -77,6 +78,7 @@ main(int argc, char *const *argv)
         {"maximized",          no_argument,       NULL, 'm'},
         {"fullscreen",         no_argument,       NULL, 'F'},
         {"login-shell",        no_argument,       NULL, 'L'},
+        {"working-directory",  required_argument, NULL, 'D'},
         {"server-socket",      required_argument, NULL, 's'},
         {"hold",               no_argument,       NULL, 'H'},
         {"log-level",          required_argument, NULL, 'd'},
@@ -89,6 +91,7 @@ main(int argc, char *const *argv)
     const char *term = "";
     const char *title = "";
     const char *app_id = "";
+    const char *custom_cwd = NULL;
     unsigned size_type = 0; // enum conf_size_type (without pulling in tllist/fcft via config.h)
     unsigned width = 0;
     unsigned height = 0;
@@ -101,7 +104,7 @@ main(int argc, char *const *argv)
     bool hold = false;
 
     while (true) {
-        int c = getopt_long(argc, argv, "+t:T:a:w:W:mFLs:Hd:l::vh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+t:T:a:w:W:mFLD:s:Hd:l::vh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -120,6 +123,10 @@ main(int argc, char *const *argv)
 
         case 'L':
             login_shell = true;
+            break;
+
+        case 'D':
+            custom_cwd = optarg;
             break;
 
         case 'w':
@@ -202,7 +209,7 @@ main(int argc, char *const *argv)
     log_init(log_colorize, false, LOG_FACILITY_USER, log_level);
 
     /* malloc:ed and needs to be in scope of all goto's */
-    char *cwd = NULL;
+    char *_cwd = NULL;
     struct client_argv *cargv = NULL;
 
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -247,17 +254,19 @@ main(int argc, char *const *argv)
         }
     }
 
-    {
+    const char *cwd = custom_cwd;
+    if (cwd == NULL) {
         errno = 0;
         size_t buf_len = 1024;
         do {
-            cwd = xrealloc(cwd, buf_len);
-            if (getcwd(cwd, buf_len) == NULL && errno != ERANGE) {
+            _cwd = xrealloc(_cwd, buf_len);
+            if (getcwd(_cwd, buf_len) == NULL && errno != ERANGE) {
                 LOG_ERRNO("failed to get current working directory");
                 goto err;
             }
             buf_len *= 2;
         } while (errno == ERANGE);
+        cwd = _cwd;
     }
 
     /* String lengths, including NULL terminator */
@@ -356,7 +365,7 @@ main(int argc, char *const *argv)
 
 err:
     free(cargv);
-    free(cwd);
+    free(_cwd);
     if (fd != -1)
         close(fd);
     log_deinit();

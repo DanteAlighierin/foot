@@ -67,6 +67,7 @@ print_usage(const char *prog_name)
         "  -m,--maximized                          start in maximized mode\n"
         "  -F,--fullscreen                         start in fullscreen mode\n"
         "  -L,--login-shell                        start shell as a login shell\n"
+        "  -D,--working-directory=DIR              directory to start in (CWD)\n"
         "  -w,--window-size-pixels=WIDTHxHEIGHT    initial width and height, in pixels\n"
         "  -W,--window-size-chars=WIDTHxHEIGHT     initial width and height, in characters\n"
         "  -s,--server[=PATH]                      run as a server (use 'footclient' to start terminals).\n"
@@ -163,6 +164,7 @@ main(int argc, char *const *argv)
         {"title",                  required_argument, NULL, 'T'},
         {"app-id",                 required_argument, NULL, 'a'},
         {"login-shell",            no_argument,       NULL, 'L'},
+        {"working-directory",      required_argument, NULL, 'D'},
         {"font",                   required_argument, NULL, 'f'},
         {"window-size-pixels",     required_argument, NULL, 'w'},
         {"window-size-chars",      required_argument, NULL, 'W'},
@@ -185,6 +187,7 @@ main(int argc, char *const *argv)
     const char *conf_term = NULL;
     const char *conf_title = NULL;
     const char *conf_app_id = NULL;
+    const char *custom_cwd = NULL;
     bool login_shell = false;
     tll(char *) conf_fonts = tll_init();
     enum conf_size_type conf_size_type = CONF_SIZE_PX;
@@ -204,7 +207,7 @@ main(int argc, char *const *argv)
     user_notifications_t user_notifications = tll_init();
 
     while (true) {
-        int c = getopt_long(argc, argv, "+c:Ct:T:a:Lf:w:W:s::HmFPp:d:l::Svh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+c:Ct:T:a:LD:f:w:W:s::HmFPp:d:l::Svh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -231,6 +234,10 @@ main(int argc, char *const *argv)
 
         case 'a':
             conf_app_id = optarg;
+            break;
+
+        case 'D':
+            custom_cwd = optarg;
             break;
 
         case 'f':
@@ -443,18 +450,21 @@ main(int argc, char *const *argv)
     struct server *server = NULL;
     struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
 
-    char *cwd = NULL;
-    {
+    const char *cwd = custom_cwd;
+    char *_cwd = NULL;
+
+    if (cwd == NULL) {
         errno = 0;
         size_t buf_len = 1024;
         do {
-            cwd = xrealloc(cwd, buf_len);
-            if (getcwd(cwd, buf_len) == NULL && errno != ERANGE) {
+            _cwd = xrealloc(_cwd, buf_len);
+            if (getcwd(_cwd, buf_len) == NULL && errno != ERANGE) {
                 LOG_ERRNO("failed to get current working directory");
                 goto out;
             }
             buf_len *= 2;
         } while (errno == ERANGE);
+        cwd = _cwd;
     }
 
     shm_set_max_pool_size(conf.tweak.max_shm_pool_size);
@@ -476,8 +486,8 @@ main(int argc, char *const *argv)
                            &term_shutdown_cb, &shutdown_ctx)) == NULL) {
         goto out;
     }
-    free(cwd);
-    cwd = NULL;
+    free(_cwd);
+    _cwd = NULL;
 
     if (as_server && (server = server_init(&conf, fdm, reaper, wayl)) == NULL)
         goto out;
@@ -510,7 +520,7 @@ main(int argc, char *const *argv)
     ret = aborted || tll_length(wayl->terms) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
 out:
-    free(cwd);
+    free(_cwd);
     server_destroy(server);
     term_destroy(term);
 
