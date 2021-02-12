@@ -69,7 +69,7 @@ the foot command line
 	Start in fullscreen mode. If both *--maximized* and *--fullscreen*
 	are specified, the _last_ one takes precedence.
 
-*--login-shell*
+*-L*,*--login-shell*
 	Start a login shell, by prepending a '-' to argv[0].
 
 *-s*,*--server*[=_PATH_]
