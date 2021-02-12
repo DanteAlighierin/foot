@@ -1409,7 +1409,7 @@ render_csd_title(struct terminal *term)
     xassert(term->window->use_csd == CSD_YES);
 
     struct csd_data info = get_csd_data(term, CSD_SURF_TITLE);
-    struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE];
+    struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE].surf;
 
     xassert(info.width > 0 && info.height > 0);
 
@@ -1440,7 +1440,7 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
     xassert(surf_idx >= CSD_SURF_LEFT && surf_idx <= CSD_SURF_BOTTOM);
 
     struct csd_data info = get_csd_data(term, surf_idx);
-    struct wl_surface *surf = term->window->csd.surface[surf_idx];
+    struct wl_surface *surf = term->window->csd.surface[surf_idx].surf;
 
     if (info.width == 0 || info.height == 0)
         return;
@@ -1609,7 +1609,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
     xassert(surf_idx >= CSD_SURF_MINIMIZE && surf_idx <= CSD_SURF_CLOSE);
 
     struct csd_data info = get_csd_data(term, surf_idx);
-    struct wl_surface *surf = term->window->csd.surface[surf_idx];
+    struct wl_surface *surf = term->window->csd.surface[surf_idx].surf;
 
     if (info.width == 0 || info.height == 0)
         return;
@@ -1696,8 +1696,8 @@ render_csd(struct terminal *term)
         const int width = info.width;
         const int height = info.height;
 
-        struct wl_surface *surf = term->window->csd.surface[i];
-        struct wl_subsurface *sub = term->window->csd.sub_surface[i];
+        struct wl_surface *surf = term->window->csd.surface[i].surf;
+        struct wl_subsurface *sub = term->window->csd.surface[i].sub;
 
         xassert(surf != NULL);
         xassert(sub != NULL);

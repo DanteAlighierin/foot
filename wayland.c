@@ -39,6 +39,20 @@ csd_instantiate(struct wl_window *win)
     struct wayland *wayl = win->term->wl;
     xassert(wayl != NULL);
 
+    for (size_t i = 0; i < CSD_SURF_MINIMIZE; i++) {
+        bool ret = wayl_win_subsurface_new(win, &win->csd.surface[i]);
+        xassert(ret);
+    }
+
+    for (size_t i = CSD_SURF_MINIMIZE; i < CSD_SURF_COUNT; i++) {
+        bool ret = wayl_win_subsurface_new_with_custom_parent(
+            win, win->csd.surface[CSD_SURF_TITLE].surf, &win->csd.surface[i]);
+        xassert(ret);
+    }
+
+    /* TODO: we need the to commit? */
+
+#if 0
     for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
         xassert(win->csd.surface[i] == NULL);
         xassert(win->csd.sub_surface[i] == NULL);
@@ -55,20 +69,14 @@ csd_instantiate(struct wl_window *win)
         wl_surface_set_user_data(win->csd.surface[i], win);
         wl_surface_commit(win->csd.surface[i]);
     }
+#endif
 }
 
 static void
 csd_destroy(struct wl_window *win)
 {
-    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
-        if (win->csd.sub_surface[i] != NULL)
-            wl_subsurface_destroy(win->csd.sub_surface[i]);
-        if (win->csd.surface[i] != NULL)
-            wl_surface_destroy(win->csd.surface[i]);
-
-        win->csd.surface[i] = NULL;
-        win->csd.sub_surface[i] = NULL;
-    }
+    for (size_t i = 0; i < ALEN(win->csd.surface); i++)
+        wayl_win_subsurface_destroy(&win->csd.surface[i]);
 }
 
 static void
@@ -1414,9 +1422,9 @@ wayl_win_destroy(struct wl_window *win)
 
     /* CSD */
     for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
-        if (win->csd.surface[i] != NULL) {
-            wl_surface_attach(win->csd.surface[i], NULL, 0, 0);
-            wl_surface_commit(win->csd.surface[i]);
+        if (win->csd.surface[i].surf != NULL) {
+            wl_surface_attach(win->csd.surface[i].surf, NULL, 0, 0);
+            wl_surface_commit(win->csd.surface[i].surf);
         }
     }
 
@@ -1613,4 +1621,7 @@ wayl_win_subsurface_destroy(struct wl_surf_subsurf *surf)
         wl_subsurface_destroy(surf->sub);
     if (surf->surf != NULL)
         wl_surface_destroy(surf->surf);
+
+    surf->surf = NULL;
+    surf->sub = NULL;
 }

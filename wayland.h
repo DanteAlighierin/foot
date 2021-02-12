@@ -372,8 +372,7 @@ struct wl_window {
     enum {CSD_UNKNOWN, CSD_NO, CSD_YES } use_csd;
 
     struct {
-        struct wl_surface *surface[CSD_SURF_COUNT];
-        struct wl_subsurface *sub_surface[CSD_SURF_COUNT];
+        struct wl_surf_subsurf surface[CSD_SURF_COUNT];
         int move_timeout_fd;
         uint32_t serial;
     } csd;
