@@ -5,6 +5,7 @@ complete -c footclient -x -s a -l app-id                                        
 complete -c footclient    -s m -l maximized                                                                 -d "start in maximized mode"
 complete -c footclient    -s F -l fullscreen                                                                -d "start in fullscreen mode"
 complete -c footclient    -s L -l login-shell                                                               -d "start shell as a login shell"
+complete -c footclient -F -s D -l working-directory                                                         -d "initial working directory for the client application (CWD)"
 complete -c footclient -x -s w -l window-size-pixels                                                        -d "window WIDTHxHEIGHT, in pixels (700x500)"
 complete -c footclient -x -s W -l window-size-chars                                                         -d "window WIDTHxHEIGHT, in characters (not set)"
 complete -c footclient -F -s s -l server-socket                                                             -d "override the default path to the foot server socket ($XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)"
