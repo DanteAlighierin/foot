@@ -10,7 +10,6 @@
 #define LOG_MODULE "reaper"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "debug.h"
 
 struct child {
     pid_t pid;

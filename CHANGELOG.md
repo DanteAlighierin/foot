@@ -1,6 +1,7 @@
 # Changelog
 
 * [Unreleased](#Unreleased)
+* [1.6.4](#1-6-4)
 * [1.6.3](#1-6-3)
 * [1.6.2](#1-6-2)
 * [1.6.1](#1-6-1)
@@ -36,11 +37,6 @@
 * Key/mouse binding `select-extend-character-wise`, which forces the
   selection mode to 'character-wise' when extending a selection.
 * `DECSET` `47`, `1047` and `1048`.
-* `selection-target=none|primary|clipboard|both` to `foot.ini`. It can
-  be used to configure which clipboard(s) selected text should be
-  copied to. The default is `primary`, which corresponds to the
-  behavior in older foot releases
-  (https://codeberg.org/dnkl/foot/issues/288).
 * URL detection. URLs are highlighted and activated using the keyboard
   (**no** mouse support). See **foot**(1)::URLs, or
   [README.md](README.md#urls) for details
@@ -67,13 +63,6 @@
   before sending the new dimensions to the client application. The
   timing can be tweaked, or completely disabled, by setting
   `resize-delay-ms` (https://codeberg.org/dnkl/foot/issues/301).
-* The IME state no longer stays stuck in the terminal if the IME goes
-  away during preedit.
-* `-Dterminfo` changed from a `boolean` to a `feature` option.
-* Use standard signals instead of a signalfd to handle
-  `SIGCHLD`. Fixes an issue on FreeBSD where foot did not detect when
-  the client application had terminated.
-
 
 ### Deprecated
 ### Removed
@@ -88,13 +77,42 @@
   `shift` to be pressed while used in a mouse grabbing
   application. This meant the mouse event was never seen by the
   application.
-* `BS`, `HT` and `DEL` from being stripped in bracketed paste mode.
 
 
 ### Security
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
+
+
+## 1.6.4
+
+### Added
+
+* `selection-target=none|primary|clipboard|both` to `foot.ini`. It can
+  be used to configure which clipboard(s) selected text should be
+  copied to. The default is `primary`, which corresponds to the
+  behavior in older foot releases
+  (https://codeberg.org/dnkl/foot/issues/288).
+
+
+### Changed
+
+* The IME state no longer stays stuck in the terminal if the IME goes
+  away during preedit.
+* `-Dterminfo` changed from a `boolean` to a `feature` option.
+* Use standard signals instead of a signalfd to handle
+  `SIGCHLD`. Fixes an issue on FreeBSD where foot did not detect when
+  the client application had terminated.
+
+
+### Fixed
+
+* `BS`, `HT` and `DEL` from being stripped in bracketed paste mode.
+
+
+### Contributors
+
 * [tdeo](https://codeberg.org/tdeo)
 * jbeich
 
