@@ -1570,3 +1570,50 @@ wayl_roundtrip(struct wayland *wayl)
         wl_display_dispatch_pending(wayl->display);
     wayl_flush(wayl);
 }
+
+bool
+wayl_win_subsurface_new_with_custom_parent(
+    struct wl_window *win, struct wl_surface *parent,
+    struct wl_surf_subsurf *surf)
+{
+    struct wayland *wayl = win->term->wl;
+
+    surf->surf = NULL;
+    surf->sub = NULL;
+
+    struct wl_surface *main = wl_compositor_create_surface(wayl->compositor);
+    if (main == NULL)
+        return false;
+
+    struct wl_subsurface *sub = wl_subcompositor_get_subsurface(
+        wayl->sub_compositor, main, parent);
+
+    if (sub == NULL) {
+        wl_surface_destroy(main);
+        return false;
+    }
+
+    wl_surface_set_user_data(main, win);
+    wl_subsurface_set_sync(sub);
+
+    surf->surf = main;
+    surf->sub = sub;
+    return true;
+}
+
+bool
+wayl_win_subsurface_new(struct wl_window *win, struct wl_surf_subsurf *surf)
+{
+    return wayl_win_subsurface_new_with_custom_parent(win, win->surface, surf);
+}
+
+void
+wayl_win_subsurface_destroy(struct wl_surf_subsurf *surf)
+{
+    if (surf == NULL)
+        return;
+    if (surf->sub != NULL)
+        wl_subsurface_destroy(surf->sub);
+    if (surf->surf != NULL)
+        wl_surface_destroy(surf->surf);
+}
