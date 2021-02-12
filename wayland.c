@@ -1367,16 +1367,10 @@ wayl_win_init(struct terminal *term)
     wl_surface_commit(win->surface);
 
     if (conf->tweak.render_timer_osd) {
-        win->render_timer_surface = wl_compositor_create_surface(wayl->compositor);
-        if (win->render_timer_surface == NULL) {
+        if (!wayl_win_subsurface_new(win, &win->render_timer_surface)) {
             LOG_ERR("failed to create render timer surface");
             goto out;
         }
-        win->render_timer_sub_surface = wl_subcompositor_get_subsurface(
-            wayl->sub_compositor, win->render_timer_surface, win->surface);
-        wl_subsurface_set_sync(win->render_timer_sub_surface);
-        wl_surface_set_user_data(win->render_timer_surface, win);
-        wl_surface_commit(win->render_timer_surface);
     }
     return win;
 
@@ -1404,9 +1398,9 @@ wayl_win_destroy(struct wl_window *win)
      * nor mouse focus).
      */
 
-    if (win->render_timer_surface != NULL) {
-        wl_surface_attach(win->render_timer_surface, NULL, 0, 0);
-        wl_surface_commit(win->render_timer_surface);
+    if (win->render_timer_surface.surf != NULL) {
+        wl_surface_attach(win->render_timer_surface.surf, NULL, 0, 0);
+        wl_surface_commit(win->render_timer_surface.surf);
     }
 
     if (win->scrollback_indicator_surface.surf != NULL) {
@@ -1445,11 +1439,8 @@ wayl_win_destroy(struct wl_window *win)
     csd_destroy(win);
     wayl_win_subsurface_destroy(&win->search_surface);
     wayl_win_subsurface_destroy(&win->scrollback_indicator_surface);
+    wayl_win_subsurface_destroy(&win->render_timer_surface);
 
-    if (win->render_timer_sub_surface != NULL)
-        wl_subsurface_destroy(win->render_timer_sub_surface);
-    if (win->render_timer_surface != NULL)
-        wl_surface_destroy(win->render_timer_surface);
     if (win->frame_callback != NULL)
         wl_callback_destroy(win->frame_callback);
     if (win->xdg_toplevel_decoration != NULL)

@@ -379,9 +379,7 @@ struct wl_window {
 
     struct wl_surf_subsurf search_surface;
     struct wl_surf_subsurf scrollback_indicator_surface;
-
-    struct wl_surface *render_timer_surface;
-    struct wl_subsurface *render_timer_sub_surface;
+    struct wl_surf_subsurf render_timer_surface;
 
     struct wl_callback *frame_callback;
 

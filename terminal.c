@@ -2825,7 +2825,7 @@ term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
         return TERM_SURF_SEARCH;
     else if (surface == term->window->scrollback_indicator_surface.surf)
         return TERM_SURF_SCROLLBACK_INDICATOR;
-    else if (surface == term->window->render_timer_surface)
+    else if (surface == term->window->render_timer_surface.surf)
         return TERM_SURF_RENDER_TIMER;
     else if (surface == term->window->csd.surface[CSD_SURF_TITLE].surf)
         return TERM_SURF_TITLE;
