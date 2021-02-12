@@ -378,8 +378,7 @@ struct wl_window {
     } csd;
 
     /* Scrollback search */
-    struct wl_surface *search_surface;
-    struct wl_subsurface *search_sub_surface;
+    struct wl_surf_subsurf search_surface;
 
     struct wl_surface *scrollback_indicator_surface;
     struct wl_subsurface *scrollback_indicator_sub_surface;

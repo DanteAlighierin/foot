@@ -2232,7 +2232,7 @@ grid_render(struct terminal *term)
 static void
 render_search_box(struct terminal *term)
 {
-    xassert(term->window->search_sub_surface != NULL);
+    xassert(term->window->search_surface.sub != NULL);
 
     /*
      * We treat the search box pretty much like a row of cells. That
@@ -2505,27 +2505,27 @@ render_search_box(struct terminal *term)
                 term, WINDOW_X(x), WINDOW_Y(y), 1, term->cell_height);
         }
 
-    quirk_weston_subsurface_desync_on(term->window->search_sub_surface);
+    quirk_weston_subsurface_desync_on(term->window->search_surface.sub);
 
     /* TODO: this is only necessary on a window resize */
     wl_subsurface_set_position(
-        term->window->search_sub_surface,
+        term->window->search_surface.sub,
         margin / scale,
         max(0, (int32_t)term->height - height - margin) / scale);
 
-    wl_surface_attach(term->window->search_surface, buf->wl_buf, 0, 0);
-    wl_surface_damage_buffer(term->window->search_surface, 0, 0, width, height);
-    wl_surface_set_buffer_scale(term->window->search_surface, scale);
+    wl_surface_attach(term->window->search_surface.surf, buf->wl_buf, 0, 0);
+    wl_surface_damage_buffer(term->window->search_surface.surf, 0, 0, width, height);
+    wl_surface_set_buffer_scale(term->window->search_surface.surf, scale);
 
     struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
     if (region != NULL) {
         wl_region_add(region, width - visible_width, 0, visible_width, height);
-        wl_surface_set_opaque_region(term->window->search_surface, region);
+        wl_surface_set_opaque_region(term->window->search_surface.surf, region);
         wl_region_destroy(region);
     }
 
-    wl_surface_commit(term->window->search_surface);
-    quirk_weston_subsurface_desync_off(term->window->search_sub_surface);
+    wl_surface_commit(term->window->search_surface.surf);
+    quirk_weston_subsurface_desync_off(term->window->search_surface.sub);
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     free(text);
