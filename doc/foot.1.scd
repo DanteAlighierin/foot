@@ -72,6 +72,10 @@ the foot command line
 *-L*,*--login-shell*
 	Start a login shell, by prepending a '-' to argv[0].
 
+*-D*,*--working-directory*=_DIR_
+	Initial working directory for the client application. Default:
+	_CWD of foot_.
+
 *-s*,*--server*[=_PATH_]
 	Run as a server. In this mode, a single foot instance hosts
 	multiple terminals (windows). Use *footclient*(1) to launch new
