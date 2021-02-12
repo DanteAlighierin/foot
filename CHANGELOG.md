@@ -23,6 +23,7 @@
 
 
 ## 1.6.4
+
 ### Added
 
 * `selection-target=none|primary|clipboard|both` to `foot.ini`. It can
@@ -42,14 +43,11 @@
   the client application had terminated.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * `BS`, `HT` and `DEL` from being stripped in bracketed paste mode.
 
 
-### Security
 ### Contributors
 
 * [tdeo](https://codeberg.org/tdeo)
