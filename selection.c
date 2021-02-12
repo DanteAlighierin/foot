@@ -1337,6 +1337,15 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
          */
         char *p = text;
         size_t left = count;
+
+#define skip_one()                              \
+        do {                                    \
+            ctx->decoder(ctx, p, i);            \
+            assert(i + 1 <= left);              \
+            p += i + 1;                         \
+            left -= i + 1;                      \
+        } while (0)
+
     again:
         for (size_t i = 0; i < left; i++) {
             switch (p[i]) {
@@ -1351,39 +1360,37 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
             case '\r':
                 /* Convert \r\n -> \r */
                 if (!ctx->bracketed && i + 1 < left && p[i + 1] == '\n') {
-                    ctx->decoder(ctx, p, i + 1);
-
-                    assert(i + 2 <= left);
-                    p += i + 2;
-                    left -= i + 2;
+                    i++;
+                    skip_one();
                     goto again;
                 }
                 break;
 
             /* C0 non-formatting control characters (\b \t \n \r excluded) */
             case '\x01': case '\x02': case '\x03': case '\x04': case '\x05':
-            case '\x06': case '\x07': case '\x0b': case '\x0c': case '\x0e':
-            case '\x0f': case '\x10': case '\x11': case '\x12': case '\x13':
-            case '\x14': case '\x15': case '\x16': case '\x17': case '\x18':
-            case '\x19': case '\x1a': case '\x1b': case '\x1c': case '\x1d':
-            case '\x1e': case '\x1f':
-                /* FALLTHROUGH */
+            case '\x06': case '\x07': case '\x0e': case '\x0f': case '\x10':
+            case '\x11': case '\x12': case '\x13': case '\x14': case '\x15':
+            case '\x16': case '\x17': case '\x18': case '\x19': case '\x1a':
+            case '\x1b': case '\x1c': case '\x1d': case '\x1e': case '\x1f':
+                skip_one();
+                goto again;
 
             /* Additional control characters stripped by default (but
              * configurable) in XTerm: BS, HT, DEL */
-            case '\b': case '\t': case '\x7f':
-                ctx->decoder(ctx, p, i);
-
-                assert(i + 1 <= left);
-                p += i + 1;
-                left -= i + 1;
-                goto again;
+            case '\b': case '\t': case '\v': case '\f': case '\x7f':
+                if (!ctx->bracketed) {
+                    skip_one();
+                    goto again;
+                }
+                break;
             }
         }
 
         ctx->decoder(ctx, p, left);
         left = 0;
     }
+
+#undef skip_one
 
 done:
     ctx->finish(ctx);

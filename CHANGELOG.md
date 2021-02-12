@@ -45,6 +45,10 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* `BS`, `HT` and `DEL` from being stripped in bracketed paste mode.
+
+
 ### Security
 ### Contributors
 
