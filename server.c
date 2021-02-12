@@ -275,6 +275,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     if (client->term == NULL) {
         LOG_ERR("failed to instantiate new terminal");
+        client_send_exit_code(client, -1);
         goto shutdown;
     }
 
