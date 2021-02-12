@@ -1367,7 +1367,7 @@ wayl_win_init(struct terminal *term)
     wl_surface_commit(win->surface);
 
     if (conf->tweak.render_timer_osd) {
-        if (!wayl_win_subsurface_new(win, &win->render_timer_surface)) {
+        if (!wayl_win_subsurface_new(win, &win->render_timer)) {
             LOG_ERR("failed to create render timer surface");
             goto out;
         }
@@ -1398,20 +1398,20 @@ wayl_win_destroy(struct wl_window *win)
      * nor mouse focus).
      */
 
-    if (win->render_timer_surface.surf != NULL) {
-        wl_surface_attach(win->render_timer_surface.surf, NULL, 0, 0);
-        wl_surface_commit(win->render_timer_surface.surf);
+    if (win->render_timer.surf != NULL) {
+        wl_surface_attach(win->render_timer.surf, NULL, 0, 0);
+        wl_surface_commit(win->render_timer.surf);
     }
 
-    if (win->scrollback_indicator_surface.surf != NULL) {
-        wl_surface_attach(win->scrollback_indicator_surface.surf, NULL, 0, 0);
-        wl_surface_commit(win->scrollback_indicator_surface.surf);
+    if (win->scrollback_indicator.surf != NULL) {
+        wl_surface_attach(win->scrollback_indicator.surf, NULL, 0, 0);
+        wl_surface_commit(win->scrollback_indicator.surf);
     }
 
     /* Scrollback search */
-    if (win->search_surface.surf != NULL) {
-        wl_surface_attach(win->search_surface.surf, NULL, 0, 0);
-        wl_surface_commit(win->search_surface.surf);
+    if (win->search.surf != NULL) {
+        wl_surface_attach(win->search.surf, NULL, 0, 0);
+        wl_surface_commit(win->search.surf);
     }
 
     /* CSD */
@@ -1437,9 +1437,9 @@ wayl_win_destroy(struct wl_window *win)
     }
 
     csd_destroy(win);
-    wayl_win_subsurface_destroy(&win->search_surface);
-    wayl_win_subsurface_destroy(&win->scrollback_indicator_surface);
-    wayl_win_subsurface_destroy(&win->render_timer_surface);
+    wayl_win_subsurface_destroy(&win->search);
+    wayl_win_subsurface_destroy(&win->scrollback_indicator);
+    wayl_win_subsurface_destroy(&win->render_timer);
 
     if (win->frame_callback != NULL)
         wl_callback_destroy(win->frame_callback);

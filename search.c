@@ -81,7 +81,7 @@ static void
 search_cancel_keep_selection(struct terminal *term)
 {
     struct wl_window *win = term->window;
-    wayl_win_subsurface_destroy(&win->search_surface);
+    wayl_win_subsurface_destroy(&win->search);
 
     free(term->search.buf);
     term->search.buf = NULL;
@@ -118,8 +118,7 @@ search_begin(struct terminal *term)
     }
 
     /* On-demand instantiate wayland surface */
-    bool ret = wayl_win_subsurface_new(
-        term->window, &term->window->search_surface);
+    bool ret = wayl_win_subsurface_new(term->window, &term->window->search);
     xassert(ret);
 
     term->search.original_view = term->grid->view;

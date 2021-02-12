@@ -1778,20 +1778,20 @@ render_scrollback_position(struct terminal *term)
     struct wl_window *win = term->window;
 
     if (term->grid->view == term->grid->offset) {
-        if (win->scrollback_indicator_surface.surf != NULL)
-            wayl_win_subsurface_destroy(&win->scrollback_indicator_surface);
+        if (win->scrollback_indicator.surf != NULL)
+            wayl_win_subsurface_destroy(&win->scrollback_indicator);
         return;
     }
 
-    if (win->scrollback_indicator_surface.surf == NULL) {
-        if (!wayl_win_subsurface_new(win, &win->scrollback_indicator_surface)) {
+    if (win->scrollback_indicator.surf == NULL) {
+        if (!wayl_win_subsurface_new(win, &win->scrollback_indicator)) {
             LOG_ERR("failed to create scrollback indicator surface");
             return;
         }
     }
 
-    xassert(win->scrollback_indicator_surface.surf != NULL);
-    xassert(win->scrollback_indicator_surface.sub != NULL);
+    xassert(win->scrollback_indicator.surf != NULL);
+    xassert(win->scrollback_indicator.sub != NULL);
 
     /* Find absolute row number of the scrollback start */
     int scrollback_start = term->grid->offset + term->rows;
@@ -1879,14 +1879,14 @@ render_scrollback_position(struct terminal *term)
     }
 
     wl_subsurface_set_position(
-        win->scrollback_indicator_surface.sub,
+        win->scrollback_indicator.sub,
         (term->width - margin - width) / scale,
         (term->margins.top + surf_top) / scale);
 
     render_osd(
         term,
-        win->scrollback_indicator_surface.surf,
-        win->scrollback_indicator_surface.sub,
+        win->scrollback_indicator.surf,
+        win->scrollback_indicator.sub,
         buf, text,
         term->colors.table[0], term->colors.table[8 + 4],
         width, height, width - margin - wcslen(text) * term->cell_width, margin);
@@ -1912,14 +1912,14 @@ render_render_timer(struct terminal *term, struct timeval render_time)
         term->wl->shm, width, height, cookie, false, 1);
 
     wl_subsurface_set_position(
-        win->render_timer_surface.sub,
+        win->render_timer.sub,
         margin / term->scale,
         (term->margins.top + term->cell_height - margin) / term->scale);
 
     render_osd(
         term,
-        win->render_timer_surface.surf,
-        win->render_timer_surface.sub,
+        win->render_timer.surf,
+        win->render_timer.sub,
         buf, text,
         term->colors.table[0], term->colors.table[8 + 1],
         width, height, margin, margin);
@@ -2208,7 +2208,7 @@ grid_render(struct terminal *term)
 static void
 render_search_box(struct terminal *term)
 {
-    xassert(term->window->search_surface.sub != NULL);
+    xassert(term->window->search.sub != NULL);
 
     /*
      * We treat the search box pretty much like a row of cells. That
@@ -2481,27 +2481,27 @@ render_search_box(struct terminal *term)
                 term, WINDOW_X(x), WINDOW_Y(y), 1, term->cell_height);
         }
 
-    quirk_weston_subsurface_desync_on(term->window->search_surface.sub);
+    quirk_weston_subsurface_desync_on(term->window->search.sub);
 
     /* TODO: this is only necessary on a window resize */
     wl_subsurface_set_position(
-        term->window->search_surface.sub,
+        term->window->search.sub,
         margin / scale,
         max(0, (int32_t)term->height - height - margin) / scale);
 
-    wl_surface_attach(term->window->search_surface.surf, buf->wl_buf, 0, 0);
-    wl_surface_damage_buffer(term->window->search_surface.surf, 0, 0, width, height);
-    wl_surface_set_buffer_scale(term->window->search_surface.surf, scale);
+    wl_surface_attach(term->window->search.surf, buf->wl_buf, 0, 0);
+    wl_surface_damage_buffer(term->window->search.surf, 0, 0, width, height);
+    wl_surface_set_buffer_scale(term->window->search.surf, scale);
 
     struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
     if (region != NULL) {
         wl_region_add(region, width - visible_width, 0, visible_width, height);
-        wl_surface_set_opaque_region(term->window->search_surface.surf, region);
+        wl_surface_set_opaque_region(term->window->search.surf, region);
         wl_region_destroy(region);
     }
 
-    wl_surface_commit(term->window->search_surface.surf);
-    quirk_weston_subsurface_desync_off(term->window->search_surface.sub);
+    wl_surface_commit(term->window->search.surf);
+    quirk_weston_subsurface_desync_off(term->window->search.sub);
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     free(text);
