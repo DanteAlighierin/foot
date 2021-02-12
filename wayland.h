@@ -377,11 +377,8 @@ struct wl_window {
         uint32_t serial;
     } csd;
 
-    /* Scrollback search */
     struct wl_surf_subsurf search_surface;
-
-    struct wl_surface *scrollback_indicator_surface;
-    struct wl_subsurface *scrollback_indicator_sub_surface;
+    struct wl_surf_subsurf scrollback_indicator_surface;
 
     struct wl_surface *render_timer_surface;
     struct wl_subsurface *render_timer_sub_surface;

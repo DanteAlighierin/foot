@@ -1775,49 +1775,23 @@ render_scrollback_position(struct terminal *term)
     if (term->conf->scrollback.indicator.position == SCROLLBACK_INDICATOR_POSITION_NONE)
         return;
 
-    struct wayland *wayl = term->wl;
     struct wl_window *win = term->window;
 
     if (term->grid->view == term->grid->offset) {
-        if (win->scrollback_indicator_surface != NULL) {
-            wl_subsurface_destroy(win->scrollback_indicator_sub_surface);
-            wl_surface_destroy(win->scrollback_indicator_surface);
-
-            win->scrollback_indicator_surface = NULL;
-            win->scrollback_indicator_sub_surface = NULL;
-        }
+        if (win->scrollback_indicator_surface.surf != NULL)
+            wayl_win_subsurface_destroy(&win->scrollback_indicator_surface);
         return;
     }
 
-    if (win->scrollback_indicator_surface == NULL) {
-        win->scrollback_indicator_surface
-            = wl_compositor_create_surface(wayl->compositor);
-
-        if (win->scrollback_indicator_surface == NULL) {
+    if (win->scrollback_indicator_surface.surf == NULL) {
+        if (!wayl_win_subsurface_new(win, &win->scrollback_indicator_surface)) {
             LOG_ERR("failed to create scrollback indicator surface");
             return;
         }
-
-        wl_surface_set_user_data(win->scrollback_indicator_surface, win);
-
-        term->window->scrollback_indicator_sub_surface
-            = wl_subcompositor_get_subsurface(
-                wayl->sub_compositor,
-                win->scrollback_indicator_surface,
-                win->surface);
-
-        if (win->scrollback_indicator_sub_surface == NULL) {
-            LOG_ERR("failed to create scrollback indicator sub-surface");
-            wl_surface_destroy(win->scrollback_indicator_surface);
-            win->scrollback_indicator_surface = NULL;
-            return;
-        }
-
-        wl_subsurface_set_sync(win->scrollback_indicator_sub_surface);
     }
 
-    xassert(win->scrollback_indicator_surface != NULL);
-    xassert(win->scrollback_indicator_sub_surface != NULL);
+    xassert(win->scrollback_indicator_surface.surf != NULL);
+    xassert(win->scrollback_indicator_surface.sub != NULL);
 
     /* Find absolute row number of the scrollback start */
     int scrollback_start = term->grid->offset + term->rows;
@@ -1905,13 +1879,14 @@ render_scrollback_position(struct terminal *term)
     }
 
     wl_subsurface_set_position(
-        win->scrollback_indicator_sub_surface,
+        win->scrollback_indicator_surface.sub,
         (term->width - margin - width) / scale,
         (term->margins.top + surf_top) / scale);
 
     render_osd(
         term,
-        win->scrollback_indicator_surface, win->scrollback_indicator_sub_surface,
+        win->scrollback_indicator_surface.surf,
+        win->scrollback_indicator_surface.sub,
         buf, text,
         term->colors.table[0], term->colors.table[8 + 4],
         width, height, width - margin - wcslen(text) * term->cell_width, margin);

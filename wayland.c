@@ -1409,9 +1409,9 @@ wayl_win_destroy(struct wl_window *win)
         wl_surface_commit(win->render_timer_surface);
     }
 
-    if (win->scrollback_indicator_surface != NULL) {
-        wl_surface_attach(win->scrollback_indicator_surface, NULL, 0, 0);
-        wl_surface_commit(win->scrollback_indicator_surface);
+    if (win->scrollback_indicator_surface.surf != NULL) {
+        wl_surface_attach(win->scrollback_indicator_surface.surf, NULL, 0, 0);
+        wl_surface_commit(win->scrollback_indicator_surface.surf);
     }
 
     /* Scrollback search */
@@ -1444,15 +1444,12 @@ wayl_win_destroy(struct wl_window *win)
 
     csd_destroy(win);
     wayl_win_subsurface_destroy(&win->search_surface);
+    wayl_win_subsurface_destroy(&win->scrollback_indicator_surface);
 
     if (win->render_timer_sub_surface != NULL)
         wl_subsurface_destroy(win->render_timer_sub_surface);
     if (win->render_timer_surface != NULL)
         wl_surface_destroy(win->render_timer_surface);
-    if (win->scrollback_indicator_sub_surface != NULL)
-        wl_subsurface_destroy(win->scrollback_indicator_sub_surface);
-    if (win->scrollback_indicator_surface != NULL)
-        wl_surface_destroy(win->scrollback_indicator_surface);
     if (win->frame_callback != NULL)
         wl_callback_destroy(win->frame_callback);
     if (win->xdg_toplevel_decoration != NULL)

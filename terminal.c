@@ -2823,7 +2823,7 @@ term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
         return TERM_SURF_GRID;
     else if (surface == term->window->search_surface.surf)
         return TERM_SURF_SEARCH;
-    else if (surface == term->window->scrollback_indicator_surface)
+    else if (surface == term->window->scrollback_indicator_surface.surf)
         return TERM_SURF_SCROLLBACK_INDICATOR;
     else if (surface == term->window->render_timer_surface)
         return TERM_SURF_RENDER_TIMER;
