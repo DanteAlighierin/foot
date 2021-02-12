@@ -43,6 +43,8 @@
   (https://codeberg.org/dnkl/foot/issues/14).
 * `-d,--log-level={info|warning|error}` to both `foot` and
   `footclient` (https://codeberg.org/dnkl/foot/issues/337).
+* `-D,--working-directory=DIR` to both `foot` and `footclient`
+  (https://codeberg.org/dnkl/foot/issues/347)
 
 
 ### Changed
