@@ -3015,3 +3015,57 @@ term_ime_set_cursor_rect(struct terminal *term, int x, int y, int width,
 #endif
 }
 
+void
+term_osc8_open(struct terminal *term, const char *uri)
+{
+    if (unlikely(term->vt.osc8.begin.row < 0)) {
+        /* It’s valid to switch from one URI to another without
+         * closing the first one */
+        term_osc8_close(term);
+    }
+
+    term->vt.osc8.begin = (struct coord){
+        .col = term->grid->cursor.point.col,
+        .row = grid_row_absolute(term->grid, term->grid->cursor.point.row),
+    };
+    term->vt.osc8.uri = xstrdup(uri);
+}
+
+void
+term_osc8_close(struct terminal *term)
+{
+    if (term->vt.osc8.begin.row < 0)
+        return;
+
+    if (term->vt.osc8.uri[0] == '\0')
+        goto done;
+
+    struct coord start = term->vt.osc8.begin;
+    struct coord end = (struct coord){
+        .col = term->grid->cursor.point.col,
+        .row = grid_row_absolute(term->grid, term->grid->cursor.point.row),
+    };
+
+    int r = start.row;
+    int start_col = start.col;
+    do {
+        int end_col = r == end.row ? end.col : term->cols - 1;
+
+        struct row *row = term->grid->rows[r];
+        if (row->extra == NULL)
+            row->extra = xcalloc(1, sizeof(*row->extra));
+
+        struct row_uri_range range = {
+            .start = start_col,
+            .end = end_col,
+            .uri = xstrdup(term->vt.osc8.uri),
+        };
+        tll_push_back(row->extra->uri_ranges, range);
+        start_col = 0;
+    } while (r++ != end.row);
+
+done:
+    free(term->vt.osc8.uri);
+    term->vt.osc8.uri = NULL;
+    term->vt.osc8.begin = (struct coord){-1, -1};
+}

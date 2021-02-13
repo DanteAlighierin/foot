@@ -689,3 +689,6 @@ void term_ime_set_cursor_rect(
 
 void term_urls_reset(struct terminal *term);
 void term_collect_urls(struct terminal *term);
+
+void term_osc8_open(struct terminal *term, const char *uri);
+void term_osc8_close(struct terminal *term);
