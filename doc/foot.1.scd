@@ -262,8 +262,8 @@ be changed with the *url-launch* option.
 what activating an URL _does_; instead of opening it, it copies it to
 the clipboard. It is unbound by default.
 
-Both the jump label colors, and the URL underline color can be
-configured, independently.
+Jump label colors, the URL underline color, and the letters used in
+the jump label key sequences can be configured.
 
 # ALT/META CHARACTERS
 
