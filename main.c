@@ -236,9 +236,15 @@ main(int argc, char *const *argv)
             conf_app_id = optarg;
             break;
 
-        case 'D':
+        case 'D': {
+            struct stat st;
+            if (stat(optarg, &st) < 0 || !(st.st_mode & S_IFDIR)) {
+                fprintf(stderr, "error: %s: not a directory\n", optarg);
+                return EXIT_FAILURE;
+            }
             custom_cwd = optarg;
             break;
+        }
 
         case 'f':
             tll_free_and_free(conf_fonts, free);
