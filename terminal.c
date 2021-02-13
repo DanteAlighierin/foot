@@ -3059,6 +3059,7 @@ term_osc8_close(struct terminal *term)
         struct row_uri_range range = {
             .start = start_col,
             .end = end_col,
+            .id = term->vt.osc8.id,
             .uri = xstrdup(term->vt.osc8.uri),
         };
         tll_push_back(row->extra->uri_ranges, range);

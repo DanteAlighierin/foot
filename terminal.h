@@ -89,6 +89,7 @@ struct composed {
 struct row_uri_range {
     int start;
     int end;
+    uint64_t id;
     char *uri;
 };
 
