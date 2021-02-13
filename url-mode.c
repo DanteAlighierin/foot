@@ -1,5 +1,6 @@
 #include "url-mode.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <wctype.h>
 
@@ -135,6 +136,9 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
     const struct url *match = NULL;
 
     tll_foreach(term->urls, it) {
+        if (it->item.key == NULL)
+            continue;
+
         const struct url *url = &it->item;
         const size_t key_len = wcslen(it->item.key);
 
@@ -165,7 +169,8 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
 IGNORE_WARNING("-Wpedantic")
 
 static void
-auto_detected(const struct terminal *term, enum url_action action, url_list_t *urls)
+auto_detected(const struct terminal *term, enum url_action action,
+              url_list_t *urls)
 {
     static const wchar_t *const prots[] = {
         L"http://",
@@ -335,6 +340,7 @@ auto_detected(const struct terminal *term, enum url_action action, url_list_t *u
                         tll_push_back(
                             *urls,
                             ((struct url){
+                                .id = (uint64_t)rand() << 32 | rand(),
                                 .url = url_utf8,
                                 .text = xwcsdup(L""),
                                 .start = start,
@@ -376,6 +382,7 @@ osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
            tll_push_back(
                *urls,
                ((struct url){
+                   .id = it->item.id,
                    .url = xstrdup(it->item.uri),
                    .text = xwcsdup(L""),
                    .start = start,
@@ -467,18 +474,38 @@ urls_assign_key_combos(const struct config *conf, url_list_t *urls)
     if (count == 0)
         return;
 
+    uint64_t seen_ids[count];
     wchar_t *combos[count];
     generate_key_combos(conf, count, combos);
 
     size_t idx = 0;
-    tll_foreach(*urls, it)
+    tll_foreach(*urls, it) {
+        bool id_already_seen = false;
+        for (size_t i = 0; i < idx; i++) {
+            if (it->item.id == seen_ids[i]) {
+                id_already_seen = true;
+                break;
+            }
+        }
+
+        if (id_already_seen)
+            continue;
+
+        seen_ids[idx] = it->item.id;
         it->item.key = combos[idx++];
+    }
+
+    /* Free combos we didn’t use up */
+    for (size_t i = idx; i < count; i++)
+        free(combos[i]);
 
 #if defined(_DEBUG) && LOG_ENABLE_DBG
     tll_foreach(*urls, it) {
+        if (it->item.key == NULL)
+            continue;
+
         char key[32];
         wcstombs(key, it->item.key, sizeof(key) - 1);
-
         LOG_DBG("URL: %s (%s)", it->item.url, key);
     }
 #endif

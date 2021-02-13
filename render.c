@@ -2531,6 +2531,12 @@ render_urls(struct terminal *term)
         const wchar_t *key = url->key;
         const size_t entered_key_len = wcslen(term->url_keys);
 
+        if (key == NULL) {
+            /* TODO: if we decide to use the .text field, we cannot
+             * just skip the entire jump label like this */
+            continue;
+        }
+
         struct wl_surface *surf = it->item.surf.surf;
         struct wl_subsurface *sub_surf = it->item.surf.sub;
 
