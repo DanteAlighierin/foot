@@ -377,6 +377,45 @@ osc_set_pwd(struct terminal *term, char *string)
 }
 
 static void
+osc_uri(struct terminal *term, char *string)
+{
+    /*
+     * \E]8;<params>;URI\e\\
+     *
+     * Params are key=value pairs, separated by ‘:’.
+     *
+     * The only defined key (as of 2020-05-31) is ‘id’, which is used
+     * to group split-up URIs:
+     *
+     * ╔═ file1 ════╗
+     * ║          ╔═ file2 ═══╗
+     * ║http://exa║Lorem ipsum║
+     * ║le.com    ║ dolor sit ║
+     * ║          ║amet, conse║
+     * ╚══════════║ctetur adip║
+     *            ╚═══════════╝
+     *
+     * This lets a terminal emulator highlight both parts at the same
+     * time (e.g. when hovering over one of the parts with the mouse).
+     */
+
+    const char *params = string;
+    char *params_end = strchr(params, ';');
+    if (params_end == NULL)
+        return;
+
+    *params_end = '\0';
+    const char *uri = params_end + 1;
+
+    LOG_DBG("params=%s, URI=%s", params, uri);
+
+    if (uri[0] == '\0')
+        term_osc8_close(term);
+    else
+        term_osc8_open(term, uri);
+}
+
+static void
 osc_notify(struct terminal *term, char *string)
 {
     /*
@@ -551,6 +590,10 @@ osc_dispatch(struct terminal *term)
     case 7:
         /* Update terminal's understanding of PWD */
         osc_set_pwd(term, string);
+        break;
+
+    case 8:
+        osc_uri(term, string);
         break;
 
     case 10:
