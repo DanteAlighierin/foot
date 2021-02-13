@@ -1,5 +1,6 @@
 #include "osc.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
@@ -399,15 +400,35 @@ osc_uri(struct terminal *term, char *string)
      * time (e.g. when hovering over one of the parts with the mouse).
      */
 
-    const char *params = string;
+    char *params = string;
     char *params_end = strchr(params, ';');
     if (params_end == NULL)
         return;
 
     *params_end = '\0';
     const char *uri = params_end + 1;
+    uint64_t id = (uint64_t)rand() << 32 | rand();
 
     LOG_DBG("params=%s, URI=%s", params, uri);
+
+    char *ctx = NULL;
+    for (const char *key_value = strtok_r(params, ":", &ctx);
+         key_value != NULL;
+         key_value = strtok_r(NULL, ":", &ctx))
+    {
+        const char *key = key_value;
+        char *operator = strchr(key_value, '=');
+
+        if (operator == NULL)
+            continue;
+        *operator = '\0';
+
+        const char *value = operator + 1;
+        LOG_DBG("param: %s=%s", key, value);
+
+        if (strcmp(key, "id") == 0)
+            id = (uintptr_t)value;
+    }
 
     if (uri[0] == '\0')
         term_osc8_close(term);
