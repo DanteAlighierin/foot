@@ -739,7 +739,17 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         }
         free(conf->word_delimiters);
         conf->word_delimiters = word_delimiters;
+    }
 
+    else if (strcmp(key, "jump-label-letters") == 0) {
+        wchar_t *letters;
+        if (!str_to_wchars(value, &letters, conf, path, lineno,
+                           "default", "jump-label-letters"))
+        {
+            return false;
+        }
+        free(conf->jump_label_letters);
+        conf->jump_label_letters = letters;
     }
 
     else if (strcmp(key, "notify") == 0) {
@@ -2142,6 +2152,7 @@ config_load(struct config *conf, const char *conf_path,
         .title = xstrdup("foot"),
         .app_id = xstrdup("foot"),
         .word_delimiters = xwcsdup(L",│`|:\"'()[]{}<>"),
+        .jump_label_letters = xwcsdup(L"sadfjklewcmpgh"),
         .size = {
             .type = CONF_SIZE_PX,
             .width = 700,
@@ -2356,6 +2367,7 @@ config_free(struct config conf)
     free(conf.title);
     free(conf.app_id);
     free(conf.word_delimiters);
+    free(conf.jump_label_letters);
     free(conf.scrollback.indicator.text);
     free_spawn_template(&conf.notify);
     free_spawn_template(&conf.url_launch);
