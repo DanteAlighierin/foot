@@ -433,7 +433,7 @@ osc_uri(struct terminal *term, char *string)
     if (uri[0] == '\0')
         term_osc8_close(term);
     else
-        term_osc8_open(term, uri);
+        term_osc8_open(term, id, uri);
 }
 
 static void

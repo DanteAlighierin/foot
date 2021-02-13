@@ -169,8 +169,9 @@ struct vt {
 
     /* Start coordinate for current OSC-8 URI */
     struct {
-        struct coord begin;
+        uint64_t id;
         char *uri;
+        struct coord begin;
     } osc8;
 
     struct {
@@ -690,5 +691,5 @@ void term_ime_set_cursor_rect(
 void term_urls_reset(struct terminal *term);
 void term_collect_urls(struct terminal *term);
 
-void term_osc8_open(struct terminal *term, const char *uri);
+void term_osc8_open(struct terminal *term, uint64_t id, const char *uri);
 void term_osc8_close(struct terminal *term);

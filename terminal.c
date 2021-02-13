@@ -3016,7 +3016,7 @@ term_ime_set_cursor_rect(struct terminal *term, int x, int y, int width,
 }
 
 void
-term_osc8_open(struct terminal *term, const char *uri)
+term_osc8_open(struct terminal *term, uint64_t id, const char *uri)
 {
     if (unlikely(term->vt.osc8.begin.row < 0)) {
         /* It’s valid to switch from one URI to another without
@@ -3028,6 +3028,7 @@ term_osc8_open(struct terminal *term, const char *uri)
         .col = term->grid->cursor.point.col,
         .row = grid_row_absolute(term->grid, term->grid->cursor.point.row),
     };
+    term->vt.osc8.id = id;
     term->vt.osc8.uri = xstrdup(uri);
 }
 
@@ -3066,6 +3067,7 @@ term_osc8_close(struct terminal *term)
 
 done:
     free(term->vt.osc8.uri);
+    term->vt.osc8.id = 0;
     term->vt.osc8.uri = NULL;
     term->vt.osc8.begin = (struct coord){-1, -1};
 }
