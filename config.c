@@ -398,6 +398,25 @@ str_to_double(const char *s, double *res)
 }
 
 static bool
+str_to_wchars(const char *s, wchar_t **res, struct config *conf,
+              const char  *path, int lineno,
+              const char *section, const char *key)
+{
+    *res = NULL;
+
+    size_t chars = mbstowcs(NULL, s, 0);
+    if (chars == (size_t)-1) {
+        LOG_AND_NOTIFY_ERR("%s:%d: [%s]: %s: invalid string: %s",
+                           path, lineno, section, key, s);
+        return false;
+    }
+
+    *res = xmalloc((chars + 1) * sizeof(wchar_t));
+    mbstowcs(*res, s, chars + 1);
+    return true;
+}
+
+static bool
 str_to_color(const char *s, uint32_t *color, bool allow_alpha,
              struct config *conf, const char *path, int lineno,
              const char *section, const char *key)
@@ -712,18 +731,25 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "word-delimiters") == 0) {
-        size_t chars = mbstowcs(NULL, value, 0);
-        if (chars == (size_t)-1) {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: word-delimiters: invalid string: %s",
-                path, lineno, value);
+        wchar_t *word_delimiters;
+        if (!str_to_wchars(value, &word_delimiters, conf, path, lineno,
+                           "default", "word-delimiters"))
+        {
             return false;
         }
-
         free(conf->word_delimiters);
+        conf->word_delimiters = word_delimiters;
+    }
 
-        conf->word_delimiters = xmalloc((chars + 1) * sizeof(wchar_t));
-        mbstowcs(conf->word_delimiters, value, chars + 1);
+    else if (strcmp(key, "jump-label-letters") == 0) {
+        wchar_t *letters;
+        if (!str_to_wchars(value, &letters, conf, path, lineno,
+                           "default", "jump-label-letters"))
+        {
+            return false;
+        }
+        free(conf->jump_label_letters);
+        conf->jump_label_letters = letters;
     }
 
     else if (strcmp(key, "notify") == 0) {
@@ -2126,6 +2152,7 @@ config_load(struct config *conf, const char *conf_path,
         .title = xstrdup("foot"),
         .app_id = xstrdup("foot"),
         .word_delimiters = xwcsdup(L",│`|:\"'()[]{}<>"),
+        .jump_label_letters = xwcsdup(L"sadfjklewcmpgh"),
         .size = {
             .type = CONF_SIZE_PX,
             .width = 700,
@@ -2340,6 +2367,7 @@ config_free(struct config conf)
     free(conf.title);
     free(conf.app_id);
     free(conf.word_delimiters);
+    free(conf.jump_label_letters);
     free(conf.scrollback.indicator.text);
     free_spawn_template(&conf.notify);
     free_spawn_template(&conf.url_launch);

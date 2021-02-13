@@ -125,8 +125,8 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
         const size_t key_len = wcslen(it->item.key);
 
         if (key_len >= seq_len + 1 &&
-            wcsncmp(url->key, term->url_keys, seq_len) == 0 &&
-            url->key[seq_len] == wc)
+            wcsncasecmp(url->key, term->url_keys, seq_len) == 0 &&
+            towlower(url->key[seq_len]) == towlower(wc))
         {
             is_valid = true;
             if (key_len == seq_len + 1) {
@@ -353,11 +353,11 @@ wcscmp_qsort_wrapper(const void *_a, const void *_b)
 }
 
 static void
-generate_key_combos(size_t count, wchar_t *combos[static count])
+generate_key_combos(const struct config *conf,
+                    size_t count, wchar_t *combos[static count])
 {
-    /* vimium default */
-    static const wchar_t alphabet[] = L"sadfjklewcmpgh";
-    static const size_t alphabet_len = ALEN(alphabet) - 1;
+    const wchar_t *alphabet = conf->jump_label_letters;
+    const size_t alphabet_len = wcslen(alphabet);
 
     size_t hints_count = 1;
     wchar_t **hints = xmalloc(hints_count * sizeof(hints[0]));
@@ -410,14 +410,14 @@ generate_key_combos(size_t count, wchar_t *combos[static count])
 }
 
 void
-urls_assign_key_combos(url_list_t *urls)
+urls_assign_key_combos(const struct config *conf, url_list_t *urls)
 {
     const size_t count = tll_length(*urls);
     if (count == 0)
         return;
 
     wchar_t *combos[count];
-    generate_key_combos(count, combos);
+    generate_key_combos(conf, count, combos);
 
     size_t idx = 0;
     tll_foreach(*urls, it)

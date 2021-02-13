@@ -281,7 +281,7 @@ execute_binding(struct seat *seat, struct terminal *term,
             : URL_ACTION_LAUNCH;
 
         urls_collect(term, url_action, &term->urls);
-        urls_assign_key_combos(&term->urls);
+        urls_assign_key_combos(term->conf, &term->urls);
         urls_render(term);
         return true;
     }
