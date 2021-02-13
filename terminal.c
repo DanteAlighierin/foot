@@ -1102,6 +1102,9 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .blink = {.fd = -1},
         .vt = {
             .state = 0,  /* STATE_GROUND */
+            .osc8 = {
+                .begin = {-1, -1},
+            },
         },
         .colors = {
             .fg = conf->colors.fg,
@@ -1645,6 +1648,9 @@ term_reset(struct terminal *term, bool hard)
     free(term->vt.osc.data);
     memset(&term->vt, 0, sizeof(term->vt));
     term->vt.state = 0; /* GROUND */
+    term->vt.osc8.begin = (struct coord){-1, -1};
+    free(term->vt.osc8.uri);
+    term->vt.osc8.uri = NULL;
 
     if (term->grid == &term->alt) {
         term->grid = &term->normal;

@@ -155,12 +155,24 @@ struct vt {
         struct vt_param v[16];
         uint8_t idx;
     } params;
+
     uint32_t private; /* LSB=priv0, MSB=priv3 */
+
+    struct attributes attrs;
+    struct attributes saved_attrs;
+
     struct {
         uint8_t *data;
         size_t size;
         size_t idx;
     } osc;
+
+    /* Start coordinate for current OSC-8 URI */
+    struct {
+        struct coord begin;
+        char *uri;
+    } osc8;
+
     struct {
         uint8_t *data;
         size_t size;
@@ -168,8 +180,6 @@ struct vt {
         void (*put_handler)(struct terminal *term, uint8_t c);
         void (*unhook_handler)(struct terminal *term);
     } dcs;
-    struct attributes attrs;
-    struct attributes saved_attrs;
 };
 
 enum cursor_origin { ORIGIN_ABSOLUTE, ORIGIN_RELATIVE };
