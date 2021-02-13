@@ -42,20 +42,24 @@ activate_url(struct seat *seat, struct terminal *term, const struct url *url)
 
     char *scheme, *host, *path;
     if (uri_parse(url->url, strlen(url->url), &scheme, NULL, NULL,
-                  &host, NULL, &path, NULL, NULL) &&
-        strcmp(scheme, "file") == 0 &&
-        hostname_is_localhost(host))
+                  &host, NULL, &path, NULL, NULL))
     {
-        /*
-         * This is a file in *this* computer. Pass only the
-         * filename to the URL-launcher.
-         *
-         * I.e. strip the ‘file://user@host/’ prefix.
-         */
-        url_string = path;
+        if (strcmp(scheme, "file") == 0 && hostname_is_localhost(host)) {
+            /*
+             * This is a file in *this* computer. Pass only the
+             * filename to the URL-launcher.
+             *
+             * I.e. strip the ‘file://user@host/’ prefix.
+             */
+            url_string = path;
+        } else
+            free(path);
+
         free(scheme);
         free(host);
-    } else
+    }
+
+    if (url_string == NULL)
         url_string = xstrdup(url->url);
 
     switch (url->action) {
