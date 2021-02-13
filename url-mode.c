@@ -355,11 +355,42 @@ auto_detected(const struct terminal *term, enum url_action action, url_list_t *u
 
 UNIGNORE_WARNINGS
 
+static void
+osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
+{
+    for (int r = 0; r < term->rows; r++) {
+        const struct row *row = grid_row_in_view(term->grid, r);
+
+       if (row->extra == NULL)
+            continue;
+
+       tll_foreach(row->extra->uri_ranges, it) {
+           struct coord start = {
+               .col = it->item.start,
+               .row = r + term->grid->view,
+           };
+           struct coord end = {
+               .col = it->item.end,
+               .row = r + term->grid->view,
+           };
+           tll_push_back(
+               *urls,
+               ((struct url){
+                   .url = xstrdup(it->item.uri),
+                   .text = xwcsdup(L""),
+                   .start = start,
+                   .end = end,
+                   .action = action}));
+       }
+    }
+}
+
 void
 urls_collect(const struct terminal *term, enum url_action action, url_list_t *urls)
 {
     xassert(tll_length(term->urls) == 0);
     auto_detected(term, action, urls);
+    osc8_uris(term, action, urls);
 }
 
 static void url_destroy(struct url *url);
