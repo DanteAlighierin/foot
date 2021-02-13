@@ -2154,8 +2154,18 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
         grid_swap_row(term->grid, i - rows, i);
 
     /* Erase scrolled in lines */
-    for (int r = region.end - rows; r < region.end; r++)
-        erase_line(term, grid_row_and_alloc(term->grid, r));
+    for (int r = region.end - rows; r < region.end; r++) {
+        struct row *row = grid_row_and_alloc(term->grid, r);
+        if (unlikely(row->extra != NULL)) {
+            tll_foreach(row->extra->uri_ranges, it) {
+                free(it->item.uri);
+                tll_remove(row->extra->uri_ranges, it);
+            }
+            free(row->extra);
+            row->extra = NULL;
+        }
+        erase_line(term, row);
+    }
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
@@ -2222,8 +2232,18 @@ term_scroll_reverse_partial(struct terminal *term,
         grid_swap_row(term->grid, i, i - rows);
 
     /* Erase scrolled in lines */
-    for (int r = region.start; r < region.start + rows; r++)
-        erase_line(term, grid_row_and_alloc(term->grid, r));
+    for (int r = region.start; r < region.start + rows; r++) {
+        struct row *row = grid_row_and_alloc(term->grid, r);
+        if (unlikely(row->extra != NULL)) {
+            tll_foreach(row->extra->uri_ranges, it) {
+                free(it->item.uri);
+                tll_remove(row->extra->uri_ranges, it);
+            }
+            free(row->extra);
+            row->extra = NULL;
+        }
+        erase_line(term, row);
+    }
 
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);

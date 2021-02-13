@@ -33,6 +33,7 @@ grid_row_alloc(int cols, bool initialize)
     struct row *row = xmalloc(sizeof(*row));
     row->dirty = false;
     row->linebreak = false;
+    row->extra = NULL;
 
     if (initialize) {
         row->cells = xcalloc(cols, sizeof(row->cells[0]));
@@ -50,6 +51,14 @@ grid_row_free(struct row *row)
     if (row == NULL)
         return;
 
+    if (row->extra != NULL) {
+        tll_foreach(row->extra->uri_ranges, it) {
+            free(it->item.uri);
+            tll_remove(row->extra->uri_ranges, it);
+        }
+    }
+
+    free(row->extra);
     free(row->cells);
     free(row);
 }

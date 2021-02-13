@@ -86,10 +86,21 @@ struct composed {
     uint8_t count;
 };
 
+struct row_uri_range {
+    int start;
+    int end;
+    char *uri;
+};
+
+struct row_data {
+    tll(struct row_uri_range) uri_ranges;
+};
+
 struct row {
     struct cell *cells;
     bool dirty;
     bool linebreak;
+    struct row_data *extra;
 };
 
 struct sixel {
