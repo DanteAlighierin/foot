@@ -125,8 +125,8 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
         const size_t key_len = wcslen(it->item.key);
 
         if (key_len >= seq_len + 1 &&
-            wcsncmp(url->key, term->url_keys, seq_len) == 0 &&
-            url->key[seq_len] == wc)
+            wcsncasecmp(url->key, term->url_keys, seq_len) == 0 &&
+            towlower(url->key[seq_len]) == towlower(wc))
         {
             is_valid = true;
             if (key_len == seq_len + 1) {
