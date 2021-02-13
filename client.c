@@ -10,6 +10,7 @@
 
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/stat.h>
 
 #define LOG_MODULE "foot-client"
 #define LOG_ENABLE_DBG 0
@@ -125,9 +126,15 @@ main(int argc, char *const *argv)
             login_shell = true;
             break;
 
-        case 'D':
+        case 'D': {
+            struct stat st;
+            if (stat(optarg, &st) < 0 || !(st.st_mode & S_IFDIR)) {
+                fprintf(stderr, "error: %s: not a directory\n", optarg);
+                return EXIT_FAILURE;
+            }
             custom_cwd = optarg;
             break;
+        }
 
         case 'w':
             if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
