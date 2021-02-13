@@ -11,6 +11,7 @@
 #include "selection.h"
 #include "spawn.h"
 #include "terminal.h"
+#include "uri.h"
 #include "util.h"
 #include "xmalloc.h"
 
@@ -36,42 +37,55 @@ execute_binding(struct seat *seat, struct terminal *term,
 static void
 activate_url(struct seat *seat, struct terminal *term, const struct url *url)
 {
-    size_t chars = wcstombs(NULL, url->url, 0);
+    char *url_string = NULL;
 
-    if (chars != (size_t)-1) {
-        char *url_utf8 = xmalloc(chars + 1);
-        wcstombs(url_utf8, url->url, chars + 1);
+    char *scheme, *host, *path;
+    if (uri_parse(url->url, strlen(url->url), &scheme, NULL, NULL,
+                  &host, NULL, &path, NULL, NULL) &&
+        strcmp(scheme, "file") == 0 &&
+        hostname_is_localhost(host))
+    {
+        /*
+         * This is a file in *this* computer. Pass only the
+         * filename to the URL-launcher.
+         *
+         * I.e. strip the ‘file://user@host/’ prefix.
+         */
+        url_string = path;
+        free(scheme);
+        free(host);
+    } else
+        url_string = xstrdup(url->url);
 
-        switch (url->action) {
-        case URL_ACTION_COPY:
-            if (text_to_clipboard(seat, term, url_utf8, seat->kbd.serial)) {
-                /* Now owned by our clipboard “manager” */
-                url_utf8 = NULL;
-            }
-            break;
-
-        case URL_ACTION_LAUNCH: {
-            size_t argc;
-            char **argv;
-
-            if (spawn_expand_template(
-                    &term->conf->url_launch, 1,
-                    (const char *[]){"url"},
-                    (const char *[]){url_utf8},
-                    &argc, &argv))
-            {
-                spawn(term->reaper, term->cwd, argv, -1, -1, -1);
-
-                for (size_t i = 0; i < argc; i++)
-                    free(argv[i]);
-                free(argv);
-            }
-            break;
+    switch (url->action) {
+    case URL_ACTION_COPY:
+        if (text_to_clipboard(seat, term, url_string, seat->kbd.serial)) {
+            /* Now owned by our clipboard “manager” */
+            url_string = NULL;
         }
-        }
+        break;
 
-        free(url_utf8);
+    case URL_ACTION_LAUNCH: {
+        size_t argc;
+        char **argv;
+
+        if (spawn_expand_template(
+                &term->conf->url_launch, 1,
+                (const char *[]){"url"},
+                (const char *[]){url_string},
+                &argc, &argv))
+        {
+            spawn(term->reaper, term->cwd, argv, -1, -1, -1);
+
+            for (size_t i = 0; i < argc; i++)
+                free(argv[i]);
+            free(argv);
+        }
+        break;
     }
+    }
+
+    free(url_string);
 }
 
 void
@@ -313,14 +327,20 @@ auto_detected(const struct terminal *term, enum url_action action, url_list_t *u
                     start.row += term->grid->view;
                     end.row += term->grid->view;
 
-                    tll_push_back(
-                        *urls,
-                        ((struct url){
-                            .url = xwcsdup(url),
-                            .text = xwcsdup(L""),
-                            .start = start,
-                            .end = end,
-                            .action = action}));
+                    size_t chars = wcstombs(NULL, url, 0);
+                    if (chars != (size_t)-1) {
+                        char *url_utf8 = xmalloc((chars + 1) * sizeof(wchar_t));
+                        wcstombs(url_utf8, url, chars + 1);
+
+                        tll_push_back(
+                            *urls,
+                            ((struct url){
+                                .url = url_utf8,
+                                .text = xwcsdup(L""),
+                                .start = start,
+                                .end = end,
+                                .action = action}));
+                    }
 
                     state = STATE_PROTOCOL;
                     len = 0;
@@ -425,13 +445,10 @@ urls_assign_key_combos(const struct config *conf, url_list_t *urls)
 
 #if defined(_DEBUG) && LOG_ENABLE_DBG
     tll_foreach(*urls, it) {
-        char url[1024];
-        wcstombs(url, it->item.url, sizeof(url) - 1);
-
         char key[32];
         wcstombs(key, it->item.key, sizeof(key) - 1);
 
-        LOG_DBG("URL: %s (%s)", url, key);
+        LOG_DBG("URL: %s (%s)", it->item.url, key);
     }
 #endif
 }
