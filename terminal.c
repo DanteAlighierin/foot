@@ -3047,6 +3047,12 @@ term_osc8_close(struct terminal *term)
         .row = grid_row_absolute(term->grid, term->grid->cursor.point.row),
     };
 
+    /* end is *inclusive */
+    if (--end.col < 0) {
+        end.row--;
+        end.col = term->cols - 1;
+    }
+
     int r = start.row;
     int start_col = start.col;
     do {
