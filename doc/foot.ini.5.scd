@@ -214,6 +214,10 @@ in this order:
 	text. Note that whitespace characters are _always_ word
 	delimiters, regardless of this setting. Default: _,│`|:"'()[]{}<>_
 
+*jump-label-letters*
+	String of characters that will be when generating key sequences
+	for URL jump labels. Default: _sadfjklewcmpgh_.
+
 *notify*
 	Command to execute to display a notification. _${title}_ and
 	_${body}_ will be replaced with the notification's actual _title_
