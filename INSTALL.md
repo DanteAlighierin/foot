@@ -48,6 +48,12 @@ subprojects.
 [^1]: can also be built as subprojects, in which case they are
     statically linked.
 
+If you are packaging foot, you may also want to consider adding the
+following **optional** dependencies:
+
+* libnotify: desktop notifications by default uses `notify-send`.
+* xdg-utils: URLs are by default launched with `xdg-open`.
+
 
 ### Building
 
