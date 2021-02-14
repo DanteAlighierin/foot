@@ -114,6 +114,27 @@ grid_resize_without_reflow(
                 sixel_destroy(&it->item);
             tll_remove(untranslated_sixels, it);
         }
+
+        /* Copy URI ranges, truncating them if necessary */
+        if (old_row->extra == NULL)
+            continue;
+
+        new_row->extra = xcalloc(1, sizeof(*new_row->extra));
+        tll_foreach(old_row->extra->uri_ranges, it) {
+            if (it->item.start >= new_rows) {
+                /* The whole range is truncated */
+                continue;
+            }
+
+            struct row_uri_range range = {
+                .start = it->item.start,
+                .end = min(it->item.end, new_cols - 1),
+                .id = it->item.id,
+                .uri = xstrdup(it->item.uri),
+            };
+
+            tll_push_back(new_row->extra->uri_ranges, range);
+        }
     }
 
     /* Clear "new" lines */
@@ -122,7 +143,6 @@ grid_resize_without_reflow(
         new_grid[(new_offset + r) & (new_rows - 1)] = new_row;
 
         memset(new_row->cells, 0, sizeof(struct cell) * new_cols);
-        new_row->linebreak = false;
         new_row->dirty = true;
     }
 
