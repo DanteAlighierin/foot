@@ -2527,7 +2527,6 @@ render_urls(struct terminal *term)
 
     tll_foreach(win->urls, it) {
         const struct url *url = it->item.url;
-        const wchar_t *text = url->text;
         const wchar_t *key = url->key;
         const size_t entered_key_len = wcslen(term->url_keys);
 
@@ -2563,22 +2562,13 @@ render_urls(struct terminal *term)
             continue;
         }
 
-        size_t text_len = wcslen(text);
-        size_t chars = wcslen(key) + (text_len > 0 ? 3 + text_len : 0);
+        size_t chars = wcslen(key);
 
         const size_t max_chars = 50;
         chars = min(chars, max_chars);
 
         wchar_t label[chars + 2];
-        if (text_len == 0)
-            wcscpy(label, key);
-        else {
-            int count = swprintf(label, chars + 1, L"%ls - %ls", key, text);
-            if (count >= max_chars) {
-                label[max_chars] = L'…';
-                label[max_chars + 1] = L'\0';
-            }
-        }
+        wcscpy(label, key);
 
         for (size_t i = 0; i < wcslen(key); i++)
             label[i] = towupper(label[i]);

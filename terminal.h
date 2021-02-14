@@ -252,7 +252,6 @@ enum url_action { URL_ACTION_COPY, URL_ACTION_LAUNCH };
 struct url {
     uint64_t id;
     char *url;
-    wchar_t *text;
     wchar_t *key;
     struct coord start;
     struct coord end;

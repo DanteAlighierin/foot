@@ -16,6 +16,8 @@
 #include "util.h"
 #include "xmalloc.h"
 
+static void url_destroy(struct url *url);
+
 static bool
 execute_binding(struct seat *seat, struct terminal *term,
                 enum bind_action_url action, uint32_t serial)
@@ -346,7 +348,6 @@ auto_detected(const struct terminal *term, enum url_action action,
                             ((struct url){
                                 .id = (uint64_t)rand() << 32 | rand(),
                                 .url = url_utf8,
-                                .text = xwcsdup(L""),
                                 .start = start,
                                 .end = end,
                                 .action = action}));
@@ -388,7 +389,6 @@ osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
                ((struct url){
                    .id = it->item.id,
                    .url = xstrdup(it->item.uri),
-                   .text = xwcsdup(L""),
                    .start = start,
                    .end = end,
                    .action = action}));
@@ -409,9 +409,7 @@ remove_duplicates(url_list_t *urls)
                 outer->item.end.row == inner->item.end.row &&
                 outer->item.end.col == inner->item.end.col)
             {
-                free(inner->item.url);
-                free(inner->item.text);
-                free(inner->item.key);
+                url_destroy(&inner->item);
                 tll_remove(*urls, inner);
             }
         }
@@ -426,8 +424,6 @@ urls_collect(const struct terminal *term, enum url_action action, url_list_t *ur
     auto_detected(term, action, urls);
     remove_duplicates(urls);
 }
-
-static void url_destroy(struct url *url);
 
 static int
 wcscmp_qsort_wrapper(const void *_a, const void *_b)
@@ -595,7 +591,6 @@ static void
 url_destroy(struct url *url)
 {
     free(url->url);
-    free(url->text);
     free(url->key);
 }
 
