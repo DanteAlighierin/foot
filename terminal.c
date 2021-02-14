@@ -3047,6 +3047,11 @@ term_osc8_close(struct terminal *term)
         .row = grid_row_absolute(term->grid, term->grid->cursor.point.row),
     };
 
+    if (start.row == end.row && start.col == end.col) {
+        /* Zero-length URL, e.g: \E]8;;http://foo\E\\\E]8;;\E\\ */
+        goto done;
+    }
+
     /* end is *inclusive */
     if (--end.col < 0) {
         end.row--;
