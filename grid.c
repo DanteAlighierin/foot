@@ -119,7 +119,6 @@ grid_resize_without_reflow(
         if (old_row->extra == NULL)
             continue;
 
-        new_row->extra = xcalloc(1, sizeof(*new_row->extra));
         tll_foreach(old_row->extra->uri_ranges, it) {
             if (it->item.start >= new_rows) {
                 /* The whole range is truncated */
@@ -133,6 +132,8 @@ grid_resize_without_reflow(
                 .uri = xstrdup(it->item.uri),
             };
 
+            if (new_row->extra == NULL)
+                new_row->extra = xcalloc(1, sizeof(*new_row->extra));
             tll_push_back(new_row->extra->uri_ranges, range);
         }
     }
