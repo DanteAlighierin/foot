@@ -3049,13 +3049,25 @@ term_osc8_close(struct terminal *term)
     do {
         int end_col = r == end.row ? end.col : term->cols - 1;
 
+        struct row *row = term->grid->rows[r];
+
+        switch (term->conf->osc8_underline) {
+        case OSC8_UNDERLINE_ALWAYS:
+            for (int c = start_col; c <= end_col; c++)
+                row->cells[c].attrs.url = true;
+            break;
+
+        case OSC8_UNDERLINE_URL_MODE:
+            break;
+        }
+
         struct row_uri_range range = {
             .start = start_col,
             .end = end_col,
             .id = term->vt.osc8.id,
             .uri = xstrdup(term->vt.osc8.uri),
         };
-        grid_row_add_uri_range(term->grid->rows[r], range);
+        grid_row_add_uri_range(row, range);
         start_col = 0;
     } while (r++ != end.row);
 

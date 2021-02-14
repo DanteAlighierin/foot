@@ -791,6 +791,19 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         return false;
     }
 
+    else if (strcmp(key, "osc8-underline") == 0) {
+        if (strcmp(value, "url-mode") == 0)
+            conf->osc8_underline = OSC8_UNDERLINE_URL_MODE;
+        else if (strcmp(value, "always") == 0)
+            conf->osc8_underline = OSC8_UNDERLINE_URL_MODE;
+        else {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%u: [default]: %s: invalid 'osc8-underline'; "
+                "must be one of 'url-mode', or 'always'", path, lineno, value);
+            return false;
+        }
+    }
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [default]: %s: invalid key", path, lineno, key);
         return false;
@@ -2242,6 +2255,8 @@ config_load(struct config *conf, const char *conf_path,
             .raw_cmd = NULL,
             .argv = NULL,
         },
+
+        .osc8_underline = OSC8_UNDERLINE_ALWAYS,
 
         .tweak = {
             .fcft_filter = FCFT_SCALING_FILTER_LANCZOS3,

@@ -241,12 +241,24 @@ in this order:
 	Clipboard target to automatically copy selected text to. One of
 	*none*, *primary*, *clipboard* or *both*. Default: _primary_.
 
-
 *workers*
 	Number of threads to use for rendering. Set to 0 to disable
 	multithreading. Default: the number of available logical CPUs
 	(including SMT). Note that this is not always the best value. In
 	some cases, the number of physical _cores_ is better.
+
+*osc8-underline*
+	When to underline OSC-8 URLs. Possible values are *url-mode* and
+	*always*.
+	
+	When set to *url-mode*, OSC-8 URLs are only highlighted in URL
+	mode, just like auto-detected URLs.
+	
+	When set to *always*, OSC-8 URLs are always highlighted,
+	regardless of their other attributes (bold, italic etc). Note that
+	this does _not_ make them clickable.
+	
+	Default: _url-mode_
 
 
 # SECTION: scrollback

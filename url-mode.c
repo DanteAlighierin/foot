@@ -374,6 +374,18 @@ UNIGNORE_WARNINGS
 static void
 osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
 {
+    bool dont_touch_url_attr = false;
+
+    switch (term->conf->osc8_underline) {
+    case OSC8_UNDERLINE_URL_MODE:
+        dont_touch_url_attr = false;
+        break;
+
+    case OSC8_UNDERLINE_ALWAYS:
+        dont_touch_url_attr = true;
+        break;
+    }
+
     for (int r = 0; r < term->rows; r++) {
         const struct row *row = grid_row_in_view(term->grid, r);
 
@@ -396,7 +408,8 @@ osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
                    .url = xstrdup(it->item.uri),
                    .start = start,
                    .end = end,
-                   .action = action}));
+                   .action = action,
+                   .url_mode_dont_change_url_attr = dont_touch_url_attr}));
        }
     }
 }
@@ -542,6 +555,9 @@ urls_assign_key_combos(const struct config *conf, url_list_t *urls)
 static void
 tag_cells_for_url(struct terminal *term, const struct url *url, bool value)
 {
+    if (url->url_mode_dont_change_url_attr)
+        return;
+
     const struct coord *start = &url->start;
     const struct coord *end = &url->end;
 
