@@ -119,6 +119,7 @@ static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
 static const char *const url_binding_action_map[] = {
     [BIND_ACTION_URL_NONE] = NULL,
     [BIND_ACTION_URL_CANCEL] = "cancel",
+    [BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL] = "toggle-url-visible",
 };
 
 static_assert(ALEN(url_binding_action_map) == BIND_ACTION_URL_COUNT,
@@ -2107,6 +2108,7 @@ add_default_url_bindings(struct config *conf)
     add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_g);
     add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_d);
     add_binding(BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape);
+    add_binding(BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL, ctrl, XKB_KEY_t);
 
 #undef add_binding
 }

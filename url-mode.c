@@ -30,6 +30,11 @@ execute_binding(struct seat *seat, struct terminal *term,
         urls_reset(term);
         return true;
 
+    case BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL:
+         term->urls_show_uri_on_jump_label = !term->urls_show_uri_on_jump_label;
+        render_refresh_urls(term);
+        return true;
+
     case BIND_ACTION_URL_COUNT:
         return false;
 
@@ -613,6 +618,7 @@ urls_reset(struct terminal *term)
         tll_remove(term->urls, it);
     }
 
+    term->urls_show_uri_on_jump_label = false;
     memset(term->url_keys, 0, sizeof(term->url_keys));
     render_refresh(term);
 }

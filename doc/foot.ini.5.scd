@@ -610,6 +610,20 @@ mode. The syntax is exactly the same as the regular **key-bindings**.
 	Exits URL mode without opening an URL. Default: _Control+g
 	Control+d Escape_.
 
+*toggle-url-visible*
+	By default, the jump label only shows the key sequence required to
+	activate it. This is fine as long as the URL is visible in the
+	original text.
+	
+	But with e.g. OSC-8 URLs (the terminal version of HTML anchors,
+	i.e. "links"), the text on the screen can be something completey
+	different than the URL.
+	
+	This action toggles between showing and hiding the URL on the jump
+	label.
+	
+	Default: _Control+t_
+
 
 # SECTION: mouse-bindings
 

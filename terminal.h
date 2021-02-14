@@ -539,6 +539,7 @@ struct terminal {
 
     url_list_t urls;
     wchar_t url_keys[5];
+    bool urls_show_uri_on_jump_label;
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     struct {
