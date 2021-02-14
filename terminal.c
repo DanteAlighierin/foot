@@ -3018,7 +3018,7 @@ term_ime_set_cursor_rect(struct terminal *term, int x, int y, int width,
 void
 term_osc8_open(struct terminal *term, uint64_t id, const char *uri)
 {
-    if (unlikely(term->vt.osc8.begin.row < 0)) {
+    if (unlikely(term->vt.osc8.begin.row >= 0)) {
         /* It’s valid to switch from one URI to another without
          * closing the first one */
         term_osc8_close(term);
