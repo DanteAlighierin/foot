@@ -3049,17 +3049,13 @@ term_osc8_close(struct terminal *term)
     do {
         int end_col = r == end.row ? end.col : term->cols - 1;
 
-        struct row *row = term->grid->rows[r];
-        if (row->extra == NULL)
-            row->extra = xcalloc(1, sizeof(*row->extra));
-
         struct row_uri_range range = {
             .start = start_col,
             .end = end_col,
             .id = term->vt.osc8.id,
             .uri = xstrdup(term->vt.osc8.uri),
         };
-        tll_push_back(row->extra->uri_ranges, range);
+        grid_row_add_uri_range(term->grid->rows[r], range);
         start_col = 0;
     } while (r++ != end.row);
 
