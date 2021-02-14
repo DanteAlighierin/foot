@@ -2108,7 +2108,7 @@ add_default_url_bindings(struct config *conf)
     add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_g);
     add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_d);
     add_binding(BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape);
-    add_binding(BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL, ctrl, XKB_KEY_t);
+    add_binding(BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL, none, XKB_KEY_t);
 
 #undef add_binding
 }

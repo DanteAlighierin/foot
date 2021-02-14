@@ -622,7 +622,7 @@ mode. The syntax is exactly the same as the regular **key-bindings**.
 	This action toggles between showing and hiding the URL on the jump
 	label.
 	
-	Default: _Control+t_
+	Default: _t_.
 
 
 # SECTION: mouse-bindings
