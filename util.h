@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stdint.h>
 #include <threads.h>
 
 #define ALEN(v) (sizeof(v) / sizeof((v)[0]))
@@ -20,4 +21,17 @@ thrd_err_as_string(int thrd_err)
     }
 
     return "unknown error";
+}
+
+static inline uint64_t
+sdbm_hash(const char *s)
+{
+    uint64_t hash = 0;
+
+    for (; *s != '\0'; s++) {
+        int c = *s;
+        hash = c + (hash << 6) + (hash << 16) - hash;
+    }
+
+    return hash;
 }
