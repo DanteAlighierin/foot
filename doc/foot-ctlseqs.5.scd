@@ -6,6 +6,7 @@ This document describes all the control sequences supported by foot.
 
 - CC0 - 7-bit control sequences
 - CC1 - 8-bit control sequences (*not supported*)
+- Sequences beginning with ESC
 - CSI - Control Sequence Introducer
 - OSC - Operating System Command
 - DCS - Device Control String
@@ -47,6 +48,80 @@ This document describes all the control sequences supported by foot.
 # CC1 - 8-bit control sequences
 
 Foot does not support any CC1 control sequences.
+
+# Sequences beginning with ESC
+
+Note: this table excludes sequences where ESC is part of a 7-bit
+equivalent to 8-bit C1 controls.
+
+[[ *Sequence*
+:[ *Name*
+:[ *Origin*
+:[ *Description*
+|  \\E 7
+:  DECSC
+:  VT100
+:  Save cursor position.
+|  \\E 8
+:  DECRC
+:  VT100
+:  Restore cursor position.
+|  \\E c
+:  RIS
+:  VT100
+:  Reset terminal to initial state.
+|  \\E D
+:  IND
+:  VT100
+:  Line feed; move the cursor down one step, or scroll content up if
+   at the bottom margin.
+|  \\E E
+:  NEL
+:  VT100
+:  Next line; move the cursor down one step, and to the first
+   column. Content is scrolled up if at the bottom line.
+|  \\E H
+:  HTS
+:  VT100
+:  Set one horizontal tab stop at the current position.
+|  \\E M
+:  RI
+:  VT100
+:  Reverse index; move the cursor up one step, or scroll content down
+   if at the top margin.
+|  \\E N
+:  SS2
+:  VT220
+:  Single shift G2; select the _G2_ character set.
+|  \\E O
+:  SS3
+:  VT220
+:  Single shift G3; select the _G3_ character set.
+|  \\E =
+:  DECKPAM
+:  VT100
+:  Switch keypad to _application_ mode.
+|  \\E >
+:  DECKPNM
+:  VT100
+:  Switch keypad to _numeric_ mode.
+|  \\E ( _C_
+:  SCS
+:  VT100
+:  Designate G0 character set. Supported values for _C_ are: *0* (_DEC
+   Special Character and Line Drawing Set_), and *B* (_USASCII_).
+|  \\E ) _C_
+:  SCS
+:  VT100
+:  Designate G1 character set. Same supported values for _C_ as in _G0_.
+|  \\E \* _C_
+:  SCS
+:  VT220
+:  Designate G2 character set. Same supported values for _C_ as in _G0_.
+|  \\E + _C_
+:  SCS
+:  VT220
+:  Designate G3 character set. Same supported values for _C_ as in _G0_.
 
 # CSI
 
