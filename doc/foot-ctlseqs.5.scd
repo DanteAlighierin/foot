@@ -252,49 +252,65 @@ above categories.
 All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 
 [[ *Sequence*
+:[ *Origin*
 :[ *Description*
 |  \\E] 0 ; _Pt_ ST
+:  xterm
 :  Set window icon and title to _Pt_ (foot does not support setting the
    icon)
 |  \\E] 2 ; _Pt_ ST
+:  xterm
 :  Set window title to _Pt_
 |  \\E] 4 ; _c_ ; _spec_ ST
+:  xterm
 :  Change color number _c_ to _spec_, where _spec_ is a color in
    *XParseColor* format. foot only supports RGB colors; either
    *rgb:<red>/<green>/<blue>*, or the legacy format (*#rgb*).
 |  \\E] 7 ; _Uri_ ST
+:  iTerm2
 :  Update the terminal's current working directory. Newly spawned
    terminals will launch in this directory. _Uri_ must be on the format
    *file://<hostname>/<path>*. *hostname* must refer to your local host.
 |  \\E] 10 ; _spec_ ST
+:  xterm
 :  Change the default foreground color to _spec_, a color in
    *XParseColor* format.
 |  \\E] 11 ; _spec_ ST
+:  xterm
 :  Change the default background color to _spec_, a color in
    *XParseColor* format.
 |  \\E] 12 ; _spec_ ST
+:  xterm
 :  Change cursor color to _spec_, a color in *XParseColor* format.
 |  \\E] 52 ; _Pc_ ; ? ST
+:  xterm
 :  Send clipboard data. _Pc_ can be either *c*, *s* or *p*. *c* uses
    the clipboard as source, and *s* and *p* uses the primary
    selection. The response is *OSC 52 ; Pc ; <base64-encoded data>*,
    where _Pc_ indicates the source used.
 |  \\E] 52 ; _Pc_ ; _Pd_ ST
+:  xterm
 :  Copy _Pd_ (base64 encoded text) to the clipboard. _Pc_ indicates the
    target: *c* targets the clipboard and *s* and *p* the primary
    selection.
 |  \\E] 104 [; _c_] ST
+:  xterm
 :  Reset color number _c_, or all colors (excluding the default
    foreground/background colors) if _c_ is omitted.
 |  \\E] 110 ST
+:  xterm
 :  Reset default foreground color
 |  \\E] 111 ST
+:  xterm
 :  Reset default background color
 |  \\E] 112 ST
+:  xterm
 :  Reset cursor color
 |  \\E] 555 ST
+:  foot
 :  Flash the entire terminal (foot extension)
-|  \\E] 777 ; notify ; _summary_ ; _message_ ST
+|  \\E] 777;notify;_title_;_msg_ ST
+:  urxvt
 :  Desktop notification, uses *notify* in *foot.ini*(5).
 
 # DCS
