@@ -16,6 +16,7 @@
 #include "selection.h"
 #include "terminal.h"
 #include "uri.h"
+#include "util.h"
 #include "vt.h"
 #include "xmalloc.h"
 #include "xsnprintf.h"
@@ -409,8 +410,6 @@ osc_uri(struct terminal *term, char *string)
     const char *uri = params_end + 1;
     uint64_t id = (uint64_t)rand() << 32 | rand();
 
-    LOG_DBG("params=%s, URI=%s", params, uri);
-
     char *ctx = NULL;
     for (const char *key_value = strtok_r(params, ":", &ctx);
          key_value != NULL;
@@ -424,11 +423,12 @@ osc_uri(struct terminal *term, char *string)
         *operator = '\0';
 
         const char *value = operator + 1;
-        LOG_DBG("param: %s=%s", key, value);
 
         if (strcmp(key, "id") == 0)
-            id = (uintptr_t)value;
+            id = sdbm_hash(value);
     }
+
+    LOG_DBG("OSC-8: URL=%s, id=%" PRIu64, uri, id);
 
     if (uri[0] == '\0')
         term_osc8_close(term);
