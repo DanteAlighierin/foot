@@ -49,6 +49,10 @@ terminal has terminated).
 *-L*,*--login-shell*
 	Start a login shell, by prepending a '-' to argv[0].
 
+*-D*,*--working-directory*=_DIR_
+	Initial working directory for the client application. Default:
+	_CWD of footclient_.
+
 *-s*,*--server-socket*=_PATH_
 	Connect to _PATH_ instead of
 	*$XDG\_RUNTIME\_DIR/foot-$WAYLAND\_DISPLAY.sock*.

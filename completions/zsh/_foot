@@ -11,6 +11,7 @@ _arguments \
     '(-m --maximized)'{-m,--maximized}'[start in maximized mode]' \
     '(-F --fullscreen)'{-F,--fullscreen}'[start in fullscreen mode]' \
     '(-L --login-shell)'{-L,--login-shell}'[start shell as a login shell]' \
+    '(-D --working-directory)'{-D,--working-directory}'[initial working directory for the client application (CWD)]:working_directory:_files' \
     '(-w --window-size-pixels)'{-w,--window-size-pixels}'[window WIDTHxHEIGHT, in pixels (700x500)]:size_pixels:()' \
     '(-W --window-size-chars)'{-W,--window-size-chars}'[window WIDTHxHEIGHT, in characters (not set)]:size_chars:()' \
     '(-s --server)'{-s,--server}'[run as server; open terminals by running footclient]:server:_files' \

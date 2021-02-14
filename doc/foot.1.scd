@@ -69,8 +69,12 @@ the foot command line
 	Start in fullscreen mode. If both *--maximized* and *--fullscreen*
 	are specified, the _last_ one takes precedence.
 
-*--login-shell*
+*-L*,*--login-shell*
 	Start a login shell, by prepending a '-' to argv[0].
+
+*-D*,*--working-directory*=_DIR_
+	Initial working directory for the client application. Default:
+	_CWD of foot_.
 
 *-s*,*--server*[=_PATH_]
 	Run as a server. In this mode, a single foot instance hosts

@@ -8,6 +8,7 @@ complete -c foot -x -s a -l app-id                                              
 complete -c foot    -s m -l maximized                                                                 -d "start in maximized mode"
 complete -c foot    -s F -l fullscreen                                                                -d "start in fullscreen mode"
 complete -c foot    -s L -l login-shell                                                               -d "start shell as a login shell"
+complete -c foot -F -s D -l working-directory                                                         -d "initial working directory for the client application (CWD)"
 complete -c foot -x -s w -l window-size-pixels                                                        -d "window WIDTHxHEIGHT, in pixels (700x500)"
 complete -c foot -x -s W -l window-size-chars                                                         -d "window WIDTHxHEIGHT, in characters (not set)"
 complete -c foot -F -s s -l server                                                                    -d "run as server; open terminals by running footclient"

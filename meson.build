@@ -181,7 +181,7 @@ executable(
   'spawn.c', 'spawn.h',
   'tokenize.c', 'tokenize.h',
   'url-mode.c', 'url-mode.h',
-  'user-notification.h',
+  'user-notification.c', 'user-notification.h',
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
   dependencies: [math, threads, libepoll, pixman, wayland_client, wayland_cursor, xkb, fontconfig,
