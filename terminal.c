@@ -2162,14 +2162,7 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     /* Erase scrolled in lines */
     for (int r = region.end - rows; r < region.end; r++) {
         struct row *row = grid_row_and_alloc(term->grid, r);
-        if (unlikely(row->extra != NULL)) {
-            tll_foreach(row->extra->uri_ranges, it) {
-                free(it->item.uri);
-                tll_remove(row->extra->uri_ranges, it);
-            }
-            free(row->extra);
-            row->extra = NULL;
-        }
+        grid_row_reset_extra(row);
         erase_line(term, row);
     }
 
@@ -2240,14 +2233,7 @@ term_scroll_reverse_partial(struct terminal *term,
     /* Erase scrolled in lines */
     for (int r = region.start; r < region.start + rows; r++) {
         struct row *row = grid_row_and_alloc(term->grid, r);
-        if (unlikely(row->extra != NULL)) {
-            tll_foreach(row->extra->uri_ranges, it) {
-                free(it->item.uri);
-                tll_remove(row->extra->uri_ranges, it);
-            }
-            free(row->extra);
-            row->extra = NULL;
-        }
+        grid_row_reset_extra(row);
         erase_line(term, row);
     }
 
