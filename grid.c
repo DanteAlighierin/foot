@@ -588,3 +588,12 @@ grid_resize_and_reflow(
 
     tll_free(tracking_points);
 }
+
+void
+grid_row_add_uri_range(struct row *row, struct row_uri_range range)
+{
+    if (row->extra == NULL)
+        row->extra = xcalloc(1, sizeof(*row->extra));
+
+    tll_push_back(row->extra->uri_ranges, range);
+}

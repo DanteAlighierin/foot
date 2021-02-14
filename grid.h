@@ -73,6 +73,8 @@ grid_row_in_view(struct grid *grid, int row_no)
     return row;
 }
 
+void grid_row_add_uri_range(struct row *row, struct row_uri_range range);
+
 static inline void
 grid_row_reset_extra(struct row *row)
 {
