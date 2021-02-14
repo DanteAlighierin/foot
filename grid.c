@@ -51,13 +51,7 @@ grid_row_free(struct row *row)
     if (row == NULL)
         return;
 
-    if (row->extra != NULL) {
-        tll_foreach(row->extra->uri_ranges, it) {
-            free(it->item.uri);
-            tll_remove(row->extra->uri_ranges, it);
-        }
-    }
-
+    grid_row_reset_extra(row);
     free(row->extra);
     free(row->cells);
     free(row);
