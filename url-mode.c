@@ -396,12 +396,35 @@ osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
     }
 }
 
+static void
+remove_duplicates(url_list_t *urls)
+{
+    tll_foreach(*urls, outer) {
+        tll_foreach(*urls, inner) {
+            if (outer == inner)
+                continue;
+
+            if (outer->item.start.row == inner->item.start.row &&
+                outer->item.start.col == inner->item.start.col &&
+                outer->item.end.row == inner->item.end.row &&
+                outer->item.end.col == inner->item.end.col)
+            {
+                free(inner->item.url);
+                free(inner->item.text);
+                free(inner->item.key);
+                tll_remove(*urls, inner);
+            }
+        }
+    }
+}
+
 void
 urls_collect(const struct terminal *term, enum url_action action, url_list_t *urls)
 {
     xassert(tll_length(term->urls) == 0);
-    auto_detected(term, action, urls);
     osc8_uris(term, action, urls);
+    auto_detected(term, action, urls);
+    remove_duplicates(urls);
 }
 
 static void url_destroy(struct url *url);
