@@ -72,3 +72,18 @@ grid_row_in_view(struct grid *grid, int row_no)
     xassert(row != NULL);
     return row;
 }
+
+static inline void
+grid_row_reset_extra(struct row *row)
+{
+    if (likely(row->extra == NULL))
+        return;
+
+    tll_foreach(row->extra->uri_ranges, it) {
+        free(it->item.uri);
+        tll_remove(row->extra->uri_ranges, it);
+    }
+
+    free(row->extra);
+    row->extra = NULL;
+}
