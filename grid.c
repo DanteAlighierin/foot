@@ -580,11 +580,16 @@ grid_resize_and_reflow(
     tll_free(tracking_points);
 }
 
-void
-grid_row_add_uri_range(struct row *row, struct row_uri_range range)
+static void
+ensure_row_has_extra_data(struct row *row)
 {
     if (row->extra == NULL)
         row->extra = xcalloc(1, sizeof(*row->extra));
+}
 
+void
+grid_row_add_uri_range(struct row *row, struct row_uri_range range)
+{
+    ensure_row_has_extra_data(row);
     tll_push_back(row->extra->uri_ranges, range);
 }
