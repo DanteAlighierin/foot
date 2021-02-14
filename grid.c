@@ -131,10 +131,7 @@ grid_resize_without_reflow(
                 .id = it->item.id,
                 .uri = xstrdup(it->item.uri),
             };
-
-            if (new_row->extra == NULL)
-                new_row->extra = xcalloc(1, sizeof(*new_row->extra));
-            tll_push_back(new_row->extra->uri_ranges, range);
+            grid_row_add_uri_range(new_row, range);
         }
     }
 
@@ -210,10 +207,7 @@ reflow_uri_ranges(const struct row *old_row, struct row *new_row,
                 .id = it->item.id,
                 .uri = xstrdup(it->item.uri),
             };
-
-            if (new_row->extra == NULL)
-                new_row->extra = xcalloc(1, sizeof(*new_row->extra));
-            tll_push_back(new_row->extra->uri_ranges, new_range);
+            grid_row_add_uri_range(new_row, new_range);
         }
 
         else if (it->item.end == old_col_idx) {
@@ -284,10 +278,7 @@ _line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
             .id = it->item.id,
             .uri = xstrdup(it->item.uri),
         };
-
-        if (new_row->extra == NULL)
-            new_row->extra = xcalloc(1, sizeof(*new_row->extra));
-        tll_push_back(new_row->extra->uri_ranges, new_range);
+        grid_row_add_uri_range(new_row, new_range);
     }
 
     return new_row;
