@@ -50,15 +50,16 @@ Foot does not support any CC1 control sequences.
 
 # CSI
 
-All sequences begin with *\\E[*, from here on denoted _CSI_. Spaces
+All sequences begin with *\\E[*, sometimes abbreviated _CSI_. Spaces
 are used in the sequence strings to make them easier to read, but are
-not actually part of the string. I.e. *CSI 1 m* is really *\\E1m*.
+not actually part of the string. I.e. *\\E[ 1 m* is really *\\E1m*.
 
 ## SGR
 
-All SGR sequences are on the form *CSI <N> m*, where _N_ is a decimal
+All SGR sequences are on the form *\\E[ <N> m*, where _N_ is a decimal
 number - the _parameter_. Multiple parameters can be combined in a
-single CSI sequence by separating them with semicolons: *CSI 1;2;3 m*
+single CSI sequence by separating them with semicolons: *\\E[ 1;2;3
+m*.
 
 [[ *Sequence*
 :[ *Description*
@@ -118,14 +119,14 @@ parameter based variants for setting foreground and background colors.
 
 Indexed colors:
 
-- *CSI 38:5:<idx> m*
-- *CSI 38;5;<idx> m*
+- *\\E[ 38:5:<idx> m*
+- *\\E[ 38;5;<idx> m*
 
 RGB colors:
 
-- *CSI 38:2:<cs>:<r>:<g>:<b> m*
-- *CSI 38:2:<r>:<g>:<b> m*
-- *CSI 38;2;<r>;<g>;<b> m*
+- *\\E[ 38:2:<cs>:<r>:<g>:<b> m*
+- *\\E[ 38:2:<r>:<g>:<b> m*
+- *\\E[ 38;2;<r>;<g>;<b> m*
 
 The first variant is the "correct" one (and foot also recognizes, but
 ignores, the optional _tolerance_ parameters).
@@ -145,16 +146,16 @@ following 4 escape sequences:
 [[ *Sequence*
 :[ *Name*
 :[ *Description*
-|  CSI ? _Pm_ *h*
+|  \\E[ ? _Pm_ *h*
 :  DECSET
 :  Enable private mode
-|  CSI ? _Pm_ *l*
+|  \\E[ ? _Pm_ *l*
 :  DECRST
 :  Disable private mode
-|  CSI ? _Pm_ *s*
+|  \\E[ ? _Pm_ *s*
 :  XTSAVE
 :  Save private mode
-|  CSI ? _Pm_ *r*
+|  \\E[ ? _Pm_ *r*
 :  XTRESTORE
 :  Restore private mode
 
@@ -248,52 +249,52 @@ above categories.
 
 # OSC
 
-All _OSC_ sequences begin with *\\E]*, from here on denoted _OSC_.
+All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 
 [[ *Sequence*
 :[ *Description*
-|  OSC 0 ; _Pt_ ST
+|  \\E] 0 ; _Pt_ ST
 :  Set window icon and title to _Pt_ (foot does not support setting the
    icon)
-|  OSC 2 ; _Pt_ ST
+|  \\E] 2 ; _Pt_ ST
 :  Set window title to _Pt_
-|  OSC 4 ; _c_ ; _spec_ ST
+|  \\E] 4 ; _c_ ; _spec_ ST
 :  Change color number _c_ to _spec_, where _spec_ is a color in
    *XParseColor* format. foot only supports RGB colors; either
    *rgb:<red>/<green>/<blue>*, or the legacy format (*#rgb*).
-|  OSC 7 ; _Uri_ ST
+|  \\E] 7 ; _Uri_ ST
 :  Update the terminal's current working directory. Newly spawned
    terminals will launch in this directory. _Uri_ must be on the format
    *file://<hostname>/<path>*. *hostname* must refer to your local host.
-|  OSC 10 ; _spec_ ST
+|  \\E] 10 ; _spec_ ST
 :  Change the default foreground color to _spec_, a color in
    *XParseColor* format.
-|  OSC 11 ; _spec_ ST
+|  \\E] 11 ; _spec_ ST
 :  Change the default background color to _spec_, a color in
    *XParseColor* format.
-|  OSC 12 ; _spec_ ST
+|  \\E] 12 ; _spec_ ST
 :  Change cursor color to _spec_, a color in *XParseColor* format.
-|  OSC 52 ; _Pc_ ; ? ST
+|  \\E] 52 ; _Pc_ ; ? ST
 :  Send clipboard data. _Pc_ can be either *c*, *s* or *p*. *c* uses
    the clipboard as source, and *s* and *p* uses the primary
    selection. The response is *OSC 52 ; Pc ; <base64-encoded data>*,
    where _Pc_ indicates the source used.
-|  OSC 52 ; _Pc_ ; _Pd_ ST
+|  \\E] 52 ; _Pc_ ; _Pd_ ST
 :  Copy _Pd_ (base64 encoded text) to the clipboard. _Pc_ indicates the
    target: *c* targets the clipboard and *s* and *p* the primary
    selection.
-|  OSC 104 [; _c_] ST
+|  \\E] 104 [; _c_] ST
 :  Reset color number _c_, or all colors (excluding the default
    foreground/background colors) if _c_ is omitted.
-|  OSC 110 ST
+|  \\E] 110 ST
 :  Reset default foreground color
-|  OSC 111 ST
+|  \\E] 111 ST
 :  Reset default background color
-|  OSC 112 ST
+|  \\E] 112 ST
 :  Reset cursor color
-|  OSC 555 ST
+|  \\E] 555 ST
 :  Flash the entire terminal (foot extension)
-|  OSC 777 ; notify ; _summary_ ; _message_ ST
+|  \\E] 777 ; notify ; _summary_ ; _message_ ST
 :  Desktop notification, uses *notify* in *foot.ini*(5).
 
 # DCS
@@ -303,10 +304,10 @@ are terminated by *\\E\\* (ST).
 
 [[ *Sequence*
 :[ *Description*
-|  DCS q <sixel data> ST
+|  \\EP q <sixel data> ST
 :  Emit a sixel image at the current cursor position
-|  DCS = 1 s ST
+|  \\EP = 1 s ST
 :  Begin application synchronized updates
-|  DCS = 2 s ST
+|  \\EP = 2 s ST
 :  End application synchronized updates
 
