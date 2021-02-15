@@ -35,7 +35,7 @@ async_write(int fd, const void *data, size_t len, size_t *idx)
 }
 
 bool
-fdm_add(struct fdm *fdm, int fd, int events, fdm_handler_t handler, void *data)
+fdm_add(struct fdm *fdm, int fd, int events, fdm_fd_handler_t handler, void *data)
 {
     return true;
 }

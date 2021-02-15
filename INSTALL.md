@@ -48,6 +48,12 @@ subprojects.
 [^1]: can also be built as subprojects, in which case they are
     statically linked.
 
+If you are packaging foot, you may also want to consider adding the
+following **optional** dependencies:
+
+* libnotify: desktop notifications by default uses `notify-send`.
+* xdg-utils: URLs are by default launched with `xdg-open`.
+
 
 ### Building
 
@@ -120,9 +126,10 @@ mkdir -p bld/release && cd bld/release
 
 Available compile-time options:
 
-| Option   | Type | Default | Description         | Extra dependencies |
-|----------|------|---------|---------------------|--------------------|
-| `-Dime`  | bool | `true`  | Enables IME support | None               |
+| Option      | Type    | Default | Description         | Extra dependencies |
+|-------------|---------|---------|---------------------|--------------------|
+| `-Dime`     | bool    | `true`  | Enables IME support | None               |
+| `-Dterminfo | feature | `auto`  | Build terminfo      | `tic` (ncurses)    |
 
 
 ### Release build

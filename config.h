@@ -64,6 +64,7 @@ struct config {
     char *title;
     char *app_id;
     wchar_t *word_delimiters;
+    wchar_t *jump_label_letters;
     bool login_shell;
 
     struct {

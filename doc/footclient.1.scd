@@ -49,12 +49,20 @@ terminal has terminated).
 *-L*,*--login-shell*
 	Start a login shell, by prepending a '-' to argv[0].
 
+*-D*,*--working-directory*=_DIR_
+	Initial working directory for the client application. Default:
+	_CWD of footclient_.
+
 *-s*,*--server-socket*=_PATH_
 	Connect to _PATH_ instead of
 	*$XDG\_RUNTIME\_DIR/foot-$WAYLAND\_DISPLAY.sock*.
 
 *-H*,*--hold*
 	Remain open after child process exits.
+
+*-d*,*--log-level*={*info*,*warning*,*error*}
+	Log level, used both for log output on stderr as well as
+	syslog. Default: _info_.
 
 *-l*,*--log-colorize*=[{*never*,*always*,*auto*}]
 	Enables or disables colorization of log output on stderr.

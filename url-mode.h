@@ -4,6 +4,7 @@
 #include <xkbcommon/xkbcommon.h>
 #include <tllist.h>
 
+#include "config.h"
 #include "terminal.h"
 
 static inline bool urls_mode_is_active(const struct terminal *term)
@@ -13,7 +14,7 @@ static inline bool urls_mode_is_active(const struct terminal *term)
 
 void urls_collect(
     const struct terminal *term, enum url_action action, url_list_t *urls);
-void urls_assign_key_combos(url_list_t *urls);
+void urls_assign_key_combos(const struct config *conf, url_list_t *urls);
 
 void urls_render(struct terminal *term);
 void urls_reset(struct terminal *term);

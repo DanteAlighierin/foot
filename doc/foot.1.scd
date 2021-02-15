@@ -69,8 +69,12 @@ the foot command line
 	Start in fullscreen mode. If both *--maximized* and *--fullscreen*
 	are specified, the _last_ one takes precedence.
 
-*--login-shell*
+*-L*,*--login-shell*
 	Start a login shell, by prepending a '-' to argv[0].
+
+*-D*,*--working-directory*=_DIR_
+	Initial working directory for the client application. Default:
+	_CWD of foot_.
 
 *-s*,*--server*[=_PATH_]
 	Run as a server. In this mode, a single foot instance hosts
@@ -116,6 +120,10 @@ the foot command line
 	as been specified, the file is unlinked at exit.
 
 	This option can only be used in combination with *-s*,*--server*.
+
+*-d*,*--log-level*={*info*,*warning*,*error*}
+	Log level, used both for log output on stderr as well as
+	syslog. Default: _info_.
 
 *-l*,*--log-colorize*=[{*never*,*always*,*auto*}]
 	Enables or disables colorization of log output on stderr. Default:
@@ -258,8 +266,8 @@ be changed with the *url-launch* option.
 what activating an URL _does_; instead of opening it, it copies it to
 the clipboard. It is unbound by default.
 
-Both the jump label colors, and the URL underline color can be
-configured, independently.
+Jump label colors, the URL underline color, and the letters used in
+the jump label key sequences can be configured.
 
 # ALT/META CHARACTERS
 

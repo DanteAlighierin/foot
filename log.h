@@ -7,7 +7,7 @@ enum log_facility { LOG_FACILITY_USER, LOG_FACILITY_DAEMON };
 enum log_class { LOG_CLASS_ERROR, LOG_CLASS_WARNING, LOG_CLASS_INFO, LOG_CLASS_DEBUG };
 
 void log_init(enum log_colorize colorize, bool do_syslog,
-              enum log_facility syslog_facility, enum log_class syslog_level);
+              enum log_facility syslog_facility, enum log_class log_level);
 void log_deinit(void);
 
 void log_msg(enum log_class log_class, const char *module,
@@ -22,6 +22,9 @@ void log_errno_provided(
     enum log_class log_class, const char *module,
     const char *file, int lineno, int _errno,
     const char *fmt, ...) PRINTF(6);
+
+int log_level_from_string(const char *str);
+const char *log_level_string_hint(void);
 
 #define LOG_ERR(...)  \
     log_msg(LOG_CLASS_ERROR, LOG_MODULE, __FILE__, __LINE__, __VA_ARGS__)

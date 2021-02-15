@@ -1,2 +1,2 @@
 option('ime', type: 'boolean', value: true, description: 'IME (Input Method Editor) support')
-option('terminfo', type: 'boolean', value: true, description: 'Install terminfo')
+option('terminfo', type: 'feature', description: 'Install terminfo')

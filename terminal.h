@@ -534,8 +534,9 @@ struct terminal {
     } ime;
 #endif
 
-    bool quit;
     bool is_shutting_down;
+    bool slave_has_been_reaped;
+    int exit_status;
     void (*shutdown_cb)(void *data, int exit_code);
     void *shutdown_data;
 

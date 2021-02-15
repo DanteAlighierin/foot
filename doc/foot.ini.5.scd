@@ -30,7 +30,7 @@ in this order:
 
 *term*
 	Value to set the environment variable *TERM* to. Default: _foot_
-	or _xterm-256color_ if built with _-Dterminfo=false_
+	or _xterm-256color_ if built with _-Dterminfo=disabled_
 
 *font*, *font-bold*, *font-italic*, *font-bold-italic*
 	Comma separated list of fonts to use, in fontconfig format. That
@@ -202,8 +202,9 @@ in this order:
 	_Note_: expect this feature to be *replaced* with proper
 	compositor urgency support once/if that gets implemented.
 	
-	When set to *notify*, foot will emit a desktop notification (see
-	the *notify* option).
+	When set to *notify*, foot will emit a desktop notification using
+	the command specified in the *notify* option, but only if the foot
+	window does *not* have keyboard focus.
 	
 	When set to *none*, no special action is taken when receiving *BEL*.
 	
@@ -214,14 +215,21 @@ in this order:
 	text. Note that whitespace characters are _always_ word
 	delimiters, regardless of this setting. Default: _,│`|:"'()[]{}<>_
 
+*jump-label-letters*
+	String of characters that will be when generating key sequences
+	for URL jump labels. Default: _sadfjklewcmpgh_.
+
 *notify*
 	Command to execute to display a notification. _${title}_ and
 	_${body}_ will be replaced with the notification's actual _title_
 	and _body_ (message content).
-
+	
 	Applications can trigger notifications in the following ways:
 	
 	- OSC 777: *\\e]777;notify;<title>;<body>\\e\\\\*
+	
+	Notifications are *inhibited* if the foot window has keyboard
+	focus.
 	
 	Default: _notify-send -a foot -i foot ${title} ${body}_.
 

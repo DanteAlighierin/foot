@@ -23,6 +23,7 @@
 #include "config.h"
 #include "foot-features.h"
 #include "fdm.h"
+#include "macros.h"
 #include "reaper.h"
 #include "render.h"
 #include "server.h"
@@ -33,12 +34,11 @@
 #include "xmalloc.h"
 #include "xsnprintf.h"
 
-static volatile sig_atomic_t aborted = 0;
-
-static void
-sig_handler(int signo)
+static bool
+fdm_sigint(struct fdm *fdm, int signo, void *data)
 {
-    aborted = 1;
+    *(volatile sig_atomic_t *)data = true;
+    return true;
 }
 
 static const char *
@@ -58,24 +58,26 @@ print_usage(const char *prog_name)
         "Usage: %s [OPTIONS...] command [ARGS...]\n"
         "\n"
         "Options:\n"
-        "  -c,--config=PATH                      load configuration from PATH ($XDG_CONFIG_HOME/foot/foot.ini)\n"
-        "     --check-config                     verify configuration, exit with 0 if ok, otherwise exit with 1\n"
-        "  -f,--font=FONT                        comma separated list of fonts in fontconfig format (monospace)\n"
-        "  -t,--term=TERM                        value to set the environment variable TERM to (foot)\n"
-        "     --title=TITLE                      initial window title (foot)\n"
-        "  -a,--app-id=ID                        window application ID (foot)\n"
-        "     --maximized                        start in maximized mode\n"
-        "     --fullscreen                       start in fullscreen mode\n"
-        "     --login-shell                      start shell as a login shell\n"
-        "  -w,--window-size-pixels=WIDTHxHEIGHT  initial width and height, in pixels\n"
-        "  -W,--window-size-chars=WIDTHxHEIGHT   initial width and height, in characters\n"
-        "  -s,--server[=PATH]                    run as a server (use 'footclient' to start terminals).\n"
-        "                                        Without PATH, $XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock will be used.\n"
-        "     --hold                             remain open after child process exits\n"
-        "  -p,--print-pid=FILE|FD                print PID to file or FD (only applicable in server mode)\n"
-        "  -l,--log-colorize=[never|always|auto] enable/disable colorization of log output on stderr\n"
-        "  -s,--log-no-syslog                    disable syslog logging (only applicable in server mode)\n"
-        "  -v,--version                          show the version number and quit\n",
+        "  -c,--config=PATH                        load configuration from PATH ($XDG_CONFIG_HOME/foot/foot.ini)\n"
+        "  -C,--check-config                       verify configuration, exit with 0 if ok, otherwise exit with 1\n"
+        "  -f,--font=FONT                          comma separated list of fonts in fontconfig format (monospace)\n"
+        "  -t,--term=TERM                          value to set the environment variable TERM to (foot)\n"
+        "  -T,--title=TITLE                        initial window title (foot)\n"
+        "  -a,--app-id=ID                          window application ID (foot)\n"
+        "  -m,--maximized                          start in maximized mode\n"
+        "  -F,--fullscreen                         start in fullscreen mode\n"
+        "  -L,--login-shell                        start shell as a login shell\n"
+        "  -D,--working-directory=DIR              directory to start in (CWD)\n"
+        "  -w,--window-size-pixels=WIDTHxHEIGHT    initial width and height, in pixels\n"
+        "  -W,--window-size-chars=WIDTHxHEIGHT     initial width and height, in characters\n"
+        "  -s,--server[=PATH]                      run as a server (use 'footclient' to start terminals).\n"
+        "                                          Without PATH, $XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock will be used.\n"
+        "  -H,--hold                               remain open after child process exits\n"
+        "  -p,--print-pid=FILE|FD                  print PID to file or FD (only applicable in server mode)\n"
+        "  -d,--log-level={info|warning|error}     log level (info)\n"
+        "  -l,--log-colorize=[{never|always|auto}] enable/disable colorization of log output on stderr\n"
+        "  -s,--log-no-syslog                      disable syslog logging (only applicable in server mode)\n"
+        "  -v,--version                            show the version number and quit\n",
         prog_name, prog_name);
 }
 
@@ -162,6 +164,7 @@ main(int argc, char *const *argv)
         {"title",                  required_argument, NULL, 'T'},
         {"app-id",                 required_argument, NULL, 'a'},
         {"login-shell",            no_argument,       NULL, 'L'},
+        {"working-directory",      required_argument, NULL, 'D'},
         {"font",                   required_argument, NULL, 'f'},
         {"window-size-pixels",     required_argument, NULL, 'w'},
         {"window-size-chars",      required_argument, NULL, 'W'},
@@ -171,6 +174,7 @@ main(int argc, char *const *argv)
         {"fullscreen",             no_argument,       NULL, 'F'},
         {"presentation-timings",   no_argument,       NULL, 'P'}, /* Undocumented */
         {"print-pid",              required_argument, NULL, 'p'},
+        {"log-level",              required_argument, NULL, 'd'},
         {"log-colorize",           optional_argument, NULL, 'l'},
         {"log-no-syslog",          no_argument,       NULL, 'S'},
         {"version",                no_argument,       NULL, 'v'},
@@ -183,6 +187,7 @@ main(int argc, char *const *argv)
     const char *conf_term = NULL;
     const char *conf_title = NULL;
     const char *conf_app_id = NULL;
+    const char *custom_cwd = NULL;
     bool login_shell = false;
     tll(char *) conf_fonts = tll_init();
     enum conf_size_type conf_size_type = CONF_SIZE_PX;
@@ -196,12 +201,13 @@ main(int argc, char *const *argv)
     bool fullscreen = false;
     bool unlink_pid_file = false;
     const char *pid_file = NULL;
+    enum log_class log_level = LOG_CLASS_INFO;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
     bool log_syslog = true;
     user_notifications_t user_notifications = tll_init();
 
     while (true) {
-        int c = getopt_long(argc, argv, "+c:Ct:T:a:Lf:w:W:s::HmFPp:l::Svh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+c:Ct:T:a:LD:f:w:W:s::HmFPp:d:l::Svh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -229,6 +235,16 @@ main(int argc, char *const *argv)
         case 'a':
             conf_app_id = optarg;
             break;
+
+        case 'D': {
+            struct stat st;
+            if (stat(optarg, &st) < 0 || !(st.st_mode & S_IFDIR)) {
+                fprintf(stderr, "error: %s: not a directory\n", optarg);
+                return EXIT_FAILURE;
+            }
+            custom_cwd = optarg;
+            break;
+        }
 
         case 'f':
             tll_free_and_free(conf_fonts, free);
@@ -306,6 +322,20 @@ main(int argc, char *const *argv)
             pid_file = optarg;
             break;
 
+        case 'd': {
+            int lvl = log_level_from_string(optarg);
+            if (unlikely(lvl < 0)) {
+                fprintf(
+                    stderr,
+                    "-d,--log-level: %s: argument must be one of %s\n",
+                    optarg,
+                    log_level_string_hint());
+                return EXIT_FAILURE;
+            }
+            log_level = lvl;
+            break;
+        }
+
         case 'l':
             if (optarg == NULL || strcmp(optarg, "auto") == 0)
                 log_colorize = LOG_COLORIZE_AUTO;
@@ -337,7 +367,7 @@ main(int argc, char *const *argv)
     }
 
     log_init(log_colorize, as_server && log_syslog,
-             as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER, LOG_CLASS_WARNING);
+             as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER, log_level);
 
     argc -= optind;
     argv += optind;
@@ -426,18 +456,21 @@ main(int argc, char *const *argv)
     struct server *server = NULL;
     struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
 
-    char *cwd = NULL;
-    {
+    const char *cwd = custom_cwd;
+    char *_cwd = NULL;
+
+    if (cwd == NULL) {
         errno = 0;
         size_t buf_len = 1024;
         do {
-            cwd = xrealloc(cwd, buf_len);
-            if (getcwd(cwd, buf_len) == NULL && errno != ERANGE) {
+            _cwd = xrealloc(_cwd, buf_len);
+            if (getcwd(_cwd, buf_len) == NULL && errno != ERANGE) {
                 LOG_ERRNO("failed to get current working directory");
                 goto out;
             }
             buf_len *= 2;
         } while (errno == ERANGE);
+        cwd = _cwd;
     }
 
     shm_set_max_pool_size(conf.tweak.max_shm_pool_size);
@@ -459,16 +492,16 @@ main(int argc, char *const *argv)
                            &term_shutdown_cb, &shutdown_ctx)) == NULL) {
         goto out;
     }
-    free(cwd);
-    cwd = NULL;
+    free(_cwd);
+    _cwd = NULL;
 
     if (as_server && (server = server_init(&conf, fdm, reaper, wayl)) == NULL)
         goto out;
 
-    /* Remember to restore signals in slave */
-    const struct sigaction sa = {.sa_handler = &sig_handler};
-    if (sigaction(SIGINT, &sa, NULL) < 0 || sigaction(SIGTERM, &sa, NULL) < 0) {
-        LOG_ERRNO("failed to register signal handlers");
+    volatile sig_atomic_t aborted = false;
+    if (!fdm_signal_add(fdm, SIGINT, &fdm_sigint, (void *)&aborted) ||
+        !fdm_signal_add(fdm, SIGTERM, &fdm_sigint, (void *)&aborted))
+    {
         goto out;
     }
 
@@ -493,7 +526,7 @@ main(int argc, char *const *argv)
     ret = aborted || tll_length(wayl->terms) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 
 out:
-    free(cwd);
+    free(_cwd);
     server_destroy(server);
     term_destroy(term);
 
@@ -501,6 +534,8 @@ out:
     render_destroy(renderer);
     wayl_destroy(wayl);
     reaper_destroy(reaper);
+    fdm_signal_del(fdm, SIGTERM);
+    fdm_signal_del(fdm, SIGINT);
     fdm_destroy(fdm);
 
     config_free(conf);

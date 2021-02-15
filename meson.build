@@ -1,5 +1,5 @@
 project('foot', 'c',
-        version: '1.6.3',
+        version: '1.6.4',
         license: 'MIT',
         meson_version: '>=0.53.0',
         default_options: [
@@ -181,7 +181,7 @@ executable(
   'spawn.c', 'spawn.h',
   'tokenize.c', 'tokenize.h',
   'url-mode.c', 'url-mode.h',
-  'user-notification.h',
+  'user-notification.c', 'user-notification.h',
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
   dependencies: [math, threads, libepoll, pixman, wayland_client, wayland_cursor, xkb, fontconfig,
@@ -196,7 +196,9 @@ executable(
   'foot-features.h',
   'log.c', 'log.h',
   'macros.h',
+  'util.h',
   'xmalloc.c', 'xmalloc.h',
+  'xsnprintf.c', 'xsnprintf.h',
   version,
   install: true)
 

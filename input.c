@@ -209,7 +209,7 @@ execute_binding(struct seat *seat, struct terminal *term,
             break;
 
         default:
-            xassert(false);
+            BUG("Unhandled action type");
             success = false;
             break;
         }
@@ -281,7 +281,7 @@ execute_binding(struct seat *seat, struct terminal *term,
             : URL_ACTION_LAUNCH;
 
         urls_collect(term, url_action, &term->urls);
-        urls_assign_key_combos(&term->urls);
+        urls_assign_key_combos(term->conf, &term->urls);
         urls_render(term);
         return true;
     }
@@ -325,7 +325,7 @@ execute_binding(struct seat *seat, struct terminal *term,
         return true;
 
     case BIND_ACTION_COUNT:
-        xassert(false);
+        BUG("Invalid action type");
         return false;
     }
 
@@ -1150,7 +1150,7 @@ xcursor_for_csd_border(struct terminal *term, int x, int y)
     else if (term->active_surface == TERM_SURF_BORDER_TOP)    return XCURSOR_TOP_SIDE;
     else if (term->active_surface == TERM_SURF_BORDER_BOTTOM) return XCURSOR_BOTTOM_SIDE;
     else {
-        xassert(false);
+        BUG("Unreachable");
         return NULL;
     }
 }
@@ -1225,7 +1225,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_NONE:
-        xassert(false);
+        BUG("Invalid surface type");
         break;
     }
 }
@@ -1806,7 +1806,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     }
 
     case TERM_SURF_NONE:
-        xassert(false);
+        BUG("Invalid surface type");
         break;
 
     }

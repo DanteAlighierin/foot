@@ -604,6 +604,8 @@ decrqm(const struct terminal *term, unsigned param, bool *enabled)
     case 1035: *enabled = term->num_lock_modifier; return true;
     case 1036: *enabled = term->meta.esc_prefix; return true;
     case 1042: *enabled = term->bell_action_enabled; return true;
+    case 47:   /* FALLTHROUGH */
+    case 1047: /* FALLTHROUGH */
     case 1049: *enabled = term->grid == &term->alt; return true;
     case 2004: *enabled = term->bracketed_paste; return true;
     case 27127: *enabled = term->modify_escape_key; return true;
