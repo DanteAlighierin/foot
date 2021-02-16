@@ -2256,7 +2256,7 @@ config_load(struct config *conf, const char *conf_path,
             .argv = NULL,
         },
 
-        .osc8_underline = OSC8_UNDERLINE_ALWAYS,
+        .osc8_underline = OSC8_UNDERLINE_URL_MODE,
 
         .tweak = {
             .fcft_filter = FCFT_SCALING_FILTER_LANCZOS3,
