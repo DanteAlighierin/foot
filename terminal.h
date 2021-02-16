@@ -361,6 +361,7 @@ struct terminal {
         uint32_t ime:1;
 
         uint32_t sixel_private_palette:1;
+        uint32_t sixel_cursor_right_of_graphics:1;
     } xtsave;
 
     char *window_title;
@@ -537,6 +538,8 @@ struct terminal {
         unsigned params[5];  /* Collected parameters, for RASTER, COLOR_SPEC */
         unsigned param;      /* Currently collecting parameter, for RASTER, COLOR_SPEC and REPEAT */
         unsigned param_idx;  /* Parameters seen */
+
+        bool cursor_right_of_graphics:1;  /* Private mode 8452 */
 
         /* Application configurable */
         unsigned palette_size;  /* Number of colors in palette */

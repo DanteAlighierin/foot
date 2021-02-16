@@ -767,9 +767,29 @@ sixel_unhook(struct terminal *term)
             {
                 row->cells[col].attrs.clean = 0;
             }
-            term_linefeed(term);
+
+            if (i < image.rows - 1 || !term->sixel.cursor_right_of_graphics)
+                term_linefeed(term);
         }
-        term_carriage_return(term);
+
+        /*
+         * Position cursor
+         *
+         * Private mode 8452 controls where we leave the cursor after
+         * emitting a sixel:
+         *
+         * When disabled (the default), the cursor is positioned on a
+         * new line.
+         *
+         * When enabled, the cursor is positioned to the right of the
+         * sixel.
+         */
+        term_cursor_to(
+            term,
+            term->grid->cursor.point.row,
+            (term->sixel.cursor_right_of_graphics
+             ? min(image.pos.col + image.cols, term->cols - 1)
+             : 0));
 
         _sixel_overwrite_by_rectangle(
             term, image.pos.row, image.pos.col, image.rows, image.cols);

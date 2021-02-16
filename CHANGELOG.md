@@ -47,6 +47,8 @@
   (https://codeberg.org/dnkl/foot/issues/347)
 * `DECSET 1070` - sixel private color palette
   (https://codeberg.org/dnkl/foot/issues/362).
+* `DECSET 8452` - position cursor to the right of sixels
+  (https://codeberg.org/dnkl/foot/issues/363).
 
 
 ### Changed
