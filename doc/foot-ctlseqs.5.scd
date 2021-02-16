@@ -317,6 +317,60 @@ that corresponds to one of the following modes:
 :  foot
 :  Input Method Editor (IME) mode
 
+## Window manipulation
+
+Foot implements a sub-set of XTerm's (originally dtterm's) window
+manipulation sequences. The generic format is:
+
+*\\E[ *_Ps_* ; *_Ps_* ; *_Ps_* t*
+
+[[ *Parameter 1*
+:[ *Parameter 2*
+:[ *Description*
+|  11
+:  -
+:  Report if window is iconified. Foot always reports *1* - not iconified.
+|  13
+:  -
+:  Report window position. Foot always reports (0,0), due to Wayland
+   limitations.
+|  13
+:  2
+:  Report text area position. Foot always reports (0,0) due to Wayland
+   limitations.
+|  14
+:  -
+:  Report text area size, in pixels. Foot reports the grid size,
+   excluding the margins.
+|  14
+:  2
+:  Report window size, in pixels. Foot reports the grid size plus the
+   margins.
+|  15
+:  -
+:  Report the screen size, in pixels.
+|  16
+:  -
+:  Report the cell size, in pixels.
+|  18
+:  -
+:  Report text area size, in characters.
+|  19
+:  -
+:  Report screen size, in characters.
+|  22
+:  -
+:  Push window title+icon. Foot does not support pushing the icon.
+|  22
+:  2
+:  Push window title.
+|  23
+:  -
+:  Pop window title+icon. Foot does not support popping the icon.
+|  23
+:  2
+:  Pop window title.
+
 ## Other
 
 [[ *Parameter*
@@ -484,7 +538,6 @@ that corresponds to one of the following modes:
 TODO
 
 \\E[ ? S   sixels (separate table?) (xterm?)
-\\E[ t     window operations - use a custom table for this
 
 # OSC
 
