@@ -533,11 +533,10 @@ manipulation sequences. The generic format is:
 :  REP
 :  ECMA-48
 :  Repeat the preceding printable character _Ps_ times.
-
-
-TODO
-
-\\E[ ? S   sixels (separate table?) (xterm?)
+|  \\E[ ? _Pi_ ; _Pa_ ; _Pv_ S
+:  XTSMGRAPHICS
+:  xterm
+:  Set or request sixel attributes.
 
 # OSC
 
