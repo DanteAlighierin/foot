@@ -319,8 +319,171 @@ that corresponds to one of the following modes:
 
 ## Other
 
-*TODO*: all other CSI sequences that does not fall into any of the
-above categories.
+[[ *Parameter*
+:[ *Name*
+:[ *Origin*
+:[ *Description*
+|  \\E[ _Ps_ b
+:  REP
+:  ECMA-48
+:  Repeat the preceding printable character _Ps_ times.
+|  \\E[ _Ps_ c
+:  DA
+:  VT100
+:  Send primary device attributes. Foot responds with "I'm a VT220 with
+   sixel and ANSI color support".
+|  \\E[ _Pm_ d
+:  VPA
+:  ECMA-48
+:  Line position absolute - move cursor to line _Pm_.
+|  \\E[ _Ps_ A
+:  CUU
+:  VT100
+:  Cursor up - move cursor up _Ps_ times.
+|  \\E[ _Pm_ e
+:  VPR
+:  ECMA-48
+:  Line position relative - move cursor down _Pm_ lines.
+|  \\E[ _Ps_ B
+:  CUD
+:  VT100
+:  Cursor down - move cursor down _Ps_ times.
+|  \\E[ _Pm_ a
+:  HPR
+:  ECMA-48
+:  Character position relative - move cursor to the right _Pm_ times.
+|  \\E[ _Ps_ C
+:  CUF
+:  VT100
+:  Cursor forward - move cursor to the right _Ps_ times.
+|  \\E[ _Ps_ D
+:  CUB
+:  VT100
+:  Cursor backward - move cursor to the left _Ps_ times.
+|  \\E[ _Ps_ E
+:  CNL
+:  ECMA-48
+:  Cursor next line - move the cursor down _Ps_ times.
+|  \\E[ _Ps_ F
+:  CPL
+:  ECMA-48
+:  Cursor preceding line  - move the cursor up _Ps_ times.
+|  \\E[ _Ps_ g
+:  TBC
+:  VT100
+:  Tab clear. _Ps_=0 -> clear current column. _Ps_=3 -> clear all.
+|  \\E[ _Pm_ `
+:  HPA
+:  ECMA-48
+:  Character position absolute - move cursor to column _Pm_.
+|  \\E[ _Ps_ G
+:  CHA
+:  ECMA-48
+:  Cursor character absolute - move cursor to column _Ps_.
+|  \\E[ _Ps_ ; _Ps_ f
+:  HVP
+:  VT100
+:  Horizontal and vertical position - move cursor to _row_ ; _column_.
+|  \\E[ _Ps_ ; _Ps_ H
+:  CUP
+:  VT100
+:  Cursor position - move cursor to _row_ ; _column_.
+|  \\E[ _Ps_ J
+:  ED
+:  VT100
+:  Erase in display. _Ps_=0 -> below cursor. _Ps_=1 -> above
+   cursor. _Ps_=2 -> all. _Ps_=3 -> saved lines.
+|  \\E[ _Ps_ K
+:  EL
+:  VT100
+:  Erase in line. _Ps_=0 -> right of cursor. _Ps_=1 -> left of
+   cursor. _Ps_=2 -> all.
+|  \\E[ _Ps_ L
+:  IL
+:  VT220
+:  Insert _Ps_ lines.
+|  \\E[ _Ps_ M
+:  DL
+:  VT220
+:  Delete _Ps_ lines.
+|  \\E[ _Ps_ P
+:  DCH
+:  VT220
+:  Delete _Ps_ characters.
+|  \\E[ _Ps_ @
+:  ICH
+:  VT220
+:  Insert _Ps_ blank characters.
+|  \\E[ _Ps_ S
+:  SU
+:  ECMA-48
+:  Scroll up _Ps_ lines.
+|  \\E[ _Ps_ T
+:  SD
+:  VT420
+:  Scroll down _Ps_ lines.
+|  \\E[ _Ps_ X
+:  ECH
+:  VT220
+:  Erase _Ps_ characters.
+|  \\E[ _Ps_ I
+:  CHT
+:  ECMA-48
+:  Cursor forward tabulation _Ps_ tab stops.
+|  \\E[ _Ps_ Z
+:  CBT
+:  ECMA-48
+:  Cursor backward tabulation _Ps_ tab stops.
+|  \\E[ _Pm_ h
+:  SM
+:  VT100
+:  Set mode. _Pm_=4 -> enable IRM (insert mode). All other values of
+   _Pm_ are unsupported.
+|  \\E[ _Pm_ l
+:  RM
+:  VT100
+:  Reset mode. _Pm_=4 -> disable IRM (insert mode). All other values of
+   _Pm_ are unsupported.
+|  \\E[ s
+:  SCOSC
+:  SCO, VT510
+:  Save cursor position.
+|  \\E[ u
+:  SCORC
+:  SCO, VT510
+:  Restore cursor position.
+|  \\E[ _Ps_ n
+:  DSR
+:  VT100
+:  Device status report. _Ps_=5 -> device status. _Ps_=6 -> cursor
+   position.
+|  \\E[ > c
+:  DA2
+:  VT220
+:  Send secondary device attributes. Foot responds with "I'm a VT220
+   and here's my version number".
+|  \\E[ _Ps_ SP q
+:  DECSCUSR
+:  VT510
+:  Set cursor style. In foot, _Ps_=0 means "use style from foot.ini".
+|  \\E[ ! p
+:  DECSTR
+:  VT220
+:  Soft terminal reset.
+|  \\E[ = _Ps_ c
+:  DA3
+:  VT510
+:  send tertiary device attributes. Foot responds with "FOOT", in
+   hexadecimal.
+|  \\E[ ? _Ps_ $ p
+:  DECRQM
+:  VT320
+:  Request DEC private mode.
+
+TODO
+
+\\E[ ? S   sixels (separate table?) (xterm?)
+\\E[ t     window operations - use a custom table for this
 
 # OSC
 
