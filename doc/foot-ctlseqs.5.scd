@@ -8,6 +8,11 @@ This document describes all the control sequences supported by foot.
 - CC1 - 8-bit control sequences (*not supported*)
 - Sequences beginning with ESC
 - CSI - Control Sequence Introducer
+    - SGR
+    - Indexed and RGB colors (256-color palette and 24-bit colors)
+    - Private modes
+    - Window manipulation
+    - Other
 - OSC - Operating System Command
 - DCS - Device Control String
 
