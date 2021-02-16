@@ -65,6 +65,8 @@
   before sending the new dimensions to the client application. The
   timing can be tweaked, or completely disabled, by setting
   `resize-delay-ms` (https://codeberg.org/dnkl/foot/issues/301).
+* `CSI 13 ; 2 t` now reports (0,0).
+
 
 ### Deprecated
 ### Removed
