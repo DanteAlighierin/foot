@@ -16,32 +16,32 @@ This document describes all the control sequences supported by foot.
 [[ *Sequence*
 :[ *Name*
 :[ *Description*
-|  *\\a*
+|  \\a
 :  BEL
 :  Depends on what *bell* in *foot.ini*(5) is set to.
-|  *\\b*
+|  \\b
 :  BS
 :  Backspace; move the cursor left one step. Wrap if _bw_ is enabled.
-|  *\\t*
+|  \\t
 :  HT
 :  Horizontal tab; move the cursor to the next tab stop.
-|  *\\n*
+|  \\n
 :  LF
 :  Line feed; move the cursor down one step, or scroll content up if
    at the bottom line.
-|  *\\v*
+|  \\v
 :  VT
 :  Vertical tab; identical to _LF_.
-|  *\\f*
+|  \\f
 :  FF
 :  Form feed; identical to _LF_.
-|  *\\r*
+|  \\r
 :  CR
 :  Carriage ret; move the cursor to the leftmost column.
-|  *\\x0E*
+|  \\x0E
 :  SS0
 :  Shift out; select the _G1_ character set.
-|  *\\x0F*
+|  \\x0F
 :  SS1
 :  Shift in; select the _G0_ character set.
 
@@ -221,16 +221,16 @@ following 4 escape sequences:
 [[ *Sequence*
 :[ *Name*
 :[ *Description*
-|  \\E[ ? _Pm_ *h*
+|  \\E[ ? _Pm_ h
 :  DECSET
 :  Enable private mode
-|  \\E[ ? _Pm_ *l*
+|  \\E[ ? _Pm_ l
 :  DECRST
 :  Disable private mode
-|  \\E[ ? _Pm_ *s*
+|  \\E[ ? _Pm_ s
 :  XTSAVE
 :  Save private mode
-|  \\E[ ? _Pm_ *r*
+|  \\E[ ? _Pm_ r
 :  XTRESTORE
 :  Restore private mode
 
