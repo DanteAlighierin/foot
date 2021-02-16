@@ -359,6 +359,8 @@ struct terminal {
         uint32_t alt_screen:1;
         uint32_t modify_escape_key:1;
         uint32_t ime:1;
+
+        uint32_t sixel_private_palette:1;
     } xtsave;
 
     char *window_title;
@@ -519,7 +521,9 @@ struct terminal {
         struct coord pos;    /* Current sixel coordinate */
         int color_idx;       /* Current palette index */
         int max_col;         /* Largest column index we've seen (aka the image width) */
-        uint32_t *palette;   /* Color palette */
+        uint32_t *private_palette;   /* Private palette, used when private mode 1070 is enabled */
+        uint32_t *shared_palette;    /* Shared palette, used when private mode 1070 is disabled */
+        uint32_t *palette;   /* Points to either private_palette or shared_palette */
 
         struct {
             uint32_t *data;  /* Raw image data, in ARGB */
@@ -527,6 +531,8 @@ struct terminal {
             int height;      /* Image height, in pixels */
             bool autosize;
         } image;
+
+        bool use_private_palette:1;  /* Private mode 1070 */
 
         unsigned params[5];  /* Collected parameters, for RASTER, COLOR_SPEC */
         unsigned param;      /* Currently collecting parameter, for RASTER, COLOR_SPEC and REPEAT */

@@ -45,6 +45,8 @@
   `footclient` (https://codeberg.org/dnkl/foot/issues/337).
 * `-D,--working-directory=DIR` to both `foot` and `footclient`
   (https://codeberg.org/dnkl/foot/issues/347)
+* `DECSET 1070` - sixel private color palette
+  (https://codeberg.org/dnkl/foot/issues/362).
 
 
 ### Changed
