@@ -49,27 +49,6 @@ csd_instantiate(struct wl_window *win)
             win, win->csd.surface[CSD_SURF_TITLE].surf, &win->csd.surface[i]);
         xassert(ret);
     }
-
-    /* TODO: we need the to commit? */
-
-#if 0
-    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
-        xassert(win->csd.surface[i] == NULL);
-        xassert(win->csd.sub_surface[i] == NULL);
-
-        win->csd.surface[i] = wl_compositor_create_surface(wayl->compositor);
-
-        struct wl_surface *parent = i < CSD_SURF_MINIMIZE
-            ? win->surface : win->csd.surface[CSD_SURF_TITLE];
-
-        win->csd.sub_surface[i] = wl_subcompositor_get_subsurface(
-            wayl->sub_compositor, win->csd.surface[i], parent);
-
-        wl_subsurface_set_sync(win->csd.sub_surface[i]);
-        wl_surface_set_user_data(win->csd.surface[i], win);
-        wl_surface_commit(win->csd.surface[i]);
-    }
-#endif
 }
 
 static void
