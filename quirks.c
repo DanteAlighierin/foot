@@ -52,7 +52,7 @@ quirk_weston_csd_on(struct terminal *term)
         return;
 
     for (int i = 0; i < ALEN(term->window->csd.surface); i++)
-        quirk_weston_subsurface_desync_on(term->window->csd.sub_surface[i]);
+        quirk_weston_subsurface_desync_on(term->window->csd.surface[i].sub);
 }
 
 void
@@ -64,7 +64,7 @@ quirk_weston_csd_off(struct terminal *term)
         return;
 
     for (int i = 0; i < ALEN(term->window->csd.surface); i++)
-        quirk_weston_subsurface_desync_off(term->window->csd.sub_surface[i]);
+        quirk_weston_subsurface_desync_off(term->window->csd.surface[i].sub);
 }
 
 void
