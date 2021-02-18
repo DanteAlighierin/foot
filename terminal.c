@@ -2821,31 +2821,31 @@ term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
 {
     if (likely(surface == term->window->surface))
         return TERM_SURF_GRID;
-    else if (surface == term->window->search_surface)
+    else if (surface == term->window->search.surf)
         return TERM_SURF_SEARCH;
-    else if (surface == term->window->scrollback_indicator_surface)
+    else if (surface == term->window->scrollback_indicator.surf)
         return TERM_SURF_SCROLLBACK_INDICATOR;
-    else if (surface == term->window->render_timer_surface)
+    else if (surface == term->window->render_timer.surf)
         return TERM_SURF_RENDER_TIMER;
-    else if (surface == term->window->csd.surface[CSD_SURF_TITLE])
+    else if (surface == term->window->csd.surface[CSD_SURF_TITLE].surf)
         return TERM_SURF_TITLE;
-    else if (surface == term->window->csd.surface[CSD_SURF_LEFT])
+    else if (surface == term->window->csd.surface[CSD_SURF_LEFT].surf)
         return TERM_SURF_BORDER_LEFT;
-    else if (surface == term->window->csd.surface[CSD_SURF_RIGHT])
+    else if (surface == term->window->csd.surface[CSD_SURF_RIGHT].surf)
         return TERM_SURF_BORDER_RIGHT;
-    else if (surface == term->window->csd.surface[CSD_SURF_TOP])
+    else if (surface == term->window->csd.surface[CSD_SURF_TOP].surf)
         return TERM_SURF_BORDER_TOP;
-    else if (surface == term->window->csd.surface[CSD_SURF_BOTTOM])
+    else if (surface == term->window->csd.surface[CSD_SURF_BOTTOM].surf)
         return TERM_SURF_BORDER_BOTTOM;
-    else if (surface == term->window->csd.surface[CSD_SURF_MINIMIZE])
+    else if (surface == term->window->csd.surface[CSD_SURF_MINIMIZE].surf)
         return TERM_SURF_BUTTON_MINIMIZE;
-    else if (surface == term->window->csd.surface[CSD_SURF_MAXIMIZE])
+    else if (surface == term->window->csd.surface[CSD_SURF_MAXIMIZE].surf)
         return TERM_SURF_BUTTON_MAXIMIZE;
-    else if (surface == term->window->csd.surface[CSD_SURF_CLOSE])
+    else if (surface == term->window->csd.surface[CSD_SURF_CLOSE].surf)
         return TERM_SURF_BUTTON_CLOSE;
     else {
         tll_foreach(term->window->urls, it) {
-            if (surface == it->item.surf)
+            if (surface == it->item.surf.surf)
                 return TERM_SURF_JUMP_LABEL;
         }
         return TERM_SURF_NONE;

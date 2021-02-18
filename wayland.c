@@ -39,36 +39,23 @@ csd_instantiate(struct wl_window *win)
     struct wayland *wayl = win->term->wl;
     xassert(wayl != NULL);
 
-    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
-        xassert(win->csd.surface[i] == NULL);
-        xassert(win->csd.sub_surface[i] == NULL);
+    for (size_t i = 0; i < CSD_SURF_MINIMIZE; i++) {
+        bool ret = wayl_win_subsurface_new(win, &win->csd.surface[i]);
+        xassert(ret);
+    }
 
-        win->csd.surface[i] = wl_compositor_create_surface(wayl->compositor);
-
-        struct wl_surface *parent = i < CSD_SURF_MINIMIZE
-            ? win->surface : win->csd.surface[CSD_SURF_TITLE];
-
-        win->csd.sub_surface[i] = wl_subcompositor_get_subsurface(
-            wayl->sub_compositor, win->csd.surface[i], parent);
-
-        wl_subsurface_set_sync(win->csd.sub_surface[i]);
-        wl_surface_set_user_data(win->csd.surface[i], win);
-        wl_surface_commit(win->csd.surface[i]);
+    for (size_t i = CSD_SURF_MINIMIZE; i < CSD_SURF_COUNT; i++) {
+        bool ret = wayl_win_subsurface_new_with_custom_parent(
+            win, win->csd.surface[CSD_SURF_TITLE].surf, &win->csd.surface[i]);
+        xassert(ret);
     }
 }
 
 static void
 csd_destroy(struct wl_window *win)
 {
-    for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
-        if (win->csd.sub_surface[i] != NULL)
-            wl_subsurface_destroy(win->csd.sub_surface[i]);
-        if (win->csd.surface[i] != NULL)
-            wl_surface_destroy(win->csd.surface[i]);
-
-        win->csd.surface[i] = NULL;
-        win->csd.sub_surface[i] = NULL;
-    }
+    for (size_t i = 0; i < ALEN(win->csd.surface); i++)
+        wayl_win_subsurface_destroy(&win->csd.surface[i]);
 }
 
 static void
@@ -1359,16 +1346,10 @@ wayl_win_init(struct terminal *term)
     wl_surface_commit(win->surface);
 
     if (conf->tweak.render_timer_osd) {
-        win->render_timer_surface = wl_compositor_create_surface(wayl->compositor);
-        if (win->render_timer_surface == NULL) {
+        if (!wayl_win_subsurface_new(win, &win->render_timer)) {
             LOG_ERR("failed to create render timer surface");
             goto out;
         }
-        win->render_timer_sub_surface = wl_subcompositor_get_subsurface(
-            wayl->sub_compositor, win->render_timer_surface, win->surface);
-        wl_subsurface_set_sync(win->render_timer_sub_surface);
-        wl_surface_set_user_data(win->render_timer_surface, win);
-        wl_surface_commit(win->render_timer_surface);
     }
     return win;
 
@@ -1396,27 +1377,27 @@ wayl_win_destroy(struct wl_window *win)
      * nor mouse focus).
      */
 
-    if (win->render_timer_surface != NULL) {
-        wl_surface_attach(win->render_timer_surface, NULL, 0, 0);
-        wl_surface_commit(win->render_timer_surface);
+    if (win->render_timer.surf != NULL) {
+        wl_surface_attach(win->render_timer.surf, NULL, 0, 0);
+        wl_surface_commit(win->render_timer.surf);
     }
 
-    if (win->scrollback_indicator_surface != NULL) {
-        wl_surface_attach(win->scrollback_indicator_surface, NULL, 0, 0);
-        wl_surface_commit(win->scrollback_indicator_surface);
+    if (win->scrollback_indicator.surf != NULL) {
+        wl_surface_attach(win->scrollback_indicator.surf, NULL, 0, 0);
+        wl_surface_commit(win->scrollback_indicator.surf);
     }
 
     /* Scrollback search */
-    if (win->search_surface != NULL) {
-        wl_surface_attach(win->search_surface, NULL, 0, 0);
-        wl_surface_commit(win->search_surface);
+    if (win->search.surf != NULL) {
+        wl_surface_attach(win->search.surf, NULL, 0, 0);
+        wl_surface_commit(win->search.surf);
     }
 
     /* CSD */
     for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
-        if (win->csd.surface[i] != NULL) {
-            wl_surface_attach(win->csd.surface[i], NULL, 0, 0);
-            wl_surface_commit(win->csd.surface[i]);
+        if (win->csd.surface[i].surf != NULL) {
+            wl_surface_attach(win->csd.surface[i].surf, NULL, 0, 0);
+            wl_surface_commit(win->csd.surface[i].surf);
         }
     }
 
@@ -1430,26 +1411,15 @@ wayl_win_destroy(struct wl_window *win)
     tll_free(win->on_outputs);
 
     tll_foreach(win->urls, it) {
-        if (it->item.sub_surf != NULL)
-            wl_subsurface_destroy(it->item.sub_surf);
-        if (it->item.surf != NULL)
-            wl_surface_destroy(it->item.surf);
+        wayl_win_subsurface_destroy(&it->item.surf);
         tll_remove(win->urls, it);
     }
 
     csd_destroy(win);
-    if (win->render_timer_sub_surface != NULL)
-        wl_subsurface_destroy(win->render_timer_sub_surface);
-    if (win->render_timer_surface != NULL)
-        wl_surface_destroy(win->render_timer_surface);
-    if (win->scrollback_indicator_sub_surface != NULL)
-        wl_subsurface_destroy(win->scrollback_indicator_sub_surface);
-    if (win->scrollback_indicator_surface != NULL)
-        wl_surface_destroy(win->scrollback_indicator_surface);
-    if (win->search_sub_surface != NULL)
-        wl_subsurface_destroy(win->search_sub_surface);
-    if (win->search_surface != NULL)
-        wl_surface_destroy(win->search_surface);
+    wayl_win_subsurface_destroy(&win->search);
+    wayl_win_subsurface_destroy(&win->scrollback_indicator);
+    wayl_win_subsurface_destroy(&win->render_timer);
+
     if (win->frame_callback != NULL)
         wl_callback_destroy(win->frame_callback);
     if (win->xdg_toplevel_decoration != NULL)
@@ -1569,4 +1539,54 @@ wayl_roundtrip(struct wayland *wayl)
     while (wl_display_prepare_read(wayl->display) != 0)
         wl_display_dispatch_pending(wayl->display);
     wayl_flush(wayl);
+}
+
+bool
+wayl_win_subsurface_new_with_custom_parent(
+    struct wl_window *win, struct wl_surface *parent,
+    struct wl_surf_subsurf *surf)
+{
+    struct wayland *wayl = win->term->wl;
+
+    surf->surf = NULL;
+    surf->sub = NULL;
+
+    struct wl_surface *main = wl_compositor_create_surface(wayl->compositor);
+    if (main == NULL)
+        return false;
+
+    struct wl_subsurface *sub = wl_subcompositor_get_subsurface(
+        wayl->sub_compositor, main, parent);
+
+    if (sub == NULL) {
+        wl_surface_destroy(main);
+        return false;
+    }
+
+    wl_surface_set_user_data(main, win);
+    wl_subsurface_set_sync(sub);
+
+    surf->surf = main;
+    surf->sub = sub;
+    return true;
+}
+
+bool
+wayl_win_subsurface_new(struct wl_window *win, struct wl_surf_subsurf *surf)
+{
+    return wayl_win_subsurface_new_with_custom_parent(win, win->surface, surf);
+}
+
+void
+wayl_win_subsurface_destroy(struct wl_surf_subsurf *surf)
+{
+    if (surf == NULL)
+        return;
+    if (surf->sub != NULL)
+        wl_subsurface_destroy(surf->sub);
+    if (surf->surf != NULL)
+        wl_surface_destroy(surf->surf);
+
+    surf->surf = NULL;
+    surf->sub = NULL;
 }

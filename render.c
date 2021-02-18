@@ -1409,7 +1409,7 @@ render_csd_title(struct terminal *term)
     xassert(term->window->use_csd == CSD_YES);
 
     struct csd_data info = get_csd_data(term, CSD_SURF_TITLE);
-    struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE];
+    struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE].surf;
 
     xassert(info.width > 0 && info.height > 0);
 
@@ -1440,7 +1440,7 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
     xassert(surf_idx >= CSD_SURF_LEFT && surf_idx <= CSD_SURF_BOTTOM);
 
     struct csd_data info = get_csd_data(term, surf_idx);
-    struct wl_surface *surf = term->window->csd.surface[surf_idx];
+    struct wl_surface *surf = term->window->csd.surface[surf_idx].surf;
 
     if (info.width == 0 || info.height == 0)
         return;
@@ -1609,7 +1609,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
     xassert(surf_idx >= CSD_SURF_MINIMIZE && surf_idx <= CSD_SURF_CLOSE);
 
     struct csd_data info = get_csd_data(term, surf_idx);
-    struct wl_surface *surf = term->window->csd.surface[surf_idx];
+    struct wl_surface *surf = term->window->csd.surface[surf_idx].surf;
 
     if (info.width == 0 || info.height == 0)
         return;
@@ -1696,8 +1696,8 @@ render_csd(struct terminal *term)
         const int width = info.width;
         const int height = info.height;
 
-        struct wl_surface *surf = term->window->csd.surface[i];
-        struct wl_subsurface *sub = term->window->csd.sub_surface[i];
+        struct wl_surface *surf = term->window->csd.surface[i].surf;
+        struct wl_subsurface *sub = term->window->csd.surface[i].sub;
 
         xassert(surf != NULL);
         xassert(sub != NULL);
@@ -1775,49 +1775,23 @@ render_scrollback_position(struct terminal *term)
     if (term->conf->scrollback.indicator.position == SCROLLBACK_INDICATOR_POSITION_NONE)
         return;
 
-    struct wayland *wayl = term->wl;
     struct wl_window *win = term->window;
 
     if (term->grid->view == term->grid->offset) {
-        if (win->scrollback_indicator_surface != NULL) {
-            wl_subsurface_destroy(win->scrollback_indicator_sub_surface);
-            wl_surface_destroy(win->scrollback_indicator_surface);
-
-            win->scrollback_indicator_surface = NULL;
-            win->scrollback_indicator_sub_surface = NULL;
-        }
+        if (win->scrollback_indicator.surf != NULL)
+            wayl_win_subsurface_destroy(&win->scrollback_indicator);
         return;
     }
 
-    if (win->scrollback_indicator_surface == NULL) {
-        win->scrollback_indicator_surface
-            = wl_compositor_create_surface(wayl->compositor);
-
-        if (win->scrollback_indicator_surface == NULL) {
+    if (win->scrollback_indicator.surf == NULL) {
+        if (!wayl_win_subsurface_new(win, &win->scrollback_indicator)) {
             LOG_ERR("failed to create scrollback indicator surface");
             return;
         }
-
-        wl_surface_set_user_data(win->scrollback_indicator_surface, win);
-
-        term->window->scrollback_indicator_sub_surface
-            = wl_subcompositor_get_subsurface(
-                wayl->sub_compositor,
-                win->scrollback_indicator_surface,
-                win->surface);
-
-        if (win->scrollback_indicator_sub_surface == NULL) {
-            LOG_ERR("failed to create scrollback indicator sub-surface");
-            wl_surface_destroy(win->scrollback_indicator_surface);
-            win->scrollback_indicator_surface = NULL;
-            return;
-        }
-
-        wl_subsurface_set_sync(win->scrollback_indicator_sub_surface);
     }
 
-    xassert(win->scrollback_indicator_surface != NULL);
-    xassert(win->scrollback_indicator_sub_surface != NULL);
+    xassert(win->scrollback_indicator.surf != NULL);
+    xassert(win->scrollback_indicator.sub != NULL);
 
     /* Find absolute row number of the scrollback start */
     int scrollback_start = term->grid->offset + term->rows;
@@ -1905,13 +1879,14 @@ render_scrollback_position(struct terminal *term)
     }
 
     wl_subsurface_set_position(
-        win->scrollback_indicator_sub_surface,
+        win->scrollback_indicator.sub,
         (term->width - margin - width) / scale,
         (term->margins.top + surf_top) / scale);
 
     render_osd(
         term,
-        win->scrollback_indicator_surface, win->scrollback_indicator_sub_surface,
+        win->scrollback_indicator.surf,
+        win->scrollback_indicator.sub,
         buf, text,
         term->colors.table[0], term->colors.table[8 + 4],
         width, height, width - margin - wcslen(text) * term->cell_width, margin);
@@ -1937,13 +1912,14 @@ render_render_timer(struct terminal *term, struct timeval render_time)
         term->wl->shm, width, height, cookie, false, 1);
 
     wl_subsurface_set_position(
-        win->render_timer_sub_surface,
+        win->render_timer.sub,
         margin / term->scale,
         (term->margins.top + term->cell_height - margin) / term->scale);
 
     render_osd(
         term,
-        win->render_timer_surface, win->render_timer_sub_surface,
+        win->render_timer.surf,
+        win->render_timer.sub,
         buf, text,
         term->colors.table[0], term->colors.table[8 + 1],
         width, height, margin, margin);
@@ -2232,7 +2208,7 @@ grid_render(struct terminal *term)
 static void
 render_search_box(struct terminal *term)
 {
-    xassert(term->window->search_sub_surface != NULL);
+    xassert(term->window->search.sub != NULL);
 
     /*
      * We treat the search box pretty much like a row of cells. That
@@ -2505,27 +2481,27 @@ render_search_box(struct terminal *term)
                 term, WINDOW_X(x), WINDOW_Y(y), 1, term->cell_height);
         }
 
-    quirk_weston_subsurface_desync_on(term->window->search_sub_surface);
+    quirk_weston_subsurface_desync_on(term->window->search.sub);
 
     /* TODO: this is only necessary on a window resize */
     wl_subsurface_set_position(
-        term->window->search_sub_surface,
+        term->window->search.sub,
         margin / scale,
         max(0, (int32_t)term->height - height - margin) / scale);
 
-    wl_surface_attach(term->window->search_surface, buf->wl_buf, 0, 0);
-    wl_surface_damage_buffer(term->window->search_surface, 0, 0, width, height);
-    wl_surface_set_buffer_scale(term->window->search_surface, scale);
+    wl_surface_attach(term->window->search.surf, buf->wl_buf, 0, 0);
+    wl_surface_damage_buffer(term->window->search.surf, 0, 0, width, height);
+    wl_surface_set_buffer_scale(term->window->search.surf, scale);
 
     struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
     if (region != NULL) {
         wl_region_add(region, width - visible_width, 0, visible_width, height);
-        wl_surface_set_opaque_region(term->window->search_surface, region);
+        wl_surface_set_opaque_region(term->window->search.surf, region);
         wl_region_destroy(region);
     }
 
-    wl_surface_commit(term->window->search_surface);
-    quirk_weston_subsurface_desync_off(term->window->search_sub_surface);
+    wl_surface_commit(term->window->search.surf);
+    quirk_weston_subsurface_desync_off(term->window->search.sub);
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     free(text);
@@ -2555,8 +2531,8 @@ render_urls(struct terminal *term)
         const wchar_t *key = url->key;
         const size_t entered_key_len = wcslen(term->url_keys);
 
-        struct wl_surface *surf = it->item.surf;
-        struct wl_subsurface *sub_surf = it->item.sub_surf;
+        struct wl_surface *surf = it->item.surf.surf;
+        struct wl_subsurface *sub_surf = it->item.surf.sub;
 
         if (surf == NULL || sub_surf == NULL)
             continue;

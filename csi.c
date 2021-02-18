@@ -1200,10 +1200,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             case 13: { /* report window position */
 
-                /* We don't know our position - always report (0,0) */
                 int x = -1;
                 int y = -1;
 
+                /* We don't know our position - always report (0,0) */
                 switch (vt_param_get(term, 1, 0)) {
                 case 0:
                     /* window position */
@@ -1212,8 +1212,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 2:
                     /* text area position */
-                    x = term->margins.left;
-                    y = term->margins.top;
+                    x = y = 0;
                     break;
 
                 default:

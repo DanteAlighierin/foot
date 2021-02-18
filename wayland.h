@@ -350,10 +350,14 @@ struct monitor {
     bool use_output_release;
 };
 
+struct wl_surf_subsurf {
+    struct wl_surface *surf;
+    struct wl_subsurface *sub;
+};
+
 struct wl_url {
     const struct url *url;
-    struct wl_surface *surf;
-    struct wl_subsurface *sub_surf;
+    struct wl_surf_subsurf surf;
 };
 
 struct wayland;
@@ -368,21 +372,14 @@ struct wl_window {
     enum {CSD_UNKNOWN, CSD_NO, CSD_YES } use_csd;
 
     struct {
-        struct wl_surface *surface[CSD_SURF_COUNT];
-        struct wl_subsurface *sub_surface[CSD_SURF_COUNT];
+        struct wl_surf_subsurf surface[CSD_SURF_COUNT];
         int move_timeout_fd;
         uint32_t serial;
     } csd;
 
-    /* Scrollback search */
-    struct wl_surface *search_surface;
-    struct wl_subsurface *search_sub_surface;
-
-    struct wl_surface *scrollback_indicator_surface;
-    struct wl_subsurface *scrollback_indicator_sub_surface;
-
-    struct wl_surface *render_timer_surface;
-    struct wl_subsurface *render_timer_sub_surface;
+    struct wl_surf_subsurf search;
+    struct wl_surf_subsurf scrollback_indicator;
+    struct wl_surf_subsurf render_timer;
 
     struct wl_callback *frame_callback;
 
@@ -453,10 +450,17 @@ struct wayland {
 struct wayland *wayl_init(const struct config *conf, struct fdm *fdm);
 void wayl_destroy(struct wayland *wayl);
 
+bool wayl_reload_xcursor_theme(struct seat *seat, int new_scale);
+
 void wayl_flush(struct wayland *wayl);
 void wayl_roundtrip(struct wayland *wayl);
 
 struct wl_window *wayl_win_init(struct terminal *term);
 void wayl_win_destroy(struct wl_window *win);
 
-bool wayl_reload_xcursor_theme(struct seat *seat, int new_scale);
+bool wayl_win_subsurface_new(
+    struct wl_window *win, struct wl_surf_subsurf *surf);
+bool wayl_win_subsurface_new_with_custom_parent(
+    struct wl_window *win, struct wl_surface *parent,
+    struct wl_surf_subsurf *surf);
+void wayl_win_subsurface_destroy(struct wl_surf_subsurf *surf);

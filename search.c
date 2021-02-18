@@ -81,13 +81,7 @@ static void
 search_cancel_keep_selection(struct terminal *term)
 {
     struct wl_window *win = term->window;
-    if (win->search_sub_surface != NULL)
-        wl_subsurface_destroy(win->search_sub_surface);
-    if (win->search_surface != NULL)
-        wl_surface_destroy(win->search_surface);
-
-    win->search_surface = NULL;
-    win->search_sub_surface = NULL;
+    wayl_win_subsurface_destroy(&win->search);
 
     free(term->search.buf);
     term->search.buf = NULL;
@@ -124,14 +118,8 @@ search_begin(struct terminal *term)
     }
 
     /* On-demand instantiate wayland surface */
-    struct wl_window *win = term->window;
-    struct wayland *wayl = term->wl;
-    win->search_surface = wl_compositor_create_surface(wayl->compositor);
-    wl_surface_set_user_data(win->search_surface, term->window);
-
-    win->search_sub_surface = wl_subcompositor_get_subsurface(
-        wayl->sub_compositor, win->search_surface, win->surface);
-    wl_subsurface_set_sync(win->search_sub_surface);
+    bool ret = wayl_win_subsurface_new(term->window, &term->window->search);
+    xassert(ret);
 
     term->search.original_view = term->grid->view;
     term->search.view_followed_offset = term->grid->view == term->grid->offset;
