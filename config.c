@@ -795,7 +795,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         if (strcmp(value, "url-mode") == 0)
             conf->osc8_underline = OSC8_UNDERLINE_URL_MODE;
         else if (strcmp(value, "always") == 0)
-            conf->osc8_underline = OSC8_UNDERLINE_URL_MODE;
+            conf->osc8_underline = OSC8_UNDERLINE_ALWAYS;
         else {
             LOG_AND_NOTIFY_ERR(
                 "%s:%u: [default]: %s: invalid 'osc8-underline'; "
