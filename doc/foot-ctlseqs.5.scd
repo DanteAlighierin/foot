@@ -562,6 +562,11 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 :  Update the terminal's current working directory. Newly spawned
    terminals will launch in this directory. _Uri_ must be on the format
    *file://<hostname>/<path>*. *hostname* must refer to your local host.
+|  \\E] 8 ; _id_=*ID* ; _Uri_ ST
+:  VTE+iTerm2
+:  Hyperlink (a.k.a HTML-like anchors). _id_ is optional; if assigned,
+   all URIs with the same *ID* will be treated as a single
+   hyperlink. An empty URI closes the hyperlink.
 |  \\E] 10 ; _spec_ ST
 :  xterm
 :  Change the default foreground color to _spec_, a color in
