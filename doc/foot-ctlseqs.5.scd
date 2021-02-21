@@ -4,8 +4,7 @@ foot-ctlseqs(5)
 
 This document describes all the control sequences supported by foot.
 
-- CC0 - 7-bit control characters
-- CC1 - 8-bit control sequences (*not supported*)
+- Control characters
 - Sequences beginning with ESC
 - CSI - Control Sequence Introducer
     - SGR
@@ -16,7 +15,7 @@ This document describes all the control sequences supported by foot.
 - OSC - Operating System Command
 - DCS - Device Control String
 
-# CC0 - 7-bit control characters
+# Control characters
 
 [[ *Sequence*
 :[ *Name*
@@ -49,10 +48,6 @@ This document describes all the control sequences supported by foot.
 |  \\x0F
 :  SS1
 :  Shift in; select the _G0_ character set.
-
-# CC1 - 8-bit control sequences
-
-Foot does not support any CC1 control sequences.
 
 # Sequences beginning with ESC
 
@@ -623,3 +618,6 @@ are terminated by *\\E\\* (ST).
 |  \\EP = 2 s ST
 :  End application synchronized updates
 
+# FOOTNOTE
+
+Foot does not support 8-bit control characters ("CC1").
