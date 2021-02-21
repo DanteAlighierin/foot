@@ -37,8 +37,8 @@
 * Key/mouse binding `select-extend-character-wise`, which forces the
   selection mode to 'character-wise' when extending a selection.
 * `DECSET` `47`, `1047` and `1048`.
-* URL detection. URLs are highlighted and activated using the keyboard
-  (**no** mouse support). See **foot**(1)::URLs, or
+* URL detection and OSC-8 support. URLs are highlighted and activated
+  using the keyboard (**no** mouse support). See **foot**(1)::URLs, or
   [README.md](README.md#urls) for details
   (https://codeberg.org/dnkl/foot/issues/14).
 * `-d,--log-level={info|warning|error}` to both `foot` and

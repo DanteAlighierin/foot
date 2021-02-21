@@ -33,6 +33,7 @@ grid_row_alloc(int cols, bool initialize)
     struct row *row = xmalloc(sizeof(*row));
     row->dirty = false;
     row->linebreak = false;
+    row->extra = NULL;
 
     if (initialize) {
         row->cells = xcalloc(cols, sizeof(row->cells[0]));
@@ -50,6 +51,8 @@ grid_row_free(struct row *row)
     if (row == NULL)
         return;
 
+    grid_row_reset_extra(row);
+    free(row->extra);
     free(row->cells);
     free(row);
 }
@@ -111,6 +114,25 @@ grid_resize_without_reflow(
                 sixel_destroy(&it->item);
             tll_remove(untranslated_sixels, it);
         }
+
+        /* Copy URI ranges, truncating them if necessary */
+        if (old_row->extra == NULL)
+            continue;
+
+        tll_foreach(old_row->extra->uri_ranges, it) {
+            if (it->item.start >= new_rows) {
+                /* The whole range is truncated */
+                continue;
+            }
+
+            struct row_uri_range range = {
+                .start = it->item.start,
+                .end = min(it->item.end, new_cols - 1),
+                .id = it->item.id,
+                .uri = xstrdup(it->item.uri),
+            };
+            grid_row_add_uri_range(new_row, range);
+        }
     }
 
     /* Clear "new" lines */
@@ -119,7 +141,6 @@ grid_resize_without_reflow(
         new_grid[(new_offset + r) & (new_rows - 1)] = new_row;
 
         memset(new_row->cells, 0, sizeof(struct cell) * new_cols);
-        new_row->linebreak = false;
         new_row->dirty = true;
     }
 
@@ -164,6 +185,103 @@ grid_resize_without_reflow(
     for (int r = 0; r < new_screen_rows; r++)
         grid_row_in_view(grid, r);
 #endif
+}
+
+static void
+reflow_uri_ranges(const struct row *old_row, struct row *new_row,
+                  int old_col_idx, int new_col_idx)
+{
+    if (old_row->extra == NULL)
+        return;
+
+    /*
+     * Check for URI range start/end points on the “old” row, and
+     * open/close a corresponding URI range on the “new” row.
+     */
+
+    tll_foreach(old_row->extra->uri_ranges, it) {
+        if (it->item.start == old_col_idx) {
+            struct row_uri_range new_range = {
+                .start = new_col_idx,
+                .end = -1,
+                .id = it->item.id,
+                .uri = xstrdup(it->item.uri),
+            };
+            grid_row_add_uri_range(new_row, new_range);
+        }
+
+        else if (it->item.end == old_col_idx) {
+            xassert(new_row->extra != NULL);
+
+            bool found_it = false;
+            tll_foreach(new_row->extra->uri_ranges, it2) {
+                if (it2->item.id != it->item.id)
+                    continue;
+                if (it2->item.end >= 0)
+                    continue;
+
+                it2->item.end = new_col_idx;
+                found_it = true;
+                break;
+            }
+            xassert(found_it);
+        }
+    }
+}
+
+static struct row *
+_line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
+           int *row_idx, int *col_idx, int row_count, int col_count)
+{
+    *col_idx = 0;
+    *row_idx = (*row_idx + 1) & (row_count - 1);
+
+    struct row *new_row = new_grid[*row_idx];
+
+    if (new_row == NULL) {
+        /* Scrollback not yet full, allocate a completely new row */
+        new_row = grid_row_alloc(col_count, true);
+        new_grid[*row_idx] = new_row;
+    } else {
+        /* Scrollback is full, need to re-use a row */
+        memset(new_row->cells, 0, col_count * sizeof(new_row->cells[0]));
+        grid_row_reset_extra(new_row);
+        new_row->linebreak = false;
+
+        tll_foreach(old_grid->sixel_images, it) {
+            if (it->item.pos.row == *row_idx) {
+                sixel_destroy(&it->item);
+                tll_remove(old_grid->sixel_images, it);
+            }
+        }
+    }
+
+    if (row->extra == NULL)
+        return new_row;
+
+    /*
+     * URI ranges are per row. Thus, we need to ‘close’ the still-open
+     * ranges on the previous row, and re-open them on the
+     * next/current row.
+     */
+    tll_foreach(row->extra->uri_ranges, it) {
+        if (it->item.end >= 0)
+            continue;
+
+        /* Terminate URI range on the previous row */
+        it->item.end = col_count - 1;
+
+        /* Open a new range on the new/current row */
+        struct row_uri_range new_range = {
+            .start = 0,
+            .end = -1,
+            .id = it->item.id,
+            .uri = xstrdup(it->item.uri),
+        };
+        grid_row_add_uri_range(new_row, new_range);
+    }
+
+    return new_row;
 }
 
 void
@@ -245,29 +363,13 @@ grid_resize_and_reflow(
             tll_remove(untranslated_sixels, it);
         }
 
-#define line_wrap()                                                     \
-        do {                                                            \
-            new_col_idx = 0;                                            \
-            new_row_idx = (new_row_idx + 1) & (new_rows - 1);           \
-                                                                        \
-            new_row = new_grid[new_row_idx];                            \
-            if (new_row == NULL) {                                      \
-                new_row = grid_row_alloc(new_cols, true);               \
-                new_grid[new_row_idx] = new_row;                        \
-            } else {                                                    \
-                memset(new_row->cells, 0, new_cols * sizeof(new_row->cells[0])); \
-                new_row->linebreak = false;                             \
-                tll_foreach(grid->sixel_images, it) {                   \
-                    if (it->item.pos.row == new_row_idx) {              \
-                        sixel_destroy(&it->item);                       \
-                        tll_remove(grid->sixel_images, it);             \
-                    }                                                   \
-                }                                                       \
-            }                                                           \
-        } while(0)
+#define line_wrap()                                                 \
+        new_row = _line_wrap(                                       \
+            grid, new_grid, new_row, &new_row_idx, &new_col_idx,    \
+            new_rows, new_cols)
 
-#define print_spacer() \
-        do { \
+#define print_spacer()                                                  \
+        do {                                                            \
             new_row->cells[new_col_idx].wc = CELL_MULT_COL_SPACER;      \
             new_row->cells[new_col_idx].attrs = old_cell->attrs;        \
             new_row->cells[new_col_idx].attrs.clean = 1;                \
@@ -291,6 +393,17 @@ grid_resize_and_reflow(
                 if (it->item->row == old_row_idx && it->item->col == c) {
                     is_tracking_point = true;
                     break;
+                }
+            }
+
+            /* If there’s an URI start/end point here, we need to make
+             * sure we handle it */
+            if (old_row->extra != NULL) {
+                tll_foreach(old_row->extra->uri_ranges, it) {
+                    if (it->item.start == c || it->item.end == c) {
+                        is_tracking_point = true;
+                        break;
+                    }
                 }
             }
 
@@ -356,6 +469,8 @@ grid_resize_and_reflow(
                             tll_remove(tracking_points, it);
                         }
                     }
+
+                    reflow_uri_ranges(old_row, new_row, c, new_col_idx);
                 }
                 new_col_idx++;
             }
@@ -381,6 +496,21 @@ grid_resize_and_reflow(
 #undef print_spacer
 #undef line_wrap
     }
+
+#if defined(_DEBUG)
+    /* Verify all URI ranges have been “closed” */
+    for (int r = 0; r < new_rows; r++) {
+        const struct row *row = new_grid[r];
+
+        if (row == NULL)
+            continue;
+        if (row->extra == NULL)
+            continue;
+
+        tll_foreach(row->extra->uri_ranges, it)
+            xassert(it->item.end >= 0);
+    }
+#endif
 
     /* Set offset such that the last reflowed row is at the bottom */
     grid->offset = new_row_idx - new_screen_rows + 1;
@@ -448,4 +578,18 @@ grid_resize_and_reflow(
     tll_free(untranslated_sixels);
 
     tll_free(tracking_points);
+}
+
+static void
+ensure_row_has_extra_data(struct row *row)
+{
+    if (row->extra == NULL)
+        row->extra = xcalloc(1, sizeof(*row->extra));
+}
+
+void
+grid_row_add_uri_range(struct row *row, struct row_uri_range range)
+{
+    ensure_row_has_extra_data(row);
+    tll_push_back(row->extra->uri_ranges, range);
 }

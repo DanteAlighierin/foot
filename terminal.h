@@ -86,10 +86,22 @@ struct composed {
     uint8_t count;
 };
 
+struct row_uri_range {
+    int start;
+    int end;
+    uint64_t id;
+    char *uri;
+};
+
+struct row_data {
+    tll(struct row_uri_range) uri_ranges;
+};
+
 struct row {
     struct cell *cells;
     bool dirty;
     bool linebreak;
+    struct row_data *extra;
 };
 
 struct sixel {
@@ -144,12 +156,25 @@ struct vt {
         struct vt_param v[16];
         uint8_t idx;
     } params;
+
     uint32_t private; /* LSB=priv0, MSB=priv3 */
+
+    struct attributes attrs;
+    struct attributes saved_attrs;
+
     struct {
         uint8_t *data;
         size_t size;
         size_t idx;
     } osc;
+
+    /* Start coordinate for current OSC-8 URI */
+    struct {
+        uint64_t id;
+        char *uri;
+        struct coord begin;
+    } osc8;
+
     struct {
         uint8_t *data;
         size_t size;
@@ -157,8 +182,6 @@ struct vt {
         void (*put_handler)(struct terminal *term, uint8_t c);
         void (*unhook_handler)(struct terminal *term);
     } dcs;
-    struct attributes attrs;
-    struct attributes saved_attrs;
 };
 
 enum cursor_origin { ORIGIN_ABSOLUTE, ORIGIN_RELATIVE };
@@ -227,12 +250,13 @@ typedef tll(struct ptmx_buffer) ptmx_buffer_list_t;
 
 enum url_action { URL_ACTION_COPY, URL_ACTION_LAUNCH };
 struct url {
-    wchar_t *url;
-    wchar_t *text;
+    uint64_t id;
+    char *url;
     wchar_t *key;
     struct coord start;
     struct coord end;
     enum url_action action;
+    bool url_mode_dont_change_url_attr; /* Entering/exiting URL mode doesn’t touch the cells’ attr.url */
 };
 typedef tll(struct url) url_list_t;
 
@@ -516,6 +540,7 @@ struct terminal {
 
     url_list_t urls;
     wchar_t url_keys[5];
+    bool urls_show_uri_on_jump_label;
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     struct {
@@ -668,3 +693,6 @@ void term_ime_set_cursor_rect(
 
 void term_urls_reset(struct terminal *term);
 void term_collect_urls(struct terminal *term);
+
+void term_osc8_open(struct terminal *term, uint64_t id, const char *uri);
+void term_osc8_close(struct terminal *term);

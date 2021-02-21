@@ -1,5 +1,6 @@
 #include "url-mode.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <wctype.h>
 
@@ -11,8 +12,11 @@
 #include "selection.h"
 #include "spawn.h"
 #include "terminal.h"
+#include "uri.h"
 #include "util.h"
 #include "xmalloc.h"
+
+static void url_destroy(struct url *url);
 
 static bool
 execute_binding(struct seat *seat, struct terminal *term,
@@ -26,6 +30,11 @@ execute_binding(struct seat *seat, struct terminal *term,
         urls_reset(term);
         return true;
 
+    case BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL:
+         term->urls_show_uri_on_jump_label = !term->urls_show_uri_on_jump_label;
+        render_refresh_urls(term);
+        return true;
+
     case BIND_ACTION_URL_COUNT:
         return false;
 
@@ -36,42 +45,59 @@ execute_binding(struct seat *seat, struct terminal *term,
 static void
 activate_url(struct seat *seat, struct terminal *term, const struct url *url)
 {
-    size_t chars = wcstombs(NULL, url->url, 0);
+    char *url_string = NULL;
 
-    if (chars != (size_t)-1) {
-        char *url_utf8 = xmalloc(chars + 1);
-        wcstombs(url_utf8, url->url, chars + 1);
+    char *scheme, *host, *path;
+    if (uri_parse(url->url, strlen(url->url), &scheme, NULL, NULL,
+                  &host, NULL, &path, NULL, NULL))
+    {
+        if (strcmp(scheme, "file") == 0 && hostname_is_localhost(host)) {
+            /*
+             * This is a file in *this* computer. Pass only the
+             * filename to the URL-launcher.
+             *
+             * I.e. strip the ‘file://user@host/’ prefix.
+             */
+            url_string = path;
+        } else
+            free(path);
 
-        switch (url->action) {
-        case URL_ACTION_COPY:
-            if (text_to_clipboard(seat, term, url_utf8, seat->kbd.serial)) {
-                /* Now owned by our clipboard “manager” */
-                url_utf8 = NULL;
-            }
-            break;
-
-        case URL_ACTION_LAUNCH: {
-            size_t argc;
-            char **argv;
-
-            if (spawn_expand_template(
-                    &term->conf->url_launch, 1,
-                    (const char *[]){"url"},
-                    (const char *[]){url_utf8},
-                    &argc, &argv))
-            {
-                spawn(term->reaper, term->cwd, argv, -1, -1, -1);
-
-                for (size_t i = 0; i < argc; i++)
-                    free(argv[i]);
-                free(argv);
-            }
-            break;
-        }
-        }
-
-        free(url_utf8);
+        free(scheme);
+        free(host);
     }
+
+    if (url_string == NULL)
+        url_string = xstrdup(url->url);
+
+    switch (url->action) {
+    case URL_ACTION_COPY:
+        if (text_to_clipboard(seat, term, url_string, seat->kbd.serial)) {
+            /* Now owned by our clipboard “manager” */
+            url_string = NULL;
+        }
+        break;
+
+    case URL_ACTION_LAUNCH: {
+        size_t argc;
+        char **argv;
+
+        if (spawn_expand_template(
+                &term->conf->url_launch, 1,
+                (const char *[]){"url"},
+                (const char *[]){url_string},
+                &argc, &argv))
+        {
+            spawn(term->reaper, term->cwd, argv, -1, -1, -1);
+
+            for (size_t i = 0; i < argc; i++)
+                free(argv[i]);
+            free(argv);
+        }
+        break;
+    }
+    }
+
+    free(url_string);
 }
 
 void
@@ -121,6 +147,9 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
     const struct url *match = NULL;
 
     tll_foreach(term->urls, it) {
+        if (it->item.key == NULL)
+            continue;
+
         const struct url *url = &it->item;
         const size_t key_len = wcslen(it->item.key);
 
@@ -151,7 +180,8 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
 IGNORE_WARNING("-Wpedantic")
 
 static void
-auto_detected(const struct terminal *term, enum url_action action, url_list_t *urls)
+auto_detected(const struct terminal *term, enum url_action action,
+              url_list_t *urls)
 {
     static const wchar_t *const prots[] = {
         L"http://",
@@ -313,14 +343,20 @@ auto_detected(const struct terminal *term, enum url_action action, url_list_t *u
                     start.row += term->grid->view;
                     end.row += term->grid->view;
 
-                    tll_push_back(
-                        *urls,
-                        ((struct url){
-                            .url = xwcsdup(url),
-                            .text = xwcsdup(L""),
-                            .start = start,
-                            .end = end,
-                            .action = action}));
+                    size_t chars = wcstombs(NULL, url, 0);
+                    if (chars != (size_t)-1) {
+                        char *url_utf8 = xmalloc((chars + 1) * sizeof(wchar_t));
+                        wcstombs(url_utf8, url, chars + 1);
+
+                        tll_push_back(
+                            *urls,
+                            ((struct url){
+                                .id = (uint64_t)rand() << 32 | rand(),
+                                .url = url_utf8,
+                                .start = start,
+                                .end = end,
+                                .action = action}));
+                    }
 
                     state = STATE_PROTOCOL;
                     len = 0;
@@ -335,14 +371,77 @@ auto_detected(const struct terminal *term, enum url_action action, url_list_t *u
 
 UNIGNORE_WARNINGS
 
+static void
+osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
+{
+    bool dont_touch_url_attr = false;
+
+    switch (term->conf->osc8_underline) {
+    case OSC8_UNDERLINE_URL_MODE:
+        dont_touch_url_attr = false;
+        break;
+
+    case OSC8_UNDERLINE_ALWAYS:
+        dont_touch_url_attr = true;
+        break;
+    }
+
+    for (int r = 0; r < term->rows; r++) {
+        const struct row *row = grid_row_in_view(term->grid, r);
+
+       if (row->extra == NULL)
+            continue;
+
+       tll_foreach(row->extra->uri_ranges, it) {
+           struct coord start = {
+               .col = it->item.start,
+               .row = r + term->grid->view,
+           };
+           struct coord end = {
+               .col = it->item.end,
+               .row = r + term->grid->view,
+           };
+           tll_push_back(
+               *urls,
+               ((struct url){
+                   .id = it->item.id,
+                   .url = xstrdup(it->item.uri),
+                   .start = start,
+                   .end = end,
+                   .action = action,
+                   .url_mode_dont_change_url_attr = dont_touch_url_attr}));
+       }
+    }
+}
+
+static void
+remove_duplicates(url_list_t *urls)
+{
+    tll_foreach(*urls, outer) {
+        tll_foreach(*urls, inner) {
+            if (outer == inner)
+                continue;
+
+            if (outer->item.start.row == inner->item.start.row &&
+                outer->item.start.col == inner->item.start.col &&
+                outer->item.end.row == inner->item.end.row &&
+                outer->item.end.col == inner->item.end.col)
+            {
+                url_destroy(&inner->item);
+                tll_remove(*urls, inner);
+            }
+        }
+    }
+}
+
 void
 urls_collect(const struct terminal *term, enum url_action action, url_list_t *urls)
 {
     xassert(tll_length(term->urls) == 0);
+    osc8_uris(term, action, urls);
     auto_detected(term, action, urls);
+    remove_duplicates(urls);
 }
-
-static void url_destroy(struct url *url);
 
 static int
 wcscmp_qsort_wrapper(const void *_a, const void *_b)
@@ -416,22 +515,59 @@ urls_assign_key_combos(const struct config *conf, url_list_t *urls)
     if (count == 0)
         return;
 
+    uint64_t seen_ids[count];
     wchar_t *combos[count];
     generate_key_combos(conf, count, combos);
 
-    size_t idx = 0;
-    tll_foreach(*urls, it)
-        it->item.key = combos[idx++];
+    size_t combo_idx = 0;
+    size_t id_idx = 0;
+
+    tll_foreach(*urls, it) {
+        bool id_already_seen = false;
+
+        for (size_t i = 0; i < id_idx; i++) {
+            if (it->item.id == seen_ids[i]) {
+                id_already_seen = true;
+                break;
+            }
+        }
+
+        if (id_already_seen)
+            continue;
+        seen_ids[id_idx++] = it->item.id;
+
+        /*
+         * Scan previous URLs, and check if *this* URL matches any of
+         * them; if so, re-use the *same* key combo.
+         */
+        bool url_already_seen = false;
+        tll_foreach(*urls, it2) {
+            if (&it->item == &it2->item)
+                break;
+
+            if (strcmp(it->item.url, it2->item.url) == 0) {
+                it->item.key = xwcsdup(it2->item.key);
+                url_already_seen = true;
+                break;
+            }
+        }
+
+        if (!url_already_seen)
+            it->item.key = combos[combo_idx++];
+    }
+
+    /* Free combos we didn’t use up */
+    for (size_t i = combo_idx; i < count; i++)
+        free(combos[i]);
 
 #if defined(_DEBUG) && LOG_ENABLE_DBG
     tll_foreach(*urls, it) {
-        char url[1024];
-        wcstombs(url, it->item.url, sizeof(url) - 1);
+        if (it->item.key == NULL)
+            continue;
 
         char key[32];
         wcstombs(key, it->item.key, sizeof(key) - 1);
-
-        LOG_DBG("URL: %s (%s)", url, key);
+        LOG_DBG("URL: %s (%s)", it->item.url, key);
     }
 #endif
 }
@@ -439,6 +575,9 @@ urls_assign_key_combos(const struct config *conf, url_list_t *urls)
 static void
 tag_cells_for_url(struct terminal *term, const struct url *url, bool value)
 {
+    if (url->url_mode_dont_change_url_attr)
+        return;
+
     const struct coord *start = &url->start;
     const struct coord *end = &url->end;
 
@@ -493,7 +632,6 @@ static void
 url_destroy(struct url *url)
 {
     free(url->url);
-    free(url->text);
     free(url->key);
 }
 
@@ -516,6 +654,7 @@ urls_reset(struct terminal *term)
         tll_remove(term->urls, it);
     }
 
+    term->urls_show_uri_on_jump_label = false;
     memset(term->url_keys, 0, sizeof(term->url_keys));
     render_refresh(term);
 }

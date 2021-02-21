@@ -119,6 +119,7 @@ static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
 static const char *const url_binding_action_map[] = {
     [BIND_ACTION_URL_NONE] = NULL,
     [BIND_ACTION_URL_CANCEL] = "cancel",
+    [BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL] = "toggle-url-visible",
 };
 
 static_assert(ALEN(url_binding_action_map) == BIND_ACTION_URL_COUNT,
@@ -788,6 +789,19 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             "must be one of 'none', 'primary', 'clipboard' or 'both",
             path, lineno, value);
         return false;
+    }
+
+    else if (strcmp(key, "osc8-underline") == 0) {
+        if (strcmp(value, "url-mode") == 0)
+            conf->osc8_underline = OSC8_UNDERLINE_URL_MODE;
+        else if (strcmp(value, "always") == 0)
+            conf->osc8_underline = OSC8_UNDERLINE_ALWAYS;
+        else {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%u: [default]: %s: invalid 'osc8-underline'; "
+                "must be one of 'url-mode', or 'always'", path, lineno, value);
+            return false;
+        }
     }
 
     else {
@@ -2107,6 +2121,7 @@ add_default_url_bindings(struct config *conf)
     add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_g);
     add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_d);
     add_binding(BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape);
+    add_binding(BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL, none, XKB_KEY_t);
 
 #undef add_binding
 }
@@ -2240,6 +2255,8 @@ config_load(struct config *conf, const char *conf_path,
             .raw_cmd = NULL,
             .argv = NULL,
         },
+
+        .osc8_underline = OSC8_UNDERLINE_URL_MODE,
 
         .tweak = {
             .fcft_filter = FCFT_SCALING_FILTER_LANCZOS3,

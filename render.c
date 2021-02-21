@@ -2525,11 +2525,18 @@ render_urls(struct terminal *term)
            + term->grid->num_rows) & (term->grid->num_rows - 1);
     const int view_end = view_start + term->rows - 1;
 
+    const bool show_url = term->urls_show_uri_on_jump_label;
+
     tll_foreach(win->urls, it) {
         const struct url *url = it->item.url;
-        const wchar_t *text = url->text;
         const wchar_t *key = url->key;
         const size_t entered_key_len = wcslen(term->url_keys);
+
+        if (key == NULL) {
+            /* TODO: if we decide to use the .text field, we cannot
+             * just skip the entire jump label like this */
+            continue;
+        }
 
         struct wl_surface *surf = it->item.surf.surf;
         struct wl_subsurface *sub_surf = it->item.surf.sub;
@@ -2557,22 +2564,28 @@ render_urls(struct terminal *term)
             continue;
         }
 
-        size_t text_len = wcslen(text);
-        size_t chars = wcslen(key) + (text_len > 0 ? 3 + text_len : 0);
+        const size_t key_len = wcslen(key);
+
+        size_t url_len = mbstowcs(NULL, url->url, 0);
+        if (url_len == (size_t)-1)
+            url_len = 0;
+
+        wchar_t url_wchars[url_len + 1];
+        mbstowcs(url_wchars, url->url, url_len + 1);
+
+        size_t chars = key_len + (show_url ? (2 + url_len) : 0);
 
         const size_t max_chars = 50;
         chars = min(chars, max_chars);
 
         wchar_t label[chars + 2];
-        if (text_len == 0)
-            wcscpy(label, key);
-        else {
-            int count = swprintf(label, chars + 1, L"%ls - %ls", key, text);
-            if (count >= max_chars) {
-                label[max_chars] = L'…';
-                label[max_chars + 1] = L'\0';
-            }
-        }
+        label[chars] = L'…';
+        label[chars + 1] = L'\0';
+
+        if (show_url)
+            swprintf(label, chars + 1, L"%ls: %ls", key, url_wchars);
+        else
+            wcsncpy(label, key, chars + 1);
 
         for (size_t i = 0; i < wcslen(key); i++)
             label[i] = towupper(label[i]);

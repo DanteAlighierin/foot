@@ -1102,6 +1102,9 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .blink = {.fd = -1},
         .vt = {
             .state = 0,  /* STATE_GROUND */
+            .osc8 = {
+                .begin = {-1, -1},
+            },
         },
         .colors = {
             .fg = conf->colors.fg,
@@ -1645,6 +1648,9 @@ term_reset(struct terminal *term, bool hard)
     free(term->vt.osc.data);
     memset(&term->vt, 0, sizeof(term->vt));
     term->vt.state = 0; /* GROUND */
+    term->vt.osc8.begin = (struct coord){-1, -1};
+    free(term->vt.osc8.uri);
+    term->vt.osc8.uri = NULL;
 
     if (term->grid == &term->alt) {
         term->grid = &term->normal;
@@ -2154,8 +2160,11 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
         grid_swap_row(term->grid, i - rows, i);
 
     /* Erase scrolled in lines */
-    for (int r = region.end - rows; r < region.end; r++)
-        erase_line(term, grid_row_and_alloc(term->grid, r));
+    for (int r = region.end - rows; r < region.end; r++) {
+        struct row *row = grid_row_and_alloc(term->grid, r);
+        grid_row_reset_extra(row);
+        erase_line(term, row);
+    }
 
     term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
@@ -2222,8 +2231,11 @@ term_scroll_reverse_partial(struct terminal *term,
         grid_swap_row(term->grid, i, i - rows);
 
     /* Erase scrolled in lines */
-    for (int r = region.start; r < region.start + rows; r++)
-        erase_line(term, grid_row_and_alloc(term->grid, r));
+    for (int r = region.start; r < region.start + rows; r++) {
+        struct row *row = grid_row_and_alloc(term->grid, r);
+        grid_row_reset_extra(row);
+        erase_line(term, row);
+    }
 
     term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
@@ -2989,3 +3001,79 @@ term_ime_set_cursor_rect(struct terminal *term, int x, int y, int width,
 #endif
 }
 
+void
+term_osc8_open(struct terminal *term, uint64_t id, const char *uri)
+{
+    if (unlikely(term->vt.osc8.begin.row >= 0)) {
+        /* It’s valid to switch from one URI to another without
+         * closing the first one */
+        term_osc8_close(term);
+    }
+
+    term->vt.osc8.begin = (struct coord){
+        .col = term->grid->cursor.point.col,
+        .row = grid_row_absolute(term->grid, term->grid->cursor.point.row),
+    };
+    term->vt.osc8.id = id;
+    term->vt.osc8.uri = xstrdup(uri);
+}
+
+void
+term_osc8_close(struct terminal *term)
+{
+    if (term->vt.osc8.begin.row < 0)
+        return;
+
+    if (term->vt.osc8.uri[0] == '\0')
+        goto done;
+
+    struct coord start = term->vt.osc8.begin;
+    struct coord end = (struct coord){
+        .col = term->grid->cursor.point.col,
+        .row = grid_row_absolute(term->grid, term->grid->cursor.point.row),
+    };
+
+    if (start.row == end.row && start.col == end.col) {
+        /* Zero-length URL, e.g: \E]8;;http://foo\E\\\E]8;;\E\\ */
+        goto done;
+    }
+
+    /* end is *inclusive */
+    if (--end.col < 0) {
+        end.row--;
+        end.col = term->cols - 1;
+    }
+
+    int r = start.row;
+    int start_col = start.col;
+    do {
+        int end_col = r == end.row ? end.col : term->cols - 1;
+
+        struct row *row = term->grid->rows[r];
+
+        switch (term->conf->osc8_underline) {
+        case OSC8_UNDERLINE_ALWAYS:
+            for (int c = start_col; c <= end_col; c++)
+                row->cells[c].attrs.url = true;
+            break;
+
+        case OSC8_UNDERLINE_URL_MODE:
+            break;
+        }
+
+        struct row_uri_range range = {
+            .start = start_col,
+            .end = end_col,
+            .id = term->vt.osc8.id,
+            .uri = xstrdup(term->vt.osc8.uri),
+        };
+        grid_row_add_uri_range(row, range);
+        start_col = 0;
+    } while (r++ != end.row);
+
+done:
+    free(term->vt.osc8.uri);
+    term->vt.osc8.id = 0;
+    term->vt.osc8.uri = NULL;
+    term->vt.osc8.begin = (struct coord){-1, -1};
+}
