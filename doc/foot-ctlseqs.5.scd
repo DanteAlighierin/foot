@@ -4,7 +4,7 @@ foot-ctlseqs(5)
 
 This document describes all the control sequences supported by foot.
 
-- CC0 - 7-bit control sequences
+- CC0 - 7-bit control characters
 - CC1 - 8-bit control sequences (*not supported*)
 - Sequences beginning with ESC
 - CSI - Control Sequence Introducer
@@ -16,7 +16,7 @@ This document describes all the control sequences supported by foot.
 - OSC - Operating System Command
 - DCS - Device Control String
 
-# CC0 - 7-bit control sequences
+# CC0 - 7-bit control characters
 
 [[ *Sequence*
 :[ *Name*
