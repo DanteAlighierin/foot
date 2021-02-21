@@ -108,8 +108,8 @@ equivalent to 8-bit C1 controls.
 |  \\E ( _C_
 :  SCS
 :  VT100
-:  Designate G0 character set. Supported values for _C_ are: *0* (_DEC
-   Special Character and Line Drawing Set_), and *B* (_USASCII_).
+:  Designate G0 character set. Supported values for _C_ are: *0* (DEC
+   Special Character and Line Drawing Set), and *B* (USASCII).
 |  \\E ) _C_
 :  SCS
 :  VT100
