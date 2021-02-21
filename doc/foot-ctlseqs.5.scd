@@ -127,7 +127,7 @@ equivalent to 8-bit C1 controls.
 
 All sequences begin with *\\E[*, sometimes abbreviated _CSI_. Spaces
 are used in the sequence strings to make them easier to read, but are
-not actually part of the string. I.e. *\\E[ 1 m* is really *\\E1m*.
+not actually part of the string. I.e. *\\E[ 1 m* is really *\\E[1m*.
 
 ## SGR
 
