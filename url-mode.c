@@ -519,10 +519,13 @@ urls_assign_key_combos(const struct config *conf, url_list_t *urls)
     wchar_t *combos[count];
     generate_key_combos(conf, count, combos);
 
-    size_t idx = 0;
+    size_t combo_idx = 0;
+    size_t id_idx = 0;
+
     tll_foreach(*urls, it) {
         bool id_already_seen = false;
-        for (size_t i = 0; i < idx; i++) {
+
+        for (size_t i = 0; i < id_idx; i++) {
             if (it->item.id == seen_ids[i]) {
                 id_already_seen = true;
                 break;
@@ -531,13 +534,30 @@ urls_assign_key_combos(const struct config *conf, url_list_t *urls)
 
         if (id_already_seen)
             continue;
+        seen_ids[id_idx++] = it->item.id;
 
-        seen_ids[idx] = it->item.id;
-        it->item.key = combos[idx++];
+        /*
+         * Scan previous URLs, and check if *this* URL matches any of
+         * them; if so, re-use the *same* key combo.
+         */
+        bool url_already_seen = false;
+        tll_foreach(*urls, it2) {
+            if (&it->item == &it2->item)
+                break;
+
+            if (strcmp(it->item.url, it2->item.url) == 0) {
+                it->item.key = xwcsdup(it2->item.key);
+                url_already_seen = true;
+                break;
+            }
+        }
+
+        if (!url_already_seen)
+            it->item.key = combos[combo_idx++];
     }
 
     /* Free combos we didn’t use up */
-    for (size_t i = idx; i < count; i++)
+    for (size_t i = combo_idx; i < count; i++)
         free(combos[i]);
 
 #if defined(_DEBUG) && LOG_ENABLE_DBG
