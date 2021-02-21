@@ -149,14 +149,14 @@ void log_errno(enum log_class log_class, const char *module,
 }
 
 void log_errno_provided(enum log_class log_class, const char *module,
-                        const char *file, int lineno, int _errno,
+                        const char *file, int lineno, int errno_copy,
                         const char *fmt, ...)
 {
     va_list ap1, ap2;
     va_start(ap1, fmt);
     va_copy(ap2, ap1);
-    _log(log_class, module, file, lineno, fmt, _errno, ap1);
-    _sys_log(log_class, module, file, lineno, fmt, _errno, ap2);
+    _log(log_class, module, file, lineno, fmt, errno_copy, ap1);
+    _sys_log(log_class, module, file, lineno, fmt, errno_copy, ap2);
     va_end(ap1);
     va_end(ap2);
 }

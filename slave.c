@@ -268,20 +268,20 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         close(fork_pipe[0]);  /* Close read end */
 
         if (chdir(cwd) < 0) {
-            const int _errno = errno;
+            const int errno_copy = errno;
             LOG_ERRNO("failed to change working directory");
-            (void)!write(fork_pipe[1], &_errno, sizeof(_errno));
-            _exit(_errno);
+            (void)!write(fork_pipe[1], &errno_copy, sizeof(errno_copy));
+            _exit(errno_copy);
         }
 
         /* Restore signal mask */
         sigset_t mask;
         sigemptyset(&mask);
         if (sigprocmask(SIG_SETMASK, &mask, NULL) < 0) {
-            const int _errno = errno;
+            const int errno_copy = errno;
             LOG_ERRNO_P(errno, "failed to restore signals");
-            (void)!write(fork_pipe[1], &_errno, sizeof(_errno));
-            _exit(_errno);
+            (void)!write(fork_pipe[1], &errno_copy, sizeof(errno_copy));
+            _exit(errno_copy);
         }
 
         setenv("TERM", term_env, 1);
@@ -319,18 +319,18 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         close(fork_pipe[1]); /* Close write end */
         LOG_DBG("slave has PID %d", pid);
 
-        int _errno;
-        static_assert(sizeof(errno) == sizeof(_errno), "errno size mismatch");
+        int errno_copy;
+        static_assert(sizeof(errno) == sizeof(errno_copy), "errno size mismatch");
 
-        ssize_t ret = read(fork_pipe[0], &_errno, sizeof(_errno));
+        ssize_t ret = read(fork_pipe[0], &errno_copy, sizeof(errno_copy));
         close(fork_pipe[0]);
 
         if (ret < 0) {
             LOG_ERRNO("failed to read from pipe");
             return -1;
-        } else if (ret == sizeof(_errno)) {
+        } else if (ret == sizeof(errno_copy)) {
             LOG_ERRNO_P(
-                _errno, "%s: failed to execute",
+                errno_copy, "%s: failed to execute",
                 argc == 0 ? conf_shell : argv[0]);
             return -1;
         } else
