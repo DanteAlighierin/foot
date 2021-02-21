@@ -611,8 +611,8 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 
 # DCS
 
-All _DCS_ sequences begin with *\\EP* (from here denoted _DCS_), and
-are terminated by *\\E\\* (ST).
+All _DCS_ sequences begin with *\\EP* (sometimes abbreviated _DCS_),
+and are terminated by *\\E\\* (ST).
 
 [[ *Sequence*
 :[ *Description*
