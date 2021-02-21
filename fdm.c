@@ -27,7 +27,6 @@ struct fd_handler {
 };
 
 struct sig_handler {
-    int signo;
     fdm_signal_handler_t callback;
     void *callback_data;
 };

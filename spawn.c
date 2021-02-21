@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -33,6 +34,16 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
     if (pid == 0) {
         /* Child */
         close(pipe_fds[0]);
+
+        /* Clear signal mask */
+        sigset_t mask;
+        sigemptyset(&mask);
+        if (sigprocmask(SIG_SETMASK, &mask, NULL) < 0) {
+            const int _errno = errno;
+            LOG_ERRNO_P(errno, "failed to restore signals");
+            (void)!write(pipe_fds[1], &_errno, sizeof(_errno));
+            _exit(_errno);
+        }
 
         if ((stdin_fd >= 0 && (dup2(stdin_fd, STDIN_FILENO) < 0 || close(stdin_fd) < 0)) ||
             (stdout_fd >= 0 && (dup2(stdout_fd, STDOUT_FILENO) < 0 || close(stdout_fd) < 0)) ||

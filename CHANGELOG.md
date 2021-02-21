@@ -81,6 +81,8 @@
   `shift` to be pressed while used in a mouse grabbing
   application. This meant the mouse event was never seen by the
   application.
+* Terminals spawned with `ctrl`+`shift`+`n` not terminating when
+  exiting shell (https://codeberg.org/dnkl/foot/issues/366).
 
 
 ### Security
