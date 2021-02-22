@@ -4,6 +4,7 @@
 #include "debug.h"
 #include "terminal.h"
 
+struct grid *grid_snapshot(const struct grid *grid);
 void grid_free(struct grid *grid);
 
 void grid_swap_row(struct grid *grid, int row_a, int row_b);
