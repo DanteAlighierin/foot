@@ -383,6 +383,8 @@ main(int argc, char *const *argv)
                      name.sysname, name.machine, sizeof(void *) * 8);
     }
 
+    srand(time(NULL));
+
     setlocale(LC_CTYPE, "");
     LOG_INFO("locale: %s", setlocale(LC_CTYPE, NULL));
     if (!locale_is_utf8()) {

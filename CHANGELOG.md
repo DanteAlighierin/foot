@@ -37,8 +37,8 @@
 * Key/mouse binding `select-extend-character-wise`, which forces the
   selection mode to 'character-wise' when extending a selection.
 * `DECSET` `47`, `1047` and `1048`.
-* URL detection. URLs are highlighted and activated using the keyboard
-  (**no** mouse support). See **foot**(1)::URLs, or
+* URL detection and OSC-8 support. URLs are highlighted and activated
+  using the keyboard (**no** mouse support). See **foot**(1)::URLs, or
   [README.md](README.md#urls) for details
   (https://codeberg.org/dnkl/foot/issues/14).
 * `-d,--log-level={info|warning|error}` to both `foot` and
@@ -81,6 +81,8 @@
   `shift` to be pressed while used in a mouse grabbing
   application. This meant the mouse event was never seen by the
   application.
+* Terminals spawned with `ctrl`+`shift`+`n` not terminating when
+  exiting shell (https://codeberg.org/dnkl/foot/issues/366).
 
 
 ### Security

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <signal.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -34,14 +35,25 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
         /* Child */
         close(pipe_fds[0]);
 
+        /* Clear signal mask */
+        sigset_t mask;
+        sigemptyset(&mask);
+        if (sigprocmask(SIG_SETMASK, &mask, NULL) < 0) {
+            const int errno_copy = errno;
+            LOG_ERRNO("failed to restore signals");
+            (void)!write(pipe_fds[1], &errno_copy, sizeof(errno_copy));
+            _exit(errno_copy);
+        }
+
         if ((stdin_fd >= 0 && (dup2(stdin_fd, STDIN_FILENO) < 0 || close(stdin_fd) < 0)) ||
             (stdout_fd >= 0 && (dup2(stdout_fd, STDOUT_FILENO) < 0 || close(stdout_fd) < 0)) ||
             (stderr_fd >= 0 && (dup2(stderr_fd, STDERR_FILENO) < 0 || close(stderr_fd) < 0)) ||
             (cwd != NULL && chdir(cwd) < 0) ||
             execvp(argv[0], argv) < 0)
         {
-            (void)!write(pipe_fds[1], &errno, sizeof(errno));
-            _exit(errno);
+            const int errno_copy = errno;
+            (void)!write(pipe_fds[1], &errno_copy, sizeof(errno_copy));
+            _exit(errno_copy);
         }
         xassert(false);
         _exit(errno);
@@ -50,10 +62,10 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
     /* Parent */
     close(pipe_fds[1]);
 
-    int _errno;
-    static_assert(sizeof(_errno) == sizeof(errno), "errno size mismatch");
+    int errno_copy;
+    static_assert(sizeof(errno_copy) == sizeof(errno), "errno size mismatch");
 
-    ssize_t ret = read(pipe_fds[0], &_errno, sizeof(_errno));
+    ssize_t ret = read(pipe_fds[0], &errno_copy, sizeof(errno_copy));
     close(pipe_fds[0]);
 
     if (ret == 0) {
@@ -63,8 +75,8 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
         LOG_ERRNO("failed to read from pipe");
         return false;
     } else {
-        LOG_ERRNO_P(_errno, "%s: failed to spawn", argv[0]);
-        errno = _errno;
+        LOG_ERRNO_P(errno_copy, "%s: failed to spawn", argv[0]);
+        errno = errno_copy;
         waitpid(pid, NULL, 0);
         return false;
     }

@@ -82,6 +82,7 @@ enum bind_action_search {
 enum bind_action_url {
     BIND_ACTION_URL_NONE,
     BIND_ACTION_URL_CANCEL,
+    BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL,
     BIND_ACTION_URL_COUNT,
 };
 

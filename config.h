@@ -205,6 +205,11 @@ struct config {
     struct config_spawn_template notify;
     struct config_spawn_template url_launch;
 
+    enum {
+        OSC8_UNDERLINE_URL_MODE,
+        OSC8_UNDERLINE_ALWAYS,
+    } osc8_underline;
+
     struct {
         enum fcft_scaling_filter fcft_filter;
         bool allow_overflowing_double_width_glyphs;

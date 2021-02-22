@@ -241,12 +241,24 @@ in this order:
 	Clipboard target to automatically copy selected text to. One of
 	*none*, *primary*, *clipboard* or *both*. Default: _primary_.
 
-
 *workers*
 	Number of threads to use for rendering. Set to 0 to disable
 	multithreading. Default: the number of available logical CPUs
 	(including SMT). Note that this is not always the best value. In
 	some cases, the number of physical _cores_ is better.
+
+*osc8-underline*
+	When to underline OSC-8 URLs. Possible values are *url-mode* and
+	*always*.
+	
+	When set to *url-mode*, OSC-8 URLs are only highlighted in URL
+	mode, just like auto-detected URLs.
+	
+	When set to *always*, OSC-8 URLs are always highlighted,
+	regardless of their other attributes (bold, italic etc). Note that
+	this does _not_ make them clickable.
+	
+	Default: _url-mode_
 
 
 # SECTION: scrollback
@@ -609,6 +621,20 @@ mode. The syntax is exactly the same as the regular **key-bindings**.
 *cancel*
 	Exits URL mode without opening an URL. Default: _Control+g
 	Control+d Escape_.
+
+*toggle-url-visible*
+	By default, the jump label only shows the key sequence required to
+	activate it. This is fine as long as the URL is visible in the
+	original text.
+	
+	But with e.g. OSC-8 URLs (the terminal version of HTML anchors,
+	i.e. "links"), the text on the screen can be something completey
+	different than the URL.
+	
+	This action toggles between showing and hiding the URL on the jump
+	label.
+	
+	Default: _t_.
 
 
 # SECTION: mouse-bindings

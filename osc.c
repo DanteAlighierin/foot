@@ -1,5 +1,6 @@
 #include "osc.h"
 
+#include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
@@ -15,6 +16,7 @@
 #include "selection.h"
 #include "terminal.h"
 #include "uri.h"
+#include "util.h"
 #include "vt.h"
 #include "xmalloc.h"
 #include "xsnprintf.h"
@@ -377,6 +379,64 @@ osc_set_pwd(struct terminal *term, char *string)
 }
 
 static void
+osc_uri(struct terminal *term, char *string)
+{
+    /*
+     * \E]8;<params>;URI\e\\
+     *
+     * Params are key=value pairs, separated by ‘:’.
+     *
+     * The only defined key (as of 2020-05-31) is ‘id’, which is used
+     * to group split-up URIs:
+     *
+     * ╔═ file1 ════╗
+     * ║          ╔═ file2 ═══╗
+     * ║http://exa║Lorem ipsum║
+     * ║le.com    ║ dolor sit ║
+     * ║          ║amet, conse║
+     * ╚══════════║ctetur adip║
+     *            ╚═══════════╝
+     *
+     * This lets a terminal emulator highlight both parts at the same
+     * time (e.g. when hovering over one of the parts with the mouse).
+     */
+
+    char *params = string;
+    char *params_end = strchr(params, ';');
+    if (params_end == NULL)
+        return;
+
+    *params_end = '\0';
+    const char *uri = params_end + 1;
+    uint64_t id = (uint64_t)rand() << 32 | rand();
+
+    char *ctx = NULL;
+    for (const char *key_value = strtok_r(params, ":", &ctx);
+         key_value != NULL;
+         key_value = strtok_r(NULL, ":", &ctx))
+    {
+        const char *key = key_value;
+        char *operator = strchr(key_value, '=');
+
+        if (operator == NULL)
+            continue;
+        *operator = '\0';
+
+        const char *value = operator + 1;
+
+        if (strcmp(key, "id") == 0)
+            id = sdbm_hash(value);
+    }
+
+    LOG_DBG("OSC-8: URL=%s, id=%" PRIu64, uri, id);
+
+    if (uri[0] == '\0')
+        term_osc8_close(term);
+    else
+        term_osc8_open(term, id, uri);
+}
+
+static void
 osc_notify(struct terminal *term, char *string)
 {
     /*
@@ -551,6 +611,10 @@ osc_dispatch(struct terminal *term)
     case 7:
         /* Update terminal's understanding of PWD */
         osc_set_pwd(term, string);
+        break;
+
+    case 8:
+        osc_uri(term, string);
         break;
 
     case 10:
