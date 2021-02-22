@@ -105,6 +105,7 @@ grid_free(struct grid *grid)
     }
 
     free(grid->rows);
+    tll_free(grid->scroll_damage);
 }
 
 void

@@ -1438,9 +1438,6 @@ term_destroy(struct terminal *term)
     grid_free(&term->normal);
     grid_free(&term->alt);
 
-    tll_free(term->normal.scroll_damage);
-    tll_free(term->alt.scroll_damage);
-
     free(term->composed);
 
     free(term->window_title);
