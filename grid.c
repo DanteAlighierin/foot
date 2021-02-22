@@ -12,6 +12,20 @@
 #include "xmalloc.h"
 
 void
+grid_free(struct grid *grid)
+{
+    for (int r = 0; r < grid->num_rows; r++)
+        grid_row_free(grid->rows[r]);
+
+    tll_foreach(grid->sixel_images, it) {
+        sixel_destroy(&it->item);
+        tll_remove(grid->sixel_images, it);
+    }
+
+    free(grid->rows);
+}
+
+void
 grid_swap_row(struct grid *grid, int row_a, int row_b)
 {
     xassert(grid->offset >= 0);
