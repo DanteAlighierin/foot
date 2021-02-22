@@ -25,6 +25,9 @@ grid_snapshot(const struct grid *grid)
     memset(&clone->scroll_damage, 0, sizeof(clone->scroll_damage));
     memset(&clone->sixel_images, 0, sizeof(clone->sixel_images));
 
+    tll_foreach(grid->scroll_damage, it)
+        tll_push_back(clone->scroll_damage, it->item);
+
     for (int r = 0; r < grid->num_rows; r++) {
         const struct row *row = grid->rows[r];
 
