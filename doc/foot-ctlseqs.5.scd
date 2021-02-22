@@ -545,67 +545,67 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 [[ *Sequence*
 :[ *Origin*
 :[ *Description*
-|  \\E] 0 ; _Pt_ ST
+|  \\E] 0 ; _Pt_ \\E\\ 
 :  xterm
 :  Set window icon and title to _Pt_ (foot does not support setting the
    icon)
-|  \\E] 2 ; _Pt_ ST
+|  \\E] 2 ; _Pt_ \\E\\ 
 :  xterm
 :  Set window title to _Pt_
-|  \\E] 4 ; _c_ ; _spec_ ST
+|  \\E] 4 ; _c_ ; _spec_ \\E\\ 
 :  xterm
 :  Change color number _c_ to _spec_, where _spec_ is a color in
    *XParseColor* format. foot only supports RGB colors; either
    *rgb:<red>/<green>/<blue>*, or the legacy format (*#rgb*).
-|  \\E] 7 ; _Uri_ ST
+|  \\E] 7 ; _Uri_ \\E\\ 
 :  iTerm2
 :  Update the terminal's current working directory. Newly spawned
    terminals will launch in this directory. _Uri_ must be on the format
    *file://<hostname>/<path>*. *hostname* must refer to your local host.
-|  \\E] 8 ; _id_=*ID* ; _Uri_ ST
+|  \\E] 8 ; _id_=*ID* ; _Uri_ \\E\\ 
 :  VTE+iTerm2
 :  Hyperlink (a.k.a HTML-like anchors). _id_ is optional; if assigned,
    all URIs with the same *ID* will be treated as a single
    hyperlink. An empty URI closes the hyperlink.
-|  \\E] 10 ; _spec_ ST
+|  \\E] 10 ; _spec_ \\E\\ 
 :  xterm
 :  Change the default foreground color to _spec_, a color in
    *XParseColor* format.
-|  \\E] 11 ; _spec_ ST
+|  \\E] 11 ; _spec_ \\E\\ 
 :  xterm
 :  Change the default background color to _spec_, a color in
    *XParseColor* format.
-|  \\E] 12 ; _spec_ ST
+|  \\E] 12 ; _spec_ \\E\\ 
 :  xterm
 :  Change cursor color to _spec_, a color in *XParseColor* format.
-|  \\E] 52 ; _Pc_ ; ? ST
+|  \\E] 52 ; _Pc_ ; ? \\E\\ 
 :  xterm
 :  Send clipboard data. _Pc_ can be either *c*, *s* or *p*. *c* uses
    the clipboard as source, and *s* and *p* uses the primary
    selection. The response is *OSC 52 ; Pc ; <base64-encoded data>*,
    where _Pc_ indicates the source used.
-|  \\E] 52 ; _Pc_ ; _Pd_ ST
+|  \\E] 52 ; _Pc_ ; _Pd_ \\E\\ 
 :  xterm
 :  Copy _Pd_ (base64 encoded text) to the clipboard. _Pc_ indicates the
    target: *c* targets the clipboard and *s* and *p* the primary
    selection.
-|  \\E] 104 [; _c_] ST
+|  \\E] 104 [; _c_] \\E\\ 
 :  xterm
 :  Reset color number _c_, or all colors (excluding the default
    foreground/background colors) if _c_ is omitted.
-|  \\E] 110 ST
+|  \\E] 110 \\E\\ 
 :  xterm
 :  Reset default foreground color
-|  \\E] 111 ST
+|  \\E] 111 \\E\\ 
 :  xterm
 :  Reset default background color
-|  \\E] 112 ST
+|  \\E] 112 \\E\\ 
 :  xterm
 :  Reset cursor color
-|  \\E] 555 ST
+|  \\E] 555 \\E\\ 
 :  foot
 :  Flash the entire terminal (foot extension)
-|  \\E] 777;notify;_title_;_msg_ ST
+|  \\E] 777;notify;_title_;_msg_ \\E\\ 
 :  urxvt
 :  Desktop notification, uses *notify* in *foot.ini*(5).
 
@@ -616,11 +616,11 @@ and are terminated by *\\E\\* (ST).
 
 [[ *Sequence*
 :[ *Description*
-|  \\EP q <sixel data> ST
+|  \\EP q <sixel data> \\E\\ 
 :  Emit a sixel image at the current cursor position
-|  \\EP = 1 s ST
+|  \\EP = 1 s \\E\\ 
 :  Begin application synchronized updates
-|  \\EP = 2 s ST
+|  \\EP = 2 s \\E\\ 
 :  End application synchronized updates
 
 # FOOTNOTE
