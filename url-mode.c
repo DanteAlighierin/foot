@@ -637,6 +637,9 @@ urls_render(struct terminal *term)
         tag_cells_for_url(term, &it->item, true);
     }
 
+    /* Snapshot the current grid */
+    term->url_grid_snapshot = grid_snapshot(term->grid);
+
     render_refresh_urls(term);
     render_refresh(term);
 }
@@ -651,8 +654,15 @@ url_destroy(struct url *url)
 void
 urls_reset(struct terminal *term)
 {
-    if (likely(tll_length(term->urls) == 0))
+    if (likely(tll_length(term->urls) == 0)) {
+        xassert(term->url_grid_snapshot == NULL);
         return;
+    }
+
+    grid_free(term->url_grid_snapshot);
+    free(term->url_grid_snapshot);
+    term->url_grid_snapshot = NULL;
+    term->render.last_cursor.row = NULL;
 
     if (term->window != NULL) {
         tll_foreach(term->window->urls, it) {
@@ -669,5 +679,7 @@ urls_reset(struct terminal *term)
 
     term->urls_show_uri_on_jump_label = false;
     memset(term->url_keys, 0, sizeof(term->url_keys));
+
+    term_damage_view(term);
     render_refresh(term);
 }

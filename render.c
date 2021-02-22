@@ -2675,6 +2675,12 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     term->render.pending.title = false;
     term->render.pending.urls = false;
 
+    struct grid *original_grid = term->grid;
+    if (urls_mode_is_active(term)) {
+        xassert(term->url_grid_snapshot != NULL);
+        term->grid = term->url_grid_snapshot;
+    }
+
     if (csd && term->window->use_csd == CSD_YES) {
         quirk_weston_csd_on(term);
         render_csd(term);
@@ -2697,6 +2703,8 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
         if (it->item.kbd_focus == term)
             ime_update_cursor_rect(&it->item, term);
     }
+
+    term->grid = original_grid;
 }
 
 static void
@@ -3127,6 +3135,12 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         term->render.refresh.urls = false;
 
         if (term->window->frame_callback == NULL) {
+            struct grid *original_grid = term->grid;
+            if (urls_mode_is_active(term)) {
+                xassert(term->url_grid_snapshot != NULL);
+                term->grid = term->url_grid_snapshot;
+            }
+
             if (csd && term->window->use_csd == CSD_YES) {
                 quirk_weston_csd_on(term);
                 render_csd(term);
@@ -3145,6 +3159,8 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
                 if (it->item.kbd_focus == term)
                     ime_update_cursor_rect(&it->item, term);
             }
+
+            term->grid = original_grid;
         } else {
             /* Tells the frame callback to render again */
             term->render.pending.grid |= grid;

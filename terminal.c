@@ -227,8 +227,6 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         cursor_blink_rearm_timer(term);
     }
 
-    urls_reset(term);
-
     uint8_t buf[24 * 1024];
     ssize_t count = sizeof(buf);
 
