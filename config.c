@@ -149,13 +149,13 @@ static_assert(ALEN(url_binding_action_map) == BIND_ACTION_URL_COUNT,
 
 #define LOG_AND_NOTIFY_ERRNO(...)                                       \
     do {                                                                \
-        int _errno = errno;                                             \
+        int errno_copy = errno;                                         \
         LOG_ERRNO(__VA_ARGS__);                                         \
         int len = snprintf(NULL, 0, __VA_ARGS__);                       \
-        int errno_len = snprintf(NULL, 0, ": %s", strerror(_errno));    \
+        int errno_len = snprintf(NULL, 0, ": %s", strerror(errno_copy)); \
         char *text = xmalloc(len + errno_len + 1);                      \
         snprintf(text, len + errno_len + 1, __VA_ARGS__);               \
-        snprintf(&text[len], errno_len + 1, ": %s", strerror(_errno));  \
+        snprintf(&text[len], errno_len + 1, ": %s", strerror(errno_copy)); \
         struct user_notification notif = {                              \
             .kind = USER_NOTIFICATION_ERROR,                            \
             .text = text,                                               \
