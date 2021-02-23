@@ -5,7 +5,7 @@
 #include <wctype.h>
 
 #define LOG_MODULE "url-mode"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "grid.h"
 #include "render.h"
