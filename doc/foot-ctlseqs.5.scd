@@ -310,6 +310,9 @@ that corresponds to one of the following modes:
 |  1049
 :  xterm
 :  Equivalent to 1048 and 1047 combined
+|  1070
+:  xterm
+:  Use private color registers for each sixel
 |  2004
 :  xterm
 :  Wrap pasted text with start/end delimiters (bracketed paste mode)
