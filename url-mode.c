@@ -680,6 +680,5 @@ urls_reset(struct terminal *term)
     term->urls_show_uri_on_jump_label = false;
     memset(term->url_keys, 0, sizeof(term->url_keys));
 
-    term_damage_view(term);
     render_refresh(term);
 }
