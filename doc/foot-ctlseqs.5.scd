@@ -316,6 +316,9 @@ that corresponds to one of the following modes:
 |  2004
 :  xterm
 :  Wrap pasted text with start/end delimiters (bracketed paste mode)
+|  8452
+:  xterm
+:  Position cursor to the right of sixels, instead of on the next line
 |  737769
 :  foot
 :  Input Method Editor (IME) mode
