@@ -18,7 +18,8 @@ static size_t count;
 void
 sixel_fini(struct terminal *term)
 {
-    free(term->sixel.palette);
+    free(term->sixel.private_palette);
+    free(term->sixel.shared_palette);
 }
 
 static uint32_t
@@ -46,17 +47,28 @@ sixel_init(struct terminal *term)
     term->sixel.image.height = 6;
     term->sixel.image.autosize = true;
 
-    if (term->sixel.palette == NULL) {
-        term->sixel.palette = xcalloc(
-            term->sixel.palette_size, sizeof(term->sixel.palette[0]));
+    /* TODO: default palette */
+
+    if (term->sixel.use_private_palette) {
+        xassert(term->sixel.private_palette == NULL);
+        term->sixel.private_palette = xcalloc(
+            term->sixel.palette_size, sizeof(term->sixel.private_palette[0]));
+        term->sixel.palette = term->sixel.private_palette;
+    } else {
+        if (term->sixel.shared_palette == NULL) {
+            term->sixel.shared_palette = xcalloc(
+                term->sixel.palette_size, sizeof(term->sixel.shared_palette[0]));
+        } else {
+            /* Shared palette - do *not* reset palette for new sixels */
+        }
+
+        term->sixel.palette = term->sixel.shared_palette;
     }
 
     for (size_t i = 0; i < 1 * 6; i++)
         term->sixel.image.data[i] = color_with_alpha(term, term->colors.bg);
 
     count = 0;
-
-    /* TODO: default palette */
 }
 
 void
@@ -773,6 +785,9 @@ sixel_unhook(struct terminal *term)
     term->sixel.image.height = 0;
     term->sixel.max_col = 0;
     term->sixel.pos = (struct coord){0, 0};
+
+    free(term->sixel.private_palette);
+    term->sixel.private_palette = NULL;
 
     LOG_DBG("you now have %zu sixels in current grid",
             tll_length(term->grid->sixel_images));
