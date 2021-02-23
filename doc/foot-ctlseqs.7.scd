@@ -1,4 +1,4 @@
-foot-ctlseqs(5)
+foot-ctlseqs(7)
 
 # DESCRIPTION
 

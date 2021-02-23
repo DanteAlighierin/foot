@@ -6,7 +6,7 @@ scdoc_prog = find_program(scdoc.get_pkgconfig_variable('scdoc'), native: true)
 foreach man_src : [{'name': 'foot', 'section' : 1},
                    {'name': 'foot.ini', 'section': 5},
                    {'name': 'footclient', 'section': 1},
-                   {'name': 'foot-ctlseqs', 'section': 5}]
+                   {'name': 'foot-ctlseqs', 'section': 7}]
   name = man_src['name']
   section = man_src['section']
   out = '@0@.@1@'.format(name, section)
