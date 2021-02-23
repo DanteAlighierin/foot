@@ -1608,6 +1608,58 @@ erase_cell_range(struct terminal *term, struct row *row, int start, int end)
         }
     } else
         memset(&row->cells[start], 0, (end - start + 1) * sizeof(row->cells[0]));
+
+    if (likely(row->extra == NULL))
+        return;
+
+    /* Split up, or remove, URI ranges affected by the erase */
+    tll_foreach(row->extra->uri_ranges, it) {
+        if (it->item.start < start && it->item.end >= start) {
+            /*
+             * URI crosses the erase *start* point.
+             *
+             * Create a new range for the URI part *before* the erased
+             * cells.
+             *
+             * Also modify this URI range’s start point so that we can
+             * remove it below.
+             */
+            struct row_uri_range range_before = {
+                .start = it->item.start,
+                .end = start - 1,
+                .id = it->item.id,
+                .uri = xstrdup(it->item.uri),
+            };
+            tll_insert_before(row->extra->uri_ranges, it, range_before);
+            it->item.start = start;
+        }
+
+        if (it->item.start <= end && it->item.end > end) {
+            /*
+             * URI crosses the erase *end* point.
+             *
+             * Create a new range for the URI part *after* the erased
+             * cells.
+             *
+             * Also modify the URI range’s end point so that we can
+             * remove it below.
+             */
+            struct row_uri_range range_after = {
+                .start = end + 1,
+                .end = it->item.end,
+                .id = it->item.id,
+                .uri = xstrdup(it->item.uri),
+            };
+            tll_insert_before(row->extra->uri_ranges, it, range_after);
+            it->item.end = end;
+        }
+
+        if (it->item.start >= start && it->item.end <= end) {
+            /* URI range completey covered by the erase - remove it */
+            free(it->item.uri);
+            tll_remove(row->extra->uri_ranges, it);
+        }
+    }
 }
 
 static inline void
@@ -2163,7 +2215,6 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     /* Erase scrolled in lines */
     for (int r = region.end - rows; r < region.end; r++) {
         struct row *row = grid_row_and_alloc(term->grid, r);
-        grid_row_reset_extra(row);
         erase_line(term, row);
     }
 
@@ -2234,7 +2285,6 @@ term_scroll_reverse_partial(struct terminal *term,
     /* Erase scrolled in lines */
     for (int r = region.start; r < region.start + rows; r++) {
         struct row *row = grid_row_and_alloc(term->grid, r);
-        grid_row_reset_extra(row);
         erase_line(term, row);
     }
 
