@@ -637,6 +637,17 @@ urls_render(struct terminal *term)
         tag_cells_for_url(term, &it->item, true);
     }
 
+    /* Dirty the last cursor, to ensure it is erased */
+    {
+        struct row *cursor_row = term->render.last_cursor.row;
+        if (cursor_row != NULL) {
+            struct cell *cell = &cursor_row->cells[term->render.last_cursor.col];
+            cell->attrs.clean = 0;
+            cursor_row->dirty = true;
+        }
+    }
+    term->render.last_cursor.row = NULL;
+
     /* Snapshot the current grid */
     term->url_grid_snapshot = grid_snapshot(term->grid);
 
@@ -662,6 +673,15 @@ urls_reset(struct terminal *term)
     grid_free(term->url_grid_snapshot);
     free(term->url_grid_snapshot);
     term->url_grid_snapshot = NULL;
+
+    /*
+     * Make sure “last cursor” doesn’t point to a row in the just
+     * free:d snapshot grid.
+     *
+     * Note that it will still be erased properly (if hasn’t already),
+     * since we marked the cell as dirty *before* taking the grid
+     * snapshot.
+     */
     term->render.last_cursor.row = NULL;
 
     if (term->window != NULL) {
