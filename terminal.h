@@ -335,33 +335,33 @@ struct terminal {
 
     /* Saved DECSET modes - we save the SET state */
     struct {
-        uint32_t origin:1;
-        uint32_t application_cursor_keys:1;
-        uint32_t reverse:1;
-        uint32_t show_cursor:1;
-        uint32_t reverse_wrap:1;
-        uint32_t auto_margin:1;
-        uint32_t cursor_blink:1;
-        uint32_t bracketed_paste:1;
-        uint32_t focus_events:1;
-        uint32_t alt_scrolling:1;
-        //uint32_t mouse_x10:1;
-        uint32_t mouse_click:1;
-        uint32_t mouse_drag:1;
-        uint32_t mouse_motion:1;
-        //uint32_t mouse_utf8:1;
-        uint32_t mouse_sgr:1;
-        uint32_t mouse_urxvt:1;
-        uint32_t meta_eight_bit:1;
-        uint32_t meta_esc_prefix:1;
-        uint32_t num_lock_modifier:1;
-        uint32_t bell_action_enabled:1;
-        uint32_t alt_screen:1;
-        uint32_t modify_escape_key:1;
-        uint32_t ime:1;
+        bool origin:1;
+        bool application_cursor_keys:1;
+        bool reverse:1;
+        bool show_cursor:1;
+        bool reverse_wrap:1;
+        bool auto_margin:1;
+        bool cursor_blink:1;
+        bool bracketed_paste:1;
+        bool focus_events:1;
+        bool alt_scrolling:1;
+        //bool mouse_x10:1;
+        bool mouse_click:1;
+        bool mouse_drag:1;
+        bool mouse_motion:1;
+        //bool mouse_utf8:1;
+        bool mouse_sgr:1;
+        bool mouse_urxvt:1;
+        bool meta_eight_bit:1;
+        bool meta_esc_prefix:1;
+        bool num_lock_modifier:1;
+        bool bell_action_enabled:1;
+        bool alt_screen:1;
+        bool modify_escape_key:1;
+        bool ime:1;
 
-        uint32_t sixel_private_palette:1;
-        uint32_t sixel_cursor_right_of_graphics:1;
+        bool sixel_private_palette:1;
+        bool sixel_cursor_right_of_graphics:1;
     } xtsave;
 
     char *window_title;
