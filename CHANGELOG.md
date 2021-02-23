@@ -49,6 +49,8 @@
   (https://codeberg.org/dnkl/foot/issues/362).
 * `DECSET 8452` - position cursor to the right of sixels
   (https://codeberg.org/dnkl/foot/issues/363).
+* Man page**foot-ctlseq**(7), documenting all supported control- and
+  escape sequences (https://codeberg.org/dnkl/foot/issues/235).
 
 
 ### Changed
