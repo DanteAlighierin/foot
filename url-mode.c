@@ -648,6 +648,14 @@ urls_render(struct terminal *term)
     }
     term->render.last_cursor.row = NULL;
 
+    /* Clear scroll damage, to ensure we don’t apply it twice (once on
+     * the snapshot:ed grid, and then later again on the real grid) */
+    tll_free(term->grid->scroll_damage);
+
+    /* Damage the entire view, to ensure a full screen redraw, both
+     * now, when entering URL mode, and later, when exiting it. */
+    term_damage_view(term);
+
     /* Snapshot the current grid */
     term->url_grid_snapshot = grid_snapshot(term->grid);
 
