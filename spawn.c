@@ -45,9 +45,16 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
             _exit(errno_copy);
         }
 
-        if ((stdin_fd >= 0 && (dup2(stdin_fd, STDIN_FILENO) < 0 || close(stdin_fd) < 0)) ||
-            (stdout_fd >= 0 && (dup2(stdout_fd, STDOUT_FILENO) < 0 || close(stdout_fd) < 0)) ||
-            (stderr_fd >= 0 && (dup2(stderr_fd, STDERR_FILENO) < 0 || close(stderr_fd) < 0)) ||
+        bool close_stderr = stderr_fd >= 0;
+        bool close_stdout = stdout_fd >= 0 && stdout_fd != stderr_fd;
+        bool close_stdin = stdin_fd >= 0 && stdin_fd != stdout_fd && stdin_fd != stderr_fd;
+
+        if ((stdin_fd >= 0 && (dup2(stdin_fd, STDIN_FILENO) < 0
+                               || (close_stdin && close(stdin_fd) < 0))) ||
+            (stdout_fd >= 0 && (dup2(stdout_fd, STDOUT_FILENO) < 0
+                                || (close_stdout && close(stdout_fd) < 0))) ||
+            (stderr_fd >= 0 && (dup2(stderr_fd, STDERR_FILENO) < 0
+                                || (close_stderr && close(stderr_fd) < 0))) ||
             (cwd != NULL && chdir(cwd) < 0) ||
             execvp(argv[0], argv) < 0)
         {
