@@ -1551,22 +1551,24 @@ wayl_win_subsurface_new_with_custom_parent(
     surf->surf = NULL;
     surf->sub = NULL;
 
-    struct wl_surface *main = wl_compositor_create_surface(wayl->compositor);
-    if (main == NULL)
+    struct wl_surface *main_surface
+        = wl_compositor_create_surface(wayl->compositor);
+
+    if (main_surface == NULL)
         return false;
 
     struct wl_subsurface *sub = wl_subcompositor_get_subsurface(
-        wayl->sub_compositor, main, parent);
+        wayl->sub_compositor, main_surface, parent);
 
     if (sub == NULL) {
-        wl_surface_destroy(main);
+        wl_surface_destroy(main_surface);
         return false;
     }
 
-    wl_surface_set_user_data(main, win);
+    wl_surface_set_user_data(main_surface, win);
     wl_subsurface_set_sync(sub);
 
-    surf->surf = main;
+    surf->surf = main_surface;
     surf->sub = sub;
     return true;
 }
