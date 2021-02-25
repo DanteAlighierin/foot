@@ -210,7 +210,7 @@ reflow_uri_ranges(const struct row *old_row, struct row *new_row,
             grid_row_add_uri_range(new_row, new_range);
         }
 
-        else if (it->item.end == old_col_idx) {
+        if (it->item.end == old_col_idx) {
             xassert(new_row->extra != NULL);
 
             bool found_it = false;
