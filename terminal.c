@@ -227,8 +227,6 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         cursor_blink_rearm_timer(term);
     }
 
-    urls_reset(term);
-
     uint8_t buf[24 * 1024];
     ssize_t count = sizeof(buf);
 
@@ -1437,15 +1435,8 @@ term_destroy(struct terminal *term)
     mtx_unlock(&term->render.workers.lock);
 
     free(term->vt.osc.data);
-    for (int row = 0; row < term->normal.num_rows; row++)
-        grid_row_free(term->normal.rows[row]);
-    free(term->normal.rows);
-    for (int row = 0; row < term->alt.num_rows; row++)
-        grid_row_free(term->alt.rows[row]);
-    free(term->alt.rows);
-
-    tll_free(term->normal.scroll_damage);
-    tll_free(term->alt.scroll_damage);
+    grid_free(&term->normal);
+    grid_free(&term->alt);
 
     free(term->composed);
 
@@ -1490,14 +1481,6 @@ term_destroy(struct terminal *term)
         tll_remove(term->ptmx_paste_buffers, it);
     }
 
-    tll_foreach(term->normal.sixel_images, it) {
-        sixel_destroy(&it->item);
-        tll_remove(term->normal.sixel_images, it);
-    }
-    tll_foreach(term->alt.sixel_images, it) {
-        sixel_destroy(&it->item);
-        tll_remove(term->alt.sixel_images, it);
-    }
     sixel_fini(term);
 
     urls_reset(term);

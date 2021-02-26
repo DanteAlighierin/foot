@@ -547,9 +547,11 @@ struct terminal {
         unsigned max_height;    /* Maximum image height, in pixels */
     } sixel;
 
+    /* TODO: wrap in a struct */
     url_list_t urls;
     wchar_t url_keys[5];
     bool urls_show_uri_on_jump_label;
+    struct grid *url_grid_snapshot;
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     struct {

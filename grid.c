@@ -8,8 +8,108 @@
 #include "debug.h"
 #include "macros.h"
 #include "sixel.h"
+#include "stride.h"
 #include "util.h"
 #include "xmalloc.h"
+
+struct grid *
+grid_snapshot(const struct grid *grid)
+{
+    struct grid *clone = xmalloc(sizeof(*clone));
+    clone->num_rows = grid->num_rows;
+    clone->num_cols = grid->num_cols;
+    clone->offset = grid->offset;
+    clone->view = grid->view;
+    clone->cursor = grid->cursor;
+    clone->rows = xcalloc(grid->num_rows, sizeof(clone->rows[0]));
+    memset(&clone->scroll_damage, 0, sizeof(clone->scroll_damage));
+    memset(&clone->sixel_images, 0, sizeof(clone->sixel_images));
+
+    tll_foreach(grid->scroll_damage, it)
+        tll_push_back(clone->scroll_damage, it->item);
+
+    for (int r = 0; r < grid->num_rows; r++) {
+        const struct row *row = grid->rows[r];
+
+        if (row == NULL)
+            continue;
+
+        struct row *clone_row = xmalloc(sizeof(*row));
+        clone->rows[r] = clone_row;
+
+        clone_row->cells = xmalloc(grid->num_cols * sizeof(clone_row->cells[0]));
+        clone_row->linebreak = row->linebreak;
+        clone_row->dirty = row->dirty;;
+
+        for (int c = 0; c < grid->num_cols; c++) {
+            clone_row->cells[c] = row->cells[c];
+            clone_row->cells[c].attrs.clean = 0;
+        }
+
+        if (row->extra != NULL) {
+            const struct row_data *extra = row->extra;
+            struct row_data *new_extra = xcalloc(1, sizeof(*new_extra));
+
+            tll_foreach(extra->uri_ranges, it) {
+                struct row_uri_range range = {
+                    .start = it->item.start,
+                    .end = it->item.end,
+                    .id = it->item.id,
+                    .uri = xstrdup(it->item.uri),
+                };
+
+                tll_push_back(new_extra->uri_ranges, range);
+            }
+
+            clone_row->extra = new_extra;
+        } else
+            clone_row->extra = NULL;
+    }
+
+    tll_foreach(grid->sixel_images, it) {
+        int width = it->item.width;
+        int height = it->item.height;
+        pixman_image_t *pix = it->item.pix;
+        pixman_format_code_t pix_fmt = pixman_image_get_format(pix);
+        int stride = stride_for_format_and_width(pix_fmt, width);
+
+        size_t size = stride * height;
+        void *new_data = xmalloc(size);
+        memcpy(new_data, it->item.data, size);
+
+        pixman_image_t *new_pix = pixman_image_create_bits_no_clear(
+            pix_fmt, width, height, new_data, stride);
+
+        struct sixel six = {
+            .data = new_data,
+            .pix = new_pix,
+            .width = width,
+            .height = height,
+            .rows = it->item.rows,
+            .cols = it->item.cols,
+            .pos = it->item.pos,
+        };
+
+        tll_push_back(clone->sixel_images, six);
+    }
+
+    return clone;
+}
+
+void
+grid_free(struct grid *grid)
+{
+    for (int r = 0; r < grid->num_rows; r++)
+        grid_row_free(grid->rows[r]);
+
+    tll_foreach(grid->sixel_images, it) {
+        sixel_destroy(&it->item);
+        tll_remove(grid->sixel_images, it);
+    }
+
+    free(grid->rows);
+    tll_free(grid->scroll_damage);
+}
 
 void
 grid_swap_row(struct grid *grid, int row_a, int row_b)

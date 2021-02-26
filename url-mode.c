@@ -637,6 +637,28 @@ urls_render(struct terminal *term)
         tag_cells_for_url(term, &it->item, true);
     }
 
+    /* Dirty the last cursor, to ensure it is erased */
+    {
+        struct row *cursor_row = term->render.last_cursor.row;
+        if (cursor_row != NULL) {
+            struct cell *cell = &cursor_row->cells[term->render.last_cursor.col];
+            cell->attrs.clean = 0;
+            cursor_row->dirty = true;
+        }
+    }
+    term->render.last_cursor.row = NULL;
+
+    /* Clear scroll damage, to ensure we don’t apply it twice (once on
+     * the snapshot:ed grid, and then later again on the real grid) */
+    tll_free(term->grid->scroll_damage);
+
+    /* Damage the entire view, to ensure a full screen redraw, both
+     * now, when entering URL mode, and later, when exiting it. */
+    term_damage_view(term);
+
+    /* Snapshot the current grid */
+    term->url_grid_snapshot = grid_snapshot(term->grid);
+
     render_refresh_urls(term);
     render_refresh(term);
 }
@@ -651,8 +673,24 @@ url_destroy(struct url *url)
 void
 urls_reset(struct terminal *term)
 {
-    if (likely(tll_length(term->urls) == 0))
+    if (likely(tll_length(term->urls) == 0)) {
+        xassert(term->url_grid_snapshot == NULL);
         return;
+    }
+
+    grid_free(term->url_grid_snapshot);
+    free(term->url_grid_snapshot);
+    term->url_grid_snapshot = NULL;
+
+    /*
+     * Make sure “last cursor” doesn’t point to a row in the just
+     * free:d snapshot grid.
+     *
+     * Note that it will still be erased properly (if hasn’t already),
+     * since we marked the cell as dirty *before* taking the grid
+     * snapshot.
+     */
+    term->render.last_cursor.row = NULL;
 
     if (term->window != NULL) {
         tll_foreach(term->window->urls, it) {
@@ -669,5 +707,6 @@ urls_reset(struct terminal *term)
 
     term->urls_show_uri_on_jump_label = false;
     memset(term->url_keys, 0, sizeof(term->url_keys));
+
     render_refresh(term);
 }
