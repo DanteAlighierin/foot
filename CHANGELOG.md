@@ -45,6 +45,8 @@
   `footclient` (https://codeberg.org/dnkl/foot/issues/337).
 * `-D,--working-directory=DIR` to both `foot` and `footclient`
   (https://codeberg.org/dnkl/foot/issues/347)
+* `DECSET 80` - sixel scrolling
+  (https://codeberg.org/dnkl/foot/issues/361).
 * `DECSET 1070` - sixel private color palette
   (https://codeberg.org/dnkl/foot/issues/362).
 * `DECSET 8452` - position cursor to the right of sixels

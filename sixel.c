@@ -701,24 +701,43 @@ sixel_unhook(struct terminal *term)
     const int stride = term->sixel.image.width * sizeof(uint32_t);
 
     /*
-     * Need to 'remember' current cursor column.
+     * When sixel scrolling is enabled (the default), sixels behave
+     * pretty much like normal output; the sixel starts at the current
+     * cursor position and the cursor is moved to a point after the
+     * sixel.
      *
-     * If we split up the sixel (to avoid scrollback wrap-around), we
-     * will emit a carriage-return (after several linefeeds), which
-     * will reset the cursor column to 0. If we use _that_ column for
-     * the subsequent image parts, the image will look sheared.
+     * Furthermore, if the sixel reaches the bottom of the scrolling
+     * region, the terminal content is scrolled.
+     *
+     * When scrolling is disabled, sixels always start at (0,0), the
+     * cursor is not moved at all, and the terminal content never
+     * scrolls.
      */
-    const int start_col = term->grid->cursor.point.col;
+
+    const bool do_scroll = term->sixel.scrolling;
+
+    /* Number of rows we're allowed to use.
+     *
+     * When scrolling is enabled, we always allow the entire sixel to
+     * be emitted.
+     *
+     * When disabled, only the number of screen rows may be used. */
+    int rows_avail = do_scroll
+        ? (term->sixel.image.height + term->cell_height - 1) / term->cell_height
+        : term->rows;
+
+    /* Initial sixel coordinates */
+    int start_row = do_scroll ? term->grid->cursor.point.row : 0;
+    const int start_col = do_scroll ? term->grid->cursor.point.col : 0;
 
     /* We do not allow sixels to cross the scrollback wrap-around, as
      * this makes intersection calculations much more complicated */
-    while (pixel_rows_left > 0) {
-        const struct coord *cursor = &term->grid->cursor.point;
+    while (pixel_rows_left > 0 && rows_avail > 0) {
+        const int cur_row = (term->grid->offset + start_row) & (term->grid->num_rows - 1);
+        const int rows_left_until_wrap_around = term->grid->num_rows - cur_row;
+        const int usable_rows = min(rows_avail, rows_left_until_wrap_around);
 
-        const int cur_row = (term->grid->offset + cursor->row) & (term->grid->num_rows - 1);
-        const int rows_avail = term->grid->num_rows - cur_row;
-
-        const int pixel_rows_avail = rows_avail * term->cell_height;
+        const int pixel_rows_avail = usable_rows * term->cell_height;
 
         const int width = term->sixel.image.width;
         const int height = min(pixel_rows_left, pixel_rows_avail);
@@ -755,12 +774,15 @@ sixel_unhook(struct terminal *term)
             image.width, image.height,
             img_data, stride);
 
-        /* Allocate space *first* (by emitting line-feeds), then insert */
+        pixel_row_idx += height;
+        pixel_rows_left -= height;
+        rows_avail -= image.rows;
+
+        /* Dirty touched cells, and scroll terminal content if necessary */
         for (size_t i = 0; i < image.rows; i++) {
-            struct row *row = term->grid->cur_row;
+            struct row *row = term->grid->rows[cur_row + i];
             row->dirty = true;
 
-            /* Mark cells touched by the sixel as dirty */
             for (int col = image.pos.col;
                  col < min(image.pos.col + image.cols, term->cols);
                  col++)
@@ -768,36 +790,37 @@ sixel_unhook(struct terminal *term)
                 row->cells[col].attrs.clean = 0;
             }
 
-            if (i < image.rows - 1 || !term->sixel.cursor_right_of_graphics)
-                term_linefeed(term);
+            if (do_scroll) {
+                /*
+                 * Linefeed, *unless* we're on the very last row of
+                 * the final image (not just this chunk) and private
+                 * mode 8452 (leave cursor at the right of graphics)
+                 * is enabled.
+                 */
+                if (term->sixel.cursor_right_of_graphics &&
+                    rows_avail == 0 &&
+                    i >= image.rows - 1)
+                {
+                    term_cursor_to(
+                        term,
+                        term->grid->cursor.point.row,
+                        min(image.pos.col + image.cols, term->cols - 1));
+                } else {
+                    term_linefeed(term);
+                    term_carriage_return(term);
+                }
+            }
         }
-
-        /*
-         * Position cursor
-         *
-         * Private mode 8452 controls where we leave the cursor after
-         * emitting a sixel:
-         *
-         * When disabled (the default), the cursor is positioned on a
-         * new line.
-         *
-         * When enabled, the cursor is positioned to the right of the
-         * sixel.
-         */
-        term_cursor_to(
-            term,
-            term->grid->cursor.point.row,
-            (term->sixel.cursor_right_of_graphics
-             ? min(image.pos.col + image.cols, term->cols - 1)
-             : 0));
 
         _sixel_overwrite_by_rectangle(
             term, image.pos.row, image.pos.col, image.rows, image.cols);
 
         sixel_insert(term, image);
 
-        pixel_row_idx += height;
-        pixel_rows_left -= height;
+        if (do_scroll)
+            start_row = term->grid->cursor.point.row;
+        else
+            start_row -= image.rows;
     }
 
     term->sixel.image.data = NULL;

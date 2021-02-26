@@ -1178,6 +1178,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .upper_fd = delay_upper_fd,
         },
         .sixel = {
+            .scrolling = true,
             .use_private_palette = true,
             .palette_size = SIXEL_MAX_COLORS,
             .max_width = SIXEL_MAX_WIDTH,
