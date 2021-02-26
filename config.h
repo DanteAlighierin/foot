@@ -9,6 +9,12 @@
 #include "user-notification.h"
 #include "wayland.h"
 
+#ifdef HAVE_TERMINFO
+	#define DEFAULT_TERM "foot"
+#else
+	#define DEFAULT_TERM "xterm-256color"
+#endif
+
 enum conf_size_type {CONF_SIZE_PX, CONF_SIZE_CELLS};
 
 struct config_font {

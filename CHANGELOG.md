@@ -45,6 +45,12 @@
   `footclient` (https://codeberg.org/dnkl/foot/issues/337).
 * `-D,--working-directory=DIR` to both `foot` and `footclient`
   (https://codeberg.org/dnkl/foot/issues/347)
+* `DECSET 1070` - sixel private color palette
+  (https://codeberg.org/dnkl/foot/issues/362).
+* `DECSET 8452` - position cursor to the right of sixels
+  (https://codeberg.org/dnkl/foot/issues/363).
+* Man page **foot-ctlseqs**(7), documenting all supported escape
+  sequences (https://codeberg.org/dnkl/foot/issues/235).
 
 
 ### Changed
@@ -83,12 +89,15 @@
   application.
 * Terminals spawned with `ctrl`+`shift`+`n` not terminating when
   exiting shell (https://codeberg.org/dnkl/foot/issues/366).
+* Default value of `-t,--term` in `--help` output when foot was built
+  without terminfo support.
 
 
 ### Security
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
+* toast
 
 
 ## 1.6.4

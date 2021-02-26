@@ -227,8 +227,6 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         cursor_blink_rearm_timer(term);
     }
 
-    urls_reset(term);
-
     uint8_t buf[24 * 1024];
     ssize_t count = sizeof(buf);
 
@@ -1180,6 +1178,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .upper_fd = delay_upper_fd,
         },
         .sixel = {
+            .use_private_palette = true,
             .palette_size = SIXEL_MAX_COLORS,
             .max_width = SIXEL_MAX_WIDTH,
             .max_height = SIXEL_MAX_HEIGHT,
@@ -1436,15 +1435,8 @@ term_destroy(struct terminal *term)
     mtx_unlock(&term->render.workers.lock);
 
     free(term->vt.osc.data);
-    for (int row = 0; row < term->normal.num_rows; row++)
-        grid_row_free(term->normal.rows[row]);
-    free(term->normal.rows);
-    for (int row = 0; row < term->alt.num_rows; row++)
-        grid_row_free(term->alt.rows[row]);
-    free(term->alt.rows);
-
-    tll_free(term->normal.scroll_damage);
-    tll_free(term->alt.scroll_damage);
+    grid_free(&term->normal);
+    grid_free(&term->alt);
 
     free(term->composed);
 
@@ -1489,14 +1481,6 @@ term_destroy(struct terminal *term)
         tll_remove(term->ptmx_paste_buffers, it);
     }
 
-    tll_foreach(term->normal.sixel_images, it) {
-        sixel_destroy(&it->item);
-        tll_remove(term->normal.sixel_images, it);
-    }
-    tll_foreach(term->alt.sixel_images, it) {
-        sixel_destroy(&it->item);
-        tll_remove(term->alt.sixel_images, it);
-    }
     sixel_fini(term);
 
     urls_reset(term);
@@ -1607,6 +1591,58 @@ erase_cell_range(struct terminal *term, struct row *row, int start, int end)
         }
     } else
         memset(&row->cells[start], 0, (end - start + 1) * sizeof(row->cells[0]));
+
+    if (likely(row->extra == NULL))
+        return;
+
+    /* Split up, or remove, URI ranges affected by the erase */
+    tll_foreach(row->extra->uri_ranges, it) {
+        if (it->item.start < start && it->item.end >= start) {
+            /*
+             * URI crosses the erase *start* point.
+             *
+             * Create a new range for the URI part *before* the erased
+             * cells.
+             *
+             * Also modify this URI range’s start point so that we can
+             * remove it below.
+             */
+            struct row_uri_range range_before = {
+                .start = it->item.start,
+                .end = start - 1,
+                .id = it->item.id,
+                .uri = xstrdup(it->item.uri),
+            };
+            tll_insert_before(row->extra->uri_ranges, it, range_before);
+            it->item.start = start;
+        }
+
+        if (it->item.start <= end && it->item.end > end) {
+            /*
+             * URI crosses the erase *end* point.
+             *
+             * Create a new range for the URI part *after* the erased
+             * cells.
+             *
+             * Also modify the URI range’s end point so that we can
+             * remove it below.
+             */
+            struct row_uri_range range_after = {
+                .start = end + 1,
+                .end = it->item.end,
+                .id = it->item.id,
+                .uri = xstrdup(it->item.uri),
+            };
+            tll_insert_before(row->extra->uri_ranges, it, range_after);
+            it->item.end = end;
+        }
+
+        if (it->item.start >= start && it->item.end <= end) {
+            /* URI range completey covered by the erase - remove it */
+            free(it->item.uri);
+            tll_remove(row->extra->uri_ranges, it);
+        }
+    }
 }
 
 static inline void
@@ -2162,7 +2198,6 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     /* Erase scrolled in lines */
     for (int r = region.end - rows; r < region.end; r++) {
         struct row *row = grid_row_and_alloc(term->grid, r);
-        grid_row_reset_extra(row);
         erase_line(term, row);
     }
 
@@ -2233,7 +2268,6 @@ term_scroll_reverse_partial(struct terminal *term,
     /* Erase scrolled in lines */
     for (int r = region.start; r < region.start + rows; r++) {
         struct row *row = grid_row_and_alloc(term->grid, r);
-        grid_row_reset_extra(row);
         erase_line(term, row);
     }
 

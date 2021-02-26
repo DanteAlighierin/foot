@@ -7,12 +7,15 @@
 #include "render.h"
 #include "selection.h"
 #include "terminal.h"
+#include "url-mode.h"
 #include "util.h"
 
 void
 cmd_scrollback_up(struct terminal *term, int rows)
 {
     if (term->grid == &term->alt)
+        return;
+    if (urls_mode_is_active(term))
         return;
 
     if (term->mouse_tracking != MOUSE_NONE)
@@ -91,6 +94,8 @@ void
 cmd_scrollback_down(struct terminal *term, int rows)
 {
     if (term->grid == &term->alt)
+        return;
+    if (urls_mode_is_active(term))
         return;
 
     if (term->mouse_tracking != MOUSE_NONE)

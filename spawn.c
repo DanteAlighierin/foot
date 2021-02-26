@@ -35,28 +35,39 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
         /* Child */
         close(pipe_fds[0]);
 
+        if (setsid() < 0)
+            goto child_err;
+
         /* Clear signal mask */
         sigset_t mask;
         sigemptyset(&mask);
-        if (sigprocmask(SIG_SETMASK, &mask, NULL) < 0) {
-            const int errno_copy = errno;
-            LOG_ERRNO("failed to restore signals");
-            (void)!write(pipe_fds[1], &errno_copy, sizeof(errno_copy));
-            _exit(errno_copy);
-        }
+        if (sigprocmask(SIG_SETMASK, &mask, NULL) < 0)
+            goto child_err;
 
-        if ((stdin_fd >= 0 && (dup2(stdin_fd, STDIN_FILENO) < 0 || close(stdin_fd) < 0)) ||
-            (stdout_fd >= 0 && (dup2(stdout_fd, STDOUT_FILENO) < 0 || close(stdout_fd) < 0)) ||
-            (stderr_fd >= 0 && (dup2(stderr_fd, STDERR_FILENO) < 0 || close(stderr_fd) < 0)) ||
+        bool close_stderr = stderr_fd >= 0;
+        bool close_stdout = stdout_fd >= 0 && stdout_fd != stderr_fd;
+        bool close_stdin = stdin_fd >= 0 && stdin_fd != stdout_fd && stdin_fd != stderr_fd;
+
+        if ((stdin_fd >= 0 && (dup2(stdin_fd, STDIN_FILENO) < 0
+                               || (close_stdin && close(stdin_fd) < 0))) ||
+            (stdout_fd >= 0 && (dup2(stdout_fd, STDOUT_FILENO) < 0
+                                || (close_stdout && close(stdout_fd) < 0))) ||
+            (stderr_fd >= 0 && (dup2(stderr_fd, STDERR_FILENO) < 0
+                                || (close_stderr && close(stderr_fd) < 0))) ||
             (cwd != NULL && chdir(cwd) < 0) ||
             execvp(argv[0], argv) < 0)
         {
-            const int errno_copy = errno;
-            (void)!write(pipe_fds[1], &errno_copy, sizeof(errno_copy));
-            _exit(errno_copy);
+            goto child_err;
         }
+
         xassert(false);
         _exit(errno);
+
+    child_err:
+        ;
+        const int errno_copy = errno;
+        (void)!write(pipe_fds[1], &errno_copy, sizeof(errno_copy));
+        _exit(errno_copy);
     }
 
     /* Parent */

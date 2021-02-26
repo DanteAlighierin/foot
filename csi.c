@@ -544,8 +544,16 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         }
         break;
 
+    case 1070:
+        term->sixel.use_private_palette = enable;
+        break;
+
     case 2004:
         term->bracketed_paste = enable;
+        break;
+
+    case 8452:
+        term->sixel.cursor_right_of_graphics = enable;
         break;
 
     case 27127:
@@ -607,7 +615,9 @@ decrqm(const struct terminal *term, unsigned param, bool *enabled)
     case 47:   /* FALLTHROUGH */
     case 1047: /* FALLTHROUGH */
     case 1049: *enabled = term->grid == &term->alt; return true;
+    case 1079: *enabled = term->sixel.use_private_palette; return true;
     case 2004: *enabled = term->bracketed_paste; return true;
+    case 8452: *enabled = term->sixel.cursor_right_of_graphics; return true;
     case 27127: *enabled = term->modify_escape_key; return true;
     case 737769: *enabled = term_ime_is_enabled(term); return true;
     }
@@ -646,7 +656,9 @@ xtsave(struct terminal *term, unsigned param)
     case 1047: term->xtsave.alt_screen = term->grid == &term->alt; break;
     case 1048: term_save_cursor(term); break;
     case 1049: term->xtsave.alt_screen = term->grid == &term->alt; break;
+    case 1070: term->xtsave.sixel_private_palette = term->sixel.use_private_palette; break;
     case 2004: term->xtsave.bracketed_paste = term->bracketed_paste; break;
+    case 8452: term->xtsave.sixel_cursor_right_of_graphics = term->sixel.cursor_right_of_graphics; break;
     case 27127: term->xtsave.modify_escape_key = term->modify_escape_key; break;
     case 737769: term->xtsave.ime = term_ime_is_enabled(term); break;
     }
@@ -684,7 +696,9 @@ xtrestore(struct terminal *term, unsigned param)
     case 1047: enable = term->xtsave.alt_screen; break;
     case 1048: enable = true; break;
     case 1049: enable = term->xtsave.alt_screen; break;
+    case 1070: enable = term->xtsave.sixel_private_palette; break;
     case 2004: enable = term->xtsave.bracketed_paste; break;
+    case 8452: enable = term->xtsave.sixel_cursor_right_of_graphics; break;
     case 27127: enable = term->xtsave.modify_escape_key; break;
     case 737769: enable = term->xtsave.ime; break;
 
