@@ -724,7 +724,7 @@ sixel_unhook(struct terminal *term)
      * When disabled, only the number of screen rows may be used. */
     int rows_avail = do_scroll
         ? (term->sixel.image.height + term->cell_height - 1) / term->cell_height
-        : term->rows;
+        : term->scroll_region.end;
 
     /* Initial sixel coordinates */
     int start_row = do_scroll ? term->grid->cursor.point.row : 0;
