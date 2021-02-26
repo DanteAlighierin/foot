@@ -1026,10 +1026,10 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
      */
 
     enum modifier keymap_mods = MOD_NONE;
-    keymap_mods |= seat->kbd.shift ? MOD_SHIFT : MOD_NONE;
-    keymap_mods |= seat->kbd.alt ? MOD_ALT : MOD_NONE;
-    keymap_mods |= seat->kbd.ctrl ? MOD_CTRL : MOD_NONE;
-    keymap_mods |= seat->kbd.meta ? MOD_META : MOD_NONE;
+    keymap_mods |= mods & ~consumed & shift ? MOD_SHIFT : MOD_NONE;
+    keymap_mods |= mods & ~consumed & alt ? MOD_ALT : MOD_NONE;
+    keymap_mods |= mods & ~consumed & ctrl ? MOD_CTRL : MOD_NONE;
+    keymap_mods |= mods & ~consumed & meta ? MOD_META : MOD_NONE;
 
     const struct key_data *keymap;
     if (sym == XKB_KEY_Escape && keymap_mods == MOD_NONE && term->modify_escape_key) {
@@ -1113,7 +1113,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     }
 
     else {
-        if (mods & alt) {
+        if (mods & ~consumed & alt) {
             /*
              * When the alt modifier is pressed, we do one out of three things:
              *
