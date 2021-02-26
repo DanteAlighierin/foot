@@ -41,10 +41,8 @@ grid_snapshot(const struct grid *grid)
         clone_row->linebreak = row->linebreak;
         clone_row->dirty = row->dirty;
 
-        for (int c = 0; c < grid->num_cols; c++) {
+        for (int c = 0; c < grid->num_cols; c++)
             clone_row->cells[c] = row->cells[c];
-            clone_row->cells[c].attrs.clean = 0;
-        }
 
         if (row->extra != NULL) {
             const struct row_data *extra = row->extra;
