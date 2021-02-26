@@ -89,12 +89,15 @@
   application.
 * Terminals spawned with `ctrl`+`shift`+`n` not terminating when
   exiting shell (https://codeberg.org/dnkl/foot/issues/366).
+* Default value of `-t,--term` in `--help` output when foot was built
+  without terminfo support.
 
 
 ### Security
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
+* toast
 
 
 ## 1.6.4
