@@ -39,7 +39,7 @@ grid_snapshot(const struct grid *grid)
 
         clone_row->cells = xmalloc(grid->num_cols * sizeof(clone_row->cells[0]));
         clone_row->linebreak = row->linebreak;
-        clone_row->dirty = row->dirty;;
+        clone_row->dirty = row->dirty;
 
         for (int c = 0; c < grid->num_cols; c++) {
             clone_row->cells[c] = row->cells[c];
