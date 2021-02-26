@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wctype.h>
+#include <unistd.h>
+
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #define LOG_MODULE "url-mode"
 #define LOG_ENABLE_DBG 0
@@ -81,18 +85,27 @@ activate_url(struct seat *seat, struct terminal *term, const struct url *url)
         size_t argc;
         char **argv;
 
+        int dev_null = open("/dev/null", O_RDWR);
+
+        if (dev_null < 0) {
+            LOG_ERRNO("failed to open /dev/null");
+            break;
+        }
+
         if (spawn_expand_template(
                 &term->conf->url_launch, 1,
                 (const char *[]){"url"},
                 (const char *[]){url_string},
                 &argc, &argv))
         {
-            spawn(term->reaper, term->cwd, argv, -1, -1, -1);
+            spawn(term->reaper, term->cwd, argv, dev_null, dev_null, dev_null);
 
             for (size_t i = 0; i < argc; i++)
                 free(argv[i]);
             free(argv);
         }
+
+        close(dev_null);
         break;
     }
     }
