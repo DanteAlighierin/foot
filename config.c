@@ -1168,6 +1168,7 @@ out:
 
 static bool
 parse_key_combos(struct config *conf, const char *combos, key_combo_list_t *key_combos,
+                 const char *section, const char *option,
                  const char *path, unsigned lineno)
 {
     xassert(tll_length(*key_combos) == 0);
@@ -1179,7 +1180,7 @@ parse_key_combos(struct config *conf, const char *combos, key_combo_list_t *key_
          combo = strtok_r(NULL, " ", &tok_ctx))
     {
         struct config_key_modifiers modifiers = {0};
-        const char *key = strrchr(combo, '+');
+        char *key = strrchr(combo, '+');
 
         if (key == NULL) {
             /* No modifiers */
@@ -1190,11 +1191,26 @@ parse_key_combos(struct config *conf, const char *combos, key_combo_list_t *key_
             key++;  /* Skip past the '+' */
         }
 
+        if (modifiers.shift && strlen(key) == 1 && (*key >= 'A' && *key <= 'Z')) {
+            LOG_WARN(
+                "%s:%d: [%s]: %s: %s: "
+                "upper case keys not supported with explicit 'Shift' modifier",
+                path, lineno, section, option, combo);
+            user_notification_add(
+                &conf->notifications, USER_NOTIFICATION_DEPRECATED,
+                "%s:%d: [%s]: %s: \033[1m%s\033[m: "
+                "shifted keys not supported with explicit \033[1mShift\033[m "
+                "modifier",
+                path, lineno, section, option, combo);
+            *key = tolower(*key);
+        }
+
         /* Translate key name to symbol */
         xkb_keysym_t sym = xkb_keysym_from_name(key, 0);
         if (sym == XKB_KEY_NoSymbol) {
-            LOG_AND_NOTIFY_ERR("%s:%d: %s: key is not a valid XKB key name",
-                               path, lineno, key);
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [%s]: %s: ]%s: key is not a valid XKB key name",
+                path, lineno, section, option, key);
             goto err;
         }
 
@@ -1373,7 +1389,8 @@ parse_key_binding_section(
         }
 
         key_combo_list_t key_combos = tll_init();
-        if (!parse_key_combos(conf, value, &key_combos, path, lineno) ||
+        if (!parse_key_combos(
+                conf, value, &key_combos, section, key, path, lineno) ||
             has_key_binding_collisions(
                 conf, action, binding_action_map, bindings, &key_combos,
                 path, lineno))
@@ -2040,10 +2057,10 @@ add_default_key_bindings(struct config *conf)
 
     add_binding(BIND_ACTION_SCROLLBACK_UP_PAGE, shift, XKB_KEY_Page_Up);
     add_binding(BIND_ACTION_SCROLLBACK_DOWN_PAGE, shift, XKB_KEY_Page_Down);
-    add_binding(BIND_ACTION_CLIPBOARD_COPY, ctrl_shift, XKB_KEY_C);
-    add_binding(BIND_ACTION_CLIPBOARD_PASTE, ctrl_shift, XKB_KEY_V);
+    add_binding(BIND_ACTION_CLIPBOARD_COPY, ctrl_shift, XKB_KEY_c);
+    add_binding(BIND_ACTION_CLIPBOARD_PASTE, ctrl_shift, XKB_KEY_v);
     add_binding(BIND_ACTION_PRIMARY_PASTE, shift, XKB_KEY_Insert);
-    add_binding(BIND_ACTION_SEARCH_START, ctrl_shift, XKB_KEY_R);
+    add_binding(BIND_ACTION_SEARCH_START, ctrl_shift, XKB_KEY_r);
     add_binding(BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_plus);
     add_binding(BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_equal);
     add_binding(BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_KP_Add);
@@ -2051,8 +2068,8 @@ add_default_key_bindings(struct config *conf)
     add_binding(BIND_ACTION_FONT_SIZE_DOWN, ctrl, XKB_KEY_KP_Subtract);
     add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_0);
     add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_KP_0);
-    add_binding(BIND_ACTION_SPAWN_TERMINAL, ctrl_shift, XKB_KEY_N);
-    add_binding(BIND_ACTION_SHOW_URLS_LAUNCH, ctrl_shift, XKB_KEY_U);
+    add_binding(BIND_ACTION_SPAWN_TERMINAL, ctrl_shift, XKB_KEY_n);
+    add_binding(BIND_ACTION_SHOW_URLS_LAUNCH, ctrl_shift, XKB_KEY_u);
 
 #undef add_binding
 }

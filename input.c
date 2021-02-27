@@ -350,20 +350,18 @@ key_codes_for_xkb_sym(struct xkb_keymap *keymap, xkb_keysym_t sym)
     xkb_keycode_list_t key_codes = tll_init();
 
     /*
-     * Find all key codes that map to the lower case
-     * version of the symbol.
+     * Find all key codes that map to this symbol.
      *
      * This allows us to match bindings in other layouts
      * too.
      */
-    xkb_keysym_t lower_sym = xkb_keysym_to_lower(sym);
     struct xkb_state *state = xkb_state_new(keymap);
 
     for (xkb_keycode_t code = xkb_keymap_min_keycode(keymap);
          code <= xkb_keymap_max_keycode(keymap);
          code++)
     {
-        if (xkb_state_key_get_one_sym(state, code) == lower_sym)
+        if (xkb_state_key_get_one_sym(state, code) == sym)
             tll_push_back(key_codes, code);
     }
 
@@ -829,15 +827,24 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     mods &= significant;
     consumed &= significant;
 
+    xkb_layout_index_t layout_idx =
+        xkb_state_key_get_layout(seat->kbd.xkb_state, key);
+
+    const xkb_keysym_t *raw_syms = NULL;
+    size_t raw_count = xkb_keymap_key_get_syms_by_level(
+        seat->kbd.xkb_keymap, key, layout_idx, 0, &raw_syms);
+
     if (term->is_searching) {
         if (should_repeat)
             start_repeater(seat, key);
-        search_input(seat, term, key, sym, mods, serial);
+        search_input(
+            seat, term, key, sym, mods, consumed, raw_syms, raw_count, serial);
         return;
     } else  if (urls_mode_is_active(term)) {
         if (should_repeat)
             start_repeater(seat, key);
-        urls_input(seat, term, key, sym, mods, serial);
+        urls_input(
+            seat, term, key, sym, mods, consumed, raw_syms, raw_count, serial);
         return;
     }
 
@@ -863,20 +870,35 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
      * User configurable bindings
      */
     tll_foreach(seat->kbd.bindings.key, it) {
-        if (it->item.mods != mods)
+        const struct key_binding *bind = &it->item;
+
+        /* Match translated symbol */
+        if (bind->sym == sym &&
+            bind->mods == (mods & ~consumed) &&
+            execute_binding(
+                seat, term, bind->action, bind->pipe_argv, serial))
+        {
+            goto maybe_repeat;
+        }
+
+        if (bind->mods != mods)
             continue;
 
-        /* Match symbol */
-        if (it->item.sym == sym) {
-            if (execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial))
+        /* Match untranslated symbols */
+        for (size_t i = 0; i < raw_count; i++) {
+            if (bind->sym == raw_syms[i] && execute_binding(
+                    seat, term, bind->action, bind->pipe_argv, serial))
+            {
                 goto maybe_repeat;
+            }
         }
 
         /* Match raw key code */
-        tll_foreach(it->item.key_codes, code) {
-            if (code->item == key) {
-                if (execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial))
-                    goto maybe_repeat;
+        tll_foreach(bind->key_codes, code) {
+            if (code->item == key && execute_binding(
+                    seat, term, bind->action, bind->pipe_argv, serial))
+            {
+                goto maybe_repeat;
             }
         }
     }
