@@ -437,9 +437,9 @@ may have one or more key combinations, space separated. Each
 combination is on the form _mod1+mod2+key_. The names of the modifiers
 and the key *must* be valid XKB key names.
 
-Note that if *Shift* is one of the modifiers, the _key_ *must* be in
-upper case. For example, *Control+Shift+v* will never trigger, but
-*Control+Shift+V* will.
+Note that if *Shift* is one of the modifiers, the _key_ *must not* be
+in upper case. For example, *Control+Shift+V* will never trigger, but
+*Control+Shift+v* will.
 
 Note that *Alt* is usually called *Mod1*.
 
