@@ -469,17 +469,17 @@ e.g. *search-start=none*.
 	Scroll down/forward a single line in history. Default: _not set_.
 
 *clipboard-copy*
-	Copies the current selection into the _clipboard_. Default: _Control+Shift+C_.
+	Copies the current selection into the _clipboard_. Default: _Control+Shift+c_.
 
 *clipboard-paste*
-	Pastes from the _clipboard_. Default: _Control+Shift+V_.
+	Pastes from the _clipboard_. Default: _Control+Shift+v_.
 
 *primary-paste*
 	Pastes from the _primary selection_. Default: _Shift+Insert_ (also
 	defined in *mouse-bindings*).
 
 *search-start*
-	Starts a scrollback/history search. Default: _Control+Shift+R_.
+	Starts a scrollback/history search. Default: _Control+Shift+r_.
 
 *font-increase*
 	Increases the font size by 0.5pt. Default: _Control+plus
@@ -495,7 +495,7 @@ e.g. *search-start=none*.
 *spawn-terminal*
 	Spawns a new terminal. If the shell has been configured to emit
 	the OSC 7 escape sequence, the new terminal will start in the
-	current working directory. Default: _Control+Shift+N_.
+	current working directory. Default: _Control+Shift+n_.
 
 *minimize*
 	Minimizes the window. Default: _not bound_.
@@ -527,7 +527,7 @@ e.g. *search-start=none*.
 *show-urls-launch*
 	Enter URL mode, where all currently visible URLs are tagged with a
 	jump label with a key sequence that will open the URL. Default:
-	_Control+Shift+U_.
+	_Control+Shift+u_.
 
 *show-urls-copy*
 	Enter URL mode, where all currently visible URLs are tagged with a
@@ -548,7 +548,7 @@ scrollback search mode. The syntax is exactly the same as the regular
 *commit*
 	Exit search mode and copy current selection into the _primary
 	selection_. Viewport is **not** restored. To copy the selection to
-	the regular _clipboard_, use *Control+Shift+C*. Default: _Return_.
+	the regular _clipboard_, use *Control+Shift+c*. Default: _Return_.
 
 *find-prev*
 	Search **backwards** in the scrollback history for the next
@@ -602,7 +602,7 @@ scrollback search mode. The syntax is exactly the same as the regular
 
 *extend-to-next-whitespace*
 	Extend the current selection to the next whitespace. Default:
-	_Control+Shift+W_.
+	_Control+Shift+w_.
 
 *clipboard-paste*
 	Paste from the _clipboard_ into the search buffer. Default:
