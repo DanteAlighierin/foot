@@ -2114,7 +2114,7 @@ add_default_search_bindings(struct config *conf)
     add_binding(BIND_ACTION_SEARCH_DELETE_NEXT_WORD, ctrl, XKB_KEY_Delete);
     add_binding(BIND_ACTION_SEARCH_DELETE_NEXT_WORD, alt, XKB_KEY_d);
     add_binding(BIND_ACTION_SEARCH_EXTEND_WORD, ctrl, XKB_KEY_w);
-    add_binding(BIND_ACTION_SEARCH_EXTEND_WORD_WS, ctrl_shift, XKB_KEY_W);
+    add_binding(BIND_ACTION_SEARCH_EXTEND_WORD_WS, ctrl_shift, XKB_KEY_w);
     add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_v);
     add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_y);
     add_binding(BIND_ACTION_SEARCH_PRIMARY_PASTE, shift, XKB_KEY_Insert);
