@@ -1202,7 +1202,7 @@ parse_key_combos(struct config *conf, const char *combos, key_combo_list_t *key_
                 "shifted keys not supported with explicit \033[1mShift\033[m "
                 "modifier",
                 path, lineno, section, option, combo);
-            *key = tolower(*key);
+            *key = *key - 'A' + 'a';
         }
 
         /* Translate key name to symbol */
