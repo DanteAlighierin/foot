@@ -93,6 +93,7 @@
   exiting shell (https://codeberg.org/dnkl/foot/issues/366).
 * Default value of `-t,--term` in `--help` output when foot was built
   without terminfo support.
+* Fix `vertical-letter-offset` moving glyphs horizontally.
 
 
 ### Security
@@ -100,6 +101,7 @@
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
 * toast
+* [l3mon4d3](https://codeberg.org/l3mon4d3)
 
 
 ## 1.6.4
