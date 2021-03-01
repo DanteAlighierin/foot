@@ -1,5 +1,8 @@
 foot-ctlseqs(7)
 
+# NAME
+foot-ctlseqs - terminal control sequences supported by foot
+
 # DESCRIPTION
 
 This document describes all the control sequences supported by foot.
