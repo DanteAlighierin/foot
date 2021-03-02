@@ -1191,6 +1191,7 @@ parse_key_combos(struct config *conf, const char *combos, key_combo_list_t *key_
             key++;  /* Skip past the '+' */
         }
 
+#if 0
         if (modifiers.shift && strlen(key) == 1 && (*key >= 'A' && *key <= 'Z')) {
             LOG_WARN(
                 "%s:%d: [%s]: %s: %s: "
@@ -1204,7 +1205,7 @@ parse_key_combos(struct config *conf, const char *combos, key_combo_list_t *key_
                 path, lineno, section, option, combo);
             *key = *key - 'A' + 'a';
         }
-
+#endif
         /* Translate key name to symbol */
         xkb_keysym_t sym = xkb_keysym_from_name(key, 0);
         if (sym == XKB_KEY_NoSymbol) {
