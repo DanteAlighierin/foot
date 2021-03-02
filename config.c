@@ -708,7 +708,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "vertical-letter-offset") == 0) {
         if (!str_to_pt_or_px(
-                value, &conf->horizontal_letter_offset,
+                value, &conf->vertical_letter_offset,
                 conf, path, lineno, "default", "vertical-letter-offset"))
             return false;
     }
