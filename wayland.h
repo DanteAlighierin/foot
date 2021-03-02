@@ -271,6 +271,7 @@ struct seat {
             } pending;
         } surrounding;
 
+        bool focused;
         uint32_t serial;
     } ime;
 #endif

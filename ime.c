@@ -26,6 +26,7 @@ enter(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
     /* The main grid is the *only* input-receiving surface we have */
     xassert(seat->kbd_focus != NULL);
+    seat->ime.focused = true;
     ime_enable(seat);
 }
 
@@ -41,6 +42,7 @@ leave(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         term_ime_reset(term);
 
     ime_disable(seat);
+    seat->ime.focused = false;
 }
 
 static void
@@ -334,6 +336,9 @@ ime_send_cursor_rect(struct seat *seat, struct terminal *term)
     if (unlikely(seat->wayl->text_input_manager == NULL))
         return;
 
+    if (!seat->ime.focused)
+        return;
+
     if (!term->ime.enabled)
         return;
 
@@ -367,6 +372,9 @@ ime_enable(struct seat *seat)
     struct terminal *term = seat->kbd_focus;
     xassert(term != NULL);
 
+    if (!seat->ime.focused)
+        return;
+
     if (!term->ime.enabled)
         return;
 
@@ -395,6 +403,9 @@ void
 ime_disable(struct seat *seat)
 {
     if (unlikely(seat->wayl->text_input_manager == NULL))
+        return;
+
+    if (!seat->ime.focused)
         return;
 
     ime_reset(seat);
