@@ -161,6 +161,9 @@ urls_input(struct seat *seat, struct terminal *term, uint32_t key,
         return;
     }
 
+    if (mods & ~consumed)
+        return;
+
     wchar_t wc = xkb_state_key_get_utf32(seat->kbd.xkb_state, key);
 
     /*
