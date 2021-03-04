@@ -74,6 +74,10 @@
   timing can be tweaked, or completely disabled, by setting
   `resize-delay-ms` (https://codeberg.org/dnkl/foot/issues/301).
 * `CSI 13 ; 2 t` now reports (0,0).
+* Key binding matching logic; key combinations like `Control+Shift+C`
+  **must** now be written as either `Control+C` or `Control+Shift+c`,
+  the latter being the preferred
+  variant. (https://codeberg.org/dnkl/foot/issues/376)
 
 
 ### Deprecated
