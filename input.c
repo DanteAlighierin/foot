@@ -350,20 +350,18 @@ key_codes_for_xkb_sym(struct xkb_keymap *keymap, xkb_keysym_t sym)
     xkb_keycode_list_t key_codes = tll_init();
 
     /*
-     * Find all key codes that map to the lower case
-     * version of the symbol.
+     * Find all key codes that map to this symbol.
      *
      * This allows us to match bindings in other layouts
      * too.
      */
-    xkb_keysym_t lower_sym = xkb_keysym_to_lower(sym);
     struct xkb_state *state = xkb_state_new(keymap);
 
     for (xkb_keycode_t code = xkb_keymap_min_keycode(keymap);
          code <= xkb_keymap_max_keycode(keymap);
          code++)
     {
-        if (xkb_state_key_get_one_sym(state, code) == lower_sym)
+        if (xkb_state_key_get_one_sym(state, code) == sym)
             tll_push_back(key_codes, code);
     }
 
@@ -371,16 +369,134 @@ key_codes_for_xkb_sym(struct xkb_keymap *keymap, xkb_keysym_t sym)
     return key_codes;
 }
 
+static xkb_keysym_t
+maybe_repair_key_combo(const struct seat *seat,
+                       xkb_keysym_t sym, xkb_mod_mask_t mods)
+{
+    /*
+     * Detect combos containing a shifted symbol and the corresponding
+     * modifier, and replace the shifted symbol with its unshifted
+     * variant.
+     *
+     * For example, the combo is “Control+Shift+U”. In this case,
+     * Shift is the modifier used to “shift” ‘u’ to ‘U’, after which
+     * ‘Shift’ will have been “consumed”. Since we filter out consumed
+     * modifiers when matching key combos, this key combo will never
+     * trigger (we will never be able to match the ‘Shift’ modifier).
+     *
+     * There are two correct variants of the above key combo:
+     *  - “Control+U”           (upper case ‘U’)
+     *  - “Control+Shift+u”     (lower case ‘u’)
+     *
+     * What we do here is, for each key *code*, check if there are any
+     * (shifted) levels where it produces ‘sym’. If there are, check
+     * *which* sets of modifiers are needed to produce it, and compare
+     * with ‘mods’.
+     *
+     * If there is at least one common modifier, it means ‘sym’ is a
+     * “shifted” symbol, with the corresponding shifting modifier
+     * explicitly included in the key combo. I.e. the key combo will
+     * never trigger.
+     *
+     * We then proceed and “repair” the key combo by replacing ‘sym’
+     * with the corresponding unshifted symbol.
+     *
+     * To reduce the noise, we ignore all key codes where the shifted
+     * symbol is the same as the unshifted symbol.
+     */
+
+    for (xkb_keycode_t code = xkb_keymap_min_keycode(seat->kbd.xkb_keymap);
+         code <= xkb_keymap_max_keycode(seat->kbd.xkb_keymap);
+         code++)
+    {
+        xkb_layout_index_t layout_idx =
+            xkb_state_key_get_layout(seat->kbd.xkb_state, code);
+
+        /* Get all unshifted symbols for this key */
+        const xkb_keysym_t *base_syms = NULL;
+        size_t base_count = xkb_keymap_key_get_syms_by_level(
+            seat->kbd.xkb_keymap, code, layout_idx, 0, &base_syms);
+
+        if (base_count == 0 || sym == base_syms[0]) {
+            /* No unshifted symbols, or unshifted symbol is same as ‘sym’ */
+            continue;
+        }
+
+        /* Name of the unshifted symbol, for logging */
+        char base_name[100];
+        xkb_keysym_get_name(base_syms[0], base_name, sizeof(base_name));
+
+        /* Iterate all shift levels */
+        for (xkb_level_index_t level_idx = 1;
+             level_idx < xkb_keymap_num_levels_for_key(
+                 seat->kbd.xkb_keymap, code, layout_idx);
+             level_idx++) {
+
+            /* Get all symbols for current shift level */
+            const xkb_keysym_t *shifted_syms = NULL;
+            size_t shifted_count = xkb_keymap_key_get_syms_by_level(
+                seat->kbd.xkb_keymap, code,
+                layout_idx, level_idx, &shifted_syms);
+
+            for (size_t i = 0; i < shifted_count; i++) {
+                if (shifted_syms[i] != sym)
+                    continue;
+
+                /* Get modifier sets that produces the current shift level */
+                xkb_mod_mask_t mod_masks[16];
+                size_t mod_mask_count = xkb_keymap_key_get_mods_for_level(
+                    seat->kbd.xkb_keymap, code, layout_idx, level_idx,
+                    mod_masks, ALEN(mod_masks));
+
+                /* Check if key combo’s modifier set intersects */
+                for (size_t j = 0; j < mod_mask_count; j++) {
+                    if (!(mod_masks[j] & mods))
+                        continue;
+
+                    char combo[64] = {0};
+
+                    for (int k = 0; k < sizeof(xkb_mod_mask_t) * 8; k++) {
+                        if (!(mods & (1u << k)))
+                            continue;
+
+                        const char *mod_name = xkb_keymap_mod_get_name(
+                            seat->kbd.xkb_keymap, k);
+                        strcat(combo, mod_name);
+                        strcat(combo, "+");
+                    }
+
+                    size_t len = strlen(combo);
+                    xkb_keysym_get_name(
+                        sym, &combo[len], sizeof(combo) - len);
+
+                    LOG_WARN(
+                        "%s: combo with both explicit modifier and shifted symbol "
+                        "(level=%d, mod-mask=0x%08x), "
+                        "replacing with %s",
+                        combo, level_idx, mod_masks[j], base_name);
+
+                    /* Replace with unshifted symbol */
+                    return base_syms[0];
+                }
+            }
+        }
+    }
+
+    return sym;
+}
+
 static void
-convert_key_binding(struct seat *seat,
+convert_key_binding(const struct seat *seat,
                     const struct config_key_binding *conf_binding,
                     key_binding_list_t *bindings)
 {
+    xkb_mod_mask_t mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers);
+    xkb_keysym_t sym = maybe_repair_key_combo(seat, conf_binding->sym, mods);
+
     struct key_binding binding = {
-        .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
-        .sym = conf_binding->sym,
-        .key_codes = key_codes_for_xkb_sym(
-            seat->kbd.xkb_keymap, conf_binding->sym),
+        .mods = mods,
+        .sym = sym,
+        .key_codes = key_codes_for_xkb_sym(seat->kbd.xkb_keymap, sym),
         .action = conf_binding->action,
         .pipe_argv = conf_binding->pipe.argv,
     };
@@ -822,20 +938,31 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
 
     xkb_mod_mask_t mods = xkb_state_serialize_mods(
         seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
-    //xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(seat->kbd.xkb_state, key);
-    xkb_mod_mask_t consumed = 0x0;
+    xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(
+        seat->kbd.xkb_state, key);
+
     xkb_mod_mask_t significant = ctrl | alt | shift | meta;
-    xkb_mod_mask_t effective_mods = mods & ~consumed & significant;
+    mods &= significant;
+    consumed &= significant;
+
+    xkb_layout_index_t layout_idx =
+        xkb_state_key_get_layout(seat->kbd.xkb_state, key);
+
+    const xkb_keysym_t *raw_syms = NULL;
+    size_t raw_count = xkb_keymap_key_get_syms_by_level(
+        seat->kbd.xkb_keymap, key, layout_idx, 0, &raw_syms);
 
     if (term->is_searching) {
         if (should_repeat)
             start_repeater(seat, key);
-        search_input(seat, term, key, sym, effective_mods, serial);
+        search_input(
+            seat, term, key, sym, mods, consumed, raw_syms, raw_count, serial);
         return;
     } else  if (urls_mode_is_active(term)) {
         if (should_repeat)
             start_repeater(seat, key);
-        urls_input(seat, term, key, sym, effective_mods, serial);
+        urls_input(
+            seat, term, key, sym, mods, consumed, raw_syms, raw_count, serial);
         return;
     }
 
@@ -853,29 +980,43 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
 #endif
 
     LOG_DBG("%s (%u/0x%x): seat=%s, term=%p, serial=%u, "
-            "mod=0x%08x, consumed=0x%08x, significant=0x%08x, "
-            "effective=0x%08x, repeats=%d",
+            "mods=0x%08x, consumed=0x%08x, repeats=%d",
             sym_name, sym, sym, seat->name, (void *)term, serial,
-            mods, consumed, significant, effective_mods, should_repeat);
+            mods, consumed, should_repeat);
 
     /*
      * User configurable bindings
      */
     tll_foreach(seat->kbd.bindings.key, it) {
-        if (it->item.mods != effective_mods)
+        const struct key_binding *bind = &it->item;
+
+        /* Match translated symbol */
+        if (bind->sym == sym &&
+            bind->mods == (mods & ~consumed) &&
+            execute_binding(
+                seat, term, bind->action, bind->pipe_argv, serial))
+        {
+            goto maybe_repeat;
+        }
+
+        if (bind->mods != mods)
             continue;
 
-        /* Match symbol */
-        if (it->item.sym == sym) {
-            if (execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial))
+        /* Match untranslated symbols */
+        for (size_t i = 0; i < raw_count; i++) {
+            if (bind->sym == raw_syms[i] && execute_binding(
+                    seat, term, bind->action, bind->pipe_argv, serial))
+            {
                 goto maybe_repeat;
+            }
         }
 
         /* Match raw key code */
-        tll_foreach(it->item.key_codes, code) {
-            if (code->item == key) {
-                if (execute_binding(seat, term, it->item.action, it->item.pipe_argv, serial))
-                    goto maybe_repeat;
+        tll_foreach(bind->key_codes, code) {
+            if (code->item == key && execute_binding(
+                    seat, term, bind->action, bind->pipe_argv, serial))
+            {
+                goto maybe_repeat;
             }
         }
     }
@@ -972,7 +1113,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     }
 
     else {
-        if (effective_mods & alt) {
+        if (mods & alt) {
             /*
              * When the alt modifier is pressed, we do one out of three things:
              *
