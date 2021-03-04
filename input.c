@@ -1162,6 +1162,11 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 {
     xassert(surface != NULL);
 
+    if (surface == NULL)  {
+        /* Seen on mutter-3.38 */
+        return;
+    }
+
     struct seat *seat = data;
     struct wl_window *win = wl_surface_get_user_data(surface);
     struct terminal *term = win->term;
