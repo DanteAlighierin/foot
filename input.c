@@ -1693,6 +1693,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     case TERM_SURF_GRID: {
         search_cancel(term);
+        urls_reset(term);
 
         bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
 
