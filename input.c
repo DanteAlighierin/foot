@@ -822,20 +822,22 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
 
     xkb_mod_mask_t mods = xkb_state_serialize_mods(
         seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
-    //xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(seat->kbd.xkb_state, key);
-    xkb_mod_mask_t consumed = 0x0;
+    xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(
+        seat->kbd.xkb_state, key);
+
     xkb_mod_mask_t significant = ctrl | alt | shift | meta;
-    xkb_mod_mask_t effective_mods = mods & ~consumed & significant;
+    mods &= significant;
+    consumed &= significant;
 
     if (term->is_searching) {
         if (should_repeat)
             start_repeater(seat, key);
-        search_input(seat, term, key, sym, effective_mods, serial);
+        search_input(seat, term, key, sym, mods, serial);
         return;
     } else  if (urls_mode_is_active(term)) {
         if (should_repeat)
             start_repeater(seat, key);
-        urls_input(seat, term, key, sym, effective_mods, serial);
+        urls_input(seat, term, key, sym, mods, serial);
         return;
     }
 
@@ -853,16 +855,15 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
 #endif
 
     LOG_DBG("%s (%u/0x%x): seat=%s, term=%p, serial=%u, "
-            "mod=0x%08x, consumed=0x%08x, significant=0x%08x, "
-            "effective=0x%08x, repeats=%d",
+            "mods=0x%08x, consumed=0x%08x, repeats=%d",
             sym_name, sym, sym, seat->name, (void *)term, serial,
-            mods, consumed, significant, effective_mods, should_repeat);
+            mods, consumed, should_repeat);
 
     /*
      * User configurable bindings
      */
     tll_foreach(seat->kbd.bindings.key, it) {
-        if (it->item.mods != effective_mods)
+        if (it->item.mods != mods)
             continue;
 
         /* Match symbol */
@@ -972,7 +973,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     }
 
     else {
-        if (effective_mods & alt) {
+        if (mods & alt) {
             /*
              * When the alt modifier is pressed, we do one out of three things:
              *
