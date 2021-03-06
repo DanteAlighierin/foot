@@ -917,12 +917,6 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 {
     //LOG_DBG("adding sixel %02hhx using color 0x%06x", sixel, color);
 
-    if (term->sixel.pos.col >= term->sixel.max_width ||
-        term->sixel.pos.row + 5 >= term->sixel.max_height)
-    {
-        return;
-    }
-
     if (term->sixel.pos.col >= term->sixel.image.width ||
         term->sixel.pos.row >= term->sixel.image.height)
     {
