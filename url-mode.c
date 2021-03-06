@@ -259,11 +259,11 @@ auto_detected(const struct terminal *term, enum url_action action,
                     proto_start[i] = proto_start[i + 1];
                 }
 
-                if (proto_char_count == max_prot_len)
-                    proto_char_count--;
+                if (proto_char_count >= max_prot_len)
+                    proto_char_count = max_prot_len - 1;
 
-                proto_chars[proto_char_count] = wc;
-                proto_start[proto_char_count] = (struct coord){c, r};
+                proto_chars[max_prot_len - 1] = wc;
+                proto_start[max_prot_len - 1] = (struct coord){c, r};
                 proto_char_count++;
 
                 for (size_t i = 0; i < ALEN(prots); i++) {
