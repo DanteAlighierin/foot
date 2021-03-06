@@ -360,6 +360,7 @@ struct terminal {
         bool modify_escape_key:1;
         bool ime:1;
 
+        bool sixel_scrolling:1;
         bool sixel_private_palette:1;
         bool sixel_cursor_right_of_graphics:1;
     } xtsave;
@@ -530,16 +531,15 @@ struct terminal {
             uint32_t *data;  /* Raw image data, in ARGB */
             int width;       /* Image width, in pixels */
             int height;      /* Image height, in pixels */
-            bool autosize;
         } image;
 
-        bool use_private_palette:1;  /* Private mode 1070 */
+        bool scrolling:1;                 /* Private mode 80 */
+        bool use_private_palette:1;       /* Private mode 1070 */
+        bool cursor_right_of_graphics:1;  /* Private mode 8452 */
 
         unsigned params[5];  /* Collected parameters, for RASTER, COLOR_SPEC */
         unsigned param;      /* Currently collecting parameter, for RASTER, COLOR_SPEC and REPEAT */
         unsigned param_idx;  /* Parameters seen */
-
-        bool cursor_right_of_graphics:1;  /* Private mode 8452 */
 
         /* Application configurable */
         unsigned palette_size;  /* Number of colors in palette */

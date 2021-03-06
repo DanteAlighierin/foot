@@ -45,6 +45,8 @@
   `footclient` (https://codeberg.org/dnkl/foot/issues/337).
 * `-D,--working-directory=DIR` to both `foot` and `footclient`
   (https://codeberg.org/dnkl/foot/issues/347)
+* `DECSET 80` - sixel scrolling
+  (https://codeberg.org/dnkl/foot/issues/361).
 * `DECSET 1070` - sixel private color palette
   (https://codeberg.org/dnkl/foot/issues/362).
 * `DECSET 8452` - position cursor to the right of sixels
@@ -72,6 +74,10 @@
   timing can be tweaked, or completely disabled, by setting
   `resize-delay-ms` (https://codeberg.org/dnkl/foot/issues/301).
 * `CSI 13 ; 2 t` now reports (0,0).
+* Key binding matching logic; key combinations like `Control+Shift+C`
+  **must** now be written as either `Control+C` or `Control+Shift+c`,
+  the latter being the preferred
+  variant. (https://codeberg.org/dnkl/foot/issues/376)
 
 
 ### Deprecated
@@ -98,6 +104,7 @@
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
 * toast
+* [l3mon4d3](https://codeberg.org/l3mon4d3)
 
 
 ## 1.6.4

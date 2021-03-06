@@ -783,7 +783,9 @@ execute_binding(struct seat *seat, struct terminal *term,
 
 void
 search_input(struct seat *seat, struct terminal *term, uint32_t key,
-             xkb_keysym_t sym, xkb_mod_mask_t mods, uint32_t serial)
+             xkb_keysym_t sym, xkb_mod_mask_t mods, xkb_mod_mask_t consumed,
+             const xkb_keysym_t *raw_syms, size_t raw_count,
+             uint32_t serial)
 {
     LOG_DBG("search: input: sym=%d/0x%x, mods=0x%08x", sym, sym, mods);
 
@@ -795,12 +797,13 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
 
     /* Key bindings */
     tll_foreach(seat->kbd.bindings.search, it) {
-        if (it->item.mods != mods)
-            continue;
+        const struct key_binding *bind = &it->item;
 
-        /* Match symbol */
-        if (it->item.sym == sym) {
-            if (execute_binding(seat, term, it->item.action, serial,
+        /* Match translated symbol */
+        if (bind->sym == sym &&
+            bind->mods == (mods & ~consumed)) {
+
+            if (execute_binding(seat, term, bind->action, serial,
                                 &update_search_result, &redraw))
             {
                 goto update_search;
@@ -808,10 +811,25 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
             return;
         }
 
+        if (bind->mods != mods)
+            continue;
+
+        /* Match untranslated symbols */
+        for (size_t i = 0; i < raw_count; i++) {
+            if (bind->sym == raw_syms[i]) {
+                if (execute_binding(seat, term, bind->action, serial,
+                                    &update_search_result, &redraw))
+                {
+                    goto update_search;
+                }
+                return;
+            }
+        }
+
         /* Match raw key code */
-        tll_foreach(it->item.key_codes, code) {
+        tll_foreach(bind->key_codes, code) {
             if (code->item == key) {
-                if (execute_binding(seat, term, it->item.action, serial,
+                if (execute_binding(seat, term, bind->action, serial,
                                     &update_search_result, &redraw))
                 {
                     goto update_search;

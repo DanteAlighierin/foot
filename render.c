@@ -2555,7 +2555,7 @@ render_urls(struct terminal *term)
             hide = true;
         if (wcslen(key) <= entered_key_len)
             hide = true;
-        if (wcsncmp(term->url_keys, key, entered_key_len) != 0)
+        if (wcsncasecmp(term->url_keys, key, entered_key_len) != 0)
             hide = true;
 
         if (hide) {
