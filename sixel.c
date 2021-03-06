@@ -853,8 +853,10 @@ resize(struct terminal *term, int new_width, int new_height)
     const int old_width = term->sixel.image.width;
     const int old_height = term->sixel.image.height;
 
-    new_height = (new_height + 6 - 1) / 6 * 6;
-    xassert(new_height % 6 == 0);
+    int alloc_new_width = new_width;
+    int alloc_new_height = (new_height + 6 - 1) / 6 * 6;
+    xassert(alloc_new_height >= new_height);
+    xassert(alloc_new_height - new_height < 6);
 
     if (new_width > term->sixel.max_width)
         return false;
@@ -876,7 +878,7 @@ resize(struct terminal *term, int new_width, int new_height)
         /* Width (and thus stride) is the same, so we can simply
          * re-alloc the existing buffer */
 
-        new_data = realloc(old_data, new_width * new_height * sizeof(uint32_t));
+        new_data = realloc(old_data, alloc_new_width * alloc_new_height * sizeof(uint32_t));
         if (new_data == NULL) {
             LOG_ERRNO("failed to reallocate sixel image buffer");
             return false;
@@ -887,7 +889,7 @@ resize(struct terminal *term, int new_width, int new_height)
     } else {
         /* Width (and thus stride) change - need to allocate a new buffer */
         xassert(new_width > old_width);
-        new_data = xmalloc(new_width * new_height * sizeof(uint32_t));
+        new_data = xmalloc(alloc_new_width * alloc_new_height * sizeof(uint32_t));
 
         /* Copy old rows, and initialize new columns to background color */
         for (int r = 0; r < min(old_height, new_height); r++) {
