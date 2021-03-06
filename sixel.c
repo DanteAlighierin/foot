@@ -37,6 +37,7 @@ sixel_init(struct terminal *term)
 
     term->sixel.state = SIXEL_DECSIXEL;
     term->sixel.pos = (struct coord){0, 0};
+    term->sixel.row_byte_ofs = 0;
     term->sixel.color_idx = 0;
     term->sixel.max_col = 0;
     term->sixel.param = 0;
@@ -908,6 +909,7 @@ resize(struct terminal *term, int new_width, int new_height)
     term->sixel.image.data = new_data;
     term->sixel.image.width = new_width;
     term->sixel.image.height = new_height;
+    term->sixel.row_byte_ofs = term->sixel.pos.row * new_width;
 
     return true;
 }
@@ -931,8 +933,7 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
             return;
     }
 
-    size_t ofs = term->sixel.pos.row * term->sixel.image.width;
-    ofs += term->sixel.pos.col;
+    size_t ofs = term->sixel.row_byte_ofs + term->sixel.pos.col;
 
     for (int i = 0; i < 6; i++, sixel >>= 1) {
         if (sixel & 1)
@@ -978,6 +979,7 @@ decsixel(struct terminal *term, uint8_t c)
             term->sixel.max_col = term->sixel.pos.col;
         term->sixel.pos.row += 6;
         term->sixel.pos.col = 0;
+        term->sixel.row_byte_ofs += term->sixel.image.width * 6;
         break;
 
     case '?': case '@': case 'A': case 'B': case 'C': case 'D': case 'E':
