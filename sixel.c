@@ -45,7 +45,6 @@ sixel_init(struct terminal *term)
     term->sixel.image.data = xmalloc(1 * 6 * sizeof(term->sixel.image.data[0]));
     term->sixel.image.width = 1;
     term->sixel.image.height = 6;
-    term->sixel.image.autosize = true;
 
     /* TODO: default palette */
 
@@ -841,9 +840,6 @@ sixel_unhook(struct terminal *term)
 static bool
 resize(struct terminal *term, int new_width, int new_height)
 {
-    if (!term->sixel.image.autosize)
-        return false;
-
     LOG_DBG("resizing image: %dx%d -> %dx%d",
             term->sixel.image.width, term->sixel.image.height,
             new_width, new_height);
@@ -1034,8 +1030,7 @@ decgra(struct terminal *term, uint8_t c)
         if (ph >= term->sixel.image.height && pv >= term->sixel.image.width &&
             ph <= term->sixel.max_height && pv <= term->sixel.max_width)
         {
-            if (resize(term, ph, pv))
-                term->sixel.image.autosize = false;
+            resize(term, ph, pv);
         }
 
         term->sixel.state = SIXEL_DECSIXEL;

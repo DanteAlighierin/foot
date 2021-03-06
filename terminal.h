@@ -531,7 +531,6 @@ struct terminal {
             uint32_t *data;  /* Raw image data, in ARGB */
             int width;       /* Image width, in pixels */
             int height;      /* Image height, in pixels */
-            bool autosize;
         } image;
 
         bool scrolling:1;                 /* Private mode 80 */
