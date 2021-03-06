@@ -921,13 +921,13 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
             return;
     }
 
+    size_t ofs = term->sixel.pos.row * term->sixel.image.width;
+    ofs += term->sixel.pos.col;
+
     for (int i = 0; i < 6; i++, sixel >>= 1) {
-        if (sixel & 1) {
-            size_t pixel_row = term->sixel.pos.row + i;
-            size_t stride = term->sixel.image.width;
-            size_t idx = pixel_row * stride + term->sixel.pos.col;
-            term->sixel.image.data[idx] = color_with_alpha(term, color);
-        }
+        if (sixel & 1)
+            term->sixel.image.data[ofs] = color_with_alpha(term, color);
+        ofs += term->sixel.image.width;
     }
 
     xassert(sixel == 0);
