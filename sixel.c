@@ -919,14 +919,17 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 {
     //LOG_DBG("adding sixel %02hhx using color 0x%06x", sixel, color);
 
-    if (term->sixel.pos.col >= term->sixel.image.width ||
-        term->sixel.pos.row >= term->sixel.image.height)
+    int height = term->sixel.image.height;
+    int width = term->sixel.image.width;
+
+    if (term->sixel.pos.col >= width ||
+        term->sixel.pos.row >= height)
     {
-        int width = max(
+        width = max(
             term->sixel.image.width,
             max(term->sixel.max_col, term->sixel.pos.col + 1));
 
-        int height = max(
+        height = max(
             term->sixel.image.height, term->sixel.pos.row + 6);
 
         if (!resize(term, width, height))
@@ -934,11 +937,11 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
     }
 
     size_t ofs = term->sixel.row_byte_ofs + term->sixel.pos.col;
+    uint32_t *data = term->sixel.image.data;
 
-    for (int i = 0; i < 6; i++, sixel >>= 1) {
+    for (int i = 0; i < 6; i++, sixel >>= 1, ofs += width) {
         if (sixel & 1)
-            term->sixel.image.data[ofs] = color;
-        ofs += term->sixel.image.width;
+            data[ofs] = color;
     }
 
     xassert(sixel == 0);
