@@ -184,17 +184,18 @@ def main():
             six_width = random.randrange(width // 2)
 
             # Sixel size. Without this, sixels will be
-            # auto-resized on cell-boundaries. We expect programs
-            # to emit this sequence since otherwise you cannot get
-            # correctly sized images.
+            # auto-resized on cell-boundaries.
             out.write(f'"0;0;{six_width};{six_height}')
 
             for row in range(six_height // 6):  # Each sixel is 6 pixels
                 # Choose a random color
                 out.write(f'#{random.randrange(256)}')
 
-                for col in range(six_width):
-                    out.write(f'{random.choice(sixels)}')
+                if random.randrange(2):
+                    for col in range(six_width):
+                        out.write(f'{random.choice(sixels)}')
+                else:
+                    out.write(f'!{six_width}{random.choice(sixels)}')
 
                 # Next line
                 out.write('-')
