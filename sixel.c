@@ -695,6 +695,10 @@ sixel_reflow(struct terminal *term)
 void
 sixel_unhook(struct terminal *term)
 {
+    /* The internal buffer always as a row number that is a multiple of 6 */
+    term->sixel.image.height = min(
+        term->sixel.image.height, term->sixel.max_height);
+
     int pixel_row_idx = 0;
     int pixel_rows_left = term->sixel.image.height;
     const int stride = term->sixel.image.width * sizeof(uint32_t);
