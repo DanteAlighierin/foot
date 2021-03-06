@@ -926,7 +926,7 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 
     for (int i = 0; i < 6; i++, sixel >>= 1) {
         if (sixel & 1)
-            term->sixel.image.data[ofs] = color_with_alpha(term, color);
+            term->sixel.image.data[ofs] = color;
         ofs += term->sixel.image.width;
     }
 
@@ -980,7 +980,11 @@ decsixel(struct terminal *term, uint8_t c)
     case 'p': case 'q': case 'r': case 's': case 't': case 'u': case 'v':
     case 'w': case 'x': case 'y': case 'z': case '{': case '|': case '}':
     case '~':
-        sixel_add(term, term->sixel.palette[term->sixel.color_idx], c - 63);
+        sixel_add(
+            term,
+            color_with_alpha(
+                term, term->sixel.palette[term->sixel.color_idx]),
+            c - 63);
         break;
 
     case ' ':
@@ -1060,8 +1064,12 @@ decgri(struct terminal *term, uint8_t c)
     case 'w': case 'x': case 'y': case 'z': case '{': case '|': case '}':
     case '~': {
         //LOG_DBG("repeating '%c' %u times", c, term->sixel.param);
+        uint32_t color = color_with_alpha(
+            term, term->sixel.palette[term->sixel.color_idx]);
+
         for (unsigned i = 0; i < term->sixel.param; i++)
-            decsixel(term, c);
+            sixel_add(term, color, c - 63);
+
         term->sixel.state = SIXEL_DECSIXEL;
         break;
     }
