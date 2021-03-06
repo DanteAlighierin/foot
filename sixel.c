@@ -915,7 +915,7 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
             max(term->sixel.max_col, term->sixel.pos.col + 1));
 
         int height = max(
-            term->sixel.image.height, term->sixel.pos.row + 1);
+            term->sixel.image.height, term->sixel.pos.row + 6);
 
         if (!resize(term, width, height))
             return;
