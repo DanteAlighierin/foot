@@ -902,21 +902,20 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
     //LOG_DBG("adding sixel %02hhx using color 0x%06x", sixel, color);
 
     if (term->sixel.pos.col >= term->sixel.max_width ||
-        term->sixel.pos.row * 6 + 5 >= term->sixel.max_height)
+        term->sixel.pos.row + 5 >= term->sixel.max_height)
     {
         return;
     }
 
     if (term->sixel.pos.col >= term->sixel.image.width ||
-        term->sixel.pos.row * 6 + 5 >= (term->sixel.image.height + 6 - 1) / 6 * 6)
+        term->sixel.pos.row + 5 >= (term->sixel.image.height + 6 - 1) / 6 * 6)
     {
         int width = max(
             term->sixel.image.width,
             max(term->sixel.max_col, term->sixel.pos.col + 1));
 
         int height = max(
-            term->sixel.image.height,
-            (term->sixel.pos.row + 1) * 6);
+            term->sixel.image.height, term->sixel.pos.row + 1);
 
         if (!resize(term, width, height))
             return;
@@ -924,7 +923,7 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 
     for (int i = 0; i < 6; i++, sixel >>= 1) {
         if (sixel & 1) {
-            size_t pixel_row = term->sixel.pos.row * 6 + i;
+            size_t pixel_row = term->sixel.pos.row + i;
             size_t stride = term->sixel.image.width;
             size_t idx = pixel_row * stride + term->sixel.pos.col;
             term->sixel.image.data[idx] = color_with_alpha(term, color);
@@ -967,7 +966,7 @@ decsixel(struct terminal *term, uint8_t c)
     case '-':
         if (term->sixel.pos.col > term->sixel.max_col)
             term->sixel.max_col = term->sixel.pos.col;
-        term->sixel.pos.row++;
+        term->sixel.pos.row += 6;
         term->sixel.pos.col = 0;
         break;
 
