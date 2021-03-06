@@ -906,7 +906,7 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
     }
 
     if (term->sixel.pos.col >= term->sixel.image.width ||
-        term->sixel.pos.row + 5 >= (term->sixel.image.height + 6 - 1) / 6 * 6)
+        term->sixel.pos.row >= term->sixel.image.height)
     {
         int width = max(
             term->sixel.image.width,
