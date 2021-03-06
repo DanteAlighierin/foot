@@ -980,11 +980,7 @@ decsixel(struct terminal *term, uint8_t c)
     case 'p': case 'q': case 'r': case 's': case 't': case 'u': case 'v':
     case 'w': case 'x': case 'y': case 'z': case '{': case '|': case '}':
     case '~':
-        sixel_add(
-            term,
-            color_with_alpha(
-                term, term->sixel.palette[term->sixel.color_idx]),
-            c - 63);
+        sixel_add(term, term->sixel.palette[term->sixel.color_idx], c - 63);
         break;
 
     case ' ':
@@ -1064,8 +1060,7 @@ decgri(struct terminal *term, uint8_t c)
     case 'w': case 'x': case 'y': case 'z': case '{': case '|': case '}':
     case '~': {
         //LOG_DBG("repeating '%c' %u times", c, term->sixel.param);
-        uint32_t color = color_with_alpha(
-            term, term->sixel.palette[term->sixel.color_idx]);
+        uint32_t color = term->sixel.palette[term->sixel.color_idx];
 
         for (unsigned i = 0; i < term->sixel.param; i++)
             sixel_add(term, color, c - 63);
@@ -1131,7 +1126,8 @@ decgci(struct terminal *term, uint8_t c)
                 LOG_DBG("setting palette #%d = HLS %hhu/%hhu/%hhu (0x%06x)",
                         term->sixel.color_idx, hue, lum, sat, rgb);
 
-                term->sixel.palette[term->sixel.color_idx] = rgb;
+                term->sixel.palette[term->sixel.color_idx] =
+                    color_with_alpha(term, rgb);
                 break;
             }
 
@@ -1143,7 +1139,8 @@ decgci(struct terminal *term, uint8_t c)
                 LOG_DBG("setting palette #%d = RGB %hhu/%hhu/%hhu",
                         term->sixel.color_idx, r, g, b);
 
-                term->sixel.palette[term->sixel.color_idx] = r << 16 | g << 8 | b;
+                term->sixel.palette[term->sixel.color_idx] =
+                    color_with_alpha(term, r << 16 | g << 8 | b);
                 break;
             }
             }
