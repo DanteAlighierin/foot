@@ -855,6 +855,20 @@ resize(struct terminal *term, int new_width, int new_height)
     new_height = (new_height + 6 - 1) / 6 * 6;
     xassert(new_height % 6 == 0);
 
+    if (new_width > term->sixel.max_width)
+        return false;
+
+    /*
+     * Last row may be cropped by the max height, but don’t skip that
+     * last partial row entirely.
+     *
+     * I.e if max height is ‘4’, then allow resizing up to 6, to allow
+     * us to emit that last sixel row. The final image will be cropped
+     * to the current max geometry in unhook.
+     */
+    if (new_height > (term->sixel.max_height + 5) / 6 * 6)
+        return false;
+
     uint32_t *new_data = NULL;
 
     if (new_width == old_width) {
