@@ -521,6 +521,7 @@ struct terminal {
         } state;
 
         struct coord pos;    /* Current sixel coordinate */
+        int max_non_empty_row_no;
         size_t row_byte_ofs; /* Byte position into image, for current row */
         int color_idx;       /* Current palette index */
         uint32_t *private_palette;   /* Private palette, used when private mode 1070 is enabled */
