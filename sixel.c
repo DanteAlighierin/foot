@@ -921,22 +921,19 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 {
     //LOG_DBG("adding sixel %02hhx using color 0x%06x", sixel, color);
 
-    int height = term->sixel.image.height;
     int width = term->sixel.image.width;
 
-    if (term->sixel.pos.col >= width ||
-        term->sixel.pos.row >= height)
-    {
+    if (term->sixel.pos.col >= width) {
         width = max(
             term->sixel.image.width,
             max(term->sixel.max_col, term->sixel.pos.col + 1));
 
-        height = max(
-            term->sixel.image.height, term->sixel.pos.row + 6);
-
-        if (!resize(term, width, height))
+        if (!resize(term, width, term->sixel.image.height))
             return;
     }
+
+    /* Height adjustment done while processing ‘-’ */
+    xassert(term->sixel.pos.row < term->sixel.image.height);
 
     size_t ofs = term->sixel.row_byte_ofs + term->sixel.pos.col;
     uint32_t *data = term->sixel.image.data;
@@ -985,6 +982,9 @@ decsixel(struct terminal *term, uint8_t c)
         term->sixel.pos.row += 6;
         term->sixel.pos.col = 0;
         term->sixel.row_byte_ofs += term->sixel.image.width * 6;
+
+        if (term->sixel.pos.row >= term->sixel.image.height)
+            resize(term, term->sixel.image.width, term->sixel.pos.row + 6);
         break;
 
     case '?': case '@': case 'A': case 'B': case 'C': case 'D': case 'E':
