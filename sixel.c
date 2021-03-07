@@ -1007,10 +1007,11 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
     uint32_t *data = &term->sixel.image.data[ofs];
 
     int max_non_empty_row = 0;
+    int row = term->sixel.pos.row;
     for (int i = 0; i < 6; i++, sixel >>= 1, data += width) {
         if (sixel & 1) {
-            max_non_empty_row = i;
             *data = color;
+            max_non_empty_row = row + i;
         }
     }
 
@@ -1019,7 +1020,7 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 
     term->sixel.max_non_empty_row_no = max(
         term->sixel.max_non_empty_row_no,
-        term->sixel.pos.row + max_non_empty_row);
+        max_non_empty_row);
 }
 
 static void
