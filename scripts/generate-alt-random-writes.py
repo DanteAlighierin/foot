@@ -185,7 +185,7 @@ def main():
 
             # Sixel size. Without this, sixels will be
             # auto-resized on cell-boundaries.
-            out.write(f'"0;0;{six_width};{six_height}')
+            out.write(f'"1;1;{six_width};{six_height}')
 
             for row in range(six_height // 6):  # Each sixel is 6 pixels
                 # Choose a random color
