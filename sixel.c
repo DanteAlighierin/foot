@@ -1004,13 +1004,13 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
     xassert(term->sixel.pos.row < term->sixel.image.height);
 
     size_t ofs = term->sixel.row_byte_ofs + term->sixel.pos.col;
-    uint32_t *data = term->sixel.image.data;
+    uint32_t *data = &term->sixel.image.data[ofs];
 
     int max_non_empty_row = 0;
-    for (int i = 0; i < 6; i++, sixel >>= 1, ofs += width) {
+    for (int i = 0; i < 6; i++, sixel >>= 1, data += width) {
         if (sixel & 1) {
-            data[ofs] = color;
             max_non_empty_row = i;
+            *data = color;
         }
     }
 
