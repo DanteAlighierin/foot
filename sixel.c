@@ -988,26 +988,17 @@ resize(struct terminal *term, int new_width, int new_height)
 }
 
 static void
-sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
+sixel_add(struct terminal *term, int col, int width, uint32_t color, uint8_t sixel)
 {
-    //LOG_DBG("adding sixel %02hhx using color 0x%06x", sixel, color);
-
-    int width = term->sixel.image.width;
-
-    if (unlikely(term->sixel.pos.col >= width)) {
-        width = term->sixel.pos.col + 1;
-        if (unlikely(!resize_horizontally(term, width)))
-            return;
-    }
-
-    /* Height adjustment done while processing ‘-’ */
+    xassert(term->sixel.pos.col < term->sixel.image.width);
     xassert(term->sixel.pos.row < term->sixel.image.height);
 
-    size_t ofs = term->sixel.row_byte_ofs + term->sixel.pos.col;
+    size_t ofs = term->sixel.row_byte_ofs + col;
     uint32_t *data = &term->sixel.image.data[ofs];
 
     int max_non_empty_row = 0;
     int row = term->sixel.pos.row;
+
     for (int i = 0; i < 6; i++, sixel >>= 1, data += width) {
         if (sixel & 1) {
             *data = color;
@@ -1016,11 +1007,30 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
     }
 
     xassert(sixel == 0);
-    term->sixel.pos.col++;
 
     term->sixel.max_non_empty_row_no = max(
         term->sixel.max_non_empty_row_no,
         max_non_empty_row);
+}
+
+static void
+sixel_add_many(struct terminal *term, uint8_t c, unsigned count)
+{
+    uint32_t color = term->sixel.palette[term->sixel.color_idx];
+
+    int col = term->sixel.pos.col;
+    int width = term->sixel.image.width;
+
+    if (unlikely(col + count - 1 >= width)) {
+        width = col + count;
+        if (unlikely(!resize_horizontally(term, width)))
+            return;
+    }
+
+    for (unsigned i = 0; i < count; i++, col++)
+        sixel_add(term, col, width, color, c);
+
+    term->sixel.pos.col = col;
 }
 
 static void
@@ -1079,7 +1089,7 @@ decsixel(struct terminal *term, uint8_t c)
     case 'p': case 'q': case 'r': case 's': case 't': case 'u': case 'v':
     case 'w': case 'x': case 'y': case 'z': case '{': case '|': case '}':
     case '~':
-        sixel_add(term, term->sixel.palette[term->sixel.color_idx], c - 63);
+        sixel_add_many(term, c - 63, 1);
         break;
 
     case ' ':
@@ -1157,17 +1167,10 @@ decgri(struct terminal *term, uint8_t c)
     case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o':
     case 'p': case 'q': case 'r': case 's': case 't': case 'u': case 'v':
     case 'w': case 'x': case 'y': case 'z': case '{': case '|': case '}':
-    case '~': {
-        //LOG_DBG("repeating '%c' %u times", c, term->sixel.param);
-        unsigned count = term->sixel.param;
-        uint32_t color = term->sixel.palette[term->sixel.color_idx];
-
-        for (unsigned i = 0; i < count; i++)
-            sixel_add(term, color, c - 63);
-
+    case '~':
+        sixel_add_many(term, c - 63, term->sixel.param);
         term->sixel.state = SIXEL_DECSIXEL;
         break;
-    }
     }
 }
 
