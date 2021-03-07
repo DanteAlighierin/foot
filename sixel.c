@@ -845,6 +845,82 @@ sixel_unhook(struct terminal *term)
 }
 
 static bool
+resize_horizontally(struct terminal *term, int new_width)
+{
+    LOG_DBG("resizing image horizontally: %dx(%d) -> %dx(%d)",
+            term->sixel.image.width, term->sixel.image.height,
+            new_width, term->sixel.image.height);
+
+    if (unlikely(new_width > term->sixel.max_width)) {
+        LOG_WARN("maximum image dimensions reached");
+        return false;
+    }
+
+    uint32_t *old_data = term->sixel.image.data;
+    const int old_width = term->sixel.image.width;
+    const int height = term->sixel.image.height;
+
+    int alloc_height = (height + 6 - 1) / 6 * 6;
+
+    /* Width (and thus stride) change - need to allocate a new buffer */
+    uint32_t *new_data = xmalloc(new_width * alloc_height * sizeof(uint32_t));
+
+    /* Copy old rows, and initialize new columns to background color */
+    for (int r = 0; r < height; r++) {
+        memcpy(&new_data[r * new_width],
+               &old_data[r * old_width],
+               old_width * sizeof(uint32_t));
+
+        for (int c = old_width; c < new_width; c++)
+            new_data[r * new_width + c] = color_with_alpha(term, term->colors.bg);
+    }
+
+    free(old_data);
+
+    term->sixel.image.data = new_data;
+    term->sixel.image.width = new_width;
+    term->sixel.row_byte_ofs = term->sixel.pos.row * new_width;
+    return true;
+}
+
+static bool
+resize_vertically(struct terminal *term, int new_height)
+{
+    LOG_DBG("resizing image vertically: (%d)x%d -> (%d)x%d",
+            term->sixel.image.width, term->sixel.image.height,
+            term->sixel.image.width, new_height);
+
+    if (unlikely(new_height > term->sixel.max_height)) {
+        LOG_WARN("maximum image dimensions reached");
+        return false;
+    }
+
+    uint32_t *old_data = term->sixel.image.data;
+    const int width = term->sixel.image.width;
+    const int old_height = term->sixel.image.height;
+
+    int alloc_height = (new_height + 6 - 1) / 6 * 6;
+
+    uint32_t *new_data = realloc(
+        old_data, width * alloc_height * sizeof(uint32_t));
+
+    if (new_data == NULL) {
+        LOG_ERRNO("failed to reallocate sixel image buffer");
+        return false;
+    }
+
+    /* Initialize new rows to background color */
+    for (int r = old_height; r < new_height; r++) {
+        for (int c = 0; c < width; c++)
+            new_data[r * width + c] = color_with_alpha(term, term->colors.bg);
+    }
+
+    term->sixel.image.data = new_data;
+    term->sixel.image.height = new_height;
+    return true;
+}
+
+static bool
 resize(struct terminal *term, int new_width, int new_height)
 {
     LOG_DBG("resizing image: %dx%d -> %dx%d",
@@ -920,7 +996,7 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 
     if (unlikely(term->sixel.pos.col >= width)) {
         width = term->sixel.pos.col + 1;
-        if (unlikely(!resize(term, width, term->sixel.image.height)))
+        if (unlikely(!resize_horizontally(term, width)))
             return;
     }
 
@@ -987,7 +1063,7 @@ decsixel(struct terminal *term, uint8_t c)
         term->sixel.row_byte_ofs += term->sixel.image.width * 6;
 
         if (term->sixel.pos.row >= term->sixel.image.height) {
-            if (!resize(term, term->sixel.image.width, term->sixel.pos.row + 6))
+            if (!resize_vertically(term, term->sixel.pos.row + 6))
                 term->sixel.pos.col = term->sixel.max_width + 1;
         }
         break;
