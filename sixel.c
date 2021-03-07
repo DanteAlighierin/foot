@@ -862,6 +862,9 @@ resize_horizontally(struct terminal *term, int new_width)
 
     int alloc_height = (height + 6 - 1) / 6 * 6;
 
+    xassert(new_width > 0);
+    xassert(alloc_height > 0);
+
     /* Width (and thus stride) change - need to allocate a new buffer */
     uint32_t *new_data = xmalloc(new_width * alloc_height * sizeof(uint32_t));
 
@@ -900,6 +903,9 @@ resize_vertically(struct terminal *term, int new_height)
     const int old_height = term->sixel.image.height;
 
     int alloc_height = (new_height + 6 - 1) / 6 * 6;
+
+    xassert(width > 0);
+    xassert(new_height > 0);
 
     uint32_t *new_data = realloc(
         old_data, width * alloc_height * sizeof(uint32_t));
@@ -1167,10 +1173,13 @@ decgri(struct terminal *term, uint8_t c)
     case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o':
     case 'p': case 'q': case 'r': case 's': case 't': case 'u': case 'v':
     case 'w': case 'x': case 'y': case 'z': case '{': case '|': case '}':
-    case '~':
-        sixel_add_many(term, c - 63, term->sixel.param);
+    case '~': {
+        unsigned count = term->sixel.param;
+        if (likely(count > 0))
+            sixel_add_many(term, c - 63, count);
         term->sixel.state = SIXEL_DECSIXEL;
         break;
+    }
     }
 }
 
