@@ -695,10 +695,6 @@ sixel_reflow(struct terminal *term)
 void
 sixel_unhook(struct terminal *term)
 {
-    /* The internal buffer always as a row number that is a multiple of 6 */
-    term->sixel.image.height = min(
-        term->sixel.image.height, term->sixel.max_height);
-
     int pixel_row_idx = 0;
     int pixel_rows_left = term->sixel.image.height;
     const int stride = term->sixel.image.width * sizeof(uint32_t);
@@ -847,19 +843,11 @@ resize(struct terminal *term, int new_width, int new_height)
             term->sixel.image.width, term->sixel.image.height,
             new_width, new_height);
 
-    if (new_width > term->sixel.max_width)
+    if (new_width > term->sixel.max_width ||
+        new_height > term->sixel.max_height)
+    {
         return false;
-
-    /*
-     * Last row may be cropped by the max height, but don’t skip that
-     * last partial row entirely.
-     *
-     * I.e if max height is ‘4’, then allow resizing up to 6, to allow
-     * us to emit that last sixel row. The final image will be cropped
-     * to the current max geometry in unhook.
-     */
-    if (new_height > (term->sixel.max_height + 5) / 6 * 6)
-        return false;
+    }
 
     uint32_t *old_data = term->sixel.image.data;
     const int old_width = term->sixel.image.width;
