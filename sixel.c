@@ -1158,9 +1158,10 @@ decgri(struct terminal *term, uint8_t c)
     case 'w': case 'x': case 'y': case 'z': case '{': case '|': case '}':
     case '~': {
         //LOG_DBG("repeating '%c' %u times", c, term->sixel.param);
+        unsigned count = term->sixel.param;
         uint32_t color = term->sixel.palette[term->sixel.color_idx];
 
-        for (unsigned i = 0; i < term->sixel.param; i++)
+        for (unsigned i = 0; i < count; i++)
             sixel_add(term, color, c - 63);
 
         term->sixel.state = SIXEL_DECSIXEL;
