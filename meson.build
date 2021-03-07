@@ -66,7 +66,7 @@ pixman = dependency('pixman-1')
 wayland_protocols = dependency('wayland-protocols')
 wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
-xkb = dependency('xkbcommon')
+xkb = dependency('xkbcommon', version: '>=1.0.0')
 fontconfig = dependency('fontconfig')
 
 tllist = dependency('tllist', version: '>=1.0.4', fallback: 'tllist')
