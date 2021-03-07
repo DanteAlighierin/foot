@@ -39,7 +39,6 @@ sixel_init(struct terminal *term)
     term->sixel.pos = (struct coord){0, 0};
     term->sixel.row_byte_ofs = 0;
     term->sixel.color_idx = 0;
-    term->sixel.max_col = 0;
     term->sixel.param = 0;
     term->sixel.param_idx = 0;
     memset(term->sixel.params, 0, sizeof(term->sixel.params));
@@ -830,7 +829,6 @@ sixel_unhook(struct terminal *term)
     term->sixel.image.data = NULL;
     term->sixel.image.width = 0;
     term->sixel.image.height = 0;
-    term->sixel.max_col = 0;
     term->sixel.pos = (struct coord){0, 0};
 
     free(term->sixel.private_palette);
@@ -923,12 +921,9 @@ sixel_add(struct terminal *term, uint32_t color, uint8_t sixel)
 
     int width = term->sixel.image.width;
 
-    if (term->sixel.pos.col >= width) {
-        width = max(
-            term->sixel.image.width,
-            max(term->sixel.max_col, term->sixel.pos.col + 1));
-
-        if (!resize(term, width, term->sixel.image.height))
+    if (unlikely(term->sixel.pos.col >= width)) {
+        width = term->sixel.pos.col + 1;
+        if (unlikely(!resize(term, width, term->sixel.image.height)))
             return;
     }
 
@@ -971,14 +966,10 @@ decsixel(struct terminal *term, uint8_t c)
         break;
 
     case '$':
-        if (term->sixel.pos.col > term->sixel.max_col)
-            term->sixel.max_col = term->sixel.pos.col;
         term->sixel.pos.col = 0;
         break;
 
     case '-':
-        if (term->sixel.pos.col > term->sixel.max_col)
-            term->sixel.max_col = term->sixel.pos.col;
         term->sixel.pos.row += 6;
         term->sixel.pos.col = 0;
         term->sixel.row_byte_ofs += term->sixel.image.width * 6;
