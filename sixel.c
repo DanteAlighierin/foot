@@ -966,7 +966,15 @@ decsixel(struct terminal *term, uint8_t c)
         break;
 
     case '$':
-        term->sixel.pos.col = 0;
+        if (likely(term->sixel.pos.col <= term->sixel.max_width)) {
+            /*
+             * We set, and keep, ‘col’ outside the image boundary when
+             * we’ve reached the maximum image height, to avoid also
+             * having to check the row vs image height in the common
+             * path in sixel_add().
+             */
+            term->sixel.pos.col = 0;
+        }
         break;
 
     case '-':
@@ -974,8 +982,10 @@ decsixel(struct terminal *term, uint8_t c)
         term->sixel.pos.col = 0;
         term->sixel.row_byte_ofs += term->sixel.image.width * 6;
 
-        if (term->sixel.pos.row >= term->sixel.image.height)
-            resize(term, term->sixel.image.width, term->sixel.pos.row + 6);
+        if (term->sixel.pos.row >= term->sixel.image.height) {
+            if (!resize(term, term->sixel.image.width, term->sixel.pos.row + 6))
+                term->sixel.pos.col = term->sixel.max_width + 1;
+        }
         break;
 
     case '?': case '@': case 'A': case 'B': case 'C': case 'D': case 'E':
