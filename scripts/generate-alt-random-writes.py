@@ -165,7 +165,7 @@ def main():
         # The sixel 'alphabet'
         sixels = '?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
 
-        for _ in range(200):
+        for _ in range(100):
             # Offset image
             out.write(' ' * (random.randrange(cols // 2)))
 
@@ -188,17 +188,24 @@ def main():
             out.write(f'"1;1;{six_width};{six_height}')
 
             for row in range(six_height // 6):  # Each sixel is 6 pixels
-                # Choose a random color
-                out.write(f'#{random.randrange(256)}')
+                band_count = random.randrange(32)
+                for band in range(band_count):
+                    # Choose a random color
+                    out.write(f'#{random.randrange(256)}')
 
-                if random.randrange(2):
-                    for col in range(six_width):
-                        out.write(f'{random.choice(sixels)}')
-                else:
-                    out.write(f'!{six_width}{random.choice(sixels)}')
+                    if random.randrange(2):
+                        for col in range(six_width):
+                            out.write(f'{random.choice(sixels)}')
+                    else:
+                        out.write(f'!{six_width}{random.choice(sixels)}')
 
-                # Next line
-                out.write('-')
+                    # Next line
+                    if band + 1 < band_count:
+                        # Move cursor to beginning of current row
+                        out.write('$')
+                    elif row + 1 < six_height // 6:
+                        # Newline
+                        out.write('-')
 
             # End sixel
             out.write('\033\\')
