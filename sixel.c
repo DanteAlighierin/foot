@@ -849,15 +849,6 @@ resize(struct terminal *term, int new_width, int new_height)
             term->sixel.image.width, term->sixel.image.height,
             new_width, new_height);
 
-    uint32_t *old_data = term->sixel.image.data;
-    const int old_width = term->sixel.image.width;
-    const int old_height = term->sixel.image.height;
-
-    int alloc_new_width = new_width;
-    int alloc_new_height = (new_height + 6 - 1) / 6 * 6;
-    xassert(alloc_new_height >= new_height);
-    xassert(alloc_new_height - new_height < 6);
-
     if (new_width > term->sixel.max_width)
         return false;
 
@@ -871,6 +862,15 @@ resize(struct terminal *term, int new_width, int new_height)
      */
     if (new_height > (term->sixel.max_height + 5) / 6 * 6)
         return false;
+
+    uint32_t *old_data = term->sixel.image.data;
+    const int old_width = term->sixel.image.width;
+    const int old_height = term->sixel.image.height;
+
+    int alloc_new_width = new_width;
+    int alloc_new_height = (new_height + 6 - 1) / 6 * 6;
+    xassert(alloc_new_height >= new_height);
+    xassert(alloc_new_height - new_height < 6);
 
     uint32_t *new_data = NULL;
 
