@@ -78,6 +78,8 @@
   **must** now be written as either `Control+C` or `Control+Shift+c`,
   the latter being the preferred
   variant. (https://codeberg.org/dnkl/foot/issues/376)
+* The minimum version requirement for the libxkbcommon dependency is
+  now 1.0.0.
 
 
 ### Deprecated
