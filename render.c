@@ -638,6 +638,14 @@ draw_cursor:
 }
 
 static void
+render_row(struct terminal *term, pixman_image_t *pix, struct row *row,
+           int row_no, int cursor_col)
+{
+    for (int col = term->cols - 1; col >= 0; col--)
+        render_cell(term, pix, row, col, row_no, cursor_col == col);
+}
+
+static void
 render_urgency(struct terminal *term, struct buffer *buf)
 {
     uint32_t red = term->colors.table[1];
@@ -924,7 +932,7 @@ render_sixel_chunk(struct terminal *term, pixman_image_t *pix, const struct sixe
     //LOG_DBG("sixel chunk: %dx%d %dx%d", x, y, width, height);
 
     pixman_image_composite32(
-        PIXMAN_OP_SRC,
+        PIXMAN_OP_OVER,
         sixel->pix,
         NULL,
         pix,
@@ -938,7 +946,7 @@ render_sixel_chunk(struct terminal *term, pixman_image_t *pix, const struct sixe
 
 static void
 render_sixel(struct terminal *term, pixman_image_t *pix,
-             const struct sixel *sixel)
+             const struct coord *cursor, const struct sixel *sixel)
 {
     const int view_end = (term->grid->view + term->rows - 1) & (term->grid->num_rows - 1);
     const bool last_row_needs_erase = sixel->height % term->cell_height != 0;
@@ -1011,28 +1019,41 @@ render_sixel(struct terminal *term, pixman_image_t *pix,
         }
 
         /*
-         * Loop cells and set their 'clean' bit, to prevent the grid
-         * rendered from overwriting the sixel
+         * If image contains transparent parts, render all (dirty)
+         * cells beneath it.
+         *
+         * If image is opaque, loop cells and set their 'clean' bit,
+         * to prevent the grid rendered from overwriting the sixel
          *
          * If the last sixel row only partially covers the cell row,
          * 'erase' the cell by rendering them.
+         *
+         * In all cases, do *not* clear the ‘dirty’ bit on the row, to
+         * ensure the regular renderer includes them in the damage
+         * rect.
          */
-        for (int col = sixel->pos.col;
-             col < min(sixel->pos.col + sixel->cols, term->cols);
-             col++)
-        {
-            struct cell *cell = &row->cells[col];
+        if (!sixel->opaque) {
+            /* TODO: multithreading */
+            int cursor_col = cursor->row == term_row_no ? cursor->col : -1;
+            render_row(term, pix, row, term_row_no, cursor_col);
+        } else {
+            for (int col = sixel->pos.col;
+                 col < min(sixel->pos.col + sixel->cols, term->cols);
+                 col++)
+            {
+                struct cell *cell = &row->cells[col];
 
-            if (!cell->attrs.clean) {
-                bool last_row = abs_row_no == sixel->pos.row + sixel->rows - 1;
-                bool last_col = col == sixel->pos.col + sixel->cols - 1;
+                if (!cell->attrs.clean) {
+                    bool last_row = abs_row_no == sixel->pos.row + sixel->rows - 1;
+                    bool last_col = col == sixel->pos.col + sixel->cols - 1;
 
-                if ((last_row_needs_erase && last_row) ||
-                    (last_col_needs_erase && last_col))
-                {
-                    render_cell(term, pix, row, col, term_row_no, false);
-                } else
-                    cell->attrs.clean = 1;
+                    if ((last_row_needs_erase && last_row) ||
+                        (last_col_needs_erase && last_col))
+                    {
+                        render_cell(term, pix, row, col, term_row_no, false);
+                    } else
+                        cell->attrs.clean = 1;
+                }
             }
         }
 
@@ -1050,7 +1071,8 @@ render_sixel(struct terminal *term, pixman_image_t *pix,
 }
 
 static void
-render_sixel_images(struct terminal *term, pixman_image_t *pix)
+render_sixel_images(struct terminal *term, pixman_image_t *pix,
+                    const struct coord *cursor)
 {
     if (likely(tll_length(term->grid->sixel_images)) == 0)
         return;
@@ -1086,7 +1108,7 @@ render_sixel_images(struct terminal *term, pixman_image_t *pix)
             break;
         }
 
-        render_sixel(term, pix, &it->item);
+        render_sixel(term, pix, cursor, &it->item);
     }
 }
 
@@ -1248,14 +1270,6 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
         term->width - term->margins.left - term->margins.right,
         1 * term->cell_height);
 #endif
-}
-
-static void
-render_row(struct terminal *term, pixman_image_t *pix, struct row *row,
-           int row_no, int cursor_col)
-{
-    for (int col = term->cols - 1; col >= 0; col--)
-        render_cell(term, pix, row, col, row_no, cursor_col == col);
 }
 
 int
@@ -2063,8 +2077,6 @@ grid_render(struct terminal *term)
         cursor.row &= term->grid->num_rows - 1;
     }
 
-    render_sixel_images(term, buf->pix[0]);
-
     if (term->render.workers.count > 0) {
         mtx_lock(&term->render.workers.lock);
         term->render.workers.buf = buf;
@@ -2073,6 +2085,8 @@ grid_render(struct terminal *term)
 
         xassert(tll_length(term->render.workers.queue) == 0);
     }
+
+    render_sixel_images(term, buf->pix[0], &cursor);
 
     int first_dirty_row = -1;
     for (int r = 0; r < term->rows; r++) {

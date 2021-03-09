@@ -15,6 +15,16 @@
 
 static size_t count;
 
+static uint32_t
+get_bg(const struct terminal *term)
+{
+    return term->sixel.transparent_bg
+        ? 0x00000000u
+        : 0xffu << 24 | (term->vt.attrs.have_bg
+                         ? term->vt.attrs.bg
+                         : term->colors.bg);
+}
+
 void
 sixel_fini(struct terminal *term)
 {
@@ -22,16 +32,17 @@ sixel_fini(struct terminal *term)
     free(term->sixel.shared_palette);
 }
 
-static uint32_t
-color_with_alpha(const struct terminal *term, uint32_t color)
-{
-    uint16_t alpha = color == term->colors.bg ? term->colors.alpha : 0xffff;
-    return (alpha / 256u) << 24 | color;
-}
-
 void
-sixel_init(struct terminal *term)
+sixel_init(struct terminal *term, int p1, int p2, int p3)
 {
+    /*
+     * P1: pixel aspect ratio - unimplemented
+     * P2: background color mode
+     *  - 0|2: empty pixels use current background color
+     *  - 1:   empty pixels remain at their current color (i.e. transparent)
+     * P3: horizontal grid size - ignored
+     */
+
     xassert(term->sixel.image.data == NULL);
     xassert(term->sixel.palette_size <= SIXEL_MAX_COLORS);
 
@@ -43,6 +54,7 @@ sixel_init(struct terminal *term)
     term->sixel.param = 0;
     term->sixel.param_idx = 0;
     memset(term->sixel.params, 0, sizeof(term->sixel.params));
+    term->sixel.transparent_bg = p2 == 1;
     term->sixel.image.data = xmalloc(1 * 6 * sizeof(term->sixel.image.data[0]));
     term->sixel.image.width = 1;
     term->sixel.image.height = 6;
@@ -65,8 +77,9 @@ sixel_init(struct terminal *term)
         term->sixel.palette = term->sixel.shared_palette;
     }
 
+    uint32_t bg = get_bg(term);
     for (size_t i = 0; i < 1 * 6; i++)
-        term->sixel.image.data[i] = color_with_alpha(term, term->colors.bg);
+        term->sixel.image.data[i] = bg;
 
     count = 0;
 }
@@ -106,7 +119,7 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
 
         row->dirty = true;
 
-        for (int c = 0; c < term->grid->num_cols; c++)
+        for (int c = sixel->pos.col; c < min(sixel->cols, term->cols); c++)
             row->cells[c].attrs.clean = 0;
     }
 
@@ -421,6 +434,7 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
             .pos = {.col = new_col, .row = new_row},
             .cols = (new_width + term->cell_width - 1) / term->cell_width,
             .rows = (new_height + term->cell_height - 1) / term->cell_height,
+            .opaque = six->opaque,
         };
 
 #if defined(_DEBUG)
@@ -767,6 +781,7 @@ sixel_unhook(struct terminal *term)
             .rows = (height + term->cell_height - 1) / term->cell_height,
             .cols = (width + term->cell_width - 1) / term->cell_width,
             .pos = (struct coord){start_col, cur_row},
+            .opaque = !term->sixel.transparent_bg,
         };
 
         xassert(image.rows < term->grid->num_rows);
@@ -868,6 +883,8 @@ resize_horizontally(struct terminal *term, int new_width)
     /* Width (and thus stride) change - need to allocate a new buffer */
     uint32_t *new_data = xmalloc(new_width * alloc_height * sizeof(uint32_t));
 
+    uint32_t bg = get_bg(term);
+
     /* Copy old rows, and initialize new columns to background color */
     for (int r = 0; r < height; r++) {
         memcpy(&new_data[r * new_width],
@@ -875,7 +892,7 @@ resize_horizontally(struct terminal *term, int new_width)
                old_width * sizeof(uint32_t));
 
         for (int c = old_width; c < new_width; c++)
-            new_data[r * new_width + c] = color_with_alpha(term, term->colors.bg);
+            new_data[r * new_width + c] = bg;
     }
 
     free(old_data);
@@ -915,10 +932,12 @@ resize_vertically(struct terminal *term, int new_height)
         return false;
     }
 
+    uint32_t bg = get_bg(term);
+
     /* Initialize new rows to background color */
     for (int r = old_height; r < new_height; r++) {
         for (int c = 0; c < width; c++)
-            new_data[r * width + c] = color_with_alpha(term, term->colors.bg);
+            new_data[r * width + c] = bg;
     }
 
     term->sixel.image.data = new_data;
@@ -950,6 +969,7 @@ resize(struct terminal *term, int new_width, int new_height)
     xassert(alloc_new_height - new_height < 6);
 
     uint32_t *new_data = NULL;
+    uint32_t bg = get_bg(term);
 
     if (new_width == old_width) {
         /* Width (and thus stride) is the same, so we can simply
@@ -973,7 +993,7 @@ resize(struct terminal *term, int new_width, int new_height)
             memcpy(&new_data[r * new_width], &old_data[r * old_width], old_width * sizeof(uint32_t));
 
             for (int c = old_width; c < new_width; c++)
-                new_data[r * new_width + c] = color_with_alpha(term, term->colors.bg);
+                new_data[r * new_width + c] = bg;
         }
         free(old_data);
     }
@@ -981,7 +1001,7 @@ resize(struct terminal *term, int new_width, int new_height)
     /* Initialize new rows to background color */
     for (int r = old_height; r < new_height; r++) {
         for (int c = 0; c < new_width; c++)
-            new_data[r * new_width + c] = color_with_alpha(term, term->colors.bg);
+            new_data[r * new_width + c] = bg;
     }
 
     xassert(new_data != NULL);
@@ -1239,8 +1259,7 @@ decgci(struct terminal *term, uint8_t c)
                 LOG_DBG("setting palette #%d = HLS %hhu/%hhu/%hhu (0x%06x)",
                         term->sixel.color_idx, hue, lum, sat, rgb);
 
-                term->sixel.palette[term->sixel.color_idx] =
-                    color_with_alpha(term, rgb);
+                term->sixel.palette[term->sixel.color_idx] = 0xffu << 24 | rgb;
                 break;
             }
 
@@ -1253,7 +1272,7 @@ decgci(struct terminal *term, uint8_t c)
                         term->sixel.color_idx, r, g, b);
 
                 term->sixel.palette[term->sixel.color_idx] =
-                    color_with_alpha(term, r << 16 | g << 8 | b);
+                    0xffu << 24 | r << 16 | g << 8 | b;
                 break;
             }
             }
