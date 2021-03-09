@@ -208,9 +208,9 @@ def main():
                     else:
                         pix_left = six_width
                         while pix_left > 0:
-                            pix_count = random.randrange(pix_left + 1)
-                            out.write(f'!{pix_count}{random.choice(sixels)}')
-                            pix_left -= pix_count
+                            repeat_count = random.randrange(1, pix_left + 1)
+                            out.write(f'!{repeat_count}{random.choice(sixels)}')
+                            pix_left -= repeat_count
 
                     # Next line
                     if band + 1 < band_count:
