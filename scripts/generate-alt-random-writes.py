@@ -165,9 +165,21 @@ def main():
         # The sixel 'alphabet'
         sixels = '?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
 
+        last_pos = None
+        last_size = None
+
         for _ in range(100):
-            # Offset image
-            out.write(' ' * (random.randrange(cols // 2)))
+            if last_pos is not None and random.randrange(2):
+                # Overwrite last sixel. I.e. use same position and
+                # size as last sixel
+                pass
+            else:
+                # Random origin in upper left quadrant
+                last_pos = random.randrange(lines // 2) + 1, random.randrange(cols // 2) + 1
+                last_size = random.randrange(height // 2), random.randrange(width // 2)
+
+            out.write(f'\033[{last_pos[0]};{last_pos[1]}H')
+            six_height, six_width = last_size
 
             # Begin sixel
             out.write('\033Pq')
@@ -178,10 +190,6 @@ def main():
                 # param 3/4/5: HLS/RGB values in range 0-100
                 #              (except 'hue' which is 0..360)
                 out.write(f'#{idx};2;{random.randrange(101)};{random.randrange(101)};{random.randrange(101)}')
-
-            # Randomize image width/height
-            six_height = random.randrange(height // 2)
-            six_width = random.randrange(width // 2)
 
             # Sixel size. Without this, sixels will be
             # auto-resized on cell-boundaries.
