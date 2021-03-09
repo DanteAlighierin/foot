@@ -158,8 +158,8 @@ def main():
             reset_actions = ['\033[m', '\033[39m', '\033[49m']
             out.write(random.choice(reset_actions))
 
-    # Leave alt screen
-    out.write('\033[m\033[r\033[?1049l')
+    # Reset colors
+    out.write('\033[m\033[r')
 
     if opts.sixel:
         # The sixel 'alphabet'
@@ -209,6 +209,9 @@ def main():
 
             # End sixel
             out.write('\033\\')
+
+    # Leave alt screen
+    out.write('\033[?1049l')
 
 
 if __name__ == '__main__':
