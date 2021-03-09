@@ -206,7 +206,11 @@ def main():
                         for col in range(six_width):
                             out.write(f'{random.choice(sixels)}')
                     else:
-                        out.write(f'!{six_width}{random.choice(sixels)}')
+                        pix_left = six_width
+                        while pix_left > 0:
+                            pix_count = random.randrange(pix_left + 1)
+                            out.write(f'!{pix_count}{random.choice(sixels)}')
+                            pix_left -= pix_count
 
                     # Next line
                     if band + 1 < band_count:
