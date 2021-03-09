@@ -184,16 +184,16 @@ def main():
             # Begin sixel
             out.write('\033Pq')
 
+            # Sixel size. Without this, sixels will be
+            # auto-resized on cell-boundaries.
+            out.write(f'"1;1;{six_width};{six_height}')
+
             # Set up 256 random colors
             for idx in range(256):
                 # param 2: 1=HLS, 2=RGB.
                 # param 3/4/5: HLS/RGB values in range 0-100
                 #              (except 'hue' which is 0..360)
                 out.write(f'#{idx};2;{random.randrange(101)};{random.randrange(101)};{random.randrange(101)}')
-
-            # Sixel size. Without this, sixels will be
-            # auto-resized on cell-boundaries.
-            out.write(f'"1;1;{six_width};{six_height}')
 
             for row in range(six_height // 6):  # Each sixel is 6 pixels
                 band_count = random.randrange(32)
