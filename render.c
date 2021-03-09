@@ -1018,6 +1018,8 @@ render_sixel(struct terminal *term, pixman_image_t *pix,
             continue;
         }
 
+        int cursor_col = cursor->row == term_row_no ? cursor->col : -1;
+
         /*
          * If image contains transparent parts, render all (dirty)
          * cells beneath it.
@@ -1050,7 +1052,7 @@ render_sixel(struct terminal *term, pixman_image_t *pix,
                     if ((last_row_needs_erase && last_row) ||
                         (last_col_needs_erase && last_col))
                     {
-                        render_cell(term, pix, row, col, term_row_no, false);
+                        render_cell(term, pix, row, col, term_row_no, cursor_col == col);
                     } else
                         cell->attrs.clean = 1;
                 }
