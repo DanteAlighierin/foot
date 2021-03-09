@@ -197,7 +197,7 @@ def main():
                 out.write(f'#{idx};2;{random.randrange(101)};{random.randrange(101)};{random.randrange(101)}')
 
             for row in range(six_rows):
-                band_count = random.randrange(32)
+                band_count = random.randrange(4, 33)
                 for band in range(band_count):
                     # Choose a random color
                     out.write(f'#{random.randrange(256)}')
