@@ -180,6 +180,7 @@ def main():
 
             out.write(f'\033[{last_pos[0]};{last_pos[1]}H')
             six_height, six_width = last_size
+            six_rows = (six_height + 5) // 6  # Round up; each sixel is 6 pixels
 
             # Begin sixel
             out.write('\033Pq')
@@ -195,7 +196,7 @@ def main():
                 #              (except 'hue' which is 0..360)
                 out.write(f'#{idx};2;{random.randrange(101)};{random.randrange(101)};{random.randrange(101)}')
 
-            for row in range(six_height // 6):  # Each sixel is 6 pixels
+            for row in range(six_rows):
                 band_count = random.randrange(32)
                 for band in range(band_count):
                     # Choose a random color
@@ -211,7 +212,7 @@ def main():
                     if band + 1 < band_count:
                         # Move cursor to beginning of current row
                         out.write('$')
-                    elif row + 1 < six_height // 6:
+                    elif row + 1 < six_rows:
                         # Newline
                         out.write('-')
 
