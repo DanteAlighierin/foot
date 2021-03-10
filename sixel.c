@@ -1145,6 +1145,7 @@ decgra(struct terminal *term, uint8_t c)
             ph <= term->sixel.max_height && pv <= term->sixel.max_width)
         {
             resize(term, ph, pv);
+            term->sixel.max_non_empty_row_no = pv - 1;
         }
 
         term->sixel.state = SIXEL_DECSIXEL;
