@@ -82,6 +82,7 @@
   (https://codeberg.org/dnkl/foot/issues/376).
 * The minimum version requirement for the libxkbcommon dependency is
   now 1.0.0.
+* Empty pixel rows at the bottom of a sixel is now trimmed.
 
 
 ### Deprecated

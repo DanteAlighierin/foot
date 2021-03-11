@@ -158,19 +158,36 @@ def main():
             reset_actions = ['\033[m', '\033[39m', '\033[49m']
             out.write(random.choice(reset_actions))
 
-    # Leave alt screen
-    out.write('\033[m\033[r\033[?1049l')
+    # Reset colors
+    out.write('\033[m\033[r')
 
     if opts.sixel:
         # The sixel 'alphabet'
         sixels = '?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~'
 
-        for _ in range(200):
-            # Offset image
-            out.write(' ' * (random.randrange(cols // 2)))
+        last_pos = None
+        last_size = None
+
+        for _ in range(100):
+            if last_pos is not None and random.randrange(2):
+                # Overwrite last sixel. I.e. use same position and
+                # size as last sixel
+                pass
+            else:
+                # Random origin in upper left quadrant
+                last_pos = random.randrange(lines // 2) + 1, random.randrange(cols // 2) + 1
+                last_size = random.randrange(height // 2), random.randrange(width // 2)
+
+            out.write(f'\033[{last_pos[0]};{last_pos[1]}H')
+            six_height, six_width = last_size
+            six_rows = (six_height + 5) // 6  # Round up; each sixel is 6 pixels
 
             # Begin sixel
             out.write('\033Pq')
+
+            # Sixel size. Without this, sixels will be
+            # auto-resized on cell-boundaries.
+            out.write(f'"1;1;{six_width};{six_height}')
 
             # Set up 256 random colors
             for idx in range(256):
@@ -179,28 +196,35 @@ def main():
                 #              (except 'hue' which is 0..360)
                 out.write(f'#{idx};2;{random.randrange(101)};{random.randrange(101)};{random.randrange(101)}')
 
-            # Randomize image width/height
-            six_height = random.randrange(height // 2)
-            six_width = random.randrange(width // 2)
+            for row in range(six_rows):
+                band_count = random.randrange(4, 33)
+                for band in range(band_count):
+                    # Choose a random color
+                    out.write(f'#{random.randrange(256)}')
 
-            # Sixel size. Without this, sixels will be
-            # auto-resized on cell-boundaries. We expect programs
-            # to emit this sequence since otherwise you cannot get
-            # correctly sized images.
-            out.write(f'"0;0;{six_width};{six_height}')
+                    if random.randrange(2):
+                        for col in range(six_width):
+                            out.write(f'{random.choice(sixels)}')
+                    else:
+                        pix_left = six_width
+                        while pix_left > 0:
+                            repeat_count = random.randrange(1, pix_left + 1)
+                            out.write(f'!{repeat_count}{random.choice(sixels)}')
+                            pix_left -= repeat_count
 
-            for row in range(six_height // 6):  # Each sixel is 6 pixels
-                # Choose a random color
-                out.write(f'#{random.randrange(256)}')
-
-                for col in range(six_width):
-                    out.write(f'{random.choice(sixels)}')
-
-                # Next line
-                out.write('-')
+                    # Next line
+                    if band + 1 < band_count:
+                        # Move cursor to beginning of current row
+                        out.write('$')
+                    elif row + 1 < six_rows:
+                        # Newline
+                        out.write('-')
 
             # End sixel
             out.write('\033\\')
+
+    # Leave alt screen
+    out.write('\033[?1049l')
 
 
 if __name__ == '__main__':
