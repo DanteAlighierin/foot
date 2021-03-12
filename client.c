@@ -58,7 +58,7 @@ print_usage(const char *prog_name)
            "  -D,--working-directory=DIR              directory to start in (CWD)\n"
            "  -s,--server-socket=PATH                 path to the server UNIX domain socket (default=$XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)\n"
            "  -H,--hold                               remain open after child process exits\n"
-           "  -d,---log-level={info|warning|error}    log level (info)\n"
+           "  -d,--log-level={info|warning|error}     log level (info)\n"
            "  -l,--log-colorize=[{never|always|auto}] enable/disable colorization of log output on stderr\n"
            "  -v,--version                            show the version number and quit\n");
 }
