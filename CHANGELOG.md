@@ -108,6 +108,7 @@
   exiting shell (https://codeberg.org/dnkl/foot/issues/366).
 * Default value of `-t,--term` in `--help` output when foot was built
   without terminfo support.
+* Drain PTY when the client application terminates.
 
 
 ### Security
