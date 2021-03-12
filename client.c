@@ -43,8 +43,8 @@ version_and_features(void)
 static void
 print_usage(const char *prog_name)
 {
-    printf("Usage: %s [OPTIONS...]", prog_name);
-    printf("Usage: %s [OPTIONS...] [ARGS...]\n", prog_name);
+    printf("Usage: %s [OPTIONS...]\n", prog_name);
+    printf("Usage: %s [OPTIONS...] command [ARGS...]\n", prog_name);
     printf("\n");
     printf("Options:\n");
     printf("  -t,--term=TERM                          value to set the environment variable TERM to (foot)\n"
