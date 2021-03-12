@@ -88,6 +88,7 @@
 * Sixels with DCS parameter `P2=0|2` now use the _current_ ANSI
   background color for empty pixels instead of the default background
   color (https://codeberg.org/dnkl/foot/issues/391).
+* Sixel decoding optimized; up to 100% faster in some cases.
 
 
 ### Deprecated
