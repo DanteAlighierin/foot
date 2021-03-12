@@ -53,6 +53,8 @@
   (https://codeberg.org/dnkl/foot/issues/363).
 * Man page **foot-ctlseqs**(7), documenting all supported escape
   sequences (https://codeberg.org/dnkl/foot/issues/235).
+* Support for transparent sixels (DCS parameter `P2=1`)
+  (https://codeberg.org/dnkl/foot/issues/391).
 
 
 ### Changed
@@ -83,6 +85,9 @@
 * The minimum version requirement for the libxkbcommon dependency is
   now 1.0.0.
 * Empty pixel rows at the bottom of a sixel is now trimmed.
+* Sixels with DCS parameter `P2=0|2` now use the _current_ ANSI
+  background color for empty pixels instead of the default background
+  color (https://codeberg.org/dnkl/foot/issues/391).
 
 
 ### Deprecated
