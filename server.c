@@ -23,6 +23,8 @@
 #include "xmalloc.h"
 
 struct client;
+struct terminal_instance;
+
 struct server {
     const struct config *conf;
     struct fdm *fdm;
@@ -33,6 +35,7 @@ struct server {
     const char *sock_path;
 
     tll(struct client *) clients;
+    tll(struct terminal_instance *) terminals;
 };
 
 struct client {
@@ -45,9 +48,21 @@ struct client {
         size_t idx;
     } buffer;
 
-    struct config conf;
-    struct terminal *term;
+    struct terminal_instance *instance;
 };
+static void
+client_destroy(struct client *client);
+static void
+client_send_exit_code(struct client *client, int exit_code);
+
+struct terminal_instance {
+    struct terminal *terminal;
+    struct server *server;
+    struct client *client;
+    struct config conf;
+};
+static void
+instance_destroy(struct terminal_instance *instance, int exit_code);
 
 static void
 client_destroy(struct client *client)
@@ -55,9 +70,10 @@ client_destroy(struct client *client)
     if (client == NULL)
         return;
 
-    if (client->term != NULL) {
+    if (client->instance != NULL) {
         LOG_WARN("client FD=%d: terminal still alive", client->fd);
-        term_destroy(client->term);
+        client->instance->client = NULL;
+        instance_destroy(client->instance, 1);
     }
 
     if (client->fd != -1) {
@@ -73,13 +89,6 @@ client_destroy(struct client *client)
     }
 
     free(client->buffer.data);
-
-    /* TODO: clone server conf completely, so that we can just call
-     * conf_destroy() here */
-    free(client->conf.term);
-    free(client->conf.title);
-    free(client->conf.app_id);
-
     free(client);
 }
 
@@ -94,22 +103,49 @@ client_send_exit_code(struct client *client, int exit_code)
 }
 
 static void
+instance_destroy(struct terminal_instance *instance, int exit_code)
+{
+    if (instance->terminal != NULL) {
+        term_destroy(instance->terminal);
+    }
+
+    tll_foreach(instance->server->terminals, it) {
+        if (it->item == instance) {
+            tll_remove(instance->server->terminals, it);
+            break;
+        }
+    }
+
+    if (instance->client != NULL) {
+        LOG_WARN("client FD=%d: is still alive", instance->client->fd);
+        instance->client->instance = NULL;
+        client_send_exit_code(instance->client, exit_code);
+        client_destroy(instance->client);
+    }
+
+    /* TODO: clone server conf completely, so that we can just call
+     * conf_destroy() here */
+    free(instance->conf.term);
+    free(instance->conf.title);
+    free(instance->conf.app_id);
+    free(instance);
+
+}
+
+static void
 term_shutdown_handler(void *data, int exit_code)
 {
-    struct client *client = data;
+    struct terminal_instance *instance = data;
 
-    struct wl_shm *shm = client->server->wayl->shm;
-    struct terminal *term = client->term;
+    struct wl_shm *shm = instance->server->wayl->shm;
 
-    shm_purge(shm, shm_cookie_grid(term));
-    shm_purge(shm, shm_cookie_search(term));
+    shm_purge(shm, shm_cookie_grid(instance->terminal));
+    shm_purge(shm, shm_cookie_search(instance->terminal));
     for (enum csd_surface surf = 0; surf < CSD_SURF_COUNT; surf++)
-        shm_purge(shm, shm_cookie_csd(term, surf));
+        shm_purge(shm, shm_cookie_csd(instance->terminal, surf));
 
-    client_send_exit_code(client, exit_code);
-
-    client->term = NULL;
-    client_destroy(client);
+    instance->terminal = NULL;
+    instance_destroy(instance, exit_code);
 }
 
 static bool
@@ -125,7 +161,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     xassert(events & EPOLLIN);
 
-    if (client->term != NULL) {
+    if (client->instance != NULL) {
         uint8_t dummy[128];
         ssize_t count = read(fd, dummy, sizeof(dummy));
         LOG_WARN("client unexpectedly sent %zd bytes", count);
@@ -186,7 +222,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     /* All initialization data received - time to instantiate a terminal! */
 
-    xassert(client->term == NULL);
+    xassert(client->instance == NULL);
     xassert(client->buffer.data != NULL);
     xassert(client->buffer.left == 0);
 
@@ -248,38 +284,55 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 #undef CHECK_BUF_AND_NULL
 #undef CHECK_BUF
 
-    client->conf = *server->conf;
-    client->conf.term = strlen(term_env) > 0
+    struct terminal_instance *instance = malloc(sizeof(struct terminal_instance));
+
+    *instance = (struct terminal_instance) {
+        .server = server,
+        .conf = *server->conf,
+    };
+    instance->conf.term = strlen(term_env) > 0
         ? xstrdup(term_env) : xstrdup(server->conf->term);
-    client->conf.title = strlen(title) > 0
+    instance->conf.title = strlen(title) > 0
         ? xstrdup(title) : xstrdup(server->conf->title);
-    client->conf.app_id = strlen(app_id) > 0
+    instance->conf.app_id = strlen(app_id) > 0
         ? xstrdup(app_id) : xstrdup(server->conf->app_id);
-    client->conf.hold_at_exit = cdata.hold;
-    client->conf.login_shell = cdata.login_shell;
+    instance->conf.hold_at_exit = cdata.hold;
+    instance->conf.login_shell = cdata.login_shell;
+    instance->conf.no_wait = cdata.no_wait;
 
     if (cdata.maximized)
-        client->conf.startup_mode = STARTUP_MAXIMIZED;
+        instance->conf.startup_mode = STARTUP_MAXIMIZED;
     else if (cdata.fullscreen)
-        client->conf.startup_mode = STARTUP_FULLSCREEN;
+        instance->conf.startup_mode = STARTUP_FULLSCREEN;
 
     if (cdata.width > 0 && cdata.height > 0) {
-        client->conf.size.type = cdata.size_type;
-        client->conf.size.width = cdata.width;
-        client->conf.size.height = cdata.height;
+        instance->conf.size.type = cdata.size_type;
+        instance->conf.size.width = cdata.width;
+        instance->conf.size.height = cdata.height;
     }
 
-    client->term = term_init(
-        &client->conf, server->fdm, server->reaper, server->wayl,
-        "footclient", cwd, cdata.argc, argv, &term_shutdown_handler, client);
+    instance->terminal = term_init(
+        &instance->conf, server->fdm, server->reaper, server->wayl,
+        "footclient", cwd, cdata.argc, argv, &term_shutdown_handler, instance);
 
-    if (client->term == NULL) {
+    if (instance->terminal == NULL) {
         LOG_ERR("failed to instantiate new terminal");
         client_send_exit_code(client, -1);
+        instance_destroy(instance, -1);
         goto shutdown;
     }
 
-    free(argv);
+    if (instance->conf.no_wait) {
+        // the server owns the instance
+        tll_push_back(server->terminals, instance);
+        client_send_exit_code(client, 0);
+        goto shutdown;
+    } else {
+        // the instance is attached to the client
+        instance->client = client;
+        client->instance = instance;
+    }
+
     return true;
 
 shutdown:
@@ -289,8 +342,8 @@ shutdown:
     fdm_del(fdm, fd);
     client->fd = -1;
 
-    if (client->term != NULL && !client->term->is_shutting_down)
-        term_shutdown(client->term);
+    if (client->instance != NULL && !client->instance->terminal->is_shutting_down)
+        term_shutdown(client->instance->terminal);
     else
         client_destroy(client);
 
@@ -365,6 +418,7 @@ err:
     return ret;
 }
 
+
 struct server *
 server_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             struct wayland *wayl)
@@ -421,6 +475,7 @@ server_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .sock_path = sock_path,
 
         .clients = tll_init(),
+        .terminals = tll_init(),
     };
 
     if (!fdm_add(fdm, fd, EPOLLIN, &fdm_server, server))
@@ -437,6 +492,7 @@ err:
     return NULL;
 }
 
+
 void
 server_destroy(struct server *server)
 {
@@ -450,8 +506,12 @@ server_destroy(struct server *server)
         client_send_exit_code(it->item, 1);
         client_destroy(it->item);
     }
-
     tll_free(server->clients);
+
+    tll_foreach(server->terminals, it) {
+        instance_destroy(it->item, 1);
+    }
+    tll_free(server->terminals);
 
     fdm_del(server->fdm, server->fd);
     if (server->sock_path != NULL)
