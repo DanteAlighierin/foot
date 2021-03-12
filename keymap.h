@@ -78,6 +78,25 @@ static const struct key_data key_tab[] = {
     {MOD_ANY,                                   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\t"},
 };
 
+/*
+ * Shift+Tab produces ISO_Left_Tab
+ *
+ * However, all combos (except Shift+Tab) acts as if we pressed
+ * mods+shift+tab. XKB “consumes” shift for us, hence MOD_SHIFT isn’t
+ * present in any of the entries below. However, the entries still map
+ * to sequences that indicate shift has been pressed.
+ */
+static const struct key_data key_iso_left_tab[] = {
+    {MOD_ALT,                       CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;4;9~"},
+    {MOD_CTRL,                      CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;6;9~"},
+    {MOD_ALT | MOD_CTRL,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;8;9~"},
+    {MOD_META,                      CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;10;9~"},
+    {MOD_META | MOD_ALT,            CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;12;9~"},
+    {MOD_META | MOD_CTRL,           CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;14;9~"},
+    {MOD_META | MOD_ALT | MOD_CTRL, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[27;16;9~"},
+    {MOD_ANY,                       CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[Z"},
+};
+
 static const struct key_data key_backspace[] = {
     {MOD_SHIFT,                                 CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\x7f"},
     {MOD_ALT,                                   CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033\x7f"},

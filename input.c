@@ -770,8 +770,8 @@ keymap_data_for_sym(xkb_keysym_t sym, size_t *count)
     switch (sym) {
     case XKB_KEY_Escape:       *count = ALEN(key_escape);       return key_escape;
     case XKB_KEY_Return:       *count = ALEN(key_return);       return key_return;
-    case XKB_KEY_Tab:          /* FALLTHROUGH */
-    case XKB_KEY_ISO_Left_Tab: *count = ALEN(key_tab);          return key_tab;
+    case XKB_KEY_ISO_Left_Tab: *count = ALEN(key_iso_left_tab); return key_iso_left_tab;
+    case XKB_KEY_Tab:          *count = ALEN(key_tab);          return key_tab;
     case XKB_KEY_BackSpace:    *count = ALEN(key_backspace);    return key_backspace;
     case XKB_KEY_Up:           *count = ALEN(key_up);           return key_up;
     case XKB_KEY_Down:         *count = ALEN(key_down);         return key_down;
@@ -1026,10 +1026,10 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
      */
 
     enum modifier keymap_mods = MOD_NONE;
-    keymap_mods |= seat->kbd.shift ? MOD_SHIFT : MOD_NONE;
-    keymap_mods |= seat->kbd.alt ? MOD_ALT : MOD_NONE;
-    keymap_mods |= seat->kbd.ctrl ? MOD_CTRL : MOD_NONE;
-    keymap_mods |= seat->kbd.meta ? MOD_META : MOD_NONE;
+    keymap_mods |= mods & ~consumed & shift ? MOD_SHIFT : MOD_NONE;
+    keymap_mods |= mods & ~consumed & alt ? MOD_ALT : MOD_NONE;
+    keymap_mods |= mods & ~consumed & ctrl ? MOD_CTRL : MOD_NONE;
+    keymap_mods |= mods & ~consumed & meta ? MOD_META : MOD_NONE;
 
     const struct key_data *keymap;
     if (sym == XKB_KEY_Escape && keymap_mods == MOD_NONE && term->modify_escape_key) {
@@ -1113,7 +1113,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     }
 
     else {
-        if (mods & alt) {
+        if (mods & ~consumed & alt) {
             /*
              * When the alt modifier is pressed, we do one out of three things:
              *

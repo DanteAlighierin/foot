@@ -66,7 +66,7 @@ pixman = dependency('pixman-1')
 wayland_protocols = dependency('wayland-protocols')
 wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
-xkb = dependency('xkbcommon')
+xkb = dependency('xkbcommon', version: '>=1.0.0')
 fontconfig = dependency('fontconfig')
 
 tllist = dependency('tllist', version: '>=1.0.4', fallback: 'tllist')
@@ -112,7 +112,7 @@ version = custom_target(
   'generate_version',
   build_always_stale: true,
   output: 'version.h',
-  command: [generate_version_sh, meson.project_version(), '@SOURCE_DIR@', '@OUTPUT@'])
+  command: [generate_version_sh, meson.project_version(), '@SOURCE_ROOT@', '@OUTPUT@'])
 
 misc = static_library(
   'misc',
