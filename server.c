@@ -50,10 +50,7 @@ struct client {
 
     struct terminal_instance *instance;
 };
-static void
-client_destroy(struct client *client);
-static void
-client_send_exit_code(struct client *client, int exit_code);
+static void client_destroy(struct client *client);
 
 struct terminal_instance {
     struct terminal *terminal;
@@ -61,8 +58,7 @@ struct terminal_instance {
     struct client *client;
     struct config conf;
 };
-static void
-instance_destroy(struct terminal_instance *instance, int exit_code);
+static void instance_destroy(struct terminal_instance *instance, int exit_code);
 
 static void
 client_destroy(struct client *client)
@@ -105,9 +101,8 @@ client_send_exit_code(struct client *client, int exit_code)
 static void
 instance_destroy(struct terminal_instance *instance, int exit_code)
 {
-    if (instance->terminal != NULL) {
+    if (instance->terminal != NULL)
         term_destroy(instance->terminal);
-    }
 
     tll_foreach(instance->server->terminals, it) {
         if (it->item == instance) {
@@ -117,7 +112,6 @@ instance_destroy(struct terminal_instance *instance, int exit_code)
     }
 
     if (instance->client != NULL) {
-        LOG_WARN("client FD=%d: is still alive", instance->client->fd);
         instance->client->instance = NULL;
         client_send_exit_code(instance->client, exit_code);
         client_destroy(instance->client);
@@ -287,6 +281,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     struct terminal_instance *instance = malloc(sizeof(struct terminal_instance));
 
     *instance = (struct terminal_instance) {
+        .client = NULL,
         .server = server,
         .conf = *server->conf,
     };
@@ -331,6 +326,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         // the instance is attached to the client
         instance->client = client;
         client->instance = instance;
+        free(argv);
     }
 
     return true;
@@ -418,7 +414,6 @@ err:
     return ret;
 }
 
-
 struct server *
 server_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             struct wayland *wayl)
@@ -492,7 +487,6 @@ err:
     return NULL;
 }
 
-
 void
 server_destroy(struct server *server)
 {
@@ -506,11 +500,12 @@ server_destroy(struct server *server)
         client_send_exit_code(it->item, 1);
         client_destroy(it->item);
     }
+
     tll_free(server->clients);
 
-    tll_foreach(server->terminals, it) {
+    tll_foreach(server->terminals, it)
         instance_destroy(it->item, 1);
-    }
+
     tll_free(server->terminals);
 
     fdm_del(server->fdm, server->fd);
