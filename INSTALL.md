@@ -53,6 +53,7 @@ following **optional** dependencies:
 
 * libnotify: desktop notifications by default uses `notify-send`.
 * xdg-utils: URLs are by default launched with `xdg-open`.
+* bash-completion: If you want completion for positional arguments.
 
 
 ### Building
