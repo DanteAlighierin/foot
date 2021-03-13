@@ -991,16 +991,8 @@ slave_died(struct reaper *reaper, pid_t pid, int status, void *data)
     term->slave_has_been_reaped = true;
     term->exit_status = status;
 
-    if (term->conf->hold_at_exit) {
-        /* The PTMX FDM handler may already have closed our end */
-        if (term->ptmx >= 0) {
-            fdm_del(term->fdm, term->ptmx);
-            term->ptmx = -1;
-        }
-        return;
-    }
-
-    term_shutdown(term);
+    if (!term->conf->hold_at_exit)
+        term_shutdown(term);
 }
 
 struct terminal *
