@@ -55,6 +55,8 @@
   sequences (https://codeberg.org/dnkl/foot/issues/235).
 * Support for transparent sixels (DCS parameter `P2=1`)
   (https://codeberg.org/dnkl/foot/issues/391).
+* `-N,--no-wait` to `footclient`
+  (https://codeberg.org/dnkl/foot/issues/395).
 
 
 ### Changed

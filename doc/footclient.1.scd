@@ -60,6 +60,10 @@ terminal has terminated).
 *-H*,*--hold*
 	Remain open after child process exits.
 
+*-N*,*--no-wait*
+	Detach the client process from the running terminal, exiting
+	immediately.
+
 *-d*,*--log-level*={*info*,*warning*,*error*}
 	Log level, used both for log output on stderr as well as
 	syslog. Default: _info_.
