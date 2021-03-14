@@ -168,7 +168,7 @@ def main():
         last_pos = None
         last_size = None
 
-        for _ in range(100):
+        for _ in range(20):
             if last_pos is not None and random.randrange(2):
                 # Overwrite last sixel. I.e. use same position and
                 # size as last sixel
