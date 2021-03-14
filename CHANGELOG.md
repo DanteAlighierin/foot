@@ -89,6 +89,8 @@
   background color for empty pixels instead of the default background
   color (https://codeberg.org/dnkl/foot/issues/391).
 * Sixel decoding optimized; up to 100% faster in some cases.
+* Reported sixel “max geometry” from current window size, to the
+  configured maximum size (defaulting to 10000x10000).
 
 
 ### Deprecated
