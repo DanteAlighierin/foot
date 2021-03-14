@@ -10,6 +10,7 @@ complete -c footclient -x -s w -l window-size-pixels                            
 complete -c footclient -x -s W -l window-size-chars                                                         -d "window WIDTHxHEIGHT, in characters (not set)"
 complete -c footclient -F -s s -l server-socket                                                             -d "override the default path to the foot server socket ($XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)"
 complete -c footclient    -s H -l hold                                                                      -d "remain open after child process exits"
+complete -c footclient    -s N -l no-wait                                                                   -d "detach the client process from the running terminal, exiting immediately"
 complete -c footclient -x -s d -l log-level          -a "info warning error"                                -d "log-level (info)"
 complete -c footclient -x -s l -l log-colorize       -a "always never auto"                                 -d "enable or disable colorization of log output on stderr"
 complete -c footclient    -s v -l version                                                                   -d "show the version number and quit"

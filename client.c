@@ -58,6 +58,7 @@ print_usage(const char *prog_name)
            "  -D,--working-directory=DIR              directory to start in (CWD)\n"
            "  -s,--server-socket=PATH                 path to the server UNIX domain socket (default=$XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)\n"
            "  -H,--hold                               remain open after child process exits\n"
+           "  -N,--no-wait                            detach the client process from the running terminal, exiting immediately\n"
            "  -d,--log-level={info|warning|error}     log level (info)\n"
            "  -l,--log-colorize=[{never|always|auto}] enable/disable colorization of log output on stderr\n"
            "  -v,--version                            show the version number and quit\n");
@@ -82,6 +83,7 @@ main(int argc, char *const *argv)
         {"working-directory",  required_argument, NULL, 'D'},
         {"server-socket",      required_argument, NULL, 's'},
         {"hold",               no_argument,       NULL, 'H'},
+        {"no-wait",            no_argument,       NULL, 'N'},
         {"log-level",          required_argument, NULL, 'd'},
         {"log-colorize",       optional_argument, NULL, 'l'},
         {"version",            no_argument,       NULL, 'v'},
@@ -103,9 +105,10 @@ main(int argc, char *const *argv)
     bool maximized = false;
     bool fullscreen = false;
     bool hold = false;
+    bool no_wait = false;
 
     while (true) {
-        int c = getopt_long(argc, argv, "+t:T:a:w:W:mFLD:s:Hd:l::vh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+t:T:a:w:W:mFLD:s:HNd:l::vh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -168,6 +171,10 @@ main(int argc, char *const *argv)
 
         case 'H':
             hold = true;
+            break;
+
+        case 'N':
+            no_wait = true;
             break;
 
         case 'd': {
@@ -290,6 +297,7 @@ main(int argc, char *const *argv)
         .fullscreen = fullscreen,
         .hold = hold,
         .login_shell = login_shell,
+        .no_wait = no_wait,
         .cwd_len = cwd_len,
         .term_len = term_len,
         .title_len = title_len,

@@ -17,6 +17,7 @@ struct client_data {
     uint8_t fullscreen:1;
     uint8_t hold:1;
     uint8_t login_shell:1;
+    uint8_t no_wait:1;
 
     uint16_t cwd_len;
     uint16_t term_len;
