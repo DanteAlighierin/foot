@@ -610,6 +610,9 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
 void
 sixel_overwrite_at_cursor(struct terminal *term, int width)
 {
+    if (likely(tll_length(term->grid->sixel_images) == 0))
+        return;
+
     sixel_overwrite_by_row(
         term, term->grid->cursor.point.row, term->grid->cursor.point.col, width);
 }
