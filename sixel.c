@@ -1375,8 +1375,8 @@ sixel_geometry_set(struct terminal *term, unsigned width, unsigned height)
 void
 sixel_geometry_report_max(struct terminal *term)
 {
-    unsigned max_width = term->cols * term->cell_width;
-    unsigned max_height = term->rows * term->cell_height;
+    unsigned max_width = term->sixel.max_width;
+    unsigned max_height = term->sixel.max_height;
 
     char reply[64];
     size_t n = xsnprintf(reply, sizeof(reply), "\033[?2;0;%u;%uS", max_width, max_height);
