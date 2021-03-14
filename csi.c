@@ -1136,6 +1136,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             case 4:   /* Insert Mode - IRM */
                 term->insert_mode = true;
+                term_update_ascii_printer(term);
                 break;
 
             case 12:  /* Send/receive Mode - SRM */
@@ -1156,6 +1157,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             switch (vt_param_get(term, 0, 0)) {
             case 4:   /* Insert Mode - IRM */
                 term->insert_mode = false;
+                term_update_ascii_printer(term);
                 break;
 
             case 2:   /* Keyboard Action Mode - AM */

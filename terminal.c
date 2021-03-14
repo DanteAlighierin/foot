@@ -1187,6 +1187,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
 #endif
     };
 
+   term_update_ascii_printer(term);
+
     for (size_t i = 0; i < 4; i++) {
         size_t j = 0;
         tll_foreach(conf->fonts[i], it) {
@@ -1701,6 +1703,8 @@ term_reset(struct terminal *term, bool hard)
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     term_ime_enable(term);
 #endif
+
+    term_update_ascii_printer(term);
 
     if (!hard)
         return;
@@ -2335,6 +2339,7 @@ term_restore_cursor(struct terminal *term, const struct cursor *cursor)
 
     term->vt.attrs = term->vt.saved_attrs;
     term->charsets = term->saved_charsets;
+    term_update_ascii_printer(term);
 }
 
 void
@@ -2813,6 +2818,21 @@ term_print(struct terminal *term, wchar_t wc, int width)
 {
     xassert(width > 0);
 
+    if (unlikely(term->charsets.set[term->charsets.selected] == CHARSET_GRAPHIC) &&
+        wc >= 0x60 && wc <= 0x7e)
+    {
+        /* 0x60 - 0x7e */
+        static const wchar_t vt100_0[] = {
+            L'◆', L'▒', L'␉', L'␌', L'␍', L'␊', L'°', L'±', /* ` - g */
+            L'␤', L'␋', L'┘', L'┐', L'┌', L'└', L'┼', L'⎺', /* h - o */
+            L'⎻', L'─', L'⎼', L'⎽', L'├', L'┤', L'┴', L'┬', /* p - w */
+            L'│', L'≤', L'≥', L'π', L'≠', L'£', L'·',       /* x - ~ */
+        };
+
+        xassert(width == 1);
+        wc = vt100_0[wc - 0x60];
+    }
+
     print_linewrap(term);
     print_insert(term, width);
 
@@ -2853,6 +2873,50 @@ term_print(struct terminal *term, wchar_t wc, int width)
         term->grid->cursor.point.col--;
     } else
         xassert(!term->grid->cursor.lcf);
+}
+
+static void
+ascii_printer_generic(struct terminal *term, wchar_t wc)
+{
+    term_print(term, wc, 1);
+}
+
+static void
+ascii_printer_fast(struct terminal *term, wchar_t wc)
+{
+    xassert(term->charsets.set[term->charsets.selected] == CHARSET_ASCII);
+    xassert(!term->insert_mode);
+    xassert(tll_length(term->grid->sixel_images) == 0);
+
+    print_linewrap(term);
+
+    /* *Must* get current cell *after* linewrap+insert */
+    struct row *row = term->grid->cur_row;
+    struct cell *cell = &row->cells[term->grid->cursor.point.col];
+
+    cell->wc = term->vt.last_printed = wc;
+    cell->attrs = term->vt.attrs;
+
+    row->dirty = true;
+    cell->attrs.clean = 0;
+
+    /* Advance cursor */
+    if (unlikely(++term->grid->cursor.point.col >= term->cols)) {
+        term->grid->cursor.lcf = true;
+        term->grid->cursor.point.col--;
+    } else
+        xassert(!term->grid->cursor.lcf);
+}
+
+void
+term_update_ascii_printer(struct terminal *term)
+{
+    term->ascii_printer =
+        unlikely(tll_length(term->grid->sixel_images) > 0 ||
+                 term->charsets.set[term->charsets.selected] == CHARSET_GRAPHIC ||
+                 term->insert_mode)
+        ? &ascii_printer_generic
+        : &ascii_printer_fast;
 }
 
 enum term_surface

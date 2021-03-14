@@ -331,6 +331,7 @@ sixel_scroll_up(struct terminal *term, int rows)
         }
     }
 
+    term_update_ascii_printer(term);
     verify_sixels(term);
 }
 
@@ -353,6 +354,7 @@ sixel_scroll_down(struct terminal *term, int rows)
             break;
     }
 
+    term_update_ascii_printer(term);
     verify_sixels(term);
 }
 
@@ -552,6 +554,8 @@ sixel_overwrite_by_rectangle(
         _sixel_overwrite_by_rectangle(term, 0, col, height - rows_to_wrap_around, width);
     } else
         _sixel_overwrite_by_rectangle(term, start, col, height, width);
+
+    term_update_ascii_printer(term);
 }
 
 /* Row numbers are relative to grid offset */
@@ -605,6 +609,8 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
             }
         }
     }
+
+    term_update_ascii_printer(term);
 }
 
 void
@@ -859,6 +865,7 @@ sixel_unhook(struct terminal *term)
     LOG_DBG("you now have %zu sixels in current grid",
             tll_length(term->grid->sixel_images));
 
+    term_update_ascii_printer(term);
     render_refresh(term);
 }
 
