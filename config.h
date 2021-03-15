@@ -72,6 +72,7 @@ struct config {
     wchar_t *word_delimiters;
     wchar_t *jump_label_letters;
     bool login_shell;
+    bool no_wait;
 
     struct {
         enum conf_size_type type;

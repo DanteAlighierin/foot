@@ -112,6 +112,7 @@ struct sixel {
     int rows;
     int cols;
     struct coord pos;
+    bool opaque;
 };
 
 struct grid {
@@ -541,6 +542,8 @@ struct terminal {
         unsigned params[5];  /* Collected parameters, for RASTER, COLOR_SPEC */
         unsigned param;      /* Currently collecting parameter, for RASTER, COLOR_SPEC and REPEAT */
         unsigned param_idx;  /* Parameters seen */
+
+        bool transparent_bg;
 
         /* Application configurable */
         unsigned palette_size;  /* Number of colors in palette */

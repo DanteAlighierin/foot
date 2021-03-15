@@ -53,6 +53,10 @@
   (https://codeberg.org/dnkl/foot/issues/363).
 * Man page **foot-ctlseqs**(7), documenting all supported escape
   sequences (https://codeberg.org/dnkl/foot/issues/235).
+* Support for transparent sixels (DCS parameter `P2=1`)
+  (https://codeberg.org/dnkl/foot/issues/391).
+* `-N,--no-wait` to `footclient`
+  (https://codeberg.org/dnkl/foot/issues/395).
 
 
 ### Changed
@@ -83,6 +87,12 @@
 * The minimum version requirement for the libxkbcommon dependency is
   now 1.0.0.
 * Empty pixel rows at the bottom of a sixel is now trimmed.
+* Sixels with DCS parameter `P2=0|2` now use the _current_ ANSI
+  background color for empty pixels instead of the default background
+  color (https://codeberg.org/dnkl/foot/issues/391).
+* Sixel decoding optimized; up to 100% faster in some cases.
+* Reported sixel “max geometry” from current window size, to the
+  configured maximum size (defaulting to 10000x10000).
 
 
 ### Deprecated
@@ -102,6 +112,7 @@
   exiting shell (https://codeberg.org/dnkl/foot/issues/366).
 * Default value of `-t,--term` in `--help` output when foot was built
   without terminfo support.
+* Drain PTY when the client application terminates.
 
 
 ### Security
