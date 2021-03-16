@@ -2848,11 +2848,11 @@ term_print(struct terminal *term, wchar_t wc, int width)
     }
 
     /* Advance cursor */
-    if (term->grid->cursor.point.col < term->cols - 1) {
-        term->grid->cursor.point.col++;
-        xassert(!term->grid->cursor.lcf);
-    } else
+    if (unlikely(++term->grid->cursor.point.col >= term->cols)) {
         term->grid->cursor.lcf = true;
+        term->grid->cursor.point.col--;
+    } else
+        xassert(!term->grid->cursor.lcf);
 }
 
 enum term_surface
