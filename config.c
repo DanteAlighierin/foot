@@ -279,7 +279,7 @@ try_open_file(path_components_t *components, const char *name)
 }
 
 static struct config_file
-open_config(struct config *conf)
+open_config(void)
 {
     struct config_file ret = {.path = NULL, .fd = -1};
 
@@ -2316,7 +2316,7 @@ config_load(struct config *conf, const char *conf_path,
         conf_file.path = xstrdup(conf_path);
         conf_file.fd = fd;
     } else {
-        conf_file = open_config(conf);
+        conf_file = open_config();
         if (conf_file.fd < 0) {
             LOG_AND_NOTIFY_ERR("no configuration found, using defaults");
             ret = !errors_are_fatal;
