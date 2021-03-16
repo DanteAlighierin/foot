@@ -546,6 +546,7 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
             tll_free(term->alt.scroll_damage);
             term_damage_all(term);
         }
+        term_update_ascii_printer(term);
         break;
 
     case 1070:
@@ -1136,6 +1137,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             case 4:   /* Insert Mode - IRM */
                 term->insert_mode = true;
+                term_update_ascii_printer(term);
                 break;
 
             case 12:  /* Send/receive Mode - SRM */
@@ -1156,6 +1158,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             switch (vt_param_get(term, 0, 0)) {
             case 4:   /* Insert Mode - IRM */
                 term->insert_mode = false;
+                term_update_ascii_printer(term);
                 break;
 
             case 2:   /* Keyboard Action Mode - AM */

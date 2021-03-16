@@ -266,6 +266,8 @@ struct terminal {
     struct reaper *reaper;
     const struct config *conf;
 
+    void (*ascii_printer)(struct terminal *term, wchar_t c);
+
     pid_t slave;
     int ptmx;
 
@@ -606,6 +608,8 @@ struct terminal *term_init(
 
 bool term_shutdown(struct terminal *term);
 int term_destroy(struct terminal *term);
+
+void term_update_ascii_printer(struct terminal *term);
 
 void term_reset(struct terminal *term, bool hard);
 bool term_to_slave(struct terminal *term, const void *data, size_t len);
