@@ -546,6 +546,7 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
             tll_free(term->alt.scroll_damage);
             term_damage_all(term);
         }
+        term_update_ascii_printer(term);
         break;
 
     case 1070:
