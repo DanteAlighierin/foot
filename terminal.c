@@ -2911,12 +2911,22 @@ ascii_printer_fast(struct terminal *term, wchar_t wc)
 void
 term_update_ascii_printer(struct terminal *term)
 {
-    term->ascii_printer =
+    void (*new_printer)(struct terminal *term, wchar_t wc) =
         unlikely(tll_length(term->grid->sixel_images) > 0 ||
                  term->charsets.set[term->charsets.selected] == CHARSET_GRAPHIC ||
                  term->insert_mode)
         ? &ascii_printer_generic
         : &ascii_printer_fast;
+
+#if defined(_DEBUG) && LOG_ENABLE_DBG
+    if (term->ascii_printer != new_printer) {
+        LOG_DBG("switching ASCII printer %s -> %s",
+                term->ascii_printer == &ascii_printer_fast ? "fast" : "generic",
+                new_printer == &ascii_printer_fast ? "fast" : "generic");
+    }
+#endif
+
+    term->ascii_printer = new_printer;
 }
 
 enum term_surface
