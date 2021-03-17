@@ -57,6 +57,8 @@
   (https://codeberg.org/dnkl/foot/issues/391).
 * `-N,--no-wait` to `footclient`
   (https://codeberg.org/dnkl/foot/issues/395).
+* Completions for Bash shell
+  (https://codeberg.org/dnkl/foot/issues/10).
 
 
 ### Changed
@@ -121,6 +123,7 @@
 * [craigbarnes](https://codeberg.org/craigbarnes)
 * toast
 * [l3mon4d3](https://codeberg.org/l3mon4d3)
+* [Simon Schricker](mailto:s.schricker@sillage.at)
 
 
 ## 1.6.4
