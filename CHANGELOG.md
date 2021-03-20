@@ -33,6 +33,8 @@
 
 * Logic that repairs invalid key bindings ended up breaking valid key
   bindings instead (https://codeberg.org/dnkl/foot/issues/407).
+* Custom `line-height` settings now scale when increasing or
+  decreasing the font size at run-time.
 
 
 ### Security

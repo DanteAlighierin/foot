@@ -261,6 +261,12 @@ struct url {
 };
 typedef tll(struct url) url_list_t;
 
+/* If px != 0 then px is valid, otherwise pt is valid */
+struct pt_or_px {
+    int16_t px;
+    float pt;
+};
+
 struct terminal {
     struct fdm *fdm;
     struct reaper *reaper;
@@ -312,6 +318,7 @@ struct terminal {
 
     struct fcft_font *fonts[4];
     struct config_font *font_sizes[4];
+    struct pt_or_px font_line_height;
     float font_dpi;
     int font_scale;
     int16_t font_x_ofs;
