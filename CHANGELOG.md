@@ -1,6 +1,6 @@
 # Changelog
 
-* [Unreleased](#Unreleased)
+* [1.7.0](#1-7-0)
 * [1.6.4](#1-6-4)
 * [1.6.3](#1-6-3)
 * [1.6.2](#1-6-2)
@@ -23,7 +23,8 @@
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
+## 1.7.0
+
 ### Added
 
 * The `pad` option now accepts an optional third argument, `center`
@@ -97,7 +98,6 @@
   configured maximum size (defaulting to 10000x10000).
 
 
-### Deprecated
 ### Removed
 
 * The `-g,--geometry` command-line option (which had been deprecated
@@ -117,7 +117,6 @@
 * Drain PTY when the client application terminates.
 
 
-### Security
 ### Contributors
 
 * [craigbarnes](https://codeberg.org/craigbarnes)
