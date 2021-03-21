@@ -649,8 +649,8 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
          : term->fonts[0]->max_advance.x)
         + pt_or_px_as_pixels(term, &conf->letter_spacing);
 
-    term->cell_height = conf->line_height.px >= 0
-        ? pt_or_px_as_pixels(term, &conf->line_height)
+    term->cell_height = term->font_line_height.px >= 0
+        ? pt_or_px_as_pixels(term, &term->font_line_height)
         : max(term->fonts[0]->height,
               term->fonts[0]->ascent + term->fonts[0]->descent);
 
@@ -979,6 +979,7 @@ load_fonts_from_conf(struct terminal *term)
         }
     }
 
+    term->font_line_height = term->conf->line_height;
     return reload_fonts(term);
 }
 
@@ -1196,6 +1197,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
                 .pt_size = it->item.pt_size, .px_size = it->item.px_size};
         }
     }
+    term->font_line_height = conf->line_height;
 
     /* Start the slave/client */
     if ((term->slave = slave_spawn(
@@ -1778,6 +1780,15 @@ term_font_size_adjust(struct terminal *term, double amount)
             term->font_sizes[i][j].pt_size = fmax(old_pt_size + amount, 0);
             term->font_sizes[i][j].px_size = -1;
         }
+    }
+
+    if (term->font_line_height.px >= 0) {
+        double old_pt_size = term->font_line_height.px > 0
+            ? term->font_line_height.px * 72. / term->font_dpi
+            : term->font_line_height.pt;
+
+        term->font_line_height.px = 0;
+        term->font_line_height.pt = fmax(old_pt_size + amount, 0);
     }
 
     return reload_fonts(term);
