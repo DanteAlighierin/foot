@@ -2870,6 +2870,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     cell->attrs = term->vt.attrs;
 
     row->dirty = true;
+    row->linebreak = false;
     cell->attrs.clean = 0;
 
     /* Advance cursor the 'additional' columns while dirty:ing the cells */
@@ -2909,6 +2910,7 @@ ascii_printer_fast(struct terminal *term, wchar_t wc)
     cell->attrs = term->vt.attrs;
 
     row->dirty = true;
+    row->linebreak = false;
     cell->attrs.clean = 0;
 
     /* Advance cursor */
