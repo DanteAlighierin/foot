@@ -385,7 +385,7 @@ ime_enable(struct seat *seat)
 
     struct terminal *term = seat->kbd_focus;
 
-    /* TODO: we’ve actaully seen text-input::enter without first
+    /* TODO: we’ve actually seen text-input::enter without first
      * seeing keyboard::enter... so perhaps we should check for this,
      * and... do what? Ignore IME completely, or do we need to call
      * ime_enable() from keyboard::enter too? */
