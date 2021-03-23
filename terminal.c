@@ -1182,9 +1182,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .foot_exe = xstrdup(foot_exe),
         .cwd = xstrdup(cwd),
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-        .ime = {
-            .enabled = true,
-        },
+        .ime_enabled = true,
 #endif
     };
 
@@ -2405,10 +2403,8 @@ term_kbd_focus_out(struct terminal *term)
             return;
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    if (term->ime.preedit.cells != NULL) {
-        term_ime_reset(term);
+    if (term_ime_reset(term))
         render_refresh(term);
-    }
 #endif
 
     term->kbd_focus = false;
@@ -3039,7 +3035,7 @@ bool
 term_ime_is_enabled(const struct terminal *term)
 {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    return term->ime.enabled;
+    return term->ime_enabled;
 #else
     return false;
 #endif
@@ -3049,13 +3045,12 @@ void
 term_ime_enable(struct terminal *term)
 {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    if (term->ime.enabled)
+    if (term->ime_enabled)
         return;
 
     LOG_DBG("IME enabled");
 
-    term->ime.enabled = true;
-    term_ime_reset(term);
+    term->ime_enabled = true;
 
     /* IME is per seat - enable on all seat currently focusing us */
     tll_foreach(term->wl->seats, it) {
@@ -3069,13 +3064,12 @@ void
 term_ime_disable(struct terminal *term)
 {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    if (!term->ime.enabled)
+    if (!term->ime_enabled)
         return;
 
     LOG_DBG("IME disabled");
 
-    term->ime.enabled = false;
-    term_ime_reset(term);
+    term->ime_enabled = false;
 
     /* IME is per seat - disable on all seat currently focusing us */
     tll_foreach(term->wl->seats, it) {
@@ -3085,18 +3079,24 @@ term_ime_disable(struct terminal *term)
 #endif
 }
 
-void
+bool
 term_ime_reset(struct terminal *term)
 {
+    bool at_least_one_seat_was_reset = false;
+
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    if (term->ime.preedit.cells != NULL) {
-        free(term->ime.preedit.text);
-        free(term->ime.preedit.cells);
-        term->ime.preedit.text = NULL;
-        term->ime.preedit.cells = NULL;
-        term->ime.preedit.count = 0;
+    tll_foreach(term->wl->seats, it) {
+        struct seat *seat = &it->item;
+
+        if (seat->kbd_focus != term)
+            continue;
+
+        ime_reset_preedit(seat);
+        at_least_one_seat_was_reset = true;
     }
 #endif
+
+    return at_least_one_seat_was_reset;
 }
 
 void

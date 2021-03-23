@@ -37,10 +37,6 @@ leave(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     struct seat *seat = data;
     LOG_DBG("leave: seat=%s", seat->name);
 
-    struct terminal *term = seat->kbd_focus;
-    if (term != NULL)
-        term_ime_reset(term);
-
     ime_disable(seat);
     seat->ime.focused = false;
 }
@@ -53,7 +49,7 @@ preedit_string(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
     struct seat *seat = data;
 
-    ime_reset_preedit(seat);
+    ime_reset_pending_preedit(seat);
 
     if (text != NULL) {
         seat->ime.preedit.pending.text = xstrdup(text);
@@ -70,7 +66,7 @@ commit_string(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
     struct seat *seat = data;
 
-    ime_reset_commit(seat);
+    ime_reset_pending_commit(seat);
 
     if (text != NULL)
         seat->ime.commit.pending.text = xstrdup(text);
@@ -107,6 +103,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
     LOG_DBG("done: serial=%u", serial);
     struct seat *seat = data;
+    struct terminal *term = seat->kbd_focus;
 
     if (seat->ime.serial != serial) {
         LOG_DBG("IME serial mismatch: expected=0x%08x, got 0x%08x",
@@ -114,16 +111,16 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         return;
     }
 
-    xassert(seat->kbd_focus);
-    struct terminal *term = seat->kbd_focus;
-
     /* 1. Delete existing pre-edit text */
-    if (term->ime.preedit.cells != NULL) {
-        term_ime_reset(term);
-        if (term->is_searching)
-            render_refresh_search(term);
-        else
-            render_refresh(term);
+    if (seat->ime.preedit.cells != NULL) {
+        ime_reset_preedit(seat);
+
+        if (term != NULL) {
+            if (term->is_searching)
+                render_refresh_search(term);
+            else
+                render_refresh(term);
+        }
     }
 
     /*
@@ -139,12 +136,14 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         const char *text = seat->ime.commit.pending.text;
         size_t len = strlen(text);
 
-        if (term->is_searching) {
-            search_add_chars(term, text, len);
-            render_refresh_search(term);
-        } else
-            term_to_slave(term, text, len);
-        ime_reset_commit(seat);
+        if (term != NULL) {
+            if (term->is_searching) {
+                search_add_chars(term, text, len);
+                render_refresh_search(term);
+            } else
+                term_to_slave(term, text, len);
+        }
+        ime_reset_pending_commit(seat);
     }
 
     /* 4. Calculate surrounding text to send - not supported */
@@ -155,41 +154,41 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         : 0;
 
     if (wchars == 0 || wchars == (size_t)-1) {
-        ime_reset_preedit(seat);
+        ime_reset_pending_preedit(seat);
         return;
     }
 
     /* First, convert to unicode */
-    term->ime.preedit.text = xmalloc((wchars + 1) * sizeof(wchar_t));
-    mbstowcs(term->ime.preedit.text, seat->ime.preedit.pending.text, wchars);
-    term->ime.preedit.text[wchars] = L'\0';
+    seat->ime.preedit.text = xmalloc((wchars + 1) * sizeof(wchar_t));
+    mbstowcs(seat->ime.preedit.text, seat->ime.preedit.pending.text, wchars);
+    seat->ime.preedit.text[wchars] = L'\0';
 
     /* Next, count number of cells needed */
     size_t cell_count = 0;
     size_t widths[wchars + 1];
 
     for (size_t i = 0; i < wchars; i++) {
-        int width = max(wcwidth(term->ime.preedit.text[i]), 1);
+        int width = max(wcwidth(seat->ime.preedit.text[i]), 1);
         widths[i] = width;
         cell_count += width;
     }
 
     /* Allocate cells */
-    term->ime.preedit.cells = xmalloc(
-        cell_count * sizeof(term->ime.preedit.cells[0]));
-    term->ime.preedit.count = cell_count;
+    seat->ime.preedit.cells = xmalloc(
+        cell_count * sizeof(seat->ime.preedit.cells[0]));
+    seat->ime.preedit.count = cell_count;
 
     /* Populate cells */
     for (size_t i = 0, cell_idx = 0; i < wchars; i++) {
-        struct cell *cell = &term->ime.preedit.cells[cell_idx];
+        struct cell *cell = &seat->ime.preedit.cells[cell_idx];
 
         int width = widths[i];
 
-        cell->wc = term->ime.preedit.text[i];
+        cell->wc = seat->ime.preedit.text[i];
         cell->attrs = (struct attributes){.clean = 0};
 
         for (int j = 1; j < width; j++) {
-            cell = &term->ime.preedit.cells[cell_idx + j];
+            cell = &seat->ime.preedit.cells[cell_idx + j];
             cell->wc = CELL_MULT_COL_SPACER;
             cell->attrs = (struct attributes){.clean = 1};
         }
@@ -206,18 +205,18 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         /* Note: docs says *both* begin and end should be -1,
          * but what else can we do if only one is -1? */
         LOG_DBG("pre-edit cursor is hidden");
-        term->ime.preedit.cursor.hidden = true;
-        term->ime.preedit.cursor.start = -1;
-        term->ime.preedit.cursor.end = -1;
+        seat->ime.preedit.cursor.hidden = true;
+        seat->ime.preedit.cursor.start = -1;
+        seat->ime.preedit.cursor.end = -1;
     }
 
     else if (seat->ime.preedit.pending.cursor_begin == byte_len &&
              seat->ime.preedit.pending.cursor_end == byte_len)
     {
         /* Cursor is *after* the entire pre-edit string */
-        term->ime.preedit.cursor.hidden = false;
-        term->ime.preedit.cursor.start = cell_count;
-        term->ime.preedit.cursor.end = cell_count;
+        seat->ime.preedit.cursor.hidden = false;
+        seat->ime.preedit.cursor.start = cell_count;
+        seat->ime.preedit.cursor.end = cell_count;
     }
 
     else {
@@ -271,7 +270,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
         /* Expand cursor end to end of glyph */
         while (cell_end > cell_begin && cell_end < cell_count &&
-               term->ime.preedit.cells[cell_end].wc == CELL_MULT_COL_SPACER)
+               seat->ime.preedit.cells[cell_end].wc == CELL_MULT_COL_SPACER)
         {
             cell_end++;
         }
@@ -284,50 +283,65 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         xassert(cell_end >= 0);
         xassert(cell_end <= cell_count);
 
-        term->ime.preedit.cursor.hidden = false;
-        term->ime.preedit.cursor.start = cell_begin;
-        term->ime.preedit.cursor.end = cell_end;
+        seat->ime.preedit.cursor.hidden = false;
+        seat->ime.preedit.cursor.start = cell_begin;
+        seat->ime.preedit.cursor.end = cell_end;
     }
 
     /* Underline pre-edit string that is *not* covered by the cursor */
-    bool hidden = term->ime.preedit.cursor.hidden;
-    int start = term->ime.preedit.cursor.start;
-    int end = term->ime.preedit.cursor.end;
+    bool hidden = seat->ime.preedit.cursor.hidden;
+    int start = seat->ime.preedit.cursor.start;
+    int end = seat->ime.preedit.cursor.end;
 
     for (size_t i = 0, cell_idx = 0; i < wchars; cell_idx += widths[i], i++) {
         if (hidden || start == end || cell_idx < start || cell_idx >= end) {
-            struct cell *cell = &term->ime.preedit.cells[cell_idx];
+            struct cell *cell = &seat->ime.preedit.cells[cell_idx];
             cell->attrs.underline = true;
         }
     }
 
-    ime_reset_preedit(seat);
+    ime_reset_pending_preedit(seat);
 
-    if (term->is_searching)
-        render_refresh_search(term);
-    else
-        render_refresh(term);
+    if (term != NULL) {
+        if (term->is_searching)
+            render_refresh_search(term);
+        else
+            render_refresh(term);
+    }
 }
 
 void
-ime_reset_preedit(struct seat *seat)
+ime_reset_pending_preedit(struct seat *seat)
 {
     free(seat->ime.preedit.pending.text);
     seat->ime.preedit.pending.text = NULL;
 }
 
 void
-ime_reset_commit(struct seat *seat)
+ime_reset_pending_commit(struct seat *seat)
 {
     free(seat->ime.commit.pending.text);
     seat->ime.commit.pending.text = NULL;
 }
 
 void
-ime_reset(struct seat *seat)
+ime_reset_pending(struct seat *seat)
 {
-    ime_reset_preedit(seat);
-    ime_reset_commit(seat);
+    ime_reset_pending_preedit(seat);
+    ime_reset_pending_commit(seat);
+}
+
+void
+ime_reset_preedit(struct seat *seat)
+{
+    if (seat->ime.preedit.cells == NULL)
+        return;
+
+    free(seat->ime.preedit.text);
+    free(seat->ime.preedit.cells);
+    seat->ime.preedit.text = NULL;
+    seat->ime.preedit.cells = NULL;
+    seat->ime.preedit.count = 0;
 }
 
 void
@@ -339,7 +353,7 @@ ime_send_cursor_rect(struct seat *seat, struct terminal *term)
     if (!seat->ime.focused)
         return;
 
-    if (!term->ime.enabled)
+    if (!term->ime_enabled)
         return;
 
     if (seat->ime.cursor_rect.pending.x == seat->ime.cursor_rect.sent.x &&
@@ -370,15 +384,21 @@ ime_enable(struct seat *seat)
         return;
 
     struct terminal *term = seat->kbd_focus;
+
+    /* TODO: we’ve actaully seen text-input::enter without first
+     * seeing keyboard::enter... so perhaps we should check for this,
+     * and... do what? Ignore IME completely, or do we need to call
+     * ime_enable() from keyboard::enter too? */
     xassert(term != NULL);
 
     if (!seat->ime.focused)
         return;
 
-    if (!term->ime.enabled)
+    if (!term->ime_enabled)
         return;
 
-    ime_reset(seat);
+    ime_reset_pending(seat);
+    ime_reset_preedit(seat);
 
     zwp_text_input_v3_enable(seat->wl_text_input);
     zwp_text_input_v3_set_content_type(
@@ -408,7 +428,8 @@ ime_disable(struct seat *seat)
     if (!seat->ime.focused)
         return;
 
-    ime_reset(seat);
+    ime_reset_pending(seat);
+    ime_reset_preedit(seat);
 
     zwp_text_input_v3_disable(seat->wl_text_input);
     zwp_text_input_v3_commit(seat->wl_text_input);
@@ -419,7 +440,7 @@ void
 ime_update_cursor_rect(struct seat *seat, struct terminal *term)
 {
     /* Set in render_ime_preedit() */
-    if (term->ime.preedit.cells != NULL)
+    if (seat->ime.preedit.cells != NULL)
         goto update;
 
     /* Set in render_search_box() */
@@ -466,9 +487,10 @@ void ime_enable(struct seat *seat) {}
 void ime_disable(struct seat *seat) {}
 void ime_update_cursor_rect(struct seat *seat, struct terminal *term) {}
 
+void ime_reset_pending_preedit(struct seat *seat) {}
+void ime_reset_pending_commit(struct seat *seat) {}
+void ime_reset_pending(struct seat *seat) {}
 void ime_reset_preedit(struct seat *seat) {}
-void ime_reset_commit(struct seat *seat) {}
-void ime_reset(struct seat *seat) {}
 void ime_send_cursor_rect(struct seat *seat, struct terminal *term) {}
 
 #endif
