@@ -111,6 +111,15 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
         return;
     }
 
+    if (term == NULL) {
+        static bool have_warned = false;
+        if (!have_warned) {
+            LOG_WARN(
+                "%s: text-input::done() received on seat that isn't "
+                "focusing a terminal window", seat->name);
+        }
+    }
+
     /* 1. Delete existing pre-edit text */
     if (seat->ime.preedit.cells != NULL) {
         ime_reset_preedit(seat);
