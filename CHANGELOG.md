@@ -37,6 +37,9 @@
   decreasing the font size at run-time.
 * Newlines sometimes incorrectly inserted into copied text
   (https://codeberg.org/dnkl/foot/issues/410).
+* Crash when compositor send `text-input-v3::enter` events without
+  first having sent a `keyboard::enter` event
+  (https://codeberg.org/dnkl/foot/issues/411).
 
 
 ### Security
