@@ -344,14 +344,16 @@ ime_reset_preedit(struct seat *seat)
     seat->ime.preedit.count = 0;
 }
 
-void
-ime_send_cursor_rect(struct seat *seat, struct terminal *term)
+static void
+ime_send_cursor_rect(struct seat *seat)
 {
     if (unlikely(seat->wayl->text_input_manager == NULL))
         return;
 
     if (!seat->ime.focused)
         return;
+
+    struct terminal *term = seat->kbd_focus;
 
     if (!term->ime_enabled)
         return;
@@ -437,8 +439,10 @@ ime_disable(struct seat *seat)
 }
 
 void
-ime_update_cursor_rect(struct seat *seat, struct terminal *term)
+ime_update_cursor_rect(struct seat *seat)
 {
+    struct terminal *term = seat->kbd_focus;
+
     /* Set in render_ime_preedit() */
     if (seat->ime.preedit.cells != NULL)
         goto update;
@@ -469,7 +473,7 @@ ime_update_cursor_rect(struct seat *seat, struct terminal *term)
     seat->ime.cursor_rect.pending.height = height;
 
 update:
-    ime_send_cursor_rect(seat, term);
+    ime_send_cursor_rect(seat);
 }
 
 const struct zwp_text_input_v3_listener text_input_listener = {
@@ -485,12 +489,11 @@ const struct zwp_text_input_v3_listener text_input_listener = {
 
 void ime_enable(struct seat *seat) {}
 void ime_disable(struct seat *seat) {}
-void ime_update_cursor_rect(struct seat *seat, struct terminal *term) {}
+void ime_update_cursor_rect(struct seat *seat) {}
 
 void ime_reset_pending_preedit(struct seat *seat) {}
 void ime_reset_pending_commit(struct seat *seat) {}
 void ime_reset_pending(struct seat *seat) {}
 void ime_reset_preedit(struct seat *seat) {}
-void ime_send_cursor_rect(struct seat *seat, struct terminal *term) {}
 
 #endif
