@@ -385,15 +385,11 @@ ime_enable(struct seat *seat)
     if (unlikely(seat->wayl->text_input_manager == NULL))
         return;
 
-    struct terminal *term = seat->kbd_focus;
-
-    /* TODO: we’ve actually seen text-input::enter without first
-     * seeing keyboard::enter... so perhaps we should check for this,
-     * and... do what? Ignore IME completely, or do we need to call
-     * ime_enable() from keyboard::enter too? */
-    xassert(term != NULL);
-
     if (!seat->ime.focused)
+        return;
+
+    struct terminal *term = seat->kbd_focus;
+    if (term == NULL)
         return;
 
     if (!term->ime_enabled)
