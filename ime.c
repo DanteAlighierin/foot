@@ -117,6 +117,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
             LOG_WARN(
                 "%s: text-input::done() received on seat that isn't "
                 "focusing a terminal window", seat->name);
+            have_warned = true;
         }
     }
 
