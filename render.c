@@ -1751,12 +1751,12 @@ render_osd(struct terminal *term,
            struct wl_surface *surf, struct wl_subsurface *sub_surf,
            struct buffer *buf,
            const wchar_t *text, uint32_t _fg, uint32_t _bg,
-           unsigned width, unsigned height, unsigned x, unsigned y)
+           unsigned x, unsigned y)
 {
     pixman_color_t bg = color_hex_to_pixman(_bg);
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
-        &(pixman_rectangle16_t){0, 0, width, height});
+        &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
 
     struct fcft_font *font = term->fonts[0];
     pixman_color_t fg = color_hex_to_pixman(_fg);
@@ -1782,12 +1782,12 @@ render_osd(struct terminal *term,
 
     quirk_weston_subsurface_desync_on(sub_surf);
     wl_surface_attach(surf, buf->wl_buf, 0, 0);
-    wl_surface_damage_buffer(surf, 0, 0, width, height);
+    wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
     wl_surface_set_buffer_scale(surf, term->scale);
 
     struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
     if (region != NULL) {
-        wl_region_add(region, 0, 0, width, height);
+        wl_region_add(region, 0, 0, buf->width, buf->height);
         wl_surface_set_opaque_region(surf, region);
         wl_region_destroy(region);
     }
@@ -1916,7 +1916,7 @@ render_scrollback_position(struct terminal *term)
         win->scrollback_indicator.sub,
         buf, text,
         term->colors.table[0], term->colors.table[8 + 4],
-        width, height, width - margin - wcslen(text) * term->cell_width, margin);
+        width - margin - wcslen(text) * term->cell_width, margin);
 
 }
 
@@ -1949,7 +1949,7 @@ render_render_timer(struct terminal *term, struct timeval render_time)
         win->render_timer.sub,
         buf, text,
         term->colors.table[0], term->colors.table[8 + 1],
-        width, height, margin, margin);
+        margin, margin);
 }
 
 static void frame_callback(
@@ -2670,8 +2670,8 @@ render_urls(struct terminal *term)
             ? term->conf->colors.jump_label.bg
             : term->colors.table[3];
 
-        render_osd(term, surf, sub_surf, buf, label,
-                   fg, bg, width, height, x_margin, y_margin);
+        render_osd(
+            term, surf, sub_surf, buf, label, fg, bg, x_margin, y_margin);
     }
 }
 
