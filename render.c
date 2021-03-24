@@ -1409,6 +1409,9 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
 static void
 csd_commit(struct terminal *term, struct wl_surface *surf, struct buffer *buf)
 {
+    xassert(buf->width % term->scale == 0);
+    xassert(buf->height % term->scale == 0);
+
     wl_surface_attach(surf, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
     wl_surface_set_buffer_scale(surf, term->scale);
@@ -1439,6 +1442,9 @@ render_csd_title(struct terminal *term)
     struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE].surf;
 
     xassert(info.width > 0 && info.height > 0);
+
+    xassert(info.width % term->scale == 0);
+    xassert(info.height % term->scale == 0);
 
     unsigned long cookie = shm_cookie_csd(term, CSD_SURF_TITLE);
     struct buffer *buf = shm_get_buffer(
@@ -1471,6 +1477,9 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 
     if (info.width == 0 || info.height == 0)
         return;
+
+    xassert(info.width % term->scale == 0);
+    xassert(info.height % term->scale == 0);
 
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
@@ -1641,6 +1650,9 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
     if (info.width == 0 || info.height == 0)
         return;
 
+    xassert(info.width % term->scale == 0);
+    xassert(info.height % term->scale == 0);
+
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, info.width, info.height, cookie, false, 1);
@@ -1780,6 +1792,9 @@ render_osd(struct terminal *term,
         x += term->cell_width;
     }
 
+    xassert(buf->width % term->scale == 0);
+    xassert(buf->height % term->scale == 0);
+
     quirk_weston_subsurface_desync_on(sub_surf);
     wl_surface_attach(surf, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
@@ -1873,8 +1888,11 @@ render_scrollback_position(struct terminal *term)
 
     const int scale = term->scale;
     const int margin = 3 * scale;
-    const int width = 2 * margin + cell_count * term->cell_width;
-    const int height = 2 * margin + term->cell_height;
+
+    const int width =
+        (2 * margin + cell_count * term->cell_width + scale - 1) / scale * scale;
+    const int height =
+        (2 * margin + term->cell_height + scale - 1) / scale * scale;
 
     unsigned long cookie = shm_cookie_scrollback_indicator(term);
     struct buffer *buf = shm_get_buffer(
@@ -1929,10 +1947,13 @@ render_render_timer(struct terminal *term, struct timeval render_time)
     double usecs = render_time.tv_sec * 1000000 + render_time.tv_usec;
     swprintf(text, sizeof(text) / sizeof(text[0]), L"%.2f µs", usecs);
 
+    const int scale = term->scale;
     const int cell_count = wcslen(text);
-    const int margin = 3 * term->scale;
-    const int width = 2 * margin + cell_count * term->cell_width;
-    const int height = 2 * margin + term->cell_height;
+    const int margin = 3 * scale;
+    const int width =
+        (2 * margin + cell_count * term->cell_width + scale - 1) / scale * scale;
+    const int height =
+        (2 * margin + term->cell_height + scale - 1) / scale * scale;
 
     unsigned long cookie = shm_cookie_render_timer(term);
     struct buffer *buf = shm_get_buffer(
@@ -2227,6 +2248,9 @@ grid_render(struct terminal *term)
             term->window->surface, 0, 0, INT32_MAX, INT32_MAX);
     }
 
+    xassert(buf->width % term->scale == 0);
+    xassert(buf->height % term->scale == 0);
+
     wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
     quirk_kde_damage_before_attach(term->window->surface);
     wl_surface_commit(term->window->surface);
@@ -2298,10 +2322,10 @@ render_search_box(struct terminal *term)
     const size_t width = term->width - 2 * margin;
     const size_t visible_width = min(
         term->width - 2 * margin,
-        2 * margin + wanted_visible_cells * term->cell_width);
+        (2 * margin + wanted_visible_cells * term->cell_width + scale - 1) / scale * scale);
     const size_t height = min(
         term->height - 2 * margin,
-        2 * margin + 1 * term->cell_height);
+        (2 * margin + 1 * term->cell_height + scale - 1) / scale * scale);
 
     const size_t visible_cells = (visible_width - 2 * margin) / term->cell_width;
     size_t glyph_offset = term->render.search_glyph_offset;
@@ -2527,6 +2551,9 @@ render_search_box(struct terminal *term)
         margin / scale,
         max(0, (int32_t)term->height - height - margin) / scale);
 
+    xassert(buf->width % scale == 0);
+    xassert(buf->height % scale == 0);
+
     wl_surface_attach(term->window->search.surf, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(term->window->search.surf, 0, 0, width, height);
     wl_surface_set_buffer_scale(term->window->search.surf, scale);
@@ -2634,10 +2661,13 @@ render_urls(struct terminal *term)
         size_t len = wcslen(label);
         int cols = wcswidth(label, len);
 
-        const int x_margin = 2 * term->scale;
-        const int y_margin = 1 * term->scale;
-        int width = 2 * x_margin + cols * term->cell_width;
-        int height = 2 * y_margin + term->cell_height;
+        const int scale = term->scale;
+        const int x_margin = 2 * scale;
+        const int y_margin = 1 * scale;
+        const int width =
+            (2 * x_margin + cols * term->cell_width + scale - 1) / scale * scale;
+        const int height =
+            (2 * y_margin + term->cell_height + scale - 1) / scale * scale;
 
         struct buffer *buf = shm_get_buffer(
             term->wl->shm, width, height, shm_cookie_url(url), false, 1);
