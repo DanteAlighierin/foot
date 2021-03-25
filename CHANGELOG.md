@@ -35,6 +35,8 @@
   bindings instead (https://codeberg.org/dnkl/foot/issues/407).
 * Custom `line-height` settings now scale when increasing or
   decreasing the font size at run-time.
+* Newlines sometimes incorrectly inserted into copied text
+  (https://codeberg.org/dnkl/foot/issues/410).
 
 
 ### Security
