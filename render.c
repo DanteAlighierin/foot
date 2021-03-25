@@ -1114,12 +1114,12 @@ render_sixel_images(struct terminal *term, pixman_image_t *pix,
     }
 }
 
-static void
-render_ime_preedit(struct terminal *term, struct buffer *buf)
-{
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-
-    if (likely(term->ime.preedit.cells == NULL))
+static void
+render_ime_preedit_for_seat(struct terminal *term, struct seat *seat,
+                            struct buffer *buf)
+{
+    if (likely(seat->ime.preedit.cells == NULL))
         return;
 
     if (unlikely(term->is_searching))
@@ -1135,10 +1135,10 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
     if (cursor.row < 0 || cursor.row >= term->rows)
         return;
 
-    int cells_needed = term->ime.preedit.count;
+    int cells_needed = seat->ime.preedit.count;
 
-    if (term->ime.preedit.cursor.start == cells_needed &&
-        term->ime.preedit.cursor.end == cells_needed)
+    if (seat->ime.preedit.cursor.start == cells_needed &&
+        seat->ime.preedit.cursor.end == cells_needed)
     {
         /* Cursor will be drawn *after* the pre-edit string, i.e. in
          * the cell *after*. This means we need to copy, and dirty,
@@ -1160,8 +1160,8 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
         col_idx -= cells_used - cells_left;
 
     if (cells_needed > cells_used) {
-        int start = term->ime.preedit.cursor.start;
-        int end = term->ime.preedit.cursor.end;
+        int start = seat->ime.preedit.cursor.start;
+        int end = seat->ime.preedit.cursor.end;
 
         if (start == end) {
             /* Ensure *end* of pre-edit string is visible */
@@ -1177,7 +1177,7 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
 
         /* Make sure we don't start in the middle of a character */
         while (ime_ofs < cells_needed &&
-               term->ime.preedit.cells[ime_ofs].wc == CELL_MULT_COL_SPACER)
+               seat->ime.preedit.cells[ime_ofs].wc == CELL_MULT_COL_SPACER)
         {
             ime_ofs++;
         }
@@ -1208,9 +1208,9 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
     row->dirty = true;
 
     /* Render pre-edit text */
-    xassert(term->ime.preedit.cells[ime_ofs].wc != CELL_MULT_COL_SPACER);
-    for (int i = 0, idx = ime_ofs; idx < term->ime.preedit.count; i++, idx++) {
-        const struct cell *cell = &term->ime.preedit.cells[idx];
+    xassert(seat->ime.preedit.cells[ime_ofs].wc != CELL_MULT_COL_SPACER);
+    for (int i = 0, idx = ime_ofs; idx < seat->ime.preedit.count; i++, idx++) {
+        const struct cell *cell = &seat->ime.preedit.cells[idx];
 
         if (cell->wc == CELL_MULT_COL_SPACER)
             continue;
@@ -1223,11 +1223,11 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
         render_cell(term, buf->pix[0], row, col_idx + i, row_idx, false);
     }
 
-    int start = term->ime.preedit.cursor.start - ime_ofs;
-    int end = term->ime.preedit.cursor.end - ime_ofs;
+    int start = seat->ime.preedit.cursor.start - ime_ofs;
+    int end = seat->ime.preedit.cursor.end - ime_ofs;
 
-    if (!term->ime.preedit.cursor.hidden) {
-        const struct cell *start_cell = &term->ime.preedit.cells[0];
+    if (!seat->ime.preedit.cursor.hidden) {
+        const struct cell *start_cell = &seat->ime.preedit.cells[0];
 
         pixman_color_t fg = color_hex_to_pixman(term->colors.fg);
         pixman_color_t bg = color_hex_to_pixman(term->colors.bg);
@@ -1271,6 +1271,17 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
         term->margins.top + row_idx * term->cell_height,
         term->width - term->margins.left - term->margins.right,
         1 * term->cell_height);
+}
+#endif
+
+static void
+render_ime_preedit(struct terminal *term, struct buffer *buf)
+{
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term)
+            render_ime_preedit_for_seat(term, &it->item, buf);
+    }
 #endif
 }
 
@@ -2238,9 +2249,18 @@ render_search_box(struct terminal *term)
      */
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    /* TODO: do we want to/need to handle multi-seat? */
+    struct seat *ime_seat = NULL;
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term) {
+            ime_seat = &it->item;
+            break;
+        }
+    }
+
     size_t text_len = term->search.len;
-    if (term->ime.preedit.text != NULL)
-        text_len += wcslen(term->ime.preedit.text);
+    if (ime_seat != NULL && ime_seat->ime.preedit.text != NULL)
+        text_len += wcslen(ime_seat->ime.preedit.text);
 
     wchar_t *text = xmalloc((text_len + 1) *  sizeof(wchar_t));
     text[0] = L'\0';
@@ -2250,8 +2270,8 @@ render_search_box(struct terminal *term)
     text[term->search.cursor] = L'\0';
 
     /* Insert pre-edit text at cursor */
-    if (term->ime.preedit.text != NULL)
-        wcscat(text, term->ime.preedit.text);
+    if (ime_seat != NULL && ime_seat->ime.preedit.text != NULL)
+        wcscat(text, ime_seat->ime.preedit.text);
 
     /* And finally everything after the cursor */
     wcsncat(text, &term->search.buf[term->search.cursor],
@@ -2319,18 +2339,18 @@ render_search_box(struct terminal *term)
             continue;
 
 #if (FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-        if (term->ime.preedit.cells != NULL) {
-            if (term->ime.preedit.cursor.start == term->ime.preedit.cursor.end) {
+        if (ime_seat != NULL && ime_seat->ime.preedit.cells != NULL) {
+            if (ime_seat->ime.preedit.cursor.start == ime_seat->ime.preedit.cursor.end) {
                 /* All IME's I've seen so far keeps the cursor at
                  * index 0, so ensure the *end* of the pre-edit string
                  * is visible */
-                cell_idx += term->ime.preedit.count;
+                cell_idx += ime_seat->ime.preedit.count;
             } else {
                 /* Try to predict in which direction we'll shift the text */
-                if (cell_idx + term->ime.preedit.cursor.start > glyph_offset)
-                    cell_idx += term->ime.preedit.cursor.end;
+                if (cell_idx + ime_seat->ime.preedit.cursor.start > glyph_offset)
+                    cell_idx += ime_seat->ime.preedit.cursor.end;
                 else
-                    cell_idx += term->ime.preedit.cursor.start;
+                    cell_idx += ime_seat->ime.preedit.cursor.start;
             }
         }
 #endif
@@ -2383,8 +2403,10 @@ render_search_box(struct terminal *term)
         /* Render cursor */
         if (i == term->search.cursor) {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-            bool have_preedit = term->ime.preedit.cells != NULL;
-            bool hidden = term->ime.preedit.cursor.hidden;
+            bool have_preedit =
+                ime_seat != NULL && ime_seat->ime.preedit.cells != NULL;
+            bool hidden =
+                ime_seat != NULL && ime_seat->ime.preedit.cursor.hidden;
 
             if (have_preedit && !hidden) {
                 /* Cursor may be outside the visible area:
@@ -2394,13 +2416,13 @@ render_search_box(struct terminal *term)
 
                 /* If cursor is outside the visible area, we need to
                  * adjust our rectangle's position */
-                int start = term->ime.preedit.cursor.start
+                int start = ime_seat->ime.preedit.cursor.start
                     + min((ssize_t)(cell_idx - glyph_offset), 0);
-                int end = term->ime.preedit.cursor.end
+                int end = ime_seat->ime.preedit.cursor.end
                     + min((ssize_t)(cell_idx - glyph_offset), 0);
 
                 if (start == end) {
-                    int count = min(term->ime.preedit.count, cells_left);
+                    int count = min(ime_seat->ime.preedit.count, cells_left);
 
                     /* Underline the entire (visible part of) pre-edit text */
                     draw_underline(term, buf->pix[0], font, &fg, x, y, count);
@@ -2415,7 +2437,7 @@ render_search_box(struct terminal *term)
                     /* Underline everything before and after the cursor */
                     int count1 = min(start, cells_left);
                     int count2 = max(
-                        min(term->ime.preedit.count - term->ime.preedit.cursor.end,
+                        min(ime_seat->ime.preedit.count - ime_seat->ime.preedit.cursor.end,
                             cells_left - end),
                         0);
                     draw_underline(term, buf->pix[0], font, &fg, x, y, count1);
@@ -2487,7 +2509,7 @@ render_search_box(struct terminal *term)
     }
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-        if (term->ime.preedit.cells != NULL)
+        if (ime_seat != NULL && ime_seat->ime.preedit.cells != NULL)
             /* Already rendered */;
         else
 #endif
@@ -2717,7 +2739,7 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 
     tll_foreach(term->wl->seats, it) {
         if (it->item.kbd_focus == term)
-            ime_update_cursor_rect(&it->item, term);
+            ime_update_cursor_rect(&it->item);
     }
 
     term->grid = original_grid;
@@ -3173,7 +3195,7 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
 
             tll_foreach(term->wl->seats, it) {
                 if (it->item.kbd_focus == term)
-                    ime_update_cursor_rect(&it->item, term);
+                    ime_update_cursor_rect(&it->item);
             }
 
             term->grid = original_grid;

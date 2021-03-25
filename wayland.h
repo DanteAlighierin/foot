@@ -256,6 +256,15 @@ struct seat {
                 int32_t cursor_begin;
                 int32_t cursor_end;
             } pending;
+
+            wchar_t *text;
+            struct cell *cells;
+            int count;
+            struct {
+                bool hidden;
+                int start;  /* Cell index, inclusive */
+                int end;    /* Cell index, exclusive */
+            } cursor;
         } preedit;
 
         struct  {

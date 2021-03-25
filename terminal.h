@@ -567,20 +567,7 @@ struct terminal {
     struct grid *url_grid_snapshot;
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    struct {
-        bool enabled;
-        struct {
-            wchar_t *text;
-            struct cell *cells;
-            int count;
-
-            struct {
-                bool hidden;
-                int start;  /* Cell index, inclusive */
-                int end;    /* Cell index, exclusive */
-            } cursor;
-        } preedit;
-    } ime;
+    bool ime_enabled;
 #endif
 
     bool is_shutting_down;
@@ -713,7 +700,7 @@ bool term_view_to_text(
 bool term_ime_is_enabled(const struct terminal *term);
 void term_ime_enable(struct terminal *term);
 void term_ime_disable(struct terminal *term);
-void term_ime_reset(struct terminal *term);
+bool term_ime_reset(struct terminal *term);
 void term_ime_set_cursor_rect(
     struct terminal *term, int x, int y, int width, int height);
 
