@@ -41,6 +41,10 @@
   first having sent a `keyboard::enter` event
   (https://codeberg.org/dnkl/foot/issues/411).
 * Deadlock when rendering sixel images.
+* URL labels, scrollback search box or scrollback position indicator
+  sometimes not showing up, caused by invalidly sized surface buffers
+  when output scaling was enabled
+  (https://codeberg.org/dnkl/foot/issues/409).
 
 
 ### Security
