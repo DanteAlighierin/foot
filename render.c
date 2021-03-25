@@ -2090,6 +2090,8 @@ grid_render(struct terminal *term)
         cursor.row &= term->grid->num_rows - 1;
     }
 
+    render_sixel_images(term, buf->pix[0], &cursor);
+
     if (term->render.workers.count > 0) {
         mtx_lock(&term->render.workers.lock);
         term->render.workers.buf = buf;
@@ -2098,8 +2100,6 @@ grid_render(struct terminal *term)
 
         xassert(tll_length(term->render.workers.queue) == 0);
     }
-
-    render_sixel_images(term, buf->pix[0], &cursor);
 
     int first_dirty_row = -1;
     for (int r = 0; r < term->rows; r++) {

@@ -40,6 +40,7 @@
 * Crash when compositor send `text-input-v3::enter` events without
   first having sent a `keyboard::enter` event
   (https://codeberg.org/dnkl/foot/issues/411).
+* Deadlock when rendering sixel images.
 
 
 ### Security
