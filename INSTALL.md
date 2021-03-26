@@ -65,6 +65,7 @@ In addition to the dev variant of the packages above, you need:
 * wayland protocols
 * ncurses (needed to generate terminfo)
 * scdoc (for man page generation)
+* llvm (for PGO builds with Clang)
 * [tllist](https://codeberg.org/dnkl/tllist) [^1]
 
 A note on compilers; in general, foot runs **much** faster when
