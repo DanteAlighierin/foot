@@ -117,16 +117,18 @@ version = custom_target(
   output: 'version.h',
   command: [generate_version_sh, meson.project_version(), '@SOURCE_ROOT@', '@OUTPUT@'])
 
+log = static_library('log', 'log.c', 'log.h')
+debug = static_library('debug', 'debug.c', 'debug.h')
+
+xmalloc = static_library(
+  'xmalloc', 'xmalloc.c', 'xmalloc.h', 'xsnprintf.c', 'xsnprintf.h')
+
 misc = static_library(
   'misc',
-  'debug.c', 'debug.h',
   'hsl.c', 'hsl.h',
-  'log.c', 'log.h',
   'macros.h',
   'misc.c', 'misc.h',
-  'uri.c', 'uri.h',
-  'xmalloc.c', 'xmalloc.h',
-  'xsnprintf.c', 'xsnprintf.h',
+  'uri.c', 'uri.h'
 )
 
 vtlib = static_library(
@@ -140,7 +142,7 @@ vtlib = static_library(
   wl_proto_src + wl_proto_headers,
   version,
   dependencies: [libepoll, pixman, fcft, tllist, wayland_client],
-  link_with: misc,
+  link_with: [log, debug, misc, xmalloc],
 )
 
 pgolib = static_library(
@@ -195,14 +197,11 @@ executable(
 executable(
   'footclient',
   'client.c', 'client-protocol.h',
-  'debug.c', 'debug.h',
   'foot-features.h',
-  'log.c', 'log.h',
   'macros.h',
   'util.h',
-  'xmalloc.c', 'xmalloc.h',
-  'xsnprintf.c', 'xsnprintf.h',
   version,
+  link_with: [log, debug, xmalloc],
   install: true)
 
 if tic.found()
