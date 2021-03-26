@@ -10,3 +10,12 @@ static inline bool feature_ime(void)
     return false;
 #endif
 }
+
+static inline bool feature_pgo(void)
+{
+#if defined(FOOT_PGO_ENABLED) && FOOT_PGO_ENABLED
+    return true;
+#else
+    return false;
+#endif
+}

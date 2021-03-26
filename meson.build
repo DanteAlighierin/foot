@@ -24,6 +24,9 @@ add_project_arguments(
   (get_option('ime')
     ? ['-DFOOT_IME_ENABLED=1']
     : []) +
+  (get_option('b_pgo') == 'use'
+    ? ['-DFOOT_PGO_ENABLED=1']
+    : []) +
   cc.get_supported_arguments(
     ['-pedantic',
      '-fstrict-aliasing',
