@@ -155,13 +155,15 @@ pgolib = static_library(
   link_with: vtlib,
 )
 
-executable(
-  'pgo',
-  'pgo/pgo.c',
-  wl_proto_src + wl_proto_headers,
-  dependencies: [math, threads, libepoll, pixman, wayland_client, fcft, tllist],
-  link_with: pgolib,
-)
+if get_option('b_pgo') == 'generate'
+  executable(
+    'pgo',
+    'pgo/pgo.c',
+    wl_proto_src + wl_proto_headers,
+    dependencies: [math, threads, libepoll, pixman, wayland_client, fcft, tllist],
+    link_with: pgolib,
+  )
+endif
 
 executable(
   'foot',
