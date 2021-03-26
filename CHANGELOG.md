@@ -27,6 +27,11 @@
 ## Unreleased
 ### Added
 ### Changed
+
+* Update PGO build instructions in `INSTALL.md`
+  (https://codeberg.org/dnkl/foot/issues/418).
+
+
 ### Deprecated
 ### Removed
 ### Fixed
