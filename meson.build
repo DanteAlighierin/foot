@@ -117,11 +117,13 @@ version = custom_target(
   output: 'version.h',
   command: [generate_version_sh, meson.project_version(), '@SOURCE_ROOT@', '@OUTPUT@'])
 
-log = static_library('log', 'log.c', 'log.h')
-debug = static_library('debug', 'debug.c', 'debug.h')
-
-xmalloc = static_library(
-  'xmalloc', 'xmalloc.c', 'xmalloc.h', 'xsnprintf.c', 'xsnprintf.h')
+common = static_library(
+  'common',
+  'log.c', 'log.h',
+  'debug.c', 'debug.h',
+  'xmalloc.c', 'xmalloc.h',
+  'xsnprintf.c', 'xsnprintf.h'
+)
 
 misc = static_library(
   'misc',
@@ -142,7 +144,7 @@ vtlib = static_library(
   wl_proto_src + wl_proto_headers,
   version,
   dependencies: [libepoll, pixman, fcft, tllist, wayland_client],
-  link_with: [log, debug, misc, xmalloc],
+  link_with: [common, misc],
 )
 
 pgolib = static_library(
@@ -203,7 +205,7 @@ executable(
   'macros.h',
   'util.h',
   version,
-  link_with: [log, debug, xmalloc],
+  link_with: common,
   install: true)
 
 if tic.found()
