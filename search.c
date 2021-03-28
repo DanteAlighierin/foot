@@ -77,6 +77,16 @@ search_ensure_size(struct terminal *term, size_t wanted_size)
     return true;
 }
 
+static bool
+has_wrapped_around(const struct terminal *term, int abs_row_no)
+{
+    int scrollback_start = term->grid->offset + term->rows;
+    int rebased_row = abs_row_no - scrollback_start + term->grid->num_rows;
+    rebased_row &= term->grid->num_rows - 1;
+
+    return rebased_row == 0;
+}
+
 static void
 search_cancel_keep_selection(struct terminal *term)
 {
@@ -327,13 +337,12 @@ search_find_next(struct terminal *term)
 
             for (size_t i = 0; i < term->search.len;) {
                 if (end_col >= term->cols) {
-                    if (end_row + 1 > grid_row_absolute(term->grid, term->grid->offset + term->rows - 1)) {
-                        /* Don't continue past end of the world */
-                        break;
-                    }
-
                     end_row++;
                     end_col = 0;
+
+                    if (has_wrapped_around(term, end_row))
+                        break;
+
                     row = term->grid->rows[end_row];
                 }
 

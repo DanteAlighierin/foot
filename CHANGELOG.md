@@ -153,6 +153,7 @@
 * PTY not being drained when the client application terminates.
 * `auto_left_margin` not being limited to `cub1`
   (https://codeberg.org/dnkl/foot/issues/441).
+* Crash in scrollback search mode when searching beyond the last output.
 
 
 ### Contributors
