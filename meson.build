@@ -24,6 +24,9 @@ add_project_arguments(
   (get_option('ime')
     ? ['-DFOOT_IME_ENABLED=1']
     : []) +
+  (get_option('b_pgo') == 'use'
+    ? ['-DFOOT_PGO_ENABLED=1']
+    : []) +
   cc.get_supported_arguments(
     ['-pedantic',
      '-fstrict-aliasing',
@@ -114,16 +117,20 @@ version = custom_target(
   output: 'version.h',
   command: [generate_version_sh, meson.project_version(), '@SOURCE_ROOT@', '@OUTPUT@'])
 
+common = static_library(
+  'common',
+  'log.c', 'log.h',
+  'debug.c', 'debug.h',
+  'xmalloc.c', 'xmalloc.h',
+  'xsnprintf.c', 'xsnprintf.h'
+)
+
 misc = static_library(
   'misc',
-  'debug.c', 'debug.h',
   'hsl.c', 'hsl.h',
-  'log.c', 'log.h',
   'macros.h',
   'misc.c', 'misc.h',
-  'uri.c', 'uri.h',
-  'xmalloc.c', 'xmalloc.h',
-  'xsnprintf.c', 'xsnprintf.h',
+  'uri.c', 'uri.h'
 )
 
 vtlib = static_library(
@@ -137,7 +144,7 @@ vtlib = static_library(
   wl_proto_src + wl_proto_headers,
   version,
   dependencies: [libepoll, pixman, fcft, tllist, wayland_client],
-  link_with: misc,
+  link_with: [common, misc],
 )
 
 pgolib = static_library(
@@ -150,13 +157,15 @@ pgolib = static_library(
   link_with: vtlib,
 )
 
-executable(
-  'pgo',
-  'pgo/pgo.c',
-  wl_proto_src + wl_proto_headers,
-  dependencies: [math, threads, libepoll, pixman, wayland_client, fcft, tllist],
-  link_with: pgolib,
-)
+if get_option('b_pgo') == 'generate'
+  executable(
+    'pgo',
+    'pgo/pgo.c',
+    wl_proto_src + wl_proto_headers,
+    dependencies: [math, threads, libepoll, pixman, wayland_client, fcft, tllist],
+    link_with: pgolib,
+  )
+endif
 
 executable(
   'foot',
@@ -192,14 +201,11 @@ executable(
 executable(
   'footclient',
   'client.c', 'client-protocol.h',
-  'debug.c', 'debug.h',
   'foot-features.h',
-  'log.c', 'log.h',
   'macros.h',
   'util.h',
-  'xmalloc.c', 'xmalloc.h',
-  'xsnprintf.c', 'xsnprintf.h',
   version,
+  link_with: common,
   install: true)
 
 if tic.found()
