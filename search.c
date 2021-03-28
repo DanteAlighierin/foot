@@ -489,8 +489,14 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
     if (!search_ensure_size(term, term->search.len + new_len))
         return;
 
-    for (size_t i = 0; i < new_len; i++)
+    for (size_t i = 0; i < new_len; i++) {
+        if (new_text[i] == L'\n') {
+            /* extract() adds newlines, which we never match against */
+            continue;
+        }
+
         term->search.buf[term->search.len++] = new_text[i];
+    }
 
     term->search.buf[term->search.len] = L'\0';
     free(new_text);
