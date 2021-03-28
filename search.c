@@ -456,12 +456,10 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 
     xassert(term->grid->rows[new_end.row] != NULL);
 
+    /* Find next word boundary */
     new_end.row -= term->grid->view;
     selection_find_word_boundary_right(term, &new_end, spaces_only);
     new_end.row += term->grid->view;
-
-    if (new_end.row == old_end.row && new_end.col == old_end.col)
-        return;
 
     struct coord pos = old_end;
     const struct row *row = term->grid->rows[pos.row];
