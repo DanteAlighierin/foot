@@ -200,6 +200,7 @@ Then, tell meson we want to _generate_ profiling data, and build:
 ```sh
 meson configure -Db_pgo=generate
 ninja
+ninja test
 ```
 
 Next, we need to actually generate the profiling data.
@@ -303,6 +304,7 @@ Next, tell meson to _use_ the profile data we just generated, and rebuild:
 ```sh
 meson configure -Db_pgo=use
 ninja
+ninja test
 ```
 
 Continue reading in [Running the new build](#running-the-new-build)
@@ -313,6 +315,7 @@ Continue reading in [Running the new build](#running-the-new-build)
 ```sh
 meson --buildtype=debug ../..
 ninja
+ninja test
 ```
 
 
