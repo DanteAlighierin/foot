@@ -48,7 +48,7 @@ sixel_init(struct terminal *term, int p1, int p2, int p3)
 
     term->sixel.state = SIXEL_DECSIXEL;
     term->sixel.pos = (struct coord){0, 0};
-    term->sixel.max_non_empty_row_no = 0;
+    term->sixel.max_non_empty_row_no = -1;
     term->sixel.row_byte_ofs = 0;
     term->sixel.color_idx = 0;
     term->sixel.param = 0;
@@ -1032,7 +1032,7 @@ sixel_add(struct terminal *term, int col, int width, uint32_t color, uint8_t six
     size_t ofs = term->sixel.row_byte_ofs + col;
     uint32_t *data = &term->sixel.image.data[ofs];
 
-    int max_non_empty_row = 0;
+    int max_non_empty_row = -1;
     int row = term->sixel.pos.row;
 
     for (int i = 0; i < 6; i++, sixel >>= 1, data += width) {
@@ -1175,7 +1175,11 @@ decgra(struct terminal *term, uint8_t c)
             ph <= term->sixel.max_height && pv <= term->sixel.max_width)
         {
             resize(term, ph, pv);
-            term->sixel.max_non_empty_row_no = pv - 1;
+            if (!term->sixel.transparent_bg) {
+                /* This ensures the sixel’s final image size is *at
+                 * least* this large */
+                term->sixel.max_non_empty_row_no = pv - 1;
+            }
         }
 
         term->sixel.state = SIXEL_DECSIXEL;
