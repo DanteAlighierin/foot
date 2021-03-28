@@ -1430,6 +1430,7 @@ term_destroy(struct terminal *term)
     mtx_unlock(&term->render.workers.lock);
 
     free(term->vt.osc.data);
+    free(term->vt.osc8.uri);
     grid_free(&term->normal);
     grid_free(&term->alt);
 
@@ -1679,6 +1680,7 @@ term_reset(struct terminal *term, bool hard)
     free(term->vt.osc.data);
     memset(&term->vt, 0, sizeof(term->vt));
     term->vt.state = 0; /* GROUND */
+
     term->vt.osc8.begin = (struct coord){-1, -1};
     free(term->vt.osc8.uri);
     term->vt.osc8.uri = NULL;
