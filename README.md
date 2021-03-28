@@ -345,21 +345,22 @@ This is not how it is meant to be. Fonts are measured in _point sizes_
 **for a reason**; a given point size should have the same height on
 all mediums, be it printers or monitors, regardless of their DPI.
 
-Foot will always use the monitor's physical DPI value. Scale factors
-are irrelevant (well, they affect e.g. padding, but not the font
-size). This means the glyphs rendered by foot should always have the
-same physical height, regardless of monitor.
+Foot’s default behavior is to use the monitor’s DPI to size fonts when
+output scaling has been disabled. On monitors where output scaling has
+been enabled, fonts will instead be sized using the scaling
+factor.
 
-Foot will re-size the fonts on-the-fly when the window is moved
-between screens with different DPIs values. If the window covers
+This can be changed to either **always** use the monitor’s DPI
+(regardless of scaling factor), or to **never** use it. See the
+`dpi-aware` option in `foot.ini`. See the man page, **foot.ini**(5)
+for more information.
+
+When fonts are sized using the monitor’s DPI, glyphs should always
+have the same physical height, regardless of monitor.
+
+Furthermore, foot will re-size the fonts on-the-fly when the window is
+moved between screens with different DPIs values. If the window covers
 multiple screens, with different DPIs, the highest DPI will be used.
-
-Starting with foot-1.6, the _default_ behavior is to use the monitor’s
-DPI to size fonts when output scaling has been disabled. On monitors
-where output scaling has been enabled, fonts will instead be sized
-using the scaling factor. This can be changed with the `dpi-aware`
-option in `foot.ini`. See the man page, **foot.ini**(5) for more
-information.
 
 _Note_: if you configure **pixelsize**, rather than **size**, then DPI
 changes will **not** change the font size. Pixels are always pixels.

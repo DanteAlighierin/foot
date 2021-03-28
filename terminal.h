@@ -261,6 +261,12 @@ struct url {
 };
 typedef tll(struct url) url_list_t;
 
+/* If px != 0 then px is valid, otherwise pt is valid */
+struct pt_or_px {
+    int16_t px;
+    float pt;
+};
+
 struct terminal {
     struct fdm *fdm;
     struct reaper *reaper;
@@ -312,6 +318,7 @@ struct terminal {
 
     struct fcft_font *fonts[4];
     struct config_font *font_sizes[4];
+    struct pt_or_px font_line_height;
     float font_dpi;
     int font_scale;
     int16_t font_x_ofs;
@@ -560,20 +567,7 @@ struct terminal {
     struct grid *url_grid_snapshot;
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    struct {
-        bool enabled;
-        struct {
-            wchar_t *text;
-            struct cell *cells;
-            int count;
-
-            struct {
-                bool hidden;
-                int start;  /* Cell index, inclusive */
-                int end;    /* Cell index, exclusive */
-            } cursor;
-        } preedit;
-    } ime;
+    bool ime_enabled;
 #endif
 
     bool is_shutting_down;
@@ -706,7 +700,7 @@ bool term_view_to_text(
 bool term_ime_is_enabled(const struct terminal *term);
 void term_ime_enable(struct terminal *term);
 void term_ime_disable(struct terminal *term);
-void term_ime_reset(struct terminal *term);
+bool term_ime_reset(struct terminal *term);
 void term_ime_set_cursor_rect(
     struct terminal *term, int x, int y, int width, int height);
 

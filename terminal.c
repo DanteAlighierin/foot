@@ -649,8 +649,8 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
          : term->fonts[0]->max_advance.x)
         + pt_or_px_as_pixels(term, &conf->letter_spacing);
 
-    term->cell_height = conf->line_height.px >= 0
-        ? pt_or_px_as_pixels(term, &conf->line_height)
+    term->cell_height = term->font_line_height.px >= 0
+        ? pt_or_px_as_pixels(term, &term->font_line_height)
         : max(term->fonts[0]->height,
               term->fonts[0]->ascent + term->fonts[0]->descent);
 
@@ -979,6 +979,7 @@ load_fonts_from_conf(struct terminal *term)
         }
     }
 
+    term->font_line_height = term->conf->line_height;
     return reload_fonts(term);
 }
 
@@ -1181,9 +1182,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .foot_exe = xstrdup(foot_exe),
         .cwd = xstrdup(cwd),
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-        .ime = {
-            .enabled = true,
-        },
+        .ime_enabled = true,
 #endif
     };
 
@@ -1196,6 +1195,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
                 .pt_size = it->item.pt_size, .px_size = it->item.px_size};
         }
     }
+    term->font_line_height = conf->line_height;
 
     /* Start the slave/client */
     if ((term->slave = slave_spawn(
@@ -1778,6 +1778,15 @@ term_font_size_adjust(struct terminal *term, double amount)
             term->font_sizes[i][j].pt_size = fmax(old_pt_size + amount, 0);
             term->font_sizes[i][j].px_size = -1;
         }
+    }
+
+    if (term->font_line_height.px >= 0) {
+        double old_pt_size = term->font_line_height.px > 0
+            ? term->font_line_height.px * 72. / term->font_dpi
+            : term->font_line_height.pt;
+
+        term->font_line_height.px = 0;
+        term->font_line_height.pt = fmax(old_pt_size + amount, 0);
     }
 
     return reload_fonts(term);
@@ -2394,10 +2403,8 @@ term_kbd_focus_out(struct terminal *term)
             return;
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    if (term->ime.preedit.cells != NULL) {
-        term_ime_reset(term);
+    if (term_ime_reset(term))
         render_refresh(term);
-    }
 #endif
 
     term->kbd_focus = false;
@@ -2859,6 +2866,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     cell->attrs = term->vt.attrs;
 
     row->dirty = true;
+    row->linebreak = false;
     cell->attrs.clean = 0;
 
     /* Advance cursor the 'additional' columns while dirty:ing the cells */
@@ -2898,6 +2906,7 @@ ascii_printer_fast(struct terminal *term, wchar_t wc)
     cell->attrs = term->vt.attrs;
 
     row->dirty = true;
+    row->linebreak = false;
     cell->attrs.clean = 0;
 
     /* Advance cursor */
@@ -3026,7 +3035,7 @@ bool
 term_ime_is_enabled(const struct terminal *term)
 {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    return term->ime.enabled;
+    return term->ime_enabled;
 #else
     return false;
 #endif
@@ -3036,13 +3045,12 @@ void
 term_ime_enable(struct terminal *term)
 {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    if (term->ime.enabled)
+    if (term->ime_enabled)
         return;
 
     LOG_DBG("IME enabled");
 
-    term->ime.enabled = true;
-    term_ime_reset(term);
+    term->ime_enabled = true;
 
     /* IME is per seat - enable on all seat currently focusing us */
     tll_foreach(term->wl->seats, it) {
@@ -3056,13 +3064,12 @@ void
 term_ime_disable(struct terminal *term)
 {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    if (!term->ime.enabled)
+    if (!term->ime_enabled)
         return;
 
     LOG_DBG("IME disabled");
 
-    term->ime.enabled = false;
-    term_ime_reset(term);
+    term->ime_enabled = false;
 
     /* IME is per seat - disable on all seat currently focusing us */
     tll_foreach(term->wl->seats, it) {
@@ -3072,18 +3079,24 @@ term_ime_disable(struct terminal *term)
 #endif
 }
 
-void
+bool
 term_ime_reset(struct terminal *term)
 {
+    bool at_least_one_seat_was_reset = false;
+
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    if (term->ime.preedit.cells != NULL) {
-        free(term->ime.preedit.text);
-        free(term->ime.preedit.cells);
-        term->ime.preedit.text = NULL;
-        term->ime.preedit.cells = NULL;
-        term->ime.preedit.count = 0;
+    tll_foreach(term->wl->seats, it) {
+        struct seat *seat = &it->item;
+
+        if (seat->kbd_focus != term)
+            continue;
+
+        ime_reset_preedit(seat);
+        at_least_one_seat_was_reset = true;
     }
 #endif
+
+    return at_least_one_seat_was_reset;
 }
 
 void

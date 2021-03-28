@@ -241,6 +241,9 @@ matches_cell(const struct terminal *term, const struct cell *cell, size_t search
         base = composed->base;
     }
 
+    if (composed == NULL && base == 0 && term->search.buf[search_ofs] == L' ')
+        return 1;
+
     if (wcsncasecmp(&base, &term->search.buf[search_ofs], 1) != 0)
         return -1;
 

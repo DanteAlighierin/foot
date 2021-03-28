@@ -53,12 +53,6 @@ struct config_mouse_binding {
     struct config_binding_pipe pipe;
 };
 
-/* If px != 0 then px is valid, otherwise pt is valid */
-struct pt_or_px {
-    int16_t px;
-    float pt;
-};
-
 struct config_spawn_template {
     char *raw_cmd;
     char **argv;

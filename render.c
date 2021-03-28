@@ -1114,12 +1114,12 @@ render_sixel_images(struct terminal *term, pixman_image_t *pix,
     }
 }
 
-static void
-render_ime_preedit(struct terminal *term, struct buffer *buf)
-{
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-
-    if (likely(term->ime.preedit.cells == NULL))
+static void
+render_ime_preedit_for_seat(struct terminal *term, struct seat *seat,
+                            struct buffer *buf)
+{
+    if (likely(seat->ime.preedit.cells == NULL))
         return;
 
     if (unlikely(term->is_searching))
@@ -1135,10 +1135,10 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
     if (cursor.row < 0 || cursor.row >= term->rows)
         return;
 
-    int cells_needed = term->ime.preedit.count;
+    int cells_needed = seat->ime.preedit.count;
 
-    if (term->ime.preedit.cursor.start == cells_needed &&
-        term->ime.preedit.cursor.end == cells_needed)
+    if (seat->ime.preedit.cursor.start == cells_needed &&
+        seat->ime.preedit.cursor.end == cells_needed)
     {
         /* Cursor will be drawn *after* the pre-edit string, i.e. in
          * the cell *after*. This means we need to copy, and dirty,
@@ -1160,8 +1160,8 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
         col_idx -= cells_used - cells_left;
 
     if (cells_needed > cells_used) {
-        int start = term->ime.preedit.cursor.start;
-        int end = term->ime.preedit.cursor.end;
+        int start = seat->ime.preedit.cursor.start;
+        int end = seat->ime.preedit.cursor.end;
 
         if (start == end) {
             /* Ensure *end* of pre-edit string is visible */
@@ -1177,7 +1177,7 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
 
         /* Make sure we don't start in the middle of a character */
         while (ime_ofs < cells_needed &&
-               term->ime.preedit.cells[ime_ofs].wc == CELL_MULT_COL_SPACER)
+               seat->ime.preedit.cells[ime_ofs].wc == CELL_MULT_COL_SPACER)
         {
             ime_ofs++;
         }
@@ -1208,9 +1208,9 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
     row->dirty = true;
 
     /* Render pre-edit text */
-    xassert(term->ime.preedit.cells[ime_ofs].wc != CELL_MULT_COL_SPACER);
-    for (int i = 0, idx = ime_ofs; idx < term->ime.preedit.count; i++, idx++) {
-        const struct cell *cell = &term->ime.preedit.cells[idx];
+    xassert(seat->ime.preedit.cells[ime_ofs].wc != CELL_MULT_COL_SPACER);
+    for (int i = 0, idx = ime_ofs; idx < seat->ime.preedit.count; i++, idx++) {
+        const struct cell *cell = &seat->ime.preedit.cells[idx];
 
         if (cell->wc == CELL_MULT_COL_SPACER)
             continue;
@@ -1223,11 +1223,11 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
         render_cell(term, buf->pix[0], row, col_idx + i, row_idx, false);
     }
 
-    int start = term->ime.preedit.cursor.start - ime_ofs;
-    int end = term->ime.preedit.cursor.end - ime_ofs;
+    int start = seat->ime.preedit.cursor.start - ime_ofs;
+    int end = seat->ime.preedit.cursor.end - ime_ofs;
 
-    if (!term->ime.preedit.cursor.hidden) {
-        const struct cell *start_cell = &term->ime.preedit.cells[0];
+    if (!seat->ime.preedit.cursor.hidden) {
+        const struct cell *start_cell = &seat->ime.preedit.cells[0];
 
         pixman_color_t fg = color_hex_to_pixman(term->colors.fg);
         pixman_color_t bg = color_hex_to_pixman(term->colors.bg);
@@ -1271,6 +1271,17 @@ render_ime_preedit(struct terminal *term, struct buffer *buf)
         term->margins.top + row_idx * term->cell_height,
         term->width - term->margins.left - term->margins.right,
         1 * term->cell_height);
+}
+#endif
+
+static void
+render_ime_preedit(struct terminal *term, struct buffer *buf)
+{
+#if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term)
+            render_ime_preedit_for_seat(term, &it->item, buf);
+    }
 #endif
 }
 
@@ -1398,6 +1409,9 @@ get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
 static void
 csd_commit(struct terminal *term, struct wl_surface *surf, struct buffer *buf)
 {
+    xassert(buf->width % term->scale == 0);
+    xassert(buf->height % term->scale == 0);
+
     wl_surface_attach(surf, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
     wl_surface_set_buffer_scale(surf, term->scale);
@@ -1428,6 +1442,9 @@ render_csd_title(struct terminal *term)
     struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE].surf;
 
     xassert(info.width > 0 && info.height > 0);
+
+    xassert(info.width % term->scale == 0);
+    xassert(info.height % term->scale == 0);
 
     unsigned long cookie = shm_cookie_csd(term, CSD_SURF_TITLE);
     struct buffer *buf = shm_get_buffer(
@@ -1460,6 +1477,9 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 
     if (info.width == 0 || info.height == 0)
         return;
+
+    xassert(info.width % term->scale == 0);
+    xassert(info.height % term->scale == 0);
 
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
@@ -1630,6 +1650,9 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
     if (info.width == 0 || info.height == 0)
         return;
 
+    xassert(info.width % term->scale == 0);
+    xassert(info.height % term->scale == 0);
+
     unsigned long cookie = shm_cookie_csd(term, surf_idx);
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, info.width, info.height, cookie, false, 1);
@@ -1740,12 +1763,12 @@ render_osd(struct terminal *term,
            struct wl_surface *surf, struct wl_subsurface *sub_surf,
            struct buffer *buf,
            const wchar_t *text, uint32_t _fg, uint32_t _bg,
-           unsigned width, unsigned height, unsigned x, unsigned y)
+           unsigned x, unsigned y)
 {
     pixman_color_t bg = color_hex_to_pixman(_bg);
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix[0], &bg, 1,
-        &(pixman_rectangle16_t){0, 0, width, height});
+        &(pixman_rectangle16_t){0, 0, buf->width, buf->height});
 
     struct fcft_font *font = term->fonts[0];
     pixman_color_t fg = color_hex_to_pixman(_fg);
@@ -1769,14 +1792,17 @@ render_osd(struct terminal *term,
         x += term->cell_width;
     }
 
+    xassert(buf->width % term->scale == 0);
+    xassert(buf->height % term->scale == 0);
+
     quirk_weston_subsurface_desync_on(sub_surf);
     wl_surface_attach(surf, buf->wl_buf, 0, 0);
-    wl_surface_damage_buffer(surf, 0, 0, width, height);
+    wl_surface_damage_buffer(surf, 0, 0, buf->width, buf->height);
     wl_surface_set_buffer_scale(surf, term->scale);
 
     struct wl_region *region = wl_compositor_create_region(term->wl->compositor);
     if (region != NULL) {
-        wl_region_add(region, 0, 0, width, height);
+        wl_region_add(region, 0, 0, buf->width, buf->height);
         wl_surface_set_opaque_region(surf, region);
         wl_region_destroy(region);
     }
@@ -1862,8 +1888,11 @@ render_scrollback_position(struct terminal *term)
 
     const int scale = term->scale;
     const int margin = 3 * scale;
-    const int width = 2 * margin + cell_count * term->cell_width;
-    const int height = 2 * margin + term->cell_height;
+
+    const int width =
+        (2 * margin + cell_count * term->cell_width + scale - 1) / scale * scale;
+    const int height =
+        (2 * margin + term->cell_height + scale - 1) / scale * scale;
 
     unsigned long cookie = shm_cookie_scrollback_indicator(term);
     struct buffer *buf = shm_get_buffer(
@@ -1905,7 +1934,7 @@ render_scrollback_position(struct terminal *term)
         win->scrollback_indicator.sub,
         buf, text,
         term->colors.table[0], term->colors.table[8 + 4],
-        width, height, width - margin - wcslen(text) * term->cell_width, margin);
+        width - margin - wcslen(text) * term->cell_width, margin);
 
 }
 
@@ -1918,10 +1947,13 @@ render_render_timer(struct terminal *term, struct timeval render_time)
     double usecs = render_time.tv_sec * 1000000 + render_time.tv_usec;
     swprintf(text, sizeof(text) / sizeof(text[0]), L"%.2f µs", usecs);
 
+    const int scale = term->scale;
     const int cell_count = wcslen(text);
-    const int margin = 3 * term->scale;
-    const int width = 2 * margin + cell_count * term->cell_width;
-    const int height = 2 * margin + term->cell_height;
+    const int margin = 3 * scale;
+    const int width =
+        (2 * margin + cell_count * term->cell_width + scale - 1) / scale * scale;
+    const int height =
+        (2 * margin + term->cell_height + scale - 1) / scale * scale;
 
     unsigned long cookie = shm_cookie_render_timer(term);
     struct buffer *buf = shm_get_buffer(
@@ -1938,7 +1970,7 @@ render_render_timer(struct terminal *term, struct timeval render_time)
         win->render_timer.sub,
         buf, text,
         term->colors.table[0], term->colors.table[8 + 1],
-        width, height, margin, margin);
+        margin, margin);
 }
 
 static void frame_callback(
@@ -2079,6 +2111,8 @@ grid_render(struct terminal *term)
         cursor.row &= term->grid->num_rows - 1;
     }
 
+    render_sixel_images(term, buf->pix[0], &cursor);
+
     if (term->render.workers.count > 0) {
         mtx_lock(&term->render.workers.lock);
         term->render.workers.buf = buf;
@@ -2087,8 +2121,6 @@ grid_render(struct terminal *term)
 
         xassert(tll_length(term->render.workers.queue) == 0);
     }
-
-    render_sixel_images(term, buf->pix[0], &cursor);
 
     int first_dirty_row = -1;
     for (int r = 0; r < term->rows; r++) {
@@ -2216,6 +2248,9 @@ grid_render(struct terminal *term)
             term->window->surface, 0, 0, INT32_MAX, INT32_MAX);
     }
 
+    xassert(buf->width % term->scale == 0);
+    xassert(buf->height % term->scale == 0);
+
     wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
     quirk_kde_damage_before_attach(term->window->surface);
     wl_surface_commit(term->window->surface);
@@ -2238,9 +2273,18 @@ render_search_box(struct terminal *term)
      */
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
+    /* TODO: do we want to/need to handle multi-seat? */
+    struct seat *ime_seat = NULL;
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term) {
+            ime_seat = &it->item;
+            break;
+        }
+    }
+
     size_t text_len = term->search.len;
-    if (term->ime.preedit.text != NULL)
-        text_len += wcslen(term->ime.preedit.text);
+    if (ime_seat != NULL && ime_seat->ime.preedit.text != NULL)
+        text_len += wcslen(ime_seat->ime.preedit.text);
 
     wchar_t *text = xmalloc((text_len + 1) *  sizeof(wchar_t));
     text[0] = L'\0';
@@ -2250,8 +2294,8 @@ render_search_box(struct terminal *term)
     text[term->search.cursor] = L'\0';
 
     /* Insert pre-edit text at cursor */
-    if (term->ime.preedit.text != NULL)
-        wcscat(text, term->ime.preedit.text);
+    if (ime_seat != NULL && ime_seat->ime.preedit.text != NULL)
+        wcscat(text, ime_seat->ime.preedit.text);
 
     /* And finally everything after the cursor */
     wcsncat(text, &term->search.buf[term->search.cursor],
@@ -2278,10 +2322,10 @@ render_search_box(struct terminal *term)
     const size_t width = term->width - 2 * margin;
     const size_t visible_width = min(
         term->width - 2 * margin,
-        2 * margin + wanted_visible_cells * term->cell_width);
+        (2 * margin + wanted_visible_cells * term->cell_width + scale - 1) / scale * scale);
     const size_t height = min(
         term->height - 2 * margin,
-        2 * margin + 1 * term->cell_height);
+        (2 * margin + 1 * term->cell_height + scale - 1) / scale * scale);
 
     const size_t visible_cells = (visible_width - 2 * margin) / term->cell_width;
     size_t glyph_offset = term->render.search_glyph_offset;
@@ -2319,18 +2363,18 @@ render_search_box(struct terminal *term)
             continue;
 
 #if (FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-        if (term->ime.preedit.cells != NULL) {
-            if (term->ime.preedit.cursor.start == term->ime.preedit.cursor.end) {
+        if (ime_seat != NULL && ime_seat->ime.preedit.cells != NULL) {
+            if (ime_seat->ime.preedit.cursor.start == ime_seat->ime.preedit.cursor.end) {
                 /* All IME's I've seen so far keeps the cursor at
                  * index 0, so ensure the *end* of the pre-edit string
                  * is visible */
-                cell_idx += term->ime.preedit.count;
+                cell_idx += ime_seat->ime.preedit.count;
             } else {
                 /* Try to predict in which direction we'll shift the text */
-                if (cell_idx + term->ime.preedit.cursor.start > glyph_offset)
-                    cell_idx += term->ime.preedit.cursor.end;
+                if (cell_idx + ime_seat->ime.preedit.cursor.start > glyph_offset)
+                    cell_idx += ime_seat->ime.preedit.cursor.end;
                 else
-                    cell_idx += term->ime.preedit.cursor.start;
+                    cell_idx += ime_seat->ime.preedit.cursor.start;
             }
         }
 #endif
@@ -2383,8 +2427,10 @@ render_search_box(struct terminal *term)
         /* Render cursor */
         if (i == term->search.cursor) {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-            bool have_preedit = term->ime.preedit.cells != NULL;
-            bool hidden = term->ime.preedit.cursor.hidden;
+            bool have_preedit =
+                ime_seat != NULL && ime_seat->ime.preedit.cells != NULL;
+            bool hidden =
+                ime_seat != NULL && ime_seat->ime.preedit.cursor.hidden;
 
             if (have_preedit && !hidden) {
                 /* Cursor may be outside the visible area:
@@ -2394,13 +2440,13 @@ render_search_box(struct terminal *term)
 
                 /* If cursor is outside the visible area, we need to
                  * adjust our rectangle's position */
-                int start = term->ime.preedit.cursor.start
+                int start = ime_seat->ime.preedit.cursor.start
                     + min((ssize_t)(cell_idx - glyph_offset), 0);
-                int end = term->ime.preedit.cursor.end
+                int end = ime_seat->ime.preedit.cursor.end
                     + min((ssize_t)(cell_idx - glyph_offset), 0);
 
                 if (start == end) {
-                    int count = min(term->ime.preedit.count, cells_left);
+                    int count = min(ime_seat->ime.preedit.count, cells_left);
 
                     /* Underline the entire (visible part of) pre-edit text */
                     draw_underline(term, buf->pix[0], font, &fg, x, y, count);
@@ -2415,7 +2461,7 @@ render_search_box(struct terminal *term)
                     /* Underline everything before and after the cursor */
                     int count1 = min(start, cells_left);
                     int count2 = max(
-                        min(term->ime.preedit.count - term->ime.preedit.cursor.end,
+                        min(ime_seat->ime.preedit.count - ime_seat->ime.preedit.cursor.end,
                             cells_left - end),
                         0);
                     draw_underline(term, buf->pix[0], font, &fg, x, y, count1);
@@ -2487,7 +2533,7 @@ render_search_box(struct terminal *term)
     }
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-        if (term->ime.preedit.cells != NULL)
+        if (ime_seat != NULL && ime_seat->ime.preedit.cells != NULL)
             /* Already rendered */;
         else
 #endif
@@ -2504,6 +2550,9 @@ render_search_box(struct terminal *term)
         term->window->search.sub,
         margin / scale,
         max(0, (int32_t)term->height - height - margin) / scale);
+
+    xassert(buf->width % scale == 0);
+    xassert(buf->height % scale == 0);
 
     wl_surface_attach(term->window->search.surf, buf->wl_buf, 0, 0);
     wl_surface_damage_buffer(term->window->search.surf, 0, 0, width, height);
@@ -2612,10 +2661,13 @@ render_urls(struct terminal *term)
         size_t len = wcslen(label);
         int cols = wcswidth(label, len);
 
-        const int x_margin = 2 * term->scale;
-        const int y_margin = 1 * term->scale;
-        int width = 2 * x_margin + cols * term->cell_width;
-        int height = 2 * y_margin + term->cell_height;
+        const int scale = term->scale;
+        const int x_margin = 2 * scale;
+        const int y_margin = 1 * scale;
+        const int width =
+            (2 * x_margin + cols * term->cell_width + scale - 1) / scale * scale;
+        const int height =
+            (2 * y_margin + term->cell_height + scale - 1) / scale * scale;
 
         struct buffer *buf = shm_get_buffer(
             term->wl->shm, width, height, shm_cookie_url(url), false, 1);
@@ -2648,8 +2700,8 @@ render_urls(struct terminal *term)
             ? term->conf->colors.jump_label.bg
             : term->colors.table[3];
 
-        render_osd(term, surf, sub_surf, buf, label,
-                   fg, bg, width, height, x_margin, y_margin);
+        render_osd(
+            term, surf, sub_surf, buf, label, fg, bg, x_margin, y_margin);
     }
 }
 
@@ -2717,7 +2769,7 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
 
     tll_foreach(term->wl->seats, it) {
         if (it->item.kbd_focus == term)
-            ime_update_cursor_rect(&it->item, term);
+            ime_update_cursor_rect(&it->item);
     }
 
     term->grid = original_grid;
@@ -3173,7 +3225,7 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
 
             tll_foreach(term->wl->seats, it) {
                 if (it->item.kbd_focus == term)
-                    ime_update_cursor_rect(&it->item, term);
+                    ime_update_cursor_rect(&it->item);
             }
 
             term->grid = original_grid;

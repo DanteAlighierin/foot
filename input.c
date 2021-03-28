@@ -450,7 +450,7 @@ maybe_repair_key_combo(const struct seat *seat,
 
                 /* Check if key combo’s modifier set intersects */
                 for (size_t j = 0; j < mod_mask_count; j++) {
-                    if (!(mod_masks[j] & mods))
+                    if ((mod_masks[j] & mods) != mod_masks[j])
                         continue;
 
                     char combo[64] = {0};

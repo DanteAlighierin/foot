@@ -189,7 +189,7 @@ seat_destroy(struct seat *seat)
     if (seat->wl_seat != NULL)
         wl_seat_release(seat->wl_seat);
 
-    ime_reset(seat);
+    ime_reset_pending(seat);
     free(seat->clipboard.text);
     free(seat->primary.text);
     free(seat->name);
