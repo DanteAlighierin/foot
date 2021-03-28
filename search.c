@@ -11,6 +11,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "config.h"
+#include "extract.h"
 #include "grid.h"
 #include "input.h"
 #include "misc.h"
@@ -437,91 +438,69 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
     if (term->search.match_len == 0)
         return;
 
-    xassert(term->search.match.row != -1);
-    xassert(term->search.match.col != -1);
+    xassert(term->selection.end.row != -1);
 
-    int end_row = term->search.match.row;
-    int end_col = term->search.match.col;
-    size_t len = term->search.match_len;
+    const bool move_cursor = term->search.cursor == term->search.len;
 
-    /* Calculate end coord - note: assumed to be valid */
-    for (size_t i = 0; i < len; i++) {
-        for (size_t j = 0; j < wcwidth(term->search.buf[i]); j++) {
-            if (++end_col >= term->cols) {
-                end_row = (end_row + 1) & (term->grid->num_rows - 1);
-                end_col = 0;
-            }
-        }
+    const struct coord old_end = term->selection.end;
+    struct coord new_end = old_end;
+
+    /* First character to consider is the *next* character */
+    if (++new_end.col >= term->cols) {
+        new_end.row = (new_end.row + 1) & (term->grid->num_rows - 1);
+        new_end.col = 0;
+
+        if (has_wrapped_around(term, new_end.row))
+            return;
     }
 
-    tll(wchar_t) new_chars = tll_init();
+    xassert(term->grid->rows[new_end.row] != NULL);
 
-    /* Always append at least one character *if* possible */
-    bool first = true;
+    new_end.row -= term->grid->view;
+    selection_find_word_boundary_right(term, &new_end, spaces_only);
+    new_end.row += term->grid->view;
 
-    for (size_t r = 0;
-         r < term->grid->num_rows;
-         end_row = (end_row + 1) & (term->grid->num_rows - 1), r++)
-    {
-        const struct row *row = term->grid->rows[end_row];
-        if (row == NULL)
-            break;
+    if (new_end.row == old_end.row && new_end.col == old_end.col)
+        return;
 
-        bool done = false;
-        for (; end_col < term->cols; end_col++) {
-            wchar_t wc = row->cells[end_col].wc;
-            if (wc >= CELL_SPACER)
-                continue;
+    struct coord pos = old_end;
+    const struct row *row = term->grid->rows[pos.row];
 
-            const struct composed *composed = NULL;
-            if (wc >= CELL_COMB_CHARS_LO &&
-                wc < (CELL_COMB_CHARS_LO + term->composed_count))
-            {
-                composed = &term->composed[wc - CELL_COMB_CHARS_LO];
-                wc = composed->base;
-            }
+    struct extraction_context *ctx = extract_begin(SELECTION_NONE);
+    if (ctx == NULL)
+        return;
 
-            if (wc == 0 || (!first && !isword(wc, spaces_only, term->conf->word_delimiters))) {
-                done = true;
-                break;
-            }
-
-            first = false;
-            tll_push_back(new_chars, wc);
-
-            if (composed != NULL) {
-                for (size_t i = 0; i < composed->count; i++)
-                    tll_push_back(new_chars, composed->combining[i]);
-            }
+    do {
+        if (++pos.col >= term->cols) {
+            pos.row = (pos.row + 1) & (term->grid->num_rows - 1);
+            pos.col = 0;
+            row = term->grid->rows[pos.row];
         }
-
-        if (done)
+        if (!extract_one(term, row, &row->cells[pos.col], pos.col, ctx))
             break;
+    } while (pos.col != new_end.col || pos.row != new_end.row);
 
-        end_col = 0;
-    }
+    wchar_t *new_text;
+    size_t new_len;
 
-    if (tll_length(new_chars) == 0)
+    if (!extract_finish_wide(ctx, false, &new_text, &new_len))
         return;
 
-    if (!search_ensure_size(term, term->search.len + tll_length(new_chars)))
+    if (!search_ensure_size(term, term->search.len + new_len))
         return;
 
-    /* Keep cursor at the end, but don't move it if not */
-    bool move_cursor = term->search.cursor == term->search.len;
+    for (size_t i = 0; i < new_len; i++)
+        term->search.buf[term->search.len++] = new_text[i];
 
-    /* Append newly found characters to the search buffer */
-    tll_foreach(new_chars, it)
-        term->search.buf[term->search.len++] = it->item;
     term->search.buf[term->search.len] = L'\0';
+    free(new_text);
 
     if (move_cursor)
-        term->search.cursor += tll_length(new_chars);
-
-    tll_free(new_chars);
+        term->search.cursor = term->search.len;
 
     search_update_selection(
-        term, term->search.match.row, term->search.match.col, end_row, end_col);
+        term, term->search.match.row, term->search.match.col,
+        new_end.row, new_end.col);
 }
 
 static size_t
