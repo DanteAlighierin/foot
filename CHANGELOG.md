@@ -50,6 +50,7 @@
   sometimes not showing up, caused by invalidly sized surface buffers
   when output scaling was enabled
   (https://codeberg.org/dnkl/foot/issues/409).
+* Empty sixels resulted in non-empty images.
 
 
 ### Security
