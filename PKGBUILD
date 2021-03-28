@@ -1,5 +1,5 @@
 pkgname=('foot-git' 'foot-terminfo-git')
-pkgver=1.7.0
+pkgver=1.7.1
 pkgrel=1
 arch=('x86_64' 'aarch64')
 url=https://codeberg.org/dnkl/foot
