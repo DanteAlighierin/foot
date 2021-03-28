@@ -227,9 +227,9 @@ selection_to_text(const struct terminal *term)
     return extract_finish(ctx, &text, NULL) ? text : NULL;
 }
 
-static void
-find_word_boundary_left(struct terminal *term, struct coord *pos,
-                        bool spaces_only)
+void
+selection_find_word_boundary_left(struct terminal *term, struct coord *pos,
+                                  bool spaces_only)
 {
     const struct row *r = grid_row_in_view(term->grid, pos->row);
     wchar_t c = r->cells[pos->col].wc;
@@ -299,9 +299,9 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
     }
 }
 
-static void
-find_word_boundary_right(struct terminal *term, struct coord *pos,
-                         bool spaces_only)
+void
+selection_find_word_boundary_right(struct terminal *term, struct coord *pos,
+                                   bool spaces_only)
 {
     const struct row *r = grid_row_in_view(term->grid, pos->row);
     wchar_t c = r->cells[pos->col].wc;
@@ -403,8 +403,8 @@ selection_start(struct terminal *term, int col, int row,
 
     case SELECTION_WORD_WISE: {
         struct coord start = {col, row}, end = {col, row};
-        find_word_boundary_left(term, &start, spaces_only);
-        find_word_boundary_right(term, &end, spaces_only);
+        selection_find_word_boundary_left(term, &start, spaces_only);
+        selection_find_word_boundary_right(term, &end, spaces_only);
 
         term->selection.start = (struct coord){
             start.col, term->grid->view + start.row};
@@ -694,14 +694,16 @@ selection_update(struct terminal *term, int col, int row)
         switch (term->selection.direction) {
         case SELECTION_LEFT: {
             struct coord end = {col, row};
-            find_word_boundary_left(term, &end, term->selection.spaces_only);
+            selection_find_word_boundary_left(
+                term, &end, term->selection.spaces_only);
             new_end = (struct coord){end.col, term->grid->view + end.row};
             break;
         }
 
         case SELECTION_RIGHT: {
             struct coord end = {col, row};
-            find_word_boundary_right(term, &end, term->selection.spaces_only);
+            selection_find_word_boundary_right(
+                term, &end, term->selection.spaces_only);
             new_end = (struct coord){end.col, term->grid->view + end.row};
             break;
         }
@@ -840,8 +842,10 @@ selection_extend_normal(struct terminal *term, int col, int row,
         struct coord pivot_start = {new_start.col, new_start.row - term->grid->view};
         struct coord pivot_end = pivot_start;
 
-        find_word_boundary_left(term, &pivot_start, term->selection.spaces_only);
-        find_word_boundary_right(term, &pivot_end, term->selection.spaces_only);
+        selection_find_word_boundary_left(
+            term, &pivot_start, term->selection.spaces_only);
+        selection_find_word_boundary_right(
+            term, &pivot_end, term->selection.spaces_only);
 
         term->selection.pivot.start =
             (struct coord){pivot_start.col, term->grid->view + pivot_start.row};
