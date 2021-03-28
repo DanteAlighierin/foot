@@ -1,6 +1,6 @@
 # Changelog
 
-* [Unreleased](#unreleased)
+* [1.7.1](#1-7-1)
 * [1.7.0](#1-7-0)
 * [1.6.4](#1-6-4)
 * [1.6.3](#1-6-3)
@@ -24,8 +24,8 @@
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
-### Added
+## 1.7.1
+
 ### Changed
 
 * Update PGO build instructions in `INSTALL.md`
@@ -33,8 +33,6 @@
 * In scrollback search mode, empty cells can now be matched by spaces.
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Logic that repairs invalid key bindings ended up breaking valid key
@@ -52,10 +50,6 @@
   when output scaling was enabled
   (https://codeberg.org/dnkl/foot/issues/409).
 * Empty sixels resulted in non-empty images.
-
-
-### Security
-### Contributors
 
 
 ## 1.7.0
