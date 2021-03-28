@@ -472,7 +472,9 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
         if (++pos.col >= term->cols) {
             pos.row = (pos.row + 1) & (term->grid->num_rows - 1);
             pos.col = 0;
-            row = term->grid->rows[pos.row];
+
+            if (has_wrapped_around(term, pos.row))
+                break;
         }
         if (!extract_one(term, row, &row->cells[pos.col], pos.col, ctx))
             break;
