@@ -224,7 +224,7 @@ selection_to_text(const struct terminal *term)
         &extract_one_const_wrapper, ctx);
 
     char *text;
-    return extract_finish(ctx, &text, NULL) ? text : NULL;
+    return extract_finish(ctx, true, &text, NULL) ? text : NULL;
 }
 
 void

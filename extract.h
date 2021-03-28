@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <wchar.h>
 
 #include "terminal.h"
 
@@ -14,4 +15,8 @@ bool extract_one(
     int col, void *context);
 
 bool extract_finish(
-    struct extraction_context *context, char **text, size_t *len);
+    struct extraction_context *context, bool strip_trailing_empty,
+    char **text, size_t *len);
+bool extract_finish_wide(
+    struct extraction_context *context, bool strip_trailing_empty,
+    wchar_t **text, size_t *len);

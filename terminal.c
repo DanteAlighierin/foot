@@ -2917,7 +2917,7 @@ rows_to_text(const struct terminal *term, int start, int end,
     }
 
 out:
-    return extract_finish(ctx, text, len);
+    return extract_finish(ctx, true, text, len);
 }
 
 bool
