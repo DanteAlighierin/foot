@@ -30,6 +30,7 @@
 
 * Update PGO build instructions in `INSTALL.md`
   (https://codeberg.org/dnkl/foot/issues/418).
+* In scrollback search mode, empty cells can now be matched by spaces.
 
 
 ### Deprecated
