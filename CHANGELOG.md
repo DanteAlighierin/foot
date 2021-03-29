@@ -31,6 +31,11 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Reverted _"Consumed modifiers are no longer sent to the client
+  application"_ (https://codeberg.org/dnkl/foot/issues/425).
+
+
 ### Security
 ### Contributors
 
