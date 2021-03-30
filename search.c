@@ -473,7 +473,7 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
     struct coord pos = old_end;
     row = term->grid->rows[pos.row];
 
-    struct extraction_context *ctx = extract_begin(SELECTION_NONE);
+    struct extraction_context *ctx = extract_begin(SELECTION_NONE, false);
     if (ctx == NULL)
         return;
 
@@ -487,7 +487,7 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
     wchar_t *new_text;
     size_t new_len;
 
-    if (!extract_finish_wide(ctx, false, &new_text, &new_len))
+    if (!extract_finish_wide(ctx, &new_text, &new_len))
         return;
 
     if (!search_ensure_size(term, term->search.len + new_len))

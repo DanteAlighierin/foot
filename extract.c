@@ -11,6 +11,7 @@ struct extraction_context {
     size_t idx;
     size_t empty_count;
     size_t newline_count;
+    bool strip_trailing_empty;
     bool failed;
     const struct row *last_row;
     const struct cell *last_cell;
@@ -18,7 +19,7 @@ struct extraction_context {
 };
 
 struct extraction_context *
-extract_begin(enum selection_kind kind)
+extract_begin(enum selection_kind kind, bool strip_trailing_empty)
 {
     struct extraction_context *ctx = malloc(sizeof(*ctx));
     if (unlikely(ctx == NULL)) {
@@ -28,6 +29,7 @@ extract_begin(enum selection_kind kind)
 
     *ctx = (struct extraction_context){
         .selection_kind = kind,
+        .strip_trailing_empty = strip_trailing_empty,
     };
     return ctx;
 }
@@ -51,8 +53,7 @@ ensure_size(struct extraction_context *ctx, size_t additional_chars)
 }
 
 bool
-extract_finish_wide(struct extraction_context *ctx, bool strip_trailing_empty,
-                    wchar_t **text, size_t *len)
+extract_finish_wide(struct extraction_context *ctx, wchar_t **text, size_t *len)
 {
     if (text == NULL)
         return false;
@@ -64,7 +65,7 @@ extract_finish_wide(struct extraction_context *ctx, bool strip_trailing_empty,
     if (ctx->failed)
         goto err;
 
-    if (!strip_trailing_empty) {
+    if (!ctx->strip_trailing_empty) {
         /* Insert pending newlines, and replace empty cells with spaces */
         if (!ensure_size(ctx, ctx->newline_count + ctx->empty_count))
             goto err;
@@ -106,8 +107,7 @@ err:
 }
 
 bool
-extract_finish(struct extraction_context *ctx, bool strip_trailing_empty,
-               char **text, size_t *len)
+extract_finish(struct extraction_context *ctx, char **text, size_t *len)
 {
     if (text == NULL)
         return false;
@@ -115,7 +115,7 @@ extract_finish(struct extraction_context *ctx, bool strip_trailing_empty,
         *len = 0;
 
     wchar_t *wtext;
-    if (!extract_finish_wide(ctx, strip_trailing_empty, &wtext, NULL))
+    if (!extract_finish_wide(ctx, &wtext, NULL))
         return false;
 
     bool ret = false;
@@ -167,6 +167,13 @@ extract_one(const struct terminal *term, const struct row *row,
                 /* Don't emit newline just yet - only if there are
                  * non-empty cells following it */
                 ctx->newline_count++;
+
+                if (!ctx->strip_trailing_empty) {
+                    if (!ensure_size(ctx, ctx->empty_count))
+                        goto err;
+                    for (size_t i = 0; i < ctx->empty_count; i++)
+                        ctx->buf[ctx->idx++] = L' ';
+                }
                 ctx->empty_count = 0;
             }
         } else {
@@ -175,6 +182,13 @@ extract_one(const struct terminal *term, const struct row *row,
                 goto err;
 
             ctx->buf[ctx->idx++] = L'\n';
+
+            if (!ctx->strip_trailing_empty) {
+                if (!ensure_size(ctx, ctx->empty_count))
+                    goto err;
+                for (size_t i = 0; i < ctx->empty_count; i++)
+                    ctx->buf[ctx->idx++] = L' ';
+            }
             ctx->empty_count = 0;
         }
     }

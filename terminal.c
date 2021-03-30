@@ -2900,7 +2900,7 @@ static bool
 rows_to_text(const struct terminal *term, int start, int end,
              char **text, size_t *len)
 {
-    struct extraction_context *ctx = extract_begin(SELECTION_NONE);
+    struct extraction_context *ctx = extract_begin(SELECTION_NONE, true);
     if (ctx == NULL)
         return false;
 
@@ -2917,7 +2917,7 @@ rows_to_text(const struct terminal *term, int start, int end,
     }
 
 out:
-    return extract_finish(ctx, true, text, len);
+    return extract_finish(ctx, text, len);
 }
 
 bool

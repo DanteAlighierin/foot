@@ -215,7 +215,7 @@ selection_to_text(const struct terminal *term)
     if (term->selection.end.row == -1)
         return NULL;
 
-    struct extraction_context *ctx = extract_begin(term->selection.kind);
+    struct extraction_context *ctx = extract_begin(term->selection.kind, true);
     if (ctx == NULL)
         return NULL;
 
@@ -224,7 +224,7 @@ selection_to_text(const struct terminal *term)
         &extract_one_const_wrapper, ctx);
 
     char *text;
-    return extract_finish(ctx, true, &text, NULL) ? text : NULL;
+    return extract_finish(ctx, &text, NULL) ? text : NULL;
 }
 
 void
