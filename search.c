@@ -444,15 +444,24 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
 
     const struct coord old_end = term->selection.end;
     struct coord new_end = old_end;
+    struct row *row = NULL;
+
+#define newline(coord) __extension__                                    \
+        ({                                                              \
+            bool wrapped_around = false;                                \
+            if (++(coord).col >= term->cols) {                           \
+                (coord).row = ((coord).row + 1) & (term->grid->num_rows - 1); \
+                (coord).col = 0;                                        \
+                row = term->grid->rows[(coord).row];                    \
+                if (has_wrapped_around(term, (coord.row)))              \
+                    wrapped_around = true;                              \
+            }                                                           \
+            wrapped_around;                                             \
+        })
 
     /* First character to consider is the *next* character */
-    if (++new_end.col >= term->cols) {
-        new_end.row = (new_end.row + 1) & (term->grid->num_rows - 1);
-        new_end.col = 0;
-
-        if (has_wrapped_around(term, new_end.row))
-            return;
-    }
+    if (newline(new_end))
+        return;
 
     xassert(term->grid->rows[new_end.row] != NULL);
 
@@ -462,20 +471,15 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
     new_end.row += term->grid->view;
 
     struct coord pos = old_end;
-    const struct row *row = term->grid->rows[pos.row];
+    row = term->grid->rows[pos.row];
 
     struct extraction_context *ctx = extract_begin(SELECTION_NONE);
     if (ctx == NULL)
         return;
 
     do {
-        if (++pos.col >= term->cols) {
-            pos.row = (pos.row + 1) & (term->grid->num_rows - 1);
-            pos.col = 0;
-
-            if (has_wrapped_around(term, pos.row))
-                break;
-        }
+        if (newline(pos))
+            break;
         if (!extract_one(term, row, &row->cells[pos.col], pos.col, ctx))
             break;
     } while (pos.col != new_end.col || pos.row != new_end.row);
@@ -507,6 +511,8 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
     search_update_selection(
         term, term->search.match.row, term->search.match.col,
         new_end.row, new_end.col);
+
+#undef newline
 }
 
 static size_t
