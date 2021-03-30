@@ -1344,8 +1344,10 @@ sixel_colors_set(struct terminal *term, unsigned count)
     unsigned new_palette_size = min(max(2, count), SIXEL_MAX_COLORS);
     LOG_DBG("sixel palette size set to %u", new_palette_size);
 
-    free(term->sixel.palette);
-    term->sixel.palette = NULL;
+    free(term->sixel.private_palette);
+    free(term->sixel.shared_palette);
+    term->sixel.private_palette = NULL;
+    term->sixel.shared_palette = NULL;
 
     term->sixel.palette_size = new_palette_size;
     sixel_colors_report_current(term);
