@@ -34,6 +34,9 @@
 
 * Reverted _"Consumed modifiers are no longer sent to the client
   application"_ (https://codeberg.org/dnkl/foot/issues/425).
+* Crash caused by a double free originating in `XTSMGRAPHICS` - set
+  number of color registers
+  (https://codeberg.org/dnkl/foot/issues/427).
 
 
 ### Security
