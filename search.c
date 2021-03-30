@@ -338,7 +338,7 @@ search_find_next(struct terminal *term)
 
             for (size_t i = 0; i < term->search.len;) {
                 if (end_col >= term->cols) {
-                    end_row++;
+                    end_row = (end_row + 1) & (term->grid->num_rows - 1);
                     end_col = 0;
 
                     if (has_wrapped_around(term, end_row))
