@@ -508,9 +508,13 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
     if (move_cursor)
         term->search.cursor = term->search.len;
 
+    /* search_update_selection() expected end coordinate to be *exclusive* */
+    newline(new_end);
     search_update_selection(
         term, term->search.match.row, term->search.match.col,
         new_end.row, new_end.col);
+
+    term->search.match_len = term->search.len;
 
 #undef newline
 }
@@ -755,12 +759,14 @@ execute_binding(struct seat *seat, struct terminal *term,
 
     case BIND_ACTION_SEARCH_EXTEND_WORD:
         search_match_to_end_of_word(term, false);
-        *update_search_result = *redraw = true;
+        *update_search_result = false;
+        *redraw = true;
         return true;
 
     case BIND_ACTION_SEARCH_EXTEND_WORD_WS:
         search_match_to_end_of_word(term, true);
-        *update_search_result = *redraw = true;
+        *update_search_result = false;
+        *redraw = true;
         return true;
 
     case BIND_ACTION_SEARCH_CLIPBOARD_PASTE:
