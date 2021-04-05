@@ -575,6 +575,11 @@ osc_dispatch(struct terminal *term)
                 idx += c - '0';
             }
 
+            if (idx >= ALEN(term->colors.table)) {
+                LOG_WARN("invalid OSC 4 color index: %u", idx);
+                break;
+            }
+
             /* Client queried for current value */
             if (strlen(s_color) == 1 && s_color[0] == '?') {
                 uint32_t color = term->colors.table[idx];
@@ -698,7 +703,7 @@ osc_dispatch(struct terminal *term)
 
         if (strlen(string) == 0) {
             LOG_DBG("resetting all colors");
-            for (size_t i = 0; i < 256; i++) {
+            for (size_t i = 0; i < ALEN(term->colors.table); i++) {
                 update_color_in_grids(
                     term, term->colors.table[i], term->colors.default_table[i]);
                 term->colors.table[i] = term->colors.default_table[i];
@@ -715,6 +720,11 @@ osc_dispatch(struct terminal *term)
                     char c = *s_idx;
                     idx *= 10;
                     idx += c - '0';
+                }
+
+                if (idx >= ALEN(term->colors.table)) {
+                    LOG_WARN("invalid OSC 104 color index: %u", idx);
+                    continue;
                 }
 
                 LOG_DBG("resetting color #%u", idx);
