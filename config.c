@@ -91,40 +91,6 @@ static const char *const binding_action_map[] = {
 static_assert(ALEN(binding_action_map) == BIND_ACTION_COUNT,
               "binding action map size mismatch");
 
-static const char *const search_binding_action_map[] = {
-    [BIND_ACTION_SEARCH_NONE] = NULL,
-    [BIND_ACTION_SEARCH_CANCEL] = "cancel",
-    [BIND_ACTION_SEARCH_COMMIT] = "commit",
-    [BIND_ACTION_SEARCH_FIND_PREV] = "find-prev",
-    [BIND_ACTION_SEARCH_FIND_NEXT] = "find-next",
-    [BIND_ACTION_SEARCH_EDIT_LEFT] = "cursor-left",
-    [BIND_ACTION_SEARCH_EDIT_LEFT_WORD] = "cursor-left-word",
-    [BIND_ACTION_SEARCH_EDIT_RIGHT] = "cursor-right",
-    [BIND_ACTION_SEARCH_EDIT_RIGHT_WORD] = "cursor-right-word",
-    [BIND_ACTION_SEARCH_EDIT_HOME] = "cursor-home",
-    [BIND_ACTION_SEARCH_EDIT_END] = "cursor-end",
-    [BIND_ACTION_SEARCH_DELETE_PREV] = "delete-prev",
-    [BIND_ACTION_SEARCH_DELETE_PREV_WORD] = "delete-prev-word",
-    [BIND_ACTION_SEARCH_DELETE_NEXT] = "delete-next",
-    [BIND_ACTION_SEARCH_DELETE_NEXT_WORD] = "delete-next-word",
-    [BIND_ACTION_SEARCH_EXTEND_WORD] = "extend-to-word-boundary",
-    [BIND_ACTION_SEARCH_EXTEND_WORD_WS] = "extend-to-next-whitespace",
-    [BIND_ACTION_SEARCH_CLIPBOARD_PASTE] = "clipboard-paste",
-    [BIND_ACTION_SEARCH_PRIMARY_PASTE] = "primary-paste",
-};
-
-static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
-              "search binding action map size mismatch");
-
-static const char *const url_binding_action_map[] = {
-    [BIND_ACTION_URL_NONE] = NULL,
-    [BIND_ACTION_URL_CANCEL] = "cancel",
-    [BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL] = "toggle-url-visible",
-};
-
-static_assert(ALEN(url_binding_action_map) == BIND_ACTION_URL_COUNT,
-              "URL binding action map size mismatch");
-
 #define LOG_AND_NOTIFY_ERR(...)                                     \
     do {                                                            \
         LOG_ERR(__VA_ARGS__);                                       \
@@ -1462,6 +1428,31 @@ parse_section_search_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
+    static const char *const search_binding_action_map[] = {
+        [BIND_ACTION_SEARCH_NONE] = NULL,
+        [BIND_ACTION_SEARCH_CANCEL] = "cancel",
+        [BIND_ACTION_SEARCH_COMMIT] = "commit",
+        [BIND_ACTION_SEARCH_FIND_PREV] = "find-prev",
+        [BIND_ACTION_SEARCH_FIND_NEXT] = "find-next",
+        [BIND_ACTION_SEARCH_EDIT_LEFT] = "cursor-left",
+        [BIND_ACTION_SEARCH_EDIT_LEFT_WORD] = "cursor-left-word",
+        [BIND_ACTION_SEARCH_EDIT_RIGHT] = "cursor-right",
+        [BIND_ACTION_SEARCH_EDIT_RIGHT_WORD] = "cursor-right-word",
+        [BIND_ACTION_SEARCH_EDIT_HOME] = "cursor-home",
+        [BIND_ACTION_SEARCH_EDIT_END] = "cursor-end",
+        [BIND_ACTION_SEARCH_DELETE_PREV] = "delete-prev",
+        [BIND_ACTION_SEARCH_DELETE_PREV_WORD] = "delete-prev-word",
+        [BIND_ACTION_SEARCH_DELETE_NEXT] = "delete-next",
+        [BIND_ACTION_SEARCH_DELETE_NEXT_WORD] = "delete-next-word",
+        [BIND_ACTION_SEARCH_EXTEND_WORD] = "extend-to-word-boundary",
+        [BIND_ACTION_SEARCH_EXTEND_WORD_WS] = "extend-to-next-whitespace",
+        [BIND_ACTION_SEARCH_CLIPBOARD_PASTE] = "clipboard-paste",
+        [BIND_ACTION_SEARCH_PRIMARY_PASTE] = "primary-paste",
+    };
+
+    static_assert(ALEN(search_binding_action_map) == BIND_ACTION_SEARCH_COUNT,
+                  "search binding action map size mismatch");
+
     return parse_key_binding_section(
         "search-bindings", key, value, BIND_ACTION_SEARCH_COUNT,
         search_binding_action_map, &conf->bindings.search, conf, path, lineno);
@@ -1472,6 +1463,15 @@ parse_section_url_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno)
 {
+    static const char *const url_binding_action_map[] = {
+        [BIND_ACTION_URL_NONE] = NULL,
+        [BIND_ACTION_URL_CANCEL] = "cancel",
+        [BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL] = "toggle-url-visible",
+    };
+
+    static_assert(ALEN(url_binding_action_map) == BIND_ACTION_URL_COUNT,
+                  "URL binding action map size mismatch");
+
     return parse_key_binding_section(
         "url-bindings", key, value, BIND_ACTION_URL_COUNT,
         url_binding_action_map, &conf->bindings.url, conf, path, lineno);
