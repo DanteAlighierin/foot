@@ -593,7 +593,7 @@ scrollback search mode. The syntax is exactly the same as the regular
 	Deletes the **character after** the cursor. Default: _Delete_.
 
 *delete-next-word*
-	Deletes the **word after** the cursor. Default: _Mod1+b
+	Deletes the **word after** the cursor. Default: _Mod1+d
 	Control+Delete_.
 
 *extend-to-word-boundary*
