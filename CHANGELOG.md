@@ -37,6 +37,8 @@
 * Crash caused by a double free originating in `XTSMGRAPHICS` - set
   number of color registers
   (https://codeberg.org/dnkl/foot/issues/427).
+* Wrong action referenced in error message for key binding collisions
+  (https://codeberg.org/dnkl/foot/issues/432).
 
 
 ### Security

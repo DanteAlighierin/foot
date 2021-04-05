@@ -1393,7 +1393,7 @@ parse_key_binding_section(
         if (!parse_key_combos(
                 conf, value, &key_combos, section, key, path, lineno) ||
             has_key_binding_collisions(
-                conf, action, binding_action_map, bindings, &key_combos,
+                conf, action, action_map, bindings, &key_combos,
                 path, lineno))
         {
             free(pipe_argv);
