@@ -395,7 +395,7 @@ parse_rgb(const char *string, uint32_t *color, bool *_have_alpha,
     uint8_t g = 256 * (rgb[1] / (double)(1 << (4 * digits[1])));
     uint8_t b = 256 * (rgb[2] / (double)(1 << (4 * digits[2])));
 
-    uint16_t alpha;
+    uint16_t alpha = 0xffff;
     if (have_alpha)
         alpha = 65536 * (rgb[3] / (double)(1 << (4 * digits[3])));
 
