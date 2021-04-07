@@ -407,6 +407,9 @@ struct terminal {
         uint32_t bg;
         uint32_t table[256];
         uint16_t alpha;
+        uint32_t selection_fg;
+        uint32_t selection_bg;
+        bool use_custom_selection;
     } colors;
 
     enum cursor_style cursor_style;

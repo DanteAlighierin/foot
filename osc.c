@@ -679,8 +679,10 @@ osc_dispatch(struct terminal *term)
         break;
 
     case 10:
-    case 11: {
-        /* Set default foreground/background color */
+    case 11:
+    case 17:
+    case 19: {
+        /* Set default foreground/background/highlight-bg/highlight-fg color */
 
         /* Client queried for current value */
         if (strlen(string) == 1 && string[0] == '?') {
@@ -714,7 +716,11 @@ osc_dispatch(struct terminal *term)
         }
 
         LOG_DBG("change color definition for %s to %06x",
-                param == 10 ? "foreground" : "background", color);
+                param == 10 ? "foreground" :
+                param == 11 ? "background" :
+                param == 17 ? "selection background" :
+                              "selection foreground",
+                color);
 
         switch (param) {
         case 10:
@@ -725,6 +731,16 @@ osc_dispatch(struct terminal *term)
             term->colors.bg = color;
             if (have_alpha)
                 term->colors.alpha = alpha;
+            break;
+
+        case 17:
+            term->colors.selection_bg = color;
+            term->colors.use_custom_selection = true;
+            break;
+
+        case 19:
+            term->colors.selection_fg = color;
+            term->colors.use_custom_selection = true;
             break;
         }
 
@@ -834,6 +850,18 @@ osc_dispatch(struct terminal *term)
         term->cursor_color.text = term->conf->cursor.color.text;
         term->cursor_color.cursor = term->conf->cursor.color.cursor;
         term_damage_cursor(term);
+        break;
+
+    case 117:
+        LOG_DBG("resetting selection background color");
+        term->colors.selection_bg = term->conf->colors.selection_bg;
+        term->colors.use_custom_selection = term->conf->colors.use_custom.selection;
+        break;
+
+    case 119:
+        LOG_DBG("resetting selection foreground color");
+        term->colors.selection_fg = term->conf->colors.selection_fg;
+        term->colors.use_custom_selection = term->conf->colors.use_custom.selection;
         break;
 
     case 555:
