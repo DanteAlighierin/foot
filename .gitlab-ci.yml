@@ -5,7 +5,6 @@ variables:
   GIT_SUBMODULE_STRATEGY: normal
 
 before_script:
-  - echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" >> /etc/apk/repositories
   - apk update
   - apk add musl-dev linux-headers meson ninja gcc scdoc ncurses
   - apk add libxkbcommon-dev pixman-dev freetype-dev fontconfig-dev harfbuzz-dev
@@ -15,7 +14,7 @@ before_script:
   - apk add ttf-hack font-noto-emoji
 
 debug-x64:
-  image: alpine:edge
+  image: alpine:latest
   stage: build
   script:
     - mkdir -p bld/debug
@@ -28,7 +27,7 @@ debug-x64:
       junit: bld/debug/meson-logs/testlog.junit.xml
 
 release-x64:
-  image: alpine:edge
+  image: alpine:latest
   stage: build
   script:
     - mkdir -p bld/release
@@ -41,7 +40,7 @@ release-x64:
       junit: bld/release/meson-logs/testlog.junit.xml
 
 debug-x86:
-  image: i386/alpine:edge
+  image: i386/alpine:latest
   stage: build
   script:
     - mkdir -p bld/debug
@@ -54,7 +53,7 @@ debug-x86:
       junit: bld/debug/meson-logs/testlog.junit.xml
 
 release-x86:
-  image: i386/alpine:edge
+  image: i386/alpine:latest
   stage: build
   script:
     - mkdir -p bld/release
@@ -67,7 +66,7 @@ release-x86:
       junit: bld/release/meson-logs/testlog.junit.xml
 
 codespell:
-  image: alpine:edge
+  image: alpine:latest
   stage: build
   script:
     - apk add python3
