@@ -268,19 +268,18 @@ parse_legacy_color(const char *string, uint32_t *color, bool *_have_alpha,
     uint16_t alpha = 0xffff;
 
     if (string[0] == '[') {
-        /* e.g. \E]11;[0.5]#00ff00 */
+        /* e.g. \E]11;[50]#00ff00 */
         const char *start = &string[1];
-        const char *end = strchr(string, ']');
-        if (end == NULL)
-            return false;
 
-        char *_end;
-        double percent = strtod(start, &_end);
-        if (_end != end)
+        errno = 0;
+        char *end;
+        unsigned long percent = strtoul(start, &end, 10);
+
+        if (errno != 0 || *end != ']')
             return false;
 
         have_alpha = true;
-        alpha = 0xffff * percent;
+        alpha = (0xffff * min(percent, 100) + 50) / 100;
 
         string = end + 1;
     }
