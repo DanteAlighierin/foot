@@ -28,7 +28,7 @@
 ## Unreleased
 ### Added
 
-* Support for URxvt OSC-11 extension to set background alpha
+* URxvt OSC-11 extension to set background alpha
   (https://codeberg.org/dnkl/foot/issues/436).
 
 
