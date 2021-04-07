@@ -416,9 +416,9 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     uint32_t _fg = 0;
     uint32_t _bg = 0;
 
-    if (is_selected && term->conf->colors.use_custom.selection) {
-        _fg = term->conf->colors.selection_fg;
-        _bg = term->conf->colors.selection_bg;
+    if (is_selected && term->colors.use_custom_selection) {
+        _fg = term->colors.selection_fg;
+        _bg = term->colors.selection_bg;
     } else {
         /* Use cell specific color, if set, otherwise the default colors (possible reversed) */
         _fg = cell->attrs.have_fg ? cell->attrs.fg : term->colors.fg;

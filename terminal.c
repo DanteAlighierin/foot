@@ -1087,6 +1087,9 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .fg = conf->colors.fg,
             .bg = conf->colors.bg,
             .alpha = conf->colors.alpha,
+            .selection_fg = conf->colors.selection_fg,
+            .selection_bg = conf->colors.selection_bg,
+            .use_custom_selection = conf->colors.use_custom.selection,
         },
         .origin = ORIGIN_ABSOLUTE,
         .cursor_style = conf->cursor.style,
@@ -1683,6 +1686,9 @@ term_reset(struct terminal *term, bool hard)
     term->colors.fg = term->conf->colors.fg;
     term->colors.bg = term->conf->colors.bg;
     term->colors.alpha = term->conf->colors.alpha;
+    term->colors.selection_fg = term->conf->colors.selection_fg;
+    term->colors.selection_bg = term->conf->colors.selection_bg;
+    term->colors.use_custom_selection = term->conf->colors.use_custom.selection;
     memcpy(term->colors.table, term->conf->colors.table,
            sizeof(term->colors.table));
     term->origin = ORIGIN_ABSOLUTE;
