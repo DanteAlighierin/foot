@@ -44,7 +44,7 @@
   (https://codeberg.org/dnkl/foot/issues/427).
 * Wrong action referenced in error message for key binding collisions
   (https://codeberg.org/dnkl/foot/issues/432).
-* OSC-4/104 out-of-bounds accesses to the color table. This was the
+* OSC 4/104 out-of-bounds accesses to the color table. This was the
   reason pywal turned foot windows transparent
   (https://codeberg.org/dnkl/foot/issues/434).
 * PTY not being drained when the client application terminates.
