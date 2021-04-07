@@ -359,6 +359,10 @@ output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
                 int32_t transform)
 {
     struct monitor *mon = data;
+
+    free(mon->make);
+    free(mon->model);
+
     mon->dim.mm.width = physical_width;
     mon->dim.mm.height = physical_height;
     mon->inch = sqrt(pow(mon->dim.mm.width, 2) + pow(mon->dim.mm.height, 2)) * 0.03937008;
@@ -366,6 +370,7 @@ output_geometry(void *data, struct wl_output *wl_output, int32_t x, int32_t y,
     mon->model = model != NULL ? xstrdup(model) : NULL;
     mon->subpixel = subpixel;
     mon->transform = transform;
+
     output_update_ppi(mon);
 }
 
@@ -434,6 +439,7 @@ xdg_output_handle_name(void *data, struct zxdg_output_v1 *xdg_output,
                        const char *name)
 {
     struct monitor *mon = data;
+    free(mon->name);
     mon->name = name != NULL ? xstrdup(name) : NULL;
 }
 
@@ -442,6 +448,7 @@ xdg_output_handle_description(void *data, struct zxdg_output_v1 *xdg_output,
                               const char *description)
 {
     struct monitor *mon = data;
+    free(mon->description);
     mon->description = description != NULL ? xstrdup(description) : NULL;
 }
 
