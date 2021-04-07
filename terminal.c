@@ -1682,6 +1682,7 @@ term_reset(struct terminal *term, bool hard)
     fdm_del(term->fdm, term->blink.fd); term->blink.fd = -1;
     term->colors.fg = term->conf->colors.fg;
     term->colors.bg = term->conf->colors.bg;
+    term->colors.alpha = term->conf->colors.alpha;
     memcpy(term->colors.table, term->conf->colors.table,
            sizeof(term->colors.table));
     term->origin = ORIGIN_ABSOLUTE;
