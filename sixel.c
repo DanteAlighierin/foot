@@ -727,11 +727,6 @@ sixel_unhook(struct terminal *term)
         term->sixel.image.height = term->sixel.max_non_empty_row_no + 1;
     }
 
-    if (term->sixel.image.height == 0 || term->sixel.image.width == 0) {
-        /* We won’t be emitting any sixels - free backing image */
-        free(term->sixel.image.data);
-    }
-
     int pixel_row_idx = 0;
     int pixel_rows_left = term->sixel.image.height;
     const int stride = term->sixel.image.width * sizeof(uint32_t);
@@ -765,6 +760,11 @@ sixel_unhook(struct terminal *term)
     /* Initial sixel coordinates */
     int start_row = do_scroll ? term->grid->cursor.point.row : 0;
     const int start_col = do_scroll ? term->grid->cursor.point.col : 0;
+
+    if (pixel_rows_left == 0 || rows_avail == 0) {
+        /* We won’t be emitting any sixels - free backing image */
+        free(term->sixel.image.data);
+    }
 
     /* We do not allow sixels to cross the scrollback wrap-around, as
      * this makes intersection calculations much more complicated */
