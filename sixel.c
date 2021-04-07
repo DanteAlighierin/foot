@@ -28,6 +28,7 @@ get_bg(const struct terminal *term)
 void
 sixel_fini(struct terminal *term)
 {
+    free(term->sixel.image.data);
     free(term->sixel.private_palette);
     free(term->sixel.shared_palette);
 }
