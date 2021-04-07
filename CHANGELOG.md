@@ -42,6 +42,7 @@
 * OSC-4/104 out-of-bounds accesses to the color table. This was the
   reason pywal turned foot windows transparent
   (https://codeberg.org/dnkl/foot/issues/434).
+* PTY not being drained when the client application terminates.
 
 
 ### Security
