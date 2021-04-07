@@ -1450,7 +1450,7 @@ render_csd_title(struct terminal *term)
     struct buffer *buf = shm_get_buffer(
         term->wl->shm, info.width, info.height, cookie, false, 1);
 
-    uint32_t _color = term->colors.default_fg;
+    uint32_t _color = term->conf->colors.fg;
     uint16_t alpha = 0xffff;
 
     if (term->conf->csd.color.title_set) {
@@ -1493,7 +1493,7 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 static void
 render_csd_button_minimize(struct terminal *term, struct buffer *buf)
 {
-    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
+    pixman_color_t color = color_hex_to_pixman(term->conf->colors.bg);
     pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
     const int max_height = buf->height / 2;
@@ -1538,7 +1538,7 @@ static void
 render_csd_button_maximize_maximized(
     struct terminal *term, struct buffer *buf)
 {
-    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
+    pixman_color_t color = color_hex_to_pixman(term->conf->colors.bg);
     pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
     const int max_height = buf->height / 3;
@@ -1566,7 +1566,7 @@ static void
 render_csd_button_maximize_window(
     struct terminal *term, struct buffer *buf)
 {
-    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
+    pixman_color_t color = color_hex_to_pixman(term->conf->colors.bg);
     pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
     const int max_height = buf->height / 2;
@@ -1620,7 +1620,7 @@ render_csd_button_maximize(struct terminal *term, struct buffer *buf)
 static void
 render_csd_button_close(struct terminal *term, struct buffer *buf)
 {
-    pixman_color_t color = color_hex_to_pixman(term->colors.default_bg);
+    pixman_color_t color = color_hex_to_pixman(term->conf->colors.bg);
     pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
     const int max_height = buf->height / 3;
@@ -1665,21 +1665,21 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
 
     switch (surf_idx) {
     case CSD_SURF_MINIMIZE:
-        _color = term->colors.default_table[4];  /* blue */
+        _color = term->conf->colors.table[4];  /* blue */
         is_set = term->conf->csd.color.minimize_set;
         conf_color = &term->conf->csd.color.minimize;
         is_active = term->active_surface == TERM_SURF_BUTTON_MINIMIZE;
         break;
 
     case CSD_SURF_MAXIMIZE:
-        _color = term->colors.default_table[2];  /* green */
+        _color = term->conf->colors.table[2];  /* green */
         is_set = term->conf->csd.color.maximize_set;
         conf_color = &term->conf->csd.color.maximize;
         is_active = term->active_surface == TERM_SURF_BUTTON_MAXIMIZE;
         break;
 
     case CSD_SURF_CLOSE:
-        _color = term->colors.default_table[1];  /* red */
+        _color = term->conf->colors.table[1];  /* red */
         is_set = term->conf->csd.color.close_set;
         conf_color = &term->conf->csd.color.close;
         is_active = term->active_surface == TERM_SURF_BUTTON_CLOSE;

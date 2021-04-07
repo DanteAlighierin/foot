@@ -407,10 +407,6 @@ struct terminal {
         uint32_t bg;
         uint32_t table[256];
         uint16_t alpha;
-
-        uint32_t default_fg;
-        uint32_t default_bg;
-        uint32_t default_table[256];
     } colors;
 
     enum cursor_style cursor_style;

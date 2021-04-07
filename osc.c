@@ -705,8 +705,8 @@ osc_dispatch(struct terminal *term)
             LOG_DBG("resetting all colors");
             for (size_t i = 0; i < ALEN(term->colors.table); i++) {
                 update_color_in_grids(
-                    term, term->colors.table[i], term->colors.default_table[i]);
-                term->colors.table[i] = term->colors.default_table[i];
+                    term, term->colors.table[i], term->conf->colors.table[i]);
+                term->colors.table[i] = term->conf->colors.table[i];
         }
         }
 
@@ -729,8 +729,8 @@ osc_dispatch(struct terminal *term)
 
                 LOG_DBG("resetting color #%u", idx);
                 update_color_in_grids(
-                    term, term->colors.table[idx], term->colors.default_table[idx]);
-                term->colors.table[idx] = term->colors.default_table[idx];
+                    term, term->colors.table[idx], term->conf->colors.table[idx]);
+                term->colors.table[idx] = term->conf->colors.table[idx];
             }
         }
 
@@ -741,14 +741,14 @@ osc_dispatch(struct terminal *term)
         break;
 
     case 110: /* Reset default text foreground color */
-        LOG_DBG("resetting foreground");
-        term->colors.fg = term->colors.default_fg;
+        LOG_DBG("resetting foreground color");
+        term->colors.fg = term->conf->colors.fg;
         term_damage_view(term);
         break;
 
     case 111: /* Reset default text background color */
-        LOG_DBG("resetting background");
-        term->colors.bg = term->colors.default_bg;
+        LOG_DBG("resetting background color");
+        term->colors.bg = term->conf->colors.bg;
         term_damage_view(term);
         term_damage_margins(term);
         break;

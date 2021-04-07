@@ -857,22 +857,22 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
 
     if (strcmp(key, "foreground") == 0)      color = &conf->colors.fg;
     else if (strcmp(key, "background") == 0) color = &conf->colors.bg;
-    else if (strcmp(key, "regular0") == 0)   color = &conf->colors.regular[0];
-    else if (strcmp(key, "regular1") == 0)   color = &conf->colors.regular[1];
-    else if (strcmp(key, "regular2") == 0)   color = &conf->colors.regular[2];
-    else if (strcmp(key, "regular3") == 0)   color = &conf->colors.regular[3];
-    else if (strcmp(key, "regular4") == 0)   color = &conf->colors.regular[4];
-    else if (strcmp(key, "regular5") == 0)   color = &conf->colors.regular[5];
-    else if (strcmp(key, "regular6") == 0)   color = &conf->colors.regular[6];
-    else if (strcmp(key, "regular7") == 0)   color = &conf->colors.regular[7];
-    else if (strcmp(key, "bright0") == 0)    color = &conf->colors.bright[0];
-    else if (strcmp(key, "bright1") == 0)    color = &conf->colors.bright[1];
-    else if (strcmp(key, "bright2") == 0)    color = &conf->colors.bright[2];
-    else if (strcmp(key, "bright3") == 0)    color = &conf->colors.bright[3];
-    else if (strcmp(key, "bright4") == 0)    color = &conf->colors.bright[4];
-    else if (strcmp(key, "bright5") == 0)    color = &conf->colors.bright[5];
-    else if (strcmp(key, "bright6") == 0)    color = &conf->colors.bright[6];
-    else if (strcmp(key, "bright7") == 0)    color = &conf->colors.bright[7];
+    else if (strcmp(key, "regular0") == 0)   color = &conf->colors.table[0];
+    else if (strcmp(key, "regular1") == 0)   color = &conf->colors.table[1];
+    else if (strcmp(key, "regular2") == 0)   color = &conf->colors.table[2];
+    else if (strcmp(key, "regular3") == 0)   color = &conf->colors.table[3];
+    else if (strcmp(key, "regular4") == 0)   color = &conf->colors.table[4];
+    else if (strcmp(key, "regular5") == 0)   color = &conf->colors.table[5];
+    else if (strcmp(key, "regular6") == 0)   color = &conf->colors.table[6];
+    else if (strcmp(key, "regular7") == 0)   color = &conf->colors.table[7];
+    else if (strcmp(key, "bright0") == 0)    color = &conf->colors.table[8 + 0];
+    else if (strcmp(key, "bright1") == 0)    color = &conf->colors.table[8 + 1];
+    else if (strcmp(key, "bright2") == 0)    color = &conf->colors.table[8 + 2];
+    else if (strcmp(key, "bright3") == 0)    color = &conf->colors.table[8 + 3];
+    else if (strcmp(key, "bright4") == 0)    color = &conf->colors.table[8 + 4];
+    else if (strcmp(key, "bright5") == 0)    color = &conf->colors.table[8 + 5];
+    else if (strcmp(key, "bright6") == 0)    color = &conf->colors.table[8 + 6];
+    else if (strcmp(key, "bright7") == 0)    color = &conf->colors.table[8 + 7];
     else if (strcmp(key, "selection-foreground") == 0) color = &conf->colors.selection_fg;
     else if (strcmp(key, "selection-background") == 0) color = &conf->colors.selection_bg;
 
@@ -2211,7 +2211,7 @@ config_load(struct config *conf, const char *conf_path,
         .colors = {
             .fg = default_foreground,
             .bg = default_background,
-            .regular = {
+            .table = {
                 default_regular[0],
                 default_regular[1],
                 default_regular[2],
@@ -2220,8 +2220,7 @@ config_load(struct config *conf, const char *conf_path,
                 default_regular[5],
                 default_regular[6],
                 default_regular[7],
-            },
-            .bright = {
+
                 default_bright[0],
                 default_bright[1],
                 default_bright[2],
@@ -2286,6 +2285,26 @@ config_load(struct config *conf, const char *conf_path,
 
         .notifications = tll_init(),
     };
+
+    /* Initialize the color cube */
+    {
+        /* First 16 entries correspond to the "regular" and "bright"
+         * colors, and have already been initialized */
+
+        /* Then follows 216 RGB shades */
+        for (size_t r = 0; r < 6; r++) {
+            for (size_t g = 0; g < 6; g++) {
+                for (size_t b = 0; b < 6; b++) {
+                    conf->colors.table[16 + r * 6 * 6 + g * 6 + b]
+                        = r * 51 << 16 | g * 51 << 8 | b * 51;
+                }
+            }
+        }
+
+        /* And finally 24 shades of gray */
+        for (size_t i = 0; i < 24; i++)
+            conf->colors.table[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
+    }
 
     conf->notify.raw_cmd = xstrdup(
         "notify-send -a foot -i foot ${title} ${body}");

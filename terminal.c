@@ -544,25 +544,6 @@ fdm_app_sync_updates_timeout(
     return true;
 }
 
-static void
-initialize_color_cube(struct terminal *term)
-{
-    /* First 16 entries have already been initialized from conf */
-    for (size_t r = 0; r < 6; r++) {
-        for (size_t g = 0; g < 6; g++) {
-            for (size_t b = 0; b < 6; b++) {
-                term->colors.default_table[16 + r * 6 * 6 + g * 6 + b]
-                    = r * 51 << 16 | g * 51 << 8 | b * 51;
-            }
-        }
-    }
-
-    for (size_t i = 0; i < 24; i++)
-        term->colors.default_table[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
-
-    memcpy(term->colors.table, term->colors.default_table, sizeof(term->colors.table));
-}
-
 static bool
 initialize_render_workers(struct terminal *term)
 {
@@ -1100,27 +1081,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .colors = {
             .fg = conf->colors.fg,
             .bg = conf->colors.bg,
-            .default_fg = conf->colors.fg,
-            .default_bg = conf->colors.bg,
-            .default_table = {
-                conf->colors.regular[0],
-                conf->colors.regular[1],
-                conf->colors.regular[2],
-                conf->colors.regular[3],
-                conf->colors.regular[4],
-                conf->colors.regular[5],
-                conf->colors.regular[6],
-                conf->colors.regular[7],
-
-                conf->colors.bright[0],
-                conf->colors.bright[1],
-                conf->colors.bright[2],
-                conf->colors.bright[3],
-                conf->colors.bright[4],
-                conf->colors.bright[5],
-                conf->colors.bright[6],
-                conf->colors.bright[7],
-            },
             .alpha = conf->colors.alpha,
         },
         .origin = ORIGIN_ABSOLUTE,
@@ -1215,7 +1175,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             term->scale = it->item.scale;
     }
 
-    initialize_color_cube(term);
+    memcpy(term->colors.table, term->conf->colors.table,
+           sizeof(term->colors.table));
 
     /* Initialize the Wayland window backend */
     if ((term->window = wayl_win_init(term)) == NULL)
@@ -1714,10 +1675,10 @@ term_reset(struct terminal *term, bool hard)
     term->flash.active = false;
     term->blink.state = BLINK_ON;
     fdm_del(term->fdm, term->blink.fd); term->blink.fd = -1;
-    term->colors.fg = term->colors.default_fg;
-    term->colors.bg = term->colors.default_bg;
-    for (size_t i = 0; i < 256; i++)
-        term->colors.table[i] = term->colors.default_table[i];
+    term->colors.fg = term->conf->colors.fg;
+    term->colors.bg = term->conf->colors.bg;
+    memcpy(term->colors.table, term->conf->colors.table,
+           sizeof(term->colors.table));
     term->origin = ORIGIN_ABSOLUTE;
     term->normal.cursor.lcf = false;
     term->alt.cursor.lcf = false;
