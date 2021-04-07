@@ -824,6 +824,7 @@ osc_dispatch(struct terminal *term)
     case 111: /* Reset default text background color */
         LOG_DBG("resetting background color");
         term->colors.bg = term->conf->colors.bg;
+        term->colors.alpha = term->conf->colors.alpha;
         term_damage_view(term);
         term_damage_margins(term);
         break;
