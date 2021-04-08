@@ -50,6 +50,8 @@
   reason pywal turned foot windows transparent
   (https://codeberg.org/dnkl/foot/issues/434).
 * PTY not being drained when the client application terminates.
+* `auto_left_margin` not being limited to `cub1`
+  (https://codeberg.org/dnkl/foot/issues/441).
 
 
 ### Security
