@@ -1988,44 +1988,9 @@ term_cursor_home(struct terminal *term)
 void
 term_cursor_left(struct terminal *term, int count)
 {
-    xassert(count >= 0);
-    int new_col = term->grid->cursor.point.col - count;
-
-    /* Reverse wrap */
-    if (unlikely(new_col < 0)) {
-        if (likely(term->reverse_wrap && term->auto_margin)) {
-
-            /* Number of rows to reverse wrap through */
-            int row_count = (abs(new_col) - 1) / term->cols + 1;
-
-            /* Row number cursor will end up on */
-            int new_row_no = term->grid->cursor.point.row - row_count;
-
-            /* New column number */
-            new_col = term->cols - ((abs(new_col) - 1) % term->cols + 1);
-            xassert(new_col >= 0 && new_col < term->cols);
-
-            /* Don't back up past the scroll region */
-            /* TODO: should this be allowed? */
-            if (new_row_no < term->scroll_region.start) {
-                new_row_no = term->scroll_region.start;
-                new_col = 0;
-            }
-
-            struct row *new_row = grid_row(term->grid, new_row_no);
-            term->grid->cursor.point.col = new_col;
-            term->grid->cursor.point.row = new_row_no;
-            term->grid->cursor.lcf = false;
-            term->grid->cur_row = new_row;
-            return;
-        }
-
-        /* Reverse wrap disabled - don't let cursor move past first column */
-        new_col = 0;
-    }
-
-    xassert(new_col >= 0);
-    term->grid->cursor.point.col = new_col;
+    int move_amount = min(term->grid->cursor.point.col, count);
+    term->grid->cursor.point.col -= move_amount;
+    xassert(term->grid->cursor.point.col >= 0);
     term->grid->cursor.lcf = false;
 }
 
