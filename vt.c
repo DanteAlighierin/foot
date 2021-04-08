@@ -142,8 +142,21 @@ action_execute(struct terminal *term, uint8_t c)
 #else
         if (term->grid->cursor.lcf)
             term->grid->cursor.lcf = false;
-        else
-            term_cursor_left(term, 1);
+        else {
+            /* Reverse wrap */
+            if (unlikely(term->grid->cursor.point.col == 0) &&
+                likely(term->reverse_wrap && term->auto_margin))
+            {
+                if (term->grid->cursor.point.row <= term->scroll_region.start) {
+                    /* Don’t wrap past, or inside, the scrolling region(?) */
+                } else
+                    term_cursor_to(
+                        term,
+                        term->grid->cursor.point.row - 1,
+                        term->cols - 1);
+            } else
+                term_cursor_left(term, 1);
+        }
 #endif
         break;
 
