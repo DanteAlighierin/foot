@@ -261,8 +261,29 @@ osc_flash(struct terminal *term)
 }
 
 static bool
-parse_legacy_color(const char *string, uint32_t *color)
+parse_legacy_color(const char *string, uint32_t *color, bool *_have_alpha,
+                   uint16_t *_alpha)
 {
+    bool have_alpha = false;
+    uint16_t alpha = 0xffff;
+
+    if (string[0] == '[') {
+        /* e.g. \E]11;[50]#00ff00 */
+        const char *start = &string[1];
+
+        errno = 0;
+        char *end;
+        unsigned long percent = strtoul(start, &end, 10);
+
+        if (errno != 0 || *end != ']')
+            return false;
+
+        have_alpha = true;
+        alpha = (0xffff * min(percent, 100) + 50) / 100;
+
+        string = end + 1;
+    }
+
     if (string[0] != '#')
         return false;
 
@@ -299,31 +320,53 @@ parse_legacy_color(const char *string, uint32_t *color)
     uint8_t g = 256 * (rgb[1] / 65536.);
     uint8_t b = 256 * (rgb[2] / 65536.);
 
-    LOG_DBG("legacy: %02x%02x%02x", r, g, b);
+    LOG_DBG("legacy: %02x%02x%02x (alpha=%04x)", r, g, b,
+            have_alpha ? alpha : 0xffff);
+
     *color = r << 16 | g << 8 | b;
+
+    if (_have_alpha != NULL)
+        *_have_alpha = have_alpha;
+    if (_alpha != NULL)
+        *_alpha = alpha;
     return true;
 }
 
 static bool
-parse_rgb(const char *string, uint32_t *color)
+parse_rgb(const char *string, uint32_t *color, bool *_have_alpha,
+          uint16_t *_alpha)
 {
     size_t len = strlen(string);
+    bool have_alpha = len >= 4 && strncmp(string, "rgba", 4) == 0;
 
-    /* Verify we have the minimum required length (for "rgb:x/x/x") */
-    if (len < 3 /* 'rgb' */ + 1 /* ':' */ + 2 /* '/' */ + 3 * 1 /* 3 * 'x' */)
-        return false;
+    /* Verify we have the minimum required length (for "") */
+    if (have_alpha) {
+        /* rgba:x/x/x/x */
+        if (len < 4 /* 'rgba' */ + 1 /* ':' */ + 3 /* '/' */ + 4 * 1 /* 4 * 'x' */)
+            return false;
+    } else {
+        /* rgb:x/x/x */
+        if (len < 3 /* 'rgb' */ + 1 /* ':' */ + 2 /* '/' */ + 3 * 1 /* 3 * 'x' */)
+            return false;
+    }
 
-    /* Verify prefix is "rgb:" */
-    if (string[0] != 'r' || string[1] != 'g' || string[2] != 'b' || string[3] != ':')
-        return false;
+    /* Verify prefix is “rgb:” or “rgba:” */
+    if (have_alpha) {
+        if (strncmp(string, "rgba:", 5) != 0)
+            return false;
+        string += 5;
+        len -= 5;
+    } else {
+        if (strncmp(string, "rgb:", 4) != 0)
+            return false;
+        string += 4;
+        len -= 4;
+    }
 
-    string += 4;
-    len -= 4;
+    int rgb[4];
+    int digits[4];
 
-    int rgb[3];
-    int digits[3];
-
-    for (size_t i = 0; i < 3; i++) {
+    for (size_t i = 0; i < (have_alpha ? 4 : 3); i++) {
         for (rgb[i] = 0, digits[i] = 0;
              len > 0 && *string != '/';
              len--, string++, digits[i]++)
@@ -338,7 +381,7 @@ parse_rgb(const char *string, uint32_t *color)
                     c >= 'a' && c <= 'f' ? c - 'a' + 10 : c - 'A' + 10;
         }
 
-        if (i >= 2)
+        if (i >= (have_alpha ? 3 : 2))
             break;
 
         if (len == 0 || *string != '/')
@@ -351,7 +394,20 @@ parse_rgb(const char *string, uint32_t *color)
     uint8_t g = 256 * (rgb[1] / (double)(1 << (4 * digits[1])));
     uint8_t b = 256 * (rgb[2] / (double)(1 << (4 * digits[2])));
 
-    LOG_DBG("rgb: %02x%02x%02x", r, g, b);
+    uint16_t alpha = 0xffff;
+    if (have_alpha)
+        alpha = 65536 * (rgb[3] / (double)(1 << (4 * digits[3])));
+
+    if (have_alpha)
+        LOG_DBG("rgba: %02x%02x%02x (alpha=%04x)", r, g, b, alpha);
+    else
+        LOG_DBG("rgb: %02x%02x%02x", r, g, b);
+
+    if (_have_alpha != NULL)
+        *_have_alpha = have_alpha;
+    if (_alpha != NULL)
+        *_alpha = alpha;
+
     *color = r << 16 | g << 8 | b;
     return true;
 }
@@ -595,9 +651,9 @@ osc_dispatch(struct terminal *term)
 
             else {
                 uint32_t color;
-                bool color_is_valid = s_color[0] == '#'
-                    ? parse_legacy_color(s_color, &color)
-                    : parse_rgb(s_color, &color);
+                bool color_is_valid = s_color[0] == '#' || s_color[0] == '['
+                    ? parse_legacy_color(s_color, &color, NULL, NULL)
+                    : parse_rgb(s_color, &color, NULL, NULL);
 
                 if (!color_is_valid)
                     continue;
@@ -647,15 +703,29 @@ osc_dispatch(struct terminal *term)
         }
 
         uint32_t color;
-        if (string[0] == '#' ? !parse_legacy_color(string, &color) : !parse_rgb(string, &color))
+        bool have_alpha = false;
+        uint16_t alpha = 0xffff;
+
+        if (string[0] == '#' || string[0] == '['
+            ? !parse_legacy_color(string, &color, &have_alpha, &alpha)
+            : !parse_rgb(string, &color, &have_alpha, &alpha))
+        {
             break;
+        }
 
         LOG_DBG("change color definition for %s to %06x",
                 param == 10 ? "foreground" : "background", color);
 
         switch (param) {
-        case 10: term->colors.fg = color; break;
-        case 11: term->colors.bg = color; break;
+        case 10:
+            term->colors.fg = color;
+            break;
+
+        case 11:
+            term->colors.bg = color;
+            if (have_alpha)
+                term->colors.alpha = alpha;
+            break;
         }
 
         term_damage_view(term);
@@ -678,8 +748,13 @@ osc_dispatch(struct terminal *term)
         }
 
         uint32_t color;
-        if (string[0] == '#' ? !parse_legacy_color(string, &color) : !parse_rgb(string, &color))
+
+        if (string[0] == '#' || string[0] == '['
+            ? !parse_legacy_color(string, &color, NULL, NULL)
+            : !parse_rgb(string, &color, NULL, NULL))
+        {
             break;
+        }
 
         LOG_DBG("change cursor color to %06x", color);
 
@@ -749,6 +824,7 @@ osc_dispatch(struct terminal *term)
     case 111: /* Reset default text background color */
         LOG_DBG("resetting background color");
         term->colors.bg = term->conf->colors.bg;
+        term->colors.alpha = term->conf->colors.alpha;
         term_damage_view(term);
         term_damage_margins(term);
         break;

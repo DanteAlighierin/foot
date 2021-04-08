@@ -583,7 +583,9 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 |  \\E] 11 ; _spec_ \\E\\ 
 :  xterm
 :  Change the default background color to _spec_, a color in
-   *XParseColor* format.
+   XParseColor format. Foot implements URxvt's transparency extension;
+   e.g. _spec_=*[75]#ff00ff* or _spec_=*rgba:ff/00/ff/bf* (pink with
+   75% alpha).
 |  \\E] 12 ; _spec_ \\E\\ 
 :  xterm
 :  Change cursor color to _spec_, a color in *XParseColor* format.
