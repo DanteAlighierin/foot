@@ -564,7 +564,7 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 |  \\E] 4 ; _c_ ; _spec_ \\E\\ 
 :  xterm
 :  Change color number _c_ to _spec_, where _spec_ is a color in
-   *XParseColor* format. foot only supports RGB colors; either
+   XParseColor format. foot only supports RGB colors; either
    *rgb:<red>/<green>/<blue>*, or the legacy format (*#rgb*).
 |  \\E] 7 ; _Uri_ \\E\\ 
 :  iTerm2
@@ -579,7 +579,7 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 |  \\E] 10 ; _spec_ \\E\\ 
 :  xterm
 :  Change the default foreground color to _spec_, a color in
-   *XParseColor* format.
+   XParseColor format.
 |  \\E] 11 ; _spec_ \\E\\ 
 :  xterm
 :  Change the default background color to _spec_, a color in
@@ -588,21 +588,30 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
    75% alpha).
 |  \\E] 12 ; _spec_ \\E\\ 
 :  xterm
-:  Change cursor color to _spec_, a color in *XParseColor* format.
+:  Change cursor color to _spec_, a color in XParseColor format.
+|  \\E] 17 ; _spec_ \\E\\ 
+:  xterm
+:  Change selection background color to _spec_, a color in
+   XParseColor format.
+|  \\E] 19 ; _spec_ \\E\\ 
+:  xterm
+:  Change selection foreground color to _spec_, a color in XParseColor
+   format.
 |  \\E] 52 ; _Pc_ ; ? \\E\\ 
 :  xterm
 :  Send clipboard data. _Pc_ can be either *c*, *s* or *p*. *c* uses
    the clipboard as source, and *s* and *p* uses the primary
    selection. The response is *OSC 52 ; Pc ; <base64-encoded data>*,
-   where _Pc_ indicates the source used.
+   where _Pc_ denotes the source used.
 |  \\E] 52 ; _Pc_ ; _Pd_ \\E\\ 
 :  xterm
-:  Copy _Pd_ (base64 encoded text) to the clipboard. _Pc_ indicates the
+:  Copy _Pd_ (base64 encoded text) to the clipboard. _Pc_ denotes the
    target: *c* targets the clipboard and *s* and *p* the primary
    selection.
-|  \\E] 104 [; _c_] \\E\\ 
+|  \\E] 104 ; _c_ \\E\\ 
 :  xterm
-:  Reset color number _c_, or all colors (excluding the default
+:  Reset color number _c_ (multiple semicolon separated _c_ values may
+   be provided), or all colors (excluding the default
    foreground/background colors) if _c_ is omitted.
 |  \\E] 110 \\E\\ 
 :  xterm
@@ -613,6 +622,12 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 |  \\E] 112 \\E\\ 
 :  xterm
 :  Reset cursor color
+|  \\E] 117 \\E\\ 
+:  xterm
+:  Reset selection background color
+|  \\E] 119 \\E\\ 
+:  xterm
+:  Reset selection foreground color
 |  \\E] 555 \\E\\ 
 :  foot
 :  Flash the entire terminal (foot extension)
