@@ -30,8 +30,8 @@
 
 * URxvt OSC-11 extension to set background alpha
   (https://codeberg.org/dnkl/foot/issues/436).
-* OSC 17+19 - change selection background/foreground color.
-* OSC 117+119 - reset selection background/foreground color.
+* OSC 17/117/19/119 - change/reset selection background/foreground
+  color.
 
 
 ### Changed
