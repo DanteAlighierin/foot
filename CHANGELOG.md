@@ -35,6 +35,11 @@
 
 
 ### Changed
+
+* Underline cursor is now rendered below text underline
+  (https://codeberg.org/dnkl/foot/issues/415).
+
+
 ### Deprecated
 ### Removed
 ### Fixed
