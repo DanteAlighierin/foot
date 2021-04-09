@@ -32,6 +32,8 @@
   (https://codeberg.org/dnkl/foot/issues/436).
 * OSC 17/117/19/119 - change/reset selection background/foreground
   color.
+* `box-drawings-uses-font-glyphs=yes|no` option to `foot.ini`
+  (https://codeberg.org/dnkl/foot/issues/430).
 
 
 ### Changed

@@ -465,7 +465,9 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         }
 
         if (unlikely((base >= 0x2500 && base <= 0x259f) ||
-                     (base >= 0x1fb00 && base <= 0x1fb3b))) {
+                     (base >= 0x1fb00 && base <= 0x1fb3b)) &&
+            likely(!term->conf->box_drawings_uses_font_glyphs))
+        {
             /* Box drawing characters */
             size_t idx = base >= 0x1fb00 ? base - 0x1fb00 + 160 : base - 0x2500;
             xassert(idx < ALEN(term->box_drawing));
