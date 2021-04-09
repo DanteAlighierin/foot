@@ -101,7 +101,7 @@ in this order:
 	itself. The are several advantages to doing this instead of using
 	font glyphs:
 	
-		- No antaliasing effects where e.g. line endpoints appear dimmer.
+		- No antialiasing effects where e.g. line endpoints appear dimmer.
 		- Line- and box characters are guaranteed to span the entire cell,
 		  resulting in a gap-less appearance.
 		- No alignment issues, i.e. lines are centered when they should be.
