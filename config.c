@@ -770,6 +770,9 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         }
     }
 
+    else if (strcmp(key, "box-drawings-uses-font-glyphs") == 0)
+        conf->box_drawings_uses_font_glyphs = str_to_bool(value);
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [default]: %s: invalid key", path, lineno, key);
         return false;
@@ -2198,6 +2201,7 @@ config_load(struct config *conf, const char *conf_path,
         .letter_spacing = { .pt = 0, .px = 0, },
         .horizontal_letter_offset = {.pt = 0, .px = 0, },
         .vertical_letter_offset = {.pt = 0, .px = 0, },
+        .box_drawings_uses_font_glyphs = false,
         .dpi_aware = DPI_AWARE_AUTO, /* DPI-aware when scaling-factor == 1 */
         .scrollback = {
             .lines = 1000,
