@@ -2632,6 +2632,26 @@ render_urls(struct terminal *term)
             continue;
         }
 
+        int col = pos->col;
+        int row = pos->row - term->grid->view;
+        while (row < 0)
+            row += term->grid->num_rows;
+        row &= (term->grid->num_rows - 1);
+
+        /* Position label slightly above and to the left */
+        int x = col * term->cell_width - 15 * term->cell_width / 10;
+        int y = row * term->cell_height - 5 * term->cell_height / 10;
+
+        /* Don’t position it outside our window */
+        if (x < -term->margins.left)
+            x = -term->margins.left;
+        if (y < -term->margins.top)
+            y = -term->margins.top;
+
+        /* Maximum width of label, in pixels */
+        const int max_width =
+            term->width - term->margins.left - term->margins.right - x;
+
         const size_t key_len = wcslen(key);
 
         size_t url_len = mbstowcs(NULL, url->url, 0);
@@ -2641,32 +2661,59 @@ render_urls(struct terminal *term)
         wchar_t url_wchars[url_len + 1];
         mbstowcs(url_wchars, url->url, url_len + 1);
 
+        /* Format label, not yet subject to any size limitations */
         size_t chars = key_len + (show_url ? (2 + url_len) : 0);
-
-        const size_t max_chars = 50;
-        chars = min(chars, max_chars);
-
-        wchar_t label[chars + 2];
-        label[chars] = L'…';
-        label[chars + 1] = L'\0';
+        wchar_t label[chars + 1];
+        label[chars] = L'\0';
 
         if (show_url)
             swprintf(label, chars + 1, L"%ls: %ls", key, url_wchars);
         else
-            wcsncpy(label, key, chars + 1);
+            wcsncpy(label, key, chars);
 
+        /* Upper case the key characters */
         for (size_t i = 0; i < wcslen(key); i++)
             label[i] = towupper(label[i]);
 
+        /* Blank already entered key characters */
         for (size_t i = 0; i < entered_key_len; i++)
             label[i] = L' ';
 
-        size_t len = wcslen(label);
-        int cols = wcswidth(label, len);
-
+        /*
+         * Don’t extend outside our window
+         *
+         * Truncate label so that it doesn’t extend outside our
+         * window.
+         *
+         * Do it in a way such that we don’t cut the label in the
+         * middle of a double-width character.
+         */
         const int scale = term->scale;
         const int x_margin = 2 * scale;
         const int y_margin = 1 * scale;
+        const int max_cols = max_width / term->cell_width;
+
+        int cols = 0;
+
+        for (size_t i = 0; i <= wcslen(label); i++) {
+            int _cols = wcswidth(label, i);
+
+            if (_cols == (size_t)-1)
+                continue;
+
+            if (_cols >= max_cols) {
+                if (i > 0)
+                    label[i - 1] = L'…';
+                label[i] = L'\0';
+                cols = max_cols;
+                break;
+            }
+            cols = _cols;
+        }
+
+        if (cols == 0)
+            continue;
+
         const int width =
             (2 * x_margin + cols * term->cell_width + scale - 1) / scale * scale;
         const int height =
@@ -2674,22 +2721,6 @@ render_urls(struct terminal *term)
 
         struct buffer *buf = shm_get_buffer(
             term->wl->shm, width, height, shm_cookie_url(url), false, 1);
-
-        int col = pos->col;
-        int row = pos->row - term->grid->view;
-        while (row < 0)
-            row += term->grid->num_rows;
-        row &= (term->grid->num_rows - 1);
-
-        int x = col * term->cell_width - 15 * term->cell_width / 10;
-        int y = row * term->cell_height - 5 * term->cell_height / 10;
-
-        if (x < 0)
-            x = 0;
-#if 0
-        if (y < 0)
-            y += 15 * term->cell_height / 10;
-#endif
 
         wl_subsurface_set_position(
             sub_surf,
