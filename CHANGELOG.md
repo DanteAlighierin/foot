@@ -40,6 +40,8 @@
 
 * Underline cursor is now rendered below text underline
   (https://codeberg.org/dnkl/foot/issues/415).
+* Foot now tries much harder to keep URL jump labels inside the window
+  geometry (https://codeberg.org/dnkl/foot/issues/443).
 
 
 ### Deprecated
