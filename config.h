@@ -99,6 +99,8 @@ struct config {
     struct pt_or_px horizontal_letter_offset;
     struct pt_or_px vertical_letter_offset;
 
+    bool box_drawings_uses_font_glyphs;
+
     struct {
         int lines;
 
