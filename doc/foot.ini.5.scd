@@ -101,13 +101,14 @@ in this order:
 	itself. The are several advantages to doing this instead of using
 	font glyphs:
 	
-		- No antialiasing effects where e.g. line endpoints appear dimmer.
+		- No antialiasing effects where e.g. line endpoints appear
+		  dimmed down, or blurred.
 		- Line- and box characters are guaranteed to span the entire cell,
 		  resulting in a gap-less appearance.
 		- No alignment issues, i.e. lines are centered when they should be.
 		- Many fonts lack some, or all, of the line- and box drawing
 		  characters, causing fallback fonts to be used, which results
-		  in out-of-place (for example, badly sized) looking glyphs.
+		  in out-of-place looking glyphs (for example, badly sized).
 	
 	When enabled, box/line drawing characters are rendered using font
 	glyphs. This may result in a more uniform look, in some use cases.
