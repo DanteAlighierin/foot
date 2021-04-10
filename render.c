@@ -387,9 +387,10 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
         if (likely(term->cursor_blink.state == CURSOR_BLINK_ON ||
                    !term->kbd_focus))
         {
+            struct fcft_font *font = attrs_to_font(term, &cell->attrs);
             draw_underline(
-                term, pix, attrs_to_font(term, &cell->attrs), &cursor_color,
-                x, y, cols);
+                term, pix, font, &cursor_color,
+                x, y + font->underline.thickness, cols);
         }
         break;
     }
