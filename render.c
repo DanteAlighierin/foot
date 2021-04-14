@@ -935,7 +935,7 @@ render_sixel_chunk(struct terminal *term, pixman_image_t *pix, const struct sixe
     //LOG_DBG("sixel chunk: %dx%d %dx%d", x, y, width, height);
 
     pixman_image_composite32(
-        PIXMAN_OP_OVER,
+        sixel->opaque ? PIXMAN_OP_SRC : PIXMAN_OP_OVER,
         sixel->pix,
         NULL,
         pix,
