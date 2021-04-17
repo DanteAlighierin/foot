@@ -200,8 +200,16 @@ in this order:
 	apply window management rules. Default: _foot_.
 
 *bold-text-in-bright*
-	Boolean. When enabled, bold text is rendered in a brighter color
-	(in addition to using a bold font). Default: _no_.
+	Semi-boolean. When enabled, bold text is rendered in a brighter
+	color (in addition to using a bold font). The color is brightened
+	by increasing its luminance.
+	
+	If set to *palette-based*, rather than a simple *yes|true*, colors
+	matching one of the 8 regular palette colors will be brightened
+	using the corresponding bright palette color. Other colors will be
+	brightened by increasing the luminance.
+	
+	Default: _no_.
 
 *bell*
 	Action to perform when receiving a *BEL* character. Can be set to

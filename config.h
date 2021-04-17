@@ -79,7 +79,11 @@ struct config {
     bool center;
     uint16_t resize_delay_ms;
 
-    bool bold_in_bright;
+    struct {
+        bool enabled;
+        bool palette_based;
+    } bold_in_bright;
+
     enum {
         BELL_ACTION_NONE,
         BELL_ACTION_URGENT,

@@ -258,9 +258,11 @@ color_brighten(const struct terminal *term, uint32_t color)
      * First try to match the color against the base 8 colors. If we
      * find a match, return the corresponding bright color.
      */
-    for (size_t i = 0; i < 8; i++) {
-        if (term->colors.table[i] == color)
-            return term->colors.table[i + 8];
+    if (term->conf->bold_in_bright.palette_based) {
+        for (size_t i = 0; i < 8; i++) {
+            if (term->colors.table[i] == color)
+                return term->colors.table[i + 8];
+        }
     }
 
     int hue, sat, lum;
@@ -443,7 +445,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     if (cell->attrs.dim)
         _fg = color_dim(_fg);
-    if (term->conf->bold_in_bright && cell->attrs.bold)
+    if (term->conf->bold_in_bright.enabled && cell->attrs.bold)
         _fg = color_brighten(term, _fg);
 
     if (cell->attrs.blink && term->blink.state == BLINK_OFF)
