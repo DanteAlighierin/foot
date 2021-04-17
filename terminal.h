@@ -26,25 +26,25 @@
  * Note that the members are laid out optimized for x86
  */
 struct attributes {
-    uint32_t bold:1;
-    uint32_t dim:1;
-    uint32_t italic:1;
-    uint32_t underline:1;
-    uint32_t strikethrough:1;
-    uint32_t blink:1;
-    uint32_t conceal:1;
-    uint32_t reverse:1;
+    bool bold:1;
+    bool dim:1;
+    bool italic:1;
+    bool underline:1;
+    bool strikethrough:1;
+    bool blink:1;
+    bool conceal:1;
+    bool reverse:1;
     uint32_t fg:24;
 
-    uint32_t clean:1;
-    uint32_t have_fg:1;
-    uint32_t have_bg:1;
+    bool clean:1;
+    bool have_fg:1;
+    bool have_bg:1;
     uint32_t selected:2;
-    uint32_t url:1;
+    bool url:1;
     uint32_t reserved:2;
     uint32_t bg:24;
 };
-static_assert(sizeof(struct attributes) == 8, "bad size");
+static_assert(sizeof(struct attributes) == 8, "VT attribute struct too large");
 
 #define CELL_COMB_CHARS_LO    0x40000000ul
 #define CELL_COMB_CHARS_HI    0x400ffffful
