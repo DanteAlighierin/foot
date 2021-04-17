@@ -371,6 +371,10 @@ main(int argc, char *const *argv)
     log_init(log_colorize, as_server && log_syslog,
              as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER, log_level);
 
+    _Static_assert(LOG_CLASS_ERROR + 1 == FCFT_LOG_CLASS_ERROR,
+                   "fixme: fcft log level enum offset");
+    fcft_log_init(log_colorize, as_server && log_syslog, log_level + 1);
+
     argc -= optind;
     argv += optind;
 
