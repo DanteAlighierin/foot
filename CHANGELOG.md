@@ -71,6 +71,8 @@
 ### Security
 ### Contributors
 
+* [cglogic](https://codeberg.org/cglogic)
+
 
 ## 1.7.1
 
