@@ -247,6 +247,11 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
 
             LOG_ERRNO("failed to read from pseudo terminal");
             return false;
+        } else if (count == 0) {
+            /*
+             * Reached end-of-file
+             */
+            break;
         }
 
         vt_from_slave(term, buf, count);
