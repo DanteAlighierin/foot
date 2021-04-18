@@ -42,6 +42,11 @@
   (https://codeberg.org/dnkl/foot/issues/415).
 * Foot now tries much harder to keep URL jump labels inside the window
   geometry (https://codeberg.org/dnkl/foot/issues/443).
+* `bold-text-in-bright` may now be set to `palette-based`, in which
+  case it will use the corresponding bright palette color when the
+  color to brighten matches one of the base 8 colors, instead of
+  increasing the luminance
+  (https://codeberg.org/dnkl/foot/issues/449).
 
 
 ### Deprecated

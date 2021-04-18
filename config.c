@@ -583,8 +583,15 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->resize_delay_ms = ms;
     }
 
-    else if (strcmp(key, "bold-text-in-bright") == 0)
-        conf->bold_in_bright = str_to_bool(value);
+    else if (strcmp(key, "bold-text-in-bright") == 0) {
+        if (strcmp(value, "palette-based") == 0) {
+            conf->bold_in_bright.enabled = true;
+            conf->bold_in_bright.palette_based = true;
+        } else {
+            conf->bold_in_bright.enabled = str_to_bool(value);
+            conf->bold_in_bright.palette_based = false;
+        }
+    }
 
     else if (strcmp(key, "bell") == 0) {
         if (strcmp(value, "set-urgency") == 0)
@@ -2193,7 +2200,10 @@ config_load(struct config *conf, const char *conf_path,
         .pad_x = 2,
         .pad_y = 2,
         .resize_delay_ms = 100,
-        .bold_in_bright = false,
+        .bold_in_bright = {
+            .enabled = false,
+            .palette_based = false,
+        },
         .bell_action = BELL_ACTION_NONE,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
