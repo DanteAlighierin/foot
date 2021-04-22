@@ -38,35 +38,36 @@ def main():
     opts = parser.parse_args()
     out = opts.out if opts.out is not None else sys.stdout
 
-    try:
-        def dummy(*args):
-            """Need a handler installed for sigwait() to trigger."""
-            pass
-        signal.signal(signal.SIGWINCH, dummy)
+    if opts.rows is None or opts.cols is None:
+        try:
+            def dummy(*args):
+                """Need a handler installed for sigwait() to trigger."""
+                pass
+            signal.signal(signal.SIGWINCH, dummy)
 
-        while True:
-            with open('/dev/tty', 'rb') as pty:
-                lines, cols, height, width = struct.unpack(
-                    'HHHH',
-                    fcntl.ioctl(pty,
-                                termios.TIOCGWINSZ,
-                                struct.pack('HHHH', 0, 0, 0, 0)))
+            while True:
+                with open('/dev/tty', 'rb') as pty:
+                    lines, cols, height, width = struct.unpack(
+                        'HHHH',
+                        fcntl.ioctl(pty,
+                                    termios.TIOCGWINSZ,
+                                    struct.pack('HHHH', 0, 0, 0, 0)))
 
-            if width > 0 and height > 0:
-                break
+                if width > 0 and height > 0:
+                    break
 
-            # We’re early; the foot window hasn’t been mapped yet. Or,
-            # to be more precise, fonts haven’t yet been loaded,
-            # meaning it doesn’t have any cell geometry yet.
-            signal.sigwait([signal.SIGWINCH])
+                # We’re early; the foot window hasn’t been mapped yet. Or,
+                # to be more precise, fonts haven’t yet been loaded,
+                # meaning it doesn’t have any cell geometry yet.
+                signal.sigwait([signal.SIGWINCH])
 
-        signal.signal(signal.SIGWINCH, signal.SIG_DFL)
+            signal.signal(signal.SIGWINCH, signal.SIG_DFL)
 
-    except OSError:
-        lines = None
-        cols = None
-        height = None
-        width = None
+        except OSError:
+            lines = None
+            cols = None
+            height = None
+            width = None
 
     if opts.rows is not None:
         lines = opts.rows
