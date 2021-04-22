@@ -397,7 +397,7 @@ You can instead use the escape sequences to read the _Secondary_ and
 _Tertiary Device Attributes_ (secondary/tertiary DA, for short).
 
 The tertiary DA response is always `\EP!|464f4f54\E\\`, where
-`464f4f54` if `FOOT` in hex.
+`464f4f54` is `FOOT` in hex.
 
 The secondary DA response is `\E[>1;XXYYZZ;0c`, where `XXYYZZ` is
 foot's major, minor and patch version numbers, in decimal, using two
