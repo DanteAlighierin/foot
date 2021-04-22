@@ -2,8 +2,9 @@
 import argparse
 import enum
 import fcntl
-import struct
 import random
+import signal
+import struct
 import sys
 import termios
 
@@ -38,11 +39,28 @@ def main():
     out = opts.out if opts.out is not None else sys.stdout
 
     try:
-        lines, cols, height, width = struct.unpack(
-            'HHHH',
-            fcntl.ioctl(sys.stdout.fileno(),
-                        termios.TIOCGWINSZ,
-                        struct.pack('HHHH', 0, 0, 0, 0)))
+        def dummy(*args):
+            """Need a handler installed for sigwait() to trigger."""
+            pass
+        signal.signal(signal.SIGWINCH, dummy)
+
+        while True:
+            lines, cols, height, width = struct.unpack(
+                'HHHH',
+                fcntl.ioctl(sys.stdout.fileno(),
+                            termios.TIOCGWINSZ,
+                            struct.pack('HHHH', 0, 0, 0, 0)))
+
+            if width > 0 and height > 0:
+                break
+
+            # We’re early; the foot window hasn’t been mapped yet. Or,
+            # to be more precise, fonts haven’t yet been loaded,
+            # meaning it doesn’t have any cell geometry yet.
+            signal.sigwait([signal.SIGWINCH])
+
+        signal.signal(signal.SIGWINCH, signal.SIG_DFL)
+
     except OSError:
         lines = None
         cols = None
