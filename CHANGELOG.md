@@ -29,9 +29,19 @@
 ## Unreleased
 ### Added
 ### Changed
+
+* `generate-alt-random-writes.py --sixel`: width and height of emitted
+  sixels has been adjusted.
+
+
 ### Deprecated
 ### Removed
 ### Fixed
+
+* `generate-alt-random-writes.py --sixel` sometimes crashing,
+  resulting in PGO build failures.
+
+
 ### Security
 ### Contributors
 
