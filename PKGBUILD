@@ -48,6 +48,11 @@ build() {
     meson configure -Db_pgo=generate
     ninja
 
+    # If fcft/tllist are subprojects, we need to ensure their tests
+    # have been executed, or we’ll get “profile count data file not
+    # found” errors.
+    ninja test
+
     local script_options="--scroll --scroll-region --colors-regular --colors-bright --colors-256 --colors-rgb --attr-bold --attr-italic --attr-underline --sixel"
 
     tmp_file=$(mktemp)
