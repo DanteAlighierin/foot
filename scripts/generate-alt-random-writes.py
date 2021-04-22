@@ -59,6 +59,11 @@ def main():
     if lines is None or cols is None or height is None or width is None:
         raise Exception('could not get terminal width/height; use --rows and --cols')
 
+    assert lines > 0, f'{lines}'
+    assert cols > 0, f'{cols}'
+    assert width > 0, f'{width}'
+    assert height > 0, f'{height}'
+
     # Number of characters to write to screen
     count = 256 * 1024**1
 
