@@ -176,7 +176,7 @@ def main():
             else:
                 # Random origin in upper left quadrant
                 last_pos = random.randrange(lines // 2) + 1, random.randrange(cols // 2) + 1
-                last_size = random.randrange(height // 2), random.randrange(width // 2)
+                last_size = random.randrange((height + 1) // 2), random.randrange((width + 1) // 2)
 
             out.write(f'\033[{last_pos[0]};{last_pos[1]}H')
             six_height, six_width = last_size
