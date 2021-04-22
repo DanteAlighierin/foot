@@ -2,8 +2,9 @@
 import argparse
 import enum
 import fcntl
-import struct
 import random
+import signal
+import struct
 import sys
 import termios
 
@@ -37,17 +38,36 @@ def main():
     opts = parser.parse_args()
     out = opts.out if opts.out is not None else sys.stdout
 
-    try:
-        lines, cols, height, width = struct.unpack(
-            'HHHH',
-            fcntl.ioctl(sys.stdout.fileno(),
-                        termios.TIOCGWINSZ,
-                        struct.pack('HHHH', 0, 0, 0, 0)))
-    except OSError:
-        lines = None
-        cols = None
-        height = None
-        width = None
+    if opts.rows is None or opts.cols is None:
+        try:
+            def dummy(*args):
+                """Need a handler installed for sigwait() to trigger."""
+                pass
+            signal.signal(signal.SIGWINCH, dummy)
+
+            while True:
+                with open('/dev/tty', 'rb') as pty:
+                    lines, cols, height, width = struct.unpack(
+                        'HHHH',
+                        fcntl.ioctl(pty,
+                                    termios.TIOCGWINSZ,
+                                    struct.pack('HHHH', 0, 0, 0, 0)))
+
+                if width > 0 and height > 0:
+                    break
+
+                # We’re early; the foot window hasn’t been mapped yet. Or,
+                # to be more precise, fonts haven’t yet been loaded,
+                # meaning it doesn’t have any cell geometry yet.
+                signal.sigwait([signal.SIGWINCH])
+
+            signal.signal(signal.SIGWINCH, signal.SIG_DFL)
+
+        except OSError:
+            lines = None
+            cols = None
+            height = None
+            width = None
 
     if opts.rows is not None:
         lines = opts.rows
@@ -58,6 +78,11 @@ def main():
 
     if lines is None or cols is None or height is None or width is None:
         raise Exception('could not get terminal width/height; use --rows and --cols')
+
+    assert lines > 0, f'{lines}'
+    assert cols > 0, f'{cols}'
+    assert width > 0, f'{width}'
+    assert height > 0, f'{height}'
 
     # Number of characters to write to screen
     count = 256 * 1024**1
@@ -176,7 +201,7 @@ def main():
             else:
                 # Random origin in upper left quadrant
                 last_pos = random.randrange(lines // 2) + 1, random.randrange(cols // 2) + 1
-                last_size = random.randrange(height // 2), random.randrange(width // 2)
+                last_size = random.randrange((height + 1) // 2), random.randrange((width + 1) // 2)
 
             out.write(f'\033[{last_pos[0]};{last_pos[1]}H')
             six_height, six_width = last_size
