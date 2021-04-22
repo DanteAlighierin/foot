@@ -45,11 +45,12 @@ def main():
         signal.signal(signal.SIGWINCH, dummy)
 
         while True:
-            lines, cols, height, width = struct.unpack(
-                'HHHH',
-                fcntl.ioctl(sys.stdout.fileno(),
-                            termios.TIOCGWINSZ,
-                            struct.pack('HHHH', 0, 0, 0, 0)))
+            with open('/dev/tty', 'rb') as pty:
+                lines, cols, height, width = struct.unpack(
+                    'HHHH',
+                    fcntl.ioctl(pty,
+                                termios.TIOCGWINSZ,
+                                struct.pack('HHHH', 0, 0, 0, 0)))
 
             if width > 0 and height > 0:
                 break
