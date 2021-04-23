@@ -33,6 +33,10 @@
 * `generate-alt-random-writes.py --sixel`: width and height of emitted
   sixels has been adjusted.
 * _Concealed_ text (`\E[8m`) is now revealed when highlighted.
+* The background color of highlighted text is now adjusted, when the
+  foreground and background colors are the same, making the
+  highlighted text legible
+  (https://codeberg.org/dnkl/foot/issues/455).
 
 
 ### Deprecated

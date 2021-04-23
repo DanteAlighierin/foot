@@ -443,6 +443,11 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         }
     }
 
+    if (unlikely(is_selected && _fg == _bg)) {
+        /* Invert bg when selected/highlighted text has same fg/bg */
+        _bg = ~_bg;
+    }
+
     if (cell->attrs.dim)
         _fg = color_dim(_fg);
     if (term->conf->bold_in_bright.enabled && cell->attrs.bold)
