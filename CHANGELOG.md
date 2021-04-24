@@ -32,6 +32,7 @@
 
 * `generate-alt-random-writes.py --sixel`: width and height of emitted
   sixels has been adjusted.
+* _Concealed_ text (`\E[8m`) is now revealed when highlighted.
 
 
 ### Deprecated
