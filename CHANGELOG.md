@@ -27,7 +27,13 @@
 
 
 ## Unreleased
+
 ### Added
+
+* Support for DECSET/DECRST 2026, as an alternative to the existing
+  "synchronized updates" DCS sequences
+  (https://codeberg.org/dnkl/foot/issues/459).
+
 ### Changed
 
 * `generate-alt-random-writes.py --sixel`: width and height of emitted
