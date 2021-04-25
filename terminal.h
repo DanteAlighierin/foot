@@ -369,6 +369,7 @@ struct terminal {
         bool alt_screen:1;
         bool modify_escape_key:1;
         bool ime:1;
+        bool app_sync_updates:1;
 
         bool sixel_scrolling:1;
         bool sixel_private_palette:1;

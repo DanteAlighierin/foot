@@ -319,6 +319,9 @@ that corresponds to one of the following modes:
 |  2004
 :  xterm
 :  Wrap pasted text with start/end delimiters (bracketed paste mode)
+|  2026
+:  terminal-wg
+:  Application synchronized updates mode
 |  8452
 :  xterm
 :  Position cursor to the right of sixels, instead of on the next line
