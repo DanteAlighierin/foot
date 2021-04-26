@@ -11,8 +11,9 @@ bsu(struct terminal *term)
 {
     /* https://gitlab.com/gnachman/iterm2/-/wikis/synchronized-updates-spec */
 
-    LOG_DBG("untested: BSU - Begin Synchronized Update (params: %.*s)",
-            (int)term->vt.dcs.idx, term->vt.dcs.data);
+    size_t n = term->vt.dcs.idx;
+    if (unlikely(n > 0))
+        LOG_DBG("BSU with unknown params: %.*s)", (int)n, term->vt.dcs.data);
 
     term_enable_app_sync_updates(term);
 }
@@ -22,8 +23,9 @@ esu(struct terminal *term)
 {
     /* https://gitlab.com/gnachman/iterm2/-/wikis/synchronized-updates-spec */
 
-    LOG_DBG("untested: ESU - End Synchronized Update (params: %.*s)",
-            (int)term->vt.dcs.idx, term->vt.dcs.data);
+    size_t n = term->vt.dcs.idx;
+    if (unlikely(n > 0))
+        LOG_DBG("ESU with unknown params: %.*s)", (int)n, term->vt.dcs.data);
 
     term_disable_app_sync_updates(term);
 }
