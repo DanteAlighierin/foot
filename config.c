@@ -593,23 +593,6 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         }
     }
 
-    else if (strcmp(key, "bell") == 0) {
-        if (strcmp(value, "set-urgency") == 0)
-            conf->bell_action = BELL_ACTION_URGENT;
-        else if (strcmp(value, "notify") == 0)
-            conf->bell_action = BELL_ACTION_NOTIFY;
-        else if (strcmp(value, "none") == 0)
-            conf->bell_action = BELL_ACTION_NONE;
-        else {
-            LOG_AND_NOTIFY_ERR(
-                "%s:%d: [default]: bell: "
-                "expected either 'set-urgency', 'notify' or 'none'",
-                path, lineno);
-            conf->bell_action = BELL_ACTION_NONE;
-            return false;
-        }
-    }
-
     else if (strcmp(key, "initial-window-mode") == 0) {
         if (strcmp(value, "windowed") == 0)
             conf->startup_mode = STARTUP_WINDOWED;
@@ -782,6 +765,28 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [default]: %s: invalid key", path, lineno, key);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+parse_section_bell(const char *key, const char *value, struct config *conf,
+                   const char *path, unsigned lineno)
+{
+    if (strcmp(key, "urgent") == 0)
+        conf->bell.urgent = str_to_bool(value);
+    else if (strcmp(key, "notify") == 0)
+        conf->bell.notify = str_to_bool(value);
+    else if (strcmp(key, "command") == 0) {
+        if (!str_to_spawn_template(conf, value, &conf->bell.command, path, lineno, "bell", key))
+            return false;
+    }
+    else if (strcmp(key, "command-focused") == 0)
+        conf->bell.command_focused = str_to_bool(value);
+    else {
+        LOG_AND_NOTIFY_ERR("%s:%u: [bell]: %s: invalid key", path, lineno, key);
         return false;
     }
 
@@ -1864,6 +1869,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
 {
     enum section {
         SECTION_MAIN,
+        SECTION_BELL,
         SECTION_SCROLLBACK,
         SECTION_COLORS,
         SECTION_CURSOR,
@@ -1887,6 +1893,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         const char *name;
     } section_info[] = {
         [SECTION_MAIN] =            {&parse_section_main, "main"},
+        [SECTION_BELL] =            {&parse_section_bell, "bell"},
         [SECTION_SCROLLBACK] =      {&parse_section_scrollback, "scrollback"},
         [SECTION_COLORS] =          {&parse_section_colors, "colors"},
         [SECTION_CURSOR] =          {&parse_section_cursor, "cursor"},
@@ -2212,7 +2219,6 @@ config_load(struct config *conf, const char *conf_path,
             .enabled = false,
             .palette_based = false,
         },
-        .bell_action = BELL_ACTION_NONE,
         .startup_mode = STARTUP_WINDOWED,
         .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
         .line_height = { .pt = 0, .px = -1, },
@@ -2221,6 +2227,15 @@ config_load(struct config *conf, const char *conf_path,
         .vertical_letter_offset = {.pt = 0, .px = 0, },
         .box_drawings_uses_font_glyphs = false,
         .dpi_aware = DPI_AWARE_AUTO, /* DPI-aware when scaling-factor == 1 */
+        .bell = {
+            .urgent = false,
+            .notify = false,
+            .command = {
+                .raw_cmd = NULL,
+                .argv = NULL,
+            },
+            .command_focused = false,
+        },
         .scrollback = {
             .lines = 1000,
             .indicator = {
@@ -2446,6 +2461,7 @@ config_free(struct config conf)
     free(conf.app_id);
     free(conf.word_delimiters);
     free(conf.jump_label_letters);
+    free_spawn_template(&conf.bell.command);
     free(conf.scrollback.indicator.text);
     free_spawn_template(&conf.notify);
     free_spawn_template(&conf.url_launch);

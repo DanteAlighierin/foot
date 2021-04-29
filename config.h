@@ -84,12 +84,6 @@ struct config {
         bool palette_based;
     } bold_in_bright;
 
-    enum {
-        BELL_ACTION_NONE,
-        BELL_ACTION_URGENT,
-        BELL_ACTION_NOTIFY,
-    } bell_action;
-
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 
     enum {DPI_AWARE_AUTO, DPI_AWARE_YES, DPI_AWARE_NO} dpi_aware;
@@ -104,6 +98,13 @@ struct config {
     struct pt_or_px vertical_letter_offset;
 
     bool box_drawings_uses_font_glyphs;
+
+    struct {
+        bool urgent;
+        bool notify;
+        struct config_spawn_template command;
+        bool command_focused;
+    } bell;
 
     struct {
         int lines;

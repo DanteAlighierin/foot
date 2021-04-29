@@ -211,32 +211,6 @@ in this order:
 	
 	Default: _no_.
 
-*bell*
-	Action to perform when receiving a *BEL* character. Can be set to
-	either *set-urgency*, *notify* or *none*.
-	
-	When set to *set-urgency*, the margins will be painted in red
-	whenever *BEL* is received while the window does *not* have
-	keyboard focus. Note that Wayland currently does not have an
-	_urgency_ hint like X11. The value *set-urgency* was chosen for
-	forward-compatibility in the hopes that a corresponding Wayland
-	protocol is added in the future (in which case foot will use that
-	instead of painting its margins red).
-	
-	Applications can enable/disable this feature programmatically with
-	the *CSI ? 1042 h* and *CSI ? 1042 l* escape sequences.
-	
-	_Note_: expect this feature to be *replaced* with proper
-	compositor urgency support once/if that gets implemented.
-	
-	When set to *notify*, foot will emit a desktop notification using
-	the command specified in the *notify* option, but only if the foot
-	window does *not* have keyboard focus.
-	
-	When set to *none*, no special action is taken when receiving *BEL*.
-	
-	Default: _none_.
-
 *word-delimiters*
 	String of characters that act as word delimiters when selecting
 	text. Note that whitespace characters are _always_ word
@@ -286,6 +260,39 @@ in this order:
 	this does _not_ make them clickable.
 	
 	Default: _url-mode_
+
+
+# SECTION: bell
+
+*urgent*
+	When set to _true_, the margins will be painted in red
+	whenever *BEL* is received while the window does *not* have
+	keyboard focus. Note that Wayland currently does not have an
+	_urgency_ hint like X11. The name *urgent* was chosen for
+	forward-compatibility in the hopes that a corresponding Wayland
+	protocol is added in the future (in which case foot will use that
+	instead of painting its margins red).
+	
+	Applications can enable/disable this feature programmatically with
+	the *CSI ? 1042 h* and *CSI ? 1042 l* escape sequences.
+	
+	_Note_: expect this feature to be *replaced* with proper
+	compositor urgency support once/if that gets implemented.
+	Default: _false_
+
+*notify*
+	When set to _true_, foot will emit a desktop notification using
+	the command specified in the *notify* option whenever *BEL* is
+	received and the window does *not* have keyboard focus. Default:
+	_false_
+
+*command*
+	When set, foot will execute this command when *BEL* is received.
+	Default: none
+
+*command-focused*
+	Whether to run the command on *BEL* even while focused. Default:
+	_false_
 
 
 # SECTION: scrollback

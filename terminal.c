@@ -2627,23 +2627,26 @@ term_flash(struct terminal *term, unsigned duration_ms)
 void
 term_bell(struct terminal *term)
 {
-    if (term->kbd_focus || !term->bell_action_enabled)
+    if (!term->bell_action_enabled)
         return;
 
-    switch (term->conf->bell_action) {
-    case BELL_ACTION_NONE:
-        break;
+    if (!term->kbd_focus) {
+        if (term->conf->bell.urgent) {
+            /* There's no 'urgency' hint in Wayland - we just paint the
+             * margins red */
+            term->render.urgency = true;
+            term_damage_margins(term);
+        }
+        if (term->conf->bell.notify)
+            notify_notify(term, "Bell", "Bell in terminal");
+    }
 
-    case BELL_ACTION_URGENT:
-        /* There's no 'urgency' hint in Wayland - we just paint the
-         * margins red */
-        term->render.urgency = true;
-        term_damage_margins(term);
-        break;
+    if (term->conf->bell.command.argv && (!term->kbd_focus || term->conf->bell.command_focused)) {
+        int devnull = open("/dev/null", O_RDONLY);
+        spawn(term->reaper, NULL, term->conf->bell.command.argv, devnull, -1, -1);
 
-    case BELL_ACTION_NOTIFY:
-        notify_notify(term, "Bell", "Bell in terminal");
-        break;
+        if (devnull >= 0)
+            close(devnull);
     }
 }
 
