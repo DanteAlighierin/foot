@@ -466,7 +466,7 @@ ime_update_cursor_rect(struct seat *seat)
     x = term->margins.left + col * term->cell_width;
     y = term->margins.top + row * term->cell_height;
 
-    if (term->cursor_style == CURSOR_BAR)
+    if (term->cursor_style == CURSOR_BEAM)
         width = 1;
     else
         width = term->cell_width;

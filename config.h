@@ -154,6 +154,7 @@ struct config {
             uint32_t text;
             uint32_t cursor;
         } color;
+        struct pt_or_px beam_thickness;
     } cursor;
 
     struct {
