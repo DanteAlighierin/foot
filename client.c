@@ -69,7 +69,10 @@ print_usage(const char *prog_name)
 int
 main(int argc, char *const *argv)
 {
-    int ret = EXIT_FAILURE;
+    /* Custom exit code, to enable users to differentiate between foot
+     * itself failing, and the client application failiing */
+    static const int foot_exit_failure = -28;
+    int ret = foot_exit_failure;
 
     const char *const prog_name = argv[0];
 
@@ -135,7 +138,7 @@ main(int argc, char *const *argv)
             struct stat st;
             if (stat(optarg, &st) < 0 || !(st.st_mode & S_IFDIR)) {
                 fprintf(stderr, "error: %s: not a directory\n", optarg);
-                return EXIT_FAILURE;
+                return ret;
             }
             custom_cwd = optarg;
             break;
@@ -144,7 +147,7 @@ main(int argc, char *const *argv)
         case 'w':
             if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
                 fprintf(stderr, "error: invalid window-size-pixels: %s\n", optarg);
-                return EXIT_FAILURE;
+                return ret;
             }
             size_type = 0; // CONF_SIZE_PX
             break;
@@ -152,7 +155,7 @@ main(int argc, char *const *argv)
         case 'W':
             if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
                 fprintf(stderr, "error: invalid window-size-chars: %s\n", optarg);
-                return EXIT_FAILURE;
+                return ret;
             }
             size_type = 1; // CONF_SIZE_CELLS
             break;
@@ -187,7 +190,7 @@ main(int argc, char *const *argv)
                     "-d,--log-level: %s: argument must be one of %s\n",
                     optarg,
                     log_level_string_hint());
-                return EXIT_FAILURE;
+                return ret;
             }
             log_level = lvl;
             break;
@@ -202,7 +205,7 @@ main(int argc, char *const *argv)
                 log_colorize = LOG_COLORIZE_ALWAYS;
             else {
                 fprintf(stderr, "%s: argument must be one of 'never', 'always' or 'auto'\n", optarg);
-                return EXIT_FAILURE;
+                return ret;
             }
             break;
 
@@ -215,7 +218,7 @@ main(int argc, char *const *argv)
             return EXIT_SUCCESS;
 
         case '?':
-            return EXIT_FAILURE;
+            return ret;
         }
     }
 
@@ -372,6 +375,8 @@ main(int argc, char *const *argv)
 
     int exit_code;
     ssize_t rcvd = recv(fd, &exit_code, sizeof(exit_code), 0);
+
+    LOG_INFO("exit-code=%d", exit_code);
 
     if (rcvd == -1 && errno == EINTR)
         xassert(aborted);

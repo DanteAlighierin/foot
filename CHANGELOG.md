@@ -51,6 +51,12 @@
 * Point values in `line-height`, `letter-spacing`,
   `horizontal-letter-offset` and `vertical-letter-offset` are now
   rounded, not truncated, when translated to pixel values.
+* Foot’s exit code is now -27/229 when foot itself failed to launch
+  (due to invalid command line options, client application/shell not
+  found etc). Footclient’s exit code is -28/228 when it itself fails
+  to launch (e.g. bad command line option) and -27/229 when the foot
+  server failed to instantiate a new window
+  (https://codeberg.org/dnkl/foot/issues/466).
 
 
 ### Deprecated

@@ -151,7 +151,10 @@ print_pid(const char *pid_file, bool *unlink_at_exit)
 int
 main(int argc, char *const *argv)
 {
-    int ret = EXIT_FAILURE;
+    /* Custom exit code, to enable users to differentiate between foot
+     * itself failing, and the client application failiing */
+    static const int foot_exit_failure = -27;
+    int ret = foot_exit_failure;
 
     /* Startup notifications; we don't support it, but must ensure we
      * don't pass this on to programs launched by us */
@@ -242,7 +245,7 @@ main(int argc, char *const *argv)
             struct stat st;
             if (stat(optarg, &st) < 0 || !(st.st_mode & S_IFDIR)) {
                 fprintf(stderr, "error: %s: not a directory\n", optarg);
-                return EXIT_FAILURE;
+                return ret;
             }
             custom_cwd = optarg;
             break;
@@ -274,7 +277,7 @@ main(int argc, char *const *argv)
             unsigned width, height;
             if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
                 fprintf(stderr, "error: invalid window-size-pixels: %s\n", optarg);
-                return EXIT_FAILURE;
+                return ret;
             }
 
             conf_size_type = CONF_SIZE_PX;
@@ -287,7 +290,7 @@ main(int argc, char *const *argv)
             unsigned width, height;
             if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
                 fprintf(stderr, "error: invalid window-size-chars: %s\n", optarg);
-                return EXIT_FAILURE;
+                return ret;
             }
 
             conf_size_type = CONF_SIZE_CELLS;
@@ -332,7 +335,7 @@ main(int argc, char *const *argv)
                     "-d,--log-level: %s: argument must be one of %s\n",
                     optarg,
                     log_level_string_hint());
-                return EXIT_FAILURE;
+                return ret;
             }
             log_level = lvl;
             break;
@@ -347,7 +350,7 @@ main(int argc, char *const *argv)
                 log_colorize = LOG_COLORIZE_ALWAYS;
             else {
                 fprintf(stderr, "%s: argument must be one of 'never', 'always' or 'auto'\n", optarg);
-                return EXIT_FAILURE;
+                return ret;
             }
             break;
 
@@ -364,7 +367,7 @@ main(int argc, char *const *argv)
             return EXIT_SUCCESS;
 
         case '?':
-            return EXIT_FAILURE;
+            return ret;
         }
     }
 
@@ -464,7 +467,7 @@ main(int argc, char *const *argv)
     struct renderer *renderer = NULL;
     struct terminal *term = NULL;
     struct server *server = NULL;
-    struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = EXIT_FAILURE};
+    struct shutdown_context shutdown_ctx = {.term = &term, .exit_code = foot_exit_failure};
 
     const char *cwd = custom_cwd;
     char *_cwd = NULL;
@@ -533,7 +536,8 @@ main(int argc, char *const *argv)
             break;
     }
 
-    ret = aborted || tll_length(wayl->terms) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+    if (aborted || tll_length(wayl->terms) == 0)
+        ret = EXIT_SUCCESS;
 
 out:
     free(_cwd);
