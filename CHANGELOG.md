@@ -57,6 +57,8 @@
   to launch (e.g. bad command line option) and -26/230 when the foot
   server failed to instantiate a new window
   (https://codeberg.org/dnkl/foot/issues/466).
+* Background alpha no longer applied to palette or RGB colors that
+  matches the background color.
 
 
 ### Deprecated
