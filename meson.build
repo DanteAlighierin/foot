@@ -143,7 +143,7 @@ vtlib = static_library(
   'vt.c', 'vt.h',
   wl_proto_src + wl_proto_headers,
   version,
-  dependencies: [libepoll, pixman, fcft, tllist, wayland_client],
+  dependencies: [libepoll, pixman, fcft, tllist, wayland_client, xkb],
   link_with: [common, misc],
 )
 
@@ -153,7 +153,7 @@ pgolib = static_library(
   'selection.c', 'selection.h',
   'terminal.c', 'terminal.h',
   wl_proto_src + wl_proto_headers,
-  dependencies: [libepoll, pixman, fcft, tllist, wayland_client],
+  dependencies: [libepoll, pixman, fcft, tllist, wayland_client, xkb],
   link_with: vtlib,
 )
 
@@ -162,7 +162,7 @@ if get_option('b_pgo') == 'generate'
     'pgo',
     'pgo/pgo.c',
     wl_proto_src + wl_proto_headers,
-    dependencies: [math, threads, libepoll, pixman, wayland_client, fcft, tllist],
+    dependencies: [math, threads, libepoll, pixman, wayland_client, xkb, fcft, tllist],
     link_with: pgolib,
   )
 endif
