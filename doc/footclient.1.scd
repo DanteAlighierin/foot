@@ -17,8 +17,8 @@ mode.
 
 Running it without arguments will open a new terminal window (hosted
 in the foot server), with your default shell. The exit code will be
-that of the terminal (thus, *footclient* does not exit until the
-terminal has terminated).
+that of the terminal. I.e *footclient* does not exit until the
+terminal has terminated.
 
 # OPTIONS
 
@@ -73,6 +73,20 @@ terminal has terminated).
 
 *-v*,*--version*
 	Show the version number and quit
+
+# EXIT STATUS
+
+Footlient will exit with code 220 if there is a failure in footclient
+itself (for example, the server socket does not exist).
+
+If *-N*,*--no-wait* is used, footclient exits with code 0 as soon as
+the foot server has been instructed to open a new window.
+
+If not, footclient may also exit with code 230. This indicates a
+failure in the foot server.
+
+In all other cases the exit code is that of the client application
+(i.e. the shell).
 
 # SEE ALSO
 
