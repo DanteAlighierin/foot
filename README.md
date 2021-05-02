@@ -53,6 +53,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 * Color emoji support
 * IME (via `text-input-v3`)
 * Multi-seat
+* TrueColors (32bpp)
 * [Synchronized Updates](https://gitlab.freedesktop.org/terminal-wg/specifications/-/merge_requests/2) support
 * [Sixel image support](https://en.wikipedia.org/wiki/Sixel)
 
