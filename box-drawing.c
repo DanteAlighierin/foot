@@ -1520,6 +1520,36 @@ draw_lower_seven_eighths_block(struct buf *buf)
 }
 
 static void
+draw_upper_one_quarter_block(struct buf *buf)
+{
+    rect(0, 0, buf->width, round(buf->height / 4.));
+}
+
+static void
+draw_upper_three_eighths_block(struct buf *buf)
+{
+    rect(0, 0, buf->width, round(3. * buf->height / 8.));
+}
+
+static void
+draw_upper_five_eighths_block(struct buf *buf)
+{
+    rect(0, 0, buf->width, round(5. * buf->height / 8.));
+}
+
+static void
+draw_upper_three_quarters_block(struct buf *buf)
+{
+    rect(0, 0, buf->width, round(3. * buf->height / 4.));
+}
+
+static void
+draw_upper_seven_eighths_block(struct buf *buf)
+{
+    rect(0, 0, buf->width, round(7. * buf->height / 8.));
+}
+
+static void
 draw_full_block(struct buf *buf)
 {
     rect(0, 0, buf->width, buf->height);
@@ -1562,9 +1592,53 @@ draw_left_one_quarter_block(struct buf *buf)
 }
 
 static void
+draw_vertical_one_eighth_block_n(struct buf *buf, int n)
+{
+    double x = round((double)n * buf->width / 8.);
+    double w = round(buf->width / 8.);
+    rect(x, 0, x + w, buf->height);
+}
+
+static void
 draw_left_one_eighth_block(struct buf *buf)
 {
-    rect(0, 0, round(buf->width / 8.), buf->height);
+    draw_vertical_one_eighth_block_n(buf, 0);
+}
+
+static void
+draw_vertical_one_eighth_block_2(struct buf *buf)
+{
+    draw_vertical_one_eighth_block_n(buf, 1);
+}
+
+static void
+draw_vertical_one_eighth_block_3(struct buf *buf)
+{
+    draw_vertical_one_eighth_block_n(buf, 2);
+}
+
+static void
+draw_vertical_one_eighth_block_4(struct buf *buf)
+{
+    draw_vertical_one_eighth_block_n(buf, 3);
+}
+
+static void
+draw_vertical_one_eighth_block_5(struct buf *buf)
+{
+    draw_vertical_one_eighth_block_n(buf, 4);
+}
+
+static void
+draw_vertical_one_eighth_block_6(struct buf *buf)
+{
+    draw_vertical_one_eighth_block_n(buf, 5);
+}
+
+static void
+draw_vertical_one_eighth_block_7(struct buf *buf)
+{
+    draw_vertical_one_eighth_block_n(buf, 6);
 }
 
 static void
@@ -1610,9 +1684,53 @@ draw_dark_shade(struct buf *buf)
 }
 
 static void
+draw_horizontal_one_eighth_block_n(struct buf *buf, int n)
+{
+    double y = round((double)n * buf->height / 8.);
+    double h = round(buf->height / 8.);
+    rect(0, y, buf->width, y + h);
+}
+
+static void
 draw_upper_one_eighth_block(struct buf *buf)
 {
-    rect(0, 0, buf->width, round(buf->height / 8.));
+    draw_horizontal_one_eighth_block_n(buf, 0);
+}
+
+static void
+draw_horizontal_one_eighth_block_2(struct buf *buf)
+{
+    draw_horizontal_one_eighth_block_n(buf, 1);
+}
+
+static void
+draw_horizontal_one_eighth_block_3(struct buf *buf)
+{
+    draw_horizontal_one_eighth_block_n(buf, 2);
+}
+
+static void
+draw_horizontal_one_eighth_block_4(struct buf *buf)
+{
+    draw_horizontal_one_eighth_block_n(buf, 3);
+}
+
+static void
+draw_horizontal_one_eighth_block_5(struct buf *buf)
+{
+    draw_horizontal_one_eighth_block_n(buf, 4);
+}
+
+static void
+draw_horizontal_one_eighth_block_6(struct buf *buf)
+{
+    draw_horizontal_one_eighth_block_n(buf, 5);
+}
+
+static void
+draw_horizontal_one_eighth_block_7(struct buf *buf)
+{
+    draw_horizontal_one_eighth_block_n(buf, 6);
 }
 
 static void
@@ -1870,6 +1988,80 @@ draw_sextant(wchar_t wc, struct buf *buf)
 }
 
 static void
+draw_left_and_lower_one_eighth_block(struct buf *buf)
+{
+    draw_left_one_eighth_block(buf);
+    draw_lower_one_eighth_block(buf);
+}
+
+static void
+draw_left_and_upper_one_eighth_block(struct buf *buf)
+{
+    draw_left_one_eighth_block(buf);
+    draw_upper_one_eighth_block(buf);
+}
+
+static void
+draw_right_and_upper_one_eighth_block(struct buf *buf)
+{
+    draw_right_one_eighth_block(buf);
+    draw_upper_one_eighth_block(buf);
+}
+
+static void
+draw_right_and_lower_one_eighth_block(struct buf *buf)
+{
+    draw_right_one_eighth_block(buf);
+    draw_lower_one_eighth_block(buf);
+}
+
+static void
+draw_upper_and_lower_one_eighth_block(struct buf *buf)
+{
+    draw_upper_one_eighth_block(buf);
+    draw_lower_one_eighth_block(buf);
+}
+
+static void
+draw_horizontal_one_eighth_1358_block(struct buf *buf)
+{
+    draw_upper_one_eighth_block(buf);
+    draw_horizontal_one_eighth_block_3(buf);
+    draw_horizontal_one_eighth_block_5(buf);
+    draw_lower_one_eighth_block(buf);
+}
+
+static void
+draw_right_one_quarter_block(struct buf *buf)
+{
+    rect(buf->width - round(buf->width / 4.), 0, buf->width, buf->height);
+}
+
+static void
+draw_right_three_eighths_block(struct buf *buf)
+{
+    rect(buf->width - round(3. * buf->width / 8.), 0, buf->width, buf->height);
+}
+
+static void
+draw_right_five_eighths_block(struct buf *buf)
+{
+    rect(buf->width - round(5. * buf->width / 8.), 0, buf->width, buf->height);
+}
+
+static void
+draw_right_three_quarters_block(struct buf *buf)
+{
+    rect(buf->width - round(3. * buf->width / 4.), 0, buf->width, buf->height);
+}
+
+static void
+draw_right_seven_eighths_block(struct buf *buf)
+{
+    rect(buf->width - round(7. * buf->width / 8.), 0, buf->width, buf->height);
+}
+
+static void
 draw_glyph(wchar_t wc, struct buf *buf)
 {
     IGNORE_WARNING("-Wpedantic")
@@ -2043,6 +2235,39 @@ draw_glyph(wchar_t wc, struct buf *buf)
     case 0x259f: draw_quadrant_upper_right_and_lower_left_and_lower_right(buf); break;
 
     case 0x1fb00 ... 0x1fb3b: draw_sextant(wc, buf); break;
+
+    case 0x1fb70: draw_vertical_one_eighth_block_2(buf); break;
+    case 0x1fb71: draw_vertical_one_eighth_block_3(buf); break;
+    case 0x1fb72: draw_vertical_one_eighth_block_4(buf); break;
+    case 0x1fb73: draw_vertical_one_eighth_block_5(buf); break;
+    case 0x1fb74: draw_vertical_one_eighth_block_6(buf); break;
+    case 0x1fb75: draw_vertical_one_eighth_block_7(buf); break;
+
+    case 0x1fb76: draw_horizontal_one_eighth_block_2(buf); break;
+    case 0x1fb77: draw_horizontal_one_eighth_block_3(buf); break;
+    case 0x1fb78: draw_horizontal_one_eighth_block_4(buf); break;
+    case 0x1fb79: draw_horizontal_one_eighth_block_5(buf); break;
+    case 0x1fb7a: draw_horizontal_one_eighth_block_6(buf); break;
+    case 0x1fb7b: draw_horizontal_one_eighth_block_7(buf); break;
+
+    case 0x1fb82: draw_upper_one_quarter_block(buf); break;
+    case 0x1fb83: draw_upper_three_eighths_block(buf); break;
+    case 0x1fb84: draw_upper_five_eighths_block(buf); break;
+    case 0x1fb85: draw_upper_three_quarters_block(buf); break;
+    case 0x1fb86: draw_upper_seven_eighths_block(buf); break;
+
+    case 0x1fb7c: draw_left_and_lower_one_eighth_block(buf); break;
+    case 0x1fb7d: draw_left_and_upper_one_eighth_block(buf); break;
+    case 0x1fb7e: draw_right_and_upper_one_eighth_block(buf); break;
+    case 0x1fb7f: draw_right_and_lower_one_eighth_block(buf); break;
+    case 0x1fb80: draw_upper_and_lower_one_eighth_block(buf); break;
+    case 0x1fb81: draw_horizontal_one_eighth_1358_block(buf); break;
+
+    case 0x1fb87: draw_right_one_quarter_block(buf); break;
+    case 0x1fb88: draw_right_three_eighths_block(buf); break;
+    case 0x1fb89: draw_right_five_eighths_block(buf); break;
+    case 0x1fb8a: draw_right_three_quarters_block(buf); break;
+    case 0x1fb8b: draw_right_seven_eighths_block(buf); break;
     }
 
     UNIGNORE_WARNINGS

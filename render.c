@@ -484,12 +484,32 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             base = composed->base;
         }
 
-        if (unlikely((base >= 0x2500 && base <= 0x259f) ||
-                     (base >= 0x1fb00 && base <= 0x1fb3b)) &&
+        if (unlikely(
+                /* Classic box drawings */
+                (base >= 0x2500 && base <= 0x259f) ||
+
+                /*
+                 * Unicode 13 "Symbols for Legacy Computing"
+                 * sub-ranges below.
+                 *
+                 * Note, the full range is U+1FB00 - U+1FBF9
+                 */
+
+                /* Unicode 13 sextants */
+                (base >= 0x1fb00 && base <= 0x1fb3b) ||
+
+                /* Unicode 13 partial blocks */
+                 /* TODO: there's more here! */
+                (base >= 0x1fb70 && base <= 0x1fb8b)) &&
+
             likely(!term->conf->box_drawings_uses_font_glyphs))
         {
             /* Box drawing characters */
-            size_t idx = base >= 0x1fb00 ? base - 0x1fb00 + 160 : base - 0x2500;
+            size_t idx = base >= 0x1fb00
+                ? (base >= 0x1fb70
+                   ? base - 0x1fb70 + 220
+                   : base - 0x1fb00 + 160)
+                : base - 0x2500;
             xassert(idx < ALEN(term->box_drawing));
 
             if (likely(term->box_drawing[idx] != NULL))
@@ -3090,10 +3110,15 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
 
     sixel_reflow(term);
 
+#if defined(_DEBUG) && LOG_ENABLE_DBG
     LOG_DBG("resize: %dx%d, grid: cols=%d, rows=%d "
             "(left-margin=%d, right-margin=%d, top-margin=%d, bottom-margin=%d)",
             term->width, term->height, term->cols, term->rows,
             term->margins.left, term->margins.right, term->margins.top, term->margins.bottom);
+#else
+    LOG_INFO("resize: %dx%d pixels, %dx%d chars",
+             term->width, term->height, term->cols, term->rows);
+#endif
 
     if (term->scroll_region.start >= term->rows)
         term->scroll_region.start = 0;
