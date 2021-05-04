@@ -28,7 +28,7 @@ the foot command line
 
 *-C*,*--check-config*
 	Verify configuration and then exit with 0 if ok, otherwise exit
-	with 1.
+	with 230 (see *EXIT STATUS*).
 
 *-f*,*--font*=_FONT_
 	Comma separated list of fonts to use, in fontconfig format (see
@@ -135,6 +135,13 @@ the foot command line
 
 *-v*,*--version*
 	Show the version number and quit.
+
+# EXIT STATUS
+
+Foot will exit with code 230 if there is a failure in foot itself.
+
+In all other cases, the exit code is that of the client application
+(i.e. the shell).
 
 # KEYBOARD SHORTCUTS
 
