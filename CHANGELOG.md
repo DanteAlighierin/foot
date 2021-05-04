@@ -35,6 +35,9 @@
   (https://codeberg.org/dnkl/foot/issues/459).
 * `cursor.beam-thickness` option to `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/464).
+* Unicode 13 characters U+1FB70 - U+1FB8B to list of box drawing
+  characters rendered by foot itself (rather than using font glyphs)
+  (https://codeberg.org/dnkl/foot/issues/471).
 
 
 ### Changed

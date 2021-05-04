@@ -328,8 +328,9 @@ struct terminal {
     /*
      *   0-159: U+250U+259F
      * 160-219: U+1FB00-1FB3B
+     * 220-247: U+1FB70-1FB8B
      */
-    struct fcft_glyph *box_drawing[220];
+    struct fcft_glyph *box_drawing[248];
 
     bool is_sending_paste_data;
     ptmx_buffer_list_t ptmx_buffers;
