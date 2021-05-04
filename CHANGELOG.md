@@ -33,6 +33,9 @@
 * Support for DECSET/DECRST 2026, as an alternative to the existing
   "synchronized updates" DCS sequences
   (https://codeberg.org/dnkl/foot/issues/459).
+* `cursor.beam-thickness` option to `foot.ini`
+  (https://codeberg.org/dnkl/foot/issues/464).
+
 
 ### Changed
 
@@ -43,6 +46,11 @@
   foreground and background colors are the same, making the
   highlighted text legible
   (https://codeberg.org/dnkl/foot/issues/455).
+* `cursor.style=bar` to `cursor.style=beam`. `bar` remains a
+  recognized value, but will eventually be deprecated, and removed.
+* Point values in `line-height`, `letter-spacing`,
+  `horizontal-letter-offset` and `vertical-letter-offset` are now
+  rounded, not truncated, when translated to pixel values.
 
 
 ### Deprecated

@@ -68,7 +68,7 @@ in this order:
 	An absolute value, in _points_, that override line height from the
 	font metrics.
 	
-	You can specify a height in _pixels_ by using the _px_ suffix:
+	You can specify a height in _pixels_ by using the *px* suffix:
 	e.g. *line-height=12px*.
 	
 	See also: *vertical-letter-offset*.
@@ -79,7 +79,7 @@ in this order:
 	Spacing between letters, in _points_. A positive value will
 	increase the cell size, and a negative value shrinks it.
 	
-	You can specify a letter spacing in _pixels_ by using the _px_
+	You can specify a letter spacing in _pixels_ by using the *px*
 	suffix: e.g. *letter-spacing=2px*.
 	
 	See also: *horizontal-letter-offset*.
@@ -91,7 +91,7 @@ in this order:
 	positioning glyphs within cells, in _points_, relative to the top
 	left corner.
 	
-	To specify an offset in _pixels_, append _px_:
+	To specify an offset in _pixels_, append *px*:
 	e.g. *horizontal-letter-offset=2px*.
 	
 	Default: _0_.
@@ -320,8 +320,8 @@ This section controls the cursor style and color. Note that
 applications can change these at runtime.
 
 *style*
-	Configures the default cursor style, and is one of: _block_, _bar_
-	or _underline_. Note that this can be overridden by
+	Configures the default cursor style, and is one of: *block*,
+	*beam* or *underline*. Note that this can be overridden by
 	applications. Default: _block_.
 
 *blink*
@@ -335,6 +335,11 @@ applications can change these at runtime.
 	cursor. The other cursor styles are always rendered with the
 	foreground color.
 
+*beam-thickness*
+	Thickness (width) of the beam styled cursor. The value is in
+	_points_, and its exact value thus depends on the monitor's
+	DPI. To instead specify a thickness in _pixels_, use the *px*
+	suffix: e.g. *beam-thickness=2px*. Default: _1.5_
 
 # SECTION: mouse
 

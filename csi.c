@@ -1591,7 +1591,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             case 5:         /* blinking bar */
             case 6:         /* steady bar */
-                term->cursor_style = CURSOR_BAR;
+                term->cursor_style = CURSOR_BEAM;
                 break;
 
             default:

@@ -299,16 +299,17 @@ draw_unfocused_block(const struct terminal *term, pixman_image_t *pix,
 }
 
 static void
-draw_bar(const struct terminal *term, pixman_image_t *pix,
-         const struct fcft_font *font,
-         const pixman_color_t *color, int x, int y)
+draw_beam(const struct terminal *term, pixman_image_t *pix,
+          const struct fcft_font *font,
+          const pixman_color_t *color, int x, int y)
 {
     int baseline = y + font_baseline(term) - term->fonts[0]->ascent;
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, pix, color,
         1, &(pixman_rectangle16_t){
             x, baseline,
-            font->underline.thickness, term->fonts[0]->ascent + term->fonts[0]->descent});
+            term_pt_or_px_as_pixels(term, &term->conf->cursor.beam_thickness),
+            term->fonts[0]->ascent + term->fonts[0]->descent});
 }
 
 static void
@@ -386,11 +387,11 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
         }
         break;
 
-    case CURSOR_BAR:
+    case CURSOR_BEAM:
         if (likely(term->cursor_blink.state == CURSOR_BLINK_ON ||
                    !term->kbd_focus))
         {
-            draw_bar(term, pix, font, &cursor_color, x, y);
+            draw_beam(term, pix, font, &cursor_color, x, y);
         }
         break;
 
@@ -1265,7 +1266,7 @@ render_ime_preedit_for_seat(struct terminal *term, struct seat *seat,
             /* Bar */
             if (start >= 0) {
                 struct fcft_font *font = attrs_to_font(term, &start_cell->attrs);
-                draw_bar(term, buf->pix[0], font, &cursor_color, x, y);
+                draw_beam(term, buf->pix[0], font, &cursor_color, x, y);
             }
             term_ime_set_cursor_rect(term, x, y, 1, term->cell_height);
         }
@@ -2475,7 +2476,7 @@ render_search_box(struct terminal *term)
 
                     /* Bar-styled cursor, if in the visible area */
                     if (start >= 0 && start <= visible_cells)
-                        draw_bar(term, buf->pix[0], font, &fg, x + start * term->cell_width, y);
+                        draw_beam(term, buf->pix[0], font, &fg, x + start * term->cell_width, y);
                     term_ime_set_cursor_rect(term,
                         WINDOW_X(x + start * term->cell_width), WINDOW_Y(y),
                         1, term->cell_height);
@@ -2504,7 +2505,7 @@ render_search_box(struct terminal *term)
                 /* Cursor *should* be in the visible area */
                 xassert(cell_idx >= glyph_offset);
                 xassert(cell_idx <= glyph_offset + visible_cells);
-                draw_bar(term, buf->pix[0], font, &fg, x, y);
+                draw_beam(term, buf->pix[0], font, &fg, x, y);
                 term_ime_set_cursor_rect(
                     term, WINDOW_X(x), WINDOW_Y(y), 1, term->cell_height);
             }
@@ -2560,7 +2561,7 @@ render_search_box(struct terminal *term)
         else
 #endif
         if (term->search.cursor >= term->search.len) {
-            draw_bar(term, buf->pix[0], font, &fg, x, y);
+            draw_beam(term, buf->pix[0], font, &fg, x, y);
             term_ime_set_cursor_rect(
                 term, WINDOW_X(x), WINDOW_Y(y), 1, term->cell_height);
         }

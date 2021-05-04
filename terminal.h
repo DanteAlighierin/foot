@@ -212,7 +212,7 @@ enum mouse_reporting {
     MOUSE_URXVT,         /* ?1015h */
 };
 
-enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BAR };
+enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BEAM };
 
 enum selection_kind {
     SELECTION_NONE,
@@ -615,6 +615,9 @@ bool term_font_size_decrease(struct terminal *term);
 bool term_font_size_reset(struct terminal *term);
 bool term_font_dpi_changed(struct terminal *term);
 void term_font_subpixel_changed(struct terminal *term);
+int term_pt_or_px_as_pixels(
+    const struct terminal *term, const struct pt_or_px *pt_or_px);
+
 
 void term_window_configured(struct terminal *term);
 

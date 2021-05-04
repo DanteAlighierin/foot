@@ -941,13 +941,14 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
     if (strcmp(key, "style") == 0) {
         if (strcmp(value, "block") == 0)
             conf->cursor.style = CURSOR_BLOCK;
-        else if (strcmp(value, "bar") == 0)
-            conf->cursor.style = CURSOR_BAR;
+        else if (strcmp(value, "beam") == 0 || strcmp(value, "bar") == 0)
+            conf->cursor.style = CURSOR_BEAM;
         else if (strcmp(value, "underline") == 0)
             conf->cursor.style = CURSOR_UNDERLINE;
 
         else {
-            LOG_AND_NOTIFY_ERR("%s:%d: invalid 'style': %s", path, lineno, value);
+            LOG_AND_NOTIFY_ERR("%s:%d: style: one of block, beam or underline",
+                               path, lineno);
             return false;
         }
     }
@@ -965,6 +966,13 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
 
         conf->cursor.color.text |= 1u << 31;
         conf->cursor.color.cursor |= 1u << 31;
+    }
+
+    else if (strcmp(key, "beam-thickness") == 0) {
+        if (!str_to_pt_or_px(
+                value, &conf->cursor.beam_thickness,
+                conf, path, lineno, "cursor", "beam-thickness"))
+            return false;
     }
 
     else {
@@ -2261,6 +2269,7 @@ config_load(struct config *conf, const char *conf_path,
                 .text = 0,
                 .cursor = 0,
             },
+            .beam_thickness = {.pt = 1.5},
         },
         .mouse = {
             .hide_when_typing = false,
