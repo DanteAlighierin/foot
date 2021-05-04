@@ -429,6 +429,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     uint32_t _fg = 0;
     uint32_t _bg = 0;
 
+    bool apply_alpha = false;
+
     if (is_selected && term->colors.use_custom_selection) {
         _fg = term->colors.selection_fg;
         _bg = term->colors.selection_bg;
@@ -441,12 +443,14 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             uint32_t swap = _fg;
             _fg = _bg;
             _bg = swap;
-        }
+        } else
+            apply_alpha = !cell->attrs.have_bg;
     }
 
     if (unlikely(is_selected && _fg == _bg)) {
         /* Invert bg when selected/highlighted text has same fg/bg */
         _bg = ~_bg;
+        apply_alpha = false;
     }
 
     if (cell->attrs.dim)
@@ -459,9 +463,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     pixman_color_t fg = color_hex_to_pixman(_fg);
     pixman_color_t bg = color_hex_to_pixman_with_alpha(
-        _bg,
-        (_bg == (term->reverse ? term->colors.fg : term->colors.bg)
-         ? term->colors.alpha : 0xffff));
+        _bg, apply_alpha ? term->colors.alpha : 0xffff);
 
     if (term->is_searching && !is_selected) {
         color_dim_for_search(&fg);
