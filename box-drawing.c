@@ -1364,43 +1364,65 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
 }
 
 static void
-draw_box_drawings_light_diagonal(struct buf *buf, double k, double c)
-{
-#define linear_equation(x) (k * (x) + c)
-
-    int num_samples = buf->width * 16;
-
-    for (int i = 0; i < num_samples; i++) {
-        double x = i / 16.;
-        int col = round(x);
-        int row = round(linear_equation(x));
-
-        if (row >= 0 && row < buf->height) {
-            size_t ofs = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + ofs] |= 1 << bit_no;
-        }
-    }
-
-#undef linear_equation
-}
-
-static void
 draw_box_drawings_light_diagonal_upper_right_to_lower_left(struct buf *buf)
 {
-    /* y = k * x + c */
-    double c = buf->height - 1;
-    double k = (0 - (buf->height - 1)) / (double)(buf->width - 1 - 0);
-    draw_box_drawings_light_diagonal(buf, k, c);
+    pixman_trapezoid_t trap = {
+        .top = pixman_int_to_fixed(0),
+        .bottom = pixman_int_to_fixed(buf->height),
+        .left = {
+            .p1 = {
+                .x = pixman_double_to_fixed(buf->width - thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(0),
+            },
+            .p2 = {
+                .x = pixman_double_to_fixed(0 - thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(buf->height),
+            },
+        },
+        .right = {
+            .p1 = {
+                .x = pixman_double_to_fixed(buf->width + thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(0),
+            },
+            .p2 = {
+                .x = pixman_double_to_fixed(0 + thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(buf->height),
+            },
+        },
+    };
+
+    pixman_rasterize_trapezoid(buf->pix, &trap, 0, 0);
 }
 
 static void
 draw_box_drawings_light_diagonal_upper_left_to_lower_right(struct buf *buf)
 {
-    /* y = k * x + c */
-    double c = 0;
-    double k = (buf->height - 1 - 0) / (double)(buf->width - 1 - 0);
-    draw_box_drawings_light_diagonal(buf, k, c);
+    pixman_trapezoid_t trap = {
+        .top = pixman_int_to_fixed(0),
+        .bottom = pixman_int_to_fixed(buf->height),
+        .left = {
+            .p1 = {
+                .x = pixman_double_to_fixed(0 - thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(0),
+            },
+            .p2 = {
+                .x = pixman_double_to_fixed(buf->width - thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(buf->height),
+            },
+        },
+        .right = {
+            .p1 = {
+                .x = pixman_double_to_fixed(0 + thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(0),
+            },
+            .p2 = {
+                .x = pixman_double_to_fixed(buf->width + thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(buf->height),
+            },
+        },
+    };
+
+    pixman_rasterize_trapezoid(buf->pix, &trap, 0, 0);
 }
 
 static void
