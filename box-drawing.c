@@ -79,13 +79,21 @@ _vline(struct buf *buf, int y1, int y2, int x, int thick)
 static void NOINLINE
 _rect(struct buf *buf, int x1, int y1, int x2, int y2)
 {
-    for (size_t row = max(y1, 0); row < min(y2, buf->height); row++) {
-        for (size_t col = max(x1, 0); col < max(min(x2, buf->width), 0); col++) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
-        }
-    }
+    x1 = min(max(x1, 0), buf->width);
+    y1 = min(max(y1, 0), buf->height);
+    x2 = min(max(x2, 0), buf->width);
+    y2 = min(max(y2, 0), buf->height);
+
+    int width = x2 - x1;
+    int height = y2 - y1;
+
+    assert(x1 + width <= buf->width);
+    assert(y1 + height <= buf->height);
+
+    pixman_rectangle16_t rect = {
+        .x = x1, .y = y1, .width = width, .height = height};
+
+    pixman_image_fill_rectangles(PIXMAN_OP_SRC, buf->pix, &white, 1, &rect);
 }
 
 #define rect(x1, y1, x2, y2) _rect(buf, x1, y1, x2, y2)
