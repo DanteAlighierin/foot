@@ -29,7 +29,24 @@ struct buf {
     float base_thickness;
 };
 
+static const bool solid_shades = true;  /* TODO: configurable? */
 static const pixman_color_t white = {0xffff, 0xffff, 0xffff, 0xffff};
+
+static void
+change_buffer_format(struct buf *buf, pixman_format_code_t new_format)
+{
+    int stride = stride_for_format_and_width(new_format, buf->width);
+    uint8_t *new_data = xcalloc(buf->height * stride, 1);
+    pixman_image_t *new_pix = pixman_image_create_bits_no_clear(
+        new_format, buf->width, buf->height, (uint32_t *)new_data, stride);
+
+    pixman_image_unref(buf->pix);
+    free(buf->data);
+
+    buf->data = new_data;
+    buf->pix = new_pix;
+    buf->stride = stride;
+}
 
 static int
 _thickness(struct buf *buf, enum thickness thick)
@@ -1232,18 +1249,7 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
          * Replace the a8 buffer with a a1 buffer, and use our “old”
          * non-antialiased technique to draw arcs.
          */
-
-        int stride = stride_for_format_and_width(PIXMAN_a1, buf->width);
-        uint8_t *new_data = xcalloc(buf->height * stride, 1);
-        pixman_image_t *new_pix = pixman_image_create_bits_no_clear(
-            PIXMAN_a1, buf->width, buf->height, (uint32_t *)new_data, stride);
-
-        pixman_image_unref(buf->pix);
-        free(buf->data);
-
-        buf->data = new_data;
-        buf->pix = new_pix;
-        buf->stride = stride;
+        change_buffer_format(buf, PIXMAN_a1);
     }
 
     int thick = thickness(LIGHT);
@@ -1709,7 +1715,16 @@ draw_pixman_shade(struct buf *buf, uint16_t v)
 static void
 draw_light_shade(struct buf *buf)
 {
-    if (pixman_image_get_format(buf->pix) == PIXMAN_a1) {
+    pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+
+    if (solid_shades && fmt == PIXMAN_a1)
+        change_buffer_format(buf, PIXMAN_a8);
+    else if (!solid_shades && fmt == PIXMAN_a8)
+        change_buffer_format(buf, PIXMAN_a1);
+
+    if (solid_shades)
+        draw_pixman_shade(buf, 0x2000);
+    else {
         for (size_t row = 0; row < buf->height; row += 2) {
             for (size_t col = 0; col < buf->width; col += 2) {
                 size_t idx = col / 8;
@@ -1717,14 +1732,22 @@ draw_light_shade(struct buf *buf)
                 buf->data[row * buf->stride + idx] |= 1 << bit_no;
             }
         }
-    } else
-        draw_pixman_shade(buf, 0x2000);
+    }
 }
 
 static void
 draw_medium_shade(struct buf *buf)
 {
-    if (pixman_image_get_format(buf->pix) == PIXMAN_a1) {
+    pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+
+    if (solid_shades && fmt == PIXMAN_a1)
+        change_buffer_format(buf, PIXMAN_a8);
+    else if (!solid_shades && fmt == PIXMAN_a8)
+        change_buffer_format(buf, PIXMAN_a1);
+
+    if (solid_shades)
+        draw_pixman_shade(buf, 0x4000);
+    else {
         for (size_t row = 0; row < buf->height; row++) {
             for (size_t col = row % 2; col < buf->width; col += 2) {
                 size_t idx = col / 8;
@@ -1732,14 +1755,22 @@ draw_medium_shade(struct buf *buf)
                 buf->data[row * buf->stride + idx] |= 1 << bit_no;
             }
         }
-    } else
-        draw_pixman_shade(buf, 0x4000);
+    }
 }
 
 static void
 draw_dark_shade(struct buf *buf)
 {
-    if (pixman_image_get_format(buf->pix) == PIXMAN_a1) {
+    pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+
+    if (solid_shades && fmt == PIXMAN_a1)
+        change_buffer_format(buf, PIXMAN_a8);
+    else if (!solid_shades && fmt == PIXMAN_a8)
+        change_buffer_format(buf, PIXMAN_a1);
+
+    if (solid_shades)
+        draw_pixman_shade(buf, 0x8000);
+    else {
         for (size_t row = 0; row < buf->height; row++) {
             for (size_t col = 0; col < buf->width; col += 1 + row % 2) {
                 size_t idx = col / 8;
@@ -1747,8 +1778,7 @@ draw_dark_shade(struct buf *buf)
                 buf->data[row * buf->stride + idx] |= 1 << bit_no;
             }
         }
-    } else
-        draw_pixman_shade(buf, 0x8000);
+    }
 }
 
 static void
