@@ -1242,25 +1242,28 @@ draw_box_drawings_double_vertical_and_horizontal(struct buf *buf)
 static void
 draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
 {
-    if (pixman_image_get_format(buf->pix) == PIXMAN_a8) {
-        /*
-         * Hack until we’ve implemented ARCs with pixman
-         *
-         * Replace the a8 buffer with a a1 buffer, and use our “old”
-         * non-antialiased technique to draw arcs.
-         */
-        change_buffer_format(buf, PIXMAN_a1);
-    }
+    const pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+    const int supersample = fmt == PIXMAN_a8 ? 4 : 1;
+    const int height = buf->height * supersample;
+    const int width = buf->width * supersample;
+    const int stride = fmt == PIXMAN_a8
+        ? stride_for_format_and_width(PIXMAN_a8, width) : buf->stride;
+    uint8_t *data = supersample > 1 ? xcalloc(height * stride, 1) : buf->data;
 
-    int thick = thickness(LIGHT);
+    const int thick = thickness(LIGHT) * supersample;
 
-    double a = (buf->width - thick) / 2;
-    double b = (buf->height - thick) / 2;
+    const bool thick_is_odd = (thick / supersample) % 2;
+    const bool height_is_odd = buf->height % 2;
+    const bool width_is_odd = buf->width % 2;
 
-    double a2 = a * a;
-    double b2 = b * b;
+    const double a = (width - thick) / 2;
+    const double b = (height - thick) / 2;
 
-    int num_samples = buf->height * 16;
+    const double a2 = a * a;
+    const double b2 = b * b;
+
+    const int num_samples = height * 16;
+
     for (int i = 0; i < num_samples; i++) {
         double y = i / 16.;
         double x = sqrt(a2 * (1. - y * y / b2));
@@ -1310,30 +1313,30 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
          */
         switch (wc) {
         case  L'╭':
-            row_end = buf->height - row - (thick % 2 ^ buf->height % 2);
+            row_end = height - row - (thick_is_odd ^ height_is_odd);
             row_start = row_end - thick;
-            col_end = buf->width - col - (thick % 2 ^ buf->width % 2);
+            col_end = width - col - (thick_is_odd ^ width_is_odd);
             col_start = col_end - thick;
             break;
 
         case L'╮':
-            row_end = buf->height - row - (thick % 2 ^ buf->height % 2);
+            row_end = height - row - (thick_is_odd ^ height_is_odd);
             row_start = row_end - thick;
-            col_start = col;
+            col_start = col - ((thick_is_odd ^ width_is_odd) ? supersample / 2 : 0);
             col_end = col_start + thick;
             break;
 
         case L'╰':
-            row_start = row;
+            row_start = row - ((thick_is_odd ^ height_is_odd) ? supersample / 2 : 0);
             row_end = row_start + thick;
-            col_end = buf->width - col - (thick % 2 ^ buf->width % 2);
+            col_end = width - col - (thick_is_odd ^ width_is_odd);
             col_start = col_end - thick;
             break;
 
         case L'╯':
-            row_start = row;
+            row_start = row - ((thick_is_odd ^ height_is_odd) ? supersample / 2 : 0);
             row_end = row_start + thick;
-            col_start = col;
+            col_start = col - ((thick_is_odd ^ width_is_odd) ? supersample / 2 : 0);
             col_end = col_start + thick;
             break;
         }
@@ -1341,11 +1344,14 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
         xassert(row_end > row_start);
         xassert(col_end > col_start);
 
-        for (int r = max(row_start, 0); r < max(min(row_end, buf->height), 0); r++) {
-            for (int c = max(col_start, 0); c < max(min(col_end, buf->width), 0); c++) {
-                size_t idx = c / 8;
-                size_t bit_no = c % 8;
-                buf->data[r * buf->stride + idx] |= 1 << bit_no;
+        for (int r = max(row_start, 0); r < max(min(row_end, height), 0); r++) {
+            for (int c = max(col_start, 0); c < max(min(col_end, width), 0); c++) {
+                if (fmt == PIXMAN_a1) {
+                    size_t idx = c / 8;
+                    size_t bit_no = c % 8;
+                    data[r * stride + idx] |= 1 << bit_no;
+                } else
+                    data[r * stride + c] = 0xff;
             }
         }
     }
@@ -1359,26 +1365,53 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
 
     if (wc == L'╭' || wc == L'╰') {
         for (int y = 0; y < thick; y++) {
-            int row = (buf->height - thick) / 2 + y;
-            int col = buf->width - 1;
-            if (row >= 0 && row < buf->height && col >= 0 && col < buf->width) {
-                size_t ofs = col / 8;
-                size_t bit_no = col % 8;
-                buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            int row = (height - thick) / 2 + y - ((thick_is_odd ^ height_is_odd) ? supersample / 2 : 0);
+            for (int col = width - supersample; col < width; col++) {
+                if (row >= 0 && row < height && col >= 0) {
+                    if (fmt == PIXMAN_a1) {
+                        size_t ofs = col / 8;
+                        size_t bit_no = col % 8;
+                        data[row * stride + ofs] |= 1 << bit_no;
+                    } else
+                        data[row * stride + col] = 0xff;
+                }
             }
         }
     }
 
     if (wc == L'╭' || wc == L'╮') {
         for (int x = 0; x < thick; x++) {
-            int row = buf->height - 1;
-            int col = (buf->width - thick) / 2 + x;
-            if (row >= 0 && row < buf->height && col >= 0 && col < buf->width) {
-                size_t ofs = col / 8;
-                size_t bit_no = col % 8;
-                buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            int col = (width - thick) / 2 + x - ((thick_is_odd ^ width_is_odd) ? supersample / 2 : 0);
+            for (int row = height - supersample; row < height; row++) {
+                if (row >= 0 && col >= 0 && col < width) {
+                    if (fmt == PIXMAN_a1) {
+                        size_t ofs = col / 8;
+                        size_t bit_no = col % 8;
+                        data[row * stride + ofs] |= 1 << bit_no;
+                    } else
+                        data[row * stride + col] = 0xff;
+                }
             }
         }
+    }
+
+    if (fmt == PIXMAN_a8) {
+        xassert(data != buf->data);
+
+        /* Downsample */
+        for (size_t r = 0; r < buf->height; r++) {
+            for (size_t c = 0; c < buf->width; c++) {
+                uint32_t total = 0;
+                for (size_t i = 0; i < supersample; i++) {
+                    for (size_t j = 0; j < supersample; j++)
+                        total += data[(r * supersample + i) * stride + c * supersample + j];
+                }
+                uint8_t average = min(total / (supersample * supersample), 0xff);
+                buf->data[r * buf->stride + c] = average;
+            }
+        }
+
+        free(data);
     }
 }
 
