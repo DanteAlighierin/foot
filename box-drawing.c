@@ -27,9 +27,9 @@ struct buf {
     int dpi;
     float cell_size;
     float base_thickness;
+    bool solid_shades;
 };
 
-static const bool solid_shades = true;  /* TODO: configurable? */
 static const pixman_color_t white = {0xffff, 0xffff, 0xffff, 0xffff};
 
 static void
@@ -1756,12 +1756,12 @@ draw_light_shade(struct buf *buf)
 {
     pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
 
-    if (solid_shades && fmt == PIXMAN_a1)
+    if (buf->solid_shades && fmt == PIXMAN_a1)
         change_buffer_format(buf, PIXMAN_a8);
-    else if (!solid_shades && fmt == PIXMAN_a8)
+    else if (!buf->solid_shades && fmt == PIXMAN_a8)
         change_buffer_format(buf, PIXMAN_a1);
 
-    if (solid_shades)
+    if (buf->solid_shades)
         draw_pixman_shade(buf, 0x2000);
     else {
         for (size_t row = 0; row < buf->height; row += 2) {
@@ -1779,12 +1779,12 @@ draw_medium_shade(struct buf *buf)
 {
     pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
 
-    if (solid_shades && fmt == PIXMAN_a1)
+    if (buf->solid_shades && fmt == PIXMAN_a1)
         change_buffer_format(buf, PIXMAN_a8);
-    else if (!solid_shades && fmt == PIXMAN_a8)
+    else if (!buf->solid_shades && fmt == PIXMAN_a8)
         change_buffer_format(buf, PIXMAN_a1);
 
-    if (solid_shades)
+    if (buf->solid_shades)
         draw_pixman_shade(buf, 0x4000);
     else {
         for (size_t row = 0; row < buf->height; row++) {
@@ -1802,12 +1802,12 @@ draw_dark_shade(struct buf *buf)
 {
     pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
 
-    if (solid_shades && fmt == PIXMAN_a1)
+    if (buf->solid_shades && fmt == PIXMAN_a1)
         change_buffer_format(buf, PIXMAN_a8);
-    else if (!solid_shades && fmt == PIXMAN_a8)
+    else if (!buf->solid_shades && fmt == PIXMAN_a8)
         change_buffer_format(buf, PIXMAN_a1);
 
-    if (solid_shades)
+    if (buf->solid_shades)
         draw_pixman_shade(buf, 0x8000);
     else {
         for (size_t row = 0; row < buf->height; row++) {
@@ -2440,6 +2440,7 @@ box_drawing(const struct terminal *term, wchar_t wc)
         .dpi = term->font_dpi,
         .cell_size = sqrt(pow(term->cell_width, 2) + pow(term->cell_height, 2)),
         .base_thickness = term->conf->tweak.box_drawing_base_thickness,
+        .solid_shades = term->conf->tweak.box_drawing_solid_shades,
     };
 
     LOG_DBG("LIGHT=%d, HEAVY=%d",
