@@ -1676,40 +1676,58 @@ draw_right_half_block(struct buf *buf)
     rect(round(buf->width / 2.), 0, buf->width, buf->height);
 }
 
+static void NOINLINE
+draw_pixman_shade(struct buf *buf, uint16_t v)
+{
+    pixman_color_t shade = {0, 0, 0, v};
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &shade, 1,
+        (pixman_rectangle16_t []){{0, 0, buf->width, buf->height}});
+}
+
 static void
 draw_light_shade(struct buf *buf)
 {
-    for (size_t row = 0; row < buf->height; row += 2) {
-        for (size_t col = 0; col < buf->width; col += 2) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
+    if (pixman_image_get_format(buf->pix) == PIXMAN_a1) {
+        for (size_t row = 0; row < buf->height; row += 2) {
+            for (size_t col = 0; col < buf->width; col += 2) {
+                size_t idx = col / 8;
+                size_t bit_no = col % 8;
+                buf->data[row * buf->stride + idx] |= 1 << bit_no;
+            }
         }
-    }
+    } else
+        draw_pixman_shade(buf, 0x8000);
 }
 
 static void
 draw_medium_shade(struct buf *buf)
 {
-    for (size_t row = 0; row < buf->height; row++) {
-        for (size_t col = row % 2; col < buf->width; col += 2) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
+    if (pixman_image_get_format(buf->pix) == PIXMAN_a1) {
+        for (size_t row = 0; row < buf->height; row++) {
+            for (size_t col = row % 2; col < buf->width; col += 2) {
+                size_t idx = col / 8;
+                size_t bit_no = col % 8;
+                buf->data[row * buf->stride + idx] |= 1 << bit_no;
+            }
         }
-    }
+    } else
+        draw_pixman_shade(buf, 0x4000);
 }
 
 static void
 draw_dark_shade(struct buf *buf)
 {
-    for (size_t row = 0; row < buf->height; row++) {
-        for (size_t col = 0; col < buf->width; col += 1 + row % 2) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
+    if (pixman_image_get_format(buf->pix) == PIXMAN_a1) {
+        for (size_t row = 0; row < buf->height; row++) {
+            for (size_t col = 0; col < buf->width; col += 1 + row % 2) {
+                size_t idx = col / 8;
+                size_t bit_no = col % 8;
+                buf->data[row * buf->stride + idx] |= 1 << bit_no;
+            }
         }
-    }
+    } else
+        draw_pixman_shade(buf, 0x2000);
 }
 
 static void
