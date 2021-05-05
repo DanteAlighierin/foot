@@ -40,6 +40,12 @@ change_buffer_format(struct buf *buf, pixman_format_code_t new_format)
     pixman_image_t *new_pix = pixman_image_create_bits_no_clear(
         new_format, buf->width, buf->height, (uint32_t *)new_data, stride);
 
+    if (new_pix == NULL) {
+        errno = ENOMEM;
+        perror(__func__);
+        abort();
+    }
+
     pixman_image_unref(buf->pix);
     free(buf->data);
 
