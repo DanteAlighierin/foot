@@ -1210,7 +1210,7 @@ draw_box_drawings_double_vertical_and_horizontal(struct buf *buf)
     hline(0, vmid, hmid + 2 * thick, thick);
     hline(vmid + 2 * thick, buf->width, hmid + 2 * thick, thick);
 
-    vline(0, hmid, vmid, thick);
+    vline(0, hmid + thick, vmid, thick);
     vline(0, hmid, vmid + 2 * thick, thick);
     vline(hmid + 2 * thick, buf->height, vmid, thick);
     vline(hmid + 2 * thick, buf->height, vmid + 2 * thick, thick);
