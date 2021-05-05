@@ -29,6 +29,8 @@ struct buf {
     float base_thickness;
 };
 
+static const pixman_color_t white = {0xffff, 0xffff, 0xffff, 0xffff};
+
 static int
 _thickness(struct buf *buf, enum thickness thick)
 {
@@ -42,13 +44,15 @@ _hline(struct buf *buf, int x1, int x2, int y, int thick)
     x1 = min(max(x1, 0), buf->width);
     x2 = min(max(x2, 0), buf->width);
 
-    for (size_t row = max(y, 0); row < max(min(y + thick, buf->height), 0); row++) {
-        for (size_t col = x1; col < x2; col++) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
-        }
-    }
+    int y1 = max(y, 0);
+    int y2 = min(max(y + thick, 0), buf->height);
+    int width = x2 - x1;
+    int height = y2 - y1;
+
+    pixman_rectangle16_t rect = {
+        .x = x1, .y = y1, .width = width, .height = height};
+
+    pixman_image_fill_rectangles(PIXMAN_OP_SRC, buf->pix, &white, 1, &rect);
 }
 
 #define hline(x1, x2, y, thick) _hline(buf, x1, x2, y, thick)
@@ -59,13 +63,15 @@ _vline(struct buf *buf, int y1, int y2, int x, int thick)
     y1 = min(max(y1, 0), buf->height);
     y2 = min(max(y2, 0), buf->height);
 
-    for (size_t row = y1; row < y2; row++) {
-        for (size_t col = max(x, 0); col < max(min(x + thick, buf->width), 0); col++) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
-        }
-    }
+    int x1 = max(x, 0);
+    int x2 = min(max(x + thick, 0), buf->width);
+    int width = x2 - x1;
+    int height = y2 - y1;
+
+    pixman_rectangle16_t rect = {
+        .x = x1, .y = y1, .width = width, .height = height};
+
+    pixman_image_fill_rectangles(PIXMAN_OP_SRC, buf->pix, &white, 1, &rect);
 }
 
 #define vline(y1, y2, x, thick) _vline(buf, y1, y2, x, thick)
