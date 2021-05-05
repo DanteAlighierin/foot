@@ -84,16 +84,8 @@ _rect(struct buf *buf, int x1, int y1, int x2, int y2)
     x2 = min(max(x2, 0), buf->width);
     y2 = min(max(y2, 0), buf->height);
 
-    int width = x2 - x1;
-    int height = y2 - y1;
-
-    assert(x1 + width <= buf->width);
-    assert(y1 + height <= buf->height);
-
-    pixman_rectangle16_t rect = {
-        .x = x1, .y = y1, .width = width, .height = height};
-
-    pixman_image_fill_rectangles(PIXMAN_OP_SRC, buf->pix, &white, 1, &rect);
+    pixman_box32_t box = {.x1 = x1, y1 = y1, .x2 = x2, .y2 = y2};
+    pixman_image_fill_boxes(PIXMAN_OP_SRC, buf->pix, &white, 1, &box);
 }
 
 #define rect(x1, y1, x2, y2) _rect(buf, x1, y1, x2, y2)
