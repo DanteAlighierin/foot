@@ -1697,7 +1697,7 @@ draw_light_shade(struct buf *buf)
             }
         }
     } else
-        draw_pixman_shade(buf, 0x8000);
+        draw_pixman_shade(buf, 0x2000);
 }
 
 static void
@@ -1727,7 +1727,7 @@ draw_dark_shade(struct buf *buf)
             }
         }
     } else
-        draw_pixman_shade(buf, 0x2000);
+        draw_pixman_shade(buf, 0x8000);
 }
 
 static void
