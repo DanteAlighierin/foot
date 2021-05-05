@@ -1706,7 +1706,7 @@ draw_right_half_block(struct buf *buf)
 static void NOINLINE
 draw_pixman_shade(struct buf *buf, uint16_t v)
 {
-    pixman_color_t shade = {0, 0, 0, v};
+    pixman_color_t shade = {.red = 0, .green = 0, .blue = 0, .alpha = v};
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, buf->pix, &shade, 1,
         (pixman_rectangle16_t []){{0, 0, buf->width, buf->height}});
