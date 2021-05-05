@@ -2415,7 +2415,9 @@ box_drawing(const struct terminal *term, wchar_t wc)
 {
     int width = term->cell_width;
     int height = term->cell_height;
-    pixman_format_code_t fmt = PIXMAN_a1;  /* TODO: use a8 when antialiasing=true */
+
+    pixman_format_code_t fmt =
+        term->fonts[0]->antialias ? PIXMAN_a8 : PIXMAN_a1;
 
     int stride = stride_for_format_and_width(fmt, width);
     uint8_t *data = xcalloc(height * stride, 1);
