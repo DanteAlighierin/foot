@@ -878,10 +878,11 @@ any of these options.
 	Default: _no_.
 
 *max-shm-pool-size-mb*
-	This option controls the amount of *virtual* memory used by the
-	pixmap memory to which the terminal screen content is rendered.
+	This option controls the amount of virtual address space used by
+	the pixmap memory to which the terminal screen content is
+	rendered.
 	
-	It does *not* change how much physical memory foot uses.
+	It does not change how much physical memory foot uses.
 	
 	Foot uses a memory mapping trick to implement fast rendering of
 	interactive scrolling (typically, but applies to "slow" scrolling
@@ -889,7 +890,7 @@ any of these options.
 	scroll in a text editor.
 	
 	For this to work, it needs a large amount of virtual address
-	space. Again, note that this is *not* physical memory.
+	space. Again, note that this is not physical memory.
 	
 	On a normal x64 based computer, each process has 128TB of virtual
 	address space, and newer ones have 64PB. This is an insane amount
@@ -900,10 +901,10 @@ any of these options.
 	of 65536 windows in server/daemon mode (for 2GB). That should be
 	enough, yes?
 	
-	However, the Wayland compositor *also* needs to allocate the same
+	However, the Wayland compositor also needs to allocate the same
 	amount of virtual address space. Thus, it has a slightly higher
 	chance of running out of address space since it needs to host
-	*all* running Wayland clients in the same way, at the same time.
+	all running Wayland clients in the same way, at the same time.
 	
 	In the off chance that this becomes a problem for you, you can
 	reduce the amount used with this option.
@@ -914,7 +915,9 @@ any of these options.
 	
 	Setting it to 0 disables the feature.
 	
-	Note: this feature is always disabled in 32-bit.
+	Limitations:
+		- only supported on 64-bit architectures
+		- only supported on Linux
 	
 	Default: _512_. Maximum allowed: _2048_ (2GB).
 
