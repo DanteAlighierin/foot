@@ -20,6 +20,7 @@ enum thickness {
 
 struct buf {
     uint8_t *data;
+    pixman_image_t *pix;
     int width;
     int height;
     int stride;
@@ -2278,11 +2279,13 @@ box_drawing(const struct terminal *term, wchar_t wc)
 {
     int width = term->cell_width;
     int height = term->cell_height;
-    int stride = stride_for_format_and_width(PIXMAN_a1, width);
+    pixman_format_code_t fmt = PIXMAN_a1;  /* TODO: use a8 when antialiasing=true */
+
+    int stride = stride_for_format_and_width(fmt, width);
     uint8_t *data = xcalloc(height * stride, 1);
 
     pixman_image_t *pix = pixman_image_create_bits_no_clear(
-        PIXMAN_a1, width, height, (uint32_t*)data, stride);
+        fmt, width, height, (uint32_t*)data, stride);
 
     if (pix == NULL) {
         errno = ENOMEM;
@@ -2292,6 +2295,7 @@ box_drawing(const struct terminal *term, wchar_t wc)
 
     struct buf buf = {
         .data = data,
+        .pix = pix,
         .width = width,
         .height = height,
         .stride = stride,
