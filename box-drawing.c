@@ -1225,6 +1225,27 @@ draw_box_drawings_double_vertical_and_horizontal(struct buf *buf)
 static void
 draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
 {
+    if (pixman_image_get_format(buf->pix) == PIXMAN_a8) {
+        /*
+         * Hack until we’ve implemented ARCs with pixman
+         *
+         * Replace the a8 buffer with a a1 buffer, and use our “old”
+         * non-antialiased technique to draw arcs.
+         */
+
+        int stride = stride_for_format_and_width(PIXMAN_a1, buf->width);
+        uint8_t *new_data = xcalloc(buf->height * stride, 1);
+        pixman_image_t *new_pix = pixman_image_create_bits_no_clear(
+            PIXMAN_a1, buf->width, buf->height, (uint32_t *)new_data, stride);
+
+        pixman_image_unref(buf->pix);
+        free(buf->data);
+
+        buf->data = new_data;
+        buf->pix = new_pix;
+        buf->stride = stride;
+    }
+
     int thick = thickness(LIGHT);
 
     double a = (buf->width - thick) / 2;
@@ -2359,7 +2380,7 @@ box_drawing(const struct terminal *term, wchar_t wc)
     *glyph = (struct fcft_glyph){
         .wc = wc,
         .cols = 1,
-        .pix = pix,
+        .pix = buf.pix,
         .x = -term->font_x_ofs,
         .y = term->font_y_ofs + term->fonts[0]->ascent,
         .width = width,
