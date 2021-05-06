@@ -2318,15 +2318,20 @@ config_load(struct config *conf, const char *conf_path,
         for (size_t r = 0; r < 6; r++) {
             for (size_t g = 0; g < 6; g++) {
                 for (size_t b = 0; b < 6; b++) {
+                    uint8_t red = r ? r * 40 + 55 : 0;
+                    uint8_t green = g ? g * 40 + 55 : 0;
+                    uint8_t blue = b ? b * 40 + 55 : 0;
                     conf->colors.table[16 + r * 6 * 6 + g * 6 + b]
-                        = r * 51 << 16 | g * 51 << 8 | b * 51;
+                        = red << 16 | green << 8 | blue << 0;
                 }
             }
         }
 
         /* And finally 24 shades of gray */
-        for (size_t i = 0; i < 24; i++)
-            conf->colors.table[232 + i] = i * 11 << 16 | i * 11 << 8 | i * 11;
+        for (size_t i = 0; i < 24; i++) {
+            uint8_t level = i * 10 + 8;
+            conf->colors.table[232 + i] = level << 16 | level << 8 | level << 0;
+        }
     }
 
     conf->notify.raw_cmd = xstrdup(
