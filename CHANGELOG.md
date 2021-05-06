@@ -70,6 +70,8 @@
 
 * `generate-alt-random-writes.py --sixel` sometimes crashing,
   resulting in PGO build failures.
+* Wrong colors in the 256-color cube
+  (https://codeberg.org/dnkl/foot/issues/479).
 
 
 ### Security
