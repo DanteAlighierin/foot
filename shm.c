@@ -102,6 +102,9 @@ buffer_destroy(struct buffer *buf)
     buf->real_mmapped = MAP_FAILED;
     buf->pool = NULL;
     buf->fd = -1;
+
+    tll_free(buf->scroll_damage);
+    pixman_region32_fini(&buf->dirty);
 }
 
 void
@@ -398,6 +401,8 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
     struct buffer *ret = &tll_back(buffers);
     if (!instantiate_offset(shm, ret, initial_offset))
         goto err;
+
+    pixman_region32_init(&ret->dirty);
 
 #if defined(MEASURE_SHM_ALLOCS) && MEASURE_SHM_ALLOCS
     {
