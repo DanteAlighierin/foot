@@ -73,7 +73,7 @@ xkb = dependency('xkbcommon', version: '>=1.0.0')
 fontconfig = dependency('fontconfig')
 
 tllist = dependency('tllist', version: '>=1.0.4', fallback: 'tllist')
-fcft = dependency('fcft', version: ['>=2.3.90', '<3.0.0'], fallback: 'fcft')
+fcft = dependency('fcft', version: ['>=2.4.0', '<3.0.0'], fallback: 'fcft')
 
 tic = find_program('tic', native: true, required: get_option('terminfo'))
 if tic.found()
