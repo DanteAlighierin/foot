@@ -14,8 +14,8 @@
 #include "xmalloc.h"
 
 enum thickness {
-    LIGHT = 1,
-    HEAVY = 3,
+    LIGHT,
+    HEAVY,
 };
 
 struct buf {
@@ -28,6 +28,7 @@ struct buf {
     float cell_size;
     float base_thickness;
     bool solid_shades;
+    int thickness[2];
 };
 
 static const pixman_color_t white = {0xffff, 0xffff, 0xffff, 0xffff};
@@ -57,9 +58,17 @@ change_buffer_format(struct buf *buf, pixman_format_code_t new_format)
 static int NOINLINE
 _thickness(struct buf *buf, enum thickness thick)
 {
-    return max((int)(buf->base_thickness * buf->dpi / 72.0 * buf->cell_size), 1) * thick;
+    int multiplier = thick * 2 + 1;
+
+    xassert((thick == LIGHT && multiplier == 1) ||
+            (thick == HEAVY && multiplier == 3));
+
+    return
+        max(
+            (int)(buf->base_thickness * buf->dpi / 72.0 * buf->cell_size), 1)
+        * multiplier;
 }
-#define thickness(thick) _thickness(buf, thick)
+#define thickness(thick) buf->thickness[thick]
 
 static void NOINLINE
 _hline(struct buf *buf, int x1, int x2, int y, int thick)
@@ -2432,6 +2441,9 @@ box_drawing(const struct terminal *term, wchar_t wc)
         .base_thickness = term->conf->tweak.box_drawing_base_thickness,
         .solid_shades = term->conf->tweak.box_drawing_solid_shades,
     };
+
+    buf.thickness[LIGHT] = _thickness(&buf, LIGHT);
+    buf.thickness[HEAVY] = _thickness(&buf, HEAVY);
 
     LOG_DBG("LIGHT=%d, HEAVY=%d",
             _thickness(&buf, LIGHT), _thickness(&buf, HEAVY));
