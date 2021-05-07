@@ -1762,7 +1762,7 @@ draw_light_shade(struct buf *buf)
         change_buffer_format(buf, PIXMAN_a1);
 
     if (buf->solid_shades)
-        draw_pixman_shade(buf, 0x2000);
+        draw_pixman_shade(buf, 0x4000);
     else {
         for (size_t row = 0; row < buf->height; row += 2) {
             for (size_t col = 0; col < buf->width; col += 2) {
@@ -1785,7 +1785,7 @@ draw_medium_shade(struct buf *buf)
         change_buffer_format(buf, PIXMAN_a1);
 
     if (buf->solid_shades)
-        draw_pixman_shade(buf, 0x4000);
+        draw_pixman_shade(buf, 0x8000);
     else {
         for (size_t row = 0; row < buf->height; row++) {
             for (size_t col = row % 2; col < buf->width; col += 2) {
@@ -1808,7 +1808,7 @@ draw_dark_shade(struct buf *buf)
         change_buffer_format(buf, PIXMAN_a1);
 
     if (buf->solid_shades)
-        draw_pixman_shade(buf, 0x8000);
+        draw_pixman_shade(buf, 0xc000);
     else {
         for (size_t row = 0; row < buf->height; row++) {
             for (size_t col = 0; col < buf->width; col += 1 + row % 2) {
