@@ -91,43 +91,76 @@ static const char *const binding_action_map[] = {
 static_assert(ALEN(binding_action_map) == BIND_ACTION_COUNT,
               "binding action map size mismatch");
 
-#define LOG_AND_NOTIFY_ERR(...)                                     \
-    do {                                                            \
-        LOG_ERR(__VA_ARGS__);                                       \
-        char *text = xasprintf(__VA_ARGS__);                        \
-        struct user_notification notif = {                          \
-            .kind = USER_NOTIFICATION_ERROR,                        \
-            .text = text,                                           \
-        };                                                          \
-        tll_push_back(conf->notifications, notif);                  \
-    } while (0)
+static void NOINLINE PRINTF(5)
+log_and_notify(struct config *conf, enum log_class log_class,
+               const char *file, int lineno, const char *fmt, ...)
+{
+    enum user_notification_kind kind;
 
-#define LOG_AND_NOTIFY_WARN(...)                            \
-    do {                                                    \
-        LOG_WARN(__VA_ARGS__);                              \
-        char *text = xasprintf(__VA_ARGS__);                \
-        struct user_notification notif = {                  \
-            .kind = USER_NOTIFICATION_WARNING,              \
-            .text = text,                                   \
-        };                                                  \
-        tll_push_back(conf->notifications, notif);          \
-    } while (0)
+    switch (log_class) {
+    case LOG_CLASS_WARNING: kind = USER_NOTIFICATION_WARNING; break;
+    case LOG_CLASS_ERROR:   kind = USER_NOTIFICATION_ERROR; break;
 
-#define LOG_AND_NOTIFY_ERRNO(...)                                       \
-    do {                                                                \
-        int errno_copy = errno;                                         \
-        LOG_ERRNO(__VA_ARGS__);                                         \
-        int len = snprintf(NULL, 0, __VA_ARGS__);                       \
-        int errno_len = snprintf(NULL, 0, ": %s", strerror(errno_copy)); \
-        char *text = xmalloc(len + errno_len + 1);                      \
-        snprintf(text, len + errno_len + 1, __VA_ARGS__);               \
-        snprintf(&text[len], errno_len + 1, ": %s", strerror(errno_copy)); \
-        struct user_notification notif = {                              \
-            .kind = USER_NOTIFICATION_ERROR,                            \
-            .text = text,                                               \
-        };                                                              \
-        tll_push_back(conf->notifications, notif);                      \
-    } while(0)
+    case LOG_CLASS_INFO:
+    case LOG_CLASS_DEBUG:
+        BUG("unsupported log class: %d", log_class);
+        break;
+    }
+
+    va_list va1, va2;
+    va_start(va1, fmt);
+    va_copy(va2, va1);
+
+    log_msg_va(log_class, LOG_MODULE, file, lineno, fmt, va1);
+
+    char *text = xvasprintf(fmt, va2);
+    tll_push_back(
+        conf->notifications,
+        ((struct user_notification){.kind = kind, .text = text}));
+
+    va_end(va2);
+    va_end(va1);
+}
+
+static void NOINLINE PRINTF(5)
+log_errno_and_notify(struct config *conf, enum log_class log_class,
+                     const char *file, int lineno, const char *fmt, ...)
+{
+    int errno_copy = errno;
+
+    va_list va1, va2, va3;
+    va_start(va1, fmt);
+    va_copy(va2, va1);
+    va_copy(va3, va2);
+
+    log_errno_provided_va(
+        log_class, LOG_MODULE, file, lineno, errno_copy, fmt, va1);
+
+    int len = vsnprintf(NULL, 0, fmt, va2);
+    int errno_len = snprintf(NULL, 0, ": %s", strerror(errno_copy));
+
+    char *text = xmalloc(len + errno_len + 1);
+    vsnprintf(text, len + errno_len + 1, fmt, va3);
+    snprintf(&text[len], errno_len + 1, ": %s", strerror(errno_copy));
+
+    tll_push_back(
+        conf->notifications,
+        ((struct user_notification){
+            .kind = USER_NOTIFICATION_ERROR, .text = text}));
+
+    va_end(va3);
+    va_end(va2);
+    va_end(va1);
+}
+
+#define LOG_AND_NOTIFY_ERR(...) \
+    log_and_notify(conf, LOG_CLASS_ERROR, __FILE__, __LINE__, __VA_ARGS__)
+
+#define LOG_AND_NOTIFY_WARN(...) \
+    log_and_notify(conf, LOG_CLASS_WARNING, __FILE__, __LINE__, __VA_ARGS__)
+
+#define LOG_AND_NOTIFY_ERRNO(...) \
+    log_errno_and_notify(conf, LOG_CLASS_ERROR, __FILE__, __LINE__, __VA_ARGS__)
 
 static char *
 get_shell(void)
