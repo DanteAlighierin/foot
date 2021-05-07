@@ -31,7 +31,19 @@
 static const uint32_t default_foreground = 0xdcdccc;
 static const uint32_t default_background = 0x111111;
 
-static const uint32_t default_regular[] = {
+#define cube6(r, g) \
+    r|g|0x00, r|g|0x5f, r|g|0x87, r|g|0xaf, r|g|0xd7, r|g|0xff
+
+#define cube36(r) \
+    cube6(r, 0x0000), \
+    cube6(r, 0x5f00), \
+    cube6(r, 0x8700), \
+    cube6(r, 0xaf00), \
+    cube6(r, 0xd700), \
+    cube6(r, 0xff00)
+
+static const uint32_t default_color_table[256] = {
+    // Regular
     0x222222,
     0xcc9393,
     0x7f9f7f,
@@ -40,9 +52,8 @@ static const uint32_t default_regular[] = {
     0xdc8cc3,
     0x93e0e3,
     0xdcdccc,
-};
 
-static const uint32_t default_bright[] = {
+    // Bright
     0x666666,
     0xdca3a3,
     0xbfebbf,
@@ -51,6 +62,22 @@ static const uint32_t default_bright[] = {
     0xfcace3,
     0xb3ffff,
     0xffffff,
+
+    // 6x6x6 RGB cube
+    cube36(0x000000),
+    cube36(0x5f0000),
+    cube36(0x870000),
+    cube36(0xaf0000),
+    cube36(0xd70000),
+    cube36(0xff0000),
+
+    // 24 shades of gray
+    0x080808, 0x121212, 0x1c1c1c, 0x262626,
+    0x303030, 0x3a3a3a, 0x444444, 0x4e4e4e,
+    0x585858, 0x626262, 0x6c6c6c, 0x767676,
+    0x808080, 0x8a8a8a, 0x949494, 0x9e9e9e,
+    0xa8a8a8, 0xb2b2b2, 0xbcbcbc, 0xc6c6c6,
+    0xd0d0d0, 0xdadada, 0xe4e4e4, 0xeeeeee
 };
 
 static const char *const binding_action_map[] = {
@@ -2194,7 +2221,7 @@ config_load(struct config *conf, const char *conf_path,
     bool ret = false;
 
     *conf = (struct config) {
-    	.term = xstrdup(DEFAULT_TERM),
+        .term = xstrdup(DEFAULT_TERM),
         .shell = get_shell(),
         .title = xstrdup("foot"),
         .app_id = xstrdup("foot"),
@@ -2233,25 +2260,6 @@ config_load(struct config *conf, const char *conf_path,
         .colors = {
             .fg = default_foreground,
             .bg = default_background,
-            .table = {
-                default_regular[0],
-                default_regular[1],
-                default_regular[2],
-                default_regular[3],
-                default_regular[4],
-                default_regular[5],
-                default_regular[6],
-                default_regular[7],
-
-                default_bright[0],
-                default_bright[1],
-                default_bright[2],
-                default_bright[3],
-                default_bright[4],
-                default_bright[5],
-                default_bright[6],
-                default_bright[7],
-            },
             .alpha = 0xffff,
             .selection_fg = 0x80000000,  /* Use default bg */
             .selection_bg = 0x80000000,  /* Use default fg */
@@ -2309,30 +2317,7 @@ config_load(struct config *conf, const char *conf_path,
         .notifications = tll_init(),
     };
 
-    /* Initialize the color cube */
-    {
-        /* First 16 entries correspond to the "regular" and "bright"
-         * colors, and have already been initialized */
-
-        /* Then follows 216 RGB shades */
-        for (size_t r = 0; r < 6; r++) {
-            for (size_t g = 0; g < 6; g++) {
-                for (size_t b = 0; b < 6; b++) {
-                    uint8_t red = r ? r * 40 + 55 : 0;
-                    uint8_t green = g ? g * 40 + 55 : 0;
-                    uint8_t blue = b ? b * 40 + 55 : 0;
-                    conf->colors.table[16 + r * 6 * 6 + g * 6 + b]
-                        = red << 16 | green << 8 | blue << 0;
-                }
-            }
-        }
-
-        /* And finally 24 shades of gray */
-        for (size_t i = 0; i < 24; i++) {
-            uint8_t level = i * 10 + 8;
-            conf->colors.table[232 + i] = level << 16 | level << 8 | level << 0;
-        }
-    }
+    memcpy(conf->colors.table, default_color_table, sizeof(default_color_table));
 
     conf->notify.raw_cmd = xstrdup(
         "notify-send -a foot -i foot ${title} ${body}");
