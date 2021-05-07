@@ -593,6 +593,32 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         }
     }
 
+    else if (strcmp(key, "bell") == 0) {
+        LOG_WARN("deprecated: %s:%d: [default]: bell: set actions in section 'bell' instead", path, lineno);
+
+        const char fmt[] = "%s:%d \033[1mbell\033[21m, use section \033[1m[bell]\033[21m instead";
+        char *text = xasprintf(fmt, path, lineno);
+
+        struct user_notification deprecation = {
+            .kind = USER_NOTIFICATION_DEPRECATED,
+            .text = text,
+        };
+        tll_push_back(conf->notifications, deprecation);
+
+        if (strcmp(value, "set-urgency") == 0)
+            conf->bell.urgent = true;
+        else if (strcmp(value, "notify") == 0)
+            conf->bell.notify = true;
+        /* we do nothing by default, so none may be ignored */
+        else {
+            LOG_AND_NOTIFY_ERR(
+                "%s%d: [default]: bell: "
+                "expected either 'set-urgency', 'notify' or 'none'",
+                path, lineno);
+            return false;
+        }
+    }
+
     else if (strcmp(key, "initial-window-mode") == 0) {
         if (strcmp(value, "windowed") == 0)
             conf->startup_mode = STARTUP_WINDOWED;

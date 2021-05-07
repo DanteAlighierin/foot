@@ -265,7 +265,7 @@ in this order:
 # SECTION: bell
 
 *urgent*
-	When set to _true_, the margins will be painted in red
+	When set to _yes_, the margins will be painted in red
 	whenever *BEL* is received while the window does *not* have
 	keyboard focus. Note that Wayland currently does not have an
 	_urgency_ hint like X11. The name *urgent* was chosen for
@@ -278,13 +278,13 @@ in this order:
 	
 	_Note_: expect this feature to be *replaced* with proper
 	compositor urgency support once/if that gets implemented.
-	Default: _false_
+	Default: _no_
 
 *notify*
-	When set to _true_, foot will emit a desktop notification using
+	When set to _yes_, foot will emit a desktop notification using
 	the command specified in the *notify* option whenever *BEL* is
 	received and the window does *not* have keyboard focus. Default:
-	_false_
+	_no_
 
 *command*
 	When set, foot will execute this command when *BEL* is received.
@@ -292,7 +292,7 @@ in this order:
 
 *command-focused*
 	Whether to run the command on *BEL* even while focused. Default:
-	_false_
+	_no_
 
 
 # SECTION: scrollback

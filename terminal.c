@@ -2641,7 +2641,7 @@ term_bell(struct terminal *term)
             notify_notify(term, "Bell", "Bell in terminal");
     }
 
-    if (term->conf->bell.command.argv && (!term->kbd_focus || term->conf->bell.command_focused)) {
+    if ((term->conf->bell.command.argv != NULL) && (!term->kbd_focus || term->conf->bell.command_focused)) {
         int devnull = open("/dev/null", O_RDONLY);
         spawn(term->reaper, NULL, term->conf->bell.command.argv, devnull, -1, -1);
 
