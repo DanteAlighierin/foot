@@ -71,7 +71,7 @@ xvasprintf_(char **strp, const char *format, va_list ap)
     return vsnprintf(*strp, n + 1, format, ap);
 }
 
-static VPRINTF(1) char *
+char *
 xvasprintf(const char *format, va_list ap)
 {
     char *str;
