@@ -362,7 +362,7 @@ done:
     goto out;
 }
 
-static bool
+static bool NOINLINE
 str_to_bool(const char *s)
 {
     return strcasecmp(s, "on") == 0 ||
@@ -371,7 +371,7 @@ str_to_bool(const char *s)
         strtoul(s, NULL, 0) > 0;
 }
 
-static bool
+static bool NOINLINE
 str_to_ulong(const char *s, int base, unsigned long *res)
 {
     if (s == NULL)
@@ -384,7 +384,7 @@ str_to_ulong(const char *s, int base, unsigned long *res)
     return errno == 0 && *end == '\0';
 }
 
-static bool
+static bool NOINLINE
 str_to_double(const char *s, double *res)
 {
     if (s == NULL)
@@ -397,7 +397,7 @@ str_to_double(const char *s, double *res)
     return errno == 0 && *end == '\0';
 }
 
-static bool
+static bool NOINLINE
 str_to_wchars(const char *s, wchar_t **res, struct config *conf,
               const char  *path, int lineno,
               const char *section, const char *key)
@@ -416,7 +416,7 @@ str_to_wchars(const char *s, wchar_t **res, struct config *conf,
     return true;
 }
 
-static bool
+static bool NOINLINE
 str_to_color(const char *s, uint32_t *color, bool allow_alpha,
              struct config *conf, const char *path, int lineno,
              const char *section, const char *key)
@@ -439,7 +439,7 @@ str_to_color(const char *s, uint32_t *color, bool allow_alpha,
     return true;
 }
 
-static bool
+static bool NOINLINE
 str_to_two_colors(const char *s, uint32_t *first, uint32_t *second,
                   bool allow_alpha, struct config *conf, const char *path,
                   int lineno, const char *section, const char *key)
@@ -463,7 +463,7 @@ str_to_two_colors(const char *s, uint32_t *first, uint32_t *second,
     return true;
 }
 
-static bool
+static bool NOINLINE
 str_to_pt_or_px(const char *s, struct pt_or_px *res, struct config *conf,
                 const char *path, int lineno, const char *section, const char *key)
 {
@@ -497,7 +497,7 @@ str_to_pt_or_px(const char *s, struct pt_or_px *res, struct config *conf,
     return true;
 }
 
-static bool
+static bool NOINLINE
 str_to_spawn_template(struct config *conf,
                       const char *s, struct config_spawn_template *template,
                       const char *path, int lineno, const char *section,
