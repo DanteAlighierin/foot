@@ -605,11 +605,17 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         };
         tll_push_back(conf->notifications, deprecation);
 
-        if (strcmp(value, "set-urgency") == 0)
+        if (strcmp(value, "set-urgency") == 0) {
+            memset(&conf->bell, 0, sizeof(conf->bell));
             conf->bell.urgent = true;
-        else if (strcmp(value, "notify") == 0)
+        }
+        else if (strcmp(value, "notify") == 0) {
+            memset(&conf->bell, 0, sizeof(conf->bell));
             conf->bell.notify = true;
-        /* we do nothing by default, so none may be ignored */
+        }
+        else if (strcmp(value, "none") == 0) {
+            memset(&conf->bell, 0, sizeof(conf->bell));
+        }
         else {
             LOG_AND_NOTIFY_ERR(
                 "%s%d: [default]: bell: "
