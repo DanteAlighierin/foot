@@ -64,18 +64,13 @@ _thickness(struct buf *buf, enum thickness thick)
 static void NOINLINE
 _hline(struct buf *buf, int x1, int x2, int y, int thick)
 {
-    x1 = min(max(x1, 0), buf->width);
-    x2 = min(max(x2, 0), buf->width);
-
-    int y1 = max(y, 0);
-    int y2 = min(max(y + thick, 0), buf->height);
-    int width = x2 - x1;
-    int height = y2 - y1;
-
-    pixman_rectangle16_t rect = {
-        .x = x1, .y = y1, .width = width, .height = height};
-
-    pixman_image_fill_rectangles(PIXMAN_OP_SRC, buf->pix, &white, 1, &rect);
+    pixman_box32_t box = {
+        .x1 = min(max(x1, 0), buf->width),
+        .x2 = min(max(x2, 0), buf->width),
+        .y1 = min(max(y, 0), buf->height),
+        .y2 = min(max(y + thick, 0), buf->height),
+    };
+    pixman_image_fill_boxes(PIXMAN_OP_SRC, buf->pix, &white, 1, &box);
 }
 
 #define hline(x1, x2, y, thick) _hline(buf, x1, x2, y, thick)
@@ -83,18 +78,13 @@ _hline(struct buf *buf, int x1, int x2, int y, int thick)
 static void NOINLINE
 _vline(struct buf *buf, int y1, int y2, int x, int thick)
 {
-    y1 = min(max(y1, 0), buf->height);
-    y2 = min(max(y2, 0), buf->height);
-
-    int x1 = max(x, 0);
-    int x2 = min(max(x + thick, 0), buf->width);
-    int width = x2 - x1;
-    int height = y2 - y1;
-
-    pixman_rectangle16_t rect = {
-        .x = x1, .y = y1, .width = width, .height = height};
-
-    pixman_image_fill_rectangles(PIXMAN_OP_SRC, buf->pix, &white, 1, &rect);
+    pixman_box32_t box = {
+        .x1 = min(max(x, 0), buf->width),
+        .x2 = min(max(x + thick, 0), buf->width),
+        .y1 = min(max(y1, 0), buf->height),
+        .y2 = min(max(y2, 0), buf->height),
+    };
+    pixman_image_fill_boxes(PIXMAN_OP_SRC, buf->pix, &white, 1, &box);
 }
 
 #define vline(y1, y2, x, thick) _vline(buf, y1, y2, x, thick)
@@ -102,12 +92,12 @@ _vline(struct buf *buf, int y1, int y2, int x, int thick)
 static void NOINLINE
 _rect(struct buf *buf, int x1, int y1, int x2, int y2)
 {
-    x1 = min(max(x1, 0), buf->width);
-    y1 = min(max(y1, 0), buf->height);
-    x2 = min(max(x2, 0), buf->width);
-    y2 = min(max(y2, 0), buf->height);
-
-    pixman_box32_t box = {.x1 = x1, .y1 = y1, .x2 = x2, .y2 = y2};
+    pixman_box32_t box = {
+        .x1 = min(max(x1, 0), buf->width),
+        .y1 = min(max(y1, 0), buf->height),
+        .x2 = min(max(x2, 0), buf->width),
+        .y2 = min(max(y2, 0), buf->height),
+    };
     pixman_image_fill_boxes(PIXMAN_OP_SRC, buf->pix, &white, 1, &box);
 }
 
