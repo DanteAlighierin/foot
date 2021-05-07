@@ -54,7 +54,7 @@ change_buffer_format(struct buf *buf, pixman_format_code_t new_format)
     buf->stride = stride;
 }
 
-static int
+static int NOINLINE
 _thickness(struct buf *buf, enum thickness thick)
 {
     return max((int)(buf->base_thickness * buf->dpi / 72.0 * buf->cell_size), 1) * thick;
