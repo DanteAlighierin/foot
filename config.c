@@ -2132,15 +2132,20 @@ get_server_socket_path(void)
     return xasprintf("%s/foot-%s.sock", xdg_runtime, wayland_display);
 }
 
+static void NOINLINE
+add_key_binding(config_key_binding_list_t *list, int action,
+                const struct config_key_modifiers *mods, xkb_keysym_t sym)
+{
+    tll_push_back(
+        *list,
+        ((struct config_key_binding){action, *mods, sym}));
+}
+
 static void
 add_default_key_bindings(struct config *conf)
 {
-#define add_binding(action, mods, sym)                                  \
-    do {                                                                \
-        tll_push_back(                                                  \
-            conf->bindings.key,                                         \
-            ((struct config_key_binding){action, mods, sym}));   \
-    } while (0)
+    #define add_binding(action, mods, sym) \
+        add_key_binding(&conf->bindings.key, action, &mods, sym)
 
     const struct config_key_modifiers shift = {.shift = true};
     const struct config_key_modifiers ctrl = {.ctrl = true};
@@ -2162,18 +2167,15 @@ add_default_key_bindings(struct config *conf)
     add_binding(BIND_ACTION_SPAWN_TERMINAL, ctrl_shift, XKB_KEY_n);
     add_binding(BIND_ACTION_SHOW_URLS_LAUNCH, ctrl_shift, XKB_KEY_u);
 
-#undef add_binding
+    #undef add_binding
 }
+
 
 static void
 add_default_search_bindings(struct config *conf)
 {
-#define add_binding(action, mods, sym)                                  \
-    do {                                                                \
-        tll_push_back(                                                  \
-            conf->bindings.search,                                      \
-            ((struct config_key_binding){action, mods, sym}));   \
-} while (0)
+    #define add_binding(action, mods, sym) \
+        add_key_binding(&conf->bindings.search, action, &mods, sym)
 
     const struct config_key_modifiers none = {0};
     const struct config_key_modifiers alt = {.alt = true};
@@ -2210,18 +2212,14 @@ add_default_search_bindings(struct config *conf)
     add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_y);
     add_binding(BIND_ACTION_SEARCH_PRIMARY_PASTE, shift, XKB_KEY_Insert);
 
-#undef add_binding
+    #undef add_binding
 }
 
 static void
 add_default_url_bindings(struct config *conf)
 {
-#define add_binding(action, mods, sym)                                  \
-    do {                                                                \
-        tll_push_back(                                                  \
-            conf->bindings.url,                                         \
-            ((struct config_key_binding){action, mods, sym}));      \
-} while (0)
+    #define add_binding(action, mods, sym) \
+        add_key_binding(&conf->bindings.url, action, &mods, sym)
 
     const struct config_key_modifiers none = {0};
     const struct config_key_modifiers ctrl = {.ctrl = true};
@@ -2231,18 +2229,24 @@ add_default_url_bindings(struct config *conf)
     add_binding(BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape);
     add_binding(BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL, none, XKB_KEY_t);
 
-#undef add_binding
+    #undef add_binding
+}
+
+static void NOINLINE
+add_mouse_binding(config_mouse_binding_list_t *list, int action,
+                  const struct config_key_modifiers *mods,
+                  int button, int count)
+{
+    tll_push_back(
+        *list,
+        ((struct config_mouse_binding){action, *mods, button, count, {0}}));
 }
 
 static void
 add_default_mouse_bindings(struct config *conf)
 {
-#define add_binding(action, mods, btn, count)                           \
-    do {                                                                \
-        tll_push_back(                                                  \
-            conf->bindings.mouse,                                       \
-            ((struct config_mouse_binding){action, mods, btn, count, {0}})); \
-} while (0)
+    #define add_binding(action, mods, btn, count) \
+        add_mouse_binding(&conf->bindings.mouse, action, &mods, btn, count)
 
     const struct config_key_modifiers none = {0};
     const struct config_key_modifiers ctrl = {.ctrl = true};
@@ -2256,7 +2260,7 @@ add_default_mouse_bindings(struct config *conf)
     add_binding(BIND_ACTION_SELECT_WORD_WS, ctrl, BTN_LEFT, 2);
     add_binding(BIND_ACTION_SELECT_ROW, none, BTN_LEFT, 3);
 
-#undef add_binding
+    #undef add_binding
 }
 
 bool
