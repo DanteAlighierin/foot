@@ -32,6 +32,8 @@ struct buffer {
 
     bool scrollable;
     bool purge;            /* True if this buffer should be destroyed */
+
+    int age;
 };
 
 struct buffer *shm_get_buffer(

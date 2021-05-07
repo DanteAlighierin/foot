@@ -2048,6 +2048,11 @@ grid_render(struct terminal *term)
         term->is_searching != term->render.was_searching ||
         term->render.margins)
     {
+        if (buf->age > 0) {
+            LOG_DBG("compositor double buffers (age=%d): last=%p, cur=%p",
+                    buf->age, (void*)term->render.last_buf, (void*)buf);
+        }
+
         if (term->render.last_buf != NULL &&
             term->render.last_buf->width == buf->width &&
             term->render.last_buf->height == buf->height &&
@@ -2080,6 +2085,7 @@ grid_render(struct terminal *term)
         term->render.was_searching = term->is_searching;
     }
 
+    buf->age = 0;
     tll_foreach(term->grid->scroll_damage, it) {
         switch (it->item.type) {
         case DAMAGE_SCROLL:
