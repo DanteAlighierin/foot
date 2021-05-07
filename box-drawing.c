@@ -1236,7 +1236,7 @@ draw_box_drawings_double_vertical_and_horizontal(struct buf *buf)
 }
 
 static void
-draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
+draw_box_drawings_light_arc(struct buf *buf, wchar_t wc)
 {
     const pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
     const int supersample = fmt == PIXMAN_a8 ? 4 : 1;
@@ -1997,7 +1997,7 @@ sextant_lower_right(struct buf *buf)
 }
 
 static void
-draw_sextant(wchar_t wc, struct buf *buf)
+draw_sextant(struct buf *buf, wchar_t wc)
 {
     /*
      * Each byte encodes one sextant:
@@ -2189,7 +2189,7 @@ draw_right_seven_eighths_block(struct buf *buf)
 }
 
 static void
-draw_glyph(wchar_t wc, struct buf *buf)
+draw_glyph(struct buf *buf, wchar_t wc)
 {
     IGNORE_WARNING("-Wpedantic")
 
@@ -2309,7 +2309,7 @@ draw_glyph(wchar_t wc, struct buf *buf)
     case 0x256a: draw_box_drawings_vertical_single_and_horizontal_double(buf); break;
     case 0x256b: draw_box_drawings_vertical_double_and_horizontal_single(buf); break;
     case 0x256c: draw_box_drawings_double_vertical_and_horizontal(buf); break;
-    case 0x256d ... 0x2570: draw_box_drawings_light_arc(wc, buf); break;
+    case 0x256d ... 0x2570: draw_box_drawings_light_arc(buf, wc); break;
 
     case 0x2571: draw_box_drawings_light_diagonal_upper_right_to_lower_left(buf); break;
     case 0x2572: draw_box_drawings_light_diagonal_upper_left_to_lower_right(buf); break;
@@ -2361,7 +2361,7 @@ draw_glyph(wchar_t wc, struct buf *buf)
     case 0x259e: draw_quadrant_upper_right_and_lower_left(buf); break;
     case 0x259f: draw_quadrant_upper_right_and_lower_left_and_lower_right(buf); break;
 
-    case 0x1fb00 ... 0x1fb3b: draw_sextant(wc, buf); break;
+    case 0x1fb00 ... 0x1fb3b: draw_sextant(buf, wc); break;
 
     case 0x1fb70: draw_vertical_one_eighth_block_2(buf); break;
     case 0x1fb71: draw_vertical_one_eighth_block_3(buf); break;
@@ -2436,7 +2436,7 @@ box_drawing(const struct terminal *term, wchar_t wc)
     LOG_DBG("LIGHT=%d, HEAVY=%d",
             _thickness(&buf, LIGHT), _thickness(&buf, HEAVY));
 
-    draw_glyph(wc, &buf);
+    draw_glyph(&buf, wc);
 
     struct fcft_glyph *glyph = xmalloc(sizeof(*glyph));
     *glyph = (struct fcft_glyph){
