@@ -38,6 +38,9 @@
 * Unicode 13 characters U+1FB70 - U+1FB8B to list of box drawing
   characters rendered by foot itself (rather than using font glyphs)
   (https://codeberg.org/dnkl/foot/issues/471).
+* Dedicated bell section in config, supporting multiple actions and
+  a new `command` action to run an arbitrary command.
+  (https://codeberg.org/dnkl/foot/pulls/483)
 
 
 ### Changed
@@ -65,6 +68,8 @@
 
 
 ### Deprecated
+* **bell** option in `foot.ini`; set actions in **[bell]** section instead.
+
 ### Removed
 ### Fixed
 
@@ -76,6 +81,7 @@
 
 ### Security
 ### Contributors
+* [r\_c\_f](https://codeberg.org/r_c_f)
 
 
 ## 1.7.2
