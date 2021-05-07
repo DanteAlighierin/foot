@@ -42,6 +42,8 @@
 
 ### Changed
 
+* [fcft](https://codeberg.org/dnkl/fcft): required version bumped from
+  2.3.x to 2.4.x.
 * `generate-alt-random-writes.py --sixel`: width and height of emitted
   sixels has been adjusted.
 * _Concealed_ text (`\E[8m`) is now revealed when highlighted.
