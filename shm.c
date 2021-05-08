@@ -103,7 +103,7 @@ buffer_destroy(struct buffer *buf)
     buf->pool = NULL;
     buf->fd = -1;
 
-    tll_free(buf->scroll_damage);
+    free(buf->scroll_damage);
     pixman_region32_fini(&buf->dirty);
 }
 

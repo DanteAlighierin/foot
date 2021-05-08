@@ -35,8 +35,9 @@ struct buffer {
     bool scrollable;
     bool purge;            /* True if this buffer should be destroyed */
 
-    int age;
-    tll (struct damage) scroll_damage;
+    unsigned age;
+    struct damage *scroll_damage;
+    size_t scroll_damage_count;
     pixman_region32_t dirty;
 };
 

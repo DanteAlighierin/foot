@@ -2026,23 +2026,108 @@ static const struct wl_callback_listener frame_listener = {
 };
 
 static void
-grid_render(struct terminal *term)
+force_full_repaint(struct terminal *term, struct buffer *buf)
 {
-    if (term->is_shutting_down)
+    tll_free(term->grid->scroll_damage);
+    render_margin(term, buf, 0, term->rows, true);
+    term_damage_view(term);
+}
+
+static void
+reapply_old_damage(struct terminal *term, struct buffer *new, struct buffer *old)
+{
+    if (new->age > 1) {
+        LOG_WARN("copying the entire old buffer");
+        memcpy(new->mmapped, old->mmapped, new->size);
         return;
+    }
 
-    struct timeval start_time;
-    if (term->conf->tweak.render_timer_osd || term->conf->tweak.render_timer_log)
-        gettimeofday(&start_time, NULL);
+    /*
+     * TODO: remove this frame’s damage from the region we copy from
+     * the old frame.
+     *
+     * - this frame’s dirty region is only valid *after* we’ve applied
+     *   its scroll damage.
+     * - last frame’s dirty region is only valid *before* we’ve
+     *   applied this frame’s scroll damage.
+     *
+     * Can we transform one of the regions? It’s not trivial, since
+     * scroll damage isn’t just about counting lines; there may be
+     * multiple damage records, each with different scrolling regions.
+     */
+    pixman_region32_t dirty;
+    pixman_region32_init(&dirty);
 
-    xassert(term->width > 0);
-    xassert(term->height > 0);
+    bool full_repaint_needed = true;
 
-    unsigned long cookie = shm_cookie_grid(term);
-    struct buffer *buf = shm_get_buffer(
-        term->wl->shm, term->width, term->height, cookie, true, 1 + term->render.workers.count);
+    for (int r = 0; r < term->rows; r++) {
+        const struct row *row = grid_row_in_view(term->grid, r);
 
-    /* Mark old cursor cell as dirty, to force it to be re-rendered */
+        bool row_all_dirty = true;
+        for (int c = 0; c < term->cols; c++) {
+            if (row->cells[c].attrs.clean) {
+                row_all_dirty = false;
+                full_repaint_needed = false;
+                break;
+            }
+        }
+
+        if (row_all_dirty) {
+            pixman_region32_union_rect(
+                &dirty, &dirty,
+                term->margins.left,
+                term->margins.top + r * term->cell_height,
+                term->width - term->margins.left - term->margins.right,
+                term->cell_height);
+        }
+    }
+
+    if (full_repaint_needed) {
+        force_full_repaint(term, new);
+        return;
+    }
+
+    for (size_t i = 0; i < old->scroll_damage_count; i++) {
+        const struct damage *dmg = &old->scroll_damage[i];
+
+        switch (dmg->type) {
+        case DAMAGE_SCROLL:
+            if (term->grid->view == term->grid->offset)
+                grid_render_scroll(term, new, dmg);
+            break;
+
+        case DAMAGE_SCROLL_REVERSE:
+            if (term->grid->view == term->grid->offset)
+                grid_render_scroll_reverse(term, new, dmg);
+            break;
+
+        case DAMAGE_SCROLL_IN_VIEW:
+            grid_render_scroll(term, new, dmg);
+            break;
+
+        case DAMAGE_SCROLL_REVERSE_IN_VIEW:
+            grid_render_scroll_reverse(term, new, dmg);
+            break;
+        }
+    }
+
+    if (tll_length(term->grid->scroll_damage) == 0) {
+        pixman_region32_subtract(&dirty, &old->dirty, &dirty);
+        pixman_image_set_clip_region32(new->pix[0], &dirty);
+    } else
+        pixman_image_set_clip_region32(new->pix[0], &old->dirty);
+
+    pixman_image_composite32(
+        PIXMAN_OP_SRC, old->pix[0], NULL, new->pix[0],
+        0, 0, 0, 0, 0, 0, term->width, term->height);
+
+    pixman_image_set_clip_region32(new->pix[0], NULL);
+    pixman_region32_fini(&dirty);
+}
+
+static void
+dirty_old_cursor(struct terminal *term)
+{
     if (term->render.last_cursor.row != NULL && !term->render.last_cursor.hidden) {
         struct row *row = term->render.last_cursor.row;
         struct cell *cell = &row->cells[term->render.last_cursor.col];
@@ -2054,170 +2139,108 @@ grid_render(struct terminal *term)
     term->render.last_cursor.row = grid_row(term->grid, term->grid->cursor.point.row);
     term->render.last_cursor.col = term->grid->cursor.point.col;
     term->render.last_cursor.hidden = term->hide_cursor;
+}
 
-    /* Mark current cursor cell as dirty, to ensure it is rendered */
-    if (!term->hide_cursor) {
-        const struct coord *cursor = &term->grid->cursor.point;
+static void
+dirty_cursor(struct terminal *term)
+{
+    if (term->hide_cursor)
+        return;
 
-        struct row *row = grid_row(term->grid, cursor->row);
-        struct cell *cell = &row->cells[cursor->col];
-        cell->attrs.clean = 0;
-        row->dirty = true;
-    }
+    const struct coord *cursor = &term->grid->cursor.point;
 
-    /* If we resized the window, or is flashing, or just stopped flashing */
-    if (term->render.last_buf != buf ||
+    struct row *row = grid_row(term->grid, cursor->row);
+    struct cell *cell = &row->cells[cursor->col];
+    cell->attrs.clean = 0;
+    row->dirty = true;
+}
+
+static void
+grid_render(struct terminal *term)
+{
+    if (term->is_shutting_down)
+        return;
+
+    struct timeval start_time, start_double_buffering = {0}, stop_double_buffering = {0};
+    if (term->conf->tweak.render_timer_osd || term->conf->tweak.render_timer_log)
+        gettimeofday(&start_time, NULL);
+
+    xassert(term->width > 0);
+    xassert(term->height > 0);
+
+    unsigned long cookie = shm_cookie_grid(term);
+    struct buffer *buf = shm_get_buffer(
+        term->wl->shm, term->width, term->height, cookie, true, 1 + term->render.workers.count);
+
+    /* Dirty old and current cursor cell, to ensure they’re repainted */
+    dirty_old_cursor(term);
+    dirty_cursor(term);
+
+    if (term->render.last_buf == NULL ||
         term->flash.active || term->render.was_flashing ||
         term->is_searching != term->render.was_searching ||
         term->render.margins)
     {
-        if (buf->age > 0) {
-            LOG_DBG("compositor double buffers (age=%d): last=%p, cur=%p",
-                    buf->age, (void*)term->render.last_buf, (void*)buf);
-        }
-
-        if (term->render.last_buf != NULL &&
-            term->render.last_buf->width == buf->width &&
-            term->render.last_buf->height == buf->height &&
-            !term->flash.active &&
-            !term->render.was_flashing &&
-            term->is_searching == term->render.was_searching &&
-            !term->render.margins)
-        {
-            static bool has_warned = false;
-            if (!has_warned) {
-                LOG_WARN(
-                    "it appears your Wayland compositor does not support "
-                    "buffer re-use for SHM clients; expect lower "
-                    "performance.");
-                has_warned = true;
-            }
-
-            xassert(term->render.last_buf->size == buf->size);
-#if 0
-            memcpy(buf->mmapped, term->render.last_buf->mmapped, buf->size);
-            tll_free(term->render.last_buf->scroll_damage);
-#else
-
-            /*
-             * TODO: remove this frame’s damage from the region we
-             * copy from the old frame.
-             *
-             * - this frame’s dirty region is only valid *after* we’ve
-             *   applied its scroll damage.
-             * - last frame’s dirty region is only valid *before*
-             *   we’ve applied this frame’s scroll damage.
-             *
-             * Can we transform one of the regions? It’s not trivial,
-             * since scroll damage isn’t just about counting lines;
-             * there may be multiple damage records, each with
-             * different scrolling regions.
-             */
-            pixman_region32_t dirty;
-            pixman_region32_init(&dirty);
-
-            bool full_repaint_needed UNUSED = true;
-            for (int r = 0; r < term->rows; r++) {
-                const struct row *row = grid_row_in_view(term->grid, r);
-                bool row_all_dirty = true;
-                for (int c = 0; c < term->cols; c++) {
-                    if (row->cells[c].attrs.clean) {
-                        row_all_dirty = false;
-                        full_repaint_needed = false;
-                        break;
-                    }
-                }
-
-                if (row_all_dirty) {
-                    pixman_region32_union_rect(
-                        &dirty, &dirty,
-                        term->margins.left,
-                        term->margins.top + r * term->cell_height,
-                        term->width - term->margins.left - term->margins.right,
-                        term->cell_height);
-                }
-            }
-
-            tll_foreach(term->render.last_buf->scroll_damage, it) {
-                switch (it->item.type) {
-                case DAMAGE_SCROLL:
-                    if (term->grid->view == term->grid->offset)
-                        grid_render_scroll(term, buf, &it->item);
-                    break;
-
-                case DAMAGE_SCROLL_REVERSE:
-                    if (term->grid->view == term->grid->offset)
-                        grid_render_scroll_reverse(term, buf, &it->item);
-                    break;
-
-                case DAMAGE_SCROLL_IN_VIEW:
-                    grid_render_scroll(term, buf, &it->item);
-                    break;
-
-                case DAMAGE_SCROLL_REVERSE_IN_VIEW:
-                    grid_render_scroll_reverse(term, buf, &it->item);
-                    break;
-                }
-
-                tll_remove(term->render.last_buf->scroll_damage, it);
-            }
-
-            if (tll_length(term->grid->scroll_damage) == 0) {
-                pixman_region32_subtract(&dirty, &term->render.last_buf->dirty, &dirty);
-                pixman_image_set_clip_region32(buf->pix[0], &dirty);
-            } else
-                pixman_image_set_clip_region32(buf->pix[0], &term->render.last_buf->dirty);
-
-            pixman_image_composite32(
-                PIXMAN_OP_SRC, term->render.last_buf->pix[0], NULL, buf->pix[0],
-                0, 0, 0, 0, 0, 0, term->width, term->height);
-
-            pixman_image_set_clip_region32(buf->pix[0], NULL);
-            pixman_region32_fini(&dirty);
-#endif
-        }
-
-        else {
-            tll_free(term->grid->scroll_damage);
-            render_margin(term, buf, 0, term->rows, true);
-            term_damage_view(term);
-        }
-
-        term->render.last_buf = buf;
-        term->render.was_flashing = term->flash.active;
-        term->render.was_searching = term->is_searching;
+        force_full_repaint(term, buf);
     }
 
-    if (term->render.last_buf != NULL)
-        tll_free(term->render.last_buf->scroll_damage);
+    else if (buf->age > 0) {
+        LOG_DBG("buffer age: %u", buf->age);
+        xassert(term->render.last_buf != buf);
+
+        if (term->render.last_buf->width == buf->width &&
+            term->render.last_buf->height == buf->height)
+        {
+            gettimeofday(&start_double_buffering, NULL);
+            reapply_old_damage(term, buf, term->render.last_buf);
+            gettimeofday(&stop_double_buffering, NULL);
+        } else
+            force_full_repaint(term, buf);
+    }
+
+    if (term->render.last_buf != NULL) {
+        free(term->render.last_buf->scroll_damage);
+        term->render.last_buf->scroll_damage = NULL;
+    }
+
+    term->render.last_buf = buf;
+    term->render.was_flashing = term->flash.active;
+    term->render.was_searching = term->is_searching;
 
     buf->age = 0;
-    xassert(tll_length(buf->scroll_damage) == 0);
 
-    tll_foreach(term->grid->scroll_damage, it) {
-        tll_push_back(buf->scroll_damage, it->item);
+    xassert(buf->scroll_damage == NULL);
+    buf->scroll_damage_count = tll_length(term->grid->scroll_damage);
+    buf->scroll_damage = xmalloc(
+        buf->scroll_damage_count * sizeof(buf->scroll_damage[0]));
 
-        switch (it->item.type) {
-        case DAMAGE_SCROLL:
-            if (term->grid->view == term->grid->offset)
+    {
+        size_t i = 0;
+        tll_foreach(term->grid->scroll_damage, it) {
+            buf->scroll_damage[i++] = it->item;
+
+            switch (it->item.type) {
+            case DAMAGE_SCROLL:
+                if (term->grid->view == term->grid->offset)
+                    grid_render_scroll(term, buf, &it->item);
+                break;
+
+            case DAMAGE_SCROLL_REVERSE:
+                if (term->grid->view == term->grid->offset)
+                    grid_render_scroll_reverse(term, buf, &it->item);
+                break;
+
+            case DAMAGE_SCROLL_IN_VIEW:
                 grid_render_scroll(term, buf, &it->item);
-            break;
+                break;
 
-        case DAMAGE_SCROLL_REVERSE:
-            if (term->grid->view == term->grid->offset)
+            case DAMAGE_SCROLL_REVERSE_IN_VIEW:
                 grid_render_scroll_reverse(term, buf, &it->item);
-            break;
+                break;
+            }
 
-        case DAMAGE_SCROLL_IN_VIEW:
-            grid_render_scroll(term, buf, &it->item);
-            break;
-
-        case DAMAGE_SCROLL_REVERSE_IN_VIEW:
-            grid_render_scroll_reverse(term, buf, &it->item);
-            break;
+            tll_remove(term->grid->scroll_damage, it);
         }
-
-        tll_remove(term->grid->scroll_damage, it);
     }
 
     /*
@@ -2239,30 +2262,6 @@ grid_render(struct terminal *term)
      */
     selection_dirty_cells(term);
 
-#if 0
-    /* Mark old cursor cell as dirty, to force it to be re-rendered */
-    if (term->render.last_cursor.row != NULL && !term->render.last_cursor.hidden) {
-        struct row *row = term->render.last_cursor.row;
-        struct cell *cell = &row->cells[term->render.last_cursor.col];
-        cell->attrs.clean = 0;
-        row->dirty = true;
-    }
-
-    /* Remember current cursor position, for the next frame */
-    term->render.last_cursor.row = grid_row(term->grid, term->grid->cursor.point.row);
-    term->render.last_cursor.col = term->grid->cursor.point.col;
-    term->render.last_cursor.hidden = term->hide_cursor;
-
-    /* Mark current cursor cell as dirty, to ensure it is rendered */
-    if (!term->hide_cursor) {
-        const struct coord *cursor = &term->grid->cursor.point;
-
-        struct row *row = grid_row(term->grid, cursor->row);
-        struct cell *cell = &row->cells[cursor->col];
-        cell->attrs.clean = 0;
-        row->dirty = true;
-    }
-#endif
     /* Translate offset-relative row to view-relative, unless cursor
      * is hidden, then we just set it to -1 */
     struct coord cursor = {-1, -1};
@@ -2285,6 +2284,7 @@ grid_render(struct terminal *term)
     }
 
     pixman_region32_clear(&buf->dirty);
+
     int first_dirty_row = -1;
     for (int r = 0; r < term->rows; r++) {
         struct row *row = grid_row_in_view(term->grid, r);
@@ -2299,7 +2299,7 @@ grid_render(struct terminal *term)
                 wl_surface_damage_buffer(
                     term->window->surface, x, y, width, height);
                 pixman_region32_union_rect(
-                    &buf->dirty, &buf->dirty, x, y, width, height);
+                    &buf->dirty, &buf->dirty, 0, y, buf->width, height);
             }
             first_dirty_row = -1;
             continue;
@@ -2326,7 +2326,7 @@ grid_render(struct terminal *term)
         int height = (term->rows - first_dirty_row) * term->cell_height;
 
         wl_surface_damage_buffer(term->window->surface, x, y, width, height);
-        pixman_region32_union_rect(&buf->dirty, &buf->dirty, x, y, width, height);
+        pixman_region32_union_rect(&buf->dirty, &buf->dirty, 0, y, buf->width, height);
     }
 
     /* Signal workers the frame is done */
@@ -2364,10 +2364,16 @@ grid_render(struct terminal *term)
         struct timeval render_time;
         timersub(&end_time, &start_time, &render_time);
 
+        struct timeval double_buffering_time;
+        timersub(&stop_double_buffering, &start_double_buffering, &double_buffering_time);
+
         if (term->conf->tweak.render_timer_log) {
-            LOG_INFO("frame rendered in %llds %lld µs",
+            LOG_INFO("frame rendered in %llds %lld µs "
+                     "(%llds %lld µs double buffering)",
                      (long long)render_time.tv_sec,
-                     (long long)render_time.tv_usec);
+                     (long long)render_time.tv_usec,
+                     (long long)double_buffering_time.tv_sec,
+                     (long long)double_buffering_time.tv_usec);
         }
 
         if (term->conf->tweak.render_timer_osd)
