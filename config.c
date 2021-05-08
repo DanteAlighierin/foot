@@ -1816,21 +1816,18 @@ parse_section_tweak(
     const char *path, unsigned lineno)
 {
     if (strcmp(key, "scaling-filter") == 0) {
-        static const struct {
-            const char *name;
-            enum fcft_scaling_filter filter;
-        } filters[] = {
-            {"none",     FCFT_SCALING_FILTER_NONE},
-            {"nearest",  FCFT_SCALING_FILTER_NEAREST},
-            {"bilinear", FCFT_SCALING_FILTER_BILINEAR},
-            {"cubic",    FCFT_SCALING_FILTER_CUBIC},
-            {"lanczos3", FCFT_SCALING_FILTER_LANCZOS3},
+        static const char filters[][12] = {
+            [FCFT_SCALING_FILTER_NONE] = "none",
+            [FCFT_SCALING_FILTER_NEAREST] = "nearest",
+            [FCFT_SCALING_FILTER_BILINEAR] = "bilinear",
+            [FCFT_SCALING_FILTER_CUBIC] = "cubic",
+            [FCFT_SCALING_FILTER_LANCZOS3] = "lanczos3",
         };
 
         for (size_t i = 0; i < ALEN(filters); i++) {
-            if (strcmp(value, filters[i].name) == 0) {
-                conf->tweak.fcft_filter = filters[i].filter;
-                LOG_WARN("tweak: scaling-filter=%s", filters[i].name);
+            if (strcmp(value, filters[i]) == 0) {
+                conf->tweak.fcft_filter = i;
+                LOG_WARN("tweak: scaling-filter=%s", filters[i]);
                 return true;
             }
         }
