@@ -2036,8 +2036,15 @@ force_full_repaint(struct terminal *term, struct buffer *buf)
 static void
 reapply_old_damage(struct terminal *term, struct buffer *new, struct buffer *old)
 {
+    static int counter = 0;
+    static bool have_warned = false;
+    if (!have_warned && ++counter > 5) {
+        LOG_WARN("compositor is not releasing buffers immediately; "
+                 "expect lower rendering performance");
+        have_warned = true;
+    }
+
     if (new->age > 1) {
-        LOG_WARN("copying the entire old buffer");
         memcpy(new->mmapped, old->mmapped, new->size);
         return;
     }
