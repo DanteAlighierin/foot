@@ -1,5 +1,6 @@
 #pragma once
 #include <stdbool.h>
+#include <stdarg.h>
 #include "macros.h"
 
 enum log_colorize { LOG_COLORIZE_NEVER, LOG_COLORIZE_ALWAYS, LOG_COLORIZE_AUTO };
@@ -10,18 +11,33 @@ void log_init(enum log_colorize colorize, bool do_syslog,
               enum log_facility syslog_facility, enum log_class log_level);
 void log_deinit(void);
 
-void log_msg(enum log_class log_class, const char *module,
-               const char *file, int lineno,
-               const char *fmt, ...) PRINTF(5);
+void log_msg(
+    enum log_class log_class, const char *module,
+    const char *file, int lineno,
+    const char *fmt, ...) PRINTF(5);
 
-void log_errno(enum log_class log_class, const char *module,
-               const char *file, int lineno,
-               const char *fmt, ...) PRINTF(5);
+void log_errno(
+    enum log_class log_class, const char *module,
+    const char *file, int lineno,
+    const char *fmt, ...) PRINTF(5);
 
 void log_errno_provided(
     enum log_class log_class, const char *module,
     const char *file, int lineno, int _errno,
     const char *fmt, ...) PRINTF(6);
+
+void log_msg_va(
+    enum log_class log_class, const char *module,
+    const char *file, int lineno, const char *fmt, va_list va) VPRINTF(5);
+void log_errno_va(
+    enum log_class log_class, const char *module,
+    const char *file, int lineno,
+    const char *fmt, va_list va) VPRINTF(5);
+void log_errno_provided_va(
+    enum log_class log_class, const char *module,
+    const char *file, int lineno, int _errno,
+    const char *fmt, va_list va) VPRINTF(6);
+
 
 int log_level_from_string(const char *str);
 const char *log_level_string_hint(void);

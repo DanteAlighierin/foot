@@ -52,6 +52,7 @@ struct config_mouse_binding {
     int count;
     struct config_binding_pipe pipe;
 };
+typedef tll(struct config_mouse_binding) config_mouse_binding_list_t;
 
 struct config_spawn_template {
     char *raw_cmd;
@@ -166,7 +167,7 @@ struct config {
     struct {
         /* Bindings for "normal" mode */
         config_key_binding_list_t key;
-        tll(struct config_mouse_binding) mouse;
+        config_mouse_binding_list_t mouse;
 
         /*
          * Special modes

@@ -91,43 +91,76 @@ static const char *const binding_action_map[] = {
 static_assert(ALEN(binding_action_map) == BIND_ACTION_COUNT,
               "binding action map size mismatch");
 
-#define LOG_AND_NOTIFY_ERR(...)                                     \
-    do {                                                            \
-        LOG_ERR(__VA_ARGS__);                                       \
-        char *text = xasprintf(__VA_ARGS__);                        \
-        struct user_notification notif = {                          \
-            .kind = USER_NOTIFICATION_ERROR,                        \
-            .text = text,                                           \
-        };                                                          \
-        tll_push_back(conf->notifications, notif);                  \
-    } while (0)
+static void NOINLINE PRINTF(5)
+log_and_notify(struct config *conf, enum log_class log_class,
+               const char *file, int lineno, const char *fmt, ...)
+{
+    enum user_notification_kind kind;
 
-#define LOG_AND_NOTIFY_WARN(...)                            \
-    do {                                                    \
-        LOG_WARN(__VA_ARGS__);                              \
-        char *text = xasprintf(__VA_ARGS__);                \
-        struct user_notification notif = {                  \
-            .kind = USER_NOTIFICATION_WARNING,              \
-            .text = text,                                   \
-        };                                                  \
-        tll_push_back(conf->notifications, notif);          \
-    } while (0)
+    switch (log_class) {
+    case LOG_CLASS_WARNING: kind = USER_NOTIFICATION_WARNING; break;
+    case LOG_CLASS_ERROR:   kind = USER_NOTIFICATION_ERROR; break;
 
-#define LOG_AND_NOTIFY_ERRNO(...)                                       \
-    do {                                                                \
-        int errno_copy = errno;                                         \
-        LOG_ERRNO(__VA_ARGS__);                                         \
-        int len = snprintf(NULL, 0, __VA_ARGS__);                       \
-        int errno_len = snprintf(NULL, 0, ": %s", strerror(errno_copy)); \
-        char *text = xmalloc(len + errno_len + 1);                      \
-        snprintf(text, len + errno_len + 1, __VA_ARGS__);               \
-        snprintf(&text[len], errno_len + 1, ": %s", strerror(errno_copy)); \
-        struct user_notification notif = {                              \
-            .kind = USER_NOTIFICATION_ERROR,                            \
-            .text = text,                                               \
-        };                                                              \
-        tll_push_back(conf->notifications, notif);                      \
-    } while(0)
+    case LOG_CLASS_INFO:
+    case LOG_CLASS_DEBUG:
+        BUG("unsupported log class: %d", log_class);
+        break;
+    }
+
+    va_list va1, va2;
+    va_start(va1, fmt);
+    va_copy(va2, va1);
+
+    log_msg_va(log_class, LOG_MODULE, file, lineno, fmt, va1);
+
+    char *text = xvasprintf(fmt, va2);
+    tll_push_back(
+        conf->notifications,
+        ((struct user_notification){.kind = kind, .text = text}));
+
+    va_end(va2);
+    va_end(va1);
+}
+
+static void NOINLINE PRINTF(5)
+log_errno_and_notify(struct config *conf, enum log_class log_class,
+                     const char *file, int lineno, const char *fmt, ...)
+{
+    int errno_copy = errno;
+
+    va_list va1, va2, va3;
+    va_start(va1, fmt);
+    va_copy(va2, va1);
+    va_copy(va3, va2);
+
+    log_errno_provided_va(
+        log_class, LOG_MODULE, file, lineno, errno_copy, fmt, va1);
+
+    int len = vsnprintf(NULL, 0, fmt, va2);
+    int errno_len = snprintf(NULL, 0, ": %s", strerror(errno_copy));
+
+    char *text = xmalloc(len + errno_len + 1);
+    vsnprintf(text, len + errno_len + 1, fmt, va3);
+    snprintf(&text[len], errno_len + 1, ": %s", strerror(errno_copy));
+
+    tll_push_back(
+        conf->notifications,
+        ((struct user_notification){
+            .kind = USER_NOTIFICATION_ERROR, .text = text}));
+
+    va_end(va3);
+    va_end(va2);
+    va_end(va1);
+}
+
+#define LOG_AND_NOTIFY_ERR(...) \
+    log_and_notify(conf, LOG_CLASS_ERROR, __FILE__, __LINE__, __VA_ARGS__)
+
+#define LOG_AND_NOTIFY_WARN(...) \
+    log_and_notify(conf, LOG_CLASS_WARNING, __FILE__, __LINE__, __VA_ARGS__)
+
+#define LOG_AND_NOTIFY_ERRNO(...) \
+    log_errno_and_notify(conf, LOG_CLASS_ERROR, __FILE__, __LINE__, __VA_ARGS__)
 
 static char *
 get_shell(void)
@@ -329,7 +362,7 @@ done:
     goto out;
 }
 
-static bool
+static bool NOINLINE
 str_to_bool(const char *s)
 {
     return strcasecmp(s, "on") == 0 ||
@@ -338,7 +371,7 @@ str_to_bool(const char *s)
         strtoul(s, NULL, 0) > 0;
 }
 
-static bool
+static bool NOINLINE
 str_to_ulong(const char *s, int base, unsigned long *res)
 {
     if (s == NULL)
@@ -351,7 +384,7 @@ str_to_ulong(const char *s, int base, unsigned long *res)
     return errno == 0 && *end == '\0';
 }
 
-static bool
+static bool NOINLINE
 str_to_double(const char *s, double *res)
 {
     if (s == NULL)
@@ -364,7 +397,7 @@ str_to_double(const char *s, double *res)
     return errno == 0 && *end == '\0';
 }
 
-static bool
+static bool NOINLINE
 str_to_wchars(const char *s, wchar_t **res, struct config *conf,
               const char  *path, int lineno,
               const char *section, const char *key)
@@ -383,7 +416,7 @@ str_to_wchars(const char *s, wchar_t **res, struct config *conf,
     return true;
 }
 
-static bool
+static bool NOINLINE
 str_to_color(const char *s, uint32_t *color, bool allow_alpha,
              struct config *conf, const char *path, int lineno,
              const char *section, const char *key)
@@ -406,7 +439,7 @@ str_to_color(const char *s, uint32_t *color, bool allow_alpha,
     return true;
 }
 
-static bool
+static bool NOINLINE
 str_to_two_colors(const char *s, uint32_t *first, uint32_t *second,
                   bool allow_alpha, struct config *conf, const char *path,
                   int lineno, const char *section, const char *key)
@@ -430,7 +463,7 @@ str_to_two_colors(const char *s, uint32_t *first, uint32_t *second,
     return true;
 }
 
-static bool
+static bool NOINLINE
 str_to_pt_or_px(const char *s, struct pt_or_px *res, struct config *conf,
                 const char *path, int lineno, const char *section, const char *key)
 {
@@ -464,7 +497,7 @@ str_to_pt_or_px(const char *s, struct pt_or_px *res, struct config *conf,
     return true;
 }
 
-static bool
+static bool NOINLINE
 str_to_spawn_template(struct config *conf,
                       const char *s, struct config_spawn_template *template,
                       const char *path, int lineno, const char *section,
@@ -2112,15 +2145,20 @@ get_server_socket_path(void)
     return xasprintf("%s/foot-%s.sock", xdg_runtime, wayland_display);
 }
 
+static void NOINLINE
+add_key_binding(config_key_binding_list_t *list, int action,
+                const struct config_key_modifiers *mods, xkb_keysym_t sym)
+{
+    tll_push_back(
+        *list,
+        ((struct config_key_binding){action, *mods, sym}));
+}
+
 static void
 add_default_key_bindings(struct config *conf)
 {
-#define add_binding(action, mods, sym)                                  \
-    do {                                                                \
-        tll_push_back(                                                  \
-            conf->bindings.key,                                         \
-            ((struct config_key_binding){action, mods, sym}));   \
-    } while (0)
+    #define add_binding(action, mods, sym) \
+        add_key_binding(&conf->bindings.key, action, &mods, sym)
 
     const struct config_key_modifiers shift = {.shift = true};
     const struct config_key_modifiers ctrl = {.ctrl = true};
@@ -2142,18 +2180,15 @@ add_default_key_bindings(struct config *conf)
     add_binding(BIND_ACTION_SPAWN_TERMINAL, ctrl_shift, XKB_KEY_n);
     add_binding(BIND_ACTION_SHOW_URLS_LAUNCH, ctrl_shift, XKB_KEY_u);
 
-#undef add_binding
+    #undef add_binding
 }
+
 
 static void
 add_default_search_bindings(struct config *conf)
 {
-#define add_binding(action, mods, sym)                                  \
-    do {                                                                \
-        tll_push_back(                                                  \
-            conf->bindings.search,                                      \
-            ((struct config_key_binding){action, mods, sym}));   \
-} while (0)
+    #define add_binding(action, mods, sym) \
+        add_key_binding(&conf->bindings.search, action, &mods, sym)
 
     const struct config_key_modifiers none = {0};
     const struct config_key_modifiers alt = {.alt = true};
@@ -2190,18 +2225,14 @@ add_default_search_bindings(struct config *conf)
     add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_y);
     add_binding(BIND_ACTION_SEARCH_PRIMARY_PASTE, shift, XKB_KEY_Insert);
 
-#undef add_binding
+    #undef add_binding
 }
 
 static void
 add_default_url_bindings(struct config *conf)
 {
-#define add_binding(action, mods, sym)                                  \
-    do {                                                                \
-        tll_push_back(                                                  \
-            conf->bindings.url,                                         \
-            ((struct config_key_binding){action, mods, sym}));      \
-} while (0)
+    #define add_binding(action, mods, sym) \
+        add_key_binding(&conf->bindings.url, action, &mods, sym)
 
     const struct config_key_modifiers none = {0};
     const struct config_key_modifiers ctrl = {.ctrl = true};
@@ -2211,18 +2242,24 @@ add_default_url_bindings(struct config *conf)
     add_binding(BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape);
     add_binding(BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL, none, XKB_KEY_t);
 
-#undef add_binding
+    #undef add_binding
+}
+
+static void NOINLINE
+add_mouse_binding(config_mouse_binding_list_t *list, int action,
+                  const struct config_key_modifiers *mods,
+                  int button, int count)
+{
+    tll_push_back(
+        *list,
+        ((struct config_mouse_binding){action, *mods, button, count, {0}}));
 }
 
 static void
 add_default_mouse_bindings(struct config *conf)
 {
-#define add_binding(action, mods, btn, count)                           \
-    do {                                                                \
-        tll_push_back(                                                  \
-            conf->bindings.mouse,                                       \
-            ((struct config_mouse_binding){action, mods, btn, count, {0}})); \
-} while (0)
+    #define add_binding(action, mods, btn, count) \
+        add_mouse_binding(&conf->bindings.mouse, action, &mods, btn, count)
 
     const struct config_key_modifiers none = {0};
     const struct config_key_modifiers ctrl = {.ctrl = true};
@@ -2236,7 +2273,7 @@ add_default_mouse_bindings(struct config *conf)
     add_binding(BIND_ACTION_SELECT_WORD_WS, ctrl, BTN_LEFT, 2);
     add_binding(BIND_ACTION_SELECT_ROW, none, BTN_LEFT, 3);
 
-#undef add_binding
+    #undef add_binding
 }
 
 bool

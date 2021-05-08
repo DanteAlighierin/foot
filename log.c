@@ -123,42 +123,66 @@ _sys_log(enum log_class log_class, const char *module,
 }
 
 void
+log_msg_va(enum log_class log_class, const char *module,
+           const char *file, int lineno, const char *fmt, va_list va)
+{
+    va_list va2;
+    va_copy(va2, va);
+    _log(log_class, module, file, lineno, fmt, 0, va);
+    _sys_log(log_class, module, file, lineno, fmt, 0, va2);
+    va_end(va2);
+}
+
+void
 log_msg(enum log_class log_class, const char *module,
         const char *file, int lineno, const char *fmt, ...)
 {
-    va_list ap1, ap2;
-    va_start(ap1, fmt);
-    va_copy(ap2, ap1);
-    _log(log_class, module, file, lineno, fmt, 0, ap1);
-    _sys_log(log_class, module, file, lineno, fmt, 0, ap2);
-    va_end(ap1);
-    va_end(ap2);
+    va_list va;
+    va_start(va, fmt);
+    log_msg_va(log_class, module, file, lineno, fmt, va);
+    va_end(va);
 }
 
-void log_errno(enum log_class log_class, const char *module,
-               const char *file, int lineno,
-               const char *fmt, ...)
+void
+log_errno_va(enum log_class log_class, const char *module,
+             const char *file, int lineno,
+             const char *fmt, va_list va)
 {
-    va_list ap1, ap2;
-    va_start(ap1, fmt);
-    va_copy(ap2, ap1);
-    _log(log_class, module, file, lineno, fmt, errno, ap1);
-    _sys_log(log_class, module, file, lineno, fmt, errno, ap2);
-    va_end(ap1);
-    va_end(ap2);
+    log_errno_provided_va(log_class, module, file, lineno, errno, fmt, va);
 }
 
-void log_errno_provided(enum log_class log_class, const char *module,
-                        const char *file, int lineno, int errno_copy,
-                        const char *fmt, ...)
+void
+log_errno(enum log_class log_class, const char *module,
+          const char *file, int lineno,
+          const char *fmt, ...)
 {
-    va_list ap1, ap2;
-    va_start(ap1, fmt);
-    va_copy(ap2, ap1);
-    _log(log_class, module, file, lineno, fmt, errno_copy, ap1);
-    _sys_log(log_class, module, file, lineno, fmt, errno_copy, ap2);
-    va_end(ap1);
-    va_end(ap2);
+    va_list va;
+    va_start(va, fmt);
+    log_errno_va(log_class, module, file, lineno, fmt, va);
+    va_end(va);
+}
+
+void
+log_errno_provided_va(enum log_class log_class, const char *module,
+                      const char *file, int lineno, int errno_copy,
+                      const char *fmt, va_list va)
+{
+    va_list va2;
+    va_copy(va2, va);
+    _log(log_class, module, file, lineno, fmt, errno_copy, va);
+    _sys_log(log_class, module, file, lineno, fmt, errno_copy, va2);
+    va_end(va2);
+}
+
+void
+log_errno_provided(enum log_class log_class, const char *module,
+                   const char *file, int lineno, int errno_copy,
+                   const char *fmt, ...)
+{
+    va_list va;
+    va_start(va, fmt);
+    log_errno_provided_va(log_class, module, file, lineno, errno_copy, fmt, va);
+    va_end(va);
 }
 
 int
