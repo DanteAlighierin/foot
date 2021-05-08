@@ -1649,13 +1649,13 @@ term_reset(struct terminal *term, bool hard)
     term->scroll_region.start = 0;
     term->scroll_region.end = term->rows;
 
-    free(term->vt.osc.data);
-    memset(&term->vt, 0, sizeof(term->vt));
-    term->vt.state = 0; /* GROUND */
-
-    term->vt.osc8.begin = (struct coord){-1, -1};
     free(term->vt.osc8.uri);
-    term->vt.osc8.uri = NULL;
+    free(term->vt.osc.data);
+
+    term->vt = (struct vt){
+        .state = 0,     /* STATE_GROUND */
+        .osc8 = {.begin = (struct coord){-1, -1}},
+    };
 
     if (term->grid == &term->alt) {
         term->grid = &term->normal;
@@ -3069,6 +3069,8 @@ term_osc8_open(struct terminal *term, uint64_t id, const char *uri)
          * closing the first one */
         term_osc8_close(term);
     }
+
+    xassert(term->vt.osc8.uri == NULL);
 
     term->vt.osc8.begin = (struct coord){
         .col = term->grid->cursor.point.col,

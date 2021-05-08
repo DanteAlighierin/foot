@@ -81,6 +81,9 @@
   resulting in PGO build failures.
 * Wrong colors in the 256-color cube
   (https://codeberg.org/dnkl/foot/issues/479).
+* Memory leak triggered by “opening” an OSC-8 URI and then resetting
+  the terminal without closing the URI
+  (https://codeberg.org/dnkl/foot/issues/495).
 
 
 ### Security
