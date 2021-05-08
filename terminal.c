@@ -3070,6 +3070,8 @@ term_osc8_open(struct terminal *term, uint64_t id, const char *uri)
         term_osc8_close(term);
     }
 
+    xassert(term->vt.osc8.uri == NULL);
+
     term->vt.osc8.begin = (struct coord){
         .col = term->grid->cursor.point.col,
         .row = grid_row_absolute(term->grid, term->grid->cursor.point.row),
