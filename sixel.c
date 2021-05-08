@@ -761,14 +761,28 @@ sixel_unhook(struct terminal *term)
     int start_row = do_scroll ? term->grid->cursor.point.row : 0;
     const int start_col = do_scroll ? term->grid->cursor.point.col : 0;
 
-    if (pixel_rows_left == 0 || rows_avail == 0) {
+    /* Total number of rows needed by image (+ optional newline at the end) */
+    const int rows_needed =
+        (term->sixel.image.height + term->cell_height - 1) / term->cell_height +
+        (term->sixel.cursor_right_of_graphics ? 0 : 1);
+
+    /* Will we be emitting anything at all? */
+    const bool no_emission =
+        rows_needed > term->grid->num_rows ||
+        pixel_rows_left == 0 ||
+        rows_avail == 0;
+
+    if (no_emission) {
         /* We won’t be emitting any sixels - free backing image */
         free(term->sixel.image.data);
     }
 
     /* We do not allow sixels to cross the scrollback wrap-around, as
      * this makes intersection calculations much more complicated */
-    while (pixel_rows_left > 0 && rows_avail > 0) {
+    while (pixel_rows_left > 0 &&
+           rows_avail > 0 &&
+           rows_needed <= term->grid->num_rows)
+    {
         const int cur_row = (term->grid->offset + start_row) & (term->grid->num_rows - 1);
         const int rows_left_until_wrap_around = term->grid->num_rows - cur_row;
         const int usable_rows = min(rows_avail, rows_left_until_wrap_around);
