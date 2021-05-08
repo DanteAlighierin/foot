@@ -250,6 +250,8 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
                         cookie, (void *)&it->item);
                 it->item.busy = true;
                 it->item.purge = false;
+                free(it->item.scroll_damage);
+                it->item.scroll_damage = NULL;
                 xassert(it->item.pix_instances == pix_instances);
                 cached = &it->item;
             }
