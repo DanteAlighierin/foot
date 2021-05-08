@@ -84,6 +84,8 @@
 * Memory leak triggered by “opening” an OSC-8 URI and then resetting
   the terminal without closing the URI
   (https://codeberg.org/dnkl/foot/issues/495).
+* Assertion when emitting a sixel occupying the entire scrollback
+  history (https://codeberg.org/dnkl/foot/issues/494).
 
 
 ### Security
