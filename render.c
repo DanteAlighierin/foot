@@ -2099,7 +2099,6 @@ grid_render(struct terminal *term)
             tll_free(term->render.last_buf->scroll_damage);
 #else
 
-#if 0
             /*
              * TODO: remove this frame’s damage from the region we
              * copy from the old frame.
@@ -2138,7 +2137,7 @@ grid_render(struct terminal *term)
                         term->cell_height);
                 }
             }
-#endif
+
             tll_foreach(term->render.last_buf->scroll_damage, it) {
                 switch (it->item.type) {
                 case DAMAGE_SCROLL:
@@ -2163,21 +2162,18 @@ grid_render(struct terminal *term)
                 tll_remove(term->render.last_buf->scroll_damage, it);
             }
 
-#if 0
-            pixman_region32_subtract(&dirty, &term->render.last_buf->dirty, &dirty);
-            pixman_image_set_clip_region32(buf->pix[0], &dirty);
-#else
-            pixman_image_set_clip_region32(buf->pix[0], &term->render.last_buf->dirty);
-#endif
+            if (tll_length(term->grid->scroll_damage) == 0) {
+                pixman_region32_subtract(&dirty, &term->render.last_buf->dirty, &dirty);
+                pixman_image_set_clip_region32(buf->pix[0], &dirty);
+            } else
+                pixman_image_set_clip_region32(buf->pix[0], &term->render.last_buf->dirty);
 
             pixman_image_composite32(
                 PIXMAN_OP_SRC, term->render.last_buf->pix[0], NULL, buf->pix[0],
                 0, 0, 0, 0, 0, 0, term->width, term->height);
 
             pixman_image_set_clip_region32(buf->pix[0], NULL);
-#if 0
             pixman_region32_fini(&dirty);
-#endif
 #endif
         }
 
