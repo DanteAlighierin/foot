@@ -902,7 +902,20 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
 {
     uint32_t *color = NULL;
 
-    if (strcmp(key, "foreground") == 0)      color = &conf->colors.fg;
+    if (isdigit(key[0])) {
+        unsigned long index;
+        if (!str_to_ulong(key, 0, &index)) {
+            LOG_AND_NOTIFY_ERR("%s:%d: [colors]: invalid numeric key", path, lineno);
+            return false;
+        }
+        if (index >= ALEN(conf->colors.table)) {
+            LOG_AND_NOTIFY_ERR("%s:%d: [colors]: numeric key out of range", path, lineno);
+            return false;
+        }
+        color = &conf->colors.table[index];
+    }
+
+    else if (strcmp(key, "foreground") == 0) color = &conf->colors.fg;
     else if (strcmp(key, "background") == 0) color = &conf->colors.bg;
     else if (strcmp(key, "regular0") == 0)   color = &conf->colors.table[0];
     else if (strcmp(key, "regular1") == 0)   color = &conf->colors.table[1];

@@ -375,9 +375,9 @@ applications can change these at runtime.
 
 # SECTION: colors
 
-This section controls the 16 ANSI colors and the default foreground
-and background colors. Note that applications can change these at
-runtime.
+This section controls the 16 ANSI colors, the default foreground
+and background colors, and the extended 256 color palette. Note that 
+applications can change these at runtime.
 
 The colors are in RRGGBB format. That is, they do *not* have an alpha
 component. You can configure the background transparency with the
@@ -400,6 +400,12 @@ _alpha_ option.
 	The eight bright ANSI colors. Default: _666666_, _dca3a3_,
 	_bfebbf_, _f0dfaf_, _8cd0d3_, _fcace3_, _b3ffff_ and _ffffff_ (a
 	variant of the _zenburn_ theme).
+
+*0* *..* *255*
+	Arbitrary colors in the 256-color palette. Default: for *0* *..*
+	*15*, see regular and bright defaults above; see
+	https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit for an
+	explanation of the remainder.
 
 *alpha*
 	Background translucency. A value in the range 0.0-1.0, where 0.0
