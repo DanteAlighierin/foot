@@ -41,6 +41,8 @@
 * Dedicated bell section in config, supporting multiple actions and
   a new `command` action to run an arbitrary command.
   (https://codeberg.org/dnkl/foot/pulls/483)
+* Support for setting the full 256 color palette in foot.ini
+  (https://codeberg.org/dnkl/foot/issues/489)
 
 
 ### Changed
