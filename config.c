@@ -362,6 +362,12 @@ done:
     goto out;
 }
 
+static bool
+str_has_prefix(const char *str, const char *prefix)
+{
+    return strncmp(str, prefix, strlen(prefix)) == 0;
+}
+
 static bool NOINLINE
 str_to_bool(const char *s)
 {
@@ -933,6 +939,8 @@ static bool
 parse_section_colors(const char *key, const char *value, struct config *conf,
                      const char *path, unsigned lineno)
 {
+    size_t key_len = strlen(key);
+    uint8_t last_digit = (unsigned char)key[key_len - 1] - '0';
     uint32_t *color = NULL;
 
     if (isdigit(key[0])) {
@@ -948,24 +956,14 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
         color = &conf->colors.table[index];
     }
 
+    else if (key_len == 8 && str_has_prefix(key, "regular") && last_digit < 8)
+        color = &conf->colors.table[last_digit];
+
+    else if (key_len == 7 && str_has_prefix(key, "bright") && last_digit < 8)
+        color = &conf->colors.table[8 + last_digit];
+
     else if (strcmp(key, "foreground") == 0) color = &conf->colors.fg;
     else if (strcmp(key, "background") == 0) color = &conf->colors.bg;
-    else if (strcmp(key, "regular0") == 0)   color = &conf->colors.table[0];
-    else if (strcmp(key, "regular1") == 0)   color = &conf->colors.table[1];
-    else if (strcmp(key, "regular2") == 0)   color = &conf->colors.table[2];
-    else if (strcmp(key, "regular3") == 0)   color = &conf->colors.table[3];
-    else if (strcmp(key, "regular4") == 0)   color = &conf->colors.table[4];
-    else if (strcmp(key, "regular5") == 0)   color = &conf->colors.table[5];
-    else if (strcmp(key, "regular6") == 0)   color = &conf->colors.table[6];
-    else if (strcmp(key, "regular7") == 0)   color = &conf->colors.table[7];
-    else if (strcmp(key, "bright0") == 0)    color = &conf->colors.table[8 + 0];
-    else if (strcmp(key, "bright1") == 0)    color = &conf->colors.table[8 + 1];
-    else if (strcmp(key, "bright2") == 0)    color = &conf->colors.table[8 + 2];
-    else if (strcmp(key, "bright3") == 0)    color = &conf->colors.table[8 + 3];
-    else if (strcmp(key, "bright4") == 0)    color = &conf->colors.table[8 + 4];
-    else if (strcmp(key, "bright5") == 0)    color = &conf->colors.table[8 + 5];
-    else if (strcmp(key, "bright6") == 0)    color = &conf->colors.table[8 + 6];
-    else if (strcmp(key, "bright7") == 0)    color = &conf->colors.table[8 + 7];
     else if (strcmp(key, "selection-foreground") == 0) color = &conf->colors.selection_fg;
     else if (strcmp(key, "selection-background") == 0) color = &conf->colors.selection_bg;
 
