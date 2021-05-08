@@ -1652,9 +1652,10 @@ term_reset(struct terminal *term, bool hard)
     free(term->vt.osc8.uri);
     free(term->vt.osc.data);
 
-    memset(&term->vt, 0, sizeof(term->vt));
-    term->vt.state = 0; /* STATE_GROUND */
-    term->vt.osc8.begin = (struct coord){-1, -1};
+    term->vt = (struct vt){
+        .state = 0,     /* STATE_GROUND */
+        .osc8 = {.begin = (struct coord){-1, -1}},
+    };
 
     if (term->grid == &term->alt) {
         term->grid = &term->normal;
