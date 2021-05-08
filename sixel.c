@@ -799,7 +799,7 @@ sixel_unhook(struct terminal *term)
             .opaque = !term->sixel.transparent_bg,
         };
 
-        xassert(image.rows < term->grid->num_rows);
+        xassert(image.rows <= term->grid->num_rows);
         xassert(image.pos.row + image.rows - 1 < term->grid->num_rows);
 
         LOG_DBG("generating %dx%d pixman image at %d-%d",
