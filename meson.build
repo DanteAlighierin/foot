@@ -95,6 +95,7 @@ foreach prot : [
   wayland_protocols_datadir + '/unstable/primary-selection/primary-selection-unstable-v1.xml',
   wayland_protocols_datadir + '/stable/presentation-time/presentation-time.xml',
   wayland_protocols_datadir + '/unstable/text-input/text-input-unstable-v3.xml',
+  wayland_protocols_datadir + '/staging/xdg-activation/xdg-activation-v1.xml',
   ]
 
   wl_proto_headers += custom_target(
