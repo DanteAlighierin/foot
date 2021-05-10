@@ -1589,7 +1589,8 @@ wayl_roundtrip(struct wayland *wayl)
 }
 
 static void
-activation_token_done(void *data, struct xdg_activation_token_v1 *xdg_token, const char *token)
+activation_token_done(void *data, struct xdg_activation_token_v1 *xdg_token,
+                      const char *token)
 {
     struct wl_window *win = data;
     struct wayland *wayl = win->term->wl;
@@ -1627,6 +1628,7 @@ wayl_win_set_urgent(struct wl_window *win)
     }
 
     xdg_activation_token_v1_add_listener(token, &activation_token_listener, win);
+    xdg_activation_token_v1_set_surface(token, win->surface);
     xdg_activation_token_v1_commit(token);
     win->xdg_activation_token = token;
     return true;
