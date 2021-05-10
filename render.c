@@ -2196,6 +2196,8 @@ grid_render(struct terminal *term)
     dirty_cursor(term);
 
     if (term->render.last_buf == NULL ||
+        term->render.last_buf->width != buf->width ||
+        term->render.last_buf->height != buf->height ||
         term->flash.active || term->render.was_flashing ||
         term->is_searching != term->render.was_searching ||
         term->render.margins)
@@ -2205,16 +2207,15 @@ grid_render(struct terminal *term)
 
     else if (buf->age > 0) {
         LOG_DBG("buffer age: %u", buf->age);
-        xassert(term->render.last_buf != buf);
 
-        if (term->render.last_buf->width == buf->width &&
-            term->render.last_buf->height == buf->height)
-        {
-            gettimeofday(&start_double_buffering, NULL);
-            reapply_old_damage(term, buf, term->render.last_buf);
-            gettimeofday(&stop_double_buffering, NULL);
-        } else
-            force_full_repaint(term, buf);
+        xassert(term->render.last_buf != NULL);
+        xassert(term->render.last_buf != buf);
+        xassert(term->render.last_buf->width == buf->width);
+        xassert(term->render.last_buf->height == buf->height);
+
+        gettimeofday(&start_double_buffering, NULL);
+        reapply_old_damage(term, buf, term->render.last_buf);
+        gettimeofday(&stop_double_buffering, NULL);
     }
 
     if (term->render.last_buf != NULL) {
