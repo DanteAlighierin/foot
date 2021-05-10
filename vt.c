@@ -763,7 +763,7 @@ action_utf8_44(struct terminal *term, uint8_t c)
 IGNORE_WARNING("-Wpedantic")
 
 static enum state
-anywhere(struct terminal *term, uint8_t data, enum state default_return)
+anywhere(struct terminal *term, uint8_t data)
 {
     switch (data) {
         /*              exit                             current                          enter                            new state */
@@ -782,7 +782,7 @@ anywhere(struct terminal *term, uint8_t data, enum state default_return)
     case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
     }
 
-    return default_return;
+    return term->vt.state;
 }
 
 static enum state
@@ -802,7 +802,7 @@ state_ground_switch(struct terminal *term, uint8_t data)
     case 0xf0 ... 0xf4:                                  action_utf8_41(term, data);                                       return STATE_UTF8_41;
     }
 
-    return anywhere(term, data, STATE_GROUND);
+    return anywhere(term, data);
 }
 
 static enum state
@@ -829,7 +829,7 @@ state_escape_switch(struct terminal *term, uint8_t data)
     case 0x7f:                                           action_ignore(term);                                              return STATE_ESCAPE;
     }
 
-    return anywhere(term, data, STATE_ESCAPE);
+    return anywhere(term, data);
 }
 
 static enum state
@@ -846,7 +846,7 @@ state_escape_intermediate_switch(struct terminal *term, uint8_t data)
     case 0x7f:                                           action_ignore(term);                                              return STATE_ESCAPE_INTERMEDIATE;
     }
 
-    return anywhere(term, data, STATE_ESCAPE_INTERMEDIATE);
+    return anywhere(term, data);
 }
 
 static enum state
@@ -866,7 +866,7 @@ state_csi_entry_switch(struct terminal *term, uint8_t data)
     case 0x7f:                                           action_ignore(term);                                              return STATE_CSI_ENTRY;
     }
 
-    return anywhere(term, data, STATE_CSI_ENTRY);
+    return anywhere(term, data);
 }
 
 static enum state
@@ -888,7 +888,7 @@ state_csi_param_switch(struct terminal *term, uint8_t data)
     case 0x7f:                                           action_ignore(term);                                              return STATE_CSI_PARAM;
     }
 
-    return anywhere(term, data, STATE_CSI_PARAM);
+    return anywhere(term, data);
 }
 
 static enum state
@@ -906,7 +906,7 @@ state_csi_intermediate_switch(struct terminal *term, uint8_t data)
     case 0x7f:                                           action_ignore(term);                                              return STATE_CSI_INTERMEDIATE;
     }
 
-    return anywhere(term, data, STATE_CSI_INTERMEDIATE);
+    return anywhere(term, data);
 }
 
 static enum state
@@ -923,7 +923,7 @@ state_csi_ignore_switch(struct terminal *term, uint8_t data)
     case 0x7f:                                           action_ignore(term);                                              return STATE_CSI_IGNORE;
     }
 
-    return anywhere(term, data, STATE_CSI_IGNORE);
+    return anywhere(term, data);
 }
 
 static enum state
@@ -968,7 +968,7 @@ state_dcs_entry_switch(struct terminal *term, uint8_t data)
     case 0x7f:                                           action_ignore(term);                                              return STATE_DCS_ENTRY;
     }
 
-    return anywhere(term, data, STATE_DCS_ENTRY);
+    return anywhere(term, data);
 }
 
 static enum state
@@ -989,7 +989,7 @@ state_dcs_param_switch(struct terminal *term, uint8_t data)
     case 0x7f:                                           action_ignore(term);                                              return STATE_DCS_PARAM;
     }
 
-    return anywhere(term, data, STATE_DCS_PARAM);
+    return anywhere(term, data);
 }
 
 static enum state
@@ -1007,7 +1007,7 @@ state_dcs_intermediate_switch(struct terminal *term, uint8_t data)
     case 0x7f:                                           action_ignore(term);                                              return STATE_DCS_INTERMEDIATE;
     }
 
-    return anywhere(term, data, STATE_DCS_INTERMEDIATE);
+    return anywhere(term, data);
 }
 
 static enum state
@@ -1021,7 +1021,7 @@ state_dcs_ignore_switch(struct terminal *term, uint8_t data)
     case 0x20 ... 0x7f:                                  action_ignore(term);                                              return STATE_DCS_IGNORE;
     }
 
-    return anywhere(term, data, STATE_DCS_IGNORE);
+    return anywhere(term, data);
 }
 
 static enum state
@@ -1064,7 +1064,7 @@ state_sos_pm_apc_string_switch(struct terminal *term, uint8_t data)
     case 0x1c ... 0x7f:                                  action_ignore(term);                                              return STATE_SOS_PM_APC_STRING;
     }
 
-    return anywhere(term, data, STATE_SOS_PM_APC_STRING);
+    return anywhere(term, data);
 }
 
 static enum state
