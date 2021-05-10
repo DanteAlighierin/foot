@@ -2290,8 +2290,6 @@ grid_render(struct terminal *term)
         xassert(tll_length(term->render.workers.queue) == 0);
     }
 
-    pixman_region32_clear(&buf->dirty);
-
     int first_dirty_row = -1;
     for (int r = 0; r < term->rows; r++) {
         struct row *row = grid_row_in_view(term->grid, r);
