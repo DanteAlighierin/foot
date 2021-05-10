@@ -397,7 +397,7 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
             .real_mmapped = real_mmapped,
             .mmap_size = memfd_size,
             .offset = 0,
-            .age = 0,
+            .age = 1234,  /* Force a full repaint */
         }));
 
     struct buffer *ret = &tll_back(buffers);
