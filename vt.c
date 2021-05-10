@@ -763,6 +763,29 @@ action_utf8_44(struct terminal *term, uint8_t c)
 IGNORE_WARNING("-Wpedantic")
 
 static enum state
+anywhere(struct terminal *term, uint8_t data, enum state default_return)
+{
+    switch (data) {
+        /*              exit                             current                          enter                            new state */
+    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
+    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
+    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
+    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
+    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
+    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
+    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
+    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
+    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
+    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
+    case 0x9c:                                                                                                             return STATE_GROUND;
+    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
+    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
+    }
+
+    return default_return;
+}
+
+static enum state
 state_ground_switch(struct terminal *term, uint8_t data)
 {
     switch (data) {
@@ -777,24 +800,9 @@ state_ground_switch(struct terminal *term, uint8_t data)
     case 0xc2 ... 0xdf:                                  action_utf8_21(term, data);                                       return STATE_UTF8_21;
     case 0xe0 ... 0xef:                                  action_utf8_31(term, data);                                       return STATE_UTF8_31;
     case 0xf0 ... 0xf4:                                  action_utf8_41(term, data);                                       return STATE_UTF8_41;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_GROUND;
     }
+
+    return anywhere(term, data, STATE_GROUND);
 }
 
 static enum state
@@ -819,24 +827,9 @@ state_escape_switch(struct terminal *term, uint8_t data)
     case 0x5e ... 0x5f:                                                                                                    return STATE_SOS_PM_APC_STRING;
     case 0x60 ... 0x7e:                                  action_esc_dispatch(term, data);                                  return STATE_GROUND;
     case 0x7f:                                           action_ignore(term);                                              return STATE_ESCAPE;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_ESCAPE;
     }
+
+    return anywhere(term, data, STATE_ESCAPE);
 }
 
 static enum state
@@ -851,24 +844,9 @@ state_escape_intermediate_switch(struct terminal *term, uint8_t data)
     case 0x20 ... 0x2f:                                  action_collect(term, data);                                       return STATE_ESCAPE_INTERMEDIATE;
     case 0x30 ... 0x7e:                                  action_esc_dispatch(term, data);                                  return STATE_GROUND;
     case 0x7f:                                           action_ignore(term);                                              return STATE_ESCAPE_INTERMEDIATE;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_ESCAPE_INTERMEDIATE;
     }
+
+    return anywhere(term, data, STATE_ESCAPE_INTERMEDIATE);
 }
 
 static enum state
@@ -886,24 +864,9 @@ state_csi_entry_switch(struct terminal *term, uint8_t data)
     case 0x3c ... 0x3f:                                  action_collect(term, data);                                       return STATE_CSI_PARAM;
     case 0x40 ... 0x7e:                                  action_csi_dispatch(term, data);                                  return STATE_GROUND;
     case 0x7f:                                           action_ignore(term);                                              return STATE_CSI_ENTRY;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_CSI_ENTRY;
     }
+
+    return anywhere(term, data, STATE_CSI_ENTRY);
 }
 
 static enum state
@@ -923,24 +886,9 @@ state_csi_param_switch(struct terminal *term, uint8_t data)
     case 0x3c ... 0x3f:                                                                                                    return STATE_CSI_IGNORE;
     case 0x40 ... 0x7e:                                  action_csi_dispatch(term, data);                                  return STATE_GROUND;
     case 0x7f:                                           action_ignore(term);                                              return STATE_CSI_PARAM;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_CSI_PARAM;
     }
+
+    return anywhere(term, data, STATE_CSI_PARAM);
 }
 
 static enum state
@@ -956,24 +904,9 @@ state_csi_intermediate_switch(struct terminal *term, uint8_t data)
     case 0x30 ... 0x3f:                                                                                                    return STATE_CSI_IGNORE;
     case 0x40 ... 0x7e:                                  action_csi_dispatch(term, data);                                  return STATE_GROUND;
     case 0x7f:                                           action_ignore(term);                                              return STATE_CSI_INTERMEDIATE;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_CSI_INTERMEDIATE;
     }
+
+    return anywhere(term, data, STATE_CSI_INTERMEDIATE);
 }
 
 static enum state
@@ -988,24 +921,9 @@ state_csi_ignore_switch(struct terminal *term, uint8_t data)
     case 0x20 ... 0x3f:                                  action_ignore(term);                                              return STATE_CSI_IGNORE;
     case 0x40 ... 0x7e:                                                                                                    return STATE_GROUND;
     case 0x7f:                                           action_ignore(term);                                              return STATE_CSI_IGNORE;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_CSI_IGNORE;
     }
+
+    return anywhere(term, data, STATE_CSI_IGNORE);
 }
 
 static enum state
@@ -1048,24 +966,9 @@ state_dcs_entry_switch(struct terminal *term, uint8_t data)
     case 0x3c ... 0x3f:                                  action_collect(term, data);                                       return STATE_DCS_PARAM;
     case 0x40 ... 0x7e:                                                                   action_hook(term, data);         return STATE_DCS_PASSTHROUGH;
     case 0x7f:                                           action_ignore(term);                                              return STATE_DCS_ENTRY;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_DCS_ENTRY;
     }
+
+    return anywhere(term, data, STATE_DCS_ENTRY);
 }
 
 static enum state
@@ -1084,24 +987,9 @@ state_dcs_param_switch(struct terminal *term, uint8_t data)
     case 0x3c ... 0x3f:                                                                                                    return STATE_DCS_IGNORE;
     case 0x40 ... 0x7e:                                                                   action_hook(term, data);         return STATE_DCS_PASSTHROUGH;
     case 0x7f:                                           action_ignore(term);                                              return STATE_DCS_PARAM;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_DCS_PARAM;
     }
+
+    return anywhere(term, data, STATE_DCS_PARAM);
 }
 
 static enum state
@@ -1117,24 +1005,9 @@ state_dcs_intermediate_switch(struct terminal *term, uint8_t data)
     case 0x30 ... 0x3f:                                                                                                    return STATE_DCS_IGNORE;
     case 0x40 ... 0x7e:                                                                   action_hook(term, data);         return STATE_DCS_PASSTHROUGH;
     case 0x7f:                                           action_ignore(term);                                              return STATE_DCS_INTERMEDIATE;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_DCS_INTERMEDIATE;
     }
+
+    return anywhere(term, data, STATE_DCS_INTERMEDIATE);
 }
 
 static enum state
@@ -1146,24 +1019,9 @@ state_dcs_ignore_switch(struct terminal *term, uint8_t data)
     case 0x19:
     case 0x1c ... 0x1f:
     case 0x20 ... 0x7f:                                  action_ignore(term);                                              return STATE_DCS_IGNORE;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_DCS_IGNORE;
     }
+
+    return anywhere(term, data, STATE_DCS_IGNORE);
 }
 
 static enum state
@@ -1204,24 +1062,9 @@ state_sos_pm_apc_string_switch(struct terminal *term, uint8_t data)
     case 0x00 ... 0x17:
     case 0x19:
     case 0x1c ... 0x7f:                                  action_ignore(term);                                              return STATE_SOS_PM_APC_STRING;
-
-    /* Anywhere */
-    case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
-
-    default:                                                                                                               return STATE_SOS_PM_APC_STRING;
     }
+
+    return anywhere(term, data, STATE_SOS_PM_APC_STRING);
 }
 
 static enum state
