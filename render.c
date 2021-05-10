@@ -759,6 +759,18 @@ render_margin(struct terminal *term, struct buffer *buf,
     if (term->render.urgency)
         render_urgency(term, buf);
 
+    /* Ensure the updated regions are copied to the next frame's
+     * buffer when we're double buffering */
+    pixman_region32_union_rect(
+        &buf->dirty, &buf->dirty, 0, 0, term->width, term->margins.top);
+    pixman_region32_union_rect(
+        &buf->dirty, &buf->dirty, 0, bmargin, term->width, term->margins.bottom);
+    pixman_region32_union_rect(
+        &buf->dirty, &buf->dirty, 0, 0, term->margins.left, term->height);
+    pixman_region32_union_rect(
+        &buf->dirty, &buf->dirty,
+        rmargin, 0, term->margins.right, term->height);
+
     if (apply_damage) {
         /* Top */
         wl_surface_damage_buffer(
