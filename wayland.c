@@ -664,6 +664,30 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
 
     xdg_surface_ack_configure(xdg_surface, serial);
 
+#if 1
+    /*
+     * This was done as a workaround for a bug in Sway
+     * (https://github.com/swaywm/sway/issues/6023
+     *
+     * Sway waited for configure ACKs from hidden windows. These never
+     * arrived because Sway never scheduled any frame callbacks for
+     * these hidden windows...
+     *
+     * This has bene fixed as of Sway-1.6.
+     *
+     * Unfortunately, slow moving distros (Debian *cough* are still
+     * stuck on Sway-1.5, and will be so for the foreseeable
+     * future.
+     *
+     * TODO: check for e.g. SWAYSOCK and only pre-empt if it exists?
+     * We'd still be pre-emptying on Sway-1.6, but at least other
+     * compositors would be unaffected.
+     *
+     * Or do we ignore Sway-1.5 users and point them to the Sway bug?
+     *
+     * Note that it doesn't appear to cause any issues to have this
+     * enabled, on any compositor.
+     */
     if (term->window->frame_callback != NULL) {
         /*
          * Preempt render scheduling.
@@ -676,9 +700,10 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
         term->window->frame_callback = NULL;
     }
 
+#endif
 #if 1
     /*
-     * TODO: decide if we should to the last “forced” call when ending
+     * TODO: decide if we should do the last “forced” call when ending
      * an interactive resize.
      *
      * Without it, the last TIOCSWINSZ sent to the client will be a
