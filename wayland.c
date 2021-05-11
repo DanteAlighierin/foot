@@ -679,7 +679,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
      * stuck on Sway-1.5, and will be so for the foreseeable
      * future.
      *
-     * TODO: check for e.g. SWAYSOCK and only pre-empt if it exists?
+     * TODO: check for e.g. SWAYSOCK and only preempt if it exists?
      * We'd still be pre-emptying on Sway-1.6, but at least other
      * compositors would be unaffected.
      *
