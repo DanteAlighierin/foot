@@ -12,6 +12,8 @@
 #include "util.h"
 #include "xmalloc.h"
 
+#define TIME_REFLOW 1
+
 struct grid *
 grid_snapshot(const struct grid *grid)
 {
@@ -391,6 +393,11 @@ grid_resize_and_reflow(
     size_t compose_count, const struct
     composed composed[static compose_count])
 {
+#if defined(TIME_REFLOW) && TIME_REFLOW
+    struct timeval start;
+    gettimeofday(&start, NULL);
+#endif
+
     struct row *const *old_grid = grid->rows;
     const int old_rows = grid->num_rows;
     const int old_cols = grid->num_cols;
@@ -676,6 +683,16 @@ grid_resize_and_reflow(
     tll_free(untranslated_sixels);
 
     tll_free(tracking_points);
+
+#if defined(TIME_REFLOW) && TIME_REFLOW
+    struct timeval stop;
+    gettimeofday(&stop, NULL);
+
+    struct timeval diff;
+    timersub(&stop, &start, &diff);
+    LOG_INFO("reflowed %d -> %d rows in %lds %ldµs",
+             old_rows, new_rows, diff.tv_sec, diff.tv_usec);
+#endif
 }
 
 static void
