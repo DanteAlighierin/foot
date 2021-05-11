@@ -75,7 +75,9 @@
 
 
 ### Deprecated
+
 * **bell** option in `foot.ini`; set actions in **[bell]** section instead.
+
 
 ### Removed
 
@@ -93,6 +95,9 @@
   (https://codeberg.org/dnkl/foot/issues/495).
 * Assertion when emitting a sixel occupying the entire scrollback
   history (https://codeberg.org/dnkl/foot/issues/494).
+* Font underlines being positioned below the cell (and thus being
+  invisible) for certain combinations of fonts and font sizes
+  (https://codeberg.org/dnkl/foot/issues/503).
 
 
 ### Security
