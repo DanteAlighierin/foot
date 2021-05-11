@@ -12,10 +12,13 @@
 #include <presentation-time.h>
 #include <primary-selection-unstable-v1.h>
 #include <text-input-unstable-v3.h>
-#include <xdg-activation-v1.h>
 #include <xdg-decoration-unstable-v1.h>
 #include <xdg-output-unstable-v1.h>
 #include <xdg-shell.h>
+
+#if defined(HAVE_XDG_ACTIVATION)
+ #include <xdg-activation-v1.h>
+#endif
 
 #include <tllist.h>
 
@@ -383,7 +386,9 @@ struct wl_window {
     struct wl_surface *surface;
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
+#if defined(HAVE_XDG_ACTIVATION)
     struct xdg_activation_token_v1 *xdg_activation_token;
+#endif
 
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
 
@@ -451,7 +456,9 @@ struct wayland {
     struct wl_data_device_manager *data_device_manager;
     struct zwp_primary_selection_device_manager_v1 *primary_selection_device_manager;
 
+#if defined(HAVE_XDG_ACTIVATION)
     struct xdg_activation_v1 *xdg_activation;
+#endif
 
     struct wp_presentation *presentation;
     uint32_t presentation_clock_id;

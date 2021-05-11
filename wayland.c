@@ -985,6 +985,7 @@ handle_global(void *data, struct wl_registry *registry,
         }
     }
 
+#if defined(HAVE_XDG_ACTIVATION)
     else if (strcmp(interface, xdg_activation_v1_interface.name) == 0) {
         const uint32_t required = 1;
         if (!verify_iface_version(interface, version, required))
@@ -993,6 +994,7 @@ handle_global(void *data, struct wl_registry *registry,
         wayl->xdg_activation = wl_registry_bind(
             wayl->registry, name, &xdg_activation_v1_interface, required);
     }
+#endif
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     else if (strcmp(interface, zwp_text_input_manager_v3_interface.name) == 0) {
@@ -1192,7 +1194,11 @@ wayl_init(const struct config *conf, struct fdm *fdm)
     if (wayl->primary_selection_device_manager == NULL)
         LOG_WARN("no primary selection available");
 
+#if defined(HAVE_XDG_ACTIVATION)
     if (wayl->xdg_activation == NULL && conf->bell.urgent) {
+#else
+    if (conf->bell.urgent) {
+#endif
         LOG_WARN(
             "no XDG activation support; "
             "bell.urgent will fall back to coloring the window margins red");
@@ -1286,8 +1292,10 @@ wayl_destroy(struct wayland *wayl)
         zwp_text_input_manager_v3_destroy(wayl->text_input_manager);
 #endif
 
+#if defined(HAVE_XDG_ACTIVATION)
     if (wayl->xdg_activation != NULL)
         xdg_activation_v1_destroy(wayl->xdg_activation);
+#endif
     if (wayl->xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);
     if (wayl->shell != NULL)
@@ -1465,8 +1473,10 @@ wayl_win_destroy(struct wl_window *win)
     wayl_win_subsurface_destroy(&win->scrollback_indicator);
     wayl_win_subsurface_destroy(&win->render_timer);
 
+#if defined(HAVE_XDG_ACTIVATION)
     if (win->xdg_activation_token != NULL)
         xdg_activation_token_v1_destroy(win->xdg_activation_token);
+#endif
     if (win->frame_callback != NULL)
         wl_callback_destroy(win->frame_callback);
     if (win->xdg_toplevel_decoration != NULL)
@@ -1588,6 +1598,7 @@ wayl_roundtrip(struct wayland *wayl)
     wayl_flush(wayl);
 }
 
+#if defined(HAVE_XDG_ACTIVATION)
 static void
 activation_token_done(void *data, struct xdg_activation_token_v1 *xdg_token,
                       const char *token)
@@ -1607,10 +1618,12 @@ activation_token_done(void *data, struct xdg_activation_token_v1 *xdg_token,
 static const struct xdg_activation_token_v1_listener activation_token_listener = {
     .done = &activation_token_done,
 };
+#endif /* HAVE_XDG_ACTIVATION */
 
 bool
 wayl_win_set_urgent(struct wl_window *win)
 {
+#if defined(HAVE_XDG_ACTIVATION)
     struct wayland *wayl = win->term->wl;
 
     if (wayl->xdg_activation == NULL)
@@ -1632,6 +1645,9 @@ wayl_win_set_urgent(struct wl_window *win)
     xdg_activation_token_v1_commit(token);
     win->xdg_activation_token = token;
     return true;
+#else
+    return false;
+#endif
 }
 
 bool

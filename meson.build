@@ -88,16 +88,21 @@ wscanner_prog = find_program(
 
 wl_proto_headers = []
 wl_proto_src = []
-foreach prot : [
+wl_proto_xml = [
   wayland_protocols_datadir + '/stable/xdg-shell/xdg-shell.xml',
   wayland_protocols_datadir + '/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml',
   wayland_protocols_datadir + '/unstable/xdg-output/xdg-output-unstable-v1.xml',
   wayland_protocols_datadir + '/unstable/primary-selection/primary-selection-unstable-v1.xml',
   wayland_protocols_datadir + '/stable/presentation-time/presentation-time.xml',
   wayland_protocols_datadir + '/unstable/text-input/text-input-unstable-v3.xml',
-  wayland_protocols_datadir + '/staging/xdg-activation/xdg-activation-v1.xml',
   ]
 
+if wayland_protocols.version().version_compare('>=1.21')
+  add_project_arguments('-DHAVE_XDG_ACTIVATION', language: 'c')
+  wl_proto_xml += [wayland_protocols_datadir + '/staging/xdg-activation/xdg-activation-v1.xml']
+endif
+
+foreach prot : wl_proto_xml
   wl_proto_headers += custom_target(
     prot.underscorify() + '-client-header',
     output: '@BASENAME@.h',
