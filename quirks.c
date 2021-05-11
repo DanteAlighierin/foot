@@ -66,26 +66,3 @@ quirk_weston_csd_off(struct terminal *term)
     for (int i = 0; i < ALEN(term->window->csd.surface); i++)
         quirk_weston_subsurface_desync_off(term->window->csd.surface[i].sub);
 }
-
-void
-quirk_kde_damage_before_attach(struct wl_surface *surface)
-{
-    static bool is_kde = false;
-    static bool initialized = false;
-
-    if (!initialized) {
-        initialized = true;
-
-        const char *cur_desktop = getenv("XDG_CURRENT_DESKTOP");
-        if (cur_desktop != NULL)
-            is_kde = strcasestr(cur_desktop, "kde") != NULL;
-
-        if (is_kde)
-            LOG_WARN("applying wl_surface_damage_buffer() workaround for KDE");
-    }
-
-    if (!is_kde)
-        return;
-
-    wl_surface_damage_buffer(surface, 0, 0, INT32_MAX, INT32_MAX);
-}

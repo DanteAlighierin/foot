@@ -78,6 +78,10 @@
 * **bell** option in `foot.ini`; set actions in **[bell]** section instead.
 
 ### Removed
+
+* Buffer damage quirk for Plasma/KWin.
+
+
 ### Fixed
 
 * `generate-alt-random-writes.py --sixel` sometimes crashing,
