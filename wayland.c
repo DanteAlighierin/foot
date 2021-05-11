@@ -626,7 +626,7 @@ xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
 
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
     .configure = &xdg_toplevel_configure,
-    .close = &xdg_toplevel_close,
+    /*.close = */&xdg_toplevel_close,  /* epoll-shim defines a macro ‘close’... */
 };
 
 static void
