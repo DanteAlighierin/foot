@@ -81,6 +81,7 @@ wayl_win_init(struct terminal *term)
 }
 
 void wayl_win_destroy(struct wl_window *win) {}
+bool wayl_win_set_urgent(struct wl_window *win) { return true; }
 
 bool
 spawn(struct reaper *reaper, const char *cwd, char *const argv[],
