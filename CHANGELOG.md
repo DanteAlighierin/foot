@@ -103,6 +103,9 @@
   (https://codeberg.org/dnkl/foot/issues/503).
 * Sixels with transparent bottom border being resized below the size
   specified in _”Set Raster Attributes”_.
+* Fonts sometimes not being reloaded with the correct scaling factor
+  when `dpi-aware=no`, or `dpi-aware=auto` with monitor(s) with a
+  scaling factor > 1 (https://codeberg.org/dnkl/foot/issues/509).
 
 
 ### Security
