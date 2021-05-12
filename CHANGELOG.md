@@ -69,6 +69,9 @@
   (https://codeberg.org/dnkl/foot/issues/466).
 * Background alpha no longer applied to palette or RGB colors that
   matches the background color.
+* Improved performance on compositors that does not release shm
+  buffers immediately, e.g. KWin
+  (https://codeberg.org/dnkl/foot/issues/478).
 
 
 ### Deprecated

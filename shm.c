@@ -30,6 +30,8 @@
 
 #define TIME_SCROLL 0
 
+#define FORCED_DOUBLE_BUFFERING 0
+
 /*
  * Maximum memfd size allowed.
  *
@@ -100,6 +102,9 @@ buffer_destroy(struct buffer *buf)
     buf->real_mmapped = MAP_FAILED;
     buf->pool = NULL;
     buf->fd = -1;
+
+    free(buf->scroll_damage);
+    pixman_region32_fini(&buf->dirty);
 }
 
 void
@@ -222,6 +227,8 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
         tll_remove(buffers, it);
     }
 
+    struct buffer *cached = NULL;
+
     tll_foreach(buffers, it) {
         if (it->item.width != width)
             continue;
@@ -230,15 +237,29 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
         if (it->item.cookie != cookie)
             continue;
 
-        if (!it->item.busy) {
-            LOG_DBG("cookie=%lx: re-using buffer from cache (buf=%p)",
-                    cookie, (void *)&it->item);
-            it->item.busy = true;
-            it->item.purge = false;
-            xassert(it->item.pix_instances == pix_instances);
-            return &it->item;
-        }
+        if (it->item.busy)
+            it->item.age++;
+        else
+#if FORCED_DOUBLE_BUFFERING
+            if (it->item.age == 0)
+                it->item.age++;
+            else
+#endif
+            {
+                LOG_DBG("cookie=%lx: re-using buffer from cache (buf=%p)",
+                        cookie, (void *)&it->item);
+                it->item.busy = true;
+                it->item.purge = false;
+                pixman_region32_clear(&it->item.dirty);
+                free(it->item.scroll_damage);
+                it->item.scroll_damage = NULL;
+                xassert(it->item.pix_instances == pix_instances);
+                cached = &it->item;
+            }
     }
+
+    if (cached != NULL)
+        return cached;
 
     /* Purge old buffers associated with this cookie */
     tll_foreach(buffers, it) {
@@ -376,13 +397,15 @@ shm_get_buffer(struct wl_shm *shm, int width, int height, unsigned long cookie, 
             .scrollable = scrollable,
             .real_mmapped = real_mmapped,
             .mmap_size = memfd_size,
-            .offset = 0}
-            )
-        );
+            .offset = 0,
+            .age = 1234,  /* Force a full repaint */
+        }));
 
     struct buffer *ret = &tll_back(buffers);
     if (!instantiate_offset(shm, ret, initial_offset))
         goto err;
+
+    pixman_region32_init(&ret->dirty);
 
 #if defined(MEASURE_SHM_ALLOCS) && MEASURE_SHM_ALLOCS
     {

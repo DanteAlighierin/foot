@@ -7,6 +7,8 @@
 #include <pixman.h>
 #include <wayland-client.h>
 
+#include "terminal.h"
+
 struct buffer {
     unsigned long cookie;
 
@@ -32,6 +34,11 @@ struct buffer {
 
     bool scrollable;
     bool purge;            /* True if this buffer should be destroyed */
+
+    unsigned age;
+    struct damage *scroll_damage;
+    size_t scroll_damage_count;
+    pixman_region32_t dirty;
 };
 
 struct buffer *shm_get_buffer(
