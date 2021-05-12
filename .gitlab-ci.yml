@@ -14,7 +14,7 @@ before_script:
   - apk add ttf-hack font-noto-emoji
 
 debug-x64:
-  image: alpine:latest
+  image: alpine:edge
   stage: build
   script:
     - mkdir -p bld/debug
@@ -27,7 +27,7 @@ debug-x64:
       junit: bld/debug/meson-logs/testlog.junit.xml
 
 release-x64:
-  image: alpine:latest
+  image: alpine:edge
   stage: build
   script:
     - mkdir -p bld/release
@@ -40,7 +40,7 @@ release-x64:
       junit: bld/release/meson-logs/testlog.junit.xml
 
 debug-x86:
-  image: i386/alpine:latest
+  image: i386/alpine:edge
   stage: build
   script:
     - mkdir -p bld/debug
@@ -53,7 +53,7 @@ debug-x86:
       junit: bld/debug/meson-logs/testlog.junit.xml
 
 release-x86:
-  image: i386/alpine:latest
+  image: i386/alpine:edge
   stage: build
   script:
     - mkdir -p bld/release
@@ -66,7 +66,7 @@ release-x86:
       junit: bld/release/meson-logs/testlog.junit.xml
 
 codespell:
-  image: alpine:latest
+  image: alpine:edge
   stage: build
   script:
     - apk add python3
