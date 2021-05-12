@@ -2443,7 +2443,6 @@ grid_render(struct terminal *term)
     xassert(buf->height % term->scale == 0);
 
     wl_surface_attach(term->window->surface, buf->wl_buf, 0, 0);
-    quirk_kde_damage_before_attach(term->window->surface);
     wl_surface_commit(term->window->surface);
 }
 

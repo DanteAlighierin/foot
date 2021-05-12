@@ -21,11 +21,3 @@ void quirk_weston_subsurface_desync_off(struct wl_subsurface *sub);
 /* Shortcuts to call desync_{on,off} on all CSD subsurfaces */
 void quirk_weston_csd_on(struct terminal *term);
 void quirk_weston_csd_off(struct terminal *term);
-
-/*
- * KDE discards all previous damage when a buffer is attached to a
- * surface. Thus, if you have recorded damage before you call
- * wl_surface_attach(), call this function to record a full buffer
- * damage.
- */
-void quirk_kde_damage_before_attach(struct wl_surface *surface);
