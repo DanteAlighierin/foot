@@ -3101,7 +3101,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
             scale = it->item->scale;
     }
 
-    if (scale == -1) {
+    if (scale < 0) {
         /* Haven't 'entered' an output yet? */
         scale = term->scale;
     }
