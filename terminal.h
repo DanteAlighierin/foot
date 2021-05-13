@@ -320,7 +320,6 @@ struct terminal {
     struct config_font *font_sizes[4];
     struct pt_or_px font_line_height;
     float font_dpi;
-    int font_scale;  /* scaling factor last time we loaded fonts */
     int16_t font_x_ofs;
     int16_t font_y_ofs;
     enum fcft_subpixel font_subpixel;
@@ -614,7 +613,7 @@ bool term_paste_data_to_slave(
 bool term_font_size_increase(struct terminal *term);
 bool term_font_size_decrease(struct terminal *term);
 bool term_font_size_reset(struct terminal *term);
-bool term_font_dpi_changed(struct terminal *term);
+bool term_font_dpi_changed(struct terminal *term, int old_scale);
 void term_font_subpixel_changed(struct terminal *term);
 int term_pt_or_px_as_pixels(
     const struct terminal *term, const struct pt_or_px *pt_or_px);

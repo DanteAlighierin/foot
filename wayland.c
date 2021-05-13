@@ -285,8 +285,10 @@ update_term_for_output_change(struct terminal *term)
     if (tll_length(term->window->on_outputs) == 0)
         return;
 
+    int old_scale = term->scale;
+
     render_resize(term, term->width / term->scale, term->height / term->scale);
-    term_font_dpi_changed(term);
+    term_font_dpi_changed(term, old_scale);
     term_font_subpixel_changed(term);
 }
 
