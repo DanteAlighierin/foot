@@ -90,7 +90,7 @@ Install from AUR:
 * [foot-git](https://aur.archlinux.org/packages/foot-git/) +
   [foot-terminfo-git](https://aur.archlinux.org/packages/foot-terminfo-git/)
 
-Or use [makepkg](https://wiki.archlinux.org/index.php/Makepkg) to
+Or use [makepkg](https://wiki.archlinux.org/title/Makepkg) to
 build the bundled [PKGBUILD](PKGBUILD) (run `makepkg` in the source
 root directory).
 
@@ -128,10 +128,10 @@ mkdir -p bld/release && cd bld/release
 
 Available compile-time options:
 
-| Option      | Type    | Default | Description         | Extra dependencies |
-|-------------|---------|---------|---------------------|--------------------|
-| `-Dime`     | bool    | `true`  | Enables IME support | None               |
-| `-Dterminfo | feature | `auto`  | Build terminfo      | `tic` (ncurses)    |
+| Option       | Type    | Default | Description         | Extra dependencies |
+|--------------|---------|---------|---------------------|--------------------|
+| `-Dime`      | bool    | `true`  | Enables IME support | None               |
+| `-Dterminfo` | feature | `auto`  | Build terminfo      | `tic` (ncurses)    |
 
 
 ### Release build
