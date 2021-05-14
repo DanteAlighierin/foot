@@ -2632,16 +2632,24 @@ term_bell(struct terminal *term)
 
     if (!term->kbd_focus) {
         if (term->conf->bell.urgent) {
-            /* There's no 'urgency' hint in Wayland - we just paint the
-             * margins red */
-            term->render.urgency = true;
-            term_damage_margins(term);
+            if (!wayl_win_set_urgent(term->window)) {
+                /*
+                 * Urgency (xdg-activation) is relatively new in
+                 * Wayland. Fallback to our old, “faked”, urgency -
+                 * rendering our window margins in red
+                 */
+                term->render.urgency = true;
+                term_damage_margins(term);
+            }
         }
+
         if (term->conf->bell.notify)
             notify_notify(term, "Bell", "Bell in terminal");
     }
 
-    if ((term->conf->bell.command.argv != NULL) && (!term->kbd_focus || term->conf->bell.command_focused)) {
+    if ((term->conf->bell.command.argv != NULL) &&
+        (!term->kbd_focus || term->conf->bell.command_focused))
+    {
         int devnull = open("/dev/null", O_RDONLY);
         spawn(term->reaper, NULL, term->conf->bell.command.argv, devnull, -1, -1);
 

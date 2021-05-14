@@ -43,6 +43,9 @@
   (https://codeberg.org/dnkl/foot/pulls/483)
 * Support for setting the full 256 color palette in foot.ini
   (https://codeberg.org/dnkl/foot/issues/489)
+* XDG activation support, will be used by `[bell].urgent` when
+  available (falling back to coloring the window margins red when
+  unavailable) (https://codeberg.org/dnkl/foot/issues/487).
 
 
 ### Changed
