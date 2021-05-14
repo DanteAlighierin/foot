@@ -234,7 +234,7 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
     const struct row *r = grid_row_in_view(term->grid, pos->row);
     wchar_t c = r->cells[pos->col].wc;
 
-    while (c == CELL_MULT_COL_SPACER) {
+    while (c >= CELL_SPACER) {
         xassert(pos->col > 0);
         if (pos->col == 0)
             return;
@@ -268,7 +268,7 @@ find_word_boundary_left(struct terminal *term, struct coord *pos,
         const struct row *row = grid_row_in_view(term->grid, next_row);
 
         c = row->cells[next_col].wc;
-        while (c == CELL_MULT_COL_SPACER) {
+        while (c >= CELL_SPACER) {
             xassert(next_col > 0);
             if (--next_col < 0)
                 return;
@@ -306,7 +306,7 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
     const struct row *r = grid_row_in_view(term->grid, pos->row);
     wchar_t c = r->cells[pos->col].wc;
 
-    while (c == CELL_MULT_COL_SPACER) {
+    while (c >= CELL_SPACER) {
         xassert(pos->col > 0);
         if (pos->col == 0)
             return;
@@ -340,7 +340,7 @@ find_word_boundary_right(struct terminal *term, struct coord *pos,
         const struct row *row = grid_row_in_view(term->grid, next_row);
 
         c = row->cells[next_col].wc;
-        while (c == CELL_MULT_COL_SPACER) {
+        while (c >= CELL_SPACER) {
             if (++next_col >= term->cols) {
                 next_col = 0;
                 if (++next_row >= term->rows)
@@ -554,7 +554,7 @@ set_pivot_point_for_block_and_char_wise(struct terminal *term,
         const struct row *row = term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)];
         const struct cell *cell = &row->cells[pivot_start->col];
 
-        if (cell->wc != CELL_MULT_COL_SPACER)
+        if (cell->wc < CELL_SPACER)
             break;
 
         /* Multi-column chars don’t cross rows */
@@ -579,7 +579,7 @@ set_pivot_point_for_block_and_char_wise(struct terminal *term,
             const struct row *row = term->grid->rows[pivot_end->row & (term->grid->num_rows - 1)];
             const wchar_t wc = row->cells[pivot_end->col].wc;
 
-            keep_going = wc == CELL_MULT_COL_SPACER;
+            keep_going = wc >= CELL_SPACER;
 
             if (pivot_end->col == 0) {
                 if (pivot_end->row - term->grid->view <= 0)
@@ -596,7 +596,7 @@ set_pivot_point_for_block_and_char_wise(struct terminal *term,
             const wchar_t wc = pivot_start->col < term->cols - 1
                 ? row->cells[pivot_start->col + 1].wc : 0;
 
-            keep_going = wc == CELL_MULT_COL_SPACER;
+            keep_going = wc >= CELL_SPACER;
 
             if (pivot_start->col >= term->cols - 1) {
                 if (pivot_start->row - term->grid->view >= term->rows - 1)
@@ -609,9 +609,9 @@ set_pivot_point_for_block_and_char_wise(struct terminal *term,
     }
 
     xassert(term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)]->
-           cells[pivot_start->col].wc != CELL_MULT_COL_SPACER);
+           cells[pivot_start->col].wc < CELL_SPACER);
     xassert(term->grid->rows[pivot_end->row & (term->grid->num_rows - 1)]->
-           cells[pivot_end->col].wc != CELL_MULT_COL_SPACER);
+           cells[pivot_end->col].wc < CELL_SPACER);
 }
 
 void
@@ -743,17 +743,17 @@ selection_update(struct terminal *term, int col, int row)
         (new_start.row == new_end.row && new_start.col <= new_end.col))
     {
         while (new_start.col >= 1 &&
-               row_start->cells[new_start.col].wc == CELL_MULT_COL_SPACER)
+               row_start->cells[new_start.col].wc >= CELL_SPACER)
             new_start.col--;
         while (new_end.col < term->cols - 1 &&
-               row_end->cells[new_end.col + 1].wc == CELL_MULT_COL_SPACER)
+               row_end->cells[new_end.col + 1].wc >= CELL_SPACER)
             new_end.col++;
     } else {
         while (new_end.col >= 1 &&
-               row_end->cells[new_end.col].wc == CELL_MULT_COL_SPACER)
+               row_end->cells[new_end.col].wc >= CELL_SPACER)
             new_end.col--;
         while (new_start.col < term->cols - 1 &&
-               row_start->cells[new_start.col + 1].wc == CELL_MULT_COL_SPACER)
+               row_start->cells[new_start.col + 1].wc >= CELL_SPACER)
             new_start.col++;
     }
 

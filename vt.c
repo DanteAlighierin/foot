@@ -569,7 +569,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         if (!term->grid->cursor.lcf)
             base_col--;
 
-        while (row->cells[base_col].wc == CELL_MULT_COL_SPACER && base_col > 0)
+        while (row->cells[base_col].wc >= CELL_SPACER && base_col > 0)
             base_col--;
 
         xassert(base_col >= 0 && base_col < term->cols);

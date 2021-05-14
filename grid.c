@@ -473,9 +473,9 @@ grid_resize_and_reflow(
             grid, new_grid, new_row, &new_row_idx, &new_col_idx,    \
             new_rows, new_cols)
 
-#define print_spacer()                                                  \
+#define print_spacer(remaining)                                         \
         do {                                                            \
-            new_row->cells[new_col_idx].wc = CELL_MULT_COL_SPACER;      \
+            new_row->cells[new_col_idx].wc = CELL_SPACER + (remaining); \
             new_row->cells[new_col_idx].attrs = old_cell->attrs;        \
             new_row->cells[new_col_idx].attrs.clean = 1;                \
         } while (0)
@@ -541,7 +541,7 @@ grid_resize_and_reflow(
                 const struct cell *old_cell = &old_row->cells[c - empty_count + i];
                 wc = old_cell->wc;
 
-                if (wc == CELL_MULT_COL_SPACER)
+                if (wc >= CELL_SPACER)
                     continue;
 
                 if (wc >= CELL_COMB_CHARS_LO &&
@@ -554,7 +554,7 @@ grid_resize_and_reflow(
                 if (new_col_idx + max(1, wcwidth(wc)) > new_cols) {
                     /* Pad to end-of-line with spacers, then line-wrap */
                     for (;new_col_idx < new_cols; new_col_idx++)
-                        print_spacer();
+                        print_spacer(0);
                     line_wrap();
                 }
 
@@ -585,7 +585,7 @@ grid_resize_and_reflow(
             const struct cell *old_cell = &old_row->cells[c];
             for (size_t i = 0; i < width - 1; i++) {
                 xassert(new_col_idx < new_cols);
-                print_spacer();
+                print_spacer(width - i + 1);
                 new_col_idx++;
             }
 
