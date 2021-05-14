@@ -491,6 +491,8 @@ grid_resize_and_reflow(
 
         /* Walk current line of the old grid */
         for (int c = 0; c < old_cols; c++) {
+            const struct cell *old_cell = &old_row->cells[c];
+            wchar_t wc = old_cell->wc;
 
             /* Check if this cell is one of the tracked cells */
             bool is_tracking_point = false;
@@ -512,7 +514,7 @@ grid_resize_and_reflow(
                 }
             }
 
-            if (old_row->cells[c].wc == 0 && !is_tracking_point) {
+            if (wc == 0 && !is_tracking_point) {
                 empty_count++;
                 continue;
             }
@@ -529,35 +531,22 @@ grid_resize_and_reflow(
                 if (new_col_idx + 1 > new_cols)
                     line_wrap();
 
-                new_row->cells[new_col_idx] = old_row->cells[c - empty_count + i];
+                size_t idx = c - empty_count + i;
+
+                new_row->cells[new_col_idx].wc = 0;
+                new_row->cells[new_col_idx].attrs = old_row->cells[idx].attrs;
                 new_row->cells[new_col_idx].attrs.clean = 1;
                 new_col_idx++;
             }
 
             empty_count = 0;
 
-            wchar_t wc = old_row->cells[c].wc;
-            if (wc >= CELL_COMB_CHARS_LO &&
-                wc < (CELL_COMB_CHARS_LO + compose_count))
-            {
-                wc = composed[wc - CELL_COMB_CHARS_LO].base;
-            }
-
-            const struct cell *old_cell = &old_row->cells[c];
-            wc = old_cell->wc;
-
             if (wc == CELL_SPACER)
                 continue;
 
-            if (wc >= CELL_COMB_CHARS_LO &&
-                wc < (CELL_COMB_CHARS_LO + compose_count))
-            {
-                wc = composed[wc - CELL_COMB_CHARS_LO].base;
-            }
-
-            if (wc < CELL_SPACER &&
-                c + 1 < old_cols &&
-                old_row->cells[c + 1].wc > CELL_SPACER)
+            if (unlikely(wc < CELL_SPACER &&
+                         c + 1 < old_cols &&
+                         old_row->cells[c + 1].wc > CELL_SPACER))
             {
                 int width = old_row->cells[c + 1].wc - CELL_SPACER + 1;
                 assert(wcwidth(wc) == width);
