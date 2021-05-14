@@ -525,6 +525,17 @@ grid_resize_and_reflow(
             if (new_cols_left < cols_needed && new_cols_left >= old_cols_left)
                 empty_count = max(0, empty_count - (cols_needed - new_cols_left));
 
+            for (int i = 0; i < empty_count; i++) {
+                if (new_col_idx + 1 > new_cols)
+                    line_wrap();
+
+                new_row->cells[new_col_idx] = old_row->cells[c - empty_count + i];
+                new_row->cells[new_col_idx].attrs.clean = 1;
+                new_col_idx++;
+            }
+
+            empty_count = 0;
+
             wchar_t wc = old_row->cells[c].wc;
             if (wc >= CELL_COMB_CHARS_LO &&
                 wc < (CELL_COMB_CHARS_LO + compose_count))
@@ -532,65 +543,58 @@ grid_resize_and_reflow(
                 wc = composed[wc - CELL_COMB_CHARS_LO].base;
             }
 
-            int width = max(1, wcwidth(wc));
+            const struct cell *old_cell = &old_row->cells[c];
+            wc = old_cell->wc;
 
-            /* Multi-column characters are never cut in half */
-            xassert(c + width <= old_cols);
+            if (wc == CELL_SPACER)
+                continue;
 
-            for (int i = 0; i < empty_count + 1; i++) {
-                const struct cell *old_cell = &old_row->cells[c - empty_count + i];
-                wc = old_cell->wc;
+            if (wc >= CELL_COMB_CHARS_LO &&
+                wc < (CELL_COMB_CHARS_LO + compose_count))
+            {
+                wc = composed[wc - CELL_COMB_CHARS_LO].base;
+            }
 
-                if (wc >= CELL_SPACER)
-                    continue;
-
-                if (wc >= CELL_COMB_CHARS_LO &&
-                    wc < (CELL_COMB_CHARS_LO + compose_count))
-                {
-                    wc = composed[wc - CELL_COMB_CHARS_LO].base;
-                }
+            if (wc < CELL_SPACER &&
+                c + 1 < old_cols &&
+                old_row->cells[c + 1].wc > CELL_SPACER)
+            {
+                int width = old_row->cells[c + 1].wc - CELL_SPACER + 1;
+                assert(wcwidth(wc) == width);
 
                 /* Out of columns on current row in new grid? */
-                if (new_col_idx + max(1, wcwidth(wc)) > new_cols) {
+                if (new_col_idx + width > new_cols) {
                     /* Pad to end-of-line with spacers, then line-wrap */
                     for (;new_col_idx < new_cols; new_col_idx++)
                         print_spacer(0);
                     line_wrap();
                 }
+            }
 
-                xassert(new_row != NULL);
-                xassert(new_col_idx >= 0);
-                xassert(new_col_idx < new_cols);
+            if (new_col_idx + 1 > new_cols)
+                line_wrap();
 
-                new_row->cells[new_col_idx] = *old_cell;
-                new_row->cells[new_col_idx].attrs.clean = 1;
+            xassert(new_row != NULL);
+            xassert(new_col_idx >= 0);
+            xassert(new_col_idx < new_cols);
 
-                /* Translate tracking point(s) */
-                if (is_tracking_point && i >= empty_count) {
-                    tll_foreach(tracking_points, it) {
-                        if (it->item->row == old_row_idx && it->item->col == c) {
-                            it->item->row = new_row_idx;
-                            it->item->col = new_col_idx;
-                            tll_remove(tracking_points, it);
-                        }
+            new_row->cells[new_col_idx] = *old_cell;
+            new_row->cells[new_col_idx].attrs.clean = 1;
+
+            /* Translate tracking point(s) */
+            if (is_tracking_point) {
+                tll_foreach(tracking_points, it) {
+                    if (it->item->row == old_row_idx && it->item->col == c) {
+                        it->item->row = new_row_idx;
+                        it->item->col = new_col_idx;
+                        tll_remove(tracking_points, it);
                     }
-
-                    reflow_uri_ranges(old_row, new_row, c, new_col_idx);
                 }
-                new_col_idx++;
+
+                reflow_uri_ranges(old_row, new_row, c, new_col_idx);
             }
 
-            /* For multi-column characters, insert spacers in the
-             * subsequent cells */
-            const struct cell *old_cell = &old_row->cells[c];
-            for (size_t i = 0; i < width - 1; i++) {
-                xassert(new_col_idx < new_cols);
-                print_spacer(width - i + 1);
-                new_col_idx++;
-            }
-
-            c += width - 1;
-            empty_count = 0;
+            new_col_idx++;
         }
 
         if (old_row->linebreak) {
