@@ -385,25 +385,27 @@ _line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
     return new_row;
 }
 
-struct tp_cmp_ctx {
+static struct {
     int scrollback_start;
     int rows;
-};
+} tp_cmp_ctx;
 
 static int
-tp_cmp(const void *_a, const void *_b, void *_arg)
+tp_cmp(const void *_a, const void *_b)
 {
     const struct coord *a = *(const struct coord **)_a;
     const struct coord *b = *(const struct coord **)_b;
-    const struct tp_cmp_ctx *ctx = _arg;
 
-    int a_row = (a->row - ctx->scrollback_start + ctx->rows) & (ctx->rows - 1);
-    int b_row = (b->row - ctx->scrollback_start + ctx->rows) & (ctx->rows - 1);
+    int scrollback_start = tp_cmp_ctx.scrollback_start;
+    int num_rows = tp_cmp_ctx.rows;
+
+    int a_row = (a->row - scrollback_start + num_rows) & (num_rows - 1);
+    int b_row = (b->row - scrollback_start + num_rows) & (num_rows - 1);
 
     xassert(a_row >= 0);
-    xassert(a_row < ctx->rows || ctx->rows == 0);
+    xassert(a_row < num_rows || num_rows == 0);
     xassert(b_row >= 0);
-    xassert(b_row < ctx->rows || ctx->rows == 0);
+    xassert(b_row < num_rows || num_rows == 0);
 
     if (a_row < b_row)
         return -1;
@@ -486,9 +488,11 @@ grid_resize_and_reflow(
     if (!view_follows)
         tracking_points[tracking_points_count + 2] = &viewport;
 
-    qsort_r(
-        tracking_points, tp_count - 1, sizeof(tracking_points[0]), &tp_cmp,
-        &(struct tp_cmp_ctx){.scrollback_start = offset, .rows = old_rows});
+    /* Not thread safe! */
+    tp_cmp_ctx.scrollback_start = offset;
+    tp_cmp_ctx.rows = old_rows;
+    qsort(
+        tracking_points, tp_count - 1, sizeof(tracking_points[0]), &tp_cmp);
 
     /* NULL terminate */
     struct coord terminator = {-1, -1};
