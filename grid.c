@@ -531,7 +531,7 @@ grid_resize_and_reflow(
             bool is_tracking_point = false;
 
             struct coord *tp = *next_tp;
-            if (tp->row == old_row_idx && tp->col == c)
+            if (unlikely(tp->row == old_row_idx && tp->col == c))
                 is_tracking_point = true;
 
             /* If there’s an URI start/end point here, we need to make
@@ -539,14 +539,14 @@ grid_resize_and_reflow(
             bool on_uri = false;
             if (old_row->extra != NULL) {
                 tll_foreach(old_row->extra->uri_ranges, it) {
-                    if (it->item.start == c || it->item.end == c) {
+                    if (unlikely(it->item.start == c || it->item.end == c)) {
                         on_uri = true;
                         break;
                     }
                 }
             }
 
-            if (wc == 0 && !(is_tracking_point | on_uri)) {
+            if (wc == 0 && likely(!(is_tracking_point | on_uri))) {
                 empty_count++;
                 continue;
             }
@@ -601,7 +601,7 @@ grid_resize_and_reflow(
             new_row->cells[new_col_idx] = *old_cell;
 
             /* Translate tracking point(s) */
-            if (is_tracking_point) {
+            if (unlikely(is_tracking_point)) {
                 do {
                     xassert(tp != NULL);
                     xassert(tp->row == old_row_idx);
@@ -619,7 +619,7 @@ grid_resize_and_reflow(
                         (tp->row == old_row_idx && tp->col > c));
             }
 
-            if (on_uri)
+            if (unlikely(on_uri))
                 reflow_uri_ranges(old_row, new_row, c, new_col_idx);
 
             new_col_idx++;
