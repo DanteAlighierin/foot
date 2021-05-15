@@ -384,6 +384,28 @@ _line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
     return new_row;
 }
 
+static int
+tp_cmp(const void *_a, const void *_b)
+{
+    const struct coord *a = *(const struct coord **)_a;
+    const struct coord *b = *(const struct coord **)_b;
+
+    if (a->row < b->row)
+        return -1;
+    if (a->row > b->row)
+        return 1;
+
+    xassert(a->row == b->row);
+
+    if (a->col < b->col)
+        return -1;
+    if (a->col > b->col)
+        return 1;
+
+    xassert(a->col == b->col);
+    return 0;
+}
+
 void
 grid_resize_and_reflow(
     struct grid *grid, int new_rows, int new_cols,
@@ -433,16 +455,28 @@ grid_resize_and_reflow(
     saved_cursor.row += grid->offset;
     saved_cursor.row &= old_rows - 1;
 
-    tll(struct coord *) tracking_points = tll_init();
-    tll_push_back(tracking_points, &cursor);
-    tll_push_back(tracking_points, &saved_cursor);
+    size_t tp_count =
+        tracking_points_count +
+        1 +                       /* cursor */
+        1 +                       /* saved cursor */
+        !view_follows +           /* viewport */
+        1;                        /* terminator */
+
+    struct coord *tracking_points[tp_count];
+    memcpy(tracking_points, _tracking_points, tracking_points_count * sizeof(_tracking_points[0]));
+    tracking_points[tracking_points_count] = &cursor;
+    tracking_points[tracking_points_count + 1] = &saved_cursor;
 
     struct coord viewport = {0, grid->view};
     if (!view_follows)
-        tll_push_back(tracking_points, &viewport);
+        tracking_points[tracking_points_count + 2] = &viewport;
 
-    for (size_t i = 0; i < tracking_points_count; i++)
-        tll_push_back(tracking_points, _tracking_points[i]);
+    qsort(tracking_points, tp_count - 1, sizeof(tracking_points[0]), &tp_cmp);
+
+    /* NULL terminate */
+    struct coord terminator = {-1, -1};
+    tracking_points[tp_count - 1] = &terminator;
+    struct coord **next_tp = &tracking_points[0];
 
     /*
      * Walk the old grid
@@ -477,7 +511,6 @@ grid_resize_and_reflow(
         do {                                                            \
             new_row->cells[new_col_idx].wc = CELL_SPACER + (remaining); \
             new_row->cells[new_col_idx].attrs = old_cell->attrs;        \
-            new_row->cells[new_col_idx].attrs.clean = 1;                \
         } while (0)
 
         /*
@@ -496,25 +529,24 @@ grid_resize_and_reflow(
 
             /* Check if this cell is one of the tracked cells */
             bool is_tracking_point = false;
-            tll_foreach(tracking_points, it) {
-                if (it->item->row == old_row_idx && it->item->col == c) {
-                    is_tracking_point = true;
-                    break;
-                }
-            }
+
+            struct coord *tp = *next_tp;
+            if (tp->row == old_row_idx && tp->col == c)
+                is_tracking_point = true;
 
             /* If there’s an URI start/end point here, we need to make
              * sure we handle it */
+            bool on_uri = false;
             if (old_row->extra != NULL) {
                 tll_foreach(old_row->extra->uri_ranges, it) {
                     if (it->item.start == c || it->item.end == c) {
-                        is_tracking_point = true;
+                        on_uri = true;
                         break;
                     }
                 }
             }
 
-            if (wc == 0 && !is_tracking_point) {
+            if (wc == 0 && !(is_tracking_point | on_uri)) {
                 empty_count++;
                 continue;
             }
@@ -535,7 +567,6 @@ grid_resize_and_reflow(
 
                 new_row->cells[new_col_idx].wc = 0;
                 new_row->cells[new_col_idx].attrs = old_row->cells[idx].attrs;
-                new_row->cells[new_col_idx].attrs.clean = 1;
                 new_col_idx++;
             }
 
@@ -568,20 +599,28 @@ grid_resize_and_reflow(
             xassert(new_col_idx < new_cols);
 
             new_row->cells[new_col_idx] = *old_cell;
-            new_row->cells[new_col_idx].attrs.clean = 1;
 
             /* Translate tracking point(s) */
             if (is_tracking_point) {
-                tll_foreach(tracking_points, it) {
-                    if (it->item->row == old_row_idx && it->item->col == c) {
-                        it->item->row = new_row_idx;
-                        it->item->col = new_col_idx;
-                        tll_remove(tracking_points, it);
-                    }
-                }
+                do {
+                    xassert(tp != NULL);
+                    xassert(tp->row == old_row_idx);
+                    xassert(tp->col == c);
 
-                reflow_uri_ranges(old_row, new_row, c, new_col_idx);
+                    tp->row = new_row_idx;
+                    tp->col = new_col_idx;
+
+                    next_tp++;
+                    tp = *next_tp;
+                } while (tp->row == old_row_idx && tp->col == c);
+
+                xassert((tp->row < 0 && tp->col < 0) ||
+                        tp->row > old_row_idx ||
+                        (tp->row == old_row_idx && tp->col > c));
             }
+
+            if (on_uri)
+                reflow_uri_ranges(old_row, new_row, c, new_col_idx);
 
             new_col_idx++;
         }
@@ -594,6 +633,8 @@ grid_resize_and_reflow(
 #undef print_spacer
 #undef line_wrap
     }
+
+    xassert(old_rows == 0 || *next_tp == &terminator);
 
 #if defined(_DEBUG)
     /* Verify all URI ranges have been “closed” */
@@ -674,8 +715,6 @@ grid_resize_and_reflow(
     tll_foreach(untranslated_sixels, it)
         sixel_destroy(&it->item);
     tll_free(untranslated_sixels);
-
-    tll_free(tracking_points);
 
 #if defined(TIME_REFLOW) && TIME_REFLOW
     struct timeval stop;
