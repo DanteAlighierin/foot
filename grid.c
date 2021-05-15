@@ -384,18 +384,32 @@ _line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
     return new_row;
 }
 
+struct tp_cmp_ctx {
+    int scrollback_start;
+    int rows;
+};
+
 static int
-tp_cmp(const void *_a, const void *_b)
+tp_cmp(const void *_a, const void *_b, void *_arg)
 {
     const struct coord *a = *(const struct coord **)_a;
     const struct coord *b = *(const struct coord **)_b;
+    const struct tp_cmp_ctx *ctx = _arg;
 
-    if (a->row < b->row)
+    int a_row = (a->row - ctx->scrollback_start + ctx->rows) & (ctx->rows - 1);
+    int b_row = (b->row - ctx->scrollback_start + ctx->rows) & (ctx->rows - 1);
+
+    xassert(a_row >= 0);
+    xassert(a_row < ctx->rows);
+    xassert(b_row >= 0);
+    xassert(b_row < ctx->rows);
+
+    if (a_row < b_row)
         return -1;
-    if (a->row > b->row)
+    if (a_row > b_row)
         return 1;
 
-    xassert(a->row == b->row);
+    xassert(a_row == b_row);
 
     if (a->col < b->col)
         return -1;
@@ -471,12 +485,22 @@ grid_resize_and_reflow(
     if (!view_follows)
         tracking_points[tracking_points_count + 2] = &viewport;
 
-    qsort(tracking_points, tp_count - 1, sizeof(tracking_points[0]), &tp_cmp);
+    if (old_rows > 0) {
+        qsort_r(
+            tracking_points, tp_count - 1, sizeof(tracking_points[0]), &tp_cmp,
+            &(struct tp_cmp_ctx){.scrollback_start = offset, .rows = old_rows});
+    }
 
     /* NULL terminate */
     struct coord terminator = {-1, -1};
     tracking_points[tp_count - 1] = &terminator;
     struct coord **next_tp = &tracking_points[0];
+
+    LOG_DBG("scrollback-start=%d", offset);
+    for (size_t i = 0; i < tp_count - 1; i++) {
+        LOG_DBG("TP #%zu: row=%d, col=%d",
+                i, tracking_points[i]->row, tracking_points[i]->col);
+    }
 
     /*
      * Walk the old grid
@@ -613,10 +637,6 @@ grid_resize_and_reflow(
                     next_tp++;
                     tp = *next_tp;
                 } while (tp->row == old_row_idx && tp->col == c);
-
-                xassert((tp->row < 0 && tp->col < 0) ||
-                        tp->row > old_row_idx ||
-                        (tp->row == old_row_idx && tp->col > c));
             }
 
             if (unlikely(on_uri))
