@@ -1159,8 +1159,7 @@ vt_from_slave(struct terminal *term, const uint8_t *data, size_t len)
         case STATE_UTF8_42:             current_state = state_utf8_42_switch(term, *p); break;
         case STATE_UTF8_43:             current_state = state_utf8_43_switch(term, *p); break;
         }
+
+        term->vt.state = current_state;
     }
-
-
-    term->vt.state = current_state;
 }
