@@ -3242,7 +3242,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     /* Resize grids */
     grid_resize_and_reflow(
         &term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows,
-        ALEN(tracking_points), tracking_points,
+        term->selection.end.row >= 0 ? ALEN(tracking_points) : 0, tracking_points,
         term->composed_count, term->composed);
 
     grid_resize_without_reflow(
