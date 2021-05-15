@@ -1,5 +1,6 @@
 #include "grid.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #define LOG_MODULE "grid"
