@@ -400,9 +400,9 @@ tp_cmp(const void *_a, const void *_b, void *_arg)
     int b_row = (b->row - ctx->scrollback_start + ctx->rows) & (ctx->rows - 1);
 
     xassert(a_row >= 0);
-    xassert(a_row < ctx->rows);
+    xassert(a_row < ctx->rows || ctx->rows == 0);
     xassert(b_row >= 0);
-    xassert(b_row < ctx->rows);
+    xassert(b_row < ctx->rows || ctx->rows == 0);
 
     if (a_row < b_row)
         return -1;
@@ -485,11 +485,9 @@ grid_resize_and_reflow(
     if (!view_follows)
         tracking_points[tracking_points_count + 2] = &viewport;
 
-    if (old_rows > 0) {
-        qsort_r(
-            tracking_points, tp_count - 1, sizeof(tracking_points[0]), &tp_cmp,
-            &(struct tp_cmp_ctx){.scrollback_start = offset, .rows = old_rows});
-    }
+    qsort_r(
+        tracking_points, tp_count - 1, sizeof(tracking_points[0]), &tp_cmp,
+        &(struct tp_cmp_ctx){.scrollback_start = offset, .rows = old_rows});
 
     /* NULL terminate */
     struct coord terminator = {-1, -1};
