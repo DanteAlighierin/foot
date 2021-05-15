@@ -722,8 +722,10 @@ grid_resize_and_reflow(
 
     struct timeval diff;
     timersub(&stop, &start, &diff);
-    LOG_INFO("reflowed %d -> %d rows in %lds %ldµs",
-             old_rows, new_rows, diff.tv_sec, diff.tv_usec);
+    LOG_INFO("reflowed %d -> %d rows in %llds %lldµs",
+             old_rows, new_rows,
+             (long long)diff.tv_sec,
+             (long long)diff.tv_usec);
 #endif
 }
 
