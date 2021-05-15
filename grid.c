@@ -341,11 +341,10 @@ _line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
 
     if (new_row == NULL) {
         /* Scrollback not yet full, allocate a completely new row */
-        new_row = grid_row_alloc(col_count, true);
+        new_row = grid_row_alloc(col_count, false);
         new_grid[*row_idx] = new_row;
     } else {
         /* Scrollback is full, need to re-use a row */
-        memset(new_row->cells, 0, col_count * sizeof(new_row->cells[0]));
         grid_row_reset_extra(new_row);
         new_row->linebreak = false;
 
@@ -451,7 +450,7 @@ grid_resize_and_reflow(
     struct row *new_row = new_grid[new_row_idx];
 
     xassert(new_row == NULL);
-    new_row = grid_row_alloc(new_cols, true);
+    new_row = grid_row_alloc(new_cols, false);
     new_grid[new_row_idx] = new_row;
 
     /* Start at the beginning of the old grid's scrollback. That is,
@@ -649,6 +648,9 @@ grid_resize_and_reflow(
         }
 
         if (old_row->linebreak) {
+            /* Erase the remaining cells */
+            memset(&new_row->cells[new_col_idx], 0,
+                   (new_cols - new_col_idx) * sizeof(new_row->cells[0]));
             new_row->linebreak = true;
             line_wrap();
         }
@@ -656,6 +658,10 @@ grid_resize_and_reflow(
 #undef print_spacer
 #undef line_wrap
     }
+
+    /* Erase the remaining cells */
+    memset(&new_row->cells[new_col_idx], 0,
+           (new_cols - new_col_idx) * sizeof(new_row->cells[0]));
 
     xassert(old_rows == 0 || *next_tp == &terminator);
 
