@@ -594,7 +594,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     if (has_cursor && term->cursor_style == CURSOR_BLOCK && term->kbd_focus)
         draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
 
-    if (cell->wc == 0 || cell->wc == CELL_MULT_COL_SPACER ||
+    if (cell->wc == 0 || cell->wc >= CELL_SPACER ||
         (unlikely(cell->attrs.conceal) && !is_selected))
     {
         goto draw_cursor;
@@ -1237,7 +1237,7 @@ render_ime_preedit_for_seat(struct terminal *term, struct seat *seat,
 
         /* Make sure we don't start in the middle of a character */
         while (ime_ofs < cells_needed &&
-               seat->ime.preedit.cells[ime_ofs].wc == CELL_MULT_COL_SPACER)
+               seat->ime.preedit.cells[ime_ofs].wc >= CELL_SPACER)
         {
             ime_ofs++;
         }
@@ -1249,7 +1249,7 @@ render_ime_preedit_for_seat(struct terminal *term, struct seat *seat,
     struct row *row = grid_row_in_view(term->grid, row_idx);
 
     /* Don't start pre-edit text in the middle of a double-width character */
-    while (col_idx > 0 && row->cells[col_idx].wc == CELL_MULT_COL_SPACER) {
+    while (col_idx > 0 && row->cells[col_idx].wc >= CELL_SPACER) {
         cells_used++;
         col_idx--;
     }
@@ -1268,11 +1268,11 @@ render_ime_preedit_for_seat(struct terminal *term, struct seat *seat,
     row->dirty = true;
 
     /* Render pre-edit text */
-    xassert(seat->ime.preedit.cells[ime_ofs].wc != CELL_MULT_COL_SPACER);
+    xassert(seat->ime.preedit.cells[ime_ofs].wc < CELL_SPACER);
     for (int i = 0, idx = ime_ofs; idx < seat->ime.preedit.count; i++, idx++) {
         const struct cell *cell = &seat->ime.preedit.cells[idx];
 
-        if (cell->wc == CELL_MULT_COL_SPACER)
+        if (cell->wc >= CELL_SPACER)
             continue;
 
         int width = max(1, wcwidth(cell->wc));
@@ -3242,7 +3242,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     /* Resize grids */
     grid_resize_and_reflow(
         &term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows,
-        ALEN(tracking_points), tracking_points,
+        term->selection.end.row >= 0 ? ALEN(tracking_points) : 0, tracking_points,
         term->composed_count, term->composed);
 
     grid_resize_without_reflow(

@@ -1,5 +1,6 @@
 #include "grid.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 #define LOG_MODULE "grid"
@@ -11,6 +12,8 @@
 #include "stride.h"
 #include "util.h"
 #include "xmalloc.h"
+
+#define TIME_REFLOW 1
 
 struct grid *
 grid_snapshot(const struct grid *grid)
@@ -382,6 +385,44 @@ _line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
     return new_row;
 }
 
+static struct {
+    int scrollback_start;
+    int rows;
+} tp_cmp_ctx;
+
+static int
+tp_cmp(const void *_a, const void *_b)
+{
+    const struct coord *a = *(const struct coord **)_a;
+    const struct coord *b = *(const struct coord **)_b;
+
+    int scrollback_start = tp_cmp_ctx.scrollback_start;
+    int num_rows = tp_cmp_ctx.rows;
+
+    int a_row = (a->row - scrollback_start + num_rows) & (num_rows - 1);
+    int b_row = (b->row - scrollback_start + num_rows) & (num_rows - 1);
+
+    xassert(a_row >= 0);
+    xassert(a_row < num_rows || num_rows == 0);
+    xassert(b_row >= 0);
+    xassert(b_row < num_rows || num_rows == 0);
+
+    if (a_row < b_row)
+        return -1;
+    if (a_row > b_row)
+        return 1;
+
+    xassert(a_row == b_row);
+
+    if (a->col < b->col)
+        return -1;
+    if (a->col > b->col)
+        return 1;
+
+    xassert(a->col == b->col);
+    return 0;
+}
+
 void
 grid_resize_and_reflow(
     struct grid *grid, int new_rows, int new_cols,
@@ -391,6 +432,11 @@ grid_resize_and_reflow(
     size_t compose_count, const struct
     composed composed[static compose_count])
 {
+#if defined(TIME_REFLOW) && TIME_REFLOW
+    struct timeval start;
+    gettimeofday(&start, NULL);
+#endif
+
     struct row *const *old_grid = grid->rows;
     const int old_rows = grid->num_rows;
     const int old_cols = grid->num_cols;
@@ -426,16 +472,38 @@ grid_resize_and_reflow(
     saved_cursor.row += grid->offset;
     saved_cursor.row &= old_rows - 1;
 
-    tll(struct coord *) tracking_points = tll_init();
-    tll_push_back(tracking_points, &cursor);
-    tll_push_back(tracking_points, &saved_cursor);
+    size_t tp_count =
+        tracking_points_count +
+        1 +                       /* cursor */
+        1 +                       /* saved cursor */
+        !view_follows +           /* viewport */
+        1;                        /* terminator */
+
+    struct coord *tracking_points[tp_count];
+    memcpy(tracking_points, _tracking_points, tracking_points_count * sizeof(_tracking_points[0]));
+    tracking_points[tracking_points_count] = &cursor;
+    tracking_points[tracking_points_count + 1] = &saved_cursor;
 
     struct coord viewport = {0, grid->view};
     if (!view_follows)
-        tll_push_back(tracking_points, &viewport);
+        tracking_points[tracking_points_count + 2] = &viewport;
 
-    for (size_t i = 0; i < tracking_points_count; i++)
-        tll_push_back(tracking_points, _tracking_points[i]);
+    /* Not thread safe! */
+    tp_cmp_ctx.scrollback_start = offset;
+    tp_cmp_ctx.rows = old_rows;
+    qsort(
+        tracking_points, tp_count - 1, sizeof(tracking_points[0]), &tp_cmp);
+
+    /* NULL terminate */
+    struct coord terminator = {-1, -1};
+    tracking_points[tp_count - 1] = &terminator;
+    struct coord **next_tp = &tracking_points[0];
+
+    LOG_DBG("scrollback-start=%d", offset);
+    for (size_t i = 0; i < tp_count - 1; i++) {
+        LOG_DBG("TP #%zu: row=%d, col=%d",
+                i, tracking_points[i]->row, tracking_points[i]->col);
+    }
 
     /*
      * Walk the old grid
@@ -466,11 +534,10 @@ grid_resize_and_reflow(
             grid, new_grid, new_row, &new_row_idx, &new_col_idx,    \
             new_rows, new_cols)
 
-#define print_spacer()                                                  \
+#define print_spacer(remaining)                                         \
         do {                                                            \
-            new_row->cells[new_col_idx].wc = CELL_MULT_COL_SPACER;      \
+            new_row->cells[new_col_idx].wc = CELL_SPACER + (remaining); \
             new_row->cells[new_col_idx].attrs = old_cell->attrs;        \
-            new_row->cells[new_col_idx].attrs.clean = 1;                \
         } while (0)
 
         /*
@@ -484,28 +551,29 @@ grid_resize_and_reflow(
 
         /* Walk current line of the old grid */
         for (int c = 0; c < old_cols; c++) {
+            const struct cell *old_cell = &old_row->cells[c];
+            wchar_t wc = old_cell->wc;
 
             /* Check if this cell is one of the tracked cells */
             bool is_tracking_point = false;
-            tll_foreach(tracking_points, it) {
-                if (it->item->row == old_row_idx && it->item->col == c) {
-                    is_tracking_point = true;
-                    break;
-                }
-            }
+
+            struct coord *tp = *next_tp;
+            if (unlikely(tp->row == old_row_idx && tp->col == c))
+                is_tracking_point = true;
 
             /* If there’s an URI start/end point here, we need to make
              * sure we handle it */
+            bool on_uri = false;
             if (old_row->extra != NULL) {
                 tll_foreach(old_row->extra->uri_ranges, it) {
-                    if (it->item.start == c || it->item.end == c) {
-                        is_tracking_point = true;
+                    if (unlikely(it->item.start == c || it->item.end == c)) {
+                        on_uri = true;
                         break;
                     }
                 }
             }
 
-            if (old_row->cells[c].wc == 0 && !is_tracking_point) {
+            if (wc == 0 && likely(!(is_tracking_point | on_uri))) {
                 empty_count++;
                 continue;
             }
@@ -518,72 +586,66 @@ grid_resize_and_reflow(
             if (new_cols_left < cols_needed && new_cols_left >= old_cols_left)
                 empty_count = max(0, empty_count - (cols_needed - new_cols_left));
 
-            wchar_t wc = old_row->cells[c].wc;
-            if (wc >= CELL_COMB_CHARS_LO &&
-                wc < (CELL_COMB_CHARS_LO + compose_count))
-            {
-                wc = composed[wc - CELL_COMB_CHARS_LO].base;
+            for (int i = 0; i < empty_count; i++) {
+                if (new_col_idx + 1 > new_cols)
+                    line_wrap();
+
+                size_t idx = c - empty_count + i;
+
+                new_row->cells[new_col_idx].wc = 0;
+                new_row->cells[new_col_idx].attrs = old_row->cells[idx].attrs;
+                new_col_idx++;
             }
 
-            int width = max(1, wcwidth(wc));
+            empty_count = 0;
 
-            /* Multi-column characters are never cut in half */
-            xassert(c + width <= old_cols);
+            if (wc == CELL_SPACER)
+                continue;
 
-            for (int i = 0; i < empty_count + 1; i++) {
-                const struct cell *old_cell = &old_row->cells[c - empty_count + i];
-                wc = old_cell->wc;
-
-                if (wc == CELL_MULT_COL_SPACER)
-                    continue;
-
-                if (wc >= CELL_COMB_CHARS_LO &&
-                    wc < (CELL_COMB_CHARS_LO + compose_count))
-                {
-                    wc = composed[wc - CELL_COMB_CHARS_LO].base;
-                }
+            if (unlikely(wc < CELL_SPACER &&
+                         c + 1 < old_cols &&
+                         old_row->cells[c + 1].wc > CELL_SPACER))
+            {
+                int width = old_row->cells[c + 1].wc - CELL_SPACER + 1;
+                assert(wcwidth(wc) == width);
 
                 /* Out of columns on current row in new grid? */
-                if (new_col_idx + max(1, wcwidth(wc)) > new_cols) {
+                if (new_col_idx + width > new_cols) {
                     /* Pad to end-of-line with spacers, then line-wrap */
                     for (;new_col_idx < new_cols; new_col_idx++)
-                        print_spacer();
+                        print_spacer(0);
                     line_wrap();
                 }
-
-                xassert(new_row != NULL);
-                xassert(new_col_idx >= 0);
-                xassert(new_col_idx < new_cols);
-
-                new_row->cells[new_col_idx] = *old_cell;
-                new_row->cells[new_col_idx].attrs.clean = 1;
-
-                /* Translate tracking point(s) */
-                if (is_tracking_point && i >= empty_count) {
-                    tll_foreach(tracking_points, it) {
-                        if (it->item->row == old_row_idx && it->item->col == c) {
-                            it->item->row = new_row_idx;
-                            it->item->col = new_col_idx;
-                            tll_remove(tracking_points, it);
-                        }
-                    }
-
-                    reflow_uri_ranges(old_row, new_row, c, new_col_idx);
-                }
-                new_col_idx++;
             }
 
-            /* For multi-column characters, insert spacers in the
-             * subsequent cells */
-            const struct cell *old_cell = &old_row->cells[c];
-            for (size_t i = 0; i < width - 1; i++) {
-                xassert(new_col_idx < new_cols);
-                print_spacer();
-                new_col_idx++;
+            if (new_col_idx + 1 > new_cols)
+                line_wrap();
+
+            xassert(new_row != NULL);
+            xassert(new_col_idx >= 0);
+            xassert(new_col_idx < new_cols);
+
+            new_row->cells[new_col_idx] = *old_cell;
+
+            /* Translate tracking point(s) */
+            if (unlikely(is_tracking_point)) {
+                do {
+                    xassert(tp != NULL);
+                    xassert(tp->row == old_row_idx);
+                    xassert(tp->col == c);
+
+                    tp->row = new_row_idx;
+                    tp->col = new_col_idx;
+
+                    next_tp++;
+                    tp = *next_tp;
+                } while (tp->row == old_row_idx && tp->col == c);
             }
 
-            c += width - 1;
-            empty_count = 0;
+            if (unlikely(on_uri))
+                reflow_uri_ranges(old_row, new_row, c, new_col_idx);
+
+            new_col_idx++;
         }
 
         if (old_row->linebreak) {
@@ -594,6 +656,8 @@ grid_resize_and_reflow(
 #undef print_spacer
 #undef line_wrap
     }
+
+    xassert(old_rows == 0 || *next_tp == &terminator);
 
 #if defined(_DEBUG)
     /* Verify all URI ranges have been “closed” */
@@ -675,7 +739,17 @@ grid_resize_and_reflow(
         sixel_destroy(&it->item);
     tll_free(untranslated_sixels);
 
-    tll_free(tracking_points);
+#if defined(TIME_REFLOW) && TIME_REFLOW
+    struct timeval stop;
+    gettimeofday(&stop, NULL);
+
+    struct timeval diff;
+    timersub(&stop, &start, &diff);
+    LOG_INFO("reflowed %d -> %d rows in %llds %lldµs",
+             old_rows, new_rows,
+             (long long)diff.tv_sec,
+             (long long)diff.tv_usec);
+#endif
 }
 
 static void

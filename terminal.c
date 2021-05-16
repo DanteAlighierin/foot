@@ -2764,12 +2764,12 @@ print_insert(struct terminal *term, int width)
 }
 
 static void
-print_spacer(struct terminal *term, int col)
+print_spacer(struct terminal *term, int col, int remaining)
 {
     struct row *row = term->grid->cur_row;
     struct cell *cell = &row->cells[col];
 
-    cell->wc = CELL_MULT_COL_SPACER;
+    cell->wc = CELL_SPACER + remaining;
     cell->attrs = term->vt.attrs;
     cell->attrs.clean = 0;
 }
@@ -2803,7 +2803,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
         /* Multi-column character that doesn't fit on current line -
          * pad with spacers */
         for (size_t i = term->grid->cursor.point.col; i < term->cols; i++)
-            print_spacer(term, i);
+            print_spacer(term, i, 0);
 
         /* And force a line-wrap */
         term->grid->cursor.lcf = 1;
@@ -2826,7 +2826,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     /* Advance cursor the 'additional' columns while dirty:ing the cells */
     for (int i = 1; i < width && term->grid->cursor.point.col < term->cols - 1; i++) {
         term->grid->cursor.point.col++;
-        print_spacer(term, term->grid->cursor.point.col);
+        print_spacer(term, term->grid->cursor.point.col, width - i);
     }
 
     /* Advance cursor */

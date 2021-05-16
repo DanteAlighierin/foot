@@ -337,7 +337,7 @@ search_find_next(struct terminal *term)
                     row = term->grid->rows[end_row];
                 }
 
-                if (row->cells[end_col].wc == CELL_MULT_COL_SPACER) {
+                if (row->cells[end_col].wc >= CELL_SPACER) {
                     end_col++;
                     continue;
                 }
@@ -461,7 +461,7 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
         bool done = false;
         for (; end_col < term->cols; end_col++) {
             wchar_t wc = row->cells[end_col].wc;
-            if (wc == CELL_MULT_COL_SPACER)
+            if (wc >= CELL_SPACER)
                 continue;
 
             const struct composed *composed = NULL;

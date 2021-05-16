@@ -113,7 +113,7 @@ extract_one(const struct terminal *term, const struct row *row,
 {
     struct extraction_context *ctx = context;
 
-    if (cell->wc == CELL_MULT_COL_SPACER)
+    if (cell->wc >= CELL_SPACER)
         return true;
 
     if (ctx->last_row != NULL && row != ctx->last_row) {
