@@ -655,6 +655,9 @@ grid_resize_and_reflow(
             line_wrap();
         }
 
+        grid_row_free(old_grid[old_row_idx]);
+        grid->rows[old_row_idx] = NULL;
+
 #undef print_spacer
 #undef line_wrap
     }
@@ -678,6 +681,10 @@ grid_resize_and_reflow(
         tll_foreach(row->extra->uri_ranges, it)
             xassert(it->item.end >= 0);
     }
+
+    /* Verify all old rows have been free:d */
+    for (int i = 0; i < old_rows; i++)
+        xassert(grid->rows[i] == NULL);
 #endif
 
     /* Set offset such that the last reflowed row is at the bottom */
@@ -711,9 +718,7 @@ grid_resize_and_reflow(
         xassert(new_grid[idx] != NULL);
     }
 
-    /* Free old grid */
-    for (int r = 0; r < grid->num_rows; r++)
-        grid_row_free(old_grid[r]);
+    /* Free old grid (rows already free:d) */
     free(grid->rows);
 
     grid->rows = new_grid;
