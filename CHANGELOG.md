@@ -101,6 +101,8 @@
 * Font underlines being positioned below the cell (and thus being
   invisible) for certain combinations of fonts and font sizes
   (https://codeberg.org/dnkl/foot/issues/503).
+* Sixels with transparent bottom border being resized below the size
+  specified in _”Set Raster Attributes”_.
 
 
 ### Security
