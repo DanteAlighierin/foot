@@ -108,6 +108,8 @@
 * Fonts sometimes not being reloaded with the correct scaling factor
   when `dpi-aware=no`, or `dpi-aware=auto` with monitor(s) with a
   scaling factor > 1 (https://codeberg.org/dnkl/foot/issues/509).
+* Crash caused by certain CSI sequences with very large parameter
+  values (https://codeberg.org/dnkl/foot/issues/522).
 
 
 ### Security
