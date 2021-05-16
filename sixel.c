@@ -816,7 +816,8 @@ sixel_unhook(struct terminal *term)
         xassert(image.rows <= term->grid->num_rows);
         xassert(image.pos.row + image.rows - 1 < term->grid->num_rows);
 
-        LOG_DBG("generating %dx%d pixman image at %d-%d",
+        LOG_DBG("generating %s %dx%d pixman image at %d-%d",
+                image.opaque ? "opaque" : "transparent",
                 image.width, image.height,
                 image.pos.row, image.pos.row + image.rows);
 
@@ -1195,11 +1196,10 @@ decgra(struct terminal *term, uint8_t c)
             ph <= term->sixel.max_height && pv <= term->sixel.max_width)
         {
             resize(term, ph, pv);
-            if (!term->sixel.transparent_bg) {
-                /* This ensures the sixel’s final image size is *at
-                 * least* this large */
-                term->sixel.max_non_empty_row_no = pv - 1;
-            }
+
+            /* This ensures the sixel’s final image size is *at least*
+             * this large */
+            term->sixel.max_non_empty_row_no = pv - 1;
         }
 
         term->sixel.state = SIXEL_DECSIXEL;
