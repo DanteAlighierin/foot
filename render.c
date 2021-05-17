@@ -3263,9 +3263,6 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
             "(left-margin=%d, right-margin=%d, top-margin=%d, bottom-margin=%d)",
             term->width, term->height, term->cols, term->rows,
             term->margins.left, term->margins.right, term->margins.top, term->margins.bottom);
-#else
-    LOG_INFO("resize: %dx%d pixels, %dx%d chars",
-             term->width, term->height, term->cols, term->rows);
 #endif
 
     if (term->scroll_region.start >= term->rows)
