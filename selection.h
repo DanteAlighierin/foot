@@ -74,3 +74,8 @@ void selection_start_scroll_timer(
     struct terminal *term, int interval_ns,
     enum selection_scroll_direction direction, int col);
 void selection_stop_scroll_timer(struct terminal *term);
+
+void selection_find_word_boundary_left(
+    struct terminal *term, struct coord *pos, bool spaces_only);
+void selection_find_word_boundary_right(
+    struct terminal *term, struct coord *pos, bool spaces_only);

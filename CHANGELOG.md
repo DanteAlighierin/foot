@@ -75,6 +75,8 @@
 * Improved performance on compositors that does not release shm
   buffers immediately, e.g. KWin
   (https://codeberg.org/dnkl/foot/issues/478).
+* `ctrl + w` (_extend-to-word-boundary_) can now be used across lines
+  (https://codeberg.org/dnkl/foot/issues/421).
 
 
 ### Deprecated
@@ -153,6 +155,7 @@
 * PTY not being drained when the client application terminates.
 * `auto_left_margin` not being limited to `cub1`
   (https://codeberg.org/dnkl/foot/issues/441).
+* Crash in scrollback search mode when searching beyond the last output.
 
 
 ### Contributors

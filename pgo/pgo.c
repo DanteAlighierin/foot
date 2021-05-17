@@ -106,7 +106,7 @@ render_worker_thread(void *_ctx)
 }
 
 struct extraction_context *
-extract_begin(enum selection_kind kind)
+extract_begin(enum selection_kind kind, bool strip_trailing_empty)
 {
     return NULL;
 }

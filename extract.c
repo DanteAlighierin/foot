@@ -11,6 +11,7 @@ struct extraction_context {
     size_t idx;
     size_t empty_count;
     size_t newline_count;
+    bool strip_trailing_empty;
     bool failed;
     const struct row *last_row;
     const struct cell *last_cell;
@@ -18,7 +19,7 @@ struct extraction_context {
 };
 
 struct extraction_context *
-extract_begin(enum selection_kind kind)
+extract_begin(enum selection_kind kind, bool strip_trailing_empty)
 {
     struct extraction_context *ctx = malloc(sizeof(*ctx));
     if (unlikely(ctx == NULL)) {
@@ -28,6 +29,7 @@ extract_begin(enum selection_kind kind)
 
     *ctx = (struct extraction_context){
         .selection_kind = kind,
+        .strip_trailing_empty = strip_trailing_empty,
     };
     return ctx;
 }
@@ -51,10 +53,8 @@ ensure_size(struct extraction_context *ctx, size_t additional_chars)
 }
 
 bool
-extract_finish(struct extraction_context *ctx, char **text, size_t *len)
+extract_finish_wide(struct extraction_context *ctx, wchar_t **text, size_t *len)
 {
-    bool ret = false;
-
     if (text == NULL)
         return false;
 
@@ -63,12 +63,24 @@ extract_finish(struct extraction_context *ctx, char **text, size_t *len)
         *len = 0;
 
     if (ctx->failed)
-        goto out;
+        goto err;
+
+    if (!ctx->strip_trailing_empty) {
+        /* Insert pending newlines, and replace empty cells with spaces */
+        if (!ensure_size(ctx, ctx->newline_count + ctx->empty_count))
+            goto err;
+
+        for (size_t i = 0; i < ctx->newline_count; i++)
+            ctx->buf[ctx->idx++] = L'\n';
+
+        for (size_t i = 0; i < ctx->empty_count; i++)
+            ctx->buf[ctx->idx++] = L' ';
+    }
 
     if (ctx->idx == 0) {
         /* Selection of empty cells only */
         if (!ensure_size(ctx, 1))
-            goto out;
+            goto err;
         ctx->buf[ctx->idx++] = L'\0';
     } else {
         xassert(ctx->idx > 0);
@@ -77,12 +89,38 @@ extract_finish(struct extraction_context *ctx, char **text, size_t *len)
             ctx->buf[ctx->idx - 1] = L'\0';
         else {
             if (!ensure_size(ctx, 1))
-                goto out;
+                goto err;
             ctx->buf[ctx->idx++] = L'\0';
         }
     }
 
-    size_t _len = wcstombs(NULL, ctx->buf, 0);
+    *text = ctx->buf;
+    if (len != NULL)
+        *len = ctx->idx - 1;
+    free(ctx);
+    return true;
+
+err:
+    free(ctx->buf);
+    free(ctx);
+    return false;
+}
+
+bool
+extract_finish(struct extraction_context *ctx, char **text, size_t *len)
+{
+    if (text == NULL)
+        return false;
+    if (len != NULL)
+        *len = 0;
+
+    wchar_t *wtext;
+    if (!extract_finish_wide(ctx, &wtext, NULL))
+        return false;
+
+    bool ret = false;
+
+    size_t _len = wcstombs(NULL, wtext, 0);
     if (_len == (size_t)-1) {
         LOG_ERRNO("failed to convert selection to UTF-8");
         goto out;
@@ -94,7 +132,7 @@ extract_finish(struct extraction_context *ctx, char **text, size_t *len)
         goto out;
     }
 
-    wcstombs(*text, ctx->buf, _len + 1);
+    wcstombs(*text, wtext, _len + 1);
 
     if (len != NULL)
         *len = _len;
@@ -102,8 +140,7 @@ extract_finish(struct extraction_context *ctx, char **text, size_t *len)
     ret = true;
 
 out:
-    free(ctx->buf);
-    free(ctx);
+    free(wtext);
     return ret;
 }
 
@@ -130,6 +167,13 @@ extract_one(const struct terminal *term, const struct row *row,
                 /* Don't emit newline just yet - only if there are
                  * non-empty cells following it */
                 ctx->newline_count++;
+
+                if (!ctx->strip_trailing_empty) {
+                    if (!ensure_size(ctx, ctx->empty_count))
+                        goto err;
+                    for (size_t i = 0; i < ctx->empty_count; i++)
+                        ctx->buf[ctx->idx++] = L' ';
+                }
                 ctx->empty_count = 0;
             }
         } else {
@@ -138,6 +182,13 @@ extract_one(const struct terminal *term, const struct row *row,
                 goto err;
 
             ctx->buf[ctx->idx++] = L'\n';
+
+            if (!ctx->strip_trailing_empty) {
+                if (!ensure_size(ctx, ctx->empty_count))
+                    goto err;
+                for (size_t i = 0; i < ctx->empty_count; i++)
+                    ctx->buf[ctx->idx++] = L' ';
+            }
             ctx->empty_count = 0;
         }
     }

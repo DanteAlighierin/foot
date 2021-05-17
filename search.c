@@ -11,6 +11,7 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "config.h"
+#include "extract.h"
 #include "grid.h"
 #include "input.h"
 #include "misc.h"
@@ -75,6 +76,16 @@ search_ensure_size(struct terminal *term, size_t wanted_size)
     }
 
     return true;
+}
+
+static bool
+has_wrapped_around(const struct terminal *term, int abs_row_no)
+{
+    int scrollback_start = term->grid->offset + term->rows;
+    int rebased_row = abs_row_no - scrollback_start + term->grid->num_rows;
+    rebased_row &= term->grid->num_rows - 1;
+
+    return rebased_row == 0;
 }
 
 static void
@@ -327,13 +338,12 @@ search_find_next(struct terminal *term)
 
             for (size_t i = 0; i < term->search.len;) {
                 if (end_col >= term->cols) {
-                    if (end_row + 1 > grid_row_absolute(term->grid, term->grid->offset + term->rows - 1)) {
-                        /* Don't continue past end of the world */
-                        break;
-                    }
-
-                    end_row++;
+                    end_row = (end_row + 1) & (term->grid->num_rows - 1);
                     end_col = 0;
+
+                    if (has_wrapped_around(term, end_row))
+                        break;
+
                     row = term->grid->rows[end_row];
                 }
 
@@ -428,91 +438,85 @@ search_match_to_end_of_word(struct terminal *term, bool spaces_only)
     if (term->search.match_len == 0)
         return;
 
-    xassert(term->search.match.row != -1);
-    xassert(term->search.match.col != -1);
+    xassert(term->selection.end.row != -1);
 
-    int end_row = term->search.match.row;
-    int end_col = term->search.match.col;
-    size_t len = term->search.match_len;
+    const bool move_cursor = term->search.cursor == term->search.len;
 
-    /* Calculate end coord - note: assumed to be valid */
-    for (size_t i = 0; i < len; i++) {
-        for (size_t j = 0; j < wcwidth(term->search.buf[i]); j++) {
-            if (++end_col >= term->cols) {
-                end_row = (end_row + 1) & (term->grid->num_rows - 1);
-                end_col = 0;
-            }
-        }
-    }
+    const struct coord old_end = term->selection.end;
+    struct coord new_end = old_end;
+    struct row *row = NULL;
 
-    tll(wchar_t) new_chars = tll_init();
+#define newline(coord) __extension__                                    \
+        ({                                                              \
+            bool wrapped_around = false;                                \
+            if (++(coord).col >= term->cols) {                           \
+                (coord).row = ((coord).row + 1) & (term->grid->num_rows - 1); \
+                (coord).col = 0;                                        \
+                row = term->grid->rows[(coord).row];                    \
+                if (has_wrapped_around(term, (coord.row)))              \
+                    wrapped_around = true;                              \
+            }                                                           \
+            wrapped_around;                                             \
+        })
 
-    /* Always append at least one character *if* possible */
-    bool first = true;
-
-    for (size_t r = 0;
-         r < term->grid->num_rows;
-         end_row = (end_row + 1) & (term->grid->num_rows - 1), r++)
-    {
-        const struct row *row = term->grid->rows[end_row];
-        if (row == NULL)
-            break;
-
-        bool done = false;
-        for (; end_col < term->cols; end_col++) {
-            wchar_t wc = row->cells[end_col].wc;
-            if (wc >= CELL_SPACER)
-                continue;
-
-            const struct composed *composed = NULL;
-            if (wc >= CELL_COMB_CHARS_LO &&
-                wc < (CELL_COMB_CHARS_LO + term->composed_count))
-            {
-                composed = &term->composed[wc - CELL_COMB_CHARS_LO];
-                wc = composed->base;
-            }
-
-            if (wc == 0 || (!first && !isword(wc, spaces_only, term->conf->word_delimiters))) {
-                done = true;
-                break;
-            }
-
-            first = false;
-            tll_push_back(new_chars, wc);
-
-            if (composed != NULL) {
-                for (size_t i = 0; i < composed->count; i++)
-                    tll_push_back(new_chars, composed->combining[i]);
-            }
-        }
-
-        if (done)
-            break;
-
-        end_col = 0;
-    }
-
-    if (tll_length(new_chars) == 0)
+    /* First character to consider is the *next* character */
+    if (newline(new_end))
         return;
 
-    if (!search_ensure_size(term, term->search.len + tll_length(new_chars)))
+    xassert(term->grid->rows[new_end.row] != NULL);
+
+    /* Find next word boundary */
+    new_end.row -= term->grid->view;
+    selection_find_word_boundary_right(term, &new_end, spaces_only);
+    new_end.row += term->grid->view;
+
+    struct coord pos = old_end;
+    row = term->grid->rows[pos.row];
+
+    struct extraction_context *ctx = extract_begin(SELECTION_NONE, false);
+    if (ctx == NULL)
         return;
 
-    /* Keep cursor at the end, but don't move it if not */
-    bool move_cursor = term->search.cursor == term->search.len;
+    do {
+        if (newline(pos))
+            break;
+        if (!extract_one(term, row, &row->cells[pos.col], pos.col, ctx))
+            break;
+    } while (pos.col != new_end.col || pos.row != new_end.row);
 
-    /* Append newly found characters to the search buffer */
-    tll_foreach(new_chars, it)
-        term->search.buf[term->search.len++] = it->item;
+    wchar_t *new_text;
+    size_t new_len;
+
+    if (!extract_finish_wide(ctx, &new_text, &new_len))
+        return;
+
+    if (!search_ensure_size(term, term->search.len + new_len))
+        return;
+
+    for (size_t i = 0; i < new_len; i++) {
+        if (new_text[i] == L'\n') {
+            /* extract() adds newlines, which we never match against */
+            continue;
+        }
+
+        term->search.buf[term->search.len++] = new_text[i];
+    }
+
     term->search.buf[term->search.len] = L'\0';
+    free(new_text);
 
     if (move_cursor)
-        term->search.cursor += tll_length(new_chars);
+        term->search.cursor = term->search.len;
 
-    tll_free(new_chars);
-
+    /* search_update_selection() expected end coordinate to be *exclusive* */
+    newline(new_end);
     search_update_selection(
-        term, term->search.match.row, term->search.match.col, end_row, end_col);
+        term, term->search.match.row, term->search.match.col,
+        new_end.row, new_end.col);
+
+    term->search.match_len = term->search.len;
+
+#undef newline
 }
 
 static size_t
@@ -755,12 +759,14 @@ execute_binding(struct seat *seat, struct terminal *term,
 
     case BIND_ACTION_SEARCH_EXTEND_WORD:
         search_match_to_end_of_word(term, false);
-        *update_search_result = *redraw = true;
+        *update_search_result = false;
+        *redraw = true;
         return true;
 
     case BIND_ACTION_SEARCH_EXTEND_WORD_WS:
         search_match_to_end_of_word(term, true);
-        *update_search_result = *redraw = true;
+        *update_search_result = false;
+        *redraw = true;
         return true;
 
     case BIND_ACTION_SEARCH_CLIPBOARD_PASTE:
