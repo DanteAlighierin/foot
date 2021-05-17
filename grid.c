@@ -341,11 +341,10 @@ _line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
 
     if (new_row == NULL) {
         /* Scrollback not yet full, allocate a completely new row */
-        new_row = grid_row_alloc(col_count, true);
+        new_row = grid_row_alloc(col_count, false);
         new_grid[*row_idx] = new_row;
     } else {
         /* Scrollback is full, need to re-use a row */
-        memset(new_row->cells, 0, col_count * sizeof(new_row->cells[0]));
         grid_row_reset_extra(new_row);
         new_row->linebreak = false;
 
@@ -451,7 +450,7 @@ grid_resize_and_reflow(
     struct row *new_row = new_grid[new_row_idx];
 
     xassert(new_row == NULL);
-    new_row = grid_row_alloc(new_cols, true);
+    new_row = grid_row_alloc(new_cols, false);
     new_grid[new_row_idx] = new_row;
 
     /* Start at the beginning of the old grid's scrollback. That is,
@@ -649,13 +648,23 @@ grid_resize_and_reflow(
         }
 
         if (old_row->linebreak) {
+            /* Erase the remaining cells */
+            memset(&new_row->cells[new_col_idx], 0,
+                   (new_cols - new_col_idx) * sizeof(new_row->cells[0]));
             new_row->linebreak = true;
             line_wrap();
         }
 
+        grid_row_free(old_grid[old_row_idx]);
+        grid->rows[old_row_idx] = NULL;
+
 #undef print_spacer
 #undef line_wrap
     }
+
+    /* Erase the remaining cells */
+    memset(&new_row->cells[new_col_idx], 0,
+           (new_cols - new_col_idx) * sizeof(new_row->cells[0]));
 
     xassert(old_rows == 0 || *next_tp == &terminator);
 
@@ -672,6 +681,10 @@ grid_resize_and_reflow(
         tll_foreach(row->extra->uri_ranges, it)
             xassert(it->item.end >= 0);
     }
+
+    /* Verify all old rows have been free:d */
+    for (int i = 0; i < old_rows; i++)
+        xassert(grid->rows[i] == NULL);
 #endif
 
     /* Set offset such that the last reflowed row is at the bottom */
@@ -705,9 +718,7 @@ grid_resize_and_reflow(
         xassert(new_grid[idx] != NULL);
     }
 
-    /* Free old grid */
-    for (int r = 0; r < grid->num_rows; r++)
-        grid_row_free(old_grid[r]);
+    /* Free old grid (rows already free:d) */
     free(grid->rows);
 
     grid->rows = new_grid;
