@@ -809,6 +809,16 @@ any of these options.
 	larger font (and thus larger cells) result in thicker
 	lines. Default: _0.04_.
 
+*box-drawing-solid-shades*
+	Boolean. When enabled, box drawing "shades" (e.g. LIGHT SHADE,
+	MEDIUM SHADE and DARK SHADE) are rendered as solid blocks using a
+	darker variant of the current foreground color.
+	
+	When disabled, they are instead rendered as checker box pattern,
+	using the current foreground color as is.
+	
+	Default: _yes_.
+
 *delayed-render-lower*, *delayed-render-upper*
 	These two values control the timeouts (in nanoseconds) that are
 	used to mitigate screen flicker caused by clients writing large,

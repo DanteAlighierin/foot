@@ -14,40 +14,72 @@
 #include "xmalloc.h"
 
 enum thickness {
-    LIGHT = 1,
-    HEAVY = 3,
+    LIGHT,
+    HEAVY,
 };
 
 struct buf {
     uint8_t *data;
+    pixman_image_t *pix;
     int width;
     int height;
     int stride;
     int dpi;
     float cell_size;
     float base_thickness;
+    bool solid_shades;
+    int thickness[2];
 };
 
-static int
+static const pixman_color_t white = {0xffff, 0xffff, 0xffff, 0xffff};
+
+static void
+change_buffer_format(struct buf *buf, pixman_format_code_t new_format)
+{
+    int stride = stride_for_format_and_width(new_format, buf->width);
+    uint8_t *new_data = xcalloc(buf->height * stride, 1);
+    pixman_image_t *new_pix = pixman_image_create_bits_no_clear(
+        new_format, buf->width, buf->height, (uint32_t *)new_data, stride);
+
+    if (new_pix == NULL) {
+        errno = ENOMEM;
+        perror(__func__);
+        abort();
+    }
+
+    pixman_image_unref(buf->pix);
+    free(buf->data);
+
+    buf->data = new_data;
+    buf->pix = new_pix;
+    buf->stride = stride;
+}
+
+static int NOINLINE
 _thickness(struct buf *buf, enum thickness thick)
 {
-    return max((int)(buf->base_thickness * buf->dpi / 72.0 * buf->cell_size), 1) * thick;
+    int multiplier = thick * 2 + 1;
+
+    xassert((thick == LIGHT && multiplier == 1) ||
+            (thick == HEAVY && multiplier == 3));
+
+    return
+        max(
+            (int)(buf->base_thickness * buf->dpi / 72.0 * buf->cell_size), 1)
+        * multiplier;
 }
-#define thickness(thick) _thickness(buf, thick)
+#define thickness(thick) buf->thickness[thick]
 
 static void NOINLINE
 _hline(struct buf *buf, int x1, int x2, int y, int thick)
 {
-    x1 = min(max(x1, 0), buf->width);
-    x2 = min(max(x2, 0), buf->width);
-
-    for (size_t row = max(y, 0); row < max(min(y + thick, buf->height), 0); row++) {
-        for (size_t col = x1; col < x2; col++) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
-        }
-    }
+    pixman_box32_t box = {
+        .x1 = min(max(x1, 0), buf->width),
+        .x2 = min(max(x2, 0), buf->width),
+        .y1 = min(max(y, 0), buf->height),
+        .y2 = min(max(y + thick, 0), buf->height),
+    };
+    pixman_image_fill_boxes(PIXMAN_OP_SRC, buf->pix, &white, 1, &box);
 }
 
 #define hline(x1, x2, y, thick) _hline(buf, x1, x2, y, thick)
@@ -55,16 +87,13 @@ _hline(struct buf *buf, int x1, int x2, int y, int thick)
 static void NOINLINE
 _vline(struct buf *buf, int y1, int y2, int x, int thick)
 {
-    y1 = min(max(y1, 0), buf->height);
-    y2 = min(max(y2, 0), buf->height);
-
-    for (size_t row = y1; row < y2; row++) {
-        for (size_t col = max(x, 0); col < max(min(x + thick, buf->width), 0); col++) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
-        }
-    }
+    pixman_box32_t box = {
+        .x1 = min(max(x, 0), buf->width),
+        .x2 = min(max(x + thick, 0), buf->width),
+        .y1 = min(max(y1, 0), buf->height),
+        .y2 = min(max(y2, 0), buf->height),
+    };
+    pixman_image_fill_boxes(PIXMAN_OP_SRC, buf->pix, &white, 1, &box);
 }
 
 #define vline(y1, y2, x, thick) _vline(buf, y1, y2, x, thick)
@@ -72,13 +101,13 @@ _vline(struct buf *buf, int y1, int y2, int x, int thick)
 static void NOINLINE
 _rect(struct buf *buf, int x1, int y1, int x2, int y2)
 {
-    for (size_t row = max(y1, 0); row < min(y2, buf->height); row++) {
-        for (size_t col = max(x1, 0); col < max(min(x2, buf->width), 0); col++) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
-        }
-    }
+    pixman_box32_t box = {
+        .x1 = min(max(x1, 0), buf->width),
+        .y1 = min(max(y1, 0), buf->height),
+        .x2 = min(max(x2, 0), buf->width),
+        .y2 = min(max(y2, 0), buf->height),
+    };
+    pixman_image_fill_boxes(PIXMAN_OP_SRC, buf->pix, &white, 1, &box);
 }
 
 #define rect(x1, y1, x2, y2) _rect(buf, x1, y1, x2, y2)
@@ -1209,24 +1238,37 @@ draw_box_drawings_double_vertical_and_horizontal(struct buf *buf)
     hline(0, vmid, hmid + 2 * thick, thick);
     hline(vmid + 2 * thick, buf->width, hmid + 2 * thick, thick);
 
-    vline(0, hmid, vmid, thick);
+    vline(0, hmid + thick, vmid, thick);
     vline(0, hmid, vmid + 2 * thick, thick);
     vline(hmid + 2 * thick, buf->height, vmid, thick);
     vline(hmid + 2 * thick, buf->height, vmid + 2 * thick, thick);
 }
 
 static void
-draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
+draw_box_drawings_light_arc(struct buf *buf, wchar_t wc)
 {
-    int thick = thickness(LIGHT);
+    const pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+    const int supersample = fmt == PIXMAN_a8 ? 4 : 1;
+    const int height = buf->height * supersample;
+    const int width = buf->width * supersample;
+    const int stride = fmt == PIXMAN_a8
+        ? stride_for_format_and_width(PIXMAN_a8, width) : buf->stride;
+    uint8_t *data = supersample > 1 ? xcalloc(height * stride, 1) : buf->data;
 
-    double a = (buf->width - thick) / 2;
-    double b = (buf->height - thick) / 2;
+    const int thick = thickness(LIGHT) * supersample;
 
-    double a2 = a * a;
-    double b2 = b * b;
+    const bool thick_is_odd = (thick / supersample) % 2;
+    const bool height_is_odd = buf->height % 2;
+    const bool width_is_odd = buf->width % 2;
 
-    int num_samples = buf->height * 16;
+    const double a = (width - thick) / 2;
+    const double b = (height - thick) / 2;
+
+    const double a2 = a * a;
+    const double b2 = b * b;
+
+    const int num_samples = height * 16;
+
     for (int i = 0; i < num_samples; i++) {
         double y = i / 16.;
         double x = sqrt(a2 * (1. - y * y / b2));
@@ -1276,30 +1318,30 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
          */
         switch (wc) {
         case  L'╭':
-            row_end = buf->height - row - (thick % 2 ^ buf->height % 2);
+            row_end = height - row - (thick_is_odd ^ height_is_odd);
             row_start = row_end - thick;
-            col_end = buf->width - col - (thick % 2 ^ buf->width % 2);
+            col_end = width - col - (thick_is_odd ^ width_is_odd);
             col_start = col_end - thick;
             break;
 
         case L'╮':
-            row_end = buf->height - row - (thick % 2 ^ buf->height % 2);
+            row_end = height - row - (thick_is_odd ^ height_is_odd);
             row_start = row_end - thick;
-            col_start = col;
+            col_start = col - ((thick_is_odd ^ width_is_odd) ? supersample / 2 : 0);
             col_end = col_start + thick;
             break;
 
         case L'╰':
-            row_start = row;
+            row_start = row - ((thick_is_odd ^ height_is_odd) ? supersample / 2 : 0);
             row_end = row_start + thick;
-            col_end = buf->width - col - (thick % 2 ^ buf->width % 2);
+            col_end = width - col - (thick_is_odd ^ width_is_odd);
             col_start = col_end - thick;
             break;
 
         case L'╯':
-            row_start = row;
+            row_start = row - ((thick_is_odd ^ height_is_odd) ? supersample / 2 : 0);
             row_end = row_start + thick;
-            col_start = col;
+            col_start = col - ((thick_is_odd ^ width_is_odd) ? supersample / 2 : 0);
             col_end = col_start + thick;
             break;
         }
@@ -1307,11 +1349,14 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
         xassert(row_end > row_start);
         xassert(col_end > col_start);
 
-        for (int r = max(row_start, 0); r < max(min(row_end, buf->height), 0); r++) {
-            for (int c = max(col_start, 0); c < max(min(col_end, buf->width), 0); c++) {
-                size_t idx = c / 8;
-                size_t bit_no = c % 8;
-                buf->data[r * buf->stride + idx] |= 1 << bit_no;
+        for (int r = max(row_start, 0); r < max(min(row_end, height), 0); r++) {
+            for (int c = max(col_start, 0); c < max(min(col_end, width), 0); c++) {
+                if (fmt == PIXMAN_a1) {
+                    size_t idx = c / 8;
+                    size_t bit_no = c % 8;
+                    data[r * stride + idx] |= 1 << bit_no;
+                } else
+                    data[r * stride + c] = 0xff;
             }
         }
     }
@@ -1325,67 +1370,116 @@ draw_box_drawings_light_arc(wchar_t wc, struct buf *buf)
 
     if (wc == L'╭' || wc == L'╰') {
         for (int y = 0; y < thick; y++) {
-            int row = (buf->height - thick) / 2 + y;
-            int col = buf->width - 1;
-            if (row >= 0 && row < buf->height && col >= 0 && col < buf->width) {
-                size_t ofs = col / 8;
-                size_t bit_no = col % 8;
-                buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            int row = (height - thick) / 2 + y - ((thick_is_odd ^ height_is_odd) ? supersample / 2 : 0);
+            for (int col = width - supersample; col < width; col++) {
+                if (row >= 0 && row < height && col >= 0) {
+                    if (fmt == PIXMAN_a1) {
+                        size_t ofs = col / 8;
+                        size_t bit_no = col % 8;
+                        data[row * stride + ofs] |= 1 << bit_no;
+                    } else
+                        data[row * stride + col] = 0xff;
+                }
             }
         }
     }
 
     if (wc == L'╭' || wc == L'╮') {
         for (int x = 0; x < thick; x++) {
-            int row = buf->height - 1;
-            int col = (buf->width - thick) / 2 + x;
-            if (row >= 0 && row < buf->height && col >= 0 && col < buf->width) {
-                size_t ofs = col / 8;
-                size_t bit_no = col % 8;
-                buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+            int col = (width - thick) / 2 + x - ((thick_is_odd ^ width_is_odd) ? supersample / 2 : 0);
+            for (int row = height - supersample; row < height; row++) {
+                if (row >= 0 && col >= 0 && col < width) {
+                    if (fmt == PIXMAN_a1) {
+                        size_t ofs = col / 8;
+                        size_t bit_no = col % 8;
+                        data[row * stride + ofs] |= 1 << bit_no;
+                    } else
+                        data[row * stride + col] = 0xff;
+                }
             }
         }
     }
-}
 
-static void
-draw_box_drawings_light_diagonal(struct buf *buf, double k, double c)
-{
-#define linear_equation(x) (k * (x) + c)
+    if (fmt == PIXMAN_a8) {
+        xassert(data != buf->data);
 
-    int num_samples = buf->width * 16;
-
-    for (int i = 0; i < num_samples; i++) {
-        double x = i / 16.;
-        int col = round(x);
-        int row = round(linear_equation(x));
-
-        if (row >= 0 && row < buf->height) {
-            size_t ofs = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + ofs] |= 1 << bit_no;
+        /* Downsample */
+        for (size_t r = 0; r < buf->height; r++) {
+            for (size_t c = 0; c < buf->width; c++) {
+                uint32_t total = 0;
+                for (size_t i = 0; i < supersample; i++) {
+                    for (size_t j = 0; j < supersample; j++)
+                        total += data[(r * supersample + i) * stride + c * supersample + j];
+                }
+                uint8_t average = min(total / (supersample * supersample), 0xff);
+                buf->data[r * buf->stride + c] = average;
+            }
         }
-    }
 
-#undef linear_equation
+        free(data);
+    }
 }
 
 static void
 draw_box_drawings_light_diagonal_upper_right_to_lower_left(struct buf *buf)
 {
-    /* y = k * x + c */
-    double c = buf->height - 1;
-    double k = (0 - (buf->height - 1)) / (double)(buf->width - 1 - 0);
-    draw_box_drawings_light_diagonal(buf, k, c);
+    pixman_trapezoid_t trap = {
+        .top = pixman_int_to_fixed(0),
+        .bottom = pixman_int_to_fixed(buf->height),
+        .left = {
+            .p1 = {
+                .x = pixman_double_to_fixed(buf->width - thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(0),
+            },
+            .p2 = {
+                .x = pixman_double_to_fixed(0 - thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(buf->height),
+            },
+        },
+        .right = {
+            .p1 = {
+                .x = pixman_double_to_fixed(buf->width + thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(0),
+            },
+            .p2 = {
+                .x = pixman_double_to_fixed(0 + thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(buf->height),
+            },
+        },
+    };
+
+    pixman_rasterize_trapezoid(buf->pix, &trap, 0, 0);
 }
 
 static void
 draw_box_drawings_light_diagonal_upper_left_to_lower_right(struct buf *buf)
 {
-    /* y = k * x + c */
-    double c = 0;
-    double k = (buf->height - 1 - 0) / (double)(buf->width - 1 - 0);
-    draw_box_drawings_light_diagonal(buf, k, c);
+    pixman_trapezoid_t trap = {
+        .top = pixman_int_to_fixed(0),
+        .bottom = pixman_int_to_fixed(buf->height),
+        .left = {
+            .p1 = {
+                .x = pixman_double_to_fixed(0 - thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(0),
+            },
+            .p2 = {
+                .x = pixman_double_to_fixed(buf->width - thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(buf->height),
+            },
+        },
+        .right = {
+            .p1 = {
+                .x = pixman_double_to_fixed(0 + thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(0),
+            },
+            .p2 = {
+                .x = pixman_double_to_fixed(buf->width + thickness(LIGHT) / 2.),
+                .y = pixman_int_to_fixed(buf->height),
+            },
+        },
+    };
+
+    pixman_rasterize_trapezoid(buf->pix, &trap, 0, 0);
 }
 
 static void
@@ -1647,14 +1741,34 @@ draw_right_half_block(struct buf *buf)
     rect(round(buf->width / 2.), 0, buf->width, buf->height);
 }
 
+static void NOINLINE
+draw_pixman_shade(struct buf *buf, uint16_t v)
+{
+    pixman_color_t shade = {.red = 0, .green = 0, .blue = 0, .alpha = v};
+    pixman_image_fill_rectangles(
+        PIXMAN_OP_SRC, buf->pix, &shade, 1,
+        (pixman_rectangle16_t []){{0, 0, buf->width, buf->height}});
+}
+
 static void
 draw_light_shade(struct buf *buf)
 {
-    for (size_t row = 0; row < buf->height; row += 2) {
-        for (size_t col = 0; col < buf->width; col += 2) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
+    pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+
+    if (buf->solid_shades && fmt == PIXMAN_a1)
+        change_buffer_format(buf, PIXMAN_a8);
+    else if (!buf->solid_shades && fmt == PIXMAN_a8)
+        change_buffer_format(buf, PIXMAN_a1);
+
+    if (buf->solid_shades)
+        draw_pixman_shade(buf, 0x4000);
+    else {
+        for (size_t row = 0; row < buf->height; row += 2) {
+            for (size_t col = 0; col < buf->width; col += 2) {
+                size_t idx = col / 8;
+                size_t bit_no = col % 8;
+                buf->data[row * buf->stride + idx] |= 1 << bit_no;
+            }
         }
     }
 }
@@ -1662,11 +1776,22 @@ draw_light_shade(struct buf *buf)
 static void
 draw_medium_shade(struct buf *buf)
 {
-    for (size_t row = 0; row < buf->height; row++) {
-        for (size_t col = row % 2; col < buf->width; col += 2) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
+    pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+
+    if (buf->solid_shades && fmt == PIXMAN_a1)
+        change_buffer_format(buf, PIXMAN_a8);
+    else if (!buf->solid_shades && fmt == PIXMAN_a8)
+        change_buffer_format(buf, PIXMAN_a1);
+
+    if (buf->solid_shades)
+        draw_pixman_shade(buf, 0x8000);
+    else {
+        for (size_t row = 0; row < buf->height; row++) {
+            for (size_t col = row % 2; col < buf->width; col += 2) {
+                size_t idx = col / 8;
+                size_t bit_no = col % 8;
+                buf->data[row * buf->stride + idx] |= 1 << bit_no;
+            }
         }
     }
 }
@@ -1674,11 +1799,22 @@ draw_medium_shade(struct buf *buf)
 static void
 draw_dark_shade(struct buf *buf)
 {
-    for (size_t row = 0; row < buf->height; row++) {
-        for (size_t col = 0; col < buf->width; col += 1 + row % 2) {
-            size_t idx = col / 8;
-            size_t bit_no = col % 8;
-            buf->data[row * buf->stride + idx] |= 1 << bit_no;
+    pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+
+    if (buf->solid_shades && fmt == PIXMAN_a1)
+        change_buffer_format(buf, PIXMAN_a8);
+    else if (!buf->solid_shades && fmt == PIXMAN_a8)
+        change_buffer_format(buf, PIXMAN_a1);
+
+    if (buf->solid_shades)
+        draw_pixman_shade(buf, 0xc000);
+    else {
+        for (size_t row = 0; row < buf->height; row++) {
+            for (size_t col = 0; col < buf->width; col += 1 + row % 2) {
+                size_t idx = col / 8;
+                size_t bit_no = col % 8;
+                buf->data[row * buf->stride + idx] |= 1 << bit_no;
+            }
         }
     }
 }
@@ -1870,7 +2006,7 @@ sextant_lower_right(struct buf *buf)
 }
 
 static void
-draw_sextant(wchar_t wc, struct buf *buf)
+draw_sextant(struct buf *buf, wchar_t wc)
 {
     /*
      * Each byte encodes one sextant:
@@ -2062,7 +2198,7 @@ draw_right_seven_eighths_block(struct buf *buf)
 }
 
 static void
-draw_glyph(wchar_t wc, struct buf *buf)
+draw_glyph(struct buf *buf, wchar_t wc)
 {
     IGNORE_WARNING("-Wpedantic")
 
@@ -2182,7 +2318,7 @@ draw_glyph(wchar_t wc, struct buf *buf)
     case 0x256a: draw_box_drawings_vertical_single_and_horizontal_double(buf); break;
     case 0x256b: draw_box_drawings_vertical_double_and_horizontal_single(buf); break;
     case 0x256c: draw_box_drawings_double_vertical_and_horizontal(buf); break;
-    case 0x256d ... 0x2570: draw_box_drawings_light_arc(wc, buf); break;
+    case 0x256d ... 0x2570: draw_box_drawings_light_arc(buf, wc); break;
 
     case 0x2571: draw_box_drawings_light_diagonal_upper_right_to_lower_left(buf); break;
     case 0x2572: draw_box_drawings_light_diagonal_upper_left_to_lower_right(buf); break;
@@ -2234,7 +2370,7 @@ draw_glyph(wchar_t wc, struct buf *buf)
     case 0x259e: draw_quadrant_upper_right_and_lower_left(buf); break;
     case 0x259f: draw_quadrant_upper_right_and_lower_left_and_lower_right(buf); break;
 
-    case 0x1fb00 ... 0x1fb3b: draw_sextant(wc, buf); break;
+    case 0x1fb00 ... 0x1fb3b: draw_sextant(buf, wc); break;
 
     case 0x1fb70: draw_vertical_one_eighth_block_2(buf); break;
     case 0x1fb71: draw_vertical_one_eighth_block_3(buf); break;
@@ -2278,11 +2414,15 @@ box_drawing(const struct terminal *term, wchar_t wc)
 {
     int width = term->cell_width;
     int height = term->cell_height;
-    int stride = stride_for_format_and_width(PIXMAN_a1, width);
+
+    pixman_format_code_t fmt =
+        term->fonts[0]->antialias ? PIXMAN_a8 : PIXMAN_a1;
+
+    int stride = stride_for_format_and_width(fmt, width);
     uint8_t *data = xcalloc(height * stride, 1);
 
     pixman_image_t *pix = pixman_image_create_bits_no_clear(
-        PIXMAN_a1, width, height, (uint32_t*)data, stride);
+        fmt, width, height, (uint32_t*)data, stride);
 
     if (pix == NULL) {
         errno = ENOMEM;
@@ -2292,24 +2432,29 @@ box_drawing(const struct terminal *term, wchar_t wc)
 
     struct buf buf = {
         .data = data,
+        .pix = pix,
         .width = width,
         .height = height,
         .stride = stride,
         .dpi = term->font_dpi,
         .cell_size = sqrt(pow(term->cell_width, 2) + pow(term->cell_height, 2)),
         .base_thickness = term->conf->tweak.box_drawing_base_thickness,
+        .solid_shades = term->conf->tweak.box_drawing_solid_shades,
     };
+
+    buf.thickness[LIGHT] = _thickness(&buf, LIGHT);
+    buf.thickness[HEAVY] = _thickness(&buf, HEAVY);
 
     LOG_DBG("LIGHT=%d, HEAVY=%d",
             _thickness(&buf, LIGHT), _thickness(&buf, HEAVY));
 
-    draw_glyph(wc, &buf);
+    draw_glyph(&buf, wc);
 
     struct fcft_glyph *glyph = xmalloc(sizeof(*glyph));
     *glyph = (struct fcft_glyph){
         .wc = wc,
         .cols = 1,
-        .pix = pix,
+        .pix = buf.pix,
         .x = -term->font_x_ofs,
         .y = term->font_y_ofs + term->fonts[0]->ascent,
         .width = width,

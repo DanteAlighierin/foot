@@ -1929,6 +1929,14 @@ parse_section_tweak(
                  conf->tweak.box_drawing_base_thickness);
     }
 
+    else if (strcmp(key, "box-drawing-solid-shades") == 0) {
+        conf->tweak.box_drawing_solid_shades = str_to_bool(value);
+
+        if (!conf->tweak.box_drawing_solid_shades)
+            LOG_WARN("tweak: box-drawing-solid-shades=%s",
+                     conf->tweak.box_drawing_solid_shades ? "yes" : "no");
+    }
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [tweak]: %s: invalid key", path, lineno, key);
         return false;
@@ -2396,6 +2404,7 @@ config_load(struct config *conf, const char *conf_path,
             .render_timer_log = false,
             .damage_whole_window = false,
             .box_drawing_base_thickness = 0.04,
+            .box_drawing_solid_shades = true,
         },
 
         .notifications = tll_init(),
