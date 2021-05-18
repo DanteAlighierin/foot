@@ -344,9 +344,21 @@ applications can change these at runtime.
 
 *beam-thickness*
 	Thickness (width) of the beam styled cursor. The value is in
-	_points_, and its exact value thus depends on the monitor's
-	DPI. To instead specify a thickness in _pixels_, use the *px*
-	suffix: e.g. *beam-thickness=2px*. Default: _1.5_
+	points, and its exact value thus depends on the monitor's DPI. To
+	instead specify a thickness in pixels, use the *px* suffix:
+	e.g. *beam-thickness=2px*. Default: _1.5_
+
+*underline-thickness*
+	Thickness (height) of the underline styled cursor. The value is in
+	points, and its exact value thus depends on the monitor's DPI.
+	
+	To instead specify a thickness in pixels, use the *px* suffix:
+	e.g. *underline-thickness=2px*.
+	
+	Note that if left unset, the cursor's thickness will scale with
+	the font size, while if set, the size is fixed.
+	
+	Default: _font underline thickness_.
 
 # SECTION: mouse
 

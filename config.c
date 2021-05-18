@@ -1059,6 +1059,13 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
             return false;
     }
 
+    else if (strcmp(key, "underline-thickness") == 0) {
+        if (!str_to_pt_or_px(
+                value, &conf->cursor.underline_thickness,
+                conf, path, lineno, "cursor", "underline-thickness"))
+            return false;
+    }
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%d: [cursor]: %s: invalid key", path, lineno, key);
         return false;
@@ -2373,6 +2380,7 @@ config_load(struct config *conf, const char *conf_path,
                 .cursor = 0,
             },
             .beam_thickness = {.pt = 1.5},
+            .underline_thickness = {.pt = 0., .px = -1},
         },
         .mouse = {
             .hide_when_typing = false,
