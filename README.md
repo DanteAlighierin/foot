@@ -441,10 +441,9 @@ The report should contain the following:
 
 ## IRC
 
-Ask questions, hang out, sing praise or just say hi on
-`#foot-terminal` on [chat.freenode.net](https://freenode.net), where
-I’m `dnkl`. This is a public,
-[logged](https://freenode.logbot.info/foot-terminal) channel.
+Ask questions, hang out, sing praise or just say hi in the
+`#foot` channel on [irc.libera.chat](https://libera.chat), where
+I’m `dnkl`.
 
 
 ## Mastodon

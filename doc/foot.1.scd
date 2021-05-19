@@ -340,7 +340,7 @@ The report should contain the following:
 
 # IRC
 
-\#foot-terminal on chat.freenode.net
+\#foot on irc.libera.chat
 
 # SEE ALSO
 
