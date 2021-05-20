@@ -212,23 +212,9 @@ static void
 auto_detected(const struct terminal *term, enum url_action action,
               url_list_t *urls)
 {
-    static const wchar_t *const prots[] = {
-        L"http://",
-        L"https://",
-        L"ftp://",
-        L"ftps://",
-        L"file://",
-        L"gemini://",
-        L"gopher://",
-    };
+    const struct config *conf = term->conf;
 
-    size_t max_prot_len = 0;
-    for (size_t i = 0; i < ALEN(prots); i++) {
-        size_t len = wcslen(prots[i]);
-        if (len > max_prot_len)
-            max_prot_len = len;
-    }
-
+    size_t max_prot_len = conf->url.max_prot_len;
     wchar_t proto_chars[max_prot_len];
     struct coord proto_start[max_prot_len];
     size_t proto_char_count = 0;
@@ -266,15 +252,15 @@ auto_detected(const struct terminal *term, enum url_action action,
                 proto_start[max_prot_len - 1] = (struct coord){c, r};
                 proto_char_count++;
 
-                for (size_t i = 0; i < ALEN(prots); i++) {
-                    size_t prot_len = wcslen(prots[i]);
+                for (size_t i = 0; i < conf->url.prot_count; i++) {
+                    size_t prot_len = wcslen(conf->url.protocols[i]);
 
                     if (proto_char_count < prot_len)
                         continue;
 
                     const wchar_t *proto = &proto_chars[max_prot_len - prot_len];
 
-                    if (wcsncasecmp(prots[i], proto, prot_len) == 0) {
+                    if (wcsncasecmp(conf->url.protocols[i], proto, prot_len) == 0) {
                         state = STATE_URL;
                         start = proto_start[max_prot_len - prot_len];
 

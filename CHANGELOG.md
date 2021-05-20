@@ -44,6 +44,8 @@
   and a new `command` action to run an arbitrary command.
   (https://codeberg.org/dnkl/foot/pulls/483)
 * Dedicated `[url]` section to config.
+* `[url].protocols` option to `foot.ini`
+  (https://codeberg.org/dnkl/foot/issues/531).
 * Support for setting the full 256 color palette in foot.ini
   (https://codeberg.org/dnkl/foot/issues/489)
 * XDG activation support, will be used by `[bell].urgent` when

@@ -1001,6 +1001,47 @@ parse_section_url(const char *key, const char *value, struct config *conf,
         }
     }
 
+    else if (strcmp(key, "protocols") == 0) {
+        for (size_t i = 0; i < conf->url.prot_count; i++)
+            free(conf->url.protocols[i]);
+        free(conf->url.protocols);
+
+        conf->url.max_prot_len = 0;
+        conf->url.prot_count = 0;
+        conf->url.protocols = NULL;
+
+        char *copy = xstrdup(value);
+
+        for (char *prot = strtok(copy, " ");
+             prot != NULL;
+             prot = strtok(NULL, " "))
+        {
+            size_t chars = mbstowcs(NULL, prot, 0);
+            if (chars == (size_t)-1) {
+                LOG_AND_NOTIFY_ERRNO(
+                    "%s:%u: [url]: protocols: invalid protocol name: %s",
+                    path, lineno, prot);
+                return false;
+            }
+
+            conf->url.prot_count++;
+            conf->url.protocols = xrealloc(
+                conf->url.protocols,
+                conf->url.prot_count * sizeof(conf->url.protocols[0]));
+
+            size_t idx = conf->url.prot_count - 1;
+            conf->url.protocols[idx] = xmalloc((chars + 1 + 3) * sizeof(wchar_t));
+            mbstowcs(conf->url.protocols[idx], prot, chars + 1);
+            wcscpy(&conf->url.protocols[idx][chars], L"://");
+
+            size_t len = chars + 3;  /* Include the "://" */
+            if (len > conf->url.max_prot_len)
+                conf->url.max_prot_len = len;
+        }
+
+        free(copy);
+    }
+
     else {
         LOG_AND_NOTIFY_ERR("%s:%d: [url]: %s: invalid key", path, lineno, key);
         return false;
@@ -2527,6 +2568,27 @@ config_load(struct config *conf, const char *conf_path,
     conf->url.launch.raw_cmd = xstrdup("xdg-open ${url}");
     tokenize_cmdline(conf->url.launch.raw_cmd, &conf->url.launch.argv);
 
+    static const wchar_t *url_protocols[] = {
+        L"http://",
+        L"https://",
+        L"ftp://",
+        L"ftps://",
+        L"file://",
+        L"gemini://",
+        L"gopher://",
+    };
+    conf->url.protocols = xmalloc(
+        ALEN(url_protocols) * sizeof(conf->url.protocols[0]));
+    conf->url.prot_count = ALEN(url_protocols);
+    conf->url.max_prot_len = 0;
+
+    for (size_t i = 0; i < ALEN(url_protocols); i++) {
+        size_t len = wcslen(url_protocols[i]);
+        if (len > conf->url.max_prot_len)
+            conf->url.max_prot_len = len;
+        conf->url.protocols[i] = xwcsdup(url_protocols[i]);
+    }
+
     tll_foreach(*initial_user_notifications, it) {
         tll_push_back(conf->notifications, it->item);
         tll_remove(*initial_user_notifications, it);
@@ -2644,6 +2706,10 @@ config_free(struct config conf)
 
     free(conf.url.label_letters);
     free_spawn_template(&conf.url.launch);
+    for (size_t i = 0; i < conf.url.prot_count; i++)
+        free(conf.url.protocols[i]);
+    free(conf.url.protocols);
+
     key_binding_list_free(&conf.bindings.key);
     key_binding_list_free(&conf.bindings.search);
     key_binding_list_free(&conf.bindings.url);

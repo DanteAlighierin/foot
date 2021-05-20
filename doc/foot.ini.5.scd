@@ -323,6 +323,13 @@ in this order:
 	String of characters to use when generating key sequences for URL
 	jump labels. Default: _sadfjklewcmpgh_.
 
+*protocols*
+	List of protocols (schemes) that should be recognized in URL
+	mode. Note that only auto-detected URLs are affected by this
+	option. OSC-8 URLs are always enabled, regardless of
+	protocol. Default: _http https ftp ftps file gemini gopher_.
+
+
 # SECTION: cursor
 
 This section controls the cursor style and color. Note that

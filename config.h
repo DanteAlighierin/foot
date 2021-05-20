@@ -135,6 +135,9 @@ struct config {
             OSC8_UNDERLINE_ALWAYS,
         } osc8_underline;
 
+        wchar_t **protocols;
+        size_t prot_count;
+        size_t max_prot_len;
     } url;
 
     struct {
