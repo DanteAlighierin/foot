@@ -1012,10 +1012,20 @@ parse_section_url(const char *key, const char *value, struct config *conf,
 
         char *copy = xstrdup(value);
 
-        for (char *prot = strtok(copy, " ");
+        for (char *prot = strtok(copy, ",");
              prot != NULL;
-             prot = strtok(NULL, " "))
+             prot = strtok(NULL, ","))
         {
+
+            /* Strip leading whitespace */
+            while (isspace(*prot))
+                prot++;
+
+            /* Strip trailing whitespace */
+            size_t len = strlen(prot);
+            while (len > 0 && isspace(prot[len - 1]))
+                prot[--len] = '\0';
+
             size_t chars = mbstowcs(NULL, prot, 0);
             if (chars == (size_t)-1) {
                 LOG_AND_NOTIFY_ERRNO(
@@ -1034,9 +1044,9 @@ parse_section_url(const char *key, const char *value, struct config *conf,
             mbstowcs(conf->url.protocols[idx], prot, chars + 1);
             wcscpy(&conf->url.protocols[idx][chars], L"://");
 
-            size_t len = chars + 3;  /* Include the "://" */
-            if (len > conf->url.max_prot_len)
-                conf->url.max_prot_len = len;
+            chars += 3;  /* Include the "://" */
+            if (chars > conf->url.max_prot_len)
+                conf->url.max_prot_len = chars;
         }
 
         free(copy);
