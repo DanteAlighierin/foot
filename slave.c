@@ -79,15 +79,15 @@ emit_one_notification(int fd, const struct user_notification *notif)
 
     switch (notif->kind) {
     case USER_NOTIFICATION_DEPRECATED:
-        prefix = "\033[33;1mdeprecated\033[39;21m: ";
+        prefix = "\033[33;1mdeprecated\033[39;22m: ";
         break;
 
     case USER_NOTIFICATION_WARNING:
-        prefix = "\033[33;1mwarning\033[39;21m: ";
+        prefix = "\033[33;1mwarning\033[39;22m: ";
         break;
 
     case USER_NOTIFICATION_ERROR:
-        prefix = "\033[31;1merror\033[39;21m: ";
+        prefix = "\033[31;1merror\033[39;22m: ";
         break;
     }
 

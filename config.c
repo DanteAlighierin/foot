@@ -633,14 +633,17 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "bell") == 0) {
-        LOG_WARN("deprecated: %s:%d: [default]: bell: set actions in section '[bell]' instead", path, lineno);
+        LOG_WARN(
+            "deprecated: %s:%d: [default]: bell: "
+            "set actions in section '[bell]' instead", path, lineno);
 
-        const char fmt[] = "%s:%d \033[1mbell\033[21m, use section \033[1m[bell]\033[21m instead";
-        char *text = xasprintf(fmt, path, lineno);
+        const char fmt[] =
+            "%s:%d: \033[1mbell\033[22m, use \033[1murgent\033[22m in "
+            "the \033[1m[bell]\033[22m section instead";
 
         struct user_notification deprecation = {
             .kind = USER_NOTIFICATION_DEPRECATED,
-            .text = text,
+            .text = xasprintf(fmt, path, lineno),
         };
         tll_push_back(conf->notifications, deprecation);
 
