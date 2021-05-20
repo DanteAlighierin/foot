@@ -442,8 +442,7 @@ The report should contain the following:
 ## IRC
 
 Ask questions, hang out, sing praise or just say hi in the
-`#foot` channel on [irc.libera.chat](https://libera.chat), where
-I’m `dnkl`.
+`#foot` channel on [irc.libera.chat](https://libera.chat).
 
 
 ## Mastodon
