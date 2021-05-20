@@ -40,9 +40,10 @@
 * Unicode 13 characters U+1FB70 - U+1FB8B to list of box drawing
   characters rendered by foot itself (rather than using font glyphs)
   (https://codeberg.org/dnkl/foot/issues/471).
-* Dedicated bell section in config, supporting multiple actions and
-  a new `command` action to run an arbitrary command.
+* Dedicated `[bell]` section to config, supporting multiple actions
+  and a new `command` action to run an arbitrary command.
   (https://codeberg.org/dnkl/foot/pulls/483)
+* Dedicated `[url]` section to config.
 * Support for setting the full 256 color palette in foot.ini
   (https://codeberg.org/dnkl/foot/issues/489)
 * XDG activation support, will be used by `[bell].urgent` when
@@ -83,7 +84,14 @@
 
 ### Deprecated
 
-* **bell** option in `foot.ini`; set actions in **[bell]** section instead.
+* `bell` option in `foot.ini`; set actions in the `[bell]` section
+  instead.
+* `url-launch` option in `foot.ini`; use `launch` in the `[url]`
+  section instead.
+* `jump-label-letters` option in `foot.ini`; use `label-letters` in
+  the `[url]` section instead.
+* `osc8-underline` option in `foot.ini`; use `osc8-underline` in the
+  `[url]` section instead.
 
 
 ### Removed

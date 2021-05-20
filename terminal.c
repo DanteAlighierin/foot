@@ -3089,7 +3089,7 @@ term_osc8_close(struct terminal *term)
 
         struct row *row = term->grid->rows[r];
 
-        switch (term->conf->osc8_underline) {
+        switch (term->conf->url.osc8_underline) {
         case OSC8_UNDERLINE_ALWAYS:
             for (int c = start_col; c <= end_col; c++)
                 row->cells[c].attrs.url = true;

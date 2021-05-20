@@ -216,10 +216,6 @@ in this order:
 	text. Note that whitespace characters are _always_ word
 	delimiters, regardless of this setting. Default: _,│`|:"'()[]{}<>_
 
-*jump-label-letters*
-	String of characters that will be when generating key sequences
-	for URL jump labels. Default: _sadfjklewcmpgh_.
-
 *notify*
 	Command to execute to display a notification. _${title}_ and
 	_${body}_ will be replaced with the notification's actual _title_
@@ -234,10 +230,6 @@ in this order:
 	
 	Default: _notify-send -a foot -i foot ${title} ${body}_.
 
-*url-launch*
-	Command to execute when opening URLs. _${url}_ will be replaced
-	with the actual URL. Default: _xdg-open ${url}_.
-
 *selection-target*
 	Clipboard target to automatically copy selected text to. One of
 	*none*, *primary*, *clipboard* or *both*. Default: _primary_.
@@ -247,19 +239,6 @@ in this order:
 	multithreading. Default: the number of available logical CPUs
 	(including SMT). Note that this is not always the best value. In
 	some cases, the number of physical _cores_ is better.
-
-*osc8-underline*
-	When to underline OSC-8 URLs. Possible values are *url-mode* and
-	*always*.
-	
-	When set to *url-mode*, OSC-8 URLs are only highlighted in URL
-	mode, just like auto-detected URLs.
-	
-	When set to *always*, OSC-8 URLs are always highlighted,
-	regardless of their other attributes (bold, italic etc). Note that
-	this does _not_ make them clickable.
-	
-	Default: _url-mode_
 
 
 # SECTION: bell
@@ -321,6 +300,29 @@ in this order:
 	*indicator-position=none*. Default: _empty string_.
 
 
+# SECTION: url
+
+*launch*
+	Command to execute when opening URLs. _${url}_ will be replaced
+	with the actual URL. Default: _xdg-open ${url}_.
+
+*osc8-underline*
+	When to underline OSC-8 URLs. Possible values are *url-mode* and
+	*always*.
+	
+	When set to *url-mode*, OSC-8 URLs are only highlighted in URL
+	mode, just like auto-detected URLs.
+	
+	When set to *always*, OSC-8 URLs are always highlighted,
+	regardless of their other attributes (bold, italic etc). Note that
+	this does _not_ make them clickable.
+	
+	Default: _url-mode_
+
+*label-letters*
+	String of characters to use when generating key sequences for URL
+	jump labels. Default: _sadfjklewcmpgh_.
+
 # SECTION: cursor
 
 This section controls the cursor style and color. Note that
@@ -359,6 +361,7 @@ applications can change these at runtime.
 	the font size, while if set, the size is fixed.
 	
 	Default: _font underline thickness_.
+
 
 # SECTION: mouse
 

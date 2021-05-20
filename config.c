@@ -530,6 +530,26 @@ str_to_spawn_template(struct config *conf,
     return true;
 }
 
+static void
+deprecated_url_option(struct config *conf,
+                      const char *old_name, const char *new_name,
+                      const char *path, unsigned lineno)
+{
+    LOG_WARN(
+        "deprecated: %s:%d: [default]: %s: use '%s' in section '[url]' instead",
+        path, lineno, old_name, new_name);
+
+    const char fmt[] =
+        "%s:%d: \033[1m%s\033[22m, use \033[1m%s\033[22m in the \033[1m[url]\033[22m section instead";
+    char *text = xasprintf(fmt, path, lineno, old_name, new_name);
+
+    struct user_notification deprecation = {
+        .kind = USER_NOTIFICATION_DEPRECATED,
+        .text = text,
+    };
+    tll_push_back(conf->notifications, deprecation);
+}
+
 static bool
 parse_section_main(const char *key, const char *value, struct config *conf,
                    const char *path, unsigned lineno)
@@ -773,14 +793,17 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "jump-label-letters") == 0) {
+        deprecated_url_option(
+            conf, "jump-label-letters", "label-letters", path, lineno);
+
         wchar_t *letters;
         if (!str_to_wchars(value, &letters, conf, path, lineno,
-                           "default", "jump-label-letters"))
+                           "default", "label-letters"))
         {
             return false;
         }
-        free(conf->jump_label_letters);
-        conf->jump_label_letters = letters;
+        free(conf->url.label_letters);
+        conf->url.label_letters = letters;
     }
 
     else if (strcmp(key, "notify") == 0) {
@@ -792,7 +815,10 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "url-launch") == 0) {
-        if (!str_to_spawn_template(conf, value, &conf->url_launch, path, lineno,
+        deprecated_url_option(
+            conf, "url-launch", "launch", path, lineno);
+
+        if (!str_to_spawn_template(conf, value, &conf->url.launch, path, lineno,
                                    "default", "url-launch"))
         {
             return false;
@@ -822,10 +848,13 @@ parse_section_main(const char *key, const char *value, struct config *conf,
     }
 
     else if (strcmp(key, "osc8-underline") == 0) {
+        deprecated_url_option(
+            conf, "osc8-underline", "osc8-underline", path, lineno);
+
         if (strcmp(value, "url-mode") == 0)
-            conf->osc8_underline = OSC8_UNDERLINE_URL_MODE;
+            conf->url.osc8_underline = OSC8_UNDERLINE_URL_MODE;
         else if (strcmp(value, "always") == 0)
-            conf->osc8_underline = OSC8_UNDERLINE_ALWAYS;
+            conf->url.osc8_underline = OSC8_UNDERLINE_ALWAYS;
         else {
             LOG_AND_NOTIFY_ERR(
                 "%s:%u: [default]: %s: invalid 'osc8-underline'; "
@@ -932,6 +961,48 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
 
     else {
         LOG_AND_NOTIFY_ERR("%s:%u: [scrollback]: %s: invalid key", path, lineno, key);
+        return false;
+    }
+
+    return true;
+}
+
+static bool
+parse_section_url(const char *key, const char *value, struct config *conf,
+                  const char *path, unsigned lineno)
+{
+    if (strcmp(key, "launch") == 0) {
+        if (!str_to_spawn_template(conf, value, &conf->url.launch, path, lineno,
+                                   "url", "launch"))
+        {
+            return false;
+        }
+    }
+
+    else if (strcmp(key, "label-letters") == 0) {
+        wchar_t *letters;
+        if (!str_to_wchars(value, &letters, conf, path, lineno, "url", "letters"))
+            return false;
+
+        free(conf->url.label_letters);
+        conf->url.label_letters = letters;
+    }
+
+    else if (strcmp(key, "osc8-underline") == 0) {
+        if (strcmp(value, "url-mode") == 0)
+            conf->url.osc8_underline = OSC8_UNDERLINE_URL_MODE;
+        else if (strcmp(value, "always") == 0)
+            conf->url.osc8_underline = OSC8_UNDERLINE_ALWAYS;
+        else {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%u: [url]: %s: invalid 'osc8-underline'; "
+                "must be one of 'url-mode', or 'always'", path, lineno, value);
+            return false;
+        }
+    }
+
+    else {
+        LOG_AND_NOTIFY_ERR("%s:%d: [url]: %s: invalid key", path, lineno, key);
         return false;
     }
 
@@ -1962,6 +2033,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         SECTION_MAIN,
         SECTION_BELL,
         SECTION_SCROLLBACK,
+        SECTION_URL,
         SECTION_COLORS,
         SECTION_CURSOR,
         SECTION_MOUSE,
@@ -1986,6 +2058,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         [SECTION_MAIN] =            {&parse_section_main, "main"},
         [SECTION_BELL] =            {&parse_section_bell, "bell"},
         [SECTION_SCROLLBACK] =      {&parse_section_scrollback, "scrollback"},
+        [SECTION_URL] =             {&parse_section_url, "url"},
         [SECTION_COLORS] =          {&parse_section_colors, "colors"},
         [SECTION_CURSOR] =          {&parse_section_cursor, "cursor"},
         [SECTION_MOUSE] =           {&parse_section_mouse, "mouse"},
@@ -2301,7 +2374,6 @@ config_load(struct config *conf, const char *conf_path,
         .title = xstrdup("foot"),
         .app_id = xstrdup("foot"),
         .word_delimiters = xwcsdup(L",│`|:\"'()[]{}<>"),
-        .jump_label_letters = xwcsdup(L"sadfjklewcmpgh"),
         .size = {
             .type = CONF_SIZE_PX,
             .width = 700,
@@ -2330,6 +2402,10 @@ config_load(struct config *conf, const char *conf_path,
                 .argv = NULL,
             },
             .command_focused = false,
+        },
+        .url = {
+            .label_letters = xwcsdup(L"sadfjklewcmpgh"),
+            .osc8_underline = OSC8_UNDERLINE_URL_MODE,
         },
         .scrollback = {
             .lines = 1000,
@@ -2403,8 +2479,6 @@ config_load(struct config *conf, const char *conf_path,
             .argv = NULL,
         },
 
-        .osc8_underline = OSC8_UNDERLINE_URL_MODE,
-
         .tweak = {
             .fcft_filter = FCFT_SCALING_FILTER_LANCZOS3,
             .allow_overflowing_double_width_glyphs = true,
@@ -2450,8 +2524,8 @@ config_load(struct config *conf, const char *conf_path,
         "notify-send -a foot -i foot ${title} ${body}");
     tokenize_cmdline(conf->notify.raw_cmd, &conf->notify.argv);
 
-    conf->url_launch.raw_cmd = xstrdup("xdg-open ${url}");
-    tokenize_cmdline(conf->url_launch.raw_cmd, &conf->url_launch.argv);
+    conf->url.launch.raw_cmd = xstrdup("xdg-open ${url}");
+    tokenize_cmdline(conf->url.launch.raw_cmd, &conf->url.launch.argv);
 
     tll_foreach(*initial_user_notifications, it) {
         tll_push_back(conf->notifications, it->item);
@@ -2557,11 +2631,9 @@ config_free(struct config conf)
     free(conf.title);
     free(conf.app_id);
     free(conf.word_delimiters);
-    free(conf.jump_label_letters);
     free_spawn_template(&conf.bell.command);
     free(conf.scrollback.indicator.text);
     free_spawn_template(&conf.notify);
-    free_spawn_template(&conf.url_launch);
     for (size_t i = 0; i < ALEN(conf.fonts); i++) {
         tll_foreach(conf.fonts[i], it) {
             config_font_destroy(&it->item);
@@ -2570,6 +2642,8 @@ config_free(struct config conf)
     }
     free(conf.server_socket_path);
 
+    free(conf.url.label_letters);
+    free_spawn_template(&conf.url.launch);
     key_binding_list_free(&conf.bindings.key);
     key_binding_list_free(&conf.bindings.search);
     key_binding_list_free(&conf.bindings.url);

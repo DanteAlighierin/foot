@@ -93,7 +93,7 @@ activate_url(struct seat *seat, struct terminal *term, const struct url *url)
         }
 
         if (spawn_expand_template(
-                &term->conf->url_launch, 1,
+                &term->conf->url.launch, 1,
                 (const char *[]){"url"},
                 (const char *[]){url_string},
                 &argc, &argv))
@@ -405,7 +405,7 @@ osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
 {
     bool dont_touch_url_attr = false;
 
-    switch (term->conf->osc8_underline) {
+    switch (term->conf->url.osc8_underline) {
     case OSC8_UNDERLINE_URL_MODE:
         dont_touch_url_attr = false;
         break;
@@ -484,7 +484,7 @@ static void
 generate_key_combos(const struct config *conf,
                     size_t count, wchar_t *combos[static count])
 {
-    const wchar_t *alphabet = conf->jump_label_letters;
+    const wchar_t *alphabet = conf->url.label_letters;
     const size_t alphabet_len = wcslen(alphabet);
 
     size_t hints_count = 1;

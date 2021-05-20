@@ -65,7 +65,6 @@ struct config {
     char *title;
     char *app_id;
     wchar_t *word_delimiters;
-    wchar_t *jump_label_letters;
     bool login_shell;
     bool no_wait;
 
@@ -127,6 +126,16 @@ struct config {
         } indicator;
         double multiplier;
     } scrollback;
+
+    struct {
+        wchar_t *label_letters;
+        struct config_spawn_template launch;
+        enum {
+            OSC8_UNDERLINE_URL_MODE,
+            OSC8_UNDERLINE_ALWAYS,
+        } osc8_underline;
+
+    } url;
 
     struct {
         uint32_t fg;
@@ -213,12 +222,6 @@ struct config {
     } selection_target;
 
     struct config_spawn_template notify;
-    struct config_spawn_template url_launch;
-
-    enum {
-        OSC8_UNDERLINE_URL_MODE,
-        OSC8_UNDERLINE_ALWAYS,
-    } osc8_underline;
 
     struct {
         enum fcft_scaling_filter fcft_filter;
