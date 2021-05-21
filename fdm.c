@@ -52,6 +52,7 @@ struct fdm {
     hooks_t hooks_high;
 };
 
+static volatile sig_atomic_t got_signal = false;
 static volatile sig_atomic_t *received_signals = NULL;
 
 struct fdm *
@@ -71,6 +72,7 @@ fdm_init(void)
 
     xassert(received_signals == NULL); /* Only one FDM instance supported */
     received_signals = xcalloc(SIGRTMAX, sizeof(received_signals[0]));
+    got_signal = false;
 
     struct fdm *fdm = malloc(sizeof(*fdm));
     if (unlikely(fdm == NULL)) {
@@ -328,6 +330,7 @@ fdm_hook_del(struct fdm *fdm, fdm_hook_t hook, enum fdm_hook_priority priority)
 static void
 signal_handler(int signo)
 {
+    got_signal = true;
     received_signals[signo] = true;
 }
 
@@ -424,27 +427,28 @@ fdm_poll(struct fdm *fdm)
     int r = epoll_pwait(
         fdm->epoll_fd, events, tll_length(fdm->fds), -1, &fdm->sigmask);
 
-    if (unlikely(r < 0)) {
-        if (errno == EINTR) {
-            /* TODO: is it possible to receive a signal without
-             * getting EINTR here? */
+    int errno_copy = errno;
 
-            for (int i = 0; i < SIGRTMAX; i++) {
-                if (received_signals[i]) {
+    if (unlikely(got_signal)) {
+        got_signal = false;
 
-                    received_signals[i] = false;
-                    struct sig_handler *handler = &fdm->signal_handlers[i];
+        for (int i = 0; i < SIGRTMAX; i++) {
+            if (received_signals[i]) {
+                received_signals[i] = false;
+                struct sig_handler *handler = &fdm->signal_handlers[i];
 
-                    xassert(handler->callback != NULL);
-                    if (!handler->callback(fdm, i, handler->callback_data))
-                        return false;
-                }
+                xassert(handler->callback != NULL);
+                if (!handler->callback(fdm, i, handler->callback_data))
+                    return false;
             }
-
-            return true;
         }
+    }
 
-        LOG_ERRNO("failed to epoll");
+    if (unlikely(r < 0)) {
+        if (errno_copy == EINTR)
+            return true;
+
+        LOG_ERRNO_P(errno_copy, "failed to epoll");
         return false;
     }
 
