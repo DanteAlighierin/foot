@@ -110,6 +110,9 @@
   scaling factor > 1 (https://codeberg.org/dnkl/foot/issues/509).
 * Crash caused by certain CSI sequences with very large parameter
   values (https://codeberg.org/dnkl/foot/issues/522).
+* Rare occurrences where the window did not close when the shell
+  exited. Only seen on FreeBSD
+  (https://codeberg.org/dnkl/foot/issues/534)
 
 
 ### Security
