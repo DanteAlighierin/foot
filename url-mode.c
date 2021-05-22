@@ -93,7 +93,7 @@ activate_url(struct seat *seat, struct terminal *term, const struct url *url)
         }
 
         if (spawn_expand_template(
-                &term->conf->url_launch, 1,
+                &term->conf->url.launch, 1,
                 (const char *[]){"url"},
                 (const char *[]){url_string},
                 &argc, &argv))
@@ -212,23 +212,9 @@ static void
 auto_detected(const struct terminal *term, enum url_action action,
               url_list_t *urls)
 {
-    static const wchar_t *const prots[] = {
-        L"http://",
-        L"https://",
-        L"ftp://",
-        L"ftps://",
-        L"file://",
-        L"gemini://",
-        L"gopher://",
-    };
+    const struct config *conf = term->conf;
 
-    size_t max_prot_len = 0;
-    for (size_t i = 0; i < ALEN(prots); i++) {
-        size_t len = wcslen(prots[i]);
-        if (len > max_prot_len)
-            max_prot_len = len;
-    }
-
+    size_t max_prot_len = conf->url.max_prot_len;
     wchar_t proto_chars[max_prot_len];
     struct coord proto_start[max_prot_len];
     size_t proto_char_count = 0;
@@ -266,15 +252,15 @@ auto_detected(const struct terminal *term, enum url_action action,
                 proto_start[max_prot_len - 1] = (struct coord){c, r};
                 proto_char_count++;
 
-                for (size_t i = 0; i < ALEN(prots); i++) {
-                    size_t prot_len = wcslen(prots[i]);
+                for (size_t i = 0; i < conf->url.prot_count; i++) {
+                    size_t prot_len = wcslen(conf->url.protocols[i]);
 
                     if (proto_char_count < prot_len)
                         continue;
 
                     const wchar_t *proto = &proto_chars[max_prot_len - prot_len];
 
-                    if (wcsncasecmp(prots[i], proto, prot_len) == 0) {
+                    if (wcsncasecmp(conf->url.protocols[i], proto, prot_len) == 0) {
                         state = STATE_URL;
                         start = proto_start[max_prot_len - prot_len];
 
@@ -405,7 +391,7 @@ osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
 {
     bool dont_touch_url_attr = false;
 
-    switch (term->conf->osc8_underline) {
+    switch (term->conf->url.osc8_underline) {
     case OSC8_UNDERLINE_URL_MODE:
         dont_touch_url_attr = false;
         break;
@@ -484,7 +470,7 @@ static void
 generate_key_combos(const struct config *conf,
                     size_t count, wchar_t *combos[static count])
 {
-    const wchar_t *alphabet = conf->jump_label_letters;
+    const wchar_t *alphabet = conf->url.label_letters;
     const size_t alphabet_len = wcslen(alphabet);
 
     size_t hints_count = 1;
