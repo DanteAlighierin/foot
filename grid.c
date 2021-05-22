@@ -774,5 +774,11 @@ void
 grid_row_add_uri_range(struct row *row, struct row_uri_range range)
 {
     ensure_row_has_extra_data(row);
-    tll_push_back(row->extra->uri_ranges, range);
+    tll_rforeach(row->extra->uri_ranges, it) {
+        if (it->item.end < range.start) {
+            tll_insert_after(row->extra->uri_ranges, it, range);
+            return;
+        }
+    }
+    tll_push_front(row->extra->uri_ranges, range);
 }
