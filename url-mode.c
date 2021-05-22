@@ -456,7 +456,7 @@ remove_overlapping(url_list_t *urls, int cols)
                  * OSC-8 URLs can’t overlap with each
                  * other.
                  *
-                 * Similarily, auto-detected URLs cannot overlap with
+                 * Similarly, auto-detected URLs cannot overlap with
                  * each other.
                  *
                  * But OSC-8 URLs can overlap with auto-detected ones.
