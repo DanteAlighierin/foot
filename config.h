@@ -157,6 +157,7 @@ struct config {
             uint32_t cursor;
         } color;
         struct pt_or_px beam_thickness;
+        struct pt_or_px underline_thickness;
     } cursor;
 
     struct {

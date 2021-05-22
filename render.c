@@ -299,9 +299,9 @@ draw_unfocused_block(const struct terminal *term, pixman_image_t *pix,
 }
 
 static void
-draw_beam(const struct terminal *term, pixman_image_t *pix,
-          const struct fcft_font *font,
-          const pixman_color_t *color, int x, int y)
+draw_beam_cursor(const struct terminal *term, pixman_image_t *pix,
+                 const struct fcft_font *font,
+                 const pixman_color_t *color, int x, int y)
 {
     int baseline = y + font_baseline(term) - term->fonts[0]->ascent;
     pixman_image_fill_rectangles(
@@ -313,18 +313,43 @@ draw_beam(const struct terminal *term, pixman_image_t *pix,
 }
 
 static void
-draw_underline(const struct terminal *term, pixman_image_t *pix,
-               const struct fcft_font *font,
-               const pixman_color_t *color, int x, int y, int cols)
+draw_underline_with_thickness(
+    const struct terminal *term, pixman_image_t *pix,
+    const struct fcft_font *font,
+    const pixman_color_t *color, int x, int y, int cols, int thickness)
 {
     /* Make sure the line isn't positioned below the cell */
     int y_ofs = font_baseline(term) - font->underline.position;
-    y_ofs = min(y_ofs, term->cell_height - font->underline.thickness);
+    y_ofs = min(y_ofs, term->cell_height - thickness);
 
     pixman_image_fill_rectangles(
         PIXMAN_OP_SRC, pix, color,
         1, &(pixman_rectangle16_t){
-            x, y + y_ofs, cols * term->cell_width, font->underline.thickness});
+            x, y + y_ofs, cols * term->cell_width, thickness});
+}
+
+static void
+draw_underline_cursor(const struct terminal *term, pixman_image_t *pix,
+               const struct fcft_font *font,
+                      const pixman_color_t *color, int x, int y, int cols)
+{
+    int thickness = term->conf->cursor.underline_thickness.px >= 0
+        ? term_pt_or_px_as_pixels(
+            term, &term->conf->cursor.underline_thickness)
+        : font->underline.thickness;
+
+    draw_underline_with_thickness(
+        term, pix, font, color, x, y + font->underline.thickness, cols,
+        thickness);
+}
+
+static void
+draw_underline(const struct terminal *term, pixman_image_t *pix,
+               const struct fcft_font *font,
+               const pixman_color_t *color, int x, int y, int cols)
+{
+    draw_underline_with_thickness(
+        term, pix, font, color, x, y, cols, font->underline.thickness);
 }
 
 static void
@@ -394,7 +419,7 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
         if (likely(term->cursor_blink.state == CURSOR_BLINK_ON ||
                    !term->kbd_focus))
         {
-            draw_beam(term, pix, font, &cursor_color, x, y);
+            draw_beam_cursor(term, pix, font, &cursor_color, x, y);
         }
         break;
 
@@ -402,10 +427,7 @@ draw_cursor(const struct terminal *term, const struct cell *cell,
         if (likely(term->cursor_blink.state == CURSOR_BLINK_ON ||
                    !term->kbd_focus))
         {
-            struct fcft_font *font = attrs_to_font(term, &cell->attrs);
-            draw_underline(
-                term, pix, font, &cursor_color,
-                x, y + font->underline.thickness, cols);
+            draw_underline_cursor(term, pix, font, &cursor_color, x, y, cols);
         }
         break;
     }
@@ -1303,7 +1325,7 @@ render_ime_preedit_for_seat(struct terminal *term, struct seat *seat,
             /* Bar */
             if (start >= 0) {
                 struct fcft_font *font = attrs_to_font(term, &start_cell->attrs);
-                draw_beam(term, buf->pix[0], font, &cursor_color, x, y);
+                draw_beam_cursor(term, buf->pix[0], font, &cursor_color, x, y);
             }
             term_ime_set_cursor_rect(term, x, y, 1, term->cell_height);
         }
@@ -2645,8 +2667,12 @@ render_search_box(struct terminal *term)
                     draw_underline(term, buf->pix[0], font, &fg, x, y, count);
 
                     /* Bar-styled cursor, if in the visible area */
-                    if (start >= 0 && start <= visible_cells)
-                        draw_beam(term, buf->pix[0], font, &fg, x + start * term->cell_width, y);
+                    if (start >= 0 && start <= visible_cells) {
+                        draw_beam_cursor(
+                            term, buf->pix[0], font, &fg,
+                            x + start * term->cell_width, y);
+                    }
+
                     term_ime_set_cursor_rect(term,
                         WINDOW_X(x + start * term->cell_width), WINDOW_Y(y),
                         1, term->cell_height);
@@ -2675,7 +2701,7 @@ render_search_box(struct terminal *term)
                 /* Cursor *should* be in the visible area */
                 xassert(cell_idx >= glyph_offset);
                 xassert(cell_idx <= glyph_offset + visible_cells);
-                draw_beam(term, buf->pix[0], font, &fg, x, y);
+                draw_beam_cursor(term, buf->pix[0], font, &fg, x, y);
                 term_ime_set_cursor_rect(
                     term, WINDOW_X(x), WINDOW_Y(y), 1, term->cell_height);
             }
@@ -2731,7 +2757,7 @@ render_search_box(struct terminal *term)
         else
 #endif
         if (term->search.cursor >= term->search.len) {
-            draw_beam(term, buf->pix[0], font, &fg, x, y);
+            draw_beam_cursor(term, buf->pix[0], font, &fg, x, y);
             term_ime_set_cursor_rect(
                 term, WINDOW_X(x), WINDOW_Y(y), 1, term->cell_height);
         }
