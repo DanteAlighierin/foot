@@ -370,7 +370,8 @@ auto_detected(const struct terminal *term, enum url_action action,
                                 .url = url_utf8,
                                 .start = start,
                                 .end = end,
-                                .action = action}));
+                                .action = action,
+                                .osc8 = false}));
                     }
 
                     state = STATE_PROTOCOL;
@@ -424,26 +425,51 @@ osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
                    .start = start,
                    .end = end,
                    .action = action,
-                   .url_mode_dont_change_url_attr = dont_touch_url_attr}));
+                   .url_mode_dont_change_url_attr = dont_touch_url_attr,
+                   .osc8 = true}));
        }
     }
 }
 
 static void
-remove_duplicates(url_list_t *urls)
+remove_overlapping(url_list_t *urls, int cols)
 {
     tll_foreach(*urls, outer) {
         tll_foreach(*urls, inner) {
             if (outer == inner)
                 continue;
 
-            if (outer->item.start.row == inner->item.start.row &&
-                outer->item.start.col == inner->item.start.col &&
-                outer->item.end.row == inner->item.end.row &&
-                outer->item.end.col == inner->item.end.col)
+            const struct url *out = &outer->item;
+            const struct url *in = &inner->item;
+
+            uint64_t in_start = in->start.row * cols + in->start.col;
+            uint64_t in_end = in->end.row * cols + in->end.col;
+
+            uint64_t out_start = out->start.row * cols + out->start.col;
+            uint64_t out_end = out->end.row * cols + out->end.col;
+
+            if ((in_start <= out_start && in_end >= out_start) ||
+                (in_start <= out_end && in_end >= out_end) ||
+                (in_start >= out_start && in_end <= out_end))
             {
-                url_destroy(&inner->item);
-                tll_remove(*urls, inner);
+                /*
+                 * OSC-8 URLs can’t overlap with each
+                 * other.
+                 *
+                 * Similarily, auto-detected URLs cannot overlap with
+                 * each other.
+                 *
+                 * But OSC-8 URLs can overlap with auto-detected ones.
+                 */
+                xassert(in->osc8 || out->osc8);
+
+                if (in->osc8) {
+                    url_destroy(&outer->item);
+                    tll_remove(*urls, outer);
+                } else {
+                    url_destroy(&inner->item);
+                    tll_remove(*urls, inner);
+                }
             }
         }
     }
@@ -455,7 +481,7 @@ urls_collect(const struct terminal *term, enum url_action action, url_list_t *ur
     xassert(tll_length(term->urls) == 0);
     osc8_uris(term, action, urls);
     auto_detected(term, action, urls);
-    remove_duplicates(urls);
+    remove_overlapping(urls, term->grid->num_cols);
 }
 
 static int
