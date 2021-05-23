@@ -13,7 +13,7 @@
 #include "util.h"
 #include "xmalloc.h"
 
-#define TIME_REFLOW 0
+#define TIME_REFLOW 1
 
 struct grid *
 grid_snapshot(const struct grid *grid)
@@ -527,6 +527,159 @@ grid_resize_and_reflow(
             new_row->cells[new_col_idx].attrs = old_cell->attrs;        \
         } while (0)
 
+        /* Find last non-empty cell */
+        int col_count = 0;
+        for (int c = old_cols - 1; c > 0; c--) {
+            const struct cell *cell = &old_row->cells[c];
+            if (!(cell->wc == 0 || cell->wc == CELL_SPACER)) {
+                col_count = c + 1;
+                break;
+            }
+        }
+
+        xassert(col_count >= 0 && col_count <= old_cols);
+
+        struct coord *tp = (*next_tp)->row == old_row_idx ? *next_tp : NULL;
+        struct row_uri_range *_range =
+            old_row->extra != NULL && tll_length(old_row->extra->uri_ranges) > 0
+            ? &tll_front(old_row->extra->uri_ranges)
+            : NULL;
+
+        if (tp != NULL)
+            col_count = max(col_count, tp->col + 1);
+        if (_range != NULL)
+            col_count = max(col_count, _range->start + 1);
+
+        for (int start = 0, left = col_count; left > 0;) {
+            int tp_col = -1;
+            int uri_col = -1;
+            int end;
+
+            if (tp != NULL && _range != NULL) {
+                tp_col = tp->col + 1;
+                uri_col = (_range->start >= start ? _range->start : _range->end) + 1;
+                end = min(tp_col, uri_col);
+            } else if (tp != NULL)
+                end = tp_col = tp->col + 1;
+            else if (_range != NULL) {
+                if (_range->start >= start)
+                    uri_col = _range->start + 1;
+                else
+                    uri_col = _range->end + 1;
+                end = uri_col;
+            } else
+                end = col_count;
+
+            int cols = end - start;
+            xassert(cols > 0);
+            xassert(start + cols <= old_cols);
+
+            bool tp_break = tp_col == end;
+            bool uri_break = uri_col == end;
+
+            for (int count = cols, from = start; count > 0;) {
+                xassert(new_col_idx <= new_cols);
+                int new_row_cells_left = new_cols - new_col_idx;
+
+                if (new_row_cells_left <= 0) {
+                    line_wrap();
+                    new_row_cells_left = new_cols;
+                }
+
+                int amount = min(count, new_row_cells_left);
+                xassert(amount > 0);
+
+                int spacers = 0;
+                if (new_col_idx + amount >= new_cols) {
+                    /*
+                     * The cell *after* the last cell is a CELL_SPACER
+                     *
+                     * This means we have a multi-column character
+                     * that doesn’t fit on the current row. We need to
+                     * push it to the next row, and insert CELL_SPACER
+                     * cells as padding.
+                     */
+                    while (
+                        unlikely(
+                            amount > 1 &&
+                            from + amount < old_cols &&
+                            old_row->cells[from + amount].wc >= CELL_SPACER + 1))
+                    {
+                        amount--;
+                        spacers++;
+                    }
+
+                    xassert(
+                        amount == 1 ||
+                        old_row->cells[from + amount - 1].wc <= CELL_SPACER + 1);
+                }
+
+                xassert(new_col_idx + amount <= new_cols);
+                xassert(from + amount <= old_cols);
+
+                memcpy(
+                    &new_row->cells[new_col_idx], &old_row->cells[from],
+                    amount * sizeof(struct cell));
+
+                count -= amount;
+                from += amount;
+                new_col_idx += amount;
+
+                if (unlikely(spacers > 0)) {
+                    xassert(new_col_idx + spacers == new_cols);
+
+                    const struct cell *cell = &old_row->cells[from + amount - 1];
+
+                    for (int i = 0; i < spacers; i++, new_col_idx++) {
+                        new_row->cells[new_col_idx].wc = CELL_SPACER;
+                        new_row->cells[new_col_idx].attrs = cell->attrs;
+                    }
+                }
+            }
+
+            new_col_idx--;
+
+            if (tp_break) {
+                do {
+                    xassert(tp != NULL);
+                    xassert(tp->row == old_row_idx);
+                    xassert(tp->col == start + cols - 1);
+
+                    tp->row = new_row_idx;
+                    tp->col = new_col_idx;
+
+                    next_tp++;
+                    tp = *next_tp;
+                } while (tp->row == old_row_idx && tp->col == start + cols - 1);
+
+                if (tp->row != old_row_idx)
+                    tp = NULL;
+            }
+
+            if (uri_break) {
+                if (_range->start == start + cols - 1)
+                    reflow_uri_range_start(_range, new_row, new_col_idx);
+
+                if (_range->end == start + cols - 1) {
+                    reflow_uri_range_end(_range, new_row, new_col_idx);
+
+                    xassert(&tll_front(old_row->extra->uri_ranges) == _range);
+                    grid_row_uri_range_destroy(_range);
+                    tll_pop_front(old_row->extra->uri_ranges);
+
+                    _range = tll_length(old_row->extra->uri_ranges) > 0
+                        ? &tll_front(old_row->extra->uri_ranges)
+                        : NULL;
+                }
+            }
+
+            new_col_idx++;
+
+            left -= cols;
+            start += cols;
+        }
+
+#if 0
         /*
          * Keep track of empty cells. If the old line ends with a
          * string of empty cells, we don't need to, nor do we want to,
@@ -653,6 +806,7 @@ grid_resize_and_reflow(
 
             new_col_idx++;
         }
+#endif
 
         if (old_row->linebreak) {
             /* Erase the remaining cells */
@@ -673,6 +827,10 @@ grid_resize_and_reflow(
     memset(&new_row->cells[new_col_idx], 0,
            (new_cols - new_col_idx) * sizeof(new_row->cells[0]));
 
+    for (struct coord **tp = next_tp; *tp != &terminator; tp++) {
+        LOG_DBG("TP: row=%d, col=%d",
+                (*tp)->row, (*tp)->col);
+    }
     xassert(old_rows == 0 || *next_tp == &terminator);
 
 #if defined(_DEBUG)
