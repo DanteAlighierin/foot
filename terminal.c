@@ -3106,6 +3106,20 @@ term_osc8_close(struct terminal *term)
             .uri = xstrdup(term->vt.osc8.uri),
         };
         grid_row_add_uri_range(row, range);
+
+#if defined(_DEBUG)
+        tll_foreach(row->extra->uri_ranges, it1) {
+            tll_foreach(row->extra->uri_ranges, it2) {
+                if (&it1->item == &it2->item)
+                    continue;
+
+                xassert(it1->item.start != it2->item.start);
+                xassert(it1->item.start != it2->item.end);
+                xassert(it1->item.end != it2->item.start);
+                xassert(it1->item.end != it2->item.end);
+            }
+        }
+#endif
         start_col = 0;
     } while (r++ != end.row);
 

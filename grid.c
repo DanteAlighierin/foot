@@ -289,45 +289,28 @@ grid_resize_without_reflow(
 }
 
 static void
-reflow_uri_ranges(const struct row *old_row, struct row *new_row,
-                  int old_col_idx, int new_col_idx)
+reflow_uri_range_start(struct row_uri_range *range, struct row *new_row,
+                       int new_col_idx)
 {
-    if (old_row->extra == NULL)
-        return;
+    struct row_uri_range new_range = {
+        .start = new_col_idx,
+        .end = -1,
+        .id = range->id,
+        .uri = xstrdup(range->uri),
+    };
+    grid_row_add_uri_range(new_row, new_range);
+}
 
-    /*
-     * Check for URI range start/end points on the “old” row, and
-     * open/close a corresponding URI range on the “new” row.
-     */
+static void
+reflow_uri_range_end(struct row_uri_range *range, struct row *new_row,
+                     int new_col_idx)
+{
+    xassert(tll_length(new_row->extra->uri_ranges) > 0);
+    struct row_uri_range *new_range = &tll_back(new_row->extra->uri_ranges);
 
-    tll_foreach(old_row->extra->uri_ranges, it) {
-        if (it->item.start == old_col_idx) {
-            struct row_uri_range new_range = {
-                .start = new_col_idx,
-                .end = -1,
-                .id = it->item.id,
-                .uri = xstrdup(it->item.uri),
-            };
-            grid_row_add_uri_range(new_row, new_range);
-        }
-
-        if (it->item.end == old_col_idx) {
-            xassert(new_row->extra != NULL);
-
-            bool found_it = false;
-            tll_foreach(new_row->extra->uri_ranges, it2) {
-                if (it2->item.id != it->item.id)
-                    continue;
-                if (it2->item.end >= 0)
-                    continue;
-
-                it2->item.end = new_col_idx;
-                found_it = true;
-                break;
-            }
-            xassert(found_it);
-        }
-    }
+    xassert(new_range->id == range->id);
+    xassert(new_range->end < 0);
+    new_range->end = new_col_idx;
 }
 
 static struct row *
@@ -364,21 +347,22 @@ _line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
      * ranges on the previous row, and re-open them on the
      * next/current row.
      */
-    tll_foreach(row->extra->uri_ranges, it) {
-        if (it->item.end >= 0)
-            continue;
+    if (tll_length(row->extra->uri_ranges) > 0) {
+        struct row_uri_range *range = &tll_back(row->extra->uri_ranges);
+        if (range->end < 0) {
 
-        /* Terminate URI range on the previous row */
-        it->item.end = col_count - 1;
+            /* Terminate URI range on the previous row */
+            range->end = col_count - 1;
 
-        /* Open a new range on the new/current row */
-        struct row_uri_range new_range = {
-            .start = 0,
-            .end = -1,
-            .id = it->item.id,
-            .uri = xstrdup(it->item.uri),
-        };
-        grid_row_add_uri_range(new_row, new_range);
+            /* Open a new range on the new/current row */
+            struct row_uri_range new_range = {
+                .start = 0,
+                .end = -1,
+                .id = range->id,
+                .uri = xstrdup(range->uri),
+            };
+            grid_row_add_uri_range(new_row, new_range);
+        }
     }
 
     return new_row;
@@ -548,6 +532,8 @@ grid_resize_and_reflow(
          */
         int empty_count = 0;
 
+        struct row_uri_range *uri_range = NULL;
+
         /* Walk current line of the old grid */
         for (int c = 0; c < old_cols; c++) {
             const struct cell *old_cell = &old_row->cells[c];
@@ -564,10 +550,16 @@ grid_resize_and_reflow(
              * sure we handle it */
             bool on_uri = false;
             if (old_row->extra != NULL) {
-                tll_foreach(old_row->extra->uri_ranges, it) {
-                    if (unlikely(it->item.start == c || it->item.end == c)) {
+                if (uri_range != NULL)
+                    on_uri = uri_range->end == c;
+
+                else if (tll_length(old_row->extra->uri_ranges) > 0) {
+                    struct row_uri_range *range = &tll_front(
+                        old_row->extra->uri_ranges);
+
+                    if (range->start == c) {
+                        uri_range = range;
                         on_uri = true;
-                        break;
                     }
                 }
             }
@@ -641,8 +633,19 @@ grid_resize_and_reflow(
                 } while (tp->row == old_row_idx && tp->col == c);
             }
 
-            if (unlikely(on_uri))
-                reflow_uri_ranges(old_row, new_row, c, new_col_idx);
+            if (unlikely(on_uri)) {
+                if (uri_range->start == c)
+                    reflow_uri_range_start(uri_range, new_row, new_col_idx);
+                if (uri_range->end == c) {
+                    reflow_uri_range_end(uri_range, new_row, new_col_idx);
+
+                    xassert(&tll_front(old_row->extra->uri_ranges) == uri_range);
+                    grid_row_uri_range_destroy(uri_range);
+                    tll_pop_front(old_row->extra->uri_ranges);
+
+                    uri_range = NULL;
+                }
+            }
 
             new_col_idx++;
         }
