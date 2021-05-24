@@ -1589,14 +1589,21 @@ void
 wayl_roundtrip(struct wayland *wayl)
 {
     wl_display_cancel_read(wayl->display);
-    wl_display_roundtrip(wayl->display);
+    if (wl_display_roundtrip(wayl->display) < 0) {
+        LOG_ERRNO("failed to roundtrip Wayland display");
+        return;
+    }
 
     /* I suspect the roundtrip above clears the pending queue, and
      * that prepare_read() will always succeed in the first call. But,
      * better safe than sorry... */
 
-    while (wl_display_prepare_read(wayl->display) != 0)
-        wl_display_dispatch_pending(wayl->display);
+    while (wl_display_prepare_read(wayl->display) != 0) {
+        if (wl_display_dispatch_pending(wayl->display) < 0) {
+            LOG_ERRNO("failed to dispatch pending Wayland events");
+            return;
+        }
+    }
     wayl_flush(wayl);
 }
 

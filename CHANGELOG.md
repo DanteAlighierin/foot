@@ -126,6 +126,9 @@
 * Rare occurrences where the window did not close when the shell
   exited. Only seen on FreeBSD
   (https://codeberg.org/dnkl/foot/issues/534)
+* Foot process(es) sometimes remaining, using 100% CPU, when closing
+  multiple foot windows at the same time
+  (https://codeberg.org/dnkl/foot/issues/542).
 
 
 ### Security
