@@ -441,8 +441,9 @@ The report should contain the following:
 
 ## IRC
 
-Ask questions, hang out, sing praise or just say hi in the
-`#foot` channel on [irc.libera.chat](https://libera.chat).
+Ask questions, hang out, sing praise or just say hi in the `#foot`
+channel on [irc.libera.chat](https://libera.chat). Logs are available
+at https://libera.irclog.whitequark.org/foot.
 
 
 ## Mastodon
