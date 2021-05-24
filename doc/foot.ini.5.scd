@@ -640,7 +640,7 @@ scrollback search mode. The syntax is exactly the same as the regular
 
 *cursor-right-word*
 	Moves the cursor in the search box one **word** to the
-	right. Default: _Control+Left Mod1+b_.
+	right. Default: _Control+Right Mod1+f_.
 
 *cursor-home*
 	Moves the cursor in the search box to the beginning of the
