@@ -545,18 +545,15 @@ grid_resize_and_reflow(
             col_count = max(col_count, range->end + 1);
 
         for (int start = 0, left = col_count; left > 0;) {
-            int tp_col = -1;
-            int uri_col = -1;
             int end;
-
             bool tp_break = false;
             bool uri_break = false;
 
             if (range != NULL) {
-                uri_col = (range->start >= start ? range->start : range->end) + 1;
+                int uri_col = (range->start >= start ? range->start : range->end) + 1;
 
                 if (tp != NULL) {
-                    tp_col = tp->col + 1;
+                    int tp_col = tp->col + 1;
                     end = min(tp_col, uri_col);
 
                     tp_break = end == tp_col;
@@ -566,7 +563,7 @@ grid_resize_and_reflow(
                     uri_break = true;
                 }
             } else if (tp != NULL) {
-                end = tp_col = tp->col + 1;
+                end = tp->col + 1;
                 tp_break = true;
             } else
                 end = col_count;
