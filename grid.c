@@ -534,32 +534,32 @@ grid_resize_and_reflow(
         xassert(col_count >= 0 && col_count <= old_cols);
 
         struct coord *tp = (*next_tp)->row == old_row_idx ? *next_tp : NULL;
-        struct row_uri_range *_range =
+        struct row_uri_range *range =
             old_row->extra != NULL && tll_length(old_row->extra->uri_ranges) > 0
             ? &tll_front(old_row->extra->uri_ranges)
             : NULL;
 
         if (tp != NULL)
             col_count = max(col_count, tp->col + 1);
-        if (_range != NULL)
-            col_count = max(col_count, _range->start + 1);
+        if (range != NULL)
+            col_count = max(col_count, range->start + 1);
 
         for (int start = 0, left = col_count; left > 0;) {
             int tp_col = -1;
             int uri_col = -1;
             int end;
 
-            if (tp != NULL && _range != NULL) {
+            if (tp != NULL && range != NULL) {
                 tp_col = tp->col + 1;
-                uri_col = (_range->start >= start ? _range->start : _range->end) + 1;
+                uri_col = (range->start >= start ? range->start : range->end) + 1;
                 end = min(tp_col, uri_col);
             } else if (tp != NULL)
                 end = tp_col = tp->col + 1;
-            else if (_range != NULL) {
-                if (_range->start >= start)
-                    uri_col = _range->start + 1;
+            else if (range != NULL) {
+                if (range->start >= start)
+                    uri_col = range->start + 1;
                 else
-                    uri_col = _range->end + 1;
+                    uri_col = range->end + 1;
                 end = uri_col;
             } else
                 end = col_count;
@@ -651,17 +651,17 @@ grid_resize_and_reflow(
             }
 
             if (uri_break) {
-                if (_range->start == start + cols - 1)
-                    reflow_uri_range_start(_range, new_row, new_col_idx);
+                if (range->start == start + cols - 1)
+                    reflow_uri_range_start(range, new_row, new_col_idx);
 
-                if (_range->end == start + cols - 1) {
-                    reflow_uri_range_end(_range, new_row, new_col_idx);
+                if (range->end == start + cols - 1) {
+                    reflow_uri_range_end(range, new_row, new_col_idx);
 
-                    xassert(&tll_front(old_row->extra->uri_ranges) == _range);
-                    grid_row_uri_range_destroy(_range);
+                    xassert(&tll_front(old_row->extra->uri_ranges) == range);
+                    grid_row_uri_range_destroy(range);
                     tll_pop_front(old_row->extra->uri_ranges);
 
-                    _range = tll_length(old_row->extra->uri_ranges) > 0
+                    range = tll_length(old_row->extra->uri_ranges) > 0
                         ? &tll_front(old_row->extra->uri_ranges)
                         : NULL;
                 }
