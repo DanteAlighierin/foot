@@ -204,7 +204,7 @@ Note that these are just the defaults; they can be changed in
 *shift*+*insert*
 	Paste from primary selection into the search buffer.
 
-*escape*, *ctrl*+*g*
+*escape*, *ctrl*+*g*, *ctrl*+*c*
 	Cancel the search
 
 *return*
