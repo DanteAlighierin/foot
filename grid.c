@@ -549,6 +549,13 @@ grid_resize_and_reflow(
             bool tp_break = false;
             bool uri_break = false;
 
+            /*
+             * Set end-coordinate for this chunk, by finding the next
+             * point-of-interrest on this row.
+             *
+             * If there are no more tracking points, or URI ranges,
+             * the end-coordinate will be at the end of the row,
+             */
             if (range != NULL) {
                 int uri_col = (range->start >= start ? range->start : range->end) + 1;
 
@@ -572,22 +579,36 @@ grid_resize_and_reflow(
             xassert(cols > 0);
             xassert(start + cols <= old_cols);
 
+            /*
+             * Copy the row chunk to the new grid. Note that there may
+             * be fewer cells left on the new row than what we have in
+             * the chunk. I.e. the chunk may have to be split up into
+             * multiple memcpy:ies.
+             */
+
             for (int count = cols, from = start; count > 0;) {
                 xassert(new_col_idx <= new_cols);
                 int new_row_cells_left = new_cols - new_col_idx;
 
+                /* Row full, emit newline and get a new, fresh, row */
                 if (new_row_cells_left <= 0) {
                     line_wrap();
                     new_row_cells_left = new_cols;
                 }
 
+                /* Number of cells we can copy */
                 int amount = min(count, new_row_cells_left);
                 xassert(amount > 0);
 
+                /*
+                 * If we’re going to reach the end of the new row, we
+                 * need to make sure we don’t end in the middle of a
+                 * multi-column character.
+                 */
                 int spacers = 0;
                 if (new_col_idx + amount >= new_cols) {
                     /*
-                     * The cell *after* the last cell is a CELL_SPACER
+                     * While the cell *after* the last cell is a CELL_SPACER
                      *
                      * This means we have a multi-column character
                      * that doesn’t fit on the current row. We need to
