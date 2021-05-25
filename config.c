@@ -2333,6 +2333,7 @@ add_default_search_bindings(struct config *conf)
     const struct config_key_modifiers shift = {.shift = true};
     const struct config_key_modifiers ctrl_shift = {.ctrl = true, .shift = true};
 
+    add_binding(BIND_ACTION_SEARCH_CANCEL, ctrl, XKB_KEY_c);
     add_binding(BIND_ACTION_SEARCH_CANCEL, ctrl, XKB_KEY_g);
     add_binding(BIND_ACTION_SEARCH_CANCEL, none, XKB_KEY_Escape);
     add_binding(BIND_ACTION_SEARCH_COMMIT, none, XKB_KEY_Return);
@@ -2374,6 +2375,7 @@ add_default_url_bindings(struct config *conf)
     const struct config_key_modifiers none = {0};
     const struct config_key_modifiers ctrl = {.ctrl = true};
 
+    add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_c);
     add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_g);
     add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_d);
     add_binding(BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape);

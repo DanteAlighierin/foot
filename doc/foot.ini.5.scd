@@ -611,7 +611,8 @@ scrollback search mode. The syntax is exactly the same as the regular
 
 *cancel*
 	Aborts the search. The viewport is restored and the _primary
-	selection_ is **not** updated. Default: _Control+g Escape_.
+	selection_ is **not** updated. Default: _Control+g Control+c
+	Escape_.
 
 *commit*
 	Exit search mode and copy current selection into the _primary
@@ -688,7 +689,7 @@ mode. The syntax is exactly the same as the regular **key-bindings**.
 
 *cancel*
 	Exits URL mode without opening an URL. Default: _Control+g
-	Control+d Escape_.
+	Control+c Control+d Escape_.
 
 *toggle-url-visible*
 	By default, the jump label only shows the key sequence required to
