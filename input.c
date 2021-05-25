@@ -884,9 +884,7 @@ keymap_lookup(struct terminal *term, xkb_keysym_t sym, enum modifier mods)
     return NULL;
 }
 
-#if defined(_DEBUG)
-static void __attribute__((constructor))
-test_keymap_lookup(void)
+UNITTEST
 {
     struct terminal term = {
         .num_lock_modifier = false,
@@ -897,7 +895,6 @@ test_keymap_lookup(void)
     const struct key_data *info = keymap_lookup(&term, XKB_KEY_ISO_Left_Tab, MOD_SHIFT | MOD_CTRL);
     xassert(strcmp(info->seq, "\033[27;6;9~") == 0);
 }
-#endif
 
 static void
 key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
