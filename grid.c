@@ -542,7 +542,7 @@ grid_resize_and_reflow(
         if (tp != NULL)
             col_count = max(col_count, tp->col + 1);
         if (range != NULL)
-            col_count = max(col_count, range->start + 1);
+            col_count = max(col_count, range->end + 1);
 
         for (int start = 0, left = col_count; left > 0;) {
             int tp_col = -1;
