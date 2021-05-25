@@ -1059,7 +1059,7 @@ state_utf8_21_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_22(term, data);                                       return STATE_GROUND;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
@@ -1069,7 +1069,7 @@ state_utf8_31_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_32(term, data);                                       return STATE_UTF8_32;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
@@ -1079,7 +1079,7 @@ state_utf8_32_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_33(term, data);                                       return STATE_GROUND;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
@@ -1089,7 +1089,7 @@ state_utf8_41_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_42(term, data);                                       return STATE_UTF8_42;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
@@ -1099,7 +1099,7 @@ state_utf8_42_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_43(term, data);                                       return STATE_UTF8_43;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
@@ -1109,7 +1109,7 @@ state_utf8_43_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_44(term, data);                                       return STATE_GROUND;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
