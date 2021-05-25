@@ -130,6 +130,9 @@
 * Foot process(es) sometimes remaining, using 100% CPU, when closing
   multiple foot windows at the same time
   (https://codeberg.org/dnkl/foot/issues/542).
+* Regression where `<mod>+shift+tab` always produced `\E[Z` instead of
+  the correct `\E[27;<mod>;9~` sequence
+  (https://codeberg.org/dnkl/foot/issues/547).
 
 
 ### Security
