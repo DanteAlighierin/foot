@@ -521,12 +521,6 @@ grid_resize_and_reflow(
             grid, new_grid, new_row, &new_row_idx, &new_col_idx,    \
             new_rows, new_cols)
 
-#define print_spacer(remaining)                                         \
-        do {                                                            \
-            new_row->cells[new_col_idx].wc = CELL_SPACER + (remaining); \
-            new_row->cells[new_col_idx].attrs = old_cell->attrs;        \
-        } while (0)
-
         /* Find last non-empty cell */
         int col_count = 0;
         for (int c = old_cols - 1; c > 0; c--) {
@@ -679,134 +673,6 @@ grid_resize_and_reflow(
             start += cols;
         }
 
-#if 0
-        /*
-         * Keep track of empty cells. If the old line ends with a
-         * string of empty cells, we don't need to, nor do we want to,
-         * add those to the new line. However, if there are non-empty
-         * cells *after* the string of empty cells, we need to emit
-         * the empty cells too. And that may trigger linebreaks
-         */
-        int empty_count = 0;
-
-        struct row_uri_range *uri_range = NULL;
-
-        /* Walk current line of the old grid */
-        for (int c = 0; c < old_cols; c++) {
-            const struct cell *old_cell = &old_row->cells[c];
-            wchar_t wc = old_cell->wc;
-
-            /* Check if this cell is one of the tracked cells */
-            bool is_tracking_point = false;
-
-            struct coord *tp = *next_tp;
-            if (unlikely(tp->row == old_row_idx && tp->col == c))
-                is_tracking_point = true;
-
-            /* If there’s an URI start/end point here, we need to make
-             * sure we handle it */
-            bool on_uri = false;
-            if (old_row->extra != NULL) {
-                if (uri_range != NULL)
-                    on_uri = uri_range->end == c;
-
-                else if (tll_length(old_row->extra->uri_ranges) > 0) {
-                    struct row_uri_range *range = &tll_front(
-                        old_row->extra->uri_ranges);
-
-                    if (range->start == c) {
-                        uri_range = range;
-                        on_uri = true;
-                    }
-                }
-            }
-
-            if (wc == 0 && likely(!(is_tracking_point | on_uri))) {
-                empty_count++;
-                continue;
-            }
-
-            /* Allow left-adjusted and right-adjusted text, with empty
-             * cells in between, to be "pushed together" */
-            int old_cols_left = old_cols - c;
-            int cols_needed = empty_count + old_cols_left;
-            int new_cols_left = new_cols - new_col_idx;
-            if (new_cols_left < cols_needed && new_cols_left >= old_cols_left)
-                empty_count = max(0, empty_count - (cols_needed - new_cols_left));
-
-            for (int i = 0; i < empty_count; i++) {
-                if (new_col_idx + 1 > new_cols)
-                    line_wrap();
-
-                size_t idx = c - empty_count + i;
-
-                new_row->cells[new_col_idx].wc = 0;
-                new_row->cells[new_col_idx].attrs = old_row->cells[idx].attrs;
-                new_col_idx++;
-            }
-
-            empty_count = 0;
-
-            if (wc == CELL_SPACER)
-                continue;
-
-            if (unlikely(wc < CELL_SPACER &&
-                         c + 1 < old_cols &&
-                         old_row->cells[c + 1].wc > CELL_SPACER))
-            {
-                int width = old_row->cells[c + 1].wc - CELL_SPACER + 1;
-                assert(wcwidth(wc) == width);
-
-                /* Out of columns on current row in new grid? */
-                if (new_col_idx + width > new_cols) {
-                    /* Pad to end-of-line with spacers, then line-wrap */
-                    for (;new_col_idx < new_cols; new_col_idx++)
-                        print_spacer(0);
-                    line_wrap();
-                }
-            }
-
-            if (new_col_idx + 1 > new_cols)
-                line_wrap();
-
-            xassert(new_row != NULL);
-            xassert(new_col_idx >= 0);
-            xassert(new_col_idx < new_cols);
-
-            new_row->cells[new_col_idx] = *old_cell;
-
-            /* Translate tracking point(s) */
-            if (unlikely(is_tracking_point)) {
-                do {
-                    xassert(tp != NULL);
-                    xassert(tp->row == old_row_idx);
-                    xassert(tp->col == c);
-
-                    tp->row = new_row_idx;
-                    tp->col = new_col_idx;
-
-                    next_tp++;
-                    tp = *next_tp;
-                } while (tp->row == old_row_idx && tp->col == c);
-            }
-
-            if (unlikely(on_uri)) {
-                if (uri_range->start == c)
-                    reflow_uri_range_start(uri_range, new_row, new_col_idx);
-                if (uri_range->end == c) {
-                    reflow_uri_range_end(uri_range, new_row, new_col_idx);
-
-                    xassert(&tll_front(old_row->extra->uri_ranges) == uri_range);
-                    grid_row_uri_range_destroy(uri_range);
-                    tll_pop_front(old_row->extra->uri_ranges);
-
-                    uri_range = NULL;
-                }
-            }
-
-            new_col_idx++;
-        }
-#endif
 
         if (old_row->linebreak) {
             /* Erase the remaining cells */
@@ -819,7 +685,6 @@ grid_resize_and_reflow(
         grid_row_free(old_grid[old_row_idx]);
         grid->rows[old_row_idx] = NULL;
 
-#undef print_spacer
 #undef line_wrap
     }
 
