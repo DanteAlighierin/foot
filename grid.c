@@ -549,25 +549,31 @@ grid_resize_and_reflow(
             int uri_col = -1;
             int end;
 
+            bool tp_break = false;
+            bool uri_break = false;
+
             if (range != NULL) {
                 uri_col = (range->start >= start ? range->start : range->end) + 1;
 
                 if (tp != NULL) {
                     tp_col = tp->col + 1;
                     end = min(tp_col, uri_col);
-                } else
+
+                    tp_break = end == tp_col;
+                    uri_break = end == uri_col;
+                } else {
                     end = uri_col;
-            } else if (tp != NULL)
+                    uri_break = true;
+                }
+            } else if (tp != NULL) {
                 end = tp_col = tp->col + 1;
-            else
+                tp_break = true;
+            } else
                 end = col_count;
 
             int cols = end - start;
             xassert(cols > 0);
             xassert(start + cols <= old_cols);
-
-            bool tp_break = tp_col == end;
-            bool uri_break = uri_col == end;
 
             for (int count = cols, from = start; count > 0;) {
                 xassert(new_col_idx <= new_cols);
