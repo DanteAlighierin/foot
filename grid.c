@@ -549,19 +549,17 @@ grid_resize_and_reflow(
             int uri_col = -1;
             int end;
 
-            if (tp != NULL && range != NULL) {
-                tp_col = tp->col + 1;
+            if (range != NULL) {
                 uri_col = (range->start >= start ? range->start : range->end) + 1;
-                end = min(tp_col, uri_col);
+
+                if (tp != NULL) {
+                    tp_col = tp->col + 1;
+                    end = min(tp_col, uri_col);
+                } else
+                    end = uri_col;
             } else if (tp != NULL)
                 end = tp_col = tp->col + 1;
-            else if (range != NULL) {
-                if (range->start >= start)
-                    uri_col = range->start + 1;
-                else
-                    uri_col = range->end + 1;
-                end = uri_col;
-            } else
+            else
                 end = col_count;
 
             int cols = end - start;
