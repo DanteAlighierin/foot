@@ -852,8 +852,7 @@ keymap_data_for_sym(xkb_keysym_t sym, size_t *count)
 }
 
 static const struct key_data *
-keymap_lookup(struct seat *seat, struct terminal *term,
-              xkb_keysym_t sym, enum modifier mods)
+keymap_lookup(struct terminal *term, xkb_keysym_t sym, enum modifier mods)
 {
     size_t count;
     const struct key_data *info = keymap_data_for_sym(sym, &count);
@@ -1036,7 +1035,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
         static const struct key_data esc = {.seq = "\033[27;1;27~"};
         keymap = &esc;
     } else
-        keymap = keymap_lookup(seat, term, sym, keymap_mods);
+        keymap = keymap_lookup(term, sym, keymap_mods);
 
     if (keymap != NULL) {
         term_to_slave(term, keymap->seq, strlen(keymap->seq));
