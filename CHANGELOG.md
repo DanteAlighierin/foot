@@ -133,6 +133,8 @@
 * Regression where `<mod>+shift+tab` always produced `\E[Z` instead of
   the correct `\E[27;<mod>;9~` sequence
   (https://codeberg.org/dnkl/foot/issues/547).
+* Crash when a line wrapping OSC-8 URI crossed the scrollback wrap
+  around (https://codeberg.org/dnkl/foot/issues/552).
 
 
 ### Security

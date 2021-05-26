@@ -3084,7 +3084,7 @@ term_osc8_close(struct terminal *term)
 
     int r = start.row;
     int start_col = start.col;
-    do {
+    while (true) {
         int end_col = r == end.row ? end.col : term->cols - 1;
 
         struct row *row = term->grid->rows[r];
@@ -3121,7 +3121,13 @@ term_osc8_close(struct terminal *term)
         }
 #endif
         start_col = 0;
-    } while (r++ != end.row);
+
+        if (r == end.row)
+            break;
+
+        r++;
+        r &= term->grid->num_rows - 1;
+    }
 
 done:
     free(term->vt.osc8.uri);
