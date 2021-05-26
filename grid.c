@@ -533,16 +533,21 @@ grid_resize_and_reflow(
 
         xassert(col_count >= 0 && col_count <= old_cols);
 
-        struct coord *tp = (*next_tp)->row == old_row_idx ? *next_tp : NULL;
-        struct row_uri_range *range =
-            old_row->extra != NULL && tll_length(old_row->extra->uri_ranges) > 0
-            ? &tll_front(old_row->extra->uri_ranges)
-            : NULL;
-
-        if (tp != NULL)
+        /* Do we have a (at least one) tracking point on this row */
+        struct coord *tp;
+        if ((*next_tp)->row == old_row_idx) {
+            tp = *next_tp;
             col_count = max(col_count, tp->col + 1);
-        if (range != NULL)
+        } else
+            tp = NULL;
+
+        /* Does this row have any URIs? */
+        struct row_uri_range *range;
+        if (old_row->extra != NULL && tll_length(old_row->extra->uri_ranges) > 0) {
+            range = &tll_front(old_row->extra->uri_ranges);
             col_count = max(col_count, range->end + 1);
+        } else
+            range = NULL;
 
         for (int start = 0, left = col_count; left > 0;) {
             int end;
