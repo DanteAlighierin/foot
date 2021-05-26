@@ -1,5 +1,7 @@
 #pragma once
 
+#define PASTE(a, b) a##b
+#define XPASTE(a, b) PASTE(a, b)
 #define DO_PRAGMA(x) _Pragma(#x)
 #define VERCMP(x, y, cx, cy) ((cx > x) || ((cx == x) && (cy >= y)))
 
@@ -68,6 +70,7 @@
 
 #if GNUC_AT_LEAST(3, 0) || HAS_ATTRIBUTE(constructor)
     #define CONSTRUCTOR __attribute__((__constructor__))
+    #define HAVE_ATTR_CONSTRUCTOR 1
 #else
     #define CONSTRUCTOR
 #endif
@@ -173,6 +176,19 @@
     #define UNROLL_LOOP(n) DO_PRAGMA(GCC unroll (n))
 #else
     #define UNROLL_LOOP(n)
+#endif
+
+#ifdef __COUNTER__
+    // Supported by GCC 4.3+ and Clang
+    #define COUNTER_ __COUNTER__
+#else
+    #define COUNTER_ __LINE__
+#endif
+
+#if defined(_DEBUG) && defined(HAVE_ATTR_CONSTRUCTOR)
+    #define UNITTEST static void CONSTRUCTOR XPASTE(unittest_, COUNTER_)(void)
+#else
+    #define UNITTEST static void UNUSED XPASTE(unittest_, COUNTER_)(void)
 #endif
 
 #ifdef __clang__
