@@ -13,7 +13,7 @@
 #include "util.h"
 #include "xmalloc.h"
 
-#define TIME_REFLOW 1
+#define TIME_REFLOW 0
 
 struct grid *
 grid_snapshot(const struct grid *grid)
