@@ -770,16 +770,9 @@ anywhere(struct terminal *term, uint8_t data)
     case 0x18:                                           action_execute(term, data);                                       return STATE_GROUND;
     case 0x1a:                                           action_execute(term, data);                                       return STATE_GROUND;
     case 0x1b:                                                                            action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:                                                                            action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97:                                  action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:                                                                                                             return STATE_SOS_PM_APC_STRING;
-    case 0x99:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:                                           action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:                                                                            action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:                                                                                                             return STATE_GROUND;
-    case 0x9d:                                                                            action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f:                                                                                                    return STATE_SOS_PM_APC_STRING;
+
+    /* 8-bit C1 control characters (not supported) */
+    case 0x80 ... 0x9f:                                                                                                    return STATE_GROUND;
     }
 
     return term->vt.state;
@@ -1039,16 +1032,9 @@ state_dcs_passthrough_switch(struct terminal *term, uint8_t data)
     case 0x18:          action_unhook(term, data);       action_execute(term, data);                                       return STATE_GROUND;
     case 0x1a:          action_unhook(term, data);       action_execute(term, data);                                       return STATE_GROUND;
     case 0x1b:          action_unhook(term, data);                                        action_clear(term);              return STATE_ESCAPE;
-    case 0x80 ... 0x8f: action_unhook(term, data);       action_execute(term, data);                                       return STATE_GROUND;
-    case 0x90:          action_unhook(term, data);                                        action_clear(term);              return STATE_DCS_ENTRY;
-    case 0x91 ... 0x97: action_unhook(term, data);       action_execute(term, data);                                       return STATE_GROUND;
-    case 0x98:          action_unhook(term, data);                                                                         return STATE_SOS_PM_APC_STRING;
-    case 0x99:          action_unhook(term, data);       action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9a:          action_unhook(term, data);       action_execute(term, data);                                       return STATE_GROUND;
-    case 0x9b:          action_unhook(term, data);                                        action_clear(term);              return STATE_CSI_ENTRY;
-    case 0x9c:          action_unhook(term, data);                                                                         return STATE_GROUND;
-    case 0x9d:          action_unhook(term, data);                                        action_osc_start(term, data);    return STATE_OSC_STRING;
-    case 0x9e ... 0x9f: action_unhook(term, data);                                                                         return STATE_SOS_PM_APC_STRING;
+
+    /* 8-bit C1 control characters (not supported) */
+    case 0x80 ... 0x9f: action_unhook(term, data);                                                                         return STATE_GROUND;
 
     default:                                                                                                               return STATE_DCS_PASSTHROUGH;
     }
@@ -1073,7 +1059,7 @@ state_utf8_21_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_22(term, data);                                       return STATE_GROUND;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
@@ -1083,7 +1069,7 @@ state_utf8_31_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_32(term, data);                                       return STATE_UTF8_32;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
@@ -1093,7 +1079,7 @@ state_utf8_32_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_33(term, data);                                       return STATE_GROUND;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
@@ -1103,7 +1089,7 @@ state_utf8_41_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_42(term, data);                                       return STATE_UTF8_42;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
@@ -1113,7 +1099,7 @@ state_utf8_42_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_43(term, data);                                       return STATE_UTF8_43;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
@@ -1123,7 +1109,7 @@ state_utf8_43_switch(struct terminal *term, uint8_t data)
     switch (data) {
         /*              exit                             current                          enter                            new state */
     case 0x80 ... 0xbf:                                  action_utf8_44(term, data);                                       return STATE_GROUND;
-    default:                                             action_utf8_print(term, 0);                                       return STATE_GROUND;
+    default:                                                                                                               return STATE_GROUND;
     }
 }
 
