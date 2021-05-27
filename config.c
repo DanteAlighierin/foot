@@ -2574,7 +2574,7 @@ config_load(struct config *conf, const char *conf_path,
     }
 
     conf->notify.raw_cmd = xstrdup(
-        "notify-send -a foot -i foot ${title} ${body}");
+        "notify-send -a ${app-id} -i ${app-id} ${title} ${body}");
     tokenize_cmdline(conf->notify.raw_cmd, &conf->notify.argv);
 
     conf->url.launch.raw_cmd = xstrdup("xdg-open ${url}");
