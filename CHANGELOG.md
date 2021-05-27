@@ -52,6 +52,7 @@
   available (falling back to coloring the window margins red when
   unavailable) (https://codeberg.org/dnkl/foot/issues/487).
 * `ctrl`+`c` as a default key binding; to cancel search/url mode.
+* `${window-title}` to `notify`.
 
 
 ### Changed
