@@ -228,7 +228,7 @@ in this order:
 	Notifications are *inhibited* if the foot window has keyboard
 	focus.
 	
-	Default: _notify-send -a foot -i foot ${title} ${body}_.
+	Default: _notify-send -a ${app-id} -i ${app-id} ${title} ${body}_.
 
 *selection-target*
 	Clipboard target to automatically copy selected text to. One of

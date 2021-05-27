@@ -84,6 +84,8 @@
 * `ctrl + w` (_extend-to-word-boundary_) can now be used across lines
   (https://codeberg.org/dnkl/foot/issues/421).
 * Ignore auto-detected URLs that overlap with OSC-8 URLs.
+* Default value for the `notify` option to use `-a ${app-id} -i
+  ${app-id} ...` instead of `-a foot -i foot ...`.
 
 
 ### Deprecated
