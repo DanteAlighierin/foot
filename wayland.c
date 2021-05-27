@@ -987,6 +987,15 @@ handle_global(void *data, struct wl_registry *registry,
         }
     }
 
+    else if (strcmp(interface, wp_viewporter_interface.name) == 0) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->viewporter = wl_registry_bind(
+            wayl->registry, name, &wp_viewporter_interface, required);
+    }
+
 #if defined(HAVE_XDG_ACTIVATION)
     else if (strcmp(interface, xdg_activation_v1_interface.name) == 0) {
         const uint32_t required = 1;
@@ -1302,6 +1311,8 @@ wayl_destroy(struct wayland *wayl)
     if (wayl->xdg_activation != NULL)
         xdg_activation_v1_destroy(wayl->xdg_activation);
 #endif
+    if (wayl->viewporter != NULL)
+        wp_viewporter_destroy(wayl->viewporter);
     if (wayl->xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);
     if (wayl->shell != NULL)

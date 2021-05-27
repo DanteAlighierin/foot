@@ -15,6 +15,7 @@
 #include <xdg-decoration-unstable-v1.h>
 #include <xdg-output-unstable-v1.h>
 #include <xdg-shell.h>
+#include <viewporter.h>
 
 #if defined(HAVE_XDG_ACTIVATION)
  #include <xdg-activation-v1.h>
@@ -455,6 +456,8 @@ struct wayland {
 
     struct wl_data_device_manager *data_device_manager;
     struct zwp_primary_selection_device_manager_v1 *primary_selection_device_manager;
+
+    struct wp_viewporter *viewporter;
 
 #if defined(HAVE_XDG_ACTIVATION)
     struct xdg_activation_v1 *xdg_activation;
