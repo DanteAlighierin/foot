@@ -221,6 +221,11 @@ in this order:
 	_${body}_ will be replaced with the notification's actual _title_
 	and _body_ (message content).
 	
+	_${app-id}_ is replaced with the value of the command line option
+	_--app-id_, and defaults to *foot*.
+	
+	_${window-title}_ is replaced with the current window title.
+	
 	Applications can trigger notifications in the following ways:
 	
 	- OSC 777: *\\e]777;notify;<title>;<body>\\e\\\\*

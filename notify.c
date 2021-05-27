@@ -34,9 +34,9 @@ notify_notify(const struct terminal *term, const char *title, const char *body)
     size_t argc = 0;
 
     if (!spawn_expand_template(
-            &term->conf->notify, 3,
-            (const char *[]){"app-id", "title", "body"},
-            (const char *[]){term->conf->app_id, title, body},
+            &term->conf->notify, 4,
+            (const char *[]){"app-id", "window-title", "title", "body"},
+            (const char *[]){term->conf->app_id, term->window_title, title, body},
             &argc, &argv))
     {
         return;
