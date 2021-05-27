@@ -87,6 +87,7 @@ struct damage {
 struct composed {
     wchar_t chars[20];
     uint8_t count;
+    int width;
 };
 
 struct row_uri_range {

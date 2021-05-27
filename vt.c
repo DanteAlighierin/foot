@@ -716,9 +716,8 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             if (cc->chars[wanted_count - 1] != wc)
                 continue;
 
-            int grapheme_width = my_wcswidth(cc->chars, cc->count);
-            if (grapheme_width > 0)
-                term_print(term, CELL_COMB_CHARS_LO + i, grapheme_width);
+            if (cc->width > 0)
+                term_print(term, CELL_COMB_CHARS_LO + i, cc->width);
             return;
         }
 
@@ -732,11 +731,18 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         new_cc.chars[wanted_count - 1] = wc;
 
         if (term->composed_count < CELL_COMB_CHARS_HI) {
+            /* TODO: grapheme cluster width */
+            int grapheme_width = wcswidth(new_cc.chars, new_cc.count);
+            if (new_cc.chars[new_cc.count - 1] == 0xfe0f) {
+                /* Emoji selector */
+                grapheme_width = 2;
+            }
+            new_cc.width = grapheme_width;
+
             term->composed_count++;
             term->composed = xrealloc(term->composed, term->composed_count * sizeof(term->composed[0]));
             term->composed[term->composed_count - 1] = new_cc;
 
-            int grapheme_width = my_wcswidth(new_cc.chars, new_cc.count);
             if (grapheme_width > 0)
                 term_print(term, CELL_COMB_CHARS_LO + term->composed_count - 1, grapheme_width);
             return;
