@@ -1366,6 +1366,16 @@ wayl_win_init(struct terminal *term)
         goto out;
     }
 
+    if (wayl->viewporter != NULL) {
+        win->wp_viewport = wp_viewporter_get_viewport(
+            wayl->viewporter, win->surface);
+
+        if (win->wp_viewport == NULL) {
+            LOG_ERR("failed to create wayland viewport");
+            goto out;
+        }
+    }
+
     if (term->colors.alpha == 0xffff) {
         struct wl_region *region = wl_compositor_create_region(
             term->wl->compositor);
@@ -1502,6 +1512,8 @@ wayl_win_destroy(struct wl_window *win)
         xdg_toplevel_destroy(win->xdg_toplevel);
     if (win->xdg_surface != NULL)
         xdg_surface_destroy(win->xdg_surface);
+    if (win->wp_viewport != NULL)
+        wp_viewport_destroy(win->wp_viewport);
     if (win->surface != NULL)
         wl_surface_destroy(win->surface);
 

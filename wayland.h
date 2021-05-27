@@ -393,6 +393,8 @@ struct wl_window {
 
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
 
+    struct wp_viewport *wp_viewport;
+
     enum {CSD_UNKNOWN, CSD_NO, CSD_YES } use_csd;
 
     struct {
