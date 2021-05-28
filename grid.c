@@ -553,7 +553,11 @@ grid_resize_and_reflow(
         struct row_uri_range *range;
         if (old_row->extra != NULL && tll_length(old_row->extra->uri_ranges) > 0) {
             range = &tll_front(old_row->extra->uri_ranges);
-            col_count = max(col_count, range->end + 1);
+
+            /* Make sure the *last* URI range's end point is included in the copy */
+            const struct row_uri_range *last_on_row =
+                &tll_back(old_row->extra->uri_ranges);
+            col_count = max(col_count, last_on_row->end + 1);
         } else
             range = NULL;
 
