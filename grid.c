@@ -523,7 +523,7 @@ grid_resize_and_reflow(
 
         /* Find last non-empty cell */
         int col_count = 0;
-        for (int c = old_cols - 1; c > 0; c--) {
+        for (int c = old_cols - 1; c >= 0; c--) {
             const struct cell *cell = &old_row->cells[c];
             if (!(cell->wc == 0 || cell->wc == CELL_SPACER)) {
                 col_count = c + 1;
