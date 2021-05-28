@@ -582,13 +582,16 @@ grid_resize_and_reflow(
 
                     tp_break = end == tp_col;
                     uri_break = end == uri_col;
+                    LOG_DBG("tp+uri break at %d (%d, %d)", end, tp_col, uri_col);
                 } else {
                     end = uri_col;
                     uri_break = true;
+                    LOG_DBG("uri break at %d", end);
                 }
             } else if (tp != NULL) {
                 end = tp->col + 1;
                 tp_break = true;
+                LOG_DBG("TP break at %d", end);
             } else
                 end = col_count;
 
@@ -658,6 +661,8 @@ grid_resize_and_reflow(
                 from += amount;
                 new_col_idx += amount;
 
+                xassert(new_col_idx <= new_cols);
+
                 if (unlikely(spacers > 0)) {
                     xassert(new_col_idx + spacers == new_cols);
 
@@ -670,31 +675,34 @@ grid_resize_and_reflow(
                 }
             }
 
-            new_col_idx--;
+            xassert(new_col_idx > 0);
 
             if (tp_break) {
                 do {
                     xassert(tp != NULL);
                     xassert(tp->row == old_row_idx);
-                    xassert(tp->col == start + cols - 1);
+                    xassert(tp->col == end - 1);
 
                     tp->row = new_row_idx;
-                    tp->col = new_col_idx;
+                    tp->col = new_col_idx - 1;
 
                     next_tp++;
                     tp = *next_tp;
-                } while (tp->row == old_row_idx && tp->col == start + cols - 1);
+                } while (tp->row == old_row_idx && tp->col == end - 1);
 
                 if (tp->row != old_row_idx)
                     tp = NULL;
+
+                LOG_DBG("next TP (tp=%p): %dx%d",
+                        (void*)tp, (*next_tp)->row, (*next_tp)->col);
             }
 
             if (uri_break) {
-                if (range->start == start + cols - 1)
-                    reflow_uri_range_start(range, new_row, new_col_idx);
+                if (range->start == end - 1)
+                    reflow_uri_range_start(range, new_row, new_col_idx - 1);
 
-                if (range->end == start + cols - 1) {
-                    reflow_uri_range_end(range, new_row, new_col_idx);
+                if (range->end == end - 1) {
+                    reflow_uri_range_end(range, new_row, new_col_idx - 1);
 
                     xassert(&tll_front(old_row->extra->uri_ranges) == range);
                     grid_row_uri_range_destroy(range);
@@ -705,8 +713,6 @@ grid_resize_and_reflow(
                         : NULL;
                 }
             }
-
-            new_col_idx++;
 
             left -= cols;
             start += cols;
@@ -732,8 +738,8 @@ grid_resize_and_reflow(
            (new_cols - new_col_idx) * sizeof(new_row->cells[0]));
 
     for (struct coord **tp = next_tp; *tp != &terminator; tp++) {
-        LOG_DBG("TP: row=%d, col=%d",
-                (*tp)->row, (*tp)->col);
+        LOG_DBG("TP: row=%d, col=%d (old cols: %d, new cols: %d)",
+                (*tp)->row, (*tp)->col, old_cols, new_cols);
     }
     xassert(old_rows == 0 || *next_tp == &terminator);
 
