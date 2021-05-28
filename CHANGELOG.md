@@ -53,6 +53,8 @@
   unavailable) (https://codeberg.org/dnkl/foot/issues/487).
 * `ctrl`+`c` as a default key binding; to cancel search/url mode.
 * `${window-title}` to `notify`.
+* Support for including files in `foot.ini`
+  (https://codeberg.org/dnkl/foot/issues/555).
 
 
 ### Changed

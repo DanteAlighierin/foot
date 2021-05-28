@@ -550,11 +550,41 @@ deprecated_url_option(struct config *conf,
     tll_push_back(conf->notifications, deprecation);
 }
 
+static bool parse_config_file(
+    FILE *f, struct config *conf, const char *path, bool errors_are_fatal);
+
 static bool
 parse_section_main(const char *key, const char *value, struct config *conf,
-                   const char *path, unsigned lineno)
+                   const char *path, unsigned lineno, bool errors_are_fatal)
 {
-    if (strcmp(key, "term") == 0) {
+    if (strcmp(key, "include") == 0) {
+        const char *include_path = value;
+
+        if (include_path[0] != '/') {
+            LOG_AND_NOTIFY_ERR(
+                "%s:%d: [default]: %s: not an absolute path",
+                path, lineno, include_path);
+            return false;
+        }
+
+        FILE *include = fopen(include_path, "r");
+
+        if (include == NULL) {
+            LOG_AND_NOTIFY_ERRNO(
+                "%s:%d: [default]: %s: failed to open",
+                path, lineno, include_path);
+            return false;
+        }
+
+        bool ret = parse_config_file(
+            include, conf, include_path, errors_are_fatal);
+        fclose(include);
+
+        LOG_INFO("imported sub-configuration from %s", include_path);
+        return ret;
+    }
+
+    else if (strcmp(key, "term") == 0) {
         free(conf->term);
         conf->term = xstrdup(value);
     }
@@ -582,7 +612,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         unsigned width, height;
         if (sscanf(value, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
             LOG_AND_NOTIFY_ERR(
-                "%s: %d: [default]: initial-window-size-pixels: "
+                "%s:%d: [default]: initial-window-size-pixels: "
                 "expected WIDTHxHEIGHT, where both are positive integers, "
                 "got '%s'", path, lineno, value);
             return false;
@@ -597,7 +627,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         unsigned width, height;
         if (sscanf(value, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
             LOG_AND_NOTIFY_ERR(
-                "%s: %d: [default]: initial-window-size-chars: "
+                "%s:%d: [default]: initial-window-size-chars: "
                 "expected WIDTHxHEIGHT, where both are positive integers, "
                 "got '%s'", path, lineno, value);
             return false;
@@ -876,7 +906,7 @@ parse_section_main(const char *key, const char *value, struct config *conf,
 
 static bool
 parse_section_bell(const char *key, const char *value, struct config *conf,
-                   const char *path, unsigned lineno)
+                   const char *path, unsigned lineno, bool errors_are_fatal)
 {
     if (strcmp(key, "urgent") == 0)
         conf->bell.urgent = str_to_bool(value);
@@ -898,7 +928,7 @@ parse_section_bell(const char *key, const char *value, struct config *conf,
 
 static bool
 parse_section_scrollback(const char *key, const char *value, struct config *conf,
-                         const char *path, unsigned lineno)
+                         const char *path, unsigned lineno, bool errors_are_fatal)
 {
     if (strcmp(key, "lines") == 0) {
         unsigned long lines;
@@ -969,7 +999,7 @@ parse_section_scrollback(const char *key, const char *value, struct config *conf
 
 static bool
 parse_section_url(const char *key, const char *value, struct config *conf,
-                  const char *path, unsigned lineno)
+                  const char *path, unsigned lineno, bool errors_are_fatal)
 {
     if (strcmp(key, "launch") == 0) {
         if (!str_to_spawn_template(conf, value, &conf->url.launch, path, lineno,
@@ -1062,7 +1092,7 @@ parse_section_url(const char *key, const char *value, struct config *conf,
 
 static bool
 parse_section_colors(const char *key, const char *value, struct config *conf,
-                     const char *path, unsigned lineno)
+                     const char *path, unsigned lineno, bool errors_are_fatal)
 {
     size_t key_len = strlen(key);
     uint8_t last_digit = (unsigned char)key[key_len - 1] - '0';
@@ -1118,7 +1148,7 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
     else if (strcmp(key, "alpha") == 0) {
         double alpha;
         if (!str_to_double(value, &alpha) || alpha < 0. || alpha > 1.) {
-            LOG_AND_NOTIFY_ERR("%s: %d: [colors]: alpha: expected a value in the range 0.0-1.0",
+            LOG_AND_NOTIFY_ERR("%s:%d: [colors]: alpha: expected a value in the range 0.0-1.0",
                     path, lineno);
             return false;
         }
@@ -1142,7 +1172,7 @@ parse_section_colors(const char *key, const char *value, struct config *conf,
 
 static bool
 parse_section_cursor(const char *key, const char *value, struct config *conf,
-                     const char *path, unsigned lineno)
+                     const char *path, unsigned lineno, bool errors_are_fatal)
 {
     if (strcmp(key, "style") == 0) {
         if (strcmp(value, "block") == 0)
@@ -1198,7 +1228,7 @@ parse_section_cursor(const char *key, const char *value, struct config *conf,
 
 static bool
 parse_section_mouse(const char *key, const char *value, struct config *conf,
-                    const char *path, unsigned lineno)
+                    const char *path, unsigned lineno, bool errors_are_fatal)
 {
     if (strcmp(key, "hide-when-typing") == 0)
         conf->mouse.hide_when_typing = str_to_bool(value);
@@ -1216,7 +1246,7 @@ parse_section_mouse(const char *key, const char *value, struct config *conf,
 
 static bool
 parse_section_csd(const char *key, const char *value, struct config *conf,
-                     const char *path, unsigned lineno)
+                     const char *path, unsigned lineno, bool errors_are_fatal)
 {
     if (strcmp(key, "preferred") == 0) {
         if (strcmp(value, "server") == 0)
@@ -1647,7 +1677,7 @@ parse_key_binding_section(
 static bool
 parse_section_key_bindings(
     const char *key, const char *value, struct config *conf,
-    const char *path, unsigned lineno)
+    const char *path, unsigned lineno, bool errors_are_fatal)
 {
     return parse_key_binding_section(
         "key-bindings", key, value, BIND_ACTION_KEY_COUNT, binding_action_map,
@@ -1657,7 +1687,7 @@ parse_section_key_bindings(
 static bool
 parse_section_search_bindings(
     const char *key, const char *value, struct config *conf,
-    const char *path, unsigned lineno)
+    const char *path, unsigned lineno, bool errors_are_fatal)
 {
     static const char *const search_binding_action_map[] = {
         [BIND_ACTION_SEARCH_NONE] = NULL,
@@ -1692,7 +1722,7 @@ parse_section_search_bindings(
 static bool
 parse_section_url_bindings(
     const char *key, const char *value, struct config *conf,
-    const char *path, unsigned lineno)
+    const char *path, unsigned lineno, bool errors_are_fatal)
 {
     static const char *const url_binding_action_map[] = {
         [BIND_ACTION_URL_NONE] = NULL,
@@ -1848,7 +1878,7 @@ has_mouse_binding_collisions(struct config *conf, const key_combo_list_t *key_co
 static bool
 parse_section_mouse_bindings(
     const char *key, const char *value, struct config *conf,
-    const char *path, unsigned lineno)
+    const char *path, unsigned lineno, bool errors_are_fatal)
 {
     char *pipe_cmd;
     char **pipe_argv;
@@ -1943,7 +1973,7 @@ parse_section_mouse_bindings(
 static bool
 parse_section_tweak(
     const char *key, const char *value, struct config *conf,
-    const char *path, unsigned lineno)
+    const char *path, unsigned lineno, bool errors_are_fatal)
 {
     if (strcmp(key, "scaling-filter") == 0) {
         static const char filters[][12] = {
@@ -2100,7 +2130,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
     /* Function pointer, called for each key/value line */
     typedef bool (*parser_fun_t)(
         const char *key, const char *value, struct config *conf,
-        const char *path, unsigned lineno);
+        const char *path, unsigned lineno, bool errors_are_fatal);
 
     static const struct {
         parser_fun_t fun;
@@ -2255,7 +2285,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
         parser_fun_t section_parser = section_info[section].fun;
         xassert(section_parser != NULL);
 
-        if (!section_parser(key, value, conf, path, lineno))
+        if (!section_parser(key, value, conf, path, lineno, errors_are_fatal))
             error_or_continue();
     }
 
