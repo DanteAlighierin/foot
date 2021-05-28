@@ -300,8 +300,9 @@ reflow_uri_range_start(struct row_uri_range *range, struct row *new_row,
         .start = new_col_idx,
         .end = -1,
         .id = range->id,
-        .uri = xstrdup(range->uri),
+        .uri = range->uri,
     };
+    range->uri = NULL;
     grid_row_add_uri_range(new_row, new_range);
 }
 
