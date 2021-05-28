@@ -535,9 +535,17 @@ grid_resize_and_reflow(
 
         /* Do we have a (at least one) tracking point on this row */
         struct coord *tp;
-        if ((*next_tp)->row == old_row_idx) {
+        if (unlikely((*next_tp)->row == old_row_idx)) {
             tp = *next_tp;
-            col_count = max(col_count, tp->col + 1);
+
+            /* Find the *last* tracking point on this row */
+            struct coord *last_on_row = tp;
+            for (struct coord **iter = next_tp; (*iter)->row == old_row_idx; iter++)
+                last_on_row = *iter;
+
+            /* And make sure its end point is included in the col range */
+            xassert(last_on_row->row == old_row_idx);
+            col_count = max(col_count, last_on_row->col + 1);
         } else
             tp = NULL;
 
