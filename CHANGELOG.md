@@ -55,7 +55,8 @@
 * `${window-title}` to `notify`.
 * Support for including files in `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/555).
-* `ENVIRONMENT` section in **foot**(1) and **footclient**(1) man pages.
+* `ENVIRONMENT` section in **foot**(1) and **footclient**(1) man pages
+  (https://codeberg.org/dnkl/foot/issues/556).
 
 
 ### Changed
