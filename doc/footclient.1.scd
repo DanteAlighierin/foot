@@ -88,6 +88,39 @@ failure in the foot server.
 In all other cases the exit code is that of the client application
 (i.e. the shell).
 
+# TERMINFO
+
+Client applications use the terminfo identifier specified by the
+environment variable *TERM* (set by foot) to determine terminal
+capabilities.
+
+Foot has two terminfo definitions: *foot* and *foot-direct*, with
+*foot* being the default.
+
+The difference between the two is in the number of colors they
+describe; *foot* describes 256 colors and *foot-direct* 24-bit
+truecolor.
+
+Note that using the *foot* terminfo does not limit the number of
+usable colors to 256; applications can still use 24-bit RGB colors. In
+fact, most applications work best with *foot* (including 24-bit
+colors)). Using *\*-direct* terminfo entries has been known to crash
+some ncurses applications even.
+
+There are nowever applications that need a *\*-direct* terminfo entry
+for 24-bit support. Emacs is one such example.
+
+While using either *foot* or *foot-direct* is strongly recommended, it
+is possible to use e.g. *xterm-256color* as well. This can be useful
+when remoting to a system where foot's terminfo entries cannot easily
+be installed.
+
+Note that terminfo entries can be installed in the user's home
+directory. I.e. if you do not have root access, or if there is no
+distro package for foot's terminfo entries, can install foot's
+terminfo entries manually, by copying *foot* and *foot-direct* to
+*~/.terminfo/f/*.
+
 # ENVIRONMENT
 
 The following environment variables are used by footclient:
