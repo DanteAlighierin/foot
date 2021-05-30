@@ -88,6 +88,30 @@ failure in the foot server.
 In all other cases the exit code is that of the client application
 (i.e. the shell).
 
+# ENVIRONMENT
+
+The following environment variables are used by footclient:
+
+*XDG\_RUNTIME\_DIR*
+	Used to construct the default _PATH_ for the *--server-socket*
+	option, when no explicit argument is given (see above).
+
+*WAYLAND\_DISPLAY*
+	Used to construct the default _PATH_ for the *--server-socket*
+	option, when no explicit argument is given (see above).
+
+The following environment variables are set in the child process:
+
+*TERM*
+	terminfo/termcap identifier. This is used by client applications
+	to determine which capabilities a terminal supports. The value is
+	set according to either the *--term* command-line option or the
+	*term* config option in *foot.ini*(5).
+
+*COLORTERM*
+	This variable is set to *truecolor*, to indicate to client
+	applications that 24-bit RGB colors are supported.
+
 # SEE ALSO
 
 *foot*(1)

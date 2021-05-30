@@ -325,6 +325,49 @@ numbers, when in _application_ mode.
 
 See *foot.ini*(5)
 
+# ENVIRONMENT
+
+The following environment variables are used by foot:
+
+*SHELL*
+	The default child process to run, when no _command_ argument is
+	specified and the *shell* option in *foot.ini*(5) is not set.
+
+*XDG\_CONFIG\_HOME*
+	Used to determine the default location of *foot.ini*(5).
+
+*XDG\_CONFIG\_DIRS*
+	Used to determine the default fallback location of *foot.ini*(5),
+	when not found in *${XDG\_CONFIG\_HOME:-~/.config}*.
+
+*XDG\_RUNTIME\_DIR*
+	Used to construct the default _PATH_ for the *--server*
+	option, when no explicit argument is given (see above).
+
+*WAYLAND\_DISPLAY*
+	Used to construct the default _PATH_ for the *--server*
+	option, when no explicit argument is given (see above).
+
+*XCURSOR\_THEME*
+	The name of the *Xcursor*(3) theme to use for pointers (typically
+	set by the Wayland compositor).
+
+*XCURSOR\_SIZE*
+	The size to use for *Xcursor*(3) pointers (typically set by the
+	Wayland compositor).
+
+The following environment variables are set in the child process:
+
+*TERM*
+	terminfo/termcap identifier. This is used by client applications
+	to determine which capabilities a terminal supports. The value is
+	set according to either the *--term* command-line option or the
+	*term* config option in *foot.ini*(5).
+
+*COLORTERM*
+	This variable is set to *truecolor*, to indicate to client
+	applications that 24-bit RGB colors are supported.
+
 # BUGS
 
 Please report bugs to https://codeberg.org/dnkl/foot/issues
