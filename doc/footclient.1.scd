@@ -23,7 +23,8 @@ terminal has terminated.
 # OPTIONS
 
 *-t*,*--term*=_TERM_
-	Value to set the environment variable *TERM* to. Default: _foot_.
+	Value to set the environment variable *TERM* to (see *TERMINFO*
+	and *ENVIRONMENT*). Default: _foot_.
 
 *-T*,*--title*=_TITLE_
 	Initial window title. Default: _foot_.
