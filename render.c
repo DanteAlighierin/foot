@@ -507,6 +507,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     unsigned glyph_count = 0;
 
     wchar_t base = cell->wc;
+    int cell_cols;
 
     if (base != 0) {
         if (unlikely(
@@ -553,6 +554,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
             glyph_count = 1;
             glyphs = &single;
+            cell_cols = single->cols;
         }
 
         else if (base >= CELL_COMB_CHARS_LO &&
@@ -571,7 +573,9 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                 composed = NULL;
                 glyphs = grapheme->glyphs;
                 glyph_count = grapheme->count;
-            }
+                cell_cols = grapheme->cols;
+            } else
+                base = composed->chars[0];
         }
 
 
@@ -580,12 +584,14 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             single = fcft_glyph_rasterize(font, base, term->font_subpixel);
             glyph_count = 1;
             glyphs = &single;
+            cell_cols = single->cols;
         }
     }
 
     assert(glyph_count == 0 || glyphs != NULL);
+
     const int cols_left = term->cols - col;
-    int cell_cols = glyph_count > 0 ? max(1, min(glyphs[0]->cols, cols_left)) : 1;
+    cell_cols = max(1, min(cell_cols, cols_left));
 
     /*
      * Hack!
