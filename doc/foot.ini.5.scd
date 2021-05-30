@@ -64,6 +64,22 @@ in this order:
 	Default: _monospace:size=8_ (*font*), _not set_ (*font-bold*,
 	*font-italic*, *font-bold-italic*).
 
+*include*
+	Absolute path to configuration file to import.
+	
+	The import file has its own section scope. I.e. the including
+	configuration is still in the default section after the include,
+	regardless of which section the included file ends in.
+
+	The path must be an absolute path.
+	
+	Multiple include directives are allowed, but only one path per
+	directive.
+	
+	Nested imports are allowed.
+	
+	Default: _not set_.
+
 *line-height*
 	An absolute value, in _points_, that override line height from the
 	font metrics.
