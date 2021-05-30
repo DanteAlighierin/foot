@@ -733,10 +733,12 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         if (term->composed_count < CELL_COMB_CHARS_HI) {
             /* TODO: grapheme cluster width */
             int grapheme_width = wcswidth(new_cc.chars, new_cc.count);
+#if 0  /* Fish expects this, but nothing else */
             if (new_cc.chars[new_cc.count - 1] == 0xfe0f) {
                 /* Emoji selector */
-                grapheme_width = 2;
+                grapheme_width = max(2, grapheme_width);
             }
+#endif
             new_cc.width = grapheme_width;
 
             term->composed_count++;
