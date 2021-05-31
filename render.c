@@ -582,9 +582,14 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         if (single == NULL && grapheme == NULL) {
             xassert(base != 0);
             single = fcft_glyph_rasterize(font, base, term->font_subpixel);
-            glyph_count = 1;
-            glyphs = &single;
-            cell_cols = single->cols;
+            if (single == NULL) {
+                glyph_count = 0;
+                cell_cols = 1;
+            } else {
+                glyph_count = 1;
+                glyphs = &single;
+                cell_cols = single->cols;
+            }
         }
     }
 
