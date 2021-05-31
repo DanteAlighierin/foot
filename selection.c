@@ -258,14 +258,21 @@ selection_find_word_boundary_left(struct terminal *term, struct coord *pos,
         int next_col = pos->col - 1;
         int next_row = pos->row;
 
+        const struct row *row = grid_row_in_view(term->grid, next_row);
+
         /* Linewrap */
         if (next_col < 0) {
             next_col = term->cols - 1;
             if (--next_row < 0)
                 break;
-        }
 
-        const struct row *row = grid_row_in_view(term->grid, next_row);
+            row = grid_row_in_view(term->grid, next_row);
+
+            if (row->linebreak) {
+                /* Hard linebreak, treat as space. I.e. break selection */
+                break;
+            }
+        }
 
         c = row->cells[next_col].wc;
         while (c >= CELL_SPACER) {
@@ -330,14 +337,21 @@ selection_find_word_boundary_right(struct terminal *term, struct coord *pos,
         int next_col = pos->col + 1;
         int next_row = pos->row;
 
+        const struct row *row = grid_row_in_view(term->grid, next_row);
+
         /* Linewrap */
         if (next_col >= term->cols) {
+            if (row->linebreak) {
+                /* Hard linebreak, treat as space. I.e. break selection */
+                break;
+            }
+
             next_col = 0;
             if (++next_row >= term->rows)
                 break;
-        }
 
-        const struct row *row = grid_row_in_view(term->grid, next_row);
+            row = grid_row_in_view(term->grid, next_row);
+        }
 
         c = row->cells[next_col].wc;
         while (c >= CELL_SPACER) {

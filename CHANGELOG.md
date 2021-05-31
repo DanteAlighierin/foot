@@ -142,6 +142,8 @@
   (https://codeberg.org/dnkl/foot/issues/547).
 * Crash when a line wrapping OSC-8 URI crossed the scrollback wrap
   around (https://codeberg.org/dnkl/foot/issues/552).
+* Selection incorrectly wrapping rows ending with an explicit newline
+  (https://codeberg.org/dnkl/foot/issues/565).
 
 
 ### Security
