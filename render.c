@@ -507,7 +507,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     unsigned glyph_count = 0;
 
     wchar_t base = cell->wc;
-    int cell_cols;
+    int cell_cols = 1;
 
     if (base != 0) {
         if (unlikely(
