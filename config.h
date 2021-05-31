@@ -237,6 +237,7 @@ struct config {
         off_t max_shm_pool_size;
         float box_drawing_base_thickness;
         bool box_drawing_solid_shades;
+        bool pua_double_width;
     } tweak;
 
     user_notifications_t notifications;

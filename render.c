@@ -499,9 +499,9 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     const struct fcft_glyph *glyph = NULL;
     const struct composed *composed = NULL;
 
-    if (cell->wc != 0) {
-        wchar_t base = cell->wc;
+    wchar_t base = cell->wc;
 
+    if (base != 0) {
         if (base >= CELL_COMB_CHARS_LO &&
             base < (CELL_COMB_CHARS_LO + term->composed_count))
         {
@@ -576,11 +576,15 @@ render_cell(struct terminal *term, pixman_image_t *pix,
      *  - *this* cells is followed by an empty cell, or a space
      */
     if (term->conf->tweak.allow_overflowing_double_width_glyphs &&
-        glyph != NULL &&
-        glyph->cols == 1 &&
-        glyph->width >= term->cell_width * 15 / 10 &&
-        glyph->width < 3 * term->cell_width &&
-        col < term->cols - 1 &&
+        ((glyph != NULL &&
+          glyph->cols == 1 &&
+          glyph->width >= term->cell_width * 15 / 10 &&
+          glyph->width < 3 * term->cell_width &&
+          col < term->cols - 1) ||
+         (term->conf->tweak.pua_double_width &&
+          ((base >= 0x00e000 && base <= 0x00f8ff) ||
+           (base >= 0x0f0000 && base <= 0x0ffffd) ||
+           (base >= 0x100000 && base <= 0x10fffd)))) &&
         (row->cells[col + 1].wc == 0 || row->cells[col + 1].wc == L' '))
     {
         cell_cols = 2;

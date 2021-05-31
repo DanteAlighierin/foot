@@ -826,7 +826,7 @@ any of these options.
 	Default: _lanczos3_.
 
 *allow-overflowing-double-width-glyphs*
-	Boolean. when enabled, double width glyphs with a character width
+	Boolean. When enabled, double width glyphs with a character width
 	of 1 are allowed to overflow into the neighbouring cell.
 	
 	One use case for this is fonts "icon" characters in the Unicode
@@ -839,7 +839,19 @@ any of these options.
 	Note: this feature uses _heuristics_ to determine *which* glyphs
 	should be allowed to overflow.
 	
+	See also: *pua-double-width*
+	
 	Default: _yes_.
+
+*pua-double-width*
+	Boolean. When enabled, Unicode code points from the private usage
+	area (PUA) are always considered to be double width, regardless of
+	the actual glyph width.
+	
+	Ignored if *allow-overflowing-double-width-glyphs* has been
+	disabled.
+	
+	Default: _no_.
 
 *render-timer*
 	Enables a frame rendering timer, that prints the time it takes to
