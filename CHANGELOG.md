@@ -57,6 +57,9 @@
   (https://codeberg.org/dnkl/foot/issues/555).
 * `ENVIRONMENT` section in **foot**(1) and **footclient**(1) man pages
   (https://codeberg.org/dnkl/foot/issues/556).
+* `tweak.pua-double-width` option to `foot.ini`, letting you force
+  _Private Usage Area_ codepoints to be treated as double-width
+  characters.
 
 
 ### Changed

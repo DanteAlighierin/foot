@@ -2005,6 +2005,12 @@ parse_section_tweak(
             LOG_WARN("tweak: disabled overflowing double-width glyphs");
     }
 
+    else if (strcmp(key, "pua-double-width") == 0) {
+        conf->tweak.pua_double_width = str_to_bool(value);
+        if (conf->tweak.pua_double_width)
+            LOG_WARN("tweak: PUA double width glyphs enabled");
+    }
+
     else if (strcmp(key, "damage-whole-window") == 0) {
         conf->tweak.damage_whole_window = str_to_bool(value);
         if (conf->tweak.damage_whole_window)
@@ -2573,6 +2579,7 @@ config_load(struct config *conf, const char *conf_path,
             .damage_whole_window = false,
             .box_drawing_base_thickness = 0.04,
             .box_drawing_solid_shades = true,
+            .pua_double_width = false,
         },
 
         .notifications = tll_init(),
