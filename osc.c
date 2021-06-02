@@ -521,7 +521,7 @@ osc_notify(struct terminal *term, char *string)
     const char *title = strtok_r(string, ";", &ctx);
     const char *msg = strtok_r(NULL, "\x00", &ctx);
 
-    notify_notify(term, title, msg);
+    notify_notify(term, title, msg != NULL ? msg : "");
 }
 
 static void
@@ -676,6 +676,11 @@ osc_dispatch(struct terminal *term)
 
     case 8:
         osc_uri(term, string);
+        break;
+
+    case 9:
+        /* iTerm2 Growl notifications */
+        osc_notify(term, string);
         break;
 
     case 10:
