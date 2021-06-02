@@ -147,6 +147,8 @@
   around (https://codeberg.org/dnkl/foot/issues/552).
 * Selection incorrectly wrapping rows ending with an explicit newline
   (https://codeberg.org/dnkl/foot/issues/565).
+* Off-by-one error in markup of auto-detected URLs when the URL ends
+  in the right-most column.
 
 
 ### Security

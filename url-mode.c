@@ -320,14 +320,16 @@ auto_detected(const struct terminal *term, enum url_action action,
                     break;
                 }
 
-                if (c >= term->cols - 1 && row->linebreak)
+                if (c >= term->cols - 1 && row->linebreak) {
+                    /*
+                     * Endpoint is inclusive, and we’ll be subtracting
+                     * 1 from the column when emitting the URL.
+                     */
+                    c++;
                     emit_url = true;
+                }
 
                 if (emit_url) {
-                    /* Heuristic to remove trailing characters that
-                     * are valid URL characters, but typically not at
-                     * the end of the URL */
-                    bool done = false;
                     struct coord end = {c, r};
 
                     if (--end.col < 0) {
@@ -335,6 +337,10 @@ auto_detected(const struct terminal *term, enum url_action action,
                         end.col = term->cols - 1;
                     }
 
+                    /* Heuristic to remove trailing characters that
+                     * are valid URL characters, but typically not at
+                     * the end of the URL */
+                    bool done = false;
                     do {
                         switch (url[len - 1]) {
                         case L'.': case L',': case L':': case L';': case L'?':
