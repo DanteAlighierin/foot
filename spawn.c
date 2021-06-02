@@ -44,6 +44,10 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
         if (sigprocmask(SIG_SETMASK, &mask, NULL) < 0)
             goto child_err;
 
+        /* Restore ignored (SIG_IGN) signals */
+        if (sigaction(SIGHUP, &(struct sigaction){.sa_handler = SIG_DFL}, NULL) < 0)
+            goto child_err;
+
         bool close_stderr = stderr_fd >= 0;
         bool close_stdout = stdout_fd >= 0 && stdout_fd != stderr_fd;
         bool close_stdin = stdin_fd >= 0 && stdin_fd != stdout_fd && stdin_fd != stderr_fd;
