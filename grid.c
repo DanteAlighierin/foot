@@ -667,7 +667,7 @@ grid_resize_and_reflow(
                 if (unlikely(spacers > 0)) {
                     xassert(new_col_idx + spacers == new_cols);
 
-                    const struct cell *cell = &old_row->cells[from + amount - 1];
+                    const struct cell *cell = &old_row->cells[from - 1];
 
                     for (int i = 0; i < spacers; i++, new_col_idx++) {
                         new_row->cells[new_col_idx].wc = CELL_SPACER;
