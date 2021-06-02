@@ -151,6 +151,7 @@
   in the right-most column.
 * Multi-column characters being cut in half when resizing the
   alternate screen.
+* Restore `SIGHUP` in spawned processes.
 
 
 ### Security
