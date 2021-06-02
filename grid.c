@@ -194,11 +194,15 @@ grid_resize_without_reflow(
         new_row->dirty = old_row->dirty;
         new_row->linebreak = false;
 
-        /* Clear "new" columns */
         if (new_cols > old_cols) {
+            /* Clear "new" columns */
             memset(&new_row->cells[old_cols], 0,
                    sizeof(struct cell) * (new_cols - old_cols));
             new_row->dirty = true;
+        } else if (old_cols > new_cols) {
+            /* Make sure we don't cut a multi-column character in two */
+            for (int i = new_cols; i > 0 && old_row->cells[i].wc > CELL_SPACER; i--)
+                new_row->cells[i - 1].wc = 0;
         }
 
         /* Map sixels on current "old" row to current "new row" */

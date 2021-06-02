@@ -149,6 +149,8 @@
   (https://codeberg.org/dnkl/foot/issues/565).
 * Off-by-one error in markup of auto-detected URLs when the URL ends
   in the right-most column.
+* Multi-column characters being cut in half when resizing the
+  alternate screen.
 
 
 ### Security
