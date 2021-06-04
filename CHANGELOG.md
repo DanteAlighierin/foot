@@ -95,6 +95,9 @@
 * Ignore auto-detected URLs that overlap with OSC-8 URLs.
 * Default value for the `notify` option to use `-a ${app-id} -i
   ${app-id} ...` instead of `-a foot -i foot ...`.
+* `scrollback-*`+`pipe-scrollback` key bindings are now passed through
+  to the client application when the alt screen is active
+  (https://codeberg.org/dnkl/foot/issues/573).
 
 
 ### Deprecated
