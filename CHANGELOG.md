@@ -152,6 +152,7 @@
 * Multi-column characters being cut in half when resizing the
   alternate screen.
 * Restore `SIGHUP` in spawned processes.
+* Text reflow performance (https://codeberg.org/dnkl/foot/issues/504).
 
 
 ### Security

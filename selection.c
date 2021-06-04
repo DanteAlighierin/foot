@@ -623,9 +623,9 @@ set_pivot_point_for_block_and_char_wise(struct terminal *term,
     }
 
     xassert(term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)]->
-           cells[pivot_start->col].wc < CELL_SPACER);
+           cells[pivot_start->col].wc <= CELL_SPACER);
     xassert(term->grid->rows[pivot_end->row & (term->grid->num_rows - 1)]->
-           cells[pivot_end->col].wc < CELL_SPACER);
+           cells[pivot_end->col].wc <= CELL_SPACER + 1);
 }
 
 void

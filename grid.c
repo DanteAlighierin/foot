@@ -300,8 +300,9 @@ reflow_uri_range_start(struct row_uri_range *range, struct row *new_row,
         .start = new_col_idx,
         .end = -1,
         .id = range->id,
-        .uri = xstrdup(range->uri),
+        .uri = range->uri,
     };
+    range->uri = NULL;
     grid_row_add_uri_range(new_row, new_range);
 }
 
@@ -521,138 +522,203 @@ grid_resize_and_reflow(
             grid, new_grid, new_row, &new_row_idx, &new_col_idx,    \
             new_rows, new_cols)
 
-#define print_spacer(remaining)                                         \
-        do {                                                            \
-            new_row->cells[new_col_idx].wc = CELL_SPACER + (remaining); \
-            new_row->cells[new_col_idx].attrs = old_cell->attrs;        \
-        } while (0)
+        /* Find last non-empty cell */
+        int col_count = 0;
+        for (int c = old_cols - 1; c >= 0; c--) {
+            const struct cell *cell = &old_row->cells[c];
+            if (!(cell->wc == 0 || cell->wc == CELL_SPACER)) {
+                col_count = c + 1;
+                break;
+            }
+        }
 
-        /*
-         * Keep track of empty cells. If the old line ends with a
-         * string of empty cells, we don't need to, nor do we want to,
-         * add those to the new line. However, if there are non-empty
-         * cells *after* the string of empty cells, we need to emit
-         * the empty cells too. And that may trigger linebreaks
-         */
-        int empty_count = 0;
+        xassert(col_count >= 0 && col_count <= old_cols);
 
-        struct row_uri_range *uri_range = NULL;
+        /* Do we have a (at least one) tracking point on this row */
+        struct coord *tp;
+        if (unlikely((*next_tp)->row == old_row_idx)) {
+            tp = *next_tp;
 
-        /* Walk current line of the old grid */
-        for (int c = 0; c < old_cols; c++) {
-            const struct cell *old_cell = &old_row->cells[c];
-            wchar_t wc = old_cell->wc;
+            /* Find the *last* tracking point on this row */
+            struct coord *last_on_row = tp;
+            for (struct coord **iter = next_tp; (*iter)->row == old_row_idx; iter++)
+                last_on_row = *iter;
 
-            /* Check if this cell is one of the tracked cells */
-            bool is_tracking_point = false;
+            /* And make sure its end point is included in the col range */
+            xassert(last_on_row->row == old_row_idx);
+            col_count = max(col_count, last_on_row->col + 1);
+        } else
+            tp = NULL;
 
-            struct coord *tp = *next_tp;
-            if (unlikely(tp->row == old_row_idx && tp->col == c))
-                is_tracking_point = true;
+        /* Does this row have any URIs? */
+        struct row_uri_range *range;
+        if (old_row->extra != NULL && tll_length(old_row->extra->uri_ranges) > 0) {
+            range = &tll_front(old_row->extra->uri_ranges);
 
-            /* If there’s an URI start/end point here, we need to make
-             * sure we handle it */
-            bool on_uri = false;
-            if (old_row->extra != NULL) {
-                if (uri_range != NULL)
-                    on_uri = uri_range->end == c;
+            /* Make sure the *last* URI range's end point is included in the copy */
+            const struct row_uri_range *last_on_row =
+                &tll_back(old_row->extra->uri_ranges);
+            col_count = max(col_count, last_on_row->end + 1);
+        } else
+            range = NULL;
 
-                else if (tll_length(old_row->extra->uri_ranges) > 0) {
-                    struct row_uri_range *range = &tll_front(
-                        old_row->extra->uri_ranges);
+        for (int start = 0, left = col_count; left > 0;) {
+            int end;
+            bool tp_break = false;
+            bool uri_break = false;
 
-                    if (range->start == c) {
-                        uri_range = range;
-                        on_uri = true;
+            /*
+             * Set end-coordinate for this chunk, by finding the next
+             * point-of-interrest on this row.
+             *
+             * If there are no more tracking points, or URI ranges,
+             * the end-coordinate will be at the end of the row,
+             */
+            if (range != NULL) {
+                int uri_col = (range->start >= start ? range->start : range->end) + 1;
+
+                if (tp != NULL) {
+                    int tp_col = tp->col + 1;
+                    end = min(tp_col, uri_col);
+
+                    tp_break = end == tp_col;
+                    uri_break = end == uri_col;
+                    LOG_DBG("tp+uri break at %d (%d, %d)", end, tp_col, uri_col);
+                } else {
+                    end = uri_col;
+                    uri_break = true;
+                    LOG_DBG("uri break at %d", end);
+                }
+            } else if (tp != NULL) {
+                end = tp->col + 1;
+                tp_break = true;
+                LOG_DBG("TP break at %d", end);
+            } else
+                end = col_count;
+
+            int cols = end - start;
+            xassert(cols > 0);
+            xassert(start + cols <= old_cols);
+
+            /*
+             * Copy the row chunk to the new grid. Note that there may
+             * be fewer cells left on the new row than what we have in
+             * the chunk. I.e. the chunk may have to be split up into
+             * multiple memcpy:ies.
+             */
+
+            for (int count = cols, from = start; count > 0;) {
+                xassert(new_col_idx <= new_cols);
+                int new_row_cells_left = new_cols - new_col_idx;
+
+                /* Row full, emit newline and get a new, fresh, row */
+                if (new_row_cells_left <= 0) {
+                    line_wrap();
+                    new_row_cells_left = new_cols;
+                }
+
+                /* Number of cells we can copy */
+                int amount = min(count, new_row_cells_left);
+                xassert(amount > 0);
+
+                /*
+                 * If we’re going to reach the end of the new row, we
+                 * need to make sure we don’t end in the middle of a
+                 * multi-column character.
+                 */
+                int spacers = 0;
+                if (new_col_idx + amount >= new_cols) {
+                    /*
+                     * While the cell *after* the last cell is a CELL_SPACER
+                     *
+                     * This means we have a multi-column character
+                     * that doesn’t fit on the current row. We need to
+                     * push it to the next row, and insert CELL_SPACER
+                     * cells as padding.
+                     */
+                    while (
+                        unlikely(
+                            amount > 1 &&
+                            from + amount < old_cols &&
+                            old_row->cells[from + amount].wc >= CELL_SPACER + 1))
+                    {
+                        amount--;
+                        spacers++;
+                    }
+
+                    xassert(
+                        amount == 1 ||
+                        old_row->cells[from + amount - 1].wc <= CELL_SPACER + 1);
+                }
+
+                xassert(new_col_idx + amount <= new_cols);
+                xassert(from + amount <= old_cols);
+
+                memcpy(
+                    &new_row->cells[new_col_idx], &old_row->cells[from],
+                    amount * sizeof(struct cell));
+
+                count -= amount;
+                from += amount;
+                new_col_idx += amount;
+
+                xassert(new_col_idx <= new_cols);
+
+                if (unlikely(spacers > 0)) {
+                    xassert(new_col_idx + spacers == new_cols);
+
+                    const struct cell *cell = &old_row->cells[from - 1];
+
+                    for (int i = 0; i < spacers; i++, new_col_idx++) {
+                        new_row->cells[new_col_idx].wc = CELL_SPACER;
+                        new_row->cells[new_col_idx].attrs = cell->attrs;
                     }
                 }
             }
 
-            if (wc == 0 && likely(!(is_tracking_point | on_uri))) {
-                empty_count++;
-                continue;
-            }
+            xassert(new_col_idx > 0);
 
-            /* Allow left-adjusted and right-adjusted text, with empty
-             * cells in between, to be "pushed together" */
-            int old_cols_left = old_cols - c;
-            int cols_needed = empty_count + old_cols_left;
-            int new_cols_left = new_cols - new_col_idx;
-            if (new_cols_left < cols_needed && new_cols_left >= old_cols_left)
-                empty_count = max(0, empty_count - (cols_needed - new_cols_left));
-
-            for (int i = 0; i < empty_count; i++) {
-                if (new_col_idx + 1 > new_cols)
-                    line_wrap();
-
-                size_t idx = c - empty_count + i;
-
-                new_row->cells[new_col_idx].wc = 0;
-                new_row->cells[new_col_idx].attrs = old_row->cells[idx].attrs;
-                new_col_idx++;
-            }
-
-            empty_count = 0;
-
-            if (wc == CELL_SPACER)
-                continue;
-
-            if (unlikely(wc < CELL_SPACER &&
-                         c + 1 < old_cols &&
-                         old_row->cells[c + 1].wc > CELL_SPACER))
-            {
-                int width = old_row->cells[c + 1].wc - CELL_SPACER + 1;
-                assert(wcwidth(wc) == width);
-
-                /* Out of columns on current row in new grid? */
-                if (new_col_idx + width > new_cols) {
-                    /* Pad to end-of-line with spacers, then line-wrap */
-                    for (;new_col_idx < new_cols; new_col_idx++)
-                        print_spacer(0);
-                    line_wrap();
-                }
-            }
-
-            if (new_col_idx + 1 > new_cols)
-                line_wrap();
-
-            xassert(new_row != NULL);
-            xassert(new_col_idx >= 0);
-            xassert(new_col_idx < new_cols);
-
-            new_row->cells[new_col_idx] = *old_cell;
-
-            /* Translate tracking point(s) */
-            if (unlikely(is_tracking_point)) {
+            if (tp_break) {
                 do {
                     xassert(tp != NULL);
                     xassert(tp->row == old_row_idx);
-                    xassert(tp->col == c);
+                    xassert(tp->col == end - 1);
 
                     tp->row = new_row_idx;
-                    tp->col = new_col_idx;
+                    tp->col = new_col_idx - 1;
 
                     next_tp++;
                     tp = *next_tp;
-                } while (tp->row == old_row_idx && tp->col == c);
+                } while (tp->row == old_row_idx && tp->col == end - 1);
+
+                if (tp->row != old_row_idx)
+                    tp = NULL;
+
+                LOG_DBG("next TP (tp=%p): %dx%d",
+                        (void*)tp, (*next_tp)->row, (*next_tp)->col);
             }
 
-            if (unlikely(on_uri)) {
-                if (uri_range->start == c)
-                    reflow_uri_range_start(uri_range, new_row, new_col_idx);
-                if (uri_range->end == c) {
-                    reflow_uri_range_end(uri_range, new_row, new_col_idx);
+            if (uri_break) {
+                if (range->start == end - 1)
+                    reflow_uri_range_start(range, new_row, new_col_idx - 1);
 
-                    xassert(&tll_front(old_row->extra->uri_ranges) == uri_range);
-                    grid_row_uri_range_destroy(uri_range);
+                if (range->end == end - 1) {
+                    reflow_uri_range_end(range, new_row, new_col_idx - 1);
+
+                    xassert(&tll_front(old_row->extra->uri_ranges) == range);
+                    grid_row_uri_range_destroy(range);
                     tll_pop_front(old_row->extra->uri_ranges);
 
-                    uri_range = NULL;
+                    range = tll_length(old_row->extra->uri_ranges) > 0
+                        ? &tll_front(old_row->extra->uri_ranges)
+                        : NULL;
                 }
             }
 
-            new_col_idx++;
+            left -= cols;
+            start += cols;
         }
+
 
         if (old_row->linebreak) {
             /* Erase the remaining cells */
@@ -665,7 +731,6 @@ grid_resize_and_reflow(
         grid_row_free(old_grid[old_row_idx]);
         grid->rows[old_row_idx] = NULL;
 
-#undef print_spacer
 #undef line_wrap
     }
 
@@ -673,6 +738,10 @@ grid_resize_and_reflow(
     memset(&new_row->cells[new_col_idx], 0,
            (new_cols - new_col_idx) * sizeof(new_row->cells[0]));
 
+    for (struct coord **tp = next_tp; *tp != &terminator; tp++) {
+        LOG_DBG("TP: row=%d, col=%d (old cols: %d, new cols: %d)",
+                (*tp)->row, (*tp)->col, old_cols, new_cols);
+    }
     xassert(old_rows == 0 || *next_tp == &terminator);
 
 #if defined(_DEBUG)
