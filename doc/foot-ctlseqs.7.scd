@@ -579,6 +579,9 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 :  Hyperlink (a.k.a HTML-like anchors). _id_ is optional; if assigned,
    all URIs with the same *ID* will be treated as a single
    hyperlink. An empty URI closes the hyperlink.
+|  \\E] 9 ; _msg_ \\E\\ 
+:  iTerm2
+:  Desktop notification, uses *notify* in *foot.ini*(5).
 |  \\E] 10 ; _spec_ \\E\\ 
 :  xterm
 :  Change the default foreground color to _spec_, a color in

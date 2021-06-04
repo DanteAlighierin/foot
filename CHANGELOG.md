@@ -60,6 +60,7 @@
 * `tweak.pua-double-width` option to `foot.ini`, letting you force
   _Private Usage Area_ codepoints to be treated as double-width
   characters.
+* OSC 9 desktop notifications (iTerm2 compatible).
 
 
 ### Changed
