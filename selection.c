@@ -489,6 +489,7 @@ premark_selected(struct terminal *term, struct row *row, struct cell *cell,
     for (int i = 0; i < ctx->empty_count + 1; i++)
         row->cells[col - i].attrs.selected |= 2;
 
+    ctx->empty_count = 0;
     return true;
 }
 
@@ -520,6 +521,7 @@ mark_selected(struct terminal *term, struct row *row, struct cell *cell,
         }
     }
 
+    ctx->empty_count = 0;
     return true;
 }
 
