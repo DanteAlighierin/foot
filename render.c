@@ -620,7 +620,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     if (has_cursor && term->cursor_style == CURSOR_BLOCK && term->kbd_focus)
         draw_cursor(term, cell, font, pix, &fg, &bg, x, y, cell_cols);
 
-    if (cell->wc == 0 || cell->wc >= CELL_SPACER ||
+    if (cell->wc == 0 || cell->wc >= CELL_SPACER || cell->wc == L'\t' ||
         (unlikely(cell->attrs.conceal) && !is_selected))
     {
         goto draw_cursor;
