@@ -360,8 +360,190 @@ sixel_scroll_down(struct terminal *term, int rows)
 }
 
 static void
+blend_new_image_over_old(const struct terminal *term,
+                         const struct sixel *six, pixman_region32_t *six_rect,
+                         int row, int col, pixman_image_t **pix, bool *opaque)
+{
+    xassert(pix != NULL);
+    xassert(opaque != NULL);
+
+    const int six_ofs_x = six->pos.col * term->cell_width;
+    const int six_ofs_y = six->pos.row * term->cell_height;
+    const int img_ofs_x = col * term->cell_width;
+    const int img_ofs_y = row * term->cell_height;
+    const int img_width = pixman_image_get_width(*pix);
+    const int img_height = pixman_image_get_height(*pix);
+
+    pixman_region32_t pix_rect;
+    pixman_region32_init_rect(
+        &pix_rect, img_ofs_x, img_ofs_y, img_width, img_height);
+
+    /* Blend the intersection between the old and new images */
+    pixman_region32_t intersection;
+    pixman_region32_init(&intersection);
+    pixman_region32_intersect(&intersection, six_rect, &pix_rect);
+
+    int n_rects = -1;
+    pixman_box32_t *boxes = pixman_region32_rectangles(
+        &intersection, &n_rects);
+
+    if (n_rects == 0)
+        goto out;
+
+    xassert(n_rects == 1);
+    pixman_box32_t *box = &boxes[0];
+
+    if (!*opaque) {
+        /*
+         * New image is transparent - blend on top of the old
+         * sixel image.
+         */
+        pixman_image_composite32(
+            PIXMAN_OP_OVER_REVERSE,
+            six->pix, NULL, *pix,
+            box->x1 - six_ofs_x, box->y1 - six_ofs_y,
+            0, 0,
+            box->x1 - img_ofs_x, box->y1 - img_ofs_y,
+            box->x2 - box->x1, box->y2 - box->y1);
+    }
+
+    /*
+     * Since the old image is split into sub-tiles on a
+     * per-row basis, we need to enlarge the new image and
+     * copy the old image if the old image extends beyond the
+     * new image.
+     *
+     * The "bounding" coordinates are either the edges of the
+     * old image, or the next cell boundary, whichever comes
+     * first.
+     */
+    int bounding_x = six_ofs_x + six->width > img_ofs_x + img_width
+        ? min(
+            six_ofs_x + six->width,
+            (box->x2 + term->cell_width - 1) / term->cell_width * term->cell_width)
+        : box->x2;
+    int bounding_y = six_ofs_y + six->height > img_ofs_y + img_height
+        ? min(
+            six_ofs_y + six->height,
+            (box->y2 + term->cell_height - 1) / term->cell_height * term->cell_height)
+        : box->y2;
+
+    /* The required size of the new image */
+    const int required_width = bounding_x - img_ofs_x;
+    const int required_height = bounding_y - img_ofs_y;
+
+    const int new_width = max(img_width, required_width);
+    const int new_height = max(img_height, required_height);
+
+    if (new_width <= img_width && new_height <= img_height)
+        goto out;
+
+    //LOG_INFO("enlarging: %dx%d -> %dx%d", img_width, img_height, new_width, new_height);
+
+    if (!six->opaque) {
+        /* Transparency is viral */
+        *opaque = false;
+    }
+
+    /* Create a new pixmap */
+    int stride = new_width * sizeof(uint32_t);
+    uint32_t *new_data = xmalloc(stride * new_height);
+    pixman_image_t *pix2 = pixman_image_create_bits_no_clear(
+        PIXMAN_a8r8g8b8, new_width, new_height, new_data, stride);
+
+#if defined(_DEBUG)
+    /* Fill new image with an easy-to-recognize color (green) */
+    for (size_t i = 0; i < new_width * new_height; i++)
+        new_data[i] = 0xff00ff00;
+#endif
+
+    /* Copy the new image, from its old pixmap, to the new pixmap */
+    pixman_image_composite32(
+        PIXMAN_OP_SRC,
+        *pix, NULL, pix2, 0, 0, 0, 0, 0, 0, img_width, img_height);
+
+    /* Copy the bottom tile of the old sixel image into the new pixmap */
+    pixman_image_composite32(
+        PIXMAN_OP_SRC,
+        six->pix, NULL, pix2,
+        box->x1 - six_ofs_x, box->y2 - six_ofs_y,
+        0, 0,
+        box->x1 - img_ofs_x, box->y2 - img_ofs_y,
+        bounding_x - box->x1, bounding_y - box->y2);
+
+    /* Copy the right tile of the old sixel image into the new pixmap */
+    pixman_image_composite32(
+        PIXMAN_OP_SRC,
+        six->pix, NULL, pix2,
+        box->x2 - six_ofs_x, box->y1 - six_ofs_y,
+        0, 0,
+        box->x2 - img_ofs_x, box->y1 - img_ofs_y,
+        bounding_x - box->x2, bounding_y - box->y1);
+
+    /*
+     * Ensure the newly allocated area is initialized.
+     *
+     * Some of it, or all, will have been initialized above, by the
+     * bottom and right tiles from the old sixel image. However, there
+     * may be areas in the new image that isn't covered by the old
+     * image. These areas need to be made transparent.
+     */
+    pixman_region32_t uninitialized;
+    pixman_region32_init_rects(
+        &uninitialized,
+        (const pixman_box32_t []){
+            /* Extended image area on the right side */
+            {img_ofs_x + img_width, img_ofs_y, img_ofs_x + new_width, img_ofs_y + new_height},
+
+            /* Bottom */
+            {img_ofs_x, img_ofs_y + img_height, img_ofs_x + new_width, img_ofs_y + new_height}},
+        2);
+
+    /* Subtract the old sixel image, since the area(s) covered by the
+     * old image has already been copied, and *must* not be
+     * overwritten */
+    pixman_region32_t diff;
+    pixman_region32_init(&diff);
+    pixman_region32_subtract(&diff, &uninitialized, six_rect);
+
+    if (pixman_region32_not_empty(&diff)) {
+        pixman_image_t *src =
+            pixman_image_create_solid_fill(&(pixman_color_t){0});
+
+        int count = -1;
+        pixman_box32_t *rects = pixman_region32_rectangles(&diff, &count);
+
+        for (int i = 0; i < count; i++) {
+            pixman_image_composite32(
+                PIXMAN_OP_SRC,
+                src, NULL, pix2,
+                0, 0, 0, 0,
+                rects[i].x1 - img_ofs_x, rects[i].y1 - img_ofs_y,
+                rects[i].x2 - rects[i].x1,
+                rects[i].y2 - rects[i].y1);
+        }
+
+        pixman_image_unref(src);
+        *opaque = false;
+    }
+
+    pixman_region32_fini(&diff);
+    pixman_region32_fini(&uninitialized);
+
+    /* Use the new pixmap in place of the old one */
+    free(pixman_image_get_data(*pix));
+    pixman_image_unref(*pix);
+    *pix = pix2;
+
+out:
+    pixman_region32_fini(&intersection);
+    pixman_region32_fini(&pix_rect);
+}
+
+static void
 sixel_overwrite(struct terminal *term, struct sixel *six,
-                int row, int col, int height, int width)
+                int row, int col, int height, int width,
+                pixman_image_t **pix, bool *opaque)
 {
     pixman_region32_t six_rect;
     pixman_region32_init_rect(
@@ -376,12 +558,16 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
         width * term->cell_width, height * term->cell_height);
 
 #if defined(_DEBUG)
-    pixman_region32_t intersection;
-    pixman_region32_init(&intersection);
-    pixman_region32_intersect(&intersection, &six_rect, &overwrite_rect);
-    xassert(pixman_region32_not_empty(&intersection));
-    pixman_region32_fini(&intersection);
+    pixman_region32_t cell_intersection;
+    pixman_region32_init(&cell_intersection);
+    pixman_region32_intersect(&cell_intersection, &six_rect, &overwrite_rect);
+    xassert(pixman_region32_not_empty(&cell_intersection));
+    pixman_region32_fini(&cell_intersection);
 #endif
+
+    if (pix != NULL)
+        blend_new_image_over_old(term, six, &six_rect, row, col, pix, opaque);
+
 
     pixman_region32_t diff;
     pixman_region32_init(&diff);
@@ -455,7 +641,8 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
 /* Row numbers are absolute */
 static void
 _sixel_overwrite_by_rectangle(
-    struct terminal *term, int row, int col, int height, int width)
+    struct terminal *term, int row, int col, int height, int width,
+    pixman_image_t **pix, bool *opaque)
 {
     verify_sixels(term);
 
@@ -519,7 +706,8 @@ _sixel_overwrite_by_rectangle(
                 struct sixel to_be_erased = *six;
                 tll_remove(term->grid->sixel_images, it);
 
-                sixel_overwrite(term, &to_be_erased, start, col, height, width);
+                sixel_overwrite(term, &to_be_erased, start, col, height, width,
+                                pix, opaque);
                 sixel_erase(term, &to_be_erased);
             } else
                 xassert(!collides);
@@ -551,10 +739,10 @@ sixel_overwrite_by_rectangle(
     if (wraps) {
         int rows_to_wrap_around = term->grid->num_rows - start;
         xassert(height - rows_to_wrap_around > 0);
-        _sixel_overwrite_by_rectangle(term, start, col, rows_to_wrap_around, width);
-        _sixel_overwrite_by_rectangle(term, 0, col, height - rows_to_wrap_around, width);
+        _sixel_overwrite_by_rectangle(term, start, col, rows_to_wrap_around, width, NULL, NULL);
+        _sixel_overwrite_by_rectangle(term, 0, col, height - rows_to_wrap_around, width, NULL, NULL);
     } else
-        _sixel_overwrite_by_rectangle(term, start, col, height, width);
+        _sixel_overwrite_by_rectangle(term, start, col, height, width, NULL, NULL);
 
     term_update_ascii_printer(term);
 }
@@ -605,7 +793,7 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
                 struct sixel to_be_erased = *six;
                 tll_remove(term->grid->sixel_images, it);
 
-                sixel_overwrite(term, &to_be_erased, row, col, 1, width);
+                sixel_overwrite(term, &to_be_erased, row, col, 1, width, NULL, NULL);
                 sixel_erase(term, &to_be_erased);
             }
         }
@@ -707,7 +895,17 @@ sixel_reflow(struct terminal *term)
             /* Sixels that didn’t overlap may now do so, which isn’t
              * allowed of course */
             _sixel_overwrite_by_rectangle(
-                term, six->pos.row, six->pos.col, six->rows, six->cols);
+                term, six->pos.row, six->pos.col, six->rows, six->cols,
+                &it->item.pix, &it->item.opaque);
+
+            if (it->item.data != pixman_image_get_data(it->item.pix)) {
+                it->item.data = pixman_image_get_data(it->item.pix);
+                it->item.width = pixman_image_get_width(it->item.pix);
+                it->item.height = pixman_image_get_height(it->item.pix);
+                it->item.cols = (it->item.width + term->cell_width - 1) / term->cell_width;
+                it->item.rows = (it->item.height + term->cell_height - 1) / term->cell_height;
+            }
+
             sixel_insert(term, it->item);
         }
 
@@ -822,9 +1020,7 @@ sixel_unhook(struct terminal *term)
                 image.pos.row, image.pos.row + image.rows);
 
         image.pix = pixman_image_create_bits_no_clear(
-            PIXMAN_a8r8g8b8,
-            image.width, image.height,
-            img_data, stride);
+            PIXMAN_a8r8g8b8, image.width, image.height, img_data, stride);
 
         pixel_row_idx += height;
         pixel_rows_left -= height;
@@ -865,7 +1061,16 @@ sixel_unhook(struct terminal *term)
         }
 
         _sixel_overwrite_by_rectangle(
-            term, image.pos.row, image.pos.col, image.rows, image.cols);
+            term, image.pos.row, image.pos.col, image.rows, image.cols,
+            &image.pix, &image.opaque);
+
+        if (image.data != pixman_image_get_data(image.pix)) {
+            image.data = pixman_image_get_data(image.pix);
+            image.width = pixman_image_get_width(image.pix);
+            image.height = pixman_image_get_height(image.pix);
+            image.cols = (image.width + term->cell_width - 1) / term->cell_width;
+            image.rows = (image.height + term->cell_height - 1) / term->cell_height;
+        }
 
         sixel_insert(term, image);
 

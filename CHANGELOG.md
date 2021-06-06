@@ -103,6 +103,9 @@
   colors remain unchanged.
 * Tabs (`\t`) are now preserved when the window is resized, and when
   copying text (https://codeberg.org/dnkl/foot/issues/508).
+* Writing a sixel on top of another sixel no longer erases the first
+  sixel, but the two are instead blended
+  (https://codeberg.org/dnkl/foot/issues/562).
 
 
 ### Deprecated
