@@ -482,7 +482,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
                 struct row *row = grid_row(term->grid, r);
                 for (int c = 0; c < term->cols; c++) {
                     row->cells[c].wc = L'E';
-                    row->cells[c].attrs.clean = 0;
+                    row->cells[c].attrs = (struct attributes){0};
                 }
                 row->dirty = true;
             }
