@@ -1001,6 +1001,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     .end = term->scroll_region.end},
                 count);
             term->grid->cursor.lcf = false;
+            term->grid->cursor.point.col = 0;
             break;
         }
 
@@ -1020,6 +1021,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     .end = term->scroll_region.end},
                 count);
             term->grid->cursor.lcf = false;
+            term->grid->cursor.point.col = 0;
             break;
         }
 

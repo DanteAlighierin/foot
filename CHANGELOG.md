@@ -160,6 +160,7 @@
   alternate screen.
 * Restore `SIGHUP` in spawned processes.
 * Text reflow performance (https://codeberg.org/dnkl/foot/issues/504).
+* IL+DL (`CSI Ps L` + `CSI Ps M`) now moves the cursor to column 0.
 
 
 ### Security
