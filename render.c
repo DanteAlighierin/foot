@@ -377,7 +377,7 @@ cursor_colors_for_cell(const struct terminal *term, const struct cell *cell,
             term->cursor_color.text >> 31
             ? term->cursor_color.text : term->colors.bg);
 
-        if (term->reverse ^ cell->attrs.reverse ^ is_selected) {
+        if (cell->attrs.reverse ^ is_selected) {
             pixman_color_t swap = *cursor_color;
             *cursor_color = *text_color;
             *text_color = swap;
@@ -461,10 +461,10 @@ render_cell(struct terminal *term, pixman_image_t *pix,
         _bg = term->colors.selection_bg;
     } else {
         /* Use cell specific color, if set, otherwise the default colors (possible reversed) */
-        _fg = cell->attrs.have_fg ? cell->attrs.fg : term->colors.fg;
-        _bg = cell->attrs.have_bg ? cell->attrs.bg : term->colors.bg;
+        _fg = cell->attrs.have_fg ? cell->attrs.fg : term->reverse ? term->colors.bg : term->colors.fg;
+        _bg = cell->attrs.have_bg ? cell->attrs.bg : term->reverse ? term->colors.fg : term->colors.bg;
 
-        if (term->reverse ^ cell->attrs.reverse ^ is_selected) {
+        if (cell->attrs.reverse ^ is_selected) {
             uint32_t swap = _fg;
             _fg = _bg;
             _bg = swap;
