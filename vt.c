@@ -174,12 +174,13 @@ action_execute(struct terminal *term, uint8_t c)
         xassert(new_col >= start_col);
         xassert(new_col < term->cols);
 
-
-        bool emit_tab_char = true;
         struct row *row = term->grid->cur_row;
 
+        bool emit_tab_char = (row->cells[start_col].wc == 0 ||
+                              row->cells[start_col].wc == L' ');
+
         /* Check if all cells from here until the next tab stop are empty */
-        for (const struct cell *cell = &row->cells[start_col];
+        for (const struct cell *cell = &row->cells[start_col + 1];
              cell < &row->cells[new_col];
              cell++)
         {
