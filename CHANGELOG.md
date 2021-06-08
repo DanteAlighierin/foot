@@ -61,6 +61,7 @@
   _Private Usage Area_ codepoints to be treated as double-width
   characters.
 * OSC 9 desktop notifications (iTerm2 compatible).
+* Support for LS2 and LS3 (locking shift) escape sequences.
 
 
 ### Changed

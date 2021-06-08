@@ -388,6 +388,18 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
             term_reset(term, true);
             break;
 
+        case 'n':
+            /* LS2 - Locking Shift 2 */
+            term->charsets.selected = 2; /* G2 */
+            term_update_ascii_printer(term);
+            break;
+
+        case 'o':
+            /* LS3 - Locking Shift 3 */
+            term->charsets.selected = 3; /* G3 */
+            term_update_ascii_printer(term);
+            break;
+
         case 'D':
             term_linefeed(term);
             break;
