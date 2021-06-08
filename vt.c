@@ -442,32 +442,23 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
         }
         break;  /* private[0] == 0 */
 
-    case '(':
-    case ')':
-    case '*':
-    case '+':
+    // Designate character set
+    case '(': // G0
+    case ')': // G1
+    case '*': // G2
+    case '+': // G3
         switch (final) {
         case '0': {
-            char priv = term->vt.private;
-            ssize_t idx = priv ==
-                '(' ? 0 :
-                ')' ? 1 :
-                '*' ? 2 :
-                '+' ? 3 : -1;
-            xassert(idx != -1);
+            size_t idx = term->vt.private - '(';
+            xassert(idx <= 3);
             term->charsets.set[idx] = CHARSET_GRAPHIC;
             term_update_ascii_printer(term);
             break;
         }
 
         case 'B': {
-            char priv = term->vt.private;
-            ssize_t idx = priv ==
-                '(' ? 0 :
-                ')' ? 1 :
-                '*' ? 2 :
-                '+' ? 3 : -1;
-            xassert(idx != -1);
+            size_t idx = term->vt.private - '(';
+            xassert(idx <= 3);
             term->charsets.set[idx] = CHARSET_ASCII;
             term_update_ascii_printer(term);
             break;
