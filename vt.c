@@ -426,14 +426,12 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
 
         case 'N':
             /* SS2 - Single Shift 2 */
-            term->charsets.selected = 2; /* G2 */
-            term_update_ascii_printer(term);
+            term_set_single_shift_ascii_printer(term, 2); /* G2 */
             break;
 
         case 'O':
             /* SS3 - Single Shift 3 */
-            term->charsets.selected = 3; /* G3 */
-            term_update_ascii_printer(term);
+            term_set_single_shift_ascii_printer(term, 3); /* G3 */
             break;
 
         case '\\':

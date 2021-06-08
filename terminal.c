@@ -2839,6 +2839,14 @@ ascii_printer_fast(struct terminal *term, wchar_t wc)
         xassert(!term->grid->cursor.lcf);
 }
 
+static void
+ascii_printer_single_shift(struct terminal *term, wchar_t wc)
+{
+    ascii_printer_generic(term, wc);
+    term->charsets.selected = term->charsets.saved;
+    term_update_ascii_printer(term);
+}
+
 void
 term_update_ascii_printer(struct terminal *term)
 {
@@ -2858,6 +2866,14 @@ term_update_ascii_printer(struct terminal *term)
 #endif
 
     term->ascii_printer = new_printer;
+}
+
+void
+term_set_single_shift_ascii_printer(struct terminal *term, int selected)
+{
+    term->charsets.saved = term->charsets.selected;
+    term->charsets.selected = selected;
+    term->ascii_printer = &ascii_printer_single_shift;
 }
 
 enum term_surface

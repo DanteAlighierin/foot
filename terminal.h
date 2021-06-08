@@ -192,6 +192,7 @@ enum charset { CHARSET_ASCII, CHARSET_GRAPHIC };
 
 struct charsets {
     int selected;
+    int saved;
     enum charset set[4]; /* G0-G3 */
 };
 
@@ -605,6 +606,7 @@ bool term_shutdown(struct terminal *term);
 int term_destroy(struct terminal *term);
 
 void term_update_ascii_printer(struct terminal *term);
+void term_set_single_shift_ascii_printer(struct terminal *term, int selected);
 
 void term_reset(struct terminal *term, bool hard);
 bool term_to_slave(struct terminal *term, const void *data, size_t len);
