@@ -1780,11 +1780,11 @@ term_font_dpi_changed(struct terminal *term, int old_scale)
 
     if (need_font_reload) {
         LOG_DBG("DPI/scale change: DPI-awareness=%s, "
-                "DPI: %.2f -> %.2f, scale: %d -> %d, "
+                "DPI: %.2f -> %.2f, scale: %d, "
                 "sizing font based on monitor's %s",
                 term->conf->dpi_aware == DPI_AWARE_AUTO ? "auto" :
                 term->conf->dpi_aware == DPI_AWARE_YES ? "yes" : "no",
-                term->font_dpi, dpi, term->font_scale, term->scale,
+                term->font_dpi, dpi, term->scale,
                 will_scale_using_dpi ? "DPI" : "scaling factor");
     }
 
