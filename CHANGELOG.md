@@ -98,6 +98,9 @@
 * `scrollback-*`+`pipe-scrollback` key bindings are now passed through
   to the client application when the alt screen is active
   (https://codeberg.org/dnkl/foot/issues/573).
+* Reverse video (`\E[?5h`) now only swaps the default foreground and
+  background colors. Cells with explicit foreground and/or background
+  colors remain unchanged.
 
 
 ### Deprecated
