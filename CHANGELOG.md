@@ -170,6 +170,8 @@
 * IL+DL (`CSI Ps L` + `CSI Ps M`) now moves the cursor to column 0.
 * SS2 and SS3 (single shift) escape sequences behaving like locking
   shifts (https://codeberg.org/dnkl/foot/issues/580).
+* `TEXT`+`STRING`+`UTF8_STRING` mime types not being recognized in
+  clipboard offers (https://codeberg.org/dnkl/foot/issues/583).
 
 
 ### Security
