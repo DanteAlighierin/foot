@@ -9,6 +9,7 @@ struct extraction_context {
     wchar_t *buf;
     size_t size;
     size_t idx;
+    size_t tab_spaces_left;
     size_t empty_count;
     size_t newline_count;
     bool strip_trailing_empty;
@@ -191,7 +192,16 @@ extract_one(const struct terminal *term, const struct row *row,
             }
             ctx->empty_count = 0;
         }
+
+        ctx->tab_spaces_left = 0;
     }
+
+    if (cell->wc == L' ' && ctx->tab_spaces_left > 0) {
+        ctx->tab_spaces_left--;
+        return true;
+    }
+
+    ctx->tab_spaces_left = 0;
 
     if (cell->wc == 0) {
         ctx->empty_count++;
@@ -231,6 +241,19 @@ extract_one(const struct terminal *term, const struct row *row,
         if (!ensure_size(ctx, 1))
             goto err;
         ctx->buf[ctx->idx++] = cell->wc;
+
+        if (cell->wc == L'\t') {
+            int next_tab_stop = term->cols - 1;
+            tll_foreach(term->tab_stops, it) {
+                if (it->item > col) {
+                    next_tab_stop = it->item;
+                    break;
+                }
+            }
+
+            xassert(next_tab_stop >= col);
+            ctx->tab_spaces_left = next_tab_stop - col;
+        }
     }
 
     ctx->last_row = row;

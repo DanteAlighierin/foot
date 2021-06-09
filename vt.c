@@ -162,20 +162,58 @@ action_execute(struct terminal *term, uint8_t c)
 
     case '\t': {
         /* HT - horizontal tab */
+        int start_col = term->grid->cursor.point.col;
         int new_col = term->cols - 1;
+
         tll_foreach(term->tab_stops, it) {
-            if (it->item > term->grid->cursor.point.col) {
+            if (it->item > start_col) {
                 new_col = it->item;
                 break;
             }
         }
-        xassert(new_col >= term->grid->cursor.point.col);
+        xassert(new_col >= start_col);
+        xassert(new_col < term->cols);
+
+        struct row *row = term->grid->cur_row;
+
+        bool emit_tab_char = (row->cells[start_col].wc == 0 ||
+                              row->cells[start_col].wc == L' ');
+
+        /* Check if all cells from here until the next tab stop are empty */
+        for (const struct cell *cell = &row->cells[start_col + 1];
+             cell < &row->cells[new_col];
+             cell++)
+        {
+            if (!(cell->wc == 0 || cell->wc == L' ')) {
+                emit_tab_char = false;
+                break;
+            }
+        }
+
+        /*
+         * Emit a tab in current cell, and write spaces to the
+         * subsequent cells, all the way until the next tab stop.
+         */
+        if (emit_tab_char) {
+            row->dirty = true;
+
+            row->cells[start_col].wc = '\t';
+            row->cells[start_col].attrs.clean = 0;
+
+            for (struct cell *cell = &row->cells[start_col + 1];
+                 cell < &row->cells[new_col];
+                 cell++)
+            {
+                cell->wc = L' ';
+                cell->attrs.clean = 0;
+            }
+        }
 
         /* According to the specification, HT _should_ cancel LCF. But
          * XTerm, and nearly all other emulators, don't. So we follow
          * suit */
         bool lcf = term->grid->cursor.lcf;
-        term_cursor_right(term, new_col - term->grid->cursor.point.col);
+        term_cursor_right(term, new_col - start_col);
         term->grid->cursor.lcf = lcf;
         break;
     }

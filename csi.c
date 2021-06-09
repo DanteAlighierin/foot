@@ -1120,7 +1120,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     }
                 }
                 xassert(new_col >= term->grid->cursor.point.col);
+
+                bool lcf = term->grid->cursor.lcf;
                 term_cursor_right(term, new_col - term->grid->cursor.point.col);
+                term->grid->cursor.lcf = lcf;
             }
             break;
         }

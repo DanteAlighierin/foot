@@ -101,6 +101,8 @@
 * Reverse video (`\E[?5h`) now only swaps the default foreground and
   background colors. Cells with explicit foreground and/or background
   colors remain unchanged.
+* Tabs (`\t`) are now preserved when the window is resized, and when
+  copying text (https://codeberg.org/dnkl/foot/issues/508).
 
 
 ### Deprecated
