@@ -609,6 +609,18 @@ term_pt_or_px_as_pixels(const struct terminal *term,
         : pt_or_px->px;
 }
 
+static void
+free_box_drawing(struct fcft_glyph **box_drawing)
+{
+    if (*box_drawing == NULL)
+        return;
+
+    free(pixman_image_get_data((*box_drawing)->pix));
+    pixman_image_unref((*box_drawing)->pix);
+    free(*box_drawing);
+    *box_drawing = NULL;
+}
+
 static bool
 term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
 {
@@ -619,13 +631,8 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
         term->fonts[i] = fonts[i];
     }
 
-    for (size_t i = 0; i < ALEN(term->box_drawing); i++) {
-        if (term->box_drawing[i] != NULL) {
-            pixman_image_unref(term->box_drawing[i]->pix);
-            free(term->box_drawing[i]);
-            term->box_drawing[i] = NULL;
-        }
-    }
+    for (size_t i = 0; i < ALEN(term->box_drawing); i++)
+        free_box_drawing(&term->box_drawing[i]);
 
     const int old_cell_width = term->cell_width;
     const int old_cell_height = term->cell_height;
@@ -1385,12 +1392,8 @@ term_destroy(struct terminal *term)
     for (size_t i = 0; i < 4; i++)
         free(term->font_sizes[i]);
 
-    for (size_t i = 0; i < ALEN(term->box_drawing); i++) {
-        if (term->box_drawing[i] != NULL) {
-            pixman_image_unref(term->box_drawing[i]->pix);
-            free(term->box_drawing[i]);
-        }
-    }
+    for (size_t i = 0; i < ALEN(term->box_drawing); i++)
+        free_box_drawing(&term->box_drawing[i]);
 
     free(term->search.buf);
 

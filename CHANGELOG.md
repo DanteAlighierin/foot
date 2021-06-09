@@ -172,6 +172,9 @@
   shifts (https://codeberg.org/dnkl/foot/issues/580).
 * `TEXT`+`STRING`+`UTF8_STRING` mime types not being recognized in
   clipboard offers (https://codeberg.org/dnkl/foot/issues/583).
+* Memory leak caused by custom box drawing glyphs not being completely
+  freed when destroying a foot window instance
+  (https://codeberg.org/dnkl/foot/issues/586).
 
 
 ### Security
