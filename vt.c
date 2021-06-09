@@ -234,13 +234,13 @@ action_execute(struct terminal *term, uint8_t c)
 
     case '\x0e':
         /* SO - shift out */
-        term->charsets.selected = 1; /* G1 */
+        term->charsets.selected = G1;
         term_update_ascii_printer(term);
         break;
 
     case '\x0f':
         /* SI - shift in */
-        term->charsets.selected = 0; /* G0 */
+        term->charsets.selected = G0;
         term_update_ascii_printer(term);
         break;
 
@@ -426,6 +426,18 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
             term_reset(term, true);
             break;
 
+        case 'n':
+            /* LS2 - Locking Shift 2 */
+            term->charsets.selected = G2;
+            term_update_ascii_printer(term);
+            break;
+
+        case 'o':
+            /* LS3 - Locking Shift 3 */
+            term->charsets.selected = G3;
+            term_update_ascii_printer(term);
+            break;
+
         case 'D':
             term_linefeed(term);
             break;
@@ -452,14 +464,12 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
 
         case 'N':
             /* SS2 - Single Shift 2 */
-            term->charsets.selected = 2; /* G2 */
-            term_update_ascii_printer(term);
+            term_single_shift(term, G2);
             break;
 
         case 'O':
             /* SS3 - Single Shift 3 */
-            term->charsets.selected = 3; /* G3 */
-            term_update_ascii_printer(term);
+            term_single_shift(term, G3);
             break;
 
         case '\\':
@@ -488,7 +498,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
         switch (final) {
         case '0': {
             size_t idx = term->vt.private - '(';
-            xassert(idx <= 3);
+            xassert(idx <= G3);
             term->charsets.set[idx] = CHARSET_GRAPHIC;
             term_update_ascii_printer(term);
             break;
@@ -496,7 +506,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
 
         case 'B': {
             size_t idx = term->vt.private - '(';
-            xassert(idx <= 3);
+            xassert(idx <= G3);
             term->charsets.set[idx] = CHARSET_ASCII;
             term_update_ascii_printer(term);
             break;

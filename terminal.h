@@ -189,9 +189,11 @@ enum cursor_origin { ORIGIN_ABSOLUTE, ORIGIN_RELATIVE };
 enum cursor_keys { CURSOR_KEYS_DONTCARE, CURSOR_KEYS_NORMAL, CURSOR_KEYS_APPLICATION };
 enum keypad_keys { KEYPAD_DONTCARE, KEYPAD_NUMERICAL, KEYPAD_APPLICATION };
 enum charset { CHARSET_ASCII, CHARSET_GRAPHIC };
+enum charset_designator { G0, G1, G2, G3 };
 
 struct charsets {
-    int selected;
+    enum charset_designator selected;
+    enum charset_designator saved;
     enum charset set[4]; /* G0-G3 */
 };
 
@@ -605,6 +607,7 @@ bool term_shutdown(struct terminal *term);
 int term_destroy(struct terminal *term);
 
 void term_update_ascii_printer(struct terminal *term);
+void term_single_shift(struct terminal *term, enum charset_designator idx);
 
 void term_reset(struct terminal *term, bool hard);
 bool term_to_slave(struct terminal *term, const void *data, size_t len);

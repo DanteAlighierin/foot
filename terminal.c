@@ -1606,11 +1606,11 @@ term_reset(struct terminal *term, bool hard)
     term->bell_action_enabled = true;
     term->mouse_tracking = MOUSE_NONE;
     term->mouse_reporting = MOUSE_NORMAL;
-    term->charsets.selected = 0;
-    term->charsets.set[0] = CHARSET_ASCII;
-    term->charsets.set[1] = CHARSET_ASCII;
-    term->charsets.set[2] = CHARSET_ASCII;
-    term->charsets.set[3] = CHARSET_ASCII;
+    term->charsets.selected = G0;
+    term->charsets.set[G0] = CHARSET_ASCII;
+    term->charsets.set[G1] = CHARSET_ASCII;
+    term->charsets.set[G2] = CHARSET_ASCII;
+    term->charsets.set[G3] = CHARSET_ASCII;
     term->saved_charsets = term->charsets;
     tll_free_and_free(term->window_title_stack, free);
     term_set_window_title(term, term->conf->title);
@@ -2839,6 +2839,14 @@ ascii_printer_fast(struct terminal *term, wchar_t wc)
         xassert(!term->grid->cursor.lcf);
 }
 
+static void
+ascii_printer_single_shift(struct terminal *term, wchar_t wc)
+{
+    ascii_printer_generic(term, wc);
+    term->charsets.selected = term->charsets.saved;
+    term_update_ascii_printer(term);
+}
+
 void
 term_update_ascii_printer(struct terminal *term)
 {
@@ -2858,6 +2866,14 @@ term_update_ascii_printer(struct terminal *term)
 #endif
 
     term->ascii_printer = new_printer;
+}
+
+void
+term_single_shift(struct terminal *term, enum charset_designator idx)
+{
+    term->charsets.saved = term->charsets.selected;
+    term->charsets.selected = idx;
+    term->ascii_printer = &ascii_printer_single_shift;
 }
 
 enum term_surface

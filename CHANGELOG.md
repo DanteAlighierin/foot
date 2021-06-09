@@ -61,6 +61,8 @@
   _Private Usage Area_ codepoints to be treated as double-width
   characters.
 * OSC 9 desktop notifications (iTerm2 compatible).
+* Support for LS2 and LS3 (locking shift) escape sequences
+  (https://codeberg.org/dnkl/foot/issues/581).
 
 
 ### Changed
@@ -166,6 +168,8 @@
 * Restore `SIGHUP` in spawned processes.
 * Text reflow performance (https://codeberg.org/dnkl/foot/issues/504).
 * IL+DL (`CSI Ps L` + `CSI Ps M`) now moves the cursor to column 0.
+* SS2 and SS3 (single shift) escape sequences behaving like locking
+  shifts (https://codeberg.org/dnkl/foot/issues/580).
 
 
 ### Security
