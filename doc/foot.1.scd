@@ -30,6 +30,10 @@ the foot command line
 	Verify configuration and then exit with 0 if ok, otherwise exit
 	with 230 (see *EXIT STATUS*).
 
+*-o*,*--override* [_SECTION_.]_KEY_=_VALUE_
+	Override an option set in the configuration file. If _SECTION_ is not
+	given, defaults to _main_. 
+
 *-f*,*--font*=_FONT_
 	Comma separated list of fonts to use, in fontconfig format (see
 	*FONT FORMAT*).

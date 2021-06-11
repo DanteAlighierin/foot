@@ -63,6 +63,8 @@
 * OSC 9 desktop notifications (iTerm2 compatible).
 * Support for LS2 and LS3 (locking shift) escape sequences
   (https://codeberg.org/dnkl/foot/issues/581).
+* Support for overriding configuration options on the command line
+  (https://codeberg.org/dnkl/foot/issues/554).
 
 
 ### Changed

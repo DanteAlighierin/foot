@@ -17,6 +17,7 @@ _foot()
         "--log-no-syslog"
         "--login-shell"
         "--maximized"
+        "--override"
         "--print-pid"
         "--server"
         "--term"
@@ -70,7 +71,7 @@ _foot()
         COMPREPLY=( $(compgen -W "error warning info" -- ${cur}) )
     elif [[ ${prev} == '--log-colorize' ]] ; then
         COMPREPLY=( $(compgen -W "never always auto" -- ${cur}) )
-    elif [[ ${prev} =~ ^(--app-id|--help|--title|--version|--window-size-chars|--window-size-pixels|--check-config)$ ]] ; then
+    elif [[ ${prev} =~ ^(--app-id|--help|--override|--title|--version|--window-size-chars|--window-size-pixels|--check-config)$ ]] ; then
         : # don't autocomplete for these flags
     else
         # complete commands from $PATH

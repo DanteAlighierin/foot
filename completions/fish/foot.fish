@@ -1,6 +1,7 @@
 complete -c foot -x                            -a "(__fish_complete_subcommand)"
 complete -c foot -r -s c -l config                                                                    -d "path to configuration file (XDG_CONFIG_HOME/foot/foot.ini)"
 complete -c foot    -s C -l check-config                                                              -d "verify configuration and exit with 0 if ok, otherwise exit with 1"
+complete -c foot -x -s o -l override                                                                  -d "configuration option to override, in form SECTION.KEY=VALUE"
 complete -c foot -x -s f -l font               -a "(fc-list : family | sed 's/,/\n/g' | sort | uniq)" -d "font name and style in fontconfig format (monospace)"
 complete -c foot -x -s t -l term               -a '(find /usr/share/terminfo -type f -printf "%f\n")' -d "value to set the environment variable TERM to (foot)"
 complete -c foot -x -s T -l title                                                                     -d "initial window title"
