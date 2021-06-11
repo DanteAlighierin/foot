@@ -2662,7 +2662,7 @@ config_load(struct config *conf, const char *conf_path,
     } else {
         conf_file = open_config();
         if (conf_file.fd < 0) {
-            LOG_AND_NOTIFY_ERR("no configuration found, using defaults");
+            LOG_WARN("no configuration found, using defaults");
             ret = !errors_are_fatal;
             goto out;
         }

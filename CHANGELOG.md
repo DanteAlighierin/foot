@@ -108,6 +108,9 @@
 * Writing a sixel on top of another sixel no longer erases the first
   sixel, but the two are instead blended
   (https://codeberg.org/dnkl/foot/issues/562).
+* Running foot without a configuration file is no longer an error; it
+  has been demoted to a warning, and is no longer presented as a
+  notification in the terminal window, but only logged on stderr.
 
 
 ### Deprecated
