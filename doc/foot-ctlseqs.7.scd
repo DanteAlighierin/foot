@@ -95,11 +95,11 @@ equivalent to 8-bit C1 controls.
 |  \\E N
 :  SS2
 :  VT220
-:  Single shift G2; select the _G2_ character set.
+:  Single shift select of G2 character set (affects next character only).
 |  \\E O
 :  SS3
 :  VT220
-:  Single shift G3; select the _G3_ character set.
+:  Single shift select of G3 character set (affects next character only).
 |  \\E =
 :  DECKPAM
 :  VT100
