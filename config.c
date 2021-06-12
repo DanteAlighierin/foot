@@ -2114,50 +2114,119 @@ parse_section_tweak(
 }
 
 static bool
+parse_key_value(char *kv, char **section, char **key, char **value)
+{
+
+    /*strip leading whitespace*/
+    while (*kv && isspace(*kv))
+        ++kv;
+
+    if (section != NULL)
+        *section = NULL;
+    *key = kv;
+    *value = NULL;
+
+    size_t kvlen = strlen(kv);
+    for (size_t i = 0; i < kvlen; ++i) {
+        if (kv[i] == '.') {
+            if (section != NULL && *section == NULL) {
+                *section = kv;
+                kv[i] = '\0';
+                *key = &kv[i + 1];
+            }
+        } else if (kv[i] == '=') {
+            if (section != NULL && *section == NULL)
+                *section = "main";
+            kv[i] = '\0';
+            *value = &kv[i + 1];
+            break;
+        }
+    }
+    if (*value == NULL)
+        return false;
+
+    /* Strip trailing whitespace from key (leading stripped earlier) */
+    {
+        xassert(!isspace(**key));
+
+        char *end = *key + strlen(*key) - 1;
+        while (isspace(*end))
+            end--;
+        *(end + 1) = '\0';
+    }
+
+    /* Strip leading+trailing whitespace from valueue */
+    {
+        while (isspace(**value))
+            ++*value;
+
+        if (*value[0] != '\0') {
+            char *end = *value + strlen(*value) - 1;
+            while (isspace(*end))
+                end--;
+            *(end + 1) = '\0';
+        }
+    }
+    return true;
+}
+
+enum section {
+    SECTION_MAIN,
+    SECTION_BELL,
+    SECTION_SCROLLBACK,
+    SECTION_URL,
+    SECTION_COLORS,
+    SECTION_CURSOR,
+    SECTION_MOUSE,
+    SECTION_CSD,
+    SECTION_KEY_BINDINGS,
+    SECTION_SEARCH_BINDINGS,
+    SECTION_URL_BINDINGS,
+    SECTION_MOUSE_BINDINGS,
+    SECTION_TWEAK,
+    SECTION_COUNT,
+};
+
+/* Function pointer, called for each key/value line */
+typedef bool (*parser_fun_t)(
+    const char *key, const char *value, struct config *conf,
+    const char *path, unsigned lineno, bool errors_are_fatal);
+
+static const struct {
+    parser_fun_t fun;
+    const char *name;
+} section_info[] = {
+    [SECTION_MAIN] =            {&parse_section_main, "main"},
+    [SECTION_BELL] =            {&parse_section_bell, "bell"},
+    [SECTION_SCROLLBACK] =      {&parse_section_scrollback, "scrollback"},
+    [SECTION_URL] =             {&parse_section_url, "url"},
+    [SECTION_COLORS] =          {&parse_section_colors, "colors"},
+    [SECTION_CURSOR] =          {&parse_section_cursor, "cursor"},
+    [SECTION_MOUSE] =           {&parse_section_mouse, "mouse"},
+    [SECTION_CSD] =             {&parse_section_csd, "csd"},
+    [SECTION_KEY_BINDINGS] =    {&parse_section_key_bindings, "key-bindings"},
+    [SECTION_SEARCH_BINDINGS] = {&parse_section_search_bindings, "search-bindings"},
+    [SECTION_URL_BINDINGS] =    {&parse_section_url_bindings, "url-bindings"},
+    [SECTION_MOUSE_BINDINGS] =  {&parse_section_mouse_bindings, "mouse-bindings"},
+    [SECTION_TWEAK] =           {&parse_section_tweak, "tweak"},
+};
+
+static_assert(ALEN(section_info) == SECTION_COUNT, "section info array size mismatch");
+
+static enum section
+str_to_section(const char *str)
+{
+    for (enum section section = SECTION_MAIN; section < SECTION_COUNT; ++section) {
+        if (strcmp(str, section_info[section].name) == 0)
+            return section;
+    }
+    return SECTION_COUNT;
+}
+
+static bool
 parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_are_fatal)
 {
-    enum section {
-        SECTION_MAIN,
-        SECTION_BELL,
-        SECTION_SCROLLBACK,
-        SECTION_URL,
-        SECTION_COLORS,
-        SECTION_CURSOR,
-        SECTION_MOUSE,
-        SECTION_CSD,
-        SECTION_KEY_BINDINGS,
-        SECTION_SEARCH_BINDINGS,
-        SECTION_URL_BINDINGS,
-        SECTION_MOUSE_BINDINGS,
-        SECTION_TWEAK,
-        SECTION_COUNT,
-    } section = SECTION_MAIN;
-
-    /* Function pointer, called for each key/value line */
-    typedef bool (*parser_fun_t)(
-        const char *key, const char *value, struct config *conf,
-        const char *path, unsigned lineno, bool errors_are_fatal);
-
-    static const struct {
-        parser_fun_t fun;
-        const char *name;
-    } section_info[] = {
-        [SECTION_MAIN] =            {&parse_section_main, "main"},
-        [SECTION_BELL] =            {&parse_section_bell, "bell"},
-        [SECTION_SCROLLBACK] =      {&parse_section_scrollback, "scrollback"},
-        [SECTION_URL] =             {&parse_section_url, "url"},
-        [SECTION_COLORS] =          {&parse_section_colors, "colors"},
-        [SECTION_CURSOR] =          {&parse_section_cursor, "cursor"},
-        [SECTION_MOUSE] =           {&parse_section_mouse, "mouse"},
-        [SECTION_CSD] =             {&parse_section_csd, "csd"},
-        [SECTION_KEY_BINDINGS] =    {&parse_section_key_bindings, "key-bindings"},
-        [SECTION_SEARCH_BINDINGS] = {&parse_section_search_bindings, "search-bindings"},
-        [SECTION_URL_BINDINGS] =    {&parse_section_url_bindings, "url-bindings"},
-        [SECTION_MOUSE_BINDINGS] =  {&parse_section_mouse_bindings, "mouse-bindings"},
-        [SECTION_TWEAK] =           {&parse_section_tweak, "tweak"},
-    };
-
-    static_assert(ALEN(section_info) == SECTION_COUNT, "section info array size mismatch");
+    enum section section = SECTION_MAIN;
 
     unsigned lineno = 0;
 
@@ -2227,13 +2296,7 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
 
             *end = '\0';
 
-            section = SECTION_COUNT;
-            for (enum section i = 0; i < SECTION_COUNT; i++) {
-                if (strcmp(&key_value[1], section_info[i].name) == 0) {
-                    section = i;
-                }
-            }
-
+            section = str_to_section(&key_value[1]);
             if (section == SECTION_COUNT) {
                 LOG_AND_NOTIFY_ERR("%s:%d: invalid section name: %s", path, lineno, &key_value[1]);
                 error_or_continue();
@@ -2248,39 +2311,12 @@ parse_config_file(FILE *f, struct config *conf, const char *path, bool errors_ar
             continue;
         }
 
-        char *key = strtok(key_value, "=");
-        if (key == NULL) {
-            LOG_AND_NOTIFY_ERR("%s:%d: syntax error: no key specified", path, lineno);
-            error_or_continue();
-        }
-
-        char *value = strtok(NULL, "\n");
-        if (value == NULL) {
-            /* Empty value, i.e. "key=" */
-            value = key + strlen(key);
-        }
-
-        /* Strip trailing whitespace from key (leading stripped earlier) */
-        {
-            xassert(!isspace(*key));
-
-            char *end = key + strlen(key) - 1;
-            while (isspace(*end))
-                end--;
-            *(end + 1) = '\0';
-        }
-
-        /* Strip leading+trailing whitespace from value */
-        {
-            while (isspace(*value))
-                value++;
-
-            if (value[0] != '\0') {
-                char *end = value + strlen(value) - 1;
-                while (isspace(*end))
-                    end--;
-                *(end + 1) = '\0';
-            }
+        char *key, *value;
+        if (!parse_key_value(key_value, NULL, &key, &value)) {
+            LOG_AND_NOTIFY_ERR("%s:%d: syntax error: %s", path, lineno, key_value);
+            if (errors_are_fatal)
+                goto err;
+            break;
         }
 
         LOG_DBG("section=%s, key='%s', value='%s', comment='%s'",
@@ -2453,12 +2489,13 @@ add_default_mouse_bindings(struct config *conf)
 
 bool
 config_load(struct config *conf, const char *conf_path,
-            user_notifications_t *initial_user_notifications, bool errors_are_fatal)
+            user_notifications_t *initial_user_notifications,
+            config_override_t *overrides, bool errors_are_fatal)
 {
     bool ret = false;
 
     *conf = (struct config) {
-    	.term = xstrdup(DEFAULT_TERM),
+        .term = xstrdup(DEFAULT_TERM),
         .shell = get_shell(),
         .title = xstrdup("foot"),
         .app_id = xstrdup("foot"),
@@ -2679,7 +2716,8 @@ config_load(struct config *conf, const char *conf_path,
         goto out;
     }
 
-    ret = parse_config_file(f, conf, conf_file.path, errors_are_fatal);
+    ret = parse_config_file(f, conf, conf_file.path, errors_are_fatal) &&
+          config_override_apply(conf, overrides, errors_are_fatal);
     fclose(f);
 
     conf->colors.use_custom.selection =
@@ -2701,6 +2739,39 @@ out:
         close(conf_file.fd);
 
     return ret;
+}
+
+bool
+config_override_apply(struct config *conf, config_override_t *overrides, bool errors_are_fatal)
+{
+    int i = -1;
+    tll_foreach(*overrides, it) {
+        ++i;
+        char *section_str, *key, *value;
+        if (!parse_key_value(it->item, &section_str, &key, &value)) {
+            LOG_AND_NOTIFY_ERR("syntax error: %s", it->item);
+            if (errors_are_fatal)
+                return false;
+            continue;
+        }
+
+        enum section section = str_to_section(section_str);
+        if (section == SECTION_COUNT) {
+            LOG_AND_NOTIFY_ERR("override: invalid section name: %s", section_str);
+            if (errors_are_fatal)
+                return false;
+            continue;
+        }
+        parser_fun_t section_parser = section_info[section].fun;
+        xassert(section_parser != NULL);
+
+        if (!section_parser(key, value, conf, "override", i, errors_are_fatal)) {
+            if (errors_are_fatal)
+                return false;
+            continue;
+        }
+    }
+    return true;
 }
 
 static void

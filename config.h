@@ -54,6 +54,8 @@ struct config_mouse_binding {
 };
 typedef tll(struct config_mouse_binding) config_mouse_binding_list_t;
 
+typedef tll(char *) config_override_t;
+
 struct config_spawn_template {
     char *raw_cmd;
     char **argv;
@@ -243,9 +245,12 @@ struct config {
     user_notifications_t notifications;
 };
 
+bool config_override_apply(struct config *conf, config_override_t *overrides,
+    bool errors_are_fatal);
 bool config_load(
     struct config *conf, const char *path,
-    user_notifications_t *initial_user_notifications, bool errors_are_fatal);
+    user_notifications_t *initial_user_notifications,
+    config_override_t *overrides, bool errors_are_fatal);
 void config_free(struct config conf);
 
 bool config_font_parse(const char *pattern, struct config_font *font);

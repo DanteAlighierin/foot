@@ -62,6 +62,7 @@ print_usage(const char *prog_name)
         "Options:\n"
         "  -c,--config=PATH                        load configuration from PATH ($XDG_CONFIG_HOME/foot/foot.ini)\n"
         "  -C,--check-config                       verify configuration, exit with 0 if ok, otherwise exit with 1\n"
+        "  -o,--override [section.]key=value       override configuration option\n"
         "  -f,--font=FONT                          comma separated list of fonts in fontconfig format (monospace)\n"
         "  -t,--term=TERM                          value to set the environment variable TERM to (%s)\n"
         "  -T,--title=TITLE                        initial window title (foot)\n"
@@ -165,6 +166,7 @@ main(int argc, char *const *argv)
     static const struct option longopts[] =  {
         {"config",                 required_argument, NULL, 'c'},
         {"check-config",           no_argument,       NULL, 'C'},
+        {"override",               required_argument, NULL, 'o'},
         {"term",                   required_argument, NULL, 't'},
         {"title",                  required_argument, NULL, 'T'},
         {"app-id",                 required_argument, NULL, 'a'},
@@ -210,9 +212,11 @@ main(int argc, char *const *argv)
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
     bool log_syslog = true;
     user_notifications_t user_notifications = tll_init();
+    config_override_t overrides = tll_init();
 
     while (true) {
-        int c = getopt_long(argc, argv, "+c:Ct:T:a:LD:f:w:W:s::HmFPp:d:l::Svh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+c:Co:t:T:a:LD:f:w:W:s::HmFPp:d:l::Svh", longopts, NULL);
+
         if (c == -1)
             break;
 
@@ -223,6 +227,10 @@ main(int argc, char *const *argv)
 
         case 'C':
             check_config = true;
+            break;
+
+        case 'o':
+            tll_push_back(overrides, optarg);
             break;
 
         case 't':
@@ -404,7 +412,9 @@ main(int argc, char *const *argv)
     }
 
     struct config conf = {NULL};
-    if (!config_load(&conf, conf_path, &user_notifications, check_config)) {
+    bool conf_successful = config_load(&conf, conf_path, &user_notifications, &overrides, check_config);
+    tll_free(overrides);
+    if (!conf_successful) {
         config_free(conf);
         return ret;
     }
