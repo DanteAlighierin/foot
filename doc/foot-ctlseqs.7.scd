@@ -46,10 +46,10 @@ This document describes all the control sequences supported by foot.
 :  CR
 :  Carriage ret; move the cursor to the leftmost column.
 |  \\x0E
-:  SS0
+:  SO
 :  Shift out; select the _G1_ character set.
 |  \\x0F
-:  SS1
+:  SI
 :  Shift in; select the _G0_ character set.
 
 # Sequences beginning with ESC
