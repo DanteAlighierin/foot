@@ -549,6 +549,11 @@ manipulation sequences. The generic format is:
 :  XTSMGRAPHICS
 :  xterm
 :  Set or request sixel attributes.
+|  \\E > _Ps_ q
+:  XTVERSION
+:  xterm
+:  _Ps_=0 -> report terminal name and version, in the form
+   *\\EP>|foot(version)\\E\\*.
 
 # OSC
 
