@@ -301,6 +301,9 @@
   (https://codeberg.org/dnkl/foot/issues/395).
 * Completions for Bash shell
   (https://codeberg.org/dnkl/foot/issues/10).
+* Implement `XTVERSION` (`CSI > 0q`). Foot will reply with
+  `DCS>|foot(<major>.<minor>.<patch>)ST`
+  (https://codeberg.org/dnkl/foot/issues/359).
 
 
 ### Changed
