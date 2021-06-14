@@ -662,4 +662,4 @@ and are terminated by *\\E\\* (ST).
 
 # FOOTNOTE
 
-Foot does not support 8-bit control characters ("CC1").
+Foot does not support 8-bit control characters ("C1").
