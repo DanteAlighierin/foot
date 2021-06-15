@@ -449,8 +449,8 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     int width = term->cell_width;
     int height = term->cell_height;
-    int x = term->margins.left + col * width;
-    int y = term->margins.top + row_no * height;
+    const int x = term->margins.left + col * width;
+    const int y = term->margins.top + row_no * height;
 
     xassert(cell->attrs.selected == 0 || cell->attrs.selected == 1);
     bool is_selected = cell->attrs.selected;
@@ -668,6 +668,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
 
     pixman_image_t *clr_pix = pixman_image_create_solid_fill(&fg);
 
+    int pen_x = x;
     for (unsigned i = 0; i < glyph_count; i++) {
         const int letter_x_ofs = i == 0 ? term->font_x_ofs : 0;
 
@@ -686,13 +687,13 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             if (!(cell->attrs.blink && term->blink.state == BLINK_OFF)) {
                 pixman_image_composite32(
                     PIXMAN_OP_OVER, glyph->pix, NULL, pix, 0, 0, 0, 0,
-                    x + letter_x_ofs + g_x, y + font_baseline(term) - g_y,
+                    pen_x + letter_x_ofs + g_x, y + font_baseline(term) - g_y,
                     glyph->width, glyph->height);
             }
         } else {
             pixman_image_composite32(
                 PIXMAN_OP_OVER, clr_pix, glyph->pix, pix, 0, 0, 0, 0,
-                x + letter_x_ofs + g_x, y + font_baseline(term) - g_y,
+                pen_x + letter_x_ofs + g_x, y + font_baseline(term) - g_y,
                 glyph->width, glyph->height);
 
             /* Combining characters */
@@ -731,14 +732,14 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                         PIXMAN_OP_OVER, clr_pix, g->pix, pix, 0, 0, 0, 0,
                         /* Some fonts use a negative offset, while others use a
                          * "normal" offset */
-                        x + x_ofs + g->x,
+                        pen_x + x_ofs + g->x,
                         y + font_baseline(term) - g->y,
                         g->width, g->height);
                 }
             }
         }
 
-        x += glyph->advance.x;
+        pen_x += glyph->advance.x;
     }
 
     pixman_image_unref(clr_pix);
