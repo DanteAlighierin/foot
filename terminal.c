@@ -1537,6 +1537,12 @@ erase_cell_range(struct terminal *term, struct row *row, int start, int end)
 
     /* Split up, or remove, URI ranges affected by the erase */
     tll_foreach(row->extra->uri_ranges, it) {
+        if (it->item.start > end) {
+            /* This range, and all subsequent ranges, start *after*
+             * the erase range */
+            break;
+        }
+
         if (it->item.start < start && it->item.end >= start) {
             /*
              * URI crosses the erase *start* point.
