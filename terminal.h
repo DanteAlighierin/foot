@@ -85,7 +85,7 @@ struct damage {
 };
 
 struct composed {
-    wchar_t chars[20];
+    wchar_t chars[7];
     uint8_t count;
     int width;
 };
