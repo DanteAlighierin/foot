@@ -700,7 +700,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             if (cc->count != wanted_count)
                 continue;
 
-            if (cc->chars[0]  != base)
+            if (cc->chars[0] != base)
                 continue;
 
             bool match = true;
@@ -732,16 +732,12 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         new_cc.chars[wanted_count - 1] = wc;
 
         if (term->composed_count < CELL_COMB_CHARS_HI) {
-            int grapheme_width = wcwidth(base);
-            int min_grapheme_width = 0;
-            for (size_t i = 0; i < wanted_count; i++) {
-                wchar_t c = new_cc.chars[i];
-                if (c == 0xfe0f)
-                    min_grapheme_width = 2;
-                grapheme_width += wcwidth(c);
-            }
-
-            new_cc.width = max(grapheme_width, min_grapheme_width);
+            int grapheme_width = composed != NULL ? composed->width : base_width;
+            if (wc == 0xfe0f && grapheme_width < 2)
+                grapheme_width = 2;
+            else
+                grapheme_width += width;
+            new_cc.width = grapheme_width;
 
             term->composed_count++;
             term->composed = xrealloc(term->composed, term->composed_count * sizeof(term->composed[0]));
