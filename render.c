@@ -574,8 +574,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
                 glyphs = grapheme->glyphs;
                 glyph_count = grapheme->count;
                 cell_cols = grapheme->cols;
-            } else
-                base = composed->chars[0];
+            }
         }
 
 
