@@ -640,117 +640,119 @@ action_utf8_print(struct terminal *term, wchar_t wc)
 #endif
 
         int base_width = wcwidth(base);
-        term->grid->cursor.point.col = col;
-        term->grid->cursor.lcf = false;
+        if (base_width > 0) {
+            term->grid->cursor.point.col = col;
+            term->grid->cursor.lcf = false;
 
-        if (composed == NULL) {
-            bool base_from_primary;
-            bool comb_from_primary;
-            bool pre_from_primary;
+            if (composed == NULL) {
+                bool base_from_primary;
+                bool comb_from_primary;
+                bool pre_from_primary;
 
-            wchar_t precomposed = fcft_precompose(
-                term->fonts[0], base, wc, &base_from_primary,
-                &comb_from_primary, &pre_from_primary);
+                wchar_t precomposed = fcft_precompose(
+                    term->fonts[0], base, wc, &base_from_primary,
+                    &comb_from_primary, &pre_from_primary);
 
-            int precomposed_width = wcwidth(precomposed);
+                int precomposed_width = wcwidth(precomposed);
 
-            /*
-             * Only use the pre-composed character if:
-             *
-             *  1. we *have* a pre-composed character
-             *  2. the width matches the base characters width
-             *  3. it's in the primary font, OR one of the base or
-             *     combining characters are *not* from the primary
-             *     font
-             */
+                /*
+                 * Only use the pre-composed character if:
+                 *
+                 *  1. we *have* a pre-composed character
+                 *  2. the width matches the base characters width
+                 *  3. it's in the primary font, OR one of the base or
+                 *     combining characters are *not* from the primary
+                 *     font
+                 */
 
-            if (precomposed != (wchar_t)-1 &&
-                precomposed_width == base_width &&
-                (pre_from_primary ||
-                 !base_from_primary ||
-                 !comb_from_primary))
-            {
-                term_reset_grapheme_state(term);
-                term_print(term, precomposed, precomposed_width);
-                return;
-            }
-        }
-
-        size_t wanted_count = composed != NULL ? composed->count + 1 : 2;
-        if (wanted_count > ALEN(composed->chars)) {
-            xassert(composed != NULL);
-
-#if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
-            LOG_WARN("combining character overflow:");
-            LOG_WARN("  base: 0x%04x", composed->chars[0]);
-            for (size_t i = 1; i < composed->count; i++)
-                LOG_WARN("    cc: 0x%04x", composed->chars[i]);
-            LOG_ERR("   new: 0x%04x", wc);
-#endif
-            /* This is going to break anyway... */
-            wanted_count--;
-        }
-
-        xassert(wanted_count <= ALEN(composed->chars));
-
-        /* Look for existing combining chain */
-        for (size_t i = 0; i < term->composed_count; i++) {
-            const struct composed *cc = &term->composed[i];
-
-            if (cc->chars[0] != base)
-                continue;
-
-            if (cc->count != wanted_count)
-                continue;
-
-            bool match = true;
-            for (size_t j = 1; j < wanted_count - 1; j++) {
-                if (cc->chars[j] != composed->chars[j]) {
-                    match = false;
-                    break;
+                if (precomposed != (wchar_t)-1 &&
+                    precomposed_width == base_width &&
+                    (pre_from_primary ||
+                     !base_from_primary ||
+                     !comb_from_primary))
+                {
+                    term_reset_grapheme_state(term);
+                    term_print(term, precomposed, precomposed_width);
+                    return;
                 }
             }
-            if (!match)
-                continue;
 
-            if (cc->chars[wanted_count - 1] != wc)
-                continue;
+            size_t wanted_count = composed != NULL ? composed->count + 1 : 2;
+            if (wanted_count > ALEN(composed->chars)) {
+                xassert(composed != NULL);
 
-            if (cc->width > 0)
-                term_print(term, CELL_COMB_CHARS_LO + i, cc->width);
-            return;
-        }
+#if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
+                LOG_WARN("combining character overflow:");
+                LOG_WARN("  base: 0x%04x", composed->chars[0]);
+                for (size_t i = 1; i < composed->count; i++)
+                    LOG_WARN("    cc: 0x%04x", composed->chars[i]);
+                LOG_ERR("   new: 0x%04x", wc);
+#endif
+                /* This is going to break anyway... */
+                wanted_count--;
+            }
 
-        /* Allocate new chain */
+            xassert(wanted_count <= ALEN(composed->chars));
 
-        struct composed new_cc;
-        new_cc.count = wanted_count;
-        new_cc.chars[0] = base;
+            /* Look for existing combining chain */
+            for (size_t i = 0; i < term->composed_count; i++) {
+                const struct composed *cc = &term->composed[i];
 
-        for (size_t i = 1; i < wanted_count - 1; i++)
-            new_cc.chars[i] = composed->chars[i];
-        new_cc.chars[wanted_count - 1] = wc;
+                if (cc->chars[0] != base)
+                    continue;
 
-        if (term->composed_count < CELL_COMB_CHARS_HI) {
-            int grapheme_width = composed != NULL ? composed->width : base_width;
-            if (wc == 0xfe0f && grapheme_width < 2)
-                grapheme_width = 2;
-            else
-                grapheme_width += width;
-            new_cc.width = grapheme_width;
+                if (cc->count != wanted_count)
+                    continue;
 
-            term->composed_count++;
-            term->composed = xrealloc(term->composed, term->composed_count * sizeof(term->composed[0]));
-            term->composed[term->composed_count - 1] = new_cc;
+                bool match = true;
+                for (size_t j = 1; j < wanted_count - 1; j++) {
+                    if (cc->chars[j] != composed->chars[j]) {
+                        match = false;
+                        break;
+                    }
+                }
+                if (!match)
+                    continue;
 
-            if (grapheme_width > 0)
-                term_print(term, CELL_COMB_CHARS_LO + term->composed_count - 1, grapheme_width);
-            return;
-        } else {
-            /* We reached our maximum number of allowed composed
-             * character chains. Fall through here and print the
-             * current zero-width character to the current cell */
-            LOG_WARN("maximum number of composed characters reached");
+                if (cc->chars[wanted_count - 1] != wc)
+                    continue;
+
+                if (cc->width > 0)
+                    term_print(term, CELL_COMB_CHARS_LO + i, cc->width);
+                return;
+            }
+
+            /* Allocate new chain */
+
+            struct composed new_cc;
+            new_cc.count = wanted_count;
+            new_cc.chars[0] = base;
+
+            for (size_t i = 1; i < wanted_count - 1; i++)
+                new_cc.chars[i] = composed->chars[i];
+            new_cc.chars[wanted_count - 1] = wc;
+
+            if (term->composed_count < CELL_COMB_CHARS_HI) {
+                int grapheme_width = composed != NULL ? composed->width : base_width;
+                if (wc == 0xfe0f && grapheme_width < 2)
+                    grapheme_width = 2;
+                else
+                    grapheme_width += width;
+                new_cc.width = grapheme_width;
+
+                term->composed_count++;
+                term->composed = xrealloc(term->composed, term->composed_count * sizeof(term->composed[0]));
+                term->composed[term->composed_count - 1] = new_cc;
+
+                if (grapheme_width > 0)
+                    term_print(term, CELL_COMB_CHARS_LO + term->composed_count - 1, grapheme_width);
+                return;
+            } else {
+                /* We reached our maximum number of allowed composed
+                 * character chains. Fall through here and print the
+                 * current zero-width character to the current cell */
+                LOG_WARN("maximum number of composed characters reached");
+            }
         }
     }
 
