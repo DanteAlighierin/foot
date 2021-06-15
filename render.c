@@ -2992,13 +2992,11 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
     bool grid = term->render.pending.grid;
     bool csd = term->render.pending.csd;
     bool search = term->is_searching && term->render.pending.search;
-    bool title = term->render.pending.title;
     bool urls = urls_mode_is_active(term) > 0 && term->render.pending.urls;
 
     term->render.pending.grid = false;
     term->render.pending.csd = false;
     term->render.pending.search = false;
-    term->render.pending.title = false;
     term->render.pending.urls = false;
 
     struct grid *original_grid = term->grid;
@@ -3012,9 +3010,6 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
         render_csd(term);
         quirk_weston_csd_off(term);
     }
-
-    if (title)
-        render_update_title(term);
 
     if (search)
         render_search_box(term);
@@ -3447,19 +3442,17 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
         bool grid = term->render.refresh.grid;
         bool csd = term->render.refresh.csd;
         bool search = term->is_searching && term->render.refresh.search;
-        bool title = term->render.refresh.title;
         bool urls = urls_mode_is_active(term) && term->render.refresh.urls;
 
-        if (!(grid | csd | search | title | urls))
+        if (!(grid | csd | search | urls))
             continue;
 
-        if (term->render.app_sync_updates.enabled && !(csd | search | title | urls))
+        if (term->render.app_sync_updates.enabled && !(csd | search | urls))
             continue;
 
         term->render.refresh.grid = false;
         term->render.refresh.csd = false;
         term->render.refresh.search = false;
-        term->render.refresh.title = false;
         term->render.refresh.urls = false;
 
         if (term->window->frame_callback == NULL) {
@@ -3474,8 +3467,6 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
                 render_csd(term);
                 quirk_weston_csd_off(term);
             }
-            if (title)
-                render_update_title(term);
             if (search)
                 render_search_box(term);
             if (urls)
@@ -3494,7 +3485,6 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
             term->render.pending.grid |= grid;
             term->render.pending.csd |= csd;
             term->render.pending.search |= search;
-            term->render.pending.title |= title;
             term->render.pending.urls |= urls;
         }
     }
@@ -3511,10 +3501,57 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
     }
 }
 
+static bool
+fdm_title_update(struct fdm *fdm, int fd, int events, void *data)
+{
+    struct terminal *term = data;
+    fdm_del(fdm, fd);
+
+    term->render.title.timer_fd = -1;
+    render_update_title(term);
+
+    struct timeval now;
+    if (gettimeofday(&now, NULL) == 0)
+        term->render.title.last_update = now;
+
+    return true;
+}
+
 void
 render_refresh_title(struct terminal *term)
 {
-    term->render.refresh.title = true;
+    if (term->render.title.timer_fd >= 0)
+        return;
+
+    struct timeval now;
+    if (gettimeofday(&now, NULL) < 0)
+        return;
+
+    struct timeval diff;
+    timersub(&now, &term->render.title.last_update, &diff);
+
+    if (diff.tv_sec == 0 && diff.tv_usec < 8333) {
+        int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
+        if (fd < 0)
+            return;
+
+        const struct itimerspec timeout = {
+            .it_value = {.tv_nsec = 8333 * 1000 - diff.tv_usec * 1000},
+        };
+
+        if (timerfd_settime(fd, 0, &timeout, NULL) < 0) {
+            close(fd);
+            return;
+        }
+
+        if (!fdm_add(term->fdm, fd, EPOLLIN, &fdm_title_update, term))
+            close(fd);
+        else
+            term->render.title.timer_fd = fd;
+    } else {
+        term->render.title.last_update = now;
+        render_update_title(term);
+    }
 }
 
 void

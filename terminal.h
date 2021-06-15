@@ -474,7 +474,6 @@ struct terminal {
             bool grid;
             bool csd;
             bool search;
-            bool title;
             bool urls;
         } refresh;
 
@@ -483,12 +482,16 @@ struct terminal {
             bool grid;
             bool csd;
             bool search;
-            bool title;
             bool urls;
         } pending;
 
         bool margins;  /* Someone explicitly requested a refresh of the margins */
         bool urgency;  /* Signal 'urgency' (paint borders red) */
+
+        struct {
+            struct timeval last_update;
+            int timer_fd;
+        } title;
 
         int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
 

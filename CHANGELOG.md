@@ -184,6 +184,8 @@
   (https://codeberg.org/dnkl/foot/issues/586).
 * Crash in scrollback search when current XKB layout is missing
   _compose_ definitions.
+* Window title not being updated while window is hidden
+  (https://codeberg.org/dnkl/foot/issues/591).
 
 
 ### Security

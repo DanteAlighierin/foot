@@ -1113,6 +1113,9 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .render = {
             .scrollback_lines = conf->scrollback.lines,
             .app_sync_updates.timer_fd = app_sync_updates_fd,
+            .title = {
+                .timer_fd = -1,
+            },
             .workers = {
                 .count = conf->render_worker_count,
                 .queue = tll_init(),
@@ -1289,6 +1292,7 @@ term_shutdown(struct terminal *term)
 
     fdm_del(term->fdm, term->selection.auto_scroll.fd);
     fdm_del(term->fdm, term->render.app_sync_updates.timer_fd);
+    fdm_del(term->fdm, term->render.title.timer_fd);
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
     fdm_del(term->fdm, term->blink.fd);
@@ -1304,6 +1308,7 @@ term_shutdown(struct terminal *term)
 
     term->selection.auto_scroll.fd = -1;
     term->render.app_sync_updates.timer_fd = -1;
+    term->render.title.timer_fd = -1;
     term->delayed_render_timer.lower_fd = -1;
     term->delayed_render_timer.upper_fd = -1;
     term->blink.fd = -1;
@@ -1354,6 +1359,7 @@ term_destroy(struct terminal *term)
 
     fdm_del(term->fdm, term->selection.auto_scroll.fd);
     fdm_del(term->fdm, term->render.app_sync_updates.timer_fd);
+    fdm_del(term->fdm, term->render.title.timer_fd);
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
     fdm_del(term->fdm, term->cursor_blink.fd);
@@ -2670,9 +2676,7 @@ term_enable_app_sync_updates(struct terminal *term)
     /* Disable pending refresh *iff* the grid is the *only* thing
      * scheduled to be re-rendered */
     if (!term->render.refresh.csd && !term->render.refresh.search &&
-        !term->render.refresh.title &&
-        !term->render.pending.csd && !term->render.pending.search &&
-        !term->render.pending.title)
+        !term->render.pending.csd && !term->render.pending.search)
     {
         term->render.refresh.grid = false;
         term->render.pending.grid = false;
