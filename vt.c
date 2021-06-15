@@ -726,20 +726,22 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         struct composed new_cc;
         new_cc.count = wanted_count;
         new_cc.chars[0] = base;
+
         for (size_t i = 1; i < wanted_count - 1; i++)
             new_cc.chars[i] = composed->chars[i];
         new_cc.chars[wanted_count - 1] = wc;
 
         if (term->composed_count < CELL_COMB_CHARS_HI) {
-            /* TODO: grapheme cluster width */
-            int grapheme_width = wcswidth(new_cc.chars, new_cc.count);
-#if 0  /* Fish expects this, but nothing else */
-            if (new_cc.chars[new_cc.count - 1] == 0xfe0f) {
-                /* Emoji selector */
-                grapheme_width = max(2, grapheme_width);
+            int grapheme_width = wcwidth(base);
+            int min_grapheme_width = 0;
+            for (size_t i = 0; i < wanted_count; i++) {
+                wchar_t c = new_cc.chars[i];
+                if (c == 0xfe0f)
+                    min_grapheme_width = 2;
+                grapheme_width += wcwidth(c);
             }
-#endif
-            new_cc.width = grapheme_width;
+
+            new_cc.width = max(grapheme_width, min_grapheme_width);
 
             term->composed_count++;
             term->composed = xrealloc(term->composed, term->composed_count * sizeof(term->composed[0]));
