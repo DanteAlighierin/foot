@@ -621,11 +621,11 @@ render_cell(struct terminal *term, pixman_image_t *pix,
           glyphs[0]->cols == 1 &&
           glyphs[0]->width >= term->cell_width * 15 / 10 &&
           glyphs[0]->width < 3 * term->cell_width &&
-          col < term->cols - 1  ||
-          (term->conf->tweak.pua_double_width &&
-           ((base >= 0x00e000 && base <= 0x00f8ff) ||
-            (base >= 0x0f0000 && base <= 0x0ffffd) ||
-            (base >= 0x100000 && base <= 0x10fffd))))) &&
+          col < term->cols - 1) ||
+         (term->conf->tweak.pua_double_width &&
+          ((base >= 0x00e000 && base <= 0x00f8ff) ||
+           (base >= 0x0f0000 && base <= 0x0ffffd) ||
+           (base >= 0x100000 && base <= 0x10fffd)))) &&
         (row->cells[col + 1].wc == 0 || row->cells[col + 1].wc == L' '))
     {
         cell_cols = 2;
