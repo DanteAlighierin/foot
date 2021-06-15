@@ -2742,7 +2742,6 @@ print_spacer(struct terminal *term, int col, int remaining)
 
     cell->wc = CELL_SPACER + remaining;
     cell->attrs = term->vt.attrs;
-    cell->attrs.clean = 0;
 }
 
 void
@@ -2792,7 +2791,6 @@ term_print(struct terminal *term, wchar_t wc, int width)
 
     row->dirty = true;
     row->linebreak = false;
-    cell->attrs.clean = 0;
 
     /* Advance cursor the 'additional' columns while dirty:ing the cells */
     for (int i = 1; i < width && term->grid->cursor.point.col < term->cols - 1; i++) {
@@ -2832,7 +2830,6 @@ ascii_printer_fast(struct terminal *term, wchar_t wc)
 
     row->dirty = true;
     row->linebreak = false;
-    cell->attrs.clean = 0;
 
     /* Advance cursor */
     if (unlikely(++term->grid->cursor.point.col >= term->cols)) {
