@@ -697,10 +697,10 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         for (size_t i = 0; i < term->composed_count; i++) {
             const struct composed *cc = &term->composed[i];
 
-            if (cc->count != wanted_count)
+            if (cc->chars[0] != base)
                 continue;
 
-            if (cc->chars[0] != base)
+            if (cc->count != wanted_count)
                 continue;
 
             bool match = true;
