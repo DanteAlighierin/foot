@@ -798,8 +798,9 @@ search_input(struct seat *seat, struct terminal *term, uint32_t key,
 {
     LOG_DBG("search: input: sym=%d/0x%x, mods=0x%08x", sym, sym, mods);
 
-    enum xkb_compose_status compose_status = xkb_compose_state_get_status(
-        seat->kbd.xkb_compose_state);
+    enum xkb_compose_status compose_status = seat->kbd.xkb_compose_state != NULL
+      ? xkb_compose_state_get_status(seat->kbd.xkb_compose_state)
+      : XKB_COMPOSE_NOTHING;
 
     bool update_search_result = false;
     bool redraw = false;

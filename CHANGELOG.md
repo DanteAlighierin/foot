@@ -180,6 +180,8 @@
 * Memory leak caused by custom box drawing glyphs not being completely
   freed when destroying a foot window instance
   (https://codeberg.org/dnkl/foot/issues/586).
+* Crash in scrollback search when current XKB layout is missing
+  _compose_ definitions.
 
 
 ### Security
