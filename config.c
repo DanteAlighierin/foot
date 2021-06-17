@@ -2449,31 +2449,31 @@ get_server_socket_path(void)
     return xasprintf("%s/foot-%s.sock", xdg_runtime, wayland_display);
 }
 
-static const struct config_key_modifiers none = {0};
-static const struct config_key_modifiers alt = {.alt = true};
-static const struct config_key_modifiers ctrl = {.ctrl = true};
-static const struct config_key_modifiers shift = {.shift = true};
-static const struct config_key_modifiers ctrl_shift = {.ctrl = true, .shift = true};
+#define m_none       {0}
+#define m_alt        {.alt = true}
+#define m_ctrl       {.ctrl = true}
+#define m_shift      {.shift = true}
+#define m_ctrl_shift {.ctrl = true, .shift = true}
 
 static void
 add_default_key_bindings(struct config *conf)
 {
     static const struct config_key_binding bindings[] = {
-        {BIND_ACTION_SCROLLBACK_UP_PAGE, shift, XKB_KEY_Page_Up},
-        {BIND_ACTION_SCROLLBACK_DOWN_PAGE, shift, XKB_KEY_Page_Down},
-        {BIND_ACTION_CLIPBOARD_COPY, ctrl_shift, XKB_KEY_c},
-        {BIND_ACTION_CLIPBOARD_PASTE, ctrl_shift, XKB_KEY_v},
-        {BIND_ACTION_PRIMARY_PASTE, shift, XKB_KEY_Insert},
-        {BIND_ACTION_SEARCH_START, ctrl_shift, XKB_KEY_r},
-        {BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_plus},
-        {BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_equal},
-        {BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_KP_Add},
-        {BIND_ACTION_FONT_SIZE_DOWN, ctrl, XKB_KEY_minus},
-        {BIND_ACTION_FONT_SIZE_DOWN, ctrl, XKB_KEY_KP_Subtract},
-        {BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_0},
-        {BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_KP_0},
-        {BIND_ACTION_SPAWN_TERMINAL, ctrl_shift, XKB_KEY_n},
-        {BIND_ACTION_SHOW_URLS_LAUNCH, ctrl_shift, XKB_KEY_u},
+        {BIND_ACTION_SCROLLBACK_UP_PAGE, m_shift, XKB_KEY_Page_Up},
+        {BIND_ACTION_SCROLLBACK_DOWN_PAGE, m_shift, XKB_KEY_Page_Down},
+        {BIND_ACTION_CLIPBOARD_COPY, m_ctrl_shift, XKB_KEY_c},
+        {BIND_ACTION_CLIPBOARD_PASTE, m_ctrl_shift, XKB_KEY_v},
+        {BIND_ACTION_PRIMARY_PASTE, m_shift, XKB_KEY_Insert},
+        {BIND_ACTION_SEARCH_START, m_ctrl_shift, XKB_KEY_r},
+        {BIND_ACTION_FONT_SIZE_UP, m_ctrl, XKB_KEY_plus},
+        {BIND_ACTION_FONT_SIZE_UP, m_ctrl, XKB_KEY_equal},
+        {BIND_ACTION_FONT_SIZE_UP, m_ctrl, XKB_KEY_KP_Add},
+        {BIND_ACTION_FONT_SIZE_DOWN, m_ctrl, XKB_KEY_minus},
+        {BIND_ACTION_FONT_SIZE_DOWN, m_ctrl, XKB_KEY_KP_Subtract},
+        {BIND_ACTION_FONT_SIZE_RESET, m_ctrl, XKB_KEY_0},
+        {BIND_ACTION_FONT_SIZE_RESET, m_ctrl, XKB_KEY_KP_0},
+        {BIND_ACTION_SPAWN_TERMINAL, m_ctrl_shift, XKB_KEY_n},
+        {BIND_ACTION_SHOW_URLS_LAUNCH, m_ctrl_shift, XKB_KEY_u},
     };
 
     conf->bindings.key.count = ALEN(bindings);
@@ -2486,35 +2486,35 @@ static void
 add_default_search_bindings(struct config *conf)
 {
     static const struct config_key_binding bindings[] = {
-        {BIND_ACTION_SEARCH_CANCEL, ctrl, XKB_KEY_c},
-        {BIND_ACTION_SEARCH_CANCEL, ctrl, XKB_KEY_g},
-        {BIND_ACTION_SEARCH_CANCEL, none, XKB_KEY_Escape},
-        {BIND_ACTION_SEARCH_COMMIT, none, XKB_KEY_Return},
-        {BIND_ACTION_SEARCH_FIND_PREV, ctrl, XKB_KEY_r},
-        {BIND_ACTION_SEARCH_FIND_NEXT, ctrl, XKB_KEY_s},
-        {BIND_ACTION_SEARCH_EDIT_LEFT, none, XKB_KEY_Left},
-        {BIND_ACTION_SEARCH_EDIT_LEFT, ctrl, XKB_KEY_b},
-        {BIND_ACTION_SEARCH_EDIT_LEFT_WORD, ctrl, XKB_KEY_Left},
-        {BIND_ACTION_SEARCH_EDIT_LEFT_WORD, alt, XKB_KEY_b},
-        {BIND_ACTION_SEARCH_EDIT_RIGHT, none, XKB_KEY_Right},
-        {BIND_ACTION_SEARCH_EDIT_RIGHT, ctrl, XKB_KEY_f},
-        {BIND_ACTION_SEARCH_EDIT_RIGHT_WORD, ctrl, XKB_KEY_Right},
-        {BIND_ACTION_SEARCH_EDIT_RIGHT_WORD, alt, XKB_KEY_f},
-        {BIND_ACTION_SEARCH_EDIT_HOME, none, XKB_KEY_Home},
-        {BIND_ACTION_SEARCH_EDIT_HOME, ctrl, XKB_KEY_a},
-        {BIND_ACTION_SEARCH_EDIT_END, none, XKB_KEY_End},
-        {BIND_ACTION_SEARCH_EDIT_END, ctrl, XKB_KEY_e},
-        {BIND_ACTION_SEARCH_DELETE_PREV, none, XKB_KEY_BackSpace},
-        {BIND_ACTION_SEARCH_DELETE_PREV_WORD, ctrl, XKB_KEY_BackSpace},
-        {BIND_ACTION_SEARCH_DELETE_PREV_WORD, alt, XKB_KEY_BackSpace},
-        {BIND_ACTION_SEARCH_DELETE_NEXT, none, XKB_KEY_Delete},
-        {BIND_ACTION_SEARCH_DELETE_NEXT_WORD, ctrl, XKB_KEY_Delete},
-        {BIND_ACTION_SEARCH_DELETE_NEXT_WORD, alt, XKB_KEY_d},
-        {BIND_ACTION_SEARCH_EXTEND_WORD, ctrl, XKB_KEY_w},
-        {BIND_ACTION_SEARCH_EXTEND_WORD_WS, ctrl_shift, XKB_KEY_w},
-        {BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_v},
-        {BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_y},
-        {BIND_ACTION_SEARCH_PRIMARY_PASTE, shift, XKB_KEY_Insert},
+        {BIND_ACTION_SEARCH_CANCEL, m_ctrl, XKB_KEY_c},
+        {BIND_ACTION_SEARCH_CANCEL, m_ctrl, XKB_KEY_g},
+        {BIND_ACTION_SEARCH_CANCEL, m_none, XKB_KEY_Escape},
+        {BIND_ACTION_SEARCH_COMMIT, m_none, XKB_KEY_Return},
+        {BIND_ACTION_SEARCH_FIND_PREV, m_ctrl, XKB_KEY_r},
+        {BIND_ACTION_SEARCH_FIND_NEXT, m_ctrl, XKB_KEY_s},
+        {BIND_ACTION_SEARCH_EDIT_LEFT, m_none, XKB_KEY_Left},
+        {BIND_ACTION_SEARCH_EDIT_LEFT, m_ctrl, XKB_KEY_b},
+        {BIND_ACTION_SEARCH_EDIT_LEFT_WORD, m_ctrl, XKB_KEY_Left},
+        {BIND_ACTION_SEARCH_EDIT_LEFT_WORD, m_alt, XKB_KEY_b},
+        {BIND_ACTION_SEARCH_EDIT_RIGHT, m_none, XKB_KEY_Right},
+        {BIND_ACTION_SEARCH_EDIT_RIGHT, m_ctrl, XKB_KEY_f},
+        {BIND_ACTION_SEARCH_EDIT_RIGHT_WORD, m_ctrl, XKB_KEY_Right},
+        {BIND_ACTION_SEARCH_EDIT_RIGHT_WORD, m_alt, XKB_KEY_f},
+        {BIND_ACTION_SEARCH_EDIT_HOME, m_none, XKB_KEY_Home},
+        {BIND_ACTION_SEARCH_EDIT_HOME, m_ctrl, XKB_KEY_a},
+        {BIND_ACTION_SEARCH_EDIT_END, m_none, XKB_KEY_End},
+        {BIND_ACTION_SEARCH_EDIT_END, m_ctrl, XKB_KEY_e},
+        {BIND_ACTION_SEARCH_DELETE_PREV, m_none, XKB_KEY_BackSpace},
+        {BIND_ACTION_SEARCH_DELETE_PREV_WORD, m_ctrl, XKB_KEY_BackSpace},
+        {BIND_ACTION_SEARCH_DELETE_PREV_WORD, m_alt, XKB_KEY_BackSpace},
+        {BIND_ACTION_SEARCH_DELETE_NEXT, m_none, XKB_KEY_Delete},
+        {BIND_ACTION_SEARCH_DELETE_NEXT_WORD, m_ctrl, XKB_KEY_Delete},
+        {BIND_ACTION_SEARCH_DELETE_NEXT_WORD, m_alt, XKB_KEY_d},
+        {BIND_ACTION_SEARCH_EXTEND_WORD, m_ctrl, XKB_KEY_w},
+        {BIND_ACTION_SEARCH_EXTEND_WORD_WS, m_ctrl_shift, XKB_KEY_w},
+        {BIND_ACTION_SEARCH_CLIPBOARD_PASTE, m_ctrl, XKB_KEY_v},
+        {BIND_ACTION_SEARCH_CLIPBOARD_PASTE, m_ctrl, XKB_KEY_y},
+        {BIND_ACTION_SEARCH_PRIMARY_PASTE, m_shift, XKB_KEY_Insert},
     };
 
     conf->bindings.search.count = ALEN(bindings);
@@ -2526,11 +2526,11 @@ static void
 add_default_url_bindings(struct config *conf)
 {
     static const struct config_key_binding bindings[] = {
-        {BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_c},
-        {BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_g},
-        {BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_d},
-        {BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape},
-        {BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL, none, XKB_KEY_t},
+        {BIND_ACTION_URL_CANCEL, m_ctrl, XKB_KEY_c},
+        {BIND_ACTION_URL_CANCEL, m_ctrl, XKB_KEY_g},
+        {BIND_ACTION_URL_CANCEL, m_ctrl, XKB_KEY_d},
+        {BIND_ACTION_URL_CANCEL, m_none, XKB_KEY_Escape},
+        {BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL, m_none, XKB_KEY_t},
     };
 
     conf->bindings.url.count = ALEN(bindings);
@@ -2542,14 +2542,14 @@ static void
 add_default_mouse_bindings(struct config *conf)
 {
     static const struct config_mouse_binding bindings[] = {
-        {BIND_ACTION_PRIMARY_PASTE, none, BTN_MIDDLE, 1},
-        {BIND_ACTION_SELECT_BEGIN, none, BTN_LEFT, 1},
-        {BIND_ACTION_SELECT_BEGIN_BLOCK, ctrl, BTN_LEFT, 1},
-        {BIND_ACTION_SELECT_EXTEND, none, BTN_RIGHT, 1},
-        {BIND_ACTION_SELECT_EXTEND_CHAR_WISE, ctrl, BTN_RIGHT, 1},
-        {BIND_ACTION_SELECT_WORD, none, BTN_LEFT, 2},
-        {BIND_ACTION_SELECT_WORD_WS, ctrl, BTN_LEFT, 2},
-        {BIND_ACTION_SELECT_ROW, none, BTN_LEFT, 3},
+        {BIND_ACTION_PRIMARY_PASTE, m_none, BTN_MIDDLE, 1},
+        {BIND_ACTION_SELECT_BEGIN, m_none, BTN_LEFT, 1},
+        {BIND_ACTION_SELECT_BEGIN_BLOCK, m_ctrl, BTN_LEFT, 1},
+        {BIND_ACTION_SELECT_EXTEND, m_none, BTN_RIGHT, 1},
+        {BIND_ACTION_SELECT_EXTEND_CHAR_WISE, m_ctrl, BTN_RIGHT, 1},
+        {BIND_ACTION_SELECT_WORD, m_none, BTN_LEFT, 2},
+        {BIND_ACTION_SELECT_WORD_WS, m_ctrl, BTN_LEFT, 2},
+        {BIND_ACTION_SELECT_ROW, m_none, BTN_LEFT, 3},
     };
 
     conf->bindings.mouse.count = ALEN(bindings);
