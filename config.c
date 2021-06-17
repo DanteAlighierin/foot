@@ -744,26 +744,40 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             strcmp(key, "font-bold") == 0 ? 1 :
             strcmp(key, "font-italic") == 0 ? 2 : 3;
 
-        tll_foreach(conf->fonts[idx], it)
-            config_font_destroy(&it->item);
-        tll_free(conf->fonts[idx]);
+        config_font_list_destroy(&conf->fonts[idx]);
+
+        size_t count = 0;
+        size_t size = 0;
+        struct config_font *fonts = NULL;
 
         char *copy = xstrdup(value);
         for (const char *font = strtok(copy, ","); font != NULL; font = strtok(NULL, ",")) {
             /* Trim spaces, strictly speaking not necessary, but looks nice :) */
             while (*font != '\0' && isspace(*font))
                 font++;
-            if (*font != '\0') {
-                struct config_font font_data;
-                if (!config_font_parse(font, &font_data)) {
-                    LOG_ERR("%s:%d: [default]: %s: invalid font specification",
-                            path, lineno, key);
-                    free(copy);
-                    return false;
-                }
-                tll_push_back(conf->fonts[idx], font_data);
+
+            if (font[0] == '\0')
+                continue;
+
+            struct config_font font_data;
+            if (!config_font_parse(font, &font_data)) {
+                LOG_ERR("%s:%d: [default]: %s: invalid font specification",
+                        path, lineno, key);
+                free(copy);
+                return false;
             }
+
+            if (count + 1 > size) {
+                size += 4;
+                fonts = xrealloc(fonts, size * sizeof(fonts[0]));
+            }
+
+            xassert(count + 1 <= size);
+            fonts[count++] = font_data;
         }
+
+        conf->fonts[idx].count = count;
+        conf->fonts[idx].arr = fonts;
         free(copy);
     }
 
@@ -1356,14 +1370,20 @@ struct key_combo {
         } m;
     };
 };
-typedef tll(struct key_combo) key_combo_list_t;
 
-static void
-free_key_combo_list(key_combo_list_t *key_combos)
+struct key_combo_list {
+    size_t count;
+    struct key_combo *combos;
+};
+
+static void NOINLINE
+free_key_combo_list(struct key_combo_list *key_combos)
 {
-    tll_foreach(*key_combos, it)
-        free(it->item.text);
-    tll_free(*key_combos);
+    for (size_t i = 0; i < key_combos->count; i++)
+        free(key_combos->combos[i].text);
+    free(key_combos->combos);
+    key_combos->count = 0;
+    key_combos->combos = NULL;
 }
 
 static bool
@@ -1402,11 +1422,15 @@ out:
 }
 
 static bool
-parse_key_combos(struct config *conf, const char *combos, key_combo_list_t *key_combos,
+parse_key_combos(struct config *conf, const char *combos,
+                 struct key_combo_list *key_combos,
                  const char *section, const char *option,
                  const char *path, unsigned lineno)
 {
-    xassert(tll_length(*key_combos) == 0);
+    xassert(key_combos != NULL);
+    xassert(key_combos->count == 0 && key_combos->combos == NULL);
+
+    size_t size = 0;  /* Size of ‘combos’ array in the key-combo list */
 
     char *copy = xstrdup(combos);
 
@@ -1450,18 +1474,25 @@ parse_key_combos(struct config *conf, const char *combos, key_combo_list_t *key_
             goto err;
         }
 
-        tll_push_back(
-            *key_combos,
-            ((struct key_combo){.text = xstrdup(combo), .modifiers = modifiers, .sym = sym}));
+        if (key_combos->count + 1 > size) {
+            size += 4;
+            key_combos->combos = xrealloc(
+                key_combos->combos, size * sizeof(key_combos->combos[0]));
+        }
+
+        xassert(key_combos->count + 1 <= size);
+        key_combos->combos[key_combos->count++] = (struct key_combo){
+            .text = xstrdup(combo),
+            .modifiers = modifiers,
+            .sym = sym,
+        };
     }
 
     free(copy);
     return true;
 
 err:
-    tll_foreach(*key_combos, it)
-        free(it->item.text);
-    tll_free(*key_combos);
+    free_key_combo_list(key_combos);
     free(copy);
     return false;
 }
@@ -1469,31 +1500,38 @@ err:
 static bool
 has_key_binding_collisions(struct config *conf,
                            int action, const char *const action_map[],
-                           config_key_binding_list_t *bindings,
-                           const key_combo_list_t *key_combos,
+                           const struct config_key_binding_list *bindings,
+                           const struct key_combo_list *key_combos,
                            const char *path, unsigned lineno)
 {
-    tll_foreach(*bindings, it) {
-        if (it->item.action == action)
+    for (size_t j = 0; j < bindings->count; j++) {
+        const struct config_key_binding *combo1 = &bindings->arr[j];
+
+        if (combo1->action == BIND_ACTION_NONE)
             continue;
 
-        tll_foreach(*key_combos, it2) {
-            const struct config_key_modifiers *mods1 = &it->item.modifiers;
-            const struct config_key_modifiers *mods2 = &it2->item.modifiers;
+        if (combo1->action == action)
+            continue;
+
+        for (size_t i = 0; i < key_combos->count; i++) {
+            const struct key_combo *combo2 = &key_combos->combos[i];
+
+            const struct config_key_modifiers *mods1 = &combo1->modifiers;
+            const struct config_key_modifiers *mods2 = &combo2->modifiers;
 
             bool shift = mods1->shift == mods2->shift;
             bool alt = mods1->alt == mods2->alt;
             bool ctrl = mods1->ctrl == mods2->ctrl;
             bool meta = mods1->meta == mods2->meta;
-            bool sym = it->item.sym == it2->item.sym;
+            bool sym = combo1->sym == combo2->sym;
 
             if (shift && alt && ctrl && meta && sym) {
-                bool has_pipe = it->item.pipe.cmd != NULL;
+                bool has_pipe = combo1->pipe.cmd != NULL;
                 LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s%s%s%s'",
-                                   path, lineno, it2->item.text,
-                                   action_map[it->item.action],
+                                   path, lineno, combo2->text,
+                                   action_map[combo1->action],
                                    has_pipe ? " [" : "",
-                                   has_pipe ? it->item.pipe.cmd : "",
+                                   has_pipe ? combo1->pipe.cmd : "",
                                    has_pipe ? "]" : "");
                 return true;
             }
@@ -1587,7 +1625,7 @@ static bool NOINLINE
 parse_key_binding_section(
     const char *section, const char *key, const char *value,
     int action_count, const char *const action_map[static action_count],
-    config_key_binding_list_t *bindings,
+    struct config_key_binding_list *bindings,
     struct config *conf, const char *path, unsigned lineno)
 {
     char *pipe_cmd;
@@ -1610,21 +1648,27 @@ parse_key_binding_section(
 
         /* Unset binding */
         if (strcasecmp(value, "none") == 0) {
-            tll_foreach(*bindings, it) {
-                if (it->item.action == action) {
-                    if (it->item.pipe.master_copy) {
-                        free(it->item.pipe.cmd);
-                        free(it->item.pipe.argv);
-                    }
-                    tll_remove(*bindings, it);
+            for (size_t i = 0; i < bindings->count; i++) {
+                struct config_key_binding *binding = &bindings->arr[i];
+
+                if (binding->action != action)
+                    continue;
+
+                if (binding->pipe.master_copy) {
+                    free(binding->pipe.cmd);
+                    free(binding->pipe.argv);
                 }
+                binding->action = BIND_ACTION_NONE;
+                binding->pipe.cmd = NULL;
+                binding->pipe.argv = NULL;
             }
+
             free(pipe_argv);
             free(pipe_cmd);
             return true;
         }
 
-        key_combo_list_t key_combos = tll_init();
+        struct key_combo_list key_combos = {0};
         if (!parse_key_combos(
                 conf, value, &key_combos, section, key, path, lineno) ||
             has_key_binding_collisions(
@@ -1638,28 +1682,38 @@ parse_key_binding_section(
         }
 
         /* Remove existing bindings for this action+pipe */
-        tll_foreach(*bindings, it) {
-            if (it->item.action == action &&
-                ((it->item.pipe.argv == NULL && pipe_argv == NULL) ||
-                 (it->item.pipe.argv != NULL && pipe_argv != NULL &&
-                  argv_compare(it->item.pipe.argv, pipe_argv) == 0)))
+        for (size_t i = 0; i < bindings->count; i++) {
+            struct config_key_binding *binding = &bindings->arr[i];
+
+            if (binding->action == action &&
+                ((binding->pipe.argv == NULL && pipe_argv == NULL) ||
+                 (binding->pipe.argv != NULL && pipe_argv != NULL &&
+                  argv_compare(binding->pipe.argv, pipe_argv) == 0)))
             {
 
-                if (it->item.pipe.master_copy) {
-                    free(it->item.pipe.cmd);
-                    free(it->item.pipe.argv);
+                if (binding->pipe.master_copy) {
+                    free(binding->pipe.cmd);
+                    free(binding->pipe.argv);
                 }
-                tll_remove(*bindings, it);
+                binding->action = BIND_ACTION_NONE;
+                binding->pipe.cmd = NULL;
+                binding->pipe.argv = NULL;
             }
         }
 
         /* Emit key bindings */
+        size_t ofs = bindings->count;
+        bindings->count += key_combos.count;
+        bindings->arr = xrealloc(
+            bindings->arr, bindings->count * sizeof(bindings->arr[0]));
+
         bool first = true;
-        tll_foreach(key_combos, it) {
+        for (size_t i = 0; i < key_combos.count; i++) {
+            const struct key_combo *combo = &key_combos.combos[i];
             struct config_key_binding binding = {
                 .action = action,
-                .modifiers = it->item.modifiers,
-                .sym = it->item.sym,
+                .modifiers = combo->modifiers,
+                .sym = combo->sym,
                 .pipe = {
                     .cmd = pipe_cmd,
                     .argv = pipe_argv,
@@ -1667,7 +1721,8 @@ parse_key_binding_section(
                 },
             };
 
-            tll_push_back(*bindings, binding);
+            /* TODO: we could re-use free:d slots */
+            bindings->arr[ofs + i] = binding;
             first = false;
         }
 
@@ -1747,10 +1802,14 @@ parse_section_url_bindings(
 }
 
 static bool
-parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *key_combos,
+parse_mouse_combos(struct config *conf, const char *combos,
+                   struct key_combo_list *key_combos,
                    const char *path, unsigned lineno)
 {
-    xassert(tll_length(*key_combos) == 0);
+    xassert(key_combos != NULL);
+    xassert(key_combos->count == 0 && key_combos->combos == NULL);
+
+    size_t size = 0;  /* Size of the ‘combos’ array in key_combos */
 
     char *copy = xstrdup(combos);
 
@@ -1835,44 +1894,55 @@ parse_mouse_combos(struct config *conf, const char *combos, key_combo_list_t *ke
                 .count = count,
             },
         };
-        tll_push_back(*key_combos, new);
+
+        if (key_combos->count + 1 > size) {
+            size += 4;
+            key_combos->combos = xrealloc(
+                key_combos->combos, size * sizeof(key_combos->combos[0]));
+        }
+
+        xassert(key_combos->count + 1 <= size);
+        key_combos->combos[key_combos->count++] = new;
     }
 
     free(copy);
     return true;
 
 err:
-    tll_foreach(*key_combos, it) {
-        free(it->item.text);
-        tll_remove(*key_combos, it);
-    }
+    free_key_combo_list(key_combos);
     free(copy);
     return false;
 }
 
 static bool
-has_mouse_binding_collisions(struct config *conf, const key_combo_list_t *key_combos,
+has_mouse_binding_collisions(struct config *conf, const struct key_combo_list *key_combos,
                              const char *path, unsigned lineno)
 {
-    tll_foreach(conf->bindings.mouse, it) {
-        tll_foreach(*key_combos, it2) {
-            const struct config_key_modifiers *mods1 = &it->item.modifiers;
-            const struct config_key_modifiers *mods2 = &it2->item.modifiers;
+    for (size_t j = 0; j < conf->bindings.mouse.count; j++) {
+        const struct config_mouse_binding *combo1 = &conf->bindings.mouse.arr[j];
+        if (combo1->action == BIND_ACTION_NONE)
+            continue;
+
+        for (size_t i = 0; i < key_combos->count; i++) {
+            const struct key_combo *combo2 = &key_combos->combos[i];
+
+            const struct config_key_modifiers *mods1 = &combo1->modifiers;
+            const struct config_key_modifiers *mods2 = &combo2->modifiers;
 
             bool shift = mods1->shift == mods2->shift;
             bool alt = mods1->alt == mods2->alt;
             bool ctrl = mods1->ctrl == mods2->ctrl;
             bool meta = mods1->meta == mods2->meta;
-            bool button = it->item.button == it2->item.m.button;
-            bool count = it->item.count == it2->item.m.count;
+            bool button = combo1->button == combo2->m.button;
+            bool count = combo1->count == combo2->m.count;
 
             if (shift && alt && ctrl && meta && button && count) {
-                bool has_pipe = it->item.pipe.cmd != NULL;
+                bool has_pipe = combo1->pipe.cmd != NULL;
                 LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s%s%s%s'",
-                                   path, lineno, it2->item.text,
-                                   binding_action_map[it->item.action],
+                                   path, lineno, combo2->text,
+                                   binding_action_map[combo1->action],
                                    has_pipe ? " [" : "",
-                                   has_pipe ? it->item.pipe.cmd : "",
+                                   has_pipe ? combo1->pipe.cmd : "",
                                    has_pipe ? "]" : "");
                 return true;
             }
@@ -1911,13 +1981,18 @@ parse_section_mouse_bindings(
 
         /* Unset binding */
         if (strcasecmp(value, "none") == 0) {
-            tll_foreach(conf->bindings.mouse, it) {
-                if (it->item.action == action) {
-                    if (it->item.pipe.master_copy) {
-                        free(it->item.pipe.cmd);
-                        free(it->item.pipe.argv);
+            for (size_t i = 0; i < conf->bindings.mouse.count; i++) {
+                struct config_mouse_binding *binding =
+                    &conf->bindings.mouse.arr[i];
+
+                if (binding->action == action) {
+                    if (binding->pipe.master_copy) {
+                        free(binding->pipe.cmd);
+                        free(binding->pipe.argv);
                     }
-                    tll_remove(conf->bindings.mouse, it);
+                    binding->action = BIND_ACTION_NONE;
+                    binding->pipe.cmd = NULL;
+                    binding->pipe.argv = NULL;
                 }
             }
             free(pipe_argv);
@@ -1925,7 +2000,7 @@ parse_section_mouse_bindings(
             return true;
         }
 
-        key_combo_list_t key_combos = tll_init();
+        struct key_combo_list key_combos = {0};
         if (!parse_mouse_combos(conf, value, &key_combos, path, lineno) ||
             has_mouse_binding_collisions(conf, &key_combos, path, lineno))
         {
@@ -1936,35 +2011,47 @@ parse_section_mouse_bindings(
         }
 
         /* Remove existing bindings for this action */
-        tll_foreach(conf->bindings.mouse, it) {
-            if (it->item.action == action &&
-                ((it->item.pipe.argv == NULL && pipe_argv == NULL) ||
-                 (it->item.pipe.argv != NULL && pipe_argv != NULL &&
-                  argv_compare(it->item.pipe.argv, pipe_argv) == 0)))
+        for (size_t i = 0; i < conf->bindings.mouse.count; i++) {
+            struct config_mouse_binding *binding = &conf->bindings.mouse.arr[i];
+
+            if (binding->action == action &&
+                ((binding->pipe.argv == NULL && pipe_argv == NULL) ||
+                 (binding->pipe.argv != NULL && pipe_argv != NULL &&
+                  argv_compare(binding->pipe.argv, pipe_argv) == 0)))
             {
-                if (it->item.pipe.master_copy) {
-                    free(it->item.pipe.cmd);
-                    free(it->item.pipe.argv);
+                if (binding->pipe.master_copy) {
+                    free(binding->pipe.cmd);
+                    free(binding->pipe.argv);
                 }
-                tll_remove(conf->bindings.mouse, it);
+                binding->action = BIND_ACTION_NONE;
+                binding->pipe.cmd = NULL;
+                binding->pipe.argv = NULL;
             }
         }
 
         /* Emit mouse bindings */
+        size_t ofs = conf->bindings.mouse.count;
+        conf->bindings.mouse.count += key_combos.count;
+        conf->bindings.mouse.arr = xrealloc(
+            conf->bindings.mouse.arr,
+            conf->bindings.mouse.count * sizeof(conf->bindings.mouse.arr[0]));
+
         bool first = true;
-        tll_foreach(key_combos, it) {
+        for (size_t i = 0; i < key_combos.count; i++) {
+            const struct key_combo *combo = &key_combos.combos[i];
             struct config_mouse_binding binding = {
                 .action = action,
-                .modifiers = it->item.modifiers,
-                .button = it->item.m.button,
-                .count = it->item.m.count,
+                .modifiers = combo->modifiers,
+                .button = combo->m.button,
+                .count = combo->m.count,
                 .pipe = {
                     .cmd = pipe_cmd,
                     .argv = pipe_argv,
                     .master_copy = first,
                 },
             };
-            tll_push_back(conf->bindings.mouse, binding);
+
+            conf->bindings.mouse.arr[ofs + i] = binding;
             first = false;
         }
 
@@ -2362,137 +2449,112 @@ get_server_socket_path(void)
     return xasprintf("%s/foot-%s.sock", xdg_runtime, wayland_display);
 }
 
-static void NOINLINE
-add_key_binding(config_key_binding_list_t *list, int action,
-                const struct config_key_modifiers *mods, xkb_keysym_t sym)
-{
-    tll_push_back(
-        *list,
-        ((struct config_key_binding){action, *mods, sym}));
-}
+static const struct config_key_modifiers none = {0};
+static const struct config_key_modifiers alt = {.alt = true};
+static const struct config_key_modifiers ctrl = {.ctrl = true};
+static const struct config_key_modifiers shift = {.shift = true};
+static const struct config_key_modifiers ctrl_shift = {.ctrl = true, .shift = true};
 
 static void
 add_default_key_bindings(struct config *conf)
 {
-    #define add_binding(action, mods, sym) \
-        add_key_binding(&conf->bindings.key, action, &mods, sym)
+    static const struct config_key_binding bindings[] = {
+        {BIND_ACTION_SCROLLBACK_UP_PAGE, shift, XKB_KEY_Page_Up},
+        {BIND_ACTION_SCROLLBACK_DOWN_PAGE, shift, XKB_KEY_Page_Down},
+        {BIND_ACTION_CLIPBOARD_COPY, ctrl_shift, XKB_KEY_c},
+        {BIND_ACTION_CLIPBOARD_PASTE, ctrl_shift, XKB_KEY_v},
+        {BIND_ACTION_PRIMARY_PASTE, shift, XKB_KEY_Insert},
+        {BIND_ACTION_SEARCH_START, ctrl_shift, XKB_KEY_r},
+        {BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_plus},
+        {BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_equal},
+        {BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_KP_Add},
+        {BIND_ACTION_FONT_SIZE_DOWN, ctrl, XKB_KEY_minus},
+        {BIND_ACTION_FONT_SIZE_DOWN, ctrl, XKB_KEY_KP_Subtract},
+        {BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_0},
+        {BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_KP_0},
+        {BIND_ACTION_SPAWN_TERMINAL, ctrl_shift, XKB_KEY_n},
+        {BIND_ACTION_SHOW_URLS_LAUNCH, ctrl_shift, XKB_KEY_u},
+    };
 
-    const struct config_key_modifiers shift = {.shift = true};
-    const struct config_key_modifiers ctrl = {.ctrl = true};
-    const struct config_key_modifiers ctrl_shift = {.ctrl = true, .shift = true};
-
-    add_binding(BIND_ACTION_SCROLLBACK_UP_PAGE, shift, XKB_KEY_Page_Up);
-    add_binding(BIND_ACTION_SCROLLBACK_DOWN_PAGE, shift, XKB_KEY_Page_Down);
-    add_binding(BIND_ACTION_CLIPBOARD_COPY, ctrl_shift, XKB_KEY_c);
-    add_binding(BIND_ACTION_CLIPBOARD_PASTE, ctrl_shift, XKB_KEY_v);
-    add_binding(BIND_ACTION_PRIMARY_PASTE, shift, XKB_KEY_Insert);
-    add_binding(BIND_ACTION_SEARCH_START, ctrl_shift, XKB_KEY_r);
-    add_binding(BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_plus);
-    add_binding(BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_equal);
-    add_binding(BIND_ACTION_FONT_SIZE_UP, ctrl, XKB_KEY_KP_Add);
-    add_binding(BIND_ACTION_FONT_SIZE_DOWN, ctrl, XKB_KEY_minus);
-    add_binding(BIND_ACTION_FONT_SIZE_DOWN, ctrl, XKB_KEY_KP_Subtract);
-    add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_0);
-    add_binding(BIND_ACTION_FONT_SIZE_RESET, ctrl, XKB_KEY_KP_0);
-    add_binding(BIND_ACTION_SPAWN_TERMINAL, ctrl_shift, XKB_KEY_n);
-    add_binding(BIND_ACTION_SHOW_URLS_LAUNCH, ctrl_shift, XKB_KEY_u);
-
-    #undef add_binding
+    conf->bindings.key.count = ALEN(bindings);
+    conf->bindings.key.arr = xmalloc(sizeof(bindings));
+    memcpy(conf->bindings.key.arr, bindings, sizeof(bindings));
 }
 
 
 static void
 add_default_search_bindings(struct config *conf)
 {
-    #define add_binding(action, mods, sym) \
-        add_key_binding(&conf->bindings.search, action, &mods, sym)
+    static const struct config_key_binding bindings[] = {
+        {BIND_ACTION_SEARCH_CANCEL, ctrl, XKB_KEY_c},
+        {BIND_ACTION_SEARCH_CANCEL, ctrl, XKB_KEY_g},
+        {BIND_ACTION_SEARCH_CANCEL, none, XKB_KEY_Escape},
+        {BIND_ACTION_SEARCH_COMMIT, none, XKB_KEY_Return},
+        {BIND_ACTION_SEARCH_FIND_PREV, ctrl, XKB_KEY_r},
+        {BIND_ACTION_SEARCH_FIND_NEXT, ctrl, XKB_KEY_s},
+        {BIND_ACTION_SEARCH_EDIT_LEFT, none, XKB_KEY_Left},
+        {BIND_ACTION_SEARCH_EDIT_LEFT, ctrl, XKB_KEY_b},
+        {BIND_ACTION_SEARCH_EDIT_LEFT_WORD, ctrl, XKB_KEY_Left},
+        {BIND_ACTION_SEARCH_EDIT_LEFT_WORD, alt, XKB_KEY_b},
+        {BIND_ACTION_SEARCH_EDIT_RIGHT, none, XKB_KEY_Right},
+        {BIND_ACTION_SEARCH_EDIT_RIGHT, ctrl, XKB_KEY_f},
+        {BIND_ACTION_SEARCH_EDIT_RIGHT_WORD, ctrl, XKB_KEY_Right},
+        {BIND_ACTION_SEARCH_EDIT_RIGHT_WORD, alt, XKB_KEY_f},
+        {BIND_ACTION_SEARCH_EDIT_HOME, none, XKB_KEY_Home},
+        {BIND_ACTION_SEARCH_EDIT_HOME, ctrl, XKB_KEY_a},
+        {BIND_ACTION_SEARCH_EDIT_END, none, XKB_KEY_End},
+        {BIND_ACTION_SEARCH_EDIT_END, ctrl, XKB_KEY_e},
+        {BIND_ACTION_SEARCH_DELETE_PREV, none, XKB_KEY_BackSpace},
+        {BIND_ACTION_SEARCH_DELETE_PREV_WORD, ctrl, XKB_KEY_BackSpace},
+        {BIND_ACTION_SEARCH_DELETE_PREV_WORD, alt, XKB_KEY_BackSpace},
+        {BIND_ACTION_SEARCH_DELETE_NEXT, none, XKB_KEY_Delete},
+        {BIND_ACTION_SEARCH_DELETE_NEXT_WORD, ctrl, XKB_KEY_Delete},
+        {BIND_ACTION_SEARCH_DELETE_NEXT_WORD, alt, XKB_KEY_d},
+        {BIND_ACTION_SEARCH_EXTEND_WORD, ctrl, XKB_KEY_w},
+        {BIND_ACTION_SEARCH_EXTEND_WORD_WS, ctrl_shift, XKB_KEY_w},
+        {BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_v},
+        {BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_y},
+        {BIND_ACTION_SEARCH_PRIMARY_PASTE, shift, XKB_KEY_Insert},
+    };
 
-    const struct config_key_modifiers none = {0};
-    const struct config_key_modifiers alt = {.alt = true};
-    const struct config_key_modifiers ctrl = {.ctrl = true};
-    const struct config_key_modifiers shift = {.shift = true};
-    const struct config_key_modifiers ctrl_shift = {.ctrl = true, .shift = true};
-
-    add_binding(BIND_ACTION_SEARCH_CANCEL, ctrl, XKB_KEY_c);
-    add_binding(BIND_ACTION_SEARCH_CANCEL, ctrl, XKB_KEY_g);
-    add_binding(BIND_ACTION_SEARCH_CANCEL, none, XKB_KEY_Escape);
-    add_binding(BIND_ACTION_SEARCH_COMMIT, none, XKB_KEY_Return);
-    add_binding(BIND_ACTION_SEARCH_FIND_PREV, ctrl, XKB_KEY_r);
-    add_binding(BIND_ACTION_SEARCH_FIND_NEXT, ctrl, XKB_KEY_s);
-    add_binding(BIND_ACTION_SEARCH_EDIT_LEFT, none, XKB_KEY_Left);
-    add_binding(BIND_ACTION_SEARCH_EDIT_LEFT, ctrl, XKB_KEY_b);
-    add_binding(BIND_ACTION_SEARCH_EDIT_LEFT_WORD, ctrl, XKB_KEY_Left);
-    add_binding(BIND_ACTION_SEARCH_EDIT_LEFT_WORD, alt, XKB_KEY_b);
-    add_binding(BIND_ACTION_SEARCH_EDIT_RIGHT, none, XKB_KEY_Right);
-    add_binding(BIND_ACTION_SEARCH_EDIT_RIGHT, ctrl, XKB_KEY_f);
-    add_binding(BIND_ACTION_SEARCH_EDIT_RIGHT_WORD, ctrl, XKB_KEY_Right);
-    add_binding(BIND_ACTION_SEARCH_EDIT_RIGHT_WORD, alt, XKB_KEY_f);
-    add_binding(BIND_ACTION_SEARCH_EDIT_HOME, none, XKB_KEY_Home);
-    add_binding(BIND_ACTION_SEARCH_EDIT_HOME, ctrl, XKB_KEY_a);
-    add_binding(BIND_ACTION_SEARCH_EDIT_END, none, XKB_KEY_End);
-    add_binding(BIND_ACTION_SEARCH_EDIT_END, ctrl, XKB_KEY_e);
-    add_binding(BIND_ACTION_SEARCH_DELETE_PREV, none, XKB_KEY_BackSpace);
-    add_binding(BIND_ACTION_SEARCH_DELETE_PREV_WORD, ctrl, XKB_KEY_BackSpace);
-    add_binding(BIND_ACTION_SEARCH_DELETE_PREV_WORD, alt, XKB_KEY_BackSpace);
-    add_binding(BIND_ACTION_SEARCH_DELETE_NEXT, none, XKB_KEY_Delete);
-    add_binding(BIND_ACTION_SEARCH_DELETE_NEXT_WORD, ctrl, XKB_KEY_Delete);
-    add_binding(BIND_ACTION_SEARCH_DELETE_NEXT_WORD, alt, XKB_KEY_d);
-    add_binding(BIND_ACTION_SEARCH_EXTEND_WORD, ctrl, XKB_KEY_w);
-    add_binding(BIND_ACTION_SEARCH_EXTEND_WORD_WS, ctrl_shift, XKB_KEY_w);
-    add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_v);
-    add_binding(BIND_ACTION_SEARCH_CLIPBOARD_PASTE, ctrl, XKB_KEY_y);
-    add_binding(BIND_ACTION_SEARCH_PRIMARY_PASTE, shift, XKB_KEY_Insert);
-
-    #undef add_binding
+    conf->bindings.search.count = ALEN(bindings);
+    conf->bindings.search.arr = xmalloc(sizeof(bindings));
+    memcpy(conf->bindings.search.arr, bindings, sizeof(bindings));
 }
 
 static void
 add_default_url_bindings(struct config *conf)
 {
-    #define add_binding(action, mods, sym) \
-        add_key_binding(&conf->bindings.url, action, &mods, sym)
+    static const struct config_key_binding bindings[] = {
+        {BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_c},
+        {BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_g},
+        {BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_d},
+        {BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape},
+        {BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL, none, XKB_KEY_t},
+    };
 
-    const struct config_key_modifiers none = {0};
-    const struct config_key_modifiers ctrl = {.ctrl = true};
-
-    add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_c);
-    add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_g);
-    add_binding(BIND_ACTION_URL_CANCEL, ctrl, XKB_KEY_d);
-    add_binding(BIND_ACTION_URL_CANCEL, none, XKB_KEY_Escape);
-    add_binding(BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL, none, XKB_KEY_t);
-
-    #undef add_binding
-}
-
-static void NOINLINE
-add_mouse_binding(config_mouse_binding_list_t *list, int action,
-                  const struct config_key_modifiers *mods,
-                  int button, int count)
-{
-    tll_push_back(
-        *list,
-        ((struct config_mouse_binding){action, *mods, button, count, {0}}));
+    conf->bindings.url.count = ALEN(bindings);
+    conf->bindings.url.arr = xmalloc(sizeof(bindings));
+    memcpy(conf->bindings.url.arr, bindings, sizeof(bindings));
 }
 
 static void
 add_default_mouse_bindings(struct config *conf)
 {
-    #define add_binding(action, mods, btn, count) \
-        add_mouse_binding(&conf->bindings.mouse, action, &mods, btn, count)
+    static const struct config_mouse_binding bindings[] = {
+        {BIND_ACTION_PRIMARY_PASTE, none, BTN_MIDDLE, 1},
+        {BIND_ACTION_SELECT_BEGIN, none, BTN_LEFT, 1},
+        {BIND_ACTION_SELECT_BEGIN_BLOCK, ctrl, BTN_LEFT, 1},
+        {BIND_ACTION_SELECT_EXTEND, none, BTN_RIGHT, 1},
+        {BIND_ACTION_SELECT_EXTEND_CHAR_WISE, ctrl, BTN_RIGHT, 1},
+        {BIND_ACTION_SELECT_WORD, none, BTN_LEFT, 2},
+        {BIND_ACTION_SELECT_WORD_WS, ctrl, BTN_LEFT, 2},
+        {BIND_ACTION_SELECT_ROW, none, BTN_LEFT, 3},
+    };
 
-    const struct config_key_modifiers none = {0};
-    const struct config_key_modifiers ctrl = {.ctrl = true};
-
-    add_binding(BIND_ACTION_PRIMARY_PASTE, none, BTN_MIDDLE, 1);
-    add_binding(BIND_ACTION_SELECT_BEGIN, none, BTN_LEFT, 1);
-    add_binding(BIND_ACTION_SELECT_BEGIN_BLOCK, ctrl, BTN_LEFT, 1);
-    add_binding(BIND_ACTION_SELECT_EXTEND, none, BTN_RIGHT, 1);
-    add_binding(BIND_ACTION_SELECT_EXTEND_CHAR_WISE, ctrl, BTN_RIGHT, 1);
-    add_binding(BIND_ACTION_SELECT_WORD, none, BTN_LEFT, 2);
-    add_binding(BIND_ACTION_SELECT_WORD_WS, ctrl, BTN_LEFT, 2);
-    add_binding(BIND_ACTION_SELECT_ROW, none, BTN_LEFT, 3);
-
-    #undef add_binding
+    conf->bindings.mouse.count = ALEN(bindings);
+    conf->bindings.mouse.arr = xmalloc(sizeof(bindings));
+    memcpy(conf->bindings.mouse.arr, bindings, sizeof(bindings));
 }
 
 bool
@@ -2521,7 +2583,7 @@ config_load(struct config *conf, const char *conf_path,
             .palette_based = false,
         },
         .startup_mode = STARTUP_WINDOWED,
-        .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
+        .fonts = {{0}},
         .line_height = {.pt = 0, .px = -1},
         .letter_spacing = {.pt = 0, .px = 0},
         .horizontal_letter_offset = {.pt = 0, .px = 0},
@@ -2734,13 +2796,16 @@ config_load(struct config *conf, const char *conf_path,
         conf->colors.selection_bg >> 24 == 0;
 
 out:
-    if (ret && tll_length(conf->fonts[0]) == 0) {
+    if (ret && conf->fonts[0].count == 0) {
         struct config_font font;
         if (!config_font_parse("monospace", &font)) {
             LOG_ERR("failed to load font 'monospace' - no fonts installed?");
             ret = false;
-        } else
-            tll_push_back(conf->fonts[0], font);
+        } else {
+            conf->fonts[0].count = 1;
+            conf->fonts[0].arr = malloc(sizeof(font));
+            conf->fonts[0].arr[0] = font;
+        }
     }
 
     free(conf_file.path);
@@ -2783,14 +2848,14 @@ config_override_apply(struct config *conf, config_override_t *overrides, bool er
     return true;
 }
 
-static void
+static void NOINLINE
 free_spawn_template(struct config_spawn_template *template)
 {
     free(template->raw_cmd);
     free(template->argv);
 }
 
-static void
+static void NOINLINE
 binding_pipe_free(struct config_binding_pipe *pipe)
 {
     if (pipe->master_copy) {
@@ -2806,12 +2871,11 @@ key_binding_free(struct config_key_binding *binding)
 }
 
 static void
-key_binding_list_free(config_key_binding_list_t *bindings)
+key_binding_list_free(struct config_key_binding_list *bindings)
 {
-    tll_foreach(*bindings, it) {
-        key_binding_free(&it->item);
-        tll_remove(*bindings, it);
-    }
+    for (size_t i = 0; i < bindings->count; i++)
+        key_binding_free(&bindings->arr[i]);
+    free(bindings->arr);
 }
 
 void
@@ -2825,12 +2889,8 @@ config_free(struct config conf)
     free_spawn_template(&conf.bell.command);
     free(conf.scrollback.indicator.text);
     free_spawn_template(&conf.notify);
-    for (size_t i = 0; i < ALEN(conf.fonts); i++) {
-        tll_foreach(conf.fonts[i], it) {
-            config_font_destroy(&it->item);
-            tll_remove(conf.fonts[i], it);
-        }
-    }
+    for (size_t i = 0; i < ALEN(conf.fonts); i++)
+        config_font_list_destroy(&conf.fonts[i]);
     free(conf.server_socket_path);
 
     free(conf.url.label_letters);
@@ -2843,10 +2903,9 @@ config_free(struct config conf)
     key_binding_list_free(&conf.bindings.search);
     key_binding_list_free(&conf.bindings.url);
 
-    tll_foreach(conf.bindings.mouse, it) {
-        binding_pipe_free(&it->item.pipe);
-        tll_remove(conf.bindings.mouse, it);
-    }
+    for (size_t i = 0; i < conf.bindings.mouse.count; i++)
+        binding_pipe_free(&conf.bindings.mouse.arr[i].pipe);
+    free(conf.bindings.mouse.arr);
 
     user_notifications_free(&conf.notifications);
 }
@@ -2881,9 +2940,11 @@ config_font_parse(const char *pattern, struct config_font *font)
 }
 
 void
-config_font_destroy(struct config_font *font)
+config_font_list_destroy(struct config_font_list *font_list)
 {
-    if (font == NULL)
-        return;
-    free(font->pattern);
+    for (size_t i = 0; i < font_list->count; i++)
+        free(font_list->arr[i].pattern);
+    free(font_list->arr);
+    font_list->count = 0;
+    font_list->arr = NULL;
 }

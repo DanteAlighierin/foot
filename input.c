@@ -527,22 +527,36 @@ convert_key_binding(const struct seat *seat,
 static void
 convert_key_bindings(const struct config *conf, struct seat *seat)
 {
-    tll_foreach(conf->bindings.key, it)
-        convert_key_binding(seat, &it->item, &seat->kbd.bindings.key);
+    for (size_t i = 0; i < conf->bindings.key.count; i++) {
+        const struct config_key_binding *binding = &conf->bindings.key.arr[i];
+        if (binding->action == BIND_ACTION_NONE)
+            continue;
+        convert_key_binding(seat, binding, &seat->kbd.bindings.key);
+    }
 }
 
 static void
 convert_search_bindings(const struct config *conf, struct seat *seat)
 {
-    tll_foreach(conf->bindings.search, it)
-        convert_key_binding(seat, &it->item, &seat->kbd.bindings.search);
+    for (size_t i = 0; i < conf->bindings.search.count; i++) {
+        const struct config_key_binding *binding = &conf->bindings.search.arr[i];
+        if (binding->action == BIND_ACTION_SEARCH_NONE)
+            continue;
+        convert_key_binding(seat, binding, &seat->kbd.bindings.search);
+    }
 }
 
 static void
 convert_url_bindings(const struct config *conf, struct seat *seat)
 {
-    tll_foreach(conf->bindings.url, it)
-        convert_key_binding(seat, &it->item, &seat->kbd.bindings.url);
+    for (size_t i = 0; i < conf->bindings.url.count; i++) {
+        const struct config_key_binding *binding = &conf->bindings.url.arr[i];
+#if 0
+        if (binding->action == BIND_ACTION_URL_NONE)
+            continue;
+#endif
+        convert_key_binding(seat, binding, &seat->kbd.bindings.url);
+    }
 }
 
 static void
@@ -562,8 +576,12 @@ convert_mouse_binding(struct seat *seat,
 static void
 convert_mouse_bindings(const struct config *conf, struct seat *seat)
 {
-    tll_foreach(conf->bindings.mouse, it)
-        convert_mouse_binding(seat, &it->item);
+    for (size_t i = 0; i < conf->bindings.mouse.count; i++) {
+        const struct config_mouse_binding *binding = &conf->bindings.mouse.arr[i];
+        if (binding->action == BIND_ACTION_NONE)
+            continue;
+        convert_mouse_binding(seat, binding);
+    }
 }
 
 static void
@@ -1924,9 +1942,11 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 else {
                     /* Seat does NOT have a keyboard - use mouse bindings *without* modifiers */
                     const struct config_mouse_binding *match = NULL;
+                    const struct config *conf = seat->wayl->conf;
 
-                    tll_foreach(seat->wayl->conf->bindings.mouse, it) {
-                        const struct config_mouse_binding *binding = &it->item;
+                    for (size_t i = 0; i < conf->bindings.mouse.count; i++) {
+                        const struct config_mouse_binding *binding =
+                            &conf->bindings.mouse.arr[i];
 
                         if (binding->button != button) {
                             /* Wrong button */
