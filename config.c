@@ -793,6 +793,14 @@ parse_section_main(const char *key, const char *value, struct config *conf,
             return false;
     }
 
+    else if (strcmp(key, "underline-offset") == 0) {
+        if (!str_to_pt_or_px(
+                value, &conf->underline_offset,
+                conf, path, lineno, "default", "underline-offset"))
+            return false;
+        conf->use_custom_underline_offset = true;
+    }
+
     else if (strcmp(key, "dpi-aware") == 0) {
         if (strcmp(value, "auto") == 0)
             conf->dpi_aware = DPI_AWARE_AUTO;
@@ -2514,10 +2522,11 @@ config_load(struct config *conf, const char *conf_path,
         },
         .startup_mode = STARTUP_WINDOWED,
         .fonts = {tll_init(), tll_init(), tll_init(), tll_init()},
-        .line_height = { .pt = 0, .px = -1, },
-        .letter_spacing = { .pt = 0, .px = 0, },
-        .horizontal_letter_offset = {.pt = 0, .px = 0, },
-        .vertical_letter_offset = {.pt = 0, .px = 0, },
+        .line_height = {.pt = 0, .px = -1},
+        .letter_spacing = {.pt = 0, .px = 0},
+        .horizontal_letter_offset = {.pt = 0, .px = 0},
+        .vertical_letter_offset = {.pt = 0, .px = 0},
+        .use_custom_underline_offset = false,
         .box_drawings_uses_font_glyphs = false,
         .dpi_aware = DPI_AWARE_AUTO, /* DPI-aware when scaling-factor == 1 */
         .bell = {
