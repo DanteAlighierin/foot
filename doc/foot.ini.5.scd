@@ -112,10 +112,24 @@ in this order:
 	
 	Default: _0_.
 
-*box-drawings-uses-font-glyphs*
-	Boolean. When disabled, foot generates box/line drawing characters
-	itself. The are several advantages to doing this instead of using
-	font glyphs:
+*underline-offset*
+	Use a custom offset for underlines. The offset is, by default, in
+	_points_ and relative the font's baseline. A positive value
+	positions the underline under the baseline, while a negative value
+	positions it above the baseline.
+	
+	To specify an offset in _pixels_, append *px*:
+	*underline-offset=2px*.
+	
+	If left unset (the default), the offset specified in the font is
+	used, or estimated by foot if the font lacks underline positioning
+	information.
+	
+	Default: _unset_.
+
+*box-drawings-uses-font-glyphs* Boolean. When disabled, foot generates
+	box/line drawing characters itself. The are several advantages to
+	doing this instead of using font glyphs:
 	
 		- No antialiasing effects where e.g. line endpoints appear
 		  dimmed down, or blurred.

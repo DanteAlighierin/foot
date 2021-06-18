@@ -319,7 +319,11 @@ draw_underline_with_thickness(
     const pixman_color_t *color, int x, int y, int cols, int thickness)
 {
     /* Make sure the line isn't positioned below the cell */
-    int y_ofs = font_baseline(term) - font->underline.position;
+    int y_ofs = font_baseline(term) -
+        (term->conf->use_custom_underline_offset
+         ? -term_pt_or_px_as_pixels(term, &term->conf->underline_offset)
+         : font->underline.position);
+
     y_ofs = min(y_ofs, term->cell_height - thickness);
 
     pixman_image_fill_rectangles(

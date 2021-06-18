@@ -65,6 +65,8 @@
   (https://codeberg.org/dnkl/foot/issues/581).
 * Support for overriding configuration options on the command line
   (https://codeberg.org/dnkl/foot/issues/554).
+* `underline-offset` option to `foot.ini`
+  (https://codeberg.org/dnkl/foot/issues/490).
 
 
 ### Changed
