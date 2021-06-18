@@ -970,9 +970,9 @@ load_fonts_from_conf(struct terminal *term)
     for (size_t i = 0; i < 4; i++) {
         const struct config_font_list *font_list = &conf->fonts[i];
 
-        for (size_t j = 0; i < font_list->count; j++) {
+        for (size_t j = 0; j < font_list->count; j++) {
             const struct config_font *font = &font_list->arr[j];
-            term->font_sizes[i][j++] = (struct config_font){
+            term->font_sizes[i][j] = (struct config_font){
                 .pt_size = font->pt_size, .px_size = font->px_size};
         }
     }
@@ -1183,7 +1183,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         const struct config_font_list *font_list = &conf->fonts[i];
         for (size_t j = 0; j < font_list->count; j++) {
             const struct config_font *font = &font_list->arr[j];
-            term->font_sizes[i][j++] = (struct config_font){
+            term->font_sizes[i][j] = (struct config_font){
                 .pt_size = font->pt_size, .px_size = font->px_size};
         }
     }
