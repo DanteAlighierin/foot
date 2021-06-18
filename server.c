@@ -56,7 +56,7 @@ struct terminal_instance {
     struct terminal *terminal;
     struct server *server;
     struct client *client;
-    struct config conf;
+    struct config *conf;
 };
 static void instance_destroy(struct terminal_instance *instance, int exit_code);
 
@@ -119,9 +119,12 @@ instance_destroy(struct terminal_instance *instance, int exit_code)
 
     /* TODO: clone server conf completely, so that we can just call
      * conf_destroy() here */
-    free(instance->conf.term);
-    free(instance->conf.title);
-    free(instance->conf.app_id);
+    if (instance->conf != NULL) {
+        free(instance->conf->term);
+        free(instance->conf->title);
+        free(instance->conf->app_id);
+    }
+    free(instance->conf);
     free(instance);
 
 }
@@ -280,35 +283,54 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     struct terminal_instance *instance = malloc(sizeof(struct terminal_instance));
 
+    const bool need_to_clone_conf =
+        strlen(term_env) > 0 ||
+        strlen(title) > 0 ||
+        strlen(app_id) > 0 ||
+        cdata.hold != server->conf->hold_at_exit ||
+        cdata.login_shell != server->conf->login_shell ||
+        cdata.no_wait != server->conf->no_wait ||
+        (cdata.maximized && server->conf->startup_mode != STARTUP_MAXIMIZED) ||
+        (cdata.fullscreen && server->conf->startup_mode != STARTUP_FULLSCREEN) ||
+        (cdata.width > 0 && cdata.height > 0);
+
+    struct config *conf = NULL;
+    if (need_to_clone_conf) {
+        conf = xmalloc(sizeof(*conf));
+        *conf = *server->conf;
+
+        conf->term = strlen(term_env) > 0
+            ? xstrdup(term_env) : xstrdup(server->conf->term);
+        conf->title = strlen(title) > 0
+            ? xstrdup(title) : xstrdup(server->conf->title);
+        conf->app_id = strlen(app_id) > 0
+            ? xstrdup(app_id) : xstrdup(server->conf->app_id);
+        conf->hold_at_exit = cdata.hold;
+        conf->login_shell = cdata.login_shell;
+        conf->no_wait = cdata.no_wait;
+
+        if (cdata.maximized)
+            conf->startup_mode = STARTUP_MAXIMIZED;
+        else if (cdata.fullscreen)
+            conf->startup_mode = STARTUP_FULLSCREEN;
+
+        if (cdata.width > 0 && cdata.height > 0) {
+            conf->size.type = cdata.size_type;
+            conf->size.width = cdata.width;
+            conf->size.height = cdata.height;
+        }
+    }
+
     *instance = (struct terminal_instance) {
         .client = NULL,
         .server = server,
-        .conf = *server->conf,
+        .conf = conf,
     };
-    instance->conf.term = strlen(term_env) > 0
-        ? xstrdup(term_env) : xstrdup(server->conf->term);
-    instance->conf.title = strlen(title) > 0
-        ? xstrdup(title) : xstrdup(server->conf->title);
-    instance->conf.app_id = strlen(app_id) > 0
-        ? xstrdup(app_id) : xstrdup(server->conf->app_id);
-    instance->conf.hold_at_exit = cdata.hold;
-    instance->conf.login_shell = cdata.login_shell;
-    instance->conf.no_wait = cdata.no_wait;
-
-    if (cdata.maximized)
-        instance->conf.startup_mode = STARTUP_MAXIMIZED;
-    else if (cdata.fullscreen)
-        instance->conf.startup_mode = STARTUP_FULLSCREEN;
-
-    if (cdata.width > 0 && cdata.height > 0) {
-        instance->conf.size.type = cdata.size_type;
-        instance->conf.size.width = cdata.width;
-        instance->conf.size.height = cdata.height;
-    }
 
     instance->terminal = term_init(
-        &instance->conf, server->fdm, server->reaper, server->wayl,
-        "footclient", cwd, cdata.argc, argv, &term_shutdown_handler, instance);
+        conf != NULL ? conf : server->conf,
+        server->fdm, server->reaper, server->wayl, "footclient", cwd,
+        cdata.argc, argv, &term_shutdown_handler, instance);
 
     if (instance->terminal == NULL) {
         LOG_ERR("failed to instantiate new terminal");
@@ -317,7 +339,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         goto shutdown;
     }
 
-    if (instance->conf.no_wait) {
+    if (conf != NULL && conf->no_wait) {
         // the server owns the instance
         tll_push_back(server->terminals, instance);
         client_send_exit_code(client, 0);
