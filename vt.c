@@ -631,10 +631,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             if (utf8proc_grapheme_break_stateful(last, wc, &term->vt.grapheme_state) &&
                 last != 0x200d /* ZWJ */)
             {
-                term_reset_grapheme_state(term);
-                if (width > 0)
-                    term_print(term, wc, width);
-                return;
+                goto out;
             }
         }
 #endif
@@ -671,9 +668,9 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                      !base_from_primary ||
                      !comb_from_primary))
                 {
-                    term_reset_grapheme_state(term);
-                    term_print(term, precomposed, precomposed_width);
-                    return;
+                    wc = precomposed;
+                    width = precomposed_width;
+                    goto out;
                 }
             }
 
@@ -717,9 +714,9 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                 if (cc->chars[wanted_count - 1] != wc)
                     continue;
 
-                if (cc->width > 0)
-                    term_print(term, CELL_COMB_CHARS_LO + i, cc->width);
-                return;
+                wc = CELL_COMB_CHARS_LO + i;
+                width = cc->width;
+                goto out;
             }
 
             /* Allocate new chain */
@@ -732,30 +729,32 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                 new_cc.chars[i] = composed->chars[i];
             new_cc.chars[wanted_count - 1] = wc;
 
-            if (term->composed_count < CELL_COMB_CHARS_HI) {
-                int grapheme_width = composed != NULL ? composed->width : base_width;
-                if (wc == 0xfe0f && grapheme_width < 2)
-                    grapheme_width = 2;
-                else
-                    grapheme_width += width;
-                new_cc.width = grapheme_width;
-
-                term->composed_count++;
-                term->composed = xrealloc(term->composed, term->composed_count * sizeof(term->composed[0]));
-                term->composed[term->composed_count - 1] = new_cc;
-
-                if (grapheme_width > 0)
-                    term_print(term, CELL_COMB_CHARS_LO + term->composed_count - 1, grapheme_width);
-                return;
-            } else {
+            if (unlikely(term->composed_count >= CELL_COMB_CHARS_HI)) {
                 /* We reached our maximum number of allowed composed
                  * character chains. Fall through here and print the
                  * current zero-width character to the current cell */
                 LOG_WARN("maximum number of composed characters reached");
+                goto out;
             }
+
+            int grapheme_width = composed != NULL ? composed->width : base_width;
+            if (wc == 0xfe0f && grapheme_width < 2)
+                grapheme_width = 2;
+            else
+                grapheme_width += width;
+            new_cc.width = grapheme_width;
+
+            term->composed_count++;
+            term->composed = xrealloc(term->composed, term->composed_count * sizeof(term->composed[0]));
+            term->composed[term->composed_count - 1] = new_cc;
+
+            wc = CELL_COMB_CHARS_LO + term->composed_count - 1;
+            width = grapheme_width;
+            goto out;
         }
     }
 
+out:
     term_reset_grapheme_state(term);
     if (width > 0)
         term_print(term, wc, width);
