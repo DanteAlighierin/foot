@@ -611,6 +611,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         xassert(col >= 0 && col < term->cols);
         wchar_t base = row->cells[col].wc;
         wchar_t UNUSED last = base;
+        size_t search_start_index = 0;
 
         /* Is base cell already a cluster? */
         const struct composed *composed =
@@ -620,6 +621,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             : NULL;
 
         if (composed != NULL) {
+            search_start_index = base - CELL_COMB_CHARS_LO;
             base = composed->chars[0];
             last = composed->chars[composed->count - 1];
         }
@@ -692,7 +694,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             xassert(wanted_count <= ALEN(composed->chars));
 
             /* Look for existing combining chain */
-            for (size_t i = 0; i < term->composed_count; i++) {
+            for (size_t i = search_start_index; i < term->composed_count; i++) {
                 const struct composed *cc = &term->composed[i];
 
                 if (cc->chars[0] != base)
