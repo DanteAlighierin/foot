@@ -27,7 +27,7 @@ notify_notify(const struct terminal *term, const char *title, const char *body)
     if (title == NULL || body == NULL)
         return;
 
-    if (term->conf->notify.argv == NULL)
+    if (term->conf->notify.argv.args == NULL)
         return;
 
     char **argv = NULL;

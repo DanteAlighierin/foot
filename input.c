@@ -519,7 +519,7 @@ convert_key_binding(const struct seat *seat,
         .sym = sym,
         .key_codes = key_codes_for_xkb_sym(seat->kbd.xkb_keymap, sym),
         .action = conf_binding->action,
-        .pipe_argv = conf_binding->pipe.argv,
+        .pipe_argv = conf_binding->pipe.argv.args,
     };
     tll_push_back(*bindings, binding);
 }
@@ -568,7 +568,7 @@ convert_mouse_binding(struct seat *seat,
         .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
         .button = conf_binding->button,
         .count = conf_binding->count,
-        .pipe_argv = conf_binding->pipe.argv,
+        .pipe_argv = conf_binding->pipe.argv.args,
     };
     tll_push_back(seat->mouse.bindings, binding);
 }
@@ -1970,7 +1970,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
                     if (match != NULL) {
                         consumed = execute_binding(
-                            seat, term, match->action, match->pipe.argv, serial);
+                            seat, term, match->action, match->pipe.argv.args,
+                            serial);
                     }
                 }
             }

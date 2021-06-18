@@ -501,40 +501,50 @@ str_to_pt_or_px(const char *s, struct pt_or_px *res, struct config *conf,
     return true;
 }
 
-
 static void NOINLINE
-free_spawn_template(struct config_spawn_template *template)
+free_argv(struct argv *argv)
 {
-    if (template->argv == NULL)
+    if (argv->args == NULL)
         return;
-
-    for (char **argv = template->argv; *argv != NULL; argv++)
-            free(*argv);
-    free(template->argv);
-    template->argv = NULL;
+    for (char **a = argv->args; *a != NULL; a++)
+        free(*a);
+    free(argv->args);
+    argv->args = NULL;
 }
 
 static void NOINLINE
-clone_spawn_template(struct config_spawn_template *dst,
-                     const struct config_spawn_template *src)
+clone_argv(struct argv *dst, const struct argv *src)
 {
-    if (src->argv == NULL) {
-        dst->argv = NULL;
+    if (src->args == NULL) {
+        dst->args = NULL;
         return;
     }
 
     size_t count = 0;
-    for (char **argv = src->argv; *argv != NULL; argv++)
+    for (char **args = src->args; *args != NULL; args++)
         count++;
 
-    dst->argv = xmalloc((count + 1) * sizeof(dst->argv[0]));
-    for (char **argv_src = src->argv, **argv_dst = dst->argv;
-         *argv_src != NULL; argv_src++,
-             argv_dst++)
+    dst->args = xmalloc((count + 1) * sizeof(dst->args[0]));
+    for (char **args_src = src->args, **args_dst = dst->args;
+         *args_src != NULL; args_src++,
+             args_dst++)
     {
-        *argv_dst = xstrdup(*argv_src);
+        *args_dst = xstrdup(*args_src);
     }
-    dst->argv[count] = NULL;
+    dst->args[count] = NULL;
+}
+
+static void
+spawn_template_free(struct config_spawn_template *template)
+{
+    free_argv(&template->argv);
+}
+
+static void
+spawn_template_clone(struct config_spawn_template *dst,
+                     const struct config_spawn_template *src)
+{
+    clone_argv(&dst->argv, &src->argv);
 }
 
 static bool NOINLINE
@@ -543,7 +553,7 @@ str_to_spawn_template(struct config *conf,
                       const char *path, int lineno, const char *section,
                       const char *key)
 {
-    free_spawn_template(template);
+    spawn_template_free(template);
 
     char **argv = NULL;
 
@@ -554,7 +564,7 @@ str_to_spawn_template(struct config *conf,
         return false;
     }
 
-    template->argv = argv;
+    template->argv.args = argv;
     return true;
 }
 
@@ -1555,12 +1565,12 @@ has_key_binding_collisions(struct config *conf,
             bool sym = combo1->sym == combo2->sym;
 
             if (shift && alt && ctrl && meta && sym) {
-                bool has_pipe = combo1->pipe.cmd != NULL;
+                bool has_pipe = combo1->pipe.argv.args != NULL;
                 LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s%s%s%s'",
                                    path, lineno, combo2->text,
                                    action_map[combo1->action],
                                    has_pipe ? " [" : "",
-                                   has_pipe ? combo1->pipe.cmd : "",
+                                   has_pipe ? combo1->pipe.argv.args[0] : "",
                                    has_pipe ? "]" : "");
                 return true;
             }
@@ -1615,11 +1625,10 @@ argv_compare(char *const *argv1, char *const *argv2)
  *  - argv: allocatd array containing {"cmd", "arg1", "arg2", NULL}. Caller frees.
  */
 static ssize_t
-pipe_argv_from_string(const char *value, char **cmd, char ***argv,
+pipe_argv_from_string(const char *value, char ***argv,
                       struct config *conf,
                       const char *path, unsigned lineno)
 {
-    *cmd = NULL;
     *argv = NULL;
 
     if (value[0] != '[')
@@ -1632,11 +1641,11 @@ pipe_argv_from_string(const char *value, char **cmd, char ***argv,
     }
 
     size_t pipe_len = pipe_cmd_end - value - 1;
-    *cmd = xstrndup(&value[1], pipe_len);
+    char *cmd = xstrndup(&value[1], pipe_len);
 
-    if (!tokenize_cmdline(*cmd, argv)) {
+    if (!tokenize_cmdline(cmd, argv)) {
         LOG_AND_NOTIFY_ERR("%s:%d: syntax error in command line", path, lineno);
-        free(*cmd);
+        free(cmd);
         return -1;
     }
 
@@ -1647,6 +1656,7 @@ pipe_argv_from_string(const char *value, char **cmd, char ***argv,
         remove_len++;
     }
 
+    free(cmd);
     return remove_len;
 }
 
@@ -1657,11 +1667,10 @@ parse_key_binding_section(
     struct config_key_binding_list *bindings,
     struct config *conf, const char *path, unsigned lineno)
 {
-    char *pipe_cmd;
     char **pipe_argv;
 
     ssize_t pipe_remove_len = pipe_argv_from_string(
-        value, &pipe_cmd, &pipe_argv, conf, path, lineno);
+        value, &pipe_argv, conf, path, lineno);
 
     if (pipe_remove_len < 0)
         return false;
@@ -1683,17 +1692,12 @@ parse_key_binding_section(
                 if (binding->action != action)
                     continue;
 
-                if (binding->pipe.master_copy) {
-                    free(binding->pipe.cmd);
-                    free(binding->pipe.argv);
-                }
+                if (binding->pipe.master_copy)
+                    free_argv(&binding->pipe.argv);
                 binding->action = BIND_ACTION_NONE;
-                binding->pipe.cmd = NULL;
-                binding->pipe.argv = NULL;
             }
 
             free(pipe_argv);
-            free(pipe_cmd);
             return true;
         }
 
@@ -1705,7 +1709,6 @@ parse_key_binding_section(
                 path, lineno))
         {
             free(pipe_argv);
-            free(pipe_cmd);
             free_key_combo_list(&key_combos);
             return false;
         }
@@ -1715,18 +1718,14 @@ parse_key_binding_section(
             struct config_key_binding *binding = &bindings->arr[i];
 
             if (binding->action == action &&
-                ((binding->pipe.argv == NULL && pipe_argv == NULL) ||
-                 (binding->pipe.argv != NULL && pipe_argv != NULL &&
-                  argv_compare(binding->pipe.argv, pipe_argv) == 0)))
+                ((binding->pipe.argv.args == NULL && pipe_argv == NULL) ||
+                 (binding->pipe.argv.args != NULL && pipe_argv != NULL &&
+                  argv_compare(binding->pipe.argv.args, pipe_argv) == 0)))
             {
 
-                if (binding->pipe.master_copy) {
-                    free(binding->pipe.cmd);
-                    free(binding->pipe.argv);
-                }
+                if (binding->pipe.master_copy)
+                    free_argv(&binding->pipe.argv);
                 binding->action = BIND_ACTION_NONE;
-                binding->pipe.cmd = NULL;
-                binding->pipe.argv = NULL;
             }
         }
 
@@ -1744,8 +1743,9 @@ parse_key_binding_section(
                 .modifiers = combo->modifiers,
                 .sym = combo->sym,
                 .pipe = {
-                    .cmd = pipe_cmd,
-                    .argv = pipe_argv,
+                    .argv = {
+                        .args = pipe_argv,
+                    },
                     .master_copy = first,
                 },
             };
@@ -1761,7 +1761,6 @@ parse_key_binding_section(
 
     LOG_AND_NOTIFY_ERR("%s:%u: [%s]: %s: invalid action",
                        path, lineno, section, key);
-    free(pipe_cmd);
     free(pipe_argv);
     return false;
 }
@@ -1966,12 +1965,12 @@ has_mouse_binding_collisions(struct config *conf, const struct key_combo_list *k
             bool count = combo1->count == combo2->m.count;
 
             if (shift && alt && ctrl && meta && button && count) {
-                bool has_pipe = combo1->pipe.cmd != NULL;
+                bool has_pipe = combo1->pipe.argv.args != NULL;
                 LOG_AND_NOTIFY_ERR("%s:%d: %s already mapped to '%s%s%s%s'",
                                    path, lineno, combo2->text,
                                    binding_action_map[combo1->action],
                                    has_pipe ? " [" : "",
-                                   has_pipe ? combo1->pipe.cmd : "",
+                                   has_pipe ? combo1->pipe.argv.args[0] : "",
                                    has_pipe ? "]" : "");
                 return true;
             }
@@ -1987,11 +1986,10 @@ parse_section_mouse_bindings(
     const char *key, const char *value, struct config *conf,
     const char *path, unsigned lineno, bool errors_are_fatal)
 {
-    char *pipe_cmd;
     char **pipe_argv;
 
     ssize_t pipe_remove_len = pipe_argv_from_string(
-        value, &pipe_cmd, &pipe_argv, conf, path, lineno);
+        value, &pipe_argv, conf, path, lineno);
 
     if (pipe_remove_len < 0)
         return false;
@@ -2015,17 +2013,12 @@ parse_section_mouse_bindings(
                     &conf->bindings.mouse.arr[i];
 
                 if (binding->action == action) {
-                    if (binding->pipe.master_copy) {
-                        free(binding->pipe.cmd);
-                        free(binding->pipe.argv);
-                    }
+                    if (binding->pipe.master_copy)
+                        free_argv(&binding->pipe.argv);
                     binding->action = BIND_ACTION_NONE;
-                    binding->pipe.cmd = NULL;
-                    binding->pipe.argv = NULL;
                 }
             }
             free(pipe_argv);
-            free(pipe_cmd);
             return true;
         }
 
@@ -2034,7 +2027,6 @@ parse_section_mouse_bindings(
             has_mouse_binding_collisions(conf, &key_combos, path, lineno))
         {
             free(pipe_argv);
-            free(pipe_cmd);
             free_key_combo_list(&key_combos);
             return false;
         }
@@ -2044,17 +2036,13 @@ parse_section_mouse_bindings(
             struct config_mouse_binding *binding = &conf->bindings.mouse.arr[i];
 
             if (binding->action == action &&
-                ((binding->pipe.argv == NULL && pipe_argv == NULL) ||
-                 (binding->pipe.argv != NULL && pipe_argv != NULL &&
-                  argv_compare(binding->pipe.argv, pipe_argv) == 0)))
+                ((binding->pipe.argv.args == NULL && pipe_argv == NULL) ||
+                 (binding->pipe.argv.args != NULL && pipe_argv != NULL &&
+                  argv_compare(binding->pipe.argv.args, pipe_argv) == 0)))
             {
-                if (binding->pipe.master_copy) {
-                    free(binding->pipe.cmd);
-                    free(binding->pipe.argv);
-                }
+                if (binding->pipe.master_copy)
+                    free_argv(&binding->pipe.argv);
                 binding->action = BIND_ACTION_NONE;
-                binding->pipe.cmd = NULL;
-                binding->pipe.argv = NULL;
             }
         }
 
@@ -2074,8 +2062,9 @@ parse_section_mouse_bindings(
                 .button = combo->m.button,
                 .count = combo->m.count,
                 .pipe = {
-                    .cmd = pipe_cmd,
-                    .argv = pipe_argv,
+                    .argv = {
+                        .args = pipe_argv,
+                    },
                     .master_copy = first,
                 },
             };
@@ -2090,7 +2079,6 @@ parse_section_mouse_bindings(
 
     LOG_AND_NOTIFY_ERR("%s:%u: [mouse-bindings]: %s: invalid key", path, lineno, key);
     free(pipe_argv);
-    free(pipe_cmd);
     return false;
 }
 
@@ -2624,7 +2612,7 @@ config_load(struct config *conf, const char *conf_path,
             .urgent = false,
             .notify = false,
             .command = {
-                .argv = NULL,
+                .argv = {.args = NULL},
             },
             .command_focused = false,
         },
@@ -2700,7 +2688,7 @@ config_load(struct config *conf, const char *conf_path,
         .selection_target = SELECTION_TARGET_PRIMARY,
         .hold_at_exit = false,
         .notify = {
-            .argv = NULL,
+            .argv = {.args = NULL},
         },
 
         .tweak = {
@@ -2746,8 +2734,8 @@ config_load(struct config *conf, const char *conf_path,
     }
 
     tokenize_cmdline("notify-send -a ${app-id} -i ${app-id} ${title} ${body}",
-                     &conf->notify.argv);
-    tokenize_cmdline("xdg-open ${url}", &conf->url.launch.argv);
+                     &conf->notify.argv.args);
+    tokenize_cmdline("xdg-open ${url}", &conf->url.launch.argv.args);
 
     static const wchar_t *url_protocols[] = {
         L"http://",
@@ -2872,27 +2860,143 @@ config_override_apply(struct config *conf, config_override_t *overrides, bool er
     return true;
 }
 
-static void NOINLINE
+static void
 binding_pipe_free(struct config_binding_pipe *pipe)
 {
-    if (pipe->master_copy) {
-        free(pipe->cmd);
-        free(pipe->argv);
+    if (pipe->master_copy)
+        free_argv(&pipe->argv);
+}
+
+static void
+binding_pipe_clone(struct config_binding_pipe *dst,
+                   const struct config_binding_pipe *src)
+{
+    xassert(src->master_copy);
+    clone_argv(&dst->argv, &src->argv);
+}
+
+static void NOINLINE
+key_binding_list_free(struct config_key_binding_list *bindings)
+{
+    for (size_t i = 0; i < bindings->count; i++)
+        binding_pipe_free(&bindings->arr[i].pipe);
+    free(bindings->arr);
+}
+
+static void NOINLINE
+key_binding_list_clone(struct config_key_binding_list *dst,
+                       const struct config_key_binding_list *src)
+{
+    struct argv *last_master_argv = NULL;
+
+    dst->count = src->count;
+    dst->arr = xmalloc(src->count * sizeof(dst->arr[0]));
+
+    for (size_t i = 0; i < src->count; i++) {
+        const struct config_key_binding *old = &src->arr[i];
+        struct config_key_binding *new = &dst->arr[i];
+
+        *new = *old;
+
+        if (old->pipe.argv.args == NULL)
+            continue;
+
+        if (old->pipe.master_copy) {
+            binding_pipe_clone(&new->pipe, &old->pipe);
+            last_master_argv = &new->pipe.argv;
+        } else {
+            xassert(last_master_argv != NULL);
+            new->pipe.argv = *last_master_argv;
+        }
     }
 }
 
 static void
-key_binding_free(struct config_key_binding *binding)
-{
-    binding_pipe_free(&binding->pipe);
-}
-
-static void
-key_binding_list_free(struct config_key_binding_list *bindings)
+mouse_binding_list_free(struct config_mouse_binding_list *bindings)
 {
     for (size_t i = 0; i < bindings->count; i++)
-        key_binding_free(&bindings->arr[i]);
+        binding_pipe_free(&bindings->arr[i].pipe);
     free(bindings->arr);
+}
+
+static void NOINLINE
+mouse_binding_list_clone(struct config_mouse_binding_list *dst,
+                         const struct config_mouse_binding_list *src)
+{
+    struct argv *last_master_argv = NULL;
+
+    dst->count = src->count;
+    dst->arr = xmalloc(src->count * sizeof(dst->arr[0]));
+
+    for (size_t i = 0; i < src->count; i++) {
+        const struct config_mouse_binding *old = &src->arr[i];
+        struct config_mouse_binding *new = &dst->arr[i];
+
+        *new = *old;
+
+        if (old->pipe.argv.args == NULL)
+            continue;
+
+        if (old->pipe.master_copy) {
+            binding_pipe_clone(&new->pipe, &old->pipe);
+            last_master_argv = &new->pipe.argv;
+        } else {
+            xassert(last_master_argv != NULL);
+            new->pipe.argv = *last_master_argv;
+        }
+    }
+}
+
+struct config *
+config_clone(const struct config *old)
+{
+    struct config *conf = xmalloc(sizeof(*conf));
+    *conf = *old;
+
+    conf->term = xstrdup(old->term);
+    conf->shell = xstrdup(old->shell);
+    conf->title = xstrdup(old->title);
+    conf->app_id = xstrdup(old->app_id);
+    conf->word_delimiters = xwcsdup(old->word_delimiters);
+    conf->scrollback.indicator.text = xwcsdup(old->scrollback.indicator.text);
+    conf->server_socket_path = xstrdup(old->server_socket_path);
+    spawn_template_clone(&conf->bell.command, &old->bell.command);
+    spawn_template_clone(&conf->notify, &old->notify);
+
+    for (size_t i = 0; i < ALEN(conf->fonts); i++) {
+        struct config_font_list *dst = &conf->fonts[i];
+        const struct config_font_list *src = &old->fonts[i];
+
+        dst->count = src->count;
+        dst->arr = xmalloc(dst->count * sizeof(dst->arr[0]));
+
+        for (size_t j = 0; j < dst->count; j++)
+            dst->arr[j].pattern = xstrdup(src->arr[j].pattern);
+    }
+
+    conf->url.label_letters = xwcsdup(old->url.label_letters);
+    spawn_template_clone(&conf->url.launch, &old->url.launch);
+    conf->url.protocols = xmalloc(
+        old->url.prot_count * sizeof(conf->url.protocols[0]));
+    for (size_t i = 0; i < old->url.prot_count; i++)
+        conf->url.protocols[i] = xwcsdup(old->url.protocols[i]);
+
+    key_binding_list_clone(&conf->bindings.key, &old->bindings.key);
+    key_binding_list_clone(&conf->bindings.search, &old->bindings.search);
+    key_binding_list_clone(&conf->bindings.url, &old->bindings.url);
+    mouse_binding_list_clone(&conf->bindings.mouse, &old->bindings.mouse);
+
+    conf->notifications.length = 0;
+    conf->notifications.head = conf->notifications.tail = 0;
+    tll_foreach(old->notifications, it) {
+        struct user_notification notif = {
+            .kind = it->item.kind,
+            .text = xstrdup(it->item.text),
+        };
+        tll_push_back(conf->notifications, notif);
+    }
+
+    return conf;
 }
 
 void
@@ -2903,15 +3007,15 @@ config_free(struct config conf)
     free(conf.title);
     free(conf.app_id);
     free(conf.word_delimiters);
-    free_spawn_template(&conf.bell.command);
+    spawn_template_free(&conf.bell.command);
     free(conf.scrollback.indicator.text);
-    free_spawn_template(&conf.notify);
+    spawn_template_free(&conf.notify);
     for (size_t i = 0; i < ALEN(conf.fonts); i++)
         config_font_list_destroy(&conf.fonts[i]);
     free(conf.server_socket_path);
 
     free(conf.url.label_letters);
-    free_spawn_template(&conf.url.launch);
+    spawn_template_free(&conf.url.launch);
     for (size_t i = 0; i < conf.url.prot_count; i++)
         free(conf.url.protocols[i]);
     free(conf.url.protocols);
@@ -2919,10 +3023,7 @@ config_free(struct config conf)
     key_binding_list_free(&conf.bindings.key);
     key_binding_list_free(&conf.bindings.search);
     key_binding_list_free(&conf.bindings.url);
-
-    for (size_t i = 0; i < conf.bindings.mouse.count; i++)
-        binding_pipe_free(&conf.bindings.mouse.arr[i].pipe);
-    free(conf.bindings.mouse.arr);
+    mouse_binding_list_free(&conf.bindings.mouse);
 
     user_notifications_free(&conf.notifications);
 }

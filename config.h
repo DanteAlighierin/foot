@@ -37,9 +37,12 @@ struct config_key_modifiers {
     bool meta;
 };
 
+struct argv {
+    char **args;
+};
+
 struct config_binding_pipe {
-    char *cmd;
-    char **argv;
+    struct argv argv;
     bool master_copy;
 };
 
@@ -63,7 +66,7 @@ DEFINE_LIST(struct config_mouse_binding);
 typedef tll(char *) config_override_t;
 
 struct config_spawn_template {
-    char **argv;
+    struct argv argv;
 };
 
 struct config {
@@ -262,6 +265,7 @@ bool config_load(
     user_notifications_t *initial_user_notifications,
     config_override_t *overrides, bool errors_are_fatal);
 void config_free(struct config conf);
+struct config *config_clone(const struct config *old);
 
 bool config_font_parse(const char *pattern, struct config_font *font);
 void config_font_list_destroy(struct config_font_list *font_list);
