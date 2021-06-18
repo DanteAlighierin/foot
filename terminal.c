@@ -808,11 +808,13 @@ font_loader_thread(void *_data)
 static bool
 reload_fonts(struct terminal *term)
 {
+    const struct config *conf = term->conf;
+
     const size_t counts[4] = {
-        tll_length(term->conf->fonts[0]),
-        tll_length(term->conf->fonts[1]),
-        tll_length(term->conf->fonts[2]),
-        tll_length(term->conf->fonts[3]),
+        conf->fonts[0].count,
+        conf->fonts[1].count,
+        conf->fonts[2].count,
+        conf->fonts[3].count,
     };
 
     /* Configure size (which may have been changed run-time) */
@@ -820,8 +822,10 @@ reload_fonts(struct terminal *term)
     for (size_t i = 0; i < 4; i++) {
         names[i] = xmalloc(counts[i] * sizeof(names[i][0]));
 
-        size_t j = 0;
-        tll_foreach(term->conf->fonts[i], it) {
+        const struct config_font_list *font_list = &conf->fonts[i];
+
+        for (size_t j = 0; j < font_list->count; j++) {
+            const struct config_font *font = &font_list->arr[j];
             bool use_px_size = term->font_sizes[i][j].px_size > 0;
             char size[64];
 
@@ -835,12 +839,11 @@ reload_fonts(struct terminal *term)
                 snprintf(size, sizeof(size), ":size=%.2f",
                          term->font_sizes[i][j].pt_size * (double)scale);
 
-            size_t len = strlen(it->item.pattern) + strlen(size) + 1;
+            size_t len = strlen(font->pattern) + strlen(size) + 1;
             names[i][j] = xmalloc(len);
 
-            strcpy(names[i][j], it->item.pattern);
+            strcpy(names[i][j], font->pattern);
             strcat(names[i][j], size);
-            j++;
         }
     }
 
@@ -937,11 +940,15 @@ reload_fonts(struct terminal *term)
 static bool
 load_fonts_from_conf(struct terminal *term)
 {
+    const struct config *conf = term->conf;
+
     for (size_t i = 0; i < 4; i++) {
-        size_t j = 0;
-        tll_foreach(term->conf->fonts[i], it) {
+        const struct config_font_list *font_list = &conf->fonts[i];
+
+        for (size_t j = 0; i < font_list->count; j++) {
+            const struct config_font *font = &font_list->arr[j];
             term->font_sizes[i][j++] = (struct config_font){
-                .pt_size = it->item.pt_size, .px_size = it->item.px_size};
+                .pt_size = font->pt_size, .px_size = font->px_size};
         }
     }
 
@@ -1039,10 +1046,10 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .ptmx_buffers = tll_init(),
         .ptmx_paste_buffers = tll_init(),
         .font_sizes = {
-            xmalloc(sizeof(term->font_sizes[0][0]) * tll_length(conf->fonts[0])),
-            xmalloc(sizeof(term->font_sizes[1][0]) * tll_length(conf->fonts[1])),
-            xmalloc(sizeof(term->font_sizes[2][0]) * tll_length(conf->fonts[2])),
-            xmalloc(sizeof(term->font_sizes[3][0]) * tll_length(conf->fonts[3])),
+            xmalloc(sizeof(term->font_sizes[0][0]) * conf->fonts[0].count),
+            xmalloc(sizeof(term->font_sizes[1][0]) * conf->fonts[1].count),
+            xmalloc(sizeof(term->font_sizes[2][0]) * conf->fonts[2].count),
+            xmalloc(sizeof(term->font_sizes[3][0]) * conf->fonts[3].count),
         },
         .font_dpi = 0.,
         .font_subpixel = (conf->colors.alpha == 0xffff  /* Can't do subpixel rendering on transparent background */
@@ -1136,10 +1143,11 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
    term_update_ascii_printer(term);
 
     for (size_t i = 0; i < 4; i++) {
-        size_t j = 0;
-        tll_foreach(conf->fonts[i], it) {
+        const struct config_font_list *font_list = &conf->fonts[i];
+        for (size_t j = 0; j < font_list->count; j++) {
+            const struct config_font *font = &font_list->arr[j];
             term->font_sizes[i][j++] = (struct config_font){
-                .pt_size = it->item.pt_size, .px_size = it->item.px_size};
+                .pt_size = font->pt_size, .px_size = font->px_size};
         }
     }
     term->font_line_height = conf->line_height;
@@ -1716,8 +1724,12 @@ term_reset(struct terminal *term, bool hard)
 static bool
 term_font_size_adjust(struct terminal *term, double amount)
 {
+    const struct config *conf = term->conf;
+
     for (size_t i = 0; i < 4; i++) {
-        for (size_t j = 0; j < tll_length(term->conf->fonts[i]); j++) {
+        const struct config_font_list *font_list = &conf->fonts[i];
+
+        for (size_t j = 0; j < font_list->count; j++) {
             double old_pt_size = term->font_sizes[i][j].pt_size;
 
             /*

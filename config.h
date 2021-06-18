@@ -15,6 +15,12 @@
     #define DEFAULT_TERM "xterm-256color"
 #endif
 
+#define DEFINE_LIST(type) \
+    type##_list {         \
+        size_t count;     \
+        type *arr;        \
+    }
+
 enum conf_size_type {CONF_SIZE_PX, CONF_SIZE_CELLS};
 
 struct config_font {
@@ -22,7 +28,7 @@ struct config_font {
     double pt_size;
     int px_size;
 };
-typedef tll(struct config_font) config_font_list_t;
+DEFINE_LIST(struct config_font);
 
 struct config_key_modifiers {
     bool shift;
@@ -43,7 +49,7 @@ struct config_key_binding {
     xkb_keysym_t sym;
     struct config_binding_pipe pipe;
 };
-typedef tll(struct config_key_binding) config_key_binding_list_t;
+DEFINE_LIST(struct config_key_binding);
 
 struct config_mouse_binding {
     enum bind_action_normal action;
@@ -52,7 +58,7 @@ struct config_mouse_binding {
     int count;
     struct config_binding_pipe pipe;
 };
-typedef tll(struct config_mouse_binding) config_mouse_binding_list_t;
+DEFINE_LIST(struct config_mouse_binding);
 
 typedef tll(char *) config_override_t;
 
@@ -89,7 +95,7 @@ struct config {
     enum { STARTUP_WINDOWED, STARTUP_MAXIMIZED, STARTUP_FULLSCREEN } startup_mode;
 
     enum {DPI_AWARE_AUTO, DPI_AWARE_YES, DPI_AWARE_NO} dpi_aware;
-    config_font_list_t fonts[4];
+    struct config_font_list fonts[4];
 
     /* Custom font metrics (-1 = use real font metrics) */
     struct pt_or_px line_height;
@@ -184,8 +190,8 @@ struct config {
 
     struct {
         /* Bindings for "normal" mode */
-        config_key_binding_list_t key;
-        config_mouse_binding_list_t mouse;
+        struct config_key_binding_list key;
+        struct config_mouse_binding_list mouse;
 
         /*
          * Special modes
@@ -193,10 +199,10 @@ struct config {
 
         /* While searching (not - action to *start* a search is in the
          * 'key' bindings above */
-        config_key_binding_list_t search;
+        struct config_key_binding_list search;
 
         /* While showing URL jump labels */
-        config_key_binding_list_t url;
+        struct config_key_binding_list url;
     } bindings;
 
     struct {
@@ -257,4 +263,4 @@ bool config_load(
 void config_free(struct config conf);
 
 bool config_font_parse(const char *pattern, struct config_font *font);
-void config_font_destroy(struct config_font *font);
+void config_font_list_destroy(struct config_font_list *font_list);

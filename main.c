@@ -441,17 +441,22 @@ main(int argc, char *const *argv)
     if (login_shell)
         conf.login_shell = true;
     if (tll_length(conf_fonts) > 0) {
-        for (size_t i = 0; i < ALEN(conf.fonts); i++) {
-            tll_foreach(conf.fonts[i], it)
-                config_font_destroy(&it->item);
-            tll_free(conf.fonts[i]);
-        }
+        for (size_t i = 0; i < ALEN(conf.fonts); i++)
+            config_font_list_destroy(&conf.fonts[i]);
+
+        struct config_font_list *font_list = &conf.fonts[0];
+        xassert(font_list->count == 0);
+        xassert(font_list->arr == NULL);
+
+        font_list->arr = xmalloc(
+            tll_length(conf_fonts) * sizeof(font_list->arr[0]));
+
         tll_foreach(conf_fonts, it) {
             struct config_font font;
             if (!config_font_parse(it->item, &font)) {
                 LOG_ERR("%s: invalid font specification", it->item);
             } else
-                tll_push_back(conf.fonts[0], font);
+                font_list->arr[font_list->count++] = font;
         }
         tll_free(conf_fonts);
     }
