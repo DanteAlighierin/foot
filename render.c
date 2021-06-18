@@ -3501,26 +3501,10 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
     }
 }
 
-static bool
-fdm_title_update(struct fdm *fdm, int fd, int events, void *data)
-{
-    struct terminal *term = data;
-    fdm_del(fdm, fd);
-
-    term->render.title.timer_fd = -1;
-    render_update_title(term);
-
-    struct timeval now;
-    if (gettimeofday(&now, NULL) == 0)
-        term->render.title.last_update = now;
-
-    return true;
-}
-
 void
 render_refresh_title(struct terminal *term)
 {
-    if (term->render.title.timer_fd >= 0)
+    if (term->render.title.is_armed)
         return;
 
     struct timeval now;
@@ -3531,23 +3515,11 @@ render_refresh_title(struct terminal *term)
     timersub(&now, &term->render.title.last_update, &diff);
 
     if (diff.tv_sec == 0 && diff.tv_usec < 8333) {
-        int fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
-        if (fd < 0)
-            return;
-
         const struct itimerspec timeout = {
             .it_value = {.tv_nsec = 8333 * 1000 - diff.tv_usec * 1000},
         };
 
-        if (timerfd_settime(fd, 0, &timeout, NULL) < 0) {
-            close(fd);
-            return;
-        }
-
-        if (!fdm_add(term->fdm, fd, EPOLLIN, &fdm_title_update, term))
-            close(fd);
-        else
-            term->render.title.timer_fd = fd;
+        timerfd_settime(term->render.title.timer_fd, 0, &timeout, NULL);
     } else {
         term->render.title.last_update = now;
         render_update_title(term);

@@ -490,6 +490,7 @@ struct terminal {
 
         struct {
             struct timeval last_update;
+            bool is_armed;
             int timer_fd;
         } title;
 
