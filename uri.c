@@ -270,7 +270,8 @@ hostname_is_localhost(const char *hostname)
     if (gethostname(this_host, sizeof(this_host)) < 0)
         this_host[0] = '\0';
 
-    return (strcmp(hostname, "") == 0 ||
-            strcmp(hostname, "localhost") == 0 ||
-            strcmp(hostname, this_host) == 0);
+    return (hostname != NULL && (
+                strcmp(hostname, "") == 0 ||
+                strcmp(hostname, "localhost") == 0 ||
+                strcmp(hostname, this_host) == 0));
 }

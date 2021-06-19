@@ -186,6 +186,7 @@
   _compose_ definitions.
 * Window title not being updated while window is hidden
   (https://codeberg.org/dnkl/foot/issues/591).
+* Crash on badly formatted URIs in e.g. OSC-8 URLs.
 
 
 ### Security
