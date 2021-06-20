@@ -501,29 +501,59 @@ str_to_pt_or_px(const char *s, struct pt_or_px *res, struct config *conf,
     return true;
 }
 
+
+static void NOINLINE
+free_spawn_template(struct config_spawn_template *template)
+{
+    if (template->argv == NULL)
+        return;
+
+    for (char **argv = template->argv; *argv != NULL; argv++)
+            free(*argv);
+    free(template->argv);
+    template->argv = NULL;
+}
+
+static void NOINLINE
+clone_spawn_template(struct config_spawn_template *dst,
+                     const struct config_spawn_template *src)
+{
+    if (src->argv == NULL) {
+        dst->argv = NULL;
+        return;
+    }
+
+    size_t count = 0;
+    for (char **argv = src->argv; *argv != NULL; argv++)
+        count++;
+
+    dst->argv = xmalloc((count + 1) * sizeof(dst->argv[0]));
+    for (char **argv_src = src->argv, **argv_dst = dst->argv;
+         *argv_src != NULL; argv_src++,
+             argv_dst++)
+    {
+        *argv_dst = xstrdup(*argv_src);
+    }
+    dst->argv[count] = NULL;
+}
+
 static bool NOINLINE
 str_to_spawn_template(struct config *conf,
                       const char *s, struct config_spawn_template *template,
                       const char *path, int lineno, const char *section,
                       const char *key)
 {
-    free(template->raw_cmd);
-    free(template->argv);
+    free_spawn_template(template);
 
-    template->raw_cmd = NULL;
-    template->argv = NULL;
-
-    char *raw_cmd = xstrdup(s);
     char **argv = NULL;
 
-    if (!tokenize_cmdline(raw_cmd, &argv)) {
+    if (!tokenize_cmdline(s, &argv)) {
         LOG_AND_NOTIFY_ERR(
             "%s:%d: [%s]: %s: syntax error in command line",
             path, lineno, section, key);
         return false;
     }
 
-    template->raw_cmd = raw_cmd;
     template->argv = argv;
     return true;
 }
@@ -2594,7 +2624,6 @@ config_load(struct config *conf, const char *conf_path,
             .urgent = false,
             .notify = false,
             .command = {
-                .raw_cmd = NULL,
                 .argv = NULL,
             },
             .command_focused = false,
@@ -2671,7 +2700,6 @@ config_load(struct config *conf, const char *conf_path,
         .selection_target = SELECTION_TARGET_PRIMARY,
         .hold_at_exit = false,
         .notify = {
-            .raw_cmd = NULL,
             .argv = NULL,
         },
 
@@ -2717,12 +2745,9 @@ config_load(struct config *conf, const char *conf_path,
         }
     }
 
-    conf->notify.raw_cmd = xstrdup(
-        "notify-send -a ${app-id} -i ${app-id} ${title} ${body}");
-    tokenize_cmdline(conf->notify.raw_cmd, &conf->notify.argv);
-
-    conf->url.launch.raw_cmd = xstrdup("xdg-open ${url}");
-    tokenize_cmdline(conf->url.launch.raw_cmd, &conf->url.launch.argv);
+    tokenize_cmdline("notify-send -a ${app-id} -i ${app-id} ${title} ${body}",
+                     &conf->notify.argv);
+    tokenize_cmdline("xdg-open ${url}", &conf->url.launch.argv);
 
     static const wchar_t *url_protocols[] = {
         L"http://",
@@ -2845,13 +2870,6 @@ config_override_apply(struct config *conf, config_override_t *overrides, bool er
         }
     }
     return true;
-}
-
-static void NOINLINE
-free_spawn_template(struct config_spawn_template *template)
-{
-    free(template->raw_cmd);
-    free(template->argv);
 }
 
 static void NOINLINE

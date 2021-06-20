@@ -63,7 +63,6 @@ DEFINE_LIST(struct config_mouse_binding);
 typedef tll(char *) config_override_t;
 
 struct config_spawn_template {
-    char *raw_cmd;
     char **argv;
 };
 

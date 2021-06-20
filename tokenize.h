@@ -2,4 +2,4 @@
 
 #include <stdbool.h>
 
-bool tokenize_cmdline(char *cmdline, char ***argv);
+bool tokenize_cmdline(const char *cmdline, char ***argv);
