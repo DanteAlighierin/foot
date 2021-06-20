@@ -1316,6 +1316,17 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
         conf->csd.button_width = pixels;
     }
 
+    else if (strcmp(key, "button-color") == 0) {
+        uint32_t color;
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-color")) {
+            LOG_AND_NOTIFY_ERR("%s:%d: invalid button-color: %s", path, lineno, value);
+            return false;
+        }
+
+        conf->csd.color.buttons_set = true;
+        conf->csd.color.buttons = color;
+    }
+
     else if (strcmp(key, "button-minimize-color") == 0) {
         uint32_t color;
         if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-minimize-color")) {

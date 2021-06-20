@@ -518,17 +518,21 @@ component.
 	Width, in pixels (subject to output scaling), of the
 	minimize/maximize/close buttons. Default: _26_.
 
+*button-color*
+	Foreground color on the minimize/maximize/close buttons. Default:
+	use the default _background_ color.
+
 *button-minimize-color*
-	Minimize button's AARRGGBB color. Default: use the default
-	_regular4_ color (blue).
+	Minimize button's background color, on the format
+	AARRGGBB. Default: use the default _regular4_ color (blue).
 
 *button-maximize-color*
-	Maximize button's AARRGGBB color. Default: use the default
-	_regular2_ color (green).
+	Maximize button's background color, on the format
+	AARRGGBB. Default: use the default _regular2_ color (green).
 
 *button-close-color*
-	Close button's AARRGGBB color. Default: use the default _regular1_
-	color (red).
+	Close button's background color, on the format AARRGGBB. Default:
+	use the default _regular1_ color (red).
 
 
 # SECTION: key-bindings

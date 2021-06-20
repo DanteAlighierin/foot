@@ -67,6 +67,7 @@
   (https://codeberg.org/dnkl/foot/issues/554).
 * `underline-offset` option to `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/490).
+* `csd.button-color` option to `foot.ini`.
 
 
 ### Changed

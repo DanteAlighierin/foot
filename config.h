@@ -214,10 +214,12 @@ struct config {
 
         struct {
             bool title_set:1;
+            bool buttons_set:1;
             bool minimize_set:1;
             bool maximize_set:1;
             bool close_set:1;
             uint32_t title;
+            uint32_t buttons;
             uint32_t minimize;
             uint32_t maximize;
             uint32_t close;
