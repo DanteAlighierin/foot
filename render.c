@@ -1580,10 +1580,24 @@ render_csd_border(struct terminal *term, enum csd_surface surf_idx)
     csd_commit(term, surf, buf);
 }
 
+static pixman_color_t
+get_csd_button_fg_color(const struct config *conf)
+{
+    uint32_t _color = conf->colors.bg;
+    uint16_t alpha = 0xffff;
+
+    if (conf->csd.color.buttons_set) {
+        _color = conf->csd.color.buttons;
+        alpha = _color >> 24 | (_color >> 24 << 8);
+    }
+
+    return color_hex_to_pixman_with_alpha(_color, alpha);
+}
+
 static void
 render_csd_button_minimize(struct terminal *term, struct buffer *buf)
 {
-    pixman_color_t color = color_hex_to_pixman(term->conf->colors.bg);
+    pixman_color_t color = get_csd_button_fg_color(term->conf);
     pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
     const int max_height = buf->height / 2;
@@ -1628,7 +1642,7 @@ static void
 render_csd_button_maximize_maximized(
     struct terminal *term, struct buffer *buf)
 {
-    pixman_color_t color = color_hex_to_pixman(term->conf->colors.bg);
+    pixman_color_t color = get_csd_button_fg_color(term->conf);
     pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
     const int max_height = buf->height / 3;
@@ -1656,7 +1670,7 @@ static void
 render_csd_button_maximize_window(
     struct terminal *term, struct buffer *buf)
 {
-    pixman_color_t color = color_hex_to_pixman(term->conf->colors.bg);
+    pixman_color_t color = get_csd_button_fg_color(term->conf);
     pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
     const int max_height = buf->height / 2;
@@ -1710,7 +1724,7 @@ render_csd_button_maximize(struct terminal *term, struct buffer *buf)
 static void
 render_csd_button_close(struct terminal *term, struct buffer *buf)
 {
-    pixman_color_t color = color_hex_to_pixman(term->conf->colors.bg);
+    pixman_color_t color = get_csd_button_fg_color(term->conf);
     pixman_image_t *src = pixman_image_create_solid_fill(&color);
 
     const int max_height = buf->height / 3;
