@@ -429,7 +429,7 @@ str_to_color(const char *s, uint32_t *color, bool allow_alpha,
 {
     unsigned long value;
     if (!str_to_ulong(s, 16, &value)) {
-        LOG_AND_NOTIFY_ERRNO(
+        LOG_AND_NOTIFY_ERR(
             "%s:%d: [%s]: %s: invalid color: %s", path, lineno, section, key, s);
         return false;
     }
@@ -459,8 +459,6 @@ str_to_two_colors(const char *s, uint32_t *first, uint32_t *second,
         !str_to_color(first_as_str, first, allow_alpha, conf, path, lineno, section, key) ||
         !str_to_color(second_as_str, second, allow_alpha, conf, path, lineno, section, key))
     {
-        LOG_AND_NOTIFY_ERR("%s:%d: [%s]: %s: invalid colors: %s",
-                           path, lineno, section, key, s);
         free(value_copy);
         return false;
     }
@@ -1287,10 +1285,8 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "color")) {
-            LOG_AND_NOTIFY_ERR("%s:%d: invalid titlebar-color: %s", path, lineno, value);
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "color"))
             return false;
-        }
 
         conf->csd.color.title_set = true;
         conf->csd.color.title = color;
@@ -1318,10 +1314,8 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-color")) {
-            LOG_AND_NOTIFY_ERR("%s:%d: invalid button-color: %s", path, lineno, value);
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-color"))
             return false;
-        }
 
         conf->csd.color.buttons_set = true;
         conf->csd.color.buttons = color;
@@ -1329,10 +1323,8 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-minimize-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-minimize-color")) {
-            LOG_AND_NOTIFY_ERR("%s:%d: invalid button-minimize-color: %s", path, lineno, value);
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-minimize-color"))
             return false;
-        }
 
         conf->csd.color.minimize_set = true;
         conf->csd.color.minimize = color;
@@ -1340,10 +1332,8 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-maximize-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-maximize-color")) {
-            LOG_AND_NOTIFY_ERR("%s:%d: invalid button-maximize-color: %s", path, lineno, value);
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-maximize-color"))
             return false;
-        }
 
         conf->csd.color.maximize_set = true;
         conf->csd.color.maximize = color;
@@ -1351,10 +1341,8 @@ parse_section_csd(const char *key, const char *value, struct config *conf,
 
     else if (strcmp(key, "button-close-color") == 0) {
         uint32_t color;
-        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-close-color")) {
-            LOG_AND_NOTIFY_ERR("%s:%d: invalid button-close-color: %s", path, lineno, value);
+        if (!str_to_color(value, &color, true, conf, path, lineno, "csd", "button-close-color"))
             return false;
-        }
 
         conf->csd.color.close_set = true;
         conf->csd.color.close = color;
