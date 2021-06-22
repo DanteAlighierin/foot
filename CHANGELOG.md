@@ -188,6 +188,7 @@
 * Window title not being updated while window is hidden
   (https://codeberg.org/dnkl/foot/issues/591).
 * Crash on badly formatted URIs in e.g. OSC-8 URLs.
+* Window being incorrectly resized on CSD/SSD run-time changes.
 
 
 ### Security

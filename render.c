@@ -1454,7 +1454,7 @@ struct csd_data {
 static struct csd_data
 get_csd_data(const struct terminal *term, enum csd_surface surf_idx)
 {
-    xassert(term->window->use_csd == CSD_YES);
+    xassert(term->window->csd_mode == CSD_YES);
 
     /* Only title bar is rendered in maximized mode */
     const int border_width = !term->window->is_maximized
@@ -1513,7 +1513,7 @@ render_csd_part(struct terminal *term,
                 struct wl_surface *surf, struct buffer *buf,
                 int width, int height, pixman_color_t *color)
 {
-    xassert(term->window->use_csd == CSD_YES);
+    xassert(term->window->csd_mode == CSD_YES);
 
     pixman_image_t *src = pixman_image_create_solid_fill(color);
 
@@ -1526,7 +1526,7 @@ render_csd_part(struct terminal *term,
 static void
 render_csd_title(struct terminal *term)
 {
-    xassert(term->window->use_csd == CSD_YES);
+    xassert(term->window->csd_mode == CSD_YES);
 
     struct csd_data info = get_csd_data(term, CSD_SURF_TITLE);
     struct wl_surface *surf = term->window->csd.surface[CSD_SURF_TITLE].surf;
@@ -1559,7 +1559,7 @@ render_csd_title(struct terminal *term)
 static void
 render_csd_border(struct terminal *term, enum csd_surface surf_idx)
 {
-    xassert(term->window->use_csd == CSD_YES);
+    xassert(term->window->csd_mode == CSD_YES);
     xassert(surf_idx >= CSD_SURF_LEFT && surf_idx <= CSD_SURF_BOTTOM);
 
     struct csd_data info = get_csd_data(term, surf_idx);
@@ -1745,7 +1745,7 @@ render_csd_button_close(struct terminal *term, struct buffer *buf)
 static void
 render_csd_button(struct terminal *term, enum csd_surface surf_idx)
 {
-    xassert(term->window->use_csd == CSD_YES);
+    xassert(term->window->csd_mode == CSD_YES);
     xassert(surf_idx >= CSD_SURF_MINIMIZE && surf_idx <= CSD_SURF_CLOSE);
 
     struct csd_data info = get_csd_data(term, surf_idx);
@@ -1827,7 +1827,7 @@ render_csd_button(struct terminal *term, enum csd_surface surf_idx)
 static void
 render_csd(struct terminal *term)
 {
-    xassert(term->window->use_csd == CSD_YES);
+    xassert(term->window->csd_mode == CSD_YES);
 
     if (term->window->is_fullscreen)
         return;
@@ -3019,7 +3019,7 @@ frame_callback(void *data, struct wl_callback *wl_callback, uint32_t callback_da
         term->grid = term->url_grid_snapshot;
     }
 
-    if (csd && term->window->use_csd == CSD_YES) {
+    if (csd && term->window->csd_mode == CSD_YES) {
         quirk_weston_csd_on(term);
         render_csd(term);
         quirk_weston_csd_off(term);
@@ -3168,7 +3168,7 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
                 width = term->conf->size.width;
                 height = term->conf->size.height;
 
-                if (term->window->use_csd == CSD_YES) {
+                if (term->window->csd_mode == CSD_YES) {
                     /* Take CSD title bar into account */
                     xassert(!term->window->is_fullscreen);
                     height -= term->conf->csd.title_height;
@@ -3338,7 +3338,7 @@ damage_view:
 
     {
         bool title_shown = !term->window->is_fullscreen &&
-            term->window->use_csd == CSD_YES;
+            term->window->csd_mode == CSD_YES;
 
         int title_height = title_shown ? term->conf->csd.title_height : 0;
         xdg_surface_set_window_geometry(
@@ -3476,7 +3476,7 @@ fdm_hook_refresh_pending_terminals(struct fdm *fdm, void *data)
                 term->grid = term->url_grid_snapshot;
             }
 
-            if (csd && term->window->use_csd == CSD_YES) {
+            if (csd && term->window->csd_mode == CSD_YES) {
                 quirk_weston_csd_on(term);
                 render_csd(term);
                 quirk_weston_csd_off(term);
@@ -3549,7 +3549,7 @@ render_refresh(struct terminal *term)
 void
 render_refresh_csd(struct terminal *term)
 {
-    if (term->window->use_csd == CSD_YES)
+    if (term->window->csd_mode == CSD_YES)
         term->render.refresh.csd = true;
 }
 
