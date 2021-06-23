@@ -136,6 +136,7 @@ main(int argc, char *const *argv)
     uint64_t total_len = 0;
 
     /* malloc:ed and needs to be in scope of all goto's */
+    int fd = -1;
     char *_cwd = NULL;
     override_list_t overrides = tll_init();
     struct client_string *cargv = NULL;
@@ -279,7 +280,7 @@ main(int argc, char *const *argv)
 
     log_init(log_colorize, false, LOG_FACILITY_USER, log_level);
 
-    int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd == -1) {
         LOG_ERRNO("failed to create socket");
         goto err;
