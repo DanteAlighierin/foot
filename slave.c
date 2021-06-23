@@ -293,9 +293,7 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         char **shell_argv = NULL;
 
         if (argc == 0) {
-            char *shell_copy = xstrdup(conf_shell);
-            if (!tokenize_cmdline(shell_copy, &_shell_argv)) {
-                free(shell_copy);
+            if (!tokenize_cmdline(conf_shell, &_shell_argv)) {
                 (void)!write(fork_pipe[1], &errno, sizeof(errno));
                 _exit(0);
             }

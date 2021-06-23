@@ -114,7 +114,7 @@ spawn_expand_template(const struct config_spawn_template *template,
     *argc = 0;
     *argv = NULL;
 
-    for (; template->argv[*argc] != NULL; (*argc)++)
+    for (; template->argv.args[*argc] != NULL; (*argc)++)
         ;
 
 #define append(s, n)                                        \
@@ -133,7 +133,7 @@ spawn_expand_template(const struct config_spawn_template *template,
         char *expanded = NULL;
 
         char *start = NULL;
-        char *last_end = template->argv[i];
+        char *last_end = template->argv.args[i];
 
         while ((start = strstr(last_end, "${")) != NULL) {
             /* Append everything from the last template's end to this
@@ -173,7 +173,9 @@ spawn_expand_template(const struct config_spawn_template *template,
             last_end = end + 1;
         }
 
-        append(last_end, template->argv[i] + strlen(template->argv[i]) - last_end);
+        append(
+            last_end,
+            template->argv.args[i] + strlen(template->argv.args[i]) - last_end);
         (*argv)[i] = expanded;
     }
     (*argv)[*argc] = NULL;

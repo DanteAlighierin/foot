@@ -6,9 +6,10 @@
 #define LOG_MODULE "tokenize"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "xmalloc.h"
 
 static bool
-push_argv(char ***argv, size_t *size, char *arg, size_t *argc)
+push_argv(char ***argv, size_t *size, const char *arg, size_t len, size_t *argc)
 {
     if (arg != NULL && arg[0] == '%')
         return true;
@@ -24,21 +25,23 @@ push_argv(char ***argv, size_t *size, char *arg, size_t *argc)
         *size = new_size;
     }
 
-    (*argv)[(*argc)++] = arg;
+    (*argv)[(*argc)++] = arg != NULL ? xstrndup(arg, len) : NULL;
     return true;
 }
 
 bool
-tokenize_cmdline(char *cmdline, char ***argv)
+tokenize_cmdline(const char *cmdline, char ***argv)
 {
     *argv = NULL;
     size_t argv_size = 0;
 
+    const char *final_end = cmdline + strlen(cmdline) + 1;
+
     bool first_token_is_quoted = cmdline[0] == '"' || cmdline[0] == '\'';
     char delim = first_token_is_quoted ? cmdline[0] : ' ';
 
-    char *p = first_token_is_quoted ? &cmdline[1] : &cmdline[0];
-    char *search_start = p;
+    const char *p = first_token_is_quoted ? &cmdline[1] : &cmdline[0];
+    const char *search_start = p;
 
     size_t idx = 0;
     while (*p != '\0') {
@@ -51,8 +54,8 @@ tokenize_cmdline(char *cmdline, char ***argv)
                 return false;
             }
 
-            if (!push_argv(argv, &argv_size, p, &idx) ||
-                !push_argv(argv, &argv_size, NULL, &idx))
+            if (!push_argv(argv, &argv_size, p, final_end - p, &idx) ||
+                !push_argv(argv, &argv_size, NULL, 0, &idx))
             {
                 goto err;
             } else
@@ -68,9 +71,9 @@ tokenize_cmdline(char *cmdline, char ***argv)
             continue;
         }
 
-        *end = '\0';
+        //*end = '\0';
 
-        if (!push_argv(argv, &argv_size, p, &idx))
+        if (!push_argv(argv, &argv_size, p, end - p, &idx))
             goto err;
 
         p = end + 1;
@@ -88,7 +91,7 @@ tokenize_cmdline(char *cmdline, char ***argv)
         search_start = p;
     }
 
-    if (!push_argv(argv, &argv_size, NULL, &idx))
+    if (!push_argv(argv, &argv_size, NULL, 0, &idx))
         goto err;
 
     return true;
