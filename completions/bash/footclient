@@ -13,6 +13,7 @@ _footclient()
         "--log-level"
         "--log-colorize"
         "--maximized"
+        "--override"
         "--server-socket"
         "--term"
         "--title"
@@ -61,7 +62,7 @@ _footclient()
         COMPREPLY=( $(compgen -W "error warning info" -- ${cur}) )
     elif [[ ${prev} == '--log-colorize' ]] ; then
         COMPREPLY=( $(compgen -W "never always auto" -- ${cur}) )
-    elif [[ ${prev} =~ ^(--app-id|--help|--title|--version|--window-size-chars|--window-size-pixels|)$ ]] ; then
+    elif [[ ${prev} =~ ^(--app-id|--help|--override|--title|--version|--window-size-chars|--window-size-pixels|)$ ]] ; then
         : # don't autocomplete for these flags
     else
         # complete commands from $PATH
