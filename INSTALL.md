@@ -128,10 +128,34 @@ mkdir -p bld/release && cd bld/release
 
 Available compile-time options:
 
-| Option       | Type    | Default | Description         | Extra dependencies |
-|--------------|---------|---------|---------------------|--------------------|
-| `-Dime`      | bool    | `true`  | Enables IME support | None               |
-| `-Dterminfo` | feature | `auto`  | Build terminfo      | `tic` (ncurses)    |
+| Option                        | Type    | Default               | Description                           | Extra dependencies |
+|-------------------------------|---------|-----------------------|---------------------------------------|--------------------|
+| `-Dime`                       | bool    | `true`                | Enables IME support                   | None               |
+| `-Dterminfo`                  | feature | `auto`                | Build terminfo files                  | `tic` (ncurses)    |
+| `-Dterminfo-install-location` | string  | `${datadir}/terminfo` | Where to  install the terminfo files  | None               |
+
+The two `terminfo` options are related, but control different aspects
+of how the terminfo files are built, installed and used.
+
+`-Dterminfo` controls if the terminfo files should be generated _at
+all_. If disabled, foot’s hardcoded default terminfo is
+`xterm-256color` instead of `foot`.
+
+`-Dterminfo-install-location` controls _where_ the terminfo files are
+installed, relative to the installation prefix. The default is
+`${datadir}/terminfo`.
+
+It also recognizes the special value `disabled`, that prevents the
+terminfo files from being _installed_. They are still _built_, and
+foot’s hardcoded default terminfo is still `foot`. It is intended to
+be used when the terminfo files are packaged in a separate package
+(something I **highly** recommend distros do).
+
+To build the terminfo files manually, run
+
+```sh
+tic -x -o <output-directory> -e foot,foot-direct foot.info
+```
 
 
 ### Release build
