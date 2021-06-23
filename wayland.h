@@ -384,6 +384,8 @@ struct wl_url {
     struct wl_surf_subsurf surf;
 };
 
+enum csd_mode {CSD_UNKNOWN, CSD_NO, CSD_YES};
+
 struct wayland;
 struct wl_window {
     struct terminal *term;
@@ -396,7 +398,7 @@ struct wl_window {
 
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
 
-    enum {CSD_UNKNOWN, CSD_NO, CSD_YES } use_csd;
+    enum csd_mode csd_mode;
 
     struct {
         struct wl_surf_subsurf surface[CSD_SURF_COUNT];
@@ -433,6 +435,7 @@ struct wl_window {
         bool is_tiled_bottom:1;
         bool is_tiled_left:1;
         bool is_tiled_right:1;
+        enum csd_mode csd_mode;
     } configure;
 
     int resize_timeout_fd;

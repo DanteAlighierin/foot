@@ -597,14 +597,6 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
      */
     struct wl_window *win = data;
 
-    if (!is_fullscreen && win->use_csd == CSD_YES && width > 0 && height > 0) {
-        /*
-         * We include the CSD title bar in our window geometry. Thus,
-         * the height we call render_resize() with must be adjusted,
-         * since it expects the size to refer to the main grid only.
-         */
-        height -= win->term->conf->csd.title_height;
-    }
     win->configure.is_activated = is_activated;
     win->configure.is_fullscreen = is_fullscreen;
     win->configure.is_maximized = is_maximized;
@@ -642,23 +634,32 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
 
     bool wasnt_configured = !win->is_configured;
     bool was_resizing = win->is_resizing;
+    bool csd_was_enabled = win->csd_mode == CSD_YES && !win->is_fullscreen;
+    int new_width = win->configure.width;
+    int new_height = win->configure.height;
 
     win->is_configured = true;
     win->is_maximized = win->configure.is_maximized;
+    win->is_fullscreen = win->configure.is_fullscreen;
     win->is_resizing = win->configure.is_resizing;
     win->is_tiled_top = win->configure.is_tiled_top;
     win->is_tiled_bottom = win->configure.is_tiled_bottom;
     win->is_tiled_left = win->configure.is_tiled_left;
     win->is_tiled_right = win->configure.is_tiled_right;
-    win->is_tiled = win->is_tiled_top || win->is_tiled_bottom || win->is_tiled_left || win->is_tiled_right;
+    win->is_tiled = (win->is_tiled_top ||
+                     win->is_tiled_bottom ||
+                     win->is_tiled_left ||
+                     win->is_tiled_right);
+    win->csd_mode = win->configure.csd_mode;
 
-    if (win->is_fullscreen != win->configure.is_fullscreen && win->use_csd == CSD_YES) {
-        if (win->configure.is_fullscreen)
-            csd_destroy(win);
-        else
-            csd_instantiate(win);
-    }
-    win->is_fullscreen = win->configure.is_fullscreen;
+    bool enable_csd = win->csd_mode == CSD_YES && !win->is_fullscreen;
+    if (!csd_was_enabled && enable_csd)
+        csd_instantiate(win);
+    else if (csd_was_enabled && !enable_csd)
+        csd_destroy(win);
+
+    if (enable_csd && new_width > 0 && new_height > 0)
+        new_height -= win->term->conf->csd.title_height;
 
     xdg_surface_ack_configure(xdg_surface, serial);
 
@@ -713,10 +714,10 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
      * the last, forced, resize *is* necessary.
      */
     bool resized = was_resizing && !win->is_resizing
-        ? render_resize_force(term, win->configure.width, win->configure.height)
-        : render_resize(term, win->configure.width, win->configure.height);
+        ? render_resize_force(term, new_width, new_height)
+        : render_resize(term, new_width, new_height);
 #else
-    bool resized = render_resize(term, win->configure.width, win->configure.height);
+    bool resized = render_resize(term, new_width, new_height);
 #endif
 
     if (win->configure.is_activated)
@@ -752,31 +753,17 @@ xdg_toplevel_decoration_configure(void *data,
     switch (mode) {
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_CLIENT_SIDE:
         LOG_INFO("using CSD decorations");
-        win->use_csd = CSD_YES;
-        csd_instantiate(win);
+        win->configure.csd_mode = CSD_YES;
         break;
 
     case ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE:
         LOG_INFO("using SSD decorations");
-        win->use_csd = CSD_NO;
-        csd_destroy(win);
+        win->configure.csd_mode = CSD_NO;
         break;
 
     default:
         LOG_ERR("unimplemented: unknown XDG toplevel decoration mode: %u", mode);
         break;
-    }
-
-    if (win->is_configured && win->use_csd == CSD_YES) {
-        struct terminal *term = win->term;
-
-        int scale = term->scale;
-        int width = term->width / scale;
-        int height = term->height / scale;
-
-        /* Take CSD title bar into account */
-        height -= term->conf->csd.title_height;
-        render_resize_force(term, width, height);
     }
 }
 
@@ -1345,7 +1332,7 @@ wayl_win_init(struct terminal *term)
     }
 
     win->term = term;
-    win->use_csd = CSD_UNKNOWN;
+    win->csd_mode = CSD_UNKNOWN;
     win->csd.move_timeout_fd = -1;
     win->resize_timeout_fd = -1;
 
@@ -1378,7 +1365,7 @@ wayl_win_init(struct terminal *term)
 
     if (conf->csd.preferred == CONF_CSD_PREFER_NONE) {
         /* User specifically do *not* want decorations */
-        win->use_csd = CSD_NO;
+        win->csd_mode = CSD_NO;
         LOG_INFO("window decorations disabled by user");
     } else if (wayl->xdg_decoration_manager != NULL) {
         win->xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
@@ -1397,7 +1384,7 @@ wayl_win_init(struct terminal *term)
             win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, win);
     } else {
         /* No decoration manager - thus we *must* draw our own decorations */
-        win->use_csd = CSD_YES;
+        win->csd_mode = CSD_YES;
         csd_instantiate(win);
         LOG_WARN("no decoration manager available - using CSDs unconditionally");
     }
