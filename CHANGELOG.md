@@ -64,7 +64,8 @@
 * Support for LS2 and LS3 (locking shift) escape sequences
   (https://codeberg.org/dnkl/foot/issues/581).
 * Support for overriding configuration options on the command line
-  (https://codeberg.org/dnkl/foot/issues/554).
+  (https://codeberg.org/dnkl/foot/issues/554,
+  https://codeberg.org/dnkl/foot/issues/600).
 * `underline-offset` option to `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/490).
 * `csd.button-color` option to `foot.ini`.

@@ -4,32 +4,23 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-struct client_argv {
+struct client_string {
     uint16_t len;
-    /* char arg[static len]; */
+    /* char str[static len]; */
 };
 
 struct client_data {
-    unsigned width;
-    unsigned height;
-    uint8_t size_type:1; // Values correspond to enum conf_size_type
-    uint8_t maximized:1;
-    uint8_t fullscreen:1;
-    uint8_t hold:1;
-    uint8_t login_shell:1;
-    uint8_t no_wait:1;
+    bool hold:1;
+    bool no_wait:1;
+    uint8_t reserved:6;
 
     uint16_t cwd_len;
-    uint16_t term_len;
-    uint16_t title_len;
-    uint16_t app_id_len;
-
+    uint16_t override_count;
     uint16_t argc;
 
     /* char cwd[static cwd_len]; */
-    /* char term[static term_len]; */
-    /* char title[static title_len]; */
-    /* char app_id[static app_id_len]; */
+    /* struct client_string overrides[static override_count]; */
+    /* struct client_string argv[static argc]; */
+} __attribute__((packed));
 
-    /* struct client_argv argv[static argc]; */
-};
+_Static_assert(sizeof(struct client_data) == 7, "protocol struct size error");

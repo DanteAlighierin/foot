@@ -65,6 +65,10 @@ terminal has terminated.
 	Detach the client process from the running terminal, exiting
 	immediately.
 
+*-o*,*--override*=[_SECTION_.]_KEY_=_VALUE_
+	Override an option set in the configuration file. If _SECTION_ is not
+	given, defaults to _main_.
+
 *-d*,*--log-level*={*info*,*warning*,*error*}
 	Log level, used both for log output on stderr as well as
 	syslog. Default: _info_.

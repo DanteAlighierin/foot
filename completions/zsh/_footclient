@@ -14,6 +14,7 @@ _arguments \
     '(-s --server-socket)'{-s,--server-socket}'[override the default path to the foot server socket ($XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)]:server:_files' \
     '(-H --hold)'{-H,--hold}'[remain open after child process exits]' \
     '(-N --no-wait)'{-N,--no-wait}'[detach the client process from the running terminal, exiting immediately]' \
+    '(-o --override)'{-o,--override}'[configuration option to override, in form SECTION.KEY=VALUE]:()' \
     '(-d --log-level)'{-d,--log-level}'[log level (info)]:loglevel:(info warning error)' \
     '(-l --log-colorize)'{-l,--log-colorize}'[enable or disable colorization of log output on stderr]:logcolor:(never always auto)' \
     '(-v --version)'{-v,--version}'[show the version number and quit]' \
