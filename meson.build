@@ -216,13 +216,20 @@ executable(
   install: true)
 
 if tic.found()
+  terminfo_install_location = get_option('terminfo-install-location')
+  if terminfo_install_location == ''
+    terminfo_install_location = join_paths(get_option('datadir'), 'terminfo')
+  endif
+
   custom_target(
     'terminfo',
     output: 'f',
     input: 'foot.info',
     command: [tic, '-x', '-o', '@OUTDIR@', '-e', 'foot,foot-direct', '@INPUT@'],
-    install: true,
-    install_dir: join_paths(get_option('datadir'), 'terminfo'))
+    install: terminfo_install_location != 'disabled',
+    install_dir: terminfo_install_location)
+else
+  terminfo_install_location = 'disabled'
 endif
 
 install_data(
@@ -240,6 +247,8 @@ subdir('icons')
 summary(
   {
     'IME': get_option('ime'),
+    'Terminfo': tic.found(),
+    'Terminfo install location': terminfo_install_location,
   },
   bool_yn: true
 )
