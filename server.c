@@ -150,6 +150,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     struct server *server = client->server;
 
     char **argv = NULL;
+    config_override_t overrides = tll_init();
 
     if (events & EPOLLHUP)
         goto shutdown;
@@ -240,7 +241,6 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     uint8_t *p = client->buffer.data;
     const uint8_t *end = &client->buffer.data[client->buffer.idx];
-    config_override_t overrides = tll_init();
 
     struct client_data cdata;
     CHECK_BUF(sizeof(cdata));
