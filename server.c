@@ -253,13 +253,13 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     /* Overrides */
     for (uint16_t i = 0; i < cdata.override_count; i++) {
-        const struct client_string *arg = (const struct client_string *)p;
-        CHECK_BUF(sizeof(*arg));
-        p += sizeof(*arg);
+        struct client_string arg;
+        CHECK_BUF(sizeof(arg));
+        memcpy(&arg, p, sizeof(arg)); p += sizeof(arg);
 
-        CHECK_BUF_AND_NULL(arg->len);
+        CHECK_BUF_AND_NULL(arg.len);
         const char *str = (const char *)p;
-        p += arg->len;
+        p += arg.len;
 
         tll_push_back(overrides, xstrdup(str));
     }
@@ -269,8 +269,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     for (uint16_t i = 0; i < cdata.argc; i++) {
         struct client_string arg;
         CHECK_BUF(sizeof(arg));
-        memcpy(&arg, p, sizeof(arg));
-        p += sizeof(arg);
+        memcpy(&arg, p, sizeof(arg)); p += sizeof(arg);
 
         CHECK_BUF_AND_NULL(arg.len);
         argv[i] = (char *)p; p += arg.len;
