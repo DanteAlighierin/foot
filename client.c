@@ -63,6 +63,7 @@ print_usage(const char *prog_name)
            "  -s,--server-socket=PATH                 path to the server UNIX domain socket (default=$XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)\n"
            "  -H,--hold                               remain open after child process exits\n"
            "  -N,--no-wait                            detach the client process from the running terminal, exiting immediately\n"
+           "  -o,--override=[section.]key=value       override configuration option\n"
            "  -d,--log-level={info|warning|error}     log level (info)\n"
            "  -l,--log-colorize=[{never|always|auto}] enable/disable colorization of log output on stderr\n"
            "  -v,--version                            show the version number and quit\n");
@@ -91,6 +92,7 @@ main(int argc, char *const *argv)
         {"server-socket",      required_argument, NULL, 's'},
         {"hold",               no_argument,       NULL, 'H'},
         {"no-wait",            no_argument,       NULL, 'N'},
+        {"override",           required_argument, NULL, 'o'},
         {"log-level",          required_argument, NULL, 'd'},
         {"log-colorize",       optional_argument, NULL, 'l'},
         {"version",            no_argument,       NULL, 'v'},
@@ -115,7 +117,7 @@ main(int argc, char *const *argv)
     struct client_string *cargv = NULL;
 
     while (true) {
-        int c = getopt_long(argc, argv, "+t:T:a:w:W:mFLD:s:HNd:l::vh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+t:T:a:w:W:mFLD:s:HNo:d:l::vh", longopts, NULL);
         if (c == -1)
             break;
 
@@ -189,6 +191,10 @@ main(int argc, char *const *argv)
 
         case 'N':
             no_wait = true;
+            break;
+
+        case 'o':
+            tll_push_back(overrides, xstrdup(optarg));
             break;
 
         case 'd': {
