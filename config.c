@@ -2970,8 +2970,11 @@ config_clone(const struct config *old)
         dst->count = src->count;
         dst->arr = xmalloc(dst->count * sizeof(dst->arr[0]));
 
-        for (size_t j = 0; j < dst->count; j++)
+        for (size_t j = 0; j < dst->count; j++) {
+            dst->arr[j].pt_size = src->arr[j].pt_size;
+            dst->arr[j].px_size = src->arr[j].px_size;
             dst->arr[j].pattern = xstrdup(src->arr[j].pattern);
+        }
     }
 
     conf->url.label_letters = xwcsdup(old->url.label_letters);
