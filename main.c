@@ -62,7 +62,7 @@ print_usage(const char *prog_name)
         "Options:\n"
         "  -c,--config=PATH                        load configuration from PATH ($XDG_CONFIG_HOME/foot/foot.ini)\n"
         "  -C,--check-config                       verify configuration, exit with 0 if ok, otherwise exit with 1\n"
-        "  -o,--override [section.]key=value       override configuration option\n"
+        "  -o,--override=[section.]key=value       override configuration option\n"
         "  -f,--font=FONT                          comma separated list of fonts in fontconfig format (monospace)\n"
         "  -t,--term=TERM                          value to set the environment variable TERM to (%s)\n"
         "  -T,--title=TITLE                        initial window title (foot)\n"
