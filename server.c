@@ -240,6 +240,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     uint8_t *p = client->buffer.data;
     const uint8_t *end = &client->buffer.data[client->buffer.idx];
+    config_override_t overrides = tll_init();
 
     struct client_data cdata;
     CHECK_BUF(sizeof(cdata));
@@ -250,22 +251,23 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     const char *cwd = (const char *)p; p += cdata.cwd_len;
     LOG_DBG("CWD = %.*s", cdata.cwd_len, cwd);
 
-    CHECK_BUF_AND_NULL(cdata.term_len);
-    const char *term_env = (const char *)p; p += cdata.term_len;
-    LOG_DBG("TERM = %.*s", cdata.term_len, term_env);
+    /* Overrides */
+    for (uint16_t i = 0; i < cdata.override_count; i++) {
+        const struct client_string *arg = (const struct client_string *)p;
+        CHECK_BUF(sizeof(*arg));
+        p += sizeof(*arg);
 
-    CHECK_BUF_AND_NULL(cdata.title_len);
-    const char *title = (const char *)p; p += cdata.title_len;
-    LOG_DBG("title = %.*s", cdata.title_len, title);
+        CHECK_BUF_AND_NULL(arg->len);
+        const char *str = (const char *)p;
+        p += arg->len;
 
-    CHECK_BUF_AND_NULL(cdata.app_id_len);
-    const char *app_id = (const char *)p; p += cdata.app_id_len;
-    LOG_DBG("app-id = %.*s", cdata.app_id_len, app_id);
+        tll_push_back(overrides, xstrdup(str));
+    }
 
+    /* argv */
     argv = xcalloc(cdata.argc + 1, sizeof(argv[0]));
-
     for (uint16_t i = 0; i < cdata.argc; i++) {
-        struct client_argv arg;
+        struct client_string arg;
         CHECK_BUF(sizeof(arg));
         memcpy(&arg, p, sizeof(arg));
         p += sizeof(arg);
@@ -282,62 +284,13 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     struct terminal_instance *instance = malloc(sizeof(struct terminal_instance));
 
     const bool need_to_clone_conf =
-        strlen(term_env) > 0 ||
-        strlen(title) > 0 ||
-        strlen(app_id) > 0 ||
+        tll_length(overrides)> 0 ||
         cdata.hold != server->conf->hold_at_exit ||
-        cdata.login_shell != server->conf->login_shell ||
-        cdata.no_wait != server->conf->no_wait ||
-        (cdata.maximized && server->conf->startup_mode != STARTUP_MAXIMIZED) ||
-        (cdata.fullscreen && server->conf->startup_mode != STARTUP_FULLSCREEN) ||
-        (cdata.width > 0 && cdata.height > 0);
+        cdata.no_wait != server->conf->no_wait;
 
     struct config *conf = NULL;
     if (need_to_clone_conf) {
         conf = config_clone(server->conf);
-
-        char buf[1024];
-        config_override_t overrides = tll_init();
-
-        if (strlen(term_env) > 0) {
-            snprintf(buf, sizeof(buf), "term=%s", term_env);
-            tll_push_back(overrides, xstrdup(buf));
-        }
-
-        if (strlen(title) > 0) {
-            snprintf(buf, sizeof(buf), "title=%s", title);
-            tll_push_back(overrides, xstrdup(buf));
-        }
-
-        if (strlen(app_id)> 0) {
-            snprintf(buf, sizeof(buf), "app-id=%s", app_id);
-            tll_push_back(overrides, xstrdup(buf));
-        }
-
-        if (cdata.login_shell != server->conf->login_shell)
-            tll_push_back(overrides, xstrdup("login-shell=yes"));
-
-        if (cdata.maximized && server->conf->startup_mode != STARTUP_MAXIMIZED)
-            tll_push_back(overrides, xstrdup("initial-window-mode=maximized"));
-
-        if (cdata.fullscreen && server->conf->startup_mode != STARTUP_FULLSCREEN)
-            tll_push_back(overrides, xstrdup("initial-window-mode=fullscreen"));
-
-        if (cdata.width > 0 && cdata.height > 0) {
-            switch (cdata.size_type) {
-            case CONF_SIZE_PX:
-                snprintf(buf, sizeof(buf), "initial-window-size-pixels=%ux%u",
-                         cdata.width, cdata.height);
-                tll_push_back(overrides, xstrdup(buf));
-                break;
-
-            case CONF_SIZE_CELLS:
-                snprintf(buf, sizeof(buf), "initial-window-size-chars=%ux%u",
-                         cdata.width, cdata.height);
-                tll_push_back(overrides, xstrdup(buf));
-                break;
-            }
-        }
 
         if (cdata.no_wait != server->conf->no_wait)
             conf->no_wait = cdata.no_wait;
@@ -346,7 +299,6 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
             conf->hold_at_exit = cdata.hold;
 
         config_override_apply(conf, &overrides, false);
-        tll_free_and_free(overrides, free);
     }
 
     *instance = (struct terminal_instance) {
@@ -377,6 +329,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
         instance->client = client;
         client->instance = instance;
         free(argv);
+        tll_free_and_free(overrides, free);
     }
 
     return true;
@@ -385,6 +338,7 @@ shutdown:
     LOG_DBG("client FD=%d: disconnected", client->fd);
 
     free(argv);
+    tll_free_and_free(overrides, free);
     fdm_del(fdm, fd);
     client->fd = -1;
 

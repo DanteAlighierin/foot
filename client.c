@@ -12,6 +12,8 @@
 #include <sys/un.h>
 #include <sys/stat.h>
 
+#include <tllist.h>
+
 #define LOG_MODULE "foot-client"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
@@ -96,21 +98,21 @@ main(int argc, char *const *argv)
         {NULL,                 no_argument,       NULL,   0},
     };
 
-    const char *term = "";
-    const char *title = "";
-    const char *app_id = "";
+    tll(char *) overrides = tll_init();
+
     const char *custom_cwd = NULL;
-    unsigned size_type = 0; // enum conf_size_type (without pulling in tllist/fcft via config.h)
-    unsigned width = 0;
-    unsigned height = 0;
     const char *server_socket_path = NULL;
     enum log_class log_level = LOG_CLASS_INFO;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
-    bool login_shell = false;
-    bool maximized = false;
-    bool fullscreen = false;
     bool hold = false;
     bool no_wait = false;
+
+    char buf[1024];
+
+    /* malloc:ed and needs to be in scope of all goto's */
+    char *_cwd = NULL;
+    struct client_string *coverrides = NULL;
+    struct client_string *cargv = NULL;
 
     while (true) {
         int c = getopt_long(argc, argv, "+t:T:a:w:W:mFLD:s:HNd:l::vh", longopts, NULL);
@@ -119,55 +121,62 @@ main(int argc, char *const *argv)
 
         switch (c) {
         case 't':
-            term = optarg;
+            snprintf(buf, sizeof(buf), "term=%s", optarg);
+            tll_push_back(overrides, xstrdup(buf));
             break;
 
         case 'T':
-            title = optarg;
+            snprintf(buf, sizeof(buf), "title=%s", optarg);
+            tll_push_back(overrides, xstrdup(buf));
             break;
 
         case 'a':
-            app_id = optarg;
+            snprintf(buf, sizeof(buf), "app-id=%s", optarg);
+            tll_push_back(overrides, xstrdup(buf));
             break;
 
         case 'L':
-            login_shell = true;
+            tll_push_back(overrides, xstrdup("login-shell=yes"));
             break;
 
         case 'D': {
             struct stat st;
             if (stat(optarg, &st) < 0 || !(st.st_mode & S_IFDIR)) {
                 fprintf(stderr, "error: %s: not a directory\n", optarg);
-                return ret;
+                goto err;
             }
             custom_cwd = optarg;
             break;
         }
 
-        case 'w':
+        case 'w': {
+            unsigned width, height;
             if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
                 fprintf(stderr, "error: invalid window-size-pixels: %s\n", optarg);
                 return ret;
             }
-            size_type = 0; // CONF_SIZE_PX
+            snprintf(buf, sizeof(buf), "initial-window-size-pixels=%ux%u", width, height);
+            tll_push_back(overrides, xstrdup(buf));
             break;
+        }
 
-        case 'W':
+        case 'W': {
+            unsigned width, height;
             if (sscanf(optarg, "%ux%u", &width, &height) != 2 || width == 0 || height == 0) {
                 fprintf(stderr, "error: invalid window-size-chars: %s\n", optarg);
-                return ret;
+                goto err;
             }
-            size_type = 1; // CONF_SIZE_CELLS
+            snprintf(buf, sizeof(buf), "initial-window-size-chars=%ux%u", width, height);
+            tll_push_back(overrides, xstrdup(buf));
             break;
+        }
 
         case 'm':
-            maximized = true;
-            fullscreen = false;
+            tll_push_back(overrides, xstrdup("initial-window-mode=maximized"));
             break;
 
         case 'F':
-            fullscreen = true;
-            maximized = false;
+            tll_push_back(overrides, xstrdup("initial-window-mode=fullscreen"));
             break;
 
         case 's':
@@ -190,7 +199,7 @@ main(int argc, char *const *argv)
                     "-d,--log-level: %s: argument must be one of %s\n",
                     optarg,
                     log_level_string_hint());
-                return ret;
+                goto err;
             }
             log_level = lvl;
             break;
@@ -205,20 +214,22 @@ main(int argc, char *const *argv)
                 log_colorize = LOG_COLORIZE_ALWAYS;
             else {
                 fprintf(stderr, "%s: argument must be one of 'never', 'always' or 'auto'\n", optarg);
-                return ret;
+                goto err;
             }
             break;
 
         case 'v':
             printf("footclient %s\n", version_and_features());
-            return EXIT_SUCCESS;
+            ret = EXIT_SUCCESS;
+            goto err;
 
         case 'h':
             print_usage(prog_name);
-            return EXIT_SUCCESS;
+            ret = EXIT_SUCCESS;
+            goto err;
 
         case '?':
-            return ret;
+            goto err;
         }
     }
 
@@ -226,10 +237,6 @@ main(int argc, char *const *argv)
     argv += optind;
 
     log_init(log_colorize, false, LOG_FACILITY_USER, log_level);
-
-    /* malloc:ed and needs to be in scope of all goto's */
-    char *_cwd = NULL;
-    struct client_argv *cargv = NULL;
 
     int fd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (fd == -1) {
@@ -290,33 +297,36 @@ main(int argc, char *const *argv)
 
     /* String lengths, including NULL terminator */
     const size_t cwd_len = strlen(cwd) + 1;
-    const size_t term_len = strlen(term) + 1;
-    const size_t title_len = strlen(title) + 1;
-    const size_t app_id_len = strlen(app_id) + 1;
+    const size_t override_count = tll_length(overrides);
 
     const struct client_data data = {
-        .width = width,
-        .height = height,
-        .size_type = size_type,
-        .maximized = maximized,
-        .fullscreen = fullscreen,
         .hold = hold,
-        .login_shell = login_shell,
         .no_wait = no_wait,
         .cwd_len = cwd_len,
-        .term_len = term_len,
-        .title_len = title_len,
-        .app_id_len = app_id_len,
+        .override_count = override_count,
         .argc = argc,
     };
 
-    /* Total packet length, not (yet) including argv[] */
-    uint64_t total_len = (
-        sizeof(data) +
-        cwd_len +
-        term_len +
-        title_len +
-        app_id_len);
+    /* Total packet length, not (yet) including overrides or argv[] */
+    uint64_t total_len = sizeof(data) + cwd_len;
+
+    /* Add overrides to total packet length */
+    coverrides = xmalloc(override_count * sizeof(coverrides[0]));
+    {
+        size_t i = 0;
+        tll_foreach(overrides, it) {
+            const size_t len = strlen(it->item) + 1;
+
+            if (len >= 1 << (8 * sizeof(coverrides[i].len))) {
+                LOG_ERR("override length overflow");
+                goto err;
+            }
+
+            coverrides[i].len = len;
+            total_len += sizeof(coverrides[i]) + coverrides[i].len;
+            i++;
+        }
+    }
 
     cargv = xmalloc(argc * sizeof(cargv[0]));
 
@@ -336,9 +346,7 @@ main(int argc, char *const *argv)
     /* Check for size overflows */
     if (total_len >= 1llu << (8 * sizeof(uint32_t)) ||
         cwd_len >= 1 << (8 * sizeof(data.cwd_len)) ||
-        term_len >= 1 << (8 * sizeof(data.term_len)) ||
-        title_len >= 1 << (8 * sizeof(data.title_len)) ||
-        app_id_len >= 1 << (8 * sizeof(data.app_id_len)) ||
+        override_count > (size_t)(unsigned int)data.override_count ||
         argc > (int)(unsigned int)data.argc)
     {
         LOG_ERR("size overflow");
@@ -348,13 +356,25 @@ main(int argc, char *const *argv)
     /* Send everything except argv[] */
     if (send(fd, &(uint32_t){total_len}, sizeof(uint32_t), 0) != sizeof(uint32_t) ||
         send(fd, &data, sizeof(data), 0) != sizeof(data) ||
-        send(fd, cwd, cwd_len, 0) != cwd_len ||
-        send(fd, term, term_len, 0) != term_len ||
-        send(fd, title, title_len, 0) != title_len ||
-        send(fd, app_id, app_id_len, 0) != app_id_len)
+        send(fd, cwd, cwd_len, 0) != cwd_len)
     {
         LOG_ERRNO("failed to send setup packet to server");
         goto err;
+    }
+
+    /* Send overrides */
+    {
+        size_t i = 0;
+        tll_foreach(overrides, it) {
+            if (send(fd, &coverrides[i], sizeof(coverrides[i]), 0) != sizeof(coverrides[i]) ||
+                send(fd, it->item, coverrides[i].len, 0) != coverrides[i].len)
+            {
+                LOG_ERRNO("failed to send setup packet (overrides) to server");
+                goto err;
+            }
+
+            i++;
+        }
     }
 
     /* Send argv[] */
@@ -362,7 +382,7 @@ main(int argc, char *const *argv)
         if (send(fd, &cargv[i], sizeof(cargv[i]), 0) != sizeof(cargv[i]) ||
             send(fd, argv[i], cargv[i].len, 0) != cargv[i].len)
         {
-            LOG_ERRNO("failed to send setup packet to server");
+            LOG_ERRNO("failed to send setup packet (argv) to server");
             goto err;
         }
     }
@@ -386,7 +406,9 @@ main(int argc, char *const *argv)
         ret = exit_code;
 
 err:
+    tll_free_and_free(overrides, free);
     free(cargv);
+    free(coverrides);
     free(_cwd);
     if (fd != -1)
         close(fd);

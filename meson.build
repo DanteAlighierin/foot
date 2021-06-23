@@ -211,6 +211,7 @@ executable(
   'macros.h',
   'util.h',
   version,
+  dependencies: [tllist],
   link_with: common,
   install: true)
 
