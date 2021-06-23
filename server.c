@@ -120,11 +120,9 @@ instance_destroy(struct terminal_instance *instance, int exit_code)
     /* TODO: clone server conf completely, so that we can just call
      * conf_destroy() here */
     if (instance->conf != NULL) {
-        free(instance->conf->term);
-        free(instance->conf->title);
-        free(instance->conf->app_id);
+        config_free(*instance->conf);
+        free(instance->conf);
     }
-    free(instance->conf);
     free(instance);
 
 }
@@ -296,29 +294,59 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 
     struct config *conf = NULL;
     if (need_to_clone_conf) {
-        conf = xmalloc(sizeof(*conf));
-        *conf = *server->conf;
+        conf = config_clone(server->conf);
 
-        conf->term = strlen(term_env) > 0
-            ? xstrdup(term_env) : xstrdup(server->conf->term);
-        conf->title = strlen(title) > 0
-            ? xstrdup(title) : xstrdup(server->conf->title);
-        conf->app_id = strlen(app_id) > 0
-            ? xstrdup(app_id) : xstrdup(server->conf->app_id);
-        conf->hold_at_exit = cdata.hold;
-        conf->login_shell = cdata.login_shell;
-        conf->no_wait = cdata.no_wait;
+        char buf[1024];
+        config_override_t overrides = tll_init();
 
-        if (cdata.maximized)
-            conf->startup_mode = STARTUP_MAXIMIZED;
-        else if (cdata.fullscreen)
-            conf->startup_mode = STARTUP_FULLSCREEN;
+        if (strlen(term_env) > 0) {
+            snprintf(buf, sizeof(buf), "term=%s", term_env);
+            tll_push_back(overrides, xstrdup(buf));
+        }
+
+        if (strlen(title) > 0) {
+            snprintf(buf, sizeof(buf), "title=%s", title);
+            tll_push_back(overrides, xstrdup(buf));
+        }
+
+        if (strlen(app_id)> 0) {
+            snprintf(buf, sizeof(buf), "app-id=%s", app_id);
+            tll_push_back(overrides, xstrdup(buf));
+        }
+
+        if (cdata.login_shell != server->conf->login_shell)
+            tll_push_back(overrides, xstrdup("login-shell=yes"));
+
+        if (cdata.maximized && server->conf->startup_mode != STARTUP_MAXIMIZED)
+            tll_push_back(overrides, xstrdup("initial-window-mode=maximized"));
+
+        if (cdata.fullscreen && server->conf->startup_mode != STARTUP_FULLSCREEN)
+            tll_push_back(overrides, xstrdup("initial-window-mode=fullscreen"));
 
         if (cdata.width > 0 && cdata.height > 0) {
-            conf->size.type = cdata.size_type;
-            conf->size.width = cdata.width;
-            conf->size.height = cdata.height;
+            switch (cdata.size_type) {
+            case CONF_SIZE_PX:
+                snprintf(buf, sizeof(buf), "initial-window-size-pixels=%ux%u",
+                         cdata.width, cdata.height);
+                tll_push_back(overrides, xstrdup(buf));
+                break;
+
+            case CONF_SIZE_CELLS:
+                snprintf(buf, sizeof(buf), "initial-window-size-chars=%ux%u",
+                         cdata.width, cdata.height);
+                tll_push_back(overrides, xstrdup(buf));
+                break;
+            }
         }
+
+        if (cdata.no_wait != server->conf->no_wait)
+            conf->no_wait = cdata.no_wait;
+
+        if (cdata.hold != server->conf->hold_at_exit)
+            conf->hold_at_exit = cdata.hold;
+
+        config_override_apply(conf, &overrides, false);
+        tll_free_and_free(overrides, free);
     }
 
     *instance = (struct terminal_instance) {
