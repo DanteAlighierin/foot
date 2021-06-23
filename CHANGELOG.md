@@ -69,6 +69,8 @@
 * `underline-offset` option to `foot.ini`
   (https://codeberg.org/dnkl/foot/issues/490).
 * `csd.button-color` option to `foot.ini`.
+* `-Dterminfo-install-location=disabled|<custom-path>` meson command
+  line option (https://codeberg.org/dnkl/foot/issues/569).
 
 
 ### Changed
