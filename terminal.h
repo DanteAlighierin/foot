@@ -51,9 +51,10 @@ struct attributes {
 };
 static_assert(sizeof(struct attributes) == 8, "VT attribute struct too large");
 
-#define CELL_COMB_CHARS_LO    0x40000000ul
-#define CELL_COMB_CHARS_HI    0x400ffffful
-#define CELL_SPACER           0x40100000ul
+/* Last valid Unicode code point is 0x0010FFFFul */
+#define CELL_COMB_CHARS_LO          0x00200000ul
+#define CELL_COMB_CHARS_HI          (CELL_COMB_CHARS_LO + 0x3fffffff)
+#define CELL_SPACER                 (CELL_COMB_CHARS_HI + 1)
 
 struct cell {
     wchar_t wc;
