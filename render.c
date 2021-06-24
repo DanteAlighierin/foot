@@ -570,10 +570,11 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             }
 
             if (grapheme != NULL) {
+                cell_cols = composed->width;
+
                 composed = NULL;
                 glyphs = grapheme->glyphs;
                 glyph_count = grapheme->count;
-                cell_cols = grapheme->cols;
             }
         }
 
