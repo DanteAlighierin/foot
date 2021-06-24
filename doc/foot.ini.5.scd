@@ -983,9 +983,11 @@ any of these options.
 	
 	This is required to render e.g. flag (emoji) sequences, keycap
 	sequences, modifier sequences, zero-width-joiner (ZWJ) sequences
-	andn emoji tag sequences.
+	andn emoji tag sequences. It might also improve rendering of
+	composed characters, depending on font.
 	
-	This is an experimental feature with the following requirements and limitations:
+	This is an experimental feature with the following requirements
+	and limitations:
 	
 	- foot must have been compiled with utf8proc support
 	- fcft must have been compiled with HarfBuzz support
