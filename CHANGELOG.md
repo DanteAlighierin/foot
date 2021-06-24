@@ -28,6 +28,59 @@
 
 ## Unreleased
 
+### Grapheme shaping
+
+This release adds _experimental_, opt-in support for grapheme cluster
+segmentation and grapheme shaping.
+
+(note: several of the examples below may not render correctly in your
+browser, viewer or editor).
+
+Grapheme cluster segmentation is the art of splitting up text into
+grapheme clusters, where a cluster may consist of more than one
+Unicode codepoint. For example, 🙂 is a single codepoint, while 👩🏽‍🚀
+consists of 5 codepoints (_Woman_ + _Medium skin tone_ + _Zero width
+joiner_ + _Rocket_). The goal is to _cluster_ codepoints belonging to
+the same grapheme in the same cell in the terminal.
+
+Previous versions of foot implemented a simple grapheme cluster
+segmentation technique that **only** handled zero-width
+codepoints. This allowed us to cluster composed characters (e.g. q́ -
+_q_ + _COMBINING ACUTE ACCENT_).
+
+Once we have a grapheme cluster, we need to _shape_ it.
+
+Composed characters are simple: they are typically rendered as
+multiple glyphs layered on top of each other. This is why previous
+versions of foot got away with it without any actual text shaping
+support.
+
+Beyond that, support from the font library is needed. Foot now depends
+on fcft-2.4, which added support for grapheme and text shaping. When
+rendering a cell, we ask the font library: give us the glyph(s) for
+this sequence of codepoints.
+
+Fancy emoji sequences aside, using libutf8proc for grapheme cluster
+segmentation means **improved correctness**.
+
+For full support, the following is required:
+
+* fcft compiled with HarfBuzz support
+* foot compiled with libutf8proc support
+* `tweak.grapheme-shaping=yes` in `foot.ini`
+
+This feature is _experimental_ mostly due to the “wcwidth” problem;
+how many cells should foot allocate for a grapheme cluster? While the
+answer may seem simple, the problem is that, whatever the answer is,
+the client application **must** have come up with the **same**
+answer. Otherwise we get cursor synchronization issues.
+
+In this release, foot simply adds together the `wcwidth()` of all
+codepoints in the grapheme cluster. This is equivalent to running
+`wcswidth()` on the entire cluster. **This is likely to change in the
+future**.
+
+
 ### Added
 
 * Support for DECSET/DECRST 2026, as an alternative to the existing
