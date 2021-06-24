@@ -16,6 +16,7 @@
 #include <fcft/fcft.h>
 
 //#include "config.h"
+#include "composed.h"
 #include "debug.h"
 #include "fdm.h"
 #include "macros.h"
@@ -82,12 +83,6 @@ struct damage {
     enum damage_type type;
     struct scroll_region region;
     int lines;
-};
-
-struct composed {
-    wchar_t chars[10];
-    uint8_t count;
-    int width;
 };
 
 struct row_uri_range {

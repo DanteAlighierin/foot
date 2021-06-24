@@ -557,10 +557,9 @@ render_cell(struct terminal *term, pixman_image_t *pix,
             cell_cols = single->cols;
         }
 
-        else if (base >= CELL_COMB_CHARS_LO &&
-                 base < (CELL_COMB_CHARS_LO + term->composed_count))
+        else if (base >= CELL_COMB_CHARS_LO && base <= CELL_COMB_CHARS_HI)
         {
-            composed = &term->composed[base - CELL_COMB_CHARS_LO];
+            composed = composed_lookup(term->composed, base - CELL_COMB_CHARS_LO);
             base = composed->chars[0];
 
             if (term->conf->can_shape_grapheme && term->conf->tweak.grapheme_shaping) {
@@ -3339,8 +3338,8 @@ maybe_resize(struct terminal *term, int width, int height, bool force)
     /* Resize grids */
     grid_resize_and_reflow(
         &term->normal, new_normal_grid_rows, new_cols, old_rows, new_rows,
-        term->selection.end.row >= 0 ? ALEN(tracking_points) : 0, tracking_points,
-        term->composed_count, term->composed);
+        term->selection.end.row >= 0 ? ALEN(tracking_points) : 0,
+        tracking_points);
 
     grid_resize_without_reflow(
         &term->alt, new_alt_grid_rows, new_cols, old_rows, new_rows);

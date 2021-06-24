@@ -223,11 +223,10 @@ extract_one(const struct terminal *term, const struct row *row,
     ctx->newline_count = 0;
     ctx->empty_count = 0;
 
-    if (cell->wc >= CELL_COMB_CHARS_LO &&
-        cell->wc < (CELL_COMB_CHARS_LO + term->composed_count))
+    if (cell->wc >= CELL_COMB_CHARS_LO && cell->wc <= CELL_COMB_CHARS_HI)
     {
-        const struct composed *composed
-            = &term->composed[cell->wc - CELL_COMB_CHARS_LO];
+        const struct composed *composed = composed_lookup(
+            term->composed, cell->wc - CELL_COMB_CHARS_LO);
 
         if (!ensure_size(ctx, composed->count))
             goto err;

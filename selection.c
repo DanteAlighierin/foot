@@ -246,11 +246,8 @@ selection_find_word_boundary_left(struct terminal *term, struct coord *pos,
         c = r->cells[pos->col].wc;
     }
 
-    if (c >= CELL_COMB_CHARS_LO &&
-        c < (CELL_COMB_CHARS_LO + term->composed_count))
-    {
-        c = term->composed[c - CELL_COMB_CHARS_LO].chars[0];
-    }
+    if (c >= CELL_COMB_CHARS_LO && c <= CELL_COMB_CHARS_HI)
+        c = composed_lookup(term->composed, c - CELL_COMB_CHARS_LO)->chars[0];
 
     bool initial_is_space = c == 0 || iswspace(c);
     bool initial_is_delim =
@@ -286,11 +283,8 @@ selection_find_word_boundary_left(struct terminal *term, struct coord *pos,
             c = row->cells[next_col].wc;
         }
 
-        if (c >= CELL_COMB_CHARS_LO &&
-            c < (CELL_COMB_CHARS_LO + term->composed_count))
-        {
-            c = term->composed[c - CELL_COMB_CHARS_LO].chars[0];
-        }
+        if (c >= CELL_COMB_CHARS_LO && c <= CELL_COMB_CHARS_HI)
+            c = composed_lookup(term->composed, c - CELL_COMB_CHARS_LO)->chars[0];
 
         bool is_space = c == 0 || iswspace(c);
         bool is_delim =
@@ -325,11 +319,8 @@ selection_find_word_boundary_right(struct terminal *term, struct coord *pos,
         c = r->cells[pos->col].wc;
     }
 
-    if (c >= CELL_COMB_CHARS_LO &&
-        c < (CELL_COMB_CHARS_LO + term->composed_count))
-    {
-        c = term->composed[c - CELL_COMB_CHARS_LO].chars[0];
-    }
+    if (c >= CELL_COMB_CHARS_LO && c <= CELL_COMB_CHARS_HI)
+        c = composed_lookup(term->composed, c - CELL_COMB_CHARS_LO)->chars[0];
 
     bool initial_is_space = c == 0 || iswspace(c);
     bool initial_is_delim =
@@ -367,11 +358,8 @@ selection_find_word_boundary_right(struct terminal *term, struct coord *pos,
             c = row->cells[next_col].wc;
         }
 
-        if (c >= CELL_COMB_CHARS_LO &&
-            c < (CELL_COMB_CHARS_LO + term->composed_count))
-        {
-            c = term->composed[c - CELL_COMB_CHARS_LO].chars[0];
-        }
+        if (c >= CELL_COMB_CHARS_LO && c <= CELL_COMB_CHARS_HI)
+            c = composed_lookup(term->composed, c - CELL_COMB_CHARS_LO)->chars[0];
 
         bool is_space = c == 0 || iswspace(c);
         bool is_delim =

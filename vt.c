@@ -611,20 +611,21 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         xassert(col >= 0 && col < term->cols);
         wchar_t base = row->cells[col].wc;
         wchar_t UNUSED last = base;
-        size_t search_start_index = 0;
+        uint32_t key = base ^ wc;
 
         /* Is base cell already a cluster? */
         const struct composed *composed =
-            (base >= CELL_COMB_CHARS_LO &&
-             base < (CELL_COMB_CHARS_LO + term->composed_count))
-            ? &term->composed[base - CELL_COMB_CHARS_LO]
+            (base >= CELL_COMB_CHARS_LO && base <= CELL_COMB_CHARS_HI)
+            ? composed_lookup(term->composed, base - CELL_COMB_CHARS_LO)
             : NULL;
 
         if (composed != NULL) {
-            search_start_index = base - CELL_COMB_CHARS_LO;
             base = composed->chars[0];
             last = composed->chars[composed->count - 1];
+            key = composed->key ^ wc;
         }
+
+        key &= CELL_COMB_CHARS_HI - CELL_COMB_CHARS_LO;
 
 #if defined(FOOT_GRAPHEME_CLUSTERING)
         if (grapheme_clustering) {
@@ -677,7 +678,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             }
 
             size_t wanted_count = composed != NULL ? composed->count + 1 : 2;
-            if (wanted_count > ALEN(composed->chars)) {
+            if (wanted_count > 255) {
                 xassert(composed != NULL);
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
@@ -691,47 +692,46 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                 wanted_count--;
             }
 
-            xassert(wanted_count <= ALEN(composed->chars));
+            xassert(wanted_count <= 255);
 
             /* Look for existing combining chain */
-            for (size_t i = search_start_index; i < term->composed_count; i++) {
-                const struct composed *cc = &term->composed[i];
+            while (true) {
+                const struct composed *cc = composed_lookup(term->composed, key);
+                if (cc == NULL)
+                    break;
 
-                if (cc->chars[0] != base)
+                /*
+                 * We may have a key collisison, so need to check that
+                 * it’s a true match. If not, bumb the key and try
+                 * again.
+                 */
+
+                if (cc->chars[0] != base ||
+                    cc->count != wanted_count ||
+                    cc->chars[wanted_count - 1] != wc)
+                {
+                    key++;
                     continue;
-
-                if (cc->count != wanted_count)
-                    continue;
-
-                bool match = true;
-                for (size_t j = 1; j < wanted_count - 1; j++) {
-                    if (cc->chars[j] != composed->chars[j]) {
-                        match = false;
-                        break;
-                    }
                 }
-                if (!match)
-                    continue;
 
-                if (cc->chars[wanted_count - 1] != wc)
-                    continue;
+                bool match = composed != NULL
+                    ? memcmp(&cc->chars[1], &composed->chars[1],
+                             (wanted_count - 2) * sizeof(cc->chars[0])) == 0
+                    : true;
 
-                wc = CELL_COMB_CHARS_LO + i;
+                if (!match) {
+                    key++;
+                    continue;
+                }
+
+                wc = CELL_COMB_CHARS_LO + cc->key;
                 width = cc->width;
                 goto out;
             }
 
-            /* Allocate new chain */
-
-            struct composed new_cc;
-            new_cc.count = wanted_count;
-            new_cc.chars[0] = base;
-
-            for (size_t i = 1; i < wanted_count - 1; i++)
-                new_cc.chars[i] = composed->chars[i];
-            new_cc.chars[wanted_count - 1] = wc;
-
-            if (unlikely(term->composed_count >= CELL_COMB_CHARS_HI)) {
+            if (unlikely(term->composed_count >=
+                         (CELL_COMB_CHARS_HI - CELL_COMB_CHARS_LO)))
+            {
                 /* We reached our maximum number of allowed composed
                  * character chains. Fall through here and print the
                  * current zero-width character to the current cell */
@@ -739,18 +739,32 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                 goto out;
             }
 
+            /* Allocate new chain */
+            struct composed *new_cc = xmalloc(sizeof(*new_cc));
+            new_cc->chars = xmalloc(wanted_count * sizeof(new_cc->chars[0]));
+            new_cc->key = key;
+            new_cc->count = wanted_count;
+            new_cc->chars[0] = base;
+            new_cc->chars[wanted_count - 1] = wc;
+
+            if (composed != NULL) {
+                memcpy(&new_cc->chars[1], &composed->chars[1],
+                       (wanted_count - 2) * sizeof(new_cc->chars[0]));
+            }
+
             int grapheme_width = composed != NULL ? composed->width : base_width;
+
             if (wc == 0xfe0f && grapheme_width < 2)
                 grapheme_width = 2;
             else
                 grapheme_width += width;
-            new_cc.width = grapheme_width;
+            new_cc->width = grapheme_width;
 
             term->composed_count++;
-            term->composed = xrealloc(term->composed, term->composed_count * sizeof(term->composed[0]));
-            term->composed[term->composed_count - 1] = new_cc;
+            key = composed_insert(&term->composed, new_cc);
+            wc = CELL_COMB_CHARS_LO + key;
+            xassert(wc <= CELL_COMB_CHARS_HI);
 
-            wc = CELL_COMB_CHARS_LO + term->composed_count - 1;
             width = grapheme_width;
             goto out;
         }

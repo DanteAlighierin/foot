@@ -416,9 +416,7 @@ grid_resize_and_reflow(
     struct grid *grid, int new_rows, int new_cols,
     int old_screen_rows, int new_screen_rows,
     size_t tracking_points_count,
-    struct coord *const _tracking_points[static tracking_points_count],
-    size_t compose_count, const struct
-    composed composed[static compose_count])
+    struct coord *const _tracking_points[static tracking_points_count])
 {
 #if defined(TIME_REFLOW) && TIME_REFLOW
     struct timeval start;

@@ -147,6 +147,7 @@ misc = static_library(
 vtlib = static_library(
   'vtlib',
   'base64.c', 'base64.h',
+  'composed.c', 'composed.h',
   'csi.c', 'csi.h',
   'dcs.c', 'dcs.h',
   'osc.c', 'osc.h',
