@@ -43,10 +43,11 @@ static const char *
 version_and_features(void)
 {
     static char buf[256];
-    snprintf(buf, sizeof(buf), "version: %s %cime %cpgo",
+    snprintf(buf, sizeof(buf), "version: %s %cpgo %cime %cgraphemes",
              FOOT_VERSION,
+             feature_pgo() ? '+' : '-',
              feature_ime() ? '+' : '-',
-             feature_pgo() ? '+' : '-');
+             feature_graphemes() ? '+' : '-');
     return buf;
 }
 

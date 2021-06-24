@@ -245,11 +245,10 @@ matches_cell(const struct terminal *term, const struct cell *cell, size_t search
     wchar_t base = cell->wc;
     const struct composed *composed = NULL;
 
-    if (base >= CELL_COMB_CHARS_LO &&
-        base < (CELL_COMB_CHARS_LO + term->composed_count))
+    if (base >= CELL_COMB_CHARS_LO && base <= CELL_COMB_CHARS_HI)
     {
-        composed = &term->composed[base - CELL_COMB_CHARS_LO];
-        base = composed->base;
+        composed = composed_lookup(term->composed, base - CELL_COMB_CHARS_LO);
+        base = composed->chars[0];
     }
 
     if (composed == NULL && base == 0 && term->search.buf[search_ofs] == L' ')
@@ -262,8 +261,8 @@ matches_cell(const struct terminal *term, const struct cell *cell, size_t search
         if (search_ofs + 1 + composed->count > term->search.len)
             return -1;
 
-        for (size_t j = 0; j < composed->count; j++) {
-            if (composed->combining[j] != term->search.buf[search_ofs + 1 + j])
+        for (size_t j = 1; j < composed->count; j++) {
+            if (composed->chars[j] != term->search.buf[search_ofs + 1 + j])
                 return -1;
         }
     }

@@ -1132,7 +1132,6 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .normal = {.scroll_damage = tll_init(), .sixel_images = tll_init()},
         .alt = {.scroll_damage = tll_init(), .sixel_images = tll_init()},
         .grid = &term->normal,
-        .composed_count = 0,
         .composed = NULL,
         .alt_scrolling = conf->mouse.alternate_scroll_mode,
         .meta = {
@@ -1431,7 +1430,7 @@ term_destroy(struct terminal *term)
     grid_free(&term->normal);
     grid_free(&term->alt);
 
-    free(term->composed);
+    composed_free(term->composed);
 
     free(term->window_title);
     tll_free_and_free(term->window_title_stack, free);

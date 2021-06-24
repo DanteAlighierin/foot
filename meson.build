@@ -71,6 +71,11 @@ wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
 xkb = dependency('xkbcommon', version: '>=1.0.0')
 fontconfig = dependency('fontconfig')
+utf8proc = dependency('libutf8proc', required: get_option('grapheme-clustering'))
+
+if utf8proc.found()
+  add_project_arguments('-DFOOT_GRAPHEME_CLUSTERING=1', language: 'c')
+endif
 
 tllist = dependency('tllist', version: '>=1.0.4', fallback: 'tllist')
 fcft = dependency('fcft', version: ['>=2.4.0', '<3.0.0'], fallback: 'fcft')
@@ -142,6 +147,7 @@ misc = static_library(
 vtlib = static_library(
   'vtlib',
   'base64.c', 'base64.h',
+  'composed.c', 'composed.h',
   'csi.c', 'csi.h',
   'dcs.c', 'dcs.h',
   'osc.c', 'osc.h',
@@ -149,7 +155,7 @@ vtlib = static_library(
   'vt.c', 'vt.h',
   wl_proto_src + wl_proto_headers,
   version,
-  dependencies: [libepoll, pixman, fcft, tllist, wayland_client, xkb],
+  dependencies: [libepoll, pixman, fcft, tllist, wayland_client, xkb, utf8proc],
   link_with: [common, misc],
 )
 
@@ -247,6 +253,7 @@ subdir('icons')
 summary(
   {
     'IME': get_option('ime'),
+    'Grapheme clustering': utf8proc.found(),
     'Terminfo': tic.found(),
     'Terminfo install location': terminfo_install_location,
   },

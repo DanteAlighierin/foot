@@ -4,9 +4,14 @@
 #include <string.h>
 #include <unistd.h>
 
+#if defined(FOOT_GRAPHEME_CLUSTERING)
+ #include <utf8proc.h>
+#endif
+
 #define LOG_MODULE "vt"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "config.h"
 #include "csi.h"
 #include "dcs.h"
 #include "debug.h"
@@ -283,6 +288,7 @@ action_execute(struct terminal *term, uint8_t c)
 static void
 action_print(struct terminal *term, uint8_t c)
 {
+    term_reset_grapheme_state(term);
     term->ascii_printer(term, c);
 }
 
@@ -583,60 +589,59 @@ static void
 action_utf8_print(struct terminal *term, wchar_t wc)
 {
     int width = wcwidth(wc);
+    const bool grapheme_clustering = term->conf->tweak.grapheme_shaping;
 
-    /*
-     * Is this is combining character? The basic assumption is that if
-     * wcwdith() returns 0, then it *is* a combining character.
-     *
-     * We hen optimize this by ignoring all characters before 0x0300,
-     * since there aren't any zero-width characters there. This means
-     * all "normal" western characters will quickly be categorized as
-     * *not* being combining characters.
-     *
-     * TODO: xterm does more or less the same, but also filters a
-     * small subset of BIDI control characters. Should we too? I think
-     * what we have here is good enough - a control character
-     * shouldn't have a glyph associated with it, so rendering
-     * shouldn't be affected.
-     *
-     * TODO: handle line-wrap when locating the base character.
-     */
-    if (width == 0 && wc >= 0x0300 && term->grid->cursor.point.col > 0) {
-        const struct row *row = term->grid->cur_row;
+#if !defined(FOOT_GRAPHEME_CLUSTERING)
+    xassert(!grapheme_clustering);
+#endif
 
-        int base_col = term->grid->cursor.point.col;
+    if (term->grid->cursor.point.col > 0 &&
+        (grapheme_clustering ||
+         (!grapheme_clustering && width == 0 && wc >= 0x300)))
+    {
+        int col = term->grid->cursor.point.col;
         if (!term->grid->cursor.lcf)
-            base_col--;
+            col--;
 
-        while (row->cells[base_col].wc >= CELL_SPACER && base_col > 0)
-            base_col--;
+        /* Skip past spacers */
+        struct row *row = term->grid->cur_row;
+        while (row->cells[col].wc >= CELL_SPACER && col > 0)
+            col--;
 
-        xassert(base_col >= 0 && base_col < term->cols);
-        wchar_t base = row->cells[base_col].wc;
+        xassert(col >= 0 && col < term->cols);
+        wchar_t base = row->cells[col].wc;
+        wchar_t UNUSED last = base;
+        uint32_t key = base ^ wc;
 
+        /* Is base cell already a cluster? */
         const struct composed *composed =
-            (base >= CELL_COMB_CHARS_LO &&
-             base < (CELL_COMB_CHARS_LO + term->composed_count))
-            ? &term->composed[base - CELL_COMB_CHARS_LO]
+            (base >= CELL_COMB_CHARS_LO && base <= CELL_COMB_CHARS_HI)
+            ? composed_lookup(term->composed, base - CELL_COMB_CHARS_LO)
             : NULL;
 
-        if (composed != NULL)
-            base = composed->base;
+        if (composed != NULL) {
+            base = composed->chars[0];
+            last = composed->chars[composed->count - 1];
+            key = composed->key ^ wc;
+        }
+
+        key &= CELL_COMB_CHARS_HI - CELL_COMB_CHARS_LO;
+
+#if defined(FOOT_GRAPHEME_CLUSTERING)
+        if (grapheme_clustering) {
+            /* Check if we're on a grapheme cluster break */
+            /* Note: utf8proc fails to ZWJ */
+            if (utf8proc_grapheme_break_stateful(last, wc, &term->vt.grapheme_state) &&
+                last != 0x200d /* ZWJ */)
+            {
+                goto out;
+            }
+        }
+#endif
 
         int base_width = wcwidth(base);
-
-        if (base != 0 && base_width > 0) {
-
-            /*
-             * If this is the *first* combining characger, see if
-             * there's a pre-composed character of this combo, with
-             * the same column width as the base character.
-             *
-             * If there is, replace the base character with the
-             * pre-composed character, as that is likely to produce a
-             * better looking result.
-             */
-            term->grid->cursor.point.col = base_col;
+        if (base_width > 0) {
+            term->grid->cursor.point.col = col;
             term->grid->cursor.lcf = false;
 
             if (composed == NULL) {
@@ -666,69 +671,107 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                      !base_from_primary ||
                      !comb_from_primary))
                 {
-                    term_print(term, precomposed, precomposed_width);
-                    return;
+                    wc = precomposed;
+                    width = precomposed_width;
+                    goto out;
                 }
             }
 
-            size_t wanted_count = composed != NULL ? composed->count + 1 : 1;
-            if (wanted_count > ALEN(composed->combining)) {
+            size_t wanted_count = composed != NULL ? composed->count + 1 : 2;
+            if (wanted_count > 255) {
                 xassert(composed != NULL);
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
                 LOG_WARN("combining character overflow:");
-                LOG_WARN("  base: 0x%04x", composed->base);
-                for (size_t i = 0; i < composed->count; i++)
-                    LOG_WARN("    cc: 0x%04x", composed->combining[i]);
+                LOG_WARN("  base: 0x%04x", composed->chars[0]);
+                for (size_t i = 1; i < composed->count; i++)
+                    LOG_WARN("    cc: 0x%04x", composed->chars[i]);
                 LOG_ERR("   new: 0x%04x", wc);
 #endif
-                /* This are going to break anyway... */
+                /* This is going to break anyway... */
                 wanted_count--;
             }
 
-            xassert(wanted_count <= ALEN(composed->combining));
+            xassert(wanted_count <= 255);
 
             /* Look for existing combining chain */
-            for (size_t i = 0; i < term->composed_count; i++) {
-                const struct composed *cc = &term->composed[i];
-                if (cc->base != base)
-                    continue;
+            while (true) {
+                const struct composed *cc = composed_lookup(term->composed, key);
+                if (cc == NULL)
+                    break;
 
-                if (cc->count != wanted_count)
-                    continue;
+                /*
+                 * We may have a key collisison, so need to check that
+                 * it’s a true match. If not, bump the key and try
+                 * again.
+                 */
 
-                if (cc->combining[wanted_count - 1] != wc)
+                if (cc->chars[0] != base ||
+                    cc->count != wanted_count ||
+                    cc->chars[wanted_count - 1] != wc)
+                {
+                    key++;
                     continue;
+                }
 
-                term_print(term, CELL_COMB_CHARS_LO + i, base_width);
-                return;
+                bool match = composed != NULL
+                    ? memcmp(&cc->chars[1], &composed->chars[1],
+                             (wanted_count - 2) * sizeof(cc->chars[0])) == 0
+                    : true;
+
+                if (!match) {
+                    key++;
+                    continue;
+                }
+
+                wc = CELL_COMB_CHARS_LO + cc->key;
+                width = cc->width;
+                goto out;
             }
 
-            /* Allocate new chain */
-
-            struct composed new_cc;
-            new_cc.base = base;
-            new_cc.count = wanted_count;
-            for (size_t i = 0; i < wanted_count - 1; i++)
-                new_cc.combining[i] = composed->combining[i];
-            new_cc.combining[wanted_count - 1] = wc;
-
-            if (term->composed_count < CELL_COMB_CHARS_HI) {
-                term->composed_count++;
-                term->composed = xrealloc(term->composed, term->composed_count * sizeof(term->composed[0]));
-                term->composed[term->composed_count - 1] = new_cc;
-
-                term_print(term, CELL_COMB_CHARS_LO + term->composed_count - 1, base_width);
-                return;
-            } else {
+            if (unlikely(term->composed_count >=
+                         (CELL_COMB_CHARS_HI - CELL_COMB_CHARS_LO)))
+            {
                 /* We reached our maximum number of allowed composed
                  * character chains. Fall through here and print the
                  * current zero-width character to the current cell */
                 LOG_WARN("maximum number of composed characters reached");
+                goto out;
             }
+
+            /* Allocate new chain */
+            struct composed *new_cc = xmalloc(sizeof(*new_cc));
+            new_cc->chars = xmalloc(wanted_count * sizeof(new_cc->chars[0]));
+            new_cc->key = key;
+            new_cc->count = wanted_count;
+            new_cc->chars[0] = base;
+            new_cc->chars[wanted_count - 1] = wc;
+
+            if (composed != NULL) {
+                memcpy(&new_cc->chars[1], &composed->chars[1],
+                       (wanted_count - 2) * sizeof(new_cc->chars[0]));
+            }
+
+            int grapheme_width = composed != NULL ? composed->width : base_width;
+
+            if (wc == 0xfe0f && grapheme_width < 2)
+                grapheme_width = 2;
+            else
+                grapheme_width += width;
+            new_cc->width = grapheme_width;
+
+            term->composed_count++;
+            key = composed_insert(&term->composed, new_cc);
+            wc = CELL_COMB_CHARS_LO + key;
+            xassert(wc <= CELL_COMB_CHARS_HI);
+
+            width = grapheme_width;
+            goto out;
         }
     }
 
+out:
+    term_reset_grapheme_state(term);
     if (width > 0)
         term_print(term, wc, width);
 }

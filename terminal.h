@@ -8,10 +8,15 @@
 #include <threads.h>
 #include <semaphore.h>
 
+#if defined(FOOT_GRAPHEME_CLUSTERING)
+ #include <utf8proc.h>
+#endif
+
 #include <tllist.h>
 #include <fcft/fcft.h>
 
 //#include "config.h"
+#include "composed.h"
 #include "debug.h"
 #include "fdm.h"
 #include "macros.h"
@@ -80,12 +85,6 @@ struct damage {
     int lines;
 };
 
-struct composed {
-    wchar_t base;
-    wchar_t combining[5];
-    uint8_t count;
-};
-
 struct row_uri_range {
     int start;
     int end;
@@ -152,6 +151,9 @@ struct vt_param {
 struct vt {
     int state;  /* enum state */
     wchar_t last_printed;
+#if defined(FOOT_GRAPHEME_CLUSTERING)
+    utf8proc_int32_t grapheme_state;
+#endif
     wchar_t utf8;
     struct {
         struct vt_param v[16];
@@ -720,3 +722,10 @@ void term_collect_urls(struct terminal *term);
 
 void term_osc8_open(struct terminal *term, uint64_t id, const char *uri);
 void term_osc8_close(struct terminal *term);
+
+static inline void term_reset_grapheme_state(struct terminal *term)
+{
+#if defined(FOOT_GRAPHEME_CLUSTERING)
+    term->vt.grapheme_state = 0;
+#endif
+}

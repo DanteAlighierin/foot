@@ -7,7 +7,7 @@ variables:
 before_script:
   - apk update
   - apk add musl-dev linux-headers meson ninja gcc scdoc ncurses
-  - apk add libxkbcommon-dev pixman-dev freetype-dev fontconfig-dev harfbuzz-dev
+  - apk add libxkbcommon-dev pixman-dev freetype-dev fontconfig-dev harfbuzz-dev utf8proc-dev
   - apk add wayland-dev wayland-protocols
   - apk add git
   - apk add check-dev
@@ -19,7 +19,21 @@ debug-x64:
   script:
     - mkdir -p bld/debug
     - cd bld/debug
-    - meson --buildtype=debug -Dfcft:text-shaping=enabled -Dfcft:test-text-shaping=true ../../
+    - meson --buildtype=debug -Dgrapheme-clustering=enabled -Dfcft:text-shaping=enabled -Dfcft:test-text-shaping=true ../../
+    - ninja -v -k0
+    - ninja -v test
+  artifacts:
+    reports:
+      junit: bld/debug/meson-logs/testlog.junit.xml
+
+debug-x64-no-grapheme-clustering:
+  image: alpine:edge
+  stage: build
+  script:
+    - apk del harfbuzz harfbuzz-dev utf8proc utf8proc-dev
+    - mkdir -p bld/debug
+    - cd bld/debug
+    - meson --buildtype=debug -Dgrapheme-clustering=disabled -Dfcft:text-shaping=disabled -Dfcft:test-text-shaping=false ../../
     - ninja -v -k0
     - ninja -v test
   artifacts:
@@ -32,7 +46,7 @@ release-x64:
   script:
     - mkdir -p bld/release
     - cd bld/release
-    - meson --buildtype=release -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
+    - meson --buildtype=release -Dgrapheme-clustering=enabled -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
   artifacts:
@@ -45,7 +59,7 @@ debug-x86:
   script:
     - mkdir -p bld/debug
     - cd bld/debug
-    - meson --buildtype=debug -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
+    - meson --buildtype=debug -Dgrapheme-clustering=enabled -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
   artifacts:
@@ -58,7 +72,7 @@ release-x86:
   script:
     - mkdir -p bld/release
     - cd bld/release
-    - meson --buildtype=release -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
+    - meson --buildtype=release -Dgrapheme-clustering=enabled -Dfcft:text-shaping=enabled  -Dfcft:test-text-shaping=true ../../
     - ninja -v -k0
     - ninja -v test
   artifacts:

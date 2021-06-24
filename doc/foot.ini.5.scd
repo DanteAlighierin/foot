@@ -975,6 +975,30 @@ any of these options.
 	
 	Default: _no_.
 
+*grapheme-shaping*
+	Boolean. When enabled, foot will use _utf8proc_ to do grapheme
+	cluster segmentation while parsing "printed" text. Then, when
+	rendering, it will use _fcft_ (if compiled with _HarfBuzz_
+	support) to shape the grapheme clusters.
+	
+	This is required to render e.g. flag (emoji) sequences, keycap
+	sequences, modifier sequences, zero-width-joiner (ZWJ) sequences
+	andn emoji tag sequences. It might also improve rendering of
+	composed characters, depending on font.
+	
+	This is an experimental feature with the following requirements
+	and limitations:
+	
+	- foot must have been compiled with utf8proc support
+	- fcft must have been compiled with HarfBuzz support
+	- This option must be set to true
+	- Foot will use *wcswidth*(3) to calculate a cluster's display
+	  width. This will typically _not_ match the shaped glyph's width,
+	  but is necessary to not break cursor synchronization with the
+	  application running in foot.
+	
+	Default: _no_
+
 *max-shm-pool-size-mb*
 	This option controls the amount of virtual address space used by
 	the pixmap memory to which the terminal screen content is
