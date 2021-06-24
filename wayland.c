@@ -1384,8 +1384,7 @@ wayl_win_init(struct terminal *term)
             win->xdg_toplevel_decoration, &xdg_toplevel_decoration_listener, win);
     } else {
         /* No decoration manager - thus we *must* draw our own decorations */
-        win->csd_mode = CSD_YES;
-        csd_instantiate(win);
+        win->configure.csd_mode = CSD_YES;
         LOG_WARN("no decoration manager available - using CSDs unconditionally");
     }
 
