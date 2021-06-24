@@ -585,6 +585,13 @@ action_put(struct terminal *term, uint8_t c)
     dcs_put(term, c);
 }
 
+static inline uint32_t
+chain_key(uint32_t old_key, uint32_t new_wc)
+{
+    /* Rotate left 8 bits, xor with new char */
+    return ((old_key << 8) | (old_key >> (32 - 8))) ^ new_wc;
+}
+
 static void
 action_utf8_print(struct terminal *term, wchar_t wc)
 {
@@ -618,8 +625,6 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             ? composed_lookup(term->composed, base - CELL_COMB_CHARS_LO)
             : NULL;
 
-        #define chain_key(old, new) (((old) << 8) ^ (new))
-
         uint32_t key;
 
         if (composed != NULL) {
@@ -628,8 +633,6 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             key = chain_key(composed->key, wc);
         } else
             key = chain_key(base, wc);
-
-        #undef chain_key
 
         key &= CELL_COMB_CHARS_HI - CELL_COMB_CHARS_LO;
 
