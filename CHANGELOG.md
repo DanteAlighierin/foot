@@ -30,7 +30,7 @@
 
 ### Grapheme shaping
 
-This release adds _experimenta, opt-in_ support for grapheme cluster
+This release adds _experimental, opt-in_ support for grapheme cluster
 segmentation and grapheme shaping.
 
 (note: several of the examples below may not render correctly in your
