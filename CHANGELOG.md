@@ -45,12 +45,12 @@ the same grapheme in the same cell in the terminal.
 
 Previous versions of foot implemented a simple grapheme cluster
 segmentation technique that **only** handled zero-width
-codepoints. This allowed us to cluster composed characters, like q́
+codepoints. This allowed us to cluster combining characters, like q́
 (_q_ + _COMBINING ACUTE ACCENT_).
 
 Once we have a grapheme cluster, we need to _shape_ it.
 
-Composed characters are simple: they are typically rendered as
+Combining characters are simple: they are typically rendered as
 multiple glyphs layered on top of each other. This is why previous
 versions of foot got away with it without any actual text shaping
 support.
