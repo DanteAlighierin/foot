@@ -964,16 +964,7 @@ sixel_unhook(struct terminal *term)
         (term->sixel.image.height + term->cell_height - 1) / term->cell_height +
         (term->sixel.cursor_right_of_graphics ? 0 : 1);
 
-    /* Will we be emitting anything at all? */
-    const bool no_emission =
-        rows_needed > term->grid->num_rows ||
-        pixel_rows_left == 0 ||
-        rows_avail == 0;
-
-    if (no_emission) {
-        /* We won’t be emitting any sixels - free backing image */
-        free(term->sixel.image.data);
-    }
+    bool free_image_data = true;
 
     /* We do not allow sixels to cross the scrollback wrap-around, as
      * this makes intersection calculations much more complicated */
@@ -991,9 +982,13 @@ sixel_unhook(struct terminal *term)
         const int height = min(pixel_rows_left, pixel_rows_avail);
 
         uint32_t *img_data;
-        if (pixel_row_idx == 0)
+        if (pixel_row_idx == 0 && height == pixel_rows_left) {
+            /* Entire image will be emitted as a single chunk - reuse
+             * the source buffer */
             img_data = term->sixel.image.data;
-        else {
+            free_image_data = false;
+        } else {
+            xassert(free_image_data);
             img_data = xmalloc(height * stride);
             memcpy(
                 img_data,
@@ -1079,6 +1074,9 @@ sixel_unhook(struct terminal *term)
         else
             start_row -= image.rows;
     }
+
+    if (free_image_data)
+        free(term->sixel.image.data);
 
     term->sixel.image.data = NULL;
     term->sixel.image.width = 0;
