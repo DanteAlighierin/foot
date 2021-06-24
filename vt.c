@@ -702,7 +702,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
 
                 /*
                  * We may have a key collisison, so need to check that
-                 * it’s a true match. If not, bumb the key and try
+                 * it’s a true match. If not, bump the key and try
                  * again.
                  */
 
