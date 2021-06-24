@@ -39,14 +39,14 @@ browser, viewer or editor).
 Grapheme cluster segmentation is the art of splitting up text into
 grapheme clusters, where a cluster may consist of more than one
 Unicode codepoint. For example, 🙂 is a single codepoint, while 👩🏽‍🚀
-consists of 5 codepoints (_Woman_ + _Medium skin tone_ + _Zero width
+consists of 4 codepoints (_Woman_ + _Medium skin tone_ + _Zero width
 joiner_ + _Rocket_). The goal is to _cluster_ codepoints belonging to
 the same grapheme in the same cell in the terminal.
 
 Previous versions of foot implemented a simple grapheme cluster
 segmentation technique that **only** handled zero-width
-codepoints. This allowed us to cluster composed characters (e.g. q́ -
-_q_ + _COMBINING ACUTE ACCENT_).
+codepoints. This allowed us to cluster composed characters, like q́
+(_q_ + _COMBINING ACUTE ACCENT_).
 
 Once we have a grapheme cluster, we need to _shape_ it.
 
@@ -72,13 +72,18 @@ For full support, the following is required:
 This feature is _experimental_ mostly due to the “wcwidth” problem;
 how many cells should foot allocate for a grapheme cluster? While the
 answer may seem simple, the problem is that, whatever the answer is,
-the client application **must** have come up with the **same**
+the client application **must** come up with the **same**
 answer. Otherwise we get cursor synchronization issues.
 
 In this release, foot simply adds together the `wcwidth()` of all
 codepoints in the grapheme cluster. This is equivalent to running
 `wcswidth()` on the entire cluster. **This is likely to change in the
 future**.
+
+Finally, note that grapheme shaping is not the same thing as text (or
+text run) shaping. In this version, foot only shapes individual
+graphemes, not entire text runs. That means e.g. ligatures are **not**
+supported.
 
 
 ### Added
