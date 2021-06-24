@@ -131,6 +131,7 @@ Available compile-time options:
 | Option                        | Type    | Default               | Description                           | Extra dependencies |
 |-------------------------------|---------|-----------------------|---------------------------------------|--------------------|
 | `-Dime`                       | bool    | `true`                | Enables IME support                   | None               |
+| `-Dgrapheme-clustering`       | feature | `auto`                | Enables grapheme clustering           | libutf8proc        |
 | `-Dterminfo`                  | feature | `auto`                | Build terminfo files                  | `tic` (ncurses)    |
 | `-Dterminfo-install-location` | string  | `${datadir}/terminfo` | Where to  install the terminfo files  | None               |
 
