@@ -69,6 +69,11 @@ For full support, the following is required:
 * foot compiled with libutf8proc support
 * `tweak.grapheme-shaping=yes` in `foot.ini`
 
+If `tweak.grapheme-shaping` has **not** been enabled, foot will
+neither use libutf8proc to do grapheme cluster segmentation, nor will
+it use fcft’s grapheme shaping capabilities to shape combining
+characters.
+
 This feature is _experimental_ mostly due to the “wcwidth” problem;
 how many cells should foot allocate for a grapheme cluster? While the
 answer may seem simple, the problem is that, whatever the answer is,
