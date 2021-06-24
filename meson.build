@@ -165,7 +165,7 @@ pgolib = static_library(
   'selection.c', 'selection.h',
   'terminal.c', 'terminal.h',
   wl_proto_src + wl_proto_headers,
-  dependencies: [libepoll, pixman, fcft, tllist, wayland_client, xkb],
+  dependencies: [libepoll, pixman, fcft, tllist, wayland_client, xkb, utf8proc],
   link_with: vtlib,
 )
 
@@ -174,7 +174,7 @@ if get_option('b_pgo') == 'generate'
     'pgo',
     'pgo/pgo.c',
     wl_proto_src + wl_proto_headers,
-    dependencies: [math, threads, libepoll, pixman, wayland_client, xkb, fcft, tllist],
+    dependencies: [math, threads, libepoll, pixman, wayland_client, xkb, utf8proc, fcft, tllist],
     link_with: pgolib,
   )
 endif
@@ -205,7 +205,7 @@ executable(
   'user-notification.c', 'user-notification.h',
   'wayland.c', 'wayland.h',
   wl_proto_src + wl_proto_headers, version,
-  dependencies: [math, threads, libepoll, pixman, wayland_client, wayland_cursor, xkb, fontconfig,
+  dependencies: [math, threads, libepoll, pixman, wayland_client, wayland_cursor, xkb, fontconfig, utf8proc,
                  tllist, fcft],
   link_with: pgolib,
   install: true)
