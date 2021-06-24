@@ -611,7 +611,6 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         xassert(col >= 0 && col < term->cols);
         wchar_t base = row->cells[col].wc;
         wchar_t UNUSED last = base;
-        uint32_t key = base ^ wc;
 
         /* Is base cell already a cluster? */
         const struct composed *composed =
@@ -619,11 +618,18 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             ? composed_lookup(term->composed, base - CELL_COMB_CHARS_LO)
             : NULL;
 
+        #define chain_key(old, new) (((old) << 8) ^ (new))
+
+        uint32_t key;
+
         if (composed != NULL) {
             base = composed->chars[0];
             last = composed->chars[composed->count - 1];
-            key = composed->key ^ wc;
-        }
+            key = chain_key(composed->key, wc);
+        } else
+            key = chain_key(base, wc);
+
+        #undef chain_key
 
         key &= CELL_COMB_CHARS_HI - CELL_COMB_CHARS_LO;
 
@@ -706,6 +712,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                  * again.
                  */
 
+                xassert(key == cc->key);
                 if (cc->chars[0] != base ||
                     cc->count != wanted_count ||
                     cc->chars[wanted_count - 1] != wc)
