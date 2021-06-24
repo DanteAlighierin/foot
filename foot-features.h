@@ -19,3 +19,12 @@ static inline bool feature_pgo(void)
     return false;
 #endif
 }
+
+static inline bool feature_graphemes(void)
+{
+#if defined(FOOT_GRAPHEME_CLUSTERING) && FOOT_GRAPHEME_CLUSTERING
+    return true;
+#else
+    return false;
+#endif
+}
