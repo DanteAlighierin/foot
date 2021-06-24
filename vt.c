@@ -761,11 +761,13 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             new_cc->width = grapheme_width;
 
             term->composed_count++;
-            key = composed_insert(&term->composed, new_cc);
-            wc = CELL_COMB_CHARS_LO + key;
-            xassert(wc <= CELL_COMB_CHARS_HI);
+            composed_insert(&term->composed, new_cc);
 
+            wc = CELL_COMB_CHARS_LO + key;
             width = grapheme_width;
+
+            xassert(wc >= CELL_COMB_CHARS_LO);
+            xassert(wc <= CELL_COMB_CHARS_HI);
             goto out;
         }
     }

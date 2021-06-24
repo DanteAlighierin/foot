@@ -13,6 +13,6 @@ struct composed {
 };
 
 struct composed *composed_lookup(struct composed *root, uint32_t key);
-uint32_t composed_insert(struct composed **root, struct composed *node);
+void composed_insert(struct composed **root, struct composed *node);
 
 void composed_free(struct composed *root);

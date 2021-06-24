@@ -20,14 +20,14 @@ composed_lookup(struct composed *root, uint32_t key)
     return NULL;
 }
 
-uint32_t
+void
 composed_insert(struct composed **root, struct composed *node)
 {
     node->left = node->right = NULL;
 
     if (*root == NULL) {
         *root = node;
-        return node->key;
+        return;
     }
 
     uint32_t key = node->key;
@@ -36,10 +36,7 @@ composed_insert(struct composed **root, struct composed *node)
     struct composed *n = *root;
 
     while (n != NULL) {
-        if (n->key == node->key) {
-            /* TODO: wrap around at (CELL_COMB_CHARS_HI - CELL_COMB_CHARS_LO) */
-            key++;
-        }
+        xassert(n->key != node->key);
 
         prev = n;
         n = key < n->key ? n->left : n->right;
@@ -48,9 +45,6 @@ composed_insert(struct composed **root, struct composed *node)
     xassert(prev != NULL);
     xassert(n == NULL);
 
-    /* May have been changed */
-    node->key = key;
-
     if (key < prev->key) {
         xassert(prev->left == NULL);
         prev->left = node;
@@ -58,8 +52,6 @@ composed_insert(struct composed **root, struct composed *node)
         xassert(prev->right == NULL);
         prev->right = node;
     }
-
-    return key;
 }
 
 void
