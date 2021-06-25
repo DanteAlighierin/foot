@@ -1,5 +1,6 @@
 # Changelog
 
+* [Unreleased](#unreleased)
 * [1.8.0](#1-8-0)
 * [1.7.2](#1-7-2)
 * [1.7.1](#1-7-1)
@@ -24,6 +25,16 @@
 * [1.2.2](#1-2-2)
 * [1.2.1](#1-2-1)
 * [1.2.0](#1-2-0)
+
+
+## Unreleased
+### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+### Contributors
 
 
 ## 1.8.0
