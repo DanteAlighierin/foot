@@ -5,7 +5,7 @@
 All benchmarks are done using [vtebench](https://github.com/alacritty/vtebench):
 
 ```sh
-./target/release/vtebench -b ./benchmarks
+./target/release/vtebench -b ./benchmarks --dat /tmp/<terminal>
 ```
 
 ## 2021-06-25
