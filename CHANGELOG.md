@@ -1,6 +1,6 @@
 # Changelog
 
-* [Unreleased](#unreleased)
+* [1.8.0](#1-8-0)
 * [1.7.2](#1-7-2)
 * [1.7.1](#1-7-1)
 * [1.7.0](#1-7-0)
@@ -26,7 +26,7 @@
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
+## 1.8.0
 
 ### Grapheme shaping
 
@@ -257,7 +257,6 @@ supported.
 * Window being incorrectly resized on CSD/SSD run-time changes.
 
 
-### Security
 ### Contributors
 * [r\_c\_f](https://codeberg.org/r_c_f)
 * [craigbarnes](https://codeberg.org/craigbarnes)
