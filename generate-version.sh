@@ -20,12 +20,13 @@ if [ -d "${src_dir}/.git" ] && command -v git > /dev/null; then
     new_version="${git_version} ($(env LC_TIME=C date "+%b %d %Y"), branch '${git_branch}')"
 else
     new_version="${default_version}"
+    extra=""
 fi
 
-major=$(echo "${new_version}" | sed -r 's/([0-9]+)\.([0-9]+)\.([0-9]+)(-([0-9]+-g[a-z0-9]+) .*)?/\1/')
-minor=$(echo "${new_version}" | sed -r 's/([0-9]+)\.([0-9]+)\.([0-9]+)(-([0-9]+-g[a-z0-9]+) .*)?/\2/')
-patch=$(echo "${new_version}" | sed -r 's/([0-9]+)\.([0-9]+)\.([0-9]+)(-([0-9]+-g[a-z0-9]+) .*)?/\3/')
-extra=$(echo "${new_version}" | sed -r 's/([0-9]+)\.([0-9]+)\.([0-9]+)(-([0-9]+-g[a-z0-9]+) .*)?/\5/')
+major=$(echo "${new_version}" | sed -r 's/([0-9]+)\.([0-9]+)\.([0-9]+).*/\1/')
+minor=$(echo "${new_version}" | sed -r 's/([0-9]+)\.([0-9]+)\.([0-9]+).*/\2/')
+patch=$(echo "${new_version}" | sed -r 's/([0-9]+)\.([0-9]+)\.([0-9]+).*/\3/')
+extra=$(echo "${new_version}" | sed -r 's/([0-9]+)\.([0-9]+)\.([0-9]+)(-([0-9]+-g[a-z0-9]+) .*)?.*/\5/')
 
 new_version="#define FOOT_VERSION \"${new_version}\"
 #define FOOT_MAJOR ${major}
