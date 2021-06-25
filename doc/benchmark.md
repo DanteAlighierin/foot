@@ -70,32 +70,17 @@ Scrollback=10000 lines
 ### Results
 
 
-| Benchmark              | Foot (GCC+PGO) 1.7.0.r2 | Foot (no PGO) 1.7.0.r2 |    Alacritty 0.7.2 |       URxvt 9.22 |      St 0.8.4 |       XTerm 366 |
-|------------------------|------------------------:|-----------------------:|-------------------:|-----------------:|--------------:|----------------:|
-| alt-random             |           0.714s ±0.047 |          0.900s ±0.041 | 1.586s ±0.045      |    1.684s ±0.034 | 2.054s ±0.121 |  37.205s ±0.252 |
-| alt-random-colors      |           0.736s ±0.054 |          0.950s ±0.082 | 1.565s ±0.043      |    2.150s ±0.137 | 2.195s ±0.154 |  33.112s ±0.167 |
-| scrolling              |           1.593s ±0.070 |          1.559s ±0.055 | 1.517s ±0.079      |    1.462s ±0.052 | 3.308s ±0.133 | 134.432s ±0.436 |
-| scrolling-filled-lines |           1.178s ±0.044 |          1.309s ±0.045 | 2.281s ±0.086      |    2.044s ±0.060 | 2.732s ±0.056 |  20.753s ±0.067 |
-| unicode-random         |           0.349s ±0.009 |          0.352s ±0.007 | 0.148s ±0.010 [^1] |   19.090s ±0.363 |       crashed |  15.579s ±0.093 |
+| Benchmark (times in ms)       | Foot (GCC+PGO) 1.8.0 | Foot 1.8.0 | Alacritty 0.8.0 | URxvt 9.26 | XTerm 368 |
+|-------------------------------|---------------------:|-----------:|----------------:|-----------:|----------:|
+| cursor motion                 |                14.49 |      16.60 |           26.89 |      23.45 |   1303.38 |
+| dense cells                   |                41.00 |      52.45 |           92.02 |    1486.57 |  11957.00 |
+| light cells                   |                 7.97 |       8.54 |           21.43 |      20.45 |    111.96 |
+| scrollling                    |               158.85 |     158.90 |          148.06 |     138.98 |  10083.00 |
+| scrolling bottom region       |               153.83 |     151.38 |          142.13 |     151.30 |   9988.50 |
+| scrolling bottom small region |               143.51 |     141.46 |          162.03 |     192.37 |   9938.00 |
+| scrolling fullscreen          |                11.56 |      11.75 |           22.96 |      21.49 |    295.40 |
+| scrolling top region          |               148.96 |     148.18 |          155.05 |     482.05 |  10036.00 |
+| scrolling top small region    |               144.26 |     149.76 |          159.40 |     321.69 |   9942.50 |
+| unicode                       |                21.02 |      22.09 |           25.79 |   14959.00 |  88697.00 |
 
-[^1]: [Alacritty and "unicode-random"](#alacritty-and-unicode-random)
-
-
-# Alacritty and "unicode-random"
-
-Alacritty is actually **really** slow at rendering this (whether it is
-fallback fonts in general, emojis, or something else, I don't know).
-
-I believe the reason it finishes the benchmark so quickly is because
-it reads from the PTY in a separate thread, into a larger receive
-buffer which is then consumed by the main thread. This allows the
-client program to write its output much faster since it is no longer
-stalling on a blocked PTY.
-
-This means Alacritty only needs to render a couple of frames since it
-can reach the final VT state almost immediately.
-
-On the other hand, `cat`:ing the `unicode-random` test file in an
-endless loop, or just manually scrolling up after the benchmark is
-done is **slow**, which besides being felt (input lag), can be seen by
-setting `debug.render_timer = true` in `alacritty.yml`.
+![Graph of benchmark results for a laptop](benchmark-results-laptop.svg)
