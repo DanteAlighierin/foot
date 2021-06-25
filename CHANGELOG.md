@@ -33,6 +33,10 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Grapheme cluster state being reset between codepoints.
+
+
 ### Security
 ### Contributors
 

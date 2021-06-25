@@ -639,10 +639,10 @@ action_utf8_print(struct terminal *term, wchar_t wc)
 #if defined(FOOT_GRAPHEME_CLUSTERING)
         if (grapheme_clustering) {
             /* Check if we're on a grapheme cluster break */
-            /* Note: utf8proc fails to ZWJ */
-            if (utf8proc_grapheme_break_stateful(last, wc, &term->vt.grapheme_state) &&
-                last != 0x200d /* ZWJ */)
+            if (utf8proc_grapheme_break_stateful(
+                    last, wc, &term->vt.grapheme_state))
             {
+                term_reset_grapheme_state(term);
                 goto out;
             }
         }
@@ -682,6 +682,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                 {
                     wc = precomposed;
                     width = precomposed_width;
+                    term_reset_grapheme_state(term);
                     goto out;
                 }
             }
@@ -746,6 +747,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                  * character chains. Fall through here and print the
                  * current zero-width character to the current cell */
                 LOG_WARN("maximum number of composed characters reached");
+                term_reset_grapheme_state(term);
                 goto out;
             }
 
@@ -780,10 +782,11 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             xassert(wc <= CELL_COMB_CHARS_HI);
             goto out;
         }
-    }
+    } else
+        term_reset_grapheme_state(term);
+
 
 out:
-    term_reset_grapheme_state(term);
     if (width > 0)
         term_print(term, wc, width);
 }
