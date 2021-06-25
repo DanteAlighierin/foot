@@ -5,20 +5,10 @@
 All benchmarks are done using [vtebench](https://github.com/alacritty/vtebench):
 
 ```sh
-vtebench -h $(tput lines) -w $(tput cols) -b 104857600 alt-screen-random-write > ~/alt-random
-vtebench -c -h $(tput lines) -w $(tput cols) -b 104857600 alt-screen-random-write > ~/alt-random-colors
-vtebench -h $(tput lines) -w $(tput cols) -b 10485760 scrolling > ~/scrolling
-vtebench -h $(tput lines) -w $(tput cols) -b 104857600 scrolling --fill-lines > ~/scrolling-filled-lines
-vtebench -h $(tput lines) -w $(tput cols) -b 10485760 unicode-random-write > ~/unicode-random
+./target/release/vtebench -b ./benchmarks
 ```
 
-They were "executed" using [benchmark.py](../scripts/benchmark.py),
-which will load each file into memory, and then print it to the
-terminal. This is done **20** times for each test. Then it calculates
-the _mean_ and _standard deviation_ for each test.
-
-
-## 2021-03-20
+## 2021-06-25
 
 ### System
 
@@ -40,14 +30,21 @@ Scrollback: 10000 lines
 
 ### Results
 
+| Benchmark (times in ms)       | Foot (GCC+PGO) 1.8.0 | Foot 1.8.0 | Alacritty 0.8.0 | URxvt 9.26 | XTerm 368 |
+|-------------------------------|---------------------:|-----------:|----------------:|-----------:|----------:|
+| cursor motion                 |                12.93 |      15.37 |           26.47 |      23.41 |   1304.00 |
+| dense cells                   |                39.16 |      47.19 |           87.26 |    9110.00 |  10883.00 |
+| light cells                   |                 5.34 |       6.42 |           12.76 |      16.00 |     60.00 |
+| scrollling                    |               144.26 |     139.93 |          133.98 |     117.52 |   3772.67 |
+| scrolling bottom region       |               130.81 |     125.34 |          116.10 |     117.31 |   3574.67 |
+| scrolling bottom small region |               142.46 |     127.52 |          127.32 |     135.18 |   3572.67 |
+| scrolling fullscreen          |                 5.43 |       5.27 |           12.06 |      11.97 |    118.62 |
+| scrolling top region          |               129.05 |     120.24 |          121.65 |     341.70 |   3567.33 |
+| scrolling top small region    |               121.59 |     109.82 |          137.03 |     219.96 |   3558.67 |
+| unicode                       |                12.03 |      11.95 |           13.94 |     667.67 |   4905.67 |
 
-| Benchmark              | Foot (GCC+PGO) 1.7.0.r2 | Foot 1.7.0.r2 |    Alacritty 0.7.2 |     URxvt 9.22 |      XTerm 366 |
-|------------------------|------------------------:|--------------:|-------------------:|---------------:|---------------:|
-| alt-random             |           0.382s ±0.003 | 0.550s ±0.007 | 0.995s ±0.010      |  1.201s ±0.006 | 12.756s ±0.045 |
-| alt-random-colors      |           0.380s ±0.002 | 0.543s ±0.003 | 1.017s ±0.013      |  1.399s ±0.018 | 11.591s ±0.141 |
-| scrolling              |           1.302s ±0.019 | 1.284s ±0.052 | 1.107s ±0.028      |  1.097s ±0.015 | 37.537s ±0.121 |
-| scrolling-filled-lines |           0.646s ±0.016 | 0.610s ±0.003 | 1.290s ±0.012      |  1.325s ±0.037 |  6.817s ±0.084 |
-| unicode-random         |           0.167s ±0.001 | 0.276s ±0.445 | 0.097s ±0.002 [^1] | 18.032s ±0.334 | 29.731s ±3.746 |
+
+![Graph of benchmark results for a beefy desktop system](benchmark-results-desktop.svg)
 
 
 ## 2021-03-20
