@@ -126,7 +126,7 @@ the foot command line
 
 	This option can only be used in combination with *-s*,*--server*.
 
-*-d*,*--log-level*={*info*,*warning*,*error*}
+*-d*,*--log-level*={*info*,*warning*,*error*,*none*}
 	Log level, used both for log output on stderr as well as
 	syslog. Default: _info_.
 

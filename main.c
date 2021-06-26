@@ -61,27 +61,27 @@ print_usage(const char *prog_name)
         "Usage: %s [OPTIONS...] command [ARGS...]\n"
         "\n"
         "Options:\n"
-        "  -c,--config=PATH                        load configuration from PATH ($XDG_CONFIG_HOME/foot/foot.ini)\n"
-        "  -C,--check-config                       verify configuration, exit with 0 if ok, otherwise exit with 1\n"
-        "  -o,--override=[section.]key=value       override configuration option\n"
-        "  -f,--font=FONT                          comma separated list of fonts in fontconfig format (monospace)\n"
-        "  -t,--term=TERM                          value to set the environment variable TERM to (%s)\n"
-        "  -T,--title=TITLE                        initial window title (foot)\n"
-        "  -a,--app-id=ID                          window application ID (foot)\n"
-        "  -m,--maximized                          start in maximized mode\n"
-        "  -F,--fullscreen                         start in fullscreen mode\n"
-        "  -L,--login-shell                        start shell as a login shell\n"
-        "  -D,--working-directory=DIR              directory to start in (CWD)\n"
-        "  -w,--window-size-pixels=WIDTHxHEIGHT    initial width and height, in pixels\n"
-        "  -W,--window-size-chars=WIDTHxHEIGHT     initial width and height, in characters\n"
-        "  -s,--server[=PATH]                      run as a server (use 'footclient' to start terminals).\n"
-        "                                          Without PATH, $XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock will be used.\n"
-        "  -H,--hold                               remain open after child process exits\n"
-        "  -p,--print-pid=FILE|FD                  print PID to file or FD (only applicable in server mode)\n"
-        "  -d,--log-level={info|warning|error}     log level (info)\n"
-        "  -l,--log-colorize=[{never|always|auto}] enable/disable colorization of log output on stderr\n"
-        "  -s,--log-no-syslog                      disable syslog logging (only applicable in server mode)\n"
-        "  -v,--version                            show the version number and quit\n",
+        "  -c,--config=PATH                         load configuration from PATH ($XDG_CONFIG_HOME/foot/foot.ini)\n"
+        "  -C,--check-config                        verify configuration, exit with 0 if ok, otherwise exit with 1\n"
+        "  -o,--override=[section.]key=value        override configuration option\n"
+        "  -f,--font=FONT                           comma separated list of fonts in fontconfig format (monospace)\n"
+        "  -t,--term=TERM                           value to set the environment variable TERM to (%s)\n"
+        "  -T,--title=TITLE                         initial window title (foot)\n"
+        "  -a,--app-id=ID                           window application ID (foot)\n"
+        "  -m,--maximized                           start in maximized mode\n"
+        "  -F,--fullscreen                          start in fullscreen mode\n"
+        "  -L,--login-shell                         start shell as a login shell\n"
+        "  -D,--working-directory=DIR               directory to start in (CWD)\n"
+        "  -w,--window-size-pixels=WIDTHxHEIGHT     initial width and height, in pixels\n"
+        "  -W,--window-size-chars=WIDTHxHEIGHT      initial width and height, in characters\n"
+        "  -s,--server[=PATH]                       run as a server (use 'footclient' to start terminals).\n"
+        "                                           Without PATH, $XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock will be used.\n"
+        "  -H,--hold                                remain open after child process exits\n"
+        "  -p,--print-pid=FILE|FD                   print PID to file or FD (only applicable in server mode)\n"
+        "  -d,--log-level={info|warning|error|none} log level (info)\n"
+        "  -l,--log-colorize=[{never|always|auto}]  enable/disable colorization of log output on stderr\n"
+        "  -s,--log-no-syslog                       disable syslog logging (only applicable in server mode)\n"
+        "  -v,--version                             show the version number and quit\n",
         prog_name, prog_name, DEFAULT_TERM);
 }
 
@@ -383,11 +383,14 @@ main(int argc, char *const *argv)
     log_init(log_colorize, as_server && log_syslog,
              as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER, log_level);
 
-    _Static_assert(LOG_CLASS_ERROR + 1 == FCFT_LOG_CLASS_ERROR,
+    _Static_assert((int)LOG_CLASS_ERROR == (int)FCFT_LOG_CLASS_ERROR,
                    "fcft log level enum offset");
     _Static_assert((int)LOG_COLORIZE_ALWAYS == (int)FCFT_LOG_COLORIZE_ALWAYS,
                    "fcft colorize enum mismatch");
-    fcft_log_init((enum fcft_log_colorize)log_colorize, as_server && log_syslog, log_level + 1);
+    fcft_log_init(
+        (enum fcft_log_colorize)log_colorize,
+        as_server && log_syslog,
+        (enum fcft_log_class)log_level);
 
     argc -= optind;
     argv += optind;

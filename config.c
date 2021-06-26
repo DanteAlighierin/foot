@@ -103,8 +103,10 @@ log_and_notify(struct config *conf, enum log_class log_class,
 
     case LOG_CLASS_INFO:
     case LOG_CLASS_DEBUG:
-        BUG("unsupported log class: %d", log_class);
-        break;
+    case LOG_CLASS_NONE:
+    default:
+        BUG("unsupported log class: %d", (int)log_class);
+        return;
     }
 
     va_list va1, va2;

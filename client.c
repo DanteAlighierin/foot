@@ -58,22 +58,22 @@ print_usage(const char *prog_name)
     printf("Usage: %s [OPTIONS...] command [ARGS...]\n", prog_name);
     printf("\n");
     printf("Options:\n");
-    printf("  -t,--term=TERM                          value to set the environment variable TERM to (foot)\n"
-           "  -T,--title=TITLE                        initial window title (foot)\n"
-           "  -a,--app-id=ID                          window application ID (foot)\n"
-           "  -w,--window-size-pixels=WIDTHxHEIGHT    initial width and height, in pixels\n"
-           "  -W,--window-size-chars=WIDTHxHEIGHT     initial width and height, in characters\n"
-           "  -m,--maximized                          start in maximized mode\n"
-           "  -F,--fullscreen                         start in fullscreen mode\n"
-           "  -L,--login-shell                        start shell as a login shell\n"
-           "  -D,--working-directory=DIR              directory to start in (CWD)\n"
-           "  -s,--server-socket=PATH                 path to the server UNIX domain socket (default=$XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)\n"
-           "  -H,--hold                               remain open after child process exits\n"
-           "  -N,--no-wait                            detach the client process from the running terminal, exiting immediately\n"
-           "  -o,--override=[section.]key=value       override configuration option\n"
-           "  -d,--log-level={info|warning|error}     log level (info)\n"
-           "  -l,--log-colorize=[{never|always|auto}] enable/disable colorization of log output on stderr\n"
-           "  -v,--version                            show the version number and quit\n");
+    printf("  -t,--term=TERM                           value to set the environment variable TERM to (foot)\n"
+           "  -T,--title=TITLE                         initial window title (foot)\n"
+           "  -a,--app-id=ID                           window application ID (foot)\n"
+           "  -w,--window-size-pixels=WIDTHxHEIGHT     initial width and height, in pixels\n"
+           "  -W,--window-size-chars=WIDTHxHEIGHT      initial width and height, in characters\n"
+           "  -m,--maximized                           start in maximized mode\n"
+           "  -F,--fullscreen                          start in fullscreen mode\n"
+           "  -L,--login-shell                         start shell as a login shell\n"
+           "  -D,--working-directory=DIR               directory to start in (CWD)\n"
+           "  -s,--server-socket=PATH                  path to the server UNIX domain socket (default=$XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock)\n"
+           "  -H,--hold                                remain open after child process exits\n"
+           "  -N,--no-wait                             detach the client process from the running terminal, exiting immediately\n"
+           "  -o,--override=[section.]key=value        override configuration option\n"
+           "  -d,--log-level={info|warning|error|none} log level (info)\n"
+           "  -l,--log-colorize=[{never|always|auto}]  enable/disable colorization of log output on stderr\n"
+           "  -v,--version                             show the version number and quit\n");
 }
 
 static bool NOINLINE

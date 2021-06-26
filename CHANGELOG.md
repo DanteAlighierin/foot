@@ -28,7 +28,11 @@
 
 
 ## Unreleased
+
 ### Added
+
+* `--log-level=none` command-line option.
+
 ### Changed
 ### Deprecated
 ### Removed
@@ -39,6 +43,8 @@
 
 ### Security
 ### Contributors
+
+* [craigbarnes](https://codeberg.org/craigbarnes)
 
 
 ## 1.8.0

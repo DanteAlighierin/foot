@@ -59,7 +59,7 @@ _footclient()
         which toe > /dev/null || return 1
         COMPREPLY=( $(compgen -W "$(toe -a | awk '$1 ~ /[+]/ {next}; {print $1}')" -- ${cur}) )
     elif [[ ${prev} == '--log-level' ]] ; then
-        COMPREPLY=( $(compgen -W "error warning info" -- ${cur}) )
+        COMPREPLY=( $(compgen -W "none error warning info" -- ${cur}) )
     elif [[ ${prev} == '--log-colorize' ]] ; then
         COMPREPLY=( $(compgen -W "never always auto" -- ${cur}) )
     elif [[ ${prev} =~ ^(--app-id|--help|--override|--title|--version|--window-size-chars|--window-size-pixels|)$ ]] ; then
