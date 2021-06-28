@@ -551,10 +551,8 @@ convert_url_bindings(const struct config *conf, struct seat *seat)
 {
     for (size_t i = 0; i < conf->bindings.url.count; i++) {
         const struct config_key_binding *binding = &conf->bindings.url.arr[i];
-#if 0
         if (binding->action == BIND_ACTION_URL_NONE)
             continue;
-#endif
         convert_key_binding(seat, binding, &seat->kbd.bindings.url);
     }
 }
