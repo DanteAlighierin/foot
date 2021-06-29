@@ -32,6 +32,10 @@
 ### Added
 
 * `--log-level=none` command-line option.
+* `Tc`, `setrgbf` and `setrgbb` capabilities in `foot` and `foot-direct`
+  terminfo entries. This should make 24-bit RGB colors work in tmux and
+  neovim, without the need for config hacks or detection heuristics
+  (https://codeberg.org/dnkl/foot/issues/615).
 
 ### Changed
 ### Deprecated
