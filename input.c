@@ -529,8 +529,6 @@ convert_key_bindings(const struct config *conf, struct seat *seat)
 {
     for (size_t i = 0; i < conf->bindings.key.count; i++) {
         const struct config_key_binding *binding = &conf->bindings.key.arr[i];
-        if (binding->action == BIND_ACTION_NONE)
-            continue;
         convert_key_binding(seat, binding, &seat->kbd.bindings.key);
     }
 }
@@ -540,8 +538,6 @@ convert_search_bindings(const struct config *conf, struct seat *seat)
 {
     for (size_t i = 0; i < conf->bindings.search.count; i++) {
         const struct config_key_binding *binding = &conf->bindings.search.arr[i];
-        if (binding->action == BIND_ACTION_SEARCH_NONE)
-            continue;
         convert_key_binding(seat, binding, &seat->kbd.bindings.search);
     }
 }
@@ -551,8 +547,6 @@ convert_url_bindings(const struct config *conf, struct seat *seat)
 {
     for (size_t i = 0; i < conf->bindings.url.count; i++) {
         const struct config_key_binding *binding = &conf->bindings.url.arr[i];
-        if (binding->action == BIND_ACTION_URL_NONE)
-            continue;
         convert_key_binding(seat, binding, &seat->kbd.bindings.url);
     }
 }
