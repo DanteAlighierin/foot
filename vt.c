@@ -766,11 +766,9 @@ action_utf8_print(struct terminal *term, wchar_t wc)
 
             int grapheme_width = composed != NULL ? composed->width : base_width;
 
-            if (wc == 0xfe0f && grapheme_width < 2)
-                grapheme_width = 2;
-            else
-                grapheme_width += width;
-            new_cc->width = grapheme_width;
+            if (wc == 0xfe0f)
+                width = 2;
+            new_cc->width = min(max(grapheme_width, width), 2);
 
             term->composed_count++;
             composed_insert(&term->composed, new_cc);
