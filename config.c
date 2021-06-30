@@ -193,7 +193,7 @@ struct path_component {
 };
 typedef tll(struct path_component) path_components_t;
 
-static void
+static void NOINLINE
 path_component_add(path_components_t *components, const char *comp, int fd)
 {
     xassert(comp != NULL);
@@ -203,14 +203,14 @@ path_component_add(path_components_t *components, const char *comp, int fd)
     tll_push_back(*components, pc);
 }
 
-static void
+static void NOINLINE
 path_component_destroy(struct path_component *component)
 {
     xassert(component->fd >= 0);
     close(component->fd);
 }
 
-static void
+static void NOINLINE
 path_components_destroy(path_components_t *components)
 {
     tll_foreach(*components, it) {
@@ -1662,7 +1662,7 @@ pipe_argv_from_string(const char *value, char ***argv,
     return remove_len;
 }
 
-static void
+static void NOINLINE
 remove_action_from_key_bindings_list(struct config_key_binding_list *bindings,
                                      int action, char **pipe_argv)
 {
