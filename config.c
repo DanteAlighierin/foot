@@ -3140,6 +3140,27 @@ config_clone(const struct config *old)
     return conf;
 }
 
+UNITTEST
+{
+    struct config original;
+    user_notifications_t nots = tll_init();
+    config_override_t overrides = tll_init();
+
+    bool ret = config_load(&original, "/dev/null", &nots, &overrides, false);
+    xassert(ret);
+
+    struct config *clone = config_clone(&original);
+    xassert(clone != NULL);
+    xassert(clone != &original);
+
+    config_free(original);
+    config_free(*clone);
+    free(clone);
+
+    tll_free(overrides);
+    tll_free(nots);
+}
+
 void
 config_free(struct config conf)
 {
