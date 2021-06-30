@@ -43,6 +43,8 @@
 ### Fixed
 
 * Grapheme cluster state being reset between codepoints.
+* Regression: custom URL key bindings not working
+  (https://codeberg.org/dnkl/foot/issues/614).
 
 
 ### Security
