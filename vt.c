@@ -764,17 +764,26 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                        (wanted_count - 2) * sizeof(new_cc->chars[0]));
             }
 
-            int grapheme_width = composed != NULL ? composed->width : base_width;
+            const int grapheme_width =
+                composed != NULL ? composed->width : base_width;
 
-            if (wc == 0xfe0f)
-                width = 2;
-            new_cc->width = min(max(grapheme_width, width), 2);
+            switch (term->conf->tweak.grapheme_width_method) {
+            case GRAPHEME_WIDTH_MAX_2:
+                if (unlikely(wc == 0xfe0f))
+                    width = 2;
+                new_cc->width = min(grapheme_width + width, 2);
+                break;
+
+            case GRAPHEME_WIDTH_WCSWIDTH:
+                new_cc->width = grapheme_width + width;
+                break;
+            }
 
             term->composed_count++;
             composed_insert(&term->composed, new_cc);
 
             wc = CELL_COMB_CHARS_LO + key;
-            width = grapheme_width;
+            width = new_cc->width;
 
             xassert(wc >= CELL_COMB_CHARS_LO);
             xassert(wc <= CELL_COMB_CHARS_HI);
