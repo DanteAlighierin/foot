@@ -997,7 +997,25 @@ any of these options.
 	  but is necessary to not break cursor synchronization with the
 	  application running in foot.
 	
+	See also: *grapheme-width-method*.
+	
 	Default: _no_
+
+*grapheme-width-method*
+	Selects which method to use when calculating the width
+	(i.e. number of columns) of a grapheme cluster. One of
+	*double-width* and *wcswidth*.
+	
+	*wcswidth* simply adds together the individual width of all
+	codepoints making up the cluster.
+	
+	*double-width* does the same, but limits the maximum number of
+	columns to 2. This is more correct, but is likely to break
+	applications since applications typically use *wcswidth*(3)
+	internally to calculate the width. This results in cursor
+	de-synchronization issues.
+	
+	Default: _double-width_
 
 *max-shm-pool-size-mb*
 	This option controls the amount of virtual address space used by
