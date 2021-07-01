@@ -36,7 +36,7 @@
   terminfo entries. This should make 24-bit RGB colors work in tmux and
   neovim, without the need for config hacks or detection heuristics
   (https://codeberg.org/dnkl/foot/issues/615).
-* `[tweak].grapheme-width-method=wcswidth|at-most-2` option to
+* `[tweak].grapheme-width-method=wcswidth|double-width` option to
   `foot.ini`.
 
 

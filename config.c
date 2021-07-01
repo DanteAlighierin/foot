@@ -2256,8 +2256,8 @@ parse_section_tweak(
     }
 
     else if (strcmp(key, "grapheme-width-method") == 0) {
-        if (strcmp(value, "at-most-2") == 0)
-            conf->tweak.grapheme_width_method = GRAPHEME_WIDTH_MAX_2;
+        if (strcmp(value, "double-width") == 0)
+            conf->tweak.grapheme_width_method = GRAPHEME_WIDTH_DOUBLE;
         else if (strcmp(value, "wcswidth") == 0)
             conf->tweak.grapheme_width_method = GRAPHEME_WIDTH_WCSWIDTH;
 
@@ -2832,7 +2832,7 @@ config_load(struct config *conf, const char *conf_path,
             .fcft_filter = FCFT_SCALING_FILTER_LANCZOS3,
             .allow_overflowing_double_width_glyphs = true,
             .grapheme_shaping = false,
-            .grapheme_width_method = GRAPHEME_WIDTH_MAX_2,
+            .grapheme_width_method = GRAPHEME_WIDTH_DOUBLE,
             .delayed_render_lower_ns = 500000,         /* 0.5ms */
             .delayed_render_upper_ns = 16666666 / 2,   /* half a frame period (60Hz) */
             .max_shm_pool_size = 512 * 1024 * 1024,
