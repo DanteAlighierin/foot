@@ -54,7 +54,7 @@
 * Grapheme cluster width is now limited to two cells by default. This
   may cause cursor synchronization issues with many applications. You
   can set `[tweak].grapheme-width-method=wcswidth` to revert to the
-  behavior from foot-1.8.0.
+  behavior in foot-1.8.0.
 
 
 ### Fixed
