@@ -639,10 +639,10 @@ action_utf8_print(struct terminal *term, wchar_t wc)
 #if defined(FOOT_GRAPHEME_CLUSTERING)
         if (grapheme_clustering) {
             /* Check if we're on a grapheme cluster break */
-            /* Note: utf8proc fails to ZWJ */
-            if (utf8proc_grapheme_break_stateful(last, wc, &term->vt.grapheme_state) &&
-                last != 0x200d /* ZWJ */)
+            if (utf8proc_grapheme_break_stateful(
+                    last, wc, &term->vt.grapheme_state))
             {
+                term_reset_grapheme_state(term);
                 goto out;
             }
         }
@@ -682,6 +682,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                 {
                     wc = precomposed;
                     width = precomposed_width;
+                    term_reset_grapheme_state(term);
                     goto out;
                 }
             }
@@ -746,6 +747,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                  * character chains. Fall through here and print the
                  * current zero-width character to the current cell */
                 LOG_WARN("maximum number of composed characters reached");
+                term_reset_grapheme_state(term);
                 goto out;
             }
 
@@ -762,28 +764,36 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                        (wanted_count - 2) * sizeof(new_cc->chars[0]));
             }
 
-            int grapheme_width = composed != NULL ? composed->width : base_width;
+            const int grapheme_width =
+                composed != NULL ? composed->width : base_width;
 
-            if (wc == 0xfe0f && grapheme_width < 2)
-                grapheme_width = 2;
-            else
-                grapheme_width += width;
-            new_cc->width = grapheme_width;
+            switch (term->conf->tweak.grapheme_width_method) {
+            case GRAPHEME_WIDTH_DOUBLE:
+                if (unlikely(wc == 0xfe0f))
+                    width = 2;
+                new_cc->width = min(grapheme_width + width, 2);
+                break;
+
+            case GRAPHEME_WIDTH_WCSWIDTH:
+                new_cc->width = grapheme_width + width;
+                break;
+            }
 
             term->composed_count++;
             composed_insert(&term->composed, new_cc);
 
             wc = CELL_COMB_CHARS_LO + key;
-            width = grapheme_width;
+            width = new_cc->width;
 
             xassert(wc >= CELL_COMB_CHARS_LO);
             xassert(wc <= CELL_COMB_CHARS_HI);
             goto out;
         }
-    }
+    } else
+        term_reset_grapheme_state(term);
+
 
 out:
-    term_reset_grapheme_state(term);
     if (width > 0)
         term_print(term, wc, width);
 }

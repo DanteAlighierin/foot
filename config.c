@@ -103,8 +103,10 @@ log_and_notify(struct config *conf, enum log_class log_class,
 
     case LOG_CLASS_INFO:
     case LOG_CLASS_DEBUG:
-        BUG("unsupported log class: %d", log_class);
-        break;
+    case LOG_CLASS_NONE:
+    default:
+        BUG("unsupported log class: %d", (int)log_class);
+        return;
     }
 
     va_list va1, va2;
@@ -191,7 +193,7 @@ struct path_component {
 };
 typedef tll(struct path_component) path_components_t;
 
-static void
+static void NOINLINE
 path_component_add(path_components_t *components, const char *comp, int fd)
 {
     xassert(comp != NULL);
@@ -201,14 +203,14 @@ path_component_add(path_components_t *components, const char *comp, int fd)
     tll_push_back(*components, pc);
 }
 
-static void
+static void NOINLINE
 path_component_destroy(struct path_component *component)
 {
     xassert(component->fd >= 0);
     close(component->fd);
 }
 
-static void
+static void NOINLINE
 path_components_destroy(path_components_t *components)
 {
     tll_foreach(*components, it) {
@@ -1660,6 +1662,43 @@ pipe_argv_from_string(const char *value, char ***argv,
     return remove_len;
 }
 
+static void NOINLINE
+remove_action_from_key_bindings_list(struct config_key_binding_list *bindings,
+                                     int action, char **pipe_argv)
+{
+    size_t remove_first_idx = 0;
+    size_t remove_count = 0;
+
+    for (size_t i = 0; i < bindings->count; i++) {
+        struct config_key_binding *binding = &bindings->arr[i];
+
+        if (binding->action == action &&
+            ((binding->pipe.argv.args == NULL && pipe_argv == NULL) ||
+             (binding->pipe.argv.args != NULL && pipe_argv != NULL &&
+              argv_compare(binding->pipe.argv.args, pipe_argv) == 0)))
+        {
+            if (remove_count++ == 0)
+                remove_first_idx = i;
+
+            xassert(remove_first_idx + remove_count - 1 == i);
+
+            if (binding->pipe.master_copy)
+                free_argv(&binding->pipe.argv);
+        }
+    }
+
+    if (remove_count == 0)
+        return;
+
+    size_t move_count = bindings->count - (remove_first_idx + remove_count);
+
+    memmove(
+        &bindings->arr[remove_first_idx],
+        &bindings->arr[remove_first_idx + remove_count],
+        move_count * sizeof(bindings->arr[0]));
+    bindings->count -= remove_count;
+}
+
 static bool NOINLINE
 parse_key_binding_section(
     const char *section, const char *key, const char *value,
@@ -1686,17 +1725,7 @@ parse_key_binding_section(
 
         /* Unset binding */
         if (strcasecmp(value, "none") == 0) {
-            for (size_t i = 0; i < bindings->count; i++) {
-                struct config_key_binding *binding = &bindings->arr[i];
-
-                if (binding->action != action)
-                    continue;
-
-                if (binding->pipe.master_copy)
-                    free_argv(&binding->pipe.argv);
-                binding->action = BIND_ACTION_NONE;
-            }
-
+            remove_action_from_key_bindings_list(bindings, action, pipe_argv);
             free(pipe_argv);
             return true;
         }
@@ -1713,21 +1742,7 @@ parse_key_binding_section(
             return false;
         }
 
-        /* Remove existing bindings for this action+pipe */
-        for (size_t i = 0; i < bindings->count; i++) {
-            struct config_key_binding *binding = &bindings->arr[i];
-
-            if (binding->action == action &&
-                ((binding->pipe.argv.args == NULL && pipe_argv == NULL) ||
-                 (binding->pipe.argv.args != NULL && pipe_argv != NULL &&
-                  argv_compare(binding->pipe.argv.args, pipe_argv) == 0)))
-            {
-
-                if (binding->pipe.master_copy)
-                    free_argv(&binding->pipe.argv);
-                binding->action = BIND_ACTION_NONE;
-            }
-        }
+        remove_action_from_key_bindings_list(bindings, action, pipe_argv);
 
         /* Emit key bindings */
         size_t ofs = bindings->count;
@@ -1763,6 +1778,90 @@ parse_key_binding_section(
                        path, lineno, section, key);
     free(pipe_argv);
     return false;
+}
+
+UNITTEST
+{
+    enum test_actions {
+        TEST_ACTION_NONE,
+        TEST_ACTION_FOO,
+        TEST_ACTION_BAR,
+        TEST_ACTION_COUNT,
+    };
+
+    const char *const map[] = {
+        [TEST_ACTION_NONE] = NULL,
+        [TEST_ACTION_FOO] = "foo",
+        [TEST_ACTION_BAR] = "bar",
+    };
+
+    struct config conf = {0};
+    struct config_key_binding_list bindings = {0};
+
+    /*
+     * ADD foo=Escape
+     *
+     * This verifies we can bind a single key combo to an action.
+     */
+    xassert(parse_key_binding_section(
+                "", "foo", "Escape", ALEN(map), map, &bindings, &conf, "", 0));
+    xassert(bindings.count == 1);
+    xassert(bindings.arr[0].action == TEST_ACTION_FOO);
+    xassert(bindings.arr[0].sym == XKB_KEY_Escape);
+
+    /*
+     * ADD bar=Control+g Control+Shift+x
+     *
+     * This verifies we can bind multiple key combos to an action.
+     */
+    xassert(parse_key_binding_section(
+                "", "bar", "Control+g Control+Shift+x", ALEN(map), map,
+                &bindings, &conf, "", 0));
+    xassert(bindings.count == 3);
+    xassert(bindings.arr[0].action == TEST_ACTION_FOO);
+    xassert(bindings.arr[1].action == TEST_ACTION_BAR);
+    xassert(bindings.arr[1].sym == XKB_KEY_g);
+    xassert(bindings.arr[1].modifiers.ctrl);
+    xassert(bindings.arr[2].action == TEST_ACTION_BAR);
+    xassert(bindings.arr[2].sym == XKB_KEY_x);
+    xassert(bindings.arr[2].modifiers.ctrl && bindings.arr[2].modifiers.shift);
+
+    /*
+     * REPLACE foo with foo=Mod+v Shift+q
+     *
+     * This verifies we can update a single-combo action with multiple
+     * key combos.
+     */
+    xassert(parse_key_binding_section(
+                "", "foo", "Mod1+v Shift+q", ALEN(map), map,
+                &bindings, &conf, "", 0));
+    xassert(bindings.count == 4);
+    xassert(bindings.arr[0].action == TEST_ACTION_BAR);
+    xassert(bindings.arr[1].action == TEST_ACTION_BAR);
+    xassert(bindings.arr[2].action == TEST_ACTION_FOO);
+    xassert(bindings.arr[2].sym == XKB_KEY_v);
+    xassert(bindings.arr[2].modifiers.alt);
+    xassert(bindings.arr[3].action == TEST_ACTION_FOO);
+    xassert(bindings.arr[3].sym == XKB_KEY_q);
+    xassert(bindings.arr[3].modifiers.shift);
+
+    /*
+     * REMOVE bar
+     */
+    xassert(parse_key_binding_section(
+                "", "bar", "none", ALEN(map), map, &bindings, &conf, "", 0));
+    xassert(bindings.count == 2);
+    xassert(bindings.arr[0].action == TEST_ACTION_FOO);
+    xassert(bindings.arr[1].action == TEST_ACTION_FOO);
+
+    /*
+     * REMOVE foo
+     */
+    xassert(parse_key_binding_section(
+                "", "foo", "none", ALEN(map), map, &bindings, &conf, "", 0));
+    xassert(bindings.count == 0);
+
+    free(bindings.arr);
 }
 
 static bool
@@ -2154,6 +2253,15 @@ parse_section_tweak(
 
         if (conf->tweak.grapheme_shaping)
             LOG_WARN("tweak: grapheme shaping");
+    }
+
+    else if (strcmp(key, "grapheme-width-method") == 0) {
+        if (strcmp(value, "double-width") == 0)
+            conf->tweak.grapheme_width_method = GRAPHEME_WIDTH_DOUBLE;
+        else if (strcmp(value, "wcswidth") == 0)
+            conf->tweak.grapheme_width_method = GRAPHEME_WIDTH_WCSWIDTH;
+
+        LOG_WARN("%s:%d [tweak]: grapheme-width-method=%s", path, lineno, value);
     }
 
     else if (strcmp(key, "render-timer") == 0) {
@@ -2724,6 +2832,7 @@ config_load(struct config *conf, const char *conf_path,
             .fcft_filter = FCFT_SCALING_FILTER_LANCZOS3,
             .allow_overflowing_double_width_glyphs = true,
             .grapheme_shaping = false,
+            .grapheme_width_method = GRAPHEME_WIDTH_DOUBLE,
             .delayed_render_lower_ns = 500000,         /* 0.5ms */
             .delayed_render_upper_ns = 16666666 / 2,   /* half a frame period (60Hz) */
             .max_shm_pool_size = 512 * 1024 * 1024,
@@ -2849,6 +2958,15 @@ out:
             conf->fonts[0].arr[0] = font;
         }
     }
+
+#if defined(_DEBUG)
+    for (size_t i = 0; i < conf->bindings.key.count; i++)
+        xassert(conf->bindings.key.arr[i].action != BIND_ACTION_NONE);
+    for (size_t i = 0; i < conf->bindings.search.count; i++)
+        xassert(conf->bindings.search.arr[i].action != BIND_ACTION_SEARCH_NONE);
+    for (size_t i = 0; i < conf->bindings.url.count; i++)
+        xassert(conf->bindings.url.arr[i].action != BIND_ACTION_URL_NONE);
+#endif
 
     free(conf_file.path);
     if (conf_file.fd >= 0)
@@ -3030,6 +3148,27 @@ config_clone(const struct config *old)
     }
 
     return conf;
+}
+
+UNITTEST
+{
+    struct config original;
+    user_notifications_t nots = tll_init();
+    config_override_t overrides = tll_init();
+
+    bool ret = config_load(&original, "/dev/null", &nots, &overrides, false);
+    xassert(ret);
+
+    struct config *clone = config_clone(&original);
+    xassert(clone != NULL);
+    xassert(clone != &original);
+
+    config_free(original);
+    config_free(*clone);
+    free(clone);
+
+    tll_free(overrides);
+    tll_free(nots);
 }
 
 void

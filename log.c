@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,15 +16,19 @@
 
 static bool colorize = false;
 static bool do_syslog = true;
-static enum log_class log_level = LOG_CLASS_INFO;
+static enum log_class log_level = LOG_CLASS_NONE;
 
-static const char log_level_map[][8] = {
-    [LOG_CLASS_ERROR] = "error",
-    [LOG_CLASS_WARNING] = "warning",
-    [LOG_CLASS_INFO] = "info",
-#if defined(_DEBUG)
-    [LOG_CLASS_DEBUG] = "debug",
-#endif
+static const struct {
+    const char name[8];
+    const char log_prefix[7];
+    uint8_t color;
+    int syslog_equivalent;
+} log_level_map[] = {
+    [LOG_CLASS_NONE] = {"none", "none", 5, -1},
+    [LOG_CLASS_ERROR] = {"error", " err", 31, LOG_ERR},
+    [LOG_CLASS_WARNING] = {"warning", "warn", 33, LOG_WARNING},
+    [LOG_CLASS_INFO] = {"info", "info", 97, LOG_INFO},
+    [LOG_CLASS_DEBUG] = {"debug", " dbg", 36, LOG_DEBUG},
 };
 
 void
@@ -35,20 +40,14 @@ log_init(enum log_colorize _colorize, bool _do_syslog,
         [LOG_FACILITY_DAEMON] = LOG_DAEMON,
     };
 
-    static const int level_map[] = {
-        [LOG_CLASS_ERROR] = LOG_ERR,
-        [LOG_CLASS_WARNING] = LOG_WARNING,
-        [LOG_CLASS_INFO] = LOG_INFO,
-        [LOG_CLASS_DEBUG] = LOG_DEBUG,
-    };
-
     colorize = _colorize == LOG_COLORIZE_NEVER ? false : _colorize == LOG_COLORIZE_ALWAYS ? true : isatty(STDERR_FILENO);
     do_syslog = _do_syslog;
     log_level = _log_level;
 
-    if (do_syslog) {
+    int slvl = log_level_map[_log_level].syslog_equivalent;
+    if (do_syslog && slvl != -1) {
         openlog(NULL, /*LOG_PID*/0, facility_map[syslog_facility]);
-        setlogmask(LOG_UPTO(level_map[_log_level]));
+        setlogmask(LOG_UPTO(slvl));
     }
 }
 
@@ -63,34 +62,31 @@ static void
 _log(enum log_class log_class, const char *module, const char *file, int lineno,
      const char *fmt, int sys_errno, va_list va)
 {
+    xassert(log_class > LOG_CLASS_NONE);
+    xassert(log_class < ALEN(log_level_map));
+
     if (log_class > log_level)
         return;
 
-    const char *class = "abcd";
-    int class_clr = 0;
-    switch (log_class) {
-    case LOG_CLASS_ERROR:    class = " err"; class_clr = 31; break;
-    case LOG_CLASS_WARNING:  class = "warn"; class_clr = 33; break;
-    case LOG_CLASS_INFO:     class = "info"; class_clr = 97; break;
-    case LOG_CLASS_DEBUG:    class = " dbg"; class_clr = 36; break;
-    }
+    const char *prefix = log_level_map[log_class].log_prefix;
+    unsigned int class_clr = log_level_map[log_class].color;
 
     char clr[16];
-    snprintf(clr, sizeof(clr), "\033[%dm", class_clr);
-    fprintf(stderr, "%s%s%s: ", colorize ? clr : "", class, colorize ? "\033[0m" : "");
+    xsnprintf(clr, sizeof(clr), "\033[%um", class_clr);
+    fprintf(stderr, "%s%s%s: ", colorize ? clr : "", prefix, colorize ? "\033[0m" : "");
 
     if (colorize)
-        fprintf(stderr, "\033[2m");
+        fputs("\033[2m", stderr);
     fprintf(stderr, "%s:%d: ", file, lineno);
     if (colorize)
-        fprintf(stderr, "\033[0m");
+        fputs("\033[0m", stderr);
 
     vfprintf(stderr, fmt, va);
 
     if (sys_errno != 0)
         fprintf(stderr, ": %s", strerror(sys_errno));
 
-    fprintf(stderr, "\n");
+    fputc('\n', stderr);
 }
 
 static void
@@ -98,19 +94,14 @@ _sys_log(enum log_class log_class, const char *module,
          const char UNUSED *file, int UNUSED lineno,
          const char *fmt, int sys_errno, va_list va)
 {
+    xassert(log_class > LOG_CLASS_NONE);
+    xassert(log_class < ALEN(log_level_map));
+
     if (!do_syslog)
         return;
 
     /* Map our log level to syslog's level */
-    int level = -1;
-    switch (log_class) {
-    case LOG_CLASS_ERROR:    level = LOG_ERR; break;
-    case LOG_CLASS_WARNING:  level = LOG_WARNING; break;
-    case LOG_CLASS_INFO:     level = LOG_INFO; break;
-    case LOG_CLASS_DEBUG:    level = LOG_DEBUG; break;
-    }
-
-    xassert(level != -1);
+    int level = log_level_map[log_class].syslog_equivalent;
 
     char msg[4096];
     int n = vsnprintf(msg, sizeof(msg), fmt, va);
@@ -185,14 +176,25 @@ log_errno_provided(enum log_class log_class, const char *module,
     va_end(va);
 }
 
+static size_t
+map_len(void)
+{
+    size_t len = ALEN(log_level_map);
+#ifndef _DEBUG
+    /* Exclude "debug" entry for non-debug builds */
+    len--;
+#endif
+    return len;
+}
+
 int
 log_level_from_string(const char *str)
 {
     if (unlikely(str[0] == '\0'))
         return -1;
 
-    for (int i = 0, n = ALEN(log_level_map); i < n; i++)
-        if (strcmp(str, log_level_map[i]) == 0)
+    for (int i = 0, n = map_len(); i < n; i++)
+        if (strcmp(str, log_level_map[i].name) == 0)
             return i;
 
     return -1;
@@ -205,8 +207,8 @@ log_level_string_hint(void)
     if (buf[0] != '\0')
         return buf;
 
-    for (size_t i = 0, pos = 0, n = ALEN(log_level_map); i < n; i++) {
-        const char *entry = log_level_map[i];
+    for (size_t i = 0, pos = 0, n = map_len(); i < n; i++) {
+        const char *entry = log_level_map[i].name;
         const char *delim = (i + 1 < n) ? ", " : "";
         pos += xsnprintf(buf + pos, sizeof(buf) - pos, "'%s'%s", entry, delim);
     }

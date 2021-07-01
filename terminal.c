@@ -1425,10 +1425,10 @@ term_destroy(struct terminal *term)
     }
     mtx_unlock(&term->render.workers.lock);
 
+    urls_reset(term);
+
     free(term->vt.osc.data);
     free(term->vt.osc8.uri);
-    grid_free(&term->normal);
-    grid_free(&term->alt);
 
     composed_free(term->composed);
 
@@ -1471,8 +1471,10 @@ term_destroy(struct terminal *term)
 
     sixel_fini(term);
 
-    urls_reset(term);
     term_ime_reset(term);
+
+    grid_free(&term->normal);
+    grid_free(&term->alt);
 
     free(term->foot_exe);
     free(term->cwd);

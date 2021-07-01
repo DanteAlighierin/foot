@@ -5,7 +5,14 @@
 
 enum log_colorize { LOG_COLORIZE_NEVER, LOG_COLORIZE_ALWAYS, LOG_COLORIZE_AUTO };
 enum log_facility { LOG_FACILITY_USER, LOG_FACILITY_DAEMON };
-enum log_class { LOG_CLASS_ERROR, LOG_CLASS_WARNING, LOG_CLASS_INFO, LOG_CLASS_DEBUG };
+
+enum log_class {
+    LOG_CLASS_NONE,
+    LOG_CLASS_ERROR,
+    LOG_CLASS_WARNING,
+    LOG_CLASS_INFO,
+    LOG_CLASS_DEBUG
+};
 
 void log_init(enum log_colorize colorize, bool do_syslog,
               enum log_facility syslog_facility, enum log_class log_level);

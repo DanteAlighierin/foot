@@ -246,6 +246,7 @@ struct config {
         enum fcft_scaling_filter fcft_filter;
         bool allow_overflowing_double_width_glyphs;
         bool grapheme_shaping;
+        enum {GRAPHEME_WIDTH_WCSWIDTH, GRAPHEME_WIDTH_DOUBLE} grapheme_width_method;
         bool render_timer_osd;
         bool render_timer_log;
         bool damage_whole_window;

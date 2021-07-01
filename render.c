@@ -617,7 +617,7 @@ render_cell(struct terminal *term, pixman_image_t *pix,
      */
     if (term->conf->tweak.allow_overflowing_double_width_glyphs &&
         ((glyph_count > 0 &&
-          glyphs[0]->cols == 1 &&
+          cell_cols == 1 &&
           glyphs[0]->width >= term->cell_width * 15 / 10 &&
           glyphs[0]->width < 3 * term->cell_width &&
           col < term->cols - 1) ||

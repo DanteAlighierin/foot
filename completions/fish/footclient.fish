@@ -12,7 +12,7 @@ complete -c footclient -F -s s -l server-socket                                 
 complete -c footclient    -s H -l hold                                                                      -d "remain open after child process exits"
 complete -c footclient    -s N -l no-wait                                                                   -d "detach the client process from the running terminal, exiting immediately"
 complete -c footclient -x -s o -l override                                                                  -d "configuration option to override, in form SECTION.KEY=VALUE"
-complete -c footclient -x -s d -l log-level          -a "info warning error"                                -d "log-level (info)"
+complete -c footclient -x -s d -l log-level          -a "info warning error none"                           -d "log-level (info)"
 complete -c footclient -x -s l -l log-colorize       -a "always never auto"                                 -d "enable or disable colorization of log output on stderr"
 complete -c footclient    -s v -l version                                                                   -d "show the version number and quit"
 complete -c footclient    -s h -l help                                                                      -d "show help message and quit"
