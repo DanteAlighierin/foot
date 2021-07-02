@@ -412,6 +412,29 @@ action_collect(struct terminal *term, uint8_t c)
         LOG_WARN("only four private/intermediate characters supported");
 }
 
+UNITTEST
+{
+    struct terminal term = {.vt = {.private = 0}};
+    uint32_t expected = ' ';
+    action_collect(&term, ' ');
+    xassert(term.vt.private == expected);
+
+    expected |= '/' << 8;
+    action_collect(&term, '/');
+    xassert(term.vt.private == expected);
+
+    expected |= '<' << 16;
+    action_collect(&term, '<');
+    xassert(term.vt.private == expected);
+
+    expected |= '?' << 24;
+    action_collect(&term, '?');
+    xassert(term.vt.private == expected);
+
+    action_collect(&term, '?');
+    xassert(term.vt.private == expected);
+}
+
 static void
 action_esc_dispatch(struct terminal *term, uint8_t final)
 {
