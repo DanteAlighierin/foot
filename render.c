@@ -616,15 +616,15 @@ render_cell(struct terminal *term, pixman_image_t *pix,
      *  - *this* cells is followed by an empty cell, or a space
      */
     if (term->conf->tweak.allow_overflowing_double_width_glyphs &&
-        ((glyph_count > 0 &&
-          cell_cols == 1 &&
-          glyphs[0]->x + glyphs[0]->width >= term->cell_width * 15 / 10 &&
+        glyph_count > 0 &&
+        cell_cols == 1 &&
+        col < term->cols - 1 &&
+        ((glyphs[0]->x + glyphs[0]->width >= term->cell_width * 15 / 10 &&
           glyphs[0]->x + glyphs[0]->width < 3 * term->cell_width) ||
          (term->conf->tweak.pua_double_width &&
           ((base >= 0x00e000 && base <= 0x00f8ff) ||
            (base >= 0x0f0000 && base <= 0x0ffffd) ||
            (base >= 0x100000 && base <= 0x10fffd)))) &&
-        col < term->cols - 1 &&
         (row->cells[col + 1].wc == 0 || row->cells[col + 1].wc == L' '))
     {
         cell_cols = 2;
