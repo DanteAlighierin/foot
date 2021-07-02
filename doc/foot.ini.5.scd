@@ -188,8 +188,8 @@ in this order:
 	
 	In other words, while you are fiddling with the window size, foot
 	does not send the updated dimensions to the client. Only when you
-	pause the fiddling for *relay-size-ms* milliseconds is the client
-	updated.
+	pause the fiddling for *resize-delay-ms* milliseconds is the
+	client updated.
 	
 	Emphasis is on _while_ here; as soon as the interactive resize
 	ends (i.e. when you let go of the window border), the final
