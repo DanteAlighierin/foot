@@ -31,6 +31,11 @@
 ## Unreleased
 ### Added
 ### Changed
+
+* Non-empty lines are now considered to have a hard linebreak,
+  _unless_ an actual word-wrap is inserted.
+
+
 ### Deprecated
 ### Removed
 ### Fixed

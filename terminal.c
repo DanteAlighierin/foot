@@ -2756,6 +2756,7 @@ print_linewrap(struct terminal *term)
         return;
     }
 
+    term->grid->cur_row->linebreak = false;
     term->grid->cursor.lcf = false;
 
     const int row = term->grid->cursor.point.row;
@@ -2848,7 +2849,7 @@ term_print(struct terminal *term, wchar_t wc, int width)
     cell->attrs = term->vt.attrs;
 
     row->dirty = true;
-    row->linebreak = false;
+    row->linebreak = true;
 
     /* Advance cursor the 'additional' columns while dirty:ing the cells */
     for (int i = 1; i < width && term->grid->cursor.point.col < term->cols - 1; i++) {
@@ -2887,7 +2888,7 @@ ascii_printer_fast(struct terminal *term, wchar_t wc)
     cell->attrs = term->vt.attrs;
 
     row->dirty = true;
-    row->linebreak = false;
+    row->linebreak = true;
 
     /* Advance cursor */
     if (unlikely(++term->grid->cursor.point.col >= term->cols)) {
