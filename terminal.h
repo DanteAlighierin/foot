@@ -382,6 +382,7 @@ struct terminal {
         bool sixel_cursor_right_of_graphics:1;
     } xtsave;
 
+    bool window_title_has_been_set;
     char *window_title;
     tll(char *) window_title_stack;
 

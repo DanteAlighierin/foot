@@ -30,6 +30,11 @@
 
 ## Unreleased
 ### Added
+
+* `locked-title=no|yes` to `foot.ini`
+  (https://codeberg.org/dnkl/foot/issues/386).
+
+
 ### Changed
 
 * Non-empty lines are now considered to have a hard linebreak,

@@ -643,6 +643,9 @@ parse_section_main(const char *key, const char *value, struct config *conf,
         conf->title = xstrdup(value);
     }
 
+    else if (strcmp(key, "locked-title") == 0)
+        conf->locked_title = str_to_bool(value);
+
     else if (strcmp(key, "app-id") == 0) {
         free(conf->app_id);
         conf->app_id = xstrdup(value);
