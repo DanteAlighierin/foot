@@ -417,7 +417,8 @@ main(int argc, char *const *argv)
     int exit_code;
     ssize_t rcvd = recv(fd, &exit_code, sizeof(exit_code), 0);
 
-    LOG_INFO("exit-code=%d", exit_code);
+    if (!no_wait || exit_code != 0)
+        LOG_INFO("exit-code=%d", exit_code);
 
     if (rcvd == -1 && errno == EINTR)
         xassert(aborted);
