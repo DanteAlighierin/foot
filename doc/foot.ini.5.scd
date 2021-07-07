@@ -224,6 +224,10 @@ in this order:
 *title*
 	Initial window title. Default: _foot_.
 
+*locked-title*
+	Boolean. If enabled, applications are not allowed to change the
+	title at run-time. Default: _no_.
+
 *app-id*
 	Value to set the *app-id* property on the Wayland window to. The
 	compositor can use this value to e.g. group multiple windows, or
