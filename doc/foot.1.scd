@@ -204,7 +204,7 @@ Note that these are just the defaults; they can be changed in
 	characters are whitespace characters.
 
 *ctrl*+*v*, *ctrl*+*y*
-	Paste from clipboard into the searh buffer.
+	Paste from clipboard into the search buffer.
 
 *shift*+*insert*
 	Paste from primary selection into the search buffer.
