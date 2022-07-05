@@ -49,9 +49,7 @@ tokenize_cmdline(const char *cmdline, char ***argv)
         if (end == NULL) {
             if (delim != ' ') {
                 LOG_ERR("unterminated %s quote", delim == '"' ? "double" : "single");
-                free(*argv);
-                *argv = NULL;
-                return false;
+                goto err;
             }
 
             if (!push_argv(argv, &argv_size, p, final_end - p, &idx) ||
@@ -97,6 +95,9 @@ tokenize_cmdline(const char *cmdline, char ***argv)
     return true;
 
 err:
+    for (size_t i = 0; i < idx; i++)
+        free((*argv)[i]);
     free(*argv);
+    *argv = NULL;
     return false;
 }

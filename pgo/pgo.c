@@ -13,6 +13,7 @@
 
 #include "async.h"
 #include "config.h"
+#include "key-binding.h"
 #include "reaper.h"
 #include "sixel.h"
 #include "user-notification.h"
@@ -69,13 +70,25 @@ void render_refresh_csd(struct terminal *term) {}
 void render_refresh_title(struct terminal *term) {}
 
 bool
+render_xcursor_is_valid(const struct seat *seat, const char *cursor)
+{
+    return true;
+}
+
+bool
 render_xcursor_set(struct seat *seat, struct terminal *term, const char *xcursor)
 {
     return true;
 }
 
+const char *
+xcursor_for_csd_border(struct terminal *term, int x, int y)
+{
+    return XCURSOR_LEFT_PTR;
+}
+
 struct wl_window *
-wayl_win_init(struct terminal *term)
+wayl_win_init(struct terminal *term, const char *token)
 {
     return NULL;
 }
@@ -85,14 +98,16 @@ bool wayl_win_set_urgent(struct wl_window *win) { return true; }
 
 bool
 spawn(struct reaper *reaper, const char *cwd, char *const argv[],
-      int stdin_fd, int stdout_fd, int stderr_fd)
+      int stdin_fd, int stdout_fd, int stderr_fd,
+      const char *xdg_activation_token)
 {
     return true;
 }
 
 pid_t
 slave_spawn(
-    int ptmx, int argc, const char *cwd, char *const *argv, const char *term_env,
+    int ptmx, int argc, const char *cwd, char *const *argv, char *const *envp,
+    const env_var_list_t *extra_env_vars, const char *term_env,
     const char *conf_shell, bool login_shell,
     const user_notifications_t *notifications)
 {
@@ -141,6 +156,54 @@ void reaper_add(struct reaper *reaper, pid_t pid, reaper_cb cb, void *cb_data) {
 void reaper_del(struct reaper *reaper, pid_t pid) {}
 
 void urls_reset(struct terminal *term) {}
+
+void shm_unref(struct buffer *buf) {}
+void shm_chain_free(struct buffer_chain *chain) {}
+
+struct buffer_chain *
+shm_chain_new(struct wl_shm *shm, bool scrollable, size_t pix_instances)
+{
+    return NULL;
+}
+
+
+void search_selection_cancelled(struct terminal *term) {}
+
+void get_current_modifiers(const struct seat *seat,
+                           xkb_mod_mask_t *effective,
+                           xkb_mod_mask_t *consumed, uint32_t key) {}
+
+static struct key_binding_set kbd;
+static bool kbd_initialized = false;
+
+struct key_binding_set *
+key_binding_for(
+    struct key_binding_manager *mgr, const struct terminal *term,
+    const struct seat *seat)
+{
+    return &kbd;
+}
+
+void
+key_binding_new_for_term(
+    struct key_binding_manager *mgr, const struct terminal *term)
+{
+    if (!kbd_initialized) {
+        kbd_initialized = true;
+        kbd = (struct key_binding_set){
+            .key = tll_init(),
+            .search = tll_init(),
+            .url = tll_init(),
+            .mouse = tll_init(),
+            .selection_overrides = 0,
+        };
+    }
+}
+
+void
+key_binding_unref_term(struct key_binding_manager *mgr, const struct terminal *term)
+{
+}
 
 int
 main(int argc, const char *const *argv)
@@ -211,8 +274,10 @@ main(int argc, const char *const *argv)
             .end = row_count,
         },
         .selection = {
-            .start = {-1, -1},
-            .end = {-1, -1},
+            .coords = {
+                .start = {-1, -1},
+                .end = {-1, -1},
+            },
         },
         .delayed_render_timer = {
             .lower_fd = lower_fd,

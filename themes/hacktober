@@ -1,0 +1,22 @@
+[cursor]
+color=141414 c9c9c9
+
+[colors]
+foreground=c9c9c9
+background=141414
+regular0=191918   # black
+regular1=b34538   # red
+regular2=587744   # green
+regular3=d08949   # yellow
+regular4=206ec5   # blue
+regular5=864651   # magenta
+regular6=ac9166   # cyan
+regular7=f1eee7   # white
+bright0=2c2b2a    # bright black
+bright1=b33323    # bright red
+bright2=42824a    # bright green
+bright3=c75a22    # bright yellow
+bright4=5389c5    # bright blue
+bright5=e795a5    # bright magenta
+bright6=ebc587    # bright cyan
+bright7=ffffff    # bright white

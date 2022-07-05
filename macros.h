@@ -2,6 +2,7 @@
 
 #define PASTE(a, b) a##b
 #define XPASTE(a, b) PASTE(a, b)
+#define STRLEN(str) (sizeof("" str "") - 1)
 #define DO_PRAGMA(x) _Pragma(#x)
 #define VERCMP(x, y, cx, cy) ((cx > x) || ((cx == x) && (cy >= y)))
 

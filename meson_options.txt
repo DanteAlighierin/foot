@@ -1,8 +1,23 @@
-option('ime', type: 'boolean', value: true, description: 'IME (Input Method Editor) support')
+option('docs', type: 'feature',
+       description: 'Build and install documentation (man pages, example foot.ini, readme, changelog, license etc).')
+
+option('themes', type: 'boolean', value: true,
+       description: 'Install themes (predefined color schemes)')
+
+option('ime', type: 'boolean', value: true,
+       description: 'IME (Input Method Editor) support')
 
 option('grapheme-clustering', type: 'feature',
        description: 'Enables grapheme clustering using libutf8proc. Requires fcft with harfbuzz support to be useful.')
 
-option('terminfo', type: 'feature', description: 'Build terminfo. When disabled, foot\'s terminfo will not be built, and foot will default to \'xterm-256color\' instead of \'foot\'.')
+option('tests', type: 'boolean', value: true, description: 'Build tests')
 
-option('terminfo-install-location', type: 'string', description: 'Where to install the foot terminfo files, relative to the installation prefix. If set to \'disabled\', the terminfo files are not installed at all (useful when packaging the terminfo files in a separate package). Defaults to $datadir/terminfo.')
+option('terminfo', type: 'feature', value: 'enabled', description: 'Build and install foot\'s terminfo files.')
+option('default-terminfo', type: 'string', value: 'foot',
+       description: 'Default value of the "term" option in foot.ini.')
+
+option('custom-terminfo-install-location', type: 'string', value: '',
+       description: 'Path to foot\'s terminfo, relative to ${prefix}. If set, foot will set $TERMINFO to this value in the client process.')
+
+option('systemd-units-dir', type: 'string', value: '',
+      description: 'Where to install the systemd service files (absolute path). Default: ${systemduserunitdir}')

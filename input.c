@@ -6,8 +6,8 @@
 #include <threads.h>
 #include <locale.h>
 #include <errno.h>
+#include <wctype.h>
 #include <sys/mman.h>
-#include <sys/time.h>
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
 #include <fcntl.h>
@@ -23,9 +23,11 @@
 #define LOG_MODULE "input"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
-#include "config.h"
 #include "commands.h"
+#include "config.h"
+#include "grid.h"
 #include "keymap.h"
+#include "kitty-keymap.h"
 #include "macros.h"
 #include "quirks.h"
 #include "render.h"
@@ -80,11 +82,15 @@ pipe_closed:
 
 static bool
 execute_binding(struct seat *seat, struct terminal *term,
-                enum bind_action_normal action, char *const *pipe_argv,
-                uint32_t serial)
+                const struct key_binding *binding, uint32_t serial)
 {
+    const enum bind_action_normal action = binding->action;
+
     switch (action) {
     case BIND_ACTION_NONE:
+        return true;
+
+    case BIND_ACTION_NOOP:
         return true;
 
     case BIND_ACTION_SCROLLBACK_UP_PAGE:
@@ -129,6 +135,20 @@ execute_binding(struct seat *seat, struct terminal *term,
         }
         break;
 
+    case BIND_ACTION_SCROLLBACK_HOME:
+        if (term->grid == &term->normal) {
+            cmd_scrollback_up(term, term->grid->num_rows);
+            return true;
+        }
+        break;
+
+    case BIND_ACTION_SCROLLBACK_END:
+        if (term->grid == &term->normal) {
+            cmd_scrollback_down(term, term->grid->num_rows);
+            return true;
+        }
+        break;
+
     case BIND_ACTION_CLIPBOARD_COPY:
         selection_to_clipboard(seat, term, serial);
         return true;
@@ -140,6 +160,7 @@ execute_binding(struct seat *seat, struct terminal *term,
 
     case BIND_ACTION_PRIMARY_PASTE:
         selection_from_primary(seat, term);
+        term_reset_view(term);
         return true;
 
     case BIND_ACTION_SEARCH_START:
@@ -188,7 +209,7 @@ execute_binding(struct seat *seat, struct terminal *term,
         /* FALLTHROUGH */
     case BIND_ACTION_PIPE_VIEW:
     case BIND_ACTION_PIPE_SELECTED: {
-        if (pipe_argv == NULL)
+        if (binding->aux->type != BINDING_AUX_PIPE)
             return true;
 
         struct pipe_context *ctx = NULL;
@@ -261,7 +282,8 @@ execute_binding(struct seat *seat, struct terminal *term,
             }
         }
 
-        if (!spawn(term->reaper, NULL, pipe_argv, pipe_fd[0], stdout_fd, stderr_fd))
+        if (!spawn(term->reaper, NULL, binding->aux->pipe.args,
+                   pipe_fd[0], stdout_fd, stderr_fd, NULL))
             goto pipe_err;
 
         /* Close read end */
@@ -294,16 +316,103 @@ execute_binding(struct seat *seat, struct terminal *term,
     }
 
     case BIND_ACTION_SHOW_URLS_COPY:
-    case BIND_ACTION_SHOW_URLS_LAUNCH: {
+    case BIND_ACTION_SHOW_URLS_LAUNCH:
+    case BIND_ACTION_SHOW_URLS_PERSISTENT: {
         xassert(!urls_mode_is_active(term));
 
-        enum url_action url_action = action == BIND_ACTION_SHOW_URLS_COPY
-            ? URL_ACTION_COPY
-            : URL_ACTION_LAUNCH;
+        enum url_action url_action =
+            action == BIND_ACTION_SHOW_URLS_COPY ? URL_ACTION_COPY :
+            action == BIND_ACTION_SHOW_URLS_LAUNCH ? URL_ACTION_LAUNCH :
+            URL_ACTION_PERSISTENT;
 
         urls_collect(term, url_action, &term->urls);
         urls_assign_key_combos(term->conf, &term->urls);
         urls_render(term);
+        return true;
+    }
+
+    case BIND_ACTION_TEXT_BINDING:
+        xassert(binding->aux->type == BINDING_AUX_TEXT);
+        term_to_slave(term, binding->aux->text.data, binding->aux->text.len);
+        return true;
+
+    case BIND_ACTION_PROMPT_PREV: {
+        if (term->grid != &term->normal)
+            return false;
+
+        struct grid *grid = term->grid;
+        const int sb_start =
+            grid_sb_start_ignore_uninitialized(grid, term->rows);
+
+        /* Check each row from current view-1 (that is, the first
+         * currently not visible row), up to, and including, the
+         * scrollback start */
+        for (int r_sb_rel =
+                 grid_row_abs_to_sb_precalc_sb_start(
+                     grid, sb_start, grid->view) - 1;
+             r_sb_rel >= 0; r_sb_rel--)
+        {
+            const int r_abs =
+                grid_row_sb_to_abs_precalc_sb_start(grid, sb_start, r_sb_rel);
+
+            const struct row *row = grid->rows[r_abs];
+            xassert(row != NULL);
+
+            if (!row->prompt_marker)
+                continue;
+
+            grid->view = r_abs;
+            term_damage_view(term);
+            render_refresh(term);
+            break;
+        }
+
+        return true;
+    }
+
+    case BIND_ACTION_PROMPT_NEXT: {
+        if (term->grid != &term->normal)
+            return false;
+
+        struct grid *grid = term->grid;
+        const int num_rows = grid->num_rows;
+
+        if (grid->view == grid->offset) {
+            /* Already at the bottom */
+            return true;
+        }
+
+        /* Check each row from view+1, to the bottom of the scrollback */
+        for (int r_abs = (grid->view + 1) & (num_rows - 1);
+             ;
+             r_abs = (r_abs + 1) & (num_rows - 1))
+        {
+            const struct row *row = grid->rows[r_abs];
+            xassert(row != NULL);
+
+            if (!row->prompt_marker) {
+                if (r_abs == grid->offset + term->rows - 1) {
+                    /* We’ve reached the bottom of the scrollback */
+                    break;
+                }
+                continue;
+            }
+
+            int sb_start = grid_sb_start_ignore_uninitialized(grid, term->rows);
+            int ofs_sb_rel =
+                grid_row_abs_to_sb_precalc_sb_start(grid, sb_start, grid->offset);
+            int new_view_sb_rel =
+                grid_row_abs_to_sb_precalc_sb_start(grid, sb_start, r_abs);
+
+            new_view_sb_rel = min(ofs_sb_rel, new_view_sb_rel);
+            grid->view = grid_row_sb_to_abs_precalc_sb_start(
+                grid, sb_start, new_view_sb_rel);
+
+            term_damage_view(term);
+            render_refresh(term);
+            break; 
+        }
+
         return true;
     }
 
@@ -353,229 +462,6 @@ execute_binding(struct seat *seat, struct terminal *term,
     return false;
 }
 
-static xkb_mod_mask_t
-conf_modifiers_to_mask(const struct seat *seat,
-                       const struct config_key_modifiers *modifiers)
-{
-    xkb_mod_mask_t mods = 0;
-    mods |= modifiers->shift << seat->kbd.mod_shift;
-    mods |= modifiers->ctrl << seat->kbd.mod_ctrl;
-    mods |= modifiers->alt << seat->kbd.mod_alt;
-    mods |= modifiers->meta << seat->kbd.mod_meta;
-    return mods;
-}
-
-static xkb_keycode_list_t
-key_codes_for_xkb_sym(struct xkb_keymap *keymap, xkb_keysym_t sym)
-{
-    xkb_keycode_list_t key_codes = tll_init();
-
-    /*
-     * Find all key codes that map to this symbol.
-     *
-     * This allows us to match bindings in other layouts
-     * too.
-     */
-    struct xkb_state *state = xkb_state_new(keymap);
-
-    for (xkb_keycode_t code = xkb_keymap_min_keycode(keymap);
-         code <= xkb_keymap_max_keycode(keymap);
-         code++)
-    {
-        if (xkb_state_key_get_one_sym(state, code) == sym)
-            tll_push_back(key_codes, code);
-    }
-
-    xkb_state_unref(state);
-    return key_codes;
-}
-
-static xkb_keysym_t
-maybe_repair_key_combo(const struct seat *seat,
-                       xkb_keysym_t sym, xkb_mod_mask_t mods)
-{
-    /*
-     * Detect combos containing a shifted symbol and the corresponding
-     * modifier, and replace the shifted symbol with its unshifted
-     * variant.
-     *
-     * For example, the combo is “Control+Shift+U”. In this case,
-     * Shift is the modifier used to “shift” ‘u’ to ‘U’, after which
-     * ‘Shift’ will have been “consumed”. Since we filter out consumed
-     * modifiers when matching key combos, this key combo will never
-     * trigger (we will never be able to match the ‘Shift’ modifier).
-     *
-     * There are two correct variants of the above key combo:
-     *  - “Control+U”           (upper case ‘U’)
-     *  - “Control+Shift+u”     (lower case ‘u’)
-     *
-     * What we do here is, for each key *code*, check if there are any
-     * (shifted) levels where it produces ‘sym’. If there are, check
-     * *which* sets of modifiers are needed to produce it, and compare
-     * with ‘mods’.
-     *
-     * If there is at least one common modifier, it means ‘sym’ is a
-     * “shifted” symbol, with the corresponding shifting modifier
-     * explicitly included in the key combo. I.e. the key combo will
-     * never trigger.
-     *
-     * We then proceed and “repair” the key combo by replacing ‘sym’
-     * with the corresponding unshifted symbol.
-     *
-     * To reduce the noise, we ignore all key codes where the shifted
-     * symbol is the same as the unshifted symbol.
-     */
-
-    for (xkb_keycode_t code = xkb_keymap_min_keycode(seat->kbd.xkb_keymap);
-         code <= xkb_keymap_max_keycode(seat->kbd.xkb_keymap);
-         code++)
-    {
-        xkb_layout_index_t layout_idx =
-            xkb_state_key_get_layout(seat->kbd.xkb_state, code);
-
-        /* Get all unshifted symbols for this key */
-        const xkb_keysym_t *base_syms = NULL;
-        size_t base_count = xkb_keymap_key_get_syms_by_level(
-            seat->kbd.xkb_keymap, code, layout_idx, 0, &base_syms);
-
-        if (base_count == 0 || sym == base_syms[0]) {
-            /* No unshifted symbols, or unshifted symbol is same as ‘sym’ */
-            continue;
-        }
-
-        /* Name of the unshifted symbol, for logging */
-        char base_name[100];
-        xkb_keysym_get_name(base_syms[0], base_name, sizeof(base_name));
-
-        /* Iterate all shift levels */
-        for (xkb_level_index_t level_idx = 1;
-             level_idx < xkb_keymap_num_levels_for_key(
-                 seat->kbd.xkb_keymap, code, layout_idx);
-             level_idx++) {
-
-            /* Get all symbols for current shift level */
-            const xkb_keysym_t *shifted_syms = NULL;
-            size_t shifted_count = xkb_keymap_key_get_syms_by_level(
-                seat->kbd.xkb_keymap, code,
-                layout_idx, level_idx, &shifted_syms);
-
-            for (size_t i = 0; i < shifted_count; i++) {
-                if (shifted_syms[i] != sym)
-                    continue;
-
-                /* Get modifier sets that produces the current shift level */
-                xkb_mod_mask_t mod_masks[16];
-                size_t mod_mask_count = xkb_keymap_key_get_mods_for_level(
-                    seat->kbd.xkb_keymap, code, layout_idx, level_idx,
-                    mod_masks, ALEN(mod_masks));
-
-                /* Check if key combo’s modifier set intersects */
-                for (size_t j = 0; j < mod_mask_count; j++) {
-                    if ((mod_masks[j] & mods) != mod_masks[j])
-                        continue;
-
-                    char combo[64] = {0};
-
-                    for (int k = 0; k < sizeof(xkb_mod_mask_t) * 8; k++) {
-                        if (!(mods & (1u << k)))
-                            continue;
-
-                        const char *mod_name = xkb_keymap_mod_get_name(
-                            seat->kbd.xkb_keymap, k);
-                        strcat(combo, mod_name);
-                        strcat(combo, "+");
-                    }
-
-                    size_t len = strlen(combo);
-                    xkb_keysym_get_name(
-                        sym, &combo[len], sizeof(combo) - len);
-
-                    LOG_WARN(
-                        "%s: combo with both explicit modifier and shifted symbol "
-                        "(level=%d, mod-mask=0x%08x), "
-                        "replacing with %s",
-                        combo, level_idx, mod_masks[j], base_name);
-
-                    /* Replace with unshifted symbol */
-                    return base_syms[0];
-                }
-            }
-        }
-    }
-
-    return sym;
-}
-
-static void
-convert_key_binding(const struct seat *seat,
-                    const struct config_key_binding *conf_binding,
-                    key_binding_list_t *bindings)
-{
-    xkb_mod_mask_t mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers);
-    xkb_keysym_t sym = maybe_repair_key_combo(seat, conf_binding->sym, mods);
-
-    struct key_binding binding = {
-        .mods = mods,
-        .sym = sym,
-        .key_codes = key_codes_for_xkb_sym(seat->kbd.xkb_keymap, sym),
-        .action = conf_binding->action,
-        .pipe_argv = conf_binding->pipe.argv.args,
-    };
-    tll_push_back(*bindings, binding);
-}
-
-static void
-convert_key_bindings(const struct config *conf, struct seat *seat)
-{
-    for (size_t i = 0; i < conf->bindings.key.count; i++) {
-        const struct config_key_binding *binding = &conf->bindings.key.arr[i];
-        convert_key_binding(seat, binding, &seat->kbd.bindings.key);
-    }
-}
-
-static void
-convert_search_bindings(const struct config *conf, struct seat *seat)
-{
-    for (size_t i = 0; i < conf->bindings.search.count; i++) {
-        const struct config_key_binding *binding = &conf->bindings.search.arr[i];
-        convert_key_binding(seat, binding, &seat->kbd.bindings.search);
-    }
-}
-
-static void
-convert_url_bindings(const struct config *conf, struct seat *seat)
-{
-    for (size_t i = 0; i < conf->bindings.url.count; i++) {
-        const struct config_key_binding *binding = &conf->bindings.url.arr[i];
-        convert_key_binding(seat, binding, &seat->kbd.bindings.url);
-    }
-}
-
-static void
-convert_mouse_binding(struct seat *seat,
-                      const struct config_mouse_binding *conf_binding)
-{
-    struct mouse_binding binding = {
-        .action = conf_binding->action,
-        .mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers),
-        .button = conf_binding->button,
-        .count = conf_binding->count,
-        .pipe_argv = conf_binding->pipe.argv.args,
-    };
-    tll_push_back(seat->mouse.bindings, binding);
-}
-
-static void
-convert_mouse_bindings(const struct config *conf, struct seat *seat)
-{
-    for (size_t i = 0; i < conf->bindings.mouse.count; i++) {
-        const struct config_mouse_binding *binding = &conf->bindings.mouse.arr[i];
-        if (binding->action == BIND_ACTION_NONE)
-            continue;
-        convert_mouse_binding(seat, binding);
-    }
-}
-
 static void
 keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
                 uint32_t format, int32_t fd, uint32_t size)
@@ -611,15 +497,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         seat->kbd.xkb = NULL;
     }
 
-    tll_foreach(seat->kbd.bindings.key, it)
-        tll_free(it->item.key_codes);
-    tll_free(seat->kbd.bindings.key);
-
-    tll_foreach(seat->kbd.bindings.search, it)
-        tll_free(it->item.key_codes);
-    tll_free(seat->kbd.bindings.search);
-
-    tll_free(seat->mouse.bindings);
+    key_binding_unload_keymap(wayl->key_binding_manager, seat);
 
     /* Verify keymap is in a format we understand */
     switch ((enum wl_keyboard_keymap_format)format) {
@@ -669,7 +547,25 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         seat->kbd.mod_shift = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_SHIFT);
         seat->kbd.mod_alt = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_ALT) ;
         seat->kbd.mod_ctrl = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_CTRL);
-        seat->kbd.mod_meta = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_LOGO);
+        seat->kbd.mod_super = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_LOGO);
+        seat->kbd.mod_caps = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_CAPS);
+        seat->kbd.mod_num = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_NUM);
+
+        seat->kbd.bind_significant = 0;
+        if (seat->kbd.mod_shift != XKB_MOD_INVALID)
+            seat->kbd.bind_significant |= 1 << seat->kbd.mod_shift;
+        if (seat->kbd.mod_alt != XKB_MOD_INVALID)
+            seat->kbd.bind_significant |= 1 << seat->kbd.mod_alt;
+        if (seat->kbd.mod_ctrl != XKB_MOD_INVALID)
+            seat->kbd.bind_significant |= 1 << seat->kbd.mod_ctrl;
+        if (seat->kbd.mod_super != XKB_MOD_INVALID)
+            seat->kbd.bind_significant |= 1 << seat->kbd.mod_super;
+
+        seat->kbd.kitty_significant = seat->kbd.bind_significant;
+        if (seat->kbd.mod_caps != XKB_MOD_INVALID)
+            seat->kbd.kitty_significant |= 1 << seat->kbd.mod_caps;
+        if (seat->kbd.mod_num != XKB_MOD_INVALID)
+            seat->kbd.kitty_significant |= 1 << seat->kbd.mod_num;
 
         seat->kbd.key_arrow_up = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "UP");
         seat->kbd.key_arrow_down = xkb_keymap_key_by_name(seat->kbd.xkb_keymap, "DOWN");
@@ -678,10 +574,7 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     munmap(map_str, size);
     close(fd);
 
-    convert_key_bindings(wayl->conf, seat);
-    convert_search_bindings(wayl->conf, seat);
-    convert_url_bindings(wayl->conf, seat);
-    convert_mouse_bindings(wayl->conf, seat);
+    key_binding_load_keymap(wayl->key_binding_manager, seat);
 }
 
 static void
@@ -689,6 +582,7 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
                struct wl_surface *surface, struct wl_array *keys)
 {
     xassert(surface != NULL);
+    xassert(serial != 0);
 
     struct seat *seat = data;
     struct wl_window *win = wl_surface_get_user_data(surface);
@@ -696,9 +590,6 @@ keyboard_enter(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 
     LOG_DBG("%s: keyboard_enter: keyboard=%p, serial=%u, surface=%p",
             seat->name, (void *)wl_keyboard, serial, (void *)surface);
-
-    if (seat->kbd.xkb == NULL)
-        return;
 
     term_kbd_focus_in(term);
     seat->kbd_focus = term;
@@ -759,9 +650,6 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     LOG_DBG("keyboard_leave: keyboard=%p, serial=%u, surface=%p",
             (void *)wl_keyboard, serial, (void *)surface);
 
-    if (seat->kbd.xkb == NULL)
-        return;
-
     xassert(
         seat->kbd_focus == NULL ||
         surface == NULL ||  /* Seen on Sway 1.2 */
@@ -775,7 +663,7 @@ keyboard_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
     seat->kbd.shift = false;
     seat->kbd.alt = false;
     seat->kbd.ctrl = false;
-    seat->kbd.meta = false;
+    seat->kbd.super = false;
     if (seat->kbd.xkb_compose_state != NULL)
         xkb_compose_state_reset(seat->kbd.xkb_compose_state);
 
@@ -898,7 +786,20 @@ keymap_lookup(struct terminal *term, xkb_keysym_t sym, enum modifier mods)
     LOG_DBG("keypad mode: %d", keypad_keys_mode);
 
     for (size_t j = 0; j < count; j++) {
-        if (info[j].modifiers != MOD_ANY && info[j].modifiers != mods)
+        enum modifier modifiers = info[j].modifiers;
+
+        if (modifiers & MOD_MODIFY_OTHER_KEYS_STATE1) {
+            if (term->modify_other_keys_2)
+                continue;
+            modifiers &= ~MOD_MODIFY_OTHER_KEYS_STATE1;
+        }
+        if (modifiers & MOD_MODIFY_OTHER_KEYS_STATE2) {
+            if (!term->modify_other_keys_2)
+                continue;
+            modifiers &= ~MOD_MODIFY_OTHER_KEYS_STATE2;
+        }
+
+        if (modifiers != MOD_ANY && modifiers != mods)
             continue;
 
         if (info[j].cursor_keys_mode != CURSOR_KEYS_DONTCARE &&
@@ -924,208 +825,168 @@ UNITTEST
     };
 
     const struct key_data *info = keymap_lookup(&term, XKB_KEY_ISO_Left_Tab, MOD_SHIFT | MOD_CTRL);
+    xassert(info != NULL);
     xassert(strcmp(info->seq, "\033[27;6;9~") == 0);
 }
 
-static void
-key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
-                  uint32_t key, uint32_t state)
+UNITTEST
 {
-    if (seat->kbd.xkb == NULL ||
-        seat->kbd.xkb_keymap == NULL ||
-        seat->kbd.xkb_state == NULL)
-    {
-        return;
+    struct terminal term = {
+        .modify_other_keys_2 = false,
+    };
+
+    const struct key_data *info = keymap_lookup(&term, XKB_KEY_Return, MOD_ALT);
+    xassert(info != NULL);
+    xassert(strcmp(info->seq, "\033\r") == 0);
+
+    term.modify_other_keys_2 = true;
+    info = keymap_lookup(&term, XKB_KEY_Return, MOD_ALT);
+    xassert(info != NULL);
+    xassert(strcmp(info->seq, "\033[27;3;13~") == 0);
+}
+
+void
+get_current_modifiers(const struct seat *seat,
+                      xkb_mod_mask_t *effective,
+                      xkb_mod_mask_t *consumed, uint32_t key)
+{
+    if (unlikely(seat->kbd.xkb_state == NULL)) {
+        if (effective != NULL)
+            *effective = 0;
+        if (consumed != NULL)
+            *consumed = 0;
     }
 
-    const xkb_mod_mask_t ctrl = 1 << seat->kbd.mod_ctrl;
-    const xkb_mod_mask_t alt = 1 << seat->kbd.mod_alt;
-    const xkb_mod_mask_t shift = 1 << seat->kbd.mod_shift;
-    const xkb_mod_mask_t meta = 1 << seat->kbd.mod_meta;
-
-    if (state == XKB_KEY_UP) {
-        stop_repeater(seat, key);
-        return;
-    }
-
-    bool should_repeat = xkb_keymap_key_repeats(seat->kbd.xkb_keymap, key);
-    xkb_keysym_t sym = xkb_state_key_get_one_sym(seat->kbd.xkb_state, key);
-
-    if (state == XKB_KEY_DOWN && term->conf->mouse.hide_when_typing &&
-        /* TODO: better way to detect modifiers */
-        sym != XKB_KEY_Shift_L && sym != XKB_KEY_Shift_R &&
-        sym != XKB_KEY_Control_L && sym != XKB_KEY_Control_R &&
-        sym != XKB_KEY_Alt_L && sym != XKB_KEY_Alt_R &&
-        sym != XKB_KEY_ISO_Level3_Shift &&
-        sym != XKB_KEY_Super_L && sym != XKB_KEY_Super_R &&
-        sym != XKB_KEY_Meta_L && sym != XKB_KEY_Meta_R &&
-        sym != XKB_KEY_Menu)
-    {
-        seat->pointer.hidden = true;
-        term_xcursor_update_for_seat(term, seat);
-    }
-
-    enum xkb_compose_status compose_status = XKB_COMPOSE_NOTHING;
-
-    if (seat->kbd.xkb_compose_state != NULL) {
-        xkb_compose_state_feed(seat->kbd.xkb_compose_state, sym);
-        compose_status = xkb_compose_state_get_status(
-            seat->kbd.xkb_compose_state);
-    }
-
-    if (compose_status == XKB_COMPOSE_COMPOSING) {
-        /* TODO: goto maybe_repeat? */
-        return;
-    }
-
-    xkb_mod_mask_t mods = xkb_state_serialize_mods(
-        seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
-    xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods(
-        seat->kbd.xkb_state, key);
-
-    xkb_mod_mask_t significant = ctrl | alt | shift | meta;
-    mods &= significant;
-    consumed &= significant;
-
-    xkb_layout_index_t layout_idx =
-        xkb_state_key_get_layout(seat->kbd.xkb_state, key);
-
-    const xkb_keysym_t *raw_syms = NULL;
-    size_t raw_count = xkb_keymap_key_get_syms_by_level(
-        seat->kbd.xkb_keymap, key, layout_idx, 0, &raw_syms);
-
-    if (term->is_searching) {
-        if (should_repeat)
-            start_repeater(seat, key);
-        search_input(
-            seat, term, key, sym, mods, consumed, raw_syms, raw_count, serial);
-        return;
-    } else  if (urls_mode_is_active(term)) {
-        if (should_repeat)
-            start_repeater(seat, key);
-        urls_input(
-            seat, term, key, sym, mods, consumed, raw_syms, raw_count, serial);
-        return;
-    }
-
-#if 0
-    for (size_t i = 0; i < 32; i++) {
-        if (mods & (1 << i)) {
-            LOG_INFO("%s", xkb_keymap_mod_get_name(seat->kbd.xkb_keymap, i));
-        }
-    }
-#endif
-
-#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
-    char sym_name[100];
-    xkb_keysym_get_name(sym, sym_name, sizeof(sym_name));
-#endif
-
-    LOG_DBG("%s (%u/0x%x): seat=%s, term=%p, serial=%u, "
-            "mods=0x%08x, consumed=0x%08x, repeats=%d",
-            sym_name, sym, sym, seat->name, (void *)term, serial,
-            mods, consumed, should_repeat);
-
-    /*
-     * User configurable bindings
-     */
-    tll_foreach(seat->kbd.bindings.key, it) {
-        const struct key_binding *bind = &it->item;
-
-        /* Match translated symbol */
-        if (bind->sym == sym &&
-            bind->mods == (mods & ~consumed) &&
-            execute_binding(
-                seat, term, bind->action, bind->pipe_argv, serial))
-        {
-            goto maybe_repeat;
+    else {
+        if (effective != NULL) {
+            *effective = xkb_state_serialize_mods(
+                seat->kbd.xkb_state, XKB_STATE_MODS_EFFECTIVE);
         }
 
-        if (bind->mods != mods)
-            continue;
-
-        /* Match untranslated symbols */
-        for (size_t i = 0; i < raw_count; i++) {
-            if (bind->sym == raw_syms[i] && execute_binding(
-                    seat, term, bind->action, bind->pipe_argv, serial))
-            {
-                goto maybe_repeat;
-            }
-        }
-
-        /* Match raw key code */
-        tll_foreach(bind->key_codes, code) {
-            if (code->item == key && execute_binding(
-                    seat, term, bind->action, bind->pipe_argv, serial))
-            {
-                goto maybe_repeat;
-            }
+        if (consumed != NULL) {
+            *consumed = xkb_state_key_get_consumed_mods2(
+                seat->kbd.xkb_state, key, XKB_CONSUMED_MODE_XKB);
         }
     }
+}
 
-    /*
-     * Keys generating escape sequences
-     */
+static xkb_mod_mask_t
+get_locked_modifiers(const struct seat *seat)
+{
+    return xkb_state_serialize_mods(seat->kbd.xkb_state, XKB_STATE_MODS_LOCKED);
+}
+
+struct kbd_ctx {
+    xkb_layout_index_t layout;
+    xkb_keycode_t key;
+    xkb_keysym_t sym;
+
+    struct {
+        const xkb_keysym_t *syms;
+        size_t count;
+    } level0_syms;
+
+    xkb_mod_mask_t mods;
+    xkb_mod_mask_t consumed;
+
+    struct {
+        const uint8_t *buf;
+        size_t count;
+    } utf8;
+    uint32_t utf32;
+
+    enum xkb_compose_status compose_status;
+    enum wl_keyboard_key_state key_state;
+};
+
+static bool
+legacy_kbd_protocol(struct seat *seat, struct terminal *term,
+                    const struct kbd_ctx *ctx)
+{
+    if (ctx->key_state != WL_KEYBOARD_KEY_STATE_PRESSED)
+        return false;
+    if (ctx->compose_status == XKB_COMPOSE_COMPOSING)
+        return false;
 
     enum modifier keymap_mods = MOD_NONE;
     keymap_mods |= seat->kbd.shift ? MOD_SHIFT : MOD_NONE;
     keymap_mods |= seat->kbd.alt ? MOD_ALT : MOD_NONE;
     keymap_mods |= seat->kbd.ctrl ? MOD_CTRL : MOD_NONE;
-    keymap_mods |= seat->kbd.meta ? MOD_META : MOD_NONE;
+    keymap_mods |= seat->kbd.super ? MOD_META : MOD_NONE;
 
-    const struct key_data *keymap;
-    if (sym == XKB_KEY_Escape && keymap_mods == MOD_NONE && term->modify_escape_key) {
-        static const struct key_data esc = {.seq = "\033[27;1;27~"};
-        keymap = &esc;
-    } else
-        keymap = keymap_lookup(term, sym, keymap_mods);
+    const xkb_keysym_t sym = ctx->sym;
+    const size_t count = ctx->utf8.count;
+    const uint8_t *const utf8 = ctx->utf8.buf;
 
+    const struct key_data *keymap = keymap_lookup(term, sym, keymap_mods);
     if (keymap != NULL) {
         term_to_slave(term, keymap->seq, strlen(keymap->seq));
-
-        term_reset_view(term);
-        selection_cancel(term);
-        goto maybe_repeat;
+        return true;
     }
 
-    if (compose_status == XKB_COMPOSE_CANCELLED)
-        goto maybe_repeat;
-
-    /*
-     * Compose, and maybe emit "normal" character
-     */
-
-    xassert(seat->kbd.xkb_compose_state != NULL ||
-           compose_status != XKB_COMPOSE_COMPOSED);
-
-    int count = compose_status == XKB_COMPOSE_COMPOSED
-        ? xkb_compose_state_get_utf8(seat->kbd.xkb_compose_state, NULL, 0)
-        : xkb_state_key_get_utf8(seat->kbd.xkb_state, key, NULL, 0);
-
-    if (count <= 0)
-        goto maybe_repeat;
-
-    /* Buffer for translated key. Use a static buffer in most cases,
-     * and use a malloc:ed buffer when necessary */
-    uint8_t buf[32];
-    uint8_t *utf8 = count < sizeof(buf) ? buf : xmalloc(count + 1);
-
-    compose_status == XKB_COMPOSE_COMPOSED
-        ? xkb_compose_state_get_utf8(
-            seat->kbd.xkb_compose_state, (char *)utf8, count + 1)
-        : xkb_state_key_get_utf8(
-            seat->kbd.xkb_state, key, (char *)utf8, count + 1);
-
-    if (seat->kbd.xkb_compose_state != NULL)
-        xkb_compose_state_reset(seat->kbd.xkb_compose_state);
+    if (count == 0)
+        return false;
 
 #define is_control_key(x) ((x) >= 0x40 && (x) <= 0x7f)
 #define IS_CTRL(x) ((x) < 0x20 || ((x) >= 0x7f && (x) <= 0x9f))
 
-    if ((keymap_mods & MOD_CTRL) &&
-        !is_control_key(sym) &&
-        (count == 1 && !IS_CTRL(utf8[0])) &&
-        sym < 256)
+    LOG_DBG("term->modify_other_keys=%d, count=%zu, is_ctrl=%d (utf8=0x%02x), sym=%d",
+            term->modify_other_keys_2, count, IS_CTRL(utf8[0]), utf8[0], sym);
+
+    bool ctrl_is_in_effect = (keymap_mods & MOD_CTRL) != 0;
+    bool ctrl_seq = is_control_key(sym) || (count == 1 && IS_CTRL(utf8[0]));
+
+    bool modify_other_keys2_in_effect = false;
+
+    if (term->modify_other_keys_2) {
+        /*
+         * Try to mimic XTerm’s behavior, when holding shift:
+         *
+         *   - if other modifiers are pressed (e.g. Alt), emit a CSI escape
+         *   - upper-case symbols A-Z are encoded as an CSI escape
+         *   - other upper-case symbols (e.g ‘Ö’) or emitted as is
+         *   - non-upper cased symbols are _mostly_ emitted as is (foot
+         *     always emits as is)
+         *
+         * Examples (assuming Swedish layout):
+         *   - Shift-a (‘A’) emits a CSI
+         *   - Shift-, (‘;’) emits ‘;’
+         *   - Shift-Alt-, (Alt-;) emits a CSI
+         *   - Shift-ö (‘Ö’) emits ‘Ö’
+         */
+
+        /* Any modifiers, besides shift active? */
+        const xkb_mod_mask_t shift_mask = 1 << seat->kbd.mod_shift;
+        if ((ctx->mods & ~shift_mask & seat->kbd.bind_significant) != 0)
+            modify_other_keys2_in_effect = true;
+
+        else {
+            const xkb_layout_index_t layout_idx = xkb_state_key_get_layout(
+                seat->kbd.xkb_state, ctx->key);
+
+            /*
+             * Get pressed key’s base symbol.
+             *   - for ‘A’ (shift-a), that’s ‘a’
+             *   - for ‘;’ (shift-,), that’s ‘,’
+             */
+            const xkb_keysym_t *base_syms = NULL;
+            size_t base_count = xkb_keymap_key_get_syms_by_level(
+                seat->kbd.xkb_keymap, ctx->key, layout_idx, 0, &base_syms);
+
+            /* Check if base symbol(s) is a-z. If so, emit CSI */
+            const xkb_keysym_t lower_cased_sym = xkb_keysym_to_lower(ctx->sym);
+            for (size_t i = 0; i < base_count; i++) {
+                const xkb_keysym_t s = base_syms[i];
+                if (lower_cased_sym == s && s >= XKB_KEY_a && s <= XKB_KEY_z) {
+                    modify_other_keys2_in_effect = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (keymap_mods != MOD_NONE && (modify_other_keys2_in_effect ||
+                                    (ctrl_is_in_effect && !ctrl_seq)))
     {
         static const int mod_param_map[32] = {
             [MOD_SHIFT] = 2,
@@ -1145,65 +1006,552 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
             [MOD_META | MOD_SHIFT | MOD_ALT | MOD_CTRL] = 16,
         };
 
-        xassert(keymap_mods < sizeof(mod_param_map) / sizeof(mod_param_map[0]));
+        xassert(keymap_mods < ALEN(mod_param_map));
         int modify_param = mod_param_map[keymap_mods];
         xassert(modify_param != 0);
 
-        char reply[1024];
+        char reply[32];
         size_t n = xsnprintf(reply, sizeof(reply), "\x1b[27;%d;%d~", modify_param, sym);
         term_to_slave(term, reply, n);
     }
 
-    else {
-        if (mods & alt) {
-            /*
-             * When the alt modifier is pressed, we do one out of three things:
-             *
-             *  1. we prefix the output bytes with ESC
-             *  2. we set the 8:th bit in the output byte
-             *  3. we ignore the alt modifier
-             *
-             * #1 is configured with \E[?1036, and is on by default
-             *
-             * If #1 has been disabled, we use #2, *if* it's a single
-             * byte we're emitting. Since this is an UTF-8 terminal,
-             * we then UTF8-encode the 8-bit character. #2 is
-             * configured with \E[?1034, and is on by default.
-             *
-             * Lastly, if both #1 and #2 have been disabled, the alt
-             * modifier is ignored.
-             */
-            if (term->meta.esc_prefix) {
-                term_to_slave(term, "\x1b", 1);
-                term_to_slave(term, utf8, count);
-            }
-
-            else if (term->meta.eight_bit && count == 1) {
-                const wchar_t wc = 0x80 | utf8[0];
-
-                char utf8[8];
-                mbstate_t ps = {0};
-                size_t chars = wcrtomb(utf8, wc, &ps);
-
-                if (chars != (size_t)-1)
-                    term_to_slave(term, utf8, chars);
-                else
-                    term_to_slave(term, utf8, count);
-            }
-
-            else {
-                /* Alt ignored */
-                term_to_slave(term, utf8, count);
-            }
-        } else
+    else if (keymap_mods & MOD_ALT) {
+        /*
+         * When the alt modifier is pressed, we do one out of three things:
+         *
+         *  1. we prefix the output bytes with ESC
+         *  2. we set the 8:th bit in the output byte
+         *  3. we ignore the alt modifier
+         *
+         * #1 is configured with \E[?1036, and is on by default
+         *
+         * If #1 has been disabled, we use #2, *if* it's a single byte
+         * we're emitting. Since this is a UTF-8 terminal, we then
+         * UTF8-encode the 8-bit character. #2 is configured with
+         * \E[?1034, and is on by default.
+         *
+         * Lastly, if both #1 and #2 have been disabled, the alt
+         * modifier is ignored.
+         */
+        if (term->meta.esc_prefix) {
+            term_to_slave(term, "\x1b", 1);
             term_to_slave(term, utf8, count);
+        }
+
+        else if (term->meta.eight_bit && count == 1) {
+            const char32_t wc = 0x80 | utf8[0];
+
+            char utf8_meta[MB_CUR_MAX];
+            size_t chars = c32rtomb(utf8_meta, wc, &(mbstate_t){0});
+
+            if (chars != (size_t)-1)
+                term_to_slave(term, utf8_meta, chars);
+            else
+                term_to_slave(term, utf8, count);
+        }
+
+        else {
+            /* Alt ignored */
+            term_to_slave(term, utf8, count);
+        }
+    } else
+        term_to_slave(term, utf8, count);
+
+    return true;
+}
+
+UNITTEST
+{
+    /* Verify the kitty keymap is sorted */
+    xkb_keysym_t last = 0;
+    for (size_t i = 0; i < ALEN(kitty_keymap); i++) {
+        const struct kitty_key_data *e = &kitty_keymap[i];
+        xassert(e->sym > last);
+        last = e->sym;
     }
+}
+
+static int
+kitty_search(const void *_key, const void *_e)
+{
+    const xkb_keysym_t *key = _key;
+    const struct kitty_key_data *e = _e;
+    return *key - e->sym;
+}
+
+static bool
+kitty_kbd_protocol(struct seat *seat, struct terminal *term,
+                   const struct kbd_ctx *ctx)
+{
+    const bool repeating = seat->kbd.repeat.dont_re_repeat;
+    const bool pressed = ctx->key_state == WL_KEYBOARD_KEY_STATE_PRESSED && !repeating;
+    const bool released = ctx->key_state == WL_KEYBOARD_KEY_STATE_RELEASED;
+    const bool composing = ctx->compose_status == XKB_COMPOSE_COMPOSING;
+    const bool composed = ctx->compose_status == XKB_COMPOSE_COMPOSED;
+
+    const enum kitty_kbd_flags flags =
+        term->grid->kitty_kbd.flags[term->grid->kitty_kbd.idx];
+
+    const bool disambiguate = flags & KITTY_KBD_DISAMBIGUATE;
+    const bool report_events = flags & KITTY_KBD_REPORT_EVENT;
+    const bool report_alternate = flags & KITTY_KBD_REPORT_ALTERNATE;
+    const bool report_all_as_escapes = flags & KITTY_KBD_REPORT_ALL;
+
+    if (!report_events && released)
+        return false;
+
+    if (composed && released)
+        return false;
+
+    /* TODO: should we even bother with this, or just say it’s not supported? */
+    if (!disambiguate && !report_all_as_escapes && pressed)
+        return legacy_kbd_protocol(seat, term, ctx);
+
+    const xkb_mod_mask_t mods = ctx->mods & seat->kbd.kitty_significant;
+    const xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods2(
+        seat->kbd.xkb_state, ctx->key, XKB_CONSUMED_MODE_GTK) & seat->kbd.kitty_significant;
+    const xkb_mod_mask_t effective = mods & ~consumed;
+    const xkb_mod_mask_t caps_num =
+        (seat->kbd.mod_caps != XKB_MOD_INVALID ? 1 << seat->kbd.mod_caps : 0) |
+        (seat->kbd.mod_num != XKB_MOD_INVALID ? 1 << seat->kbd.mod_num : 0);
+
+    const xkb_keysym_t sym = ctx->sym;
+    const uint32_t utf32 = ctx->utf32;
+    const uint8_t *const utf8 = ctx->utf8.buf;
+
+    const bool is_text = iswprint(utf32) && (effective & ~caps_num) == 0;
+    const size_t count = ctx->utf8.count;
+
+    const bool report_associated_text =
+        (flags & KITTY_KBD_REPORT_ASSOCIATED) && is_text && !released;
+
+    /* Lookup sym in the pre-defined keysym table */
+    const struct kitty_key_data *info = bsearch(
+        &sym, kitty_keymap, ALEN(kitty_keymap), sizeof(kitty_keymap[0]),
+        &kitty_search);
+    xassert(info == NULL || info->sym == sym);
+
+    if (composing) {
+        /* We never emit anything while composing, *except* modifiers
+         * (and only in report-all-keys-as-escape-codes mode) */
+        if (info != NULL && info->is_modifier)
+            goto emit_escapes;
+
+        return false;
+    }
+
+    if (report_all_as_escapes)
+        goto emit_escapes;
+
+    if (effective == 0) {
+        switch (sym) {
+        case XKB_KEY_Return:    term_to_slave(term, "\r", 1); return  true;
+        case XKB_KEY_BackSpace: term_to_slave(term, "\x7f", 1); return true;
+        case XKB_KEY_Tab:       term_to_slave(term, "\t", 1); return true;
+        }
+    }
+
+    /* Plain-text without modifiers, or commposed text, is emitted as-is */
+    if (is_text && !released) {
+        term_to_slave(term, utf8, count);
+        return true;
+    }
+
+emit_escapes:
+    ;
+    unsigned int encoded_mods = 0;
+    if (seat->kbd.mod_shift != XKB_MOD_INVALID)
+        encoded_mods |= mods & (1 << seat->kbd.mod_shift) ? (1 << 0) : 0;
+    if (seat->kbd.mod_alt != XKB_MOD_INVALID)
+        encoded_mods |= mods & (1 << seat->kbd.mod_alt)   ? (1 << 1) : 0;
+    if (seat->kbd.mod_ctrl != XKB_MOD_INVALID)
+        encoded_mods |= mods & (1 << seat->kbd.mod_ctrl)  ? (1 << 2) : 0;
+    if (seat->kbd.mod_super != XKB_MOD_INVALID)
+        encoded_mods |= mods & (1 << seat->kbd.mod_super)  ? (1 << 3) : 0;
+    if (seat->kbd.mod_caps != XKB_MOD_INVALID)
+        encoded_mods |= mods & (1 << seat->kbd.mod_caps)  ? (1 << 6) : 0;
+    if (seat->kbd.mod_num != XKB_MOD_INVALID)
+        encoded_mods |= mods & (1 << seat->kbd.mod_num)   ? (1 << 7) : 0;
+    encoded_mods++;
+
+    int key = -1, alternate = -1, base = -1;
+    char final;
+
+    if (info != NULL) {
+        if (!info->is_modifier || report_all_as_escapes) {
+            key = info->key;
+            final = info->final;
+        }
+    } else {
+        /*
+         * Use keysym (typically its Unicode codepoint value).
+         *
+         * If the keysym is shifted, use its unshifted codepoint
+         * instead. In other words, ctrl+a and ctrl+shift+a should
+         * both use the same value for ‘key’ (97 - i.a. ‘a’).
+         *
+         * However, don’t do this if a non-significant modifier was
+         * used to generate the symbol. This is needed since we cannot
+         * encode non-significant modifiers, and thus the “extra”
+         * modifier(s) would get lost.
+         *
+         * Example:
+         *
+         * the Swedish layout has ‘2’, QUOTATION MARK (“double
+         * quote”), ‘@’, and ‘²’ on the same key. ‘2’ is the base
+         * symbol.
+         *
+         * Shift+2 results in QUOTATION MARK
+         * AltGr+2 results in ‘@’
+         * AltGr+Shift+2 results in ‘²’
+         *
+         * The kitty kbd protocol can’t encode AltGr. So, if we
+         * always used the base symbol (‘2’), Alt+Shift+2 would
+         * result in the same escape sequence as
+         * AltGr+Alt+Shift+2.
+         *
+         * (yes, this matches what kitty does, as of 0.23.1)
+         */
+
+        /* Get the key’s shift level */
+        xkb_level_index_t lvl = xkb_state_key_get_level(
+            seat->kbd.xkb_state, ctx->key, ctx->layout);
+
+        /* And get all modifier combinations that, combined with
+         * the pressed key, results in the current shift level */
+        xkb_mod_mask_t masks[32];
+        size_t mask_count = xkb_keymap_key_get_mods_for_level(
+            seat->kbd.xkb_keymap, ctx->key, ctx->layout, lvl,
+            masks, ALEN(masks));
+
+        /* Check modifier combinations - if a combination has
+         * modifiers not in our set of ‘significant’ modifiers,
+         * use key sym as-is */
+        bool use_level0_sym = true;
+        for (size_t i = 0; i < mask_count; i++) {
+            if ((masks[i] & ~seat->kbd.kitty_significant) > 0) {
+                use_level0_sym = false;
+                break;
+            }
+        }
+
+        xkb_keysym_t sym_to_use = use_level0_sym && ctx->level0_syms.count > 0
+            ? ctx->level0_syms.syms[0]
+            : sym;
+
+        if (composed && is_text)
+            key = utf32;
+        else {
+            key = xkb_keysym_to_utf32(sym_to_use);
+            if (key == 0)
+                return false;
+
+            /* The *shifted* key. May be the same as the unshifted
+             * key - if so, this is filtered out below, when
+             * emitting the CSI */
+            alternate = xkb_keysym_to_utf32(sym);
+        }
+
+        /* Base layout key. I.e the symbol the pressed key produces in
+         * the base/default layout (layout idx 0) */
+        const xkb_keysym_t *base_syms;
+        int base_sym_count = xkb_keymap_key_get_syms_by_level(
+            seat->kbd.xkb_keymap, ctx->key, 0, 0, &base_syms);
+
+        if (base_sym_count > 0)
+            base = xkb_keysym_to_utf32(base_syms[0]);
+
+        final = 'u';
+    }
+
+    if (key < 0)
+        return false;
+
+    xassert(encoded_mods >= 1);
+
+    char event[4];
+    if (report_events /*&& !pressed*/) {
+        /* Note: this deviates slightly from Kitty, which omits the
+         * “:1” subparameter for key press events */
+        event[0] = ':';
+        event[1] = '0' + (pressed ? 1 : repeating ? 2 : 3);
+        event[2] = '\0';
+    } else
+        event[0] = '\0';
+
+    char buf[64], *p = buf;
+    size_t left = sizeof(buf);
+    size_t bytes;
+
+    if (final == 'u' || final == '~') {
+        bytes = snprintf(p, left, "\x1b[%u", key);
+        p += bytes; left -= bytes;
+
+        if (report_alternate) {
+            bool emit_alternate = alternate > 0 && alternate != key;
+            bool emit_base = base > 0 && base != key && base != alternate;
+
+            if (emit_alternate) {
+                bytes = snprintf(p, left, ":%u", alternate);
+                p += bytes; left -= bytes;
+            }
+
+            if (emit_base) {
+                bytes = snprintf(
+                    p, left, "%s:%u", !emit_alternate ? ":" : "", base);
+                p += bytes; left -= bytes;
+            }
+        }
+
+        bool emit_mods = encoded_mods > 1 || event[0] != '\0';
+
+        if (emit_mods) {
+            bytes = snprintf(p, left, ";%u%s", encoded_mods, event);
+            p += bytes; left -= bytes;
+        }
+
+        if (report_associated_text) {
+            bytes = snprintf(p, left, "%s;%u", !emit_mods ? ";" : "", utf32);
+            p += bytes; left -= bytes;
+        }
+
+        bytes = snprintf(p, left, "%c", final);
+        p += bytes; left -= bytes;
+    } else {
+        if (encoded_mods > 1 || event[0] != '\0') {
+            bytes = snprintf(p, left, "\x1b[1;%u%s%c", encoded_mods, event, final);
+            p += bytes; left -= bytes;
+        } else {
+            bytes = snprintf(p, left, "\x1b[%c", final);
+            p += bytes; left -= bytes;
+        }
+    }
+
+    return term_to_slave(term, buf, sizeof(buf) - left);
+}
+
+/* Copied from libxkbcommon (internal function) */
+static bool
+keysym_is_modifier(xkb_keysym_t keysym)
+{
+    return
+        (keysym >= XKB_KEY_Shift_L && keysym <= XKB_KEY_Hyper_R) ||
+        /* libX11 only goes up to XKB_KEY_ISO_Level5_Lock. */
+        (keysym >= XKB_KEY_ISO_Lock && keysym <= XKB_KEY_ISO_Last_Group_Lock) ||
+        keysym == XKB_KEY_Mode_switch ||
+        keysym == XKB_KEY_Num_Lock;
+}
+
+static void
+key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
+                  uint32_t key, uint32_t state)
+{
+    xassert(serial != 0);
+
+    seat->kbd.serial = serial;
+    if (seat->kbd.xkb == NULL ||
+        seat->kbd.xkb_keymap == NULL ||
+        seat->kbd.xkb_state == NULL)
+    {
+        return;
+    }
+
+    const bool pressed = state == WL_KEYBOARD_KEY_STATE_PRESSED;
+    //const bool repeated = pressed && seat->kbd.repeat.dont_re_repeat;
+    const bool released = state == WL_KEYBOARD_KEY_STATE_RELEASED;
+
+    if (released)
+        stop_repeater(seat, key);
+
+    bool should_repeat =
+        pressed && xkb_keymap_key_repeats(seat->kbd.xkb_keymap, key);
+
+    xkb_keysym_t sym = xkb_state_key_get_one_sym(seat->kbd.xkb_state, key);
+
+    if (pressed && term->conf->mouse.hide_when_typing && !keysym_is_modifier(sym)) {
+        seat->pointer.hidden = true;
+        term_xcursor_update_for_seat(term, seat);
+    }
+
+    enum xkb_compose_status compose_status = XKB_COMPOSE_NOTHING;
+
+    if (seat->kbd.xkb_compose_state != NULL) {
+        if (pressed)
+            xkb_compose_state_feed(seat->kbd.xkb_compose_state, sym);
+        compose_status = xkb_compose_state_get_status(
+            seat->kbd.xkb_compose_state);
+    }
+
+    const bool composed = compose_status == XKB_COMPOSE_COMPOSED;
+
+    xkb_mod_mask_t mods, consumed;
+    get_current_modifiers(seat, &mods, &consumed, key);
+
+    const xkb_mod_mask_t locked = get_locked_modifiers(seat);
+    const xkb_mod_mask_t bind_mods
+        = mods & seat->kbd.bind_significant & ~locked;
+    const xkb_mod_mask_t bind_consumed =
+        consumed & seat->kbd.bind_significant & ~locked;
+
+    xkb_layout_index_t layout_idx =
+        xkb_state_key_get_layout(seat->kbd.xkb_state, key);
+
+    const xkb_keysym_t *raw_syms = NULL;
+    size_t raw_count = xkb_keymap_key_get_syms_by_level(
+        seat->kbd.xkb_keymap, key, layout_idx, 0, &raw_syms);
+
+    const struct key_binding_set *bindings = key_binding_for(
+        seat->wayl->key_binding_manager, term, seat);
+    xassert(bindings != NULL);
+
+    if (pressed) {
+        if (term->is_searching) {
+            if (should_repeat)
+                start_repeater(seat, key);
+
+            search_input(
+                seat, term, bindings, key, sym, mods, consumed, locked,
+                raw_syms, raw_count, serial);
+            return;
+        }
+
+        else  if (urls_mode_is_active(term)) {
+            if (should_repeat)
+                start_repeater(seat, key);
+
+            urls_input(
+                seat, term, bindings, key, sym, mods, consumed, locked,
+                raw_syms, raw_count, serial);
+            return;
+        }
+    }
+
+#if 0
+    for (size_t i = 0; i < 32; i++) {
+        if (mods & (1 << i)) {
+            LOG_INFO("%s", xkb_keymap_mod_get_name(seat->kbd.xkb_keymap, i));
+        }
+    }
+#endif
+
+#if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
+    char sym_name[100];
+    xkb_keysym_get_name(sym, sym_name, sizeof(sym_name));
+
+    LOG_DBG("%s (%u/0x%x): seat=%s, term=%p, serial=%u, "
+            "mods=0x%08x, consumed=0x%08x, repeats=%d",
+            sym_name, sym, sym, seat->name, (void *)term, serial,
+            mods, consumed, should_repeat);
+#endif
+
+    /*
+     * User configurable bindings
+     */
+    if (pressed) {
+        tll_foreach(bindings->key, it) {
+            const struct key_binding *bind = &it->item;
+
+            /* Match translated symbol */
+            if (bind->k.sym == sym &&
+                bind->mods == (bind_mods & ~bind_consumed) &&
+                execute_binding(seat, term, bind, serial))
+            {
+                goto maybe_repeat;
+            }
+
+            if (bind->mods != bind_mods || bind_mods != (mods & ~locked))
+                continue;
+
+            /* Match untranslated symbols */
+            for (size_t i = 0; i < raw_count; i++) {
+                if (bind->k.sym == raw_syms[i] &&
+                    execute_binding(seat, term, bind, serial))
+                {
+                    goto maybe_repeat;
+                }
+            }
+
+            /* Match raw key code */
+            tll_foreach(bind->k.key_codes, code) {
+                if (code->item == key &&
+                    execute_binding(seat, term, bind, serial))
+                {
+                    goto maybe_repeat;
+                }
+            }
+        }
+    }
+
+    /*
+     * Keys generating escape sequences
+     */
+
+
+    /*
+     * Compose, and maybe emit "normal" character
+     */
+
+    xassert(seat->kbd.xkb_compose_state != NULL || !composed);
+
+    if (compose_status == XKB_COMPOSE_CANCELLED)
+        goto maybe_repeat;
+
+    int count = composed
+        ? xkb_compose_state_get_utf8(seat->kbd.xkb_compose_state, NULL, 0)
+        : xkb_state_key_get_utf8(seat->kbd.xkb_state, key, NULL, 0);
+
+    /* Buffer for translated key. Use a static buffer in most cases,
+     * and use a malloc:ed buffer when necessary */
+    uint8_t buf[32];
+    uint8_t *utf8 = count < sizeof(buf) ? buf : xmalloc(count + 1);
+    uint32_t utf32 = (uint32_t)-1;
+
+    if (composed) {
+        xkb_compose_state_get_utf8(
+            seat->kbd.xkb_compose_state, (char *)utf8, count + 1);
+
+        char32_t wc;
+        if (mbrtoc32(&wc, (const char *)utf8, count, &(mbstate_t){0}) == count)
+            utf32 = wc;
+    } else {
+        xkb_state_key_get_utf8(
+            seat->kbd.xkb_state, key, (char *)utf8, count + 1);
+        utf32 = xkb_state_key_get_utf32(seat->kbd.xkb_state, key);
+    }
+
+    struct kbd_ctx ctx = {
+        .layout = layout_idx,
+        .key = key,
+        .sym = sym,
+        .level0_syms = {
+            .syms = raw_syms,
+            .count = raw_count,
+        },
+        .mods = mods,
+        .consumed = consumed,
+        .utf8 = {
+            .buf = utf8,
+            .count = count,
+        },
+        .utf32 = utf32,
+        .compose_status = compose_status,
+        .key_state = state,
+    };
+
+    bool handled = term->grid->kitty_kbd.flags[term->grid->kitty_kbd.idx] != 0
+        ? kitty_kbd_protocol(seat, term, &ctx)
+        : legacy_kbd_protocol(seat, term, &ctx);
+
+    if (composed && released)
+        xkb_compose_state_reset(seat->kbd.xkb_compose_state);
 
     if (utf8 != buf)
         free(utf8);
 
-    term_reset_view(term);
-    selection_cancel(term);
+    if (handled) {
+        term_reset_view(term);
+        selection_cancel(term);
+    }
 
 maybe_repeat:
     clock_gettime(
@@ -1236,14 +1584,22 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
             seat->kbd.xkb_state, mods_depressed, mods_latched, mods_locked, 0, 0, group);
 
         /* Update state of modifiers we're interested in for e.g mouse events */
-        seat->kbd.shift = xkb_state_mod_index_is_active(
-            seat->kbd.xkb_state, seat->kbd.mod_shift, XKB_STATE_MODS_DEPRESSED);
-        seat->kbd.alt = xkb_state_mod_index_is_active(
-            seat->kbd.xkb_state, seat->kbd.mod_alt, XKB_STATE_MODS_DEPRESSED);
-        seat->kbd.ctrl = xkb_state_mod_index_is_active(
-            seat->kbd.xkb_state, seat->kbd.mod_ctrl, XKB_STATE_MODS_DEPRESSED);
-        seat->kbd.meta = xkb_state_mod_index_is_active(
-            seat->kbd.xkb_state, seat->kbd.mod_meta, XKB_STATE_MODS_DEPRESSED);
+        seat->kbd.shift = seat->kbd.mod_shift != XKB_MOD_INVALID
+            ? xkb_state_mod_index_is_active(
+                seat->kbd.xkb_state, seat->kbd.mod_shift, XKB_STATE_MODS_EFFECTIVE)
+            : false;
+        seat->kbd.alt = seat->kbd.mod_alt != XKB_MOD_INVALID
+            ? xkb_state_mod_index_is_active(
+                seat->kbd.xkb_state, seat->kbd.mod_alt, XKB_STATE_MODS_EFFECTIVE)
+            : false;
+        seat->kbd.ctrl = seat->kbd.mod_ctrl != XKB_MOD_INVALID
+            ? xkb_state_mod_index_is_active(
+                seat->kbd.xkb_state, seat->kbd.mod_ctrl, XKB_STATE_MODS_EFFECTIVE)
+            : false;
+        seat->kbd.super = seat->kbd.mod_super != XKB_MOD_INVALID
+            ? xkb_state_mod_index_is_active(
+                seat->kbd.xkb_state, seat->kbd.mod_super, XKB_STATE_MODS_EFFECTIVE)
+            : false;
     }
 
     if (seat->kbd_focus && seat->kbd_focus->active_surface == TERM_SURF_GRID)
@@ -1321,7 +1677,7 @@ is_bottom_right(const struct terminal *term, int x, int y)
          (term->active_surface == TERM_SURF_BORDER_BOTTOM && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale)));
 }
 
-static const char *
+const char *
 xcursor_for_csd_border(struct terminal *term, int x, int y)
 {
     if (is_top_left(term, x, y))                              return XCURSOR_TOP_LEFT_CORNER;
@@ -1344,6 +1700,7 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
                  wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
     xassert(surface != NULL);
+    xassert(serial != 0);
 
     if (surface == NULL)  {
         /* Seen on mutter-3.38 */
@@ -1354,21 +1711,28 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
     struct wl_window *win = wl_surface_get_user_data(surface);
     struct terminal *term = win->term;
 
-    seat->pointer.serial = serial;
-    seat->pointer.hidden = false;
-
-    LOG_DBG("pointer-enter: pointer=%p, serial=%u, surface = %p, new-moused = %p",
-            (void *)wl_pointer, serial, (void *)surface, (void *)term);
-
-    /* Scale may have changed */
-    wayl_reload_xcursor_theme(seat, term->scale);
-
-    seat->mouse_focus = term;
-
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
-    switch ((term->active_surface = term_surface_kind(term, surface))) {
+    seat->pointer.serial = serial;
+    seat->pointer.hidden = false;
+    seat->mouse.x = x;
+    seat->mouse.y = y;
+
+    LOG_DBG("pointer-enter: pointer=%p, serial=%u, surface = %p, new-moused = %p, "
+            "x=%d, y=%d",
+            (void *)wl_pointer, serial, (void *)surface, (void *)term,
+            x, y);
+
+    xassert(tll_length(seat->mouse.buttons) == 0);
+
+    seat->mouse_focus = term;
+    term->active_surface = term_surface_kind(term, surface);
+
+    wayl_reload_xcursor_theme(seat, term->scale); /* Scale may have changed */
+    term_xcursor_update_for_seat(term, seat);
+
+    switch (term->active_surface) {
     case TERM_SURF_GRID: {
         /*
          * Translate x,y pixel coordinate to a cell coordinate, or -1
@@ -1386,29 +1750,19 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
         else
             seat->mouse.row = (y - term->margins.top) / term->cell_height;
 
-        term_xcursor_update_for_seat(term, seat);
         break;
     }
 
-    case TERM_SURF_SEARCH:
-    case TERM_SURF_SCROLLBACK_INDICATOR:
-    case TERM_SURF_RENDER_TIMER:
-    case TERM_SURF_JUMP_LABEL:
     case TERM_SURF_TITLE:
-        render_xcursor_set(seat, term, XCURSOR_LEFT_PTR);
-        break;
-
     case TERM_SURF_BORDER_LEFT:
     case TERM_SURF_BORDER_RIGHT:
     case TERM_SURF_BORDER_TOP:
     case TERM_SURF_BORDER_BOTTOM:
-        render_xcursor_set(seat, term, xcursor_for_csd_border(term, x, y));
         break;
 
     case TERM_SURF_BUTTON_MINIMIZE:
     case TERM_SURF_BUTTON_MAXIMIZE:
     case TERM_SURF_BUTTON_CLOSE:
-        render_xcursor_set(seat, term, XCURSOR_LEFT_PTR);
         render_refresh_csd(term);
         break;
 
@@ -1437,8 +1791,10 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         wl_callback_destroy(seat->pointer.xcursor_callback);
         seat->pointer.xcursor_callback = NULL;
         seat->pointer.xcursor_pending = false;
-        seat->pointer.xcursor = NULL;
     }
+
+    /* Reset last-set-xcursor, to ensure we update it on a pointer-enter event */
+    seat->pointer.xcursor = NULL;
 
     /* Reset mouse state */
     seat->mouse.x = seat->mouse.y = 0;
@@ -1447,7 +1803,8 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     seat->mouse.count = 0;
     seat->mouse.last_released_button = 0;
     memset(&seat->mouse.last_time, 0, sizeof(seat->mouse.last_time));
-    seat->mouse.axis_aggregated = 0.0;
+    for (size_t i = 0; i < ALEN(seat->mouse.aggregated); i++)
+        seat->mouse.aggregated[i] = 0.0;
     seat->mouse.have_discrete = false;
 
     seat->mouse_focus = NULL;
@@ -1465,24 +1822,22 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
         enum term_surface active_surface = old_moused->active_surface;
 
         old_moused->active_surface = TERM_SURF_NONE;
-        term_xcursor_update_for_seat(old_moused, seat);
 
         switch (active_surface) {
         case TERM_SURF_BUTTON_MINIMIZE:
         case TERM_SURF_BUTTON_MAXIMIZE:
         case TERM_SURF_BUTTON_CLOSE:
-            if (old_moused->is_shutting_down)
+            if (old_moused->shutdown.in_progress)
                 break;
 
             render_refresh_csd(old_moused);
             break;
 
-        case TERM_SURF_NONE:
         case TERM_SURF_GRID:
-        case TERM_SURF_SEARCH:
-        case TERM_SURF_SCROLLBACK_INDICATOR:
-        case TERM_SURF_RENDER_TIMER:
-        case TERM_SURF_JUMP_LABEL:
+            selection_finalize(seat, old_moused, seat->pointer.serial);
+            break;
+
+        case TERM_SURF_NONE:
         case TERM_SURF_TITLE:
         case TERM_SURF_BORDER_LEFT:
         case TERM_SURF_BORDER_RIGHT:
@@ -1515,6 +1870,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     seat->mouse.x = x;
     seat->mouse.y = y;
 
+    term_xcursor_update_for_seat(term, seat);
+
     enum term_surface surf_kind = term->active_surface;
     int button = 0;
     bool send_to_client = false;
@@ -1528,10 +1885,6 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 
     switch (surf_kind) {
     case TERM_SURF_NONE:
-    case TERM_SURF_SEARCH:
-    case TERM_SURF_SCROLLBACK_INDICATOR:
-    case TERM_SURF_RENDER_TIMER:
-    case TERM_SURF_JUMP_LABEL:
     case TERM_SURF_BUTTON_MINIMIZE:
     case TERM_SURF_BUTTON_MAXIMIZE:
     case TERM_SURF_BUTTON_CLOSE:
@@ -1552,7 +1905,6 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     case TERM_SURF_BORDER_RIGHT:
     case TERM_SURF_BORDER_TOP:
     case TERM_SURF_BORDER_BOTTOM:
-        render_xcursor_set(seat, term, xcursor_for_csd_border(term, x, y));
         break;
 
     case TERM_SURF_GRID: {
@@ -1603,11 +1955,16 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         xassert(seat->mouse.col == -1 || (seat->mouse.col >= 0 && seat->mouse.col < term->cols));
         xassert(seat->mouse.row == -1 || (seat->mouse.row >= 0 && seat->mouse.row < term->rows));
 
-        term_xcursor_update_for_seat(term, seat);
-
         /* Cursor has moved to a different cell since last time */
         bool cursor_is_on_new_cell
             = old_col != seat->mouse.col || old_row != seat->mouse.row;
+
+        if (cursor_is_on_new_cell) {
+            /* Prevent multiple/different mouse bindings from
+             * triggering if the mouse has moved “too much” (to
+             * another cell) */
+            seat->mouse.count = 0;
+        }
 
         /* Cursor is inside the grid, i.e. *not* in the margins */
         const bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
@@ -1650,8 +2007,9 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
                     auto_scroll_direction, selection_col);
             }
 
-            if (term->selection.ongoing && (cursor_is_on_new_cell ||
-                                            term->selection.end.row < 0))
+            if (term->selection.ongoing && (
+                    cursor_is_on_new_cell ||
+                    term->selection.coords.end.row < 0))
             {
                 selection_update(term, selection_col, selection_row);
             }
@@ -1659,7 +2017,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 
         /* Send mouse event to client application */
         if (!term_mouse_grabbed(term, seat) &&
-            cursor_is_on_new_cell &&
+            (cursor_is_on_new_cell ||
+                term->mouse_reporting == MOUSE_SGR_PIXELS) &&
             ((button == 0 && cursor_is_on_grid) ||
              (button != 0 && send_to_client)))
         {
@@ -1669,6 +2028,8 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
             term_mouse_motion(
                 term, button,
                 seat->mouse.row, seat->mouse.col,
+                seat->mouse.y - term->margins.top,
+                seat->mouse.x - term->margins.left,
                 seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
         }
         break;
@@ -1703,10 +2064,13 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     LOG_DBG("BUTTON: pointer=%p, serial=%u, button=%x, state=%u",
             (void *)wl_pointer, serial, button, state);
 
+    xassert(serial != 0);
+
     struct seat *seat = data;
     struct wayland *wayl = seat->wayl;
     struct terminal *term = seat->mouse_focus;
 
+    seat->pointer.serial = serial;
     seat->pointer.hidden = false;
 
     xassert(term != NULL);
@@ -1716,16 +2080,72 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
 
     if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
         /* Time since last click */
-        struct timeval now, since_last;
-        gettimeofday(&now, NULL);
-        timersub(&now, &seat->mouse.last_time, &since_last);
+        struct timespec now, since_last;
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        timespec_sub(&now, &seat->mouse.last_time, &since_last);
 
         if (seat->mouse.last_released_button == button &&
-            since_last.tv_sec == 0 && since_last.tv_usec <= 300 * 1000)
+            since_last.tv_sec == 0 && since_last.tv_nsec <= 300 * 1000 * 1000)
         {
             seat->mouse.count++;
         } else
             seat->mouse.count = 1;
+
+        /*
+         * Workaround GNOME bug
+         *
+         * Dragging the window, then stopping the drag (releasing the
+         * mouse button), *without* moving the mouse, and then
+         * clicking twice, waiting for the CSD timer, and finally
+         * clicking once more, results in the following sequence
+         * (keyboard and other irrelevant events filtered out, unless
+         * they’re needed to prove a point):
+         *
+         * dbg: input.c:1551: cancelling drag timer, moving window
+         * dbg: input.c:759: keyboard_leave: keyboard=0x607000003580, serial=873, surface=0x6070000036d0
+         * dbg: input.c:1432: seat0: pointer-leave: pointer=0x607000003660, serial=874, surface = 0x6070000396e0, old-moused = 0x622000006100
+         *
+         * --> drag stopped here
+         *
+         * --> LMB clicked first time after the drag (generates the
+         *     enter event on *release*, but no button events)
+         * dbg: input.c:1360: pointer-enter: pointer=0x607000003660, serial=876, surface = 0x6070000396e0, new-moused = 0x622000006100
+         *
+         * --> LMB clicked, and held until the timer times out, second
+         *     time after the drag
+         * dbg: input.c:1712: BUTTON: pointer=0x607000003660, serial=877, button=110, state=1
+         * dbg: input.c:1806: starting move timer
+         * dbg: input.c:1692: move timer timed out
+         * dbg: input.c:759: keyboard_leave: keyboard=0x607000003580, serial=878, surface=0x6070000036d0
+         *
+         * --> NOTE: ^^ no pointer leave event this time, only the
+         *     keyboard leave
+         *
+         * --> LMB clicked one last time
+         * dbg: input.c:697: seat0: keyboard_enter: keyboard=0x607000003580, serial=879, surface=0x6070000036d0
+         * dbg: input.c:1712: BUTTON: pointer=0x607000003660, serial=880, button=110, state=1
+         * err: input.c:1741: BUG in wl_pointer_button(): assertion failed: 'it->item.button != button'
+         *
+         * What are we seeing?
+         *
+         * - GNOME does *not* send a pointer *enter* event after the drag
+         *   has stopped
+         * - The second drag does *not* generate a pointer *leave* event
+         * - The missing leave event means we’re still tracking LMB as
+         *   being held down in our seat struct.
+         * - This leads to an assert (debug builds) when LMB is clicked
+         *   again (seat’s button list already contains LMB).
+         *
+         * Note: I’ve also observed variants of the above
+         */
+        tll_foreach(seat->mouse.buttons, it) {
+            if (it->item.button == button) {
+                LOG_WARN("multiple button press events for button %d "
+                         "(compositor bug?)", button);
+                tll_remove(seat->mouse.buttons, it);
+                break;
+            }
+        }
 
 #if defined(_DEBUG)
         tll_foreach(seat->mouse.buttons, it)
@@ -1770,7 +2190,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
              *  4. Release mouse button
              *  5. BAM!
              */
-            LOG_WARN("stray button release event");
+            LOG_WARN("stray button release event (compositor bug?)");
             return;
         }
 
@@ -1808,6 +2228,15 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                     if (fd >= 0)
                         close(fd);
                 }
+            }
+
+            if (button == BTN_RIGHT && tll_length(seat->mouse.buttons) == 1) {
+                const struct csd_data info = get_csd_data(term, CSD_SURF_TITLE);
+                xdg_toplevel_show_window_menu(
+                    win->xdg_toplevel,
+                    seat->wl_seat,
+                    seat->pointer.serial,
+                    seat->mouse.x + info.x, seat->mouse.y + info.y);
             }
         }
 
@@ -1873,12 +2302,6 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             term_shutdown(term);
         break;
 
-    case TERM_SURF_SEARCH:
-    case TERM_SURF_SCROLLBACK_INDICATOR:
-    case TERM_SURF_RENDER_TIMER:
-    case TERM_SURF_JUMP_LABEL:
-        break;
-
     case TERM_SURF_GRID: {
         search_cancel(term);
         urls_reset(term);
@@ -1893,20 +2316,24 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                 if (seat->wl_keyboard != NULL && seat->kbd.xkb_state != NULL) {
                     /* Seat has keyboard - use mouse bindings *with* modifiers */
 
-                    xkb_mod_mask_t mods = xkb_state_serialize_mods(
-                        seat->kbd.xkb_state, XKB_STATE_MODS_DEPRESSED);
+                    const struct key_binding_set *bindings = key_binding_for(
+                        wayl->key_binding_manager, term, seat);
+                    xassert(bindings != NULL);
 
-                    /* Ignore Shift when matching modifiers, since it is
-                     * used to enable selection in mouse grabbing client
-                     * applications */
-                    mods &= ~(1 << seat->kbd.mod_shift);
+                    xkb_mod_mask_t mods;
+                    get_current_modifiers(seat, &mods, NULL, 0);
+                    mods &= seat->kbd.bind_significant;
 
-                    const struct mouse_binding *match = NULL;
+                    /* Ignore selection override modifiers when
+                     * matching modifiers */
+                    mods &= ~bindings->selection_overrides;
 
-                    tll_foreach(seat->mouse.bindings, it) {
-                        const struct mouse_binding *binding = &it->item;
+                    const struct key_binding *match = NULL;
 
-                        if (binding->button != button) {
+                    tll_foreach(bindings->mouse, it) {
+                        const struct key_binding *binding = &it->item;
+
+                        if (binding->m.button != button) {
                             /* Wrong button */
                             continue;
                         }
@@ -1916,36 +2343,34 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                             continue;
                         }
 
-                        if  (binding->count > seat->mouse.count) {
+                        if  (binding->m.count > seat->mouse.count) {
                             /* Not correct click count */
                             continue;
                         }
 
-                        if (match == NULL || binding->count > match->count)
+                        if (match == NULL || binding->m.count > match->m.count)
                             match = binding;
                     }
 
-                    if (match != NULL) {
-                        consumed = execute_binding(
-                            seat, term, match->action, match->pipe_argv, serial);
-                    }
+                    if (match != NULL)
+                        consumed = execute_binding(seat, term, match, serial);
                 }
 
                 else {
                     /* Seat does NOT have a keyboard - use mouse bindings *without* modifiers */
-                    const struct config_mouse_binding *match = NULL;
-                    const struct config *conf = seat->wayl->conf;
+                    const struct config_key_binding *match = NULL;
+                    const struct config *conf = term->conf;
 
                     for (size_t i = 0; i < conf->bindings.mouse.count; i++) {
-                        const struct config_mouse_binding *binding =
+                        const struct config_key_binding *binding =
                             &conf->bindings.mouse.arr[i];
 
-                        if (binding->button != button) {
+                        if (binding->m.button != button) {
                             /* Wrong button */
                             continue;
                         }
 
-                        if (binding->count > seat->mouse.count) {
+                        if (binding->m.count > seat->mouse.count) {
                             /* Incorrect click count */
                             continue;
                         }
@@ -1956,14 +2381,16 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                             continue;
                         }
 
-                        if (match == NULL || binding->count > match->count)
+                        if (match == NULL || binding->m.count > match->m.count)
                             match = binding;
                     }
 
                     if (match != NULL) {
-                        consumed = execute_binding(
-                            seat, term, match->action, match->pipe.argv.args,
-                            serial);
+                        struct key_binding bind = {
+                            .action = match->action,
+                            .aux = &match->aux,
+                        };
+                        consumed = execute_binding(seat, term, &bind, serial);
                     }
                 }
             }
@@ -1979,6 +2406,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             {
                 term_mouse_down(
                     term, button, seat->mouse.row, seat->mouse.col,
+                    seat->mouse.y - term->margins.top,
+                    seat->mouse.x - term->margins.left,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
             }
             break;
@@ -1990,6 +2419,8 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             if (send_to_client && !term_mouse_grabbed(term, seat)) {
                 term_mouse_up(
                     term, button, seat->mouse.row, seat->mouse.col,
+                    seat->mouse.y - term->margins.top,
+                    seat->mouse.x - term->margins.left,
                     seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
             }
             break;
@@ -2014,6 +2445,8 @@ alternate_scroll(struct seat *seat, int amount, int button)
     xassert(seat->mouse_focus != NULL);
     struct terminal *term = seat->mouse_focus;
 
+    assert(button == BTN_BACK || button == BTN_FORWARD);
+
     xkb_keycode_t key = button == BTN_BACK
         ? seat->kbd.key_arrow_up : seat->kbd.key_arrow_down;
 
@@ -2023,55 +2456,81 @@ alternate_scroll(struct seat *seat, int amount, int button)
 }
 
 static void
-mouse_scroll(struct seat *seat, int amount)
+mouse_scroll(struct seat *seat, int amount, enum wl_pointer_axis axis)
 {
     struct terminal *term = seat->mouse_focus;
     xassert(term != NULL);
 
-    int button = amount < 0 ? BTN_BACK : BTN_FORWARD;
+    int button = axis == WL_POINTER_AXIS_VERTICAL_SCROLL
+        ? amount < 0 ? BTN_BACK : BTN_FORWARD
+        : amount < 0 ? BTN_WHEEL_LEFT : BTN_WHEEL_RIGHT;
     amount = abs(amount);
 
-    if (term->mouse_tracking == MOUSE_NONE) {
+    if (term_mouse_grabbed(term, seat)) {
         if (term->grid == &term->alt) {
-            if (term->alt_scrolling)
-                alternate_scroll(seat, amount, button);
+            if (term->alt_scrolling) {
+                switch (button) {
+                case BTN_BACK:
+                case BTN_FORWARD:
+                    alternate_scroll(seat, amount, button);
+                    break;
+                }
+            }
         } else {
-            if (button == BTN_BACK)
+            switch (button) {
+            case BTN_BACK:
                 cmd_scrollback_up(term, amount);
-            else
+                break;
+
+            case BTN_FORWARD:
                 cmd_scrollback_down(term, amount);
+                break;
+            }
         }
-    } else if (!term_mouse_grabbed(term, seat) &&
-               seat->mouse.col >= 0 && seat->mouse.row >= 0)
-    {
+    }
+
+    else if (seat->mouse.col >= 0 && seat->mouse.row >= 0) {
         xassert(seat->mouse.col < term->cols);
         xassert(seat->mouse.row < term->rows);
 
         for (int i = 0; i < amount; i++) {
             term_mouse_down(
                 term, button, seat->mouse.row, seat->mouse.col,
+                seat->mouse.y - term->margins.top,
+                seat->mouse.x - term->margins.left,
                 seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
         }
 
         term_mouse_up(
             term, button, seat->mouse.row, seat->mouse.col,
+            seat->mouse.y - term->margins.top,
+            seat->mouse.x - term->margins.left,
             seat->kbd.shift, seat->kbd.alt, seat->kbd.ctrl);
     }
+}
+
+static float
+mouse_scroll_multiplier(const struct terminal *term, const struct seat *seat)
+{
+    return (term->grid == &term->normal ||
+            (term_mouse_grabbed(term, seat) && term->alt_scrolling))
+        ? term->conf->scrollback.multiplier
+        : 1.0;
 }
 
 static void
 wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
                 uint32_t time, uint32_t axis, wl_fixed_t value)
 {
-    if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
-        return;
-
     struct seat *seat = data;
 
     if (seat->mouse.have_discrete)
         return;
 
     xassert(seat->mouse_focus != NULL);
+    xassert(axis < ALEN(seat->mouse.aggregated));
+
+    const struct terminal *term = seat->mouse_focus;
 
     /*
      * Aggregate scrolled amount until we get at least 1.0
@@ -2079,27 +2538,31 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
      * Without this, very slow scrolling will never actually scroll
      * anything.
      */
-    seat->mouse.axis_aggregated
-        += seat->wayl->conf->scrollback.multiplier * wl_fixed_to_double(value);
-
-    if (fabs(seat->mouse.axis_aggregated) < seat->mouse_focus->cell_height)
+    seat->mouse.aggregated[axis] +=
+        mouse_scroll_multiplier(term, seat) * wl_fixed_to_double(value);
+    if (fabs(seat->mouse.aggregated[axis]) < seat->mouse_focus->cell_height)
         return;
 
-    int lines = seat->mouse.axis_aggregated / seat->mouse_focus->cell_height;
-    mouse_scroll(seat, lines);
-    seat->mouse.axis_aggregated -= (double)lines * seat->mouse_focus->cell_height;
+    int lines = seat->mouse.aggregated[axis] / seat->mouse_focus->cell_height;
+    mouse_scroll(seat, lines, axis);
+    seat->mouse.aggregated[axis] -= (double)lines * seat->mouse_focus->cell_height;
 }
 
 static void
 wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
                          uint32_t axis, int32_t discrete)
 {
-    if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
-        return;
-
     struct seat *seat = data;
     seat->mouse.have_discrete = true;
-    mouse_scroll(seat, seat->wayl->conf->scrollback.multiplier * discrete);
+
+    int amount = discrete;
+
+    if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
+        /* Treat mouse wheel left/right as regular buttons */
+    } else
+        amount *= mouse_scroll_multiplier(seat->mouse_focus, seat);
+
+    mouse_scroll(seat, amount, axis);
 }
 
 static void
@@ -2119,11 +2582,10 @@ static void
 wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
                      uint32_t time, uint32_t axis)
 {
-    if (axis != WL_POINTER_AXIS_VERTICAL_SCROLL)
-        return;
-
     struct seat *seat = data;
-    seat->mouse.axis_aggregated = 0.;
+
+    xassert(axis < ALEN(seat->mouse.aggregated));
+    seat->mouse.aggregated[axis] = 0.;
 }
 
 const struct wl_pointer_listener pointer_listener = {

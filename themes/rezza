@@ -1,0 +1,37 @@
+# theme: rezza
+# author: Doug Whiteley (rezza)
+# original URL: http://metawire.org/~rezza/index.php
+# currently available via: https://web.archive.org/web/20060207133656/http://metawire.org/~rezza/index.php?page=Configs
+# this palette was also posted here:
+# https://bbs.archlinux.org/viewtopic.php?id=17322
+#
+# more description:
+# original colors are similar to `phrakture` (https://github.com/f4cket/everycolorschemeivefound/blob/master/phrakture)
+# Note: there is also a slightly modified (earlier?) version (also called rezza) which can be found here:
+# https://sheet.shiar.nl/source/data/termcol-xcolor.inc.pl
+# and also posted here:
+# https://forums.debian.net/viewtopic.php?t=29981
+
+[colors]
+foreground = cccccc
+background = 191911
+
+# Normal colors
+regular0 = 222222
+regular1 = 803232
+regular2 = 5b762f
+regular3 = aa9943
+regular4 = 324c80
+regular5 = 706c9a
+regular6 = 92b19e
+regular7 = ffffff
+
+# Bright colors
+bright0 = 222222
+bright1 = 982b2b
+bright2 = 89b83f
+bright3 = efef60
+bright4 = 2b4f98
+bright5 = 826ab1
+bright6 = a1cdcd
+bright7 = dedede

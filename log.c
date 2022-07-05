@@ -40,7 +40,7 @@ log_init(enum log_colorize _colorize, bool _do_syslog,
         [LOG_FACILITY_DAEMON] = LOG_DAEMON,
     };
 
-    colorize = _colorize == LOG_COLORIZE_NEVER ? false : _colorize == LOG_COLORIZE_ALWAYS ? true : isatty(STDERR_FILENO);
+    colorize = _colorize == LOG_COLORIZE_ALWAYS || (_colorize == LOG_COLORIZE_AUTO && isatty(STDERR_FILENO));
     do_syslog = _do_syslog;
     log_level = _log_level;
 

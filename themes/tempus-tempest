@@ -1,0 +1,28 @@
+# theme: Tempus Tempest
+# author: Protesilaos Stavrou (https://protesilaos.com)
+# description: A green-scale, subtle theme for late night hackers (WCAG AAA compliant)
+
+#[cursor]
+#color = 282b2b b6e0ca
+
+[colors]
+foreground = b6e0ca
+background = 282b2b
+regular0 = 282b2b
+regular1 = cfc80a
+regular2 = 7ad97a
+regular3 = bfcc4a
+regular4 = 60d7cd
+regular5 = c5c4af
+regular6 = 8bd0bf
+regular7 = b0c8ca
+bright0 = 323535
+bright1 = d1d933
+bright2 = 99e299
+bright3 = bbde4f
+bright4 = 74e4cd
+bright5 = d2d4aa
+bright6 = 9bdfc4
+bright7 = b6e0ca
+#selection-foreground = b0c8ca
+#selection-background = 323535

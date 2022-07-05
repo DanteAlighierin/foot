@@ -1,0 +1,28 @@
+# JetBrains Darcula
+# Palette based on the same theme from https://github.com/dexpota/kitty-themes
+
+[cursor]
+color=202020 ffffff
+
+[colors]
+#alpha=0.80
+background=202020
+foreground=adadad
+regular0=000000  # black
+regular1=fa5355  # red
+regular2=126e00  # green
+regular3=c2c300  # yellow
+regular4=4581eb  # blue
+regular5=fa54ff  # magenta
+regular6=33c2c1  # cyan
+regular7=adadad  # white
+bright0=545454   # bright black
+bright1=fb7172   # bright red
+bright2=67ff4f   # bright green
+bright3=ffff00   # bright yellow
+bright4=6d9df1   # bright blue
+bright5=fb82ff   # bright magenta
+bright6=60d3d1   # bright cyan
+bright7=eeeeee   # bright white
+selection-foreground=202020
+selection-background=1a3272

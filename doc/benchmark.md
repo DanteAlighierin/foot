@@ -8,7 +8,7 @@ All benchmarks are done using [vtebench](https://github.com/alacritty/vtebench):
 ./target/release/vtebench -b ./benchmarks --dat /tmp/<terminal>
 ```
 
-## 2021-06-25
+## 2022-05-12
 
 ### System
 
@@ -30,24 +30,21 @@ Scrollback: 10000 lines
 
 ### Results
 
-| Benchmark (times in ms)       | Foot (GCC+PGO) 1.8.0 | Foot 1.8.0 | Alacritty 0.8.0 | URxvt 9.26 | XTerm 368 |
-|-------------------------------|---------------------:|-----------:|----------------:|-----------:|----------:|
-| cursor motion                 |                12.93 |      15.37 |           26.47 |      23.41 |   1304.00 |
-| dense cells                   |                39.16 |      47.19 |           87.26 |    9110.00 |  10883.00 |
-| light cells                   |                 5.34 |       6.42 |           12.76 |      16.00 |     60.00 |
-| scrollling                    |               144.26 |     139.93 |          133.98 |     117.52 |   3772.67 |
-| scrolling bottom region       |               130.81 |     125.34 |          116.10 |     117.31 |   3574.67 |
-| scrolling bottom small region |               142.46 |     127.52 |          127.32 |     135.18 |   3572.67 |
-| scrolling fullscreen          |                 5.43 |       5.27 |           12.06 |      11.97 |    118.62 |
-| scrolling top region          |               129.05 |     120.24 |          121.65 |     341.70 |   3567.33 |
-| scrolling top small region    |               121.59 |     109.82 |          137.03 |     219.96 |   3558.67 |
-| unicode                       |                12.03 |      11.95 |           13.94 |     667.67 |   4905.67 |
+| Benchmark (times in ms)       | Foot (GCC+PGO) 1.12.1 | Foot 1.12.1 | Alacritty 0.10.1 | URxvt 9.26 | XTerm 372 |
+|-------------------------------|----------------------:|------------:|-----------------:|-----------:|----------:|
+| cursor motion                 |                 10.40 |       14.07 |            24.97 |      23.38 |   1622.86 |
+| dense cells                   |                 29.58 |       45.46 |            97.45 |   10828.00 |   2323.00 |
+| light cells                   |                  4.34 |        4.40 |            12.84 |      12.17 |     49.81 |
+| scrollling                    |                135.31 |      116.35 |           121.69 |     108.30 |   4041.33 |
+| scrolling bottom region       |                118.19 |      109.70 |           105.26 |     118.80 |   3875.00 |
+| scrolling bottom small region |                132.41 |      122.11 |           122.83 |     151.30 |   3839.67 |
+| scrolling fullscreen          |                  5.70 |        5.66 |            10.92 |      12.09 |    124.25 |
+| scrolling top region          |                144.19 |      121.78 |           135.81 |     159.24 |   3858.33 |
+| scrolling top small region    |                135.95 |      119.01 |           115.46 |     216.55 |   3872.67 |
+| unicode                       |                 11.56 |       10.92 |            15.94 |    1012.27 |   4779.33 |
 
 
-![Graph of benchmark results for a beefy desktop system](benchmark-results-desktop.svg)
-
-
-## 2021-03-20
+## 2022-05-12
 
 ### System
 
@@ -70,17 +67,15 @@ Scrollback=10000 lines
 ### Results
 
 
-| Benchmark (times in ms)       | Foot (GCC+PGO) 1.8.0 | Foot 1.8.0 | Alacritty 0.8.0 | URxvt 9.26 | XTerm 368 |
-|-------------------------------|---------------------:|-----------:|----------------:|-----------:|----------:|
-| cursor motion                 |                14.49 |      16.60 |           26.89 |      23.45 |   1303.38 |
-| dense cells                   |                41.00 |      52.45 |           92.02 |    1486.57 |  11957.00 |
-| light cells                   |                 7.97 |       8.54 |           21.43 |      20.45 |    111.96 |
-| scrollling                    |               158.85 |     158.90 |          148.06 |     138.98 |  10083.00 |
-| scrolling bottom region       |               153.83 |     151.38 |          142.13 |     151.30 |   9988.50 |
-| scrolling bottom small region |               143.51 |     141.46 |          162.03 |     192.37 |   9938.00 |
-| scrolling fullscreen          |                11.56 |      11.75 |           22.96 |      21.49 |    295.40 |
-| scrolling top region          |               148.96 |     148.18 |          155.05 |     482.05 |  10036.00 |
-| scrolling top small region    |               144.26 |     149.76 |          159.40 |     321.69 |   9942.50 |
-| unicode                       |                21.02 |      22.09 |           25.79 |   14959.00 |  88697.00 |
-
-![Graph of benchmark results for a laptop](benchmark-results-laptop.svg)
+| Benchmark (times in ms)       | Foot (GCC+PGO) 1.12.1 | Foot 1.12.1 | Alacritty 0.10.1 | URxvt 9.26 | XTerm 372 |
+|-------------------------------|----------------------:|------------:|-----------------:|-----------:|----------:|
+| cursor motion                 |                 15.03 |       16.74 |            23.22 |      24.14 |   1381.63 |
+| dense cells                   |                 43.56 |       54.10 |            89.43 |    1807.17 |   1945.50 |
+| light cells                   |                  7.96 |        9.66 |            20.19 |      21.31 |    122.44 |
+| scrollling                    |                146.02 |      150.47 |           129.22 |     129.84 |  10140.00 |
+| scrolling bottom region       |                138.36 |      137.42 |           117.06 |     141.87 |  10136.00 |
+| scrolling bottom small region |                137.40 |      134.66 |           128.97 |     208.77 |   9930.00 |
+| scrolling fullscreen          |                 11.66 |       12.02 |            19.69 |      21.96 |    315.80 |
+| scrolling top region          |                143.81 |      133.47 |           132.51 |     475.81 |  10267.00 |
+| scrolling top small region    |                133.72 |      135.32 |           145.10 |     314.13 |  10074.00 |
+| unicode                       |                 20.89 |       21.78 |            26.11 |    5687.00 |  15740.00 |

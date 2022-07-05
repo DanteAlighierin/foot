@@ -17,7 +17,8 @@
 
 bool
 spawn(struct reaper *reaper, const char *cwd, char *const argv[],
-      int stdin_fd, int stdout_fd, int stderr_fd)
+      int stdin_fd, int stdout_fd, int stderr_fd,
+      const char *xdg_activation_token)
 {
     int pipe_fds[2] = {-1, -1};
     if (pipe2(pipe_fds, O_CLOEXEC) < 0) {
@@ -45,8 +46,25 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
             goto child_err;
 
         /* Restore ignored (SIG_IGN) signals */
-        if (sigaction(SIGHUP, &(struct sigaction){.sa_handler = SIG_DFL}, NULL) < 0)
+        struct sigaction dfl = {.sa_handler = SIG_DFL};
+        sigemptyset(&dfl.sa_mask);
+        if (sigaction(SIGHUP, &dfl, NULL) < 0 ||
+            sigaction(SIGPIPE, &dfl, NULL) < 0)
+        {
             goto child_err;
+        }
+
+        if (cwd != NULL && chdir(cwd) < 0) {
+            LOG_WARN("failed to change working directory to %s: %s",
+                     cwd, strerror(errno));
+        }
+
+        if (xdg_activation_token != NULL) {
+            setenv("XDG_ACTIVATION_TOKEN", xdg_activation_token, 1);
+
+            if (getenv("DISPLAY") != NULL)
+                setenv("DESKTOP_STARTUP_ID", xdg_activation_token, 1);
+        }
 
         bool close_stderr = stderr_fd >= 0;
         bool close_stdout = stdout_fd >= 0 && stdout_fd != stderr_fd;
@@ -58,7 +76,6 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
                                 || (close_stdout && close(stdout_fd) < 0))) ||
             (stderr_fd >= 0 && (dup2(stderr_fd, STDERR_FILENO) < 0
                                 || (close_stderr && close(stderr_fd) < 0))) ||
-            (cwd != NULL && chdir(cwd) < 0) ||
             execvp(argv[0], argv) < 0)
         {
             goto child_err;

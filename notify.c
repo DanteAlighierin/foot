@@ -19,7 +19,7 @@ notify_notify(const struct terminal *term, const char *title, const char *body)
 {
     LOG_DBG("notify: title=\"%s\", msg=\"%s\"", title, body);
 
-    if (term->kbd_focus) {
+    if (term->conf->notify_focus_inhibit && term->kbd_focus) {
         /* No notifications while we’re focused */
         return;
     }
@@ -48,7 +48,7 @@ notify_notify(const struct terminal *term, const char *title, const char *body)
 
     /* Redirect stdin to /dev/null, but ignore failure to open */
     int devnull = open("/dev/null", O_RDONLY);
-    spawn(term->reaper, NULL, argv, devnull, -1, -1);
+    spawn(term->reaper, NULL, argv, devnull, -1, -1, NULL);
 
     if (devnull >= 0)
         close(devnull);

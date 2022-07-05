@@ -11,7 +11,8 @@ enum log_class {
     LOG_CLASS_ERROR,
     LOG_CLASS_WARNING,
     LOG_CLASS_INFO,
-    LOG_CLASS_DEBUG
+    LOG_CLASS_DEBUG,
+    LOG_CLASS_COUNT,
 };
 
 void log_init(enum log_colorize colorize, bool do_syslog,

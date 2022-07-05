@@ -21,6 +21,16 @@ void grid_resize_and_reflow(
     size_t tracking_points_count,
     struct coord *const _tracking_points[static tracking_points_count]);
 
+/* Convert row numbers between scrollback-relative and absolute coordinates */
+int grid_row_abs_to_sb(const struct grid *grid, int screen_rows, int abs_row);
+int grid_row_sb_to_abs(const struct grid *grid, int screen_rows, int sb_rel_row);
+
+int grid_sb_start_ignore_uninitialized(const struct grid *grid, int screen_rows);
+int grid_row_abs_to_sb_precalc_sb_start(
+    const struct grid *grid, int sb_start, int abs_row);
+int grid_row_sb_to_abs_precalc_sb_start(
+    const struct grid *grid, int sb_start, int sb_rel_row);
+
 static inline int
 grid_row_absolute(const struct grid *grid, int row_no)
 {
@@ -74,7 +84,10 @@ grid_row_in_view(struct grid *grid, int row_no)
     return row;
 }
 
-void grid_row_add_uri_range(struct row *row, struct row_uri_range range);
+void grid_row_uri_range_put(
+    struct row *row, int col, const char *uri, uint64_t id);
+void grid_row_uri_range_add(struct row *row, struct row_uri_range range);
+void grid_row_uri_range_erase(struct row *row, int start, int end);
 
 static inline void
 grid_row_uri_range_destroy(struct row_uri_range *range)
@@ -85,14 +98,15 @@ grid_row_uri_range_destroy(struct row_uri_range *range)
 static inline void
 grid_row_reset_extra(struct row *row)
 {
-    if (likely(row->extra == NULL))
+    struct row_data *extra = row->extra;
+
+    if (likely(extra == NULL))
         return;
 
-    tll_foreach(row->extra->uri_ranges, it) {
-        grid_row_uri_range_destroy(&it->item);
-        tll_remove(row->extra->uri_ranges, it);
-    }
+    for (size_t i = 0; i < extra->uri_ranges.count; i++)
+        grid_row_uri_range_destroy(&extra->uri_ranges.v[i]);
+    free(extra->uri_ranges.v);
 
-    free(row->extra);
+    free(extra);
     row->extra = NULL;
 }

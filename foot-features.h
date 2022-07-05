@@ -2,6 +2,15 @@
 
 #include <stdbool.h>
 
+static inline bool feature_assertions(void)
+{
+#if defined(NDEBUG)
+    return false;
+#else
+    return true;
+#endif
+}
+
 static inline bool feature_ime(void)
 {
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED

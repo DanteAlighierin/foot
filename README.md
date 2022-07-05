@@ -2,6 +2,7 @@
 
 The fast, lightweight and minimalistic Wayland terminal emulator.
 
+[![CI status](https://ci.codeberg.org/api/badges/dnkl/foot/status.svg)](https://ci.codeberg.org/dnkl/foot)
 [![Pipeline status](https://gitlab.com/dnkl/foot/badges/master/pipeline.svg)](https://gitlab.com/dnkl/foot/commits/master)
 [![builds.sr.ht status](https://builds.sr.ht/~dnkl/foot.svg)](https://builds.sr.ht/~dnkl/foot?)
 
@@ -23,17 +24,22 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
    1. [Mouse](#mouse)
 1. [Server (daemon) mode](#server-daemon-mode)
 1. [URLs](#urls)
+1. [Shell integration](#shell-integration)
+   1. [Current working directory](#current-working-directory)
+   1. [Jumping between prompts](#jumping-between-prompts)
 1. [Alt/meta](#alt-meta)
 1. [Backspace](#backspace)
 1. [Keypad](#keypad)
 1. [DPI and font size](#dpi-and-font-size)
 1. [Supported OSCs](#supported-oscs)
 1. [Programmatically checking if running in foot](#programmatically-checking-if-running-in-foot)
+1. [XTGETTCAP](#xtgettcap)
 1. [Credits](#Credits)
 1. [Bugs](#bugs)
 1. [Contact](#contact)
    1. [IRC](#irc)
    1. [Mastodon](#mastodon)
+1. [Sponsoring/donations](#sponsoring-donations)
 1. [License](#license)
 
 
@@ -53,7 +59,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 * Color emoji support
 * IME (via `text-input-v3`)
 * Multi-seat
-* TrueColors (32bpp)
+* True Color (24bpp)
 * [Synchronized Updates](https://gitlab.freedesktop.org/terminal-wg/specifications/-/merge_requests/2) support
 * [Sixel image support](https://en.wikipedia.org/wiki/Sixel)
 
@@ -70,7 +76,7 @@ See [INSTALL.md](INSTALL.md).
 **foot** can be configured by creating a file
 `$XDG_CONFIG_HOME/foot/foot.ini` (defaulting to
 `~/.config/foot/foot.ini`).  A template for that can usually be found
-in `/usr/share/foot/foot.ini` or
+in `/etc/xdg/foot/foot.ini` or
 [here](https://codeberg.org/dnkl/foot/src/branch/master/foot.ini).
 
 Further information can be found in foot's man page `foot.ini(5)`.
@@ -130,10 +136,10 @@ These are the default shortcuts. See `man foot.ini` and the example
 <kbd>shift</kbd>+<kbd>page up</kbd>/<kbd>page down</kbd>
 : Scroll up/down in history
 
-<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>c</kbd>
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>c</kbd>, <kbd>XF86Copy</kbd>
 : Copy selected text to the _clipboard_
 
-<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>v</kbd>
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>v</kbd>, <kbd>XF86Paste</kbd>
 : Paste from _clipboard_
 
 <kbd>shift</kbd>+<kbd>insert</kbd>
@@ -154,12 +160,20 @@ These are the default shortcuts. See `man foot.ini` and the example
 <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>n</kbd>
 : Spawn a new terminal. If the shell has been [configured to emit the
   OSC 7 escape
-  sequence](https://codeberg.org/dnkl/foot/wiki#user-content-how-to-configure-my-shell-to-emit-the-osc-7-escape-sequence),
+  sequence](https://codeberg.org/dnkl/foot/wiki#user-content-spawning-new-terminal-instances-in-the-current-working-directory),
   the new terminal will start in the current working directory.
 
 <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>u</kbd>
 : Enter URL mode, where all currently visible URLs are tagged with a
   jump label with a key sequence that will open the URL.
+
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>z</kbd>
+: Jump to the previous, currently not visible, prompt. Requires [shell
+  integration](https://codeberg.org/dnkl/foot/wiki#user-content-jumping-between-prompts).
+
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>x</kbd>
+: Jump to the next prompt. Requires [shell
+  integration](https://codeberg.org/dnkl/foot/wiki#user-content-jumping-between-prompts).
 
 
 #### Scrollback search
@@ -179,7 +193,7 @@ These are the default shortcuts. See `man foot.ini` and the example
 : Same as <kbd>ctrl</kbd>+<kbd>w</kbd>, except that the only word
   separating characters are whitespace characters.
 
-<kbd>ctrl</kbd>+<kbd>v</kbd>
+<kbd>ctrl</kbd>+<kbd>v</kbd>, <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>v</kbd>, <kbd>ctrl</kbd>+<kbd>y</kbd>, <kbd>XF86Paste</kbd>
 : Paste from clipboard into the search buffer.
 
 <kbd>shift</kbd>+<kbd>insert</kbd>
@@ -191,6 +205,16 @@ These are the default shortcuts. See `man foot.ini` and the example
 <kbd>return</kbd>
 : Finish the search and copy the current match to the primary
   selection
+
+
+### URL mode
+
+<kbd>t</kbd>
+: Toggle whether the URL is displayed in the jump label or not
+
+<kbd>escape</kbd>, <kbd>ctrl</kbd>+<kbd>c</kbd>, <kbd>ctrl</kbd>+<kbd>g</kbd>, <kbd>ctrl</kbd>+<kbd>d</kbd>
+: Exit URL mode without launching any URLs
+
 
 ### Mouse
 
@@ -253,6 +277,9 @@ when starting your Wayland compositor (i.e. logging in to your
 desktop), and then run `footclient` instead of `foot` whenever you
 want to launch a new terminal.
 
+Foot support socket activation, which means `foot --server` will only be
+started the first time you'll run `footclient`. (systemd user units are
+included, but it can work with other supervision suites).
 
 ## URLs
 
@@ -273,11 +300,49 @@ bindings in foot. See `show-urls-launch` and `show-urls-copy` in the
 be changed with the `url-launch` option.
 
 `show-urls-copy` is an alternative to `show-urls-launch`, that changes
-what activating an URL _does_; instead of opening it, it copies it to
+what activating a URL _does_; instead of opening it, it copies it to
 the clipboard. It is unbound by default.
 
 Jump label colors, the URL underline color, and the letters used in
 the jump label key sequences can be configured.
+
+
+## Shell integration
+
+### Current working directory
+
+New foot terminal instances (bound to
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>n</kbd> by default) will open in
+the current working directory, **if** the shell in the “parent”
+terminal reports directory changes.
+
+This is done with the OSC-7 escape sequence. Most shells can be
+scripted to do this, if they do not support it natively. See the
+[wiki](https://codeberg.org/dnkl/foot/wiki#user-content-spawning-new-terminal-instances-in-the-current-working-directory)
+for details.
+
+
+### Jumping between prompts
+
+Foot can move the current viewport to focus prompts of already
+executed commands (bound to
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>z</kbd>/<kbd>x</kbd> by
+default).
+
+For this to work, the shell needs to emit an OSC-133;A
+(`\E]133;A\E\\`) sequence before each prompt.
+
+In zsh, one way to do this is to add a `precmd` hook:
+
+```zsh
+precmd() {
+    print -Pn "\e]133;A\e\\"
+}
+```
+
+See the
+[wiki](https://codeberg.org/dnkl/foot/wiki#user-content-jumping-between-prompts)
+for details, and examples for other shells.
 
 
 ## Alt/meta
@@ -347,12 +412,12 @@ This is not how it is meant to be. Fonts are measured in _point sizes_
 all mediums, be it printers or monitors, regardless of their DPI.
 
 Foot’s default behavior is to use the monitor’s DPI to size fonts when
-output scaling has been disabled. On monitors where output scaling has
-been enabled, fonts will instead be sized using the scaling
-factor.
+output scaling has been disabled on **all** monitors. If at least one
+monitor has output scaling enabled, fonts will instead by sized using
+the scaling factor.
 
 This can be changed to either **always** use the monitor’s DPI
-(regardless of scaling factor), or to **never** use it. See the
+(regardless of scaling factor), or to **never** use it, with the
 `dpi-aware` option in `foot.ini`. See the man page, **foot.ini**(5)
 for more information.
 
@@ -376,23 +441,29 @@ with the terminal emulator itself. Foot implements the following OSCs:
   supported)
 * `OSC 2` - change window title
 * `OSC 4` - change color palette
-* `OSC 7` - report CWD
+* `OSC 7` - report CWD (see [shell integration](#shell-integration))
 * `OSC 8` - hyperlink
+* `OSC 9` - desktop notification
 * `OSC 10` - change (default) foreground color
 * `OSC 11` - change (default) background color
 * `OSC 12` - change cursor color
 * `OSC 17` - change highlight (selection) background color
 * `OSC 19` - change highlight (selection) foreground color
+* `OSC 22` - set the xcursor (mouse) pointer
 * `OSC 52` - copy/paste clipboard data
 * `OSC 104` - reset color palette
 * `OSC 110` - reset default foreground color
 * `OSC 111` - reset default background color
 * `OSC 112` - reset cursor color
-* `ISC 117` - reset highlight background color
+* `OSC 117` - reset highlight background color
 * `OSC 119` - reset highlight foreground color
+* `OSC 133` - [shell integration](#shell-integration)
 * `OSC 555` - flash screen (**foot specific**)
 * `OSC 777` - desktop notification (only the `;notify` sub-command of
   OSC 777 is supported.)
+
+See the **foot-ctlseq**(7) man page for a complete list of supported
+control sequences.
 
 
 ## Programmatically checking if running in foot
@@ -423,6 +494,59 @@ parse the response (which in foot will consist of all three DA
 responses, all at once) to determine which requests the terminal
 emulator actually responded to.
 
+Starting with version 1.7.0, foot also implements `XTVERSION`, to
+which it will reply with `\EP>|foot(version)\E\\`. Version is
+e.g. “1.8.2” for a regular release, or “1.8.2-36-g7db8e06f” for a git
+build.
+
+
+# XTGETTCAP
+
+`XTGETTCAP` is an escape sequence initially introduced by XTerm, and
+also implemented (and extended, to some degree) by Kitty.
+
+It allows querying the terminal for terminfo
+capabilities. Applications using this feature do not need to use the
+classic, file-based, terminfo definition. For example, if all
+applications used this feature, you would no longer have to install
+foot’s terminfo on remote hosts you SSH into.
+
+XTerm’s implementation (as of XTerm-370) only supports querying key
+(as in keyboard keys) capabilities, and three custom capabilities:
+
+* `TN` - terminal name
+* `Co` - number of colors (alias for the `colors` capability)
+* `RGB` - number of bits per color channel (different semantics from
+  the `RGB` capability in file-based terminfo definitions!).
+
+Kitty has extended this, and also supports querying all integer and
+string capabilities.
+
+Foot supports this, and extends it even further, to also include
+boolean capabilities. This means foot’s entire terminfo can be queried
+via `XTGETTCAP`.
+
+Note that both Kitty and foot handles **responses** to
+multi-capability queries slightly differently, compared to XTerm.
+
+XTerm will send a single DCS reply, with `;`-separated
+capability/value pairs. There are a couple of issues with this:
+
+* The success/fail flag in the beginning of the response is always `1`
+  (success), unless the very **first** queried capability is invalid.
+* XTerm will not respond **at all** to an invalid capability, unless
+  it’s the first one in the `XTGETTCAP` query.
+* XTerm will end the response at the first invalid capability.
+
+In other words, if you send a large multi-capability query, you will
+only get responses up to, but not including, the first invalid
+capability. All subsequent capabilities will be dropped.
+
+Kitty and foot on the other hand, send one DCS response for **each**
+capability in the multi query. This allows us to send a proper
+success/fail flag for each queried capability. Responses for **all**
+queried capabilities are **always** sent. No queries are ever dropped.
+
 
 # Credits
 
@@ -434,14 +558,18 @@ contributing foot's [logo](icons/hicolor/48x48/apps/foot.png).
 
 Please report bugs to https://codeberg.org/dnkl/foot/issues
 
+Before you open a new issue, please search existing bug reports, both
+open **and** closed ones. Chances are someone else has already
+reported the same issue.
+
 The report should contain the following:
 
-* Which Wayland compositor (and version) you are running
-* Foot version (`foot --version`)
-* Log output from foot (start foot from another terminal)
-* If reporting a crash, please try to provide a `bt full` backtrace
-  **with symbols** (i.e. use a debug build)
-* Steps to reproduce. The more details the better
+- Foot version (`foot --version`).
+- Log output from foot (start foot from another terminal).
+- Which Wayland compositor (and version) you are running.
+- If reporting a crash, please try to provide a `bt full` backtrace
+  with symbols.
+- Steps to reproduce. The more details the better.
 
 
 # Contact
@@ -457,6 +585,11 @@ at https://libera.irclog.whitequark.org/foot.
 
 Every now and then I post foot related updates on
 [@dnkl@linuxrocks.online](https://linuxrocks.online/@dnkl)
+
+
+# Sponsoring/donations
+
+* GitHub Sponsors: https://github.com/sponsors/dnkl
 
 
 # License

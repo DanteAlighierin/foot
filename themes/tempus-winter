@@ -1,0 +1,28 @@
+# theme: Tempus Winter
+# author: Protesilaos Stavrou (https://protesilaos.com)
+# description: Dark theme with a palette inspired by winter nights at the city (WCAG AA compliant)
+
+#[cursor]
+#color = 202427 8da3b8
+
+[colors]
+foreground = 8da3b8
+background = 202427
+regular0 = 202427
+regular1 = ed6e5a
+regular2 = 4aa920
+regular3 = 9a9921
+regular4 = 7b91df
+regular5 = d17e80
+regular6 = 4fa394
+regular7 = 91959b
+bright0 = 2a2e38
+bright1 = de7b28
+bright2 = 00ab5f
+bright3 = af9155
+bright4 = 329fcb
+bright5 = ca77c5
+bright6 = 1ba6a4
+bright7 = 8da3b8
+#selection-foreground = 91959b
+#selection-background = 2a2e38

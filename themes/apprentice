@@ -1,0 +1,26 @@
+# https://github.com/romainl/Apprentice
+
+[cursor]
+color=262626 6c6c6c
+
+[colors]
+foreground=bcbcbc
+background=262626
+regular0=1c1c1c
+regular1=af5f5f
+regular2=5f875f
+regular3=87875f
+regular4=5f87af
+regular5=5f5f87
+regular6=5f8787
+regular7=6c6c6c
+bright0=444444
+bright1=ff8700
+bright2=87af87
+bright3=ffffaf
+bright4=87afd7
+bright5=8787af
+bright6=5fafaf
+bright7=ffffff
+# selection-foreground=bcbcbc
+# selection-background=3a3e4e

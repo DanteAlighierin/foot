@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wchar.h>
 #include "xmalloc.h"
 #include "debug.h"
 
@@ -45,16 +44,16 @@ xstrdup(const char *str)
     return check_alloc(strdup(str));
 }
 
-wchar_t *
-xwcsdup(const wchar_t *str)
-{
-    return check_alloc(wcsdup(str));
-}
-
 char *
 xstrndup(const char *str, size_t n)
 {
     return check_alloc(strndup(str, n));
+}
+
+char32_t *
+xc32dup(const char32_t *str)
+{
+    return check_alloc(c32dup(str));
 }
 
 static VPRINTF(2) int

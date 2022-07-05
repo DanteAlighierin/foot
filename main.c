@@ -21,8 +21,9 @@
 #include "log.h"
 
 #include "config.h"
-#include "foot-features.h"
 #include "fdm.h"
+#include "foot-features.h"
+#include "key-binding.h"
 #include "macros.h"
 #include "reaper.h"
 #include "render.h"
@@ -33,6 +34,12 @@
 #include "version.h"
 #include "xmalloc.h"
 #include "xsnprintf.h"
+
+#include "char32.h"
+
+#if !defined(__STDC_UTF_32__) || !__STDC_UTF_32__
+ #error "char32_t does not use UTF-32"
+#endif
 
 static bool
 fdm_sigint(struct fdm *fdm, int signo, void *data)
@@ -45,27 +52,25 @@ static const char *
 version_and_features(void)
 {
     static char buf[256];
-    snprintf(buf, sizeof(buf), "version: %s %cpgo %cime %cgraphemes",
+    snprintf(buf, sizeof(buf), "version: %s %cpgo %cime %cgraphemes %cassertions",
              FOOT_VERSION,
              feature_pgo() ? '+' : '-',
              feature_ime() ? '+' : '-',
-             feature_graphemes() ? '+' : '-');
+             feature_graphemes() ? '+' : '-',
+             feature_assertions() ? '+' : '-');
     return buf;
 }
 
 static void
 print_usage(const char *prog_name)
 {
-    printf(
-        "Usage: %s [OPTIONS...]\n"
-        "Usage: %s [OPTIONS...] command [ARGS...]\n"
-        "\n"
-        "Options:\n"
+    static const char options[] =
+        "\nOptions:\n"
         "  -c,--config=PATH                         load configuration from PATH ($XDG_CONFIG_HOME/foot/foot.ini)\n"
         "  -C,--check-config                        verify configuration, exit with 0 if ok, otherwise exit with 1\n"
         "  -o,--override=[section.]key=value        override configuration option\n"
         "  -f,--font=FONT                           comma separated list of fonts in fontconfig format (monospace)\n"
-        "  -t,--term=TERM                           value to set the environment variable TERM to (%s)\n"
+        "  -t,--term=TERM                           value to set the environment variable TERM to (" FOOT_DEFAULT_TERM ")\n"
         "  -T,--title=TITLE                         initial window title (foot)\n"
         "  -a,--app-id=ID                           window application ID (foot)\n"
         "  -m,--maximized                           start in maximized mode\n"
@@ -81,23 +86,25 @@ print_usage(const char *prog_name)
         "  -d,--log-level={info|warning|error|none} log level (info)\n"
         "  -l,--log-colorize=[{never|always|auto}]  enable/disable colorization of log output on stderr\n"
         "  -s,--log-no-syslog                       disable syslog logging (only applicable in server mode)\n"
-        "  -v,--version                             show the version number and quit\n",
-        prog_name, prog_name, DEFAULT_TERM);
+        "  -v,--version                             show the version number and quit\n"
+        "  -e                                       ignored (for compatibility with xterm -e)\n";
+
+    printf("Usage: %s [OPTIONS...]\n", prog_name);
+    printf("Usage: %s [OPTIONS...] command [ARGS...]\n", prog_name);
+    puts(options);
 }
 
 bool
 locale_is_utf8(void)
 {
-    xassert(strlen(u8"ö") == 2);
+    static const char u8[] = u8"ö";
+    xassert(strlen(u8) == 2);
 
-    wchar_t w;
-    if (mbtowc(&w, u8"ö", 2) != 2)
+    char32_t w;
+    if (mbrtoc32(&w, u8, 2, &(mbstate_t){0}) != 2)
         return false;
 
-    if (w != U'ö')
-        return false;
-
-    return true;
+    return w == U'ö';
 }
 
 struct shutdown_context {
@@ -150,6 +157,20 @@ print_pid(const char *pid_file, bool *unlink_at_exit)
         return false;
 }
 
+static void
+sanitize_signals(void)
+{
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigprocmask(SIG_SETMASK, &mask, NULL);
+
+    struct sigaction dfl = {.sa_handler = SIG_DFL};
+    sigemptyset(&dfl.sa_mask);
+
+    for (int i = 1; i < SIGRTMAX; i++)
+        sigaction(i, &dfl, NULL);
+}
+
 int
 main(int argc, char *const *argv)
 {
@@ -158,11 +179,17 @@ main(int argc, char *const *argv)
     static const int foot_exit_failure = -26;
     int ret = foot_exit_failure;
 
+    sanitize_signals();
+
+    /* XDG startup notifications */
+    const char *token = getenv("XDG_ACTIVATION_TOKEN");
+    unsetenv("XDG_ACTIVATION_TOKEN");
+
     /* Startup notifications; we don't support it, but must ensure we
      * don't pass this on to programs launched by us */
     unsetenv("DESKTOP_STARTUP_ID");
 
-    const char *const prog_name = argv[0];
+    const char *const prog_name = argc > 0 ? argv[0] : "<nullptr>";
 
     static const struct option longopts[] =  {
         {"config",                 required_argument, NULL, 'c'},
@@ -216,7 +243,7 @@ main(int argc, char *const *argv)
     config_override_t overrides = tll_init();
 
     while (true) {
-        int c = getopt_long(argc, argv, "+c:Co:t:T:a:LD:f:w:W:s::HmFPp:d:l::Svh", longopts, NULL);
+        int c = getopt_long(argc, argv, "+c:Co:t:T:a:LD:f:w:W:s::HmFPp:d:l::Sveh", longopts, NULL);
 
         if (c == -1)
             break;
@@ -375,6 +402,9 @@ main(int argc, char *const *argv)
             print_usage(prog_name);
             return EXIT_SUCCESS;
 
+        case 'e':
+            break;
+
         case '?':
             return ret;
         }
@@ -383,17 +413,10 @@ main(int argc, char *const *argv)
     log_init(log_colorize, as_server && log_syslog,
              as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER, log_level);
 
-    _Static_assert((int)LOG_CLASS_ERROR == (int)FCFT_LOG_CLASS_ERROR,
-                   "fcft log level enum offset");
-    _Static_assert((int)LOG_COLORIZE_ALWAYS == (int)FCFT_LOG_COLORIZE_ALWAYS,
-                   "fcft colorize enum mismatch");
-    fcft_log_init(
-        (enum fcft_log_colorize)log_colorize,
-        as_server && log_syslog,
-        (enum fcft_log_class)log_level);
-
-    argc -= optind;
-    argv += optind;
+    if (argc > 0) {
+        argc -= optind;
+        argv += optind;
+    }
 
     LOG_INFO("%s", version_and_features());
 
@@ -408,26 +431,78 @@ main(int argc, char *const *argv)
 
     srand(time(NULL));
 
-    setlocale(LC_CTYPE, "");
-    LOG_INFO("locale: %s", setlocale(LC_CTYPE, NULL));
-    if (!locale_is_utf8()) {
-        LOG_ERR("locale is not UTF-8");
+    const char *locale = setlocale(LC_CTYPE, "");
+    if (locale == NULL) {
+        LOG_ERR("setlocale() failed");
         return ret;
     }
 
+    LOG_INFO("locale: %s", locale);
+
+    bool bad_locale = !locale_is_utf8();
+    if (bad_locale) {
+        static const char fallback_locales[][12] = {
+            "C.UTF-8",
+            "en_US.UTF-8",
+        };
+
+        /*
+         * Try to force an UTF-8 locale. If we succeed, launch the
+         * user’s shell as usual, but add a user-notification saying
+         * the locale has been changed.
+         */
+        for (size_t i = 0; i < ALEN(fallback_locales); i++) {
+            const char *const fallback_locale = fallback_locales[i];
+
+            if (setlocale(LC_CTYPE, fallback_locale) != NULL) {
+                LOG_WARN("'%s' is not a UTF-8 locale, using '%s' instead",
+                         locale, fallback_locale);
+
+                user_notification_add_fmt(
+                    &user_notifications, USER_NOTIFICATION_WARNING,
+                    "'%s' is not a UTF-8 locale, using '%s' instead",
+                    locale, fallback_locale);
+
+                bad_locale = false;
+                break;
+            }
+        }
+
+        if (bad_locale) {
+            LOG_ERR(
+                "'%s' is not a UTF-8 locale, and failed to find a fallback",
+                locale);
+
+            user_notification_add_fmt(
+                &user_notifications, USER_NOTIFICATION_ERROR,
+                "'%s' is not a UTF-8 locale, and failed to find a fallback",
+                locale);
+        }
+    }
+
     struct config conf = {NULL};
-    bool conf_successful = config_load(&conf, conf_path, &user_notifications, &overrides, check_config);
+    bool conf_successful = config_load(
+        &conf, conf_path, &user_notifications, &overrides, check_config);
+
     tll_free(overrides);
     if (!conf_successful) {
-        config_free(conf);
+        config_free(&conf);
         return ret;
     }
 
     if (check_config) {
-        config_free(conf);
+        config_free(&conf);
         return EXIT_SUCCESS;
     }
 
+    _Static_assert((int)LOG_CLASS_ERROR == (int)FCFT_LOG_CLASS_ERROR,
+                   "fcft log level enum offset");
+    _Static_assert((int)LOG_COLORIZE_ALWAYS == (int)FCFT_LOG_COLORIZE_ALWAYS,
+                   "fcft colorize enum mismatch");
+    fcft_init(
+        (enum fcft_log_colorize)log_colorize,
+        as_server && log_syslog,
+        (enum fcft_log_class)log_level);
     fcft_set_scaling_filter(conf.tweak.fcft_filter);
 
     if (conf_term != NULL) {
@@ -480,8 +555,22 @@ main(int argc, char *const *argv)
     conf.presentation_timings = presentation_timings;
     conf.hold_at_exit = hold;
 
+    if (conf.tweak.font_monospace_warn && conf.fonts[0].count > 0) {
+        check_if_font_is_monospaced(
+            conf.fonts[0].arr[0].pattern, &conf.notifications);
+    }
+
+
+    if (bad_locale) {
+        static char *const bad_locale_fake_argv[] = {"/bin/sh", "-c", "", NULL};
+        argc = 1;
+        argv = bad_locale_fake_argv;
+        conf.hold_at_exit = true;
+    }
+
     struct fdm *fdm = NULL;
     struct reaper *reaper = NULL;
+    struct key_binding_manager *key_binding_manager = NULL;
     struct wayland *wayl = NULL;
     struct renderer *renderer = NULL;
     struct terminal *term = NULL;
@@ -513,14 +602,21 @@ main(int argc, char *const *argv)
     if ((reaper = reaper_init(fdm)) == NULL)
         goto out;
 
-    if ((wayl = wayl_init(&conf, fdm)) == NULL)
+    if ((key_binding_manager = key_binding_manager_new()) == NULL)
         goto out;
+
+    if ((wayl = wayl_init(
+             fdm, key_binding_manager, conf.presentation_timings)) == NULL)
+    {
+        goto out;
+    }
 
     if ((renderer = render_init(fdm, wayl)) == NULL)
         goto out;
 
     if (!as_server && (term = term_init(
-                           &conf, fdm, reaper, wayl, "foot", cwd, argc, argv,
+                           &conf, fdm, reaper, wayl, "foot", cwd, token,
+                           argc, argv, NULL,
                            &term_shutdown_cb, &shutdown_ctx)) == NULL) {
         goto out;
     }
@@ -537,8 +633,12 @@ main(int argc, char *const *argv)
         goto out;
     }
 
-    if (sigaction(SIGHUP, &(struct sigaction){.sa_handler = SIG_IGN}, NULL) < 0) {
-        LOG_ERRNO("failed to ignore SIGHUP");
+    struct sigaction sig_ign = {.sa_handler = SIG_IGN};
+    sigemptyset(&sig_ign.sa_mask);
+    if (sigaction(SIGHUP, &sig_ign, NULL) < 0 ||
+        sigaction(SIGPIPE, &sig_ign, NULL) < 0)
+    {
+        LOG_ERRNO("failed to ignore SIGHUP+SIGPIPE");
         goto out;
     }
 
@@ -550,13 +650,13 @@ main(int argc, char *const *argv)
             goto out;
     }
 
+    ret = EXIT_SUCCESS;
     while (likely(!aborted && (as_server || tll_length(wayl->terms) > 0))) {
-        if (unlikely(!fdm_poll(fdm)))
+        if (unlikely(!fdm_poll(fdm))) {
+            ret = foot_exit_failure;
             break;
+        }
     }
-
-    if (aborted || tll_length(wayl->terms) == 0)
-        ret = EXIT_SUCCESS;
 
 out:
     free(_cwd);
@@ -566,17 +666,19 @@ out:
     shm_fini();
     render_destroy(renderer);
     wayl_destroy(wayl);
+    key_binding_manager_destroy(key_binding_manager);
     reaper_destroy(reaper);
     fdm_signal_del(fdm, SIGTERM);
     fdm_signal_del(fdm, SIGINT);
     fdm_destroy(fdm);
 
-    config_free(conf);
+    config_free(&conf);
 
     if (unlink_pid_file)
         unlink(pid_file);
 
     LOG_INFO("goodbye");
+    fcft_fini();
     log_deinit();
     return ret == EXIT_SUCCESS && !as_server ? shutdown_ctx.exit_code : ret;
 }

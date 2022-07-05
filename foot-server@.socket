@@ -1,0 +1,5 @@
+[Socket]
+ListenStream=%t/foot-%i.sock
+
+[Install]
+WantedBy=wayland-instance@.target

@@ -1,0 +1,28 @@
+# PaperColorDark
+# Palette based on https://github.com/NLKNguyen/papercolor-theme
+
+[cursor]
+ color=1c1c1c eeeeee
+
+[colors]
+ alpha=0.80
+ background=1c1c1c
+ foreground=eeeeee
+ regular0=1c1c1c  # black
+ regular1=af005f  # red
+ regular2=5faf00  # green
+ regular3=d7af5f  # yellow
+ regular4=5fafd7  # blue
+ regular5=808080  # magenta
+ regular6=d7875f  # cyan
+ regular7=d0d0d0  # white
+ bright0=bcbcbc   # bright black
+ bright1=5faf5f   # bright red
+ bright2=afd700   # bright green
+ bright3=af87d7   # bright yellow
+ bright4=ffaf00   # bright blue
+ bright5=ff5faf   # bright magenta
+ bright6=00afaf   # bright cyan
+ bright7=5f8787   # bright white
+ #selection-foreground=1c1c1c
+ #selection-background=af87d7

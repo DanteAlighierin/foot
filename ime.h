@@ -15,7 +15,5 @@ void ime_enable(struct seat *seat);
 void ime_disable(struct seat *seat);
 void ime_update_cursor_rect(struct seat *seat);
 
-void ime_reset_pending_preedit(struct seat *seat);
-void ime_reset_pending_commit(struct seat *seat);
 void ime_reset_pending(struct seat *seat);
 void ime_reset_preedit(struct seat *seat);

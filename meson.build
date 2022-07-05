@@ -1,7 +1,7 @@
 project('foot', 'c',
-        version: '1.8.1',
+        version: '1.12.1',
         license: 'MIT',
-        meson_version: '>=0.53.0',
+        meson_version: '>=0.58.0',
         default_options: [
           'c_std=c11',
           'warning_level=1',
@@ -17,10 +17,11 @@ if cc.has_function('memfd_create')
 endif
 
 add_project_arguments(
-  ['-D_GNU_SOURCE=200809L'] +
+  ['-D_GNU_SOURCE=200809L',
+   '-DFOOT_DEFAULT_TERM="@0@"'.format(get_option('default-terminfo'))] +
   (is_debug_build
     ? ['-D_DEBUG']
-    : [cc.get_supported_arguments('-fno-asynchronous-unwind-tables')]) +
+   : [cc.get_supported_arguments('-fno-asynchronous-unwind-tables')]) +
   (get_option('ime')
     ? ['-DFOOT_IME_ENABLED=1']
     : []) +
@@ -34,9 +35,20 @@ add_project_arguments(
   language: 'c',
 )
 
+terminfo_install_location = get_option('custom-terminfo-install-location')
+
+if terminfo_install_location != ''
+  add_project_arguments(
+    ['-DFOOT_TERMINFO_PATH="@0@"'.format(
+      join_paths(get_option('prefix'), terminfo_install_location))],
+    language: 'c')
+else
+  terminfo_install_location = join_paths(get_option('datadir'), 'terminfo')
+endif
+
 # Compute the relative path used by compiler invocations.
 source_root = meson.current_source_dir().split('/')
-build_root = meson.build_root().split('/')
+build_root = meson.global_build_root().split('/')
 relative_dir_parts = []
 i = 0
 in_prefix = true
@@ -78,18 +90,13 @@ if utf8proc.found()
 endif
 
 tllist = dependency('tllist', version: '>=1.0.4', fallback: 'tllist')
-fcft = dependency('fcft', version: ['>=2.4.0', '<3.0.0'], fallback: 'fcft')
+fcft = dependency('fcft', version: ['>=3.0.1', '<4.0.0'], fallback: 'fcft')
 
-tic = find_program('tic', native: true, required: get_option('terminfo'))
-if tic.found()
-  add_project_arguments('-DHAVE_TERMINFO', language: 'c')
-endif
-
-wayland_protocols_datadir = wayland_protocols.get_pkgconfig_variable('pkgdatadir')
+wayland_protocols_datadir = wayland_protocols.get_variable('pkgdatadir')
 
 wscanner = dependency('wayland-scanner', native: true)
 wscanner_prog = find_program(
-  wscanner.get_pkgconfig_variable('wayland_scanner'), native: true)
+  wscanner.get_variable('wayland_scanner'), native: true)
 
 wl_proto_headers = []
 wl_proto_src = []
@@ -121,16 +128,28 @@ foreach prot : wl_proto_xml
     command: [wscanner_prog, 'private-code', '@INPUT@', '@OUTPUT@'])
 endforeach
 
+env = find_program('env', native: true)
 generate_version_sh = files('generate-version.sh')
 version = custom_target(
   'generate_version',
   build_always_stale: true,
   output: 'version.h',
-  command: [generate_version_sh, meson.project_version(), '@SOURCE_ROOT@', '@OUTPUT@'])
+  command: [env, 'LC_ALL=C', generate_version_sh, meson.project_version(), '@CURRENT_SOURCE_DIR@', '@OUTPUT@'])
+
+python = find_program('python3', native: true)
+generate_builtin_terminfo_py = files('scripts/generate-builtin-terminfo.py')
+foot_terminfo = files('foot.info')
+builtin_terminfo = custom_target(
+  'generate_builtin_terminfo',
+  output: 'foot-terminfo.h',
+  command: [python, generate_builtin_terminfo_py,
+            '@default_terminfo@', foot_terminfo, 'foot', '@OUTPUT@']
+)
 
 common = static_library(
   'common',
   'log.c', 'log.h',
+  'char32.c', 'char32.h',
   'debug.c', 'debug.h',
   'xmalloc.c', 'xmalloc.h',
   'xsnprintf.c', 'xsnprintf.h'
@@ -150,10 +169,11 @@ vtlib = static_library(
   'composed.c', 'composed.h',
   'csi.c', 'csi.h',
   'dcs.c', 'dcs.h',
+  'macros.h',
   'osc.c', 'osc.h',
   'sixel.c', 'sixel.h',
   'vt.c', 'vt.h',
-  wl_proto_src + wl_proto_headers,
+  builtin_terminfo, wl_proto_src + wl_proto_headers,
   version,
   dependencies: [libepoll, pixman, fcft, tllist, wayland_client, xkb, utf8proc],
   link_with: [common, misc],
@@ -190,6 +210,7 @@ executable(
   'foot-features.h',
   'ime.c', 'ime.h',
   'input.c', 'input.h',
+  'key-binding.c', 'key-binding.h',
   'main.c',
   'notify.c', 'notify.h',
   'quirks.c', 'quirks.h',
@@ -203,7 +224,7 @@ executable(
   'tokenize.c', 'tokenize.h',
   'url-mode.c', 'url-mode.h',
   'user-notification.c', 'user-notification.h',
-  'wayland.c', 'wayland.h',
+  'wayland.c', 'wayland.h', 'shm-formats.h',
   wl_proto_src + wl_proto_headers, version,
   dependencies: [math, threads, libepoll, pixman, wayland_client, wayland_cursor, xkb, fontconfig, utf8proc,
                  tllist, fcft],
@@ -221,41 +242,89 @@ executable(
   link_with: common,
   install: true)
 
-if tic.found()
-  terminfo_install_location = get_option('terminfo-install-location')
-  if terminfo_install_location == ''
-    terminfo_install_location = join_paths(get_option('datadir'), 'terminfo')
+install_data(
+  'foot.desktop', 'foot-server.desktop', 'footclient.desktop',
+  install_dir: join_paths(get_option('datadir'), 'applications'))
+
+systemd = dependency('systemd', required: false)
+custom_systemd_units_dir = get_option('systemd-units-dir')
+
+if systemd.found() or custom_systemd_units_dir != ''
+  configuration = configuration_data()
+  configuration.set('bindir', join_paths(get_option('prefix'), get_option('bindir')))
+
+  if (custom_systemd_units_dir == '')
+    systemd_units_dir = systemd.get_variable('systemduserunitdir')
+  else
+    systemd_units_dir = custom_systemd_units_dir
   endif
 
-  custom_target(
-    'terminfo',
-    output: 'f',
-    input: 'foot.info',
-    command: [tic, '-x', '-o', '@OUTDIR@', '-e', 'foot,foot-direct', '@INPUT@'],
-    install: terminfo_install_location != 'disabled',
-    install_dir: terminfo_install_location)
-else
-  terminfo_install_location = 'disabled'
+  configure_file(
+    configuration: configuration,
+    input: 'foot-server@.service.in',
+    output: '@BASENAME@',
+    install_dir: systemd_units_dir
+    )
+
+  install_data(
+    'foot-server@.socket',
+    install_dir: systemd_units_dir)
 endif
 
-install_data(
-  'LICENSE', 'README.md', 'CHANGELOG.md',
-  install_dir: join_paths(get_option('datadir'), 'doc', 'foot'))
-install_data(
-  'foot.desktop', 'foot-server.desktop',
-  install_dir: join_paths(get_option('datadir'), 'applications'))
-install_data('foot.ini', install_dir: join_paths(get_option('datadir'), 'foot'))
+scdoc = dependency('scdoc', native: true, required: get_option('docs'))
+install_data('foot.ini', install_dir: join_paths(get_option('sysconfdir'), 'xdg', 'foot'))
+if scdoc.found()
+  install_data(
+    'LICENSE', 'README.md', 'CHANGELOG.md',
+    install_dir: join_paths(get_option('datadir'), 'doc', 'foot'))
+  subdir('doc')
+endif
+
+if get_option('themes')
+  install_subdir('themes', install_dir: join_paths(get_option('datadir'), 'foot'))
+endif
+
+tic = find_program('tic', native: true, required: get_option('terminfo'))
+if tic.found()
+  conf_data = configuration_data(
+    {
+      'default_terminfo': get_option('default-terminfo'),
+    }
+  )
+
+  preprocessed = configure_file(
+    input: 'foot.info',
+    output: 'foot.info.preprocessed',
+    configuration: conf_data,
+  )
+  custom_target(
+    'terminfo',
+    output: get_option('default-terminfo')[0],
+    input: preprocessed,
+    command: [tic, '-x', '-o', '@OUTDIR@', '-e', '@0@,@0@-direct'.format(get_option('default-terminfo')), '@INPUT@'],
+    install: true,
+    install_dir: terminfo_install_location
+  )
+endif
 
 subdir('completions')
-subdir('doc')
 subdir('icons')
+
+if (get_option('tests'))
+  subdir('tests')
+endif
 
 summary(
   {
+    'Documentation': scdoc.found(),
+    'Themes': get_option('themes'),
     'IME': get_option('ime'),
     'Grapheme clustering': utf8proc.found(),
-    'Terminfo': tic.found(),
+    'Build terminfo': tic.found(),
     'Terminfo install location': terminfo_install_location,
+    'Default TERM': get_option('default-terminfo'),
+    'Set TERMINFO': get_option('custom-terminfo-install-location') != '',
+    'Build tests': get_option('tests'),
   },
   bool_yn: true
 )

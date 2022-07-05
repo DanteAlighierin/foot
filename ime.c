@@ -9,6 +9,7 @@
 #define LOG_MODULE "ime"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "char32.h"
 #include "render.h"
 #include "search.h"
 #include "terminal.h"
@@ -17,16 +18,56 @@
 #include "xmalloc.h"
 
 static void
+ime_reset_pending_preedit(struct seat *seat)
+{
+    free(seat->ime.preedit.pending.text);
+    seat->ime.preedit.pending.text = NULL;
+}
+
+static void
+ime_reset_pending_commit(struct seat *seat)
+{
+    free(seat->ime.commit.pending.text);
+    seat->ime.commit.pending.text = NULL;
+}
+
+void
+ime_reset_pending(struct seat *seat)
+{
+    ime_reset_pending_preedit(seat);
+    ime_reset_pending_commit(seat);
+}
+
+void
+ime_reset_preedit(struct seat *seat)
+{
+    if (seat->ime.preedit.cells == NULL)
+        return;
+
+    free(seat->ime.preedit.text);
+    free(seat->ime.preedit.cells);
+    seat->ime.preedit.text = NULL;
+    seat->ime.preedit.cells = NULL;
+    seat->ime.preedit.count = 0;
+}
+
+static void
 enter(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
       struct wl_surface *surface)
 {
     struct seat *seat = data;
+    struct wl_window *win = wl_surface_get_user_data(surface);
+    struct terminal *term = win->term;
 
-    LOG_DBG("enter: seat=%s", seat->name);
+    LOG_DBG("enter: seat=%s, term=%p", seat->name, (const void *)term);
+
+    if (seat->kbd_focus != term) {
+        LOG_WARN("compositor sent ime::enter() event before the "
+                 "corresponding keyboard_enter() event");
+    }
 
     /* The main grid is the *only* input-receiving surface we have */
-    xassert(seat->kbd_focus != NULL);
-    seat->ime.focused = true;
+    seat->ime_focus = term;
     ime_enable(seat);
 }
 
@@ -38,7 +79,7 @@ leave(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     LOG_DBG("leave: seat=%s", seat->name);
 
     ime_disable(seat);
-    seat->ime.focused = false;
+    seat->ime_focus = NULL;
 }
 
 static void
@@ -103,7 +144,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
 
     LOG_DBG("done: serial=%u", serial);
     struct seat *seat = data;
-    struct terminal *term = seat->kbd_focus;
+    struct terminal *term = seat->ime_focus;
 
     if (seat->ime.serial != serial) {
         LOG_DBG("IME serial mismatch: expected=0x%08x, got 0x%08x",
@@ -159,26 +200,29 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     /* 4. Calculate surrounding text to send - not supported */
 
     /* 5. Insert new pre-edit text */
-    size_t wchars = seat->ime.preedit.pending.text != NULL
-        ? mbstowcs(NULL, seat->ime.preedit.pending.text, 0)
-        : 0;
+    char32_t *allocated_preedit_text = NULL;
 
-    if (wchars == 0 || wchars == (size_t)-1) {
+    if (seat->ime.preedit.pending.text == NULL ||
+        seat->ime.preedit.pending.text[0] == '\0' ||
+        (allocated_preedit_text = ambstoc32(seat->ime.preedit.pending.text)) == NULL)
+    {
         ime_reset_pending_preedit(seat);
         return;
     }
 
-    /* First, convert to unicode */
-    seat->ime.preedit.text = xmalloc((wchars + 1) * sizeof(wchar_t));
-    mbstowcs(seat->ime.preedit.text, seat->ime.preedit.pending.text, wchars);
-    seat->ime.preedit.text[wchars] = L'\0';
+    xassert(seat->ime.preedit.pending.text != NULL);
+    xassert(allocated_preedit_text != NULL);
+
+    seat->ime.preedit.text = allocated_preedit_text;
+
+    size_t wchars = c32len(seat->ime.preedit.text);
 
     /* Next, count number of cells needed */
     size_t cell_count = 0;
     size_t widths[wchars + 1];
 
     for (size_t i = 0; i < wchars; i++) {
-        int width = max(wcwidth(seat->ime.preedit.text[i]), 1);
+        int width = max(c32width(seat->ime.preedit.text[i]), 1);
         widths[i] = width;
         cell_count += width;
     }
@@ -238,7 +282,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
          *
          * To do this, we use mblen() to step though the utf-8
          * pre-edit string, advancing a unicode character index as
-         * we go, *and* advancing a *cell* index using wcwidth()
+         * we go, *and* advancing a *cell* index using c32width()
          * of the unicode character.
          *
          * When we find the matching *byte* index, we at the same
@@ -320,50 +364,16 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     }
 }
 
-void
-ime_reset_pending_preedit(struct seat *seat)
-{
-    free(seat->ime.preedit.pending.text);
-    seat->ime.preedit.pending.text = NULL;
-}
-
-void
-ime_reset_pending_commit(struct seat *seat)
-{
-    free(seat->ime.commit.pending.text);
-    seat->ime.commit.pending.text = NULL;
-}
-
-void
-ime_reset_pending(struct seat *seat)
-{
-    ime_reset_pending_preedit(seat);
-    ime_reset_pending_commit(seat);
-}
-
-void
-ime_reset_preedit(struct seat *seat)
-{
-    if (seat->ime.preedit.cells == NULL)
-        return;
-
-    free(seat->ime.preedit.text);
-    free(seat->ime.preedit.cells);
-    seat->ime.preedit.text = NULL;
-    seat->ime.preedit.cells = NULL;
-    seat->ime.preedit.count = 0;
-}
-
 static void
 ime_send_cursor_rect(struct seat *seat)
 {
     if (unlikely(seat->wayl->text_input_manager == NULL))
         return;
 
-    if (!seat->ime.focused)
+    if (seat->ime_focus == NULL)
         return;
 
-    struct terminal *term = seat->kbd_focus;
+    struct terminal *term = seat->ime_focus;
 
     if (!term->ime_enabled)
         return;
@@ -395,10 +405,10 @@ ime_enable(struct seat *seat)
     if (unlikely(seat->wayl->text_input_manager == NULL))
         return;
 
-    if (!seat->ime.focused)
+    if (seat->ime_focus == NULL)
         return;
 
-    struct terminal *term = seat->kbd_focus;
+    struct terminal *term = seat->ime_focus;
     if (term == NULL)
         return;
 
@@ -433,7 +443,7 @@ ime_disable(struct seat *seat)
     if (unlikely(seat->wayl->text_input_manager == NULL))
         return;
 
-    if (!seat->ime.focused)
+    if (seat->ime_focus == NULL)
         return;
 
     ime_reset_pending(seat);
@@ -447,7 +457,7 @@ ime_disable(struct seat *seat)
 void
 ime_update_cursor_rect(struct seat *seat)
 {
-    struct terminal *term = seat->kbd_focus;
+    struct terminal *term = seat->ime_focus;
 
     /* Set in render_ime_preedit() */
     if (seat->ime.preedit.cells != NULL)

@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <wctype.h>
 
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
@@ -15,12 +14,14 @@
 #include "log.h"
 
 #include "async.h"
+#include "char32.h"
 #include "commands.h"
 #include "config.h"
 #include "extract.h"
 #include "grid.h"
 #include "misc.h"
 #include "render.h"
+#include "search.h"
 #include "uri.h"
 #include "util.h"
 #include "vt.h"
@@ -37,23 +38,46 @@ static const char *const mime_type_map[] = {
     [DATA_OFFER_MIME_TEXT_UTF8_STRING] = "UTF8_STRING",
 };
 
+static inline struct coord
+bounded(const struct grid *grid, struct coord coord)
+{
+    coord.row &= grid->num_rows - 1;
+    return coord;
+}
+
+struct coord
+selection_get_start(const struct terminal *term)
+{
+    if (term->selection.coords.start.row < 0)
+        return term->selection.coords.start;
+    return bounded(term->grid, term->selection.coords.start);
+}
+
+struct coord
+selection_get_end(const struct terminal *term)
+{
+    if (term->selection.coords.end.row < 0)
+        return term->selection.coords.end;
+    return bounded(term->grid, term->selection.coords.end);
+}
+
 bool
 selection_on_rows(const struct terminal *term, int row_start, int row_end)
 {
     LOG_DBG("on rows: %d-%d, range: %d-%d (offset=%d)",
-            term->selection.start.row, term->selection.end.row,
+            term->selection.coords.start.row, term->selection.coords.end.row,
             row_start, row_end, term->grid->offset);
 
-    if (term->selection.end.row < 0)
+    if (term->selection.coords.end.row < 0)
         return false;
 
-    xassert(term->selection.start.row != -1);
+    xassert(term->selection.coords.start.row != -1);
 
     row_start += term->grid->offset;
     row_end += term->grid->offset;
 
-    const struct coord *start = &term->selection.start;
-    const struct coord *end = &term->selection.end;
+    const struct coord *start = &term->selection.coords.start;
+    const struct coord *end = &term->selection.coords.end;
 
     if ((row_start <= start->row && row_end >= start->row) ||
         (row_start <= end->row && row_end >= end->row))
@@ -69,10 +93,8 @@ selection_on_rows(const struct terminal *term, int row_start, int row_end)
         end = tmp;
     }
 
-    if (row_start >= start->row && row_end <= end->row) {
-        LOG_INFO("ON ROWS");
+    if (row_start >= start->row && row_end <= end->row)
         return true;
-    }
 
     return false;
 }
@@ -80,52 +102,62 @@ selection_on_rows(const struct terminal *term, int row_start, int row_end)
 void
 selection_view_up(struct terminal *term, int new_view)
 {
-    if (likely(term->selection.start.row < 0))
+    if (likely(term->selection.coords.start.row < 0))
         return;
 
     if (likely(new_view < term->grid->view))
         return;
 
-    term->selection.start.row += term->grid->num_rows;
-    if (term->selection.end.row >= 0)
-        term->selection.end.row += term->grid->num_rows;
+    term->selection.coords.start.row += term->grid->num_rows;
+    if (term->selection.coords.end.row >= 0)
+        term->selection.coords.end.row += term->grid->num_rows;
 }
 
 void
 selection_view_down(struct terminal *term, int new_view)
 {
-    if (likely(term->selection.start.row < 0))
+    if (likely(term->selection.coords.start.row < 0))
         return;
 
     if (likely(new_view > term->grid->view))
         return;
 
-    term->selection.start.row &= term->grid->num_rows - 1;
-    if (term->selection.end.row >= 0)
-        term->selection.end.row &= term->grid->num_rows - 1;
+    term->selection.coords.start.row &= term->grid->num_rows - 1;
+    if (term->selection.coords.end.row >= 0)
+        term->selection.coords.end.row &= term->grid->num_rows - 1;
 }
 
 static void
 foreach_selected_normal(
     struct terminal *term, struct coord _start, struct coord _end,
-    bool (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
+    bool (*cb)(struct terminal *term, struct row *row, struct cell *cell,
+               int row_no, int col, void *data),
     void *data)
 {
     const struct coord *start = &_start;
     const struct coord *end = &_end;
 
+    const int scrollback_start = term->grid->offset + term->rows;
+    const int grid_rows = term->grid->num_rows;
+
+    /* Start/end rows, relative to the scrollback start */
+    const int rel_start_row =
+        (start->row - scrollback_start + grid_rows) & (grid_rows - 1);
+    const int rel_end_row =
+        (end->row - scrollback_start + grid_rows) & (grid_rows - 1);
+
     int start_row, end_row;
     int start_col, end_col;
 
-    if (start->row < end->row) {
+    if (rel_start_row < rel_end_row) {
         start_row = start->row;
-        end_row = end->row;
         start_col = start->col;
+        end_row = end->row;
         end_col = end->col;
-    } else if (start->row > end->row) {
+    } else if (rel_start_row > rel_end_row) {
         start_row = end->row;
-        end_row = start->row;
         start_col = end->col;
+        end_row = start->row;
         end_col = start->col;
     } else {
         start_row = end_row = start->row;
@@ -133,58 +165,84 @@ foreach_selected_normal(
         end_col = max(start->col, end->col);
     }
 
-    for (int r = start_row; r <= end_row; r++) {
-        size_t real_r = r & (term->grid->num_rows - 1);
-        struct row *row = term->grid->rows[real_r];
+    start_row &= (grid_rows - 1);
+    end_row &= (grid_rows - 1);
+
+    for (int r = start_row; r != end_row; r = (r + 1) & (grid_rows - 1)) {
+        struct row *row = term->grid->rows[r];
         xassert(row != NULL);
 
-        for (int c = start_col;
-             c <= (r == end_row ? end_col : term->cols - 1);
-             c++)
-        {
-            if (!cb(term, row, &row->cells[c], c, data))
+        for (int c = start_col; c <= term->cols - 1; c++) {
+            if (!cb(term, row, &row->cells[c], r, c, data))
                 return;
         }
 
         start_col = 0;
+    }
+
+    /* Last, partial row */
+    struct row *row = term->grid->rows[end_row];
+    xassert(row != NULL);
+
+    for (int c = start_col; c <= end_col; c++) {
+        if (!cb(term, row, &row->cells[c], end_row, c, data))
+            return;
     }
 }
 
 static void
 foreach_selected_block(
     struct terminal *term, struct coord _start, struct coord _end,
-    bool (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
+    bool (*cb)(struct terminal *term, struct row *row, struct cell *cell,
+               int row_no, int col, void *data),
     void *data)
 {
     const struct coord *start = &_start;
     const struct coord *end = &_end;
 
+    const int scrollback_start = term->grid->offset + term->rows;
+    const int grid_rows = term->grid->num_rows;
+
+    /* Start/end rows, relative to the scrollback start */
+    const int rel_start_row =
+        (start->row - scrollback_start + grid_rows) & (grid_rows - 1);
+    const int rel_end_row =
+        (end->row - scrollback_start + grid_rows) & (grid_rows - 1);
+
     struct coord top_left = {
-        .row = min(start->row, end->row),
+        .row = (rel_start_row < rel_end_row
+                ? start->row : end->row) & (grid_rows - 1),
         .col = min(start->col, end->col),
     };
 
     struct coord bottom_right = {
-        .row = max(start->row, end->row),
+        .row = (rel_start_row > rel_end_row
+                ? start->row : end->row) & (grid_rows - 1),
         .col = max(start->col, end->col),
     };
 
-    for (int r = top_left.row; r <= bottom_right.row; r++) {
-        size_t real_r = r & (term->grid->num_rows - 1);
-        struct row *row = term->grid->rows[real_r];
+    int r = top_left.row;
+    while (true) {
+        struct row *row = term->grid->rows[r];
         xassert(row != NULL);
 
         for (int c = top_left.col; c <= bottom_right.col; c++) {
-            if (!cb(term, row, &row->cells[c], c, data))
+            if (!cb(term, row, &row->cells[c], r, c, data))
                 return;
         }
+
+        if (r == bottom_right.row)
+            break;
+
+        r++;
+        r &= grid_rows - 1;
     }
 }
 
 static void
 foreach_selected(
     struct terminal *term, struct coord start, struct coord end,
-    bool (*cb)(struct terminal *term, struct row *row, struct cell *cell, int col, void *data),
+    bool (*cb)(struct terminal *term, struct row *row, struct cell *cell, int row_no, int col, void *data),
     void *data)
 {
     switch (term->selection.kind) {
@@ -208,7 +266,7 @@ foreach_selected(
 static bool
 extract_one_const_wrapper(struct terminal *term,
                           struct row *row, struct cell *cell,
-                          int col, void *data)
+                          int row_no, int col, void *data)
 {
     return extract_one(term, row, cell, col, data);
 }
@@ -216,7 +274,7 @@ extract_one_const_wrapper(struct terminal *term,
 char *
 selection_to_text(const struct terminal *term)
 {
-    if (term->selection.end.row == -1)
+    if (term->selection.coords.end.row == -1)
         return NULL;
 
     struct extraction_context *ctx = extract_begin(term->selection.kind, true);
@@ -224,7 +282,7 @@ selection_to_text(const struct terminal *term)
         return NULL;
 
     foreach_selected(
-        (struct terminal *)term, term->selection.start, term->selection.end,
+        (struct terminal *)term, term->selection.coords.start, term->selection.coords.end,
         &extract_one_const_wrapper, ctx);
 
     char *text;
@@ -235,8 +293,13 @@ void
 selection_find_word_boundary_left(struct terminal *term, struct coord *pos,
                                   bool spaces_only)
 {
+    xassert(pos->row >= 0);
+    xassert(pos->row < term->rows);
+    xassert(pos->col >= 0);
+    xassert(pos->col < term->cols);
+
     const struct row *r = grid_row_in_view(term->grid, pos->row);
-    wchar_t c = r->cells[pos->col].wc;
+    char32_t c = r->cells[pos->col].wc;
 
     while (c >= CELL_SPACER) {
         xassert(pos->col > 0);
@@ -249,7 +312,7 @@ selection_find_word_boundary_left(struct terminal *term, struct coord *pos,
     if (c >= CELL_COMB_CHARS_LO && c <= CELL_COMB_CHARS_HI)
         c = composed_lookup(term->composed, c - CELL_COMB_CHARS_LO)->chars[0];
 
-    bool initial_is_space = c == 0 || iswspace(c);
+    bool initial_is_space = c == 0 || isc32space(c);
     bool initial_is_delim =
         !initial_is_space && !isword(c, spaces_only, term->conf->word_delimiters);
     bool initial_is_word =
@@ -286,7 +349,7 @@ selection_find_word_boundary_left(struct terminal *term, struct coord *pos,
         if (c >= CELL_COMB_CHARS_LO && c <= CELL_COMB_CHARS_HI)
             c = composed_lookup(term->composed, c - CELL_COMB_CHARS_LO)->chars[0];
 
-        bool is_space = c == 0 || iswspace(c);
+        bool is_space = c == 0 || isc32space(c);
         bool is_delim =
             !is_space && !isword(c, spaces_only, term->conf->word_delimiters);
         bool is_word =
@@ -306,10 +369,16 @@ selection_find_word_boundary_left(struct terminal *term, struct coord *pos,
 
 void
 selection_find_word_boundary_right(struct terminal *term, struct coord *pos,
-                                   bool spaces_only)
+                                   bool spaces_only,
+                                   bool stop_on_space_to_word_boundary)
 {
+    xassert(pos->row >= 0);
+    xassert(pos->row < term->rows);
+    xassert(pos->col >= 0);
+    xassert(pos->col < term->cols);
+
     const struct row *r = grid_row_in_view(term->grid, pos->row);
-    wchar_t c = r->cells[pos->col].wc;
+    char32_t c = r->cells[pos->col].wc;
 
     while (c >= CELL_SPACER) {
         xassert(pos->col > 0);
@@ -322,11 +391,12 @@ selection_find_word_boundary_right(struct terminal *term, struct coord *pos,
     if (c >= CELL_COMB_CHARS_LO && c <= CELL_COMB_CHARS_HI)
         c = composed_lookup(term->composed, c - CELL_COMB_CHARS_LO)->chars[0];
 
-    bool initial_is_space = c == 0 || iswspace(c);
+    bool initial_is_space = c == 0 || isc32space(c);
     bool initial_is_delim =
         !initial_is_space && !isword(c, spaces_only, term->conf->word_delimiters);
     bool initial_is_word =
         c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
+    bool have_seen_word = initial_is_word;
 
     while (true) {
         int next_col = pos->col + 1;
@@ -361,20 +431,73 @@ selection_find_word_boundary_right(struct terminal *term, struct coord *pos,
         if (c >= CELL_COMB_CHARS_LO && c <= CELL_COMB_CHARS_HI)
             c = composed_lookup(term->composed, c - CELL_COMB_CHARS_LO)->chars[0];
 
-        bool is_space = c == 0 || iswspace(c);
+        bool is_space = c == 0 || isc32space(c);
         bool is_delim =
             !is_space && !isword(c, spaces_only, term->conf->word_delimiters);
         bool is_word =
             c != 0 && isword(c, spaces_only, term->conf->word_delimiters);
 
-        if (initial_is_space && !is_space)
-            break;
-        if (initial_is_delim && !is_delim)
-            break;
+        if (stop_on_space_to_word_boundary) {
+            if (initial_is_space && !is_space)
+                break;
+            if (initial_is_delim && !is_delim)
+                break;
+        } else {
+            if (initial_is_space && ((have_seen_word && is_space) || is_delim))
+                break;
+            if (initial_is_delim && ((have_seen_word && is_delim) || is_space))
+                break;
+        }
         if (initial_is_word && !is_word)
             break;
 
+        have_seen_word = is_word;
+
         pos->col = next_col;
+        pos->row = next_row;
+    }
+}
+
+void
+selection_find_line_boundary_left(struct terminal *term, struct coord *pos,
+                                  bool spaces_only)
+{
+    int next_row = pos->row;
+    pos->col = 0;
+
+    while (true) {
+        if (--next_row < 0)
+            return;
+
+        const struct row *row = grid_row_in_view(term->grid, next_row);
+        assert(row != NULL);
+
+        if (row->linebreak)
+            return;
+
+        pos->col = 0;
+        pos->row = next_row;
+    }
+}
+
+void
+selection_find_line_boundary_right(struct terminal *term, struct coord *pos,
+                                   bool spaces_only)
+{
+    int next_row = pos->row;
+    pos->col = term->cols - 1;
+
+    while (true) {
+        const struct row *row = grid_row_in_view(term->grid, next_row);
+        assert(row != NULL);
+
+        if (row->linebreak)
+            return;
+
+        if (++next_row >= term->rows)
+            return;
+
+        pos->col = term->cols - 1;
         pos->row = next_row;
     }
 }
@@ -400,35 +523,41 @@ selection_start(struct terminal *term, int col, int row,
     switch (kind) {
     case SELECTION_CHAR_WISE:
     case SELECTION_BLOCK:
-        term->selection.start = (struct coord){col, term->grid->view + row};
-        term->selection.end = (struct coord){-1, -1};
+        term->selection.coords.start = (struct coord){col, term->grid->view + row};
+        term->selection.coords.end = (struct coord){-1, -1};
 
-        term->selection.pivot.start = term->selection.start;
-        term->selection.pivot.end = term->selection.end;
+        term->selection.pivot.start = term->selection.coords.start;
+        term->selection.pivot.end = term->selection.coords.end;
         break;
 
     case SELECTION_WORD_WISE: {
         struct coord start = {col, row}, end = {col, row};
         selection_find_word_boundary_left(term, &start, spaces_only);
-        selection_find_word_boundary_right(term, &end, spaces_only);
+        selection_find_word_boundary_right(term, &end, spaces_only, true);
 
-        term->selection.start = (struct coord){
+        term->selection.coords.start = (struct coord){
             start.col, term->grid->view + start.row};
 
-        term->selection.pivot.start = term->selection.start;
+        term->selection.pivot.start = term->selection.coords.start;
         term->selection.pivot.end = (struct coord){end.col, term->grid->view + end.row};
 
         selection_update(term, end.col, end.row);
         break;
     }
 
-    case SELECTION_LINE_WISE:
-        term->selection.start = (struct coord){0, term->grid->view + row};
-        term->selection.pivot.start = term->selection.start;
-        term->selection.pivot.end = (struct coord){term->cols - 1, term->grid->view + row};
+    case SELECTION_LINE_WISE: {
+        struct coord start = {0, row}, end = {term->cols - 1, row};
+        selection_find_line_boundary_left(term, &start, spaces_only);
+        selection_find_line_boundary_right(term, &end, spaces_only);
 
-        selection_update(term, term->cols - 1, row);
+        term->selection.coords.start = (struct coord){
+            start.col, term->grid->view + start.row};
+        term->selection.pivot.start = term->selection.coords.start;
+        term->selection.pivot.end = (struct coord){end.col, term->grid->view + end.row};
+
+        selection_update(term, end.col, end.row);
         break;
+    }
 
     case SELECTION_NONE:
         BUG("Invalid selection kind");
@@ -442,27 +571,40 @@ selection_start(struct terminal *term, int col, int row,
 struct mark_context {
     const struct row *last_row;
     int empty_count;
+    uint8_t **keep_selection;
 };
 
 static bool
 unmark_selected(struct terminal *term, struct row *row, struct cell *cell,
-                int col, void *data)
+                int row_no, int col, void *data)
 {
-    if (cell->attrs.selected == 0 || (cell->attrs.selected & 2)) {
-        /* Ignore if already deselected, or if premarked for updated selection */
+    if (!cell->attrs.selected)
         return true;
+
+    struct mark_context *ctx = data;
+    const uint8_t *keep_selection =
+        ctx->keep_selection != NULL ? ctx->keep_selection[row_no] : NULL;
+
+    if (keep_selection != NULL) {
+        unsigned idx = (unsigned)col / 8;
+        unsigned ofs = (unsigned)col % 8;
+
+        if (keep_selection[idx] & (1 << ofs)) {
+            /* We’re updating the selection, and this cell is still
+             * going to be selected */
+            return true;
+        }
     }
 
     row->dirty = true;
-    cell->attrs.selected = 0;
-    cell->attrs.clean = 0;
+    cell->attrs.selected = false;
+    cell->attrs.clean = false;
     return true;
 }
 
-
 static bool
 premark_selected(struct terminal *term, struct row *row, struct cell *cell,
-                 int col, void *data)
+                 int row_no, int col, void *data)
 {
     struct mark_context *ctx = data;
     xassert(ctx != NULL);
@@ -477,9 +619,18 @@ premark_selected(struct terminal *term, struct row *row, struct cell *cell,
         return true;
     }
 
+    uint8_t *keep_selection = ctx->keep_selection[row_no];
+    if (keep_selection == NULL) {
+        keep_selection = xcalloc((term->grid->num_cols + 7) / 8, sizeof(keep_selection[0]));
+        ctx->keep_selection[row_no] = keep_selection;
+    }
+
     /* Tell unmark to leave this be */
-    for (int i = 0; i < ctx->empty_count + 1; i++)
-        row->cells[col - i].attrs.selected |= 2;
+    for (int i = 0; i < ctx->empty_count + 1; i++) {
+        unsigned idx = (unsigned)(col - i) / 8;
+        unsigned ofs = (unsigned)(col - i) % 8;
+        keep_selection[idx] |= 1 << ofs;
+    }
 
     ctx->empty_count = 0;
     return true;
@@ -487,7 +638,7 @@ premark_selected(struct terminal *term, struct row *row, struct cell *cell,
 
 static bool
 mark_selected(struct terminal *term, struct row *row, struct cell *cell,
-              int col, void *data)
+              int row_no, int col, void *data)
 {
     struct mark_context *ctx = data;
     xassert(ctx != NULL);
@@ -504,12 +655,10 @@ mark_selected(struct terminal *term, struct row *row, struct cell *cell,
 
     for (int i = 0; i < ctx->empty_count + 1; i++) {
         struct cell *c = &row->cells[col - i];
-        if (c->attrs.selected & 1)
-            c->attrs.selected = 1; /* Clear the pre-mark bit */
-        else {
+        if (!c->attrs.selected) {
             row->dirty = true;
-            c->attrs.selected = 1;
-            c->attrs.clean = 0;
+            c->attrs.selected = true;
+            c->attrs.clean = false;
         }
     }
 
@@ -518,32 +667,46 @@ mark_selected(struct terminal *term, struct row *row, struct cell *cell,
 }
 
 static void
+reset_modify_context(struct mark_context *ctx)
+{
+    ctx->last_row = NULL;
+    ctx->empty_count = 0;
+}
+
+static void
 selection_modify(struct terminal *term, struct coord start, struct coord end)
 {
-    xassert(term->selection.start.row != -1);
+    xassert(term->selection.coords.start.row != -1);
     xassert(start.row != -1 && start.col != -1);
     xassert(end.row != -1 && end.col != -1);
 
-    struct mark_context ctx = {0};
+    uint8_t **keep_selection =
+        xcalloc(term->grid->num_rows, sizeof(keep_selection[0]));
+
+    struct mark_context ctx = {.keep_selection = keep_selection};
 
     /* Premark all cells that *will* be selected */
     foreach_selected(term, start, end, &premark_selected, &ctx);
-    memset(&ctx, 0, sizeof(ctx));
+    reset_modify_context(&ctx);
 
-    if (term->selection.end.row >= 0) {
+    if (term->selection.coords.end.row >= 0) {
         /* Unmark previous selection, ignoring cells that are part of
          * the new selection */
-        foreach_selected(term, term->selection.start, term->selection.end,
+        foreach_selected(term, term->selection.coords.start, term->selection.coords.end,
                          &unmark_selected, &ctx);
-        memset(&ctx, 0, sizeof(ctx));
+        reset_modify_context(&ctx);
     }
 
-    term->selection.start = start;
-    term->selection.end = end;
+    term->selection.coords.start = start;
+    term->selection.coords.end = end;
 
     /* Mark new selection */
     foreach_selected(term, start, end, &mark_selected, &ctx);
     render_refresh(term);
+
+    for (size_t i = 0; i < term->grid->num_rows; i++)
+        free(keep_selection[i]);
+    free(keep_selection);
 }
 
 static void
@@ -585,7 +748,7 @@ set_pivot_point_for_block_and_char_wise(struct terminal *term,
         bool keep_going = true;
         while (keep_going) {
             const struct row *row = term->grid->rows[pivot_end->row & (term->grid->num_rows - 1)];
-            const wchar_t wc = row->cells[pivot_end->col].wc;
+            const char32_t wc = row->cells[pivot_end->col].wc;
 
             keep_going = wc >= CELL_SPACER;
 
@@ -601,7 +764,7 @@ set_pivot_point_for_block_and_char_wise(struct terminal *term,
         bool keep_going = true;
         while (keep_going) {
             const struct row *row = term->grid->rows[pivot_start->row & (term->grid->num_rows - 1)];
-            const wchar_t wc = pivot_start->col < term->cols - 1
+            const char32_t wc = pivot_start->col < term->cols - 1
                 ? row->cells[pivot_start->col + 1].wc : 0;
 
             keep_going = wc >= CELL_SPACER;
@@ -625,20 +788,20 @@ set_pivot_point_for_block_and_char_wise(struct terminal *term,
 void
 selection_update(struct terminal *term, int col, int row)
 {
-    if (term->selection.start.row < 0)
+    if (term->selection.coords.start.row < 0)
         return;
 
     if (!term->selection.ongoing)
         return;
 
     LOG_DBG("selection updated: start = %d,%d, end = %d,%d -> %d, %d",
-            term->selection.start.row, term->selection.start.col,
-            term->selection.end.row, term->selection.end.col,
+            term->selection.coords.start.row, term->selection.coords.start.col,
+            term->selection.coords.end.row, term->selection.coords.end.col,
             row, col);
 
     xassert(term->grid->view + row != -1);
 
-    struct coord new_start = term->selection.start;
+    struct coord new_start = term->selection.coords.start;
     struct coord new_end = {col, term->grid->view + row};
 
     /* Adjust start point if the selection has changed 'direction' */
@@ -711,7 +874,7 @@ selection_update(struct terminal *term, int col, int row)
         case SELECTION_RIGHT: {
             struct coord end = {col, row};
             selection_find_word_boundary_right(
-                term, &end, term->selection.spaces_only);
+                term, &end, term->selection.spaces_only, true);
             new_end = (struct coord){end.col, term->grid->view + end.row};
             break;
         }
@@ -723,13 +886,21 @@ selection_update(struct terminal *term, int col, int row)
 
     case SELECTION_LINE_WISE:
         switch (term->selection.direction) {
-        case SELECTION_LEFT:
-            new_end.col = 0;
+        case SELECTION_LEFT: {
+            struct coord end = {0, row};
+            selection_find_line_boundary_left(
+                term, &end, term->selection.spaces_only);
+            new_end = (struct coord){end.col, term->grid->view + end.row};
             break;
+        }
 
-        case SELECTION_RIGHT:
-            new_end.col = term->cols - 1;
+        case SELECTION_RIGHT: {
+            struct coord end = {col, row};
+            selection_find_line_boundary_right(
+                term, &end, term->selection.spaces_only);
+            new_end = (struct coord){end.col, term->grid->view + end.row};
             break;
+        }
 
         case SELECTION_UNDIR:
             break;
@@ -773,11 +944,11 @@ selection_update(struct terminal *term, int col, int row)
 void
 selection_dirty_cells(struct terminal *term)
 {
-    if (term->selection.start.row < 0 || term->selection.end.row < 0)
+    if (term->selection.coords.start.row < 0 || term->selection.coords.end.row < 0)
         return;
 
     foreach_selected(
-        term, term->selection.start, term->selection.end, &mark_selected,
+        term, term->selection.coords.start, term->selection.coords.end, &mark_selected,
         &(struct mark_context){0});
 }
 
@@ -785,8 +956,8 @@ static void
 selection_extend_normal(struct terminal *term, int col, int row,
                         enum selection_kind new_kind)
 {
-    const struct coord *start = &term->selection.start;
-    const struct coord *end = &term->selection.end;
+    const struct coord *start = &term->selection.coords.start;
+    const struct coord *end = &term->selection.coords.end;
 
     if (start->row > end->row ||
         (start->row == end->row && start->col > end->col))
@@ -837,6 +1008,8 @@ selection_extend_normal(struct terminal *term, int col, int row,
         }
     }
 
+    const bool spaces_only = term->selection.spaces_only;
+
     switch (term->selection.kind) {
     case SELECTION_CHAR_WISE:
         xassert(new_kind == SELECTION_CHAR_WISE);
@@ -850,10 +1023,8 @@ selection_extend_normal(struct terminal *term, int col, int row,
         struct coord pivot_start = {new_start.col, new_start.row - term->grid->view};
         struct coord pivot_end = pivot_start;
 
-        selection_find_word_boundary_left(
-            term, &pivot_start, term->selection.spaces_only);
-        selection_find_word_boundary_right(
-            term, &pivot_end, term->selection.spaces_only);
+        selection_find_word_boundary_left(term, &pivot_start, spaces_only);
+        selection_find_word_boundary_right(term, &pivot_end, spaces_only, true);
 
         term->selection.pivot.start =
             (struct coord){pivot_start.col, term->grid->view + pivot_start.row};
@@ -862,13 +1033,22 @@ selection_extend_normal(struct terminal *term, int col, int row,
         break;
     }
 
-    case SELECTION_LINE_WISE:
+    case SELECTION_LINE_WISE: {
         xassert(new_kind == SELECTION_CHAR_WISE ||
-               new_kind == SELECTION_LINE_WISE);
+                new_kind == SELECTION_LINE_WISE);
 
-        term->selection.pivot.start = (struct coord){0, new_start.row};
-        term->selection.pivot.end = (struct coord){term->cols - 1, new_start.row};
+        struct coord pivot_start = {new_start.col, new_start.row - term->grid->view};
+        struct coord pivot_end = pivot_start;
+
+        selection_find_line_boundary_left(term, &pivot_start, spaces_only);
+        selection_find_line_boundary_right(term, &pivot_end, spaces_only);
+
+        term->selection.pivot.start =
+            (struct coord){pivot_start.col, term->grid->view + pivot_start.row};
+        term->selection.pivot.end =
+            (struct coord){pivot_end.col, term->grid->view + pivot_end.row};
         break;
+    }
 
     case SELECTION_BLOCK:
     case SELECTION_NONE:
@@ -884,8 +1064,8 @@ selection_extend_normal(struct terminal *term, int col, int row,
 static void
 selection_extend_block(struct terminal *term, int col, int row)
 {
-    const struct coord *start = &term->selection.start;
-    const struct coord *end = &term->selection.end;
+    const struct coord *start = &term->selection.coords.start;
+    const struct coord *end = &term->selection.coords.end;
 
     struct coord top_left = {
         .row = min(start->row, end->row),
@@ -953,7 +1133,7 @@ void
 selection_extend(struct seat *seat, struct terminal *term,
                  int col, int row, enum selection_kind new_kind)
 {
-    if (term->selection.start.row < 0 || term->selection.end.row < 0) {
+    if (term->selection.coords.start.row < 0 || term->selection.coords.end.row < 0) {
         /* No existing selection */
         return;
     }
@@ -965,8 +1145,8 @@ selection_extend(struct seat *seat, struct terminal *term,
 
     row += term->grid->view;
 
-    if ((row == term->selection.start.row && col == term->selection.start.col) ||
-        (row == term->selection.end.row && col == term->selection.end.col))
+    if ((row == term->selection.coords.start.row && col == term->selection.coords.start.col) ||
+        (row == term->selection.coords.end.row && col == term->selection.coords.end.col))
     {
         /* Extension point *is* one of the current end points */
         return;
@@ -1002,22 +1182,14 @@ selection_finalize(struct seat *seat, struct terminal *term, uint32_t serial)
     selection_stop_scroll_timer(term);
     term->selection.ongoing = false;
 
-    if (term->selection.start.row < 0 || term->selection.end.row < 0)
+    if (term->selection.coords.start.row < 0 || term->selection.coords.end.row < 0)
         return;
 
-    xassert(term->selection.start.row != -1);
-    xassert(term->selection.end.row != -1);
+    xassert(term->selection.coords.start.row != -1);
+    xassert(term->selection.coords.end.row != -1);
 
-    if (term->selection.start.row > term->selection.end.row ||
-        (term->selection.start.row == term->selection.end.row &&
-         term->selection.start.col > term->selection.end.col))
-    {
-        struct coord tmp = term->selection.start;
-        term->selection.start = term->selection.end;
-        term->selection.end = tmp;
-    }
-
-    xassert(term->selection.start.row <= term->selection.end.row);
+    term->selection.coords.start.row &= (term->grid->num_rows - 1);
+    term->selection.coords.end.row &= (term->grid->num_rows - 1);
 
     switch (term->conf->selection_target) {
     case SELECTION_TARGET_NONE:
@@ -1041,25 +1213,27 @@ void
 selection_cancel(struct terminal *term)
 {
     LOG_DBG("selection cancelled: start = %d,%d end = %d,%d",
-            term->selection.start.row, term->selection.start.col,
-            term->selection.end.row, term->selection.end.col);
+            term->selection.coords.start.row, term->selection.coords.start.col,
+            term->selection.coords.end.row, term->selection.coords.end.col);
 
     selection_stop_scroll_timer(term);
 
-    if (term->selection.start.row >= 0 && term->selection.end.row >= 0) {
+    if (term->selection.coords.start.row >= 0 && term->selection.coords.end.row >= 0) {
         foreach_selected(
-            term, term->selection.start, term->selection.end,
+            term, term->selection.coords.start, term->selection.coords.end,
             &unmark_selected, &(struct mark_context){0});
         render_refresh(term);
     }
 
     term->selection.kind = SELECTION_NONE;
-    term->selection.start = (struct coord){-1, -1};
-    term->selection.end = (struct coord){-1, -1};
+    term->selection.coords.start = (struct coord){-1, -1};
+    term->selection.coords.end = (struct coord){-1, -1};
     term->selection.pivot.start = (struct coord){-1, -1};
     term->selection.pivot.end = (struct coord){-1, -1};
     term->selection.direction = SELECTION_UNDIR;
     term->selection.ongoing = false;
+
+    search_selection_cancelled(term);
 }
 
 bool
@@ -1393,6 +1567,8 @@ static const struct zwp_primary_selection_source_v1_listener primary_selection_s
 bool
 text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t serial)
 {
+    xassert(serial != 0);
+
     struct wl_clipboard *clipboard = &seat->clipboard;
 
     if (clipboard->data_source != NULL) {
@@ -1428,7 +1604,6 @@ text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t
     wl_data_device_set_selection(seat->data_device, clipboard->data_source, serial);
 
     /* Needed when sending the selection to other client */
-    xassert(serial != 0);
     clipboard->serial = serial;
     return true;
 }
@@ -1436,7 +1611,7 @@ text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t
 void
 selection_to_clipboard(struct seat *seat, struct terminal *term, uint32_t serial)
 {
-    if (term->selection.start.row < 0 || term->selection.end.row < 0)
+    if (term->selection.coords.start.row < 0 || term->selection.coords.end.row < 0)
         return;
 
     /* Get selection as a string */
@@ -1450,6 +1625,7 @@ struct clipboard_receive {
     int timeout_fd;
     struct itimerspec timeout;
     bool bracketed;
+    bool quote_paths;
 
     void (*decoder)(struct clipboard_receive *ctx, char *data, size_t size);
     void (*finish)(struct clipboard_receive *ctx);
@@ -1534,9 +1710,13 @@ decode_one_uri(struct clipboard_receive *ctx, char *uri, size_t len)
     ctx->add_space = true;
 
     if (strcmp(scheme, "file") == 0 && hostname_is_localhost(host)) {
-        ctx->cb("'", 1, ctx->user);
+        if (ctx->quote_paths)
+            ctx->cb("'", 1, ctx->user);
+
         ctx->cb(path, strlen(path), ctx->user);
-        ctx->cb("'", 1, ctx->user);
+
+        if (ctx->quote_paths)
+            ctx->cb("'", 1, ctx->user);
     } else
         ctx->cb(uri, len, ctx->user);
 
@@ -1620,8 +1800,8 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
 
         /*
          * Call cb while at same time replace:
-         *   - \r\n -> \r
-         *   - \n -> \r
+         *   - \r\n -> \r  (non-bracketed paste)
+         *   - \n -> \r    (non-bracketed paste)
          *   - C0 -> <nothing>  (strip non-formatting C0 characters)
          *   - \e -> <nothing>  (i.e. strip ESC)
          */
@@ -1665,9 +1845,22 @@ fdm_receive(struct fdm *fdm, int fd, int events, void *data)
                 skip_one();
                 goto again;
 
-            /* Additional control characters stripped by default (but
-             * configurable) in XTerm: BS, HT, DEL */
-            case '\b': case '\t': case '\v': case '\f': case '\x7f':
+            /*
+             * In addition to stripping non-formatting C0 controls,
+             * XTerm has an option, “disallowedPasteControls”, that
+             * defines C0 controls that will be replaced with spaces
+             * when pasted.
+             *
+             * It’s default value is BS,DEL,ENQ,EOT,NUL
+             *
+             * Instead of replacing them with spaces, we allow them in
+             * bracketed paste mode, and strip them completely in
+             * non-bracketed mode.
+             *
+             * Note some of the (default) XTerm controls are already
+             * handled above.
+             */
+            case '\b': case '\x7f': case '\x00':
                 if (!ctx->bracketed) {
                     skip_one();
                     goto again;
@@ -1723,6 +1916,7 @@ begin_receive_clipboard(struct terminal *term, int read_fd,
         .timeout_fd = timeout_fd,
         .timeout = timeout,
         .bracketed = term->bracketed_paste,
+        .quote_paths = term->grid == &term->normal,
         .decoder = (mime_type == DATA_OFFER_MIME_URI_LIST
                     ? &fdm_receive_decoder_uri
                     : &fdm_receive_decoder_plain),
@@ -1793,6 +1987,7 @@ receive_offer(char *data, size_t size, void *user)
     xassert(term->is_sending_paste_data);
     term_paste_data_to_slave(term, data, size);
 }
+
 static void
 receive_offer_done(void *user)
 {
@@ -1833,6 +2028,8 @@ text_to_primary(struct seat *seat, struct terminal *term, char *text, uint32_t s
 {
     if (term->wl->primary_selection_device_manager == NULL)
         return false;
+
+    xassert(serial != 0);
 
     struct wl_primary *primary = &seat->primary;
 
@@ -2125,6 +2322,9 @@ enter(void *data, struct wl_data_device *wl_data_device, uint32_t serial,
 
     xassert(offer == seat->clipboard.data_offer);
 
+    if (seat->clipboard.mime_type == DATA_OFFER_MIME_UNSET)
+        goto reject_offer;
+
     /* Remember _which_ terminal the current DnD offer is targeting */
     xassert(seat->clipboard.window == NULL);
     tll_foreach(wayl->terms, it) {
@@ -2143,10 +2343,15 @@ enter(void *data, struct wl_data_device *wl_data_device, uint32_t serial,
         }
     }
 
+reject_offer:
     /* Either terminal is already busy sending paste data, or mouse
      * pointer isn’t over the grid */
     seat->clipboard.window = NULL;
-    wl_data_offer_set_actions(offer, 0, 0);
+    wl_data_offer_accept(offer, serial, NULL);
+    wl_data_offer_set_actions(
+        offer,
+        WL_DATA_DEVICE_MANAGER_DND_ACTION_NONE,
+        WL_DATA_DEVICE_MANAGER_DND_ACTION_NONE);
 }
 
 static void
@@ -2194,6 +2399,12 @@ drop(void *data, struct wl_data_device *wl_data_device)
     struct terminal *term = seat->clipboard.window->term;
 
     struct wl_clipboard *clipboard = &seat->clipboard;
+
+    if (clipboard->mime_type == DATA_OFFER_MIME_UNSET) {
+        LOG_WARN("compositor called data_device::drop() "
+                 "even though we rejected the drag-and-drop");
+        return;
+    }
 
     struct dnd_context *ctx = xmalloc(sizeof(*ctx));
     *ctx = (struct dnd_context){
@@ -2311,3 +2522,4 @@ const struct zwp_primary_selection_device_v1_listener primary_selection_device_l
     .data_offer = &primary_data_offer,
     .selection = &primary_selection,
 };
+

@@ -24,7 +24,7 @@ terminal has terminated.
 
 *-t*,*--term*=_TERM_
 	Value to set the environment variable *TERM* to (see *TERMINFO*
-	and *ENVIRONMENT*). Default: _foot_.
+	and *ENVIRONMENT*). Default: _@default_terminfo@_.
 
 *-T*,*--title*=_TITLE_
 	Initial window title. Default: _foot_.
@@ -69,6 +69,10 @@ terminal has terminated.
 	Override an option set in the configuration file. If _SECTION_ is not
 	given, defaults to _main_.
 
+*-E*,*--client-environment*
+	The child process in the new terminal instance will use
+	footclient's environment, instead of the server's.
+
 *-d*,*--log-level*={*info*,*warning*,*error*,*none*}
 	Log level, used both for log output on stderr as well as
 	syslog. Default: _info_.
@@ -78,6 +82,10 @@ terminal has terminated.
 
 *-v*,*--version*
 	Show the version number and quit
+
+*-e*
+	Ignored; for compatibility with *xterm -e*. See *foot*(1) for more
+	details.
 
 # EXIT STATUS
 
@@ -128,7 +136,7 @@ terminfo entries manually, by copying *foot* and *foot-direct* to
 
 # ENVIRONMENT
 
-The following environment variables are used by footclient:
+## Variables used by footclient
 
 *XDG\_RUNTIME\_DIR*
 	Used to construct the default _PATH_ for the *--server-socket*
@@ -138,7 +146,7 @@ The following environment variables are used by footclient:
 	Used to construct the default _PATH_ for the *--server-socket*
 	option, when no explicit argument is given (see above).
 
-The following environment variables are set in the child process:
+## Variables set in the child process
 
 *TERM*
 	terminfo/termcap identifier. This is used by client applications
@@ -149,6 +157,9 @@ The following environment variables are set in the child process:
 *COLORTERM*
 	This variable is set to *truecolor*, to indicate to client
 	applications that 24-bit RGB colors are supported.
+
+In addition to the variables listed above, custom environment
+variables may be defined in *foot.ini*(5).
 
 # SEE ALSO
 

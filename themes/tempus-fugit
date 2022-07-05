@@ -1,0 +1,28 @@
+# theme: Tempus Fugit
+# author: Protesilaos Stavrou (https://protesilaos.com)
+# description: Light, pleasant theme optimised for long writing/coding sessions (WCAG AA compliant)
+
+#[cursor]
+#color = fff5f3 4d595f
+
+[colors]
+foreground = 4d595f
+background = fff5f3
+regular0 = 4d595f
+regular1 = c61a14
+regular2 = 357200
+regular3 = 825e00
+regular4 = 1666b0
+regular5 = a83884
+regular6 = 007072
+regular7 = efe6e4
+bright0 = 796271
+bright1 = b93f1a
+bright2 = 437520
+bright3 = 985900
+bright4 = 485adf
+bright5 = a234c0
+bright6 = 00756a
+bright7 = fff5f3
+#selection-foreground = 796271
+#selection-background = efe6e4

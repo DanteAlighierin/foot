@@ -352,6 +352,7 @@ fdm_signal_add(struct fdm *fdm, int signo, fdm_signal_handler_t handler, void *d
     }
 
     struct sigaction action = {.sa_handler = &signal_handler};
+    sigemptyset(&action.sa_mask);
     if (sigaction(signo, &action, NULL) < 0) {
         LOG_ERRNO("failed to set signal handler for signal %d", signo);
         sigprocmask(SIG_SETMASK, &original, NULL);
@@ -371,6 +372,7 @@ fdm_signal_del(struct fdm *fdm, int signo)
         return false;
 
     struct sigaction action = {.sa_handler = SIG_DFL};
+    sigemptyset(&action.sa_mask);
     if (sigaction(signo, &action, NULL) < 0) {
         LOG_ERRNO("failed to restore signal handler for signal %d", signo);
         return false;

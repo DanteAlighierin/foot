@@ -4,7 +4,6 @@
 1. [Requirements](#requirements)
    1. [Running](#running)
    1. [Building](#building)
-1. [Arch Linux](#arch-linux)
 1. [Other](#other)
    1. [Setup](#setup)
    1. [Options](#options)
@@ -17,6 +16,7 @@
          1. [Use the generated PGO data](#use-the-generated-pgo-data)
       1. [Profile Guided Optimization](#profile-guided-optimization)
    1. [Debug build](#debug-build)
+   1. [Terminfo](#terminfo)
    1. [Running the new build](#running-the-new-build)
 
 
@@ -38,6 +38,7 @@ subprojects.
 
 ### Running
 
+* UTF-8 locale
 * fontconfig
 * freetype
 * pixman
@@ -55,7 +56,6 @@ following **optional** dependencies:
 * xdg-utils: URLs are by default launched with `xdg-open`.
 * bash-completion: If you want completion for positional arguments.
 
-
 ### Building
 
 In addition to the dev variant of the packages above, you need:
@@ -64,9 +64,10 @@ In addition to the dev variant of the packages above, you need:
 * ninja
 * wayland protocols
 * ncurses (needed to generate terminfo)
-* scdoc (for man page generation)
+* scdoc (for man page generation, not needed if documentation is disabled)
 * llvm (for PGO builds with Clang)
 * [tllist](https://codeberg.org/dnkl/tllist) [^1]
+* systemd (optional, foot will install systemd unit files if detected)
 
 A note on compilers; in general, foot runs **much** faster when
 compiled with gcc instead of clang. A profile-guided gcc build can be
@@ -80,41 +81,52 @@ The work around is simple: make sure you build with `-O3`. This is the
 default with `meson --buildtype=release`, but e.g. `makepkg` can
 override it (`makepkg` uses `-O2` by default).
 
-
-## Arch Linux
-
-Install from AUR:
-
-* [foot](https://aur.archlinux.org/packages/foot/) +
-  [foot-terminfo](https://aur.archlinux.org/packages/foot-terminfo/)
-* [foot-git](https://aur.archlinux.org/packages/foot-git/) +
-  [foot-terminfo-git](https://aur.archlinux.org/packages/foot-terminfo-git/)
-
-Or use [makepkg](https://wiki.archlinux.org/title/Makepkg) to
-build the bundled [PKGBUILD](PKGBUILD) (run `makepkg` in the source
-root directory).
-
-Unlike the AUR packages, the bundled PKGBUILD **requires**
-[tllist](https://codeberg.org/dnkl/tllist) and
-[fcft](https://codeberg.org/dnkl/fcft) to be installed as system
-libraries. If you do not want this, please edit the PKGBUILD file, or
-install manually (see [Other](#other) below).
-
-Note that it will do a profiling-guided build, and that this requires
-a running wayland session since it needs to run an intermediate build
-of foot.
-
-
 ## Other
 
 Foot uses _meson_. If you are unfamiliar with it, the official
 [tutorial](https://mesonbuild.com/Tutorial.html) might be a good
 starting point.
 
-I also recommend taking a look at the bundled Arch
-[PKGBUILD](PKGBUILD) file, to see how it builds foot. Especially so if
-you intend to install a release build of foot, in which case you might
-be interested in the compiler flags used there.
+A note on terminfo; the terminfo database exposes terminal
+capabilities to the applications running inside the terminal. As such,
+it is important that the terminfo used reflects the actual
+terminal. Using the `xterm-256color` terminfo will, in many cases,
+work, but I still recommend using foot’s own terminfo. There are two
+reasons for this:
+
+* foot’s terminfo contains a couple of non-standard capabilities,
+  used by e.g. tmux.
+* New capabilities added to the `xterm-256color` terminfo could
+  potentially break foot.
+* There may be future additions or changes to foot’s terminfo.
+
+As of ncurses 2021-07-31, ncurses includes a version of foot’s
+terminfo. **The recommendation is to use those**, and only install the
+terminfo definitions from this git repo if the system’s ncurses
+predates 2021-07-31.
+
+But, note that the foot terminfo definitions in ncurses’ lack the
+non-standard capabilities. This mostly affects tmux; without them,
+`terminal-overrides` must be configured to enable truecolor
+support. For this reason, it _is_ possible to install “our” terminfo
+definitions as well, either in a non-default location, or under a
+different name.
+
+Both have their set of issues. When installing to a non-default
+location, foot will set the environment variable `TERMINFO` in the
+child process. However, there are many situations where this simply
+does not work. See https://codeberg.org/dnkl/foot/issues/695 for
+details.
+
+Installing them under a different name generally works well, but will
+break applications that check if `$TERM == foot`.
+
+Hence the recommendation to simply use ncurses’ terminfo definitions
+if available.
+
+If packaging “our” terminfo definitions, I recommend doing that as a
+separate package, to allow them to be installed on remote systems
+without having to install foot itself.
 
 
 ### Setup
@@ -128,35 +140,62 @@ mkdir -p bld/release && cd bld/release
 
 Available compile-time options:
 
-| Option                        | Type    | Default               | Description                           | Extra dependencies |
-|-------------------------------|---------|-----------------------|---------------------------------------|--------------------|
-| `-Dime`                       | bool    | `true`                | Enables IME support                   | None               |
-| `-Dgrapheme-clustering`       | feature | `auto`                | Enables grapheme clustering           | libutf8proc        |
-| `-Dterminfo`                  | feature | `auto`                | Build terminfo files                  | `tic` (ncurses)    |
-| `-Dterminfo-install-location` | string  | `${datadir}/terminfo` | Where to  install the terminfo files  | None               |
+| Option                               | Type    | Default                 | Description                                           | Extra dependencies |
+|--------------------------------------|---------|-------------------------|-------------------------------------------------------|--------------------|
+| `-Ddocs`                             | feature | `auto`                  | Builds and install documentation                      | scdoc              |
+| `-Dtests`                            | bool    | `true`                  | Build tests (adds a `ninja test` build target)        | none               |
+| `-Dime`                              | bool    | `true`                  | Enables IME support                                   | None               |
+| `-Dgrapheme-clustering`              | feature | `auto`                  | Enables grapheme clustering                           | libutf8proc        |
+| `-Dterminfo`                         | feature | `enabled`               | Build and install terminfo files                      | tic (ncurses)      |
+| `-Ddefault-terminfo`                 | string  | `foot`                  | Default value of `TERM`                               | none               |
+| `-Dcustom-terminfo-install-location` | string  | `${datadir}/terminfo`   | Value to set `TERMINFO` to                            | None               |
+| `-Dsystemd-units-dir`                | string  | `${systemduserunitdir}` | Where to install the systemd service files (absolute) | None               |
 
-The two `terminfo` options are related, but control different aspects
-of how the terminfo files are built, installed and used.
+Documentation includes the man pages, readme, changelog and license
+files.
 
-`-Dterminfo` controls if the terminfo files should be generated _at
-all_. If disabled, foot’s hardcoded default terminfo is
-`xterm-256color` instead of `foot`.
+`-Ddefault-terminfo`: I strongly recommend leaving the default
+value. Use this option if you plan on installing the terminfo files
+under a different name. Setting this changes the default value of
+`$TERM`, and the names of the terminfo files (if
+`-Dterminfo=enabled`).
 
-`-Dterminfo-install-location` controls _where_ the terminfo files are
-installed, relative to the installation prefix. The default is
-`${datadir}/terminfo`.
+`-Dcustom-terminfo-install-location` enables foot’s terminfo to
+co-exist with ncurses’ version, without changing the terminfo
+names. The idea is that you install foot’s terminfo to a non-standard
+location, for example `/usr/share/foot/terminfo`. Use
+`-Dcustom-terminfo-install-location` to tell foot where the terminfo
+is. Foot will set the environment variable `TERMINFO` to this value
+(with `${prefix}` added). The value is **relative to ${prefix}**.
 
-It also recognizes the special value `disabled`, that prevents the
-terminfo files from being _installed_. They are still _built_, and
-foot’s hardcoded default terminfo is still `foot`. It is intended to
-be used when the terminfo files are packaged in a separate package
-(something I **highly** recommend distros do).
+Note that there are several issues with this approach:
+https://codeberg.org/dnkl/foot/issues/695.
 
-To build the terminfo files manually, run
+If left unset, foot will **not** set or modify `TERMINFO`.
+
+`-Dterminfo` can be used to disable building the terminfo definitions
+in the meson build. It does **not** change the default value of
+`TERM`, and it does **not** disable `TERMINFO`, if
+`-Dcustom-terminfo-install-location` has been set. Use this if
+packaging the terminfo definitions in a separate package (and the
+build script isn’t shared with the ‘foot’ package).
+
+Example:
 
 ```sh
-tic -x -o <output-directory> -e foot,foot-direct foot.info
+meson --prefix=/usr -Dcustom-terminfo-install-location=lib/foot/terminfo
 ```
+
+The above tells foot its terminfo definitions will be installed to
+`/usr/lib/foot/terminfo`. This is the value foot will set the
+`TERMINFO` environment variable to.
+
+If `-Dterminfo` is enabled (the default), then the terminfo files will
+be built as part of the regular build process, and installed to the
+specified location.
+
+Packagers may want to set `-Dterminfo=disabled`, and manually build
+and [install the terminfo](#terminfo) files instead.
 
 
 ### Release build
@@ -206,6 +245,36 @@ slower!) binary.
 
 
 #### Performance optimized, PGO
+
+There are a lot more steps involved in a PGO build, and for this
+reason there are a number of helper scripts available.
+
+`pgo/pgo.sh` is a standalone script that pieces together the other
+scripts in the `pgo` directory to do a complete PGO build. This script
+is intended to be used when doing manual builds.
+
+Note that all “full” PGO builds (which `auto` will prefer, if
+possible) **require** `LC_CTYPE` to be set to an UTF-8 locale. This is
+**not** done automatically.
+
+Example:
+
+```sh
+cd foot
+./pgo/pgo.sh auto . /tmp/foot-pgo-build-output
+```
+
+(run `./pgo/pgo.sh` to get help on usage)
+
+It supports a couple of different PGO builds; partial (covered in
+detail below), full (also covered in detail below), and (full)
+headless builds using Sway or cage.
+
+Packagers may want to use it as inspiration, but may choose to support
+only a specific build type; e.g. full/headless with Sway.
+
+To do a manual PGO build, instead of using the script(s) mentioned
+above, detailed instructions follows:
 
 First, configure the build directory:
 
@@ -301,7 +370,11 @@ We will use the script `scripts/generate-alt-random-writes.py`:
 ```sh
 ./footclient --version
 foot_tmp_file=$(mktemp)
-./foot --config=/dev/null --term=xterm sh -c "<path-to-generate-alt-random-writes.py> --scroll --scroll-region --colors-regular --colors-bright --colors-256 --colors-rgb --attr-bold --attr-italic --attr-underline --sixel ${foot_tmp_file} && cat ${foot_tmp_file}"
+./foot \
+    --config=/dev/null \
+    --override tweak.grapheme-shaping=no \
+    --term=xterm \
+    sh -c "<path-to-generate-alt-random-writes.py> --scroll --scroll-region --colors-regular --colors-bright --colors-256 --colors-rgb --attr-bold --attr-italic --attr-underline --sixel ${foot_tmp_file} && cat ${foot_tmp_file}"
 rm ${foot_tmp_file}
 ```
 
@@ -343,6 +416,31 @@ ninja
 ninja test
 ```
 
+### Terminfo
+
+By default, building foot also builds the terminfo files. If packaging
+the terminfo files in a separate package, it might be easier to simply
+disable the terminfo files in the regular build, and compile the
+terminfo files manually instead.
+
+To build the terminfo files, run:
+
+```sh
+sed 's/@default_terminfo@/foot/g' foot.info | \
+    tic -o <output-directory> -x -e foot,foot-direct -
+```
+
+Where _”output-directory”_ **must** match the value passed to
+`-Dcustom-terminfo-install-location` in the foot build. If
+`-Dcustom-terminfo-install-location` has not been set, `-o
+<output-directoty>` can simply be omitted.
+
+Or, if packaging:
+
+```sh
+tic -o ${DESTDIR}/usr/share/terminfo ...
+```
+
 
 ### Running the new build
 
@@ -351,17 +449,8 @@ You can now run it directly from the build directory:
 ./foot
 ```
 
-But note that it will default to `TERM=foot`, and that this terminfo
-has not been installed yet. However, most things should work with the
-`xterm-256color` terminfo:
+Or, if you did not install the terminfo definitions:
+
 ```sh
 ./foot --term xterm-256color
-```
-
-But, I **recommend** you install the `foot` and `foot-direct` terminfo
-files. You can either copy them manually (typically to
-`/usr/share/terminfo/f` - but this depends on the distro), or
-just install everything:
-```sh
-ninja install
 ```

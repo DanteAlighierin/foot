@@ -1,0 +1,28 @@
+# theme: Tempus Rift
+# author: Protesilaos Stavrou (https://protesilaos.com)
+# description: Dark theme with a subdued palette on the green side of the spectrum (WCAG AA compliant)
+
+#[cursor]
+#color = 162c22 bbbcbc
+
+[colors]
+foreground = bbbcbc
+background = 162c22
+regular0 = 162c22
+regular1 = c19904
+regular2 = 34b534
+regular3 = 7fad00
+regular4 = 30aeb0
+regular5 = c8954c
+regular6 = 5fad8f
+regular7 = ab9aa9
+bright0 = 283431
+bright1 = d2a634
+bright2 = 6ac134
+bright3 = 82bd00
+bright4 = 56bdad
+bright5 = cca0ba
+bright6 = 10c480
+bright7 = bbbcbc
+#selection-foreground = ab9aa9
+#selection-background = 283431

@@ -2,18 +2,13 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <uchar.h>
 
+#include <xkbcommon/xkbcommon.h>
 #include <tllist.h>
+#include <fcft/fcft.h>
 
-#include "terminal.h"
 #include "user-notification.h"
-#include "wayland.h"
-
-#ifdef HAVE_TERMINFO
-    #define DEFAULT_TERM "foot"
-#else
-    #define DEFAULT_TERM "xterm-256color"
-#endif
 
 #define DEFINE_LIST(type) \
     type##_list {         \
@@ -21,11 +16,19 @@
         type *arr;        \
     }
 
+/* If px != 0 then px is valid, otherwise pt is valid */
+struct pt_or_px {
+    int16_t px;
+    float pt;
+};
+
+enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BEAM };
+
 enum conf_size_type {CONF_SIZE_PX, CONF_SIZE_CELLS};
 
 struct config_font {
     char *pattern;
-    double pt_size;
+    float pt_size;
     int px_size;
 };
 DEFINE_LIST(struct config_font);
@@ -34,34 +37,66 @@ struct config_key_modifiers {
     bool shift;
     bool alt;
     bool ctrl;
-    bool meta;
+    bool super;
 };
 
 struct argv {
     char **args;
 };
 
-struct config_binding_pipe {
-    struct argv argv;
+enum binding_aux_type {
+    BINDING_AUX_NONE,
+    BINDING_AUX_PIPE,
+    BINDING_AUX_TEXT,
+};
+
+struct binding_aux {
+    enum binding_aux_type type;
+    bool master_copy;
+
+    union {
+        struct argv pipe;
+
+        struct {
+            uint8_t *data;
+            size_t len;
+        } text;
+    };
+};
+
+enum key_binding_type {
+    KEY_BINDING,
+    MOUSE_BINDING,
+};
+
+struct config_key_binding_text {
+    char *text;
     bool master_copy;
 };
 
 struct config_key_binding {
     int action;  /* One of the varios bind_action_* enums from wayland.h */
     struct config_key_modifiers modifiers;
-    xkb_keysym_t sym;
-    struct config_binding_pipe pipe;
+    union {
+        /* Key bindings */
+        struct {
+            xkb_keysym_t sym;
+        } k;
+
+        /* Mouse bindings */
+        struct {
+            int button;
+            int count;
+        } m;
+    };
+
+    struct binding_aux aux;
+
+    /* For error messages in collision handling */
+    const char *path;
+    int lineno;
 };
 DEFINE_LIST(struct config_key_binding);
-
-struct config_mouse_binding {
-    enum bind_action_normal action;
-    struct config_key_modifiers modifiers;
-    int button;
-    int count;
-    struct config_binding_pipe pipe;
-};
-DEFINE_LIST(struct config_mouse_binding);
 
 typedef tll(char *) config_override_t;
 
@@ -69,20 +104,25 @@ struct config_spawn_template {
     struct argv argv;
 };
 
+struct env_var {
+    char *name;
+    char *value;
+};
+typedef tll(struct env_var) env_var_list_t;
+
 struct config {
     char *term;
     char *shell;
     char *title;
     char *app_id;
-    wchar_t *word_delimiters;
+    char32_t *word_delimiters;
     bool login_shell;
-    bool no_wait;
     bool locked_title;
 
     struct {
         enum conf_size_type type;
-        unsigned width;
-        unsigned height;
+        uint32_t width;
+        uint32_t height;
     } size;
 
     unsigned pad_x;
@@ -122,7 +162,7 @@ struct config {
     } bell;
 
     struct {
-        int lines;
+        uint32_t lines;
 
         struct {
             enum {
@@ -137,20 +177,21 @@ struct config {
                 SCROLLBACK_INDICATOR_FORMAT_TEXT,
             } format;
 
-            wchar_t *text;
+            char32_t *text;
         } indicator;
-        double multiplier;
+        float multiplier;
     } scrollback;
 
     struct {
-        wchar_t *label_letters;
+        char32_t *label_letters;
         struct config_spawn_template launch;
         enum {
             OSC8_UNDERLINE_URL_MODE,
             OSC8_UNDERLINE_ALWAYS,
         } osc8_underline;
 
-        wchar_t **protocols;
+        char32_t **protocols;
+        char32_t *uri_characters;
         size_t prot_count;
         size_t max_prot_len;
     } url;
@@ -164,15 +205,24 @@ struct config {
         uint32_t selection_bg;
         uint32_t url;
 
+        uint32_t dim[8];
+
         struct {
             uint32_t fg;
             uint32_t bg;
         } jump_label;
 
         struct {
+            uint32_t fg;
+            uint32_t bg;
+        } scrollback_indicator;
+
+        struct {
             bool selection:1;
             bool jump_label:1;
+            bool scrollback_indicator:1;
             bool url:1;
+            uint8_t dim;
         } use_custom;
     } colors;
 
@@ -190,12 +240,13 @@ struct config {
     struct {
         bool hide_when_typing;
         bool alternate_scroll_mode;
+        struct config_key_modifiers selection_override_modifiers;
     } mouse;
 
     struct {
         /* Bindings for "normal" mode */
         struct config_key_binding_list key;
-        struct config_mouse_binding_list mouse;
+        struct config_key_binding_list mouse;
 
         /*
          * Special modes
@@ -212,9 +263,12 @@ struct config {
     struct {
         enum { CONF_CSD_PREFER_NONE, CONF_CSD_PREFER_SERVER, CONF_CSD_PREFER_CLIENT } preferred;
 
-        int title_height;
-        int border_width;
-        int button_width;
+        uint16_t title_height;
+        uint16_t border_width;
+        uint16_t border_width_visible;
+        uint16_t button_width;
+
+        bool hide_when_maximized;
 
         struct {
             bool title_set:1;
@@ -222,15 +276,19 @@ struct config {
             bool minimize_set:1;
             bool maximize_set:1;
             bool close_set:1;
+            bool border_set:1;
             uint32_t title;
             uint32_t buttons;
             uint32_t minimize;
             uint32_t maximize;
-            uint32_t close;
+            uint32_t quit;  /* ‘close’ collides with #define in epoll-shim */
+            uint32_t border;
         } color;
+
+        struct config_font_list font;
     } csd;
 
-    size_t render_worker_count;
+    uint16_t render_worker_count;
     char *server_socket_path;
     bool presentation_timings;
     bool hold_at_exit;
@@ -242,21 +300,33 @@ struct config {
     } selection_target;
 
     struct config_spawn_template notify;
+    bool notify_focus_inhibit;
+
+    env_var_list_t env_vars;
 
     struct {
         enum fcft_scaling_filter fcft_filter;
-        bool allow_overflowing_double_width_glyphs;
+        bool overflowing_glyphs;
         bool grapheme_shaping;
-        enum {GRAPHEME_WIDTH_WCSWIDTH, GRAPHEME_WIDTH_DOUBLE} grapheme_width_method;
-        bool render_timer_osd;
-        bool render_timer_log;
+        enum {
+            GRAPHEME_WIDTH_WCSWIDTH,
+            GRAPHEME_WIDTH_DOUBLE,
+            GRAPHEME_WIDTH_MAX,
+        } grapheme_width_method;
+        enum {
+            RENDER_TIMER_NONE,
+            RENDER_TIMER_OSD,
+            RENDER_TIMER_LOG,
+            RENDER_TIMER_BOTH
+        } render_timer;
         bool damage_whole_window;
-        uint64_t delayed_render_lower_ns;
-        uint64_t delayed_render_upper_ns;
+        uint32_t delayed_render_lower_ns;
+        uint32_t delayed_render_upper_ns;
         off_t max_shm_pool_size;
         float box_drawing_base_thickness;
         bool box_drawing_solid_shades;
-        bool pua_double_width;
+        bool font_monospace_warn;
+        bool sixel;
     } tweak;
 
     user_notifications_t notifications;
@@ -268,8 +338,16 @@ bool config_load(
     struct config *conf, const char *path,
     user_notifications_t *initial_user_notifications,
     config_override_t *overrides, bool errors_are_fatal);
-void config_free(struct config conf);
+void config_free(struct config *conf);
 struct config *config_clone(const struct config *old);
 
 bool config_font_parse(const char *pattern, struct config_font *font);
 void config_font_list_destroy(struct config_font_list *font_list);
+
+struct seat;
+xkb_mod_mask_t
+conf_modifiers_to_mask(
+    const struct seat *seat, const struct config_key_modifiers *modifiers);
+
+bool check_if_font_is_monospaced(
+    const char *pattern, user_notifications_t *notifications);

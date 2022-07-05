@@ -14,6 +14,7 @@
 #define LOG_MODULE "csi"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "char32.h"
 #include "config.h"
 #include "debug.h"
 #include "grid.h"
@@ -32,8 +33,6 @@ static void
 sgr_reset(struct terminal *term)
 {
     memset(&term->vt.attrs, 0, sizeof(term->vt.attrs));
-    term->vt.attrs.fg = term->colors.fg;
-    term->vt.attrs.bg = term->colors.bg;
 }
 
 static const char *
@@ -115,20 +114,22 @@ csi_sgr(struct terminal *term)
         case 35:
         case 36:
         case 37:
-            term->vt.attrs.have_fg = 1;
-            term->vt.attrs.fg = term->colors.table[param - 30];
+            term->vt.attrs.fg_src = COLOR_BASE16;
+            term->vt.attrs.fg = param - 30;
             break;
 
-        case 38: {
+        case 38:
+        case 48: {
+            uint32_t color;
+            enum color_source src;
+
             /* Indexed: 38;5;<idx> */
             if (term->vt.params.idx - i - 1 >= 2 &&
                 term->vt.params.v[i + 1].value == 5)
             {
-                uint8_t idx = term->vt.params.v[i + 2].value;
-                term->vt.attrs.have_fg = 1;
-                term->vt.attrs.fg = term->colors.table[idx];
+                src = COLOR_BASE256;
+                color = term->vt.params.v[i + 2].value;
                 i += 2;
-
             }
 
             /* RGB: 38;2;<r>;<g>;<b> */
@@ -138,8 +139,8 @@ csi_sgr(struct terminal *term)
                 uint8_t r = term->vt.params.v[i + 2].value;
                 uint8_t g = term->vt.params.v[i + 3].value;
                 uint8_t b = term->vt.params.v[i + 4].value;
-                term->vt.attrs.have_fg = 1;
-                term->vt.attrs.fg = r << 16 | g << 8 | b;
+                src = COLOR_RGB;
+                color = r << 16 | g << 8 | b;
                 i += 4;
             }
 
@@ -147,11 +148,8 @@ csi_sgr(struct terminal *term)
             else if (term->vt.params.v[i].sub.idx >= 2 &&
                      term->vt.params.v[i].sub.value[0] == 5)
             {
-                const struct vt_param *param = &term->vt.params.v[i];
-
-                uint8_t idx = param->sub.value[1];
-                term->vt.attrs.have_fg = 1;
-                term->vt.attrs.fg = term->colors.table[idx];
+                src = COLOR_BASE256;
+                color = term->vt.params.v[i].sub.value[1];
             }
 
             /*
@@ -180,8 +178,8 @@ csi_sgr(struct terminal *term)
                 uint8_t g = param->sub.value[g_idx];
                 uint8_t b = param->sub.value[b_idx];
 
-                term->vt.attrs.have_fg = 1;
-                term->vt.attrs.fg = r << 16 | g << 8 | b;
+                src = COLOR_RGB;
+                color = r << 16 | g << 8 | b;
             }
 
             /* Transparent: 38:1 */
@@ -189,14 +187,24 @@ csi_sgr(struct terminal *term)
             /* CMYK:        38:4:<color-space>:c:m:y:k[:tolerance:tolerance-color-space] */
 
             /* Unrecognized */
-            else
+            else {
                 UNHANDLED_SGR(i);
+                break;
+            }
 
+            if (param == 38) {
+                term->vt.attrs.fg_src = src;
+                term->vt.attrs.fg = color;
+            } else {
+                xassert(param == 48);
+                term->vt.attrs.bg_src = src;
+                term->vt.attrs.bg = color;
+            }
             break;
         }
 
         case 39:
-            term->vt.attrs.have_fg = 0;
+            term->vt.attrs.fg_src = COLOR_DEFAULT;
             break;
 
         /* Regular background colors */
@@ -208,86 +216,12 @@ csi_sgr(struct terminal *term)
         case 45:
         case 46:
         case 47:
-            term->vt.attrs.have_bg = 1;
-            term->vt.attrs.bg = term->colors.table[param - 40];
+            term->vt.attrs.bg_src = COLOR_BASE16;
+            term->vt.attrs.bg = param - 40;
             break;
 
-        case 48: {
-            /* Indexed: 48;5;<idx> */
-            if (term->vt.params.idx - i - 1 >= 2 &&
-                term->vt.params.v[i + 1].value == 5)
-            {
-                uint8_t idx = term->vt.params.v[i + 2].value;
-                term->vt.attrs.have_bg = 1;
-                term->vt.attrs.bg = term->colors.table[idx];
-                i += 2;
-
-            }
-
-            /* RGB: 48;2;<r>;<g>;<b> */
-            else if (term->vt.params.idx - i - 1 >= 4 &&
-                     term->vt.params.v[i + 1].value == 2)
-            {
-                uint8_t r = term->vt.params.v[i + 2].value;
-                uint8_t g = term->vt.params.v[i + 3].value;
-                uint8_t b = term->vt.params.v[i + 4].value;
-                term->vt.attrs.have_bg = 1;
-                term->vt.attrs.bg = r << 16 | g << 8 | b;
-                i += 4;
-            }
-
-            /* Indexed: 48:5:<idx> */
-            else if (term->vt.params.v[i].sub.idx >= 2 &&
-                     term->vt.params.v[i].sub.value[0] == 5)
-            {
-                const struct vt_param *param = &term->vt.params.v[i];
-
-                uint8_t idx = param->sub.value[1];
-                term->vt.attrs.have_bg = 1;
-                term->vt.attrs.bg = term->colors.table[idx];
-            }
-
-            /*
-             * RGB: 48:2:<color-space>:r:g:b[:ignored:tolerance:tolerance-color-space]
-             * RGB: 48:2:r:g:b
-             *
-             * The second version is a "bastard" version - many
-             * programs "forget" the color space ID
-             * parameter... *sigh*
-             */
-            else if (term->vt.params.v[i].sub.idx >= 4 &&
-                     term->vt.params.v[i].sub.value[0] == 2)
-            {
-                const struct vt_param *param = &term->vt.params.v[i];
-                bool have_color_space_id = param->sub.idx >= 5;
-
-                /* 0 - color space (ignored) */
-                int r_idx = 2 - !have_color_space_id;
-                int g_idx = 3 - !have_color_space_id;
-                int b_idx = 4 - !have_color_space_id;
-                /* 5 - unused */
-                /* 6 - CS tolerance */
-                /* 7 - color space associated with tolerance */
-
-                uint8_t r = param->sub.value[r_idx];
-                uint8_t g = param->sub.value[g_idx];
-                uint8_t b = param->sub.value[b_idx];
-
-                term->vt.attrs.have_bg = 1;
-                term->vt.attrs.bg = r << 16 | g << 8 | b;
-            }
-
-            /* Transparent: 48:1 */
-            /* CMY:         48:3:<color-space>:c:m:y[:tolerance:tolerance-color-space] */
-            /* CMYK:        48:4:<color-space>:c:m:y:k[:tolerance:tolerance-color-space] */
-
-            else
-                UNHANDLED_SGR(i);
-
-            break;
-        }
         case 49:
-            term->vt.attrs.have_bg = 0;
+            term->vt.attrs.bg_src = COLOR_DEFAULT;
             break;
 
         /* Bright foreground colors */
@@ -299,8 +233,8 @@ csi_sgr(struct terminal *term)
         case 95:
         case 96:
         case 97:
-            term->vt.attrs.have_fg = 1;
-            term->vt.attrs.fg = term->colors.table[param - 90 + 8];
+            term->vt.attrs.fg_src = COLOR_BASE16;
+            term->vt.attrs.fg = param - 90 + 8;
             break;
 
         /* Bright background colors */
@@ -312,8 +246,8 @@ csi_sgr(struct terminal *term)
         case 105:
         case 106:
         case 107:
-            term->vt.attrs.have_bg = 1;
-            term->vt.attrs.bg = term->colors.table[param - 100 + 8];
+            term->vt.attrs.bg_src = COLOR_BASE16;
+            term->vt.attrs.bg = param - 100 + 8;
             break;
 
         default:
@@ -345,10 +279,7 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         if (enable)
             LOG_WARN("unimplemented: 132 column mode (DECCOLM)");
 
-        term_erase(
-            term,
-            &(struct coord){0, 0},
-            &(struct coord){term->cols - 1, term->rows - 1});
+        term_erase(term, 0, 0, term->rows - 1, term->cols - 1);
         term_cursor_home(term);
         break;
 
@@ -401,8 +332,13 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         term->reverse_wrap = enable;
         break;
 
+    case 66:
+        /* DECNKM */
+        term->keypad_keys_mode = enable ? KEYPAD_APPLICATION : KEYPAD_NUMERICAL;
+        break;
+
     case 80:
-        term->sixel.scrolling = enable;
+        term->sixel.scrolling = !enable;
         break;
 
     case 1000:
@@ -465,6 +401,13 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
             term->mouse_reporting = MOUSE_NORMAL;
         break;
 
+    case 1016:
+        if (enable)
+            term->mouse_reporting = MOUSE_SGR_PIXELS;
+        else if (term->mouse_reporting == MOUSE_SGR_PIXELS)
+            term->mouse_reporting = MOUSE_NORMAL;
+        break;
+
     case 1034:
         /* smm */
         LOG_DBG("%s 8-bit meta mode", enable ? "enabling" : "disabling");
@@ -518,10 +461,7 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
                 min(term->normal.cursor.point.col, term->cols - 1));
 
             tll_free(term->normal.scroll_damage);
-            term_erase(
-                term,
-                &(struct coord){0, 0},
-                &(struct coord){term->cols - 1, term->rows - 1});
+            term_erase(term, 0, 0, term->rows - 1, term->cols - 1);
         }
 
         else if (!enable && term->grid == &term->alt) {
@@ -568,10 +508,6 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         term->sixel.cursor_right_of_graphics = enable;
         break;
 
-    case 27127:
-        term->modify_escape_key = enable;
-        break;
-
     case 737769:
         if (enable)
             term_ime_enable(term);
@@ -611,7 +547,8 @@ decrqm(const struct terminal *term, unsigned param, bool *enabled)
     case 12: *enabled = term->cursor_blink.decset; return true;
     case 25: *enabled = !term->hide_cursor; return true;
     case 45: *enabled = term->reverse_wrap; return true;
-    case 80: *enabled = term->sixel.scrolling; return true;
+    case 66: *enabled = term->keypad_keys_mode == KEYPAD_APPLICATION; return true;
+    case 80: *enabled = !term->sixel.scrolling; return true;
     case 1000: *enabled = term->mouse_tracking == MOUSE_CLICK; return true;
     case 1001: *enabled = false; return true;
     case 1002: *enabled = term->mouse_tracking == MOUSE_DRAG; return true;
@@ -621,6 +558,7 @@ decrqm(const struct terminal *term, unsigned param, bool *enabled)
     case 1006: *enabled = term->mouse_reporting == MOUSE_SGR; return true;
     case 1007: *enabled = term->alt_scrolling; return true;
     case 1015: *enabled = term->mouse_reporting == MOUSE_URXVT; return true;
+    case 1016: *enabled = term->mouse_reporting == MOUSE_SGR_PIXELS; return true;
     case 1034: *enabled = term->meta.eight_bit; return true;
     case 1035: *enabled = term->num_lock_modifier; return true;
     case 1036: *enabled = term->meta.esc_prefix; return true;
@@ -628,11 +566,10 @@ decrqm(const struct terminal *term, unsigned param, bool *enabled)
     case 47:   /* FALLTHROUGH */
     case 1047: /* FALLTHROUGH */
     case 1049: *enabled = term->grid == &term->alt; return true;
-    case 1079: *enabled = term->sixel.use_private_palette; return true;
+    case 1070: *enabled = term->sixel.use_private_palette; return true;
     case 2004: *enabled = term->bracketed_paste; return true;
     case 2026: *enabled = term->render.app_sync_updates.enabled; return true;
     case 8452: *enabled = term->sixel.cursor_right_of_graphics; return true;
-    case 27127: *enabled = term->modify_escape_key; return true;
     case 737769: *enabled = term_ime_is_enabled(term); return true;
     }
 
@@ -654,7 +591,8 @@ xtsave(struct terminal *term, unsigned param)
     case 25: term->xtsave.show_cursor = !term->hide_cursor; break;
     case 45: term->xtsave.reverse_wrap = term->reverse_wrap; break;
     case 47: term->xtsave.alt_screen = term->grid == &term->alt; break;
-    case 80: term->xtsave.sixel_scrolling = term->sixel.scrolling; break;
+    case 66: term->xtsave.application_keypad_keys = term->keypad_keys_mode == KEYPAD_APPLICATION; break;
+    case 80: term->xtsave.sixel_display_mode = !term->sixel.scrolling; break;
     case 1000: term->xtsave.mouse_click = term->mouse_tracking == MOUSE_CLICK; break;
     case 1001: break;
     case 1002: term->xtsave.mouse_drag = term->mouse_tracking == MOUSE_DRAG; break;
@@ -664,6 +602,7 @@ xtsave(struct terminal *term, unsigned param)
     case 1006: term->xtsave.mouse_sgr = term->mouse_reporting == MOUSE_SGR; break;
     case 1007: term->xtsave.alt_scrolling = term->alt_scrolling; break;
     case 1015: term->xtsave.mouse_urxvt = term->mouse_reporting == MOUSE_URXVT; break;
+    case 1016: term->xtsave.mouse_sgr_pixels = term->mouse_reporting == MOUSE_SGR_PIXELS; break;
     case 1034: term->xtsave.meta_eight_bit = term->meta.eight_bit; break;
     case 1035: term->xtsave.num_lock_modifier = term->num_lock_modifier; break;
     case 1036: term->xtsave.meta_esc_prefix = term->meta.esc_prefix; break;
@@ -675,7 +614,6 @@ xtsave(struct terminal *term, unsigned param)
     case 2004: term->xtsave.bracketed_paste = term->bracketed_paste; break;
     case 2026: term->xtsave.app_sync_updates = term->render.app_sync_updates.enabled; break;
     case 8452: term->xtsave.sixel_cursor_right_of_graphics = term->sixel.cursor_right_of_graphics; break;
-    case 27127: term->xtsave.modify_escape_key = term->modify_escape_key; break;
     case 737769: term->xtsave.ime = term_ime_is_enabled(term); break;
     }
 }
@@ -696,7 +634,8 @@ xtrestore(struct terminal *term, unsigned param)
     case 25: enable = term->xtsave.show_cursor; break;
     case 45: enable = term->xtsave.reverse_wrap; break;
     case 47: enable = term->xtsave.alt_screen; break;
-    case 80: enable = term->xtsave.sixel_scrolling; break;
+    case 66: enable = term->xtsave.application_keypad_keys; break;
+    case 80: enable = term->xtsave.sixel_display_mode; break;
     case 1000: enable = term->xtsave.mouse_click; break;
     case 1001: return;
     case 1002: enable = term->xtsave.mouse_drag; break;
@@ -706,6 +645,7 @@ xtrestore(struct terminal *term, unsigned param)
     case 1006: enable = term->xtsave.mouse_sgr; break;
     case 1007: enable = term->xtsave.alt_scrolling; break;
     case 1015: enable = term->xtsave.mouse_urxvt; break;
+    case 1016: enable = term->xtsave.mouse_sgr_pixels; break;
     case 1034: enable = term->xtsave.meta_eight_bit; break;
     case 1035: enable = term->xtsave.num_lock_modifier; break;
     case 1036: enable = term->xtsave.meta_esc_prefix; break;
@@ -717,7 +657,6 @@ xtrestore(struct terminal *term, unsigned param)
     case 2004: enable = term->xtsave.bracketed_paste; break;
     case 2026: enable = term->xtsave.app_sync_updates; break;
     case 8452: enable = term->xtsave.sixel_cursor_right_of_graphics; break;
-    case 27127: enable = term->xtsave.modify_escape_key; break;
     case 737769: enable = term->xtsave.ime; break;
 
     default: return;
@@ -744,7 +683,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 int count = vt_param_get(term, 0, 1);
                 LOG_DBG("REP: '%lc' %d times", (wint_t)term->vt.last_printed, count);
 
-                const int width = wcwidth(term->vt.last_printed);
+                const int width = c32width(term->vt.last_printed);
                 if (width > 0) {
                     for (int i = 0; i < count; i++)
                         term_print(term, term->vt.last_printed, width);
@@ -795,8 +734,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
              *
              * Note: tertiary DA responds with "FOOT".
              */
-            const char *reply = "\033[?62;4;22c";
-            term_to_slave(term, reply, strlen(reply));
+            if (term->conf->tweak.sixel) {
+                static const char reply[] = "\033[?62;4;22c";
+                term_to_slave(term, reply, sizeof(reply) - 1);
+            } else {
+                static const char reply[] = "\033[?62;22c";
+                term_to_slave(term, reply, sizeof(reply) - 1);
+            }
             break;
         }
 
@@ -891,52 +835,34 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             int param = vt_param_get(term, 0, 0);
             switch (param) {
-            case 0:
+            case 0: {
                 /* From cursor to end of screen */
+                const struct coord *cursor = &term->grid->cursor.point;
                 term_erase(
                     term,
-                    &term->grid->cursor.point,
-                    &(struct coord){term->cols - 1, term->rows - 1});
+                    cursor->row, cursor->col,
+                    term->rows - 1, term->cols - 1);
                 term->grid->cursor.lcf = false;
                 break;
+            }
 
-            case 1:
+            case 1: {
                 /* From start of screen to cursor */
-                term_erase(term, &(struct coord){0, 0}, &term->grid->cursor.point);
+                const struct coord *cursor = &term->grid->cursor.point;
+                term_erase(term, 0, 0, cursor->row, cursor->col);
                 term->grid->cursor.lcf = false;
                 break;
+            }
 
             case 2:
                 /* Erase entire screen */
-                term_erase(
-                    term,
-                    &(struct coord){0, 0},
-                    &(struct coord){term->cols - 1, term->rows - 1});
+                term_erase(term, 0, 0, term->rows - 1, term->cols - 1);
                 term->grid->cursor.lcf = false;
                 break;
 
             case 3: {
                 /* Erase scrollback */
-                int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
-                for (size_t i = 0; i < term->grid->num_rows; i++) {
-                    if (end >= term->grid->offset) {
-                        /* Not wrapped */
-                        if (i >= term->grid->offset && i <= end)
-                            continue;
-                    } else {
-                        /* Wrapped */
-                        if (i >= term->grid->offset || i <= end)
-                            continue;
-                    }
-
-                    if (term->render.last_cursor.row == term->grid->rows[i])
-                        term->render.last_cursor.row = NULL;
-
-                    grid_row_free(term->grid->rows[i]);
-                    term->grid->rows[i] = NULL;
-                }
-                term->grid->view = term->grid->offset;
-                term_damage_view(term);
+                term_erase_scrollback(term);
                 break;
             }
 
@@ -952,30 +878,32 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             int param = vt_param_get(term, 0, 0);
             switch (param) {
-            case 0:
+            case 0: {
                 /* From cursor to end of line */
+                const struct coord *cursor = &term->grid->cursor.point;
                 term_erase(
                     term,
-                    &term->grid->cursor.point,
-                    &(struct coord){term->cols - 1, term->grid->cursor.point.row});
+                    cursor->row, cursor->col,
+                    cursor->row, term->cols - 1);
                 term->grid->cursor.lcf = false;
                 break;
+            }
 
-            case 1:
+            case 1: {
                 /* From start of line to cursor */
-                term_erase(
-                    term, &(struct coord){0, term->grid->cursor.point.row}, &term->grid->cursor.point);
+                const struct coord *cursor = &term->grid->cursor.point;
+                term_erase(term, cursor->row, 0, cursor->row, cursor->col);
                 term->grid->cursor.lcf = false;
                 break;
+            }
 
-            case 2:
+            case 2: {
                 /* Entire line */
-                term_erase(
-                    term,
-                    &(struct coord){0, term->grid->cursor.point.row},
-                    &(struct coord){term->cols - 1, term->grid->cursor.point.row});
+                const struct coord *cursor = &term->grid->cursor.point;
+                term_erase(term, cursor->row, 0, cursor->row, term->cols - 1);
                 term->grid->cursor.lcf = false;
                 break;
+            }
 
             default:
                 UNHANDLED();
@@ -1045,10 +973,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             term->grid->cur_row->dirty = true;
 
             /* Erase the remainder of the line */
+            const struct coord *cursor = &term->grid->cursor.point;
             term_erase(
                 term,
-                &(struct coord){term->grid->cursor.point.col + remaining, term->grid->cursor.point.row},
-                &(struct coord){term->cols - 1, term->grid->cursor.point.row});
+                cursor->row, cursor->col + remaining,
+                cursor->row, term->cols - 1);
             term->grid->cursor.lcf = false;
             break;
         }
@@ -1072,26 +1001,25 @@ csi_dispatch(struct terminal *term, uint8_t final)
             term->grid->cur_row->dirty = true;
 
             /* Erase (insert space characters) */
+            const struct coord *cursor = &term->grid->cursor.point;
             term_erase(
                 term,
-                &term->grid->cursor.point,
-                &(struct coord){term->grid->cursor.point.col + count - 1, term->grid->cursor.point.row});
+                cursor->row, cursor->col,
+                cursor->row, cursor->col + count - 1);
             term->grid->cursor.lcf = false;
             break;
         }
 
         case 'S': {
-            int amount = min(
-                vt_param_get(term, 0, 1),
-                term->scroll_region.end - term->scroll_region.start);
+            const struct scroll_region *r = &term->scroll_region;
+            int amount = min(vt_param_get(term, 0, 1), r->end - r->start);
             term_scroll(term, amount);
             break;
         }
 
         case 'T': {
-            int amount = min(
-                vt_param_get(term, 0, 1),
-                term->scroll_region.end - term->scroll_region.start);
+            const struct scroll_region *r = &term->scroll_region;
+            int amount = min(vt_param_get(term, 0, 1), r->end - r->start);
             term_scroll_reverse(term, amount);
             break;
         }
@@ -1101,10 +1029,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             int count = min(
                 vt_param_get(term, 0, 1), term->cols - term->grid->cursor.point.col);
 
+            const struct coord *cursor = &term->grid->cursor.point;
             term_erase(
                 term,
-                &term->grid->cursor.point,
-                &(struct coord){term->grid->cursor.point.col + count - 1, term->grid->cursor.point.row});
+                cursor->row, cursor->col,
+                cursor->row, cursor->col + count - 1);
             term->grid->cursor.lcf = false;
             break;
         }
@@ -1238,20 +1167,12 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
 
             case 13: { /* report window position */
-
-                int x = -1;
-                int y = -1;
-
                 /* We don't know our position - always report (0,0) */
+                static const char reply[] = "\033[3;0;0t";
                 switch (vt_param_get(term, 1, 0)) {
-                case 0:
-                    /* window position */
-                    x = y = 0;
-                    break;
-
-                case 2:
-                    /* text area position */
-                    x = y = 0;
+                case 0: /* window position */
+                case 2: /* text area position */
+                    term_to_slave(term, reply, sizeof(reply) - 1);
                     break;
 
                 default:
@@ -1259,12 +1180,6 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
                 }
 
-                if (x >= 0 && y >= 0) {
-                    char reply[64];
-                    size_t n = xsnprintf(reply, sizeof(reply), "\033[3;%d;%dt",
-                             x / term->scale, y / term->scale);
-                    term_to_slave(term, reply, n);
-                }
                 break;
             }
 
@@ -1447,6 +1362,11 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 'S': {
+            if (!term->conf->tweak.sixel) {
+                UNHANDLED();
+                break;
+            }
+
             unsigned target = vt_param_get(term, 0, 0);
             unsigned operation = vt_param_get(term, 1, 0);
 
@@ -1476,6 +1396,16 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
             }
 
+            break;
+        }
+
+        case 'u': {
+            enum kitty_kbd_flags flags =
+                term->grid->kitty_kbd.flags[term->grid->kitty_kbd.idx];
+
+            char reply[8];
+            int chars = snprintf(reply, sizeof(reply), "\033[?%uu", flags);
+            term_to_slave(term, reply, chars);
             break;
         }
 
@@ -1544,17 +1474,19 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 case 1: /* modifyCursorKeys */
                 case 2: /* modifyFunctionKeys */
-                case 4: /* modifyOtherKeys */
                     /* Ignored, we always report modifiers */
-                    if (value != 2 && value != -1 &&
-                        !(resource == 4 && value == 1))
-                    {
-                        LOG_WARN("unimplemented: %s = %d",
-                                 resource == 1 ? "modifyCursorKeys" :
-                                 resource == 2 ? "modifyFunctionKeys" :
-                                 resource == 4 ? "modifyOtherKeys" : "<invalid>",
-                                 value);
+                    if (value != 2 && value != -1) {
+                        LOG_WARN(
+                            "unimplemented: %s = %d",
+                            resource == 1 ? "modifyCursorKeys" :
+                            resource == 2 ? "modifyFunctionKeys" : "<invalid>",
+                            value);
                     }
+                    break;
+
+                case 4: /* modifyOtherKeys */
+                    term->modify_other_keys_2 = value == 2;
+                    LOG_DBG("modifyOtherKeys=%d", value);
                     break;
 
                 default:
@@ -1564,6 +1496,43 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 }
             }
             break; /* final == 'm' */
+
+        case 'n': {
+            int resource = vt_param_get(term, 0, 2);  /* Default is modifyFuncionKeys */
+            switch (resource) {
+            case 0:  /* modifyKeyboard */
+            case 1:  /* modifyCursorKeys */
+            case 2:  /* modifyFunctionKeys */
+                break;
+
+            case 4:  /* modifyOtherKeys */
+                /* We don’t support fully disabling modifyOtherKeys,
+                 * but simply revert back to mode ‘1’ */
+                term->modify_other_keys_2 = false;
+                LOG_DBG("modifyOtherKeys=1");
+                break;
+            }
+            break;
+        }
+
+        case 'u': {
+            int flags = vt_param_get(term, 0, 0) & KITTY_KBD_SUPPORTED;
+
+            struct grid *grid = term->grid;
+            uint8_t idx = grid->kitty_kbd.idx;
+
+            if (idx + 1 >= ALEN(grid->kitty_kbd.flags)) {
+                /* Stack full, evict oldest by wrapping around */
+                idx = 0;
+            } else
+                idx++;
+
+            grid->kitty_kbd.flags[idx] = flags;
+            grid->kitty_kbd.idx = idx;
+
+            LOG_DBG("kitty kbd: pushed new flags: 0x%03x", flags);
+            break;
+        }
 
         case 'q': {
             /* XTVERSION */
@@ -1587,6 +1556,36 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         break; /* private[0] == '>' */
+    }
+
+    case '<': {
+        switch (final) {
+        case 'u': {
+            int count = vt_param_get(term, 0, 1);
+            LOG_DBG("kitty kbd: popping %d levels of flags", count);
+
+            struct grid *grid = term->grid;
+            uint8_t idx = grid->kitty_kbd.idx;
+
+            for (int i = 0; i < count; i++) {
+                /* Reset flags. This ensures we get flags=0 when
+                 * over-popping */
+                grid->kitty_kbd.flags[idx] = 0;
+
+                if (idx == 0)
+                    idx = ALEN(grid->kitty_kbd.flags) - 1;
+                else
+                    idx--;
+            }
+
+            grid->kitty_kbd.idx = idx;
+
+            LOG_DBG("kitty kbd: flags after pop: 0x%03x",
+                    term->grid->kitty_kbd.flags[idx]);
+            break;
+        }
+        }
+        break; /* private[0] == ‘<’ */
     }
 
     case ' ': {
@@ -1635,15 +1634,12 @@ csi_dispatch(struct terminal *term, uint8_t final)
     }
 
     case '!': {
-        switch (final) {
-        case 'p':
+        if (final == 'p') {
             term_reset(term, false);
             break;
-
-        default:
-            UNHANDLED();
-            break;
         }
+
+        UNHANDLED();
         break; /* private[0] == '!' */
     }
 
@@ -1668,6 +1664,39 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             term_to_slave(term, "\033P!|464f4f54\033\\", 14);  /* FOOT */
             break;
+
+        case 'u': {
+            int flag_set = vt_param_get(term, 0, 0) & KITTY_KBD_SUPPORTED;
+            int mode = vt_param_get(term, 1, 1);
+
+            struct grid *grid = term->grid;
+            uint8_t idx = grid->kitty_kbd.idx;
+
+            switch (mode) {
+            case 1:
+                /* set bits are set, unset bits are reset */
+                grid->kitty_kbd.flags[idx] = flag_set;
+                break;
+
+            case 2:
+                /* set bits are set, unset bits are left unchanged */
+                grid->kitty_kbd.flags[idx] |= flag_set;
+                break;
+
+            case 3:
+                /* set bits are reset, unset bits are left unchanged */
+                grid->kitty_kbd.flags[idx] &= ~flag_set;
+                break;
+
+            default:
+                UNHANDLED();
+                break;
+            }
+
+            LOG_DBG("kitty kbd: flags after update: 0x%03x",
+                    grid->kitty_kbd.flags[idx]);
+            break;
+        }
 
         default:
             UNHANDLED();

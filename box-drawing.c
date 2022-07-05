@@ -1,6 +1,8 @@
 #include "box-drawing.h"
 
 #include <stdio.h>
+#include <math.h>
+#include <fenv.h>
 #include <errno.h>
 
 #define LOG_MODULE "box-drawing"
@@ -13,6 +15,8 @@
 #include "util.h"
 #include "xmalloc.h"
 
+#define clamp(x, lower, upper) (min(upper, max(x, lower)))
+
 enum thickness {
     LIGHT,
     HEAVY,
@@ -21,14 +25,17 @@ enum thickness {
 struct buf {
     uint8_t *data;
     pixman_image_t *pix;
+    pixman_format_code_t format;
     int width;
     int height;
     int stride;
-    int dpi;
-    float cell_size;
-    float base_thickness;
     bool solid_shades;
+
     int thickness[2];
+
+    /* For sextants and wedges */
+    int x_halfs[2];
+    int y_thirds[2];
 };
 
 static const pixman_color_t white = {0xffff, 0xffff, 0xffff, 0xffff};
@@ -52,21 +59,20 @@ change_buffer_format(struct buf *buf, pixman_format_code_t new_format)
 
     buf->data = new_data;
     buf->pix = new_pix;
+    buf->format = new_format;
     buf->stride = stride;
 }
 
 static int NOINLINE
-_thickness(struct buf *buf, enum thickness thick)
+_thickness(int base_thickness, enum thickness thick)
 {
     int multiplier = thick * 2 + 1;
 
+    xassert(base_thickness >= 1);
     xassert((thick == LIGHT && multiplier == 1) ||
             (thick == HEAVY && multiplier == 3));
 
-    return
-        max(
-            (int)(buf->base_thickness * buf->dpi / 72.0 * buf->cell_size), 1)
-        * multiplier;
+    return base_thickness * multiplier;
 }
 #define thickness(thick) buf->thickness[thick]
 
@@ -1244,10 +1250,20 @@ draw_box_drawings_double_vertical_and_horizontal(struct buf *buf)
     vline(hmid + 2 * thick, buf->height, vmid + 2 * thick, thick);
 }
 
-static void
-draw_box_drawings_light_arc(struct buf *buf, wchar_t wc)
+static inline void
+set_a1_bit(uint8_t *data, size_t ofs, size_t bit_no)
 {
-    const pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    data[ofs] |= 1 << bit_no;
+#else
+    data[ofs] |= 1 << (7 - bit_no);
+#endif
+}
+
+static void NOINLINE
+draw_box_drawings_light_arc(struct buf *buf, char32_t wc)
+{
+    const pixman_format_code_t fmt = buf->format;
     const int supersample = fmt == PIXMAN_a8 ? 4 : 1;
     const int height = buf->height * supersample;
     const int width = buf->width * supersample;
@@ -1257,21 +1273,203 @@ draw_box_drawings_light_arc(struct buf *buf, wchar_t wc)
 
     const int thick = thickness(LIGHT) * supersample;
 
-    const bool thick_is_odd = (thick / supersample) % 2;
-    const bool height_is_odd = buf->height % 2;
-    const bool width_is_odd = buf->width % 2;
+    const int height_pixels = buf->height;
+    const int width_pixels = buf->width;
+    const int thick_pixels = thickness(LIGHT);
 
-    const double a = (width - thick) / 2;
-    const double b = (height - thick) / 2;
+    /*
+     * The general idea here is to connect the two incoming lines using a
+     * circle, which is extended to the box-edges with vertical/horizontal
+     * lines.
+     * 
+     * The radius of the quartercircle should be as big as possible, with some
+     * restrictions: The radius should be the same for all of ╭ ╮ ╯ ╰ at a
+     * given box-size (which won't be the case if we choose the biggest
+     * possible radius for a given box, consider the following:)
+     * 
+     * 
+     * ▕  ███   ▏
+     * ▕a  │   d▔▔ 
+     * ▕   │  x 
+     * ▕   │    
+     * ▕   │    ██
+     * ▕   ╰────██
+     * ▕        ██
+     * ▕
+     * ▕
+     * ▕b      c
+     *  ▔▔▔▔▔▔▔▔▔▔
+     * for ╰ it would be possible to center the circle on the upper right
+     * corner of d, but we have set it on x instead because ╯ can only use a
+     * 2px inner radius:
+     * 
+     *  ▕  ███   ▏
+     * ▔▔a  │   d▏
+     *   x  │    ▏
+     *      │    ▏
+     * ██   │    ▏
+     * ██───╯    ▏
+     * ██        ▏
+     *           ▏
+     *           ▏
+     *   b      c▏
+     * ▔▔▔▔▔▔▔▔▔▔
+     * As the incoming lines always exactly fill pixels, and are rounded down
+     * (via float->int), we can use this to get the radius of the inner
+     * (connecting the left/upper edge of the lines) quartercircle.
+     */
+    int circle_inner_edge = (min(width_pixels, height_pixels) - thick_pixels) / 2;
 
-    const double a2 = a * a;
-    const double b2 = b * b;
+    /*
+     * We want to draw the quartercircle by filling small circles (with r =
+     * thickness/2.) whose centers are on its edge. This means to get the
+     * radius of the quartercircle, we add the exact half thickness to the
+     * radius of the inner circle.
+     */
+    double c_r = circle_inner_edge + thick_pixels/2.;
 
-    const int num_samples = height * 16;
+    /*
+     * We need to draw short lines from the end of the quartercircle to the
+     * box-edges, store one endpoint (the other is the edge of the
+     * quartercircle) in these vars.
+     */
+    int vert_to = 0,
+         hor_to = 0;
 
-    for (int i = 0; i < num_samples; i++) {
+    /* Coordinates of the circle-center. */
+    int c_x = 0,
+        c_y = 0;
+
+    /*
+     * For a given y there are up to two solutions for the circle-equation.
+     * Set to -1 for the left, and 1 for the right hemisphere.
+     */
+    int circle_hemisphere = 0;
+
+    /*
+     * The quarter circle only has to be evaluated for a small range of
+     * y-values.
+     */
+    int y_min = 0,
+        y_max = 0;
+
+    switch (wc) {
+        case  U'╭': {
+            /*
+             * Don't use supersampled coordinates yet, we want to align actual
+             * pixels.
+             *
+             * pixel-coordinates of the lower edge of the right line and the
+             * right edge of the bottom line.
+             */
+            int right_bottom_edge = (height_pixels + thick_pixels) / 2;
+            int bottom_right_edge = (width_pixels + thick_pixels) / 2;
+
+            /* find coordinates of circle-center. */
+            c_y = right_bottom_edge + circle_inner_edge;
+            c_x = bottom_right_edge + circle_inner_edge;
+
+            /* we want to render the left, not the right hemisphere of the circle. */
+            circle_hemisphere = -1;
+
+            /* don't evaluate beyond c_y, the vertical line is drawn there. */
+            y_min = 0;
+            y_max = c_y;
+
+            /*
+             * the vertical line should extend to the bottom of the box, the
+             * horizontal to the right.
+             */
+            vert_to = height_pixels;
+            hor_to = width_pixels;
+
+            break;
+        }
+        case U'╮': {
+            int left_bottom_edge = (height_pixels + thick_pixels) / 2;
+            int bottom_left_edge = (width_pixels - thick_pixels) / 2;
+
+            c_y = left_bottom_edge + circle_inner_edge;
+            c_x = bottom_left_edge - circle_inner_edge;
+
+            circle_hemisphere = 1;
+
+            y_min = 0;
+            y_max = c_y;
+
+            vert_to = height_pixels;
+            hor_to = 0;
+
+            break;
+        }
+        case U'╰': {
+            int right_top_edge = (height_pixels - thick_pixels) / 2;
+            int top_right_edge = (width_pixels + thick_pixels) / 2;
+
+            c_y = right_top_edge - circle_inner_edge;
+            c_x = top_right_edge + circle_inner_edge;
+
+            circle_hemisphere = -1;
+
+            y_min = c_y;
+            y_max = height_pixels;
+
+            vert_to = 0;
+            hor_to = width_pixels;
+
+            break;
+        }
+        case U'╯': {
+            int left_top_edge = (height_pixels - thick_pixels) / 2;
+            int top_left_edge = (width_pixels - thick_pixels) / 2;
+
+            c_y = left_top_edge - circle_inner_edge;
+            c_x = top_left_edge - circle_inner_edge;
+
+            circle_hemisphere = 1;
+
+            y_min = c_y;
+            y_max = height_pixels;
+
+            vert_to = 0;
+            hor_to = 0;
+
+            break;
+        }
+    }
+
+    /* store for horizontal+vertical line. */
+    int c_x_pixels = c_x;
+    int c_y_pixels = c_y;
+
+    /* Bring coordinates from pixel-grid to supersampled grid. */
+    c_r *= supersample;
+    c_x *= supersample;
+    c_y *= supersample;
+
+    y_min *= supersample;
+    y_max *= supersample;
+
+    double c_r2 = c_r * c_r;
+
+    /*
+     * To prevent gaps in the circle, each pixel is sampled multiple times.
+     * As the quartercircle ends (vertically) in the middle of a pixel, an
+     * uneven number helps hit that exactly.
+     */
+    for (double i = y_min*16; i <= y_max*16; i++) {
+        errno = 0;
+        feclearexcept(FE_ALL_EXCEPT);
+
         double y = i / 16.;
-        double x = sqrt(a2 * (1. - y * y / b2));
+        double x = circle_hemisphere * sqrt(c_r2 - (y - c_y) * (y - c_y)) + c_x;
+
+        /* See math_error(7) */
+        if (errno != 0 ||
+            fetestexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW | FE_UNDERFLOW))
+        {
+            continue;
+        }
 
         const int row = round(y);
         const int col = round(x);
@@ -1279,123 +1477,45 @@ draw_box_drawings_light_arc(struct buf *buf, wchar_t wc)
         if (col < 0)
             continue;
 
-        int row_start = 0;
-        int row_end = 0;
-        int col_start = 0;
-        int col_end = 0;
+        /* rectangle big enough to fit entire circle with radius thick/2. */
+        int row1 = row - (thick/2+1);
+        int row2 = row + (thick/2+1);
+        int col1 = col - (thick/2+1);
+        int col2 = col + (thick/2+1);
 
-        /*
-         * At this point, row/col is only correct for ╯. For the other
-         * arcs, we need to mirror the arc around either the x-, y- or
-         * both axis.
-         *
-         * When doing so, we need to adjust for asymmetrical cell
-         * dimensions.
-         *
-         * The amazing box drawing art below represents the lower part
-         * of a cell, with the beginning of a vertical line in the
-         * middle. Each column represents one pixel.
-         *
-         *
-         *             Even cell            Odd cell
-         *
-         *             │       │           │         │
-         *  Even line  │ ┆   ┆ │           │ ┆   ┆   │
-         *             │ ┆   ┆ │           │ ┆   ┆   │
-         *             └─┴─┴─┴─┘           └─┴─┴─┴─┴─┘
-         *
-         *
-         *             │       │           │         │
-         *   Odd line  │ ┆ ┆   │           │   ┆ ┆   │
-         *             │ ┆ ┆   │           │   ┆ ┆   │
-         *             └─┴─┴─┴─┘           └─┴─┴─┴─┴─┘
-         *
-         * As can be seen(?), the resulting line is asymmetrical when
-         * *either* the cell is odd sized, *or* the line is odd
-         * sized. But not when both are.
-         *
-         * Hence the ‘thick % 2 ^ width % 2’ in the expressions below.
-         */
-        switch (wc) {
-        case  L'╭':
-            row_end = height - row - (thick_is_odd ^ height_is_odd);
-            row_start = row_end - thick;
-            col_end = width - col - (thick_is_odd ^ width_is_odd);
-            col_start = col_end - thick;
-            break;
-
-        case L'╮':
-            row_end = height - row - (thick_is_odd ^ height_is_odd);
-            row_start = row_end - thick;
-            col_start = col - ((thick_is_odd ^ width_is_odd) ? supersample / 2 : 0);
-            col_end = col_start + thick;
-            break;
-
-        case L'╰':
-            row_start = row - ((thick_is_odd ^ height_is_odd) ? supersample / 2 : 0);
-            row_end = row_start + thick;
-            col_end = width - col - (thick_is_odd ^ width_is_odd);
-            col_start = col_end - thick;
-            break;
-
-        case L'╯':
-            row_start = row - ((thick_is_odd ^ height_is_odd) ? supersample / 2 : 0);
-            row_end = row_start + thick;
-            col_start = col - ((thick_is_odd ^ width_is_odd) ? supersample / 2 : 0);
-            col_end = col_start + thick;
-            break;
-        }
+        int row_start = min(row1, row2),
+            row_end   = max(row1, row2),
+            col_start = min(col1, col2),
+            col_end   = max(col1, col2);
 
         xassert(row_end > row_start);
         xassert(col_end > col_start);
 
+        /*
+         * draw circle with radius thick/2 around x,y.
+         * this is accomplished by rejecting pixels where the distance from
+         * their center to x,y is greater than thick/2.
+         */
         for (int r = max(row_start, 0); r < max(min(row_end, height), 0); r++) {
+            double r_midpoint = r + 0.5;
             for (int c = max(col_start, 0); c < max(min(col_end, width), 0); c++) {
+                double c_midpoint = c + 0.5;
+
+                /* vector from point on quartercircle to midpoint of the current pixel. */
+                double center_midpoint_x = c_midpoint - x;
+                double center_midpoint_y = r_midpoint - y;
+
+                /* distance from current point to circle-center. */
+                double dist = sqrt(center_midpoint_x * center_midpoint_x + center_midpoint_y * center_midpoint_y);
+                /* skip if midpoint of pixel is outside the circle. */
+                if (dist > thick/2.)
+                    continue;
                 if (fmt == PIXMAN_a1) {
                     size_t idx = c / 8;
                     size_t bit_no = c % 8;
-                    data[r * stride + idx] |= 1 << bit_no;
+                    set_a1_bit(data, r * stride + idx, bit_no);
                 } else
                     data[r * stride + c] = 0xff;
-            }
-        }
-    }
-
-    /*
-     * Since a cell may not be completely symmetrical around its y-
-     * and x-axis, the mirroring done above may result in the last
-     * col/row of the arc not being filled in. This code ensures they
-     * are.
-     */
-
-    if (wc == L'╭' || wc == L'╰') {
-        for (int y = 0; y < thick; y++) {
-            int row = (height - thick) / 2 + y - ((thick_is_odd ^ height_is_odd) ? supersample / 2 : 0);
-            for (int col = width - supersample; col < width; col++) {
-                if (row >= 0 && row < height && col >= 0) {
-                    if (fmt == PIXMAN_a1) {
-                        size_t ofs = col / 8;
-                        size_t bit_no = col % 8;
-                        data[row * stride + ofs] |= 1 << bit_no;
-                    } else
-                        data[row * stride + col] = 0xff;
-                }
-            }
-        }
-    }
-
-    if (wc == L'╭' || wc == L'╮') {
-        for (int x = 0; x < thick; x++) {
-            int col = (width - thick) / 2 + x - ((thick_is_odd ^ width_is_odd) ? supersample / 2 : 0);
-            for (int row = height - supersample; row < height; row++) {
-                if (row >= 0 && col >= 0 && col < width) {
-                    if (fmt == PIXMAN_a1) {
-                        size_t ofs = col / 8;
-                        size_t bit_no = col % 8;
-                        data[row * stride + ofs] |= 1 << bit_no;
-                    } else
-                        data[row * stride + col] = 0xff;
-                }
             }
         }
     }
@@ -1418,9 +1538,13 @@ draw_box_drawings_light_arc(struct buf *buf, wchar_t wc)
 
         free(data);
     }
+
+    /* draw vertical/horizontal lines from quartercircle-edge to box-edge. */
+    vline(min(c_y_pixels, vert_to), max(c_y_pixels, vert_to), (width_pixels - thick_pixels) / 2, thick_pixels);
+    hline(min(c_x_pixels, hor_to), max(c_x_pixels, hor_to), (height_pixels - thick_pixels) / 2, thick_pixels);
 }
 
-static void
+static void NOINLINE
 draw_box_drawings_light_diagonal_upper_right_to_lower_left(struct buf *buf)
 {
     pixman_trapezoid_t trap = {
@@ -1451,7 +1575,7 @@ draw_box_drawings_light_diagonal_upper_right_to_lower_left(struct buf *buf)
     pixman_rasterize_trapezoid(buf->pix, &trap, 0, 0);
 }
 
-static void
+static void NOINLINE
 draw_box_drawings_light_diagonal_upper_left_to_lower_right(struct buf *buf)
 {
     pixman_trapezoid_t trap = {
@@ -1753,7 +1877,7 @@ draw_pixman_shade(struct buf *buf, uint16_t v)
 static void
 draw_light_shade(struct buf *buf)
 {
-    pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+    pixman_format_code_t fmt = buf->format;
 
     if (buf->solid_shades && fmt == PIXMAN_a1)
         change_buffer_format(buf, PIXMAN_a8);
@@ -1767,7 +1891,7 @@ draw_light_shade(struct buf *buf)
             for (size_t col = 0; col < buf->width; col += 2) {
                 size_t idx = col / 8;
                 size_t bit_no = col % 8;
-                buf->data[row * buf->stride + idx] |= 1 << bit_no;
+                set_a1_bit(buf->data, row * buf->stride + idx, bit_no);
             }
         }
     }
@@ -1776,7 +1900,7 @@ draw_light_shade(struct buf *buf)
 static void
 draw_medium_shade(struct buf *buf)
 {
-    pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+    pixman_format_code_t fmt = buf->format;
 
     if (buf->solid_shades && fmt == PIXMAN_a1)
         change_buffer_format(buf, PIXMAN_a8);
@@ -1790,7 +1914,7 @@ draw_medium_shade(struct buf *buf)
             for (size_t col = row % 2; col < buf->width; col += 2) {
                 size_t idx = col / 8;
                 size_t bit_no = col % 8;
-                buf->data[row * buf->stride + idx] |= 1 << bit_no;
+                set_a1_bit(buf->data, row * buf->stride + idx, bit_no);
             }
         }
     }
@@ -1799,7 +1923,7 @@ draw_medium_shade(struct buf *buf)
 static void
 draw_dark_shade(struct buf *buf)
 {
-    pixman_format_code_t fmt = pixman_image_get_format(buf->pix);
+    pixman_format_code_t fmt = buf->format;
 
     if (buf->solid_shades && fmt == PIXMAN_a1)
         change_buffer_format(buf, PIXMAN_a8);
@@ -1813,13 +1937,13 @@ draw_dark_shade(struct buf *buf)
             for (size_t col = 0; col < buf->width; col += 1 + row % 2) {
                 size_t idx = col / 8;
                 size_t bit_no = col % 8;
-                buf->data[row * buf->stride + idx] |= 1 << bit_no;
+                set_a1_bit(buf->data, row * buf->stride + idx, bit_no);
             }
         }
     }
 }
 
-static void
+static void NOINLINE
 draw_horizontal_one_eighth_block_n(struct buf *buf, int n)
 {
     double y = round((double)n * buf->height / 8.);
@@ -1875,138 +1999,199 @@ draw_right_one_eighth_block(struct buf *buf)
     rect(buf->width - round(buf->width / 8.), 0, buf->width, buf->height);
 }
 
-static void NOINLINE
+static void
 quad_upper_left(struct buf *buf)
 {
     rect(0, 0, ceil(buf->width / 2.), ceil(buf->height / 2.));
 }
 
-static void NOINLINE
+static void
 quad_upper_right(struct buf *buf)
 {
     rect(floor(buf->width / 2.), 0, buf->width, ceil(buf->height / 2.));
 }
 
-static void NOINLINE
+static void
 quad_lower_left(struct buf *buf)
 {
     rect(0, floor(buf->height / 2.), ceil(buf->width / 2.), buf->height);
 }
 
-static void NOINLINE
+static void
 quad_lower_right(struct buf *buf)
 {
     rect(floor(buf->width / 2.), floor(buf->height / 2.), buf->width, buf->height);
 }
 
 static void NOINLINE
-draw_quadrant_lower_left(struct buf *buf)
+draw_quadrant(struct buf *buf, char32_t wc)
 {
-    quad_lower_left(buf);
+    enum {
+        UPPER_LEFT = 1 << 0,
+        UPPER_RIGHT = 1 << 1,
+        LOWER_LEFT = 1 << 2,
+        LOWER_RIGHT = 1 << 3,
+    };
+
+    static const uint8_t matrix[10] = {
+        LOWER_LEFT,
+        LOWER_RIGHT,
+        UPPER_LEFT,
+        UPPER_LEFT | LOWER_LEFT | LOWER_RIGHT,
+        UPPER_LEFT | LOWER_RIGHT,
+        UPPER_LEFT | UPPER_RIGHT | LOWER_LEFT,
+        UPPER_LEFT | UPPER_RIGHT | LOWER_RIGHT,
+        UPPER_RIGHT,
+        UPPER_RIGHT | LOWER_LEFT,
+        UPPER_RIGHT | LOWER_LEFT | LOWER_RIGHT,
+    };
+
+    xassert(wc >= 0x2596 && wc <= 0x259f);
+    const size_t idx = wc - 0x2596;
+
+    xassert(idx < ALEN(matrix));
+    uint8_t encoded = matrix[idx];
+
+    if (encoded & UPPER_LEFT)
+        quad_upper_left(buf);
+
+    if (encoded & UPPER_RIGHT)
+        quad_upper_right(buf);
+
+    if (encoded & LOWER_LEFT)
+        quad_lower_left(buf);
+
+    if (encoded & LOWER_RIGHT)
+        quad_lower_right(buf);
 }
 
 static void NOINLINE
-draw_quadrant_lower_right(struct buf *buf)
+draw_braille(struct buf *buf, char32_t wc)
 {
-    quad_lower_right(buf);
+    int w = min(buf->width / 4, buf->height / 8);
+    int x_spacing = buf->width / 4;
+    int y_spacing = buf->height / 8;
+    int x_margin = x_spacing / 2;
+    int y_margin = y_spacing / 2;
+
+    int x_px_left = buf->width - 2 * x_margin - x_spacing - 2 * w;
+    int y_px_left = buf->height - 2 * y_margin - 3 * y_spacing - 4 * w;
+
+    LOG_DBG(
+        "braille: before adjusting: "
+        "cell: %dx%d, margin=%dx%d, spacing=%dx%d, width=%d, left=%dx%d",
+        buf->width, buf->height, x_margin, y_margin, x_spacing, y_spacing,
+        w, x_px_left, y_px_left);
+
+    /* First, try hard to ensure the DOT width is non-zero */
+    if (x_px_left >= 2 && y_px_left >= 4 && w == 0) {
+        w++;
+        x_px_left -= 2;
+        y_px_left -= 4;
+    }
+
+    /* Second, prefer a non-zero margin */
+    if (x_px_left >= 2 && x_margin == 0) { x_margin = 1; x_px_left -= 2; }
+    if (y_px_left >= 2 && y_margin == 0) { y_margin = 1; y_px_left -= 2; }
+
+    /* Third, increase spacing */
+    if (x_px_left >= 1) { x_spacing++; x_px_left--; }
+    if (y_px_left >= 3) { y_spacing++; y_px_left -= 3; }
+
+    /* Fourth, margins (“spacing”, but on the sides) */
+    if (x_px_left >= 2) { x_margin++; x_px_left -= 2; }
+    if (y_px_left >= 2) { y_margin++; y_px_left -= 2; }
+
+    /* Last - increase dot width */
+    if (x_px_left >= 2 && y_px_left >= 4) {
+        w++;
+        x_px_left -= 2;
+        y_px_left -= 4;
+    }
+
+    LOG_DBG(
+        "braille: after adjusting: "
+        "cell: %dx%d, margin=%dx%d, spacing=%dx%d, width=%d, left=%dx%d",
+        buf->width, buf->height, x_margin, y_margin, x_spacing, y_spacing,
+        w, x_px_left, y_px_left);
+
+    xassert(x_px_left <= 1 || y_px_left <= 1);
+    xassert(2 * x_margin + 2 * w + x_spacing <= buf->width);
+    xassert(2 * y_margin + 4 * w + 3 * y_spacing <= buf->height);
+
+    int x[2], y[4];
+    x[0] = x_margin;
+    x[1] = x_margin + w + x_spacing;
+    y[0] = y_margin;
+    y[1] = y[0] + w + y_spacing;
+    y[2] = y[1] + w + y_spacing;
+    y[3] = y[2] + w + y_spacing;
+
+    assert(wc >= 0x2800);
+    assert(wc <= 0x28ff);
+    uint8_t sym = wc - 0x2800;
+
+    /* Left side */
+    if (sym & 1)
+        rect(x[0], y[0], x[0] + w, y[0] + w);
+    if (sym & 2)
+        rect(x[0], y[1], x[0] + w, y[1] + w);
+    if (sym & 4)
+        rect(x[0], y[2], x[0] + w, y[2] + w);
+
+    /* Right side */
+    if (sym & 8)
+        rect(x[1], y[0], x[1] + w, y[0] + w);
+    if (sym & 16)
+        rect(x[1], y[1], x[1] + w, y[1] + w);
+    if (sym & 32)
+        rect(x[1], y[2], x[1] + w, y[2] + w);
+
+    /* 8-dot patterns */
+    if (sym & 64)
+        rect(x[0], y[3], x[0] + w, y[3] + w);
+    if (sym & 128)
+        rect(x[1], y[3], x[1] + w, y[3] + w);
 }
 
 static void
-draw_quadrant_upper_left(struct buf *buf)
-{
-    quad_upper_left(buf);
-}
-
-static void
-draw_quadrant_upper_left_and_lower_left_and_lower_right(struct buf *buf)
-{
-    quad_upper_left(buf);
-    quad_lower_left(buf);
-    quad_lower_right(buf);
-}
-
-static void
-draw_quadrant_upper_left_and_lower_right(struct buf *buf)
-{
-    quad_upper_left(buf);
-    quad_lower_right(buf);
-}
-
-static void
-draw_quadrant_upper_left_and_upper_right_and_lower_left(struct buf *buf)
-{
-    quad_upper_left(buf);
-    quad_upper_right(buf);
-    quad_lower_left(buf);
-}
-
-static void
-draw_quadrant_upper_left_and_upper_right_and_lower_right(struct buf *buf)
-{
-    quad_upper_left(buf);
-    quad_upper_right(buf);
-    quad_lower_right(buf);
-}
-
-static void
-draw_quadrant_upper_right(struct buf *buf)
-{
-    quad_upper_right(buf);
-}
-
-static void
-draw_quadrant_upper_right_and_lower_left(struct buf *buf)
-{
-    quad_upper_right(buf);
-    quad_lower_left(buf);
-}
-
-static void
-draw_quadrant_upper_right_and_lower_left_and_lower_right(struct buf *buf)
-{
-    quad_upper_right(buf);
-    quad_lower_left(buf);
-    quad_lower_right(buf);
-}
-
-static void NOINLINE
 sextant_upper_left(struct buf *buf)
 {
-    rect(0, 0, round(buf->width / 2.), round(buf->height / 3.));
-}
-
-static void NOINLINE
-sextant_middle_left(struct buf *buf)
-{
-    rect(0, buf->height / 3, round(buf->width / 2.), round(2. * buf->height / 3.));
-}
-
-static void NOINLINE
-sextant_lower_left(struct buf *buf)
-{
-    rect(0, 2 * buf->height / 3, round(buf->width / 2.), buf->height);
-}
-
-static void NOINLINE
-sextant_upper_right(struct buf *buf)
-{
-    rect(buf->width / 2, 0, buf->width, round(buf->height / 3.));
-}
-
-static void NOINLINE
-sextant_middle_right(struct buf *buf)
-{
-    rect(buf->width / 2, buf->height / 3, buf->width, round(2. * buf->height / 3.));
-}
-
-static void NOINLINE
-sextant_lower_right(struct buf *buf)
-{
-    rect(buf->width / 2, 2 * buf->height / 3, buf->width, buf->height);
+    rect(0, 0, buf->x_halfs[0], buf->y_thirds[0]);
 }
 
 static void
-draw_sextant(struct buf *buf, wchar_t wc)
+sextant_middle_left(struct buf *buf)
+{
+    rect(0, buf->y_thirds[0], buf->x_halfs[0], buf->y_thirds[1]);
+}
+
+static void
+sextant_lower_left(struct buf *buf)
+{
+    rect(0, buf->y_thirds[1], buf->x_halfs[0], buf->height);
+}
+
+static void
+sextant_upper_right(struct buf *buf)
+{
+    rect(buf->x_halfs[1], 0, buf->width, buf->y_thirds[0]);
+}
+
+static void
+sextant_middle_right(struct buf *buf)
+{
+    rect(buf->x_halfs[1], buf->y_thirds[0], buf->width, buf->y_thirds[1]);
+}
+
+static void
+sextant_lower_right(struct buf *buf)
+{
+    rect(buf->x_halfs[1], buf->y_thirds[1], buf->width, buf->height);
+}
+
+static void NOINLINE
+draw_sextant(struct buf *buf, char32_t wc)
 {
     /*
      * Each byte encodes one sextant:
@@ -2123,6 +2308,314 @@ draw_sextant(struct buf *buf, wchar_t wc)
         sextant_lower_right(buf);
 }
 
+static void NOINLINE
+draw_wedge_triangle(struct buf *buf, char32_t wc)
+{
+    const int width = buf->width;
+    const int height = buf->height;
+
+    int halfs0 = buf->x_halfs[0];
+    int halfs1 = buf->x_halfs[1];
+    int thirds0 = buf->y_thirds[0];
+    int thirds1 = buf->y_thirds[1];
+
+    int p1_x, p1_y, p2_x, p2_y, p3_x, p3_y;
+
+    switch (wc) {
+    case 0x1fb3c:  /* 🬼 */
+        p1_x = p2_x = 0; p3_x = halfs0;
+        p1_y = thirds1; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb52:  /* 🭒 */
+        p1_x = p2_x = 0; p3_x = halfs0;
+        p1_y = thirds1; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb3d:  /* 🬽 */
+        p1_x = p2_x = 0; p3_x = width;
+        p1_y = thirds1; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb53:  /* 🭓 */
+        p1_x = p2_x = 0; p3_x = width;
+        p1_y = thirds1; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb3e: /* 🬾 */
+        p1_x = p2_x = 0; p3_x = halfs0;
+        p1_y = thirds0; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb54: /* 🭔 */
+        p1_x = p2_x = 0; p3_x = halfs0;
+        p1_y = thirds0; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb3f: /* 🬿 */
+        p1_x = p2_x = 0; p3_x = width;
+        p1_y = thirds0; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb55: /* 🭕 */
+        p1_x = p2_x = 0; p3_x = width;
+        p1_y = thirds0; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb40:  /* 🭀 */
+    case 0x1fb56:  /* 🭖 */
+        p1_x = p2_x = 0; p3_x = halfs0;
+        p1_y = 0; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb47:  /* 🭇 */
+        p1_x = p2_x = width; p3_x = halfs1;
+        p1_y = thirds1; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb5d:  /* 🭝 */
+        p1_x = p2_x = width; p3_x = halfs1;
+        p1_y = thirds1; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb48:  /* 🭈 */
+        p1_x = p2_x = width; p3_x = 0;
+        p1_y = thirds1; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb5e:  /* 🭞 */
+        p1_x = p2_x = width; p3_x = 0;
+        p1_y = thirds1; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb49:  /* 🭉 */
+        p1_x = p2_x = width; p3_x = halfs1;
+        p1_y = thirds0; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb5f:  /* 🭟 */
+        p1_x = p2_x = width; p3_x = halfs1;
+        p1_y = thirds0; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb4a:  /* 🭊 */
+        p1_x = p2_x = width; p3_x = 0;
+        p1_y = thirds0; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb60:  /* 🭠 */
+        p1_x = p2_x = width; p3_x = 0;
+        p1_y = thirds0; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb4b:  /* 🭋 */
+    case 0x1fb61:  /* 🭡 */
+        p1_x = p2_x = width; p3_x = halfs1;
+        p1_y = 0; p2_y = p3_y = height;
+        break;
+
+    case 0x1fb57:  /* 🭗 */
+        p1_x = p2_x = 0; p3_x = halfs0;
+        p1_y = p3_y = 0; p2_y = thirds0;
+        break;
+
+    case 0x1fb41:  /* 🭁 */
+        p1_x = p2_x = 0; p3_x = halfs0;
+        p1_y = p3_y = 0; p2_y = thirds0;
+        break;
+
+    case 0x1fb58:  /* 🭘 */
+        p1_x = p2_x = 0; p3_x = width;
+        p1_y = p3_y = 0; p2_y = thirds0;
+        break;
+
+    case 0x1fb42:  /* 🭂 */
+        p1_x = p2_x = 0; p3_x = width;
+        p1_y = p3_y = 0; p2_y = thirds0;
+        break;
+
+    case 0x1fb59:  /* 🭙 */
+        p1_x = p2_x = 0; p3_x = halfs0;
+        p1_y = p3_y = 0; p2_y = thirds1;
+        break;
+
+    case 0x1fb43:  /* 🭃 */
+        p1_x = p2_x = 0; p3_x = halfs0;
+        p1_y = p3_y = 0; p2_y = thirds1;
+        break;
+
+    case 0x1fb5a:  /* 🭚 */
+        p1_x = p2_x = 0; p3_x = width;
+        p1_y = p3_y = 0; p2_y = thirds1;
+        break;
+
+    case 0x1fb44:  /* 🭄 */
+        p1_x = p2_x = 0; p3_x = width;
+        p1_y = p3_y = 0; p2_y = thirds1;
+        break;
+
+    case 0x1fb5b:  /* 🭛 */
+    case 0x1fb45:  /* 🭅 */
+        p1_x = p2_x = 0; p3_x = halfs0;
+        p1_y = p3_y = 0; p2_y = height;
+        break;
+
+    case 0x1fb62:  /* 🭢 */
+        p1_x = p2_x = width; p3_x = halfs1;
+        p1_y = p3_y = 0; p2_y = thirds0;
+        break;
+
+    case 0x1fb4c:  /* 🭌 */
+        p1_x = p2_x = width; p3_x = halfs1;
+        p1_y = p3_y = 0; p2_y = thirds0;
+        break;
+
+    case 0x1fb63: /* 🭣 */
+        p1_x = p2_x = width; p3_x = 0;
+        p1_y = p3_y = 0; p2_y = thirds0;
+        break;
+
+    case 0x1fb4d:  /* 🭍 */
+        p1_x = p2_x = width; p3_x = 0;
+        p1_y = p3_y = 0; p2_y = thirds0;
+        break;
+
+    case 0x1fb64:  /* 🭤 */
+        p1_x = p2_x = width; p3_x = halfs1;
+        p1_y = p3_y = 0; p2_y = thirds1;
+        break;
+
+    case 0x1fb4e:  /* 🭎 */
+        p1_x = p2_x = width; p3_x = halfs1;
+        p1_y = p3_y = 0; p2_y = thirds1;
+        break;
+
+    case 0x1fb65:  /* 🭥 */
+        p1_x = p2_x = width; p3_x = 0;
+        p1_y = p3_y = 0; p2_y = thirds1;
+        break;
+
+    case 0x1fb4f:  /* 🭏 */
+        p1_x = p2_x = width; p3_x = 0;
+        p1_y = p3_y = 0; p2_y = thirds1;
+        break;
+
+    case 0x1fb66: /* 🭦 */
+    case 0x1fb50: /* 🭐 */
+        p1_x = p2_x = width; p3_x = halfs1;
+        p1_y = p3_y = 0; p2_y = height;
+        break;
+
+    case 0x1fb46:  /* 🭆 */
+        p1_x = 0; p1_y = thirds1;
+        p2_x = width; p2_y = thirds0;
+        p3_x = width; p3_y = p1_y;
+        break;
+
+    case 0x1fb51:  /* 🭑 */
+        p1_x = 0; p1_y = thirds0;
+        p2_x = 0; p2_y = thirds1;
+        p3_x = width; p3_y = p2_y;
+        break;
+
+    case 0x1fb5c:  /* 🭜 */
+        p1_x = 0; p1_y = thirds0;
+        p2_x = 0; p2_y = thirds1;
+        p3_x = width; p3_y = p1_y;
+        break;
+
+    case 0x1fb67:  /* 🭧 */
+        p1_x = 0; p1_y = thirds0;
+        p2_x = width; p2_y = p1_y;
+        p3_x = width; p3_y = thirds1;
+        break;
+
+    case 0x1fb6c:  /* 🭬 */
+    case 0x1fb68:  /* 🭨 */
+        p1_x = 0; p1_y = 0;
+        p2_x = halfs0; p2_y = height / 2;
+        p3_x = 0; p3_y = height;
+        break;
+
+    case 0x1fb6d:  /* 🭭 */
+    case 0x1fb69:  /* 🭩 */
+        p1_x = 0; p1_y = 0;
+        p2_x = halfs1; p2_y = height / 2;
+        p3_x = width; p3_y = 0;
+        break;
+
+    case 0x1fb6e:  /* 🭮 */
+    case 0x1fb6a:  /* 🭪 */
+        p1_x = width; p1_y = 0;
+        p2_x = halfs1; p2_y = height / 2;
+        p3_x = width; p3_y = height;
+        break;
+
+    case 0x1fb6f:  /* 🭯 */
+    case 0x1fb6b:  /* 🭫 */
+        p1_x = 0; p1_y = height;
+        p2_x = halfs1; p2_y = height / 2;
+        p3_x = width; p3_y = height;
+        break;
+
+    default:
+        BUG("unimplemented Unicode codepoint");
+        break;
+    }
+
+    const pixman_triangle_t tri = {
+        .p1 = {.x = pixman_int_to_fixed(p1_x), .y = pixman_int_to_fixed(p1_y)},
+        .p2 = {.x = pixman_int_to_fixed(p2_x), .y = pixman_int_to_fixed(p2_y)},
+        .p3 = {.x = pixman_int_to_fixed(p3_x), .y = pixman_int_to_fixed(p3_y)},
+    };
+
+    pixman_image_t *src = pixman_image_create_solid_fill(&white);
+    pixman_composite_triangles(
+        PIXMAN_OP_OVER, src, buf->pix, buf->format, 0, 0, 0, 0, 1, &tri);
+    pixman_image_unref(src);
+}
+
+static void NOINLINE
+draw_wedge_triangle_inverted(struct buf *buf, char32_t wc)
+{
+    draw_wedge_triangle(buf, wc);
+
+    pixman_image_t *src = pixman_image_create_solid_fill(&white);
+    pixman_image_composite(PIXMAN_OP_OUT, src, NULL, buf->pix, 0, 0, 0, 0, 0, 0, buf->width, buf->height);
+    pixman_image_unref(src);
+}
+
+static void NOINLINE
+draw_wedge_triangle_and_box(struct buf *buf, char32_t wc)
+{
+    draw_wedge_triangle(buf, wc);
+
+    const int width = buf->width;
+    const int height = buf->height;
+
+    pixman_box32_t box;
+
+    switch (wc) {
+    case 0x1fb46:
+    case 0x1fb51:
+        box = (pixman_box32_t){
+            .x1 = 0, .y1 = buf->y_thirds[1],
+            .x2 = width, .y2 = height,
+        };
+        break;
+
+    case 0x1fb5c:
+    case 0x1fb67:
+        box = (pixman_box32_t){
+            .x1 = 0, .y1 = 0,
+            .x2 = width, .y2 = buf->y_thirds[0],
+        };
+        break;
+    }
+
+    pixman_image_fill_boxes(PIXMAN_OP_SRC, buf->pix, &white, 1, &box);
+}
+
 static void
 draw_left_and_lower_one_eighth_block(struct buf *buf)
 {
@@ -2198,7 +2691,7 @@ draw_right_seven_eighths_block(struct buf *buf)
 }
 
 static void
-draw_glyph(struct buf *buf, wchar_t wc)
+draw_glyph(struct buf *buf, char32_t wc)
 {
     IGNORE_WARNING("-Wpedantic")
 
@@ -2359,18 +2852,44 @@ draw_glyph(struct buf *buf, wchar_t wc)
     case 0x2593: draw_dark_shade(buf); break;
     case 0x2594: draw_upper_one_eighth_block(buf); break;
     case 0x2595: draw_right_one_eighth_block(buf); break;
-    case 0x2596: draw_quadrant_lower_left(buf); break;
-    case 0x2597: draw_quadrant_lower_right(buf); break;
-    case 0x2598: draw_quadrant_upper_left(buf); break;
-    case 0x2599: draw_quadrant_upper_left_and_lower_left_and_lower_right(buf); break;
-    case 0x259a: draw_quadrant_upper_left_and_lower_right(buf); break;
-    case 0x259b: draw_quadrant_upper_left_and_upper_right_and_lower_left(buf); break;
-    case 0x259c: draw_quadrant_upper_left_and_upper_right_and_lower_right(buf); break;
-    case 0x259d: draw_quadrant_upper_right(buf); break;
-    case 0x259e: draw_quadrant_upper_right_and_lower_left(buf); break;
-    case 0x259f: draw_quadrant_upper_right_and_lower_left_and_lower_right(buf); break;
+    case 0x2596 ... 0x259f: draw_quadrant(buf, wc); break;
+
+    case 0x2800 ... 0x28ff: draw_braille(buf, wc); break;
 
     case 0x1fb00 ... 0x1fb3b: draw_sextant(buf, wc); break;
+
+    case 0x1fb3c ... 0x1fb40:
+    case 0x1fb47 ... 0x1fb4b:
+    case 0x1fb57 ... 0x1fb5b:
+    case 0x1fb62 ... 0x1fb66:
+    case 0x1fb6c ... 0x1fb6f:
+        draw_wedge_triangle(buf, wc);
+        break;
+
+    case 0x1fb41 ... 0x1fb45:
+    case 0x1fb4c ... 0x1fb50:
+    case 0x1fb52 ... 0x1fb56:
+    case 0x1fb5d ... 0x1fb61:
+    case 0x1fb68 ... 0x1fb6b:
+        draw_wedge_triangle_inverted(buf, wc);
+        break;
+
+    case 0x1fb46:
+    case 0x1fb51:
+    case 0x1fb5c:
+    case 0x1fb67:
+        draw_wedge_triangle_and_box(buf, wc);
+        break;
+
+    case 0x1fb9a:
+        draw_wedge_triangle(buf, 0x1fb6d);
+        draw_wedge_triangle(buf, 0x1fb6f);
+        break;
+
+    case 0x1fb9b:
+        draw_wedge_triangle(buf, 0x1fb6c);
+        draw_wedge_triangle(buf, 0x1fb6e);
+        break;
 
     case 0x1fb70: draw_vertical_one_eighth_block_2(buf); break;
     case 0x1fb71: draw_vertical_one_eighth_block_3(buf); break;
@@ -2410,7 +2929,7 @@ draw_glyph(struct buf *buf, wchar_t wc)
 }
 
 struct fcft_glyph * COLD
-box_drawing(const struct terminal *term, wchar_t wc)
+box_drawing(const struct terminal *term, char32_t wc)
 {
     int width = term->cell_width;
     int height = term->cell_height;
@@ -2430,29 +2949,65 @@ box_drawing(const struct terminal *term, wchar_t wc)
         abort();
     }
 
+    double dpi = term->font_is_sized_by_dpi ? term->font_dpi : 96.;
+    double scale = term->font_is_sized_by_dpi ? 1. : term->scale;
+    double cell_size = sqrt(pow(term->cell_width, 2) + pow(term->cell_height, 2));
+
+    int base_thickness =
+        (double)term->conf->tweak.box_drawing_base_thickness * scale * cell_size * dpi / 72.0;
+    base_thickness = max(base_thickness, 1);
+
+    int y0 = 0, y1 = 0;
+    switch (height % 3) {
+    case 0:
+        y0 = height / 3;
+        y1 = 2 * height / 3;
+        break;
+
+    case 1:
+        y0 = height / 3;
+        y1 = 2 * height / 3 + 1;
+        break;
+
+    case 2:
+        y0 = height / 3 + 1;
+        y1 = y0 + height / 3;
+        break;
+    }
+
     struct buf buf = {
         .data = data,
         .pix = pix,
+        .format = fmt,
         .width = width,
         .height = height,
         .stride = stride,
-        .dpi = term->font_dpi,
-        .cell_size = sqrt(pow(term->cell_width, 2) + pow(term->cell_height, 2)),
-        .base_thickness = term->conf->tweak.box_drawing_base_thickness,
         .solid_shades = term->conf->tweak.box_drawing_solid_shades,
+
+        .thickness = {
+            [LIGHT] = _thickness(base_thickness, LIGHT),
+            [HEAVY] = _thickness(base_thickness, HEAVY),
+        },
+
+        /* Overlap when width is odd */
+        .x_halfs = {
+            round(width / 2.), /* Endpoint first half */
+            width / 2,         /* Startpoint second half */
+        },
+
+        .y_thirds = {
+            y0,  /* Endpoint first third, start point second third */
+            y1,  /* Endpoint second third, start point last third */
+        },
     };
 
-    buf.thickness[LIGHT] = _thickness(&buf, LIGHT);
-    buf.thickness[HEAVY] = _thickness(&buf, HEAVY);
-
-    LOG_DBG("LIGHT=%d, HEAVY=%d",
-            _thickness(&buf, LIGHT), _thickness(&buf, HEAVY));
+    LOG_DBG("LIGHT=%d, HEAVY=%d", buf.thickness[LIGHT], buf.thickness[HEAVY]);
 
     draw_glyph(&buf, wc);
 
     struct fcft_glyph *glyph = xmalloc(sizeof(*glyph));
     *glyph = (struct fcft_glyph){
-        .wc = wc,
+        .cp = wc,
         .cols = 1,
         .pix = buf.pix,
         .x = -term->font_x_ofs,

@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
-#include <sys/time.h>
+#include <time.h>
+#include <uchar.h>
 
 #include <wayland-client.h>
 #include <xkbcommon/xkbcommon.h>
@@ -20,101 +20,13 @@
  #include <xdg-activation-v1.h>
 #endif
 
+#include <fcft/fcft.h>
 #include <tllist.h>
 
 #include "fdm.h"
 
 /* Forward declarations */
 struct terminal;
-
-enum bind_action_normal {
-    BIND_ACTION_NONE,
-    BIND_ACTION_SCROLLBACK_UP_PAGE,
-    BIND_ACTION_SCROLLBACK_UP_HALF_PAGE,
-    BIND_ACTION_SCROLLBACK_UP_LINE,
-    BIND_ACTION_SCROLLBACK_DOWN_PAGE,
-    BIND_ACTION_SCROLLBACK_DOWN_HALF_PAGE,
-    BIND_ACTION_SCROLLBACK_DOWN_LINE,
-    BIND_ACTION_CLIPBOARD_COPY,
-    BIND_ACTION_CLIPBOARD_PASTE,
-    BIND_ACTION_PRIMARY_PASTE,
-    BIND_ACTION_SEARCH_START,
-    BIND_ACTION_FONT_SIZE_UP,
-    BIND_ACTION_FONT_SIZE_DOWN,
-    BIND_ACTION_FONT_SIZE_RESET,
-    BIND_ACTION_SPAWN_TERMINAL,
-    BIND_ACTION_MINIMIZE,
-    BIND_ACTION_MAXIMIZE,
-    BIND_ACTION_FULLSCREEN,
-    BIND_ACTION_PIPE_SCROLLBACK,
-    BIND_ACTION_PIPE_VIEW,
-    BIND_ACTION_PIPE_SELECTED,
-    BIND_ACTION_SHOW_URLS_COPY,
-    BIND_ACTION_SHOW_URLS_LAUNCH,
-
-    /* Mouse specific actions - i.e. they require a mouse coordinate */
-    BIND_ACTION_SELECT_BEGIN,
-    BIND_ACTION_SELECT_BEGIN_BLOCK,
-    BIND_ACTION_SELECT_EXTEND,
-    BIND_ACTION_SELECT_EXTEND_CHAR_WISE,
-    BIND_ACTION_SELECT_WORD,
-    BIND_ACTION_SELECT_WORD_WS,
-    BIND_ACTION_SELECT_ROW,
-
-    BIND_ACTION_KEY_COUNT = BIND_ACTION_SHOW_URLS_LAUNCH + 1,
-    BIND_ACTION_COUNT = BIND_ACTION_SELECT_ROW + 1,
-};
-
-enum bind_action_search {
-    BIND_ACTION_SEARCH_NONE,
-    BIND_ACTION_SEARCH_CANCEL,
-    BIND_ACTION_SEARCH_COMMIT,
-    BIND_ACTION_SEARCH_FIND_PREV,
-    BIND_ACTION_SEARCH_FIND_NEXT,
-    BIND_ACTION_SEARCH_EDIT_LEFT,
-    BIND_ACTION_SEARCH_EDIT_LEFT_WORD,
-    BIND_ACTION_SEARCH_EDIT_RIGHT,
-    BIND_ACTION_SEARCH_EDIT_RIGHT_WORD,
-    BIND_ACTION_SEARCH_EDIT_HOME,
-    BIND_ACTION_SEARCH_EDIT_END,
-    BIND_ACTION_SEARCH_DELETE_PREV,
-    BIND_ACTION_SEARCH_DELETE_PREV_WORD,
-    BIND_ACTION_SEARCH_DELETE_NEXT,
-    BIND_ACTION_SEARCH_DELETE_NEXT_WORD,
-    BIND_ACTION_SEARCH_EXTEND_WORD,
-    BIND_ACTION_SEARCH_EXTEND_WORD_WS,
-    BIND_ACTION_SEARCH_CLIPBOARD_PASTE,
-    BIND_ACTION_SEARCH_PRIMARY_PASTE,
-    BIND_ACTION_SEARCH_COUNT,
-};
-
-enum bind_action_url {
-    BIND_ACTION_URL_NONE,
-    BIND_ACTION_URL_CANCEL,
-    BIND_ACTION_URL_TOGGLE_URL_ON_JUMP_LABEL,
-    BIND_ACTION_URL_COUNT,
-};
-
-typedef tll(xkb_keycode_t) xkb_keycode_list_t;
-
-struct key_binding {
-    xkb_mod_mask_t mods;
-    xkb_keysym_t sym;
-    xkb_keycode_list_t key_codes;
-
-    int action; /* enum bind_action_* */
-    char **pipe_argv;
-};
-typedef tll(struct key_binding) key_binding_list_t;
-
-struct mouse_binding {
-    enum bind_action_normal action;
-    xkb_mod_mask_t mods;
-    uint32_t button;
-    int count;
-    char **pipe_argv;
-};
-typedef tll(struct mouse_binding) mouse_binding_list_t;
 
 /* Mime-types we support when dealing with data offers (e.g. copy-paste, or DnD) */
 enum data_offer_mime_type {
@@ -169,6 +81,7 @@ struct seat {
     /* Focused terminals */
     struct terminal *kbd_focus;
     struct terminal *mouse_focus;
+    struct terminal *ime_focus;
 
     /* Keyboard state */
     struct wl_keyboard *wl_keyboard;
@@ -192,7 +105,12 @@ struct seat {
         xkb_mod_index_t mod_shift;
         xkb_mod_index_t mod_alt;
         xkb_mod_index_t mod_ctrl;
-        xkb_mod_index_t mod_meta;
+        xkb_mod_index_t mod_super;
+        xkb_mod_index_t mod_caps;
+        xkb_mod_index_t mod_num;
+
+        xkb_mod_mask_t bind_significant;
+        xkb_mod_mask_t kitty_significant;
 
         xkb_keycode_t key_arrow_up;
         xkb_keycode_t key_arrow_down;
@@ -201,13 +119,7 @@ struct seat {
         bool shift;
         bool alt;
         bool ctrl;
-        bool meta;
-
-        struct {
-            key_binding_list_t key;
-            key_binding_list_t search;
-            key_binding_list_t url;
-        } bindings;
+        bool super;
     } kbd;
 
     /* Pointer state */
@@ -238,13 +150,11 @@ struct seat {
         /* Double- and triple click state */
         int count;
         int last_released_button;
-        struct timeval last_time;
+        struct timespec last_time;
 
         /* We used a discrete axis event in the current pointer frame */
-        double axis_aggregated;
+        double aggregated[2];
         bool have_discrete;
-
-        mouse_binding_list_t bindings;
     } mouse;
 
     /* Clipboard */
@@ -270,7 +180,7 @@ struct seat {
                 int32_t cursor_end;
             } pending;
 
-            wchar_t *text;
+            char32_t *text;
             struct cell *cells;
             int count;
             struct {
@@ -293,7 +203,6 @@ struct seat {
             } pending;
         } surrounding;
 
-        bool focused;
         uint32_t serial;
     } ime;
 #endif
@@ -386,6 +295,22 @@ struct wl_url {
 
 enum csd_mode {CSD_UNKNOWN, CSD_NO, CSD_YES};
 
+#if defined(HAVE_XDG_ACTIVATION)
+typedef void (*activation_token_cb_t)(const char *token, void *data);
+
+/*
+ * This context holds data used both in the token::done callback, and
+ * when cleaning up created, by not-yet-done tokens in
+ * wayl_win_destroy().
+ */
+struct xdg_activation_token_context {
+    struct wl_window *win;                        /* Need for win->xdg_tokens */
+    struct xdg_activation_token_v1 *xdg_token;    /* Used to match token in done() */
+    activation_token_cb_t cb;                     /* User provided callback */
+    void *cb_data;                                /* Callback user pointer */
+};
+#endif
+
 struct wayland;
 struct wl_window {
     struct terminal *term;
@@ -393,7 +318,8 @@ struct wl_window {
     struct xdg_surface *xdg_surface;
     struct xdg_toplevel *xdg_toplevel;
 #if defined(HAVE_XDG_ACTIVATION)
-    struct xdg_activation_token_v1 *xdg_activation_token;
+    tll(struct xdg_activation_token_context *) xdg_tokens;
+    bool urgency_token_is_pending;
 #endif
 
     struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration;
@@ -402,6 +328,7 @@ struct wl_window {
 
     struct {
         struct wl_surf_subsurf surface[CSD_SURF_COUNT];
+        struct fcft_font *font;
         int move_timeout_fd;
         uint32_t serial;
     } csd;
@@ -409,6 +336,7 @@ struct wl_window {
     struct wl_surf_subsurf search;
     struct wl_surf_subsurf scrollback_indicator;
     struct wl_surf_subsurf render_timer;
+    struct wl_surf_subsurf overlay;
 
     struct wl_callback *frame_callback;
 
@@ -441,11 +369,10 @@ struct wl_window {
     int resize_timeout_fd;
 };
 
-struct config;
 struct terminal;
 struct wayland {
-    const struct config *conf;
     struct fdm *fdm;
+    struct key_binding_manager *key_binding_manager;
 
     int fd;
 
@@ -467,6 +394,7 @@ struct wayland {
     struct xdg_activation_v1 *xdg_activation;
 #endif
 
+    bool presentation_timings;
     struct wp_presentation *presentation;
     uint32_t presentation_clock_id;
 
@@ -481,7 +409,9 @@ struct wayland {
     tll(struct terminal *) terms;
 };
 
-struct wayland *wayl_init(const struct config *conf, struct fdm *fdm);
+struct wayland *wayl_init(
+    struct fdm *fdm, struct key_binding_manager *key_binding_manager,
+    bool presentation_timings);
 void wayl_destroy(struct wayland *wayl);
 
 bool wayl_reload_xcursor_theme(struct seat *seat, int new_scale);
@@ -489,14 +419,24 @@ bool wayl_reload_xcursor_theme(struct seat *seat, int new_scale);
 void wayl_flush(struct wayland *wayl);
 void wayl_roundtrip(struct wayland *wayl);
 
-struct wl_window *wayl_win_init(struct terminal *term);
+struct wl_window *wayl_win_init(struct terminal *term, const char *token);
 void wayl_win_destroy(struct wl_window *win);
 
 bool wayl_win_set_urgent(struct wl_window *win);
 
+bool wayl_win_csd_titlebar_visible(const struct wl_window *win);
+bool wayl_win_csd_borders_visible(const struct wl_window *win);
+
 bool wayl_win_subsurface_new(
-    struct wl_window *win, struct wl_surf_subsurf *surf);
+    struct wl_window *win, struct wl_surf_subsurf *surf,
+    bool allow_pointer_input);
 bool wayl_win_subsurface_new_with_custom_parent(
     struct wl_window *win, struct wl_surface *parent,
-    struct wl_surf_subsurf *surf);
+    struct wl_surf_subsurf *surf, bool allow_pointer_input);
 void wayl_win_subsurface_destroy(struct wl_surf_subsurf *surf);
+
+#if defined(HAVE_XDG_ACTIVATION)
+bool wayl_get_activation_token(
+    struct wayland *wayl, struct seat *seat, uint32_t serial,
+    struct wl_window *win, activation_token_cb_t cb, void *cb_data);
+#endif

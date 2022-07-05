@@ -11,6 +11,7 @@
 #define LOG_MODULE "vt"
 #define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "char32.h"
 #include "config.h"
 #include "csi.h"
 #include "dcs.h"
@@ -182,14 +183,14 @@ action_execute(struct terminal *term, uint8_t c)
         struct row *row = term->grid->cur_row;
 
         bool emit_tab_char = (row->cells[start_col].wc == 0 ||
-                              row->cells[start_col].wc == L' ');
+                              row->cells[start_col].wc == U' ');
 
         /* Check if all cells from here until the next tab stop are empty */
         for (const struct cell *cell = &row->cells[start_col + 1];
              cell < &row->cells[new_col];
              cell++)
         {
-            if (!(cell->wc == 0 || cell->wc == L' ')) {
+            if (!(cell->wc == 0 || cell->wc == U' ')) {
                 emit_tab_char = false;
                 break;
             }
@@ -202,14 +203,14 @@ action_execute(struct terminal *term, uint8_t c)
         if (emit_tab_char) {
             row->dirty = true;
 
-            row->cells[start_col].wc = '\t';
+            row->cells[start_col].wc = U'\t';
             row->cells[start_col].attrs.clean = 0;
 
             for (struct cell *cell = &row->cells[start_col + 1];
                  cell < &row->cells[new_col];
                  cell++)
             {
-                cell->wc = L' ';
+                cell->wc = U' ';
                 cell->attrs.clean = 0;
             }
         }
@@ -549,7 +550,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
             for (int r = 0; r < term->rows; r++) {
                 struct row *row = grid_row(term->grid, r);
                 for (int c = 0; c < term->cols; c++) {
-                    row->cells[c].wc = L'E';
+                    row->cells[c].wc = U'E';
                     row->cells[c].attrs = (struct attributes){0};
                 }
                 row->dirty = true;
@@ -576,10 +577,20 @@ action_osc_start(struct terminal *term, uint8_t c)
 static void
 action_osc_end(struct terminal *term, uint8_t c)
 {
-    if (!osc_ensure_size(term, term->vt.osc.idx + 1))
+    struct vt *vt = &term->vt;
+
+    if (!osc_ensure_size(term, vt->osc.idx + 1))
         return;
-    term->vt.osc.data[term->vt.osc.idx] = '\0';
+
+    vt->osc.data[vt->osc.idx] = '\0';
+    vt->osc.bel = c == '\a';
     osc_dispatch(term);
+
+    if (unlikely(vt->osc.idx >= 4096)) {
+        free(vt->osc.data);
+        vt->osc.data = NULL;
+        vt->osc.size = 0;
+    }
 }
 
 static void
@@ -611,14 +622,27 @@ action_put(struct terminal *term, uint8_t c)
 static inline uint32_t
 chain_key(uint32_t old_key, uint32_t new_wc)
 {
-    /* Rotate left 8 bits, xor with new char */
-    return ((old_key << 8) | (old_key >> (32 - 8))) ^ new_wc;
+    unsigned bits = 32 - __builtin_clz(CELL_COMB_CHARS_HI - CELL_COMB_CHARS_LO);
+
+    /* Rotate old key 8 bits */
+    uint32_t new_key = (old_key << 8) | (old_key >> (bits - 8));
+
+    /* xor with new char */
+    new_key ^= new_wc;
+
+    /* Multiply with magic hash constant */
+    new_key *= 2654435761;
+
+    /* And mask, to ensure the new value is within range */
+    new_key &= CELL_COMB_CHARS_HI - CELL_COMB_CHARS_LO;
+
+    return new_key;
 }
 
 static void
-action_utf8_print(struct terminal *term, wchar_t wc)
+action_utf8_print(struct terminal *term, char32_t wc)
 {
-    int width = wcwidth(wc);
+    int width = c32width(wc);
     const bool grapheme_clustering = term->conf->tweak.grapheme_shaping;
 
 #if !defined(FOOT_GRAPHEME_CLUSTERING)
@@ -639,8 +663,8 @@ action_utf8_print(struct terminal *term, wchar_t wc)
             col--;
 
         xassert(col >= 0 && col < term->cols);
-        wchar_t base = row->cells[col].wc;
-        wchar_t UNUSED last = base;
+        char32_t base = row->cells[col].wc;
+        char32_t UNUSED last = base;
 
         /* Is base cell already a cluster? */
         const struct composed *composed =
@@ -657,8 +681,6 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         } else
             key = chain_key(base, wc);
 
-        key &= CELL_COMB_CHARS_HI - CELL_COMB_CHARS_LO;
-
 #if defined(FOOT_GRAPHEME_CLUSTERING)
         if (grapheme_clustering) {
             /* Check if we're on a grapheme cluster break */
@@ -671,7 +693,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
         }
 #endif
 
-        int base_width = wcwidth(base);
+        int base_width = c32width(base);
         if (base_width > 0) {
             term->grid->cursor.point.col = col;
             term->grid->cursor.lcf = false;
@@ -681,11 +703,11 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                 bool comb_from_primary;
                 bool pre_from_primary;
 
-                wchar_t precomposed = fcft_precompose(
+                char32_t precomposed = fcft_precompose(
                     term->fonts[0], base, wc, &base_from_primary,
                     &comb_from_primary, &pre_from_primary);
 
-                int precomposed_width = wcwidth(precomposed);
+                int precomposed_width = c32width(precomposed);
 
                 /*
                  * Only use the pre-composed character if:
@@ -697,7 +719,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                  *     font
                  */
 
-                if (precomposed != (wchar_t)-1 &&
+                if (precomposed != (char32_t)-1 &&
                     precomposed_width == base_width &&
                     (pre_from_primary ||
                      !base_from_primary ||
@@ -727,8 +749,20 @@ action_utf8_print(struct terminal *term, wchar_t wc)
 
             xassert(wanted_count <= 255);
 
+            size_t collision_count = 0;
+
             /* Look for existing combining chain */
             while (true) {
+                if (unlikely(collision_count > 128)) {
+                    static bool have_warned = false;
+                    if (!have_warned) {
+                        have_warned = true;
+                        LOG_WARN("ignoring composed character: "
+                                 "too many collisions in hash table");
+                    }
+                    return;
+                }
+
                 const struct composed *cc = composed_lookup(term->composed, key);
                 if (cc == NULL)
                     break;
@@ -744,7 +778,12 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                     cc->count != wanted_count ||
                     cc->chars[wanted_count - 1] != wc)
                 {
+#if 0
+                    LOG_WARN("COLLISION: base: %04x/%04x, count: %d/%zu, last: %04x/%04x",
+                             cc->chars[0], base, cc->count, wanted_count, cc->chars[wanted_count - 1], wc);
+#endif
                     key++;
+                    collision_count++;
                     continue;
                 }
 
@@ -755,6 +794,7 @@ action_utf8_print(struct terminal *term, wchar_t wc)
 
                 if (!match) {
                     key++;
+                    collision_count++;
                     continue;
                 }
 
@@ -791,6 +831,10 @@ action_utf8_print(struct terminal *term, wchar_t wc)
                 composed != NULL ? composed->width : base_width;
 
             switch (term->conf->tweak.grapheme_width_method) {
+            case GRAPHEME_WIDTH_MAX:
+                new_cc->width = max(grapheme_width, width);
+                break;
+
             case GRAPHEME_WIDTH_DOUBLE:
                 if (unlikely(wc == 0xfe0f))
                     width = 2;

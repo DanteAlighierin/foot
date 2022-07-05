@@ -11,6 +11,7 @@
 #include "base64.h"
 #include "config.h"
 #include "grid.h"
+#include "macros.h"
 #include "notify.h"
 #include "render.h"
 #include "selection.h"
@@ -159,7 +160,11 @@ from_clipboard_done(void *user)
         term_to_slave(term, res, 4);
     }
 
-    term_to_slave(term, "\033\\", 2);
+    if (term->vt.osc.bel)
+        term_to_slave(term, "\a", 1);
+    else
+        term_to_slave(term, "\033\\", 2);
+
     free(ctx);
 }
 
@@ -247,7 +252,7 @@ osc_selection(struct terminal *term, char *string)
 
     LOG_DBG("clipboard: target = %s data = %s", string, p);
 
-    if (strlen(p) == 1 && p[0] == '?')
+    if (p[0] == '?' && p[1] == '\0')
         osc_from_clipboard(term, string);
     else
         osc_to_clipboard(term, string, p);
@@ -341,12 +346,10 @@ parse_rgb(const char *string, uint32_t *color, bool *_have_alpha,
 
     /* Verify we have the minimum required length (for "") */
     if (have_alpha) {
-        /* rgba:x/x/x/x */
-        if (len < 4 /* 'rgba' */ + 1 /* ':' */ + 3 /* '/' */ + 4 * 1 /* 4 * 'x' */)
+        if (len < STRLEN("rgba:x/x/x/x"))
             return false;
     } else {
-        /* rgb:x/x/x */
-        if (len < 3 /* 'rgb' */ + 1 /* ':' */ + 2 /* '/' */ + 3 * 1 /* 3 * 'x' */)
+        if (len < STRLEN("rgb:x/x/x"))
             return false;
     }
 
@@ -500,7 +503,7 @@ osc_notify(struct terminal *term, char *string)
      * (https://pub.phyks.me/scripts/urxvt/notify) is very simple:
      *
      * #!/usr/bin/perl
-     * 
+     *
      * sub on_osc_seq_perl {
      *   my ($term, $osc, $resp) = @_;
      *   if ($osc =~ /^notify;(\S+);(.*)$/) {
@@ -522,59 +525,6 @@ osc_notify(struct terminal *term, char *string)
     const char *msg = strtok_r(NULL, "\x00", &ctx);
 
     notify_notify(term, title, msg != NULL ? msg : "");
-}
-
-static void
-update_color_in_grids(struct terminal *term, uint32_t old_color,
-                      uint32_t new_color)
-{
-    /*
-     * Update color of already rendered cells.
-     *
-     * Note that we do *not* store the original palette
-     * index. Therefore, the best we can do is compare colors - if
-     * they match, assume "our" palette index was the one used to
-     * render the cell.
-     *
-     * There are a couple of cases where this isn't necessarily true:
-     * - user has configured the 16 base colors with non-unique
-     * colors.  - the client has used 24-bit escapes for colors
-     *
-     * In general though, if the client configures the palette, it is
-     * very likely only using index:ed coloring (i.e. not 24-bit
-     * direct colors), and I hope that it is unusual with palettes
-     * where all the colors aren't unique.
-     *
-     * TODO(?): for performance reasons, we only update the current
-     * screen rows (of both grids). I.e. scrollback is *not* updated.
-     */
-    for (size_t i = 0; i < 2; i++) {
-        struct grid *grid = i == 0 ? &term->normal : &term->alt;
-
-        for (size_t r = 0; r < term->rows; r++) {
-            struct row *row = grid_row(grid, r);
-            xassert(row != NULL);
-
-            for (size_t c = 0; c < term->grid->num_cols; c++) {
-                struct cell *cell = &row->cells[c];
-                if (cell->attrs.have_fg &&
-                    cell->attrs.fg == old_color)
-                {
-                    cell->attrs.fg = new_color;
-                    cell->attrs.clean = 0;
-                    row->dirty = true;
-                }
-
-                if ( cell->attrs.have_bg &&
-                    cell->attrs.bg == old_color)
-                {
-                    cell->attrs.bg = new_color;
-                    cell->attrs.clean = 0;
-                    row->dirty = true;
-                }
-            }
-        }
-    }
 }
 
 void
@@ -600,7 +550,7 @@ osc_dispatch(struct terminal *term)
         param += c - '0';
     }
 
-    LOG_DBG("OCS: %.*s (param = %d)",
+    LOG_DBG("OSC: %.*s (param = %d)",
             (int)term->vt.osc.idx, term->vt.osc.data, param);
 
     char *string = (char *)&term->vt.osc.data[data_ofs];
@@ -637,15 +587,18 @@ osc_dispatch(struct terminal *term)
             }
 
             /* Client queried for current value */
-            if (strlen(s_color) == 1 && s_color[0] == '?') {
+            if (s_color[0] == '?' && s_color[1] == '\0') {
                 uint32_t color = term->colors.table[idx];
                 uint8_t r = (color >> 16) & 0xff;
                 uint8_t g = (color >>  8) & 0xff;
                 uint8_t b = (color >>  0) & 0xff;
+                const char *terminator = term->vt.osc.bel ? "\a" : "\033\\";
 
                 char reply[32];
-                size_t n = xsnprintf(reply, sizeof(reply), "\033]4;%u;rgb:%02x/%02x/%02x\033\\",
-                         idx, r, g, b);
+                size_t n = xsnprintf(
+                    reply, sizeof(reply),
+                    "\033]4;%u;rgb:%02hhx%02hhx/%02hhx%02hhx/%02hhx%02hhx%s",
+                    idx, r, r, g, g, b, b, terminator);
                 term_to_slave(term, reply, n);
             }
 
@@ -661,8 +614,48 @@ osc_dispatch(struct terminal *term)
                 LOG_DBG("change color definition for #%u from %06x to %06x",
                         idx, term->colors.table[idx], color);
 
-                update_color_in_grids(term, term->colors.table[idx], color);
                 term->colors.table[idx] = color;
+
+                /* Dirty visible, affected cells */
+                for (int r = 0; r < term->rows; r++) {
+                    struct row *row = grid_row_in_view(term->grid, r);
+                    struct cell *cell = &row->cells[0];
+
+                    for (int c = 0; c < term->cols; c++, cell++) {
+                        bool dirty = false;
+
+                        switch (cell->attrs.fg_src) {
+                        case COLOR_BASE16:
+                        case COLOR_BASE256:
+                            if (cell->attrs.fg == idx)
+                                dirty = true;
+                            break;
+
+                        case COLOR_DEFAULT:
+                        case COLOR_RGB:
+                            /* Not affected */
+                            break;
+                        }
+
+                        switch (cell->attrs.bg_src) {
+                        case COLOR_BASE16:
+                        case COLOR_BASE256:
+                            if (cell->attrs.bg == idx)
+                                dirty = true;
+                            break;
+
+                        case COLOR_DEFAULT:
+                        case COLOR_RGB:
+                            /* Not affected */
+                            break;
+                        }
+
+                        if (dirty) {
+                            cell->attrs.clean = 0;
+                            row->dirty = true;
+                        }
+                    }
+                }
             }
         }
 
@@ -690,11 +683,12 @@ osc_dispatch(struct terminal *term)
         /* Set default foreground/background/highlight-bg/highlight-fg color */
 
         /* Client queried for current value */
-        if (strlen(string) == 1 && string[0] == '?') {
+        if (string[0] == '?' && string[1] == '\0') {
             uint32_t color = param == 10 ? term->colors.fg : term->colors.bg;
             uint8_t r = (color >> 16) & 0xff;
             uint8_t g = (color >>  8) & 0xff;
             uint8_t b = (color >>  0) & 0xff;
+            const char *terminator = term->vt.osc.bel ? "\a" : "\033\\";
 
             /*
              * Reply in XParseColor format
@@ -702,8 +696,9 @@ osc_dispatch(struct terminal *term)
              */
             char reply[32];
             size_t n = xsnprintf(
-                reply, sizeof(reply), "\033]%u;rgb:%02x/%02x/%02x\033\\",
-                param, r, g, b);
+                reply, sizeof(reply),
+                "\033]%u;rgb:%02hhx%02hhx/%02hhx%02hhx/%02hhx%02hhx%s",
+                param, r, r, g, g, b, b, terminator);
 
             term_to_slave(term, reply, n);
             break;
@@ -757,13 +752,17 @@ osc_dispatch(struct terminal *term)
     case 12: /* Set cursor color */
 
         /* Client queried for current value */
-        if (strlen(string) == 1 && string[0] == '?') {
+        if (string[0] == '?' && string[1] == '\0') {
             uint8_t r = (term->cursor_color.cursor >> 16) & 0xff;
             uint8_t g = (term->cursor_color.cursor >>  8) & 0xff;
             uint8_t b = (term->cursor_color.cursor >>  0) & 0xff;
+            const char *terminator = term->vt.osc.bel ? "\a" : "\033\\";
 
             char reply[32];
-            size_t n = xsnprintf(reply, sizeof(reply), "\033]12;rgb:%02x/%02x/%02x\033\\", r, g, b);
+            size_t n = xsnprintf(
+                reply, sizeof(reply), "\033]12;rgb:%02x/%02x/%02x%s",
+                r, g, b, terminator);
+
             term_to_slave(term, reply, n);
             break;
         }
@@ -787,6 +786,10 @@ osc_dispatch(struct terminal *term)
         term_damage_cursor(term);
         break;
 
+    case 22:  /* Set mouse cursor */
+        term_set_user_mouse_cursor(term, string);
+        break;
+
     case 30:  /* Set tab title */
         break;
 
@@ -797,13 +800,10 @@ osc_dispatch(struct terminal *term)
     case 104: {
         /* Reset Color Number 'c' (whole table if no parameter) */
 
-        if (strlen(string) == 0) {
+        if (string[0] == '\0') {
             LOG_DBG("resetting all colors");
-            for (size_t i = 0; i < ALEN(term->colors.table); i++) {
-                update_color_in_grids(
-                    term, term->colors.table[i], term->conf->colors.table[i]);
+            for (size_t i = 0; i < ALEN(term->colors.table); i++)
                 term->colors.table[i] = term->conf->colors.table[i];
-        }
         }
 
         else {
@@ -824,12 +824,12 @@ osc_dispatch(struct terminal *term)
                 }
 
                 LOG_DBG("resetting color #%u", idx);
-                update_color_in_grids(
-                    term, term->colors.table[idx], term->conf->colors.table[idx]);
                 term->colors.table[idx] = term->conf->colors.table[idx];
             }
+
         }
 
+        term_damage_view(term);
         break;
     }
 
@@ -869,6 +869,40 @@ osc_dispatch(struct terminal *term)
         term->colors.use_custom_selection = term->conf->colors.use_custom.selection;
         break;
 
+    case 133:
+        /*
+         * Shell integration; see
+         * https://iterm2.com/documentation-escape-codes.html (Shell
+         * Integration/FinalTerm)
+         *
+         * [PROMPT]prompt% [COMMAND_START] ls -l
+         * [COMMAND_EXECUTED]
+         * -rw-r--r-- 1 user group 127 May 1 2016 filename
+         * [COMMAND_FINISHED]
+         */
+        switch (string[0]) {
+        case 'A':
+            LOG_DBG("FTCS_PROMPT: %dx%d",
+                     term->grid->cursor.point.row,
+                    term->grid->cursor.point.col);
+
+            term->grid->cur_row->prompt_marker = true;
+            break;
+
+        case 'B':
+            LOG_DBG("FTCS_COMMAND_START");
+            break;
+
+        case 'C':
+            LOG_DBG("FTCS_COMMAND_EXECUTED");
+            break;
+
+        case 'D':
+            LOG_DBG("FTCS_COMMAND_FINISHED");
+            break;
+        }
+        break;
+
     case 555:
         osc_flash(term);
         break;
@@ -904,11 +938,20 @@ osc_dispatch(struct terminal *term)
 bool
 osc_ensure_size(struct terminal *term, size_t required_size)
 {
-    if (required_size <= term->vt.osc.size)
+    if (likely(required_size <= term->vt.osc.size))
         return true;
 
-    size_t new_size = (required_size + 127) / 128 * 128;
-    xassert(new_size > 0);
+    const size_t pow2_max = ~(SIZE_MAX >> 1);
+    if (unlikely(required_size > pow2_max)) {
+        LOG_ERR("required OSC buffer size (%zu) exceeds limit (%zu)",
+            required_size, pow2_max);
+        return false;
+    }
+
+    size_t new_size = max(term->vt.osc.size, 4096);
+    while (new_size < required_size) {
+        new_size <<= 1;
+    }
 
     uint8_t *new_data = realloc(term->vt.osc.data, new_size);
     if (new_data == NULL) {
@@ -916,6 +959,7 @@ osc_ensure_size(struct terminal *term, size_t required_size)
         return false;
     }
 
+    LOG_DBG("resized OSC buffer: %zu", new_size);
     term->vt.osc.data = new_data;
     term->vt.osc.size = new_size;
     return true;

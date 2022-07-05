@@ -1,10 +1,10 @@
 #pragma once
 
 #include <stdint.h>
-#include <wchar.h>
+#include <uchar.h>
 
 struct composed {
-    wchar_t *chars;
+    char32_t *chars;
     struct composed *left;
     struct composed *right;
     uint32_t key;

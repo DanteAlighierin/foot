@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <wchar.h>
 
 #include <threads.h>
 #include <semaphore.h>
@@ -15,13 +14,22 @@
 #include <tllist.h>
 #include <fcft/fcft.h>
 
-//#include "config.h"
 #include "composed.h"
+#include "config.h"
 #include "debug.h"
 #include "fdm.h"
+#include "key-binding.h"
 #include "macros.h"
 #include "reaper.h"
+#include "shm.h"
 #include "wayland.h"
+
+enum color_source {
+    COLOR_DEFAULT,
+    COLOR_BASE16,
+    COLOR_BASE256,
+    COLOR_RGB,
+};
 
 /*
  *  Note: we want the cells to be as small as possible. Larger cells
@@ -42,11 +50,11 @@ struct attributes {
     uint32_t fg:24;
 
     bool clean:1;
-    bool have_fg:1;
-    bool have_bg:1;
-    uint32_t selected:2;
+    enum color_source fg_src:2;
+    enum color_source bg_src:2;
+    bool confined:1;
+    bool selected:1;
     bool url:1;
-    uint32_t reserved:2;
     uint32_t bg:24;
 };
 static_assert(sizeof(struct attributes) == 8, "VT attribute struct too large");
@@ -57,7 +65,7 @@ static_assert(sizeof(struct attributes) == 8, "VT attribute struct too large");
 #define CELL_SPACER                 (CELL_COMB_CHARS_HI + 1)
 
 struct cell {
-    wchar_t wc;
+    char32_t wc;
     struct attributes attrs;
 };
 static_assert(sizeof(struct cell) == 12, "bad size");
@@ -70,6 +78,11 @@ struct scroll_region {
 struct coord {
     int col;
     int row;
+};
+
+struct range {
+    struct coord start;
+    struct coord end;
 };
 
 struct cursor {
@@ -94,14 +107,22 @@ struct row_uri_range {
 };
 
 struct row_data {
-    tll(struct row_uri_range) uri_ranges;
+    struct {
+        struct row_uri_range *v;
+        uint32_t size;
+        uint32_t count;
+    } uri_ranges;
 };
 
 struct row {
     struct cell *cells;
+    struct row_data *extra;
+
     bool dirty;
     bool linebreak;
-    struct row_data *extra;
+
+    /* Shell integration */
+    bool prompt_marker;
 };
 
 struct sixel {
@@ -113,6 +134,19 @@ struct sixel {
     int cols;
     struct coord pos;
     bool opaque;
+};
+
+enum kitty_kbd_flags {
+    KITTY_KBD_DISAMBIGUATE = 0x01,
+    KITTY_KBD_REPORT_EVENT = 0x02,
+    KITTY_KBD_REPORT_ALTERNATE = 0x04,
+    KITTY_KBD_REPORT_ALL = 0x08,
+    KITTY_KBD_REPORT_ASSOCIATED = 0x10,
+    KITTY_KBD_SUPPORTED = (KITTY_KBD_DISAMBIGUATE |
+                           KITTY_KBD_REPORT_EVENT |
+                           KITTY_KBD_REPORT_ALTERNATE |
+                           KITTY_KBD_REPORT_ALL |
+                           KITTY_KBD_REPORT_ASSOCIATED),
 };
 
 struct grid {
@@ -137,6 +171,12 @@ struct grid {
 
     tll(struct damage) scroll_damage;
     tll(struct sixel) sixel_images;
+
+    struct {
+        enum kitty_kbd_flags flags[8];
+        uint8_t idx;
+    } kitty_kbd;
+
 };
 
 struct vt_subparams {
@@ -151,11 +191,11 @@ struct vt_param {
 
 struct vt {
     int state;  /* enum state */
-    wchar_t last_printed;
+    char32_t last_printed;
 #if defined(FOOT_GRAPHEME_CLUSTERING)
     utf8proc_int32_t grapheme_state;
 #endif
-    wchar_t utf8;
+    char32_t utf8;
     struct {
         struct vt_param v[16];
         uint8_t idx;
@@ -170,13 +210,13 @@ struct vt {
         uint8_t *data;
         size_t size;
         size_t idx;
+        bool bel; /* true if OSC string was terminated by BEL */
     } osc;
 
     /* Start coordinate for current OSC-8 URI */
     struct {
         uint64_t id;
         char *uri;
-        struct coord begin;
     } osc8;
 
     struct {
@@ -215,9 +255,8 @@ enum mouse_reporting {
     MOUSE_UTF8,          /* ?1005h */
     MOUSE_SGR,           /* ?1006h */
     MOUSE_URXVT,         /* ?1015h */
+    MOUSE_SGR_PIXELS,    /* ?1016h */
 };
-
-enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BEAM };
 
 enum selection_kind {
     SELECTION_NONE,
@@ -228,6 +267,7 @@ enum selection_kind {
 };
 enum selection_direction {SELECTION_UNDIR, SELECTION_LEFT, SELECTION_RIGHT};
 enum selection_scroll_direction {SELECTION_SCROLL_NOT, SELECTION_SCROLL_UP, SELECTION_SCROLL_DOWN};
+enum search_direction { SEARCH_BACKWARD_SAME_POSITION, SEARCH_BACKWARD, SEARCH_FORWARD };
 
 struct ptmx_buffer {
     void *data;
@@ -238,10 +278,6 @@ struct ptmx_buffer {
 enum term_surface {
     TERM_SURF_NONE,
     TERM_SURF_GRID,
-    TERM_SURF_SEARCH,
-    TERM_SURF_SCROLLBACK_INDICATOR,
-    TERM_SURF_RENDER_TIMER,
-    TERM_SURF_JUMP_LABEL,
     TERM_SURF_TITLE,
     TERM_SURF_BORDER_LEFT,
     TERM_SURF_BORDER_RIGHT,
@@ -252,33 +288,33 @@ enum term_surface {
     TERM_SURF_BUTTON_CLOSE,
 };
 
+enum overlay_style {
+    OVERLAY_NONE = 0,
+    OVERLAY_SEARCH = 1,
+    OVERLAY_FLASH = 2,
+};
+
 typedef tll(struct ptmx_buffer) ptmx_buffer_list_t;
 
-enum url_action { URL_ACTION_COPY, URL_ACTION_LAUNCH };
+enum url_action { URL_ACTION_COPY, URL_ACTION_LAUNCH, URL_ACTION_PERSISTENT };
 struct url {
     uint64_t id;
     char *url;
-    wchar_t *key;
-    struct coord start;
-    struct coord end;
+    char32_t *key;
+    struct range range;
     enum url_action action;
     bool url_mode_dont_change_url_attr; /* Entering/exiting URL mode doesn’t touch the cells’ attr.url */
     bool osc8;
+    bool duplicate;
 };
 typedef tll(struct url) url_list_t;
-
-/* If px != 0 then px is valid, otherwise pt is valid */
-struct pt_or_px {
-    int16_t px;
-    float pt;
-};
 
 struct terminal {
     struct fdm *fdm;
     struct reaper *reaper;
     const struct config *conf;
 
-    void (*ascii_printer)(struct terminal *term, wchar_t c);
+    void (*ascii_printer)(struct terminal *term, char32_t c);
 
     pid_t slave;
     int ptmx;
@@ -303,12 +339,13 @@ struct terminal {
     bool bracketed_paste;
     bool focus_events;
     bool alt_scrolling;
-    bool modify_escape_key;
+    bool modify_other_keys_2;  /* True when modifyOtherKeys=2 (i.e. “CSI >4;2m”) */
     enum cursor_origin origin;
     enum cursor_keys cursor_keys_mode;
     enum keypad_keys keypad_keys_mode;
     enum mouse_tracking mouse_tracking;
     enum mouse_reporting mouse_reporting;
+    char *mouse_user_cursor;  /* For OSC-22 */
 
     tll(int) tab_stops;
 
@@ -326,16 +363,31 @@ struct terminal {
     struct config_font *font_sizes[4];
     struct pt_or_px font_line_height;
     float font_dpi;
+    bool font_is_sized_by_dpi;
     int16_t font_x_ofs;
     int16_t font_y_ofs;
     enum fcft_subpixel font_subpixel;
 
-    /*
-     *   0-159: U+250U+259F
-     * 160-219: U+1FB00-1FB3B
-     * 220-247: U+1FB70-1FB8B
-     */
-    struct fcft_glyph *box_drawing[248];
+    struct {
+        struct fcft_glyph **box_drawing;
+        struct fcft_glyph **braille;
+        struct fcft_glyph **legacy;
+
+        #define GLYPH_BOX_DRAWING_FIRST 0x2500
+        #define GLYPH_BOX_DRAWING_LAST  0x259F
+        #define GLYPH_BOX_DRAWING_COUNT \
+            (GLYPH_BOX_DRAWING_LAST - GLYPH_BOX_DRAWING_FIRST + 1)
+
+        #define GLYPH_BRAILLE_FIRST 0x2800
+        #define GLYPH_BRAILLE_LAST  0x28FF
+        #define GLYPH_BRAILLE_COUNT \
+            (GLYPH_BRAILLE_LAST - GLYPH_BRAILLE_FIRST + 1)
+
+        #define GLYPH_LEGACY_FIRST 0x1FB00
+        #define GLYPH_LEGACY_LAST  0x1FB9B
+        #define GLYPH_LEGACY_COUNT \
+            (GLYPH_LEGACY_LAST - GLYPH_LEGACY_FIRST + 1)
+    } custom_glyphs;
 
     bool is_sending_paste_data;
     ptmx_buffer_list_t ptmx_buffers;
@@ -353,6 +405,7 @@ struct terminal {
     struct {
         bool origin:1;
         bool application_cursor_keys:1;
+        bool application_keypad_keys:1;
         bool reverse:1;
         bool show_cursor:1;
         bool reverse_wrap:1;
@@ -368,16 +421,16 @@ struct terminal {
         //bool mouse_utf8:1;
         bool mouse_sgr:1;
         bool mouse_urxvt:1;
+        bool mouse_sgr_pixels:1;
         bool meta_eight_bit:1;
         bool meta_esc_prefix:1;
         bool num_lock_modifier:1;
         bool bell_action_enabled:1;
         bool alt_screen:1;
-        bool modify_escape_key:1;
         bool ime:1;
         bool app_sync_updates:1;
 
-        bool sixel_scrolling:1;
+        bool sixel_display_mode:1;
         bool sixel_private_palette:1;
         bool sixel_cursor_right_of_graphics:1;
     } xtsave;
@@ -435,15 +488,11 @@ struct terminal {
     struct {
         enum selection_kind kind;
         enum selection_direction direction;
-        struct coord start;
-        struct coord end;
+        struct range coords;
         bool ongoing;
         bool spaces_only; /* SELECTION_SEMANTIC_WORD */
 
-        struct {
-            struct coord start;
-            struct coord end;
-        } pivot;
+        struct range pivot;
 
         struct {
             int fd;
@@ -454,16 +503,20 @@ struct terminal {
 
     bool is_searching;
     struct {
-        wchar_t *buf;
+        char32_t *buf;
         size_t len;
         size_t sz;
         size_t cursor;
-        enum { SEARCH_BACKWARD, SEARCH_FORWARD} direction;
 
         int original_view;
         bool view_followed_offset;
         struct coord match;
         size_t match_len;
+
+        struct {
+            char32_t *buf;
+            size_t len;
+        } last;
     } search;
 
     struct wayland *wl;
@@ -473,6 +526,16 @@ struct terminal {
     enum term_surface active_surface;
 
     struct {
+        struct {
+            struct buffer_chain *grid;
+            struct buffer_chain *search;
+            struct buffer_chain *scrollback_indicator;
+            struct buffer_chain *render_timer;
+            struct buffer_chain *url;
+            struct buffer_chain *csd;
+            struct buffer_chain *overlay;
+        } chains;
+
         /* Scheduled for rendering, as soon-as-possible */
         struct {
             bool grid;
@@ -493,12 +556,12 @@ struct terminal {
         bool urgency;  /* Signal 'urgency' (paint borders red) */
 
         struct {
-            struct timeval last_update;
+            struct timespec last_update;
             bool is_armed;
             int timer_fd;
         } title;
 
-        int scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
+        uint32_t scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
 
         struct {
             bool enabled;
@@ -507,7 +570,7 @@ struct terminal {
 
         /* Render threads + synchronization primitives */
         struct {
-            size_t count;
+            uint16_t count;
             sem_t start;
             sem_t done;
             mtx_t lock;
@@ -524,12 +587,13 @@ struct terminal {
         } last_cursor;
 
         struct buffer *last_buf;     /* Buffer we rendered to last time */
-        bool was_flashing;           /* Flash was active last time we rendered */
-        bool was_searching;
+
+        enum overlay_style last_overlay_style;
+        struct buffer *last_overlay_buf;
+        pixman_region32_t last_overlay_clip;
 
         size_t search_glyph_offset;
 
-        bool presentation_timings;
         struct timespec input_time;
     } render;
 
@@ -548,6 +612,7 @@ struct terminal {
         uint32_t *private_palette;   /* Private palette, used when private mode 1070 is enabled */
         uint32_t *shared_palette;    /* Shared palette, used when private mode 1070 is disabled */
         uint32_t *palette;   /* Points to either private_palette or shared_palette */
+        uint32_t color;
 
         struct {
             uint32_t *data;  /* Raw image data, in ARGB */
@@ -564,6 +629,7 @@ struct terminal {
         unsigned param_idx;  /* Parameters seen */
 
         bool transparent_bg;
+        uint32_t default_bg;
 
         /* Application configurable */
         unsigned palette_size;  /* Number of colors in palette */
@@ -573,7 +639,7 @@ struct terminal {
 
     /* TODO: wrap in a struct */
     url_list_t urls;
-    wchar_t url_keys[5];
+    char32_t url_keys[5];
     bool urls_show_uri_on_jump_label;
     struct grid *url_grid_snapshot;
 
@@ -581,11 +647,15 @@ struct terminal {
     bool ime_enabled;
 #endif
 
-    bool is_shutting_down;
-    bool slave_has_been_reaped;
-    int exit_status;
-    void (*shutdown_cb)(void *data, int exit_code);
-    void *shutdown_data;
+    struct {
+        bool in_progress;
+        bool client_has_terminated;
+        int terminate_timeout_fd;
+        int exit_status;
+
+        void (*cb)(void *data, int exit_code);
+        void *cb_data;
+    } shutdown;
 
     char *foot_exe;
     char *cwd;
@@ -594,6 +664,7 @@ struct terminal {
 extern const char *const XCURSOR_HIDDEN;
 extern const char *const XCURSOR_LEFT_PTR;
 extern const char *const XCURSOR_TEXT;
+extern const char *const XCURSOR_TEXT_FALLBACK;
 //extern const char *const XCURSOR_HAND2;
 extern const char *const XCURSOR_TOP_LEFT_CORNER;
 extern const char *const XCURSOR_TOP_RIGHT_CORNER;
@@ -608,7 +679,7 @@ struct config;
 struct terminal *term_init(
     const struct config *conf, struct fdm *fdm, struct reaper *reaper,
     struct wayland *wayl, const char *foot_exe, const char *cwd,
-    int argc, char *const *argv,
+    const char *token, int argc, char *const *argv, char *const *envp,
     void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data);
 
 bool term_shutdown(struct terminal *term);
@@ -627,6 +698,7 @@ bool term_font_size_decrease(struct terminal *term);
 bool term_font_size_reset(struct terminal *term);
 bool term_font_dpi_changed(struct terminal *term, int old_scale);
 void term_font_subpixel_changed(struct terminal *term);
+
 int term_pt_or_px_as_pixels(
     const struct terminal *term, const struct pt_or_px *pt_or_px);
 
@@ -649,7 +721,10 @@ void term_damage_scroll(
     struct scroll_region region, int lines);
 
 void term_erase(
-    struct terminal *term, const struct coord *start, const struct coord *end);
+    struct terminal *term,
+    int start_row, int start_col,
+    int end_row, int end_col);
+void term_erase_scrollback(struct terminal *term);
 
 int term_row_rel_to_abs(const struct terminal *term, int row);
 void term_cursor_home(struct terminal *term);
@@ -660,7 +735,7 @@ void term_cursor_up(struct terminal *term, int count);
 void term_cursor_down(struct terminal *term, int count);
 void term_cursor_blink_update(struct terminal *term);
 
-void term_print(struct terminal *term, wchar_t wc, int width);
+void term_print(struct terminal *term, char32_t wc, int width);
 
 void term_scroll(struct terminal *term, int rows);
 void term_scroll_reverse(struct terminal *term, int rows);
@@ -685,16 +760,20 @@ void term_kbd_focus_in(struct terminal *term);
 void term_kbd_focus_out(struct terminal *term);
 void term_mouse_down(
     struct terminal *term, int button, int row, int col,
+    int row_pixels, int col_pixels,
     bool shift, bool alt, bool ctrl);
 void term_mouse_up(
     struct terminal *term, int button, int row, int col,
+    int row_pixels, int col_pixels,
     bool shift, bool alt, bool ctrl);
 void term_mouse_motion(
     struct terminal *term, int button, int row, int col,
+    int row_pixels, int col_pixels,
     bool shift, bool alt, bool ctrl);
-bool term_mouse_grabbed(const struct terminal *term, struct seat *seat);
+bool term_mouse_grabbed(const struct terminal *term, const struct seat *seat);
 void term_xcursor_update(struct terminal *term);
 void term_xcursor_update_for_seat(struct terminal *term, struct seat *seat);
+void term_set_user_mouse_cursor(struct terminal *term, const char *cursor);
 
 void term_set_window_title(struct terminal *term, const char *title);
 void term_flash(struct terminal *term, unsigned duration_ms);

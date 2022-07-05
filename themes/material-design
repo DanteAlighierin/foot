@@ -1,0 +1,24 @@
+# Material
+# From https://github.com/MartinSeeler/iterm2-material-design
+
+[colors]
+foreground=ECEFF1
+background=263238
+selection-foreground=ECEFF1
+selection-background=607D8B
+regular0=546E7A  # black
+regular1=FF5252  # red
+regular2=5CF19E  # green
+regular3=FFD740  # yellow
+regular4=40C4FF  # blue
+regular5=FF4081  # magenta
+regular6=64FCDA  # cyan
+regular7=FFFFFF  # white
+bright0=B0BEC5   # bright black
+bright1=FF8A80   # bright red
+bright2=B9F6CA   # bright green
+bright3=FFE57F   # bright yellow
+bright4=80D8FF   # bright blue
+bright5=FF80AB   # bright magenta
+bright6=A7FDEB   # bright cyan
+bright7=FFFFFF   # bright white

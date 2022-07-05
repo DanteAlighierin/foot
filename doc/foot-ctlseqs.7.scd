@@ -128,18 +128,18 @@ equivalent to 8-bit C1 controls.
 
 # CSI
 
-All sequences begin with *\\E[*, sometimes abbreviated _CSI_. Spaces
+All sequences begin with *\\E[*, sometimes abbreviated "CSI". Spaces
 are used in the sequence strings to make them easier to read, but are
-not actually part of the string. I.e. *\\E[ 1 m* is really *\\E[1m*.
+not actually part of the string (i.e. *\\E[ 1 m* is really *\\E[1m*).
 
 ## SGR
 
-All SGR sequences are on the form *\\E[ <N> m*, where _N_ is a decimal
+All SGR sequences are in the form *\\E[* _N_ *m*, where _N_ is a decimal
 number - the _parameter_. Multiple parameters can be combined in a
 single CSI sequence by separating them with semicolons: *\\E[ 1;2;3
 m*.
 
-[[ *Sequence*
+[[ *Parameter*
 :[ *Description*
 |  0
 :  Reset all attributes
@@ -197,14 +197,14 @@ parameter based variants for setting foreground and background colors.
 
 Indexed colors:
 
-- *\\E[ 38:5:<idx> m*
-- *\\E[ 38;5;<idx> m*
+- *\\E[ 38 : 5 :* _idx_ *m*
+- *\\E[ 38 ; 5 ;* _idx_ *m*
 
 RGB colors:
 
-- *\\E[ 38:2:<cs>:<r>:<g>:<b> m*
-- *\\E[ 38:2:<r>:<g>:<b> m*
-- *\\E[ 38;2;<r>;<g>;<b> m*
+- *\\E[ 38 : 2 :* _cs_ *:* _r_ *:* _g_ *:* _b_ *m*
+- *\\E[ 38 : 2 :* _r_ *:* _g_ *:* _b_ *m*
+- *\\E[ 38 ; 2 ;* _r_ *;* _g_ *;* _b_ *m*
 
 The first variant is the "correct" one (and foot also recognizes, but
 ignores, the optional _tolerance_ parameters).
@@ -212,8 +212,8 @@ ignores, the optional _tolerance_ parameters).
 The second one is allowed since many programs "forget" the color space
 ID, _cs_.
 
-The sub-parameter based variants are preferred, and what foot's
-terminfo uses.
+The sub-parameter based variants are preferred, and are what foot's
+*terminfo*(5) entry uses.
 
 ## Private Modes
 
@@ -268,6 +268,9 @@ that corresponds to one of the following modes:
 |  47
 :  xterm
 :  Same as 1047 (see below)
+|  66
+:  VT320
+:  Numeric keypad mode (DECNKM); same as DECKPAM/DECKPNM when enabled/disabled
 |  1000
 :  xterm
 :  Send mouse x/y on button press/release
@@ -292,6 +295,9 @@ that corresponds to one of the following modes:
 |  1015
 :  urxvt
 :  urxvt mouse mode
+|  1016
+:  xterm
+:  SGR-Pixels mouse mode
 |  1034
 :  xterm
 :  8-bit Meta mode
@@ -549,11 +555,39 @@ manipulation sequences. The generic format is:
 :  XTSMGRAPHICS
 :  xterm
 :  Set or request sixel attributes.
-|  \\E > _Ps_ q
+|  \\E[ > _Ps_ q
 :  XTVERSION
 :  xterm
 :  _Ps_=0 -> report terminal name and version, in the form
    *\\EP>|foot(version)\\E\\*.
+|  \\E[ > 4 ; _Pv_ m
+:  XTMODKEYS
+:  xterm
+:  Set level of the _modifyOtherKeys_ property to _Pv_. Note that foot
+   only supports level 1 and 2, where level 1 is the default setting.
+|  \\E[ > 4 n
+:  <unnamed>
+:  xterm
+:  Resets the _modifyOtherKeys_ property to level 1. Note that in foot,
+   this sequence does not completely disable _modifyOtherKeys_, since
+   foot only supports level 1 and level 2 (and not level 0).
+|  \\E[ ? u
+:  <unnamed>
+:  kitty
+:  Query current values of the Kitty keyboard flags.
+|  \\E[ > _flags_ u
+:  <unnamed>
+:  kitty
+:  Push a new entry, _flags_, to the Kitty keyboard stack.
+|  \\E[ < _number_ u
+:  <unnamed>
+:  kitty
+:  Pop _number_ of entries from the Kitty keyboard stack.
+|  \\E[ = _flags_ ; _mode_ u
+:  <unnamed>
+:  kitty
+:  Update current Kitty keyboard flags, according to _mode_.
+
 
 # OSC
 
@@ -577,12 +611,12 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 |  \\E] 7 ; _Uri_ \\E\\ 
 :  iTerm2
 :  Update the terminal's current working directory. Newly spawned
-   terminals will launch in this directory. _Uri_ must be on the format
+   terminals will launch in this directory. _Uri_ must be in the format
    *file://<hostname>/<path>*. *hostname* must refer to your local host.
-|  \\E] 8 ; _id_=*ID* ; _Uri_ \\E\\ 
+|  \\E] 8 ; id=_ID_ ; _Uri_ \\E\\ 
 :  VTE+iTerm2
-:  Hyperlink (a.k.a HTML-like anchors). _id_ is optional; if assigned,
-   all URIs with the same *ID* will be treated as a single
+:  Hyperlink (a.k.a HTML-like anchors). id=_ID_ is optional; if assigned,
+   all URIs with the same _ID_ will be treated as a single
    hyperlink. An empty URI closes the hyperlink.
 |  \\E] 9 ; _msg_ \\E\\ 
 :  iTerm2
@@ -608,12 +642,16 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 :  xterm
 :  Change selection foreground color to _spec_, a color in XParseColor
    format.
+|  \\E] 22 ; _xcursor-pointer-name_ \\E\\ 
+:  xterm
+:  Sets the xcursor pointer. An empty name, or an invalid name resets
+   it.
 |  \\E] 52 ; _Pc_ ; ? \\E\\ 
 :  xterm
 :  Send clipboard data. _Pc_ can be either *c*, *s* or *p*. *c* uses
    the clipboard as source, and *s* and *p* uses the primary
-   selection. The response is *OSC 52 ; Pc ; <base64-encoded data>*,
-   where _Pc_ denotes the source used.
+   selection. The response is *\\E] 52 ; Pc ; <base64-encoded data>
+   \E\\*, where _Pc_ denotes the source used.
 |  \\E] 52 ; _Pc_ ; _Pd_ \\E\\ 
 :  xterm
 :  Copy _Pd_ (base64 encoded text) to the clipboard. _Pc_ denotes the
@@ -639,6 +677,9 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 |  \\E] 119 \\E\\ 
 :  xterm
 :  Reset selection foreground color
+|  \\E] 133 ; A \\E\\ 
+:  FinalTerm
+:  Mark start of shell prompt
 |  \\E] 555 \\E\\ 
 :  foot
 :  Flash the entire terminal (foot extension)
@@ -655,10 +696,16 @@ and are terminated by *\\E\\* (ST).
 :[ *Description*
 |  \\EP q <sixel data> \\E\\ 
 :  Emit a sixel image at the current cursor position
-|  \\EP = 1 s \\E\\ 
-:  Begin application synchronized updates
-|  \\EP = 2 s \\E\\ 
-:  End application synchronized updates
+|  \\P $ q <query> \\E\\ 
+:  Request selection or setting (DECRQSS). Implemented queries:
+   DECSTBM, SGR and DECSCUSR.
+|  \\EP = _C_ s \\E\\ 
+:  Begin (_C_=*1*) or end (_C_=*2*) application synchronized updates.
+   This sequence is supported for compatibility reasons, but it's
+   recommended to use private mode 2026 (see above) instead.
+|  \\EP + q <hex encoded capability name> \\E\\
+:  Query builtin terminfo database (XTGETTCAP)
+
 
 # FOOTNOTE
 

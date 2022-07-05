@@ -1,0 +1,28 @@
+# theme: Tempus Warp
+# author: Protesilaos Stavrou (https://protesilaos.com)
+# description: Dark theme with a vibrant palette (WCAG AA compliant)
+
+#[cursor]
+#color = 001514 a29fa0
+
+[colors]
+foreground = a29fa0
+background = 001514
+regular0 = 001514
+regular1 = ff3737
+regular2 = 169c16
+regular3 = 9f8500
+regular4 = 5781ef
+regular5 = da4ebf
+regular6 = 009880
+regular7 = 968282
+bright0 = 261c2c
+bright1 = F0681A
+bright2 = 3aa73a
+bright3 = ba8a00
+bright4 = 8887f0
+bright5 = d85cf2
+bright6 = 1da1af
+bright7 = a29fa0
+#selection-foreground = 968282
+#selection-background = 261c2c

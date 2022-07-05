@@ -26,8 +26,40 @@
 #include "input.h"
 #include "render.h"
 #include "selection.h"
+#include "shm.h"
+#include "shm-formats.h"
 #include "util.h"
 #include "xmalloc.h"
+
+static void
+csd_reload_font(struct wl_window *win, int old_scale)
+{
+    struct terminal *term = win->term;
+    const struct config *conf = term->conf;
+
+    const int scale = term->scale;
+
+    bool enable_csd = win->csd_mode == CSD_YES && !win->is_fullscreen;
+    if (!enable_csd)
+        return;
+    if (win->csd.font != NULL && scale == old_scale)
+        return;
+
+    fcft_destroy(win->csd.font);
+
+    const char *patterns[conf->csd.font.count];
+    for (size_t i = 0; i < conf->csd.font.count; i++)
+        patterns[i] = conf->csd.font.arr[i].pattern;
+
+    char pixelsize[32];
+    snprintf(pixelsize, sizeof(pixelsize),
+             "pixelsize=%u", conf->csd.title_height * scale * 1 / 2);
+
+    LOG_DBG("loading CSD font \"%s:%s\" (old-scale=%d, scale=%d)",
+            patterns[0], pixelsize, old_scale, scale);
+
+    win->csd.font = fcft_from_name(conf->csd.font.count, patterns, pixelsize);
+}
 
 static void
 csd_instantiate(struct wl_window *win)
@@ -36,22 +68,31 @@ csd_instantiate(struct wl_window *win)
     xassert(wayl != NULL);
 
     for (size_t i = 0; i < CSD_SURF_MINIMIZE; i++) {
-        bool ret = wayl_win_subsurface_new(win, &win->csd.surface[i]);
+        bool ret = wayl_win_subsurface_new(win, &win->csd.surface[i], true);
         xassert(ret);
     }
 
     for (size_t i = CSD_SURF_MINIMIZE; i < CSD_SURF_COUNT; i++) {
         bool ret = wayl_win_subsurface_new_with_custom_parent(
-            win, win->csd.surface[CSD_SURF_TITLE].surf, &win->csd.surface[i]);
+            win, win->csd.surface[CSD_SURF_TITLE].surf, &win->csd.surface[i],
+            true);
         xassert(ret);
     }
+
+    csd_reload_font(win, -1);
 }
 
 static void
 csd_destroy(struct wl_window *win)
 {
+    struct terminal *term = win->term;
+
+    fcft_destroy(term->window->csd.font);
+    term->window->csd.font = NULL;
+
     for (size_t i = 0; i < ALEN(win->csd.surface); i++)
         wayl_win_subsurface_destroy(&win->csd.surface[i]);
+    shm_purge(term->render.chains.csd);
 }
 
 static void
@@ -116,12 +157,9 @@ seat_add_text_input(struct seat *seat)
 }
 
 static void
-key_bindings_destroy(key_binding_list_t *bindings)
+seat_add_key_bindings(struct seat *seat)
 {
-    tll_foreach(*bindings, it) {
-        tll_free(it->item.key_codes);
-        tll_remove(*bindings, it);
-    }
+    key_binding_new_for_seat(seat->wayl->key_binding_manager, seat);
 }
 
 static void
@@ -131,12 +169,7 @@ seat_destroy(struct seat *seat)
         return;
 
     tll_free(seat->mouse.buttons);
-
-    key_bindings_destroy(&seat->kbd.bindings.key);
-    key_bindings_destroy(&seat->kbd.bindings.search);
-    key_bindings_destroy(&seat->kbd.bindings.url);
-
-    tll_free(seat->mouse.bindings);
+    key_binding_remove_seat(seat->wayl->key_binding_manager, seat);
 
     if (seat->kbd.xkb_compose_state != NULL)
         xkb_compose_state_unref(seat->kbd.xkb_compose_state);
@@ -195,6 +228,22 @@ static void
 shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 {
     struct wayland *wayl = data;
+
+#if defined(_DEBUG)
+    bool have_description = false;
+
+    for (size_t i = 0; i < ALEN(shm_formats); i++) {
+        if (shm_formats[i].format == format) {
+            LOG_DBG("shm: 0x%08x: %s", format, shm_formats[i].description);
+            have_description = true;
+            break;
+        }
+    }
+
+    if (!have_description)
+        LOG_DBG("shm: 0x%08x: unknown", format);
+#endif
+
     if (format == WL_SHM_FORMAT_ARGB8888)
         wayl->have_argb8888 = true;
 }
@@ -290,6 +339,7 @@ update_term_for_output_change(struct terminal *term)
     render_resize(term, term->width / term->scale, term->height / term->scale);
     term_font_dpi_changed(term, old_scale);
     term_font_subpixel_changed(term);
+    csd_reload_font(term->window, old_scale);
 }
 
 static void
@@ -299,6 +349,11 @@ update_terms_on_monitor(struct monitor *mon)
 
     tll_foreach(wayl->terms, it) {
         struct terminal *term = it->item;
+
+        if (term->conf->dpi_aware == DPI_AWARE_AUTO) {
+            update_term_for_output_change(term);
+            continue;
+        }
 
         tll_foreach(term->window->on_outputs, it2) {
             if (it2->item == mon) {
@@ -340,13 +395,19 @@ output_update_ppi(struct monitor *mon)
         break;
     }
 
-    mon->ppi.scaled.x = mon->dim.px_scaled.width / x_inches;
-    mon->ppi.scaled.y = mon->dim.px_scaled.height / y_inches;
+    int scaled_width = mon->dim.px_scaled.width;
+    int scaled_height = mon->dim.px_scaled.height;
 
-    float px_diag = sqrt(
-        pow(mon->dim.px_scaled.width, 2) +
-        pow(mon->dim.px_scaled.height, 2));
+    if (scaled_width == 0 && scaled_height == 0 && mon->scale > 0) {
+        /* Estimate scaled width/height if none has been provided */
+        scaled_width = mon->dim.px_real.width / mon->scale;
+        scaled_height = mon->dim.px_real.height / mon->scale;
+    }
 
+    mon->ppi.scaled.x = scaled_width / x_inches;
+    mon->ppi.scaled.y = scaled_height / y_inches;
+
+    float px_diag = sqrt(pow(scaled_width, 2) + pow(scaled_height, 2));
     mon->dpi = px_diag / mon->inch * mon->scale;
 }
 
@@ -401,11 +462,38 @@ output_scale(void *data, struct wl_output *wl_output, int32_t factor)
     output_update_ppi(mon);
 }
 
+#if defined(WL_OUTPUT_NAME_SINCE_VERSION)
+static void
+output_name(void *data, struct wl_output *wl_output, const char *name)
+{
+    struct monitor *mon = data;
+    free(mon->name);
+    mon->name = name != NULL ? xstrdup(name) : NULL;
+}
+#endif
+
+#if defined(WL_OUTPUT_DESCRIPTION_SINCE_VERSION)
+static void
+output_description(void *data, struct wl_output *wl_output,
+                   const char *description)
+{
+    struct monitor *mon = data;
+    free(mon->description);
+    mon->description = description != NULL ? xstrdup(description) : NULL;
+}
+#endif
+
 static const struct wl_output_listener output_listener = {
     .geometry = &output_geometry,
     .mode = &output_mode,
     .done = &output_done,
     .scale = &output_scale,
+#if defined(WL_OUTPUT_NAME_SINCE_VERSION)
+    .name = &output_name,
+#endif
+#if defined(WL_OUTPUT_DESCRIPTION_SINCE_VERSION)
+    .description = &output_description,
+#endif
 };
 
 static void
@@ -658,48 +746,18 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
     else if (csd_was_enabled && !enable_csd)
         csd_destroy(win);
 
-    if (enable_csd && new_width > 0 && new_height > 0)
-        new_height -= win->term->conf->csd.title_height;
+    if (enable_csd && new_width > 0 && new_height > 0) {
+        if (wayl_win_csd_titlebar_visible(win))
+            new_height -= win->term->conf->csd.title_height;
+
+        if (wayl_win_csd_borders_visible(win)) {
+            new_height -= 2 * win->term->conf->csd.border_width_visible;
+            new_width -= 2 * win->term->conf->csd.border_width_visible;
+        }
+    }
 
     xdg_surface_ack_configure(xdg_surface, serial);
 
-#if 1
-    /*
-     * This was done as a workaround for a bug in Sway
-     * (https://github.com/swaywm/sway/issues/6023
-     *
-     * Sway waited for configure ACKs from hidden windows. These never
-     * arrived because Sway never scheduled any frame callbacks for
-     * these hidden windows...
-     *
-     * This has bene fixed as of Sway-1.6.
-     *
-     * Unfortunately, slow moving distros (Debian *cough* are still
-     * stuck on Sway-1.5, and will be so for the foreseeable
-     * future.
-     *
-     * TODO: check for e.g. SWAYSOCK and only preempt if it exists?
-     * We'd still be pre-emptying on Sway-1.6, but at least other
-     * compositors would be unaffected.
-     *
-     * Or do we ignore Sway-1.5 users and point them to the Sway bug?
-     *
-     * Note that it doesn't appear to cause any issues to have this
-     * enabled, on any compositor.
-     */
-    if (term->window->frame_callback != NULL) {
-        /*
-         * Preempt render scheduling.
-         *
-         * Each configure event require a corresponding new
-         * surface+commit. Thus we cannot just schedule a pending
-         * refresh if there’s already a frame being rendered.
-         */
-        wl_callback_destroy(term->window->frame_callback);
-        term->window->frame_callback = NULL;
-    }
-
-#endif
 #if 1
     /*
      * TODO: decide if we should do the last “forced” call when ending
@@ -893,6 +951,7 @@ handle_global(void *data, struct wl_registry *registry,
         seat_add_data_device(seat);
         seat_add_primary_selection(seat);
         seat_add_text_input(seat);
+        seat_add_key_bindings(seat);
         wl_seat_add_listener(wl_seat, &seat_listener, seat);
     }
 
@@ -918,12 +977,21 @@ handle_global(void *data, struct wl_registry *registry,
         if (!verify_iface_version(interface, version, required))
             return;
 
+#if defined(WL_OUTPUT_NAME_SINCE_VERSION)
+        const uint32_t preferred = WL_OUTPUT_NAME_SINCE_VERSION;
+#elif defined(WL_OUTPUT_RELEASE_SINCE_VERSION)
+        const uint32_t preferred = WL_OUTPUT_RELEASE_SINCE_VERSION;
+#else
+        const uint32_t preferred = required;
+#endif
+
         struct wl_output *output = wl_registry_bind(
-            wayl->registry, name, &wl_output_interface, min(version, 3));
+            wayl->registry, name, &wl_output_interface, min(version, preferred));
 
         tll_push_back(
             wayl->monitors,
             ((struct monitor){.wayl = wayl, .output = output, .wl_name = name,
+             .scale = 1,
              .use_output_release = version >= WL_OUTPUT_RELEASE_SINCE_VERSION}));
 
         struct monitor *mon = &tll_back(wayl->monitors);
@@ -962,7 +1030,7 @@ handle_global(void *data, struct wl_registry *registry,
     }
 
     else if (strcmp(interface, wp_presentation_interface.name) == 0) {
-        if (wayl->conf->presentation_timings) {
+        if (wayl->presentation_timings) {
             const uint32_t required = 1;
             if (!verify_iface_version(interface, version, required))
                 return;
@@ -1123,7 +1191,15 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
 
     if (events & EPOLLHUP) {
         LOG_WARN("disconnected from Wayland");
-        wl_display_cancel_read(wayl->display);
+        /*
+         * Do *not* call wl_display_cancel_read() here.
+         *
+         * Doing so causes later calls to wayl_roundtrip() (called
+         * from term_destroy() -> wayl_win_destroy()) to hang
+         * indefinitely.
+         *
+         * https://codeberg.org/dnkl/foot/issues/651
+         */
         return false;
     }
 
@@ -1131,7 +1207,8 @@ fdm_wayl(struct fdm *fdm, int fd, int events, void *data)
 }
 
 struct wayland *
-wayl_init(const struct config *conf, struct fdm *fdm)
+wayl_init(struct fdm *fdm, struct key_binding_manager *key_binding_manager,
+          bool presentation_timings)
 {
     struct wayland *wayl = calloc(1, sizeof(*wayl));
     if (unlikely(wayl == NULL)) {
@@ -1139,9 +1216,10 @@ wayl_init(const struct config *conf, struct fdm *fdm)
         return NULL;
     }
 
-    wayl->conf = conf;
     wayl->fdm = fdm;
+    wayl->key_binding_manager = key_binding_manager;
     wayl->fd = -1;
+    wayl->presentation_timings = presentation_timings;
 
     if (!fdm_hook_add(fdm, &fdm_hook, wayl, FDM_HOOK_PRIORITY_LOW)) {
         LOG_ERR("failed to add FDM hook");
@@ -1184,20 +1262,24 @@ wayl_init(const struct config *conf, struct fdm *fdm)
                 "(wl_data_device_manager not implemented by server)");
         goto out;
     }
+    if (tll_length(wayl->seats) == 0) {
+        LOG_ERR("no seats available (wl_seat interface too old?)");
+        goto out;
+    }
     if (wayl->primary_selection_device_manager == NULL)
         LOG_WARN("no primary selection available");
 
 #if defined(HAVE_XDG_ACTIVATION)
-    if (wayl->xdg_activation == NULL && conf->bell.urgent) {
+    if (wayl->xdg_activation == NULL) {
 #else
-    if (conf->bell.urgent) {
+    if (true) {
 #endif
         LOG_WARN(
             "no XDG activation support; "
             "bell.urgent will fall back to coloring the window margins red");
     }
 
-    if (conf->presentation_timings && wayl->presentation == NULL) {
+    if (presentation_timings && wayl->presentation == NULL) {
         LOG_ERR("presentation time interface not implemented by compositor");
         goto out;
     }
@@ -1320,7 +1402,7 @@ wayl_destroy(struct wayland *wayl)
 }
 
 struct wl_window *
-wayl_win_init(struct terminal *term)
+wayl_win_init(struct terminal *term, const char *token)
 {
     struct wayland *wayl = term->wl;
     const struct config *conf = term->conf;
@@ -1390,12 +1472,31 @@ wayl_win_init(struct terminal *term)
 
     wl_surface_commit(win->surface);
 
-    if (conf->tweak.render_timer_osd) {
-        if (!wayl_win_subsurface_new(win, &win->render_timer)) {
+#if defined(HAVE_XDG_ACTIVATION)
+    /* Complete XDG startup notification */
+    if (token)
+        xdg_activation_v1_activate(wayl->xdg_activation, token, win->surface);
+#endif
+
+    if (!wayl_win_subsurface_new(win, &win->overlay, false)) {
+        LOG_ERR("failed to create overlay surface");
+        goto out;
+    }
+
+    switch (conf->tweak.render_timer) {
+    case RENDER_TIMER_OSD:
+    case RENDER_TIMER_BOTH:
+        if (!wayl_win_subsurface_new(win, &win->render_timer, false)) {
             LOG_ERR("failed to create render timer surface");
             goto out;
         }
+        break;
+
+    case RENDER_TIMER_NONE:
+    case RENDER_TIMER_LOG:
+        break;
     }
+
     return win;
 
 out:
@@ -1409,6 +1510,8 @@ wayl_win_destroy(struct wl_window *win)
 {
     if (win == NULL)
         return;
+
+    struct terminal *term = win->term;
 
     if (win->csd.move_timeout_fd != -1)
         close(win->csd.move_timeout_fd);
@@ -1438,6 +1541,12 @@ wayl_win_destroy(struct wl_window *win)
         wl_surface_commit(win->search.surf);
     }
 
+    /* URLs */
+    tll_foreach(win->urls, it) {
+        wl_surface_attach(it->item.surf.surf, NULL, 0, 0);
+        wl_surface_commit(it->item.surf.surf);
+    }
+
     /* CSD */
     for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
         if (win->csd.surface[i].surf != NULL) {
@@ -1464,10 +1573,22 @@ wayl_win_destroy(struct wl_window *win)
     wayl_win_subsurface_destroy(&win->search);
     wayl_win_subsurface_destroy(&win->scrollback_indicator);
     wayl_win_subsurface_destroy(&win->render_timer);
+    wayl_win_subsurface_destroy(&win->overlay);
+
+    shm_purge(term->render.chains.search);
+    shm_purge(term->render.chains.scrollback_indicator);
+    shm_purge(term->render.chains.render_timer);
+    shm_purge(term->render.chains.grid);
+    shm_purge(term->render.chains.url);
+    shm_purge(term->render.chains.csd);
 
 #if defined(HAVE_XDG_ACTIVATION)
-    if (win->xdg_activation_token != NULL)
-        xdg_activation_token_v1_destroy(win->xdg_activation_token);
+    tll_foreach(win->xdg_tokens, it) {
+        xdg_activation_token_v1_destroy(it->item->xdg_token);
+        free(it->item);
+
+        tll_remove(win->xdg_tokens, it);
+    }
 #endif
     if (win->frame_callback != NULL)
         wl_callback_destroy(win->frame_callback);
@@ -1502,19 +1623,26 @@ wayl_reload_xcursor_theme(struct seat *seat, int new_scale)
         seat->pointer.cursor = NULL;
     }
 
-    const char *xcursor_theme = getenv("XCURSOR_THEME");
     int xcursor_size = 24;
 
     {
         const char *env_cursor_size = getenv("XCURSOR_SIZE");
         if (env_cursor_size != NULL) {
-            unsigned size;
-            if (sscanf(env_cursor_size, "%u", &size) == 1)
+            errno = 0;
+            char *end;
+            int size = (int)strtol(env_cursor_size, &end, 10);
+
+            if (errno == 0 && *end == '\0' && size > 0)
                 xcursor_size = size;
+            else
+                LOG_WARN("XCURSOR_SIZE '%s' is invalid, defaulting to 24",
+                         env_cursor_size);
         }
     }
 
-    LOG_INFO("cursor theme: %s, size: %u, scale: %d",
+    const char *xcursor_theme = getenv("XCURSOR_THEME");
+
+    LOG_INFO("cursor theme: %s, size: %d, scale: %d",
              xcursor_theme, xcursor_size, new_scale);
 
     seat->pointer.theme = wl_cursor_theme_load(
@@ -1599,60 +1727,58 @@ wayl_roundtrip(struct wayland *wayl)
 
 #if defined(HAVE_XDG_ACTIVATION)
 static void
-activation_token_done(void *data, struct xdg_activation_token_v1 *xdg_token,
-                      const char *token)
+activation_token_for_urgency_done(const char *token, void *data)
 {
     struct wl_window *win = data;
     struct wayland *wayl = win->term->wl;
 
-    LOG_DBG("activation token: %s", token);
-
+    win->urgency_token_is_pending = false;
     xdg_activation_v1_activate(wayl->xdg_activation, token, win->surface);
-
-    xassert(win->xdg_activation_token == xdg_token);
-    xdg_activation_token_v1_destroy(xdg_token);
-    win->xdg_activation_token = NULL;
 }
-
-static const struct xdg_activation_token_v1_listener activation_token_listener = {
-    .done = &activation_token_done,
-};
 #endif /* HAVE_XDG_ACTIVATION */
 
 bool
 wayl_win_set_urgent(struct wl_window *win)
 {
 #if defined(HAVE_XDG_ACTIVATION)
-    struct wayland *wayl = win->term->wl;
-
-    if (wayl->xdg_activation == NULL)
-        return false;
-
-    if (win->xdg_activation_token != NULL)
+    if (win->urgency_token_is_pending) {
+        /* We already have a pending token. Don’t request another one,
+         * to avoid flooding the Wayland socket */
         return true;
-
-    struct xdg_activation_token_v1 *token =
-        xdg_activation_v1_get_activation_token(wayl->xdg_activation);
-
-    if (token == NULL) {
-        LOG_ERR("failed to retrieve XDG activation token");
-        return false;
     }
 
-    xdg_activation_token_v1_add_listener(token, &activation_token_listener, win);
-    xdg_activation_token_v1_set_surface(token, win->surface);
-    xdg_activation_token_v1_commit(token);
-    win->xdg_activation_token = token;
-    return true;
-#else
-    return false;
+    bool success = wayl_get_activation_token(
+        win->term->wl, NULL, 0, win, &activation_token_for_urgency_done, win);
+
+    if (success) {
+        win->urgency_token_is_pending = true;
+        return true;
+    }
 #endif
+
+    return false;
+}
+
+bool
+wayl_win_csd_titlebar_visible(const struct wl_window *win)
+{
+    return win->csd_mode == CSD_YES &&
+        !win->is_fullscreen &&
+        !(win->is_maximized && win->term->conf->csd.hide_when_maximized);
+}
+
+bool
+wayl_win_csd_borders_visible(const struct wl_window *win)
+{
+    return win->csd_mode == CSD_YES &&
+        !win->is_fullscreen &&
+        !win->is_maximized;
 }
 
 bool
 wayl_win_subsurface_new_with_custom_parent(
     struct wl_window *win, struct wl_surface *parent,
-    struct wl_surf_subsurf *surf)
+    struct wl_surf_subsurf *surf, bool allow_pointer_input)
 {
     struct wayland *wayl = win->term->wl;
 
@@ -1676,15 +1802,25 @@ wayl_win_subsurface_new_with_custom_parent(
     wl_surface_set_user_data(main_surface, win);
     wl_subsurface_set_sync(sub);
 
+    /* Disable pointer and touch events */
+    if (!allow_pointer_input) {
+        struct wl_region *empty =
+            wl_compositor_create_region(wayl->compositor);
+        wl_surface_set_input_region(main_surface, empty);
+        wl_region_destroy(empty);
+    }
+
     surf->surf = main_surface;
     surf->sub = sub;
     return true;
 }
 
 bool
-wayl_win_subsurface_new(struct wl_window *win, struct wl_surf_subsurf *surf)
+wayl_win_subsurface_new(struct wl_window *win, struct wl_surf_subsurf *surf,
+                        bool allow_pointer_input)
 {
-    return wayl_win_subsurface_new_with_custom_parent(win, win->surface, surf);
+    return wayl_win_subsurface_new_with_custom_parent(
+        win, win->surface, surf, allow_pointer_input);
 }
 
 void
@@ -1700,3 +1836,72 @@ wayl_win_subsurface_destroy(struct wl_surf_subsurf *surf)
     surf->surf = NULL;
     surf->sub = NULL;
 }
+
+#if defined(HAVE_XDG_ACTIVATION)
+
+static void
+activation_token_done(void *data, struct xdg_activation_token_v1 *xdg_token,
+                      const char *token)
+{
+    LOG_DBG("XDG activation token done: %s", token);
+
+    struct xdg_activation_token_context *ctx = data;
+    struct wl_window *win = ctx->win;
+
+    ctx->cb(token, ctx->cb_data);
+
+    tll_foreach(win->xdg_tokens, it) {
+        if (it->item->xdg_token != xdg_token)
+            continue;
+
+        xassert(win == it->item->win);
+
+        free(ctx);
+        xdg_activation_token_v1_destroy(xdg_token);
+        tll_remove(win->xdg_tokens, it);
+        return;
+    }
+
+    xassert(false);
+}
+
+static const struct
+xdg_activation_token_v1_listener activation_token_listener = {
+    .done = &activation_token_done,
+};
+
+bool
+wayl_get_activation_token(
+    struct wayland *wayl, struct seat *seat, uint32_t serial,
+    struct wl_window *win,
+    void (*cb)(const char *token, void *data), void *cb_data)
+{
+    if (wayl->xdg_activation == NULL)
+        return false;
+
+    struct xdg_activation_token_v1 *token =
+        xdg_activation_v1_get_activation_token(wayl->xdg_activation);
+
+    if (token == NULL) {
+        LOG_ERR("failed to retrieve XDG activation token");
+        return false;
+    }
+
+    struct xdg_activation_token_context *ctx = xmalloc(sizeof(*ctx));
+    *ctx = (struct xdg_activation_token_context){
+        .win = win,
+        .xdg_token = token,
+        .cb = cb,
+        .cb_data = cb_data,
+    };
+    tll_push_back(win->xdg_tokens, ctx);
+
+    if (seat != NULL && serial != 0)
+        xdg_activation_token_v1_set_serial(token, serial, seat->wl_seat);
+
+    xdg_activation_token_v1_set_surface(token, win->surface);
+    xdg_activation_token_v1_add_listener(token, &activation_token_listener, ctx);
+    xdg_activation_token_v1_commit(token);
+    return true;
+}
+#endif

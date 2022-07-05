@@ -1,6 +1,5 @@
 #pragma once
 
-#include <stdbool.h>
 #include <tllist.h>
 
 #include "macros.h"
@@ -26,6 +25,17 @@ user_notifications_free(user_notifications_t *notifications)
     tll_free(*notifications);
 }
 
-bool user_notification_add(user_notifications_t *notifications,
+static inline void
+user_notification_add(user_notifications_t *notifications,
+    enum user_notification_kind kind, char *text)
+{
+    struct user_notification notification = {
+        .kind = kind,
+        .text = text
+    };
+    tll_push_back(*notifications, notification);
+}
+
+void user_notification_add_fmt(user_notifications_t *notifications,
                            enum user_notification_kind kind,
                            const char *fmt, ...) PRINTF(3);

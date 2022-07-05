@@ -1,0 +1,28 @@
+# theme: Tempus Day
+# author: Protesilaos Stavrou (https://protesilaos.com)
+# description: Light theme with warm colours (WCAG AA compliant)
+
+#[cursor]
+#color = f8f2e5 464340
+
+[colors]
+foreground = 464340
+background = f8f2e5
+regular0 = 464340
+regular1 = c81000
+regular2 = 107410
+regular3 = 806000
+regular4 = 385dc4
+regular5 = b63052
+regular6 = 007070
+regular7 = e7e3d7
+bright0 = 68607d
+bright1 = b24000
+bright2 = 427040
+bright3 = 6f6600
+bright4 = 0f64c4
+bright5 = 8050a7
+bright6 = 336c87
+bright7 = f8f2e5
+#selection-foreground = 68607d
+#selection-background = e7e3d7

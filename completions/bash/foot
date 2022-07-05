@@ -75,7 +75,7 @@ _foot()
         : # don't autocomplete for these flags
     else
         # complete commands from $PATH
-        COMPREPLY=( $(compgen -c ${cur}) )
+        COMPREPLY=( $(compgen -c -- ${cur}) )
     fi
 
     return 0

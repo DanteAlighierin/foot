@@ -2,6 +2,7 @@
 
 #include "fdm.h"
 #include "config.h"
+#include "reaper.h"
 #include "wayland.h"
 
 struct server;

@@ -7,23 +7,14 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "debug.h"
-#include "render.h"
+#include "grid.h"
 #include "hsl.h"
+#include "render.h"
 #include "util.h"
 #include "xmalloc.h"
 #include "xsnprintf.h"
 
 static size_t count;
-
-static uint32_t
-get_bg(const struct terminal *term)
-{
-    return term->sixel.transparent_bg
-        ? 0x00000000u
-        : 0xffu << 24 | (term->vt.attrs.have_bg
-                         ? term->vt.attrs.bg
-                         : term->colors.bg);
-}
 
 void
 sixel_fini(struct terminal *term)
@@ -78,9 +69,29 @@ sixel_init(struct terminal *term, int p1, int p2, int p3)
         term->sixel.palette = term->sixel.shared_palette;
     }
 
-    uint32_t bg = get_bg(term);
+    uint32_t bg = 0;
+
+    switch (term->vt.attrs.bg_src) {
+    case COLOR_RGB:
+        bg = term->vt.attrs.bg;
+        break;
+
+    case COLOR_BASE16:
+    case COLOR_BASE256:
+        bg = term->colors.table[term->vt.attrs.bg];
+        break;
+
+    case COLOR_DEFAULT:
+        bg = term->colors.bg;
+        break;
+    }
+
+    term->sixel.default_bg = term->sixel.transparent_bg
+        ? 0x00000000u
+        : 0xffu << 24 | bg;
+
     for (size_t i = 0; i < 1 * 6; i++)
-        term->sixel.image.data[i] = bg;
+        term->sixel.image.data[i] = term->sixel.default_bg;
 
     count = 0;
 }
@@ -88,9 +99,10 @@ sixel_init(struct terminal *term, int p1, int p2, int p3)
 void
 sixel_destroy(struct sixel *sixel)
 {
-    pixman_image_unref(sixel->pix);
-    free(sixel->data);
+    if (sixel->pix != NULL)
+        pixman_image_unref(sixel->pix);
 
+    free(sixel->data);
     sixel->pix = NULL;
     sixel->data = NULL;
 }
@@ -128,25 +140,6 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
 }
 
 /*
- * Calculates the scrollback relative row number, given an absolute row number.
- *
- * The scrollback relative row number 0 is the *first*, and *oldest*
- * row in the scrollback history (and thus the *first* row to be
- * scrolled out). Thus, a higher number means further *down* in the
- * scrollback, with the *highest* number being at the bottom of the
- * screen, where new input appears.
- */
-static int
-rebase_row(const struct terminal *term, int abs_row)
-{
-    int scrollback_start = term->grid->offset + term->rows;
-    int rebased_row = abs_row - scrollback_start + term->grid->num_rows;
-
-    rebased_row &= term->grid->num_rows - 1;
-    return rebased_row;
-}
-
-/*
  * Verify the sixels are sorted correctly.
  *
  * The sixels are sorted on their *end* row, in descending order. This
@@ -164,7 +157,8 @@ verify_list_order(const struct terminal *term)
     size_t idx = 0;
 
     tll_foreach(term->grid->sixel_images, it) {
-        int row = rebase_row(term, it->item.pos.row + it->item.rows - 1);
+        int row = grid_row_abs_to_sb(
+            term->grid, term->rows, it->item.pos.row + it->item.rows - 1);
         int col = it->item.pos.col;
         int col_count = it->item.cols;
 
@@ -221,7 +215,8 @@ verify_scrollback_consistency(const struct terminal *term)
 
         int last_row = -1;
         for (int i = 0; i < six->rows; i++) {
-            int row_no = rebase_row(term, six->pos.row + i);
+            int row_no = grid_row_abs_to_sb(
+                term->grid, term->rows, six->pos.row + i);
 
             if (last_row != -1)
                 xassert(last_row < row_no);
@@ -284,10 +279,14 @@ verify_sixels(const struct terminal *term)
 static void
 sixel_insert(struct terminal *term, struct sixel sixel)
 {
-    int end_row = rebase_row(term, sixel.pos.row + sixel.rows - 1);
+    int end_row = grid_row_abs_to_sb(
+        term->grid, term->rows, sixel.pos.row + sixel.rows - 1);
 
     tll_foreach(term->grid->sixel_images, it) {
-        if (rebase_row(term, it->item.pos.row + it->item.rows - 1) < end_row) {
+        int rebased = grid_row_abs_to_sb(
+            term->grid, term->rows, it->item.pos.row + it->item.rows - 1);
+
+        if (rebased < end_row) {
             tll_insert_before(term->grid->sixel_images, it, sixel);
             goto out;
         }
@@ -314,7 +313,7 @@ sixel_scroll_up(struct terminal *term, int rows)
     tll_rforeach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
 
-        int six_start = rebase_row(term, six->pos.row);
+        int six_start = grid_row_abs_to_sb(term->grid, term->rows, six->pos.row);
 
         if (six_start < rows) {
             sixel_erase(term, six);
@@ -347,7 +346,8 @@ sixel_scroll_down(struct terminal *term, int rows)
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
 
-        int six_end = rebase_row(term, six->pos.row + six->rows - 1);
+        int six_end = grid_row_abs_to_sb(
+            term->grid, term->rows, six->pos.row + six->rows - 1);
         if (six_end >= term->grid->num_rows - rows) {
             sixel_erase(term, six);
             tll_remove(term->grid->sixel_images, it);
@@ -657,7 +657,8 @@ _sixel_overwrite_by_rectangle(
     /* We should never generate scrollback wrapping sixels */
     xassert(end < term->grid->num_rows);
 
-    const int scrollback_rel_start = rebase_row(term, start);
+    const int scrollback_rel_start = grid_row_abs_to_sb(
+        term->grid, term->rows, start);
 
     bool UNUSED would_have_breaked = false;
 
@@ -666,7 +667,8 @@ _sixel_overwrite_by_rectangle(
 
         const int six_start = six->pos.row;
         const int six_end = (six_start + six->rows - 1);
-        const int six_scrollback_rel_end = rebase_row(term, six_end);
+        const int six_scrollback_rel_end =
+            grid_row_abs_to_sb(term->grid, term->rows, six_end);
 
         /* We should never generate scrollback wrapping sixels */
         xassert(six_end < term->grid->num_rows);
@@ -765,7 +767,7 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
         width = term->grid->num_cols - col;
 
     const int row = (term->grid->offset + _row) & (term->grid->num_rows - 1);
-    const int scrollback_rel_row = rebase_row(term, row);
+    const int scrollback_rel_row = grid_row_abs_to_sb(term->grid, term->rows, row);
 
     tll_foreach(term->grid->sixel_images, it) {
         struct sixel *six = &it->item;
@@ -775,7 +777,8 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
         /* We should never generate scrollback wrapping sixels */
         xassert(six_end >= six_start);
 
-        const int six_scrollback_rel_end = rebase_row(term, six_end);
+        const int six_scrollback_rel_end =
+            grid_row_abs_to_sb(term->grid, term->rows, six_end);
 
         if (six_scrollback_rel_end < scrollback_rel_row) {
             /* All remaining sixels are *before* "our" row */
@@ -877,7 +880,8 @@ sixel_reflow(struct terminal *term)
             int last_row = -1;
 
             for (int j = 0; j < six->rows; j++) {
-                int row_no = rebase_row(term, six->pos.row + j);
+                int row_no = grid_row_abs_to_sb(
+                    term->grid, term->rows, six->pos.row + j);
                 if (last_row != -1 && last_row >= row_no) {
                     sixel_destroy(six);
                     sixel_destroyed = true;
@@ -1093,7 +1097,7 @@ sixel_unhook(struct terminal *term)
     render_refresh(term);
 }
 
-static bool
+static void
 resize_horizontally(struct terminal *term, int new_width)
 {
     LOG_DBG("resizing image horizontally: %dx(%d) -> %dx(%d)",
@@ -1101,9 +1105,12 @@ resize_horizontally(struct terminal *term, int new_width)
             new_width, term->sixel.image.height);
 
     if (unlikely(new_width > term->sixel.max_width)) {
-        LOG_WARN("maximum image dimensions reached");
-        return false;
+        LOG_WARN("maximum image dimensions exceeded, truncating");
+        new_width = term->sixel.max_width;
     }
+
+    if (unlikely(term->sixel.image.width == new_width))
+        return;
 
     uint32_t *old_data = term->sixel.image.data;
     const int old_width = term->sixel.image.width;
@@ -1117,7 +1124,7 @@ resize_horizontally(struct terminal *term, int new_width)
     /* Width (and thus stride) change - need to allocate a new buffer */
     uint32_t *new_data = xmalloc(new_width * alloc_height * sizeof(uint32_t));
 
-    uint32_t bg = get_bg(term);
+    uint32_t bg = term->sixel.default_bg;
 
     /* Copy old rows, and initialize new columns to background color */
     for (int r = 0; r < height; r++) {
@@ -1134,7 +1141,6 @@ resize_horizontally(struct terminal *term, int new_width)
     term->sixel.image.data = new_data;
     term->sixel.image.width = new_width;
     term->sixel.row_byte_ofs = term->sixel.pos.row * new_width;
-    return true;
 }
 
 static bool
@@ -1166,7 +1172,7 @@ resize_vertically(struct terminal *term, int new_height)
         return false;
     }
 
-    uint32_t bg = get_bg(term);
+    uint32_t bg = term->sixel.default_bg;
 
     /* Initialize new rows to background color */
     for (int r = old_height; r < new_height; r++) {
@@ -1186,11 +1192,14 @@ resize(struct terminal *term, int new_width, int new_height)
             term->sixel.image.width, term->sixel.image.height,
             new_width, new_height);
 
-    if (new_width > term->sixel.max_width ||
-        new_height > term->sixel.max_height)
-    {
-        LOG_WARN("maximum image dimensions reached");
-        return false;
+    if (unlikely(new_width > term->sixel.max_width)) {
+        LOG_WARN("maximum image width exceeded, truncating");
+        new_width = term->sixel.max_width;
+    }
+
+    if (unlikely(new_height > term->sixel.max_height)) {
+        LOG_WARN("maximum image height exceeded, truncating");
+        new_height = term->sixel.max_height;
     }
 
     uint32_t *old_data = term->sixel.image.data;
@@ -1203,7 +1212,7 @@ resize(struct terminal *term, int new_width, int new_height)
     xassert(alloc_new_height - new_height < 6);
 
     uint32_t *new_data = NULL;
-    uint32_t bg = get_bg(term);
+    uint32_t bg = term->sixel.default_bg;
 
     if (new_width == old_width) {
         /* Width (and thus stride) is the same, so we can simply
@@ -1276,17 +1285,16 @@ sixel_add(struct terminal *term, int col, int width, uint32_t color, uint8_t six
 static void
 sixel_add_many(struct terminal *term, uint8_t c, unsigned count)
 {
-    uint32_t color = term->sixel.palette[term->sixel.color_idx];
-
     int col = term->sixel.pos.col;
     int width = term->sixel.image.width;
 
     if (unlikely(col + count - 1 >= width)) {
-        width = col + count;
-        if (unlikely(!resize_horizontally(term, width)))
-            return;
+        resize_horizontally(term, col + count);
+        width = term->sixel.image.width;
+        count = min(count, width - col);
     }
 
+    uint32_t color = term->sixel.color;
     for (unsigned i = 0; i < count; i++, col++)
         sixel_add(term, col, width, color, c);
 
@@ -1402,11 +1410,12 @@ decgra(struct terminal *term, uint8_t c)
 
             /* This ensures the sixel’s final image size is *at least*
              * this large */
-            term->sixel.max_non_empty_row_no = pv - 1;
+            term->sixel.max_non_empty_row_no =
+                min(pv, term->sixel.image.height) - 1;
         }
 
         term->sixel.state = SIXEL_DECSIXEL;
-        sixel_put(term, c);
+        decsixel(term, c);
         break;
     }
     }
@@ -1435,9 +1444,16 @@ decgri(struct terminal *term, uint8_t c)
         unsigned count = term->sixel.param;
         if (likely(count > 0))
             sixel_add_many(term, c - 63, count);
+        else if (unlikely(count == 0))
+            sixel_add_many(term, c - 63, 1);
         term->sixel.state = SIXEL_DECSIXEL;
         break;
     }
+
+    default:
+        term->sixel.state = SIXEL_DECSIXEL;
+        sixel_put(term, c);
+        break;
     }
 }
 
@@ -1513,10 +1529,11 @@ decgci(struct terminal *term, uint8_t c)
                 break;
             }
             }
-        }
+        } else
+            term->sixel.color = term->sixel.palette[term->sixel.color_idx];
 
         term->sixel.state = SIXEL_DECSIXEL;
-        sixel_put(term, c);
+        decsixel(term, c);
         break;
     }
     }

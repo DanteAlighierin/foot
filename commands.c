@@ -18,71 +18,41 @@ cmd_scrollback_up(struct terminal *term, int rows)
     if (urls_mode_is_active(term))
         return;
 
-    if (term->mouse_tracking != MOUSE_NONE)
+    const struct grid *grid = term->grid;
+    const int view = grid->view;
+    const int grid_rows = grid->num_rows;
+
+    /* The view row number in scrollback relative coordinates. This is
+     * the maximum number of rows we’re allowed to scroll */
+    int sb_start = grid_sb_start_ignore_uninitialized(grid, term->rows);
+    int view_sb_rel =
+        grid_row_abs_to_sb_precalc_sb_start(grid, sb_start, view);
+
+    rows = min(rows, view_sb_rel);
+    if (rows == 0)
         return;
 
-    rows = min(rows, term->rows);
-    xassert(term->grid->offset >= 0);
+    int new_view = (view + grid_rows) - rows;
+    new_view &= grid_rows - 1;
 
-    int new_view = term->grid->view - rows;
-    while (new_view < 0)
-        new_view += term->grid->num_rows;
-    new_view %= term->grid->num_rows;
-
-    xassert(new_view >= 0);
-    xassert(new_view < term->grid->num_rows);
-
-    /* Avoid scrolling in uninitialized rows */
-    while (term->grid->rows[new_view] == NULL)
-        new_view = (new_view + 1) % term->grid->num_rows;
-
-    if (new_view == term->grid->view) {
-        /*
-         *  This happens when scrolling up in a newly opened terminal;
-         *  every single line (except those already visible) are
-         *  uninitialized, and the loop above will bring us back to
-         *  where we started.
-         */
-        return;
-    }
-
-    /* Don't scroll past scrollback history */
-    int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
-    if (end >= term->grid->offset) {
-        /* Not wrapped */
-        if (new_view >= term->grid->offset && new_view <= end)
-            new_view = (end + 1) % term->grid->num_rows;
-    } else {
-        if (new_view >= term->grid->offset || new_view <= end)
-            new_view = (end + 1) % term->grid->num_rows;
-    }
-
-    while (term->grid->rows[new_view] == NULL)
-        new_view = (new_view + 1) % term->grid->num_rows;
-
+    xassert(new_view != view);
+    xassert(grid->rows[new_view] != NULL);
 #if defined(_DEBUG)
     for (int r = 0; r < term->rows; r++)
-        xassert(term->grid->rows[(new_view + r) % term->grid->num_rows] != NULL);
+        xassert(grid->rows[(new_view + r) & (grid->num_rows - 1)] != NULL);
 #endif
 
-    LOG_DBG("scrollback UP: %d -> %d (offset = %d, end = %d, rows = %d)",
-            term->grid->view, new_view, term->grid->offset, end, term->grid->num_rows);
-
-    if (new_view == term->grid->view)
-        return;
-
-    int diff = -1;
-    if (new_view < term->grid->view)
-        diff = term->grid->view - new_view;
-    else
-        diff = (term->grid->num_rows - new_view) + term->grid->view;
+    LOG_DBG("scrollback UP: %d -> %d (offset = %d, rows = %d)",
+            view, new_view, offset, grid_rows);
 
     selection_view_up(term, new_view);
     term->grid->view = new_view;
 
-    if (diff >= 0 && diff < term->rows) {
-        term_damage_scroll(term, DAMAGE_SCROLL_REVERSE_IN_VIEW, (struct scroll_region){0, term->rows}, diff);
-        term_damage_rows_in_view(term, 0, diff - 1);
+    if (rows < term->rows) {
+        term_damage_scroll(
+            term, DAMAGE_SCROLL_REVERSE_IN_VIEW,
+            (struct scroll_region){0, term->rows}, rows);
+        term_damage_rows_in_view(term, 0, rows - 1);
     } else
         term_damage_view(term);
 
@@ -98,68 +68,45 @@ cmd_scrollback_down(struct terminal *term, int rows)
     if (urls_mode_is_active(term))
         return;
 
-    if (term->mouse_tracking != MOUSE_NONE)
+    const struct grid *grid = term->grid;
+    const int offset = grid->offset;
+    const int view = grid->view;
+    const int grid_rows = grid->num_rows;
+    const int screen_rows = term->rows;
+
+    const int scrollback_end = offset;
+
+    /* Number of rows to scroll, without going past the scrollback end */
+    int max_rows = 0;
+    if (view <= scrollback_end)
+        max_rows = scrollback_end - view;
+    else
+        max_rows = offset + (grid_rows - view);
+
+    rows = min(rows, max_rows);
+    if (rows == 0)
         return;
 
-    if (term->grid->view == term->grid->offset)
-        return;
+    int new_view = (view + rows) & (grid_rows - 1);
 
-    rows = min(rows, term->rows);
-    xassert(term->grid->offset >= 0);
-
-    int new_view = (term->grid->view + rows) % term->grid->num_rows;
-    xassert(new_view >= 0);
-    xassert(new_view < term->grid->num_rows);
-
-    /* Prevent scrolling in uninitialized rows */
-    bool all_initialized = false;
-    do {
-        all_initialized = true;
-
-        for (int i = 0; i < term->rows; i++) {
-            int row_no = (new_view + i) % term->grid->num_rows;
-            if (term->grid->rows[row_no] == NULL) {
-                all_initialized = false;
-                new_view--;
-                break;
-            }
-        }
-    } while (!all_initialized);
-
-    /* Don't scroll past scrollback history */
-    int end = (term->grid->offset + term->rows - 1) % term->grid->num_rows;
-    if (end >= term->grid->offset) {
-        /* Not wrapped */
-        if (new_view >= term->grid->offset && new_view <= end)
-            new_view = term->grid->offset;
-    } else {
-        if (new_view >= term->grid->offset || new_view <= end)
-            new_view = term->grid->offset;
-    }
-
+    xassert(new_view != view);
+    xassert(grid->rows[new_view] != NULL);
 #if defined(_DEBUG)
     for (int r = 0; r < term->rows; r++)
-        xassert(term->grid->rows[(new_view + r) % term->grid->num_rows] != NULL);
+        xassert(grid->rows[(new_view + r) & (grid_rows - 1)] != NULL);
 #endif
 
-    LOG_DBG("scrollback DOWN: %d -> %d (offset = %d, end = %d, rows = %d)",
-            term->grid->view, new_view, term->grid->offset, end, term->grid->num_rows);
-
-    if (new_view == term->grid->view)
-        return;
-
-    int diff = -1;
-    if (new_view > term->grid->view)
-        diff = new_view - term->grid->view;
-    else
-        diff = (term->grid->num_rows - term->grid->view) + new_view;
+    LOG_DBG("scrollback DOWN: %d -> %d (offset = %d, rows = %d)",
+            view, new_view, offset, grid_rows);
 
     selection_view_down(term, new_view);
     term->grid->view = new_view;
 
-    if (diff >= 0 && diff < term->rows) {
-        term_damage_scroll(term, DAMAGE_SCROLL_IN_VIEW, (struct scroll_region){0, term->rows}, diff);
-        term_damage_rows_in_view(term, term->rows - diff, term->rows - 1);
+    if (rows < term->rows) {
+        term_damage_scroll(
+            term, DAMAGE_SCROLL_IN_VIEW,
+            (struct scroll_region){0, term->rows}, rows);
+        term_damage_rows_in_view(term, term->rows - rows, screen_rows - 1);
     } else
         term_damage_view(term);
 

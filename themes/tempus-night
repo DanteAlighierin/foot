@@ -1,0 +1,28 @@
+# theme: Tempus Night
+# author: Protesilaos Stavrou (https://protesilaos.com)
+# description: High contrast dark theme with bright colours (WCAG AAA compliant)
+
+#[cursor]
+#color = 1a1a1a e0e0e0
+
+[colors]
+foreground = e0e0e0
+background = 1a1a1a
+regular0 = 1a1a1a
+regular1 = ff929f
+regular2 = 5fc940
+regular3 = c5b300
+regular4 = 5fb8ff
+regular5 = ef91df
+regular6 = 1dc5c3
+regular7 = c4bdaf
+bright0 = 242536
+bright1 = f69d6a
+bright2 = 88c400
+bright3 = d7ae00
+bright4 = 8cb4f0
+bright5 = de99f0
+bright6 = 00ca9a
+bright7 = e0e0e0
+#selection-foreground = c4bdaf
+#selection-background = 242536

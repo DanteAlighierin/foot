@@ -1,22 +1,28 @@
 foot.ini(5)
 
 # NAME
+
 foot.ini - configuration file for *foot*(1)
 
 # DESCRIPTION
 
 *foot* uses the standard _unix configuration format_, with section based
-key/value pairs. The default section is unnamed (i.e. not prefixed
-with a _[section]_).
+key/value pairs. The default section is usually unnamed, i.e. not prefixed
+with a _[section]_. However it can also be explicitly named _[main]_,
+say if it needs to be reopened after any of the other sections.
 
 foot will search for a configuration file in the following locations,
 in this order:
 
-- *XDG_CONFIG_HOME/foot/foot.ini*
-- *~/.config/foot/foot.ini*
-- *XDG_CONFIG_DIRS/foot/foot.ini*
+	- *XDG_CONFIG_HOME/foot/foot.ini* (defaulting to
+	  *$HOME/.config/foot/foot.ini* if unset)
+	- *XDG_CONFIG_DIRS/foot/foot.ini* (defaulting to
+	  */etc/xdg/foot/foot.ini* if unset)
 
-# SECTION: default
+An example configuration file containing all options with their default value
+commented out will usually be installed to */etc/xdg/foot/foot.ini*.
+
+# SECTION: main
 
 *shell*
 	Executable to launch. Typically a shell. Default: _$SHELL_ if set,
@@ -29,19 +35,20 @@ in this order:
 	by prepending a '-' to argv[0]. Default: _no_.
 
 *term*
-	Value to set the environment variable *TERM* to. Default: _foot_
-	or _xterm-256color_ if built with _-Dterminfo=disabled_
+	Value to set the environment variable *TERM* to. Default:
+	_@default_terminfo@_
 
 *font*, *font-bold*, *font-italic*, *font-bold-italic*
 	Comma separated list of fonts to use, in fontconfig format. That
 	is, a font name followed by a list of colon-separated
 	options. Most noteworthy is *:size=n*, which is used to set the
-	font size.
+	font size. Note that the font size is also affected by the
+	*dpi-aware* option.
 	
 	Examples:
-	- Dina:weight=bold:slant=italic
-	- Courier New:size=12
-	- Fantasque Sans Mono:fontfeatures=ss01
+		- Dina:weight=bold:slant=italic
+		- Courier New:size=12
+		- Fantasque Sans Mono:fontfeatures=ss01
 	
 	For each option, the first font is the primary font. The remaining
 	fonts are fallback fonts that will be used whenever a glyph cannot
@@ -70,13 +77,11 @@ in this order:
 	The import file has its own section scope. I.e. the including
 	configuration is still in the default section after the include,
 	regardless of which section the included file ends in.
-
-	The path must be an absolute path.
 	
-	Multiple include directives are allowed, but only one path per
-	directive.
-	
-	Nested imports are allowed.
+		- The path must be an absolute path, or start with *~/*.
+		- Multiple include directives are allowed, but only one path per
+		  directive.
+		- Nested imports are allowed.
 	
 	Default: _not set_.
 
@@ -146,11 +151,12 @@ in this order:
 	Default: _no_.
 
 *dpi-aware*
-	*auto*, *yes*, or *no*. When set to *yes*, fonts are sized using
-	the monitor's DPI, making a font of a given size have the same
-	physical size, regardless of monitor. In other words, if you drag
-	a foot window between different monitors, the font size remains
-	the same.
+	*auto*, *yes*, or *no*.
+	
+	When set to *yes*, fonts are sized using the monitor's DPI, making
+	a font of a given size have the same physical size, regardless of
+	monitor. In other words, if you drag a foot window between
+	different monitors, the font size remains the same.
 	
 	In this mode, the monitor's scaling factor is ignored; doubling
 	the scaling factor will *not* double the font size.
@@ -160,14 +166,28 @@ in this order:
 	scaling factor *does* double the font size.
 	
 	Finally, if set to *auto*, fonts will be sized using the monitor's
-	DPI on monitors with a scaling factor of 1, but otherwise using
-	the scaling factor.
+	DPI if _all_ monitors have a scaling factor of 1. If at least one
+	monitor as a scaling factor larger than 1 (regardless of whether
+	the foot window is mapped on that monitor or not), fonts will be
+	scaled using the scaling factor.
+	
+	Note that this option typically does not work with bitmap fonts,
+	which only contains a pre-defined set of sizes, and cannot be
+	dynamically scaled. Whichever size (of the available ones) that
+	best matches the DPI or scaling factor, will be used.
+	
+	Also note that if the font size has been specified in pixels
+	(*:pixelsize=*_N_, instead of *:size=*_N_), DPI scaling
+	(*dpi-aware=yes*) will have no effect (the specified pixel size
+	will be used as is). But, if the monitor's scaling factor is used
+	to size the font (*dpi-aware=no*), the font's pixel size will be
+	multiplied with the scaling factor.
 	
 	Default: _auto_
 
 *pad*
 	Padding between border and glyphs, in pixels (subject to output
-	scaling), on the form _XxY_.
+	scaling), in the form _XxY_.
 	
 	This will add _at least_ X pixels on both the left and right
 	sides, and Y pixels on the top and bottom sides. The grid content
@@ -181,7 +201,7 @@ in this order:
 	Default: _2x2_.
 
 *resize-delay-ms*
-	Time, in milliseconds, of "idle time" "before foot sends the new
+	Time, in milliseconds, of "idle time" before foot sends the new
 	window dimensions to the client application while doing an
 	interactive resize of a foot window. Idle time in this context is
 	a period of time where the window size is not changing.
@@ -201,12 +221,12 @@ in this order:
 
 *initial-window-size-pixels*
 	Initial window width and height in _pixels_ (subject to output
-	scaling), on the form _WIDTHxHEIGHT_. The height _includes_ the
+	scaling), in the form _WIDTHxHEIGHT_. The height _includes_ the
 	titlebar when using CSDs. Mutually exclusive to
 	*initial-window-size-chars*. Default: _700x500_.
 
 *initial-window-size-chars*
-	Initial window width and height in _characters_, on the form
+	Initial window width and height in _characters_, in the form
 	_WIDTHxHEIGHT_. Mutually exclusive to
 	*initial-window-size-pixels*.'
 	
@@ -240,8 +260,8 @@ in this order:
 	
 	If set to *palette-based*, rather than a simple *yes|true*, colors
 	matching one of the 8 regular palette colors will be brightened
-	using the corresponding bright palette color. Other colors will be
-	brightened by increasing the luminance.
+	using the corresponding bright palette color. Other colors will
+	not be brightened.
 	
 	Default: _no_.
 
@@ -262,12 +282,18 @@ in this order:
 	
 	Applications can trigger notifications in the following ways:
 	
-	- OSC 777: *\\e]777;notify;<title>;<body>\\e\\\\*
+		- OSC 777: *\\e]777;notify;<title>;<body>\\e\\\\*
 	
-	Notifications are *inhibited* if the foot window has keyboard
-	focus.
+	By default, notifications are *inhibited* if the foot window
+	has keyboard focus. See _notify-focus-inhibit_.
 	
 	Default: _notify-send -a ${app-id} -i ${app-id} ${title} ${body}_.
+
+*notify-focus-inhibit*
+	Boolean. If enabled, foot will not display notifications if the
+	terminal window has keyboard focus.
+
+	Default: _yes_
 
 *selection-target*
 	Clipboard target to automatically copy selected text to. One of
@@ -279,30 +305,41 @@ in this order:
 	(including SMT). Note that this is not always the best value. In
 	some cases, the number of physical _cores_ is better.
 
+# SECTION: environment
+
+This section is used to define environment variables that will be set
+in the client application, in addition to the variables inherited from
+the terminal process itself.
+
+The format is simply:
+
+*name*=_value_
+
+Note: do not set *TERM* here; use the *term* option in the main
+(default) section instead.
 
 # SECTION: bell
 
 *urgent*
-	When set to _yes_, the margins will be painted in red
-	whenever *BEL* is received while the window does *not* have
-	keyboard focus. Note that Wayland currently does not have an
-	_urgency_ hint like X11. The name *urgent* was chosen for
-	forward-compatibility in the hopes that a corresponding Wayland
-	protocol is added in the future (in which case foot will use that
-	instead of painting its margins red).
+	When set to _yes_, foot will signal urgency to the compositor
+	through the XDG activation protocol whenever *BEL* is received,
+	and the window does NOT have keyboard foccus.
+	
+	If the compositor does not implement this protocol, the margins
+	will be painted in red instead.
 	
 	Applications can enable/disable this feature programmatically with
 	the *CSI ? 1042 h* and *CSI ? 1042 l* escape sequences.
 	
-	_Note_: expect this feature to be *replaced* with proper
-	compositor urgency support once/if that gets implemented.
 	Default: _no_
 
 *notify*
 	When set to _yes_, foot will emit a desktop notification using
 	the command specified in the *notify* option whenever *BEL* is
-	received and the window does *not* have keyboard focus. Default:
-	_no_
+	received. By default, bell notifications are shown only when the
+	window does *not* have keyboard focus. See _notify-focus-inhibit_.
+
+	Default: _no_
 
 *command*
 	When set, foot will execute this command when *BEL* is received.
@@ -311,7 +348,6 @@ in this order:
 *command-focused*
 	Whether to run the command on *BEL* even while focused. Default:
 	_no_
-
 
 # SECTION: scrollback
 
@@ -338,7 +374,6 @@ in this order:
 	string. This option is ignored if
 	*indicator-position=none*. Default: _empty string_.
 
-
 # SECTION: url
 
 *launch*
@@ -360,15 +395,27 @@ in this order:
 
 *label-letters*
 	String of characters to use when generating key sequences for URL
-	jump labels. Default: _sadfjklewcmpgh_.
+	jump labels.
+	
+	If you change this option to include the letter *t*, you should
+	also change the default *[url-bindings].toggle-url-visible* key
+	binding to avoid a clash.
+	
+	Default: _sadfjklewcmpgh_.
 
 *protocols*
 	Comma separated list of protocols (schemes) that should be
 	recognized in URL mode. Note that only auto-detected URLs are
 	affected by this option. OSC-8 URLs are always enabled, regardless
 	of protocol. Default: _http, https, ftp, ftps, file, gemini,
-	gopher_.
+	gopher, irc, ircs_.
 
+*uri-characters*
+	Set of characters allowed in auto-detected URLs. Any character not
+	included in this set constitutes a URL delimiter.
+	
+	Default:
+	_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-\_.,~:;/?#@!$&%\*+="'()[]_
 
 # SECTION: cursor
 
@@ -385,11 +432,14 @@ applications can change these at runtime.
 	by applications. Default: _no_.
 
 *color*
-	Two RRGGBB values specifying the foreground (text) and background
-	(cursor) colors for the cursor. Default: inversed foreground and
-	background colors. Note that this value only applies to the block
-	cursor. The other cursor styles are always rendered with the
-	foreground color.
+	Two RRGGBB values (i.e. plain old 6-digit hex values, without
+	prefix) specifying the foreground (text) and background (cursor)
+	colors for the cursor.
+	
+	Default: _inverse foreground/background colors_.
+
+	Note that this value only applies to the block cursor. The other
+	cursor styles are always rendered with the foreground color.
 
 *beam-thickness*
 	Thickness (width) of the beam styled cursor. The value is in
@@ -408,7 +458,6 @@ applications can change these at runtime.
 	the font size, while if set, the size is fixed.
 	
 	Default: _font underline thickness_.
-
 
 # SECTION: mouse
 
@@ -434,34 +483,63 @@ applications can change these at runtime.
 	
 	Default: _yes_.
 
-
 # SECTION: colors
 
-This section controls the 16 ANSI colors, the default foreground
-and background colors, and the extended 256 color palette. Note that 
+This section controls the 16 ANSI colors, the default foreground and
+background colors, and the extended 256 color palette. Note that
 applications can change these at runtime.
 
-The colors are in RRGGBB format. That is, they do *not* have an alpha
-component. You can configure the background transparency with the
-_alpha_ option.
+The colors are in RRGGBB format (i.e. plain old 6-digit hex values,
+without prefix). That is, they do *not* have an alpha component. You
+can configure the background transparency with the _alpha_ option.
 
 *foreground*
-	Default RRGGBB foreground color. This is the color used when no
-	ANSI color is being used. Default: _dcdccc_.
+	Default foreground color. This is the color used when no ANSI
+	color is being used. Default: _dcdccc_.
 
 *background*
-	Default RRGGBB background color. This is the color used when no
-	ANSI color is being used. Default: _111111_.
+	Default background color. This is the color used when no ANSI
+	color is being used. Default: _111111_.
 
 *regular0*, *regular1* *..* *regular7*
-	The eight basic ANSI colors. Default: _222222_, _cc9393_,
-	_7f9f7f_, _d0bf8f_, _6ca0a3_, _dc8cc3_, _93e0e3_ and _dcdccc_ (a
-	variant of the _zenburn_ theme).
+	The eight basic ANSI colors (Black, Red, Green, Yellow, Blue,
+	Magenta, Cyan, White). Default: _222222_, _cc9393_, _7f9f7f_, _d0bf8f_,
+	_6ca0a3_, _dc8cc3_, _93e0e3_ and _dcdccc_ (a variant of the _zenburn_ theme).
 
 *bright0*, *bright1* *..* *bright7*
-	The eight bright ANSI colors. Default: _666666_, _dca3a3_,
-	_bfebbf_, _f0dfaf_, _8cd0d3_, _fcace3_, _b3ffff_ and _ffffff_ (a
-	variant of the _zenburn_ theme).
+	The eight bright ANSI colors (Black, Red, Green, Yellow, Blue,
+	Magenta, Cyan, White). Default: _666666_, _dca3a3_, _bfebbf_, _f0dfaf_,
+	_8cd0d3_, _fcace3_, _b3ffff_ and _ffffff_ (a variant of the _zenburn_ theme).
+
+*dim0*, *dim1* *..* *dim7*
+	Custom colors to use with dimmed colors. Dimmed colors do not have
+	an entry in the color palette. Applications emit them by combining
+	a color value, and a "dim" attribute.
+	
+	By default, foot implements this by reducing the luminance of the
+	current color. This is a generic approach that applies to both
+	colors from the 256-color palette, as well as 24-bit RGB colors.
+	
+	You can change this behavior by setting the *dimN* options. When
+	set, foot will match the current color against the color palette,
+	and if it matches one of the *regularN* colors, the corresponding
+	*dimN* color will be used.
+	
+	If instead the current color matches one of the *brightN* colors,
+	the corresponding *regularN* color will be used.
+	
+	If the current color does not match any known color, it is dimmed
+	by reducing the luminance (i.e. the same behavior as if the *dimN*
+	options are unconfigured). 24-bit RGB colors will typically fall
+	into this category.
+	
+	Note that applications can change the *regularN* and *brighN*
+	colors at runtime. However, they have no way of changing the
+	*dimN* colors. If an application has changed the *regularN*
+	colors, foot will still use the corresponding *dimN* color, as
+	configured in foot.ini.
+	
+	Default: _not set_.
 
 *0* *..* *255*
 	Arbitrary colors in the 256-color palette. Default: for *0* *..*
@@ -479,14 +557,18 @@ _alpha_ option.
 	used. Default: _inverse foreground/background_.
 
 *jump-labels*
-	To RRGGBB values specifying the foreground (text) and background
+	Two color values specifying the foreground (text) and background
 	colors to use when rendering jump labels in URL mode. Default:
 	_regular0 regular3_.
+
+*scrollback-indicator*
+	Two color values specifying the foreground (text) and background
+	(indicator itself) colors for the scrollback indicator. Default:
+	_regular0 bright4_.
 
 *urls*
 	Color to use for the underline used to highlight URLs in URL
 	mode. Default: _regular3_.
-
 
 # SECTION: csd
 
@@ -496,8 +578,16 @@ to use _SSDs_ (Server Side Decorations) when the compositor supports
 it.
 
 Note that unlike the colors defined in the _colors_ section, the color
-values here are in AARRGGBB format. I.e. they contain an alpha
-component.
+values here are in AARRGGBB (i.e. plain old 8-digit hex values)
+format. I.e. they contain an alpha component - 00 means completely
+transparent, and ff fully opaque.
+
+Examples:
+
+- ffffffff: white, fully opaque
+- ff000000: black, fully opaque
+- 7fffffff: white, semi-transparent
+- ff00ff00: green, fully opaque
 
 *preferred*
 	Which type of window decorations to prefer: *client* (CSD),
@@ -512,11 +602,33 @@ component.
 
 *size*
 	Height, in pixels (subject to output scaling), of the
-	titlebar. Default: _26_.
+	titlebar. Setting it to 0 will hide the titlebar, while still
+	showing the border (if *border-width* is set to a non-zero
+	value). Default: _26_.
 
 *color*
-	Titlebar AARRGGBB color. Default: use the default _foreground_
-	color.
+	Titlebar color. Default: use the default _foreground_ color.
+
+*font*
+	Font to use for the title bar. This is a list of fonts, similar to
+	the main *font* option. Note that the font will be sized using the
+	title bar size. That is, all *:size* and *:pixelsize* attributes
+	will be ignored. Default: _primary font_.
+
+*hide-when-maximized*
+	Boolean. When enabled, the CSD titlebar is hidden when the window
+	is maximized. The completely disable the titlebar, set *size* to 0
+	instead. Default: _no_.
+
+*border-width*
+	Width of the border, in pixels (subject to output scaling). Note
+	that the border encompasses the entire window, including the title
+	bar. Default: _0_.
+
+*border-color*
+	Color of border. By default, the title bar color is used. If the
+	title bar color has not been set, the default foreground color
+	(from the color scheme) is used. Default: _titlebar color_.
 
 *button-width*
 	Width, in pixels (subject to output scaling), of the
@@ -527,17 +639,16 @@ component.
 	use the default _background_ color.
 
 *button-minimize-color*
-	Minimize button's background color, on the format
-	AARRGGBB. Default: use the default _regular4_ color (blue).
+	Minimize button's background color. Default: use the default
+	_regular4_ color (blue).
 
 *button-maximize-color*
-	Maximize button's background color, on the format
-	AARRGGBB. Default: use the default _regular2_ color (green).
+	Maximize button's background color. Default: use the default
+	_regular2_ color (green).
 
 *button-close-color*
-	Close button's background color, on the format AARRGGBB. Default:
-	use the default _regular1_ color (red).
-
+	Close button's background color. Default: use the default
+	_regular1_ color (red).
 
 # SECTION: key-bindings
 
@@ -545,7 +656,7 @@ This section lets you override the default key bindings.
 
 The general format is _action=combo1...comboN_. That is, each action
 may have one or more key combinations, space separated. Each
-combination is on the form _mod1+mod2+key_. The names of the modifiers
+combination is in the form _mod1+mod2+key_. The names of the modifiers
 and the key *must* be valid XKB key names.
 
 Note that if *Shift* is one of the modifiers, the _key_ *must not* be
@@ -554,36 +665,49 @@ in upper case. For example, *Control+Shift+V* will never trigger, but
 
 Note that *Alt* is usually called *Mod1*.
 
+*xkbcli interactive-wayland* can be useful for finding keysym names.
+
 A key combination can only be mapped to *one* action. Lets say you
 want to bind *Control+Shift+R* to *fullscreen*. Since this is the
 default shortcut for *search-start*, you first need to unmap the
 default binding. This can be done by setting _action=none_;
 e.g. *search-start=none*.
 
+*noop*
+	All key combinations listed here will not be sent to the
+	application. Default: _not bound_.
+
 *scrollback-up-page*
 	Scrolls up/back one page in history. Default: _Shift+Page\_Up_.
 
 *scrollback-up-half-page*
-	Scrolls up/back half of a page in history. Default: _not set_.
+	Scrolls up/back half of a page in history. Default: _not bound_.
 
 *scrollback-up-line*
-	Scrolls up/back a single line in history. Default: _not set_.
+	Scrolls up/back a single line in history. Default: _not bound_.
 
 *scrollback-down-page*
 	Scroll down/forward one page in history. Default:
 	_Shift+Page\_Down_.
 
 *scrollback-down-half-page*
-	Scroll down/forward half of a page in history. Default: _not set_.
+	Scroll down/forward half of a page in history. Default: _not bound_.
 
 *scrollback-down-line*
-	Scroll down/forward a single line in history. Default: _not set_.
+	Scroll down/forward a single line in history. Default: _not bound_.
+
+*scrollback-home*
+	Scroll to the beginning of the scrollback. Default: _not bound_.
+
+*scrollback-end*
+	Scroll to the end (bottom) of the scrollback. Default: _not bound_.
 
 *clipboard-copy*
-	Copies the current selection into the _clipboard_. Default: _Control+Shift+c_.
+	Copies the current selection into the _clipboard_. Default: _Control+Shift+c_
+	_XF86Copy_.
 
 *clipboard-paste*
-	Pastes from the _clipboard_. Default: _Control+Shift+v_.
+	Pastes from the _clipboard_. Default: _Control+Shift+v_ _XF86Paste_.
 
 *primary-paste*
 	Pastes from the _primary selection_. Default: _Shift+Insert_ (also
@@ -637,14 +761,25 @@ e.g. *search-start=none*.
 
 *show-urls-launch*
 	Enter URL mode, where all currently visible URLs are tagged with a
-	jump label with a key sequence that will open the URL. Default:
-	_Control+Shift+u_.
+	jump label with a key sequence that will open the URL (and exit
+	URL mode). Default: _Control+Shift+u_.
+
+*show-urls-persistent*
+	Similar to *show-urls-launch*, but does not automatically exit URL
+	mode after activating an URL. Default: _none_.
 
 *show-urls-copy*
 	Enter URL mode, where all currently visible URLs are tagged with a
 	jump label with a key sequence that will place the URL in the
 	clipboard. Default: _none_.
 
+*prompt-prev*
+	Jump to the previous, currently not visible, prompt (requires
+	shell integration, see *foot*(1)). Default: _Control+Shift+z_.
+
+*prompt-next*
+	Jump the next prompt (requires shell integration, see
+	*foot*(1)). Default: _Control+Shift+x_.
 
 # SECTION: search-bindings
 
@@ -724,14 +859,16 @@ scrollback search mode. The syntax is exactly the same as the regular
 	Paste from the _primary selection_ into the search
 	buffer. Default: _Shift+Insert_.
 
-
 # SECTION: url-bindings
 
 This section lets you override the default key bindings used in URL
 mode. The syntax is exactly the same as the regular **key-bindings**.
 
+Be careful; do not use single-letter keys that are also used in
+*[url].label-letters*, as doing so will make some URLs inaccessible.
+
 *cancel*
-	Exits URL mode without opening an URL. Default: _Control+g
+	Exits URL mode without opening a URL. Default: _Control+g
 	Control+c Control+d Escape_.
 
 *toggle-url-visible*
@@ -748,6 +885,35 @@ mode. The syntax is exactly the same as the regular **key-bindings**.
 	
 	Default: _t_.
 
+# SECTION: text-bindings
+
+This section lets you remap key combinations to custom escape
+sequences.
+
+The format is _text=combo1...comboN_. That is, the string to emit may
+have one or more key combinations, space separated. Each combination
+is in the form _mod1+mod2+key_. The names of the modifiers and the key
+*must* be valid XKB key names.
+
+The text string specifies the characters, or bytes, to emit when the
+associated key combination(s) are pressed. There are two ways to
+specify a character:
+
+- Normal, printable characters are written as-is: *abcdef*.
+- Bytes (e.g. ESC) are written as two-digit hexadecimal numbers, with
+  a *\\x* prefix: *\\x1b*.
+
+Example: you would like to remap _Super+k_ to the _Up_ key.
+
+The escape sequence for the Up key is _ESC [ A_ (without the
+spaces). Thus, we need to specify this in foot.ini (*Mod4* is the XKB
+name for the Super/logo key):
+
+*\\x1b[A = Mod4+k*
+
+Another example: to remap _Super+c_ to _Control+c_:
+
+*\\x03 = Mod4+c*
 
 # SECTION: mouse-bindings
 
@@ -755,14 +921,10 @@ This section lets you override the default mouse bindings.
 
 The general format is _action=combo1...comboN_. That is, each action
 may have one or more key combinations, space separated. Each
-combination is on the form _mod1+mod2+BTN\_<name>[-COUNT]_. The names
+combination is in the form _mod1+mod2+BTN\_<name>[-COUNT]_. The names
 of the modifiers *must* be valid XKB key names, and the button name
 *must* be a valid libinput name. You can find the button names using
 *libinput debug-events*.
-
-Note that *Shift* cannot be used as a modifier in mouse bindings since
-it is used to enable selection when the client application is grabbing
-the mouse.
 
 The trailing *COUNT* is optional and specifies the click count
 required to trigger the binding. The default if *COUNT* is omitted is
@@ -774,7 +936,19 @@ say you want to bind *BTN\_MIDDLE* to *fullscreen*. Since
 need to unmap the default binding. This can be done by setting
 _action=none_; e.g. *primary-paste=none*.
 
-All actions listed under *key-bindings* can be user here as well.
+*selection-override-modifiers*
+	The modifiers set in this set (which may be set to any combination
+	of modifiers, e.g. _mod1+mod2+mod3_, as well as _none_) are used
+	to enable selecting text with the mouse irrespective of whether a
+	client application currently has the mouse grabbed.
+	These modifiers cannot be used as modifiers in mouse bindings.
+	Because the order of bindings is significant, it is best to set
+	this prior to any other mouse bindings that might use modifiers in
+	the default set.
+	Default: _Shift_
+
+The actions to which mouse combos can be bound are listed below. All
+actions listed under *key-bindings* can be used here as well.
 
 *select-begin*
 	Begin an interactive selection. The selection is finalized, and
@@ -798,7 +972,7 @@ All actions listed under *key-bindings* can be user here as well.
 	option are ignored. I.e only whitespace characters act as
 	delimiters. The selection is finalized, and copied to the _primary
 	selection_, when the button is released. Default:
-	_Control+_BTN\_LEFT-2_.
+	_Control+BTN\_LEFT-2_.
 
 *select-row*
 	Begin an interactive row-wise selection. The selection is
@@ -817,10 +991,8 @@ All actions listed under *key-bindings* can be user here as well.
 	*select-extend* operations to be character wise. This action is
 	ignored for block selections. Default: _Control+BTN\_RIGHT_.
 
-
 *primary-paste*
 	Pastes from the _primary selection_. Default: _BTN\_MIDDLE_.
-
 
 # TWEAK
 
@@ -828,9 +1000,7 @@ This section is for advanced users and describes configuration options
 that can be used to tweak foot's low-level behavior.
 
 These options are *not* included in the example configuration. You
-should not change these unless you understand what they do and note
-that changing the default values *will* print a warning when launching
-foot.
+should not change these unless you understand what they do.
 
 Note that these options may change, or be removed at any time, without
 prior notice.
@@ -847,33 +1017,23 @@ any of these options.
 	
 	Default: _lanczos3_.
 
-*allow-overflowing-double-width-glyphs*
-	Boolean. When enabled, double width glyphs with a character width
-	of 1 are allowed to overflow into the neighbouring cell.
+*overflowing-glyphs*
+	Boolean. When enabled, glyphs wider than their cell(s) are allowed
+	to render into one additional neighbouring cell.
 	
-	One use case for this is fonts "icon" characters in the Unicode
-	private usage area, e.g. Nerd Fonts, or Powerline Fonts. Without
-	this option, such glyphs will appear "cut off".
+	One use case for this are fonts with wide italic characters that
+	"bend" into the next cell. Without this option, such glyphs will
+	appear "cut off".
 	
-	Another use case are legacy emoji characters like *WHITE FROWNING
-	FACE*.
+	Another use case are fonts with "icon" characters in the Unicode
+	private usage area, e.g. Nerd Fonts, or Powerline Fonts and legacy
+	emoji characters like *WHITE FROWNING FACE*.
 	
-	Note: this feature uses _heuristics_ to determine *which* glyphs
-	should be allowed to overflow.
-	
-	See also: *pua-double-width*
+	Note: might impact performance depending on the font used.
+	Especially small font sizes can cause many overflowing glyphs
+	because of subpixel rendering.
 	
 	Default: _yes_.
-
-*pua-double-width*
-	Boolean. When enabled, Unicode code points from the private usage
-	area (PUA) are always considered to be double width, regardless of
-	the actual glyph width.
-	
-	Ignored if *allow-overflowing-double-width-glyphs* has been
-	disabled.
-	
-	Default: _no_.
 
 *render-timer*
 	Enables a frame rendering timer, that prints the time it takes to
@@ -987,39 +1147,44 @@ any of these options.
 	
 	This is required to render e.g. flag (emoji) sequences, keycap
 	sequences, modifier sequences, zero-width-joiner (ZWJ) sequences
-	andn emoji tag sequences. It might also improve rendering of
+	and emoji tag sequences. It might also improve rendering of
 	composed characters, depending on font.
 	
-	This is an experimental feature with the following requirements
-	and limitations:
-	
-	- foot must have been compiled with utf8proc support
-	- fcft must have been compiled with HarfBuzz support
-	- This option must be set to true
-	- Foot will use *wcswidth*(3) to calculate a cluster's display
-	  width. This will typically _not_ match the shaped glyph's width,
-	  but is necessary to not break cursor synchronization with the
-	  application running in foot.
+		- foot must have been compiled with utf8proc support
+		- fcft must have been compiled with HarfBuzz support
 	
 	See also: *grapheme-width-method*.
 	
-	Default: _no_
+	Default: _yes_
 
 *grapheme-width-method*
 	Selects which method to use when calculating the width
 	(i.e. number of columns) of a grapheme cluster. One of
-	*double-width* and *wcswidth*.
+	*wcswidth*, *double-width* and *max*.
 	
 	*wcswidth* simply adds together the individual width of all
 	codepoints making up the cluster.
 	
 	*double-width* does the same, but limits the maximum number of
-	columns to 2. This is more correct, but is likely to break
+	columns to 2. This is more correct, but may break some
 	applications since applications typically use *wcswidth*(3)
 	internally to calculate the width. This results in cursor
 	de-synchronization issues.
 	
-	Default: _double-width_
+	*max* uses the width of the largest codepoint in the cluster.
+	
+	Default: _wcswidth_
+
+*font-monospace-warn*
+	Boolean. When enabled, foot will use heuristics to try to verify
+	the primary font is a monospace font, and warn if it is not.
+	
+	Disable this if you still want to use the font, even if foot
+	thinks it is not monospaced.
+	
+	You may also want to disable it to get slightly faster startup times.
+	
+	Default: _yes_
 
 *max-shm-pool-size-mb*
 	This option controls the amount of virtual address space used by
@@ -1064,6 +1229,9 @@ any of these options.
 		- only supported on Linux
 	
 	Default: _512_. Maximum allowed: _2048_ (2GB).
+
+*sixel*
+	Boolean. When enabled, foot will process sixel images. Default: _yes_
 
 # SEE ALSO
 

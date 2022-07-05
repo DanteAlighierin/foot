@@ -2,6 +2,11 @@
 
 set -e
 
+if [ ${#} -ne 3 ]; then
+    echo "Usage: ${0} <default_version> <src_dir> <out_file>"
+    exit 1
+fi
+
 default_version=${1}
 src_dir=${2}
 out_file=${3}
@@ -13,11 +18,18 @@ out_file=${3}
 if [ -d "${src_dir}/.git" ] && command -v git > /dev/null; then
     workdir=$(pwd)
     cd "${src_dir}"
-    git_version=$(git describe --always --tags)
+
+    if git describe --tags  > /dev/null 2>&1; then
+        git_version=$(git describe --always --tags)
+    else
+        # No tags available, happens in e.g. CI builds
+        git_version="${default_version}"
+    fi
+
     git_branch=$(git rev-parse --abbrev-ref HEAD)
     cd "${workdir}"
 
-    new_version="${git_version} ($(env LC_TIME=C date "+%b %d %Y"), branch '${git_branch}')"
+    new_version="${git_version} ($(date "+%b %d %Y"), branch '${git_branch}')"
 else
     new_version="${default_version}"
     extra=""

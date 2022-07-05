@@ -1,0 +1,28 @@
+# theme: Tempus Totus
+# author: Protesilaos Stavrou (https://protesilaos.com)
+# description: Light theme for prose or for coding in an open space (WCAG AAA compliant)
+
+#[cursor]
+#color = ffffff 4a484d
+
+[colors]
+foreground = 4a484d
+background = ffffff
+regular0 = 4a484d
+regular1 = a50000
+regular2 = 005d26
+regular3 = 714700
+regular4 = 1d3ccf
+regular5 = 88267a
+regular6 = 185570
+regular7 = efefef
+bright0 = 5e4b4f
+bright1 = 992030
+bright2 = 4a5500
+bright3 = 8a3600
+bright4 = 2d45b0
+bright5 = 700dc9
+bright6 = 005289
+bright7 = ffffff
+#selection-foreground = 5e4b4f
+#selection-background = efefef

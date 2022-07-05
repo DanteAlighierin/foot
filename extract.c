@@ -1,12 +1,13 @@
 #include "extract.h"
-#include <stdlib.h>
+#include <string.h>
 
 #define LOG_MODULE "extract"
-#define LOG_ENABLE_DBG 1
+#define LOG_ENABLE_DBG 0
 #include "log.h"
+#include "char32.h"
 
 struct extraction_context {
-    wchar_t *buf;
+    char32_t *buf;
     size_t size;
     size_t idx;
     size_t tab_spaces_left;
@@ -40,7 +41,7 @@ ensure_size(struct extraction_context *ctx, size_t additional_chars)
 {
     while (ctx->size < ctx->idx + additional_chars) {
         size_t new_size = ctx->size == 0 ? 512 : ctx->size * 2;
-        wchar_t *new_buf = realloc(ctx->buf, new_size * sizeof(wchar_t));
+        char32_t *new_buf = realloc(ctx->buf, new_size * sizeof(new_buf[0]));
 
         if (new_buf == NULL)
             return false;
@@ -54,7 +55,7 @@ ensure_size(struct extraction_context *ctx, size_t additional_chars)
 }
 
 bool
-extract_finish_wide(struct extraction_context *ctx, wchar_t **text, size_t *len)
+extract_finish_wide(struct extraction_context *ctx, char32_t **text, size_t *len)
 {
     if (text == NULL)
         return false;
@@ -72,26 +73,41 @@ extract_finish_wide(struct extraction_context *ctx, wchar_t **text, size_t *len)
             goto err;
 
         for (size_t i = 0; i < ctx->newline_count; i++)
-            ctx->buf[ctx->idx++] = L'\n';
+            ctx->buf[ctx->idx++] = U'\n';
 
         for (size_t i = 0; i < ctx->empty_count; i++)
-            ctx->buf[ctx->idx++] = L' ';
+            ctx->buf[ctx->idx++] = U' ';
     }
 
     if (ctx->idx == 0) {
         /* Selection of empty cells only */
         if (!ensure_size(ctx, 1))
             goto err;
-        ctx->buf[ctx->idx++] = L'\0';
+        ctx->buf[ctx->idx++] = U'\0';
     } else {
         xassert(ctx->idx > 0);
         xassert(ctx->idx <= ctx->size);
-        if (ctx->buf[ctx->idx - 1] == L'\n')
-            ctx->buf[ctx->idx - 1] = L'\0';
-        else {
+
+        switch (ctx->selection_kind) {
+        default:
+            if (ctx->buf[ctx->idx - 1] == U'\n')
+                ctx->buf[ctx->idx - 1] = U'\0';
+            break;
+
+        case SELECTION_LINE_WISE:
+            if (ctx->buf[ctx->idx - 1] != U'\n') {
+                if (!ensure_size(ctx, 1))
+                    goto err;
+                ctx->buf[ctx->idx++] = U'\n';
+            }
+            break;
+
+        }
+
+        if (ctx->buf[ctx->idx - 1] != U'\0') {
             if (!ensure_size(ctx, 1))
                 goto err;
-            ctx->buf[ctx->idx++] = L'\0';
+            ctx->buf[ctx->idx++] = U'\0';
         }
     }
 
@@ -115,29 +131,20 @@ extract_finish(struct extraction_context *ctx, char **text, size_t *len)
     if (len != NULL)
         *len = 0;
 
-    wchar_t *wtext;
+    char32_t *wtext;
     if (!extract_finish_wide(ctx, &wtext, NULL))
         return false;
 
     bool ret = false;
 
-    size_t _len = wcstombs(NULL, wtext, 0);
-    if (_len == (size_t)-1) {
-        LOG_ERRNO("failed to convert selection to UTF-8");
+    *text = ac32tombs(wtext);
+    if (*text == NULL) {
+        LOG_ERR("failed to convert selection to UTF-8");
         goto out;
     }
-
-    *text = malloc(_len + 1);
-    if (unlikely(text == NULL)) {
-        LOG_ERRNO("malloc() failed");
-        goto out;
-    }
-
-    wcstombs(*text, wtext, _len + 1);
 
     if (len != NULL)
-        *len = _len;
-
+        *len = strlen(*text);
     ret = true;
 
 out:
@@ -173,7 +180,7 @@ extract_one(const struct terminal *term, const struct row *row,
                     if (!ensure_size(ctx, ctx->empty_count))
                         goto err;
                     for (size_t i = 0; i < ctx->empty_count; i++)
-                        ctx->buf[ctx->idx++] = L' ';
+                        ctx->buf[ctx->idx++] = U' ';
                 }
                 ctx->empty_count = 0;
             }
@@ -182,13 +189,13 @@ extract_one(const struct terminal *term, const struct row *row,
             if (!ensure_size(ctx, 1))
                 goto err;
 
-            ctx->buf[ctx->idx++] = L'\n';
+            ctx->buf[ctx->idx++] = U'\n';
 
             if (!ctx->strip_trailing_empty) {
                 if (!ensure_size(ctx, ctx->empty_count))
                     goto err;
                 for (size_t i = 0; i < ctx->empty_count; i++)
-                    ctx->buf[ctx->idx++] = L' ';
+                    ctx->buf[ctx->idx++] = U' ';
             }
             ctx->empty_count = 0;
         }
@@ -196,7 +203,7 @@ extract_one(const struct terminal *term, const struct row *row,
         ctx->tab_spaces_left = 0;
     }
 
-    if (cell->wc == L' ' && ctx->tab_spaces_left > 0) {
+    if (cell->wc == U' ' && ctx->tab_spaces_left > 0) {
         ctx->tab_spaces_left--;
         return true;
     }
@@ -215,10 +222,10 @@ extract_one(const struct terminal *term, const struct row *row,
         goto err;
 
     for (size_t i = 0; i < ctx->newline_count; i++)
-        ctx->buf[ctx->idx++] = L'\n';
+        ctx->buf[ctx->idx++] = U'\n';
 
     for (size_t i = 0; i < ctx->empty_count; i++)
-        ctx->buf[ctx->idx++] = L' ';
+        ctx->buf[ctx->idx++] = U' ';
 
     ctx->newline_count = 0;
     ctx->empty_count = 0;
@@ -240,7 +247,7 @@ extract_one(const struct terminal *term, const struct row *row,
             goto err;
         ctx->buf[ctx->idx++] = cell->wc;
 
-        if (cell->wc == L'\t') {
+        if (cell->wc == U'\t') {
             int next_tab_stop = term->cols - 1;
             tll_foreach(term->tab_stops, it) {
                 if (it->item > col) {
