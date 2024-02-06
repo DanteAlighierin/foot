@@ -65,7 +65,7 @@ the foot command line
 
 *-a*,*--app-id*=_ID_
 	Value to set the *app-id* property on the Wayland window
-	to. Default: _foot_.
+	to. Default: _foot_ (normal mode), or _footclient_ (server mode).
 
 *-m*,*--maximized*
 	Start in maximized mode. If both *--maximized* and *--fullscreen*
@@ -121,14 +121,14 @@ the foot command line
 	of a socket provided by a supervision daemon (such as systemd or s6), and
 	use that socket as it's own.
 
-	Two systemd units (foot-server@.{service,socket}) are provided to use that
-	feature with systemd. They need to be instantiated with the value of
-	$WAYLAND_DISPLAY (multiples instances can co-exists).
+	Two systemd units (foot-server.{service,socket}) are provided to use that
+	feature with systemd. To use socket activation, only enable the
+	socket unit.
 
 	Note that starting *foot --server* as a systemd service will use
-	the environment of the systemd user instance; thus, if you need specific
-	environment variables, you'll need to import them using *systemctl --user
-	import-environment* or use a drop-in for the foot-server service.
+	the environment of the systemd user instance; thus, you'll need
+	to import *$WAYLAND_DISPLAY* in it using *systemctl --user
+	import-environment WAYLAND_DISPLAY*.
 
 *-H*,*--hold*
 	Remain open after child process exits.
@@ -142,7 +142,7 @@ the foot command line
 
 *-d*,*--log-level*={*info*,*warning*,*error*,*none*}
 	Log level, used both for log output on stderr as well as
-	syslog. Default: _info_.
+	syslog. Default: _warning_.
 
 *-l*,*--log-colorize*=[{*never*,*always*,*auto*}]
 	Enables or disables colorization of log output on stderr. Default:
@@ -202,8 +202,11 @@ default) available; see *foot.ini*(5).
 	_OSC 7_ escape sequence, the new terminal will start in the
 	current working directory.
 
-*ctrl*+*shift*+*u*
+*ctrl*+*shift*+*o*
 	Activate URL mode, allowing you to "launch" URLs.
+
+*ctrl*+*shift*+*u*
+	Activate Unicode input.
 
 *ctrl*+*shift*+*z*
 	Jump to the previous, currently not visible, prompt. Requires
@@ -283,6 +286,18 @@ default) available; see *foot.ini*(5).
 *wheel*
 	Scroll up/down in history
 
+## TOUCHSCREEN
+
+*tap*
+	Emulates mouse left button click.
+
+*drag*
+	Scrolls up/down in history.
+
+	Holding for a while before dragging (time delay can be configured)
+	emulates mouse dragging with left button held.
+
+
 # FONT FORMAT
 
 The font is specified in FontConfig syntax. That is, a colon-separated
@@ -298,10 +313,10 @@ Foot supports URL detection. But, unlike many other terminal
 emulators, where URLs are highlighted when they are hovered and opened
 by clicking on them, foot uses a keyboard driven approach.
 
-Pressing *ctrl*+*shift*+*u* enters _“URL mode”_, where all currently
+Pressing *ctrl*+*shift*+*o* enters _"Open URL mode"_, where all currently
 visible URLs are underlined, and is associated with a
-_“jump-label”_. The jump-label indicates the _key sequence_
-(e.g. *”AF”*) to use to activate the URL.
+_"jump-label"_. The jump-label indicates the _key sequence_
+(e.g. *"AF"*) to use to activate the URL.
 
 The key binding can, of course, be customized, like all other key
 bindings in foot. See *show-urls-launch* and *show-urls-copy* in
@@ -383,7 +398,7 @@ For more information, see *foot.ini*(5).
 
 New foot terminal instances (bound to *ctrl*+*shift*+*n* by default)
 will open in the current working directory, if the shell in the
-“parent” terminal reports directory changes.
+"parent" terminal reports directory changes.
 
 This is done with the OSC-7 escape sequence. Most shells can be
 scripted to do this, if they do not support it natively. See the wiki
@@ -408,6 +423,38 @@ In zsh, one way to do this is to add a _precmd_ hook:
 See the wiki
 (https://codeberg.org/dnkl/foot/wiki#user-content-jumping-between-prompts)
 for details, and examples for other shells.
+
+## Piping last command's output
+
+The key binding *pipe-command-output* can pipe the last command's
+output to an application of your choice (similar to the other
+*pipe-\** key bindings):
+
+	*\[key-bindings\]++
+pipe-command-output=[sh -c "f=$(mktemp); cat - > $f; footclient emacsclient -nw $f; rm $f"] Control+Shift+g*
+
+When pressing *ctrl*+*shift*+*g*, the last command's output is written
+to a temporary file, then an emacsclient is started in a new
+footclient instance. The temporary file is removed after the
+footclient instance has closed.
+
+For this to work, the shell must emit an OSC-133;C (*\\E]133;C\\E\\\\*)
+sequence before command output starts, and an OSC-133;D
+(*\\E]133;D\\E\\\\*) when the command output ends.
+
+In fish, one way to do this is to add _preexec_ and _postexec_ hooks:
+
+	*function foot_cmd_start --on-event fish_preexec
+		echo -en "\\e]133;C\\e\\\\"
+	end*
+
+	*function foot_cmd_end --on-event fish_postexec
+		echo -en "\\e]133;D\\e\\\\"
+	end*
+
+See the wiki
+(https://codeberg.org/dnkl/foot/wiki#user-content-piping-last-commands-output)
+for details, and examples for other shells
 
 # TERMINFO
 
@@ -449,10 +496,10 @@ also implemented (and extended, to some degree) by Kitty.
 
 It allows querying the terminal for terminfo classic, file-based,
 terminfo definition. For example, if all applications used this
-feature, you would no longer have to install foot’s terminfo on remote
+feature, you would no longer have to install foot's terminfo on remote
 hosts you SSH into.
 
-XTerm’s implementation (as of XTerm-370) only supports querying key
+XTerm's implementation (as of XTerm-370) only supports querying key
 (as in keyboard keys) capabilities, and three custom capabilities:
 
 - TN - terminal name
@@ -464,7 +511,7 @@ Kitty has extended this, and also supports querying all integer and
 string capabilities.
 
 Foot supports this, and extends it even further, to also include
-boolean capabilities. This means foot’s entire terminfo can be queried
+boolean capabilities. This means foot's entire terminfo can be queried
 via *XTGETTCAP*.
 
 Note that both Kitty and foot handles responses to multi-capability
@@ -475,7 +522,7 @@ capability/value pairs. There are a couple of issues with this:
 
 - The success/fail flag in the beginning of the response is always 1
   (success), unless the very first queried capability is invalid.
-- XTerm will not respond at all to an invalid capability, unless it’s
+- XTerm will not respond at all to an invalid capability, unless it's
   the first one in the XTGETTCAP query.
 - XTerm will end the response at the first invalid capability.
 
@@ -543,8 +590,26 @@ In all other cases, the exit code is that of the client application
 	This variable is set to *truecolor*, to indicate to client
 	applications that 24-bit RGB colors are supported.
 
+*PWD*
+	Current working directory (at the time of launching foot)
+
+*SHELL*
+	Set to the launched shell, if the shell is valid (it is listed in
+	*/etc/shells*).
+
 In addition to the variables listed above, custom environment
 variables may be defined in *foot.ini*(5).
+
+## Variables *unset* in the child process
+
+*TERM_PROGRAM*
+*TERM_PROGRAM_VERSION*
+	These environment variables are set by certain other terminal
+	emulators. We unset them, to prevent applications from
+	misdetecting foot.
+
+In addition to the variables listed above, custom environment
+variables to unset may be defined in *foot.ini*(5).
 
 # BUGS
 
@@ -557,7 +622,7 @@ the same issue.
 The report should contain the following:
 
 - Foot version (*foot --version*).
-- Log output from foot (start foot from another terminal).
+- Log output from foot (run *foot -d info* from another terminal).
 - Which Wayland compositor (and version) you are running.
 - If reporting a crash, please try to provide a *bt full* backtrace
   with symbols.

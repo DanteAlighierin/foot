@@ -22,6 +22,15 @@ in this order:
 An example configuration file containing all options with their default value
 commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 
+Options are set using KEY=VALUE pairs:
+
+	*\[colors\]*++
+*background=000000*++
+*foreground=ffffff*
+
+Empty values (*KEY=*) are not supported. String options do allow the
+empty string to be set, but it must be quoted: *KEY=""*)
+
 # SECTION: main
 
 *shell*
@@ -49,6 +58,7 @@ commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 		- Dina:weight=bold:slant=italic
 		- Courier New:size=12
 		- Fantasque Sans Mono:fontfeatures=ss01
+		- Meslo LG S:size=12, Noto Color Emoji:size=12
 	
 	For each option, the first font is the primary font. The remaining
 	fonts are fallback fonts that will be used whenever a glyph cannot
@@ -70,6 +80,19 @@ commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 	
 	Default: _monospace:size=8_ (*font*), _not set_ (*font-bold*,
 	*font-italic*, *font-bold-italic*).
+
+*font-size-adjustment*
+	Amount, in _points_, _pixels_ or _percent_, to increment/decrement
+	the font size when zooming in our out.
+	
+	Examples:
+	```
+	font-size-adjustment=0.5   # Adjust by 0.5 points
+	font-size-adjustment=10px  # Adjust by 10 pixels
+	font-size-adjustment=7.5%  # Adjust by 7.5 percent
+	```
+	
+	Default: _0.5_
 
 *include*
 	Absolute path to configuration file to import.
@@ -132,6 +155,18 @@ commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 	
 	Default: _unset_.
 
+*underline-thickness*
+	Use a custom thickness (height) for underlines. The thickness is, by
+	default, in _points_.
+
+	To specify a thickness in _pixels_, append *px*:
+	*underline-thickness=1px*.
+
+	If left unset (the default), the thickness specified in the font is
+	used.
+
+	Default: _unset_
+
 *box-drawings-uses-font-glyphs* Boolean. When disabled, foot generates
 	box/line drawing characters itself. The are several advantages to
 	doing this instead of using font glyphs:
@@ -151,7 +186,7 @@ commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 	Default: _no_.
 
 *dpi-aware*
-	*auto*, *yes*, or *no*.
+	Boolean.
 	
 	When set to *yes*, fonts are sized using the monitor's DPI, making
 	a font of a given size have the same physical size, regardless of
@@ -165,12 +200,6 @@ commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 	instead sized using the monitor's scaling factor; doubling the
 	scaling factor *does* double the font size.
 	
-	Finally, if set to *auto*, fonts will be sized using the monitor's
-	DPI if _all_ monitors have a scaling factor of 1. If at least one
-	monitor as a scaling factor larger than 1 (regardless of whether
-	the foot window is mapped on that monitor or not), fonts will be
-	scaled using the scaling factor.
-	
 	Note that this option typically does not work with bitmap fonts,
 	which only contains a pre-defined set of sizes, and cannot be
 	dynamically scaled. Whichever size (of the available ones) that
@@ -183,7 +212,7 @@ commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 	to size the font (*dpi-aware=no*), the font's pixel size will be
 	multiplied with the scaling factor.
 	
-	Default: _auto_
+	Default: _no_
 
 *pad*
 	Padding between border and glyphs, in pixels (subject to output
@@ -198,18 +227,22 @@ commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 	To instead center the grid content, append *center* (e.g. *pad=5x5
 	center*).
 	
-	Default: _2x2_.
+	Default: _0x0_.
 
 *resize-delay-ms*
-	Time, in milliseconds, of "idle time" before foot sends the new
-	window dimensions to the client application while doing an
-	interactive resize of a foot window. Idle time in this context is
-	a period of time where the window size is not changing.
+
+	Time, in milliseconds, of "idle time" before foot performs text
+	reflow, and sends the new window dimensions to the client
+	application while doing an interactive resize of a foot
+	window. Idle time in this context is a period of time where the
+	window size is not changing.
 	
 	In other words, while you are fiddling with the window size, foot
-	does not send the updated dimensions to the client. Only when you
-	pause the fiddling for *resize-delay-ms* milliseconds is the
-	client updated.
+	does not send the updated dimensions to the client. It also does a
+	fast "truncating" resize of the grid, instead of actually
+	reflowing the contents. Only when you pause the fiddling for
+	*resize-delay-ms* milliseconds is the client updated, and the
+	contents properly reflowed.
 	
 	Emphasis is on _while_ here; as soon as the interactive resize
 	ends (i.e. when you let go of the window border), the final
@@ -218,6 +251,21 @@ commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 	Setting it to 0 disables the delay completely.
 	
 	Default: _100_.
+
+*resize-by-cells*
+	Boolean.
+
+	When set to *yes*, the window size will be constrained to multiples
+	of the cell size (plus any configured padding). When set to *no*,
+	the window size will be unconstrained, and padding may be adjusted
+	as necessary to accommodate window sizes that are not multiples of
+	the cell size.
+
+	This option only applies to floating windows. Sizes of maxmized, tiled
+	or fullscreen windows will not be constrained to multiples of the cell
+	size.
+
+	Default: _yes_
 
 *initial-window-size-pixels*
 	Initial window width and height in _pixels_ (subject to output
@@ -251,7 +299,8 @@ commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 *app-id*
 	Value to set the *app-id* property on the Wayland window to. The
 	compositor can use this value to e.g. group multiple windows, or
-	apply window management rules. Default: _foot_.
+	apply window management rules. Default: _foot_ (normal mode), or
+	_footclient_ (server mode).
 
 *bold-text-in-bright*
 	Semi-boolean. When enabled, bold text is rendered in a brighter
@@ -276,7 +325,8 @@ commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 	and _body_ (message content).
 	
 	_${app-id}_ is replaced with the value of the command line option
-	_--app-id_, and defaults to *foot*.
+	_--app-id_, and defaults to *foot* (normal mode), or
+	*footclient* (server mode).
 	
 	_${window-title}_ is replaced with the current window title.
 	
@@ -305,6 +355,25 @@ commented out will usually be installed to */etc/xdg/foot/foot.ini*.
 	(including SMT). Note that this is not always the best value. In
 	some cases, the number of physical _cores_ is better.
 
+*utmp-helper*
+	Path to utmp logging helper binary.
+	
+	When starting foot, an utmp record is created by launching the
+	helper binary with the following arguments:
+	
+	```
+	@utmp_add_args@
+	```
+	
+	When foot is closed, the utmp record is removed by launching the
+	helper binary with the following arguments:
+	
+	```
+	@utmp_del_args@
+	```
+	
+	Set to *none* to disable utmp records. Default: _@utmp_helper_path@_.
+
 # SECTION: environment
 
 This section is used to define environment variables that will be set
@@ -323,7 +392,7 @@ Note: do not set *TERM* here; use the *term* option in the main
 *urgent*
 	When set to _yes_, foot will signal urgency to the compositor
 	through the XDG activation protocol whenever *BEL* is received,
-	and the window does NOT have keyboard foccus.
+	and the window does NOT have keyboard focus.
 	
 	If the compositor does not implement this protocol, the margins
 	will be painted in red instead.
@@ -340,6 +409,10 @@ Note: do not set *TERM* here; use the *term* option in the main
 	window does *not* have keyboard focus. See _notify-focus-inhibit_.
 
 	Default: _no_
+
+*visual*
+	When set to _yes_, foot will flash the terminal window. Default:
+	_no_
 
 *command*
 	When set, foot will execute this command when *BEL* is received.
@@ -432,14 +505,13 @@ applications can change these at runtime.
 	by applications. Default: _no_.
 
 *color*
-	Two RRGGBB values (i.e. plain old 6-digit hex values, without
-	prefix) specifying the foreground (text) and background (cursor)
-	colors for the cursor.
+	Two space separated RRGGBB values (i.e. plain old 6-digit hex
+	values, without prefix) specifying the foreground (text) and
+	background (cursor) colors for the cursor.
 	
-	Default: _inverse foreground/background colors_.
-
-	Note that this value only applies to the block cursor. The other
-	cursor styles are always rendered with the foreground color.
+	Example: *ff0000 00ff00* (green cursor, red text)
+	
+	Default: the regular foreground and background colors, reversed.
 
 *beam-thickness*
 	Thickness (width) of the beam styled cursor. The value is in
@@ -483,6 +555,14 @@ applications can change these at runtime.
 	
 	Default: _yes_.
 
+# SECTION: touch
+
+*long-press-delay*
+	Number of milliseconds to distinguish between a short press and
+	a long press on the touchscreen.
+
+	Default: _400_.
+
 # SECTION: colors
 
 This section controls the 16 ANSI colors, the default foreground and
@@ -495,21 +575,23 @@ can configure the background transparency with the _alpha_ option.
 
 *foreground*
 	Default foreground color. This is the color used when no ANSI
-	color is being used. Default: _dcdccc_.
+	color is being used. Default: _839496_.
 
 *background*
 	Default background color. This is the color used when no ANSI
-	color is being used. Default: _111111_.
+	color is being used. Default: _002b36_.
 
 *regular0*, *regular1* *..* *regular7*
 	The eight basic ANSI colors (Black, Red, Green, Yellow, Blue,
-	Magenta, Cyan, White). Default: _222222_, _cc9393_, _7f9f7f_, _d0bf8f_,
-	_6ca0a3_, _dc8cc3_, _93e0e3_ and _dcdccc_ (a variant of the _zenburn_ theme).
+	Magenta, Cyan, White). Default: _242424_, _f62b5a_, _47b413_,
+	_e3c401_, _24acd4_, _f2affd_, _13c299_, _e6e6e6_ (starlight
+	theme, V4).
 
 *bright0*, *bright1* *..* *bright7*
 	The eight bright ANSI colors (Black, Red, Green, Yellow, Blue,
-	Magenta, Cyan, White). Default: _666666_, _dca3a3_, _bfebbf_, _f0dfaf_,
-	_8cd0d3_, _fcace3_, _b3ffff_ and _ffffff_ (a variant of the _zenburn_ theme).
+	Magenta, Cyan, White). Default: _616161_, _ff4d51_, _35d450_,
+	_e9e836_, _5dc5f8_, _feabf2_, _24dfc4_, _ffffff_ (starlight
+	theme, V4).
 
 *dim0*, *dim1* *..* *dim7*
 	Custom colors to use with dimmed colors. Dimmed colors do not have
@@ -533,7 +615,7 @@ can configure the background transparency with the _alpha_ option.
 	options are unconfigured). 24-bit RGB colors will typically fall
 	into this category.
 	
-	Note that applications can change the *regularN* and *brighN*
+	Note that applications can change the *regularN* and *brightN*
 	colors at runtime. However, they have no way of changing the
 	*dimN* colors. If an application has changed the *regularN*
 	colors, foot will still use the corresponding *dimN* color, as
@@ -566,9 +648,26 @@ can configure the background transparency with the _alpha_ option.
 	(indicator itself) colors for the scrollback indicator. Default:
 	_regular0 bright4_.
 
+*search-box-no-match*
+	Two color values specifying the foreground (text) and background
+	colors for the scrollback search box, when there are no
+	matches. Default: _regular0 regular1_.
+
+*search-box-match*
+	Two color values specifying the foreground (text) and background
+	colors for the scrollback search box, when the search box is
+	either empty, or there are matches. Default: _regular0 regular3_.
+
 *urls*
 	Color to use for the underline used to highlight URLs in URL
 	mode. Default: _regular3_.
+
+*flash*
+	Color to use for the terminal window flash. Default: _7f7f00_.
+
+*flash-alpha*
+	Flash translucency. A value in the range 0.0-1.0, where 0.0 means
+	completely transparent, and 1.0 is opaque. Default: _0.5_.
 
 # SECTION: csd
 
@@ -619,6 +718,10 @@ Examples:
 	Boolean. When enabled, the CSD titlebar is hidden when the window
 	is maximized. The completely disable the titlebar, set *size* to 0
 	instead. Default: _no_.
+
+*double-click-to-maximize*
+	Boolean. When enabled, double-clicking the CSD titlebar will
+	(un)maximize the window. Default: _yes_.
 
 *border-width*
 	Width of the border, in pixels (subject to output scaling). Note
@@ -675,32 +778,32 @@ e.g. *search-start=none*.
 
 *noop*
 	All key combinations listed here will not be sent to the
-	application. Default: _not bound_.
+	application. Default: _none_.
 
 *scrollback-up-page*
 	Scrolls up/back one page in history. Default: _Shift+Page\_Up_.
 
 *scrollback-up-half-page*
-	Scrolls up/back half of a page in history. Default: _not bound_.
+	Scrolls up/back half of a page in history. Default: _none_.
 
 *scrollback-up-line*
-	Scrolls up/back a single line in history. Default: _not bound_.
+	Scrolls up/back a single line in history. Default: _none_.
 
 *scrollback-down-page*
 	Scroll down/forward one page in history. Default:
 	_Shift+Page\_Down_.
 
 *scrollback-down-half-page*
-	Scroll down/forward half of a page in history. Default: _not bound_.
+	Scroll down/forward half of a page in history. Default: _none_.
 
 *scrollback-down-line*
-	Scroll down/forward a single line in history. Default: _not bound_.
+	Scroll down/forward a single line in history. Default: _none_.
 
 *scrollback-home*
-	Scroll to the beginning of the scrollback. Default: _not bound_.
+	Scroll to the beginning of the scrollback. Default: _none_.
 
 *scrollback-end*
-	Scroll to the end (bottom) of the scrollback. Default: _not bound_.
+	Scroll to the end (bottom) of the scrollback. Default: _none_.
 
 *clipboard-copy*
 	Copies the current selection into the _clipboard_. Default: _Control+Shift+c_
@@ -733,19 +836,20 @@ e.g. *search-start=none*.
 	current working directory. Default: _Control+Shift+n_.
 
 *minimize*
-	Minimizes the window. Default: _not bound_.
+	Minimizes the window. Default: _none_.
 
 *maximize*
-	Toggle the maximized state. Default: _not bound_.
+	Toggle the maximized state. Default: _none_.
 
 *fullscreen*
-	Toggles the fullscreen state. Default: _not bound_.
+	Toggles the fullscreen state. Default: _none_.
 
-*pipe-visible*, *pipe-scrollback*, *pipe-selected*
-	Pipes the currently visible text, the entire scrollback, or the
-	currently selected text to an external tool. The syntax for this
-	option is a bit special; the first part of the value is the
-	command to execute enclosed in "[]", followed by the binding(s).
+*pipe-visible*, *pipe-scrollback*, *pipe-selected*, *pipe-command-output*
+	Pipes the currently visible text, the entire scrollback, the
+	currently selected text, or the last command's output to an
+	external tool. The syntax for this option is a bit special; the
+	first part of the value is the command to execute enclosed in
+	"[]", followed by the binding(s).
 	
 	You can configure multiple pipes as long as the command strings
 	are different and the key bindings are unique.
@@ -753,16 +857,23 @@ e.g. *search-start=none*.
 	Note that the command is *not* automatically run inside a shell;
 	use *sh -c "command line"* if you need that.
 	
-	Example:
-		*pipe-visible=[sh -c "xurls | uniq | tac | fuzzel | xargs -r
+	Example #1:
+	
+		# Extract currently visible URLs, let user choose one (via
+		fuzzel), then launch firefox with the selected URL++
+*pipe-visible=[sh -c "xurls | uniq | tac | fuzzel | xargs -r
 		firefox"] Control+Print*
 	
-	Default: _not bound_
+	Example #2:
+		# Write scrollback content to /tmp/foot-scrollback.txt++
+*pipe-scrollback=[sh -c "cat - > /tmp/foot-scrollback.txt"]
+		Control+Shift+Print*
+	Default: _none_
 
 *show-urls-launch*
 	Enter URL mode, where all currently visible URLs are tagged with a
 	jump label with a key sequence that will open the URL (and exit
-	URL mode). Default: _Control+Shift+u_.
+	URL mode). Default: _Control+Shift+o_.
 
 *show-urls-persistent*
 	Similar to *show-urls-launch*, but does not automatically exit URL
@@ -780,6 +891,32 @@ e.g. *search-start=none*.
 *prompt-next*
 	Jump the next prompt (requires shell integration, see
 	*foot*(1)). Default: _Control+Shift+x_.
+
+*unicode-input*
+	Input a Unicode character by typing its codepoint in hexadecimal,
+	followed by *Enter* or *Space*.
+	
+	For example, to input the character _ö_ (LATIN SMALL LETTER O WITH
+	DIAERESIS, Unicode codepoint 0xf6), you would first activate this
+	key binding, then type: *f*, *6*, *Enter*.
+	
+	Another example: to input 😍 (SMILING FACE WITH HEART-SHAPED EYES,
+	Unicode codepoint 0x1f60d), activate this key binding, then type:
+	*1*, *f*, *6*, *0*, *d*, *Enter*.
+	
+	Recognized key bindings in Unicode input mode:
+	
+	- Enter, Space: commit the Unicode character, then exit this mode.
+	- Escape, q, Ctrl+c, Ctrl+d, Ctrl+g: abort input, then exit this mode.
+	- 0-9, a-f: append next digit to the Unicode's codepoint.
+	- Backspace: undo the last digit.
+	
+	Note that there is no visual feedback while in this mode. This is
+	by design; foot's Unicode input mode is considered to be a
+	fallback. The preferred way of entering Unicode characters, emojis
+	etc is by using an IME.
+	
+	Default: _Control+Shift+u_.
 
 # SECTION: search-bindings
 
@@ -843,13 +980,35 @@ scrollback search mode. The syntax is exactly the same as the regular
 	Deletes the **word after** the cursor. Default: _Mod1+d
 	Control+Delete_.
 
+*extend-char*
+	Extend current selection to the right, by one character. Default:
+	_Shift+Right_.
+
 *extend-to-word-boundary*
-	Extend current selection to the next word boundary. Default:
-	_Control+w_.
+	Extend current selection to the right, to the next word
+	boundary. Default: _Control+w Control+Shift+Right_.
 
 *extend-to-next-whitespace*
-	Extend the current selection to the next whitespace. Default:
-	_Control+Shift+w_.
+	Extend the current selection to the right, to the next
+	whitespace. Default: _Control+Shift+w_.
+
+*extend-line-down*
+	Extend current selection down one line. Default: _Shift+Down_.
+
+*extend-backward-char*
+	Extend current selection to the left, by one character. Default:
+	_Shift+Left_.
+
+*extend-backward-to-word-boundary*
+	Extend current selection to the left, to the next word
+	boundary. Default: _Control+Shift+Left_.
+
+*extend-backward-to-next-whitespace*
+	Extend the current selection to the left, to the next
+	whitespace. Default: _none_.
+
+*extend-line-up*
+	Extend current selection up one line. Default: _Shift+Up_.
 
 *clipboard-paste*
 	Paste from the _clipboard_ into the search buffer. Default:
@@ -858,6 +1017,35 @@ scrollback search mode. The syntax is exactly the same as the regular
 *primary-paste*
 	Paste from the _primary selection_ into the search
 	buffer. Default: _Shift+Insert_.
+
+*unicode-input*
+	Unicode input mode. See _key-bindings.unicode-input_ for
+	details. Default: _none_.
+
+*scrollback-up-page*
+	Scrolls up/back one page in history. Default: _Shift+Page\_Up_.
+
+*scrollback-up-half-page*
+	Scrolls up/back half of a page in history. Default: _none_.
+
+*scrollback-up-line*
+	Scrolls up/back a single line in history. Default: _none_.
+
+*scrollback-down-page*
+	Scroll down/forward one page in history. Default:
+	_Shift+Page\_Down_.
+
+*scrollback-down-half-page*
+	Scroll down/forward half of a page in history. Default: _none_.
+
+*scrollback-down-line*
+	Scroll down/forward a single line in history. Default: _none_.
+
+*scrollback-home*
+	Scroll to the beginning of the scrollback. Default: _none_.
+
+*scrollback-end*
+	Scroll to the end (bottom) of the scrollback. Default: _none_.
 
 # SECTION: url-bindings
 
@@ -877,7 +1065,7 @@ Be careful; do not use single-letter keys that are also used in
 	original text.
 	
 	But with e.g. OSC-8 URLs (the terminal version of HTML anchors,
-	i.e. "links"), the text on the screen can be something completey
+	i.e. "links"), the text on the screen can be something completely
 	different than the URL.
 	
 	This action toggles between showing and hiding the URL on the jump
@@ -926,9 +1114,14 @@ of the modifiers *must* be valid XKB key names, and the button name
 *must* be a valid libinput name. You can find the button names using
 *libinput debug-events*.
 
-The trailing *COUNT* is optional and specifies the click count
-required to trigger the binding. The default if *COUNT* is omitted is
-_1_.
+The trailing *COUNT* (number of times the button has to be clicked) is
+optional and specifies the click count required to trigger the
+binding. The default if *COUNT* is omitted is _1_.
+
+To map wheel events (i.e. scrolling), use the button names *BTN_BACK*
+(up) and *BTN_FORWARD* (down). Note that these events never generate a
+*COUNT* larger than 1. That is, *BTN_BACK+2*, for example, will never
+trigger.
 
 A modifier+button combination can only be mapped to *one* action. Lets
 say you want to bind *BTN\_MIDDLE* to *fullscreen*. Since
@@ -949,6 +1142,22 @@ _action=none_; e.g. *primary-paste=none*.
 
 The actions to which mouse combos can be bound are listed below. All
 actions listed under *key-bindings* can be used here as well.
+
+*scrollback-up-mouse*
+	Normal screen: scrolls up the contents.
+	
+	Alt screen: send fake _KeyUP_ events to the client application, if
+	alternate scroll mode is enabled.
+	
+	Default: _BTN_BACK_
+
+*scrollback-down-mouse*
+	Normal screen: scrolls down the contents.
+	
+	Alt screen: send fake _KeyDOWN_ events to the client application, if
+	alternate scroll mode is enabled.
+
+	Default: _BTN_FORWARD_
 
 *select-begin*
 	Begin an interactive selection. The selection is finalized, and
@@ -974,10 +1183,37 @@ actions listed under *key-bindings* can be used here as well.
 	selection_, when the button is released. Default:
 	_Control+BTN\_LEFT-2_.
 
+*select-quote*
+	Begin an interactive "quote" selection. This is similar to
+	*select-word*, except an entire quote is selected (that is,
+	everything inside the quote, excluding the quote
+	characters). Recognized quote characters are: *"* and *'*.
+	
+	If a complete quote cannot be found on the current logical row
+	(only one quote character, or none are found), the entire row is
+	selected.
+	
+	The selection is finalized, and copied to the _primary selection_,
+	when the button is released.
+
+	After the initial selection has been made, it behaves like a
+	normal word, or row selection, depending on whether a quote was
+	found or not. This affects what happens when, for example,
+	extending the selection.
+	
+	Notes:
+	- Escaped quote characters are not supported (*"foo \\"bar"* will
+	  match *'foo \\'*, not *'foo "bar'*).
+	- Foot does not try to handle mismatched quote characters; they
+	  will simply not match.
+	- Nested quotes (using different quote characters) are supported.
+	
+	Default: _BTN\_LEFT-3_.
+
 *select-row*
 	Begin an interactive row-wise selection. The selection is
 	finalized, and copied to the _primary selection_, when the button
-	is released. Default: _BTN\_LEFT-3_.
+	is released. Default: _BTN\_LEFT-4_.
 
 *select-extend*
 	Interactively extend an existing selection, using the original
@@ -1153,6 +1389,8 @@ any of these options.
 		- foot must have been compiled with utf8proc support
 		- fcft must have been compiled with HarfBuzz support
 	
+	This option can also be set runtime with DECSET/DECRST 2027.
+	
 	See also: *grapheme-width-method*.
 	
 	Default: _yes_
@@ -1173,7 +1411,7 @@ any of these options.
 	
 	*max* uses the width of the largest codepoint in the cluster.
 	
-	Default: _wcswidth_
+	Default: _double-width_
 
 *font-monospace-warn*
 	Boolean. When enabled, foot will use heuristics to try to verify
@@ -1231,7 +1469,13 @@ any of these options.
 	Default: _512_. Maximum allowed: _2048_ (2GB).
 
 *sixel*
-	Boolean. When enabled, foot will process sixel images. Default: _yes_
+	Boolean. When enabled, foot will process sixel images. Default:
+	_yes_
+
+*bold-text-in-bright-amount*
+	Amount by which bold fonts are brightened when
+	*bold-text-in-bright* is set to *yes* (the *palette-based* variant
+	is not affected by this option). Default: _1.3_.
 
 # SEE ALSO
 

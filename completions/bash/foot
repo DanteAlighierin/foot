@@ -31,7 +31,7 @@ _foot()
     cur=${COMP_WORDS[COMP_CWORD]}
     prev=${COMP_WORDS[COMP_CWORD-1]}
 
-    # check if positional argument is completed
+    # Check if positional argument is completed
     previous_words=( "${COMP_WORDS[@]}" )
     unset previous_words[-1]
     commands=$(compgen -c | grep -vFx "$(compgen -k)" | grep -vE '^([.:[]|foot)$' | sort -u)
@@ -43,40 +43,44 @@ _foot()
                 (( i++ ))
                 continue
             fi
-            # positional argument found
+            # Positional argument found
             offset=$i
         fi
         (( i++ ))
     done
 
     if [[ ! -z "$offset" ]] ; then
-        # depends on bash_completion being available
+        # Depends on bash_completion being available
         declare -F _command_offset >/dev/null || return 1
         _command_offset $offset
+        return 0
     elif [[ ${cur} == --* ]] ; then
         COMPREPLY=( $(compgen -W "${flags}" -- ${cur}) )
-    elif [[ ${prev} =~ ^(--config|--print-pid|--server)$ ]] ; then
-        compopt -o default
-    elif [[ ${prev} == '--working-directory' ]] ; then
-        compopt -o dirnames
-    elif [[ ${prev} == '--term' ]] ; then
-        # check if toe is available
-        which toe > /dev/null || return 1
-        COMPREPLY=( $(compgen -W "$(toe -a | awk '$1 ~ /[+]/ {next}; {print $1}')" -- ${cur}) )
-    elif [[ ${prev} == '--font' ]] ; then
-        # check if fc-list is available
-        which fc-list > /dev/null || return 1
-        COMPREPLY=( $(compgen -W "$(fc-list : family | sed 's/,/\n/g' | uniq | tr -d ' ')" -- ${cur}) )
-    elif [[ ${prev} == '--log-level' ]] ; then
-        COMPREPLY=( $(compgen -W "none error warning info" -- ${cur}) )
-    elif [[ ${prev} == '--log-colorize' ]] ; then
-        COMPREPLY=( $(compgen -W "never always auto" -- ${cur}) )
-    elif [[ ${prev} =~ ^(--app-id|--help|--override|--title|--version|--window-size-chars|--window-size-pixels|--check-config)$ ]] ; then
-        : # don't autocomplete for these flags
-    else
-        # complete commands from $PATH
-        COMPREPLY=( $(compgen -c -- ${cur}) )
+        return 0
     fi
+
+    case "$prev" in
+    --config|--print-pid|--server|-[cps])
+        compopt -o default ;;
+    --working-directory|-D)
+        compopt -o dirnames ;;
+    --term|-t)
+        command -v toe > /dev/null || return 1
+        COMPREPLY=( $(compgen -W "$(toe -a | awk '$1 !~ /[+]/ {print $1}')" -- ${cur}) ) ;;
+    --font|-f)
+        command -v fc-list > /dev/null || return 1
+        COMPREPLY=( $(compgen -W "$(fc-list : family | sed 's/,/\n/g' | uniq | tr -d ' ')" -- ${cur}) ) ;;
+    --log-level|-d)
+        COMPREPLY=( $(compgen -W "none error warning info" -- ${cur}) ) ;;
+    --log-colorize|-l)
+        COMPREPLY=( $(compgen -W "never always auto" -- ${cur}) ) ;;
+    --app-id|--help|--override|--title|--version|--window-size-chars|--window-size-pixels|--check-config|-[ahoTvWwC])
+        # Don't autocomplete for these flags
+        : ;;
+    *)
+        # Complete commands from $PATH
+        COMPREPLY=( $(compgen -c -- ${cur}) ) ;;
+    esac
 
     return 0
 }

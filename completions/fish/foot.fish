@@ -15,7 +15,7 @@ complete -c foot -x -s W -l window-size-chars                                   
 complete -c foot -F -s s -l server                                                                    -d "run as server; open terminals by running footclient"
 complete -c foot    -s H -l hold                                                                      -d "remain open after child process exits"
 complete -c foot -r -s p -l print-pid                                                                 -d "print PID to this file or FD when up and running (server mode only)"
-complete -c foot -x -s d -l log-level           -a "info warning error none"                          -d "log-level (info)"
+complete -c foot -x -s d -l log-level           -a "info warning error none"                          -d "log-level (warning)"
 complete -c foot -x -s l -l log-colorize        -a "always never auto"                                -d "enable or disable colorization of log output on stderr"
 complete -c foot    -s S -l log-no-syslog                                                             -d "disable syslog logging (server mode only)"
 complete -c foot    -s v -l version                                                                   -d "show the version number and quit"

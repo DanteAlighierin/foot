@@ -16,7 +16,7 @@ _arguments \
     '(-N --no-wait)'{-N,--no-wait}'[detach the client process from the running terminal, exiting immediately]' \
     '(-o --override)'{-o,--override}'[configuration option to override, in form SECTION.KEY=VALUE]:()' \
     '(-E --client-environment)'{-E,--client-environment}"[child process inherits footclient's environment, instead of the server's]" \
-    '(-d --log-level)'{-d,--log-level}'[log level (info)]:loglevel:(info warning error none)' \
+    '(-d --log-level)'{-d,--log-level}'[log level (warning)]:loglevel:(info warning error none)' \
     '(-l --log-colorize)'{-l,--log-colorize}'[enable or disable colorization of log output on stderr]:logcolor:(never always auto)' \
     '(-v --version)'{-v,--version}'[show the version number and quit]' \
     '(-h --help)'{-h,--help}'[show help message and quit]' \

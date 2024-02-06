@@ -1,10 +1,25 @@
-sh = find_program('sh', native: true)
-
 scdoc_prog = find_program(scdoc.get_variable('scdoc'), native: true)
+
+if utmp_backend != 'none'
+  utmp_add_args = '@0@ $WAYLAND_DISPLAY'.format(utmp_add)
+  utmp_del_args = (utmp_del_have_argument
+                   ? '@0@ $WAYLAND_DISPLAY'.format(utmp_del)
+                   : '@0@'.format(utmp_del))
+  utmp_path = utmp_default_helper_path
+else
+  utmp_add_args = '<no utmp support in foot>'
+  utmp_del_args = '<no utmp support in foot>'
+  utmp_path = 'none'
+endif
+
 
 conf_data = configuration_data(
   {
     'default_terminfo': get_option('default-terminfo'),
+    'utmp_backend': utmp_backend,
+    'utmp_add_args': utmp_add_args,
+    'utmp_del_args': utmp_del_args,
+    'utmp_helper_path': utmp_path,
   }
 )
 
@@ -26,8 +41,9 @@ foreach man_src : [{'name': 'foot', 'section' : 1},
     out,
     output: out,
     input: preprocessed,
-    command: [sh, '-c', '@0@ < @INPUT@'.format(scdoc_prog.full_path())],
+    command: scdoc_prog.full_path(),
     capture: true,
+    feed: true,
     install: true,
     install_dir: join_paths(get_option('mandir'), 'man@0@'.format(section)))
 endforeach
