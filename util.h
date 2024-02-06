@@ -1,11 +1,19 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 #include <threads.h>
 
 #define ALEN(v) (sizeof(v) / sizeof((v)[0]))
 #define min(x, y) ((x) < (y) ? (x) : (y))
 #define max(x, y) ((x) > (y) ? (x) : (y))
+
+static inline bool
+streq(const char *a, const char *b)
+{
+    return strcmp(a, b) == 0;
+}
 
 static inline const char *
 thrd_err_as_string(int thrd_err)

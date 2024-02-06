@@ -301,7 +301,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
 #undef CHECK_BUF_AND_NULL
 #undef CHECK_BUF
 
-    struct terminal_instance *instance = malloc(sizeof(struct terminal_instance));
+    struct terminal_instance *instance = xmalloc(sizeof(struct terminal_instance));
 
     const bool need_to_clone_conf =
         tll_length(overrides)> 0 ||
@@ -332,7 +332,8 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     instance->terminal = term_init(
         conf != NULL ? conf : server->conf,
         server->fdm, server->reaper, server->wayl, "footclient", cwd, token,
-        cdata.argc, argv, envp, &term_shutdown_handler, instance);
+        cdata.argc, argv, (const char *const *)envp,
+        &term_shutdown_handler, instance);
 
     if (instance->terminal == NULL) {
         LOG_ERR("failed to instantiate new terminal");

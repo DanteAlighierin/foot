@@ -21,9 +21,15 @@
 #include "macros.h"
 #include "terminal.h"
 #include "tokenize.h"
+#include "util.h"
 #include "xmalloc.h"
 
 extern char **environ;
+
+struct environ {
+    size_t count;
+    char **envp;
+};
 
 #if defined(__FreeBSD__)
 static char *
@@ -116,7 +122,7 @@ is_valid_shell(const char *shell)
         if (line[0] == '#')
             continue;
 
-        if (strcmp(line, shell) == 0) {
+        if (streq(line, shell)) {
             fclose(f);
             return true;
         }
@@ -303,9 +309,69 @@ err:
     _exit(errno);
 }
 
+static bool
+env_matches_var_name(const char *e, const char *name)
+{
+    const size_t e_len = strlen(e);
+    const size_t name_len = strlen(name);
+
+    if (e_len <= name_len)
+        return false;
+    if (memcmp(e, name, name_len) != 0)
+        return false;
+    if (e[name_len] != '=')
+        return false;
+    return true;
+}
+
+static void
+add_to_env(struct environ *env, const char *name, const char *value)
+{
+    if (env->envp == NULL)
+        setenv(name, value, 1);
+    else {
+        char *e = xasprintf("%s=%s", name, value);
+
+        /* Search for existing variable. If found, replace it with the
+           new value */
+        for (size_t i = 0; i < env->count; i++) {
+            if (env_matches_var_name(env->envp[i], name)) {
+                free(env->envp[i]);
+                env->envp[i] = e;
+                return;
+            }
+        }
+
+        /* If the variable does not already exist, add it */
+        env->envp = xrealloc(env->envp, (env->count + 2) * sizeof(env->envp[0]));
+        env->envp[env->count++] = e;
+        env->envp[env->count] = NULL;
+    }
+}
+
+static void
+del_from_env(struct environ *env, const char *name)
+{
+    if (env->envp == NULL)
+        unsetenv(name);
+    else {
+        for (size_t i = 0; i < env->count; i++) {
+            if (env_matches_var_name(env->envp[i], name)) {
+                free(env->envp[i]);
+                memmove(&env->envp[i],
+                        &env->envp[i + 1],
+                        (env->count - i) * sizeof(env->envp[0]));
+                env->count--;
+                xassert(env->envp[env->count] == NULL);
+                break;
+            }
+        }
+    }
+}
+
 pid_t
 slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
-            char *const *envp, const env_var_list_t *extra_env_vars,
+            const char *const *envp, const env_var_list_t *extra_env_vars,
             const char *term_env, const char *conf_shell, bool login_shell,
             const user_notifications_t *notifications)
 {
@@ -350,16 +416,42 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
             _exit(errno_copy);
         }
 
-        setenv("TERM", term_env, 1);
-        setenv("COLORTERM", "truecolor", 1);
+        /* Create a mutable copy of the environment */
+        struct environ custom_env = {0};
+        if (envp != NULL) {
+            for (const char *const *e = envp; *e != NULL; e++)
+                custom_env.count++;
+
+            custom_env.envp = xcalloc(
+                custom_env.count + 1, sizeof(custom_env.envp[0]));
+
+            size_t i = 0;
+            for (const char *const *e = envp; *e != NULL; e++, i++)
+                custom_env.envp[i] = xstrdup(*e);
+            xassert(custom_env.envp[custom_env.count] == NULL);
+        }
+
+        add_to_env(&custom_env, "TERM", term_env);
+        add_to_env(&custom_env, "COLORTERM", "truecolor");
+        add_to_env(&custom_env, "PWD", cwd);
+
+        del_from_env(&custom_env, "TERM_PROGRAM");
+        del_from_env(&custom_env, "TERM_PROGRAM_VERSION");
 
 #if defined(FOOT_TERMINFO_PATH)
-        setenv("TERMINFO", FOOT_TERMINFO_PATH, 1);
+        add_to_env(&custom_env, "TERMINFO", FOOT_TERMINFO_PATH);
 #endif
 
         if (extra_env_vars != NULL) {
-            tll_foreach(*extra_env_vars, it)
-                setenv(it->item.name, it->item.value, 1);
+            tll_foreach(*extra_env_vars, it) {
+                const char *name = it->item.name;
+                const char *value = it->item.value;
+
+                if (strlen(value) == 0)
+                    del_from_env(&custom_env, name);
+                else
+                    add_to_env(&custom_env, name, value);
+            }
         }
 
         char **_shell_argv = NULL;
@@ -382,14 +474,23 @@ slave_spawn(int ptmx, int argc, const char *cwd, char *const *argv,
         }
 
         if (is_valid_shell(shell_argv[0]))
-            setenv("SHELL", shell_argv[0], 1);
+            add_to_env(&custom_env, "SHELL", shell_argv[0]);
 
-        slave_exec(ptmx, shell_argv, envp != NULL ? envp : environ,
+        slave_exec(ptmx, shell_argv,
+                   custom_env.envp != NULL ? custom_env.envp : environ,
                    fork_pipe[1], login_shell, notifications);
         BUG("Unexpected return from slave_exec()");
         break;
 
     default: {
+
+        /*
+         * Don't stay in CWD, since it may be an ephemeral path. For
+         * example, it may be a mount point of, say, a thumb drive. Us
+         * keeping it open will prevent the user from unmounting it.
+         */
+        (void)!!chdir("/");
+
         close(fork_pipe[1]); /* Close write end */
         LOG_DBG("slave has PID %d", pid);
 

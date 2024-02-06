@@ -22,11 +22,13 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
       1. [Normal mode](#normal-mode)
       1. [Scrollback search](#scrollback-search)
    1. [Mouse](#mouse)
+   1. [Touchscreen](#touchscreen)
 1. [Server (daemon) mode](#server-daemon-mode)
 1. [URLs](#urls)
 1. [Shell integration](#shell-integration)
    1. [Current working directory](#current-working-directory)
    1. [Jumping between prompts](#jumping-between-prompts)
+   1. [Piping last command's output](#piping-last-command-s-output)
 1. [Alt/meta](#alt-meta)
 1. [Backspace](#backspace)
 1. [Keypad](#keypad)
@@ -163,9 +165,12 @@ These are the default shortcuts. See `man foot.ini` and the example
   sequence](https://codeberg.org/dnkl/foot/wiki#user-content-spawning-new-terminal-instances-in-the-current-working-directory),
   the new terminal will start in the current working directory.
 
-<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>u</kbd>
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>o</kbd>
 : Enter URL mode, where all currently visible URLs are tagged with a
   jump label with a key sequence that will open the URL.
+
+<kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>u</kbd>
+: Enter Unicode input mode.
 
 <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>z</kbd>
 : Jump to the previous, currently not visible, prompt. Requires [shell
@@ -246,6 +251,17 @@ These are the default shortcuts. See `man foot.ini` and the example
 : Scroll up/down in history
 
 
+### Touchscreen
+
+<kbd>tap</kbd>
+: Emulates mouse left button click.
+
+<kbd>drag</kbd>
+: Scrolls up/down in history.
+: Holding for a while before dragging (time delay can be configured)
+  emulates mouse dragging with left button held.
+
+
 ## Server (daemon) mode
 
 When run normally, **foot** is a single-window application; if you
@@ -287,10 +303,10 @@ Foot supports URL detection. But, unlike many other terminal
 emulators, where URLs are highlighted when they are hovered and opened
 by clicking on them, foot uses a keyboard driven approach.
 
-Pressing <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>u</kbd> enters _“URL
-mode”_, where all currently visible URLs are underlined, and is
-associated with a _“jump-label”_. The jump-label indicates the _key
-sequence_ (e.g. **”AF”**) to use to activate the URL.
+Pressing <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>o</kbd> enters _"URL
+mode"_, where all currently visible URLs are underlined, and is
+associated with a _"jump-label"_. The jump-label indicates the _key
+sequence_ (e.g. **"AF"**) to use to activate the URL.
 
 The key binding can, of course, be customized, like all other key
 bindings in foot. See `show-urls-launch` and `show-urls-copy` in the
@@ -313,7 +329,7 @@ the jump label key sequences can be configured.
 
 New foot terminal instances (bound to
 <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>n</kbd> by default) will open in
-the current working directory, **if** the shell in the “parent”
+the current working directory, **if** the shell in the "parent"
 terminal reports directory changes.
 
 This is done with the OSC-7 escape sequence. Most shells can be
@@ -343,6 +359,42 @@ precmd() {
 See the
 [wiki](https://codeberg.org/dnkl/foot/wiki#user-content-jumping-between-prompts)
 for details, and examples for other shells.
+
+### Piping last command's output
+
+The key binding `pipe-command-output` can pipe the last command's
+output to an application of your choice (similar to the other `pipe-*`
+key bindings):
+
+```ini
+[key-bindings]
+pipe-command-output=[sh -c "f=$(mktemp); cat - > $f; footclient emacsclient -nw $f; rm $f"] Control+Shift+g
+```
+
+When pressing <kbd>ctrl</kbd>+<kbd>shift</kbd>+<kbd>g</kbd>, the last
+command's output is written to a temporary file, then an emacsclient
+is started in a new footclient instance. The temporary file is removed
+after the footclient instance has closed.
+
+For this to work, the shell must emit an OSC-133;C (`\E]133;C\E\\`)
+sequence before command output starts, and an OSC-133;D
+(`\E]133;D\E\\`) when the command output ends.
+
+In fish, one way to do this is to add `preexec` and `postexec` hooks:
+
+```fish
+function foot_cmd_start --on-event fish_preexec
+  echo -en "\e]133;C\e\\"
+end
+
+function foot_cmd_end --on-event fish_postexec
+  echo -en "\e]133;D\e\\"
+end
+```
+
+See the
+[wiki](https://codeberg.org/dnkl/foot/wiki#user-content-piping-last-command-s-output)
+for details, and examples for other shells
 
 
 ## Alt/meta
@@ -411,25 +463,51 @@ This is not how it is meant to be. Fonts are measured in _point sizes_
 **for a reason**; a given point size should have the same height on
 all mediums, be it printers or monitors, regardless of their DPI.
 
-Foot’s default behavior is to use the monitor’s DPI to size fonts when
-output scaling has been disabled on **all** monitors. If at least one
-monitor has output scaling enabled, fonts will instead by sized using
-the scaling factor.
+That said, on Wayland, Hi-DPI monitors are typically handled by
+configuring a _"scaling factor"_ in the compositor. This is usually
+expressed as either a rational value (e.g. _1.5_), or as a percentage
+(e.g. _150%_), by which all fonts and window sizes are supposed to be
+multiplied.
 
-This can be changed to either **always** use the monitor’s DPI
-(regardless of scaling factor), or to **never** use it, with the
-`dpi-aware` option in `foot.ini`. See the man page, **foot.ini**(5)
-for more information.
+For this reason, and because of the new _fractional scaling_ protocol
+(see below for details), and because this is how Wayland applications
+are expected to behave, foot >= 1.15 will default to scaling fonts
+using the compositor's scaling factor, and **not** the monitor
+DPI.
 
-When fonts are sized using the monitor’s DPI, glyphs should always
-have the same physical height, regardless of monitor.
+This means the (assuming the monitors are at the same viewing
+distance) the font size will appear to change when you move the foot
+window across different monitors, **unless** you have configured the
+monitors' scaling factors correctly in the compositor.
 
-Furthermore, foot will re-size the fonts on-the-fly when the window is
-moved between screens with different DPIs values. If the window covers
-multiple screens, with different DPIs, the highest DPI will be used.
+This can be changed by setting the `dpi-aware` option to `yes` in
+`foot.ini`. When enabled, fonts will **not** be sized using the
+scaling factor, but will instead be sized using the monitor's
+DPI. When the foot window is moved across monitors, the font size is
+updated for the current monitor's DPI.
+
+This means that, assuming the monitors are **at the same viewing
+distance**, the font size will appear to be the same, at all times.
 
 _Note_: if you configure **pixelsize**, rather than **size**, then DPI
 changes will **not** change the font size. Pixels are always pixels.
+
+
+### Fractional scaling on Wayland
+
+For a long time, there was no **true** support for _fractional
+scaling_. That is, values like 1.5 (150%), 1.8 (180%) etc, only
+integer values, like 2 (200%).
+
+Compositors that _did_ support fractional scaling did so using a hack;
+all applications were told to scale to 200%, and then the compositor
+would down-scale the rendered image to e.g. 150%. This works OK for
+everything **except fonts**, which ended up blurry.
+
+With _wayland-protocols 1.32_, a new protocol was introduced, that
+allows compositors to tell applications the _actual_ scaling
+factor. Applications can then scale the image using a _viewport_
+object, instead of setting a scale factor on the raw pixel buffer.
 
 
 ## Supported OSCs
@@ -458,6 +536,7 @@ with the terminal emulator itself. Foot implements the following OSCs:
 * `OSC 117` - reset highlight background color
 * `OSC 119` - reset highlight foreground color
 * `OSC 133` - [shell integration](#shell-integration)
+* `OSC 176` - set app ID
 * `OSC 555` - flash screen (**foot specific**)
 * `OSC 777` - desktop notification (only the `;notify` sub-command of
   OSC 777 is supported.)
@@ -496,7 +575,7 @@ emulator actually responded to.
 
 Starting with version 1.7.0, foot also implements `XTVERSION`, to
 which it will reply with `\EP>|foot(version)\E\\`. Version is
-e.g. “1.8.2” for a regular release, or “1.8.2-36-g7db8e06f” for a git
+e.g. "1.8.2" for a regular release, or "1.8.2-36-g7db8e06f" for a git
 build.
 
 
@@ -509,9 +588,9 @@ It allows querying the terminal for terminfo
 capabilities. Applications using this feature do not need to use the
 classic, file-based, terminfo definition. For example, if all
 applications used this feature, you would no longer have to install
-foot’s terminfo on remote hosts you SSH into.
+foot's terminfo on remote hosts you SSH into.
 
-XTerm’s implementation (as of XTerm-370) only supports querying key
+XTerm's implementation (as of XTerm-370) only supports querying key
 (as in keyboard keys) capabilities, and three custom capabilities:
 
 * `TN` - terminal name
@@ -523,7 +602,7 @@ Kitty has extended this, and also supports querying all integer and
 string capabilities.
 
 Foot supports this, and extends it even further, to also include
-boolean capabilities. This means foot’s entire terminfo can be queried
+boolean capabilities. This means foot's entire terminfo can be queried
 via `XTGETTCAP`.
 
 Note that both Kitty and foot handles **responses** to
@@ -535,7 +614,7 @@ capability/value pairs. There are a couple of issues with this:
 * The success/fail flag in the beginning of the response is always `1`
   (success), unless the very **first** queried capability is invalid.
 * XTerm will not respond **at all** to an invalid capability, unless
-  it’s the first one in the `XTGETTCAP` query.
+  it's the first one in the `XTGETTCAP` query.
 * XTerm will end the response at the first invalid capability.
 
 In other words, if you send a large multi-capability query, you will
@@ -565,7 +644,7 @@ reported the same issue.
 The report should contain the following:
 
 - Foot version (`foot --version`).
-- Log output from foot (start foot from another terminal).
+- Log output from foot (run `foot -d info` from another terminal).
 - Which Wayland compositor (and version) you are running.
 - If reporting a crash, please try to provide a `bt full` backtrace
   with symbols.

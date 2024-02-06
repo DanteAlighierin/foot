@@ -7,6 +7,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
 
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -45,20 +46,6 @@
 #include "xmalloc.h"
 
 #define PTMX_TIMING 0
-
-const char *const XCURSOR_HIDDEN = "hidden";
-const char *const XCURSOR_LEFT_PTR = "left_ptr";
-const char *const XCURSOR_TEXT = "text";
-const char *const XCURSOR_TEXT_FALLBACK = "xterm";
-//const char *const XCURSOR_HAND2 = "hand2";
-const char *const XCURSOR_TOP_LEFT_CORNER = "top_left_corner";
-const char *const XCURSOR_TOP_RIGHT_CORNER = "top_right_corner";
-const char *const XCURSOR_BOTTOM_LEFT_CORNER = "bottom_left_corner";
-const char *const XCURSOR_BOTTOM_RIGHT_CORNER = "bottom_right_corner";
-const char *const XCURSOR_LEFT_SIDE = "left_side";
-const char *const XCURSOR_RIGHT_SIDE = "right_side";
-const char *const XCURSOR_TOP_SIDE = "top_side";
-const char *const XCURSOR_BOTTOM_SIDE = "bottom_side";
 
 static void
 enqueue_data_for_slave(const void *data, size_t len, size_t offset,
@@ -203,6 +190,46 @@ fdm_ptmx_out(struct fdm *fdm, int fd, int events, void *data)
     return true;
 }
 
+static bool
+add_utmp_record(const struct config *conf, struct reaper *reaper, int ptmx)
+{
+#if defined(UTMP_ADD)
+    if (ptmx < 0)
+        return true;
+    if (conf->utmp_helper_path == NULL)
+        return true;
+
+    char *const argv[] = {conf->utmp_helper_path, UTMP_ADD, getenv("WAYLAND_DISPLAY"), NULL};
+    return spawn(reaper, NULL, argv, ptmx, ptmx, -1, NULL);
+#else
+    return true;
+#endif
+}
+
+static bool
+del_utmp_record(const struct config *conf, struct reaper *reaper, int ptmx)
+{
+#if defined(UTMP_DEL)
+    if (ptmx < 0)
+        return true;
+    if (conf->utmp_helper_path == NULL)
+        return true;
+
+    char *del_argument =
+#if defined(UTMP_DEL_HAVE_ARGUMENT)
+        getenv("WAYLAND_DISPLAY")
+#else
+        NULL
+#endif
+        ;
+
+    char *const argv[] = {conf->utmp_helper_path, UTMP_DEL, del_argument, NULL};
+    return spawn(reaper, NULL, argv, ptmx, ptmx, -1, NULL);
+#else
+    return true;
+#endif
+}
+
 #if PTMX_TIMING
 static struct timespec last = {0};
 #endif
@@ -231,8 +258,18 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
         cursor_blink_rearm_timer(term);
     }
 
+    if (unlikely(term->interactive_resizing.grid != NULL)) {
+        /*
+         * Don't consume PTMX while we're doing an interactive resize,
+         * since the 'normal' grid we're currently using is a
+         * temporary one - all changes done to it will be lost when
+         * the interactive resize ends.
+         */
+        return true;
+    }
+
     uint8_t buf[24 * 1024];
-    const size_t max_iterations = !hup ? 10 : (size_t)-1ll;
+    const size_t max_iterations = !hup ? 10 : SIZE_MAX;
 
     for (size_t i = 0; i < max_iterations && pollin; i++) {
         xassert(pollin);
@@ -254,6 +291,7 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
             break;
         }
 
+        xassert(term->interactive_resizing.grid == NULL);
         vt_from_slave(term, buf, count);
     }
 
@@ -326,11 +364,24 @@ fdm_ptmx(struct fdm *fdm, int fd, int events, void *data)
     }
 
     if (hup) {
+        del_utmp_record(term->conf, term->reaper, term->ptmx);
         fdm_del(fdm, fd);
         term->ptmx = -1;
     }
 
     return true;
+}
+
+bool
+term_ptmx_pause(struct terminal *term)
+{
+    return fdm_event_del(term->fdm, term->ptmx, EPOLLIN);
+}
+
+bool
+term_ptmx_resume(struct terminal *term)
+{
+    return fdm_event_add(term->fdm, term->ptmx, EPOLLIN);
 }
 
 static bool
@@ -357,11 +408,6 @@ fdm_flash(struct fdm *fdm, int fd, int events, void *data)
 
     term->flash.active = false;
     render_refresh(term);
-
-    /* Work around Sway bug - unmapping a sub-surface does not damage
-     * the underlying surface */
-    term_damage_margins(term);
-    term_damage_view(term);
     return true;
 }
 
@@ -576,9 +622,32 @@ fdm_title_update_timeout(struct fdm *fdm, int fd, int events, void *data)
 
     struct itimerspec reset = {{0}};
     timerfd_settime(term->render.title.timer_fd, 0, &reset, NULL);
-    term->render.title.is_armed = false;
 
     render_refresh_title(term);
+    return true;
+}
+
+static bool
+fdm_app_id_update_timeout(struct fdm *fdm, int fd, int events, void *data)
+{
+    if (events & EPOLLHUP)
+        return false;
+
+    struct terminal *term = data;
+    uint64_t unused;
+    ssize_t ret = read(term->render.app_id.timer_fd, &unused, sizeof(unused));
+
+    if (ret < 0) {
+        if (errno == EAGAIN)
+            return true;
+        LOG_ERRNO("failed to read app ID update throttle timer");
+        return false;
+    }
+
+    struct itimerspec reset = {{0}};
+    timerfd_settime(term->render.app_id.timer_fd, 0, &reset, NULL);
+
+    render_refresh_app_id(term);
     return true;
 }
 
@@ -655,8 +724,40 @@ free_custom_glyphs(struct fcft_glyph ***glyphs, size_t count)
     *glyphs = NULL;
 }
 
+static void
+term_line_height_update(struct terminal *term)
+{
+    const struct config *conf = term->conf;
+
+    if (term->conf->line_height.px < 0) {
+        term->font_line_height.pt = 0;
+        term->font_line_height.px = -1;
+        return;
+    }
+
+    const float dpi = term->font_is_sized_by_dpi ? term->font_dpi : 96.;
+
+    const float font_original_pt_size =
+        conf->fonts[0].arr[0].px_size > 0
+        ? conf->fonts[0].arr[0].px_size * 72. / dpi
+        : conf->fonts[0].arr[0].pt_size;
+    const float font_current_pt_size =
+        term->font_sizes[0][0].px_size > 0
+        ? term->font_sizes[0][0].px_size * 72. / dpi
+        : term->font_sizes[0][0].pt_size;
+
+    const float change = font_current_pt_size / font_original_pt_size;
+    const float line_original_pt_size = conf->line_height.px > 0
+            ? conf->line_height.px * 72. / dpi
+            : conf->line_height.pt;
+
+    term->font_line_height.px = 0;
+    term->font_line_height.pt = fmaxf(line_original_pt_size * change, 0.);
+}
+
 static bool
-term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
+term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4],
+               bool resize_grid)
 {
     for (size_t i = 0; i < 4; i++) {
         xassert(fonts[i] != NULL);
@@ -672,14 +773,13 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
     free_custom_glyphs(
         &term->custom_glyphs.legacy, GLYPH_LEGACY_COUNT);
 
-    const int old_cell_width = term->cell_width;
-    const int old_cell_height = term->cell_height;
-
     const struct config *conf = term->conf;
 
     const struct fcft_glyph *M = fcft_rasterize_char_utf32(
         fonts[0], U'M', term->font_subpixel);
     int advance = M != NULL ? M->advance.x : term->fonts[0]->max_advance.x;
+
+    term_line_height_update(term);
 
     term->cell_width = advance +
         term_pt_or_px_as_pixels(term, &conf->letter_spacing);
@@ -697,33 +797,22 @@ term_set_fonts(struct terminal *term, struct fcft_font *fonts[static 4])
     term->font_x_ofs = term_pt_or_px_as_pixels(term, &conf->horizontal_letter_offset);
     term->font_y_ofs = term_pt_or_px_as_pixels(term, &conf->vertical_letter_offset);
 
+    term->font_baseline = term_font_baseline(term);
+
     LOG_INFO("cell width=%d, height=%d", term->cell_width, term->cell_height);
 
-    if (term->cell_width < old_cell_width ||
-        term->cell_height < old_cell_height)
-    {
-        /*
-         * The cell size has decreased.
-         *
-         * This means sixels, which we cannot resize, no longer fit
-         * into their "allocated" grid space.
-         *
-         * To be able to fit them, we would have to change the grid
-         * content. Inserting empty lines _might_ seem acceptable, but
-         * we'd also need to insert empty columns, which would break
-         * existing layout completely.
-         *
-         * So we delete them.
-         */
-        sixel_destroy_all(term);
-    } else if (term->cell_width != old_cell_width ||
-               term->cell_height != old_cell_height)
-    {
-        sixel_cell_size_changed(term);
-    }
+    sixel_cell_size_changed(term);
 
-    /* Use force, since cell-width/height may have changed */
-    render_resize_force(term, term->width / term->scale, term->height / term->scale);
+    /* Optimization - some code paths (are forced to) call
+     * render_resize() after this function */
+    if (resize_grid) {
+        /* Use force, since cell-width/height may have changed */
+        render_resize(
+            term,
+            (int)roundf(term->width / term->scale),
+            (int)roundf(term->height / term->scale),
+            RESIZE_FORCE | RESIZE_KEEP_GRID);
+    }
     return true;
 }
 
@@ -738,41 +827,34 @@ get_font_dpi(const struct terminal *term)
      * Conceptually, we use the physical monitor specs to calculate
      * the DPI, and we ignore the output's scaling factor.
      *
-     * However, to deal with fractional scaling, where we're told to
-     * render at e.g. 2x, but are then downscaled by the compositor to
-     * e.g. 1.25, we use the scaled DPI value multiplied by the scale
-     * factor instead.
+     * However, to deal with legacy fractional scaling, where we're
+     * told to render at e.g. 2x, but are then downscaled by the
+     * compositor to e.g. 1.25, we use the scaled DPI value multiplied
+     * by the scale factor instead.
      *
      * For integral scaling factors the resulting DPI is the same as
      * if we had used the physical DPI.
      *
-     * For fractional scaling factors we'll get a DPI *larger* than
-     * the physical DPI, that ends up being right when later
+     * For legacy fractional scaling factors we'll get a DPI *larger*
+     * than the physical DPI, that ends up being right when later
      * downscaled by the compositor.
+     *
+     * With the newer fractional-scale-v1 protocol, we use the
+     * monitor's real DPI, since we scale everything to the correct
+     * scaling factor (no downscaling done by the compositor).
      */
 
-    /* Use highest DPI from outputs we're mapped on */
-    double dpi = 0.0;
-    xassert(term->window != NULL);
-    tll_foreach(term->window->on_outputs, it) {
-        if (it->item->dpi > dpi)
-            dpi = it->item->dpi;
-    }
+    xassert(tll_length(term->wl->monitors) > 0);
 
-    /* If we're not mapped, use DPI from first monitor. Hopefully this is where we'll get mapped later... */
-    if (dpi == 0.) {
-        tll_foreach(term->wl->monitors, it) {
-            dpi = it->item.dpi;
-            break;
-        }
-    }
+    const struct wl_window *win = term->window;
+    const struct monitor *mon = tll_length(win->on_outputs) > 0
+        ? tll_back(win->on_outputs)
+        : &tll_front(term->wl->monitors);
 
-    if (dpi == 0) {
-        /* No monitors? */
-        dpi = 96.;
-    }
-
-    return dpi;
+    if (term_fractional_scaling(term))
+        return mon != NULL ? mon->dpi.physical : 96.;
+    else
+        return mon != NULL ? mon->dpi.scaled : 96.;
 }
 
 static enum fcft_subpixel
@@ -791,7 +873,8 @@ get_font_subpixel(const struct terminal *term)
      * output or not.
      *
      * Thus, when determining which subpixel mode to use, we can't do
-     * much but select *an* output. So, we pick the first one.
+     * much but select *an* output. So, we pick the one we were most
+     * recently mapped on.
      *
      * If we're not mapped at all, we pick the first available
      * monitor, and hope that's where we'll eventually get mapped.
@@ -801,7 +884,7 @@ get_font_subpixel(const struct terminal *term)
      */
 
     if (tll_length(term->window->on_outputs) > 0)
-        wl_subpixel = tll_front(term->window->on_outputs)->subpixel;
+        wl_subpixel = tll_back(term->window->on_outputs)->subpixel;
     else if (tll_length(term->wl->monitors) > 0)
         wl_subpixel = tll_front(term->wl->monitors).subpixel;
     else
@@ -819,52 +902,16 @@ get_font_subpixel(const struct terminal *term)
     return FCFT_SUBPIXEL_DEFAULT;
 }
 
-static bool
-term_font_size_by_dpi(const struct terminal *term)
-{
-    switch (term->conf->dpi_aware) {
-    case DPI_AWARE_YES:  return true;
-    case DPI_AWARE_NO:   return false;
-
-    case DPI_AWARE_AUTO:
-        /*
-         * Scale using DPI if all monitors have a scaling factor or 1.
-         *
-         * The idea is this: if a user, with multiple monitors, have
-         * enabled scaling on at least one monitor, then he/she has
-         * most likely done so to match the size of his/hers other
-         * monitors.
-         *
-         * I.e. if the user has one monitor with a scaling factor of
-         * one, and another with a scaling factor of two, he/she
-         * expects things to be twice as large on the second
-         * monitor.
-         *
-         * If we (foot) scale using DPI on the first monitor, and
-         * using the scaling factor on the second monitor, foot will
-         * *not* look twice as big on the second monitor.
-         */
-        tll_foreach(term->wl->monitors, it) {
-            const struct monitor *mon = &it->item;
-            if (mon->scale > 1)
-                return false;
-        }
-        return true;
-    }
-
-    BUG("unhandled DPI awareness value");
-}
-
 int
 term_pt_or_px_as_pixels(const struct terminal *term,
                         const struct pt_or_px *pt_or_px)
 {
-    double scale = !term->font_is_sized_by_dpi ? term->scale : 1.;
-    double dpi = term->font_is_sized_by_dpi  ? term->font_dpi : 96.;
+    float scale = !term->font_is_sized_by_dpi ? term->scale : 1.;
+    float dpi = term->font_is_sized_by_dpi  ? term->font_dpi : 96.;
 
     return pt_or_px->px == 0
-        ? round(pt_or_px->pt * scale * dpi / 72)
-        : pt_or_px->px;
+        ? (int)roundf(pt_or_px->pt * scale * dpi / 72)
+        : (int)roundf(pt_or_px->px * scale);
 }
 
 struct font_load_data {
@@ -884,7 +931,7 @@ font_loader_thread(void *_data)
 }
 
 static bool
-reload_fonts(struct terminal *term)
+reload_fonts(struct terminal *term, bool resize_grid)
 {
     const struct config *conf = term->conf;
 
@@ -907,20 +954,16 @@ reload_fonts(struct terminal *term)
             bool use_px_size = term->font_sizes[i][j].px_size > 0;
             char size[64];
 
-            const int scale = term->font_is_sized_by_dpi ? 1 : term->scale;
+            const float scale = term->font_is_sized_by_dpi ? 1. : term->scale;
 
             if (use_px_size)
                 snprintf(size, sizeof(size), ":pixelsize=%d",
-                         term->font_sizes[i][j].px_size * scale);
+                         (int)roundf(term->font_sizes[i][j].px_size * scale));
             else
                 snprintf(size, sizeof(size), ":size=%.2f",
-                         term->font_sizes[i][j].pt_size * (double)scale);
+                         term->font_sizes[i][j].pt_size * scale);
 
-            size_t len = strlen(font->pattern) + strlen(size) + 1;
-            names[i][j] = xmalloc(len);
-
-            strcpy(names[i][j], font->pattern);
-            strcat(names[i][j], size);
+            names[i][j] = xstrjoin(font->pattern, size);
         }
     }
 
@@ -943,30 +986,14 @@ reload_fonts(struct terminal *term)
     const char **names_bold_italic = (const char **)(custom_bold_italic ? names[3] : names[0]);
 
     const bool use_dpi = term->font_is_sized_by_dpi;
+    char *dpi = xasprintf("dpi=%.2f", use_dpi ? term->font_dpi : 96.);
 
-    char *attrs[4] = {NULL};
-    int attr_len[4] = {-1, -1, -1, -1};  /* -1, so that +1 (below) results in 0 */
-
-    for (size_t i = 0; i < 2; i++) {
-        attr_len[0] = snprintf(
-            attrs[0], attr_len[0] + 1, "dpi=%.2f",
-            use_dpi ? term->font_dpi : 96);
-        attr_len[1] = snprintf(
-            attrs[1], attr_len[1] + 1, "dpi=%.2f:%s",
-            use_dpi ? term->font_dpi : 96, !custom_bold ? "weight=bold" : "");
-        attr_len[2] = snprintf(
-            attrs[2], attr_len[2] + 1, "dpi=%.2f:%s",
-            use_dpi ? term->font_dpi : 96, !custom_italic ? "slant=italic" : "");
-        attr_len[3] = snprintf(
-            attrs[3], attr_len[3] + 1, "dpi=%.2f:%s",
-            use_dpi ? term->font_dpi : 96, !custom_bold_italic ? "weight=bold:slant=italic" : "");
-
-        if (i > 0)
-            continue;
-
-        for (size_t i = 0; i < 4; i++)
-            attrs[i] = xmalloc(attr_len[i] + 1);
-    }
+    char *attrs[4] = {
+        [0] = dpi, /* Takes ownership */
+        [1] = xstrjoin(dpi, !custom_bold ? ":weight=bold" : ""),
+        [2] = xstrjoin(dpi, !custom_italic ? ":slant=italic" : ""),
+        [3] = xstrjoin(dpi, !custom_bold_italic ? ":weight=bold:slant=italic" : ""),
+    };
 
     struct fcft_font *fonts[4];
     struct font_load_data data[4] = {
@@ -1011,7 +1038,7 @@ reload_fonts(struct terminal *term)
         }
     }
 
-    return success ? term_set_fonts(term, fonts) : success;
+    return success ? term_set_fonts(term, fonts, resize_grid) : success;
 }
 
 static bool
@@ -1029,8 +1056,7 @@ load_fonts_from_conf(struct terminal *term)
         }
     }
 
-    term->font_line_height = term->conf->line_height;
-    return reload_fonts(term);
+    return reload_fonts(term, true);
 }
 
 static void fdm_client_terminated(
@@ -1039,7 +1065,7 @@ static void fdm_client_terminated(
 struct terminal *
 term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
           struct wayland *wayl, const char *foot_exe, const char *cwd,
-          const char *token, int argc, char *const *argv, char *const *envp,
+          const char *token, int argc, char *const *argv, const char *const *envp,
           void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data)
 {
     int ptmx = -1;
@@ -1048,6 +1074,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
     int delay_upper_fd = -1;
     int app_sync_updates_fd = -1;
     int title_update_fd = -1;
+    int app_id_update_fd = -1;
 
     struct terminal *term = malloc(sizeof(*term));
     if (unlikely(term == NULL)) {
@@ -1082,12 +1109,23 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         goto close_fds;
     }
 
+    if ((app_id_update_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK)) < 0)
+    {
+        LOG_ERRNO("failed to create app ID update throttle timer FD");
+        goto close_fds;
+    }
+
     if (ioctl(ptmx, (unsigned int)TIOCSWINSZ,
               &(struct winsize){.ws_row = 24, .ws_col = 80}) < 0)
     {
         LOG_ERRNO("failed to set initial TIOCSWINSZ");
         goto close_fds;
     }
+
+    /* Need to register *very* early (before the first "goto err"), to
+     * ensure term_destroy() doesn't unref a key-binding we haven't
+     * yet ref:d */
+    key_binding_new_for_conf(wayl->key_binding_manager, wayl, conf);
 
     int ptmx_flags;
     if ((ptmx_flags = fcntl(ptmx, F_GETFL)) < 0 ||
@@ -1107,7 +1145,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         !fdm_add(fdm, delay_lower_fd, EPOLLIN, &fdm_delayed_render, term) ||
         !fdm_add(fdm, delay_upper_fd, EPOLLIN, &fdm_delayed_render, term) ||
         !fdm_add(fdm, app_sync_updates_fd, EPOLLIN, &fdm_app_sync_updates_timeout, term) ||
-        !fdm_add(fdm, title_update_fd, EPOLLIN, &fdm_title_update_timeout, term))
+        !fdm_add(fdm, title_update_fd, EPOLLIN, &fdm_title_update_timeout, term) ||
+        !fdm_add(fdm, app_id_update_fd, EPOLLIN, &fdm_app_id_update_timeout, term))
     {
         goto err;
     }
@@ -1135,7 +1174,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .reverse_wrap = true,
         .auto_margin = true,
         .window_title_stack = tll_init(),
-        .scale = 1,
+        .scale = 1.,
+        .scale_before_unmap = -1,
         .flash = {.fd = flash_fd},
         .blink = {.fd = -1},
         .vt = {
@@ -1200,8 +1240,10 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
             .scrollback_lines = conf->scrollback.lines,
             .app_sync_updates.timer_fd = app_sync_updates_fd,
             .title = {
-                .is_armed = false,
                 .timer_fd = title_update_fd,
+            },
+            .app_id = {
+                .timer_fd = app_id_update_fd,
             },
             .workers = {
                 .count = conf->render_worker_count,
@@ -1227,6 +1269,7 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         },
         .foot_exe = xstrdup(foot_exe),
         .cwd = xstrdup(cwd),
+        .grapheme_shaping = conf->tweak.grapheme_shaping,
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
         .ime_enabled = true,
 #endif
@@ -1244,7 +1287,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
                 .pt_size = font->pt_size, .px_size = font->px_size};
         }
     }
-    term->font_line_height = conf->line_height;
+
+    add_utmp_record(conf, reaper, ptmx);
 
     /* Start the slave/client */
     if ((term->slave = slave_spawn(
@@ -1258,22 +1302,18 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
     reaper_add(term->reaper, term->slave, &fdm_client_terminated, term);
 
     /* Guess scale; we're not mapped yet, so we don't know on which
-     * output we'll be. Pick highest scale we find for now */
-    tll_foreach(term->wl->monitors, it) {
-        if (it->item.scale > term->scale)
-            term->scale = it->item.scale;
-    }
+     * output we'll be. Use scaling factor from first monitor */
+    xassert(tll_length(term->wl->monitors) > 0);
+    term->scale = tll_front(term->wl->monitors).scale;
 
     memcpy(term->colors.table, term->conf->colors.table, sizeof(term->colors.table));
-
-    key_binding_new_for_term(wayl->key_binding_manager, term);
 
     /* Initialize the Wayland window backend */
     if ((term->window = wayl_win_init(term, token)) == NULL)
         goto err;
 
     /* Load fonts */
-    if (!term_font_dpi_changed(term, 0))
+    if (!term_font_dpi_changed(term, 0.))
         goto err;
 
     term->font_subpixel = get_font_subpixel(term);
@@ -1313,6 +1353,7 @@ close_fds:
     fdm_del(fdm, delay_upper_fd);
     fdm_del(fdm, app_sync_updates_fd);
     fdm_del(fdm, title_update_fd);
+    fdm_del(fdm, app_id_update_fd);
 
     free(term);
     return NULL;
@@ -1333,11 +1374,11 @@ term_window_configured(struct terminal *term)
  *
  * A foot instance can be terminated in two ways:
  *
- *  - the client application terminates (user types ‘exit’, or pressed C-d in the
+ *  - the client application terminates (user types 'exit', or pressed C-d in the
  *    shell, etc)
  *  - the foot window is closed
  *
- * Both variants need to trigger to “other” action. I.e. if the client
+ * Both variants need to trigger to "other" action. I.e. if the client
  * application is terminated, then we need to close the window. If the window is
  * closed, we need to terminate the client application.
  *
@@ -1354,7 +1395,7 @@ term_window_configured(struct terminal *term)
  * - fdm_client_terminated(): reaper callback, called when the client
  *   application has terminated.
  *
- *     + Kills the “terminate” timeout timer
+ *     + Kills the "terminate" timeout timer
  *     + Calls shutdown_maybe_done() if the shutdown procedure has already
  *       started (i.e. the window being closed initiated the shutdown)
  *    -OR-
@@ -1362,18 +1403,18 @@ term_window_configured(struct terminal *term)
  *       application termination initiated the shutdown).
  *
  * - term_shutdown(): unregisters all FDM callbacks, sends SIGTERM to the client
- *   application and installs a “terminate” timeout timer (if it hasn’t already
+ *   application and installs a "terminate" timeout timer (if it hasn't already
  *   terminated). Finally registers an event FD with the FDM, which is
  *   immediately triggered. This is done to ensure any pending FDM events are
  *   handled before shutting down.
  *
  * - fdm_shutdown(): FDM callback, triggered by the event FD in
  *   term_shutdown(). Unmaps and destroys the window resources, and ensures the
- *   seats’ focused pointers don’t reference us. Finally calls
+ *   seats' focused pointers don't reference us. Finally calls
  *   shutdown_maybe_done().
  *
- * - fdm_terminate_timeout(): FDM callback for the “terminate” timeout
- *   timer. This function is called when the client application hasn’t
+ * - fdm_terminate_timeout(): FDM callback for the "terminate" timeout
+ *   timer. This function is called when the client application hasn't
  *   terminated after 60 seconds (after the SIGTERM). Sends SIGKILL to the
  *   client application.
  *
@@ -1384,7 +1425,7 @@ term_window_configured(struct terminal *term)
  *   It may however also be called without term_shutdown() having been called
  *   (typically in error code paths - for example, when the Wayland connection
  *   is closed by the compositor). In this case, the client application is
- *   typically still running, and we can’t assume the FDM is running. To handle
+ *   typically still running, and we can't assume the FDM is running. To handle
  *   this, we install configure a 60 second SIGALRM, send SIGTERM to the client
  *   application, and then enter a blocking waitpid().
  *
@@ -1505,11 +1546,14 @@ term_shutdown(struct terminal *term)
 
     fdm_del(term->fdm, term->selection.auto_scroll.fd);
     fdm_del(term->fdm, term->render.app_sync_updates.timer_fd);
+    fdm_del(term->fdm, term->render.app_id.timer_fd);
     fdm_del(term->fdm, term->render.title.timer_fd);
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
     fdm_del(term->fdm, term->blink.fd);
     fdm_del(term->fdm, term->flash.fd);
+
+    del_utmp_record(term->conf, term->reaper, term->ptmx);
 
     if (term->window != NULL && term->window->is_configured)
         fdm_del(term->fdm, term->ptmx);
@@ -1541,6 +1585,7 @@ term_shutdown(struct terminal *term)
 
     term->selection.auto_scroll.fd = -1;
     term->render.app_sync_updates.timer_fd = -1;
+    term->render.app_id.timer_fd = -1;
     term->render.title.timer_fd = -1;
     term->delayed_render_timer.lower_fd = -1;
     term->delayed_render_timer.upper_fd = -1;
@@ -1583,8 +1628,6 @@ term_destroy(struct terminal *term)
     if (term == NULL)
         return 0;
 
-    key_binding_unref_term(term->wl->key_binding_manager, term);
-
     tll_foreach(term->wl->terms, it) {
         if (it->item == term) {
             tll_remove(term->wl->terms, it);
@@ -1592,8 +1635,11 @@ term_destroy(struct terminal *term)
         }
     }
 
+    del_utmp_record(term->conf, term->reaper, term->ptmx);
+
     fdm_del(term->fdm, term->selection.auto_scroll.fd);
     fdm_del(term->fdm, term->render.app_sync_updates.timer_fd);
+    fdm_del(term->fdm, term->render.app_id.timer_fd);
     fdm_del(term->fdm, term->render.title.timer_fd);
     fdm_del(term->fdm, term->delayed_render_timer.lower_fd);
     fdm_del(term->fdm, term->delayed_render_timer.upper_fd);
@@ -1628,6 +1674,8 @@ term_destroy(struct terminal *term)
     }
     mtx_unlock(&term->render.workers.lock);
 
+    key_binding_unref(term->wl->key_binding_manager, term->conf);
+
     urls_reset(term);
 
     free(term->vt.osc.data);
@@ -1635,6 +1683,7 @@ term_destroy(struct terminal *term)
 
     composed_free(term->composed);
 
+    free(term->app_id);
     free(term->window_title);
     tll_free_and_free(term->window_title_stack, free);
 
@@ -1694,6 +1743,8 @@ term_destroy(struct terminal *term)
 
     grid_free(&term->normal);
     grid_free(&term->alt);
+    grid_free(term->interactive_resizing.grid);
+    free(term->interactive_resizing.grid);
 
     free(term->foot_exe);
     free(term->cwd);
@@ -1702,7 +1753,7 @@ term_destroy(struct terminal *term)
     int ret = EXIT_SUCCESS;
 
     if (term->slave > 0) {
-        /* We’ll deal with this explicitly */
+        /* We'll deal with this explicitly */
         reaper_del(term->reaper, term->slave);
 
         int exit_status;
@@ -1716,7 +1767,7 @@ term_destroy(struct terminal *term)
             kill(-term->slave, SIGTERM);
 
             /*
-             * we’ve closed the ptxm, and sent SIGTERM to the client
+             * we've closed the ptxm, and sent SIGTERM to the client
              * application. It *should* exit...
              *
              * But, since it is possible to write clients that ignore
@@ -1812,12 +1863,16 @@ erase_line(struct terminal *term, struct row *row)
 {
     erase_cell_range(term, row, 0, term->cols - 1);
     row->linebreak = false;
-    row->prompt_marker = false;
+    row->shell_integration.prompt_marker = false;
+    row->shell_integration.cmd_start = -1;
+    row->shell_integration.cmd_end = -1;
 }
 
 void
 term_reset(struct terminal *term, bool hard)
 {
+    LOG_INFO("%s resetting the terminal", hard ? "hard" : "soft");
+
     term->cursor_keys_mode = CURSOR_KEYS_NORMAL;
     term->keypad_keys_mode = KEYPAD_NUMERICAL;
     term->reverse = false;
@@ -1842,6 +1897,7 @@ term_reset(struct terminal *term, bool hard)
 
     term_set_user_mouse_cursor(term, NULL);
 
+    term->modify_other_keys_2 = false;
     memset(term->normal.kitty_kbd.flags, 0, sizeof(term->normal.kitty_kbd.flags));
     memset(term->alt.kitty_kbd.flags, 0, sizeof(term->alt.kitty_kbd.flags));
     term->normal.kitty_kbd.idx = term->alt.kitty_kbd.idx = 0;
@@ -1872,6 +1928,8 @@ term_reset(struct terminal *term, bool hard)
         sixel_destroy(&it->item);
         tll_remove(term->alt.sixel_images, it);
     }
+
+    term->grapheme_shaping = term->conf->tweak.grapheme_shaping;
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     term_ime_enable(term);
@@ -1944,60 +2002,102 @@ term_reset(struct terminal *term, bool hard)
 }
 
 static bool
-term_font_size_adjust(struct terminal *term, double amount)
+term_font_size_adjust_by_points(struct terminal *term, float amount)
 {
     const struct config *conf = term->conf;
-
     const float dpi = term->font_is_sized_by_dpi ? term->font_dpi : 96.;
 
     for (size_t i = 0; i < 4; i++) {
         const struct config_font_list *font_list = &conf->fonts[i];
 
         for (size_t j = 0; j < font_list->count; j++) {
-            float old_pt_size = term->font_sizes[i][j].pt_size;
+            struct config_font *font = &term->font_sizes[i][j];
+            float old_pt_size = font->pt_size;
 
-            /*
-             * To ensure primary and user-configured fallback fonts are
-             * resizes by the same amount, convert pixel sizes to point
-             * sizes, and to the adjustment on point sizes only.
-             */
+            if (font->px_size > 0)
+                old_pt_size = font->px_size * 72. / dpi;
 
-            if (term->font_sizes[i][j].px_size > 0)
-                old_pt_size = term->font_sizes[i][j].px_size * 72. / dpi;
-
-            term->font_sizes[i][j].pt_size = fmaxf(old_pt_size + amount, 0.);
-            term->font_sizes[i][j].px_size = -1;
+            font->pt_size = fmaxf(old_pt_size + amount, 0.);
+            font->px_size = -1;
         }
     }
 
-    if (term->font_line_height.px >= 0) {
-        float old_pt_size = term->font_line_height.px > 0
-            ? term->font_line_height.px * 72. / dpi
-            : term->font_line_height.pt;
+    return reload_fonts(term, true);
+}
 
-        term->font_line_height.px = 0;
-        term->font_line_height.pt = fmaxf(old_pt_size + amount, 0.);
+static bool
+term_font_size_adjust_by_pixels(struct terminal *term, int amount)
+{
+    const struct config *conf = term->conf;
+    const float dpi = term->font_is_sized_by_dpi ? term->font_dpi : 96.;
+
+    for (size_t i = 0; i < 4; i++) {
+        const struct config_font_list *font_list = &conf->fonts[i];
+
+        for (size_t j = 0; j < font_list->count; j++) {
+            struct config_font *font = &term->font_sizes[i][j];
+            int old_px_size = font->px_size;
+
+            if (font->px_size <= 0)
+                old_px_size = font->pt_size * dpi / 72.;
+
+            font->px_size = max(old_px_size + amount, 1);
+        }
     }
 
-    return reload_fonts(term);
+    return reload_fonts(term, true);
+}
+
+static bool
+term_font_size_adjust_by_percent(struct terminal *term, bool increment, float percent)
+{
+    const struct config *conf = term->conf;
+    const float multiplier = increment
+        ? 1. + percent
+        : 1. / (1. + percent);
+
+    for (size_t i = 0; i < 4; i++) {
+        const struct config_font_list *font_list = &conf->fonts[i];
+
+        for (size_t j = 0; j < font_list->count; j++) {
+            struct config_font *font = &term->font_sizes[i][j];
+
+            if (font->px_size > 0)
+                font->px_size = max(font->px_size * multiplier, 1);
+            else
+                font->pt_size = fmax(font->pt_size * multiplier, 0);
+        }
+    }
+
+    return reload_fonts(term, true);
 }
 
 bool
 term_font_size_increase(struct terminal *term)
 {
-    if (!term_font_size_adjust(term, 0.5))
-        return false;
+    const struct config *conf = term->conf;
+    const struct font_size_adjustment *inc_dec = &conf->font_size_adjustment;
 
-    return true;
+    if (inc_dec->percent > 0.)
+        return term_font_size_adjust_by_percent(term, true, inc_dec->percent);
+    else if (inc_dec->pt_or_px.px > 0)
+        return term_font_size_adjust_by_pixels(term, inc_dec->pt_or_px.px);
+    else
+        return term_font_size_adjust_by_points(term, inc_dec->pt_or_px.pt);
 }
 
 bool
 term_font_size_decrease(struct terminal *term)
 {
-    if (!term_font_size_adjust(term, -0.5))
-        return false;
+    const struct config *conf = term->conf;
+    const struct font_size_adjustment *inc_dec = &conf->font_size_adjustment;
 
-    return true;
+    if (inc_dec->percent > 0.)
+        return term_font_size_adjust_by_percent(term, false, inc_dec->percent);
+    else if (inc_dec->pt_or_px.px > 0)
+        return term_font_size_adjust_by_pixels(term, -inc_dec->pt_or_px.px);
+    else
+        return term_font_size_adjust_by_points(term, -inc_dec->pt_or_px.pt);
 }
 
 bool
@@ -2007,13 +2107,66 @@ term_font_size_reset(struct terminal *term)
 }
 
 bool
-term_font_dpi_changed(struct terminal *term, int old_scale)
+term_fractional_scaling(const struct terminal *term)
+{
+    return term->wl->fractional_scale_manager != NULL && term->window->scale > 0.;
+}
+
+bool
+term_preferred_buffer_scale(const struct terminal *term)
+{
+    return term->wl->has_wl_compositor_v6;
+}
+
+bool
+term_update_scale(struct terminal *term)
+{
+    const struct wl_window *win = term->window;
+
+    /*
+     * We have a number of "sources" we can use as scale. We choose
+     * the scale in the following order:
+     *
+     *  - "preferred" scale, from the fractional-scale-v1 protocol
+     *  - "preferred" scale, from wl_compositor version 6.
+          NOTE: if the compositor advertises version 6 we must use 1.0
+          until wl_surface.preferred_buffer_scale is sent
+     *  - scaling factor of output we most recently were mapped on
+     *  - if we're not mapped, use the last known scaling factor
+     *  - if we're not mapped, and we don't have a last known scaling
+     *    factor, use the scaling factor from the first available
+     *    output.
+     *  - if there aren't any outputs available, use 1.0
+     */
+    const float new_scale = (term_fractional_scaling(term)
+        ? win->scale
+        : term_preferred_buffer_scale(term)
+            ? win->preferred_buffer_scale
+            : tll_length(win->on_outputs) > 0
+                ? tll_back(win->on_outputs)->scale
+                : term->scale_before_unmap > 0.
+                    ? term->scale_before_unmap
+                    : tll_length(term->wl->monitors) > 0
+                        ? tll_front(term->wl->monitors).scale
+                        : 1.);
+
+    if (new_scale == term->scale)
+        return false;
+
+    LOG_DBG("scaling factor changed: %.2f -> %.2f", term->scale, new_scale);
+    term->scale_before_unmap = new_scale;
+    term->scale = new_scale;
+    return true;
+}
+
+bool
+term_font_dpi_changed(struct terminal *term, float old_scale)
 {
     float dpi = get_font_dpi(term);
-    xassert(term->scale > 0);
+    xassert(term->scale > 0.);
 
     bool was_scaled_using_dpi = term->font_is_sized_by_dpi;
-    bool will_scale_using_dpi = term_font_size_by_dpi(term);
+    bool will_scale_using_dpi = term->conf->dpi_aware;
 
     bool need_font_reload =
         was_scaled_using_dpi != will_scale_using_dpi ||
@@ -2022,11 +2175,10 @@ term_font_dpi_changed(struct terminal *term, int old_scale)
          : old_scale != term->scale);
 
     if (need_font_reload) {
-        LOG_DBG("DPI/scale change: DPI-awareness=%s, "
-                "DPI: %.2f -> %.2f, scale: %d -> %d, "
+        LOG_DBG("DPI/scale change: DPI-aware=%s, "
+                "DPI: %.2f -> %.2f, scale: %.2f -> %.2f, "
                 "sizing font based on monitor's %s",
-                term->conf->dpi_aware == DPI_AWARE_AUTO ? "auto" :
-                term->conf->dpi_aware == DPI_AWARE_YES ? "yes" : "no",
+                term->conf->dpi_aware ? "yes" : "no",
                 term->font_dpi, dpi, old_scale, term->scale,
                 will_scale_using_dpi ? "DPI" : "scaling factor");
     }
@@ -2035,9 +2187,9 @@ term_font_dpi_changed(struct terminal *term, int old_scale)
     term->font_is_sized_by_dpi = will_scale_using_dpi;
 
     if (!need_font_reload)
-        return true;
+        return false;
 
-    return reload_fonts(term);
+    return reload_fonts(term, false);
 }
 
 void
@@ -2064,6 +2216,25 @@ term_font_subpixel_changed(struct terminal *term)
     term->font_subpixel = subpixel;
     term_damage_view(term);
     render_refresh(term);
+}
+
+int
+term_font_baseline(const struct terminal *term)
+{
+    const struct fcft_font *font = term->fonts[0];
+    const int line_height = term->cell_height;
+    const int font_height = font->ascent + font->descent;
+
+    /*
+     * Center glyph on the line *if* using a custom line height,
+     * otherwise the baseline is simply 'descent' pixels above the
+     * bottom of the cell
+     */
+    const int glyph_top_y = term->font_line_height.px >= 0
+        ? round((line_height - font_height) / 2.)
+        : 0;
+
+    return term->font_y_ofs + line_height - glyph_top_y - font->descent;
 }
 
 void
@@ -2119,15 +2290,20 @@ void
 term_damage_scroll(struct terminal *term, enum damage_type damage_type,
                    struct scroll_region region, int lines)
 {
-    if (tll_length(term->grid->scroll_damage) > 0) {
+    if (likely(tll_length(term->grid->scroll_damage) > 0)) {
         struct damage *dmg = &tll_back(term->grid->scroll_damage);
 
-        if (dmg->type == damage_type &&
-            dmg->region.start == region.start &&
-            dmg->region.end == region.end)
+        if (likely(
+                dmg->type == damage_type &&
+                dmg->region.start == region.start &&
+                dmg->region.end == region.end))
         {
-            dmg->lines += lines;
-            return;
+            /* Make sure we don't overflow... */
+            int new_line_count = (int)dmg->lines + lines;
+            if (likely(new_line_count <= UINT16_MAX)) {
+                dmg->lines = new_line_count;
+                return;
+            }
         }
     }
     struct damage dmg = {
@@ -2186,14 +2362,14 @@ term_erase_scrollback(struct terminal *term)
     if (sel_end >= 0) {
         /*
          * Cancel selection if it touches any of the rows in the
-         * scrollback, since we can’t have the selection reference
+         * scrollback, since we can't have the selection reference
          * soon-to-be deleted rows.
          *
          * This is done by range checking the selection range against
          * the scrollback range.
          *
          * To make this comparison simpler, the start/end absolute row
-         * numbers are “rebased” against the scrollback start, where
+         * numbers are "rebased" against the scrollback start, where
          * row 0 is the *first* row in the scrollback. A high number
          * thus means the row is further *down* in the scrollback,
          * closer to the screen bottom.
@@ -2408,6 +2584,15 @@ term_cursor_home(struct terminal *term)
 }
 
 void
+term_cursor_col(struct terminal *term, int col)
+{
+    xassert(col < term->cols);
+
+    term->grid->cursor.lcf = false;
+    term->grid->cursor.point.col = col;
+}
+
+void
 term_cursor_left(struct terminal *term, int count)
 {
     int move_amount = min(term->grid->cursor.point.col, count);
@@ -2534,14 +2719,14 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
         /*
          * Selection is (partly) inside either the top or bottom
          * scrolling regions, or on (at least one) of the lines
-         * scrolled in (i.e. re-used lines).
+         * scrolled in (i.e. reused lines).
          */
         if (selection_on_top_region(term, region) ||
-            selection_on_bottom_region(term, region) ||
-            selection_on_rows(term, region.end - rows, region.end - 1))
+            selection_on_bottom_region(term, region))
         {
             selection_cancel(term);
-        }
+        } else
+            selection_scroll_up(term, rows);
     }
 
     sixel_scroll_up(term, rows);
@@ -2555,6 +2740,7 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
     term->grid->offset &= term->grid->num_rows - 1;
 
     if (likely(view_follows)) {
+        term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
         selection_view_down(term, term->grid->offset);
         term->grid->view = term->grid->offset;
     } else if (unlikely(rows > view_sb_start_distance)) {
@@ -2578,7 +2764,6 @@ term_scroll_partial(struct terminal *term, struct scroll_region region, int rows
         erase_line(term, row);
     }
 
-    term_damage_scroll(term, DAMAGE_SCROLL, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
 
 #if defined(_DEBUG)
@@ -2608,14 +2793,26 @@ term_scroll_reverse_partial(struct terminal *term,
         /*
          * Selection is (partly) inside either the top or bottom
          * scrolling regions, or on (at least one) of the lines
-         * scrolled in (i.e. re-used lines).
+         * scrolled in (i.e. reused lines).
          */
         if (selection_on_top_region(term, region) ||
-            selection_on_bottom_region(term, region) ||
-            selection_on_rows(term, region.start, region.start + rows - 1))
+            selection_on_bottom_region(term, region))
         {
             selection_cancel(term);
-        }
+        } else
+            selection_scroll_down(term, rows);
+    }
+
+    /* Unallocate scrolled out lines */
+    for (int r = region.end - rows; r < region.end; r++) {
+        const int abs_r = grid_row_absolute(term->grid, r);
+        struct row *row = term->grid->rows[abs_r];
+
+        grid_row_free(row);
+        term->grid->rows[abs_r] = NULL;
+
+        if (term->render.last_cursor.row == row)
+            term->render.last_cursor.row = NULL;
     }
 
     sixel_scroll_down(term, rows);
@@ -2629,6 +2826,7 @@ term_scroll_reverse_partial(struct terminal *term,
     xassert(term->grid->offset < term->grid->num_rows);
 
     if (view_follows) {
+        term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
         selection_view_up(term, term->grid->offset);
         term->grid->view = term->grid->offset;
     }
@@ -2647,7 +2845,6 @@ term_scroll_reverse_partial(struct terminal *term,
         erase_line(term, row);
     }
 
-    term_damage_scroll(term, DAMAGE_SCROLL_REVERSE, region, rows);
     term->grid->cur_row = grid_row(term->grid, term->grid->cursor.point.row);
 
 #if defined(_DEBUG)
@@ -2882,10 +3079,10 @@ term_mouse_grabbed(const struct terminal *term, const struct seat *seat)
      */
 
     xkb_mod_mask_t mods;
-    get_current_modifiers(seat, &mods, NULL, 0);
+    get_current_modifiers(seat, &mods, NULL, 0, true);
 
     const struct key_binding_set *bindings =
-        key_binding_for(term->wl->key_binding_manager, term, seat);
+        key_binding_for(term->wl->key_binding_manager, term->conf, seat);
     const xkb_mod_mask_t override_modmask = bindings->selection_overrides;
     bool override_mods_pressed = (mods & override_modmask) == override_modmask;
 
@@ -3026,44 +3223,52 @@ term_mouse_motion(struct terminal *term, int button, int row, int col,
 void
 term_xcursor_update_for_seat(struct terminal *term, struct seat *seat)
 {
-    const char *xcursor = NULL;
+    enum cursor_shape shape = CURSOR_SHAPE_NONE;
 
     switch (term->active_surface) {
-    case TERM_SURF_GRID: {
-        bool have_custom_cursor =
-            render_xcursor_is_valid(seat, term->mouse_user_cursor);
+    case TERM_SURF_GRID:
+        if (seat->pointer.hidden)
+            shape = CURSOR_SHAPE_HIDDEN;
 
-        xcursor = seat->pointer.hidden ? XCURSOR_HIDDEN
-            : have_custom_cursor ? term->mouse_user_cursor
-            : term->is_searching ? XCURSOR_LEFT_PTR
-            : (seat->mouse.col >= 0 &&
-               seat->mouse.row >= 0 &&
-               term_mouse_grabbed(term, seat)) ? XCURSOR_TEXT
-            : XCURSOR_LEFT_PTR;
+        else if (cursor_string_to_server_shape(term->mouse_user_cursor) != 0 ||
+                 render_xcursor_is_valid(seat, term->mouse_user_cursor))
+        {
+            shape = CURSOR_SHAPE_CUSTOM;
+        }
+
+        else if (seat->mouse.col >= 0 &&
+                 seat->mouse.row >= 0 &&
+                 term_mouse_grabbed(term, seat))
+        {
+            shape = CURSOR_SHAPE_TEXT;
+        }
+
+        else
+            shape = CURSOR_SHAPE_LEFT_PTR;
         break;
-    }
+
     case TERM_SURF_TITLE:
     case TERM_SURF_BUTTON_MINIMIZE:
     case TERM_SURF_BUTTON_MAXIMIZE:
     case TERM_SURF_BUTTON_CLOSE:
-        xcursor = XCURSOR_LEFT_PTR;
+        shape = CURSOR_SHAPE_LEFT_PTR;
         break;
 
     case TERM_SURF_BORDER_LEFT:
     case TERM_SURF_BORDER_RIGHT:
     case TERM_SURF_BORDER_TOP:
     case TERM_SURF_BORDER_BOTTOM:
-        xcursor = xcursor_for_csd_border(term, seat->mouse.x, seat->mouse.y);
+        shape = xcursor_for_csd_border(term, seat->mouse.x, seat->mouse.y);
         break;
 
     case TERM_SURF_NONE:
         return;
     }
 
-    if (xcursor == NULL)
+    if (shape == CURSOR_SHAPE_NONE)
         BUG("xcursor not set");
 
-    render_xcursor_set(seat, term, xcursor);
+    render_xcursor_set(seat, term, shape);
 }
 
 void
@@ -3079,13 +3284,39 @@ term_set_window_title(struct terminal *term, const char *title)
     if (term->conf->locked_title && term->window_title_has_been_set)
         return;
 
-    if (term->window_title != NULL && strcmp(term->window_title, title) == 0)
+    if (term->window_title != NULL && streq(term->window_title, title))
         return;
+
+    if (mbsntoc32(NULL, title, strlen(title), 0) == (char32_t)-1) {
+        /* It's an xdg_toplevel::set_title() protocol violation to set
+           a title with an invalid UTF-8 sequence */
+        LOG_WARN("%s: title is not valid UTF-8, ignoring", title);
+        return;
+    }
 
     free(term->window_title);
     term->window_title = xstrdup(title);
     render_refresh_title(term);
     term->window_title_has_been_set = true;
+}
+
+void
+term_set_app_id(struct terminal *term, const char *app_id)
+{
+    if (app_id != NULL && *app_id == '\0')
+        app_id = NULL;
+    if (term->app_id == NULL && app_id == NULL)
+        return;
+    if (term->app_id != NULL && app_id != NULL && strcmp(term->app_id, app_id) == 0)
+        return;
+
+    free(term->app_id);
+    if (app_id != NULL) {
+        term->app_id = xstrdup(app_id);
+    } else {
+        term->app_id = NULL;
+    }
+    render_refresh_app_id(term);
 }
 
 void
@@ -3107,6 +3338,7 @@ term_flash(struct terminal *term, unsigned duration_ms)
 void
 term_bell(struct terminal *term)
 {
+
     if (!term->bell_action_enabled)
         return;
 
@@ -3114,7 +3346,7 @@ term_bell(struct terminal *term)
         if (!wayl_win_set_urgent(term->window)) {
             /*
              * Urgency (xdg-activation) is relatively new in
-             * Wayland. Fallback to our old, “faked”, urgency -
+             * Wayland. Fallback to our old, "faked", urgency -
              * rendering our window margins in red
              */
             term->render.urgency = true;
@@ -3124,6 +3356,9 @@ term_bell(struct terminal *term)
 
     if (term->conf->bell.notify)
         notify_notify(term, "Bell", "Bell in terminal");
+
+    if (term->conf->bell.flash)
+        term_flash(term, 100);
 
     if ((term->conf->bell.command.argv.args != NULL) &&
         (!term->kbd_focus || term->conf->bell.command_focused))
@@ -3398,7 +3633,7 @@ term_update_ascii_printer(struct terminal *term)
 
 #if defined(_DEBUG) && LOG_ENABLE_DBG
     if (term->ascii_printer != new_printer) {
-        LOG_DBG("§switching ASCII printer %s -> %s",
+        LOG_DBG("switching ASCII printer %s -> %s",
                 term->ascii_printer == &ascii_printer_fast ? "fast" : "generic",
                 new_printer == &ascii_printer_fast ? "fast" : "generic");
     }
@@ -3418,23 +3653,23 @@ term_single_shift(struct terminal *term, enum charset_designator idx)
 enum term_surface
 term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
 {
-    if (likely(surface == term->window->surface))
+    if (likely(surface == term->window->surface.surf))
         return TERM_SURF_GRID;
-    else if (surface == term->window->csd.surface[CSD_SURF_TITLE].surf)
+    else if (surface == term->window->csd.surface[CSD_SURF_TITLE].surface.surf)
         return TERM_SURF_TITLE;
-    else if (surface == term->window->csd.surface[CSD_SURF_LEFT].surf)
+    else if (surface == term->window->csd.surface[CSD_SURF_LEFT].surface.surf)
         return TERM_SURF_BORDER_LEFT;
-    else if (surface == term->window->csd.surface[CSD_SURF_RIGHT].surf)
+    else if (surface == term->window->csd.surface[CSD_SURF_RIGHT].surface.surf)
         return TERM_SURF_BORDER_RIGHT;
-    else if (surface == term->window->csd.surface[CSD_SURF_TOP].surf)
+    else if (surface == term->window->csd.surface[CSD_SURF_TOP].surface.surf)
         return TERM_SURF_BORDER_TOP;
-    else if (surface == term->window->csd.surface[CSD_SURF_BOTTOM].surf)
+    else if (surface == term->window->csd.surface[CSD_SURF_BOTTOM].surface.surf)
         return TERM_SURF_BORDER_BOTTOM;
-    else if (surface == term->window->csd.surface[CSD_SURF_MINIMIZE].surf)
+    else if (surface == term->window->csd.surface[CSD_SURF_MINIMIZE].surface.surf)
         return TERM_SURF_BUTTON_MINIMIZE;
-    else if (surface == term->window->csd.surface[CSD_SURF_MAXIMIZE].surf)
+    else if (surface == term->window->csd.surface[CSD_SURF_MAXIMIZE].surface.surf)
         return TERM_SURF_BUTTON_MAXIMIZE;
-    else if (surface == term->window->csd.surface[CSD_SURF_CLOSE].surf)
+    else if (surface == term->window->csd.surface[CSD_SURF_CLOSE].surface.surf)
         return TERM_SURF_BUTTON_CLOSE;
     else
         return TERM_SURF_NONE;
@@ -3442,7 +3677,7 @@ term_surface_kind(const struct terminal *term, const struct wl_surface *surface)
 
 static bool
 rows_to_text(const struct terminal *term, int start, int end,
-             char **text, size_t *len)
+             int col_start, int col_end, char **text, size_t *len)
 {
     struct extraction_context *ctx = extract_begin(SELECTION_NONE, true);
     if (ctx == NULL)
@@ -3455,15 +3690,20 @@ rows_to_text(const struct terminal *term, int start, int end,
         const struct row *row = term->grid->rows[r];
         xassert(row != NULL);
 
-        for (int c = 0; c < term->cols; c++)
+        const int c_end = r == end ? col_end : term->cols;
+
+        for (int c = col_start; c < c_end; c++) {
             if (!extract_one(term, row, &row->cells[c], c, ctx))
                 goto out;
+        }
 
         if (r == end)
             break;
 
         r++;
         r &= grid_rows - 1;
+
+        col_start = 0;
     }
 
 out:
@@ -3495,7 +3735,7 @@ term_scrollback_to_text(const struct terminal *term, char **text, size_t *len)
             end += term->grid->num_rows;
     }
 
-    return rows_to_text(term, start, end, text, len);
+    return rows_to_text(term, start, end, 0, term->cols, text, len);
 }
 
 bool
@@ -3503,7 +3743,91 @@ term_view_to_text(const struct terminal *term, char **text, size_t *len)
 {
     int start = grid_row_absolute_in_view(term->grid, 0);
     int end = grid_row_absolute_in_view(term->grid, term->rows - 1);
-    return rows_to_text(term, start, end, text, len);
+    return rows_to_text(term, start, end, 0, term->cols, text, len);
+}
+
+bool
+term_command_output_to_text(const struct terminal *term, char **text, size_t *len)
+{
+    int start_row = -1;
+    int end_row = -1;
+    int start_col = -1;
+    int end_col = -1;
+
+    const struct grid *grid = term->grid;
+    const int sb_end = grid_row_absolute(grid, term->rows - 1);
+    const int sb_start = (sb_end + 1) & (grid->num_rows - 1);
+    int r = sb_end;
+
+    while (start_row < 0) {
+        const struct row *row = grid->rows[r];
+        if (row == NULL)
+            break;
+
+        if (row->shell_integration.cmd_end >= 0) {
+            end_row = r;
+            end_col = row->shell_integration.cmd_end;
+        }
+
+        if (end_row >= 0 && row->shell_integration.cmd_start >= 0) {
+            start_row = r;
+            start_col = row->shell_integration.cmd_start;
+        }
+
+        if (r == sb_start)
+            break;
+
+        r = (r - 1 + grid->num_rows) & (grid->num_rows - 1);
+    }
+
+    if (start_row < 0)
+        return false;
+
+    bool ret = rows_to_text(term, start_row, end_row, start_col, end_col, text, len);
+    if (!ret)
+        return false;
+
+    /*
+     * If the FTCS_COMMAND_FINISHED marker was emitted at the *first*
+     * column, then the *entire* previous line is part of the command
+     * output. *Including* the newline, if any.
+     *
+     * Since rows_to_text() doesn't extract the column
+     * FTCS_COMMAND_FINISHED was emitted at (that would be wrong -
+     * FTCS_COMMAND_FINISHED is emitted *after* the command output,
+     * not at its last character), the extraction logic will not see
+     * the last newline (this is true for all non-line-wise selection
+     * types), and the extracted text will *not* end with a newline.
+     *
+     * Here we try to compensate for that. Note that if 'end_col' is
+     * not 0, then the command output only covers a partial row, and
+     * thus we do *not* want to append a newline.
+     */
+
+    if (end_col > 0) {
+        /* Command output covers partial row - don't append newline */
+        return true;
+    }
+
+    int next_to_last_row = (end_row - 1 + grid->num_rows) & (grid->num_rows - 1);
+    const struct row *row = grid->rows[next_to_last_row];
+
+    /* Add newline if last row has a hard linebreak */
+    if (row->linebreak) {
+        char *new_text = xrealloc(*text, *len + 1 + 1);
+
+        if (new_text == NULL) {
+            /* Ignore failure - use text as is (without inserting newline) */
+            return true;
+        }
+
+        *text = new_text;
+        (*len)++;
+        (*text)[*len - 1] = '\n';
+        (*text)[*len] = '\0';
+    }
+
+    return true;
 }
 
 bool
@@ -3614,6 +3938,8 @@ void
 term_set_user_mouse_cursor(struct terminal *term, const char *cursor)
 {
     free(term->mouse_user_cursor);
-    term->mouse_user_cursor = cursor != NULL ? xstrdup(cursor) : NULL;
+    term->mouse_user_cursor = cursor != NULL && strlen(cursor) > 0
+        ? xstrdup(cursor)
+        : NULL;
     term_xcursor_update(term);
 }

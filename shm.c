@@ -27,6 +27,10 @@
  #define MAP_UNINITIALIZED 0
 #endif
 
+#if !defined(MFD_NOEXEC_SEAL)
+ #define MFD_NOEXEC_SEAL 0
+#endif
+
 #define TIME_SCROLL 0
 
 #define FORCED_DOUBLE_BUFFERING 0
@@ -151,8 +155,9 @@ buffer_destroy(struct buffer_private *buf)
     pool_unref(buf->pool);
     buf->pool = NULL;
 
-    free(buf->public.scroll_damage);
-    pixman_region32_fini(&buf->public.dirty);
+    for (size_t i = 0; i < buf->public.pix_instances; i++)
+        pixman_region32_fini(&buf->public.dirty[i]);
+    free(buf->public.dirty);
     free(buf);
 }
 
@@ -332,7 +337,20 @@ get_new_buffers(struct buffer_chain *chain, size_t count,
 
     /* Backing memory for SHM */
 #if defined(MEMFD_CREATE)
-    pool_fd = memfd_create("foot-wayland-shm-buffer-pool", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+    /*
+     * Older kernels reject MFD_NOEXEC_SEAL with EINVAL. Try first
+     * *with* it, and if that fails, try again *without* it.
+     */
+    errno = 0;
+    pool_fd = memfd_create(
+        "foot-wayland-shm-buffer-pool",
+        MFD_CLOEXEC | MFD_ALLOW_SEALING | MFD_NOEXEC_SEAL);
+
+    if (pool_fd < 0 && errno == EINVAL) {
+        pool_fd = memfd_create(
+            "foot-wayland-shm-buffer-pool", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+    }
+
 #elif defined(__FreeBSD__)
     // memfd_create on FreeBSD 13 is SHM_ANON without sealing support
     pool_fd = shm_open(SHM_ANON, O_RDWR | O_CLOEXEC, 0600);
@@ -471,7 +489,12 @@ get_new_buffers(struct buffer_chain *chain, size_t count,
         else
             tll_push_front(chain->bufs, buf);
 
-        pixman_region32_init(&buf->public.dirty);
+        buf->public.dirty = xmalloc(
+            chain->pix_instances * sizeof(buf->public.dirty[0]));
+
+        for (size_t j = 0; j < chain->pix_instances; j++)
+            pixman_region32_init(&buf->public.dirty[j]);
+
         pool->ref_count++;
         offset += buf->size;
         bufs[i] = &buf->public;
@@ -488,7 +511,7 @@ get_new_buffers(struct buffer_chain *chain, size_t count,
 #endif
 
     if (!(bufs[0] && shm_can_scroll(bufs[0]))) {
-        /* We only need to keep the pool FD open if we’re going to SHM
+        /* We only need to keep the pool FD open if we're going to SHM
          * scroll it */
         close(pool_fd);
         pool->fd = -1;
@@ -528,7 +551,7 @@ struct buffer *
 shm_get_buffer(struct buffer_chain *chain, int width, int height)
 {
     LOG_DBG(
-        "chain=%p: looking for a re-usable %dx%d buffer "
+        "chain=%p: looking for a reusable %dx%d buffer "
         "among %zu potential buffers",
         (void *)chain, width, height, tll_length(chain->bufs));
 
@@ -556,7 +579,7 @@ shm_get_buffer(struct buffer_chain *chain, int width, int height)
                     cached = buf;
                 else {
                     /* We have multiple buffers eligible for
-                     * re-use. Pick the “youngest” one, and mark the
+                     * reuse. Pick the "youngest" one, and mark the
                      * other one for purging */
                     if (buf->public.age < cached->public.age) {
                         shm_unref(&cached->public);
@@ -566,8 +589,8 @@ shm_get_buffer(struct buffer_chain *chain, int width, int height)
                          * TODO: I think we _can_ use shm_unref()
                          * here...
                          *
-                         * shm_unref() may remove ‘it’, but that
-                         * should be safe; “our” tll_foreach() already
+                         * shm_unref() may remove 'it', but that
+                         * should be safe; "our" tll_foreach() already
                          * holds the next pointer.
                          */
                         if (buffer_unref_no_remove_from_chain(buf))
@@ -580,9 +603,8 @@ shm_get_buffer(struct buffer_chain *chain, int width, int height)
     if (cached != NULL) {
         LOG_DBG("re-using buffer %p from cache", (void *)cached);
         cached->busy = true;
-        pixman_region32_clear(&cached->public.dirty);
-        free(cached->public.scroll_damage);
-        cached->public.scroll_damage = NULL;
+        for (size_t i = 0; i < cached->public.pix_instances; i++)
+            pixman_region32_clear(&cached->public.dirty[i]);
         xassert(cached->public.pix_instances == chain->pix_instances);
         return &cached->public;
     }

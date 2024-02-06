@@ -15,9 +15,15 @@ option('tests', type: 'boolean', value: true, description: 'Build tests')
 option('terminfo', type: 'feature', value: 'enabled', description: 'Build and install foot\'s terminfo files.')
 option('default-terminfo', type: 'string', value: 'foot',
        description: 'Default value of the "term" option in foot.ini.')
-
+option('terminfo-base-name', type: 'string',
+       description: 'Base name of the generated terminfo files. Defaults to the value of the \'default-terminfo\' meson option')
 option('custom-terminfo-install-location', type: 'string', value: '',
        description: 'Path to foot\'s terminfo, relative to ${prefix}. If set, foot will set $TERMINFO to this value in the client process.')
 
 option('systemd-units-dir', type: 'string', value: '',
       description: 'Where to install the systemd service files (absolute path). Default: ${systemduserunitdir}')
+
+option('utmp-backend', type: 'combo', value: 'auto', choices: ['none', 'libutempter', 'ulog', 'auto'],
+       description: 'Which utmp logging backend to use. This affects how (with what arguments) the utmp helper binary (see \'utmp-default-helper-path\')is called. Default: auto (linux=libutempter, freebsd=ulog, others=none)')
+option('utmp-default-helper-path', type: 'string', value: 'auto',
+       description: 'Default path to the utmp helper binary. Default: auto-detect')

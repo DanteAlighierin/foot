@@ -6,10 +6,11 @@
 #define SIXEL_MAX_WIDTH 10000u
 #define SIXEL_MAX_HEIGHT 10000u
 
+typedef void (*sixel_put)(struct terminal *term, uint8_t c);
+
 void sixel_fini(struct terminal *term);
 
-void sixel_init(struct terminal *term, int p1, int p2, int p3);
-void sixel_put(struct terminal *term, uint8_t c);
+sixel_put sixel_init(struct terminal *term, int p1, int p2, int p3);
 void sixel_unhook(struct terminal *term);
 
 void sixel_destroy(struct sixel *sixel);
@@ -19,6 +20,11 @@ void sixel_scroll_up(struct terminal *term, int rows);
 void sixel_scroll_down(struct terminal *term, int rows);
 
 void sixel_cell_size_changed(struct terminal *term);
+void sixel_sync_cache(const struct terminal *term, struct sixel *sixel);
+
+void sixel_reflow_grid(struct terminal *term, struct grid *grid);
+
+/* Shortcut for sixel_reflow_grid(normal) + sixel_reflow_grid(alt) */
 void sixel_reflow(struct terminal *term);
 
 /*

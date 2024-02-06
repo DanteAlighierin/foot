@@ -128,7 +128,8 @@ csi_sgr(struct terminal *term)
                 term->vt.params.v[i + 1].value == 5)
             {
                 src = COLOR_BASE256;
-                color = term->vt.params.v[i + 2].value;
+                color = min(term->vt.params.v[i + 2].value,
+                            ALEN(term->colors.table) - 1);
                 i += 2;
             }
 
@@ -149,7 +150,8 @@ csi_sgr(struct terminal *term)
                      term->vt.params.v[i].sub.value[0] == 5)
             {
                 src = COLOR_BASE256;
-                color = term->vt.params.v[i].sub.value[1];
+                color = min(term->vt.params.v[i].sub.value[1],
+                            ALEN(term->colors.table) - 1);
             }
 
             /*
@@ -272,21 +274,6 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         /* DECCKM */
         term->cursor_keys_mode =
             enable ? CURSOR_KEYS_APPLICATION : CURSOR_KEYS_NORMAL;
-        break;
-
-    case 3:
-        /* DECCOLM */
-        if (enable)
-            LOG_WARN("unimplemented: 132 column mode (DECCOLM)");
-
-        term_erase(term, 0, 0, term->rows - 1, term->cols - 1);
-        term_cursor_home(term);
-        break;
-
-    case 4:
-        /* DECSCLM - Smooth scroll */
-        if (enable)
-            LOG_WARN("unimplemented: Smooth (Slow) Scroll (DECSCLM)");
         break;
 
     case 5:
@@ -484,7 +471,7 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
             }
 
             tll_free(term->alt.scroll_damage);
-            term_damage_all(term);
+            term_damage_view(term);
         }
         term_update_ascii_printer(term);
         break;
@@ -502,6 +489,10 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
             term_enable_app_sync_updates(term);
         else
             term_disable_app_sync_updates(term);
+        break;
+
+    case 2027:
+        term->grapheme_shaping = enable;
         break;
 
     case 8452:
@@ -533,47 +524,66 @@ decrst(struct terminal *term, unsigned param)
     decset_decrst(term, param, false);
 }
 
-static bool
-decrqm(const struct terminal *term, unsigned param, bool *enabled)
+/*
+ * These values represent the current state of a DEC private mode,
+ * as returned in the DECRPM reply to a DECRQM query.
+ */
+enum decrpm_status {
+    DECRPM_NOT_RECOGNIZED = 0,
+    DECRPM_SET = 1,
+    DECRPM_RESET = 2,
+    DECRPM_PERMANENTLY_SET = 3,
+    DECRPM_PERMANENTLY_RESET = 4,
+};
+
+static enum decrpm_status
+decrpm(bool enabled)
+{
+    return enabled ? DECRPM_SET : DECRPM_RESET;
+}
+
+static enum decrpm_status
+decrqm(const struct terminal *term, unsigned param)
 {
     switch (param) {
-    case 1: *enabled = term->cursor_keys_mode == CURSOR_KEYS_APPLICATION; return true;
-    case 3: *enabled = false; return true;
-    case 4: *enabled = false; return true;
-    case 5: *enabled = term->reverse; return true;
-    case 6: *enabled = term->origin; return true;
-    case 7: *enabled = term->auto_margin; return true;
-    case 9: *enabled = false; /*  term->mouse_tracking == MOUSE_X10; */ return true;
-    case 12: *enabled = term->cursor_blink.decset; return true;
-    case 25: *enabled = !term->hide_cursor; return true;
-    case 45: *enabled = term->reverse_wrap; return true;
-    case 66: *enabled = term->keypad_keys_mode == KEYPAD_APPLICATION; return true;
-    case 80: *enabled = !term->sixel.scrolling; return true;
-    case 1000: *enabled = term->mouse_tracking == MOUSE_CLICK; return true;
-    case 1001: *enabled = false; return true;
-    case 1002: *enabled = term->mouse_tracking == MOUSE_DRAG; return true;
-    case 1003: *enabled = term->mouse_tracking == MOUSE_MOTION; return true;
-    case 1004: *enabled = term->focus_events; return true;
-    case 1005: *enabled = false; /* term->mouse_reporting == MOUSE_UTF8; */ return true;
-    case 1006: *enabled = term->mouse_reporting == MOUSE_SGR; return true;
-    case 1007: *enabled = term->alt_scrolling; return true;
-    case 1015: *enabled = term->mouse_reporting == MOUSE_URXVT; return true;
-    case 1016: *enabled = term->mouse_reporting == MOUSE_SGR_PIXELS; return true;
-    case 1034: *enabled = term->meta.eight_bit; return true;
-    case 1035: *enabled = term->num_lock_modifier; return true;
-    case 1036: *enabled = term->meta.esc_prefix; return true;
-    case 1042: *enabled = term->bell_action_enabled; return true;
+    case 1: return decrpm(term->cursor_keys_mode == CURSOR_KEYS_APPLICATION);
+    case 5: return decrpm(term->reverse);
+    case 6: return decrpm(term->origin);
+    case 7: return decrpm(term->auto_margin);
+    case 9: return DECRPM_PERMANENTLY_RESET; /* term->mouse_tracking == MOUSE_X10; */
+    case 12: return decrpm(term->cursor_blink.decset);
+    case 25: return decrpm(!term->hide_cursor);
+    case 45: return decrpm(term->reverse_wrap);
+    case 66: return decrpm(term->keypad_keys_mode == KEYPAD_APPLICATION);
+    case 80: return decrpm(!term->sixel.scrolling);
+    case 1000: return decrpm(term->mouse_tracking == MOUSE_CLICK);
+    case 1001: return DECRPM_PERMANENTLY_RESET;
+    case 1002: return decrpm(term->mouse_tracking == MOUSE_DRAG);
+    case 1003: return decrpm(term->mouse_tracking == MOUSE_MOTION);
+    case 1004: return decrpm(term->focus_events);
+    case 1005: return DECRPM_PERMANENTLY_RESET; /* term->mouse_reporting == MOUSE_UTF8; */
+    case 1006: return decrpm(term->mouse_reporting == MOUSE_SGR);
+    case 1007: return decrpm(term->alt_scrolling);
+    case 1015: return decrpm(term->mouse_reporting == MOUSE_URXVT);
+    case 1016: return decrpm(term->mouse_reporting == MOUSE_SGR_PIXELS);
+    case 1034: return decrpm(term->meta.eight_bit);
+    case 1035: return decrpm(term->num_lock_modifier);
+    case 1036: return decrpm(term->meta.esc_prefix);
+    case 1042: return decrpm(term->bell_action_enabled);
     case 47:   /* FALLTHROUGH */
     case 1047: /* FALLTHROUGH */
-    case 1049: *enabled = term->grid == &term->alt; return true;
-    case 1070: *enabled = term->sixel.use_private_palette; return true;
-    case 2004: *enabled = term->bracketed_paste; return true;
-    case 2026: *enabled = term->render.app_sync_updates.enabled; return true;
-    case 8452: *enabled = term->sixel.cursor_right_of_graphics; return true;
-    case 737769: *enabled = term_ime_is_enabled(term); return true;
+    case 1049: return decrpm(term->grid == &term->alt);
+    case 1070: return decrpm(term->sixel.use_private_palette);
+    case 2004: return decrpm(term->bracketed_paste);
+    case 2026: return decrpm(term->render.app_sync_updates.enabled);
+    case 2027: return term->conf->tweak.grapheme_width_method != GRAPHEME_WIDTH_DOUBLE
+        ? DECRPM_PERMANENTLY_RESET
+        : decrpm(term->grapheme_shaping);
+    case 8452: return decrpm(term->sixel.cursor_right_of_graphics);
+    case 737769: return decrpm(term_ime_is_enabled(term));
     }
 
-    return false;
+    return DECRPM_NOT_RECOGNIZED;
 }
 
 static void
@@ -581,8 +591,6 @@ xtsave(struct terminal *term, unsigned param)
 {
     switch (param) {
     case 1: term->xtsave.application_cursor_keys = term->cursor_keys_mode == CURSOR_KEYS_APPLICATION; break;
-    case 3: break;
-    case 4: break;
     case 5: term->xtsave.reverse = term->reverse; break;
     case 6: term->xtsave.origin = term->origin; break;
     case 7: term->xtsave.auto_margin = term->auto_margin; break;
@@ -613,6 +621,7 @@ xtsave(struct terminal *term, unsigned param)
     case 1070: term->xtsave.sixel_private_palette = term->sixel.use_private_palette; break;
     case 2004: term->xtsave.bracketed_paste = term->bracketed_paste; break;
     case 2026: term->xtsave.app_sync_updates = term->render.app_sync_updates.enabled; break;
+    case 2027: term->xtsave.grapheme_shaping = term->grapheme_shaping; break;
     case 8452: term->xtsave.sixel_cursor_right_of_graphics = term->sixel.cursor_right_of_graphics; break;
     case 737769: term->xtsave.ime = term_ime_is_enabled(term); break;
     }
@@ -624,8 +633,6 @@ xtrestore(struct terminal *term, unsigned param)
     bool enable;
     switch (param) {
     case 1: enable = term->xtsave.application_cursor_keys; break;
-    case 3: return;
-    case 4: return;
     case 5: enable = term->xtsave.reverse; break;
     case 6: enable = term->xtsave.origin; break;
     case 7: enable = term->xtsave.auto_margin; break;
@@ -656,6 +663,7 @@ xtrestore(struct terminal *term, unsigned param)
     case 1070: enable = term->xtsave.sixel_private_palette; break;
     case 2004: enable = term->xtsave.bracketed_paste; break;
     case 2026: enable = term->xtsave.app_sync_updates; break;
+    case 2027: enable = term->xtsave.grapheme_shaping; break;
     case 8452: enable = term->xtsave.sixel_cursor_right_of_graphics; break;
     case 737769: enable = term->xtsave.ime; break;
 
@@ -816,7 +824,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
         case 'G': {
             /* Cursor horizontal absolute */
             int col = min(vt_param_get(term, 0, 1), term->cols) - 1;
-            term_cursor_to(term, term->grid->cursor.point.row, col);
+            term_cursor_col(term, col);
             break;
         }
 
@@ -913,7 +921,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        case 'L': {
+        case 'L': {  /* IL */
             if (term->grid->cursor.point.row < term->scroll_region.start ||
                 term->grid->cursor.point.row >= term->scroll_region.end)
                 break;
@@ -933,7 +941,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        case 'M': {
+        case 'M': {  /* DL */
             if (term->grid->cursor.point.row < term->scroll_region.start ||
                 term->grid->cursor.point.row >= term->scroll_region.end)
                 break;
@@ -1073,44 +1081,29 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 'h':
-            /* Set mode */
-            switch (vt_param_get(term, 0, 0)) {
-            case 2:   /* Keyboard Action Mode - AM */
-                LOG_WARN("unimplemented: keyboard action mode (AM)");
-                break;
-
-            case 4:   /* Insert Mode - IRM */
-                term->insert_mode = true;
+        case 'l': {
+            /* Set/Reset Mode (SM/RM) */
+            int param = vt_param_get(term, 0, 0);
+            bool sm = final == 'h';
+            if (param == 4) {
+                /* Insertion Replacement Mode (IRM) */
+                term->insert_mode = sm;
                 term_update_ascii_printer(term);
                 break;
+            }
 
-            case 12:  /* Send/receive Mode - SRM */
-                LOG_WARN("unimplemented: send/receive mode (SRM)");
-                break;
-
-            case 20:  /* Automatic Newline Mode - LNM */
-                /* TODO: would be easy to implemented; when active
-                 * term_linefeed() would _also_ do a
-                 * term_carriage_return() */
-                LOG_WARN("unimplemented: automatic newline mode (LNM)");
-                break;
+            /*
+             * ECMA-48 defines modes 1-22, all of which were optional
+             * (§7.1; "may have one state only") and are considered
+             * deprecated (§7.1) in the latest (5th) edition. xterm only
+             * documents modes 2, 4, 12 and 20, the last of which was
+             * outright removed (§8.3.106) in 5th edition ECMA-48.
+             */
+            if (sm) {
+                LOG_WARN("SM with unimplemented mode: %d", param);
             }
             break;
-
-        case 'l':
-            /* Reset mode */
-            switch (vt_param_get(term, 0, 0)) {
-            case 4:   /* Insert Mode - IRM */
-                term->insert_mode = false;
-                term_update_ascii_printer(term);
-                break;
-
-            case 2:   /* Keyboard Action Mode - AM */
-            case 12:  /* Send/receive Mode - SRM */
-            case 20:  /* Automatic Newline Mode - LNM */
-                break;
-            }
-            break;
+        }
 
         case 'r': {
             int start = vt_param_get(term, 0, 1);
@@ -1207,8 +1200,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
                 if (width >= 0 && height >= 0) {
                     char reply[64];
-                    size_t n = xsnprintf(reply, sizeof(reply), "\033[4;%d;%dt",
-                             height / term->scale, width / term->scale);
+                    size_t n = xsnprintf(
+                        reply, sizeof(reply), "\033[4;%d;%dt",
+                        (int)roundf(height / term->scale),
+                        (int)roundf((width / term->scale)));
                     term_to_slave(term, reply, n);
                 }
                 break;
@@ -1230,9 +1225,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             case 16: { /* report cell size in pixels */
                 char reply[64];
-                size_t n = xsnprintf(reply, sizeof(reply), "\033[6;%d;%dt",
-                         term->cell_height / term->scale,
-                         term->cell_width / term->scale);
+                size_t n = xsnprintf(
+                    reply, sizeof(reply), "\033[6;%d;%dt",
+                    (int)roundf(term->cell_height / term->scale),
+                    (int)roundf(term->cell_width / term->scale));
                 term_to_slave(term, reply, n);
                 break;
             }
@@ -1248,9 +1244,10 @@ csi_dispatch(struct terminal *term, uint8_t final)
             case 19: { /* report screen size in chars */
                 tll_foreach(term->window->on_outputs, it) {
                     char reply[64];
-                    size_t n = xsnprintf(reply, sizeof(reply), "\033[9;%d;%dt",
-                             it->item->dim.px_real.height / term->cell_height / term->scale,
-                             it->item->dim.px_real.width / term->cell_width / term->scale);
+                    size_t n = xsnprintf(
+                        reply, sizeof(reply), "\033[9;%d;%dt",
+                        (int)roundf(it->item->dim.px_real.height / term->cell_height / term->scale),
+                        (int)roundf(it->item->dim.px_real.width / term->cell_width / term->scale));
                     term_to_slave(term, reply, n);
                     break;
                 }
@@ -1399,6 +1396,39 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
+        case 'm': {
+            int resource = vt_param_get(term, 0, 0);
+            int value = -1;
+
+            switch (resource) {
+            case 0:  /* modifyKeyboard */
+                value = 0;
+                break;
+
+            case 1:  /* modifyCursorKeys */
+            case 2:  /* modifyFunctionKeys */
+                value = 1;
+                break;
+
+            case 4:  /* modifyOtherKeys */
+                value = term->modify_other_keys_2 ? 2 : 1;
+                break;
+
+            default:
+                LOG_WARN("XTQMODKEYS: invalid resource '%d' in '%s'",
+                         resource, csi_as_string(term, final, -1));
+                break;
+            }
+
+            if (value >= 0) {
+                char reply[16] = {0};
+                int chars = snprintf(reply, sizeof(reply),
+                                     "\033[>%d;%dm", resource, value);
+                term_to_slave(term, reply, chars);
+            }
+            break;
+        }
+
         case 'u': {
             enum kitty_kbd_flags flags =
                 term->grid->kitty_kbd.flags[term->grid->kitty_kbd.idx];
@@ -1490,7 +1520,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
                     break;
 
                 default:
-                    LOG_WARN("invalid resource %d in %s",
+                    LOG_WARN("XTMODKEYS: invalid resource '%d' in '%s'",
                              resource, csi_as_string(term, final, -1));
                     break;
                 }
@@ -1498,7 +1528,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break; /* final == 'm' */
 
         case 'n': {
-            int resource = vt_param_get(term, 0, 2);  /* Default is modifyFuncionKeys */
+            int resource = vt_param_get(term, 0, 2);  /* Default is modifyFunctionKeys */
             switch (resource) {
             case 0:  /* modifyKeyboard */
             case 1:  /* modifyCursorKeys */
@@ -1506,8 +1536,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 break;
 
             case 4:  /* modifyOtherKeys */
-                /* We don’t support fully disabling modifyOtherKeys,
-                 * but simply revert back to mode ‘1’ */
+                /* We don't support fully disabling modifyOtherKeys,
+                 * but simply revert back to mode '1' */
                 term->modify_other_keys_2 = false;
                 LOG_DBG("modifyOtherKeys=1");
                 break;
@@ -1585,7 +1615,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
         }
-        break; /* private[0] == ‘<’ */
+        break; /* private[0] == '<' */
     }
 
     case ' ': {
@@ -1719,15 +1749,9 @@ csi_dispatch(struct terminal *term, uint8_t final)
              *   3 - permanently set
              *   4 - permantently reset
              */
-            bool enabled;
-            unsigned value;
-            if (decrqm(term, param, &enabled))
-                value = enabled ? 1 : 2;
-            else
-                value = 0;
-
+            unsigned status = decrqm(term, param);
             char reply[32];
-            size_t n = xsnprintf(reply, sizeof(reply), "\033[?%u;%u$y", param, value);
+            size_t n = xsnprintf(reply, sizeof(reply), "\033[?%u;%u$y", param, status);
             term_to_slave(term, reply, n);
             break;
 
@@ -1738,7 +1762,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             break;
         }
 
-        break; /* private[0] == ‘?’ && private[1] == ‘$’ */
+        break; /* private[0] == '?' && private[1] == '$' */
 
     default:
         UNHANDLED();

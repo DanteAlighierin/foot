@@ -353,7 +353,7 @@ parse_rgb(const char *string, uint32_t *color, bool *_have_alpha,
             return false;
     }
 
-    /* Verify prefix is “rgb:” or “rgba:” */
+    /* Verify prefix is "rgb:" or "rgba:" */
     if (have_alpha) {
         if (strncmp(string, "rgba:", 5) != 0)
             return false;
@@ -426,7 +426,7 @@ osc_set_pwd(struct terminal *term, char *string)
         return;
     }
 
-    if (strcmp(scheme, "file") == 0 && hostname_is_localhost(host)) {
+    if (streq(scheme, "file") && hostname_is_localhost(host)) {
         LOG_DBG("OSC7: pwd: %s", path);
         free(term->cwd);
         term->cwd = path;
@@ -443,9 +443,9 @@ osc_uri(struct terminal *term, char *string)
     /*
      * \E]8;<params>;URI\e\\
      *
-     * Params are key=value pairs, separated by ‘:’.
+     * Params are key=value pairs, separated by ':'.
      *
-     * The only defined key (as of 2020-05-31) is ‘id’, which is used
+     * The only defined key (as of 2020-05-31) is 'id', which is used
      * to group split-up URIs:
      *
      * ╔═ file1 ════╗
@@ -483,7 +483,7 @@ osc_uri(struct terminal *term, char *string)
 
         const char *value = operator + 1;
 
-        if (strcmp(key, "id") == 0)
+        if (streq(key, "id"))
             id = sdbm_hash(value);
     }
 
@@ -729,8 +729,15 @@ osc_dispatch(struct terminal *term)
 
         case 11:
             term->colors.bg = color;
-            if (have_alpha)
+            if (have_alpha) {
+                const bool changed = term->colors.alpha != alpha;
                 term->colors.alpha = alpha;
+
+                if (changed) {
+                    wayl_win_alpha_changed(term->window);
+                    term_font_subpixel_changed(term);
+                }
+            }
             break;
 
         case 17:
@@ -886,7 +893,7 @@ osc_dispatch(struct terminal *term)
                      term->grid->cursor.point.row,
                     term->grid->cursor.point.col);
 
-            term->grid->cur_row->prompt_marker = true;
+            term->grid->cur_row->shell_integration.prompt_marker = true;
             break;
 
         case 'B':
@@ -894,13 +901,35 @@ osc_dispatch(struct terminal *term)
             break;
 
         case 'C':
-            LOG_DBG("FTCS_COMMAND_EXECUTED");
+            LOG_DBG("FTCS_COMMAND_EXECUTED: %dx%d",
+                    term->grid->cursor.point.row,
+                    term->grid->cursor.point.col);
+            term->grid->cur_row->shell_integration.cmd_start = term->grid->cursor.point.col;
             break;
 
         case 'D':
-            LOG_DBG("FTCS_COMMAND_FINISHED");
+            LOG_DBG("FTCS_COMMAND_FINISHED: %dx%d",
+                    term->grid->cursor.point.row,
+                    term->grid->cursor.point.col);
+            term->grid->cur_row->shell_integration.cmd_end = term->grid->cursor.point.col;
             break;
         }
+        break;
+
+    case 176:
+        if (string[0] == '?' && string[1] == '\0') {
+            const char *terminator = term->vt.osc.bel ? "\a" : "\033\\";
+            char *reply = xasprintf(
+                "\033]176;%s%s",
+                term->app_id != NULL ? term->app_id : term->conf->app_id,
+                terminator);
+
+            term_to_slave(term, reply, strlen(reply));
+            free(reply);
+            break;
+        }
+
+        term_set_app_id(term, string);
         break;
 
     case 555:

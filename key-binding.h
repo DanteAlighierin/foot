@@ -32,28 +32,41 @@ enum bind_action_normal {
     BIND_ACTION_PIPE_SCROLLBACK,
     BIND_ACTION_PIPE_VIEW,
     BIND_ACTION_PIPE_SELECTED,
+    BIND_ACTION_PIPE_COMMAND_OUTPUT,
     BIND_ACTION_SHOW_URLS_COPY,
     BIND_ACTION_SHOW_URLS_LAUNCH,
     BIND_ACTION_SHOW_URLS_PERSISTENT,
     BIND_ACTION_TEXT_BINDING,
     BIND_ACTION_PROMPT_PREV,
     BIND_ACTION_PROMPT_NEXT,
+    BIND_ACTION_UNICODE_INPUT,
 
     /* Mouse specific actions - i.e. they require a mouse coordinate */
+    BIND_ACTION_SCROLLBACK_UP_MOUSE,
+    BIND_ACTION_SCROLLBACK_DOWN_MOUSE,
     BIND_ACTION_SELECT_BEGIN,
     BIND_ACTION_SELECT_BEGIN_BLOCK,
     BIND_ACTION_SELECT_EXTEND,
     BIND_ACTION_SELECT_EXTEND_CHAR_WISE,
     BIND_ACTION_SELECT_WORD,
     BIND_ACTION_SELECT_WORD_WS,
+    BIND_ACTION_SELECT_QUOTE,
     BIND_ACTION_SELECT_ROW,
 
-    BIND_ACTION_KEY_COUNT = BIND_ACTION_PROMPT_NEXT + 1,
+    BIND_ACTION_KEY_COUNT = BIND_ACTION_UNICODE_INPUT + 1,
     BIND_ACTION_COUNT = BIND_ACTION_SELECT_ROW + 1,
 };
 
 enum bind_action_search {
     BIND_ACTION_SEARCH_NONE,
+    BIND_ACTION_SEARCH_SCROLLBACK_UP_PAGE,
+    BIND_ACTION_SEARCH_SCROLLBACK_UP_HALF_PAGE,
+    BIND_ACTION_SEARCH_SCROLLBACK_UP_LINE,
+    BIND_ACTION_SEARCH_SCROLLBACK_DOWN_PAGE,
+    BIND_ACTION_SEARCH_SCROLLBACK_DOWN_HALF_PAGE,
+    BIND_ACTION_SEARCH_SCROLLBACK_DOWN_LINE,
+    BIND_ACTION_SEARCH_SCROLLBACK_HOME,
+    BIND_ACTION_SEARCH_SCROLLBACK_END,
     BIND_ACTION_SEARCH_CANCEL,
     BIND_ACTION_SEARCH_COMMIT,
     BIND_ACTION_SEARCH_FIND_PREV,
@@ -68,10 +81,17 @@ enum bind_action_search {
     BIND_ACTION_SEARCH_DELETE_PREV_WORD,
     BIND_ACTION_SEARCH_DELETE_NEXT,
     BIND_ACTION_SEARCH_DELETE_NEXT_WORD,
+    BIND_ACTION_SEARCH_EXTEND_CHAR,
     BIND_ACTION_SEARCH_EXTEND_WORD,
     BIND_ACTION_SEARCH_EXTEND_WORD_WS,
+    BIND_ACTION_SEARCH_EXTEND_LINE_DOWN,
+    BIND_ACTION_SEARCH_EXTEND_BACKWARD_CHAR,
+    BIND_ACTION_SEARCH_EXTEND_BACKWARD_WORD,
+    BIND_ACTION_SEARCH_EXTEND_BACKWARD_WORD_WS,
+    BIND_ACTION_SEARCH_EXTEND_LINE_UP,
     BIND_ACTION_SEARCH_CLIPBOARD_PASTE,
     BIND_ACTION_SEARCH_PRIMARY_PASTE,
+    BIND_ACTION_SEARCH_UNICODE_INPUT,
     BIND_ACTION_SEARCH_COUNT,
 };
 
@@ -108,6 +128,7 @@ typedef tll(struct key_binding) key_binding_list_t;
 
 struct terminal;
 struct seat;
+struct wayland;
 
 struct key_binding_set {
     key_binding_list_t key;
@@ -125,20 +146,21 @@ void key_binding_manager_destroy(struct key_binding_manager *mgr);
 void key_binding_new_for_seat(
     struct key_binding_manager *mgr, const struct seat *seat);
 
-void key_binding_new_for_term(
-    struct key_binding_manager *mgr, const struct terminal *term);
+void key_binding_new_for_conf(
+    struct key_binding_manager *mgr, const struct wayland *wayl,
+    const struct config *conf);
 
-/* Returns the set of key bindings associated with this seat/term pair */
+/* Returns the set of key bindings associated with this seat/conf pair */
 struct key_binding_set *key_binding_for(
-    struct key_binding_manager *mgr, const struct terminal *term,
+    struct key_binding_manager *mgr, const struct config *conf,
     const struct seat *seat);
 
 /* Remove all key bindings tied to the specified seat */
 void key_binding_remove_seat(
     struct key_binding_manager *mgr, const struct seat *seat);
 
-void key_binding_unref_term(
-    struct key_binding_manager *mgr, const struct terminal *term);
+void key_binding_unref(
+    struct key_binding_manager *mgr, const struct config *conf);
 
 void key_binding_load_keymap(
     struct key_binding_manager *mgr, const struct seat *seat);

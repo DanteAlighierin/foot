@@ -52,7 +52,8 @@ static const char *
 version_and_features(void)
 {
     static char buf[256];
-    snprintf(buf, sizeof(buf), "version: %s %cpgo %cime %cgraphemes %cassertions",
+    snprintf(buf, sizeof(buf),
+             "version: %s %cpgo %cime %cgraphemes %cassertions",
              FOOT_VERSION,
              feature_pgo() ? '+' : '-',
              feature_ime() ? '+' : '-',
@@ -83,9 +84,9 @@ print_usage(const char *prog_name)
         "                                           Without PATH, $XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock will be used.\n"
         "  -H,--hold                                remain open after child process exits\n"
         "  -p,--print-pid=FILE|FD                   print PID to file or FD (only applicable in server mode)\n"
-        "  -d,--log-level={info|warning|error|none} log level (info)\n"
+        "  -d,--log-level={info|warning|error|none} log level (warning)\n"
         "  -l,--log-colorize=[{never|always|auto}]  enable/disable colorization of log output on stderr\n"
-        "  -s,--log-no-syslog                       disable syslog logging (only applicable in server mode)\n"
+        "  -S,--log-no-syslog                       disable syslog logging (only applicable in server mode)\n"
         "  -v,--version                             show the version number and quit\n"
         "  -e                                       ignored (for compatibility with xterm -e)\n";
 
@@ -175,7 +176,7 @@ int
 main(int argc, char *const *argv)
 {
     /* Custom exit code, to enable users to differentiate between foot
-     * itself failing, and the client application failiing */
+     * itself failing, and the client application failing */
     static const int foot_exit_failure = -26;
     int ret = foot_exit_failure;
 
@@ -219,24 +220,14 @@ main(int argc, char *const *argv)
 
     bool check_config = false;
     const char *conf_path = NULL;
-    const char *conf_term = NULL;
-    const char *conf_title = NULL;
-    const char *conf_app_id = NULL;
     const char *custom_cwd = NULL;
-    bool login_shell = false;
-    tll(char *) conf_fonts = tll_init();
-    enum conf_size_type conf_size_type = CONF_SIZE_PX;
-    int conf_width = -1;
-    int conf_height = -1;
     bool as_server = false;
     const char *conf_server_socket_path = NULL;
     bool presentation_timings = false;
     bool hold = false;
-    bool maximized = false;
-    bool fullscreen = false;
     bool unlink_pid_file = false;
     const char *pid_file = NULL;
-    enum log_class log_level = LOG_CLASS_INFO;
+    enum log_class log_level = LOG_CLASS_WARNING;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
     bool log_syslog = true;
     user_notifications_t user_notifications = tll_init();
@@ -258,23 +249,23 @@ main(int argc, char *const *argv)
             break;
 
         case 'o':
-            tll_push_back(overrides, optarg);
+            tll_push_back(overrides, xstrdup(optarg));
             break;
 
         case 't':
-            conf_term = optarg;
+            tll_push_back(overrides, xasprintf("term=%s", optarg));
             break;
 
         case 'L':
-            login_shell = true;
+            tll_push_back(overrides, xstrdup("login-shell=yes"));
             break;
 
         case 'T':
-            conf_title = optarg;
+            tll_push_back(overrides, xasprintf("title=%s", optarg));
             break;
 
         case 'a':
-            conf_app_id = optarg;
+            tll_push_back(overrides, xasprintf("app-id=%s", optarg));
             break;
 
         case 'D': {
@@ -287,27 +278,11 @@ main(int argc, char *const *argv)
             break;
         }
 
-        case 'f':
-            tll_free_and_free(conf_fonts, free);
-            for (char *font = strtok(optarg, ","); font != NULL; font = strtok(NULL, ",")) {
-
-                /* Strip leading spaces */
-                while (*font != '\0' && isspace(*font))
-                    font++;
-
-                /* Strip trailing spaces */
-                char *end = font + strlen(font);
-                xassert(*end == '\0');
-                end--;
-                while (end > font && isspace(*end))
-                    *(end--) = '\0';
-
-                if (strlen(font) == 0)
-                    continue;
-
-                tll_push_back(conf_fonts, font);
-            }
+        case 'f': {
+            char *font_override = xasprintf("font=%s", optarg);
+            tll_push_back(overrides, font_override);
             break;
+        }
 
         case 'w': {
             unsigned width, height;
@@ -316,9 +291,9 @@ main(int argc, char *const *argv)
                 return ret;
             }
 
-            conf_size_type = CONF_SIZE_PX;
-            conf_width = width;
-            conf_height = height;
+            tll_push_back(
+                overrides, xasprintf("initial-window-size-pixels=%ux%u",
+                                     width, height));
             break;
         }
 
@@ -329,9 +304,9 @@ main(int argc, char *const *argv)
                 return ret;
             }
 
-            conf_size_type = CONF_SIZE_CELLS;
-            conf_width = width;
-            conf_height = height;
+            tll_push_back(
+                overrides, xasprintf("initial-window-size-chars=%ux%u",
+                                     width, height));
             break;
         }
 
@@ -350,13 +325,11 @@ main(int argc, char *const *argv)
             break;
 
         case 'm':
-            maximized = true;
-            fullscreen = false;
+            tll_push_back(overrides, xstrdup("initial-window-mode=maximized"));
             break;
 
         case 'F':
-            fullscreen = true;
-            maximized = false;
+            tll_push_back(overrides, xstrdup("initial-window-mode=fullscreen"));
             break;
 
         case 'p':
@@ -378,11 +351,11 @@ main(int argc, char *const *argv)
         }
 
         case 'l':
-            if (optarg == NULL || strcmp(optarg, "auto") == 0)
+            if (optarg == NULL || streq(optarg, "auto"))
                 log_colorize = LOG_COLORIZE_AUTO;
-            else if (strcmp(optarg, "never") == 0)
+            else if (streq(optarg, "never"))
                 log_colorize = LOG_COLORIZE_NEVER;
-            else if (strcmp(optarg, "always") == 0)
+            else if (streq(optarg, "always"))
                 log_colorize = LOG_COLORIZE_ALWAYS;
             else {
                 fprintf(stderr, "%s: argument must be one of 'never', 'always' or 'auto'\n", optarg);
@@ -433,8 +406,13 @@ main(int argc, char *const *argv)
 
     const char *locale = setlocale(LC_CTYPE, "");
     if (locale == NULL) {
-        LOG_ERR("setlocale() failed");
-        return ret;
+        /*
+         * If the user has configured an invalid locale, or a name of a locale
+         * that does not exist on this system, then the above call may return
+         * NULL. We should just continue with the fallback method below.
+         */
+        LOG_WARN("setlocale() failed");
+        locale = "C";
     }
 
     LOG_INFO("locale: %s", locale);
@@ -445,10 +423,11 @@ main(int argc, char *const *argv)
             "C.UTF-8",
             "en_US.UTF-8",
         };
+        char *saved_locale = xstrdup(locale);
 
         /*
          * Try to force an UTF-8 locale. If we succeed, launch the
-         * user’s shell as usual, but add a user-notification saying
+         * user's shell as usual, but add a user-notification saying
          * the locale has been changed.
          */
         for (size_t i = 0; i < ALEN(fallback_locales); i++) {
@@ -456,12 +435,12 @@ main(int argc, char *const *argv)
 
             if (setlocale(LC_CTYPE, fallback_locale) != NULL) {
                 LOG_WARN("'%s' is not a UTF-8 locale, using '%s' instead",
-                         locale, fallback_locale);
+                         saved_locale, fallback_locale);
 
                 user_notification_add_fmt(
                     &user_notifications, USER_NOTIFICATION_WARNING,
                     "'%s' is not a UTF-8 locale, using '%s' instead",
-                    locale, fallback_locale);
+                    saved_locale, fallback_locale);
 
                 bad_locale = false;
                 break;
@@ -471,20 +450,21 @@ main(int argc, char *const *argv)
         if (bad_locale) {
             LOG_ERR(
                 "'%s' is not a UTF-8 locale, and failed to find a fallback",
-                locale);
+                saved_locale);
 
             user_notification_add_fmt(
                 &user_notifications, USER_NOTIFICATION_ERROR,
                 "'%s' is not a UTF-8 locale, and failed to find a fallback",
-                locale);
+                saved_locale);
         }
+        free(saved_locale);
     }
 
     struct config conf = {NULL};
     bool conf_successful = config_load(
-        &conf, conf_path, &user_notifications, &overrides, check_config);
+        &conf, conf_path, &user_notifications, &overrides, check_config, as_server);
 
-    tll_free(overrides);
+    tll_free_and_free(overrides, free);
     if (!conf_successful) {
         config_free(&conf);
         return ret;
@@ -505,53 +485,10 @@ main(int argc, char *const *argv)
         (enum fcft_log_class)log_level);
     fcft_set_scaling_filter(conf.tweak.fcft_filter);
 
-    if (conf_term != NULL) {
-        free(conf.term);
-        conf.term = xstrdup(conf_term);
-    }
-    if (conf_title != NULL) {
-        free(conf.title);
-        conf.title = xstrdup(conf_title);
-    }
-    if (conf_app_id != NULL) {
-        free(conf.app_id);
-        conf.app_id = xstrdup(conf_app_id);
-    }
-    if (login_shell)
-        conf.login_shell = true;
-    if (tll_length(conf_fonts) > 0) {
-        for (size_t i = 0; i < ALEN(conf.fonts); i++)
-            config_font_list_destroy(&conf.fonts[i]);
-
-        struct config_font_list *font_list = &conf.fonts[0];
-        xassert(font_list->count == 0);
-        xassert(font_list->arr == NULL);
-
-        font_list->arr = xmalloc(
-            tll_length(conf_fonts) * sizeof(font_list->arr[0]));
-
-        tll_foreach(conf_fonts, it) {
-            struct config_font font;
-            if (!config_font_parse(it->item, &font)) {
-                LOG_ERR("%s: invalid font specification", it->item);
-            } else
-                font_list->arr[font_list->count++] = font;
-        }
-        tll_free(conf_fonts);
-    }
-    if (conf_width > 0 && conf_height > 0) {
-        conf.size.type = conf_size_type;
-        conf.size.width = conf_width;
-        conf.size.height = conf_height;
-    }
     if (conf_server_socket_path != NULL) {
         free(conf.server_socket_path);
         conf.server_socket_path = xstrdup(conf_server_socket_path);
     }
-    if (maximized)
-        conf.startup_mode = STARTUP_MAXIMIZED;
-    else if (fullscreen)
-        conf.startup_mode = STARTUP_FULLSCREEN;
     conf.presentation_timings = presentation_timings;
     conf.hold_at_exit = hold;
 
@@ -592,6 +529,28 @@ main(int argc, char *const *argv)
             buf_len *= 2;
         } while (errno == ERANGE);
         cwd = _cwd;
+    }
+
+    const char *pwd = getenv("PWD");
+    if (pwd != NULL) {
+        char *resolved_path_cwd = realpath(cwd, NULL);
+        char *resolved_path_pwd = realpath(pwd, NULL);
+
+        if (resolved_path_cwd != NULL &&
+            resolved_path_pwd != NULL &&
+            streq(resolved_path_cwd, resolved_path_pwd))
+        {
+            /*
+             * The resolved path of $PWD matches the resolved path of
+             * the *actual* working directory - use $PWD.
+             *
+             * This makes a difference when $PWD refers to a symlink.
+             */
+            cwd = pwd;
+        }
+
+        free(resolved_path_cwd);
+        free(resolved_path_pwd);
     }
 
     shm_set_max_pool_size(conf.tweak.max_shm_pool_size);

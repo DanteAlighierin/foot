@@ -54,9 +54,12 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
             goto child_err;
         }
 
-        if (cwd != NULL && chdir(cwd) < 0) {
-            LOG_WARN("failed to change working directory to %s: %s",
-                     cwd, strerror(errno));
+        if (cwd != NULL) {
+            setenv("PWD", cwd, 1);
+            if (chdir(cwd) < 0) {
+                LOG_WARN("failed to change working directory to %s: %s",
+                         cwd, strerror(errno));
+            }
         }
 
         if (xdg_activation_token != NULL) {
@@ -142,7 +145,7 @@ spawn_expand_template(const struct config_spawn_template *template,
         expanded[len] = '\0';                               \
     } while (0)
 
-    *argv = malloc((*argc + 1) * sizeof((*argv)[0]));
+    *argv = xmalloc((*argc + 1) * sizeof((*argv)[0]));
 
     /* Expand the provided keys */
     for (size_t i = 0; i < *argc; i++) {

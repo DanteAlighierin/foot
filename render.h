@@ -10,16 +10,24 @@ struct renderer;
 struct renderer *render_init(struct fdm *fdm, struct wayland *wayl);
 void render_destroy(struct renderer *renderer);
 
-bool render_resize(struct terminal *term, int width, int height);
-bool render_resize_force(struct terminal *term, int width, int height);
+enum resize_options {
+    RESIZE_NORMAL = 0,
+    RESIZE_FORCE = 1 << 0,
+    RESIZE_BY_CELLS = 1 << 1,
+    RESIZE_KEEP_GRID = 1 << 2,
+};
+
+bool render_resize(
+    struct terminal *term, int width, int height, uint8_t resize_options);
 
 void render_refresh(struct terminal *term);
+void render_refresh_app_id(struct terminal *term);
 void render_refresh_csd(struct terminal *term);
 void render_refresh_search(struct terminal *term);
 void render_refresh_title(struct terminal *term);
 void render_refresh_urls(struct terminal *term);
 bool render_xcursor_set(
-    struct seat *seat, struct terminal *term, const char *xcursor);
+    struct seat *seat, struct terminal *term, enum cursor_shape shape);
 bool render_xcursor_is_valid(const struct seat *seat, const char *cursor);
 
 struct render_worker_context {

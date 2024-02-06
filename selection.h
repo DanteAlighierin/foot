@@ -22,6 +22,8 @@ void selection_extend(
 
 bool selection_on_rows(const struct terminal *term, int start, int end);
 
+void selection_scroll_up(struct terminal *term, int rows);
+void selection_scroll_down(struct terminal *term, int rows);
 void selection_view_up(struct terminal *term, int new_view);
 void selection_view_down(struct terminal *term, int new_view);
 
@@ -76,9 +78,9 @@ void selection_start_scroll_timer(
 void selection_stop_scroll_timer(struct terminal *term);
 
 void selection_find_word_boundary_left(
-    struct terminal *term, struct coord *pos, bool spaces_only);
+    const struct terminal *term, struct coord *pos, bool spaces_only);
 void selection_find_word_boundary_right(
-    struct terminal *term, struct coord *pos, bool spaces_only,
+    const struct terminal *term, struct coord *pos, bool spaces_only,
     bool stop_on_space_to_word_boundary);
 
 struct coord selection_get_start(const struct terminal *term);

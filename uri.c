@@ -159,7 +159,7 @@ uri_parse(const char *uri, size_t len,
         char *p = decoded;
 
         size_t encoded_len = path_len;
-        size_t decoded_len = 0;
+        size_t UNUSED decoded_len = 0;
 
         while (true) {
             /* Find next '%' */
@@ -250,7 +250,7 @@ hostname_is_localhost(const char *hostname)
         this_host[0] = '\0';
 
     return (hostname != NULL && (
-                strcmp(hostname, "") == 0 ||
-                strcmp(hostname, "localhost") == 0 ||
-                strcmp(hostname, this_host) == 0));
+                streq(hostname, "") ||
+                streq(hostname, "localhost") ||
+                streq(hostname, this_host)));
 }

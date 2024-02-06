@@ -15,7 +15,7 @@
 #include "xsnprintf.h"
 
 static bool colorize = false;
-static bool do_syslog = true;
+static bool do_syslog = false;
 static enum log_class log_level = LOG_CLASS_NONE;
 
 static const struct {
@@ -45,8 +45,13 @@ log_init(enum log_colorize _colorize, bool _do_syslog,
     log_level = _log_level;
 
     int slvl = log_level_map[_log_level].syslog_equivalent;
-    if (do_syslog && slvl != -1) {
+    if (slvl < 0)
+        do_syslog = false;
+
+    if (do_syslog) {
         openlog(NULL, /*LOG_PID*/0, facility_map[syslog_facility]);
+
+        xassert(slvl >= 0);
         setlogmask(LOG_UPTO(slvl));
     }
 }
@@ -194,7 +199,7 @@ log_level_from_string(const char *str)
         return -1;
 
     for (int i = 0, n = map_len(); i < n; i++)
-        if (strcmp(str, log_level_map[i].name) == 0)
+        if (streq(str, log_level_map[i].name))
             return i;
 
     return -1;

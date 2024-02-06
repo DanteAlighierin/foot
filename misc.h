@@ -6,4 +6,5 @@
 
 bool isword(char32_t wc, bool spaces_only, const char32_t *delimiters);
 
+void timespec_add(const struct timespec *a, const struct timespec *b, struct timespec *res);
 void timespec_sub(const struct timespec *a, const struct timespec *b, struct timespec *res);

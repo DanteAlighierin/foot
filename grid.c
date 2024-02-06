@@ -1,5 +1,6 @@
 #include "grid.h"
 
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -16,7 +17,7 @@
 #define TIME_REFLOW 0
 
 /*
- * “sb” (scrollback relative) coordinates
+ * "sb" (scrollback relative) coordinates
  *
  * The scrollback relative row number 0 is the *first*, and *oldest*
  * row in the scrollback history (and thus the *first* row to be
@@ -210,6 +211,8 @@ grid_snapshot(const struct grid *grid)
     clone->offset = grid->offset;
     clone->view = grid->view;
     clone->cursor = grid->cursor;
+    clone->saved_cursor = grid->saved_cursor;
+    clone->kitty_kbd = grid->kitty_kbd;
     clone->rows = xcalloc(grid->num_rows, sizeof(clone->rows[0]));
     memset(&clone->scroll_damage, 0, sizeof(clone->scroll_damage));
     memset(&clone->sixel_images, 0, sizeof(clone->sixel_images));
@@ -229,7 +232,7 @@ grid_snapshot(const struct grid *grid)
         clone_row->cells = xmalloc(grid->num_cols * sizeof(clone_row->cells[0]));
         clone_row->linebreak = row->linebreak;
         clone_row->dirty = row->dirty;
-        clone_row->prompt_marker = row->prompt_marker;
+        clone_row->shell_integration = row->shell_integration;
 
         for (int c = 0; c < grid->num_cols; c++)
             clone_row->cells[c] = row->cells[c];
@@ -253,27 +256,68 @@ grid_snapshot(const struct grid *grid)
     }
 
     tll_foreach(grid->sixel_images, it) {
-        int width = it->item.width;
-        int height = it->item.height;
-        pixman_image_t *pix = it->item.pix;
-        pixman_format_code_t pix_fmt = pixman_image_get_format(pix);
-        int stride = stride_for_format_and_width(pix_fmt, width);
+        int original_width = it->item.original.width;
+        int original_height = it->item.original.height;
+        pixman_image_t *original_pix = it->item.original.pix;
+        pixman_format_code_t original_pix_fmt = pixman_image_get_format(original_pix);
+        int original_stride = stride_for_format_and_width(original_pix_fmt, original_width);
 
-        size_t size = stride * height;
-        void *new_data = xmalloc(size);
-        memcpy(new_data, it->item.data, size);
+        size_t original_size = original_stride * original_height;
+        void *new_original_data = xmalloc(original_size);
+        memcpy(new_original_data, it->item.original.data, original_size);
 
-        pixman_image_t *new_pix = pixman_image_create_bits_no_clear(
-            pix_fmt, width, height, new_data, stride);
+        pixman_image_t *new_original_pix = pixman_image_create_bits_no_clear(
+            original_pix_fmt, original_width, original_height,
+            new_original_data, original_stride);
+
+        void *new_scaled_data = NULL;
+        pixman_image_t *new_scaled_pix = NULL;
+        int scaled_width = -1;
+        int scaled_height = -1;
+
+        if (it->item.scaled.data != NULL) {
+            scaled_width = it->item.scaled.width;
+            scaled_height = it->item.scaled.height;
+
+            pixman_image_t *scaled_pix = it->item.scaled.pix;
+            pixman_format_code_t scaled_pix_fmt = pixman_image_get_format(scaled_pix);
+            int scaled_stride = stride_for_format_and_width(scaled_pix_fmt, scaled_width);
+
+            size_t scaled_size = scaled_stride * scaled_height;
+            new_scaled_data = xmalloc(scaled_size);
+            memcpy(new_scaled_data, it->item.scaled.data, scaled_size);
+
+            new_scaled_pix = pixman_image_create_bits_no_clear(
+                scaled_pix_fmt, scaled_width, scaled_height, new_scaled_data,
+                scaled_stride);
+        }
 
         struct sixel six = {
-            .data = new_data,
-            .pix = new_pix,
-            .width = width,
-            .height = height,
+            .pix = (it->item.pix == it->item.original.pix
+                    ? new_original_pix
+                    : (it->item.pix == it->item.scaled.pix
+                       ? new_scaled_pix
+                       : NULL)),
+            .width = it->item.width,
+            .height = it->item.height,
             .rows = it->item.rows,
             .cols = it->item.cols,
             .pos = it->item.pos,
+            .opaque = it->item.opaque,
+            .cell_width = it->item.cell_width,
+            .cell_height = it->item.cell_height,
+            .original = {
+                .data = new_original_data,
+                .pix = new_original_pix,
+                .width = original_width,
+                .height = original_height,
+            },
+            .scaled = {
+                .data = new_scaled_data,
+                .pix = new_scaled_pix,
+                .width = scaled_width,
+                .height = scaled_height,
+            },
         };
 
         tll_push_back(clone->sixel_images, six);
@@ -285,6 +329,9 @@ grid_snapshot(const struct grid *grid)
 void
 grid_free(struct grid *grid)
 {
+    if (grid == NULL)
+        return;
+
     for (int r = 0; r < grid->num_rows; r++)
         grid_row_free(grid->rows[r]);
 
@@ -320,7 +367,9 @@ grid_row_alloc(int cols, bool initialize)
     row->dirty = false;
     row->linebreak = false;
     row->extra = NULL;
-    row->prompt_marker = false;
+    row->shell_integration.prompt_marker = false;
+    row->shell_integration.cmd_start = -1;
+    row->shell_integration.cmd_end = -1;
 
     if (initialize) {
         row->cells = xcalloc(cols, sizeof(row->cells[0]));
@@ -379,7 +428,9 @@ grid_resize_without_reflow(
 
         new_row->dirty = old_row->dirty;
         new_row->linebreak = false;
-        new_row->prompt_marker = old_row->prompt_marker;
+        new_row->shell_integration.prompt_marker = old_row->shell_integration.prompt_marker;
+        new_row->shell_integration.cmd_start = min(old_row->shell_integration.cmd_start, new_cols - 1);
+        new_row->shell_integration.cmd_end = min(old_row->shell_integration.cmd_end, new_cols - 1);
 
         if (new_cols > old_cols) {
             /* Clear "new" columns */
@@ -483,6 +534,8 @@ grid_resize_without_reflow(
     grid->saved_cursor.point = saved_cursor;
 
     grid->cur_row = new_grid[(grid->offset + cursor.row) & (new_rows - 1)];
+    xassert(grid->cur_row != NULL);
+
     grid->cursor.lcf = false;
     grid->saved_cursor.lcf = false;
 
@@ -536,10 +589,12 @@ _line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
         new_row = grid_row_alloc(col_count, false);
         new_grid[*row_idx] = new_row;
     } else {
-        /* Scrollback is full, need to re-use a row */
+        /* Scrollback is full, need to reuse a row */
         grid_row_reset_extra(new_row);
         new_row->linebreak = false;
-        new_row->prompt_marker = false;
+        new_row->shell_integration.prompt_marker = false;
+        new_row->shell_integration.cmd_start = -1;
+        new_row->shell_integration.cmd_end = -1;
 
         tll_foreach(old_grid->sixel_images, it) {
             if (it->item.pos.row == *row_idx) {
@@ -549,9 +604,9 @@ _line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
         }
 
         /*
-         * TODO: detect if the re-used row is covered by the
+         * TODO: detect if the reused row is covered by the
          * selection. Of so, cancel the selection. The problem: we
-         * don’t know if we’ve translated the selection coordinates
+         * don't know if we've translated the selection coordinates
          * yet.
          */
     }
@@ -561,7 +616,7 @@ _line_wrap(struct grid *old_grid, struct row **new_grid, struct row *row,
         return new_row;
 
     /*
-     * URI ranges are per row. Thus, we need to ‘close’ the still-open
+     * URI ranges are per row. Thus, we need to 'close' the still-open
      * ranges on the previous row, and re-open them on the
      * next/current row.
      */
@@ -741,7 +796,7 @@ grid_resize_and_reflow(
         }
 
         if (!old_row->linebreak && col_count > 0) {
-            /* Don’t truncate logical lines */
+            /* Don't truncate logical lines */
             col_count = old_cols;
         }
 
@@ -783,35 +838,26 @@ grid_resize_and_reflow(
             int end;
             bool tp_break = false;
             bool uri_break = false;
+            bool ftcs_break = false;
 
-            /*
-             * Set end-coordinate for this chunk, by finding the next
-             * point-of-interrest on this row.
-             *
-             * If there are no more tracking points, or URI ranges,
-             * the end-coordinate will be at the end of the row,
-             */
-            if (range != range_terminator) {
-                int uri_col = (range->start >= start ? range->start : range->end) + 1;
+            /* Figure out where to end this chunk */
+            {
+                const int uri_col = range != range_terminator
+                    ? ((range->start >= start ? range->start : range->end) + 1)
+                    : INT_MAX;
+                const int tp_col = tp != NULL ? tp->col + 1 : INT_MAX;
+                const int ftcs_col = old_row->shell_integration.cmd_start >= start
+                    ? old_row->shell_integration.cmd_start + 1
+                    : old_row->shell_integration.cmd_end >= start
+                    ? old_row->shell_integration.cmd_end + 1
+                    : INT_MAX;
 
-                if (tp != NULL) {
-                    int tp_col = tp->col + 1;
-                    end = min(tp_col, uri_col);
+                end = min(col_count, min(min(tp_col, uri_col), ftcs_col));
 
-                    tp_break = end == tp_col;
-                    uri_break = end == uri_col;
-                    LOG_DBG("tp+uri break at %d (%d, %d)", end, tp_col, uri_col);
-                } else {
-                    end = uri_col;
-                    uri_break = true;
-                    LOG_DBG("uri break at %d", end);
-                }
-            } else if (tp != NULL) {
-                end = tp->col + 1;
-                tp_break = true;
-                LOG_DBG("TP break at %d", end);
-            } else
-                end = col_count;
+                uri_break = end == uri_col;
+                tp_break = end == tp_col;
+                ftcs_break = end == ftcs_col;
+            }
 
             int cols = end - start;
             xassert(cols > 0);
@@ -839,8 +885,8 @@ grid_resize_and_reflow(
                 xassert(amount > 0);
 
                 /*
-                 * If we’re going to reach the end of the new row, we
-                 * need to make sure we don’t end in the middle of a
+                 * If we're going to reach the end of the new row, we
+                 * need to make sure we don't end in the middle of a
                  * multi-column character.
                  */
                 int spacers = 0;
@@ -849,7 +895,7 @@ grid_resize_and_reflow(
                      * While the cell *after* the last cell is a CELL_SPACER
                      *
                      * This means we have a multi-column character
-                     * that doesn’t fit on the current row. We need to
+                     * that doesn't fit on the current row. We need to
                      * push it to the next row, and insert CELL_SPACER
                      * cells as padding.
                      */
@@ -872,7 +918,7 @@ grid_resize_and_reflow(
                 xassert(from + amount <= old_cols);
 
                 if (from == 0)
-                    new_row->prompt_marker = old_row->prompt_marker;
+                    new_row->shell_integration.prompt_marker = old_row->shell_integration.prompt_marker;
 
                 memcpy(
                     &new_row->cells[new_col_idx], &old_row->cells[from],
@@ -931,17 +977,43 @@ grid_resize_and_reflow(
                 }
             }
 
+            if (ftcs_break) {
+                xassert(old_row->shell_integration.cmd_start == start + cols - 1 ||
+                        old_row->shell_integration.cmd_end == start + cols - 1);
+
+                if (old_row->shell_integration.cmd_start == start + cols - 1)
+                    new_row->shell_integration.cmd_start = new_col_idx - 1;
+                if (old_row->shell_integration.cmd_end == start + cols - 1)
+                    new_row->shell_integration.cmd_end = new_col_idx - 1;
+            }
+
             left -= cols;
             start += cols;
         }
-
 
         if (old_row->linebreak) {
             /* Erase the remaining cells */
             memset(&new_row->cells[new_col_idx], 0,
                    (new_cols - new_col_idx) * sizeof(new_row->cells[0]));
             new_row->linebreak = true;
-            line_wrap();
+
+            if (r + 1 < old_rows)
+                line_wrap();
+            else if (new_row->extra != NULL &&
+                     new_row->extra->uri_ranges.count > 0)
+            {
+                /*
+                 * line_wrap() "closes" still-open URIs. Since this is
+                 * the *last* row, and since we're line-breaking due
+                 * to a hard line-break (rather than running out of
+                 * cells in the "new_row"), there shouldn't be an open
+                 * URI (it would have been closed when we reached the
+                 * end of the URI while reflowing the last "old"
+                 * row).
+                 */
+                uint32_t last_idx = new_row->extra->uri_ranges.count - 1;
+                xassert(new_row->extra->uri_ranges.v[last_idx].end >= 0);
+            }
         }
 
         grid_row_free(old_grid[old_row_idx]);
@@ -961,7 +1033,7 @@ grid_resize_and_reflow(
     xassert(old_rows == 0 || *next_tp == &terminator);
 
 #if defined(_DEBUG)
-    /* Verify all URI ranges have been “closed” */
+    /* Verify all URI ranges have been "closed" */
     for (int r = 0; r < new_rows; r++) {
         const struct row *row = new_grid[r];
 
@@ -984,6 +1056,7 @@ grid_resize_and_reflow(
 
     /* Set offset such that the last reflowed row is at the bottom */
     grid->offset = new_row_idx - new_screen_rows + 1;
+
     while (grid->offset < 0)
         grid->offset += new_rows;
     while (new_grid[grid->offset] == NULL)
@@ -996,29 +1069,23 @@ grid_resize_and_reflow(
             new_grid[idx] = grid_row_alloc(new_cols, true);
     }
 
-    grid->view = view_follows ? grid->offset : viewport.row;
-
-    /* If enlarging the window, the old viewport may be too far down,
-     * with unallocated rows. Make sure this cannot happen */
-    while (true) {
-        int idx = (grid->view + new_screen_rows - 1) & (new_rows - 1);
-        if (new_grid[idx] != NULL)
-            break;
-        grid->view--;
-        if (grid->view < 0)
-            grid->view += new_rows;
-    }
-    for (size_t r = 0; r < new_screen_rows; r++) {
-        int UNUSED idx = (grid->view + r) & (new_rows - 1);
-        xassert(new_grid[idx] != NULL);
-    }
-
     /* Free old grid (rows already free:d) */
     free(grid->rows);
 
     grid->rows = new_grid;
     grid->num_rows = new_rows;
     grid->num_cols = new_cols;
+
+    /*
+     * Set new viewport, making sure it's not too far down.
+     *
+     * This is done by using scrollback-start relative cooardinates,
+     * and bounding the new viewport to (grid_rows - screen_rows).
+     */
+    int sb_view = grid_row_abs_to_sb(
+        grid, new_screen_rows, view_follows ? grid->offset : viewport.row);
+    grid->view = grid_row_sb_to_abs(
+        grid, new_screen_rows, min(sb_view, new_rows - new_screen_rows));
 
     /* Convert absolute coordinates to screen relative */
     cursor.row -= grid->offset;
@@ -1034,6 +1101,8 @@ grid_resize_and_reflow(
     saved_cursor.col = min(saved_cursor.col, new_cols - 1);
 
     grid->cur_row = new_grid[(grid->offset + cursor.row) & (new_rows - 1)];
+    xassert(grid->cur_row != NULL);
+
     grid->cursor.point = cursor;
     grid->saved_cursor.point = saved_cursor;
 
@@ -1074,7 +1143,7 @@ grid_row_uri_range_put(struct row *row, int col, const char *uri, uint64_t id)
         const bool matching_id = r->id == id;
 
         if (matching_id && r->end + 1 == col) {
-            /* Extend existing URI’s tail */
+            /* Extend existing URI's tail */
             r->end++;
             goto out;
         }
@@ -1113,7 +1182,7 @@ grid_row_uri_range_put(struct row *row, int col, const char *uri, uint64_t id)
                 uri_range_insert(extra, i + 1, col + 1, r->end, r->id, r->uri);
 
                 /* The insertion may xrealloc() the vector, making our
-                 * ‘old’ pointer invalid */
+                 * 'old' pointer invalid */
                 r = &extra->uri_ranges.v[i];
                 r->end = col - 1;
                 xassert(r->start <= r->end);
@@ -1250,7 +1319,7 @@ grid_row_uri_range_erase(struct row *row, int start, int end)
                 extra, i + 1, end + 1, old->end, old->id, old->uri);
 
             /* The insertion may xrealloc() the vector, making our
-             * ‘old’ pointer invalid */
+             * 'old' pointer invalid */
             old = &extra->uri_ranges.v[i];
             old->end = start - 1;
             return;  /* There can be no more URIs affected by the erase range */
@@ -1333,11 +1402,11 @@ UNITTEST
      * The insertion logic typically triggers an xrealloc(), which, in
      * some cases, *moves* the entire URI vector to a new base
      * address. grid_row_uri_range_erase() did not account for this,
-     * and tried to update the ‘end’ member in the URI range we just
+     * and tried to update the 'end' member in the URI range we just
      * split. This causes foot to crash when the xrealloc() has moved
      * the URI range vector.
      *
-     * (note: we’re only verifying we don’t crash here, hence the lack
+     * (note: we're only verifying we don't crash here, hence the lack
      * of assertions).
      */
     free(row_data.uri_ranges.v);

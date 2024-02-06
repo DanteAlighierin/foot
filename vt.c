@@ -137,12 +137,12 @@ action_execute(struct terminal *term, uint8_t c)
         /* backspace */
 #if 0
         /*
-         * This is the “correct” BS behavior. However, it doesn’t play
+         * This is the "correct" BS behavior. However, it doesn't play
          * nicely with bw/auto_left_margin, hence the alternative
          * implementation below.
          *
-         * Note that it breaks vttest “1. Test of cursor movements ->
-         * Test of autowrap”
+         * Note that it breaks vttest "1. Test of cursor movements ->
+         * Test of autowrap"
          */
         term_cursor_left(term, 1);
 #else
@@ -154,7 +154,7 @@ action_execute(struct terminal *term, uint8_t c)
                 likely(term->reverse_wrap && term->auto_margin))
             {
                 if (term->grid->cursor.point.row <= term->scroll_region.start) {
-                    /* Don’t wrap past, or inside, the scrolling region(?) */
+                    /* Don't wrap past, or inside, the scrolling region(?) */
                 } else
                     term_cursor_to(
                         term,
@@ -294,74 +294,31 @@ action_print(struct terminal *term, uint8_t c)
 }
 
 static void
-action_param(struct terminal *term, uint8_t c)
+action_param_lazy_init(struct terminal *term)
 {
     if (term->vt.params.idx == 0) {
         struct vt_param *param = &term->vt.params.v[0];
+
+        term->vt.params.cur = param;
         param->value = 0;
         param->sub.idx = 0;
+        param->sub.cur = NULL;
         term->vt.params.idx = 1;
     }
+}
 
-    xassert(term->vt.params.idx > 0);
+static void
+action_param_new(struct terminal *term, uint8_t c)
+{
+    xassert(c == ';');
+    action_param_lazy_init(term);
 
     const size_t max_params
         = sizeof(term->vt.params.v) / sizeof(term->vt.params.v[0]);
-    const size_t max_sub_params
-        = sizeof(term->vt.params.v[0].sub.value) / sizeof(term->vt.params.v[0].sub.value[0]);
 
-    /* New parameter */
-    if (c == ';') {
-        if (unlikely(term->vt.params.idx >= max_params))
-            goto excess_params;
+    struct vt_param *param;
 
-        struct vt_param *param = &term->vt.params.v[term->vt.params.idx++];
-        param->value = 0;
-        param->sub.idx = 0;
-    }
-
-    /* New sub-parameter */
-    else if (c == ':') {
-        if (unlikely(term->vt.params.idx - 1 >= max_params))
-            goto excess_params;
-
-        struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
-        if (unlikely(param->sub.idx >= max_sub_params))
-            goto excess_sub_params;
-
-        param->sub.value[param->sub.idx++] = 0;
-    }
-
-    /* New digit for current parameter/sub-parameter */
-    else {
-        if (unlikely(term->vt.params.idx - 1 >= max_params))
-            goto excess_params;
-
-        struct vt_param *param = &term->vt.params.v[term->vt.params.idx - 1];
-        unsigned *value;
-
-        if (param->sub.idx > 0) {
-            if (unlikely(param->sub.idx - 1 >= max_sub_params))
-                goto excess_sub_params;
-            value = &param->sub.value[param->sub.idx - 1];
-        } else
-            value = &param->value;
-
-        *value *= 10;
-        *value += c - '0';
-    }
-
-#if defined(_DEBUG)
-    /* The rest of the code assumes 'idx' *never* points outside the array */
-    xassert(term->vt.params.idx <= max_params);
-    for (size_t i = 0; i < term->vt.params.idx; i++)
-        xassert(term->vt.params.v[i].sub.idx <= max_sub_params);
-#endif
-
-    return;
-
-excess_params:
-    {
+    if (unlikely(term->vt.params.idx >= max_params)) {
         static bool have_warned = false;
         if (!have_warned) {
             have_warned = true;
@@ -370,11 +327,29 @@ excess_params:
                 "(will not warn again)",
                 sizeof(term->vt.params.v) / sizeof(term->vt.params.v[0]));
         }
-    }
-    return;
+        param = &term->vt.params.dummy;
+    } else
+        param = &term->vt.params.v[term->vt.params.idx++];
 
-excess_sub_params:
-    {
+    term->vt.params.cur = param;
+    param->value = 0;
+    param->sub.idx = 0;
+    param->sub.cur = NULL;
+}
+
+static void
+action_param_new_subparam(struct terminal *term, uint8_t c)
+{
+    xassert(c == ':');
+    action_param_lazy_init(term);
+
+    const size_t max_sub_params
+        = sizeof(term->vt.params.v[0].sub.value) / sizeof(term->vt.params.v[0].sub.value[0]);
+
+    struct vt_param *param = term->vt.params.cur;
+    unsigned *sub_param_value;
+
+    if (unlikely(param->sub.idx >= max_sub_params)) {
         static bool have_warned = false;
         if (!have_warned) {
             have_warned = true;
@@ -383,8 +358,33 @@ excess_sub_params:
                 "(will not warn again)",
                 sizeof(term->vt.params.v[0].sub.value) / sizeof(term->vt.params.v[0].sub.value[0]));
         }
-    }
-    return;
+
+        sub_param_value = &param->sub.dummy;
+    } else
+        sub_param_value = &param->sub.value[param->sub.idx++];
+
+    param->sub.cur = sub_param_value;
+    *sub_param_value = 0;
+}
+
+static void
+action_param(struct terminal *term, uint8_t c)
+{
+    action_param_lazy_init(term);
+    xassert(term->vt.params.cur != NULL);
+
+    struct vt_param *param = term->vt.params.cur;
+    unsigned *value;
+
+    if (unlikely(param->sub.cur != NULL))
+        value = param->sub.cur;
+    else
+        value = &param->value;
+
+    unsigned v = *value;
+    v *= 10;
+    v += c - '0';
+    *value = v;
 }
 
 static void
@@ -398,7 +398,7 @@ action_collect(struct terminal *term, uint8_t c)
      * more.
      *
      * As such, we optimize *reading* the private(s), and *resetting*
-     * them (in action_clear()). Writing is ok if it’s a bit slow.
+     * them (in action_clear()). Writing is ok if it's a bit slow.
      */
 
     if ((term->vt.private & 0xff) == 0)
@@ -434,6 +434,27 @@ UNITTEST
 
     action_collect(&term, '?');
     xassert(term.vt.private == expected);
+}
+
+static void
+tab_set(struct terminal *term)
+{
+    int col = term->grid->cursor.point.col;
+
+    if (tll_length(term->tab_stops) == 0 || tll_back(term->tab_stops) < col) {
+        tll_push_back(term->tab_stops, col);
+        return;
+    }
+
+    tll_foreach(term->tab_stops, it) {
+        if (it->item < col) {
+            continue;
+        }
+        if (it->item > col) {
+            tll_insert_before(term->tab_stops, it, col);
+        }
+        break;
+    }
 }
 
 static void
@@ -478,14 +499,7 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
             break;
 
         case 'H':
-            tll_foreach(term->tab_stops, it) {
-                if (it->item >= term->grid->cursor.point.col) {
-                    tll_insert_before(term->tab_stops, it, term->grid->cursor.point.col);
-                    break;
-                }
-            }
-
-            tll_push_back(term->tab_stops, term->grid->cursor.point.col);
+            tab_set(term);
             break;
 
         case 'M':
@@ -631,7 +645,7 @@ chain_key(uint32_t old_key, uint32_t new_wc)
     new_key ^= new_wc;
 
     /* Multiply with magic hash constant */
-    new_key *= 2654435761;
+    new_key *= 2654435761ul;
 
     /* And mask, to ensure the new value is within range */
     new_key &= CELL_COMB_CHARS_HI - CELL_COMB_CHARS_LO;
@@ -643,7 +657,7 @@ static void
 action_utf8_print(struct terminal *term, char32_t wc)
 {
     int width = c32width(wc);
-    const bool grapheme_clustering = term->conf->tweak.grapheme_shaping;
+    const bool grapheme_clustering = term->grapheme_shaping;
 
 #if !defined(FOOT_GRAPHEME_CLUSTERING)
     xassert(!grapheme_clustering);
@@ -769,7 +783,7 @@ action_utf8_print(struct terminal *term, char32_t wc)
 
                 /*
                  * We may have a key collisison, so need to check that
-                 * it’s a true match. If not, bump the key and try
+                 * it's a true match. If not, bump the key and try
                  * again.
                  */
 
@@ -899,6 +913,16 @@ action_utf8_33(struct terminal *term, uint8_t c)
 {
     // wc = ((utf8[0] & 0xf) << 12) | ((utf8[1] & 0x3f) << 6) | (utf8[2] & 0x3f)
     term->vt.utf8 |= c & 0x3f;
+
+    const char32_t utf32 = term->vt.utf8;
+    if (unlikely(utf32 >= 0xd800 && utf32 <= 0xdfff)) {
+        /* Invalid sequence - invalid UTF-16 surrogate halves */
+        return;
+    }
+
+    /* Note: the E0 range contains overlong encodings. We don't try to
+       detect, as they'll still decode to valid UTF-32. */
+
     action_utf8_print(term, term->vt.utf8);
 }
 
@@ -928,6 +952,17 @@ action_utf8_44(struct terminal *term, uint8_t c)
 {
     // wc = ((utf8[0] & 7) << 18) | ((utf8[1] & 0x3f) << 12) | ((utf8[2] & 0x3f) << 6) | (utf8[3] & 0x3f);
     term->vt.utf8 |= c & 0x3f;
+
+    const char32_t utf32 = term->vt.utf8;
+
+    if (unlikely(utf32 > 0x10FFFF)) {
+        /* Invalid UTF-8 */
+        return;
+    }
+
+    /* Note: the F0 range contains overlong encodings. We don't try to
+       detect, as they'll still decode to valid UTF-32. */
+
     action_utf8_print(term, term->vt.utf8);
 }
 
@@ -1024,7 +1059,9 @@ state_csi_entry_switch(struct terminal *term, uint8_t data)
 
     case 0x20 ... 0x2f:                                  action_collect(term, data);                                       return STATE_CSI_INTERMEDIATE;
     case 0x30 ... 0x39:                                  action_param(term, data);                                         return STATE_CSI_PARAM;
-    case 0x3a ... 0x3b:                                  action_param(term, data);                                         return STATE_CSI_PARAM;
+    case 0x3a:                                           action_param_new_subparam(term, data);                            return STATE_CSI_PARAM;
+    case 0x3b:                                           action_param_new(term, data);                                     return STATE_CSI_PARAM;
+
     case 0x3c ... 0x3f:                                  action_collect(term, data);                                       return STATE_CSI_PARAM;
     case 0x40 ... 0x7e:                                  action_csi_dispatch(term, data);                                  return STATE_GROUND;
     case 0x7f:                                           action_ignore(term);                                              return STATE_CSI_ENTRY;
@@ -1044,8 +1081,9 @@ state_csi_param_switch(struct terminal *term, uint8_t data)
 
     case 0x20 ... 0x2f:                                  action_collect(term, data);                                       return STATE_CSI_INTERMEDIATE;
 
-    case 0x30 ... 0x39:
-    case 0x3a ... 0x3b:                                  action_param(term, data);                                         return STATE_CSI_PARAM;
+    case 0x30 ... 0x39:                                  action_param(term, data);                                         return STATE_CSI_PARAM;
+    case 0x3a:                                           action_param_new_subparam(term, data);                            return STATE_CSI_PARAM;
+    case 0x3b:                                           action_param_new(term, data);                                     return STATE_CSI_PARAM;
 
     case 0x3c ... 0x3f:                                                                                                    return STATE_CSI_IGNORE;
     case 0x40 ... 0x7e:                                  action_csi_dispatch(term, data);                                  return STATE_GROUND;
@@ -1126,7 +1164,7 @@ state_dcs_entry_switch(struct terminal *term, uint8_t data)
     case 0x20 ... 0x2f:                                  action_collect(term, data);                                       return STATE_DCS_INTERMEDIATE;
     case 0x30 ... 0x39:                                  action_param(term, data);                                         return STATE_DCS_PARAM;
     case 0x3a:                                                                                                             return STATE_DCS_IGNORE;
-    case 0x3b:                                           action_param(term, data);                                         return STATE_DCS_PARAM;
+    case 0x3b:                                           action_param_new(term, data);                                     return STATE_DCS_PARAM;
     case 0x3c ... 0x3f:                                  action_collect(term, data);                                       return STATE_DCS_PARAM;
     case 0x40 ... 0x7e:                                                                   action_hook(term, data);         return STATE_DCS_PASSTHROUGH;
     case 0x7f:                                           action_ignore(term);                                              return STATE_DCS_ENTRY;
@@ -1147,7 +1185,7 @@ state_dcs_param_switch(struct terminal *term, uint8_t data)
     case 0x20 ... 0x2f:                                  action_collect(term, data);                                       return STATE_DCS_INTERMEDIATE;
     case 0x30 ... 0x39:                                  action_param(term, data);                                         return STATE_DCS_PARAM;
     case 0x3a:                                                                                                             return STATE_DCS_IGNORE;
-    case 0x3b:                                           action_param(term, data);                                         return STATE_DCS_PARAM;
+    case 0x3b:                                           action_param_new(term, data);                                     return STATE_DCS_PARAM;
     case 0x3c ... 0x3f:                                                                                                    return STATE_DCS_IGNORE;
     case 0x40 ... 0x7e:                                                                   action_hook(term, data);         return STATE_DCS_PASSTHROUGH;
     case 0x7f:                                           action_ignore(term);                                              return STATE_DCS_PARAM;

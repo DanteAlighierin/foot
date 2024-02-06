@@ -80,17 +80,14 @@ key_binding_new_for_seat(struct key_binding_manager *mgr,
 }
 
 void
-key_binding_new_for_term(struct key_binding_manager *mgr,
-                         const struct terminal *term)
+key_binding_new_for_conf(struct key_binding_manager *mgr,
+                         const struct wayland *wayl, const struct config *conf)
 {
-    const struct config *conf = term->conf;
-    const struct wayland *wayl = term->wl;
-
     tll_foreach(wayl->seats, it) {
         struct seat *seat = &it->item;
 
         struct key_set *existing =
-            (struct key_set *)key_binding_for(mgr, term, seat);
+            (struct key_set *)key_binding_for(mgr, conf, seat);
 
         if (existing != NULL) {
             existing->conf_ref_count++;
@@ -116,21 +113,19 @@ key_binding_new_for_term(struct key_binding_manager *mgr,
         /* Chances are high this set will be requested next */
         mgr->last_used_set = &tll_back(mgr->binding_sets);
 
-        LOG_DBG("new (term): set=%p, seat=%p, conf=%p, ref-count=1",
+        LOG_DBG("new (conf): set=%p, seat=%p, conf=%p, ref-count=1",
                 (void *)&tll_back(mgr->binding_sets),
                 (void *)set.seat, (void *)set.conf);
     }
 
-    LOG_DBG("new (term): total number of sets: %zu",
+    LOG_DBG("new (conf): total number of sets: %zu",
             tll_length(mgr->binding_sets));
 }
 
 struct key_binding_set * NOINLINE
-key_binding_for(struct key_binding_manager *mgr, const struct terminal *term,
+key_binding_for(struct key_binding_manager *mgr, const struct config *conf,
                 const struct seat *seat)
 {
-    const struct config *conf = term->conf;
-
     struct key_set *last_used = mgr->last_used_set;
     if (last_used != NULL &&
         last_used->conf == conf &&
@@ -192,11 +187,8 @@ key_binding_remove_seat(struct key_binding_manager *mgr,
 }
 
 void
-key_binding_unref_term(struct key_binding_manager *mgr,
-                       const struct terminal *term)
+key_binding_unref(struct key_binding_manager *mgr, const struct config *conf)
 {
-    const struct config *conf = term->conf;
-
     tll_foreach(mgr->binding_sets, it) {
         struct key_set *set = &it->item;
 
@@ -251,27 +243,27 @@ maybe_repair_key_combo(const struct seat *seat,
      * modifier, and replace the shifted symbol with its unshifted
      * variant.
      *
-     * For example, the combo is “Control+Shift+U”. In this case,
-     * Shift is the modifier used to “shift” ‘u’ to ‘U’, after which
-     * ‘Shift’ will have been “consumed”. Since we filter out consumed
+     * For example, the combo is "Control+Shift+U". In this case,
+     * Shift is the modifier used to "shift" 'u' to 'U', after which
+     * 'Shift' will have been "consumed". Since we filter out consumed
      * modifiers when matching key combos, this key combo will never
-     * trigger (we will never be able to match the ‘Shift’ modifier).
+     * trigger (we will never be able to match the 'Shift' modifier).
      *
      * There are two correct variants of the above key combo:
-     *  - “Control+U”           (upper case ‘U’)
-     *  - “Control+Shift+u”     (lower case ‘u’)
+     *  - "Control+U"           (upper case 'U')
+     *  - "Control+Shift+u"     (lower case 'u')
      *
      * What we do here is, for each key *code*, check if there are any
-     * (shifted) levels where it produces ‘sym’. If there are, check
+     * (shifted) levels where it produces 'sym'. If there are, check
      * *which* sets of modifiers are needed to produce it, and compare
-     * with ‘mods’.
+     * with 'mods'.
      *
-     * If there is at least one common modifier, it means ‘sym’ is a
-     * “shifted” symbol, with the corresponding shifting modifier
+     * If there is at least one common modifier, it means 'sym' is a
+     * "shifted" symbol, with the corresponding shifting modifier
      * explicitly included in the key combo. I.e. the key combo will
      * never trigger.
      *
-     * We then proceed and “repair” the key combo by replacing ‘sym’
+     * We then proceed and "repair" the key combo by replacing 'sym'
      * with the corresponding unshifted symbol.
      *
      * To reduce the noise, we ignore all key codes where the shifted
@@ -291,7 +283,7 @@ maybe_repair_key_combo(const struct seat *seat,
             seat->kbd.xkb_keymap, code, layout_idx, 0, &base_syms);
 
         if (base_count == 0 || sym == base_syms[0]) {
-            /* No unshifted symbols, or unshifted symbol is same as ‘sym’ */
+            /* No unshifted symbols, or unshifted symbol is same as 'sym' */
             continue;
         }
 
@@ -321,7 +313,7 @@ maybe_repair_key_combo(const struct seat *seat,
                     seat->kbd.xkb_keymap, code, layout_idx, level_idx,
                     mod_masks, ALEN(mod_masks));
 
-                /* Check if key combo’s modifier set intersects */
+                /* Check if key combo's modifier set intersects */
                 for (size_t j = 0; j < mod_mask_count; j++) {
                     if ((mod_masks[j] & mods) != mod_masks[j])
                         continue;
@@ -358,6 +350,78 @@ maybe_repair_key_combo(const struct seat *seat,
     return sym;
 }
 
+static int
+key_cmp(struct key_binding a, struct key_binding b)
+{
+    xassert(a.type == b.type);
+
+    /*
+     * Sort bindings such that bindings with the same symbol are
+     * sorted with the binding having the most modifiers comes first.
+     *
+     * This fixes an issue where the "wrong" key binding are triggered
+     * when used with "consumed" modifiers.
+     *
+     * For example: if Control+BackSpace is bound before
+     * Control+Shift+BackSpace, then the latter binding is never
+     * triggered.
+     *
+     * Why? Because Shift is a consumed modifier. This means
+     * Control+BackSpace is "the same" as Control+Shift+BackSpace.
+     *
+     * By sorting bindings with more modifiers first, we work around
+     * the problem. But note that it is *just* a workaround, and I'm
+     * not confident there aren't cases where it doesn't work.
+     *
+     * See https://codeberg.org/dnkl/foot/issues/1280
+     */
+
+    const int a_mod_count = __builtin_popcount(a.mods);
+    const int b_mod_count = __builtin_popcount(b.mods);
+
+    switch (a.type) {
+    case KEY_BINDING:
+        if (a.k.sym != b.k.sym)
+            return b.k.sym - a.k.sym;
+        return b_mod_count - a_mod_count;
+
+    case MOUSE_BINDING: {
+        if (a.m.button != b.m.button)
+            return b.m.button - a.m.button;
+        if (a_mod_count != b_mod_count)
+            return b_mod_count - a_mod_count;
+        return b.m.count - a.m.count;
+    }
+    }
+
+    BUG("invalid key binding type");
+    return 0;
+}
+
+static void NOINLINE
+sort_binding_list(key_binding_list_t *list)
+{
+    tll_sort(*list, key_cmp);
+}
+
+static xkb_mod_mask_t
+mods_to_mask(const struct seat *seat, const config_modifier_list_t *mods)
+{
+    xkb_mod_mask_t mask = 0;
+    tll_foreach(*mods, it) {
+        xkb_mod_index_t idx = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, it->item);
+
+        if (idx == XKB_MOD_INVALID) {
+            LOG_ERR("%s: invalid modifier name", it->item);
+            continue;
+        }
+
+        mask |= 1 << idx;
+    }
+
+    return mask;
+}
+
 static void NOINLINE
 convert_key_binding(struct key_set *set,
                     const struct config_key_binding *conf_binding,
@@ -365,7 +429,7 @@ convert_key_binding(struct key_set *set,
 {
     const struct seat *seat = set->seat;
 
-    xkb_mod_mask_t mods = conf_modifiers_to_mask(seat, &conf_binding->modifiers);
+    xkb_mod_mask_t mods = mods_to_mask(seat, &conf_binding->modifiers);
     xkb_keysym_t sym = maybe_repair_key_combo(seat, conf_binding->k.sym, mods);
 
     struct key_binding binding = {
@@ -379,6 +443,7 @@ convert_key_binding(struct key_set *set,
         },
     };
     tll_push_back(*bindings, binding);
+    sort_binding_list(bindings);
 }
 
 static void
@@ -422,13 +487,14 @@ convert_mouse_binding(struct key_set *set,
         .type = MOUSE_BINDING,
         .action = conf_binding->action,
         .aux = &conf_binding->aux,
-        .mods = conf_modifiers_to_mask(set->seat, &conf_binding->modifiers),
+        .mods = mods_to_mask(set->seat, &conf_binding->modifiers),
         .m = {
             .button = conf_binding->m.button,
             .count = conf_binding->m.count,
         },
     };
     tll_push_back(set->public.mouse, binding);
+    sort_binding_list(&set->public.mouse);
 }
 
 static void
@@ -461,7 +527,7 @@ load_keymap(struct key_set *set)
     convert_url_bindings(set);
     convert_mouse_bindings(set);
 
-    set->public.selection_overrides = conf_modifiers_to_mask(
+    set->public.selection_overrides = mods_to_mask(
         set->seat, &set->conf->mouse.selection_override_modifiers);
 }
 

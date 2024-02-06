@@ -14,6 +14,7 @@
 #include "char32.h"
 #include "grid.h"
 #include "key-binding.h"
+#include "quirks.h"
 #include "render.h"
 #include "selection.h"
 #include "spawn.h"
@@ -85,7 +86,6 @@ spawn_url_launcher_with_token(struct terminal *term,
     return ret;
 }
 
-#if defined(HAVE_XDG_ACTIVATION)
 struct spawn_activation_context {
     struct terminal *term;
     char *url;
@@ -100,13 +100,11 @@ activation_token_done(const char *token, void *data)
     free(ctx->url);
     free(ctx);
 }
-#endif
 
 static bool
 spawn_url_launcher(struct seat *seat, struct terminal *term, const char *url,
                    uint32_t serial)
 {
-#if defined(HAVE_XDG_ACTIVATION)
     struct spawn_activation_context *ctx = xmalloc(sizeof(*ctx));
     *ctx = (struct spawn_activation_context){
         .term = term,
@@ -122,7 +120,6 @@ spawn_url_launcher(struct seat *seat, struct terminal *term, const char *url,
 
     free(ctx->url);
     free(ctx);
-#endif
 
     return spawn_url_launcher_with_token(term, url, NULL);
 }
@@ -131,74 +128,39 @@ static void
 activate_url(struct seat *seat, struct terminal *term, const struct url *url,
              uint32_t serial)
 {
-    char *url_string = NULL;
-
-    char *scheme, *host, *path;
-    if (uri_parse(url->url, strlen(url->url), &scheme, NULL, NULL,
-                  &host, NULL, &path, NULL, NULL))
-    {
-        if (strcmp(scheme, "file") == 0 && hostname_is_localhost(host)) {
-            /*
-             * This is a file in *this* computer. Pass only the
-             * filename to the URL-launcher.
-             *
-             * I.e. strip the ‘file://user@host/’ prefix.
-             */
-            url_string = path;
-        } else
-            free(path);
-
-        free(scheme);
-        free(host);
-    }
-
-    if (url_string == NULL)
-        url_string = xstrdup(url->url);
-
     switch (url->action) {
     case URL_ACTION_COPY:
-        if (text_to_clipboard(seat, term, url_string, seat->kbd.serial)) {
-            /* Now owned by our clipboard “manager” */
-            url_string = NULL;
-        }
+        text_to_clipboard(seat, term, xstrdup(url->url), seat->kbd.serial);
         break;
 
     case URL_ACTION_LAUNCH:
     case URL_ACTION_PERSISTENT: {
-        spawn_url_launcher(seat, term, url_string, serial);
+        spawn_url_launcher(seat, term, url->url, serial);
         break;
     }
     }
-
-    free(url_string);
 }
 
 void
 urls_input(struct seat *seat, struct terminal *term,
            const struct key_binding_set *bindings, uint32_t key,
            xkb_keysym_t sym, xkb_mod_mask_t mods, xkb_mod_mask_t consumed,
-           xkb_mod_mask_t locked,
            const xkb_keysym_t *raw_syms, size_t raw_count,
            uint32_t serial)
 {
-    const xkb_mod_mask_t bind_mods =
-        mods & seat->kbd.bind_significant & ~locked;
-    const xkb_mod_mask_t bind_consumed =
-        consumed & seat->kbd.bind_significant & ~locked;
-
     /* Key bindings */
     tll_foreach(bindings->url, it) {
         const struct key_binding *bind = &it->item;
 
         /* Match translated symbol */
         if (bind->k.sym == sym &&
-            bind->mods == (bind_mods & ~bind_consumed))
+            bind->mods == (mods & ~consumed))
         {
             execute_binding(seat, term, bind, serial);
             return;
         }
 
-        if (bind->mods != bind_mods || bind_mods != (mods & ~locked))
+        if (bind->mods != mods)
             continue;
 
         for (size_t i = 0; i < raw_count; i++) {
@@ -228,13 +190,13 @@ urls_input(struct seat *seat, struct terminal *term,
         return;
     }
 
-    if (mods & ~consumed & ~locked)
+    if (mods & ~consumed)
         return;
 
     char32_t wc = xkb_state_key_get_utf32(seat->kbd.xkb_state, key);
 
     /*
-     * Determine if this is a “valid” key. I.e. if there is a URL
+     * Determine if this is a "valid" key. I.e. if there is a URL
      * label with a key combo where this key is the next in
      * sequence.
      */
@@ -329,121 +291,138 @@ auto_detected(const struct terminal *term, enum url_action action,
 
         for (int c = 0; c < term->cols; c++) {
             const struct cell *cell = &row->cells[c];
-            char32_t wc = cell->wc;
 
-            switch (state) {
-            case STATE_PROTOCOL:
-                for (size_t i = 0; i < max_prot_len - 1; i++) {
+            if (cell->wc >= CELL_SPACER)
+                continue;
+
+            const char32_t *wcs = NULL;
+            size_t wc_count = 0;
+
+            if (cell->wc >= CELL_COMB_CHARS_LO && cell->wc <= CELL_COMB_CHARS_HI) {
+                struct composed *composed =
+                    composed_lookup(term->composed, cell->wc - CELL_COMB_CHARS_LO);
+                wcs = composed->chars;
+                wc_count = composed->count;
+            } else {
+                wcs = &cell->wc;
+                wc_count = 1;
+            }
+
+            for (size_t w_idx = 0; w_idx < wc_count; w_idx++) {
+                char32_t wc = wcs[w_idx];
+
+                switch (state) {
+                case STATE_PROTOCOL:
+                  for (size_t i = 0; i < max_prot_len - 1; i++) {
                     proto_chars[i] = proto_chars[i + 1];
                     proto_start[i] = proto_start[i + 1];
-                }
+                  }
 
-                if (proto_char_count >= max_prot_len)
+                  if (proto_char_count >= max_prot_len)
                     proto_char_count = max_prot_len - 1;
 
-                proto_chars[max_prot_len - 1] = wc;
-                proto_start[max_prot_len - 1] = (struct coord){c, r};
-                proto_char_count++;
+                  proto_chars[max_prot_len - 1] = wc;
+                  proto_start[max_prot_len - 1] = (struct coord){c, r};
+                  proto_char_count++;
 
-                for (size_t i = 0; i < conf->url.prot_count; i++) {
+                  for (size_t i = 0; i < conf->url.prot_count; i++) {
                     size_t prot_len = c32len(conf->url.protocols[i]);
 
                     if (proto_char_count < prot_len)
-                        continue;
+                      continue;
 
-                    const char32_t *proto = &proto_chars[max_prot_len - prot_len];
+                    const char32_t *proto =
+                        &proto_chars[max_prot_len - prot_len];
 
-                    if (c32ncasecmp(conf->url.protocols[i], proto, prot_len) == 0) {
-                        state = STATE_URL;
-                        start = proto_start[max_prot_len - prot_len];
+                    if (c32ncasecmp(conf->url.protocols[i], proto, prot_len) ==
+                        0) {
+                      state = STATE_URL;
+                      start = proto_start[max_prot_len - prot_len];
 
-                        c32ncpy(url, proto, prot_len);
-                        len = prot_len;
+                      c32ncpy(url, proto, prot_len);
+                      len = prot_len;
 
-                        parenthesis = brackets = ltgts = 0;
-                        break;
+                      parenthesis = brackets = ltgts = 0;
+                      break;
                     }
-                }
-                break;
+                  }
+                  break;
 
-            case STATE_URL: {
-                const char32_t *match = bsearch(
-                    &wc,
-                    uri_characters,
-                    uri_characters_count,
-                    sizeof(uri_characters[0]),
-                    &c32cmp_single);
+                case STATE_URL: {
+                  const char32_t *match =
+                      bsearch(&wc, uri_characters, uri_characters_count,
+                              sizeof(uri_characters[0]), &c32cmp_single);
 
-                bool emit_url = false;
+                  bool emit_url = false;
 
-                if (match == NULL) {
+                  if (match == NULL) {
                     /*
                      * Character is not a valid URI character. Emit
-                     * the URL we’ve collected so far, *without*
+                     * the URL we've collected so far, *without*
                      * including _this_ character.
                      */
                     emit_url = true;
-                } else {
+                  } else {
                     xassert(*match == wc);
 
                     switch (wc) {
                     default:
-                        url[len++] = wc;
-                        break;
+                      url[len++] = wc;
+                      break;
 
                     case U'(':
-                        parenthesis++;
-                        url[len++] = wc;
-                        break;
+                      parenthesis++;
+                      url[len++] = wc;
+                      break;
 
                     case U'[':
-                        brackets++;
-                        url[len++] = wc;
-                        break;
+                      brackets++;
+                      url[len++] = wc;
+                      break;
 
                     case U'<':
-                        ltgts++;
-                        url[len++] = wc;
-                        break;
+                      ltgts++;
+                      url[len++] = wc;
+                      break;
 
                     case U')':
-                        if (--parenthesis < 0)
-                            emit_url = true;
-                        else
-                            url[len++] = wc;
-                        break;
+                      if (--parenthesis < 0)
+                        emit_url = true;
+                      else
+                        url[len++] = wc;
+                      break;
 
                     case U']':
-                        if (--brackets < 0)
-                            emit_url = true;
-                        else
-                            url[len++] = wc;
-                        break;
+                      if (--brackets < 0)
+                        emit_url = true;
+                      else
+                        url[len++] = wc;
+                      break;
 
                     case U'>':
-                        if (--ltgts < 0)
-                            emit_url = true;
-                        else
-                            url[len++] = wc;
-                        break;
+                      if (--ltgts < 0)
+                        emit_url = true;
+                      else
+                        url[len++] = wc;
+                      break;
                     }
-                }
+                  }
 
-                if (c >= term->cols - 1 && row->linebreak) {
+                  if (c >= term->cols - 1 && row->linebreak) {
                     /*
-                     * Endpoint is inclusive, and we’ll be subtracting
+                     * Endpoint is inclusive, and we'll be subtracting
                      * 1 from the column when emitting the URL.
                      */
                     c++;
                     emit_url = true;
-                }
+                  }
 
-                if (emit_url) {
+                  if (emit_url) {
                     struct coord end = {c, r};
 
                     if (--end.col < 0) {
-                        end.row--;
-                        end.col = term->cols - 1;
+                      end.row--;
+                      end.col = term->cols - 1;
                     }
 
                     /* Heuristic to remove trailing characters that
@@ -451,21 +430,28 @@ auto_detected(const struct terminal *term, enum url_action action,
                      * the end of the URL */
                     bool done = false;
                     do {
-                        switch (url[len - 1]) {
-                        case U'.': case U',': case U':': case U';': case U'?':
-                        case U'!': case U'"': case U'\'': case U'%':
-                            len--;
-                            end.col--;
-                            if (end.col < 0) {
-                                end.row--;
-                                end.col = term->cols - 1;
-                            }
-                            break;
-
-                        default:
-                            done = true;
-                            break;
+                      switch (url[len - 1]) {
+                      case U'.':
+                      case U',':
+                      case U':':
+                      case U';':
+                      case U'?':
+                      case U'!':
+                      case U'"':
+                      case U'\'':
+                      case U'%':
+                        len--;
+                        end.col--;
+                        if (end.col < 0) {
+                          end.row--;
+                          end.col = term->cols - 1;
                         }
+                        break;
+
+                      default:
+                        done = true;
+                        break;
+                      }
                     } while (!done);
 
                     url[len] = U'\0';
@@ -475,25 +461,26 @@ auto_detected(const struct terminal *term, enum url_action action,
 
                     char *url_utf8 = ac32tombs(url);
                     if (url_utf8 != NULL) {
-                        tll_push_back(
-                            *urls,
-                            ((struct url){
-                                .id = (uint64_t)rand() << 32 | rand(),
-                                .url = url_utf8,
-                                .range = {
-                                    .start = start,
-                                    .end = end,
-                                },
-                                .action = action,
-                                .osc8 = false}));
+                      tll_push_back(
+                          *urls,
+                          ((struct url){.id = (uint64_t)rand() << 32 | rand(),
+                                        .url = url_utf8,
+                                        .range =
+                                            {
+                                                .start = start,
+                                                .end = end,
+                                            },
+                                        .action = action,
+                                        .osc8 = false}));
                     }
 
                     state = STATE_PROTOCOL;
                     len = 0;
                     parenthesis = brackets = ltgts = 0;
+                  }
+                  break;
                 }
-                break;
-            }
+                }
             }
         }
     }
@@ -570,7 +557,7 @@ remove_overlapping(url_list_t *urls, int cols)
                 (in_start >= out_start && in_end <= out_end))
             {
                 /*
-                 * OSC-8 URLs can’t overlap with each
+                 * OSC-8 URLs can't overlap with each
                  * other.
                  *
                  * Similarly, auto-detected URLs cannot overlap with
@@ -646,7 +633,7 @@ generate_key_combos(const struct config *conf,
 
     xassert(hints_count - offset >= count);
 
-    /* Copy slice of ‘hints’ array to the caller provided array */
+    /* Copy slice of 'hints' array to the caller provided array */
     for (size_t i = 0; i < hints_count; i++) {
         if (i >= offset && i < offset + count)
             combos[i - offset] = hints[i];
@@ -655,7 +642,7 @@ generate_key_combos(const struct config *conf,
     }
     free(hints);
 
-    /* Sorting is a kind of shuffle, since we’re sorting on the
+    /* Sorting is a kind of shuffle, since we're sorting on the
      * *reversed* strings */
     qsort(combos, count, sizeof(char32_t *), &c32cmp_qsort_wrapper);
 
@@ -677,18 +664,23 @@ urls_assign_key_combos(const struct config *conf, url_list_t *urls)
     if (count == 0)
         return;
 
-    uint64_t seen_ids[count];
     char32_t *combos[count];
     generate_key_combos(conf, count, combos);
 
     size_t combo_idx = 0;
-    size_t id_idx = 0;
 
     tll_foreach(*urls, it) {
         bool id_already_seen = false;
 
-        for (size_t i = 0; i < id_idx; i++) {
-            if (it->item.id == seen_ids[i]) {
+        /* Look for already processed URLs where both the URI and the
+         * ID matches */
+        tll_foreach(*urls, it2) {
+            if (&it->item == &it2->item)
+                break;
+
+            if (it->item.id == it2->item.id &&
+                streq(it->item.url, it2->item.url))
+            {
                 id_already_seen = true;
                 break;
             }
@@ -696,18 +688,17 @@ urls_assign_key_combos(const struct config *conf, url_list_t *urls)
 
         if (id_already_seen)
             continue;
-        seen_ids[id_idx++] = it->item.id;
 
         /*
          * Scan previous URLs, and check if *this* URL matches any of
-         * them; if so, re-use the *same* key combo.
+         * them; if so, reuse the *same* key combo.
          */
         bool url_already_seen = false;
         tll_foreach(*urls, it2) {
             if (&it->item == &it2->item)
                 break;
 
-            if (strcmp(it->item.url, it2->item.url) == 0) {
+            if (streq(it->item.url, it2->item.url)) {
                 it->item.key = xc32dup(it2->item.key);
                 url_already_seen = true;
                 break;
@@ -718,7 +709,7 @@ urls_assign_key_combos(const struct config *conf, url_list_t *urls)
             it->item.key = combos[combo_idx++];
     }
 
-    /* Free combos we didn’t use up */
+    /* Free combos we didn't use up */
     for (size_t i = combo_idx; i < count; i++)
         free(combos[i]);
 
@@ -730,7 +721,7 @@ urls_assign_key_combos(const struct config *conf, url_list_t *urls)
         char *key = ac32tombs(it->item.key);
         xassert(key != NULL);
 
-        LOG_DBG("URL: %s (%s)", it->item.url, key);
+        LOG_DBG("URL: %s (key=%s, id=%"PRIu64")", it->item.url, key, it->item.id);
         free(key);
     }
 #endif
@@ -742,15 +733,18 @@ tag_cells_for_url(struct terminal *term, const struct url *url, bool value)
     if (url->url_mode_dont_change_url_attr)
         return;
 
+    struct grid *grid = term->url_grid_snapshot;
+    xassert(grid != NULL);
+
     const struct coord *start = &url->range.start;
     const struct coord *end = &url->range.end;
 
-    size_t end_r = end->row & (term->grid->num_rows - 1);
+    size_t end_r = end->row & (grid->num_rows - 1);
 
-    size_t r = start->row & (term->grid->num_rows - 1);
+    size_t r = start->row & (grid->num_rows - 1);
     size_t c = start->col;
 
-    struct row *row = term->grid->rows[r];
+    struct row *row = grid->rows[r];
     row->dirty = true;
 
     while (true) {
@@ -762,10 +756,10 @@ tag_cells_for_url(struct terminal *term, const struct url *url, bool value)
             break;
 
         if (++c >= term->cols) {
-            r = (r + 1) & (term->grid->num_rows - 1);
+            r = (r + 1) & (grid->num_rows - 1);
             c = 0;
 
-            row = term->grid->rows[r];
+            row = grid->rows[r];
             if (row == NULL) {
                 /* Un-allocated scrollback. This most likely means a
                  * runaway OSC-8 URL. */
@@ -784,15 +778,6 @@ urls_render(struct terminal *term)
     if (tll_length(win->term->urls) == 0)
         return;
 
-    xassert(tll_length(win->urls) == 0);
-    tll_foreach(win->term->urls, it) {
-        struct wl_url url = {.url = &it->item};
-        wayl_win_subsurface_new(win, &url.surf, false);
-
-        tll_push_back(win->urls, url);
-        tag_cells_for_url(term, &it->item, true);
-    }
-
     /* Dirty the last cursor, to ensure it is erased */
     {
         struct row *cursor_row = term->render.last_cursor.row;
@@ -804,7 +789,7 @@ urls_render(struct terminal *term)
     }
     term->render.last_cursor.row = NULL;
 
-    /* Clear scroll damage, to ensure we don’t apply it twice (once on
+    /* Clear scroll damage, to ensure we don't apply it twice (once on
      * the snapshot:ed grid, and then later again on the real grid) */
     tll_free(term->grid->scroll_damage);
 
@@ -814,6 +799,15 @@ urls_render(struct terminal *term)
 
     /* Snapshot the current grid */
     term->url_grid_snapshot = grid_snapshot(term->grid);
+
+    xassert(tll_length(win->urls) == 0);
+    tll_foreach(win->term->urls, it) {
+        struct wl_url url = {.url = &it->item};
+        wayl_win_subsurface_new(win, &url.surf, false);
+
+        tll_push_back(win->urls, url);
+        tag_cells_for_url(term, &it->item, true);
+    }
 
     render_refresh_urls(term);
     render_refresh(term);
@@ -839,10 +833,10 @@ urls_reset(struct terminal *term)
     term->url_grid_snapshot = NULL;
 
     /*
-     * Make sure “last cursor” doesn’t point to a row in the just
+     * Make sure "last cursor" doesn't point to a row in the just
      * free:d snapshot grid.
      *
-     * Note that it will still be erased properly (if hasn’t already),
+     * Note that it will still be erased properly (if hasn't already),
      * since we marked the cell as dirty *before* taking the grid
      * snapshot.
      */
@@ -852,11 +846,14 @@ urls_reset(struct terminal *term)
         tll_foreach(term->window->urls, it) {
             wayl_win_subsurface_destroy(&it->item.surf);
             tll_remove(term->window->urls, it);
+
+            /* Work around Sway bug - unmapping a sub-surface does not
+             * damage the underlying surface */
+            quirk_sway_subsurface_unmap(term);
         }
     }
 
     tll_foreach(term->urls, it) {
-        tag_cells_for_url(term, &it->item, false);
         url_destroy(&it->item);
         tll_remove(term->urls, it);
     }

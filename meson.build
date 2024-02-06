@@ -1,7 +1,7 @@
 project('foot', 'c',
-        version: '1.12.1',
+        version: '1.16.2',
         license: 'MIT',
-        meson_version: '>=0.58.0',
+        meson_version: '>=0.59.0',
         default_options: [
           'c_std=c11',
           'warning_level=1',
@@ -16,9 +16,54 @@ if cc.has_function('memfd_create')
   add_project_arguments('-DMEMFD_CREATE', language: 'c')
 endif
 
+utmp_backend = get_option('utmp-backend')
+if utmp_backend == 'auto'
+  host_os = host_machine.system()
+  if host_os == 'linux'
+    utmp_backend = 'libutempter'
+  elif host_os == 'freebsd'
+    utmp_backend = 'ulog'
+  else
+    utmp_backend = 'none'
+  endif
+endif
+
+utmp_default_helper_path = get_option('utmp-default-helper-path')
+
+if utmp_backend == 'none'
+  utmp_add = ''
+  utmp_del = ''
+  utmp_del_have_argument = false
+  utmp_default_helper_path = ''
+elif utmp_backend == 'libutempter'
+  utmp_add = 'add'
+  utmp_del = 'del'
+  utmp_del_have_argument = true
+  if utmp_default_helper_path == 'auto'
+    utmp_default_helper_path = join_paths('/usr', get_option('libdir'), 'utempter', 'utempter')
+  endif
+elif utmp_backend == 'ulog'
+  utmp_add = 'login'
+  utmp_del = 'logout'
+  utmp_del_have_argument = false
+  if utmp_default_helper_path == 'auto'
+    utmp_default_helper_path = join_paths('/usr', get_option('libexecdir'), 'ulog-helper')
+  endif
+else
+    error('invalid utmp backend')
+endif
+
 add_project_arguments(
   ['-D_GNU_SOURCE=200809L',
    '-DFOOT_DEFAULT_TERM="@0@"'.format(get_option('default-terminfo'))] +
+  (utmp_backend != 'none'
+  ? ['-DUTMP_ADD="@0@"'.format(utmp_add),
+     '-DUTMP_DEL="@0@"'.format(utmp_del),
+     '-DUTMP_DEFAULT_HELPER_PATH="@0@"'.format(utmp_default_helper_path)]
+  : []) +
+  (utmp_del_have_argument
+   ? ['-DUTMP_DEL_HAVE_ARGUMENT=1']
+   : []) +
   (is_debug_build
     ? ['-D_DEBUG']
    : [cc.get_supported_arguments('-fno-asynchronous-unwind-tables')]) +
@@ -78,7 +123,9 @@ math = cc.find_library('m')
 threads = [dependency('threads'), cc.find_library('stdthreads', required: false)]
 libepoll = dependency('epoll-shim', required: false)
 pixman = dependency('pixman-1')
-wayland_protocols = dependency('wayland-protocols')
+wayland_protocols = dependency('wayland-protocols', version: '>=1.32',
+                               fallback: 'wayland-protocols',
+                               default_options: ['tests=false'])
 wayland_client = dependency('wayland-client')
 wayland_cursor = dependency('wayland-cursor')
 xkb = dependency('xkbcommon', version: '>=1.0.0')
@@ -89,7 +136,7 @@ if utf8proc.found()
   add_project_arguments('-DFOOT_GRAPHEME_CLUSTERING=1', language: 'c')
 endif
 
-tllist = dependency('tllist', version: '>=1.0.4', fallback: 'tllist')
+tllist = dependency('tllist', version: '>=1.1.0', fallback: 'tllist')
 fcft = dependency('fcft', version: ['>=3.0.1', '<4.0.0'], fallback: 'fcft')
 
 wayland_protocols_datadir = wayland_protocols.get_variable('pkgdatadir')
@@ -101,18 +148,18 @@ wscanner_prog = find_program(
 wl_proto_headers = []
 wl_proto_src = []
 wl_proto_xml = [
-  wayland_protocols_datadir + '/stable/xdg-shell/xdg-shell.xml',
-  wayland_protocols_datadir + '/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml',
-  wayland_protocols_datadir + '/unstable/xdg-output/xdg-output-unstable-v1.xml',
-  wayland_protocols_datadir + '/unstable/primary-selection/primary-selection-unstable-v1.xml',
-  wayland_protocols_datadir + '/stable/presentation-time/presentation-time.xml',
-  wayland_protocols_datadir + '/unstable/text-input/text-input-unstable-v3.xml',
+  wayland_protocols_datadir / 'stable/xdg-shell/xdg-shell.xml',
+  wayland_protocols_datadir / 'unstable/xdg-decoration/xdg-decoration-unstable-v1.xml',
+  wayland_protocols_datadir / 'unstable/xdg-output/xdg-output-unstable-v1.xml',
+  wayland_protocols_datadir / 'unstable/primary-selection/primary-selection-unstable-v1.xml',
+  wayland_protocols_datadir / 'stable/presentation-time/presentation-time.xml',
+  wayland_protocols_datadir / 'unstable/text-input/text-input-unstable-v3.xml',
+  wayland_protocols_datadir / 'staging/xdg-activation/xdg-activation-v1.xml',
+  wayland_protocols_datadir / 'stable/viewporter/viewporter.xml',
+  wayland_protocols_datadir / 'staging/fractional-scale/fractional-scale-v1.xml',
+  wayland_protocols_datadir / 'unstable/tablet/tablet-unstable-v2.xml',  # required by cursor-shape-v1
+  wayland_protocols_datadir / 'staging/cursor-shape/cursor-shape-v1.xml',
   ]
-
-if wayland_protocols.version().version_compare('>=1.21')
-  add_project_arguments('-DHAVE_XDG_ACTIVATION', language: 'c')
-  wl_proto_xml += [wayland_protocols_datadir + '/staging/xdg-activation/xdg-activation-v1.xml']
-endif
 
 foreach prot : wl_proto_xml
   wl_proto_headers += custom_target(
@@ -167,6 +214,7 @@ vtlib = static_library(
   'vtlib',
   'base64.c', 'base64.h',
   'composed.c', 'composed.h',
+  'cursor-shape.c', 'cursor-shape.h',
   'csi.c', 'csi.h',
   'dcs.c', 'dcs.h',
   'macros.h',
@@ -222,6 +270,7 @@ executable(
   'slave.c', 'slave.h',
   'spawn.c', 'spawn.h',
   'tokenize.c', 'tokenize.h',
+  'unicode-mode.c', 'unicode-mode.h',
   'url-mode.c', 'url-mode.h',
   'user-notification.c', 'user-notification.h',
   'wayland.c', 'wayland.h', 'shm-formats.h',
@@ -243,7 +292,7 @@ executable(
   install: true)
 
 install_data(
-  'foot.desktop', 'foot-server.desktop', 'footclient.desktop',
+  'org.codeberg.dnkl.foot.desktop', 'org.codeberg.dnkl.foot-server.desktop', 'org.codeberg.dnkl.footclient.desktop',
   install_dir: join_paths(get_option('datadir'), 'applications'))
 
 systemd = dependency('systemd', required: false)
@@ -261,13 +310,13 @@ if systemd.found() or custom_systemd_units_dir != ''
 
   configure_file(
     configuration: configuration,
-    input: 'foot-server@.service.in',
+    input: 'foot-server.service.in',
     output: '@BASENAME@',
     install_dir: systemd_units_dir
     )
 
   install_data(
-    'foot-server@.socket',
+    'foot-server.socket',
     install_dir: systemd_units_dir)
 endif
 
@@ -284,11 +333,16 @@ if get_option('themes')
   install_subdir('themes', install_dir: join_paths(get_option('datadir'), 'foot'))
 endif
 
+terminfo_base_name = get_option('terminfo-base-name')
+if terminfo_base_name == ''
+  terminfo_base_name = get_option('default-terminfo')
+endif
+
 tic = find_program('tic', native: true, required: get_option('terminfo'))
 if tic.found()
   conf_data = configuration_data(
     {
-      'default_terminfo': get_option('default-terminfo'),
+      'default_terminfo': terminfo_base_name
     }
   )
 
@@ -299,9 +353,9 @@ if tic.found()
   )
   custom_target(
     'terminfo',
-    output: get_option('default-terminfo')[0],
+    output: terminfo_base_name[0],
     input: preprocessed,
-    command: [tic, '-x', '-o', '@OUTDIR@', '-e', '@0@,@0@-direct'.format(get_option('default-terminfo')), '@INPUT@'],
+    command: [tic, '-x', '-o', '@OUTDIR@', '-e', '@0@,@0@-direct'.format(terminfo_base_name), '@INPUT@'],
     install: true,
     install_dir: terminfo_install_location
   )
@@ -309,6 +363,7 @@ endif
 
 subdir('completions')
 subdir('icons')
+subdir('utils')
 
 if (get_option('tests'))
   subdir('tests')
@@ -320,7 +375,10 @@ summary(
     'Themes': get_option('themes'),
     'IME': get_option('ime'),
     'Grapheme clustering': utf8proc.found(),
+    'utmp backend': utmp_backend,
+    'utmp helper default path': utmp_default_helper_path,
     'Build terminfo': tic.found(),
+    'Terminfo base name': terminfo_base_name,
     'Terminfo install location': terminfo_install_location,
     'Default TERM': get_option('default-terminfo'),
     'Set TERMINFO': get_option('custom-terminfo-install-location') != '',

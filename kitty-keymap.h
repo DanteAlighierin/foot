@@ -13,7 +13,7 @@ struct kitty_key_data {
 
 _Static_assert(sizeof(struct kitty_key_data) == 7, "bad size");
 
-/* Note! *Must* Be kept sorted (on ‘sym’) */
+/* Note! *Must* Be kept sorted (on 'sym') */
 static const struct kitty_key_data kitty_keymap[] = {
     {XKB_KEY_ISO_Level3_Shift, 57453, 'u', true},
     {XKB_KEY_ISO_Level5_Shift, 57454, 'u', true},
@@ -70,7 +70,7 @@ static const struct kitty_key_data kitty_keymap[] = {
 
     {XKB_KEY_F1,           1,     'P', false},
     {XKB_KEY_F2,           1,     'Q', false},
-    {XKB_KEY_F3,           1,     'R', false},
+    {XKB_KEY_F3,           13,    '~', false},
     {XKB_KEY_F4,           1,     'S', false},
     {XKB_KEY_F5,           15,    '~', false},
     {XKB_KEY_F6,           17,    '~', false},

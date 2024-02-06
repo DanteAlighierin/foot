@@ -36,6 +36,7 @@
 #include "spawn.h"
 #include "terminal.h"
 #include "tokenize.h"
+#include "unicode-mode.h"
 #include "url-mode.h"
 #include "util.h"
 #include "vt.h"
@@ -80,9 +81,11 @@ pipe_closed:
     return true;
 }
 
+static void alternate_scroll(struct seat *seat, int amount, int button);
+
 static bool
 execute_binding(struct seat *seat, struct terminal *term,
-                const struct key_binding *binding, uint32_t serial)
+                const struct key_binding *binding, uint32_t serial, int amount)
 {
     const enum bind_action_normal action = binding->action;
 
@@ -114,6 +117,14 @@ execute_binding(struct seat *seat, struct terminal *term,
         }
         break;
 
+    case BIND_ACTION_SCROLLBACK_UP_MOUSE:
+        if (term->grid == &term->alt) {
+            if (term->alt_scrolling)
+                alternate_scroll(seat, amount, BTN_BACK);
+        } else
+                cmd_scrollback_up(term, amount);
+        break;
+
     case BIND_ACTION_SCROLLBACK_DOWN_PAGE:
         if (term->grid == &term->normal) {
             cmd_scrollback_down(term, term->rows);
@@ -133,6 +144,14 @@ execute_binding(struct seat *seat, struct terminal *term,
             cmd_scrollback_down(term, 1);
             return true;
         }
+        break;
+
+    case BIND_ACTION_SCROLLBACK_DOWN_MOUSE:
+        if (term->grid == &term->alt) {
+            if (term->alt_scrolling)
+                alternate_scroll(seat, amount, BTN_FORWARD);
+        } else
+            cmd_scrollback_down(term, amount);
         break;
 
     case BIND_ACTION_SCROLLBACK_HOME:
@@ -208,7 +227,8 @@ execute_binding(struct seat *seat, struct terminal *term,
             break;
         /* FALLTHROUGH */
     case BIND_ACTION_PIPE_VIEW:
-    case BIND_ACTION_PIPE_SELECTED: {
+    case BIND_ACTION_PIPE_SELECTED:
+    case BIND_ACTION_PIPE_COMMAND_OUTPUT: {
         if (binding->aux->type != BINDING_AUX_PIPE)
             return true;
 
@@ -250,6 +270,10 @@ execute_binding(struct seat *seat, struct terminal *term,
             len = text != NULL ? strlen(text) : 0;
             break;
 
+        case BIND_ACTION_PIPE_COMMAND_OUTPUT:
+            success = term_command_output_to_text(term, &text, &len);
+            break;
+
         default:
             BUG("Unhandled action type");
             success = false;
@@ -282,7 +306,7 @@ execute_binding(struct seat *seat, struct terminal *term,
             }
         }
 
-        if (!spawn(term->reaper, NULL, binding->aux->pipe.args,
+        if (!spawn(term->reaper, term->cwd, binding->aux->pipe.args,
                    pipe_fd[0], stdout_fd, stderr_fd, NULL))
             goto pipe_err;
 
@@ -358,7 +382,7 @@ execute_binding(struct seat *seat, struct terminal *term,
             const struct row *row = grid->rows[r_abs];
             xassert(row != NULL);
 
-            if (!row->prompt_marker)
+            if (!row->shell_integration.prompt_marker)
                 continue;
 
             grid->view = r_abs;
@@ -390,9 +414,9 @@ execute_binding(struct seat *seat, struct terminal *term,
             const struct row *row = grid->rows[r_abs];
             xassert(row != NULL);
 
-            if (!row->prompt_marker) {
+            if (!row->shell_integration.prompt_marker) {
                 if (r_abs == grid->offset + term->rows - 1) {
-                    /* We’ve reached the bottom of the scrollback */
+                    /* We've reached the bottom of the scrollback */
                     break;
                 }
                 continue;
@@ -415,6 +439,10 @@ execute_binding(struct seat *seat, struct terminal *term,
 
         return true;
     }
+
+    case BIND_ACTION_UNICODE_INPUT:
+        unicode_mode_activate(seat);
+        return true;
 
     case BIND_ACTION_SELECT_BEGIN:
         selection_start(
@@ -448,6 +476,11 @@ execute_binding(struct seat *seat, struct terminal *term,
         selection_start(
             term, seat->mouse.col, seat->mouse.row, SELECTION_WORD_WISE, true);
         return true;
+
+    case BIND_ACTION_SELECT_QUOTE:
+        selection_start(
+            term, seat->mouse.col, seat->mouse.row, SELECTION_QUOTE_WISE, false);
+        break;
 
     case BIND_ACTION_SELECT_ROW:
         selection_start(
@@ -551,17 +584,19 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         seat->kbd.mod_caps = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_CAPS);
         seat->kbd.mod_num = xkb_keymap_mod_get_index(seat->kbd.xkb_keymap, XKB_MOD_NAME_NUM);
 
-        seat->kbd.bind_significant = 0;
+        /* Significant modifiers in the legacy keyboard protocol */
+        seat->kbd.legacy_significant = 0;
         if (seat->kbd.mod_shift != XKB_MOD_INVALID)
-            seat->kbd.bind_significant |= 1 << seat->kbd.mod_shift;
+            seat->kbd.legacy_significant |= 1 << seat->kbd.mod_shift;
         if (seat->kbd.mod_alt != XKB_MOD_INVALID)
-            seat->kbd.bind_significant |= 1 << seat->kbd.mod_alt;
+            seat->kbd.legacy_significant |= 1 << seat->kbd.mod_alt;
         if (seat->kbd.mod_ctrl != XKB_MOD_INVALID)
-            seat->kbd.bind_significant |= 1 << seat->kbd.mod_ctrl;
+            seat->kbd.legacy_significant |= 1 << seat->kbd.mod_ctrl;
         if (seat->kbd.mod_super != XKB_MOD_INVALID)
-            seat->kbd.bind_significant |= 1 << seat->kbd.mod_super;
+            seat->kbd.legacy_significant |= 1 << seat->kbd.mod_super;
 
-        seat->kbd.kitty_significant = seat->kbd.bind_significant;
+        /* Significant modifiers in the kitty keyboard protocol */
+        seat->kbd.kitty_significant = seat->kbd.legacy_significant;
         if (seat->kbd.mod_caps != XKB_MOD_INVALID)
             seat->kbd.kitty_significant |= 1 << seat->kbd.mod_caps;
         if (seat->kbd.mod_num != XKB_MOD_INVALID)
@@ -826,7 +861,7 @@ UNITTEST
 
     const struct key_data *info = keymap_lookup(&term, XKB_KEY_ISO_Left_Tab, MOD_SHIFT | MOD_CTRL);
     xassert(info != NULL);
-    xassert(strcmp(info->seq, "\033[27;6;9~") == 0);
+    xassert(streq(info->seq, "\033[27;6;9~"));
 }
 
 UNITTEST
@@ -837,18 +872,19 @@ UNITTEST
 
     const struct key_data *info = keymap_lookup(&term, XKB_KEY_Return, MOD_ALT);
     xassert(info != NULL);
-    xassert(strcmp(info->seq, "\033\r") == 0);
+    xassert(streq(info->seq, "\033\r"));
 
     term.modify_other_keys_2 = true;
     info = keymap_lookup(&term, XKB_KEY_Return, MOD_ALT);
     xassert(info != NULL);
-    xassert(strcmp(info->seq, "\033[27;3;13~") == 0);
+    xassert(streq(info->seq, "\033[27;3;13~"));
 }
 
 void
 get_current_modifiers(const struct seat *seat,
                       xkb_mod_mask_t *effective,
-                      xkb_mod_mask_t *consumed, uint32_t key)
+                      xkb_mod_mask_t *consumed, uint32_t key,
+                      bool filter_locked)
 {
     if (unlikely(seat->kbd.xkb_state == NULL)) {
         if (effective != NULL)
@@ -858,22 +894,25 @@ get_current_modifiers(const struct seat *seat,
     }
 
     else {
+        const xkb_mod_mask_t locked =
+            xkb_state_serialize_mods(seat->kbd.xkb_state, XKB_STATE_MODS_LOCKED);
+
         if (effective != NULL) {
             *effective = xkb_state_serialize_mods(
                 seat->kbd.xkb_state, XKB_STATE_MODS_EFFECTIVE);
+
+            if (filter_locked)
+                *effective &= ~locked;
         }
 
         if (consumed != NULL) {
             *consumed = xkb_state_key_get_consumed_mods2(
                 seat->kbd.xkb_state, key, XKB_CONSUMED_MODE_XKB);
+
+            if (filter_locked)
+                *consumed &= ~locked;
         }
     }
-}
-
-static xkb_mod_mask_t
-get_locked_modifiers(const struct seat *seat)
-{
-    return xkb_state_serialize_mods(seat->kbd.xkb_state, XKB_STATE_MODS_LOCKED);
 }
 
 struct kbd_ctx {
@@ -893,7 +932,7 @@ struct kbd_ctx {
         const uint8_t *buf;
         size_t count;
     } utf8;
-    uint32_t utf32;
+    uint32_t *utf32;
 
     enum xkb_compose_status compose_status;
     enum wl_keyboard_key_state key_state;
@@ -940,24 +979,24 @@ legacy_kbd_protocol(struct seat *seat, struct terminal *term,
 
     if (term->modify_other_keys_2) {
         /*
-         * Try to mimic XTerm’s behavior, when holding shift:
+         * Try to mimic XTerm's behavior, when holding shift:
          *
          *   - if other modifiers are pressed (e.g. Alt), emit a CSI escape
          *   - upper-case symbols A-Z are encoded as an CSI escape
-         *   - other upper-case symbols (e.g ‘Ö’) or emitted as is
+         *   - other upper-case symbols (e.g 'Ö') or emitted as is
          *   - non-upper cased symbols are _mostly_ emitted as is (foot
          *     always emits as is)
          *
          * Examples (assuming Swedish layout):
-         *   - Shift-a (‘A’) emits a CSI
-         *   - Shift-, (‘;’) emits ‘;’
+         *   - Shift-a ('A') emits a CSI
+         *   - Shift-, (';') emits ';'
          *   - Shift-Alt-, (Alt-;) emits a CSI
-         *   - Shift-ö (‘Ö’) emits ‘Ö’
+         *   - Shift-ö ('Ö') emits 'Ö'
          */
 
         /* Any modifiers, besides shift active? */
         const xkb_mod_mask_t shift_mask = 1 << seat->kbd.mod_shift;
-        if ((ctx->mods & ~shift_mask & seat->kbd.bind_significant) != 0)
+        if ((ctx->mods & ~shift_mask & seat->kbd.legacy_significant) != 0)
             modify_other_keys2_in_effect = true;
 
         else {
@@ -965,9 +1004,9 @@ legacy_kbd_protocol(struct seat *seat, struct terminal *term,
                 seat->kbd.xkb_state, ctx->key);
 
             /*
-             * Get pressed key’s base symbol.
-             *   - for ‘A’ (shift-a), that’s ‘a’
-             *   - for ‘;’ (shift-,), that’s ‘,’
+             * Get pressed key's base symbol.
+             *   - for 'A' (shift-a), that's 'a'
+             *   - for ';' (shift-,), that's ','
              */
             const xkb_keysym_t *base_syms = NULL;
             size_t base_count = xkb_keymap_key_get_syms_by_level(
@@ -1103,33 +1142,93 @@ kitty_kbd_protocol(struct seat *seat, struct terminal *term,
     if (composed && released)
         return false;
 
-    /* TODO: should we even bother with this, or just say it’s not supported? */
+    /* TODO: should we even bother with this, or just say it's not supported? */
     if (!disambiguate && !report_all_as_escapes && pressed)
         return legacy_kbd_protocol(seat, term, ctx);
 
-    const xkb_mod_mask_t mods = ctx->mods & seat->kbd.kitty_significant;
-    const xkb_mod_mask_t consumed = xkb_state_key_get_consumed_mods2(
-        seat->kbd.xkb_state, ctx->key, XKB_CONSUMED_MODE_GTK) & seat->kbd.kitty_significant;
-    const xkb_mod_mask_t effective = mods & ~consumed;
-    const xkb_mod_mask_t caps_num =
-        (seat->kbd.mod_caps != XKB_MOD_INVALID ? 1 << seat->kbd.mod_caps : 0) |
-        (seat->kbd.mod_num != XKB_MOD_INVALID ? 1 << seat->kbd.mod_num : 0);
-
     const xkb_keysym_t sym = ctx->sym;
-    const uint32_t utf32 = ctx->utf32;
+    const uint32_t *utf32 = ctx->utf32;
     const uint8_t *const utf8 = ctx->utf8.buf;
-
-    const bool is_text = iswprint(utf32) && (effective & ~caps_num) == 0;
     const size_t count = ctx->utf8.count;
-
-    const bool report_associated_text =
-        (flags & KITTY_KBD_REPORT_ASSOCIATED) && is_text && !released;
 
     /* Lookup sym in the pre-defined keysym table */
     const struct kitty_key_data *info = bsearch(
         &sym, kitty_keymap, ALEN(kitty_keymap), sizeof(kitty_keymap[0]),
         &kitty_search);
     xassert(info == NULL || info->sym == sym);
+
+    xkb_mod_mask_t mods = 0;
+    xkb_mod_mask_t consumed = 0;
+
+    if (info != NULL && info->is_modifier) {
+        /*
+         * Special-case modifier keys.
+         *
+         * Normally, the "current" XKB state reflects the state
+         * *before* the current key event. In other words, the
+         * modifiers for key events that affect the modifier state
+         * (e.g. one of the control keys, or shift keys etc) does
+         * *not* include the key itself.
+         *
+         * Put another way, if you press "control", the modifier set
+         * is empty in the key press event, but contains "ctrl" in the
+         * release event.
+         *
+         * The kitty protocol mandates the modifier list contain the
+         * key itself, in *both* the press and release event.
+         *
+         * We handle this by updating the XKB state to *include* the
+         * current key, retrieve the set of modifiers (including the
+         * set of consumed modifiers), and then revert the XKB update.
+         */
+        xkb_state_update_key(
+            seat->kbd.xkb_state, ctx->key, pressed ? XKB_KEY_DOWN : XKB_KEY_UP);
+
+        get_current_modifiers(seat, &mods, NULL, ctx->key, false);
+        consumed = xkb_state_key_get_consumed_mods2(
+            seat->kbd.xkb_state, ctx->key, XKB_CONSUMED_MODE_GTK);
+
+#if 0
+        /*
+         * TODO: according to the XKB docs, state updates should
+         * always be in pairs: each press should be followed by a
+         * release. However, doing this just breaks the xkb state.
+         *
+         * *Not* pairing the above press/release with a corresponding
+         * release/press appears to do exactly what we want.
+         */
+        xkb_state_update_key(
+            seat->kbd.xkb_state, ctx->key, pressed ? XKB_KEY_UP : XKB_KEY_DOWN);
+#endif
+    } else {
+        /* Same as ctx->mods, but without locked modifiers being
+           filtered out */
+        get_current_modifiers(seat, &mods, NULL, ctx->key, false);
+
+        /* Re-retrieve the consumed modifiers using the GTK mode, to
+           better match kitty. */
+        consumed = xkb_state_key_get_consumed_mods2(
+            seat->kbd.xkb_state, ctx->key, XKB_CONSUMED_MODE_GTK);
+    }
+
+    mods &= seat->kbd.kitty_significant;
+    consumed &= seat->kbd.kitty_significant;
+
+    const xkb_mod_mask_t effective = mods & ~consumed;
+    const xkb_mod_mask_t caps_num =
+        (seat->kbd.mod_caps != XKB_MOD_INVALID ? 1 << seat->kbd.mod_caps : 0) |
+        (seat->kbd.mod_num != XKB_MOD_INVALID ? 1 << seat->kbd.mod_num : 0);
+
+    bool is_text = count > 0 && utf32 != NULL && (effective & ~caps_num) == 0;
+    for (size_t i = 0; utf32[i] != U'\0'; i++) {
+        if (!iswprint(utf32[i])) {
+            is_text = false;
+            break;
+        }
+    }
+
+    const bool report_associated_text =
+        (flags & KITTY_KBD_REPORT_ASSOCIATED) && is_text && !released;
 
     if (composing) {
         /* We never emit anything while composing, *except* modifiers
@@ -1188,32 +1287,32 @@ emit_escapes:
          *
          * If the keysym is shifted, use its unshifted codepoint
          * instead. In other words, ctrl+a and ctrl+shift+a should
-         * both use the same value for ‘key’ (97 - i.a. ‘a’).
+         * both use the same value for 'key' (97 - i.a. 'a').
          *
-         * However, don’t do this if a non-significant modifier was
+         * However, don't do this if a non-significant modifier was
          * used to generate the symbol. This is needed since we cannot
-         * encode non-significant modifiers, and thus the “extra”
+         * encode non-significant modifiers, and thus the "extra"
          * modifier(s) would get lost.
          *
          * Example:
          *
-         * the Swedish layout has ‘2’, QUOTATION MARK (“double
-         * quote”), ‘@’, and ‘²’ on the same key. ‘2’ is the base
+         * the Swedish layout has '2', QUOTATION MARK ("double
+         * quote"), '@', and '²' on the same key. '2' is the base
          * symbol.
          *
          * Shift+2 results in QUOTATION MARK
-         * AltGr+2 results in ‘@’
-         * AltGr+Shift+2 results in ‘²’
+         * AltGr+2 results in '@'
+         * AltGr+Shift+2 results in '²'
          *
-         * The kitty kbd protocol can’t encode AltGr. So, if we
-         * always used the base symbol (‘2’), Alt+Shift+2 would
+         * The kitty kbd protocol can't encode AltGr. So, if we
+         * always used the base symbol ('2'), Alt+Shift+2 would
          * result in the same escape sequence as
          * AltGr+Alt+Shift+2.
          *
          * (yes, this matches what kitty does, as of 0.23.1)
          */
 
-        /* Get the key’s shift level */
+        /* Get the key's shift level */
         xkb_level_index_t lvl = xkb_state_key_get_level(
             seat->kbd.xkb_state, ctx->key, ctx->layout);
 
@@ -1225,7 +1324,7 @@ emit_escapes:
             masks, ALEN(masks));
 
         /* Check modifier combinations - if a combination has
-         * modifiers not in our set of ‘significant’ modifiers,
+         * modifiers not in our set of 'significant' modifiers,
          * use key sym as-is */
         bool use_level0_sym = true;
         for (size_t i = 0; i < mask_count; i++) {
@@ -1239,8 +1338,8 @@ emit_escapes:
             ? ctx->level0_syms.syms[0]
             : sym;
 
-        if (composed && is_text)
-            key = utf32;
+        if (composed)
+            key = utf32[0];  /* TODO: what if there are multiple codepoints? */
         else {
             key = xkb_keysym_to_utf32(sym_to_use);
             if (key == 0)
@@ -1272,14 +1371,14 @@ emit_escapes:
     char event[4];
     if (report_events /*&& !pressed*/) {
         /* Note: this deviates slightly from Kitty, which omits the
-         * “:1” subparameter for key press events */
+         * ":1" subparameter for key press events */
         event[0] = ':';
         event[1] = '0' + (pressed ? 1 : repeating ? 2 : 3);
         event[2] = '\0';
     } else
         event[0] = '\0';
 
-    char buf[64], *p = buf;
+    char buf[128], *p = buf;
     size_t left = sizeof(buf);
     size_t bytes;
 
@@ -1311,8 +1410,16 @@ emit_escapes:
         }
 
         if (report_associated_text) {
-            bytes = snprintf(p, left, "%s;%u", !emit_mods ? ";" : "", utf32);
+            bytes = snprintf(p, left, "%s;%u", !emit_mods ? ";" : "", utf32[0]);
             p += bytes; left -= bytes;
+
+            /* Additional text codepoints */
+            if (utf32[0] != U'\0') {
+                for (size_t i = 1; utf32[i] != U'\0'; i++) {
+                    bytes = snprintf(p, left, ":%u", utf32[i]);
+                    p += bytes; left -= bytes;
+                }
+            }
         }
 
         bytes = snprintf(p, left, "%c", final);
@@ -1385,13 +1492,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     const bool composed = compose_status == XKB_COMPOSE_COMPOSED;
 
     xkb_mod_mask_t mods, consumed;
-    get_current_modifiers(seat, &mods, &consumed, key);
-
-    const xkb_mod_mask_t locked = get_locked_modifiers(seat);
-    const xkb_mod_mask_t bind_mods
-        = mods & seat->kbd.bind_significant & ~locked;
-    const xkb_mod_mask_t bind_consumed =
-        consumed & seat->kbd.bind_significant & ~locked;
+    get_current_modifiers(seat, &mods, &consumed, key, true);
 
     xkb_layout_index_t layout_idx =
         xkb_state_key_get_layout(seat->kbd.xkb_state, key);
@@ -1401,16 +1502,21 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
         seat->kbd.xkb_keymap, key, layout_idx, 0, &raw_syms);
 
     const struct key_binding_set *bindings = key_binding_for(
-        seat->wayl->key_binding_manager, term, seat);
+        seat->wayl->key_binding_manager, term->conf, seat);
     xassert(bindings != NULL);
 
     if (pressed) {
-        if (term->is_searching) {
+        if (seat->unicode_mode.active) {
+            unicode_mode_input(seat, term, sym);
+            return;
+        }
+
+        else if (term->is_searching) {
             if (should_repeat)
                 start_repeater(seat, key);
 
             search_input(
-                seat, term, bindings, key, sym, mods, consumed, locked,
+                seat, term, bindings, key, sym, mods, consumed,
                 raw_syms, raw_count, serial);
             return;
         }
@@ -1420,7 +1526,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
                 start_repeater(seat, key);
 
             urls_input(
-                seat, term, bindings, key, sym, mods, consumed, locked,
+                seat, term, bindings, key, sym, mods, consumed,
                 raw_syms, raw_count, serial);
             return;
         }
@@ -1428,7 +1534,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
 
 #if 0
     for (size_t i = 0; i < 32; i++) {
-        if (mods & (1 << i)) {
+        if (mods & (1u << i)) {
             LOG_INFO("%s", xkb_keymap_mod_get_name(seat->kbd.xkb_keymap, i));
         }
     }
@@ -1453,19 +1559,19 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
 
             /* Match translated symbol */
             if (bind->k.sym == sym &&
-                bind->mods == (bind_mods & ~bind_consumed) &&
-                execute_binding(seat, term, bind, serial))
+                bind->mods == (mods & ~consumed) &&
+                execute_binding(seat, term, bind, serial, 1))
             {
                 goto maybe_repeat;
             }
 
-            if (bind->mods != bind_mods || bind_mods != (mods & ~locked))
+            if (bind->mods != mods)
                 continue;
 
             /* Match untranslated symbols */
             for (size_t i = 0; i < raw_count; i++) {
                 if (bind->k.sym == raw_syms[i] &&
-                    execute_binding(seat, term, bind, serial))
+                    execute_binding(seat, term, bind, serial, 1))
                 {
                     goto maybe_repeat;
                 }
@@ -1474,7 +1580,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
             /* Match raw key code */
             tll_foreach(bind->k.key_codes, code) {
                 if (code->item == key &&
-                    execute_binding(seat, term, bind, serial))
+                    execute_binding(seat, term, bind, serial, 1))
                 {
                     goto maybe_repeat;
                 }
@@ -1504,19 +1610,20 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
      * and use a malloc:ed buffer when necessary */
     uint8_t buf[32];
     uint8_t *utf8 = count < sizeof(buf) ? buf : xmalloc(count + 1);
-    uint32_t utf32 = (uint32_t)-1;
+    uint32_t *utf32 = NULL;
 
     if (composed) {
         xkb_compose_state_get_utf8(
             seat->kbd.xkb_compose_state, (char *)utf8, count + 1);
 
-        char32_t wc;
-        if (mbrtoc32(&wc, (const char *)utf8, count, &(mbstate_t){0}) == count)
-            utf32 = wc;
+        if (count > 0)
+            utf32 = ambstoc32((const char *)utf8);
     } else {
         xkb_state_key_get_utf8(
             seat->kbd.xkb_state, key, (char *)utf8, count + 1);
-        utf32 = xkb_state_key_get_utf32(seat->kbd.xkb_state, key);
+
+        utf32 = xcalloc(2, sizeof(utf32[0]));
+        utf32[0] = xkb_state_key_get_utf32(seat->kbd.xkb_state, key);
     }
 
     struct kbd_ctx ctx = {
@@ -1552,6 +1659,8 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
         term_reset_view(term);
         selection_cancel(term);
     }
+
+    free(utf32);
 
 maybe_repeat:
     clock_gettime(
@@ -1677,21 +1786,73 @@ is_bottom_right(const struct terminal *term, int x, int y)
          (term->active_surface == TERM_SURF_BORDER_BOTTOM && x > term->width + 1 * csd_border_size * term->scale - 10 * term->scale)));
 }
 
-const char *
+enum cursor_shape
 xcursor_for_csd_border(struct terminal *term, int x, int y)
 {
-    if (is_top_left(term, x, y))                              return XCURSOR_TOP_LEFT_CORNER;
-    else if (is_top_right(term, x, y))                        return XCURSOR_TOP_RIGHT_CORNER;
-    else if (is_bottom_left(term, x, y))                      return XCURSOR_BOTTOM_LEFT_CORNER;
-    else if (is_bottom_right(term, x, y))                     return XCURSOR_BOTTOM_RIGHT_CORNER;
-    else if (term->active_surface == TERM_SURF_BORDER_LEFT)   return XCURSOR_LEFT_SIDE;
-    else if (term->active_surface == TERM_SURF_BORDER_RIGHT)  return XCURSOR_RIGHT_SIDE;
-    else if (term->active_surface == TERM_SURF_BORDER_TOP)    return XCURSOR_TOP_SIDE;
-    else if (term->active_surface == TERM_SURF_BORDER_BOTTOM) return XCURSOR_BOTTOM_SIDE;
+    if (is_top_left(term, x, y))                              return CURSOR_SHAPE_TOP_LEFT_CORNER;
+    else if (is_top_right(term, x, y))                        return CURSOR_SHAPE_TOP_RIGHT_CORNER;
+    else if (is_bottom_left(term, x, y))                      return CURSOR_SHAPE_BOTTOM_LEFT_CORNER;
+    else if (is_bottom_right(term, x, y))                     return CURSOR_SHAPE_BOTTOM_RIGHT_CORNER;
+    else if (term->active_surface == TERM_SURF_BORDER_LEFT)   return CURSOR_SHAPE_LEFT_SIDE;
+    else if (term->active_surface == TERM_SURF_BORDER_RIGHT)  return CURSOR_SHAPE_RIGHT_SIDE;
+    else if (term->active_surface == TERM_SURF_BORDER_TOP)    return CURSOR_SHAPE_TOP_SIDE;
+    else if (term->active_surface == TERM_SURF_BORDER_BOTTOM) return CURSOR_SHAPE_BOTTOM_SIDE;
     else {
         BUG("Unreachable");
-        return NULL;
+        return CURSOR_SHAPE_NONE;
     }
+}
+
+static void
+mouse_button_state_reset(struct seat *seat)
+{
+    tll_free(seat->mouse.buttons);
+    seat->mouse.count = 0;
+    seat->mouse.last_released_button = 0;
+    memset(&seat->mouse.last_time, 0, sizeof(seat->mouse.last_time));
+}
+
+static void
+mouse_coord_pixel_to_cell(struct seat *seat, const struct terminal *term,
+                          int x, int y)
+{
+    /*
+     * Translate x,y pixel coordinate to a cell coordinate, or -1
+     * if the cursor is outside the grid. I.e. if it is inside the
+     * margins.
+     */
+
+    if (x < term->margins.left || x >= term->width - term->margins.right)
+        seat->mouse.col = -1;
+    else
+        seat->mouse.col = (x - term->margins.left) / term->cell_width;
+
+    if (y < term->margins.top || y >= term->height - term->margins.bottom)
+        seat->mouse.row = -1;
+    else
+        seat->mouse.row = (y - term->margins.top) / term->cell_height;
+}
+
+static bool
+touch_is_active(const struct seat *seat)
+{
+    if (seat->wl_touch == NULL) {
+        return false;
+    }
+
+    switch (seat->touch.state) {
+    case TOUCH_STATE_IDLE:
+    case TOUCH_STATE_INHIBITED:
+        return false;
+
+    case TOUCH_STATE_HELD:
+    case TOUCH_STATE_DRAGGING:
+    case TOUCH_STATE_SCROLLING:
+        return true;
+    }
+
+    BUG("Bad touch state: %d", seat->touch.state);
+    return false;
 }
 
 static void
@@ -1699,17 +1860,22 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
                  uint32_t serial, struct wl_surface *surface,
                  wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
-    xassert(surface != NULL);
-    xassert(serial != 0);
-
-    if (surface == NULL)  {
+    if (unlikely(surface == NULL))  {
         /* Seen on mutter-3.38 */
+        LOG_WARN("compositor sent pointer_enter event with a NULL surface");
         return;
     }
 
     struct seat *seat = data;
+
     struct wl_window *win = wl_surface_get_user_data(surface);
     struct terminal *term = win->term;
+
+    seat->mouse_focus = term;
+    term->active_surface = term_surface_kind(term, surface);
+
+    if (touch_is_active(seat))
+        return;
 
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
@@ -1726,30 +1892,12 @@ wl_pointer_enter(void *data, struct wl_pointer *wl_pointer,
 
     xassert(tll_length(seat->mouse.buttons) == 0);
 
-    seat->mouse_focus = term;
-    term->active_surface = term_surface_kind(term, surface);
-
     wayl_reload_xcursor_theme(seat, term->scale); /* Scale may have changed */
     term_xcursor_update_for_seat(term, seat);
 
     switch (term->active_surface) {
     case TERM_SURF_GRID: {
-        /*
-         * Translate x,y pixel coordinate to a cell coordinate, or -1
-         * if the cursor is outside the grid. I.e. if it is inside the
-         * margins.
-         */
-
-        if (x < term->margins.left || x >= term->width - term->margins.right)
-            seat->mouse.col = -1;
-        else
-            seat->mouse.col = (x - term->margins.left) / term->cell_width;
-
-        if (y < term->margins.top || y >= term->height - term->margins.bottom)
-            seat->mouse.row = -1;
-        else
-            seat->mouse.row = (y - term->margins.top) / term->cell_height;
-
+        mouse_coord_pixel_to_cell(seat, term, x, y);
         break;
     }
 
@@ -1777,6 +1925,23 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
                  uint32_t serial, struct wl_surface *surface)
 {
     struct seat *seat = data;
+
+    if (seat->wl_touch != NULL) {
+        switch (seat->touch.state) {
+        case TOUCH_STATE_IDLE:
+            break;
+
+        case TOUCH_STATE_INHIBITED:
+            seat->touch.state = TOUCH_STATE_IDLE;
+            break;
+
+        case TOUCH_STATE_HELD:
+        case TOUCH_STATE_DRAGGING:
+        case TOUCH_STATE_SCROLLING:
+            return;
+        }
+    }
+
     struct terminal *old_moused = seat->mouse_focus;
 
     LOG_DBG(
@@ -1794,15 +1959,12 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     }
 
     /* Reset last-set-xcursor, to ensure we update it on a pointer-enter event */
-    seat->pointer.xcursor = NULL;
+    seat->pointer.shape = CURSOR_SHAPE_NONE;
 
     /* Reset mouse state */
     seat->mouse.x = seat->mouse.y = 0;
     seat->mouse.col = seat->mouse.row = 0;
-    tll_free(seat->mouse.buttons);
-    seat->mouse.count = 0;
-    seat->mouse.last_released_button = 0;
-    memset(&seat->mouse.last_time, 0, sizeof(seat->mouse.last_time));
+    mouse_button_state_reset(seat);
     for (size_t i = 0; i < ALEN(seat->mouse.aggregated); i++)
         seat->mouse.aggregated[i] = 0.0;
     seat->mouse.have_discrete = false;
@@ -1854,8 +2016,23 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
                   uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y)
 {
     struct seat *seat = data;
+
+    /* Touch-emulated pointer events have wl_pointer == NULL. */
+    if (wl_pointer != NULL && touch_is_active(seat))
+        return;
+
     struct wayland *wayl = seat->wayl;
     struct terminal *term = seat->mouse_focus;
+
+    if (unlikely(term == NULL)) {
+        /* Typically happens when the compositor sent a pointer enter
+         * event with a NULL surface - see wl_pointer_enter().
+         *
+         * In this case, we never set seat->mouse_focus (since we
+         * can't map the enter event to a specific window). */
+        return;
+    }
+
     struct wl_window *win = term->window;
 
     LOG_DBG("pointer_motion: pointer=%p, x=%d, y=%d", (void *)wl_pointer,
@@ -1961,7 +2138,7 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 
         if (cursor_is_on_new_cell) {
             /* Prevent multiple/different mouse bindings from
-             * triggering if the mouse has moved “too much” (to
+             * triggering if the mouse has moved "too much" (to
              * another cell) */
             seat->mouse.count = 0;
         }
@@ -1981,14 +2158,14 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         if (!term->is_searching) {
             if (auto_scroll_direction != SELECTION_SCROLL_NOT) {
                 /*
-                 * Start ‘selection auto-scrolling’
+                 * Start 'selection auto-scrolling'
                  *
                  * The speed of the scrolling is proportional to the
                  * distance between the mouse and the grid; the
                  * further away the mouse is, the faster we scroll.
                  *
-                 * Note that the speed is measured in ‘intervals (in
-                 * ns) between each timed scroll of a single line’.
+                 * Note that the speed is measured in 'intervals (in
+                 * ns) between each timed scroll of a single line'.
                  *
                  * Thus, the further away the mouse is, the smaller
                  * interval value we use.
@@ -2057,6 +2234,93 @@ fdm_csd_move(struct fdm *fdm, int fd, int events, void *data)
     return true;
 }
 
+static const struct key_binding *
+ match_mouse_binding(const struct seat *seat, const struct terminal *term,
+                     int button)
+{
+    if (seat->wl_keyboard != NULL && seat->kbd.xkb_state != NULL) {
+        /* Seat has keyboard - use mouse bindings *with* modifiers */
+
+        const struct key_binding_set *bindings =
+            key_binding_for(term->wl->key_binding_manager, term->conf, seat);
+        xassert(bindings != NULL);
+
+        xkb_mod_mask_t mods;
+        get_current_modifiers(seat, &mods, NULL, 0, true);
+
+        /* Ignore selection override modifiers when
+         * matching modifiers */
+        mods &= ~bindings->selection_overrides;
+
+        const struct key_binding *match = NULL;
+
+        tll_foreach(bindings->mouse, it) {
+            const struct key_binding *binding = &it->item;
+
+            if (binding->m.button != button) {
+                /* Wrong button */
+                continue;
+            }
+
+            if (binding->mods != mods) {
+                /* Modifier mismatch */
+                continue;
+            }
+
+            if (binding->m.count > seat->mouse.count) {
+                /* Not correct click count */
+                continue;
+            }
+
+            if (match == NULL || binding->m.count > match->m.count)
+                match = binding;
+        }
+
+        return match;
+    }
+
+    else {
+        /* Seat does NOT have a keyboard - use mouse bindings *without*
+         * modifiers */
+        const struct config_key_binding *match = NULL;
+        const struct config *conf = term->conf;
+
+        for (size_t i = 0; i < conf->bindings.mouse.count; i++) {
+            const struct config_key_binding *binding =
+                &conf->bindings.mouse.arr[i];
+
+            if (binding->m.button != button) {
+                /* Wrong button */
+                continue;
+            }
+
+            if (binding->m.count > seat->mouse.count) {
+                /* Incorrect click count */
+                continue;
+            }
+
+            if (tll_length(binding->modifiers) > 0) {
+                /* Binding has modifiers */
+                continue;
+            }
+
+            if (match == NULL || binding->m.count > match->m.count)
+                match = binding;
+        }
+
+        if (match != NULL) {
+            static struct key_binding bind;
+            bind.action = match->action;
+            bind.aux = &match->aux;
+            return &bind;
+        }
+
+        return NULL;
+    }
+
+    BUG("should not get here");
+}
+
 static void
 wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
                   uint32_t serial, uint32_t time, uint32_t button, uint32_t state)
@@ -2067,6 +2331,11 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     xassert(serial != 0);
 
     struct seat *seat = data;
+
+    /* Touch-emulated pointer events have wl_pointer == NULL. */
+    if (wl_pointer != NULL && touch_is_active(seat))
+        return;
+
     struct wayland *wayl = seat->wayl;
     struct terminal *term = seat->mouse_focus;
 
@@ -2079,6 +2348,10 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     bool send_to_client = false;
 
     if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+        if (seat->wl_touch != NULL && seat->touch.state == TOUCH_STATE_IDLE) {
+            seat->touch.state = TOUCH_STATE_INHIBITED;
+        }
+
         /* Time since last click */
         struct timespec now, since_last;
         clock_gettime(CLOCK_MONOTONIC, &now);
@@ -2099,7 +2372,7 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
          * clicking twice, waiting for the CSD timer, and finally
          * clicking once more, results in the following sequence
          * (keyboard and other irrelevant events filtered out, unless
-         * they’re needed to prove a point):
+         * they're needed to prove a point):
          *
          * dbg: input.c:1551: cancelling drag timer, moving window
          * dbg: input.c:759: keyboard_leave: keyboard=0x607000003580, serial=873, surface=0x6070000036d0
@@ -2131,12 +2404,12 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
          * - GNOME does *not* send a pointer *enter* event after the drag
          *   has stopped
          * - The second drag does *not* generate a pointer *leave* event
-         * - The missing leave event means we’re still tracking LMB as
+         * - The missing leave event means we're still tracking LMB as
          *   being held down in our seat struct.
          * - This leads to an assert (debug builds) when LMB is clicked
-         *   again (seat’s button list already contains LMB).
+         *   again (seat's button list already contains LMB).
          *
-         * Note: I’ve also observed variants of the above
+         * Note: I've also observed variants of the above
          */
         tll_foreach(seat->mouse.buttons, it) {
             if (it->item.button == button) {
@@ -2180,6 +2453,12 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             }
         }
 
+        if (seat->wl_touch != NULL && seat->touch.state == TOUCH_STATE_INHIBITED) {
+            if (tll_length(seat->mouse.buttons) == 0) {
+                seat->touch.state = TOUCH_STATE_IDLE;
+            }
+        }
+
         if (!have_button) {
             /*
              * Seen on Sway with slurp
@@ -2204,7 +2483,10 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             struct wl_window *win = term->window;
 
             /* Toggle maximized state on double-click */
-            if (button == BTN_LEFT && seat->mouse.count == 2) {
+            if (term->conf->csd.double_click_to_maximize &&
+                button == BTN_LEFT &&
+                seat->mouse.count == 2)
+            {
                 if (win->is_maximized)
                     xdg_toplevel_unset_maximized(win->xdg_toplevel);
                 else
@@ -2313,86 +2595,11 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
             bool consumed = false;
 
             if (cursor_is_on_grid && term_mouse_grabbed(term, seat)) {
-                if (seat->wl_keyboard != NULL && seat->kbd.xkb_state != NULL) {
-                    /* Seat has keyboard - use mouse bindings *with* modifiers */
+                const struct key_binding *match =
+                    match_mouse_binding(seat, term, button);
 
-                    const struct key_binding_set *bindings = key_binding_for(
-                        wayl->key_binding_manager, term, seat);
-                    xassert(bindings != NULL);
-
-                    xkb_mod_mask_t mods;
-                    get_current_modifiers(seat, &mods, NULL, 0);
-                    mods &= seat->kbd.bind_significant;
-
-                    /* Ignore selection override modifiers when
-                     * matching modifiers */
-                    mods &= ~bindings->selection_overrides;
-
-                    const struct key_binding *match = NULL;
-
-                    tll_foreach(bindings->mouse, it) {
-                        const struct key_binding *binding = &it->item;
-
-                        if (binding->m.button != button) {
-                            /* Wrong button */
-                            continue;
-                        }
-
-                        if (binding->mods != mods) {
-                            /* Modifier mismatch */
-                            continue;
-                        }
-
-                        if  (binding->m.count > seat->mouse.count) {
-                            /* Not correct click count */
-                            continue;
-                        }
-
-                        if (match == NULL || binding->m.count > match->m.count)
-                            match = binding;
-                    }
-
-                    if (match != NULL)
-                        consumed = execute_binding(seat, term, match, serial);
-                }
-
-                else {
-                    /* Seat does NOT have a keyboard - use mouse bindings *without* modifiers */
-                    const struct config_key_binding *match = NULL;
-                    const struct config *conf = term->conf;
-
-                    for (size_t i = 0; i < conf->bindings.mouse.count; i++) {
-                        const struct config_key_binding *binding =
-                            &conf->bindings.mouse.arr[i];
-
-                        if (binding->m.button != button) {
-                            /* Wrong button */
-                            continue;
-                        }
-
-                        if (binding->m.count > seat->mouse.count) {
-                            /* Incorrect click count */
-                            continue;
-                        }
-
-                        const struct config_key_modifiers no_mods = {0};
-                        if (memcmp(&binding->modifiers, &no_mods, sizeof(no_mods)) != 0) {
-                            /* Binding has modifiers */
-                            continue;
-                        }
-
-                        if (match == NULL || binding->m.count > match->m.count)
-                            match = binding;
-                    }
-
-                    if (match != NULL) {
-                        struct key_binding bind = {
-                            .action = match->action,
-                            .aux = &match->aux,
-                        };
-                        consumed = execute_binding(seat, term, &bind, serial);
-                    }
-                }
+                if (match != NULL)
+                    consumed = execute_binding(seat, term, match, serial, 1);
             }
 
             send_to_client = !consumed && cursor_is_on_grid;
@@ -2467,26 +2674,15 @@ mouse_scroll(struct seat *seat, int amount, enum wl_pointer_axis axis)
     amount = abs(amount);
 
     if (term_mouse_grabbed(term, seat)) {
-        if (term->grid == &term->alt) {
-            if (term->alt_scrolling) {
-                switch (button) {
-                case BTN_BACK:
-                case BTN_FORWARD:
-                    alternate_scroll(seat, amount, button);
-                    break;
-                }
-            }
-        } else {
-            switch (button) {
-            case BTN_BACK:
-                cmd_scrollback_up(term, amount);
-                break;
+        seat->mouse.count = 1;
 
-            case BTN_FORWARD:
-                cmd_scrollback_down(term, amount);
-                break;
-            }
-        }
+        const struct key_binding *match =
+            match_mouse_binding(seat, term, button);
+
+        if (match != NULL)
+            execute_binding(seat, term, match, seat->pointer.serial, amount);
+
+        seat->mouse.last_released_button = button;
     }
 
     else if (seat->mouse.col >= 0 && seat->mouse.row >= 0) {
@@ -2524,6 +2720,9 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
 {
     struct seat *seat = data;
 
+    if (touch_is_active(seat))
+        return;
+
     if (seat->mouse.have_discrete)
         return;
 
@@ -2553,6 +2752,10 @@ wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
                          uint32_t axis, int32_t discrete)
 {
     struct seat *seat = data;
+
+    if (touch_is_active(seat))
+        return;
+
     seat->mouse.have_discrete = true;
 
     int amount = discrete;
@@ -2569,6 +2772,10 @@ static void
 wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
 {
     struct seat *seat = data;
+
+    if (touch_is_active(seat))
+        return;
+
     seat->mouse.have_discrete = false;
 }
 
@@ -2584,6 +2791,9 @@ wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
 {
     struct seat *seat = data;
 
+    if (touch_is_active(seat))
+        return;
+
     xassert(axis < ALEN(seat->mouse.aggregated));
     seat->mouse.aggregated[axis] = 0.;
 }
@@ -2598,4 +2808,174 @@ const struct wl_pointer_listener pointer_listener = {
     .axis_source = wl_pointer_axis_source,
     .axis_stop = wl_pointer_axis_stop,
     .axis_discrete = wl_pointer_axis_discrete,
+};
+
+static bool
+touch_to_scroll(struct seat *seat, struct terminal *term,
+                wl_fixed_t surface_x, wl_fixed_t surface_y)
+{
+    bool coord_updated = false;
+
+    int y = wl_fixed_to_int(surface_y) * term->scale;
+    int rows = (y - seat->mouse.y) / term->cell_height;
+    if (rows != 0) {
+        mouse_scroll(seat, -rows, WL_POINTER_AXIS_VERTICAL_SCROLL);
+        seat->mouse.y += rows * term->cell_height;
+        coord_updated = true;
+    }
+
+    int x = wl_fixed_to_int(surface_x) * term->scale;
+    int cols = (x - seat->mouse.x) / term->cell_width;
+    if (cols != 0) {
+        mouse_scroll(seat, -cols, WL_POINTER_AXIS_HORIZONTAL_SCROLL);
+        seat->mouse.x += cols * term->cell_width;
+        coord_updated = true;
+    }
+
+    return coord_updated;
+}
+
+static void
+wl_touch_down(void *data, struct wl_touch *wl_touch, uint32_t serial,
+              uint32_t time, struct wl_surface *surface, int32_t id,
+              wl_fixed_t surface_x, wl_fixed_t surface_y)
+{
+    struct seat *seat = data;
+
+    if (seat->touch.state != TOUCH_STATE_IDLE)
+        return;
+
+    struct wl_window *win = wl_surface_get_user_data(surface);
+    struct terminal *term = win->term;
+
+    LOG_DBG("touch_down: touch=%p, x=%d, y=%d", (void *)wl_touch,
+            wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y));
+
+    int x = wl_fixed_to_int(surface_x) * term->scale;
+    int y = wl_fixed_to_int(surface_y) * term->scale;
+
+    seat->mouse.x = x;
+    seat->mouse.y = y;
+    mouse_coord_pixel_to_cell(seat, term, x, y);
+
+    seat->touch.state = TOUCH_STATE_HELD;
+    seat->touch.serial = serial;
+    seat->touch.time = time + term->conf->touch.long_press_delay;
+    seat->touch.surface = surface;
+    seat->touch.surface_kind = term_surface_kind(term, surface);
+    seat->touch.id = id;
+}
+
+static void
+wl_touch_up(void *data, struct wl_touch *wl_touch, uint32_t serial,
+            uint32_t time, int32_t id)
+{
+    struct seat *seat = data;
+
+    if (seat->touch.state <= TOUCH_STATE_IDLE || id != seat->touch.id)
+        return;
+
+    LOG_DBG("touch_up: touch=%p", (void *)wl_touch);
+
+    struct wl_window *win = wl_surface_get_user_data(seat->touch.surface);
+    struct terminal *term = win->term;
+
+    struct terminal *old_term = seat->mouse_focus;
+    enum term_surface old_active_surface = term->active_surface;
+    seat->mouse_focus = term;
+    term->active_surface = seat->touch.surface_kind;
+
+    switch (seat->touch.state) {
+    case TOUCH_STATE_HELD:
+        wl_pointer_button(seat, NULL, seat->touch.serial, time, BTN_LEFT,
+                          WL_POINTER_BUTTON_STATE_PRESSED);
+        /* fallthrough */
+    case TOUCH_STATE_DRAGGING:
+        wl_pointer_button(seat, NULL, serial, time, BTN_LEFT,
+                          WL_POINTER_BUTTON_STATE_RELEASED);
+        /* fallthrough */
+    case TOUCH_STATE_SCROLLING:
+        term->active_surface = TERM_SURF_NONE;
+        seat->touch.state = TOUCH_STATE_IDLE;
+        break;
+
+    case TOUCH_STATE_INHIBITED:
+    case TOUCH_STATE_IDLE:
+        BUG("Bad touch state: %d", seat->touch.state);
+        break;
+    }
+
+    seat->mouse_focus = old_term;
+    term->active_surface = old_active_surface;
+}
+
+static void
+wl_touch_motion(void *data, struct wl_touch *wl_touch, uint32_t time,
+                int32_t id, wl_fixed_t surface_x, wl_fixed_t surface_y)
+{
+    struct seat *seat = data;
+    if (seat->touch.state <= TOUCH_STATE_IDLE || id != seat->touch.id)
+        return;
+
+    LOG_DBG("touch_motion: touch=%p, x=%d, y=%d", (void *)wl_touch,
+            wl_fixed_to_int(surface_x), wl_fixed_to_int(surface_y));
+
+    struct wl_window *win = wl_surface_get_user_data(seat->touch.surface);
+    struct terminal *term = win->term;
+
+    struct terminal *old_term = seat->mouse_focus;
+    enum term_surface old_active_surface = term->active_surface;
+    seat->mouse_focus = term;
+    term->active_surface = seat->touch.surface_kind;
+
+    switch (seat->touch.state) {
+    case TOUCH_STATE_HELD:
+        if (time <= seat->touch.time && term->active_surface == TERM_SURF_GRID) {
+            if (touch_to_scroll(seat, term, surface_x, surface_y))
+                seat->touch.state = TOUCH_STATE_SCROLLING;
+            break;
+        } else {
+            wl_pointer_button(seat, NULL, seat->touch.serial, time, BTN_LEFT,
+                              WL_POINTER_BUTTON_STATE_PRESSED);
+            seat->touch.state = TOUCH_STATE_DRAGGING;
+            /* fallthrough */
+        }
+    case TOUCH_STATE_DRAGGING:
+        wl_pointer_motion(seat, NULL, time, surface_x, surface_y);
+        break;
+    case TOUCH_STATE_SCROLLING:
+        touch_to_scroll(seat, term, surface_x, surface_y);
+        break;
+
+    case TOUCH_STATE_INHIBITED:
+    case TOUCH_STATE_IDLE:
+        BUG("Bad touch state: %d", seat->touch.state);
+        break;
+    }
+
+    seat->mouse_focus = old_term;
+    term->active_surface = old_active_surface;
+}
+
+static void
+wl_touch_frame(void *data, struct wl_touch *wl_touch)
+{
+}
+
+static void
+wl_touch_cancel(void *data, struct wl_touch *wl_touch)
+{
+    struct seat *seat = data;
+    if (seat->touch.state == TOUCH_STATE_INHIBITED)
+        return;
+
+    seat->touch.state = TOUCH_STATE_IDLE;
+}
+
+const struct wl_touch_listener touch_listener = {
+    .down = wl_touch_down,
+    .up = wl_touch_up,
+    .motion = wl_touch_motion,
+    .frame = wl_touch_frame,
+    .cancel = wl_touch_cancel,
 };

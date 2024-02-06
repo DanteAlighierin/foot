@@ -24,9 +24,18 @@ struct buffer {
 
     unsigned age;
 
-    struct damage *scroll_damage;
-    size_t scroll_damage_count;
-    pixman_region32_t dirty;
+    /*
+     * First item in the array is used to track frame-to-frame
+     * damage. This is used when re-applying damage from the last
+     * frame, when the compositor doesn't release buffers immediately
+     * (forcing us to double buffer)
+     *
+     * The remaining items are used to track surface damage. Each
+     * worker thread adds its own cell damage to "its" region. When
+     * the frame is done, all damage is converted to a single region,
+     * which is then used in calls to wl_surface_damage_buffer().
+     */
+    pixman_region32_t *dirty;
 };
 
 void shm_fini(void);
@@ -40,7 +49,7 @@ void shm_chain_free(struct buffer_chain *chain);
 /*
  * Returns a single buffer.
  *
- * May returned a cached buffer. If so, the buffer’s age indicates how
+ * May returned a cached buffer. If so, the buffer's age indicates how
  * many shm_get_buffer() calls have been made for the same
  * width/height while the buffer was still busy.
  *
@@ -48,7 +57,7 @@ void shm_chain_free(struct buffer_chain *chain);
  */
 struct buffer *shm_get_buffer(struct buffer_chain *chain, int width, int height);
 /*
- * Returns many buffers, described by ‘info’, all sharing the same SHM
+ * Returns many buffers, described by 'info', all sharing the same SHM
  * buffer pool.
  *
  * Never returns cached buffers. However, the newly created buffers

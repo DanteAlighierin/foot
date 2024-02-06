@@ -83,7 +83,7 @@ hsl_to_rgb(int hue, int sat, int lum)
     b += m;
 
     return (
-        (int)round(r * 255.) << 16 |
-        (int)round(g * 255.) << 8 |
-        (int)round(b * 255.) << 0);
+        (uint8_t)round(r * 255.) << 16 |
+        (uint8_t)round(g * 255.) << 8 |
+        (uint8_t)round(b * 255.) << 0);
 }

@@ -23,7 +23,7 @@ cmd_scrollback_up(struct terminal *term, int rows)
     const int grid_rows = grid->num_rows;
 
     /* The view row number in scrollback relative coordinates. This is
-     * the maximum number of rows we’re allowed to scroll */
+     * the maximum number of rows we're allowed to scroll */
     int sb_start = grid_sb_start_ignore_uninitialized(grid, term->rows);
     int view_sb_rel =
         grid_row_abs_to_sb_precalc_sb_start(grid, sb_start, view);

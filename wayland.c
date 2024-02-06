@@ -10,6 +10,7 @@
 #include <sys/timerfd.h>
 #include <sys/epoll.h>
 
+#include <cursor-shape-v1.h>
 #include <wayland-client.h>
 #include <wayland-cursor.h>
 #include <xkbcommon/xkbcommon-compose.h>
@@ -32,12 +33,12 @@
 #include "xmalloc.h"
 
 static void
-csd_reload_font(struct wl_window *win, int old_scale)
+csd_reload_font(struct wl_window *win, float old_scale)
 {
     struct terminal *term = win->term;
     const struct config *conf = term->conf;
 
-    const int scale = term->scale;
+    const float scale = term->scale;
 
     bool enable_csd = win->csd_mode == CSD_YES && !win->is_fullscreen;
     if (!enable_csd)
@@ -52,10 +53,10 @@ csd_reload_font(struct wl_window *win, int old_scale)
         patterns[i] = conf->csd.font.arr[i].pattern;
 
     char pixelsize[32];
-    snprintf(pixelsize, sizeof(pixelsize),
-             "pixelsize=%u", conf->csd.title_height * scale * 1 / 2);
+    snprintf(pixelsize, sizeof(pixelsize), "pixelsize=%u",
+             (int)roundf(conf->csd.title_height * scale * 1 / 2));
 
-    LOG_DBG("loading CSD font \"%s:%s\" (old-scale=%d, scale=%d)",
+    LOG_DBG("loading CSD font \"%s:%s\" (old-scale=%.2f, scale=%.2f)",
             patterns[0], pixelsize, old_scale, scale);
 
     win->csd.font = fcft_from_name(conf->csd.font.count, patterns, pixelsize);
@@ -74,12 +75,12 @@ csd_instantiate(struct wl_window *win)
 
     for (size_t i = CSD_SURF_MINIMIZE; i < CSD_SURF_COUNT; i++) {
         bool ret = wayl_win_subsurface_new_with_custom_parent(
-            win, win->csd.surface[CSD_SURF_TITLE].surf, &win->csd.surface[i],
+            win, win->csd.surface[CSD_SURF_TITLE].surface.surf, &win->csd.surface[i],
             true);
         xassert(ret);
     }
 
-    csd_reload_font(win, -1);
+    csd_reload_font(win, -1.);
 }
 
 static void
@@ -187,8 +188,10 @@ seat_destroy(struct seat *seat)
 
     if (seat->pointer.theme != NULL)
         wl_cursor_theme_destroy(seat->pointer.theme);
-    if (seat->pointer.surface != NULL)
-        wl_surface_destroy(seat->pointer.surface);
+    if (seat->pointer.surface.surf != NULL)
+        wl_surface_destroy(seat->pointer.surface.surf);
+    if (seat->pointer.surface.viewport != NULL)
+        wp_viewport_destroy(seat->pointer.surface.viewport);
     if (seat->pointer.xcursor_callback != NULL)
         wl_callback_destroy(seat->pointer.xcursor_callback);
 
@@ -204,11 +207,14 @@ seat_destroy(struct seat *seat)
         zwp_primary_selection_device_v1_destroy(seat->primary_selection_device);
     if (seat->data_device != NULL)
         wl_data_device_release(seat->data_device);
-
+    if (seat->pointer.shape_device != NULL)
+        wp_cursor_shape_device_v1_destroy(seat->pointer.shape_device);
     if (seat->wl_keyboard != NULL)
         wl_keyboard_release(seat->wl_keyboard);
     if (seat->wl_pointer != NULL)
         wl_pointer_release(seat->wl_pointer);
+    if (seat->wl_touch != NULL)
+        wl_touch_release(seat->wl_touch);
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     if (seat->wl_text_input != NULL)
@@ -221,6 +227,7 @@ seat_destroy(struct seat *seat)
     ime_reset_pending(seat);
     free(seat->clipboard.text);
     free(seat->primary.text);
+    free(seat->pointer.last_custom_xcursor);
     free(seat->name);
 }
 
@@ -270,9 +277,10 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
     struct seat *seat = data;
     xassert(seat->wl_seat == wl_seat);
 
-    LOG_DBG("%s: keyboard=%s, pointer=%s", seat->name,
+    LOG_DBG("%s: keyboard=%s, pointer=%s, touch=%s", seat->name,
             (caps & WL_SEAT_CAPABILITY_KEYBOARD) ? "yes" : "no",
-            (caps & WL_SEAT_CAPABILITY_POINTER) ? "yes" : "no");
+            (caps & WL_SEAT_CAPABILITY_POINTER) ? "yes" : "no",
+            (caps & WL_SEAT_CAPABILITY_TOUCH) ? "yes" : "no");
 
     if (caps & WL_SEAT_CAPABILITY_KEYBOARD) {
         if (seat->wl_keyboard == NULL) {
@@ -288,30 +296,82 @@ seat_handle_capabilities(void *data, struct wl_seat *wl_seat,
 
     if (caps & WL_SEAT_CAPABILITY_POINTER) {
         if (seat->wl_pointer == NULL) {
-            xassert(seat->pointer.surface == NULL);
-            seat->pointer.surface = wl_compositor_create_surface(seat->wayl->compositor);
+            xassert(seat->pointer.surface.surf == NULL);
+            seat->pointer.surface.surf =
+                wl_compositor_create_surface(seat->wayl->compositor);
 
-            if (seat->pointer.surface == NULL) {
+            if (seat->pointer.surface.surf == NULL) {
                 LOG_ERR("%s: failed to create pointer surface", seat->name);
                 return;
             }
 
+            if (seat->wayl->viewporter != NULL) {
+                xassert(seat->pointer.surface.viewport == NULL);
+                seat->pointer.surface.viewport = wp_viewporter_get_viewport(
+                    seat->wayl->viewporter, seat->pointer.surface.surf);
+
+                if (seat->pointer.surface.viewport == NULL) {
+                    LOG_ERR("%s: failed to create pointer viewport", seat->name);
+                    wl_surface_destroy(seat->pointer.surface.surf);
+                    seat->pointer.surface.surf = NULL;
+                    return;
+                }
+            }
+
             seat->wl_pointer = wl_seat_get_pointer(wl_seat);
             wl_pointer_add_listener(seat->wl_pointer, &pointer_listener, seat);
+
+            if (seat->wayl->cursor_shape_manager != NULL) {
+                xassert(seat->pointer.shape_device == NULL);
+                seat->pointer.shape_device = wp_cursor_shape_manager_v1_get_pointer(
+                    seat->wayl->cursor_shape_manager, seat->wl_pointer);
+            }
         }
     } else {
         if (seat->wl_pointer != NULL) {
+            if (seat->pointer.shape_device != NULL) {
+                wp_cursor_shape_device_v1_destroy(seat->pointer.shape_device);
+                seat->pointer.shape_device = NULL;
+            }
+
             wl_pointer_release(seat->wl_pointer);
-            wl_surface_destroy(seat->pointer.surface);
+            wl_surface_destroy(seat->pointer.surface.surf);
+
+            if (seat->pointer.surface.viewport != NULL) {
+                wp_viewport_destroy(seat->pointer.surface.viewport);
+                seat->pointer.surface.viewport = NULL;
+            }
 
             if (seat->pointer.theme != NULL)
                 wl_cursor_theme_destroy(seat->pointer.theme);
 
+            if (seat->wl_touch != NULL &&
+                seat->touch.state == TOUCH_STATE_INHIBITED)
+            {
+                seat->touch.state = TOUCH_STATE_IDLE;
+            }
+
             seat->wl_pointer = NULL;
-            seat->pointer.surface = NULL;
+            seat->pointer.surface.surf = NULL;
             seat->pointer.theme = NULL;
             seat->pointer.cursor = NULL;
         }
+    }
+
+    if (caps & WL_SEAT_CAPABILITY_TOUCH) {
+        if (seat->wl_touch == NULL) {
+            seat->wl_touch = wl_seat_get_touch(wl_seat);
+            wl_touch_add_listener(seat->wl_touch, &touch_listener, seat);
+
+            seat->touch.state = TOUCH_STATE_IDLE;
+        }
+    } else {
+        if (seat->wl_touch != NULL) {
+            wl_touch_release(seat->wl_touch);
+            seat->wl_touch = NULL;
+        }
+
+        seat->touch.state = TOUCH_STATE_INHIBITED;
     }
 }
 
@@ -331,15 +391,46 @@ static const struct wl_seat_listener seat_listener = {
 static void
 update_term_for_output_change(struct terminal *term)
 {
-    if (tll_length(term->window->on_outputs) == 0)
-        return;
+    const float old_scale = term->scale;
 
-    int old_scale = term->scale;
-
-    render_resize(term, term->width / term->scale, term->height / term->scale);
-    term_font_dpi_changed(term, old_scale);
+    /* Note: order matters! term_update_scale() must come first */
+    bool scale_updated = term_update_scale(term);
+    bool fonts_updated = term_font_dpi_changed(term, old_scale);
     term_font_subpixel_changed(term);
+
     csd_reload_font(term->window, old_scale);
+
+    uint8_t resize_opts = RESIZE_KEEP_GRID;
+
+    if (fonts_updated) {
+        /*
+         * If the fonts have been updated, the cell dimensions have
+         * changed. This requires a "forced" resize, since the surface
+         * buffer dimensions may not have been updated (in which case
+         * render_resize() normally shortcuts and returns early).
+         */
+        resize_opts |= RESIZE_FORCE;
+    } else if (!scale_updated) {
+        /* No need to resize if neither scale nor fonts have changed */
+        return;
+    } else if (term->conf->dpi_aware) {
+        /*
+	 * If fonts are sized according to DPI, it is possible for the cell
+	 * size to remain the same when display scale changes. This will not
+	 * change the surface buffer dimensions, but will change the logical
+	 * size of the window. To ensure that the compositor is made aware of
+	 * the proper logical size, force a resize rather than allowing
+	 * render_resize() to shortcut the notification if the buffer
+	 * dimensions remain the same.
+	 */
+        resize_opts |= RESIZE_FORCE;
+    }
+
+    render_resize(
+        term,
+        (int)roundf(term->width / term->scale),
+        (int)roundf(term->height / term->scale),
+        resize_opts);
 }
 
 static void
@@ -349,11 +440,6 @@ update_terms_on_monitor(struct monitor *mon)
 
     tll_foreach(wayl->terms, it) {
         struct terminal *term = it->item;
-
-        if (term->conf->dpi_aware == DPI_AWARE_AUTO) {
-            update_term_for_output_change(term);
-            continue;
-        }
 
         tll_foreach(term->window->on_outputs, it2) {
             if (it2->item == mon) {
@@ -367,11 +453,14 @@ update_terms_on_monitor(struct monitor *mon)
 static void
 output_update_ppi(struct monitor *mon)
 {
-    if (mon->dim.mm.width == 0 || mon->dim.mm.height == 0)
+    if (mon->dim.mm.width <= 0 || mon->dim.mm.height <= 0)
         return;
 
-    int x_inches = mon->dim.mm.width * 0.03937008;
-    int y_inches = mon->dim.mm.height * 0.03937008;
+    double x_inches = mon->dim.mm.width * 0.03937008;
+    double y_inches = mon->dim.mm.height * 0.03937008;
+
+    const int width = mon->dim.px_real.width;
+    const int height = mon->dim.px_real.height;
 
     mon->ppi.real.x = mon->dim.px_real.width / x_inches;
     mon->ppi.real.y = mon->dim.px_real.height / y_inches;
@@ -395,20 +484,37 @@ output_update_ppi(struct monitor *mon)
         break;
     }
 
-    int scaled_width = mon->dim.px_scaled.width;
-    int scaled_height = mon->dim.px_scaled.height;
-
-    if (scaled_width == 0 && scaled_height == 0 && mon->scale > 0) {
-        /* Estimate scaled width/height if none has been provided */
-        scaled_width = mon->dim.px_real.width / mon->scale;
-        scaled_height = mon->dim.px_real.height / mon->scale;
-    }
+    const int scaled_width = mon->dim.px_scaled.width;
+    const int scaled_height = mon->dim.px_scaled.height;
 
     mon->ppi.scaled.x = scaled_width / x_inches;
     mon->ppi.scaled.y = scaled_height / y_inches;
 
-    float px_diag = sqrt(pow(scaled_width, 2) + pow(scaled_height, 2));
-    mon->dpi = px_diag / mon->inch * mon->scale;
+    const double px_diag_physical = sqrt(pow(width, 2) + pow(height, 2));
+    mon->dpi.physical = width == 0 && height == 0
+        ? 96.
+        : px_diag_physical / mon->inch;
+
+    const double px_diag_scaled = sqrt(pow(scaled_width, 2) + pow(scaled_height, 2));
+    mon->dpi.scaled = scaled_width == 0 && scaled_height == 0
+        ? 96.
+        : px_diag_scaled / mon->inch * mon->scale;
+
+    if (mon->dpi.physical > 1000) {
+        if (mon->name != NULL) {
+            LOG_WARN("%s: DPI=%f (physical) is unreasonable, using 96 instead",
+                     mon->name, mon->dpi.physical);
+        }
+        mon->dpi.physical = 96;
+    }
+
+    if (mon->dpi.scaled > 1000) {
+        if (mon->name != NULL) {
+            LOG_WARN("%s: DPI=%f (logical) is unreasonable, using 96 instead",
+                     mon->name, mon->dpi.scaled);
+        }
+        mon->dpi.scaled = 96;
+    }
 }
 
 static void
@@ -518,6 +624,8 @@ xdg_output_handle_logical_size(void *data, struct zxdg_output_v1 *xdg_output,
 static void
 xdg_output_handle_done(void *data, struct zxdg_output_v1 *xdg_output)
 {
+    struct monitor *mon = data;
+    update_terms_on_monitor(mon);
 }
 
 static void
@@ -608,9 +716,37 @@ surface_leave(void *data, struct wl_surface *wl_surface,
     LOG_WARN("unmapped from unknown output");
 }
 
+#if defined(WL_SURFACE_PREFERRED_BUFFER_SCALE_SINCE_VERSION)
+static void
+surface_preferred_buffer_scale(void *data, struct wl_surface *surface,
+                               int32_t scale)
+{
+    struct wl_window *win = data;
+
+    if (win->preferred_buffer_scale == scale)
+        return;
+
+    LOG_DBG("wl_surface preferred scale: %d -> %d", win->preferred_buffer_scale, scale);
+
+    win->preferred_buffer_scale = scale;
+    update_term_for_output_change(win->term);
+}
+
+static void
+surface_preferred_buffer_transform(void *data, struct wl_surface *surface,
+                                   uint32_t transform)
+{
+
+}
+#endif
+
 static const struct wl_surface_listener surface_listener = {
     .enter = &surface_enter,
     .leave = &surface_leave,
+#if defined(WL_SURFACE_PREFERRED_BUFFER_SCALE_SINCE_VERSION)
+    .preferred_buffer_scale = &surface_preferred_buffer_scale,
+    .preferred_buffer_transform = &surface_preferred_buffer_transform,
+#endif
 };
 
 static void
@@ -625,6 +761,7 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
     bool is_tiled_bottom = false;
     bool is_tiled_left = false;
     bool is_tiled_right = false;
+    bool is_suspended UNUSED = false;
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char state_str[2048];
@@ -639,29 +776,35 @@ xdg_toplevel_configure(void *data, struct xdg_toplevel *xdg_toplevel,
         [XDG_TOPLEVEL_STATE_TILED_RIGHT] = "tiled:right",
         [XDG_TOPLEVEL_STATE_TILED_TOP] = "tiled:top",
         [XDG_TOPLEVEL_STATE_TILED_BOTTOM] = "tiled:bottom",
+#if defined(XDG_TOPLEVEL_STATE_SUSPENDED_SINCE_VERSION)  /* wayland-protocols >= 1.32 */
+        [XDG_TOPLEVEL_STATE_SUSPENDED] = "suspended",
+#endif
     };
 #endif
 
     enum xdg_toplevel_state *state;
     wl_array_for_each(state, states) {
         switch (*state) {
-        case XDG_TOPLEVEL_STATE_ACTIVATED:    is_activated = true; break;
-        case XDG_TOPLEVEL_STATE_FULLSCREEN:   is_fullscreen = true; break;
         case XDG_TOPLEVEL_STATE_MAXIMIZED:    is_maximized = true; break;
+        case XDG_TOPLEVEL_STATE_FULLSCREEN:   is_fullscreen = true; break;
+        case XDG_TOPLEVEL_STATE_RESIZING:     is_resizing = true; break;
+        case XDG_TOPLEVEL_STATE_ACTIVATED:    is_activated = true; break;
         case XDG_TOPLEVEL_STATE_TILED_LEFT:   is_tiled_left = true; break;
         case XDG_TOPLEVEL_STATE_TILED_RIGHT:  is_tiled_right = true; break;
         case XDG_TOPLEVEL_STATE_TILED_TOP:    is_tiled_top = true; break;
         case XDG_TOPLEVEL_STATE_TILED_BOTTOM: is_tiled_bottom = true; break;
-        case XDG_TOPLEVEL_STATE_RESIZING:     is_resizing = true; break;
+
+#if defined(XDG_TOPLEVEL_STATE_SUSPENDED_SINCE_VERSION)
+        case XDG_TOPLEVEL_STATE_SUSPENDED:    is_suspended = true; break;
+#endif
         }
 
 #if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
-        if (*state >= XDG_TOPLEVEL_STATE_MAXIMIZED &&
-            *state <= XDG_TOPLEVEL_STATE_TILED_BOTTOM)
-        {
+        if (*state >= 0 && *state < ALEN(strings)) {
             state_chars += snprintf(
                 &state_str[state_chars], sizeof(state_str) - state_chars,
-                "%s, ", strings[*state]);
+                "%s, ",
+                strings[*state] != NULL ? strings[*state] : "<unknown>");
         }
 #endif
     }
@@ -706,9 +849,85 @@ xdg_toplevel_close(void *data, struct xdg_toplevel *xdg_toplevel)
     term_shutdown(term);
 }
 
+#if defined(XDG_TOPLEVEL_CONFIGURE_BOUNDS_SINCE_VERSION)
+static void
+xdg_toplevel_configure_bounds(void *data,
+                              struct xdg_toplevel *xdg_toplevel,
+                              int32_t width, int32_t height)
+{
+    /* TODO: ensure we don't pick a bigger size */
+}
+#endif
+
+#if defined(XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION)
+static void
+xdg_toplevel_wm_capabilities(void *data,
+                             struct xdg_toplevel *xdg_toplevel,
+                             struct wl_array *caps)
+{
+    struct wl_window *win = data;
+
+    win->wm_capabilities.maximize = false;
+    win->wm_capabilities.minimize = false;
+
+#if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
+    char cap_str[2048];
+    int cap_chars = 0;
+
+    static const char *const strings[] = {
+        [XDG_TOPLEVEL_WM_CAPABILITIES_WINDOW_MENU] = "window-menu",
+        [XDG_TOPLEVEL_WM_CAPABILITIES_MAXIMIZE] = "maximize",
+        [XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN] = "fullscreen",
+        [XDG_TOPLEVEL_WM_CAPABILITIES_MINIMIZE] = "minimize",
+    };
+#endif
+
+    enum xdg_toplevel_wm_capabilities *cap;
+    wl_array_for_each(cap, caps) {
+        switch (*cap) {
+        case XDG_TOPLEVEL_WM_CAPABILITIES_MAXIMIZE:
+            win->wm_capabilities.maximize = true;
+            break;
+
+        case XDG_TOPLEVEL_WM_CAPABILITIES_MINIMIZE:
+            win->wm_capabilities.minimize = true;
+            break;
+
+        case XDG_TOPLEVEL_WM_CAPABILITIES_WINDOW_MENU:
+        case XDG_TOPLEVEL_WM_CAPABILITIES_FULLSCREEN:
+            break;
+        }
+
+#if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
+        if (*cap >= 0 && *cap < ALEN(strings)) {
+            cap_chars += snprintf(
+                &cap_str[cap_chars], sizeof(cap_str) - cap_chars,
+                "%s, ",
+                 strings[*cap] != NULL ? strings[*cap] : "<unknown>");
+        }
+#endif
+    }
+
+#if defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
+    if (cap_chars > 2)
+        cap_str[cap_chars - 2] = '\0';
+    else
+        cap_str[0] = '\0';
+
+    LOG_DBG("xdg-toplevel: wm-capabilities=[%s]", cap_str);
+#endif
+}
+#endif
+
 static const struct xdg_toplevel_listener xdg_toplevel_listener = {
     .configure = &xdg_toplevel_configure,
-    /*.close = */&xdg_toplevel_close,  /* epoll-shim defines a macro ‘close’... */
+    /*.close = */&xdg_toplevel_close,  /* epoll-shim defines a macro 'close'... */
+#if defined(XDG_TOPLEVEL_CONFIGURE_BOUNDS_SINCE_VERSION)
+    .configure_bounds = &xdg_toplevel_configure_bounds,
+#endif
+#if defined(XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION)
+    .wm_capabilities = xdg_toplevel_wm_capabilities,
+#endif
 };
 
 static void
@@ -719,6 +938,16 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
 
     struct wl_window *win = data;
     struct terminal *term = win->term;
+
+    if (win->unmapped) {
+        /*
+         * https://codeberg.org/dnkl/foot/issues/1249
+         * https://gitlab.freedesktop.org/wlroots/wlroots/-/issues/3487
+         * https://gitlab.freedesktop.org/wlroots/wlroots/-/merge_requests/3719
+         * https://gitlab.freedesktop.org/wayland/wayland-protocols/-/issues/108
+         */
+        return;
+    }
 
     bool wasnt_configured = !win->is_configured;
     bool was_resizing = win->is_resizing;
@@ -758,9 +987,11 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
 
     xdg_surface_ack_configure(xdg_surface, serial);
 
+    enum resize_options opts = RESIZE_BY_CELLS;
+
 #if 1
     /*
-     * TODO: decide if we should do the last “forced” call when ending
+     * TODO: decide if we should do the last "forced" call when ending
      * an interactive resize.
      *
      * Without it, the last TIOCSWINSZ sent to the client will be a
@@ -771,12 +1002,11 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
      * Note: if we also disable content centering while resizing, then
      * the last, forced, resize *is* necessary.
      */
-    bool resized = was_resizing && !win->is_resizing
-        ? render_resize_force(term, new_width, new_height)
-        : render_resize(term, new_width, new_height);
-#else
-    bool resized = render_resize(term, new_width, new_height);
+    if (was_resizing && !win->is_resizing)
+        opts |= RESIZE_FORCE;
 #endif
+
+    bool resized = render_resize(term, new_width, new_height, opts);
 
     if (win->configure.is_activated)
         term_visual_focus_in(term);
@@ -789,7 +1019,7 @@ xdg_surface_configure(void *data, struct xdg_surface *xdg_surface,
          * anytime soon. Some compositors require a commit in
          * combination with an ack - make them happy.
          */
-        wl_surface_commit(win->surface);
+        wl_surface_commit(win->surface.surf);
     }
 
     if (wasnt_configured)
@@ -862,16 +1092,22 @@ handle_global(void *data, struct wl_registry *registry,
     LOG_DBG("global: 0x%08x, interface=%s, version=%u", name, interface, version);
     struct wayland *wayl = data;
 
-    if (strcmp(interface, wl_compositor_interface.name) == 0) {
+    if (streq(interface, wl_compositor_interface.name)) {
         const uint32_t required = 4;
         if (!verify_iface_version(interface, version, required))
             return;
 
+#if defined (WL_SURFACE_PREFERRED_BUFFER_SCALE_SINCE_VERSION)
+        const uint32_t preferred = WL_SURFACE_PREFERRED_BUFFER_SCALE_SINCE_VERSION;
+        wayl->has_wl_compositor_v6 = version >= WL_SURFACE_PREFERRED_BUFFER_SCALE_SINCE_VERSION;
+#else
+        const uint32_t preferred = required;
+#endif
         wayl->compositor = wl_registry_bind(
-            wayl->registry, name, &wl_compositor_interface, required);
+            wayl->registry, name, &wl_compositor_interface, min(version, preferred));
     }
 
-    else if (strcmp(interface, wl_subcompositor_interface.name) == 0) {
+    else if (streq(interface, wl_subcompositor_interface.name)) {
         const uint32_t required = 1;
         if (!verify_iface_version(interface, version, required))
             return;
@@ -880,7 +1116,7 @@ handle_global(void *data, struct wl_registry *registry,
             wayl->registry, name, &wl_subcompositor_interface, required);
     }
 
-    else if (strcmp(interface, wl_shm_interface.name) == 0) {
+    else if (streq(interface, wl_shm_interface.name)) {
         const uint32_t required = 1;
         if (!verify_iface_version(interface, version, required))
             return;
@@ -890,23 +1126,32 @@ handle_global(void *data, struct wl_registry *registry,
         wl_shm_add_listener(wayl->shm, &shm_listener, wayl);
     }
 
-    else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+    else if (streq(interface, xdg_wm_base_interface.name)) {
         const uint32_t required = 1;
         if (!verify_iface_version(interface, version, required))
             return;
 
         /*
-         * We *require* version 1, but _can_ use version 2. Version 2
+         * We *require* version 1, but _can_ use version 5. Version 2
          * adds 'tiled' window states. We use that information to
-         * restore the window size when window is un-tiled.
+         * restore the window size when window is un-tiled. Version 5
+         * adds 'wm_capabilities'. We use that information to draw
+         * window decorations.
          */
+#if defined(XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION)
+        const uint32_t preferred = XDG_TOPLEVEL_WM_CAPABILITIES_SINCE_VERSION;
+#elif defined(XDG_TOPLEVEL_STATE_TILED_LEFT_SINCE_VERSION)
+        const uint32_t preferred = XDG_TOPLEVEL_STATE_TILED_LEFT_SINCE_VERSION;
+#else
+        const uint32_t preferred = required;
+#endif
 
         wayl->shell = wl_registry_bind(
-            wayl->registry, name, &xdg_wm_base_interface, min(version, 2));
+            wayl->registry, name, &xdg_wm_base_interface, min(version, preferred));
         xdg_wm_base_add_listener(wayl->shell, &xdg_wm_base_listener, wayl);
     }
 
-    else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0) {
+    else if (streq(interface, zxdg_decoration_manager_v1_interface.name)) {
         const uint32_t required = 1;
         if (!verify_iface_version(interface, version, required))
             return;
@@ -915,7 +1160,7 @@ handle_global(void *data, struct wl_registry *registry,
             wayl->registry, name, &zxdg_decoration_manager_v1_interface, required);
     }
 
-    else if (strcmp(interface, wl_seat_interface.name) == 0) {
+    else if (streq(interface, wl_seat_interface.name)) {
         const uint32_t required = 5;
         if (!verify_iface_version(interface, version, required))
             return;
@@ -955,7 +1200,7 @@ handle_global(void *data, struct wl_registry *registry,
         wl_seat_add_listener(wl_seat, &seat_listener, seat);
     }
 
-    else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0) {
+    else if (streq(interface, zxdg_output_manager_v1_interface.name)) {
         const uint32_t required = 1;
         if (!verify_iface_version(interface, version, required))
             return;
@@ -972,7 +1217,7 @@ handle_global(void *data, struct wl_registry *registry,
         }
     }
 
-    else if (strcmp(interface, wl_output_interface.name) == 0) {
+    else if (streq(interface, wl_output_interface.name)) {
         const uint32_t required = 2;
         if (!verify_iface_version(interface, version, required))
             return;
@@ -1004,7 +1249,7 @@ handle_global(void *data, struct wl_registry *registry,
         }
     }
 
-    else if (strcmp(interface, wl_data_device_manager_interface.name) == 0) {
+    else if (streq(interface, wl_data_device_manager_interface.name)) {
         const uint32_t required = 3;
         if (!verify_iface_version(interface, version, required))
             return;
@@ -1016,7 +1261,7 @@ handle_global(void *data, struct wl_registry *registry,
             seat_add_data_device(&it->item);
     }
 
-    else if (strcmp(interface, zwp_primary_selection_device_manager_v1_interface.name) == 0) {
+    else if (streq(interface, zwp_primary_selection_device_manager_v1_interface.name)) {
         const uint32_t required = 1;
         if (!verify_iface_version(interface, version, required))
             return;
@@ -1029,7 +1274,7 @@ handle_global(void *data, struct wl_registry *registry,
             seat_add_primary_selection(&it->item);
     }
 
-    else if (strcmp(interface, wp_presentation_interface.name) == 0) {
+    else if (streq(interface, wp_presentation_interface.name)) {
         if (wayl->presentation_timings) {
             const uint32_t required = 1;
             if (!verify_iface_version(interface, version, required))
@@ -1042,8 +1287,7 @@ handle_global(void *data, struct wl_registry *registry,
         }
     }
 
-#if defined(HAVE_XDG_ACTIVATION)
-    else if (strcmp(interface, xdg_activation_v1_interface.name) == 0) {
+    else if (streq(interface, xdg_activation_v1_interface.name)) {
         const uint32_t required = 1;
         if (!verify_iface_version(interface, version, required))
             return;
@@ -1051,10 +1295,37 @@ handle_global(void *data, struct wl_registry *registry,
         wayl->xdg_activation = wl_registry_bind(
             wayl->registry, name, &xdg_activation_v1_interface, required);
     }
-#endif
+
+    else if (streq(interface, wp_viewporter_interface.name)) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->viewporter = wl_registry_bind(
+            wayl->registry, name, &wp_viewporter_interface, required);
+    }
+
+    else if (streq(interface, wp_fractional_scale_manager_v1_interface.name)) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->fractional_scale_manager = wl_registry_bind(
+            wayl->registry, name,
+            &wp_fractional_scale_manager_v1_interface, required);
+    }
+
+    else if (streq(interface, wp_cursor_shape_manager_v1_interface.name)) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->cursor_shape_manager = wl_registry_bind(
+            wayl->registry, name, &wp_cursor_shape_manager_v1_interface, required);
+    }
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
-    else if (strcmp(interface, zwp_text_input_manager_v3_interface.name) == 0) {
+    else if (streq(interface, zwp_text_input_manager_v3_interface.name)) {
         const uint32_t required = 1;
         if (!verify_iface_version(interface, version, required))
             return;
@@ -1136,7 +1407,7 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 
             if (seat->wl_keyboard != NULL)
                 keyboard_listener.leave(
-                    seat, seat->wl_keyboard, -1, seat->kbd_focus->window->surface);
+                    seat, seat->wl_keyboard, -1, seat->kbd_focus->window->surface.surf);
         }
 
         if (seat->mouse_focus != NULL) {
@@ -1146,7 +1417,7 @@ handle_global_remove(void *data, struct wl_registry *registry, uint32_t name)
 
             if (seat->wl_pointer != NULL)
                 pointer_listener.leave(
-                    seat, seat->wl_pointer, -1, seat->mouse_focus->window->surface);
+                    seat, seat->wl_pointer, -1, seat->mouse_focus->window->surface.surf);
         }
 
         seat_destroy(seat);
@@ -1266,17 +1537,26 @@ wayl_init(struct fdm *fdm, struct key_binding_manager *key_binding_manager,
         LOG_ERR("no seats available (wl_seat interface too old?)");
         goto out;
     }
+    if (tll_length(wayl->monitors) == 0) {
+        LOG_ERR("no monitors available");
+        goto out;
+    }
+
     if (wayl->primary_selection_device_manager == NULL)
         LOG_WARN("no primary selection available");
 
-#if defined(HAVE_XDG_ACTIVATION)
     if (wayl->xdg_activation == NULL) {
-#else
-    if (true) {
-#endif
         LOG_WARN(
             "no XDG activation support; "
             "bell.urgent will fall back to coloring the window margins red");
+    }
+
+    if (wayl->fractional_scale_manager == NULL || wayl->viewporter == NULL)
+        LOG_WARN("fractional scaling not available");
+
+    if (wayl->cursor_shape_manager == NULL) {
+        LOG_WARN("no server-side cursors available, "
+                 "falling back to client-side cursors");
     }
 
     if (presentation_timings && wayl->presentation == NULL) {
@@ -1301,14 +1581,12 @@ wayl_init(struct fdm *fdm, struct key_binding_manager *key_binding_manager,
 
     tll_foreach(wayl->monitors, it) {
         LOG_INFO(
-            "%s: %dx%d+%dx%d@%dHz %s %.2f\" scale=%d PPI=%dx%d (physical) PPI=%dx%d (logical), DPI=%.2f",
+            "%s: %dx%d+%dx%d@%dHz %s %.2f\" scale=%d, DPI=%.2f/%.2f (physical/scaled)",
             it->item.name, it->item.dim.px_real.width, it->item.dim.px_real.height,
-            it->item.x, it->item.y, (int)round(it->item.refresh),
+            it->item.x, it->item.y, (int)roundf(it->item.refresh),
             it->item.model != NULL ? it->item.model : it->item.description,
             it->item.inch, it->item.scale,
-            it->item.ppi.real.x, it->item.ppi.real.y,
-            it->item.ppi.scaled.x, it->item.ppi.scaled.y,
-            it->item.dpi);
+            it->item.dpi.physical, it->item.dpi.scaled);
     }
 
     wayl->fd = wl_display_get_fd(wayl->display);
@@ -1367,10 +1645,14 @@ wayl_destroy(struct wayland *wayl)
         zwp_text_input_manager_v3_destroy(wayl->text_input_manager);
 #endif
 
-#if defined(HAVE_XDG_ACTIVATION)
+    if (wayl->fractional_scale_manager != NULL)
+        wp_fractional_scale_manager_v1_destroy(wayl->fractional_scale_manager);
+    if (wayl->viewporter != NULL)
+        wp_viewporter_destroy(wayl->viewporter);
+    if (wayl->cursor_shape_manager != NULL)
+        wp_cursor_shape_manager_v1_destroy(wayl->cursor_shape_manager);
     if (wayl->xdg_activation != NULL)
         xdg_activation_v1_destroy(wayl->xdg_activation);
-#endif
     if (wayl->xdg_output_manager != NULL)
         zxdg_output_manager_v1_destroy(wayl->xdg_output_manager);
     if (wayl->shell != NULL)
@@ -1401,6 +1683,28 @@ wayl_destroy(struct wayland *wayl)
     free(wayl);
 }
 
+static void
+fractional_scale_preferred_scale(
+    void *data, struct wp_fractional_scale_v1 *wp_fractional_scale_v1,
+    uint32_t scale)
+{
+    struct wl_window *win = data;
+
+    const float new_scale = (float)scale / 120.;
+
+    if (win->scale == new_scale)
+        return;
+
+    LOG_DBG("fractional scale: %.2f -> %.2f", win->scale, new_scale);
+
+    win->scale = new_scale;
+    update_term_for_output_change(win->term);
+}
+
+static const struct wp_fractional_scale_v1_listener fractional_scale_listener = {
+    .preferred_scale = &fractional_scale_preferred_scale,
+};
+
 struct wl_window *
 wayl_win_init(struct terminal *term, const char *token)
 {
@@ -1417,27 +1721,36 @@ wayl_win_init(struct terminal *term, const char *token)
     win->csd_mode = CSD_UNKNOWN;
     win->csd.move_timeout_fd = -1;
     win->resize_timeout_fd = -1;
+    win->scale = -1.;
 
-    win->surface = wl_compositor_create_surface(wayl->compositor);
-    if (win->surface == NULL) {
+    win->wm_capabilities.maximize = true;
+    win->wm_capabilities.minimize = true;
+
+    win->surface.surf = wl_compositor_create_surface(wayl->compositor);
+    if (win->surface.surf == NULL) {
         LOG_ERR("failed to create wayland surface");
         goto out;
     }
 
-    if (term->colors.alpha == 0xffff) {
-        struct wl_region *region = wl_compositor_create_region(
-            term->wl->compositor);
+    wayl_win_alpha_changed(win);
 
-        if (region != NULL) {
-            wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
-            wl_surface_set_opaque_region(win->surface, region);
-            wl_region_destroy(region);
-        }
+    wl_surface_add_listener(win->surface.surf, &surface_listener, win);
+
+    if (wayl->fractional_scale_manager != NULL && wayl->viewporter != NULL) {
+        win->surface.viewport = wp_viewporter_get_viewport(wayl->viewporter, win->surface.surf);
+
+        win->fractional_scale =
+            wp_fractional_scale_manager_v1_get_fractional_scale(
+                wayl->fractional_scale_manager, win->surface.surf);
+        wp_fractional_scale_v1_add_listener(
+            win->fractional_scale, &fractional_scale_listener, win);
     }
 
-    wl_surface_add_listener(win->surface, &surface_listener, win);
+    if (wayl->has_wl_compositor_v6) {
+        win->preferred_buffer_scale = 1;
+    }
 
-    win->xdg_surface = xdg_wm_base_get_xdg_surface(wayl->shell, win->surface);
+    win->xdg_surface = xdg_wm_base_get_xdg_surface(wayl->shell, win->surface.surf);
     xdg_surface_add_listener(win->xdg_surface, &xdg_surface_listener, win);
 
     win->xdg_toplevel = xdg_surface_get_toplevel(win->xdg_surface);
@@ -1470,13 +1783,11 @@ wayl_win_init(struct terminal *term, const char *token)
         LOG_WARN("no decoration manager available - using CSDs unconditionally");
     }
 
-    wl_surface_commit(win->surface);
+    wl_surface_commit(win->surface.surf);
 
-#if defined(HAVE_XDG_ACTIVATION)
     /* Complete XDG startup notification */
-    if (token)
-        xdg_activation_v1_activate(wayl->xdg_activation, token, win->surface);
-#endif
+    if (token && wayl->xdg_activation != NULL)
+        xdg_activation_v1_activate(wayl->xdg_activation, token, win->surface.surf);
 
     if (!wayl_win_subsurface_new(win, &win->overlay, false)) {
         LOG_ERR("failed to create overlay surface");
@@ -1525,41 +1836,42 @@ wayl_win_destroy(struct wl_window *win)
      * nor mouse focus).
      */
 
-    if (win->render_timer.surf != NULL) {
-        wl_surface_attach(win->render_timer.surf, NULL, 0, 0);
-        wl_surface_commit(win->render_timer.surf);
+    if (win->render_timer.surface.surf != NULL) {
+        wl_surface_attach(win->render_timer.surface.surf, NULL, 0, 0);
+        wl_surface_commit(win->render_timer.surface.surf);
     }
 
-    if (win->scrollback_indicator.surf != NULL) {
-        wl_surface_attach(win->scrollback_indicator.surf, NULL, 0, 0);
-        wl_surface_commit(win->scrollback_indicator.surf);
+    if (win->scrollback_indicator.surface.surf != NULL) {
+        wl_surface_attach(win->scrollback_indicator.surface.surf, NULL, 0, 0);
+        wl_surface_commit(win->scrollback_indicator.surface.surf);
     }
 
     /* Scrollback search */
-    if (win->search.surf != NULL) {
-        wl_surface_attach(win->search.surf, NULL, 0, 0);
-        wl_surface_commit(win->search.surf);
+    if (win->search.surface.surf != NULL) {
+        wl_surface_attach(win->search.surface.surf, NULL, 0, 0);
+        wl_surface_commit(win->search.surface.surf);
     }
 
     /* URLs */
     tll_foreach(win->urls, it) {
-        wl_surface_attach(it->item.surf.surf, NULL, 0, 0);
-        wl_surface_commit(it->item.surf.surf);
+        wl_surface_attach(it->item.surf.surface.surf, NULL, 0, 0);
+        wl_surface_commit(it->item.surf.surface.surf);
     }
 
     /* CSD */
     for (size_t i = 0; i < ALEN(win->csd.surface); i++) {
-        if (win->csd.surface[i].surf != NULL) {
-            wl_surface_attach(win->csd.surface[i].surf, NULL, 0, 0);
-            wl_surface_commit(win->csd.surface[i].surf);
+        if (win->csd.surface[i].surface.surf != NULL) {
+            wl_surface_attach(win->csd.surface[i].surface.surf, NULL, 0, 0);
+            wl_surface_commit(win->csd.surface[i].surface.surf);
         }
     }
 
     wayl_roundtrip(win->term->wl);
 
         /* Main window */
-    wl_surface_attach(win->surface, NULL, 0, 0);
-    wl_surface_commit(win->surface);
+    win->unmapped = true;
+    wl_surface_attach(win->surface.surf, NULL, 0, 0);
+    wl_surface_commit(win->surface.surf);
     wayl_roundtrip(win->term->wl);
 
     tll_free(win->on_outputs);
@@ -1582,14 +1894,17 @@ wayl_win_destroy(struct wl_window *win)
     shm_purge(term->render.chains.url);
     shm_purge(term->render.chains.csd);
 
-#if defined(HAVE_XDG_ACTIVATION)
     tll_foreach(win->xdg_tokens, it) {
         xdg_activation_token_v1_destroy(it->item->xdg_token);
         free(it->item);
 
         tll_remove(win->xdg_tokens, it);
     }
-#endif
+
+    if (win->fractional_scale != NULL)
+        wp_fractional_scale_v1_destroy(win->fractional_scale);
+    if (win->surface.viewport != NULL)
+        wp_viewport_destroy(win->surface.viewport);
     if (win->frame_callback != NULL)
         wl_callback_destroy(win->frame_callback);
     if (win->xdg_toplevel_decoration != NULL)
@@ -1598,8 +1913,8 @@ wayl_win_destroy(struct wl_window *win)
         xdg_toplevel_destroy(win->xdg_toplevel);
     if (win->xdg_surface != NULL)
         xdg_surface_destroy(win->xdg_surface);
-    if (win->surface != NULL)
-        wl_surface_destroy(win->surface);
+    if (win->surface.surf != NULL)
+        wl_surface_destroy(win->surface.surf);
 
     wayl_roundtrip(win->term->wl);
 
@@ -1609,7 +1924,7 @@ wayl_win_destroy(struct wl_window *win)
 }
 
 bool
-wayl_reload_xcursor_theme(struct seat *seat, int new_scale)
+wayl_reload_xcursor_theme(struct seat *seat, float new_scale)
 {
     if (seat->pointer.theme != NULL && seat->pointer.scale == new_scale) {
         /* We already have a theme loaded, and the scale hasn't changed */
@@ -1642,8 +1957,9 @@ wayl_reload_xcursor_theme(struct seat *seat, int new_scale)
 
     const char *xcursor_theme = getenv("XCURSOR_THEME");
 
-    LOG_INFO("cursor theme: %s, size: %d, scale: %d",
-             xcursor_theme, xcursor_size, new_scale);
+    LOG_INFO("cursor theme: %s, size: %d, scale: %.2f",
+             xcursor_theme ? xcursor_theme : "(null)",
+             xcursor_size, new_scale);
 
     seat->pointer.theme = wl_cursor_theme_load(
         xcursor_theme, xcursor_size * new_scale, seat->wayl->shm);
@@ -1725,7 +2041,103 @@ wayl_roundtrip(struct wayland *wayl)
     wayl_flush(wayl);
 }
 
-#if defined(HAVE_XDG_ACTIVATION)
+static void
+surface_scale_explicit_width_height(
+    const struct wl_window *win, const struct wayl_surface *surf,
+    int width, int height, float scale, bool verify)
+{
+    if (term_fractional_scaling(win->term)) {
+        LOG_DBG("scaling by a factor of %.2f using fractional scaling "
+                "(width=%d, height=%d) ", scale, width, height);
+
+        if (verify) {
+            if ((int)roundf(scale * (int)roundf(width / scale)) != width) {
+                BUG("width=%d is not valid with scaling factor %.2f (%d != %d)",
+                    width, scale,
+                    (int)roundf(scale * (int)roundf(width / scale)),
+                    width);
+            }
+
+            if ((int)roundf(scale * (int)roundf(height / scale)) != height) {
+                BUG("height=%d is not valid with scaling factor %.2f (%d != %d)",
+                    height, scale,
+                    (int)roundf(scale * (int)roundf(height / scale)),
+                    height);
+            }
+        }
+
+        wl_surface_set_buffer_scale(surf->surf, 1);
+        wp_viewport_set_destination(
+            surf->viewport, roundf(width / scale), roundf(height / scale));
+    } else {
+        const char *mode UNUSED = term_preferred_buffer_scale(win->term)
+            ? "wl_surface.preferred_buffer_scale"
+            : "legacy mode";
+        LOG_DBG("scaling by a factor of %.2f using %s "
+                "(width=%d, height=%d)" , scale, mode, width, height);
+
+        xassert(scale == floorf(scale));
+        const int iscale = (int)floorf(scale);
+
+        if (verify) {
+            if (width % iscale != 0) {
+                BUG("width=%d is not valid with scaling factor %.2f (%d %% %d != 0)",
+                    width, scale, width, iscale);
+            }
+
+            if (height % iscale != 0) {
+                BUG("height=%d is not valid with scaling factor %.2f (%d %% %d != 0)",
+                    height, scale, height, iscale);
+            }
+        }
+
+        wl_surface_set_buffer_scale(surf->surf, iscale);
+    }
+}
+
+void
+wayl_surface_scale_explicit_width_height(
+    const struct wl_window *win, const struct wayl_surface *surf,
+    int width, int height, float scale)
+{
+    surface_scale_explicit_width_height(win, surf, width, height, scale, false);
+}
+
+void
+wayl_surface_scale(const struct wl_window *win, const struct wayl_surface *surf,
+                   const struct buffer *buf, float scale)
+{
+    surface_scale_explicit_width_height(
+        win, surf, buf->width, buf->height, scale, true);
+}
+
+void
+wayl_win_scale(struct wl_window *win, const struct buffer *buf)
+{
+    const struct terminal *term = win->term;
+    const float scale = term->scale;
+
+    wayl_surface_scale(win, &win->surface, buf, scale);
+}
+
+void
+wayl_win_alpha_changed(struct wl_window *win)
+{
+    struct terminal *term = win->term;
+
+    if (term->colors.alpha == 0xffff) {
+        struct wl_region *region = wl_compositor_create_region(
+            term->wl->compositor);
+
+        if (region != NULL) {
+            wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
+            wl_surface_set_opaque_region(win->surface.surf, region);
+            wl_region_destroy(region);
+        }
+    } else
+        wl_surface_set_opaque_region(win->surface.surf, NULL);
+}
+
 static void
 activation_token_for_urgency_done(const char *token, void *data)
 {
@@ -1733,16 +2145,14 @@ activation_token_for_urgency_done(const char *token, void *data)
     struct wayland *wayl = win->term->wl;
 
     win->urgency_token_is_pending = false;
-    xdg_activation_v1_activate(wayl->xdg_activation, token, win->surface);
+    xdg_activation_v1_activate(wayl->xdg_activation, token, win->surface.surf);
 }
-#endif /* HAVE_XDG_ACTIVATION */
 
 bool
 wayl_win_set_urgent(struct wl_window *win)
 {
-#if defined(HAVE_XDG_ACTIVATION)
     if (win->urgency_token_is_pending) {
-        /* We already have a pending token. Don’t request another one,
+        /* We already have a pending token. Don't request another one,
          * to avoid flooding the Wayland socket */
         return true;
     }
@@ -1754,7 +2164,6 @@ wayl_win_set_urgent(struct wl_window *win)
         win->urgency_token_is_pending = true;
         return true;
     }
-#endif
 
     return false;
 }
@@ -1778,25 +2187,39 @@ wayl_win_csd_borders_visible(const struct wl_window *win)
 bool
 wayl_win_subsurface_new_with_custom_parent(
     struct wl_window *win, struct wl_surface *parent,
-    struct wl_surf_subsurf *surf, bool allow_pointer_input)
+    struct wayl_sub_surface *surf, bool allow_pointer_input)
 {
     struct wayland *wayl = win->term->wl;
 
-    surf->surf = NULL;
+    surf->surface.surf = NULL;
     surf->sub = NULL;
 
     struct wl_surface *main_surface
         = wl_compositor_create_surface(wayl->compositor);
 
-    if (main_surface == NULL)
+    if (main_surface == NULL) {
+        LOG_ERR("failed to instantiate surface for sub-surface");
         return false;
+    }
 
     struct wl_subsurface *sub = wl_subcompositor_get_subsurface(
         wayl->sub_compositor, main_surface, parent);
 
     if (sub == NULL) {
+        LOG_ERR("failed to instantiate sub-surface");
         wl_surface_destroy(main_surface);
         return false;
+    }
+
+    struct wp_viewport *viewport = NULL;
+    if (wayl->fractional_scale_manager != NULL &&  wayl->viewporter != NULL) {
+        viewport = wp_viewporter_get_viewport(wayl->viewporter, main_surface);
+        if (viewport == NULL) {
+            LOG_ERR("failed to instantiate viewport for sub-surface");
+            wl_subsurface_destroy(sub);
+            wl_surface_destroy(main_surface);
+            return false;
+        }
     }
 
     wl_surface_set_user_data(main_surface, win);
@@ -1810,34 +2233,40 @@ wayl_win_subsurface_new_with_custom_parent(
         wl_region_destroy(empty);
     }
 
-    surf->surf = main_surface;
+    surf->surface.surf = main_surface;
     surf->sub = sub;
+    surf->surface.viewport = viewport;
     return true;
 }
 
 bool
-wayl_win_subsurface_new(struct wl_window *win, struct wl_surf_subsurf *surf,
+wayl_win_subsurface_new(struct wl_window *win, struct wayl_sub_surface *surf,
                         bool allow_pointer_input)
 {
     return wayl_win_subsurface_new_with_custom_parent(
-        win, win->surface, surf, allow_pointer_input);
+        win, win->surface.surf, surf, allow_pointer_input);
 }
 
 void
-wayl_win_subsurface_destroy(struct wl_surf_subsurf *surf)
+wayl_win_subsurface_destroy(struct wayl_sub_surface *surf)
 {
     if (surf == NULL)
         return;
-    if (surf->sub != NULL)
+
+    if (surf->surface.viewport != NULL) {
+        wp_viewport_destroy(surf->surface.viewport);
+        surf->surface.viewport = NULL;
+    }
+
+    if (surf->sub != NULL) {
         wl_subsurface_destroy(surf->sub);
-    if (surf->surf != NULL)
-        wl_surface_destroy(surf->surf);
-
-    surf->surf = NULL;
-    surf->sub = NULL;
+        surf->sub = NULL;
+    }
+    if (surf->surface.surf != NULL) {
+        wl_surface_destroy(surf->surface.surf);
+        surf->surface.surf = NULL;
+    }
 }
-
-#if defined(HAVE_XDG_ACTIVATION)
 
 static void
 activation_token_done(void *data, struct xdg_activation_token_v1 *xdg_token,
@@ -1862,7 +2291,7 @@ activation_token_done(void *data, struct xdg_activation_token_v1 *xdg_token,
         return;
     }
 
-    xassert(false);
+    BUG("activation token not found in list");
 }
 
 static const struct
@@ -1899,9 +2328,8 @@ wayl_get_activation_token(
     if (seat != NULL && serial != 0)
         xdg_activation_token_v1_set_serial(token, serial, seat->wl_seat);
 
-    xdg_activation_token_v1_set_surface(token, win->surface);
+    xdg_activation_token_v1_set_surface(token, win->surface.surf);
     xdg_activation_token_v1_add_listener(token, &activation_token_listener, ctx);
     xdg_activation_token_v1_commit(token);
     return true;
 }
-#endif

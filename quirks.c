@@ -66,3 +66,28 @@ quirk_weston_csd_off(struct terminal *term)
     for (int i = 0; i < ALEN(term->window->csd.surface); i++)
         quirk_weston_subsurface_desync_off(term->window->csd.surface[i].sub);
 }
+
+static bool
+is_sway(void)
+{
+    static bool is_sway = false;
+    static bool initialized = false;
+
+    if (!initialized) {
+        initialized = true;
+        is_sway = getenv("SWAYSOCK") != NULL;
+        if (is_sway)
+            LOG_WARN("applying wl_surface_damage_buffer() workaround for Sway");
+    }
+
+    return is_sway;
+}
+
+void
+quirk_sway_subsurface_unmap(struct terminal *term)
+{
+    if (!is_sway())
+        return;
+
+    wl_surface_damage_buffer(term->window->surface.surf, 0, 0, INT32_MAX, INT32_MAX);
+}

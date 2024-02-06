@@ -23,6 +23,5 @@ void urls_reset(struct terminal *term);
 void urls_input(struct seat *seat, struct terminal *term,
                 const struct key_binding_set *bindings, uint32_t key,
                 xkb_keysym_t sym, xkb_mod_mask_t mods, xkb_mod_mask_t consumed,
-                xkb_mod_mask_t locked,
                 const xkb_keysym_t *raw_syms, size_t raw_count,
                 uint32_t serial);

@@ -16,6 +16,9 @@
 
 static size_t count;
 
+static void sixel_put_generic(struct terminal *term, uint8_t c);
+static void sixel_put_ar_11(struct terminal *term, uint8_t c);
+
 void
 sixel_fini(struct terminal *term)
 {
@@ -24,7 +27,7 @@ sixel_fini(struct terminal *term)
     free(term->sixel.shared_palette);
 }
 
-void
+sixel_put
 sixel_init(struct terminal *term, int p1, int p2, int p3)
 {
     /*
@@ -38,18 +41,32 @@ sixel_init(struct terminal *term, int p1, int p2, int p3)
     xassert(term->sixel.image.data == NULL);
     xassert(term->sixel.palette_size <= SIXEL_MAX_COLORS);
 
+    /* Default aspect ratio is 2:1 */
+    const int pad = 1;
+    const int pan =
+        (p1 == 2) ? 5 :
+        (p1 == 3 || p1 == 4) ? 3 :
+        (p1 == 7 || p1 == 8 || p1 == 9) ? 1 : 2;
+
+    LOG_DBG("initializing sixel with "
+            "p1=%d (pan=%d, pad=%d, aspect-ratio=%d:%d), "
+            "p2=%d (transparent=%s), "
+            "p3=%d (ignored)",
+            p1, pan, pad, pan, pad, p2, p2 == 1 ? "yes" : "no", p3);
+
     term->sixel.state = SIXEL_DECSIXEL;
     term->sixel.pos = (struct coord){0, 0};
-    term->sixel.max_non_empty_row_no = -1;
     term->sixel.row_byte_ofs = 0;
     term->sixel.color_idx = 0;
+    term->sixel.pan = pan;
+    term->sixel.pad = pad;
     term->sixel.param = 0;
     term->sixel.param_idx = 0;
     memset(term->sixel.params, 0, sizeof(term->sixel.params));
     term->sixel.transparent_bg = p2 == 1;
-    term->sixel.image.data = xmalloc(1 * 6 * sizeof(term->sixel.image.data[0]));
-    term->sixel.image.width = 1;
-    term->sixel.image.height = 6;
+    term->sixel.image.data = NULL;
+    term->sixel.image.width = 0;
+    term->sixel.image.height = 0;
 
     /* TODO: default palette */
 
@@ -73,38 +90,69 @@ sixel_init(struct terminal *term, int p1, int p2, int p3)
 
     switch (term->vt.attrs.bg_src) {
     case COLOR_RGB:
-        bg = term->vt.attrs.bg;
+        bg = 0xffu << 24 | term->vt.attrs.bg;
         break;
 
     case COLOR_BASE16:
     case COLOR_BASE256:
-        bg = term->colors.table[term->vt.attrs.bg];
+        bg = 0xffu << 24 | term->colors.table[term->vt.attrs.bg];
         break;
 
     case COLOR_DEFAULT:
-        bg = term->colors.bg;
+        if (term->colors.alpha == 0xffff)
+            bg = 0xffu << 24 | term->colors.bg;
+        else {
+            /* Alpha needs to be pre-multiplied */
+            uint32_t r = (term->colors.bg >> 16) & 0xff;
+            uint32_t g = (term->colors.bg >> 8) & 0xff;
+            uint32_t b = (term->colors.bg >> 0) & 0xff;
+
+            uint32_t alpha = term->colors.alpha;
+            r *= alpha; r /= 0xffff;
+            g *= alpha; g /= 0xffff;
+            b *= alpha; b /= 0xffff;
+
+            bg = (alpha >> 8) << 24 | (r & 0xff) << 16 | (g & 0xff) << 8 | (b & 0xff);
+        }
         break;
     }
 
     term->sixel.default_bg = term->sixel.transparent_bg
         ? 0x00000000u
-        : 0xffu << 24 | bg;
-
-    for (size_t i = 0; i < 1 * 6; i++)
-        term->sixel.image.data[i] = term->sixel.default_bg;
+        : bg;
 
     count = 0;
+    return pan == 1 && pad == 1 ? &sixel_put_ar_11 : &sixel_put_generic;
+}
+
+static void
+sixel_invalidate_cache(struct sixel *sixel)
+{
+    if (sixel->scaled.pix != NULL)
+        pixman_image_unref(sixel->scaled.pix);
+
+    free(sixel->scaled.data);
+    sixel->scaled.pix = NULL;
+    sixel->scaled.data = NULL;
+    sixel->scaled.width = -1;
+    sixel->scaled.height = -1;
+
+    sixel->pix = NULL;
+    sixel->width = -1;
+    sixel->height = -1;
 }
 
 void
 sixel_destroy(struct sixel *sixel)
 {
-    if (sixel->pix != NULL)
-        pixman_image_unref(sixel->pix);
+    sixel_invalidate_cache(sixel);
 
-    free(sixel->data);
-    sixel->pix = NULL;
-    sixel->data = NULL;
+    if (sixel->original.pix != NULL)
+        pixman_image_unref(sixel->original.pix);
+
+    free(sixel->original.data);
+    sixel->original.pix = NULL;
+    sixel->original.data = NULL;
 }
 
 void
@@ -132,7 +180,7 @@ sixel_erase(struct terminal *term, struct sixel *sixel)
 
         row->dirty = true;
 
-        for (int c = sixel->pos.col; c < min(sixel->cols, term->cols); c++)
+        for (int c = sixel->pos.col; c < min(sixel->pos.col + sixel->cols, term->cols); c++)
             row->cells[c].attrs.clean = 0;
     }
 
@@ -154,7 +202,7 @@ verify_list_order(const struct terminal *term)
     int prev_col_count = 0;
 
     /* To aid debugging */
-    size_t idx = 0;
+    size_t UNUSED idx = 0;
 
     tll_foreach(term->grid->sixel_images, it) {
         int row = grid_row_abs_to_sb(
@@ -367,10 +415,14 @@ blend_new_image_over_old(const struct terminal *term,
     xassert(pix != NULL);
     xassert(opaque != NULL);
 
-    const int six_ofs_x = six->pos.col * term->cell_width;
-    const int six_ofs_y = six->pos.row * term->cell_height;
-    const int img_ofs_x = col * term->cell_width;
-    const int img_ofs_y = row * term->cell_height;
+    /*
+     * TODO: handle images being emitted with different cell dimensions
+     */
+
+    const int six_ofs_x = six->pos.col * six->cell_width;
+    const int six_ofs_y = six->pos.row * six->cell_height;
+    const int img_ofs_x = col * six->cell_width;
+    const int img_ofs_y = row * six->cell_height;
     const int img_width = pixman_image_get_width(*pix);
     const int img_height = pixman_image_get_height(*pix);
 
@@ -400,7 +452,7 @@ blend_new_image_over_old(const struct terminal *term,
          */
         pixman_image_composite32(
             PIXMAN_OP_OVER_REVERSE,
-            six->pix, NULL, *pix,
+            six->original.pix, NULL, *pix,
             box->x1 - six_ofs_x, box->y1 - six_ofs_y,
             0, 0,
             box->x1 - img_ofs_x, box->y1 - img_ofs_y,
@@ -417,15 +469,15 @@ blend_new_image_over_old(const struct terminal *term,
      * old image, or the next cell boundary, whichever comes
      * first.
      */
-    int bounding_x = six_ofs_x + six->width > img_ofs_x + img_width
+    int bounding_x = six_ofs_x + six->original.width > img_ofs_x + img_width
         ? min(
-            six_ofs_x + six->width,
-            (box->x2 + term->cell_width - 1) / term->cell_width * term->cell_width)
+            six_ofs_x + six->original.width,
+            (box->x2 + six->cell_width - 1) / six->cell_width * six->cell_width)
         : box->x2;
-    int bounding_y = six_ofs_y + six->height > img_ofs_y + img_height
+    int bounding_y = six_ofs_y + six->original.height > img_ofs_y + img_height
         ? min(
-            six_ofs_y + six->height,
-            (box->y2 + term->cell_height - 1) / term->cell_height * term->cell_height)
+            six_ofs_y + six->original.height,
+            (box->y2 + six->cell_height - 1) / six->cell_height * six->cell_height)
         : box->y2;
 
     /* The required size of the new image */
@@ -465,7 +517,7 @@ blend_new_image_over_old(const struct terminal *term,
     /* Copy the bottom tile of the old sixel image into the new pixmap */
     pixman_image_composite32(
         PIXMAN_OP_SRC,
-        six->pix, NULL, pix2,
+        six->original.pix, NULL, pix2,
         box->x1 - six_ofs_x, box->y2 - six_ofs_y,
         0, 0,
         box->x1 - img_ofs_x, box->y2 - img_ofs_y,
@@ -474,7 +526,7 @@ blend_new_image_over_old(const struct terminal *term,
     /* Copy the right tile of the old sixel image into the new pixmap */
     pixman_image_composite32(
         PIXMAN_OP_SRC,
-        six->pix, NULL, pix2,
+        six->original.pix, NULL, pix2,
         box->x2 - six_ofs_x, box->y1 - six_ofs_y,
         0, 0,
         box->x2 - img_ofs_x, box->y1 - img_ofs_y,
@@ -548,14 +600,14 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
     pixman_region32_t six_rect;
     pixman_region32_init_rect(
         &six_rect,
-        six->pos.col * term->cell_width, six->pos.row * term->cell_height,
-        six->width, six->height);
+        six->pos.col * six->cell_width, six->pos.row * six->cell_height,
+        six->original.width, six->original.height);
 
     pixman_region32_t overwrite_rect;
     pixman_region32_init_rect(
         &overwrite_rect,
-        col * term->cell_width, row * term->cell_height,
-        width * term->cell_width, height * term->cell_height);
+        col * six->cell_width, row * six->cell_height,
+        width * six->cell_width, height * six->cell_height);
 
 #if defined(_DEBUG)
     pixman_region32_t cell_intersection;
@@ -567,7 +619,6 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
 
     if (pix != NULL)
         blend_new_image_over_old(term, six, &six_rect, row, col, pix, opaque);
-
 
     pixman_region32_t diff;
     pixman_region32_init(&diff);
@@ -583,12 +634,12 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
         LOG_DBG("box #%d: x1=%d, y1=%d, x2=%d, y2=%d", i,
                 boxes[i].x1, boxes[i].y1, boxes[i].x2, boxes[i].y2);
 
-        xassert(boxes[i].x1 % term->cell_width == 0);
-        xassert(boxes[i].y1 % term->cell_height == 0);
+        xassert(boxes[i].x1 % six->cell_width == 0);
+        xassert(boxes[i].y1 % six->cell_height == 0);
 
         /* New image's position, in cells */
-        const int new_col = boxes[i].x1 / term->cell_width;
-        const int new_row = boxes[i].y1 / term->cell_height;
+        const int new_col = boxes[i].x1 / six->cell_width;
+        const int new_row = boxes[i].y1 / six->cell_height;
 
         xassert(new_row < term->grid->num_rows);
 
@@ -597,17 +648,17 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
         const int new_height = boxes[i].y2 - boxes[i].y1;
 
         uint32_t *new_data = xmalloc(new_width * new_height * sizeof(uint32_t));
-        const uint32_t *old_data = six->data;
+        const uint32_t *old_data = six->original.data;
 
         /* Pixel offsets into old image backing memory */
-        const int x_ofs = boxes[i].x1 - six->pos.col * term->cell_width;
-        const int y_ofs = boxes[i].y1 - six->pos.row * term->cell_height;
+        const int x_ofs = boxes[i].x1 - six->pos.col * six->cell_width;
+        const int y_ofs = boxes[i].y1 - six->pos.row * six->cell_height;
 
         /* Copy image data, one row at a time */
         for (size_t j = 0; j < new_height; j++) {
             memcpy(
                 &new_data[(0 + j) * new_width],
-                &old_data[(y_ofs + j) * six->width + x_ofs],
+                &old_data[(y_ofs + j) * six->original.width + x_ofs],
                 new_width * sizeof(uint32_t));
         }
 
@@ -616,14 +667,27 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
             new_width, new_height, new_data, new_width * sizeof(uint32_t));
 
         struct sixel new_six = {
-            .data = new_data,
-            .pix = new_pix,
-            .width = new_width,
-            .height = new_height,
+            .pix = NULL,
+            .width = -1,
+            .height = -1,
             .pos = {.col = new_col, .row = new_row},
-            .cols = (new_width + term->cell_width - 1) / term->cell_width,
-            .rows = (new_height + term->cell_height - 1) / term->cell_height,
+            .cols = (new_width + six->cell_width - 1) / six->cell_width,
+            .rows = (new_height + six->cell_height - 1) / six->cell_height,
             .opaque = six->opaque,
+            .cell_width = six->cell_width,
+            .cell_height = six->cell_height,
+            .original = {
+                .data = new_data,
+                .pix = new_pix,
+                .width = new_width,
+                .height = new_height,
+            },
+            .scaled = {
+                .data = NULL,
+                .pix = NULL,
+                .width = -1,
+                .height = -1,
+            },
         };
 
 #if defined(_DEBUG)
@@ -818,117 +882,186 @@ sixel_overwrite_at_cursor(struct terminal *term, int width)
 void
 sixel_cell_size_changed(struct terminal *term)
 {
-    struct grid *g = term->grid;
+    tll_foreach(term->normal.sixel_images, it)
+        sixel_invalidate_cache(&it->item);
 
-    term->grid = &term->normal;
-    tll_foreach(term->normal.sixel_images, it) {
-        struct sixel *six = &it->item;
-        six->rows = (six->height + term->cell_height - 1) / term->cell_height;
-        six->cols = (six->width + term->cell_width - 1) / term->cell_width;
+    tll_foreach(term->alt.sixel_images, it)
+        sixel_invalidate_cache(&it->item);
+}
+
+void
+sixel_sync_cache(const struct terminal *term, struct sixel *six)
+{
+    if (six->pix != NULL) {
+#if defined(_DEBUG)
+        if (six->cell_width == term->cell_width &&
+            six->cell_height == term->cell_height)
+        {
+            xassert(six->pix == six->original.pix);
+            xassert(six->width == six->original.width);
+            xassert(six->height == six->original.height);
+
+            xassert(six->scaled.data == NULL);
+            xassert(six->scaled.pix == NULL);
+            xassert(six->scaled.width < 0);
+            xassert(six->scaled.height < 0);
+        } else {
+            xassert(six->pix == six->scaled.pix);
+            xassert(six->width == six->scaled.width);
+            xassert(six->height == six->scaled.height);
+
+            xassert(six->scaled.data != NULL);
+            xassert(six->scaled.pix != NULL);
+
+            /* TODO: check ratio */
+            xassert(six->scaled.width >= 0);
+            xassert(six->scaled.height >= 0);
+        }
+#endif
+        return;
     }
 
-    term->grid = &term->alt;
-    tll_foreach(term->alt.sixel_images, it) {
+    /* Cache should be invalid */
+    xassert(six->scaled.data == NULL);
+    xassert(six->scaled.pix == NULL);
+    xassert(six->scaled.width < 0);
+    xassert(six->scaled.height < 0);
+
+    if (six->cell_width == term->cell_width &&
+        six->cell_height == term->cell_height)
+    {
+        six->pix = six->original.pix;
+        six->width = six->original.width;
+        six->height = six->original.height;
+    } else {
+        const double width_ratio = (double)term->cell_width / six->cell_width;
+        const double height_ratio = (double)term->cell_height / six->cell_height;
+
+        struct pixman_f_transform scale;
+        pixman_f_transform_init_scale(
+            &scale, 1. / width_ratio, 1. / height_ratio);
+
+        struct pixman_transform _scale;
+        pixman_transform_from_pixman_f_transform(&_scale, &scale);
+        pixman_image_set_transform(six->original.pix, &_scale);
+        pixman_image_set_filter(six->original.pix, PIXMAN_FILTER_BILINEAR, NULL, 0);
+
+        int scaled_width = (double)six->original.width * width_ratio;
+        int scaled_height = (double)six->original.height * height_ratio;
+        int scaled_stride = scaled_width * sizeof(uint32_t);
+
+        LOG_DBG("scaling sixel: %dx%d -> %dx%d",
+                six->original.width, six->original.height,
+                scaled_width, scaled_height);
+
+        uint8_t *scaled_data = xmalloc(scaled_height * scaled_stride);
+        pixman_image_t *scaled_pix = pixman_image_create_bits_no_clear(
+            PIXMAN_a8r8g8b8, scaled_width, scaled_height,
+            (uint32_t *)scaled_data, scaled_stride);
+
+        pixman_image_composite32(
+            PIXMAN_OP_SRC, six->original.pix, NULL, scaled_pix, 0, 0, 0, 0,
+            0, 0, scaled_width, scaled_height);
+
+        pixman_image_set_transform(six->original.pix, NULL);
+
+        six->scaled.data = scaled_data;
+        six->scaled.pix = six->pix = scaled_pix;
+        six->scaled.width = six->width = scaled_width;
+        six->scaled.height = six->height = scaled_height;
+    }
+}
+
+void
+sixel_reflow_grid(struct terminal *term, struct grid *grid)
+{
+    /* Meh - the sixel functions we call use term->grid... */
+    struct grid *active_grid = term->grid;
+    term->grid = grid;
+
+    /* Need the "real" list to be empty from the beginning */
+    tll(struct sixel) copy = tll_init();
+    tll_foreach(grid->sixel_images, it)
+        tll_push_back(copy, it->item);
+    tll_free(grid->sixel_images);
+
+    tll_rforeach(copy, it) {
         struct sixel *six = &it->item;
-        six->rows = (six->height + term->cell_height - 1) / term->cell_height;
-        six->cols = (six->width + term->cell_width - 1) / term->cell_width;
+        int start = six->pos.row;
+        int end = (start + six->rows - 1) & (grid->num_rows - 1);
+
+        if (end < start) {
+            /* Crosses scrollback wrap-around */
+            /* TODO: split image */
+            sixel_destroy(six);
+            continue;
+        }
+
+        if (six->rows > grid->num_rows) {
+            /* Image too large */
+            /* TODO: keep bottom part? */
+            sixel_destroy(six);
+            continue;
+        }
+
+        /* Drop sixels that now cross the current scrollback end
+         * border. This is similar to a sixel that have been
+         * scrolled out */
+        /* TODO: should be possible to optimize this */
+        bool sixel_destroyed = false;
+        int last_row = -1;
+
+        for (int j = 0; j < six->rows; j++) {
+            int row_no = grid_row_abs_to_sb(
+                term->grid, term->rows, six->pos.row + j);
+            if (last_row != -1 && last_row >= row_no) {
+                sixel_destroy(six);
+                sixel_destroyed = true;
+                break;
+            }
+
+            last_row = row_no;
+        }
+
+        if (sixel_destroyed) {
+            LOG_WARN("destroyed sixel that now crossed history");
+            continue;
+        }
+
+        /* Sixels that didn't overlap may now do so, which isn't
+         * allowed of course */
+        _sixel_overwrite_by_rectangle(
+            term, six->pos.row, six->pos.col, six->rows, six->cols,
+            &it->item.original.pix, &it->item.opaque);
+
+        if (it->item.original.data != pixman_image_get_data(it->item.original.pix)) {
+            it->item.original.data = pixman_image_get_data(it->item.original.pix);
+            it->item.original.width = pixman_image_get_width(it->item.original.pix);
+            it->item.original.height = pixman_image_get_height(it->item.original.pix);
+            it->item.cols = (it->item.original.width + it->item.cell_width - 1) / it->item.cell_width;
+            it->item.rows = (it->item.original.height + it->item.cell_height - 1) / it->item.cell_height;
+            sixel_invalidate_cache(&it->item);
+        }
+
+        sixel_insert(term, it->item);
     }
 
-    term->grid = g;
+    tll_free(copy);
+    term->grid = active_grid;
 }
 
 void
 sixel_reflow(struct terminal *term)
 {
-    struct grid *g = term->grid;
-
     for (size_t i = 0; i < 2; i++) {
         struct grid *grid = i == 0 ? &term->normal : &term->alt;
-
-        term->grid = grid;
-
-        /* Need the “real” list to be empty from the beginning */
-        tll(struct sixel) copy = tll_init();
-        tll_foreach(grid->sixel_images, it)
-            tll_push_back(copy, it->item);
-        tll_free(grid->sixel_images);
-
-        tll_rforeach(copy, it) {
-            struct sixel *six = &it->item;
-            int start = six->pos.row;
-            int end = (start + six->rows - 1) & (grid->num_rows - 1);
-
-            if (end < start) {
-                /* Crosses scrollback wrap-around */
-                /* TODO: split image */
-                sixel_destroy(six);
-                continue;
-            }
-
-            if (six->rows > grid->num_rows) {
-                /* Image too large */
-                /* TODO: keep bottom part? */
-                sixel_destroy(six);
-                continue;
-            }
-
-            /* Drop sixels that now cross the current scrollback end
-             * border. This is similar to a sixel that have been
-             * scrolled out */
-            /* TODO: should be possible to optimize this */
-            bool sixel_destroyed = false;
-            int last_row = -1;
-
-            for (int j = 0; j < six->rows; j++) {
-                int row_no = grid_row_abs_to_sb(
-                    term->grid, term->rows, six->pos.row + j);
-                if (last_row != -1 && last_row >= row_no) {
-                    sixel_destroy(six);
-                    sixel_destroyed = true;
-                    break;
-                }
-
-                last_row = row_no;
-            }
-
-            if (sixel_destroyed) {
-                LOG_WARN("destroyed sixel that now crossed history");
-                continue;
-            }
-
-            /* Sixels that didn’t overlap may now do so, which isn’t
-             * allowed of course */
-            _sixel_overwrite_by_rectangle(
-                term, six->pos.row, six->pos.col, six->rows, six->cols,
-                &it->item.pix, &it->item.opaque);
-
-            if (it->item.data != pixman_image_get_data(it->item.pix)) {
-                it->item.data = pixman_image_get_data(it->item.pix);
-                it->item.width = pixman_image_get_width(it->item.pix);
-                it->item.height = pixman_image_get_height(it->item.pix);
-                it->item.cols = (it->item.width + term->cell_width - 1) / term->cell_width;
-                it->item.rows = (it->item.height + term->cell_height - 1) / term->cell_height;
-            }
-
-            sixel_insert(term, it->item);
-        }
-
-        tll_free(copy);
+        sixel_reflow_grid(term, grid);
     }
-
-    term->grid = g;
 }
 
 void
 sixel_unhook(struct terminal *term)
 {
-    if (term->sixel.image.height > term->sixel.max_non_empty_row_no + 1) {
-        LOG_DBG(
-            "last row only partially filled, reducing image height: %d -> %d",
-            term->sixel.image.height, term->sixel.max_non_empty_row_no + 1);
-        term->sixel.image.height = term->sixel.max_non_empty_row_no + 1;
-    }
-
     int pixel_row_idx = 0;
     int pixel_rows_left = term->sixel.image.height;
     const int stride = term->sixel.image.width * sizeof(uint32_t);
@@ -1001,13 +1134,27 @@ sixel_unhook(struct terminal *term)
         }
 
         struct sixel image = {
-            .data = img_data,
-            .width = width,
-            .height = height,
+            .pix = NULL,
+            .width = -1,
+            .height = -1,
             .rows = (height + term->cell_height - 1) / term->cell_height,
             .cols = (width + term->cell_width - 1) / term->cell_width,
             .pos = (struct coord){start_col, cur_row},
             .opaque = !term->sixel.transparent_bg,
+            .cell_width = term->cell_width,
+            .cell_height = term->cell_height,
+            .original = {
+                .data = img_data,
+                .pix = NULL,
+                .width = width,
+                .height = height,
+            },
+            .scaled = {
+                .data = NULL,
+                .pix = NULL,
+                .width = -1,
+                .height = -1,
+            },
         };
 
         xassert(image.rows <= term->grid->num_rows);
@@ -1018,12 +1165,64 @@ sixel_unhook(struct terminal *term)
                 image.width, image.height,
                 image.pos.row, image.pos.row + image.rows);
 
-        image.pix = pixman_image_create_bits_no_clear(
-            PIXMAN_a8r8g8b8, image.width, image.height, img_data, stride);
+        image.original.pix = pixman_image_create_bits_no_clear(
+            PIXMAN_a8r8g8b8, image.original.width, image.original.height,
+            img_data, stride);
 
         pixel_row_idx += height;
         pixel_rows_left -= height;
         rows_avail -= image.rows;
+
+        if (do_scroll) {
+            /*
+             * Linefeeds - always one less than the number of rows
+             * occupied by the image.
+             *
+             * Unless this is *not* the last chunk. In that case,
+             * linefeed past the chunk, so that the next chunk
+             * "starts" at a "new" row.
+             */
+            const int linefeed_count = rows_avail == 0
+                ? max(0, image.rows - 1)
+                : image.rows;
+
+            xassert(rows_avail == 0 ||
+                    image.original.height % term->cell_height == 0);
+
+            for (size_t i = 0; i < linefeed_count; i++)
+                term_linefeed(term);
+
+            /* Position text cursor if this is the last image chunk */
+            if (rows_avail == 0) {
+                int row = term->grid->cursor.point.row;
+
+                /*
+                 * Position the text cursor based on the **upper**
+                 * pixel, of the last sixel.
+                 *
+                 * In most cases, that'll end up being the very last
+                 * row of the sixel (which we're already at, thanks to
+                 * the linefeeds). But for some combinations of font
+                 * and image sizes, the final cursor position is
+                 * higher up.
+                 */
+                const int sixel_row_height = 6 * term->sixel.pan;
+                const int sixel_rows = (image.original.height + sixel_row_height - 1) / sixel_row_height;
+                const int upper_pixel_last_sixel = (sixel_rows - 1) * sixel_row_height;
+                const int term_rows = (upper_pixel_last_sixel + term->cell_height - 1) / term->cell_height;
+
+                xassert(term_rows <= image.rows);
+
+                row -= (image.rows - term_rows);
+
+                term_cursor_to(
+                    term,
+                    max(0, row),
+                    (term->sixel.cursor_right_of_graphics
+                     ? min(image.pos.col + image.cols, term->cols - 1)
+                     : image.pos.col));
+            }
+        }
 
         /* Dirty touched cells, and scroll terminal content if necessary */
         for (size_t i = 0; i < image.rows; i++) {
@@ -1037,38 +1236,19 @@ sixel_unhook(struct terminal *term)
                 row->cells[col].attrs.clean = 0;
             }
 
-            if (do_scroll) {
-                /*
-                 * Linefeed, *unless* we're on the very last row of
-                 * the final image (not just this chunk) and private
-                 * mode 8452 (leave cursor at the right of graphics)
-                 * is enabled.
-                 */
-                if (term->sixel.cursor_right_of_graphics &&
-                    rows_avail == 0 &&
-                    i >= image.rows - 1)
-                {
-                    term_cursor_to(
-                        term,
-                        term->grid->cursor.point.row,
-                        min(image.pos.col + image.cols, term->cols - 1));
-                } else {
-                    term_linefeed(term);
-                    term_carriage_return(term);
-                }
-            }
         }
 
         _sixel_overwrite_by_rectangle(
             term, image.pos.row, image.pos.col, image.rows, image.cols,
-            &image.pix, &image.opaque);
+            &image.original.pix, &image.opaque);
 
-        if (image.data != pixman_image_get_data(image.pix)) {
-            image.data = pixman_image_get_data(image.pix);
-            image.width = pixman_image_get_width(image.pix);
-            image.height = pixman_image_get_height(image.pix);
-            image.cols = (image.width + term->cell_width - 1) / term->cell_width;
-            image.rows = (image.height + term->cell_height - 1) / term->cell_height;
+        if (image.original.data != pixman_image_get_data(image.original.pix)) {
+            image.original.data = pixman_image_get_data(image.original.pix);
+            image.original.width = pixman_image_get_width(image.original.pix);
+            image.original.height = pixman_image_get_height(image.original.pix);
+            image.cols = (image.original.width + image.cell_width - 1) / image.cell_width;
+            image.rows = (image.original.height + image.cell_height - 1) / image.cell_height;
+            sixel_invalidate_cache(&image);
         }
 
         sixel_insert(term, image);
@@ -1100,10 +1280,6 @@ sixel_unhook(struct terminal *term)
 static void
 resize_horizontally(struct terminal *term, int new_width)
 {
-    LOG_DBG("resizing image horizontally: %dx(%d) -> %dx(%d)",
-            term->sixel.image.width, term->sixel.image.height,
-            new_width, term->sixel.image.height);
-
     if (unlikely(new_width > term->sixel.max_width)) {
         LOG_WARN("maximum image dimensions exceeded, truncating");
         new_width = term->sixel.max_width;
@@ -1112,11 +1288,24 @@ resize_horizontally(struct terminal *term, int new_width)
     if (unlikely(term->sixel.image.width == new_width))
         return;
 
+    const int sixel_row_height = 6 * term->sixel.pan;
+
     uint32_t *old_data = term->sixel.image.data;
     const int old_width = term->sixel.image.width;
-    const int height = term->sixel.image.height;
 
-    int alloc_height = (height + 6 - 1) / 6 * 6;
+    int height;
+    if (unlikely(term->sixel.image.height == 0)) {
+        /* Lazy initialize height on first printed sixel */
+        xassert(old_width == 0);
+        term->sixel.image.height = height = sixel_row_height;
+    } else
+        height = term->sixel.image.height;
+
+    LOG_DBG("resizing image horizontally: %dx(%d) -> %dx(%d)",
+            term->sixel.image.width, term->sixel.image.height,
+            new_width, height);
+
+    int alloc_height = (height + sixel_row_height - 1) / sixel_row_height * sixel_row_height;
 
     xassert(new_width > 0);
     xassert(alloc_height > 0);
@@ -1161,8 +1350,13 @@ resize_vertically(struct terminal *term, int new_height)
 
     int alloc_height = (new_height + 6 - 1) / 6 * 6;
 
-    xassert(width > 0);
     xassert(new_height > 0);
+
+    if (unlikely(width == 0)) {
+        xassert(term->sixel.image.data == NULL);
+        term->sixel.image.height = new_height;
+        return true;
+    }
 
     uint32_t *new_data = realloc(
         old_data, width * alloc_height * sizeof(uint32_t));
@@ -1206,10 +1400,14 @@ resize(struct terminal *term, int new_width, int new_height)
     const int old_width = term->sixel.image.width;
     const int old_height = term->sixel.image.height;
 
+    if (unlikely(old_width == new_width && old_height == new_height))
+        return true;
+
+    const int sixel_row_height = 6 * term->sixel.pan;
     int alloc_new_width = new_width;
-    int alloc_new_height = (new_height + 6 - 1) / 6 * 6;
+    int alloc_new_height = (new_height + sixel_row_height - 1) / sixel_row_height * sixel_row_height;
     xassert(alloc_new_height >= new_height);
-    xassert(alloc_new_height - new_height < 6);
+    xassert(alloc_new_height - new_height < sixel_row_height);
 
     uint32_t *new_data = NULL;
     uint32_t bg = term->sixel.default_bg;
@@ -1257,52 +1455,106 @@ resize(struct terminal *term, int new_width, int new_height)
 }
 
 static void
-sixel_add(struct terminal *term, int col, int width, uint32_t color, uint8_t sixel)
+sixel_add_generic(struct terminal *term, int col, int width, uint32_t color,
+                  uint8_t sixel)
 {
     xassert(term->sixel.pos.col < term->sixel.image.width);
     xassert(term->sixel.pos.row < term->sixel.image.height);
 
+    const int pan = term->sixel.pan;
     size_t ofs = term->sixel.row_byte_ofs + col;
     uint32_t *data = &term->sixel.image.data[ofs];
 
-    int max_non_empty_row = -1;
-    int row = term->sixel.pos.row;
-
-    for (int i = 0; i < 6; i++, sixel >>= 1, data += width) {
+    for (int i = 0; i < 6; i++, sixel >>= 1) {
         if (sixel & 1) {
-            *data = color;
-            max_non_empty_row = row + i;
-        }
+            for (int r = 0; r < pan; r++, data += width)
+                *data = color;
+        } else
+            data += width * pan;
     }
 
     xassert(sixel == 0);
-
-    term->sixel.max_non_empty_row_no = max(
-        term->sixel.max_non_empty_row_no,
-        max_non_empty_row);
 }
 
 static void
-sixel_add_many(struct terminal *term, uint8_t c, unsigned count)
+sixel_add_ar_11(struct terminal *term, int col, int width, uint32_t color,
+                uint8_t sixel)
 {
+    xassert(term->sixel.pos.col < term->sixel.image.width);
+    xassert(term->sixel.pos.row < term->sixel.image.height);
+    xassert(term->sixel.pan == 1);
+
+    const size_t ofs = term->sixel.row_byte_ofs + col;
+    uint32_t *data = &term->sixel.image.data[ofs];
+
+    if (sixel & 0x01)
+        *data = color;
+    data += width;
+    if (sixel & 0x02)
+        *data = color;
+    data += width;
+    if (sixel & 0x04)
+        *data = color;
+    data += width;
+    if (sixel & 0x08)
+        *data = color;
+    data += width;
+    if (sixel & 0x10)
+        *data = color;
+    data += width;
+    if (sixel & 0x20)
+        *data = color;
+}
+
+static void
+sixel_add_many_generic(struct terminal *term, uint8_t c, unsigned count)
+{
+    int col = term->sixel.pos.col;
+    int width = term->sixel.image.width;
+
+    count *= term->sixel.pad;
+
+    if (unlikely(col + count - 1 >= width)) {
+        resize_horizontally(term, col + count);
+        width = term->sixel.image.width;
+        count = min(count, max(width - col, 0));
+    }
+
+    uint32_t color = term->sixel.color;
+    for (unsigned i = 0; i < count; i++, col++) {
+        /* TODO: is it worth dynamically dispatching to either generic or AR-11? */
+        sixel_add_generic(term, col, width, color, c);
+    }
+
+    term->sixel.pos.col = col;
+}
+
+static void
+sixel_add_many_ar_11(struct terminal *term, uint8_t c, unsigned count)
+{
+    xassert(term->sixel.pan == 1);
+    xassert(term->sixel.pad == 1);
+
     int col = term->sixel.pos.col;
     int width = term->sixel.image.width;
 
     if (unlikely(col + count - 1 >= width)) {
         resize_horizontally(term, col + count);
         width = term->sixel.image.width;
-        count = min(count, width - col);
+        count = min(count, max(width - col, 0));
     }
 
     uint32_t color = term->sixel.color;
     for (unsigned i = 0; i < count; i++, col++)
-        sixel_add(term, col, width, color, c);
+        sixel_add_ar_11(term, col, width, color, c);
 
     term->sixel.pos.col = col;
 }
 
+IGNORE_WARNING("-Wpedantic")
+
 static void
-decsixel(struct terminal *term, uint8_t c)
+decsixel_generic(struct terminal *term, uint8_t c)
 {
     switch (c) {
     case '"':
@@ -1315,6 +1567,7 @@ decsixel(struct terminal *term, uint8_t c)
         term->sixel.state = SIXEL_DECGRI;
         term->sixel.param = 0;
         term->sixel.param_idx = 0;
+        term->sixel.repeat_count = 1;
         break;
 
     case '#':
@@ -1327,8 +1580,8 @@ decsixel(struct terminal *term, uint8_t c)
     case '$':
         if (likely(term->sixel.pos.col <= term->sixel.max_width)) {
             /*
-             * We set, and keep, ‘col’ outside the image boundary when
-             * we’ve reached the maximum image height, to avoid also
+             * We set, and keep, 'col' outside the image boundary when
+             * we've reached the maximum image height, to avoid also
              * having to check the row vs image height in the common
              * path in sixel_add().
              */
@@ -1337,27 +1590,18 @@ decsixel(struct terminal *term, uint8_t c)
         break;
 
     case '-':
-        term->sixel.pos.row += 6;
+        term->sixel.pos.row += 6 * term->sixel.pan;
         term->sixel.pos.col = 0;
-        term->sixel.row_byte_ofs += term->sixel.image.width * 6;
+        term->sixel.row_byte_ofs += term->sixel.image.width * 6 * term->sixel.pan;
 
         if (term->sixel.pos.row >= term->sixel.image.height) {
-            if (!resize_vertically(term, term->sixel.pos.row + 6))
-                term->sixel.pos.col = term->sixel.max_width + 1;
+            if (!resize_vertically(term, term->sixel.pos.row + 6 * term->sixel.pan))
+                term->sixel.pos.col = term->sixel.max_width + 1 * term->sixel.pad;
         }
         break;
 
-    case '?': case '@': case 'A': case 'B': case 'C': case 'D': case 'E':
-    case 'F': case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
-    case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R': case 'S':
-    case 'T': case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
-    case '[': case '\\': case ']': case '^': case '_': case '`': case 'a':
-    case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
-    case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o':
-    case 'p': case 'q': case 'r': case 's': case 't': case 'u': case 'v':
-    case 'w': case 'x': case 'y': case 'z': case '{': case '|': case '}':
-    case '~':
-        sixel_add_many(term, c - 63, 1);
+    case '?' ... '~':
+        sixel_add_many_generic(term, c - 63, 1);
         break;
 
     case ' ':
@@ -1369,6 +1613,17 @@ decsixel(struct terminal *term, uint8_t c)
         LOG_WARN("invalid sixel character: '%c' at idx=%zu", c, count);
         break;
     }
+}
+
+UNIGNORE_WARNINGS
+
+static void
+decsixel_ar_11(struct terminal *term, uint8_t c)
+{
+    if (likely(c >= '?' && c <= '~'))
+        sixel_add_many_ar_11(term, c - 63, 1);
+    else
+        decsixel_generic(term, c);
 }
 
 static void
@@ -1400,61 +1655,86 @@ decgra(struct terminal *term, uint8_t c)
         pan = pan > 0 ? pan : 1;
         pad = pad > 0 ? pad : 1;
 
-        LOG_DBG("pan=%u, pad=%u (aspect ratio = %u), size=%ux%u",
-                pan, pad, pan / pad, ph, pv);
+        pv *= pan;
+        ph *= pad;
+
+        term->sixel.pan = pan;
+        term->sixel.pad = pad;
+
+        LOG_DBG("pan=%u, pad=%u (aspect ratio = %d:%d), size=%ux%u",
+                pan, pad, pan, pad, ph, pv);
 
         if (ph >= term->sixel.image.height && pv >= term->sixel.image.width &&
             ph <= term->sixel.max_height && pv <= term->sixel.max_width)
         {
             resize(term, ph, pv);
-
-            /* This ensures the sixel’s final image size is *at least*
-             * this large */
-            term->sixel.max_non_empty_row_no =
-                min(pv, term->sixel.image.height) - 1;
         }
 
         term->sixel.state = SIXEL_DECSIXEL;
-        decsixel(term, c);
+
+        /* Update DCS put handler, since pan/pad may have changed */
+        term->vt.dcs.put_handler = pan == 1 && pad == 1
+            ? &sixel_put_ar_11
+            : &sixel_put_generic;
+
+        if (likely(pan == 1 && pad == 1))
+            decsixel_ar_11(term, c);
+        else
+            decsixel_generic(term, c);
+
         break;
     }
     }
 }
 
+IGNORE_WARNING("-Wpedantic")
+
 static void
-decgri(struct terminal *term, uint8_t c)
+decgri_generic(struct terminal *term, uint8_t c)
 {
     switch (c) {
     case '0': case '1': case '2': case '3': case '4':
-    case '5': case '6': case '7': case '8': case '9':
-        term->sixel.param *= 10;
-        term->sixel.param += c - '0';
+    case '5': case '6': case '7': case '8': case '9': {
+        unsigned param = term->sixel.param;
+        param *= 10;
+        param += c - '0';
+        term->sixel.repeat_count = term->sixel.param = param;
         break;
+    }
 
-    case '?': case '@': case 'A': case 'B': case 'C': case 'D': case 'E':
-    case 'F': case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
-    case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R': case 'S':
-    case 'T': case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
-    case '[': case '\\': case ']': case '^': case '_': case '`': case 'a':
-    case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h':
-    case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o':
-    case 'p': case 'q': case 'r': case 's': case 't': case 'u': case 'v':
-    case 'w': case 'x': case 'y': case 'z': case '{': case '|': case '}':
-    case '~': {
-        unsigned count = term->sixel.param;
-        if (likely(count > 0))
-            sixel_add_many(term, c - 63, count);
-        else if (unlikely(count == 0))
-            sixel_add_many(term, c - 63, 1);
+    case '?' ... '~': {
+        unsigned count = term->sixel.repeat_count;
+        if (unlikely(count == 0)) {
+            count = 1;
+        }
+
+        sixel_add_many_generic(term, c - 63, count);
         term->sixel.state = SIXEL_DECSIXEL;
         break;
     }
 
     default:
         term->sixel.state = SIXEL_DECSIXEL;
-        sixel_put(term, c);
+        term->vt.dcs.put_handler(term, c);
         break;
     }
+}
+
+UNIGNORE_WARNINGS
+
+static void
+decgri_ar_11(struct terminal *term, uint8_t c)
+{
+    if (likely(c >= '?' && c <= '~')) {
+        unsigned count = term->sixel.repeat_count;
+        if (unlikely(count == 0)) {
+            count = 1;
+        }
+
+        sixel_add_many_ar_11(term, c - 63, count);
+        term->sixel.state = SIXEL_DECSIXEL;
+    } else
+        decgri_generic(term, c);
 }
 
 static void
@@ -1495,12 +1775,12 @@ decgci(struct terminal *term, uint8_t c)
                 int sat = min(c3, 100);
 
                 /*
-                 * Sixel’s HLS use the following primary color hues:
+                 * Sixel's HLS use the following primary color hues:
                  *  blue:  0°
                  *  red:   120°
                  *  green: 240°
                  *
-                 * While “standard” HSL uses:
+                 * While "standard" HSL uses:
                  *  red:   0°
                  *  green: 120°
                  *  blue:  240°
@@ -1533,19 +1813,36 @@ decgci(struct terminal *term, uint8_t c)
             term->sixel.color = term->sixel.palette[term->sixel.color_idx];
 
         term->sixel.state = SIXEL_DECSIXEL;
-        decsixel(term, c);
+
+        if (likely(term->sixel.pan == 1 && term->sixel.pad == 1))
+            decsixel_ar_11(term, c);
+        else
+            decsixel_generic(term, c);
         break;
     }
     }
 }
 
-void
-sixel_put(struct terminal *term, uint8_t c)
+static void
+sixel_put_generic(struct terminal *term, uint8_t c)
 {
     switch (term->sixel.state) {
-    case SIXEL_DECSIXEL: decsixel(term, c); break;
+    case SIXEL_DECSIXEL: decsixel_generic(term, c); break;
     case SIXEL_DECGRA: decgra(term, c); break;
-    case SIXEL_DECGRI: decgri(term, c); break;
+    case SIXEL_DECGRI: decgri_generic(term, c); break;
+    case SIXEL_DECGCI: decgci(term, c); break;
+    }
+
+    count++;
+}
+
+static void
+sixel_put_ar_11(struct terminal *term, uint8_t c)
+{
+    switch (term->sixel.state) {
+    case SIXEL_DECSIXEL: decsixel_ar_11(term, c); break;
+    case SIXEL_DECGRA: decgra(term, c); break;
+    case SIXEL_DECGRI: decgri_ar_11(term, c); break;
     case SIXEL_DECGCI: decgci(term, c); break;
     }
 
