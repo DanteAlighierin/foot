@@ -1,0 +1,31 @@
+# -*- conf -*-
+# Deus
+# Color palette based on: https://github.com/ajmwagar/vim-deus
+
+[cursor]
+color=2c323b eaeaea
+
+[colors]
+background=2c323b
+foreground=eaeaea
+regular0=242a32
+regular1=d54e53
+regular2=98c379
+regular3=e5c07b
+regular4=83a598
+regular5=c678dd
+regular6=70c0ba
+regular7=eaeaea
+bright0=666666
+bright1=ec3e45
+bright2=90c966
+bright3=edbf69
+bright4=73ba9f
+bright5=c858e9
+bright6=2bcec2
+bright7=ffffff
+
+# Enable if prefer Deus colors instead of inverterd fg/bg for
+# highlighting (mouse selection)
+# selection-foreground=2c323b
+# selection-background=eaeaea

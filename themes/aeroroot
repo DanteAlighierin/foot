@@ -1,0 +1,36 @@
+# -*- conf -*-
+# Aero root theme
+
+[cursor]
+color=1a1a1a 9fd5f5
+
+[colors]
+foreground=dedeef
+background=1a1a1a
+
+regular0=1a1a1a
+regular1=ff3a3a
+regular2=3aef3a
+regular3=e6e61a
+regular4=1a7eff
+regular5=df3adf
+regular6=3ff0e0
+regular7=dadada
+
+bright0=5a5a5a
+bright1=ffaaaa
+bright2=aaf3aa
+bright3=f3f35a
+bright4=6abaff
+bright5=e5aae5
+bright6=aafff0
+bright7=f3f3f3
+
+dim0=000000
+dim1=b71a1a
+dim2=1ab71a
+dim3=b5b50a
+dim4=0A4FAA
+dim5=a71aa7
+dim6=1AA59F
+dim7=a5a5a5

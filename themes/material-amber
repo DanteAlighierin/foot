@@ -1,0 +1,40 @@
+# -*- conf -*-
+# Material Amber
+# Based on material.io guidelines with Amber 50 background
+
+[cursor]
+color=fff8e1 21201d
+
+[colors]
+foreground = 21201d
+background = fff8e1
+
+regular0 = 21201d # black
+regular1 = cd4340 # red
+regular2 = 498d49 # green
+regular3 = fab32d # yellow
+regular4 = 3378c4 # blue
+regular5 = b83269 # magenta
+regular6 = 21929a # cyan
+regular7 = ffd7d7 # white
+
+bright0 = 66635a # bright black
+bright1 = dd7b72 # bright red
+bright2 = 82ae78 # bright green
+bright3 = fbc870 # bright yellow
+bright4 = 73a0cd # bright blue
+bright5 = ce6f8e # bright magenta
+bright6 = 548c94 # bright cyan
+bright7 = ffe1da # bright white
+
+dim0 = 9e9a8c # dim black
+dim1 = e9a99b # dim red
+dim2 = b0c99f # dim green
+dim3 = fdda9a # dim yellow
+dim4 = a6c0d4 # dim blue
+dim5 = e0a1ad # dim magenta
+dim6 = 3c6064 # dim cyan
+dim7 = ffe9dd # dim white
+
+# selection-foreground=fff8e1
+# selection-background=21201d

@@ -60,7 +60,7 @@ test_string(struct context *ctx, bool (*parse_fun)(struct context *ctx),
                 BUG("[%s].%s=%s: failed to parse",
                     ctx->section, ctx->key, ctx->value);
             }
-            if (strcmp(*ptr, input[i].value) != 0) {
+            if (!streq(*ptr, input[i].value)) {
                 BUG("[%s].%s=%s: set value (%s) not the expected one (%s)",
                     ctx->section, ctx->key, ctx->value,
                     *ptr, input[i].value);
@@ -101,6 +101,50 @@ test_c32string(struct context *ctx, bool (*parse_fun)(struct context *ctx),
                     ctx->section, ctx->key, ctx->value,
                     (const wchar_t *)*ptr,
                     (const wchar_t *)input[i].value);
+            }
+        }
+    }
+}
+
+static void
+test_protocols(struct context *ctx, bool (*parse_fun)(struct context *ctx),
+               const char *key, char32_t **const *ptr)
+{
+    ctx->key = key;
+
+    static const struct {
+        const char *option_string;
+        int count;
+        const char32_t *value[2];
+        bool invalid;
+    } input[] = {
+        {""},
+        {"http", 1, {U"http://"}},
+        {" http", 1, {U"http://"}},
+        {"http, https", 2, {U"http://", U"https://"}},
+        {"longprotocolislong", 1, {U"longprotocolislong://"}},
+    };
+
+    for (size_t i = 0; i < ALEN(input); i++) {
+        ctx->value = input[i].option_string;
+
+        if (input[i].invalid) {
+            if (parse_fun(ctx)) {
+                BUG("[%s].%s=%s: did not fail to parse as expected",
+                    ctx->section, ctx->key, &ctx->value[0]);
+            }
+        } else {
+            if (!parse_fun(ctx)) {
+                BUG("[%s].%s=%s: failed to parse",
+                    ctx->section, ctx->key, &ctx->value[0]);
+            }
+            for (int c = 0; c < input[i].count; c++) {
+                if (c32cmp((*ptr)[c], input[i].value[c]) != 0) {
+                    BUG("[%s].%s=%s: set value[%d] (%ls) not the expected one (%ls)",
+                        ctx->section, ctx->key, &ctx->value[c], c,
+                        (const wchar_t *)(*ptr)[c],
+                        (const wchar_t *)input[i].value[c]);
+                }
             }
         }
     }
@@ -221,7 +265,7 @@ test_uint32(struct context *ctx, bool (*parse_fun)(struct context *ctx),
 }
 
 static void
-test_double(struct context *ctx, bool (*parse_fun)(struct context *ctx),
+test_float(struct context *ctx, bool (*parse_fun)(struct context *ctx),
             const char *key, const float *ptr)
 {
     ctx->key = key;
@@ -313,9 +357,7 @@ test_spawn_template(struct context *ctx, bool (*parse_fun)(struct context *ctx),
         BUG("[%s].%s=%s: argv is NULL", ctx->section, ctx->key, ctx->value);
 
     for (size_t i = 0; i < ALEN(args); i++) {
-        if (ptr->argv.args[i] == NULL ||
-            strcmp(ptr->argv.args[i], args[i]) != 0)
-        {
+        if (ptr->argv.args[i] == NULL || !streq(ptr->argv.args[i], args[i])) {
             BUG("[%s].%s=%s: set value not the expected one: "
                 "mismatch of arg #%zu: expected=\"%s\", got=\"%s\"",
                 ctx->section, ctx->key, ctx->value, i,
@@ -382,7 +424,57 @@ test_color(struct context *ctx, bool (*parse_fun)(struct context *ctx),
         {"ffffff", 0xffffff},
         {"ffffffff", 0xffffffff, !alpha_allowed},
         {"aabbccdd", 0xaabbccdd, !alpha_allowed},
+        {"00", 0, true},
+        {"0000", 0, true},
+        {"00000", 0, true},
+        {"000000000", 0, true},
         {"unittest-invalid-color", 0, true},
+    };
+
+    for (size_t i = 0; i < ALEN(input); i++) {
+        ctx->value = input[i].option_string;
+        if (input[i].invalid) {
+            if (parse_fun(ctx)) {
+                BUG("[%s].%s=%s: did not fail to parse as expected",
+                    ctx->section, ctx->key, ctx->value);
+            }
+        } else {
+            if (!parse_fun(ctx)) {
+                BUG("[%s].%s=%s: failed to parse",
+                    ctx->section, ctx->key, ctx->value);
+            }
+        }
+    }
+}
+
+static void
+test_two_colors(struct context *ctx, bool (*parse_fun)(struct context *ctx),
+                const char *key, bool alpha_allowed,
+                uint32_t *ptr1, uint32_t *ptr2)
+{
+    ctx->key = key;
+
+    const struct {
+        const char *option_string;
+        uint32_t color1;
+        uint32_t color2;
+        bool invalid;
+    } input[] = {
+        {"000000 000000", 0, 0},
+
+        /* No alpha */
+        {"999999 888888", 0x999999, 0x888888},
+        {"ffffff aaaaaa", 0xffffff, 0xaaaaaa},
+
+        /* Both colors have alpha component */
+        {"ffffffff 00000000", 0xffffffff, 0x00000000, !alpha_allowed},
+        {"aabbccdd, ee112233", 0xaabbccdd, 0xee112233, !alpha_allowed},
+
+        /* Only one color has alpha component */
+        {"ffffffff 112233", 0xffffffff, 0x112233, !alpha_allowed},
+        {"ffffff ff112233", 0x00ffffff, 0xff112233, !alpha_allowed},
+
+        {"unittest-invalid-color", 0, 0, true},
     };
 
     for (size_t i = 0; i < ALEN(input); i++) {
@@ -412,6 +504,7 @@ test_section_main(void)
     test_string(&ctx, &parse_section_main, "shell", &conf.shell);
     test_string(&ctx, &parse_section_main, "term", &conf.term);
     test_string(&ctx, &parse_section_main, "app-id", &conf.app_id);
+    test_string(&ctx, &parse_section_main, "utmp-helper", &conf.utmp_helper_path);
 
     test_c32string(&ctx, &parse_section_main, "word-delimiters", &conf.word_delimiters);
 
@@ -419,27 +512,19 @@ test_section_main(void)
     test_boolean(&ctx, &parse_section_main, "box-drawings-uses-font-glyphs", &conf.box_drawings_uses_font_glyphs);
     test_boolean(&ctx, &parse_section_main, "locked-title", &conf.locked_title);
     test_boolean(&ctx, &parse_section_main, "notify-focus-inhibit", &conf.notify_focus_inhibit);
+    test_boolean(&ctx, &parse_section_main, "dpi-aware", &conf.dpi_aware);
 
+    test_pt_or_px(&ctx, &parse_section_main, "font-size-adjustment", &conf.font_size_adjustment.pt_or_px);  /* TODO: test ‘N%’ values too */
     test_pt_or_px(&ctx, &parse_section_main, "line-height", &conf.line_height);
     test_pt_or_px(&ctx, &parse_section_main, "letter-spacing", &conf.letter_spacing);
     test_pt_or_px(&ctx, &parse_section_main, "horizontal-letter-offset", &conf.horizontal_letter_offset);
     test_pt_or_px(&ctx, &parse_section_main, "vertical-letter-offset", &conf.vertical_letter_offset);
+    test_pt_or_px(&ctx, &parse_section_main, "underline-thickness", &conf.underline_thickness);
 
     test_uint16(&ctx, &parse_section_main, "resize-delay-ms", &conf.resize_delay_ms);
     test_uint16(&ctx, &parse_section_main, "workers", &conf.render_worker_count);
 
     test_spawn_template(&ctx, &parse_section_main, "notify", &conf.notify);
-
-    test_enum(
-        &ctx, &parse_section_main, "dpi-aware",
-        9,
-        (const char *[]){"on", "true", "yes", "1",
-                         "off", "false", "no", "0",
-                         "auto"},
-        (int []){DPI_AWARE_YES, DPI_AWARE_YES, DPI_AWARE_YES, DPI_AWARE_YES,
-                 DPI_AWARE_NO, DPI_AWARE_NO, DPI_AWARE_NO, DPI_AWARE_NO,
-                 DPI_AWARE_AUTO},
-        (int *)&conf.dpi_aware);
 
     test_enum(&ctx, &parse_section_main, "selection-target",
               4,
@@ -496,7 +581,7 @@ test_section_scrollback(void)
 
     test_uint32(&ctx, &parse_section_scrollback, "lines",
                 &conf.scrollback.lines);
-    test_double(&ctx, parse_section_scrollback, "multiplier", &conf.scrollback.multiplier);
+    test_float(&ctx, parse_section_scrollback, "multiplier", &conf.scrollback.multiplier);
 
     test_enum(
         &ctx, &parse_section_scrollback, "indicator-position",
@@ -528,8 +613,8 @@ test_section_url(void)
               (int []){OSC8_UNDERLINE_URL_MODE, OSC8_UNDERLINE_ALWAYS},
               (int *)&conf.url.osc8_underline);
     test_c32string(&ctx, &parse_section_url, "label-letters", &conf.url.label_letters);
+    test_protocols(&ctx, &parse_section_url, "protocols", &conf.url.protocols);
 
-    /* TODO: protocols (list of wchars) */
     /* TODO: uri-characters (wchar string, but sorted) */
 
     config_free(&conf);
@@ -579,6 +664,21 @@ test_section_mouse(void)
 }
 
 static void
+test_section_touch(void)
+{
+    struct config conf = {0};
+    struct context ctx = {
+        .conf = &conf, .section = "touch", .path = "unittest"};
+
+    test_invalid_key(&ctx, &parse_section_touch, "invalid-key");
+
+    test_uint32(&ctx, &parse_section_touch, "long-press-delay",
+                &conf.touch.long_press_delay);
+
+    config_free(&conf);
+}
+
+static void
 test_section_colors(void)
 {
     struct config conf = {0};
@@ -616,6 +716,18 @@ test_section_colors(void)
     test_color(&ctx, &parse_section_colors, "selection-foreground", false, &conf.colors.selection_fg);
     test_color(&ctx, &parse_section_colors, "selection-background", false, &conf.colors.selection_bg);
     test_color(&ctx, &parse_section_colors, "urls", false, &conf.colors.url);
+    test_two_colors(&ctx, &parse_section_colors, "jump-labels", false,
+                    &conf.colors.jump_label.fg,
+                    &conf.colors.jump_label.bg);
+    test_two_colors(&ctx, &parse_section_colors, "scrollback-indicator", false,
+                    &conf.colors.scrollback_indicator.fg,
+                    &conf.colors.scrollback_indicator.bg);
+    test_two_colors(&ctx, &parse_section_colors, "search-box-no-match", false,
+                    &conf.colors.search_box.no_match.fg,
+                    &conf.colors.search_box.no_match.bg);
+    test_two_colors(&ctx, &parse_section_colors, "search-box-match", false,
+                    &conf.colors.search_box.match.fg,
+                    &conf.colors.search_box.match.bg);
 
     for (size_t i = 0; i < 255; i++) {
         char key_name[4];
@@ -627,8 +739,6 @@ test_section_colors(void)
     test_invalid_key(&ctx, &parse_section_colors, "256");
 
     /* TODO: alpha (float in range 0-1, converted to uint16_t) */
-    /* TODO: jump-labels (two colors) */
-    /* TODO: scrollback-indicator (two colors) */
 
     config_free(&conf);
 }
@@ -668,11 +778,24 @@ test_section_csd(void)
                &conf.csd.color.quit);
     test_boolean(&ctx, &parse_section_csd, "hide-when-maximized",
                  &conf.csd.hide_when_maximized);
+    test_boolean(&ctx, &parse_section_csd, "double-click-to-maximize",
+                 &conf.csd.double_click_to_maximize);
 
     /* TODO: verify the ‘set’ bit is actually set for colors */
     /* TODO: font */
 
     config_free(&conf);
+}
+
+static bool
+have_modifier(const config_modifier_list_t *mods, const char *mod)
+{
+    tll_foreach(*mods, it) {
+        if (strcmp(it->item, mod) == 0)
+            return true;
+    }
+
+    return false;
 }
 
 static void
@@ -765,7 +888,7 @@ test_key_binding(struct context *ctx, bool (*parse_fun)(struct context *ctx),
 
         for (size_t i = 0; i < ALEN(args); i++) {
             if (binding->aux.pipe.args[i] == NULL ||
-                strcmp(binding->aux.pipe.args[i], args[i]) != 0)
+                !streq(binding->aux.pipe.args[i], args[i]))
             {
                 BUG("[%s].%s=%s: pipe argv not the expected one: "
                     "mismatch of arg #%zu: expected=\"%s\", got=\"%s\"",
@@ -792,17 +915,19 @@ test_key_binding(struct context *ctx, bool (*parse_fun)(struct context *ctx),
             ctx->section, ctx->key, ctx->value, binding->action, action);
     }
 
-    if (binding->modifiers.ctrl != ctrl ||
-        binding->modifiers.alt != alt ||
-        binding->modifiers.shift != shift ||
-        binding->modifiers.super != super)
+    bool have_ctrl = have_modifier(&binding->modifiers, XKB_MOD_NAME_CTRL);
+    bool have_alt = have_modifier(&binding->modifiers, XKB_MOD_NAME_ALT);
+    bool have_shift = have_modifier(&binding->modifiers, XKB_MOD_NAME_SHIFT);
+    bool have_super = have_modifier(&binding->modifiers, XKB_MOD_NAME_LOGO);
+
+    if (have_ctrl != ctrl || have_alt != alt ||
+        have_shift != shift || have_super != super)
     {
         BUG("[%s].%s=%s: modifier mismatch:\n"
             "  have:     ctrl=%d, alt=%d, shift=%d, super=%d\n"
             "  expected: ctrl=%d, alt=%d, shift=%d, super=%d",
             ctx->section, ctx->key, ctx->value,
-            binding->modifiers.ctrl, binding->modifiers.alt,
-            binding->modifiers.shift, binding->modifiers.super,
+            have_ctrl, have_alt, have_shift, have_super,
             ctrl, alt, shift, super);
     }
 
@@ -836,7 +961,7 @@ enum collision_test_mode {
     FAIL_DIFFERENT_ACTION,
     FAIL_DIFFERENT_ARGV,
     FAIL_MOUSE_OVERRIDE,
-    SUCCED_SAME_ACTION_AND_ARGV,
+    SUCCEED_SAME_ACTION_AND_ARGV,
 };
 
 static void
@@ -858,14 +983,17 @@ _test_binding_collisions(struct context *ctx,
     bindings.arr[0] = (struct config_key_binding){
         .action = (test_mode == FAIL_DIFFERENT_ACTION
                    ? max_action - 1 : max_action),
-        .modifiers = {.ctrl = true},
+        .modifiers = tll_init(),
         .path = "unittest",
     };
+    tll_push_back(bindings.arr[0].modifiers, xstrdup(XKB_MOD_NAME_CTRL));
+
     bindings.arr[1] = (struct config_key_binding){
         .action = max_action,
-        .modifiers = {.ctrl = true},
+        .modifiers = tll_init(),
         .path = "unittest",
     };
+    tll_push_back(bindings.arr[1].modifiers, xstrdup(XKB_MOD_NAME_CTRL));
 
     switch (type) {
     case KEY_BINDING:
@@ -886,11 +1014,12 @@ _test_binding_collisions(struct context *ctx,
         break;
 
     case FAIL_MOUSE_OVERRIDE:
-        ctx->conf->mouse.selection_override_modifiers.ctrl = true;
+        tll_free_and_free(ctx->conf->mouse.selection_override_modifiers, free);
+        tll_push_back(ctx->conf->mouse.selection_override_modifiers, xstrdup(XKB_MOD_NAME_CTRL));
         break;
 
     case FAIL_DIFFERENT_ARGV:
-    case SUCCED_SAME_ACTION_AND_ARGV:
+    case SUCCEED_SAME_ACTION_AND_ARGV:
         bindings.arr[0].aux.type = BINDING_AUX_PIPE;
         bindings.arr[0].aux.master_copy = true;
         bindings.arr[0].aux.pipe.args = xcalloc(
@@ -906,13 +1035,13 @@ _test_binding_collisions(struct context *ctx,
         bindings.arr[1].aux.pipe.args[0] = xstrdup("/usr/bin/foobar");
         bindings.arr[1].aux.pipe.args[1] = xstrdup("hello");
 
-        if (test_mode == SUCCED_SAME_ACTION_AND_ARGV)
+        if (test_mode == SUCCEED_SAME_ACTION_AND_ARGV)
             bindings.arr[1].aux.pipe.args[2] = xstrdup("world");
         break;
     }
 
     bool expected_result =
-        test_mode == SUCCED_SAME_ACTION_AND_ARGV ? true : false;
+        test_mode == SUCCEED_SAME_ACTION_AND_ARGV ? true : false;
 
     if (resolve_key_binding_collisions(
             ctx->conf, ctx->section, map, &bindings, type) != expected_result)
@@ -945,7 +1074,7 @@ test_binding_collisions(struct context *ctx,
 {
     _test_binding_collisions(ctx, max_action, map, type, FAIL_DIFFERENT_ACTION);
     _test_binding_collisions(ctx, max_action, map, type, FAIL_DIFFERENT_ARGV);
-    _test_binding_collisions(ctx, max_action, map, type, SUCCED_SAME_ACTION_AND_ARGV);
+    _test_binding_collisions(ctx, max_action, map, type, SUCCEED_SAME_ACTION_AND_ARGV);
 
     if (type == MOUSE_BINDING) {
         _test_binding_collisions(
@@ -1125,10 +1254,13 @@ test_section_text_bindings(void)
     ctx.key = "\\y";
     xassert(!parse_section_text_bindings(&ctx));
 
+#if 0
+    /* Invalid modifier and key names are detected later, when a
+     * layout is applied */
     ctx.key = "abcd";
     ctx.value = "InvalidMod+y";
     xassert(!parse_section_text_bindings(&ctx));
-
+#endif
     config_free(&conf);
 }
 
@@ -1144,26 +1276,26 @@ test_section_environment(void)
     ctx.value = "bar";
     xassert(parse_section_environment(&ctx));
     xassert(tll_length(conf.env_vars) == 1);
-    xassert(strcmp(tll_front(conf.env_vars).name, "FOO") == 0);
-    xassert(strcmp(tll_front(conf.env_vars).value, "bar") == 0);
+    xassert(streq(tll_front(conf.env_vars).name, "FOO"));
+    xassert(streq(tll_front(conf.env_vars).value, "bar"));
 
     /* Add a second variable */
     ctx.key = "BAR";
     ctx.value = "123";
     xassert(parse_section_environment(&ctx));
     xassert(tll_length(conf.env_vars) == 2);
-    xassert(strcmp(tll_back(conf.env_vars).name, "BAR") == 0);
-    xassert(strcmp(tll_back(conf.env_vars).value, "123") == 0);
+    xassert(streq(tll_back(conf.env_vars).name, "BAR"));
+    xassert(streq(tll_back(conf.env_vars).value, "123"));
 
     /* Replace the *value* of the first variable */
     ctx.key = "FOO";
     ctx.value = "456";
     xassert(parse_section_environment(&ctx));
     xassert(tll_length(conf.env_vars) == 2);
-    xassert(strcmp(tll_front(conf.env_vars).name, "FOO") == 0);
-    xassert(strcmp(tll_front(conf.env_vars).value, "456") == 0);
-    xassert(strcmp(tll_back(conf.env_vars).name, "BAR") == 0);
-    xassert(strcmp(tll_back(conf.env_vars).value, "123") == 0);
+    xassert(streq(tll_front(conf.env_vars).name, "FOO"));
+    xassert(streq(tll_front(conf.env_vars).value, "456"));
+    xassert(streq(tll_back(conf.env_vars).name, "BAR"));
+    xassert(streq(tll_back(conf.env_vars).value, "123"));
 
     config_free(&conf);
 }
@@ -1201,7 +1333,7 @@ test_section_tweak(void)
                  RENDER_TIMER_BOTH},
         (int *)&conf.tweak.render_timer);
 
-    test_double(&ctx, &parse_section_tweak, "box-drawing-base-thickness",
+    test_float(&ctx, &parse_section_tweak, "box-drawing-base-thickness",
                 &conf.tweak.box_drawing_base_thickness);
     test_boolean(&ctx, &parse_section_tweak, "box-drawing-solid-shades",
         &conf.tweak.box_drawing_solid_shades);
@@ -1234,6 +1366,9 @@ test_section_tweak(void)
     test_boolean(&ctx, &parse_section_tweak, "font-monospace-warn",
                  &conf.tweak.font_monospace_warn);
 
+    test_float(&ctx, &parse_section_tweak, "bold-text-in-bright-amount",
+               &conf.bold_in_bright.amount);
+
 #if 0 /* Must be equal to, or less than INT32_MAX */
     test_uint32(&ctx, &parse_section_tweak, "max-shm-pool-size-mb",
                 &conf.tweak.max_shm_pool_size);
@@ -1245,6 +1380,7 @@ test_section_tweak(void)
 int
 main(int argc, const char *const *argv)
 {
+    FcInit();
     log_init(LOG_COLORIZE_AUTO, false, 0, LOG_CLASS_ERROR);
     test_section_main();
     test_section_bell();
@@ -1252,6 +1388,7 @@ main(int argc, const char *const *argv)
     test_section_url();
     test_section_cursor();
     test_section_mouse();
+    test_section_touch();
     test_section_colors();
     test_section_csd();
     test_section_key_bindings();
@@ -1266,5 +1403,6 @@ main(int argc, const char *const *argv)
     test_section_environment();
     test_section_tweak();
     log_deinit();
+    FcFini();
     return 0;
 }

@@ -1,3 +1,5 @@
+# -*- conf -*-
+
 [colors]
 background=e1e2e7
 foreground=3760bf

@@ -1,3 +1,4 @@
+# -*- conf -*-
 # theme: Tempus Night
 # author: Protesilaos Stavrou (https://protesilaos.com)
 # description: High contrast dark theme with bright colours (WCAG AAA compliant)
@@ -24,5 +25,5 @@ bright4 = 8cb4f0
 bright5 = de99f0
 bright6 = 00ca9a
 bright7 = e0e0e0
-#selection-foreground = c4bdaf
-#selection-background = 242536
+# selection-foreground = c4bdaf
+# selection-background = 242536

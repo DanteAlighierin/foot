@@ -1,3 +1,4 @@
+# -*- conf -*-
 # theme: Tempus Warp
 # author: Protesilaos Stavrou (https://protesilaos.com)
 # description: Dark theme with a vibrant palette (WCAG AA compliant)
@@ -24,5 +25,5 @@ bright4 = 8887f0
 bright5 = d85cf2
 bright6 = 1da1af
 bright7 = a29fa0
-#selection-foreground = 968282
-#selection-background = 261c2c
+# selection-foreground = 968282
+# selection-background = 261c2c

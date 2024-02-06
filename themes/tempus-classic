@@ -1,3 +1,4 @@
+# -*- conf -*-
 # theme: Tempus Classic
 # author: Protesilaos Stavrou (https://protesilaos.com)
 # description: Dark theme with warm hues (WCAG AA compliant)
@@ -24,5 +25,5 @@ bright4 = 8e9cc0
 bright5 = d58888
 bright6 = 7aa880
 bright7 = aeadaf
-#selection-foreground = 949d9f
-#selection-background = 312e30
+# selection-foreground = 949d9f
+# selection-background = 312e30

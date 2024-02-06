@@ -1,3 +1,4 @@
+# -*- conf -*-
 # theme: Tempus Fugit
 # author: Protesilaos Stavrou (https://protesilaos.com)
 # description: Light, pleasant theme optimised for long writing/coding sessions (WCAG AA compliant)
@@ -24,5 +25,5 @@ bright4 = 485adf
 bright5 = a234c0
 bright6 = 00756a
 bright7 = fff5f3
-#selection-foreground = 796271
-#selection-background = efe6e4
+# selection-foreground = 796271
+# selection-background = efe6e4

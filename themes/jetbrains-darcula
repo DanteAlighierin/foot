@@ -1,3 +1,4 @@
+# -*- conf -*-
 # JetBrains Darcula
 # Palette based on the same theme from https://github.com/dexpota/kitty-themes
 
@@ -5,7 +6,6 @@
 color=202020 ffffff
 
 [colors]
-#alpha=0.80
 background=202020
 foreground=adadad
 regular0=000000  # black
@@ -24,5 +24,5 @@ bright4=6d9df1   # bright blue
 bright5=fb82ff   # bright magenta
 bright6=60d3d1   # bright cyan
 bright7=eeeeee   # bright white
-selection-foreground=202020
-selection-background=1a3272
+# selection-foreground=202020
+# selection-background=1a3272

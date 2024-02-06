@@ -1,3 +1,4 @@
+# -*- conf -*-
 # Solarized dark
 
 [cursor]
@@ -23,7 +24,7 @@ bright5=    6c71c4
 bright6=    93a1a1
 bright7=    fdf6e3
 
-## Enable if prefer solarized colors instead of inverterd fg/bg for
-## highlighting (mouse selection)
+# Enable if prefer solarized colors instead of inverterd fg/bg for
+# highlighting (mouse selection)
 # selection-foreground=93a1a1
 # selection-background=073642

@@ -1,3 +1,4 @@
+# -*- conf -*-
 # theme: Tempus Future
 # author: Protesilaos Stavrou (https://protesilaos.com)
 # description: Dark theme with colours inspired by concept art of outer space (WCAG AAA compliant)
@@ -24,5 +25,5 @@ bright4 = 8ba7ea
 bright5 = e08bd6
 bright6 = 2cbab6
 bright7 = b4abac
-#selection-foreground = a7a2c4
-#selection-background = 2b1329
+# selection-foreground = a7a2c4
+# selection-background = 2b1329

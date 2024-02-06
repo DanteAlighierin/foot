@@ -1,3 +1,4 @@
+# -*- conf -*-
 # theme: Tempus Winter
 # author: Protesilaos Stavrou (https://protesilaos.com)
 # description: Dark theme with a palette inspired by winter nights at the city (WCAG AA compliant)
@@ -24,5 +25,5 @@ bright4 = 329fcb
 bright5 = ca77c5
 bright6 = 1ba6a4
 bright7 = 8da3b8
-#selection-foreground = 91959b
-#selection-background = 2a2e38
+# selection-foreground = 91959b
+# selection-background = 2a2e38

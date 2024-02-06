@@ -1,0 +1,35 @@
+# -*- conf -*-
+# Electrophoretic
+# Theme for electrophoretic displays (like e-ink) which usually supports
+# 16 levels of grays. This theme aims to maximize the contrast between the
+# text and the white background.
+# author: Eugen Rahaian <eugen@rah.ro>
+
+[cursor]
+color=ffffff 515151
+
+[colors]
+background= ffffff
+foreground= 000000
+
+# The colors are sorted based on their luminance, so we can more easily assign
+# them a gray level.
+# grayscale order: black_0 blue_4 red_1 magenta_5 green_2 cyan_6 yellow_3 white_7
+regular0=   ffffff
+regular4=   616161
+regular1=   515151
+regular5=   414141
+regular2=   313131
+regular6=   212121
+regular3=   111111
+regular7=   000000
+# Here, we also stay away from the white background by reusing the dark gray levels
+# from above, with small variations
+bright0=    818181
+bright4=    717171
+bright1=    616161
+bright5=    515151
+bright2=    414141
+bright6=    313131
+bright3=    212121
+bright7=    111111

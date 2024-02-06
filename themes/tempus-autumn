@@ -1,3 +1,4 @@
+# -*- conf -*-
 # theme: Tempus Autumn
 # author: Protesilaos Stavrou (https://protesilaos.com)
 # description: Dark theme with a palette inspired by earthly colours (WCAG AA compliant)
@@ -24,5 +25,5 @@ bright4 = 958fdf
 bright5 = ce7dc4
 bright6 = 2fa6b7
 bright7 = a9a2a6
-#selection-foreground = a8948a
-#selection-background = 36302a
+# selection-foreground = a8948a
+# selection-background = 36302a

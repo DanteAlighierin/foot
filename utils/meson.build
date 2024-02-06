@@ -1,0 +1,1 @@
+executable('xtgettcap', 'xtgettcap.c')

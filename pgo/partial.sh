@@ -21,6 +21,7 @@ rm -f "${blddir}"/pgo-ok
 # To ensure profiling data is generated in the build directory
 cd "${blddir}"
 
+"${blddir}"/utils/xtgettcap
 "${blddir}"/footclient --version
 "${blddir}"/foot --version
 "${blddir}"/pgo "${pgo_data}"

@@ -1,3 +1,4 @@
+# -*- conf -*-
 # theme: Tempus Spring
 # author: Protesilaos Stavrou (https://protesilaos.com)
 # description: Dark theme with a palette inspired by early spring colours (WCAG AA compliant)
@@ -24,5 +25,5 @@ bright4 = 70afef
 bright5 = d095e2
 bright6 = 3cbfaf
 bright7 = b5b8b7
-#selection-foreground = 99afae
-#selection-background = 2a453d
+# selection-foreground = 99afae
+# selection-background = 2a453d

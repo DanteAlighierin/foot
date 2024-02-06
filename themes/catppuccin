@@ -1,10 +1,10 @@
+# -*- conf -*-
 # Catppuccin
 
 [cursor]
 color=1A1826 D9E0EE
 
 [colors]
-alpha=1.0
 foreground=D9E0EE
 background=1E1D2F
 regular0=6E6C7E  # black

@@ -66,7 +66,8 @@ static const char *
 version_and_features(void)
 {
     static char buf[256];
-    snprintf(buf, sizeof(buf), "version: %s %cpgo %cime %cgraphemes %cassertions",
+    snprintf(buf, sizeof(buf),
+             "version: %s %cpgo %cime %cgraphemes %cassertions",
              FOOT_VERSION,
              feature_pgo() ? '+' : '-',
              feature_ime() ? '+' : '-',
@@ -94,7 +95,7 @@ print_usage(const char *prog_name)
         "  -N,--no-wait                             detach the client process from the running terminal, exiting immediately\n"
         "  -o,--override=[section.]key=value        override configuration option\n"
         "  -E, --client-environment                 exec shell using footclient's environment, instead of the server's\n"
-        "  -d,--log-level={info|warning|error|none} log level (info)\n"
+        "  -d,--log-level={info|warning|error|none} log level (warning)\n"
         "  -l,--log-colorize=[{never|always|auto}]  enable/disable colorization of log output on stderr\n"
         "  -v,--version                             show the version number and quit\n"
         "  -e                                       ignored (for compatibility with xterm -e)\n";
@@ -148,7 +149,7 @@ int
 main(int argc, char *const *argv)
 {
     /* Custom exit code, to enable users to differentiate between foot
-     * itself failing, and the client application failiing */
+     * itself failing, and the client application failing */
     static const int foot_exit_failure = -36;
     int ret = foot_exit_failure;
 
@@ -178,7 +179,7 @@ main(int argc, char *const *argv)
 
     const char *custom_cwd = NULL;
     const char *server_socket_path = NULL;
-    enum log_class log_level = LOG_CLASS_INFO;
+    enum log_class log_level = LOG_CLASS_WARNING;
     enum log_colorize log_colorize = LOG_COLORIZE_AUTO;
     bool hold = false;
     bool client_environment = false;
@@ -314,11 +315,11 @@ main(int argc, char *const *argv)
         }
 
         case 'l':
-            if (optarg == NULL || strcmp(optarg, "auto") == 0)
+            if (optarg == NULL || streq(optarg, "auto"))
                 log_colorize = LOG_COLORIZE_AUTO;
-            else if (strcmp(optarg, "never") == 0)
+            else if (streq(optarg, "never"))
                 log_colorize = LOG_COLORIZE_NEVER;
-            else if (strcmp(optarg, "always") == 0)
+            else if (streq(optarg, "always"))
                 log_colorize = LOG_COLORIZE_ALWAYS;
             else {
                 fprintf(stderr, "%s: argument must be one of 'never', 'always' or 'auto'\n", optarg);
@@ -371,16 +372,19 @@ main(int argc, char *const *argv)
         const char *xdg_runtime = getenv("XDG_RUNTIME_DIR");
         if (xdg_runtime != NULL) {
             const char *wayland_display = getenv("WAYLAND_DISPLAY");
-            if (wayland_display != NULL)
+            if (wayland_display != NULL) {
                 snprintf(addr.sun_path, sizeof(addr.sun_path),
                          "%s/foot-%s.sock", xdg_runtime, wayland_display);
-            else
+                connected = (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == 0);
+            }
+            if (!connected) {
+                LOG_WARN("%s: failed to connect, will now try %s/foot.sock",
+                         addr.sun_path, xdg_runtime);
                 snprintf(addr.sun_path, sizeof(addr.sun_path),
                          "%s/foot.sock", xdg_runtime);
-
-            if (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == 0)
-                connected = true;
-            else
+                connected = (connect(fd, (const struct sockaddr *)&addr, sizeof(addr)) == 0);
+            }
+            if (!connected)
                 LOG_WARN("%s: failed to connect, will now try /tmp/foot.sock", addr.sun_path);
         }
 
@@ -406,6 +410,28 @@ main(int argc, char *const *argv)
             buf_len *= 2;
         } while (errno == ERANGE);
         cwd = _cwd;
+    }
+
+    const char *pwd = getenv("PWD");
+    if (pwd != NULL) {
+        char *resolved_path_cwd = realpath(cwd, NULL);
+        char *resolved_path_pwd = realpath(pwd, NULL);
+
+        if (resolved_path_cwd != NULL &&
+            resolved_path_pwd != NULL &&
+            streq(resolved_path_cwd, resolved_path_pwd))
+        {
+            /*
+             * The resolved path of $PWD matches the resolved path of
+             * the *actual* working directory - use $PWD.
+             *
+             * This makes a difference when $PWD refers to a symlink.
+             */
+            cwd = pwd;
+        }
+
+        free(resolved_path_cwd);
+        free(resolved_path_pwd);
     }
 
     if (client_environment) {

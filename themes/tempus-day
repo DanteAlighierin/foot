@@ -1,3 +1,4 @@
+# -*- conf -*-
 # theme: Tempus Day
 # author: Protesilaos Stavrou (https://protesilaos.com)
 # description: Light theme with warm colours (WCAG AA compliant)
@@ -24,5 +25,5 @@ bright4 = 0f64c4
 bright5 = 8050a7
 bright6 = 336c87
 bright7 = f8f2e5
-#selection-foreground = 68607d
-#selection-background = e7e3d7
+# selection-foreground = 68607d
+# selection-background = e7e3d7

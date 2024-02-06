@@ -68,6 +68,7 @@ render_resize_force(struct terminal *term, int width, int height)
 void render_refresh(struct terminal *term) {}
 void render_refresh_csd(struct terminal *term) {}
 void render_refresh_title(struct terminal *term) {}
+void render_refresh_app_id(struct terminal *term) {}
 
 bool
 render_xcursor_is_valid(const struct seat *seat, const char *cursor)
@@ -76,15 +77,15 @@ render_xcursor_is_valid(const struct seat *seat, const char *cursor)
 }
 
 bool
-render_xcursor_set(struct seat *seat, struct terminal *term, const char *xcursor)
+render_xcursor_set(struct seat *seat, struct terminal *term, enum cursor_shape shape)
 {
     return true;
 }
 
-const char *
+enum cursor_shape
 xcursor_for_csd_border(struct terminal *term, int x, int y)
 {
-    return XCURSOR_LEFT_PTR;
+    return CURSOR_SHAPE_LEFT_PTR;
 }
 
 struct wl_window *
@@ -94,7 +95,9 @@ wayl_win_init(struct terminal *term, const char *token)
 }
 
 void wayl_win_destroy(struct wl_window *win) {}
+void wayl_win_alpha_changed(struct wl_window *win) {}
 bool wayl_win_set_urgent(struct wl_window *win) { return true; }
+bool wayl_fractional_scaling(const struct wayland *wayl) { return true; }
 
 bool
 spawn(struct reaper *reaper, const char *cwd, char *const argv[],
@@ -171,22 +174,24 @@ void search_selection_cancelled(struct terminal *term) {}
 
 void get_current_modifiers(const struct seat *seat,
                            xkb_mod_mask_t *effective,
-                           xkb_mod_mask_t *consumed, uint32_t key) {}
+                           xkb_mod_mask_t *consumed, uint32_t key,
+                           bool filter_locked) {}
 
 static struct key_binding_set kbd;
 static bool kbd_initialized = false;
 
 struct key_binding_set *
 key_binding_for(
-    struct key_binding_manager *mgr, const struct terminal *term,
+    struct key_binding_manager *mgr, const struct config *conf,
     const struct seat *seat)
 {
     return &kbd;
 }
 
 void
-key_binding_new_for_term(
-    struct key_binding_manager *mgr, const struct terminal *term)
+key_binding_new_for_conf(
+    struct key_binding_manager *mgr, const struct wayland *wayl,
+    const struct config *conf)
 {
     if (!kbd_initialized) {
         kbd_initialized = true;
@@ -201,7 +206,7 @@ key_binding_new_for_term(
 }
 
 void
-key_binding_unref_term(struct key_binding_manager *mgr, const struct terminal *term)
+key_binding_unref(struct key_binding_manager *mgr, const struct config *conf)
 {
 }
 
@@ -227,10 +232,14 @@ main(int argc, const char *const *argv)
         return EXIT_FAILURE;
     }
 
-    struct row **rows = calloc(grid_row_count, sizeof(rows[0]));
+    struct row **normal_rows = calloc(grid_row_count, sizeof(normal_rows[0]));
+    struct row **alt_rows = calloc(grid_row_count, sizeof(alt_rows[0]));
+
     for (int i = 0; i < grid_row_count; i++) {
-        rows[i] = calloc(1, sizeof(*rows[i]));
-        rows[i]->cells = calloc(col_count, sizeof(rows[i]->cells[0]));
+        normal_rows[i] = calloc(1, sizeof(*normal_rows[i]));
+        normal_rows[i]->cells = calloc(col_count, sizeof(normal_rows[i]->cells[0]));
+        alt_rows[i] = calloc(1, sizeof(*alt_rows[i]));
+        alt_rows[i]->cells = calloc(col_count, sizeof(alt_rows[i]->cells[0]));
     }
 
     struct config conf = {
@@ -253,14 +262,14 @@ main(int argc, const char *const *argv)
         .normal = {
             .num_rows = grid_row_count,
             .num_cols = col_count,
-            .rows = rows,
-            .cur_row = rows[0],
+            .rows = normal_rows,
+            .cur_row = normal_rows[0],
         },
         .alt = {
             .num_rows = grid_row_count,
             .num_cols = col_count,
-            .rows = rows,
-            .cur_row = rows[0],
+            .rows = alt_rows,
+            .cur_row = alt_rows[0],
         },
         .scale = 1,
         .width = col_count * 8,
@@ -370,11 +379,17 @@ out:
     tll_free(wayl.terms);
 
     for (int i = 0; i < grid_row_count; i++) {
-        free(rows[i]->cells);
-        free(rows[i]);
+        if (normal_rows[i] != NULL)
+            free(normal_rows[i]->cells);
+        free(normal_rows[i]);
+
+        if (alt_rows[i] != NULL)
+            free(alt_rows[i]->cells);
+        free(alt_rows[i]);
     }
 
-    free(rows);
+    free(normal_rows);
+    free(alt_rows);
     close(lower_fd);
     close(upper_fd);
     return ret;

@@ -129,11 +129,11 @@ UNITTEST
 
 UNITTEST
 {
-    char32_t *c = c32dup(U"foobar");
+    char32_t *c = xc32dup(U"foobar");
     xassert(c32cmp(c, U"foobar") == 0);
     free(c);
 
-    c = c32dup(U"");
+    c = xc32dup(U"");
     xassert(c32cmp(c, U"") == 0);
     free(c);
 }

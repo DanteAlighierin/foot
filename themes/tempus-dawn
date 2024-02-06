@@ -1,3 +1,4 @@
+# -*- conf -*-
 # theme: Tempus Dawn
 # author: Protesilaos Stavrou (https://protesilaos.com)
 # description: Light theme with a soft, slightly desaturated palette (WCAG AA compliant)
@@ -24,5 +25,5 @@ bright4 = 5c59b2
 bright5 = 8e45a8
 bright6 = 3f649c
 bright7 = eff0f2
-#selection-foreground = 676364
-#selection-background = dee2e0
+# selection-foreground = 676364
+# selection-background = dee2e0

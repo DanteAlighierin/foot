@@ -1,0 +1,31 @@
+# -*- conf -*-
+# nightfly
+# Based on https://github.com/bluz71/vim-nightfly-guicolors
+
+[cursor]
+color = 080808 9ca1aa
+
+[colors]
+foreground = acb4c2
+background = 011627
+
+# selection-foreground = 080808
+# selection-background = b2ceee
+
+regular0 = 1d3b53
+regular1 = fc514e
+regular2 = a1cd5e
+regular3 = e3d18a
+regular4 = 82aaff
+regular5 = c792ea
+regular6 = 7fdbca
+regular7 = a1aab8
+
+bright0 = 7c8f8f
+bright1 = ff5874
+bright2 = 21c7a8
+bright3 = ecc48d
+bright4 = 82aaff
+bright5 = ae81ff
+bright6 = ae81ff
+bright7 = d6deeb

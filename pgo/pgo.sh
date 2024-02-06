@@ -30,7 +30,7 @@ do_pgo=no
 CFLAGS="${CFLAGS-} -O3"
 
 case $(${CC-cc} --version) in
-    *GCC*)
+    *Free\ Software\ Foundation*)
         compiler=gcc
         do_pgo=yes
         ;;
@@ -82,6 +82,7 @@ set -x
 # echo "CFLAGS: ${CFLAGS}"
 
 export CFLAGS
+export CCACHE_DISABLE=1
 meson setup --buildtype=release -Db_lto=true "${@}" "${blddir}" "${srcdir}"
 
 if [ ${do_pgo} = yes ]; then
@@ -97,8 +98,8 @@ if [ ${do_pgo} = yes ]; then
     ninja -C "${blddir}"
 
     # If fcft/tllist are subprojects, we need to ensure their tests
-    # have been executed, or we’ll get “profile count data file not
-    # found” errors.
+    # have been executed, or we'll get "profile count data file not
+    # found" errors.
     ninja -C "${blddir}" test
 
     # Run mode-dependent script to generate profiling data

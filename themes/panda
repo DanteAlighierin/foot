@@ -1,0 +1,27 @@
+# -*- conf -*-
+# http://panda.siamak.me/
+
+[colors]
+# alpha=1.0
+background=1D1E20
+foreground=F0F0F0
+
+## Normal/regular colors (color palette 0-7)
+regular0=1F1F20  # black
+regular1=FB055A  # red
+regular2=26FFD4  # green
+regular3=26FFD4  # yellow
+regular4=5C9FFF  # blue
+regular5=FC59A6  # magenta
+regular6=26FFD4  # cyan
+regular7=F0F0F0  # white
+
+## Bright colors (color palette 8-15)
+bright0=5C6370   # bright black
+bright1=FB055A   # bright red
+bright2=26FFD4   # bright green
+bright3=FEBE7E   # bright yellow
+bright4=55ADFF   # bright blue
+bright5=FD95D0   # bright magenta
+bright6=26FFD4   # bright cyan
+bright7=F0F0F0   # bright white

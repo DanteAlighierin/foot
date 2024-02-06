@@ -1,6 +1,16 @@
 # Changelog
 
 * [Unreleased](#unreleased)
+* [1.16.2](#1-16-2)
+* [1.16.1](#1-16-1)
+* [1.16.0](#1-16-0)
+* [1.15.3](#1-15-3)
+* [1.15.2](#1-15-2)
+* [1.15.1](#1-15-1)
+* [1.15.0](#1-15-0)
+* [1.14.0](#1-14-0)
+* [1.13.1](#1-13-1)
+* [1.13.0](#1-13-0)
 * [1.12.1](#1-12-1)
 * [1.12.0](#1-12-0)
 * [1.11.0](#1-11-0)
@@ -40,6 +50,590 @@
 
 
 ## Unreleased
+### Added
+
+* Unicode input mode now accepts input from the numpad as well,
+  numlock is ignored.
+* A new `resize-by-cells` option, enabled by default, allows the size
+  of floating windows to be constrained to multiples of the cell size.
+* Support for custom (i.e. other than ctrl/shift/alt/super) modifiers
+  in key bindings ([#1348][1348]).
+* `pipe-command-output` key binding.
+* Support for OSC-176, _"Set App-ID"_
+  (https://gist.github.com/delthas/d451e2cc1573bb2364839849c7117239).
+
+[1348]: https://codeberg.org/dnkl/foot/issues/1348
+
+
+### Changed
+
+* config: ARGB color values now default to opaque, rather than
+  transparent, when the alpha component has been left out
+  ([#1526][1526]).
+* The `foot` process now changes CWD to `/` after spawning the shell
+  process. This ensures the terminal itself does not "lock" a
+  directory; for example, preventing a mount point from being
+  unmounted ([#1528][1528]).
+* Kitty keyboard protocol: updated behavior of modifiers bits during
+  modifier key events, to match the (new [#6913][kitty-6913]) behavior
+  in kitty >= 0.32.0 ([#1561][1561]).
+* When changing font sizes or display scales in floating windows, the
+  window will be resized as needed to preserve the same grid size.
+* `smm` now disables private mode 1036 (_"send ESC when Meta modifies
+  a key"_), and enables private mode 1034 (_"8-bit Meta mode"_). `rmm`
+  does the opposite ([#1584][1584]).
+
+[1526]: https://codeberg.org/dnkl/foot/issues/1526
+[1528]: https://codeberg.org/dnkl/foot/issues/1528
+[1561]: https://codeberg.org/dnkl/foot/issues/1561
+[kitty-6913]: https://github.com/kovidgoyal/kitty/issues/6913
+[1584]: https://codeberg.org/dnkl/foot/issues/1584
+
+
+### Deprecated
+### Removed
+### Fixed
+
+* config: improved validation of color values.
+* config: double close of file descriptor, resulting in a chain of
+  errors ultimately leading to a startup failure ([#1531][1531]).
+* Crash when using a desktop scaling factor > 1, on compositors that
+  implements neither the `fractional-scale-v1`, nor the
+  `cursor-shape-v1` Wayland protocols ([#1573][1573]).
+* Crash in `--server` mode when one or more environment variables are
+  set in `[environment]`.
+* Environment variables normally set by foot lost with `footclient
+  -E,--client-environment` ([#1568][1568]).
+* XDG toplevel protocol violation, by trying to set a title that
+  contains an invalid UTF-8 sequence ([#1552][1552]).
+
+[1531]: https://codeberg.org/dnkl/foot/issues/1531
+[1573]: https://codeberg.org/dnkl/foot/issues/1573
+[1568]: https://codeberg.org/dnkl/foot/issues/1568
+[1552]: https://codeberg.org/dnkl/foot/issues/1552
+
+
+### Security
+### Contributors
+
+
+## 1.16.2
+
+### Fixed
+
+* Last row and/or column of opaque sixels (not having a size that is a
+  multiple of the cell size) being the wrong color ([#1520][1520]).
+
+[1520]: https://codeberg.org/dnkl/foot/issues/1520
+
+
+## 1.16.1
+
+### Fixed
+
+* Foot not starting on linux kernels before 6.3 ([#1514][1514]).
+* Cells underneath erased sixels not being repainted ([#1515][1515]).
+
+[1514]: https://codeberg.org/dnkl/foot/issues/1514
+[1515]: https://codeberg.org/dnkl/foot/issues/1515
+
+
+## 1.16.0
+
+### Added
+
+* Support for building with _wayland-protocols_ as a subproject.
+* Mouse wheel scrolls can now be used in `mouse-bindings`
+  ([#1077][1077]).
+* New mouse bindings: `scrollback-up-mouse` and
+  `scrollback-down-mouse`, bound to `BTN_BACK` and `BTN_FORWARD`
+  respectively.
+* New key binding: `select-quote`. This key binding selects text
+  between quote characters, and falls back to selecting the entire
+  row ([#1364][1364]).
+* Support for DECSET/DECRST/DECRQM 2027 (_Grapheme cluster
+  processing_).
+* New **search mode** key bindings (along with their defaults)
+  ([#419][419]):
+  - `extend-char` (shift+right)
+  - `extend-line-down` (shift+down)
+  - `extend-backward-char` (shift+left)
+  - `extend-backward-to-word-boundary` (ctrl+shift+left)
+  - `extend-backward-to-next-whitespace` (none)
+  - `extend-line-up` (shift+up)
+  - `scrollback-up-page` (shift+page-up)
+  - `scrollback-up-half-page` (none)
+  - `scrollback-up-line` (none)
+  - `scrollback-down-page` (shift+page-down)
+  - `scrollback-down-half-page` (none)
+  - `scrollback-down-line` (none)
+* Support for visual bell which flashes the terminal window.
+  ([#1337][1337]).
+
+[1077]: https://codeberg.org/dnkl/foot/issues/1077
+[1364]: https://codeberg.org/dnkl/foot/issues/1364
+[419]: https://codeberg.org/dnkl/foot/issues/419
+[1337]: https://codeberg.org/dnkl/foot/issues/1337
+
+
+### Changed
+
+* Minimum required version of _wayland-protocols_ is now 1.32
+  ([#1391][1391]).
+* `foot-server.service` systemd now checks for
+  `ConditionEnvironment=WAYLAND_DISPLAY` for consistency with the
+  socket unit ([#1448][1448])
+* Default key binding for `select-row` is now `BTN_LEFT+4`. However,
+  in many cases, triple clicking will still be enough to select the
+  entire row; see the new key binding `select-quote` (mapped to
+  `BTN_LEFT+3` by default) ([#1364][1364]).
+* `file://` prefix from URI's are no longer stripped when
+  opened/activated ([#1474][1474]).
+* `XTGETTCAP` with capabilities that are not properly hex encoded will
+  be ignored, instead of echo:ed back to the TTY in an error response.
+* Command line configuration overrides are now applied even if the
+  configuration file does not exist or can't be
+  parsed. ([#1495][1495]).
+* Wayland surface damage is now more fine-grained. This should result
+  in lower latencies in many use cases, especially on high DPI
+  monitors.
+
+[1391]: https://codeberg.org/dnkl/foot/issues/1391
+[1448]: https://codeberg.org/dnkl/foot/pulls/1448
+[1474]: https://codeberg.org/dnkl/foot/pulls/1474
+[1495]: https://codeberg.org/dnkl/foot/pulls/1495
+
+
+### Removed
+
+* `utempter` config option (was deprecated in 1.15.0).
+
+
+### Fixed
+
+* Race condition for systemd units start in GNOME and KDE
+  ([#1436][1436]).
+* One frame being rendered at the wrong scale after being hidden by
+  another opaque, maximized window ([#1464][1464]).
+* Double-width characters, and grapheme clusters breaking URL
+  auto-detection ([#1465][1465]).
+* Crash when `XDG_ACTIVATION_TOKEN` is set, but compositor does not
+  support XDG activation ([#1493][1493]).
+* Crash when compositor calls `fractional_scale::preferred_scale()`
+  when there are no monitors (for example, after a monitor has been
+  turned off and then back on again) ([#1498][1498]).
+* Transparency in margins (padding) not being disabled in fullscreen
+  mode ([#1503][1503]).
+* Crash when a scrollback search match is in the last column.
+* Scrollback search: grapheme clusters not matching correctly.
+* Wrong baseline offset for some fonts ([#1511][1511]).
+
+[1436]: https://codeberg.org/dnkl/foot/issues/1436
+[1464]: https://codeberg.org/dnkl/foot/issues/1464
+[1465]: https://codeberg.org/dnkl/foot/issues/1465
+[1493]: https://codeberg.org/dnkl/foot/pulls/1493
+[1498]: https://codeberg.org/dnkl/foot/issues/1498
+[1503]: https://codeberg.org/dnkl/foot/issues/1503
+[1511]: https://codeberg.org/dnkl/foot/issues/1511
+
+### Contributors
+
+* 6t8k
+* Alyssa Ross
+* CismonX
+* Max Gautier
+* raggedmyth
+* Raimund Sacherer
+* Sertonix
+
+
+## 1.15.3
+
+### Fixed
+
+* `-f,--font` command line option not affecting `csd.font` (if unset).
+* Vertical alignment in URL jump labels, and the scrollback position
+  indicator. The fix in 1.15.2 was incorrect, and was reverted in the
+  last minute. But we forgot to remove the entry from the changelog
+  ([#1430][1430]).
+
+
+## 1.15.2
+
+### Added
+
+* `[tweak].bold-text-in-bright-amount` option ([#1434][1434]).
+* `-Dterminfo-base-name` meson option, allowing you to name the
+  terminfo files to something other than `-Ddefault-terminfo`. Use
+  case: have foot default to using the terminfo from ncurses (`foot`,
+  `foot-direct`), while still packaging foot's terminfo files, but
+  under a different name (e.g. `foot-extra`, `foot-extra-direct`).
+
+[1434]: https://codeberg.org/dnkl/foot/issues/1434
+
+
+### Fixed
+
+* Crash when copying text that contains invalid UTF-8 ([#1423][1423]).
+* Wrong font size after suspending the monitor ([#1431][1431]).
+* Vertical alignment in URL jump labels, and the scrollback position
+  indicator ([#1430][1430]).
+* Regression: line- and box drawing characters not covering the full
+  height of the line, when a custom `line-height` is being used
+  ([#1430][1430]).
+* Crash when compositor does not implement the _viewporter_ interface
+  ([#1444][1444]).
+* CSD rendering with fractional scaling ([#1441][1441]).
+* Regression: crash with certain combinations of
+  `--window-size-chars=NxM` and desktop scaling factors
+  ([#1446][1446]).
+
+[1423]: https://codeberg.org/dnkl/foot/issues/1423
+[1431]: https://codeberg.org/dnkl/foot/issues/1431
+[1430]: https://codeberg.org/dnkl/foot/issues/1430
+[1444]: https://codeberg.org/dnkl/foot/issues/1444
+[1441]: https://codeberg.org/dnkl/foot/issues/1441
+[1446]: https://codeberg.org/dnkl/foot/issues/1446
+
+
+## 1.15.1
+
+### Changed
+
+* When window is mapped, use metadata (DPI, scaling factor, subpixel
+  configuration) from the monitor we were most recently mapped on,
+  instead of the one least recently.
+* Starlight theme (the default theme) updated to [V4][starlight-v4]
+* Background transparency (alpha) is now disabled in fullscreened
+  windows ([#1416][1416]).
+* Foot server systemd units now use the standard
+  graphical-session.target ([#1281][1281]).
+* If `$XDG_RUNTIME_DIR/foot-$WAYLAND_DISPLAY.sock` does not exist,
+  `footclient` now tries `$XDG_RUNTIME_DIR/foot.sock`, then
+  `/tmp/foot.sock`, even if `$WAYLAND_DISPLAY` and/or
+  `$XDG_RUNTIME_DIR` are defined ([#1281][1281]).
+* Font baseline calculation: try to center the text within the line,
+  instead of anchoring it at the top ([#1302][1302]).
+
+[starlight-v4]: https://github.com/CosmicToast/starlight/blob/v4/CHANGELOG.md#v4
+[1416]: https://codeberg.org/dnkl/foot/issues/1416
+[1281]: https://codeberg.org/dnkl/foot/pulls/1281
+[1302]: https://codeberg.org/dnkl/foot/issues/1302
+
+
+### Fixed
+
+* Use appropriate rounding when applying fractional scales.
+* Xcursor not being scaled correctly on `fractional-scale-v1` capable
+  compositors.
+* `dpi-aware=yes` being broken on `fractional-scale-v1` capable
+  compositors (and when a fractional scaling factor is being used)
+  ([#1404][1404]).
+* Initial font size being wrong on `fractional-scale-v1` capable
+  compositors, with multiple monitors with different scaling factors
+  connected ([#1404][1404]).
+* Crash when _pointer capability_ is removed from a seat, on
+  compositors without `cursor-shape-v1 support` ([#1411][1411]).
+* Crash on exit, if the mouse is hovering over the foot window (does
+  not happen on all compositors)
+* Visual glitches when CSD titlebar is transparent.
+
+[1404]: https://codeberg.org/dnkl/foot/issues/1404
+[1411]: https://codeberg.org/dnkl/foot/pulls/1411
+
+
+### Contributors
+
+* Ayush Agarwal
+* CismonX
+* Max Gautier
+* Ronan Pigott
+* xdavidwu
+
+
+## 1.15.0
+
+### Added
+
+* VT: implemented `XTQMODKEYS` query (`CSI ? Pp m`).
+* Meson option `utmp-backend=none|libutempter|ulog|auto`. The default
+  is `auto`, which will select `libutempter` on Linux, `ulog` on
+  FreeBSD, and `none` for all others.
+* Sixel aspect ratio.
+* Support for the new `fractional-scale-v1` Wayland protocol. This
+  brings true fractional scaling to Wayland in general, and with this
+  release, to foot.
+* Support for the new `cursor-shape-v1` Wayland protocol, i.e. server
+  side cursor shapes ([#1379][1379]).
+* Support for touchscreen input ([#517][517]).
+* `csd.double-click-to-maximize` option to `foot.ini`. Defaults to
+  `yes` ([#1293][1293]).
+
+[1379]: https://codeberg.org/dnkl/foot/issues/1379
+[517]: https://codeberg.org/dnkl/foot/issues/517
+[1293]: https://codeberg.org/dnkl/foot/issues/1293
+
+
+### Changed
+
+* Default color theme is now
+  [starlight](https://github.com/CosmicToast/starlight)
+  ([#1321][1321]).
+* Minimum required meson version is now 0.59 ([#1371][1371]).
+* `Control+Shift+u` is now bound to `unicode-input` instead of
+  `show-urls-launch`, to follow the convention established in GTK and
+  Qt ([#1183][1183]).
+* `show-urls-launch` now bound to `Control+Shift+o` ([#1183][1183]).
+* Kitty keyboard protocol: F3 is now encoded as `CSI 13~` instead of
+  `CSI R`. The kitty keyboard protocol originally allowed F3 to be
+  encoded as `CSI R`, but this was removed from the specification
+  since `CSI R` conflicts with the _"Cursor Position Report"_.
+* `[main].utempter` renamed to `[main].utmp-helper`. The old option
+  name is still recognized, but will log a deprecation warning.
+* Meson option `default-utempter-path` renamed to
+  `utmp-default-helper-path`.
+* Opaque sixels now retain the background opacity (when current
+  background color is the **default** background color)
+  ([#1360][1360]).
+* Text cursor's vertical position after emitting a sixel, when sixel
+  scrolling is **enabled** (the default) has been updated to match
+  XTerm's, and the VT382's behavior: the cursor is positioned **on**
+  the last sixel row, rather than _after_ it. This allows printing
+  sixels on the last row without scrolling up, but also means
+  applications may have to explicitly emit a newline to ensure the
+  sixel is visible. For example, `cat`:ing a sixel in the shell will
+  typically result in the last row not being visible, unless a newline
+  is explicitly added.
+* Default sixel aspect ratio is now 2:1 instead of 1:1.
+* Sixel images are no longer cropped to the last non-transparent row.
+* Sixel images are now re-scaled when the font size is changed
+  ([#1383][1383]).
+* `dpi-aware` now defaults to `no`, and the `auto` value has been
+  removed.
+* When using custom cursor colors (`cursor.color` is set in
+  `foot.ini`), the cursor is no longer inverted when the cell is
+  selected, or when the cell has the `reverse` (SGR 7) attribute set
+  ([#1347][1347]).
+
+[1321]: https://codeberg.org/dnkl/foot/issues/1321
+[1371]: https://codeberg.org/dnkl/foot/pulls/1371
+[1183]: https://codeberg.org/dnkl/foot/issues/1183
+[1360]: https://codeberg.org/dnkl/foot/issues/1360
+[1383]: https://codeberg.org/dnkl/foot/issues/1383
+[1347]: https://codeberg.org/dnkl/foot/issues/1347
+
+
+### Deprecated
+
+* `[main].utempter` option.
+
+
+### Removed
+
+* `auto` value for the `dpi-aware` option.
+
+
+### Fixed
+
+* Incorrect icon in dock and window switcher on Gnome ([#1317][1317])
+* Crash when scrolling after resizing the window with non-zero
+  scrolling regions.
+* `XTMODKEYS` state not being reset on a terminal reset.
+* In Gnome dock foot always groups under "foot client".  Change
+  instances of footclient and foot to appear as "foot client" and
+  "foot" respectively. ([#1355][1355]).
+* Glitchy rendering when alpha (transparency) is changed between
+  opaque and non-opaque at runtime (using OSC-11).
+* Regression: crash when resizing the window when `resize-delay-ms >
+  0` ([#1377][1377]).
+* Crash when scrolling up while running something that generates a lot
+  of output (for example, `yes`) ([#1380][1380]).
+* Default key binding for URL mode conflicting with Unicode input on
+  some DEs; `show-urls-launched` is now mapped to `Control+Shift+o` by
+  default, instead of `Control+Shift+u` ([#1183][1183]).
+
+[1317]: https://codeberg.org/dnkl/foot/issues/1317
+[1355]: https://codeberg.org/dnkl/foot/issues/1355
+[1377]: https://codeberg.org/dnkl/foot/issues/1377
+[1380]: https://codeberg.org/dnkl/foot/issues/1380
+
+
+### Contributors
+
+* Antoine Beaupré
+* CismonX
+* Craig Barnes
+* Dan Bungert
+* jdevdevdev
+* Kyle Gunger
+* locture
+* Phillip Susi
+* sewn
+* ShugarSkull
+* Vivian Szczepanski
+* Vladimir Bauer
+* wout
+* CosmicToast
+
+
+## 1.14.0
+
+### Added
+
+* Support for adjusting the thickness of regular underlines ([#1136][1136]).
+* Support (optional) for utmp logging with libutempter.
+* `kxIN` and `kxOUT` (focus in/out events) to terminfo.
+* `name` capability to `XTGETTCAP`.
+* String values in `foot.ini` may now be quoted. This can be used to
+  set a value to the empty string, for example.
+* Environment variables can now be **unset**, by setting
+  `[environment].<variable>=""` (quotes are required) ([#1225][1225]).
+* `font-size-adjustment=N[px]` option, letting you configure how much
+  to increment/decrement the font size when zooming in or out
+  ([#1188][1188]).
+* Bracketed paste terminfo entries (`BD`, `BE`, `PE` and `PS`, added
+  to ncurses in 2022-12-24). Vim makes use of these.
+* "Report version" terminfo entries (`XR`/`xr`).
+* "Report DA2" terminfo entries (`RV`/`rv`).
+* `XF` terminfo capability (focus in/out events available).
+* `$TERM_PROGRAM` and `$TERM_PROGRAM_VERSION` environment variables
+  unset in the slave process.
+
+[1136]: https://codeberg.org/dnkl/foot/issues/1136
+[1225]: https://codeberg.org/dnkl/foot/issues/1225
+[1188]: https://codeberg.org/dnkl/foot/issues/1188
+
+
+### Changed
+
+* Default color theme from a variant of the Zenburn theme, to a
+  variant of the Solarized dark theme.
+* Default `pad` from 2x2 to 0x0 (i.e. no padding at all).
+* Current working directory (as set by OSC-7) is now passed to the
+  program executed by the `pipe-*` key bindings ([#1166][1166]).
+* `DECRPM` replies (to `DECRQM` queries) now report a value of `4`
+  ("permanently reset") instead of `2` ("reset") for DEC private
+  modes that are known but unsupported.
+* Set `PWD` environment variable in the slave process ([#1179][1179]).
+* DPI is now forced to 96 when found to be unreasonably high.
+* Set default log level to warning ([#1215][1215]).
+* Default `grapheme-width-method` from `wcswidth` to `double-width`.
+* When determining initial font size, do FontConfig config
+  substitution if the user-provided font pattern has no {pixel}size
+  option ([#1287][1287]).
+* DECRST of DECCOLM and DECSCLM removed from terminfo.
+
+[1166]: https://codeberg.org/dnkl/foot/issues/1166
+[1179]: https://codeberg.org/dnkl/foot/issues/1179
+[1215]: https://codeberg.org/dnkl/foot/pulls/1215
+[1287]: https://codeberg.org/dnkl/foot/issues/1287
+
+
+### Fixed
+
+* Crash in `foot --server` on key press, after another `footclient`
+  has terminated very early (for example, by trying to launch a
+  non-existing shell/client).
+* Glitchy rendering when scrolling in the scrollback, on compositors
+  that does not allow Wayland buffer reuse (e.g. KDE/plasma)
+  ([#1173][1173])
+* Scrollback search matches not being highlighted correctly, on
+  compositors that does not allow Wayland buffer reuse
+  (e.g. KDE/plasma).
+* Nanosecs "overflow" when calculating timeout value for
+  `resize-delay-ms` option.
+* Missing backslash in ST terminator in escape sequences in the
+  built-in terminfo (accessed via XTGETTCAP).
+* Crash when interactively resizing the window with a very large
+  scrollback.
+* Crash when a sixel image exceeds the current sixel max height.
+* Crash after reverse-scrolling (`CSI Ps T`) in the 'normal'
+  (non-alternate) screen ([#1190][1190]).
+* Background transparency being applied to the text "behind" the
+  cursor. Only applies to block cursor using inversed fg/bg
+  colors. ([#1205][1205]).
+* Crash when monitor's physical size is "too small" ([#1209][1209]).
+* Line-height adjustment when incrementing/decrementing the font size
+  with a user-set line-height ([#1218][1218]).
+* Scaling factor not being correctly applied when converting pt-or-px
+  config values (e.g. letter offsets, line height etc).
+* Selection being stuck visually when `IL` and `DL`.
+* URL underlines sometimes still being visible after exiting URL mode.
+* Text-bindings, and pipe-* bindings, with multiple key mappings
+  causing a crash (double-free) on exit ([#1259][1259]).
+* Double-width glyphs glitching when surrounded by glyphs overflowing
+  into the double-width glyph ([#1256][1256]).
+* Wayland protocol violation when ack:ing a configure event for an
+  unmapped surface ([#1249][1249]).
+* `xdg_toplevel::set_min_size()` not being called.
+* Key bindings with consumed modifiers masking other key bindings
+  ([#1280][1280]).
+* Multi-character compose sequences with the kitty keyboard protocol
+  ([#1288][1288]).
+* Crash when application output scrolls very fast, e.g. `yes`
+  ([#1305][1305]).
+* Crash when application scrolls **many** lines (> ~2³¹).
+* DECCOLM erasing the screen ([#1265][1265]).
+
+[1173]: https://codeberg.org/dnkl/foot/issues/1173
+[1190]: https://codeberg.org/dnkl/foot/issues/1190
+[1205]: https://codeberg.org/dnkl/foot/issues/1205
+[1209]: https://codeberg.org/dnkl/foot/issues/1209
+[1218]: https://codeberg.org/dnkl/foot/issues/1218
+[1259]: https://codeberg.org/dnkl/foot/issues/1259
+[1256]: https://codeberg.org/dnkl/foot/issues/1256
+[1249]: https://codeberg.org/dnkl/foot/issues/1249
+[1280]: https://codeberg.org/dnkl/foot/issues/1280
+[1288]: https://codeberg.org/dnkl/foot/issues/1288
+[1305]: https://codeberg.org/dnkl/foot/issues/1305
+[1265]: https://codeberg.org/dnkl/foot/issues/1265
+
+
+### Contributors
+
+* Alexey Sakovets
+* Andrea Pappacoda
+* Antoine Beaupré
+* argosatcore
+* Craig Barnes
+* EuCaue
+* Grigory Kirillov
+* Harri Nieminen
+* Hugo Osvaldo Barrera
+* jaroeichler
+* Joakim Nohlgård
+* Nick Hastings
+* Soren A D
+* Torsten Trautwein
+* Vladimír Magyar
+* woojiq
+* Yorick Peterse
+
+
+## 1.13.1
+
+### Changed
+
+* Window is now dimmed while in Unicode input mode.
+
+
+### Fixed
+
+* Compiling against wayland-protocols < 1.25
+* Crash on buggy compositors (GNOME) that sometimes send pointer-enter
+  events with a NULL surface. Foot now ignores these events, and the
+  subsequent motion and leave events.
+* Regression: "random" selected empty cells being highlighted as
+  selected when they should not.
+* Crash when either resizing the terminal window, or scrolling in the
+  scrollback history ([#1074][1074])
+* OSC-8 URLs with matching IDs, but mismatching URIs being incorrectly
+  connected.
+
+[1074]: https://codeberg.org/dnkl/foot/pulls/1074
+
+
+## 1.13.0
 
 ### Added
 
@@ -50,26 +644,38 @@
 * Support for jumping to previous/next prompt (requires shell
   integration). By default bound to `ctrl`+`shift`+`z` and
   `ctrl`+`shift`+`x` respectively ([#30][30]).
+* `colors.search-box-no-match` and `colors.search-box-match` options
+  to `foot.ini` ([#1112][1112]).
+* Very basic Unicode input mode via the new
+  `key-bindings.unicode-input` and `search-bindings.unicode-input` key
+  bindings. Note that there is no visual feedback, as the preferred
+  way of entering Unicode characters is with an IME ([#1116][1116]).
+* Support for `xdg_toplevel.wm_capabilities`, to adapt the client-side
+  decoration buttons to the compositor capabilities ([#1061][1061]).
 
 [1058]: https://codeberg.org/dnkl/foot/issues/1058
 [1070]: https://codeberg.org/dnkl/foot/issues/1070
 [30]: https://codeberg.org/dnkl/foot/issues/30
+[1112]: https://codeberg.org/dnkl/foot/issues/1112
+[1116]: https://codeberg.org/dnkl/foot/issues/1116
+[1061]: https://codeberg.org/dnkl/foot/pulls/1061
 
 
 ### Changed
 
-* Use `$HOME` instead of `getpwuid()` to retrieve the user’s home
+* Use `$HOME` instead of `getpwuid()` to retrieve the user's home
   directory when searching for `foot.ini`.
 * HT, VT and FF are no longer stripped when pasting in non-bracketed
   mode ([#1084][1084]).
 * NUL is now stripped when pasting in non-bracketed mode
   ([#1084][1084]).
+* `alt`+`escape` now emits `\E\E` instead of a `CSI 27` sequence
+  ([#1105][1105]).
 
 [1084]: https://codeberg.org/dnkl/foot/issues/1084
+[1105]: https://codeberg.org/dnkl/foot/issues/1105
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Graphical corruption when viewport is at the top of the scrollback,
@@ -82,14 +688,38 @@
   support the offered mime-types ([#1092][1092]).
 * Keyboard enter/leave events being ignored if there is no keymap
   ([#1097][1097]).
+* Crash when application emitted an invalid `CSI 38;5;<idx>m`, `CSI
+  38:5:<idx>m`, `CSI 48;5;<idx>m` or `CSI 48:5:<idx>m` sequence
+  ([#1111][1111]).
+* Certain dead-key combinations resulting in different escape
+  sequences compared to kitty, when the kitty keyboard protocol is
+  used ([#1120][1120]).
+* Search matches ending with a double-width character not being
+  highlighted correctly.
+* Selection not being cancelled correctly when scrolled out.
+* Extending a multi-page selection behaving inconsistently.
+* Poor performance when making very large selections ([#1114][1114]).
+* Bogus error message when using systemd socket activation for server
+  mode ([#1107][1107])
+* Empty line at the bottom after a window resize ([#1108][1108]).
 
 [1055]: https://codeberg.org/dnkl/foot/issues/1055
 [1092]: https://codeberg.org/dnkl/foot/issues/1092
 [1097]: https://codeberg.org/dnkl/foot/issues/1097
+[1111]: https://codeberg.org/dnkl/foot/issues/1111
+[1120]: https://codeberg.org/dnkl/foot/issues/1120
+[1114]: https://codeberg.org/dnkl/foot/issues/1114
+[1107]: https://codeberg.org/dnkl/foot/issues/1107
+[1108]: https://codeberg.org/dnkl/foot/issues/1108
 
 
-### Security
 ### Contributors
+
+* Craig Barnes
+* Lorenz
+* Max Gautier
+* Simon Ser
+* Stefan Prosiegel
 
 
 ## 1.12.1
@@ -97,7 +727,7 @@
 ### Added
 
 * Workaround for Sway bug [#6960][sway-6960]: scrollback search and
-  the OSC-555 (“flash”) escape sequence leaves dimmed (search) and
+  the OSC-555 ("flash") escape sequence leaves dimmed (search) and
   yellow (flash) artifacts ([#1046][1046]).
 * `Control+Shift+v` and `XF86Paste` have been added to the default set
   of key bindings that paste from the clipboard into the scrollback
@@ -110,7 +740,7 @@
 
 ### Changed
 
-* Scrollback search’s `extend-to-word-boundary` no longer stops at
+* Scrollback search's `extend-to-word-boundary` no longer stops at
   space-to-word boundaries, making selection extension feel more
   natural.
 
@@ -151,7 +781,7 @@
   ([#950][950]).
 * footclient: `-E,--client-environment` command line option. When
   used, the child process in the new terminal instance inherits the
-  environment from the footclient process instead of the server’s
+  environment from the footclient process instead of the server's
   ([#1004][1004]).
 * `[csd].hide-when-maximized=yes|no` option ([#1019][1019]).
 * Scrollback search mode now highlights all matches.
@@ -207,7 +837,7 @@
 
 * Build: missing `wayland_client` dependency in `test-config`
   ([#918][918]).
-* “(null)” being logged as font-name (for some fonts) when warning
+* "(null)" being logged as font-name (for some fonts) when warning
   about a non-monospaced primary font.
 * Rare crash when the window is resized while a mouse selection is
   ongoing ([#922][922]).
@@ -229,7 +859,7 @@
   ([#1009][1009]).
 * Window geometry when CSDs are enabled and CSD border width set to a
   non-zero value. This fixes window snapping in e.g. GNOME.
-* Window size “jumping” when starting an interactive resize when CSDs
+* Window size "jumping" when starting an interactive resize when CSDs
   are enabled, and CSD border width set to a non-zero value.
 * Key binding overrides on the command line having no effect with
   `footclient` instances ([#931][931]).
@@ -295,15 +925,15 @@
 * PaperColorDark and PaperColorLight themes renamed to
   paper-color-dark and paper-color-light, for consistency with other
   theme names.
-* `[scrollback].multiplier` is now applied in “alternate scroll” mode,
+* `[scrollback].multiplier` is now applied in "alternate scroll" mode,
   where scroll events are translated to fake arrow key presses on the
   alt screen ([#859](https://codeberg.org/dnkl/foot/issues/859)).
-* The width of the block cursor’s outline in an unfocused window is
-  now scaled by the output scaling factor (“desktop
-  scaling”). Previously, it was always 1px.
-* Foot will now try to change the locale to either “C.UTF-8” or
-  “en_US.UTF-8” if started with a non-UTF8 locale. If this fails, foot
-  will start, but only to display a window with an error (user’s shell
+* The width of the block cursor's outline in an unfocused window is
+  now scaled by the output scaling factor ("desktop
+  scaling"). Previously, it was always 1px.
+* Foot will now try to change the locale to either "C.UTF-8" or
+  "en_US.UTF-8" if started with a non-UTF8 locale. If this fails, foot
+  will start, but only to display a window with an error (user's shell
   is not executed).
 * `gettimeofday()` has been replaced with `clock_gettime()`, due to it being
   marked as obsolete by POSIX.
@@ -331,7 +961,7 @@
 
 ### Fixed
 
-* Font size adjustment (“zooming”) when font is configured with a
+* Font size adjustment ("zooming") when font is configured with a
   **pixelsize**, and `dpi-aware=no`
   ([#842](https://codeberg.org/dnkl/foot/issues/842)).
 * Key presses triggering keyboard layout switches also emitting CSI
@@ -405,7 +1035,7 @@
 * Initial support for the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/).
   Modes supported:
   - [Disambiguate escape codes](https://sw.kovidgoyal.net/kitty/keyboard-protocol/#disambiguate) (mode `0b1`)
-* “Window menu” (compositor provided) on right clicks on the CSD title
+* "Window menu" (compositor provided) on right clicks on the CSD title
   bar.
 
 
@@ -442,7 +1072,7 @@
 
 ### Fixed
 
-* Regression: `letter-spacing` resulting in a “not a valid option”
+* Regression: `letter-spacing` resulting in a "not a valid option"
   error ([#795](https://codeberg.org/dnkl/foot/issues/795)).
 * Regression: bad section name in configuration error messages.
 * Regression: `pipe-*` key bindings not being parsed correctly,
@@ -477,7 +1107,7 @@
 * `[csd].border-width` and `[csd].border-color`, allowing you to
   configure the width and color of the CSD border.
 * Support for `XTMODKEYS` with `Pp=4` and `Pv=2` (_modifyOtherKeys=2_).
-* `[colors].dim0-7` options, allowing you to configure custom “dim”
+* `[colors].dim0-7` options, allowing you to configure custom "dim"
   colors ([#776](https://codeberg.org/dnkl/foot/issues/776)).
 
 
@@ -493,9 +1123,9 @@
   due to the compositor not implementing a recent enough version of
   the `wl_seat` interface ([#779](https://codeberg.org/dnkl/foot/issues/779)).
 * Boolean options in `foot.ini` are now limited to
-  “yes|true|on|1|no|false|off|0”, Previously, anything that did not
-  match “yes|true|on”, or a number greater than 0, was treated as
-  “false”.
+  "yes|true|on|1|no|false|off|0", Previously, anything that did not
+  match "yes|true|on", or a number greater than 0, was treated as
+  "false".
 * `[scrollback].multiplier` is no longer applied when the alternate
   screen is in use ([#787](https://codeberg.org/dnkl/foot/issues/787)).
 
@@ -510,7 +1140,7 @@
 
 ### Fixed
 
-* ‘Sticky’ modifiers in input handling; when determining modifier
+* 'Sticky' modifiers in input handling; when determining modifier
   state, foot was looking at **depressed** modifiers, not
   **effective** modifiers, like it should.
 * Fix crashes after enabling CSD at runtime when `csd.size` is 0.
@@ -518,7 +1148,7 @@
   ([#752](https://codeberg.org/dnkl/foot/issues/752)).
 * Clipboard occasionally ceasing to work, until window has been
   re-focused ([#753](https://codeberg.org/dnkl/foot/issues/753)).
-* Don’t propagate window title updates to the Wayland compositor
+* Don't propagate window title updates to the Wayland compositor
   unless the new title is different from the old title.
 
 
@@ -538,7 +1168,7 @@
 ### Changed
 
 * PGO helper scripts no longer set `LC_CTYPE=en_US.UTF-8`. But, note
-  that “full” PGO builds still **require** a UTF-8 locale; you need
+  that "full" PGO builds still **require** a UTF-8 locale; you need
   to set one manually in your build script
   ([#728](https://codeberg.org/dnkl/foot/issues/728)).
 
@@ -566,11 +1196,11 @@
   definitions when `-Dterminfo=enabled`.
 * `-Dcustom-terminfo-install-location` no longer accepts `no` as a
   special value, to disable exporting `TERMINFO`. To achieve the same
-  result, simply don’t set it at all. If it _is_ set, `TERMINFO` is
+  result, simply don't set it at all. If it _is_ set, `TERMINFO` is
   still exported, like before.
 * The default install location for the terminfo definitions have been
   changed back to `${datadir}/terminfo`.
-* `dpi-aware=auto`: fonts are now scaled using the monitor’s DPI only
+* `dpi-aware=auto`: fonts are now scaled using the monitor's DPI only
   when **all** monitors have a scaling factor of one
   ([#714](https://codeberg.org/dnkl/foot/issues/714)).
 * fcft >= 3.0.0 in now required.
@@ -619,12 +1249,12 @@
   terminating the client application) from 4 to 60 seconds.
 * When terminating the client application, foot now sends `SIGTERM` immediately
   after closing the PTY, instead of waiting 2 seconds.
-* Foot now sends `SIGTERM`/`SIGKILL` to the client application’s process group,
-  instead of just to the client application’s process.
+* Foot now sends `SIGTERM`/`SIGKILL` to the client application's process group,
+  instead of just to the client application's process.
 * `kmous` terminfo capability from `\E[M` to `\E[<`.
 * pt-or-px values (`letter-spacing`, etc) and the line thickness
   (`tweak.box-drawing-base-thickness`) in box drawing characters are
-  now translated to pixel values using the monitor’s scaling factor
+  now translated to pixel values using the monitor's scaling factor
   when `dpi-aware=no`, or `dpi-aware=auto` and the scaling factor is
   larger than 1 ([#680](https://codeberg.org/dnkl/foot/issues/680)).
 * Spawning a new terminal with a working directory that does not exist
@@ -634,7 +1264,7 @@
 ### Removed
 
 * `km`/`smm`/`rmm` from terminfo; foot prefixes Alt-key combinations
-  with `ESC`, and not by setting the 8:th “meta” bit, regardless of
+  with `ESC`, and not by setting the 8:th "meta" bit, regardless of
   `smm`/`rmm`. While this _can_ be disabled by, resetting private mode
   1036, the terminfo should reflect the **default** behavior
   ([#670](https://codeberg.org/dnkl/foot/issues/670)).
@@ -801,10 +1431,10 @@ For full support, the following is required:
 
 If `tweak.grapheme-shaping` has **not** been enabled, foot will
 neither use libutf8proc to do grapheme cluster segmentation, nor will
-it use fcft’s grapheme shaping capabilities to shape combining
+it use fcft's grapheme shaping capabilities to shape combining
 characters.
 
-This feature is _experimental_ mostly due to the “wcwidth” problem;
+This feature is _experimental_ mostly due to the "wcwidth" problem;
 how many cells should foot allocate for a grapheme cluster? While the
 answer may seem simple, the problem is that, whatever the answer is,
 the client application **must** come up with the **same**
@@ -882,9 +1512,9 @@ supported.
 * Point values in `line-height`, `letter-spacing`,
   `horizontal-letter-offset` and `vertical-letter-offset` are now
   rounded, not truncated, when translated to pixel values.
-* Foot’s exit code is now -26/230 when foot itself failed to launch
+* Foot's exit code is now -26/230 when foot itself failed to launch
   (due to invalid command line options, client application/shell not
-  found etc). Footclient’s exit code is -36/220 when it itself fails
+  found etc). Footclient's exit code is -36/220 when it itself fails
   to launch (e.g. bad command line option) and -26/230 when the foot
   server failed to instantiate a new window
   ([#466](https://codeberg.org/dnkl/foot/issues/466)).
@@ -937,7 +1567,7 @@ supported.
   resulting in PGO build failures.
 * Wrong colors in the 256-color cube
   ([#479](https://codeberg.org/dnkl/foot/issues/479)).
-* Memory leak triggered by “opening” an OSC-8 URI and then resetting
+* Memory leak triggered by "opening" an OSC-8 URI and then resetting
   the terminal without closing the URI
   ([#495](https://codeberg.org/dnkl/foot/issues/495)).
 * Assertion when emitting a sixel occupying the entire scrollback
@@ -946,7 +1576,7 @@ supported.
   invisible) for certain combinations of fonts and font sizes
   ([#503](https://codeberg.org/dnkl/foot/issues/503)).
 * Sixels with transparent bottom border being resized below the size
-  specified in _”Set Raster Attributes”_.
+  specified in _"Set Raster Attributes"_.
 * Fonts sometimes not being reloaded with the correct scaling factor
   when `dpi-aware=no`, or `dpi-aware=auto` with monitor(s) with a
   scaling factor > 1 ([#509](https://codeberg.org/dnkl/foot/issues/509)).
@@ -1142,7 +1772,7 @@ supported.
   background color for empty pixels instead of the default background
   color ([#391](https://codeberg.org/dnkl/foot/issues/391)).
 * Sixel decoding optimized; up to 100% faster in some cases.
-* Reported sixel “max geometry” from current window size, to the
+* Reported sixel "max geometry" from current window size, to the
   configured maximum size (defaulting to 10000x10000).
 
 
@@ -1241,7 +1871,7 @@ supported.
 * Pasting URIs from the clipboard when the source has not
   newline-terminated the last URI
   ([#291](https://codeberg.org/dnkl/foot/issues/291)).
-* Sixel “current geometry” query response not being bounded by the
+* Sixel "current geometry" query response not being bounded by the
   current window dimensions (fixes `lsix` output)
 * Crash on keyboard input when repeat rate was zero (i.e. no repeat).
 * Wrong button encoding of mouse buttons 6 and 7 in mouse events.
@@ -1318,7 +1948,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   and `CSI ? 737769 l` disables it. This can be used to
   e.g. enable/disable IME when entering/leaving insert mode in vim.
 * `dpi-aware` option to `foot.ini`. The default, `auto`, sizes fonts
-  using the monitor’s DPI when output scaling has been
+  using the monitor's DPI when output scaling has been
   **disabled**. If output scaling has been **enabled**, fonts are
   sized using the scaling factor. DPI-only font sizing can be forced
   by setting `dpi-aware=yes`. Setting `dpi-aware=no` forces font
@@ -1398,7 +2028,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   `\E[38:2...m`) can now be used _without_ the color space ID
   parameter.
 * SGR 21 no longer disables **bold**. According to ECMA-48, SGR 21 is
-  _”double underline_”. Foot does not (yet) implement that, but that’s
+  _"double underline_". Foot does not (yet) implement that, but that's
   no reason to implement a non-standard behavior.
 * `DECRQM` now returns actual state of the requested mode, instead of
   always returning `2`.
@@ -1446,7 +2076,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   ([#194](https://codeberg.org/dnkl/foot/issues/194)).
 * Single-width characters with double-width glyphs are now allowed to
   overflow into neighboring cells by default. Set
-  **tweak.allow-overflowing-double-width-glyphs** to ‘no’ to disable
+  **tweak.allow-overflowing-double-width-glyphs** to 'no' to disable
   this.
 
 ### Fixed
@@ -1650,7 +2280,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
   binding has consumed it.
 * Input events from getting mixed with paste data
   ([#101](https://codeberg.org/dnkl/foot/issues/101)).
-* Missing DPI values for “some” monitors on Gnome
+* Missing DPI values for "some" monitors on Gnome
   ([#118](https://codeberg.org/dnkl/foot/issues/118)).
 * Handling of multi-column composed characters while reflowing.
 * Escape sequences sent for key combinations with `Return`, that did
@@ -1827,7 +2457,7 @@ means foot can be PGO:d in e.g. sandboxed build scripts. See
 * Window title always being set to "foot" on reset.
 * Terminfo entry `kb2` (center keypad key); it is now set to `\EOu`
   (which is what foot emits) instead of the incorrect value `\EOE`.
-* Palette re-use in sixel images. Previously, the palette was reset
+* Palette reuse in sixel images. Previously, the palette was reset
   after each image.
 * Do not auto-resize a sixel image for which the client has specified
   a size. This fixes an issue where an image would incorrectly

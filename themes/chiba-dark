@@ -1,0 +1,27 @@
+# -*- conf -*-
+# theme: Chiba Dark
+# author: ayushnix (https://sr.ht/~ayushnix)
+# description: A dark theme with bright cyberpunk colors (WCAG AAA compliant)
+
+[cursor]
+color = 181818 cdcdcd
+
+[colors]
+foreground = cdcdcd
+background = 181818
+regular0 = 181818
+regular1 = ff8599
+regular2 = 00c545
+regular3 = de9d00
+regular4 = 00b4ff
+regular5 = fd71f8
+regular6 = 00bfae
+regular7 = cdcdcd
+bright0 = 262626
+bright1 = ff9eb2
+bright2 = 19de5e
+bright3 = f7b619
+bright4 = 19cdff
+bright5 = ff8aff
+bright6 = 19d8c7
+bright7 = dadada

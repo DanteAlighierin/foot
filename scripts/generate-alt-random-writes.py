@@ -207,8 +207,8 @@ def main():
             six_height, six_width = last_size
             six_rows = (six_height + 5) // 6  # Round up; each sixel is 6 pixels
 
-            # Begin sixel
-            out.write('\033Pq')
+            # Begin sixel (with P2=1 - empty sixels are transparent)
+            out.write('\033P;1q')
 
             # Sixel size. Without this, sixels will be
             # auto-resized on cell-boundaries.
