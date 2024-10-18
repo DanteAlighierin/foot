@@ -1,0 +1,39 @@
+# theme: One Half - dark version
+# author: Son A. Pham <sp@sonpham.me>
+# repo: https://github.com/sonph/onehalf
+#
+# foot theme is based mainly on values from this specific file:
+# https://github.com/sonph/onehalf/blob/master/kitty/onehalf-dark.conf
+# + cursor colors from:
+# https://github.com/sonph/onehalf/blob/master/iterm/OneHalfDark.itermcolors
+
+[cursor]
+color=dcdfe4 a3b3cc
+
+[colors]
+foreground=dcdfe4
+background=282c34
+regular0=282c34   # black
+regular1=e06c75   # red
+regular2=98c379   # green
+regular3=e5c07b   # yellow
+regular4=61afef   # blue
+regular5=c678dd   # magenta
+regular6=56b6c2   # cyan
+regular7=dcdfe4   # white
+bright0=5d677a    # bright black
+bright1=e06c75    # bright red
+bright2=98c379    # bright green
+bright3=e5c07b    # bright yellow
+bright4=61afef    # bright blue
+bright5=c678dd    # bright magenta
+bright6=56b6c2    # bright cyan
+bright7=dcdfe4    # bright white
+
+# Enable if prefer theme color for URL underline
+# urls=0087bd
+
+# Enable if prefer theme colors instead of inverterd fg/bg for
+# highlighting (mouse selection)
+# selection-foreground=000000
+# selection-background=fffacd

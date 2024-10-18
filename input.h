@@ -21,6 +21,8 @@
  * Mouse buttons are in the range 0x110 - 0x11f, with joystick defines
  * starting at 0x120.
  */
+#define BTN_WHEEL_BACK 0x11c
+#define BTN_WHEEL_FORWARD 0x11d
 #define BTN_WHEEL_LEFT 0x11e
 #define BTN_WHEEL_RIGHT 0x11f
 

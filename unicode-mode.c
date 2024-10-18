@@ -7,31 +7,30 @@
 #include "search.h"
 
 void
-unicode_mode_activate(struct seat *seat)
+unicode_mode_activate(struct terminal *term)
 {
-    if (seat->unicode_mode.active)
+    if (term->unicode_mode.active)
         return;
 
-    seat->unicode_mode.active = true;
-    seat->unicode_mode.character = u'\0';
-    seat->unicode_mode.count = 0;
-    unicode_mode_updated(seat);
+    term->unicode_mode.active = true;
+    term->unicode_mode.character = u'\0';
+    term->unicode_mode.count = 0;
+    unicode_mode_updated(term);
 }
 
 void
-unicode_mode_deactivate(struct seat *seat)
+unicode_mode_deactivate(struct terminal *term)
 {
-    if (!seat->unicode_mode.active)
+    if (!term->unicode_mode.active)
         return;
 
-    seat->unicode_mode.active = false;
-    unicode_mode_updated(seat);
+    term->unicode_mode.active = false;
+    unicode_mode_updated(term);
 }
 
 void
-unicode_mode_updated(struct seat *seat)
+unicode_mode_updated(struct terminal *term)
 {
-    struct terminal *term = seat->kbd_focus;
     if (term == NULL)
         return;
 
@@ -52,10 +51,10 @@ unicode_mode_input(struct seat *seat, struct terminal *term,
     {
         char utf8[MB_CUR_MAX];
         size_t chars = c32rtomb(
-            utf8, seat->unicode_mode.character, &(mbstate_t){0});
+            utf8, term->unicode_mode.character, &(mbstate_t){0});
 
         LOG_DBG("Unicode input: 0x%06x -> %.*s",
-                seat->unicode_mode.character, (int)chars, utf8);
+                term->unicode_mode.character, (int)chars, utf8);
 
         if (chars != (size_t)-1) {
             if (term->is_searching)
@@ -64,7 +63,7 @@ unicode_mode_input(struct seat *seat, struct terminal *term,
                 term_to_slave(term, utf8, chars);
         }
 
-        unicode_mode_deactivate(seat);
+        unicode_mode_deactivate(term);
     }
 
     else if (sym == XKB_KEY_Escape ||
@@ -73,18 +72,18 @@ unicode_mode_input(struct seat *seat, struct terminal *term,
                                  sym == XKB_KEY_d ||
                                  sym == XKB_KEY_g)))
     {
-        unicode_mode_deactivate(seat);
+        unicode_mode_deactivate(term);
     }
 
     else if (sym == XKB_KEY_BackSpace) {
-        if (seat->unicode_mode.count > 0) {
-            seat->unicode_mode.character >>= 4;
-            seat->unicode_mode.count--;
-            unicode_mode_updated(seat);
+        if (term->unicode_mode.count > 0) {
+            term->unicode_mode.character >>= 4;
+            term->unicode_mode.count--;
+            unicode_mode_updated(term);
         }
     }
 
-    else if (seat->unicode_mode.count < 6) {
+    else if (term->unicode_mode.count < 6) {
         int digit = -1;
 
         /* 0-9, a-f, A-F */
@@ -99,10 +98,10 @@ unicode_mode_input(struct seat *seat, struct terminal *term,
 
         if (digit >= 0) {
             xassert(digit >= 0 && digit <= 0xf);
-            seat->unicode_mode.character <<= 4;
-            seat->unicode_mode.character |= digit;
-            seat->unicode_mode.count++;
-            unicode_mode_updated(seat);
+            term->unicode_mode.character <<= 4;
+            term->unicode_mode.character |= digit;
+            term->unicode_mode.count++;
+            unicode_mode_updated(term);
         }
     }
 }

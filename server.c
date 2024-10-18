@@ -18,7 +18,6 @@
 #include "log.h"
 
 #include "client-protocol.h"
-#include "shm.h"
 #include "terminal.h"
 #include "util.h"
 #include "wayland.h"
@@ -332,7 +331,7 @@ fdm_client(struct fdm *fdm, int fd, int events, void *data)
     instance->terminal = term_init(
         conf != NULL ? conf : server->conf,
         server->fdm, server->reaper, server->wayl, "footclient", cwd, token,
-        cdata.argc, argv, (const char *const *)envp,
+        NULL, cdata.argc, argv, (const char *const *)envp,
         &term_shutdown_handler, instance);
 
     if (instance->terminal == NULL) {

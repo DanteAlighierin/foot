@@ -20,7 +20,7 @@ will start a new terminal window with your default shell.
 You can override the default shell by appending a custom command to
 the foot command line
 
-	*foot sh -c "echo hello world && sleep 5"*
+	*foot htop*
 
 # OPTIONS
 
@@ -77,6 +77,13 @@ the foot command line
 
 *-L*,*--login-shell*
 	Start a login shell, by prepending a '-' to argv[0].
+
+*--pty*
+	Display an existing pty instead of creating one. This is useful
+	for interacting with VM consoles.
+
+	This option is not currently supported in combination with
+	*-s*,*--server*.
 
 *-D*,*--working-directory*=_DIR_
 	Initial working directory for the client application. Default:
@@ -183,16 +190,16 @@ default) available; see *foot.ini*(5).
 	Paste from _clipboard_
 
 *shift*+*insert*
-	Paste from the _primary selection_.
+	Paste from the _primary selection_
 
 *ctrl*+*shift*+*r*
 	Start a scrollback search
 
 *ctrl*+*+*, *ctrl*+*=*
-	Increase font size by 0.5pt
+	Increase font size
 
 *ctrl*+*-*
-	Decrease font size by 0.5pt
+	Decrease font size
 
 *ctrl*+*0*
 	Reset font size
@@ -273,6 +280,10 @@ default) available; see *foot.ini*(5).
 	characters.
 
 *left*, triple-click
+	Selects the everything between enclosing quotes, or the entire row
+	if not inside a quote.
+
+*left*, quad-click
 	Selects the entire row
 
 *middle*
@@ -283,8 +294,15 @@ default) available; see *foot.ini*(5).
 	selection, while hold-and-drag allows you to interactively resize
 	the selection.
 
+*ctrl*+*right*
+	Extend the current selection, but force it to be character wise,
+	rather than depending on the original selection mode.
+
 *wheel*
 	Scroll up/down in history
+
+*ctrl*+*wheel*
+	Increase/decrease font size
 
 ## TOUCHSCREEN
 

@@ -1358,7 +1358,7 @@ execute_binding(struct seat *seat, struct terminal *term,
         return true;
 
     case BIND_ACTION_SEARCH_UNICODE_INPUT:
-        unicode_mode_activate(seat);
+        unicode_mode_activate(term);
         return true;
 
     case BIND_ACTION_SEARCH_COUNT:

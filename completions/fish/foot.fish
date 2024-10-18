@@ -18,5 +18,6 @@ complete -c foot -r -s p -l print-pid                                           
 complete -c foot -x -s d -l log-level           -a "info warning error none"                          -d "log-level (warning)"
 complete -c foot -x -s l -l log-colorize        -a "always never auto"                                -d "enable or disable colorization of log output on stderr"
 complete -c foot    -s S -l log-no-syslog                                                             -d "disable syslog logging (server mode only)"
+complete -c foot -r      -l pty                                                                       -d "display an existing pty instead of creating one"
 complete -c foot    -s v -l version                                                                   -d "show the version number and quit"
 complete -c foot    -s h -l help                                                                      -d "show help message and quit"

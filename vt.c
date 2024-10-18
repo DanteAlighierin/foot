@@ -16,8 +16,9 @@
 #include "csi.h"
 #include "dcs.h"
 #include "debug.h"
-#include "grid.h"
+#include "emoji-variation-sequences.h"
 #include "osc.h"
+#include "sixel.h"
 #include "util.h"
 #include "xmalloc.h"
 
@@ -241,12 +242,16 @@ action_execute(struct terminal *term, uint8_t c)
     case '\x0e':
         /* SO - shift out */
         term->charsets.selected = G1;
+        term->bits_affecting_ascii_printer.charset =
+            term->charsets.set[term->charsets.selected] != CHARSET_ASCII;
         term_update_ascii_printer(term);
         break;
 
     case '\x0f':
         /* SI - shift in */
         term->charsets.selected = G0;
+        term->bits_affecting_ascii_printer.charset =
+            term->charsets.set[term->charsets.selected] != CHARSET_ASCII;
         term_update_ascii_printer(term);
         break;
 
@@ -480,12 +485,16 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
         case 'n':
             /* LS2 - Locking Shift 2 */
             term->charsets.selected = G2;
+            term->bits_affecting_ascii_printer.charset =
+                term->charsets.set[term->charsets.selected] != CHARSET_ASCII;
             term_update_ascii_printer(term);
             break;
 
         case 'o':
             /* LS3 - Locking Shift 3 */
             term->charsets.selected = G3;
+            term->bits_affecting_ascii_printer.charset =
+                term->charsets.set[term->charsets.selected] != CHARSET_ASCII;
             term_update_ascii_printer(term);
             break;
 
@@ -544,6 +553,8 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
             size_t idx = term->vt.private - '(';
             xassert(idx <= G3);
             term->charsets.set[idx] = CHARSET_GRAPHIC;
+            term->bits_affecting_ascii_printer.charset =
+                term->charsets.set[term->charsets.selected] != CHARSET_ASCII;
             term_update_ascii_printer(term);
             break;
         }
@@ -552,6 +563,8 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
             size_t idx = term->vt.private - '(';
             xassert(idx <= G3);
             term->charsets.set[idx] = CHARSET_ASCII;
+            term->bits_affecting_ascii_printer.charset =
+                term->charsets.set[term->charsets.selected] != CHARSET_ASCII;
             term_update_ascii_printer(term);
             break;
         }
@@ -560,15 +573,16 @@ action_esc_dispatch(struct terminal *term, uint8_t final)
 
     case '#':
         switch (final) {
-        case '8':
-            for (int r = 0; r < term->rows; r++) {
-                struct row *row = grid_row(term->grid, r);
-                for (int c = 0; c < term->cols; c++) {
-                    row->cells[c].wc = U'E';
-                    row->cells[c].attrs = (struct attributes){0};
-                }
-                row->dirty = true;
-            }
+        case '8':  /* DECALN */
+            sixel_overwrite_by_rectangle(term, 0, 0, term->rows, term->cols);
+
+            term->scroll_region.start = 0;
+            term->scroll_region.end = term->rows;
+
+            for (int r = 0; r < term->rows; r++)
+                term_fill(term, r, 0, 'E', term->cols, false);
+
+            term_cursor_home(term);
             break;
         }
         break;  /* private[0] == '#' */
@@ -652,6 +666,38 @@ chain_key(uint32_t old_key, uint32_t new_wc)
 
     return new_key;
 }
+
+#if defined(FOOT_GRAPHEME_CLUSTERING)
+static int
+emoji_vs_compare(const void *_key, const void *_entry)
+{
+    const struct emoji_vs *key = _key;
+    const struct emoji_vs *entry = _entry;
+
+    uint32_t cp = key->start;
+
+    if (cp < entry->start)
+        return -1;
+    else if (cp > entry->end)
+        return 1;
+    else
+        return 0;
+}
+
+UNITTEST
+{
+    /* Verify the emoji_vs list is sorted */
+    int64_t last_end = -1;
+
+    for (size_t i = 0; i < sizeof(emoji_vs) / sizeof(emoji_vs[0]); i++) {
+        const struct emoji_vs *vs = &emoji_vs[i];
+        xassert(vs->start <= vs->end);
+        xassert(vs->start > last_end);
+        xassert(vs->vs15 || vs->vs16);
+        last_end = vs->end;
+    }
+}
+#endif
 
 static void
 action_utf8_print(struct terminal *term, char32_t wc)
@@ -850,9 +896,37 @@ action_utf8_print(struct terminal *term, char32_t wc)
                 break;
 
             case GRAPHEME_WIDTH_DOUBLE:
-                if (unlikely(wc == 0xfe0f))
-                    width = 2;
                 new_cc->width = min(grapheme_width + width, 2);
+
+#if defined(FOOT_GRAPHEME_CLUSTERING)
+                /* Handle VS-15 and VS-16 variation selectors */
+                if (unlikely(grapheme_clustering &&
+                             (wc == 0xfe0e || wc == 0xfe0f) &&
+                             new_cc->count == 2))
+                {
+                    const struct emoji_vs *vs =
+                        bsearch(
+                            &(struct emoji_vs){.start = new_cc->chars[0]},
+                            emoji_vs, sizeof(emoji_vs) / sizeof(emoji_vs[0]),
+                            sizeof(struct emoji_vs),
+                            &emoji_vs_compare);
+
+                    if (vs != NULL) {
+                        xassert(new_cc->chars[0] >= vs->start &&
+                                new_cc->chars[0] <= vs->end);
+
+                        /* Force a grapheme width of 1 for VS-15, and 2 for VS-16 */
+                        if (wc == 0xfe0e) {
+                            if (vs->vs15)
+                                new_cc->width = 1;
+                        } else if (wc == 0xfe0f) {
+                            if (vs->vs16)
+                                new_cc->width = 2;
+                        }
+                    }
+                }
+#endif
+
                 break;
 
             case GRAPHEME_WIDTH_WCSWIDTH:

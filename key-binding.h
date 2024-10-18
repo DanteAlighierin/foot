@@ -40,6 +40,7 @@ enum bind_action_normal {
     BIND_ACTION_PROMPT_PREV,
     BIND_ACTION_PROMPT_NEXT,
     BIND_ACTION_UNICODE_INPUT,
+    BIND_ACTION_QUIT,
 
     /* Mouse specific actions - i.e. they require a mouse coordinate */
     BIND_ACTION_SCROLLBACK_UP_MOUSE,
@@ -53,7 +54,7 @@ enum bind_action_normal {
     BIND_ACTION_SELECT_QUOTE,
     BIND_ACTION_SELECT_ROW,
 
-    BIND_ACTION_KEY_COUNT = BIND_ACTION_UNICODE_INPUT + 1,
+    BIND_ACTION_KEY_COUNT = BIND_ACTION_QUIT + 1,
     BIND_ACTION_COUNT = BIND_ACTION_SELECT_ROW + 1,
 };
 

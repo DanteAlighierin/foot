@@ -9,7 +9,6 @@ enum cursor_shape {
 
     CURSOR_SHAPE_LEFT_PTR,
     CURSOR_SHAPE_TEXT,
-    CURSOR_SHAPE_TEXT_FALLBACK,
     CURSOR_SHAPE_TOP_LEFT_CORNER,
     CURSOR_SHAPE_TOP_RIGHT_CORNER,
     CURSOR_SHAPE_BOTTOM_LEFT_CORNER,
@@ -22,7 +21,7 @@ enum cursor_shape {
     CURSOR_SHAPE_COUNT,
 };
 
-const char *cursor_shape_to_string(enum cursor_shape shape);
+const char *const *cursor_shape_to_string(enum cursor_shape shape);
 
 enum wp_cursor_shape_device_v1_shape cursor_shape_to_server_shape(
     enum cursor_shape shape);

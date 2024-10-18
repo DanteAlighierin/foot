@@ -9,6 +9,7 @@
 #include "util.h"
 #include "vt.h"
 #include "xmalloc.h"
+#include "xsnprintf.h"
 
 static bool
 ensure_size(struct terminal *term, size_t required_size)
@@ -200,6 +201,12 @@ xtgettcap_unhook(struct terminal *term)
     const char *const end = (const char *)&term->vt.dcs.data[left];
     const char *p = (const char *)term->vt.dcs.data;
 
+    if (p == NULL) {
+        /* Request is empty; send an error reply, without any capabilities */
+        term_to_slave(term, "\033P0+r\033\\", 7);
+        return;
+    }
+
     while (true) {
         const char *sep = memchr(p, ';', left);
         size_t cap_len;
@@ -239,7 +246,7 @@ decrqss_put(struct terminal *term, uint8_t c)
         return;
 
     struct vt *vt = &term->vt;
-    if (vt->dcs.idx > 2)
+    if (vt->dcs.idx >= 2)
         return;
     vt->dcs.data[vt->dcs.idx++] = c;
 }
@@ -264,9 +271,9 @@ decrqss_unhook(struct terminal *term)
     if (n == 1 && query[0] == 'r') {
         /* DECSTBM - Set Top and Bottom Margins */
         char reply[64];
-        int len = snprintf(reply, sizeof(reply), "\033P1$r%d;%dr\033\\",
-                           term->scroll_region.start + 1,
-                           term->scroll_region.end);
+        size_t len = xsnprintf(reply, sizeof(reply), "\033P1$r%d;%dr\033\\",
+                            term->scroll_region.start + 1,
+                            term->scroll_region.end);
         term_to_slave(term, reply, len);
     }
 
@@ -290,8 +297,15 @@ decrqss_unhook(struct terminal *term)
             append_sgr_attr("2");
         if (a->italic)
             append_sgr_attr("3");
-        if (a->underline)
-            append_sgr_attr("4");
+        if (a->underline) {
+            if (term->vt.underline.style > UNDERLINE_SINGLE) {
+                char value[4];
+                size_t val_len =
+                    xsnprintf(value, sizeof(value), "4:%d", term->vt.underline.style);
+                append_sgr_attr_n(&reply, &len, value, val_len);
+            } else
+                append_sgr_attr("4");
+        }
         if (a->blink)
             append_sgr_attr("5");
         if (a->reverse)
@@ -307,7 +321,7 @@ decrqss_unhook(struct terminal *term)
 
         case COLOR_BASE16: {
             char value[4];
-            int val_len = snprintf(
+            size_t val_len = xsnprintf(
                 value, sizeof(value), "%u",
                 a->fg >= 8 ? a->fg - 8 + 90 : a->fg + 30);
             append_sgr_attr_n(&reply, &len, value, val_len);
@@ -316,7 +330,7 @@ decrqss_unhook(struct terminal *term)
 
         case COLOR_BASE256: {
             char value[16];
-            int val_len = snprintf(value, sizeof(value), "38:5:%u", a->fg);
+            size_t val_len = xsnprintf(value, sizeof(value), "38:5:%u", a->fg);
             append_sgr_attr_n(&reply, &len, value, val_len);
             break;
         }
@@ -327,7 +341,7 @@ decrqss_unhook(struct terminal *term)
             uint8_t b = a->fg >> 0;
 
             char value[32];
-            int val_len = snprintf(
+            size_t val_len = xsnprintf(
                 value, sizeof(value), "38:2::%hhu:%hhu:%hhu", r, g, b);
             append_sgr_attr_n(&reply, &len, value, val_len);
             break;
@@ -340,7 +354,7 @@ decrqss_unhook(struct terminal *term)
 
         case COLOR_BASE16: {
             char value[4];
-            int val_len = snprintf(
+            size_t val_len = xsnprintf(
                 value, sizeof(value), "%u",
                 a->bg >= 8 ? a->bg - 8 + 100 : a->bg + 40);
             append_sgr_attr_n(&reply, &len, value, val_len);
@@ -349,7 +363,7 @@ decrqss_unhook(struct terminal *term)
 
         case COLOR_BASE256: {
             char value[16];
-            int val_len = snprintf(value, sizeof(value), "48:5:%u", a->bg);
+            size_t val_len = xsnprintf(value, sizeof(value), "48:5:%u", a->bg);
             append_sgr_attr_n(&reply, &len, value, val_len);
             break;
         }
@@ -360,8 +374,34 @@ decrqss_unhook(struct terminal *term)
             uint8_t b = a->bg >> 0;
 
             char value[32];
-            int val_len = snprintf(
+            size_t val_len = xsnprintf(
                 value, sizeof(value), "48:2::%hhu:%hhu:%hhu", r, g, b);
+            append_sgr_attr_n(&reply, &len, value, val_len);
+            break;
+        }
+        }
+
+        switch (term->vt.underline.color_src) {
+        case COLOR_DEFAULT:
+        case COLOR_BASE16:
+            break;
+
+        case COLOR_BASE256: {
+            char value[16];
+            size_t val_len = xsnprintf(
+                value, sizeof(value), "58:5:%u", term->vt.underline.color);
+            append_sgr_attr_n(&reply, &len, value, val_len);
+            break;
+        }
+
+        case COLOR_RGB: {
+            uint8_t r = term->vt.underline.color >> 16;
+            uint8_t g = term->vt.underline.color >> 8;
+            uint8_t b = term->vt.underline.color >> 0;
+
+            char value[32];
+            size_t val_len = xsnprintf(
+                value, sizeof(value), "58:2::%hhu:%hhu:%hhu", r, g, b);
             append_sgr_attr_n(&reply, &len, value, val_len);
             break;
         }
@@ -392,7 +432,7 @@ decrqss_unhook(struct terminal *term)
             mode--;
 
         char reply[16];
-        int len = snprintf(reply, sizeof(reply), "\033P1$r%d q\033\\", mode);
+        size_t len = xsnprintf(reply, sizeof(reply), "\033P1$r%d q\033\\", mode);
         term_to_slave(term, reply, len);
     }
 

@@ -12,12 +12,17 @@
 #include <fractional-scale-v1.h>
 #include <presentation-time.h>
 #include <primary-selection-unstable-v1.h>
+#include <single-pixel-buffer-v1.h>
 #include <text-input-unstable-v3.h>
 #include <viewporter.h>
 #include <xdg-activation-v1.h>
 #include <xdg-decoration-unstable-v1.h>
 #include <xdg-output-unstable-v1.h>
 #include <xdg-shell.h>
+
+#if defined(HAVE_XDG_TOPLEVEL_ICON)
+ #include <xdg-toplevel-icon-v1.h>
+#endif
 
 #include <fcft/fcft.h>
 #include <tllist.h>
@@ -191,6 +196,7 @@ struct seat {
 
         /* We used a discrete axis event in the current pointer frame */
         double aggregated[2];
+        double aggregated_120[2];
         bool have_discrete;
     } mouse;
 
@@ -243,12 +249,6 @@ struct seat {
         uint32_t serial;
     } ime;
 #endif
-
-    struct {
-        bool active;
-        int count;
-        char32_t character;
-    } unicode_mode;
 };
 
 enum csd_surface {
@@ -430,8 +430,6 @@ struct wayland {
     struct wl_subcompositor *sub_compositor;
     struct wl_shm *shm;
 
-    bool has_wl_compositor_v6;
-
     struct zxdg_output_manager_v1 *xdg_output_manager;
 
     struct xdg_wm_base *shell;
@@ -447,19 +445,27 @@ struct wayland {
 
     struct wp_cursor_shape_manager_v1 *cursor_shape_manager;
 
+    struct wp_single_pixel_buffer_manager_v1 *single_pixel_manager;
+
+#if defined(HAVE_XDG_TOPLEVEL_ICON)
+    struct xdg_toplevel_icon_manager_v1 *toplevel_icon_manager;
+#endif
+
     bool presentation_timings;
     struct wp_presentation *presentation;
     uint32_t presentation_clock_id;
-    
+
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     struct zwp_text_input_manager_v3 *text_input_manager;
 #endif
 
-    bool have_argb8888;
     tll(struct monitor) monitors;  /* All available outputs */
     tll(struct seat) seats;
 
     tll(struct terminal *) terms;
+
+    /* WL_SHM >= 2 */
+    bool use_shm_release;
 };
 
 struct wayland *wayl_init(
@@ -501,3 +507,5 @@ void wayl_win_subsurface_destroy(struct wayl_sub_surface *surf);
 bool wayl_get_activation_token(
     struct wayland *wayl, struct seat *seat, uint32_t serial,
     struct wl_window *win, activation_token_cb_t cb, void *cb_data);
+void wayl_activate(struct wayland *wayl, struct wl_window *win, const char *token);
+

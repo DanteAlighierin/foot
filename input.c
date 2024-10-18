@@ -306,8 +306,8 @@ execute_binding(struct seat *seat, struct terminal *term,
             }
         }
 
-        if (!spawn(term->reaper, term->cwd, binding->aux->pipe.args,
-                   pipe_fd[0], stdout_fd, stderr_fd, NULL))
+        if (spawn(term->reaper, term->cwd, binding->aux->pipe.args,
+                  pipe_fd[0], stdout_fd, stderr_fd, NULL, NULL, NULL) < 0)
             goto pipe_err;
 
         /* Close read end */
@@ -434,14 +434,18 @@ execute_binding(struct seat *seat, struct terminal *term,
 
             term_damage_view(term);
             render_refresh(term);
-            break; 
+            break;
         }
 
         return true;
     }
 
     case BIND_ACTION_UNICODE_INPUT:
-        unicode_mode_activate(seat);
+        unicode_mode_activate(term);
+        return true;
+
+    case BIND_ACTION_QUIT:
+        term_shutdown(term);
         return true;
 
     case BIND_ACTION_SELECT_BEGIN:
@@ -509,14 +513,6 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
      * Free old keymap state
      */
 
-    if (seat->kbd.xkb_compose_state != NULL) {
-        xkb_compose_state_unref(seat->kbd.xkb_compose_state);
-        seat->kbd.xkb_compose_state = NULL;
-    }
-    if (seat->kbd.xkb_compose_table != NULL) {
-        xkb_compose_table_unref(seat->kbd.xkb_compose_table);
-        seat->kbd.xkb_compose_table = NULL;
-    }
     if (seat->kbd.xkb_keymap != NULL) {
         xkb_keymap_unref(seat->kbd.xkb_keymap);
         seat->kbd.xkb_keymap = NULL;
@@ -524,10 +520,6 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     if (seat->kbd.xkb_state != NULL) {
         xkb_state_unref(seat->kbd.xkb_state);
         seat->kbd.xkb_state = NULL;
-    }
-    if (seat->kbd.xkb != NULL) {
-        xkb_context_unref(seat->kbd.xkb);
-        seat->kbd.xkb = NULL;
     }
 
     key_binding_unload_keymap(wayl->key_binding_manager, seat);
@@ -555,23 +547,11 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
     while (map_str[size - 1] == '\0')
         size--;
 
-    seat->kbd.xkb = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-
     if (seat->kbd.xkb != NULL) {
         seat->kbd.xkb_keymap = xkb_keymap_new_from_buffer(
             seat->kbd.xkb, map_str, size, XKB_KEYMAP_FORMAT_TEXT_V1,
             XKB_KEYMAP_COMPILE_NO_FLAGS);
 
-        /* Compose (dead keys) */
-        seat->kbd.xkb_compose_table = xkb_compose_table_new_from_locale(
-            seat->kbd.xkb, setlocale(LC_CTYPE, NULL), XKB_COMPOSE_COMPILE_NO_FLAGS);
-
-        if (seat->kbd.xkb_compose_table == NULL) {
-            LOG_WARN("failed to instantiate compose table; dead keys will not work");
-        } else {
-            seat->kbd.xkb_compose_state = xkb_compose_state_new(
-                seat->kbd.xkb_compose_table, XKB_COMPOSE_STATE_NO_FLAGS);
-        }
     }
 
     if (seat->kbd.xkb_keymap != NULL) {
@@ -969,8 +949,8 @@ legacy_kbd_protocol(struct seat *seat, struct terminal *term,
 #define is_control_key(x) ((x) >= 0x40 && (x) <= 0x7f)
 #define IS_CTRL(x) ((x) < 0x20 || ((x) >= 0x7f && (x) <= 0x9f))
 
-    LOG_DBG("term->modify_other_keys=%d, count=%zu, is_ctrl=%d (utf8=0x%02x), sym=%d",
-            term->modify_other_keys_2, count, IS_CTRL(utf8[0]), utf8[0], sym);
+    //LOG_DBG("term->modify_other_keys=%d, count=%zu, is_ctrl=%d (utf8=0x%02x), sym=%d",
+    //term->modify_other_keys_2, count, IS_CTRL(utf8[0]), utf8[0], sym);
 
     bool ctrl_is_in_effect = (keymap_mods & MOD_CTRL) != 0;
     bool ctrl_seq = is_control_key(sym) || (count == 1 && IS_CTRL(utf8[0]));
@@ -1158,7 +1138,8 @@ kitty_kbd_protocol(struct seat *seat, struct terminal *term,
     xassert(info == NULL || info->sym == sym);
 
     xkb_mod_mask_t mods = 0;
-    xkb_mod_mask_t consumed = 0;
+    xkb_mod_mask_t locked = 0;
+    xkb_mod_mask_t consumed = ctx->consumed;
 
     if (info != NULL && info->is_modifier) {
         /*
@@ -1184,9 +1165,12 @@ kitty_kbd_protocol(struct seat *seat, struct terminal *term,
         xkb_state_update_key(
             seat->kbd.xkb_state, ctx->key, pressed ? XKB_KEY_DOWN : XKB_KEY_UP);
 
-        get_current_modifiers(seat, &mods, NULL, ctx->key, false);
+        get_current_modifiers(seat, &mods, NULL, 0, false);
+
+        locked = xkb_state_serialize_mods(
+            seat->kbd.xkb_state, XKB_STATE_MODS_LOCKED);
         consumed = xkb_state_key_get_consumed_mods2(
-            seat->kbd.xkb_state, ctx->key, XKB_CONSUMED_MODE_GTK);
+            seat->kbd.xkb_state, ctx->key, XKB_CONSUMED_MODE_XKB);
 
 #if 0
         /*
@@ -1201,25 +1185,33 @@ kitty_kbd_protocol(struct seat *seat, struct terminal *term,
             seat->kbd.xkb_state, ctx->key, pressed ? XKB_KEY_UP : XKB_KEY_DOWN);
 #endif
     } else {
-        /* Same as ctx->mods, but without locked modifiers being
-           filtered out */
-        get_current_modifiers(seat, &mods, NULL, ctx->key, false);
-
-        /* Re-retrieve the consumed modifiers using the GTK mode, to
-           better match kitty. */
-        consumed = xkb_state_key_get_consumed_mods2(
-            seat->kbd.xkb_state, ctx->key, XKB_CONSUMED_MODE_GTK);
+        /* Same as ctx->mods, but *without* filtering locked modifiers */
+        get_current_modifiers(seat, &mods, NULL, 0, false);
+        locked = xkb_state_serialize_mods(
+            seat->kbd.xkb_state, XKB_STATE_MODS_LOCKED);
     }
 
     mods &= seat->kbd.kitty_significant;
     consumed &= seat->kbd.kitty_significant;
 
-    const xkb_mod_mask_t effective = mods & ~consumed;
-    const xkb_mod_mask_t caps_num =
-        (seat->kbd.mod_caps != XKB_MOD_INVALID ? 1 << seat->kbd.mod_caps : 0) |
-        (seat->kbd.mod_num != XKB_MOD_INVALID ? 1 << seat->kbd.mod_num : 0);
+    /*
+     * A note on locked modifiers; they *are* a part of the protocol,
+     * and *should* be included in the modifier set reported in the
+     * key event.
+     *
+     * However, *only* if the key would result in a CSIu *without* the
+     * locked modifier being enabled
+     *
+     * Translated: if *another* modifier is active, or if
+     * report-all-keys-as-escapes is enabled, then we include the
+     * locked modifier in the key event.
+     *
+     * But, if the key event would result in plain text output without
+     * the locked modifier, then we "ignore" the locked modifier and
+     * emit plain text anyway.
+     */
 
-    bool is_text = count > 0 && utf32 != NULL && (effective & ~caps_num) == 0;
+    bool is_text = count > 0 && utf32 != NULL && (mods & ~locked & ~consumed) == 0;
     for (size_t i = 0; utf32[i] != U'\0'; i++) {
         if (!iswprint(utf32[i])) {
             is_text = false;
@@ -1242,7 +1234,7 @@ kitty_kbd_protocol(struct seat *seat, struct terminal *term,
     if (report_all_as_escapes)
         goto emit_escapes;
 
-    if (effective == 0) {
+    if ((mods & ~locked & ~consumed) == 0) {
         switch (sym) {
         case XKB_KEY_Return:    term_to_slave(term, "\r", 1); return  true;
         case XKB_KEY_BackSpace: term_to_slave(term, "\x7f", 1); return true;
@@ -1449,6 +1441,34 @@ keysym_is_modifier(xkb_keysym_t keysym)
         keysym == XKB_KEY_Num_Lock;
 }
 
+#if defined(_DEBUG)
+static void
+modifier_string(xkb_mod_mask_t mods, size_t sz, char mod_str[static sz], const struct seat *seat)
+{
+    if (sz == 0)
+        return;
+
+    mod_str[0] = '\0';
+
+    for (size_t i = 0; i < sizeof(xkb_mod_mask_t) * 8; i++) {
+        if (!(mods & (1u << i)))
+            continue;
+
+        strcat(mod_str, xkb_keymap_mod_get_name(seat->kbd.xkb_keymap, i));
+        strcat(mod_str, "+");
+    }
+
+    if (mod_str[0] != '\0') {
+        /* Strip the last '+' */
+        mod_str[strlen(mod_str) - 1] = '\0';
+    }
+
+    if (mod_str[0] == '\0') {
+        strcpy(mod_str, "<none>");
+    }
+}
+#endif
+
 static void
 key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
                   uint32_t key, uint32_t state)
@@ -1506,7 +1526,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     xassert(bindings != NULL);
 
     if (pressed) {
-        if (seat->unicode_mode.active) {
+        if (term->unicode_mode.active) {
             unicode_mode_input(seat, term, sym);
             return;
         }
@@ -1532,22 +1552,28 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
         }
     }
 
-#if 0
-    for (size_t i = 0; i < 32; i++) {
-        if (mods & (1u << i)) {
-            LOG_INFO("%s", xkb_keymap_mod_get_name(seat->kbd.xkb_keymap, i));
-        }
-    }
-#endif
-
 #if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG
     char sym_name[100];
     xkb_keysym_get_name(sym, sym_name, sizeof(sym_name));
 
-    LOG_DBG("%s (%u/0x%x): seat=%s, term=%p, serial=%u, "
-            "mods=0x%08x, consumed=0x%08x, repeats=%d",
-            sym_name, sym, sym, seat->name, (void *)term, serial,
-            mods, consumed, should_repeat);
+    char active_mods_str[256] = {0};
+    char consumed_mods_str[256] = {0};
+    char locked_mods_str[256] = {0};
+
+    const xkb_mod_mask_t locked =
+        xkb_state_serialize_mods(seat->kbd.xkb_state, XKB_STATE_MODS_LOCKED);
+
+    modifier_string(mods, sizeof(active_mods_str), active_mods_str, seat);
+    modifier_string(consumed, sizeof(consumed_mods_str), consumed_mods_str, seat);
+    modifier_string(locked, sizeof(locked_mods_str), locked_mods_str, seat);
+
+    LOG_DBG("%s: %s (%u/0x%x), seat=%s, term=%p, serial=%u, "
+            "mods=%s (0x%08x), consumed=%s (0x%08x), locked=%s (0x%08x), "
+            "repeats=%d",
+            pressed ? "pressed" : "released", sym_name, sym, sym,
+            seat->name, (void *)term, serial,
+            active_mods_str, mods, consumed_mods_str, consumed,
+            locked_mods_str, locked, should_repeat);
 #endif
 
     /*
@@ -1655,7 +1681,7 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
     if (utf8 != buf)
         free(utf8);
 
-    if (handled) {
+    if (handled && !keysym_is_modifier(sym)) {
         term_reset_view(term);
         selection_cancel(term);
     }
@@ -1685,8 +1711,21 @@ keyboard_modifiers(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial,
 {
     struct seat *seat = data;
 
-    LOG_DBG("modifiers: depressed=0x%x, latched=0x%x, locked=0x%x, group=%u",
-            mods_depressed, mods_latched, mods_locked, group);
+#if defined(_DEBUG)
+    char depressed[256];
+    char latched[256];
+    char locked[256];
+
+    modifier_string(mods_depressed, sizeof(depressed), depressed, seat);
+    modifier_string(mods_latched, sizeof(latched), latched, seat);
+    modifier_string(mods_locked, sizeof(locked), locked, seat);
+
+    LOG_DBG(
+        "modifiers: depressed=%s (0x%x), latched=%s (0x%x), locked=%s (0x%x), "
+        "group=%u",
+        depressed, mods_depressed, latched, mods_latched, locked, mods_locked,
+        group);
+#endif
 
     if (seat->kbd.xkb_state != NULL) {
         xkb_state_update_mask(
@@ -1821,14 +1860,17 @@ mouse_coord_pixel_to_cell(struct seat *seat, const struct terminal *term,
      * if the cursor is outside the grid. I.e. if it is inside the
      * margins.
      */
-
-    if (x < term->margins.left || x >= term->width - term->margins.right)
-        seat->mouse.col = -1;
+    if (x < term->margins.left)
+        seat->mouse.col = 0;
+    else if (x >= term->width - term->margins.right)
+        seat->mouse.col = term->cols - 1;
     else
         seat->mouse.col = (x - term->margins.left) / term->cell_width;
 
-    if (y < term->margins.top || y >= term->height - term->margins.bottom)
-        seat->mouse.row = -1;
+    if (y < term->margins.top)
+        seat->mouse.row = 0;
+    else if (y >= term->height - term->margins.bottom)
+        seat->mouse.row = term->rows - 1;
     else
         seat->mouse.row = (y - term->margins.top) / term->cell_height;
 }
@@ -2011,6 +2053,25 @@ wl_pointer_leave(void *data, struct wl_pointer *wl_pointer,
     }
 }
 
+static bool
+pointer_is_on_button(const struct terminal *term, const struct seat *seat,
+                     enum csd_surface csd_surface)
+{
+    if (seat->mouse.x < 0)
+        return false;
+    if (seat->mouse.y < 0)
+        return false;
+
+    struct csd_data info = get_csd_data(term, csd_surface);
+    if (seat->mouse.x > info.width)
+        return false;
+
+    if (seat->mouse.y > info.height)
+        return false;
+
+    return true;
+}
+
 static void
 wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
                   uint32_t time, wl_fixed_t surface_x, wl_fixed_t surface_y)
@@ -2043,15 +2104,41 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
     int x = wl_fixed_to_int(surface_x) * term->scale;
     int y = wl_fixed_to_int(surface_y) * term->scale;
 
+    enum term_surface surf_kind = term->active_surface;
+    int button = 0;
+    bool send_to_client = false;
+    bool is_on_button = false;
+
+    /* If current surface is a button, check if pointer was on it
+       *before* the motion event */
+    switch (surf_kind) {
+    case TERM_SURF_BUTTON_MINIMIZE:
+        is_on_button = pointer_is_on_button(term, seat, CSD_SURF_MINIMIZE);
+        break;
+
+    case TERM_SURF_BUTTON_MAXIMIZE:
+        is_on_button = pointer_is_on_button(term, seat, CSD_SURF_MAXIMIZE);
+        break;
+
+    case TERM_SURF_BUTTON_CLOSE:
+        is_on_button = pointer_is_on_button(term, seat, CSD_SURF_CLOSE);
+        break;
+
+    case TERM_SURF_NONE:
+    case TERM_SURF_GRID:
+    case TERM_SURF_TITLE:
+    case TERM_SURF_BORDER_LEFT:
+    case TERM_SURF_BORDER_RIGHT:
+    case TERM_SURF_BORDER_TOP:
+    case TERM_SURF_BORDER_BOTTOM:
+        break;
+    }
+
     seat->pointer.hidden = false;
     seat->mouse.x = x;
     seat->mouse.y = y;
 
     term_xcursor_update_for_seat(term, seat);
-
-    enum term_surface surf_kind = term->active_surface;
-    int button = 0;
-    bool send_to_client = false;
 
     if (tll_length(seat->mouse.buttons) > 0) {
         const struct button_tracker *tracker = &tll_front(seat->mouse.buttons);
@@ -2062,9 +2149,21 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 
     switch (surf_kind) {
     case TERM_SURF_NONE:
+        break;
+
     case TERM_SURF_BUTTON_MINIMIZE:
+        if (pointer_is_on_button(term, seat, CSD_SURF_MINIMIZE) != is_on_button)
+            render_refresh_csd(term);
+        break;
+
     case TERM_SURF_BUTTON_MAXIMIZE:
+        if (pointer_is_on_button(term, seat, CSD_SURF_MAXIMIZE) != is_on_button)
+            render_refresh_csd(term);
+        break;
+
     case TERM_SURF_BUTTON_CLOSE:
+        if (pointer_is_on_button(term, seat, CSD_SURF_CLOSE) != is_on_button)
+            render_refresh_csd(term);
         break;
 
     case TERM_SURF_TITLE:
@@ -2088,49 +2187,10 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         int old_col = seat->mouse.col;
         int old_row = seat->mouse.row;
 
-        /*
-         * While the seat's mouse coordinates must always be on the
-         * grid, or -1, we allow updating the selection even when the
-         * mouse is outside the grid (could also be outside the
-         * terminal window).
-         */
-        int selection_col;
-        int selection_row;
+        mouse_coord_pixel_to_cell(seat, term, seat->mouse.x, seat->mouse.y);
 
-        if (x < term->margins.left) {
-            seat->mouse.col = -1;
-            selection_col = 0;
-        } else if (x >= term->width - term->margins.right) {
-            seat->mouse.col = -1;
-            selection_col = term->cols - 1;
-        } else {
-            seat->mouse.col = (x - term->margins.left) / term->cell_width;
-            selection_col = seat->mouse.col;
-        }
-
-        if (y < term->margins.top) {
-            seat->mouse.row = -1;
-            selection_row = 0;
-        } else if (y >= term->height - term->margins.bottom) {
-            seat->mouse.row = -1;
-            selection_row = term->rows - 1;
-        } else {
-            seat->mouse.row = (y - term->margins.top) / term->cell_height;
-            selection_row = seat->mouse.row;
-        }
-
-        /*
-         * If client is receiving events (because the button was
-         * pressed while the cursor was inside the grid area), then
-         * make sure it receives valid coordinates.
-         */
-        if (send_to_client) {
-            seat->mouse.col = selection_col;
-            seat->mouse.row = selection_row;
-        }
-
-        xassert(seat->mouse.col == -1 || (seat->mouse.col >= 0 && seat->mouse.col < term->cols));
-        xassert(seat->mouse.row == -1 || (seat->mouse.row >= 0 && seat->mouse.row < term->rows));
+        xassert(seat->mouse.col >= 0 && seat->mouse.col < term->cols);
+        xassert(seat->mouse.row >= 0 && seat->mouse.row < term->rows);
 
         /* Cursor has moved to a different cell since last time */
         bool cursor_is_on_new_cell
@@ -2147,9 +2207,13 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
         const bool cursor_is_on_grid = seat->mouse.col >= 0 && seat->mouse.row >= 0;
 
         enum selection_scroll_direction auto_scroll_direction
-            = y < term->margins.top ? SELECTION_SCROLL_UP
-            : y > term->height - term->margins.bottom ? SELECTION_SCROLL_DOWN
-            : SELECTION_SCROLL_NOT;
+            = term->selection.coords.end.row < 0
+                ? SELECTION_SCROLL_NOT
+                : y < term->margins.top
+                    ? SELECTION_SCROLL_UP
+                    : y > term->height - term->margins.bottom
+                        ? SELECTION_SCROLL_DOWN
+                        : SELECTION_SCROLL_NOT;
 
         if (auto_scroll_direction == SELECTION_SCROLL_NOT)
             selection_stop_scroll_timer(term);
@@ -2181,14 +2245,18 @@ wl_pointer_motion(void *data, struct wl_pointer *wl_pointer,
 
                 selection_start_scroll_timer(
                     term, 400000000 / (divisor > 0 ? divisor : 1),
-                    auto_scroll_direction, selection_col);
+                    auto_scroll_direction, seat->mouse.col);
             }
 
-            if (term->selection.ongoing && (
-                    cursor_is_on_new_cell ||
-                    term->selection.coords.end.row < 0))
+            if (term->selection.ongoing &&
+                (cursor_is_on_new_cell ||
+                 (term->selection.coords.end.row < 0 &&
+                  seat->mouse.x >= term->margins.left &&
+                  seat->mouse.x < term->width - term->margins.right &&
+                  seat->mouse.y >= term->margins.top &&
+                  seat->mouse.y < term->height - term->margins.bottom)))
             {
-                selection_update(term, selection_col, selection_row);
+                selection_update(term, seat->mouse.col, seat->mouse.row);
             }
         }
 
@@ -2235,8 +2303,8 @@ fdm_csd_move(struct fdm *fdm, int fd, int events, void *data)
 }
 
 static const struct key_binding *
- match_mouse_binding(const struct seat *seat, const struct terminal *term,
-                     int button)
+match_mouse_binding(const struct seat *seat, const struct terminal *term,
+                    int button)
 {
     if (seat->wl_keyboard != NULL && seat->kbd.xkb_state != NULL) {
         /* Seat has keyboard - use mouse bindings *with* modifiers */
@@ -2566,12 +2634,19 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
     }
 
     case TERM_SURF_BUTTON_MINIMIZE:
-        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+        if (button == BTN_LEFT &&
+            pointer_is_on_button(term, seat, CSD_SURF_MINIMIZE) &&
+            state == WL_POINTER_BUTTON_STATE_RELEASED)
+        {
             xdg_toplevel_set_minimized(term->window->xdg_toplevel);
+        }
         break;
 
     case TERM_SURF_BUTTON_MAXIMIZE:
-        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED) {
+        if (button == BTN_LEFT &&
+            pointer_is_on_button(term, seat, CSD_SURF_MAXIMIZE) &&
+            state == WL_POINTER_BUTTON_STATE_RELEASED)
+        {
             if (term->window->is_maximized)
                 xdg_toplevel_unset_maximized(term->window->xdg_toplevel);
             else
@@ -2580,8 +2655,12 @@ wl_pointer_button(void *data, struct wl_pointer *wl_pointer,
         break;
 
     case TERM_SURF_BUTTON_CLOSE:
-        if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+        if (button == BTN_LEFT &&
+            pointer_is_on_button(term, seat, CSD_SURF_CLOSE) &&
+            state == WL_POINTER_BUTTON_STATE_RELEASED)
+        {
             term_shutdown(term);
+        }
         break;
 
     case TERM_SURF_GRID: {
@@ -2669,7 +2748,7 @@ mouse_scroll(struct seat *seat, int amount, enum wl_pointer_axis axis)
     xassert(term != NULL);
 
     int button = axis == WL_POINTER_AXIS_VERTICAL_SCROLL
-        ? amount < 0 ? BTN_BACK : BTN_FORWARD
+        ? amount < 0 ? BTN_WHEEL_BACK : BTN_WHEEL_FORWARD
         : amount < 0 ? BTN_WHEEL_LEFT : BTN_WHEEL_RIGHT;
     amount = abs(amount);
 
@@ -2705,7 +2784,7 @@ mouse_scroll(struct seat *seat, int amount, enum wl_pointer_axis axis)
     }
 }
 
-static float
+static double
 mouse_scroll_multiplier(const struct terminal *term, const struct seat *seat)
 {
     return (term->grid == &term->normal ||
@@ -2749,15 +2828,15 @@ wl_pointer_axis(void *data, struct wl_pointer *wl_pointer,
 
 static void
 wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
-                         uint32_t axis, int32_t discrete)
+                         enum wl_pointer_axis axis, int32_t discrete)
 {
+    LOG_DBG("axis_discrete: %d", discrete);
     struct seat *seat = data;
 
     if (touch_is_active(seat))
         return;
 
     seat->mouse.have_discrete = true;
-
     int amount = discrete;
 
     if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
@@ -2767,6 +2846,50 @@ wl_pointer_axis_discrete(void *data, struct wl_pointer *wl_pointer,
 
     mouse_scroll(seat, amount, axis);
 }
+
+#if defined(WL_POINTER_AXIS_VALUE120_SINCE_VERSION)
+static void
+wl_pointer_axis_value120(void *data, struct wl_pointer *wl_pointer,
+                         enum wl_pointer_axis axis, int32_t value120)
+{
+    LOG_DBG("axis_value120: %d -> %.2f", value120, (float)value120 / 120.);
+
+    struct seat *seat = data;
+
+    if (touch_is_active(seat))
+        return;
+
+    seat->mouse.have_discrete = true;
+
+    /*
+     * 120 corresponds to a single "low-res" scroll step.
+     *
+     * When doing high-res scrolling, take the scrollback.multiplier,
+     * and calculate how many degrees there are per line.
+     *
+     * For example, with scrollback.multiplier = 3, we have 120 / 3 == 40.
+     *
+     * Then, accumulate high-res scroll events, until we have *at
+     * least* that much. Translate the accumulated value to number of
+     * lines, and scroll.
+     *
+     * Subtract the "used" degrees from the accumulated value, and
+     * keep what's left (this value will always be less than the
+     * per-line value).
+     */
+    const double multiplier = mouse_scroll_multiplier(seat->mouse_focus, seat);
+    const double per_line = 120. / multiplier;
+
+    seat->mouse.aggregated_120[axis] += (double)value120;
+
+    if (fabs(seat->mouse.aggregated_120[axis]) < per_line)
+        return;
+
+    int lines = (int)(seat->mouse.aggregated_120[axis] / per_line);
+    mouse_scroll(seat, lines, axis);
+    seat->mouse.aggregated_120[axis] -= (double)lines * per_line;
+}
+#endif
 
 static void
 wl_pointer_frame(void *data, struct wl_pointer *wl_pointer)
@@ -2799,15 +2922,18 @@ wl_pointer_axis_stop(void *data, struct wl_pointer *wl_pointer,
 }
 
 const struct wl_pointer_listener pointer_listener = {
-    .enter = wl_pointer_enter,
-    .leave = wl_pointer_leave,
-    .motion = wl_pointer_motion,
-    .button = wl_pointer_button,
-    .axis = wl_pointer_axis,
-    .frame = wl_pointer_frame,
-    .axis_source = wl_pointer_axis_source,
-    .axis_stop = wl_pointer_axis_stop,
-    .axis_discrete = wl_pointer_axis_discrete,
+    .enter = &wl_pointer_enter,
+    .leave = &wl_pointer_leave,
+    .motion = &wl_pointer_motion,
+    .button = &wl_pointer_button,
+    .axis = &wl_pointer_axis,
+    .frame = &wl_pointer_frame,
+    .axis_source = &wl_pointer_axis_source,
+    .axis_stop = &wl_pointer_axis_stop,
+    .axis_discrete = &wl_pointer_axis_discrete,
+#if defined(WL_POINTER_AXIS_VALUE120_SINCE_VERSION)
+    .axis_value120 = &wl_pointer_axis_value120,
+#endif
 };
 
 static bool

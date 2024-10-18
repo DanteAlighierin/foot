@@ -150,7 +150,7 @@ m*.
 |  3
 :  Italic
 |  4
-:  Underline
+:  Underline, including styled underlines
 |  5
 :  Blink
 |  7
@@ -159,6 +159,8 @@ m*.
 :  Conceal; text is not visible, but is copiable
 |  9
 :  Crossed-out/strike
+|  21
+:  Double underline
 |  22
 :  Disable *bold* and *dim*
 |  23
@@ -176,15 +178,19 @@ m*.
 |  30-37
 :  Select foreground color (using *regularN* in *foot.ini*(5))
 |  38
-:  See "indexed and RGB colors" below
+:  Select foreground color, see "indexed and RGB colors" below
 |  39
 :  Use the default foreground color (*foreground* in *foot.ini*(5))
 |  40-47
 :  Select background color (using *regularN* in *foot.ini*(5))
 |  48
-:  See "indexed and RGB colors" below
+:  Select background color, see "indexed and RGB colors" below
 |  49
 :  Use the default background color (*background* in *foot.ini*(5))
+|  58
+:  Select underline color, see "indexed and RGB colors" below
+|  59
+:  Use the default underline color
 |  90-97
 :  Select foreground color (using *brightN* in *foot.ini*(5))
 |  100-107
@@ -331,6 +337,9 @@ that corresponds to one of the following modes:
 |  2027
 :  contour
 :  Grapheme cluster processing
+|  2048
+:  TODO
+:  In-band window resize notifications
 |  8452
 :  xterm
 :  Position cursor to the right of sixels, instead of on the next line
@@ -379,15 +388,27 @@ manipulation sequences. The generic format is:
 |  19
 :  -
 :  Report screen size, in characters.
+|  20
+:  -
+:  Report icon label.
+|  21
+:  -
+:  Report window title.
 |  22
 :  -
-:  Push window title+icon. Foot does not support pushing the icon.
+:  Push window title+icon.
+|  22
+:  1
+:  Push window icon.
 |  22
 :  2
 :  Push window title.
 |  23
 :  -
-:  Pop window title+icon. Foot does not support popping the icon.
+:  Pop window title+icon.
+|  23
+:  1
+:  Pop window icon.
 |  23
 :  2
 :  Pop window title.
@@ -443,13 +464,13 @@ manipulation sequences. The generic format is:
 |  \\E[ _Pm_ h
 :  SM
 :  VT100
-:  Set mode. _Pm_=4 -> enable IRM (insert mode). All other values of
-   _Pm_ are unsupported.
+:  Set mode. _Pm_=4 -> enable IRM (Insertion Replacement Mode). All
+   other values of _Pm_ are unsupported.
 |  \\E[ _Pm_ l
 :  RM
 :  VT100
-:  Reset mode. _Pm_=4 -> disable IRM (insert mode). All other values of
-   _Pm_ are unsupported.
+:  Reset mode. _Pm_=4 -> disable IRM (Insertion Replacement Mode). All
+   other values of _Pm_ are unsupported.
 |  \\E[ _Ps_ n
 :  DSR
 :  VT100
@@ -487,7 +508,39 @@ manipulation sequences. The generic format is:
 |  \\E[ ? _Ps_ $ p
 :  DECRQM
 :  VT320
-:  Request DEC private mode.
+:  Request status of DEC private mode. The _Ps_ parameter corresponds
+   to one of the values mentioned in the "Private Modes" section above
+   (as set with DECSET/DECRST).
+|  \\E[ _Ps_ $ p
+:  DECRQM
+:  VT320
+:  Request status of ECMA-48/ANSI mode. See the descriptions for SM/RM
+   above for recognized _Ps_ values.
+|  \\E[ _Pt_ ; _Pl_ ; _Pb_ ; _Pr_ ; _Pm_ $ r
+:  DECCARA
+:  VT400
+:  Change attributes in rectangular area. _Pt_, _Pl_, _Pb_ and _Pr_
+   denotes the rectangle, _Pm_ denotes the SGR attributes.
+|  \\E[ _Pt_ ; _Pl_ ; _Pb_ ; _Pr_ ; _Pm_ $ t
+:  DECRARA
+:  VT400
+:  Invert attributes in rectangular area. _Pt_, _Pl_, _Pb_ and _Pr_
+   denotes the rectangle, _Pm_ denotes the SGR attributes.
+|  \\E[ _Pt_ ; _Pl_ ; _Pb_ ; _Pr_ ; _Pp_ ; _Pt_ ; _Pl_ ; _Pp_ $ v
+:  DECCRA
+:  VT400
+:  Copy rectangular area.  _Pt_, _Pl_, _Pb_ and _Pr_ denotes the
+   rectangle, _Pt_ and _Pl_ denotes the target location.
+|  \\E[ _Pc_ ; _Pt_ ; _Pl_ ; _Pb_ ; _Pr_ $ x
+:  DECFRA
+:  VT420
+:  Fill rectangular area. _Pc_ is the character to use, _Pt_, _Pl_,
+   _Pb_ and _Pr_ denotes the rectangle.
+|  \\E[ _Pt_ ; _Pl_ ; _Pb_ ; _Pr_ $ z
+:  DECERA
+:  VT400
+:  Erase rectangular area. _Pt_, _Pl_, _Pb_ and _Pr_ denotes the
+   rectangle.
 |  \\E[ _Ps_ T
 :  SD
 :  VT420
@@ -594,6 +647,19 @@ manipulation sequences. The generic format is:
 :  <unnamed>
 :  kitty
 :  Update current Kitty keyboard flags, according to _mode_.
+|  \\E[ # P
+:  XTPUSHCOLORS
+:  xterm
+:  Push current color palette onto stack
+|  \\E[ # Q
+:  XTPOPCOLORS
+:  xterm
+:  Pop color palette from stack
+|  \\E[ # R
+:  XTREPORTCOLORS
+:  xterm
+:  Report the current entry on the palette stack, and the number of
+   palettes stored on the stack.
 
 
 # OSC
@@ -605,8 +671,10 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 :< *Description*
 |  \\E] 0 ; _Pt_ \\E\\ 
 :  xterm
-:  Set window icon and title to _Pt_ (foot does not support setting the
-   icon)
+:  Set window icon and title to _Pt_.
+|  \\E] 1 ; _Pt_ \\E\\ 
+:  xterm
+:  Set window icon to _Pt_.
 |  \\E] 2 ; _Pt_ \\E\\ 
 :  xterm
 :  Set window title to _Pt_
@@ -664,6 +732,10 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 :  Copy _Pd_ (base64 encoded text) to the clipboard. _Pc_ denotes the
    target: *c* targets the clipboard and *s* and *p* the primary
    selection.
+|  \\E] 99 ; _params_ ; _payload_ \\E\\
+:  kitty
+:  Desktop notification; uses *desktop-notifications.command* in
+   *foot.ini*(5).
 |  \\E] 104 ; _c_ \\E\\ 
 :  xterm
 :  Reset color number _c_ (multiple semicolon separated _c_ values may
@@ -703,7 +775,8 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 :  Flash the entire terminal (foot extension)
 |  \\E] 777;notify;_title_;_msg_ \\E\\ 
 :  urxvt
-:  Desktop notification, uses *notify* in *foot.ini*(5).
+:  Desktop notification, uses *desktop-notifications.command* in
+   *foot.ini*(5).
 
 # DCS
 
@@ -714,7 +787,7 @@ and are terminated by *\\E\\* (ST).
 :< *Description*
 |  \\EP q <sixel data> \\E\\ 
 :  Emit a sixel image at the current cursor position
-|  \\P $ q <query> \\E\\ 
+|  \\EP $ q <query> \\E\\ 
 :  Request selection or setting (DECRQSS). Implemented queries:
    DECSTBM, SGR and DECSCUSR.
 |  \\EP = _C_ s \\E\\ 

@@ -42,3 +42,10 @@ timespec_sub(const struct timespec *a, const struct timespec *b,
         res->tv_nsec += one_sec_in_ns;
     }
 }
+
+bool
+is_valid_utf8(const char *value)
+{
+    return value != NULL &&
+           mbsntoc32(NULL, value, strlen(value), 0) != (size_t)-1;
+}

@@ -19,6 +19,29 @@ static size_t count;
 static void sixel_put_generic(struct terminal *term, uint8_t c);
 static void sixel_put_ar_11(struct terminal *term, uint8_t c);
 
+/* VT330/VT340 Programmer Reference Manual  - Table 2-3 VT340 Default Color Map */
+static const uint32_t vt340_default_colors[16] = {
+    0xff000000,
+    0xff3333cc,
+    0xffcc2121,
+    0xff33cc33,
+    0xffcc33cc,
+    0xff33cccc,
+    0xffcccc33,
+    0xff878787,
+    0xff424242,
+    0xff545499,
+    0xff994242,
+    0xff549954,
+    0xff995499,
+    0xff549999,
+    0xff999954,
+    0xffcccccc,
+};
+
+_Static_assert(sizeof(vt340_default_colors) / sizeof(vt340_default_colors[0]) == 16,
+               "wrong number of elements");
+
 void
 sixel_fini(struct terminal *term)
 {
@@ -31,7 +54,13 @@ sixel_put
 sixel_init(struct terminal *term, int p1, int p2, int p3)
 {
     /*
-     * P1: pixel aspect ratio - unimplemented
+     * P1: pixel aspect ratio
+     *  - 0,1   - 2:1
+     *  - 2     - 5:1
+     *  - 3,4   - 3:1
+     *  - 5,6   - 2:1
+     *  - 7,8,9 - 1:1
+     *
      * P2: background color mode
      *  - 0|2: empty pixels use current background color
      *  - 1:   empty pixels remain at their current color (i.e. transparent)
@@ -56,7 +85,6 @@ sixel_init(struct terminal *term, int p1, int p2, int p3)
 
     term->sixel.state = SIXEL_DECSIXEL;
     term->sixel.pos = (struct coord){0, 0};
-    term->sixel.row_byte_ofs = 0;
     term->sixel.color_idx = 0;
     term->sixel.pan = pan;
     term->sixel.pad = pad;
@@ -65,20 +93,33 @@ sixel_init(struct terminal *term, int p1, int p2, int p3)
     memset(term->sixel.params, 0, sizeof(term->sixel.params));
     term->sixel.transparent_bg = p2 == 1;
     term->sixel.image.data = NULL;
+    term->sixel.image.p = NULL;
     term->sixel.image.width = 0;
     term->sixel.image.height = 0;
-
-    /* TODO: default palette */
+    term->sixel.image.alloc_height = 0;
+    term->sixel.image.bottom_pixel = 0;
 
     if (term->sixel.use_private_palette) {
         xassert(term->sixel.private_palette == NULL);
         term->sixel.private_palette = xcalloc(
             term->sixel.palette_size, sizeof(term->sixel.private_palette[0]));
+
+        memcpy(
+            term->sixel.private_palette, vt340_default_colors,
+            min(sizeof(vt340_default_colors),
+                term->sixel.palette_size * sizeof(term->sixel.private_palette[0])));
+
         term->sixel.palette = term->sixel.private_palette;
+
     } else {
         if (term->sixel.shared_palette == NULL) {
             term->sixel.shared_palette = xcalloc(
                 term->sixel.palette_size, sizeof(term->sixel.shared_palette[0]));
+
+            memcpy(
+                term->sixel.shared_palette, vt340_default_colors,
+                min(sizeof(vt340_default_colors),
+                    term->sixel.palette_size * sizeof(term->sixel.shared_palette[0])));
         } else {
             /* Shared palette - do *not* reset palette for new sixels */
         }
@@ -86,40 +127,11 @@ sixel_init(struct terminal *term, int p1, int p2, int p3)
         term->sixel.palette = term->sixel.shared_palette;
     }
 
-    uint32_t bg = 0;
+    if (term->sixel.transparent_bg)
+        term->sixel.default_bg = 0x00000000u;
+    else
+        term->sixel.default_bg = term->sixel.palette[0];
 
-    switch (term->vt.attrs.bg_src) {
-    case COLOR_RGB:
-        bg = 0xffu << 24 | term->vt.attrs.bg;
-        break;
-
-    case COLOR_BASE16:
-    case COLOR_BASE256:
-        bg = 0xffu << 24 | term->colors.table[term->vt.attrs.bg];
-        break;
-
-    case COLOR_DEFAULT:
-        if (term->colors.alpha == 0xffff)
-            bg = 0xffu << 24 | term->colors.bg;
-        else {
-            /* Alpha needs to be pre-multiplied */
-            uint32_t r = (term->colors.bg >> 16) & 0xff;
-            uint32_t g = (term->colors.bg >> 8) & 0xff;
-            uint32_t b = (term->colors.bg >> 0) & 0xff;
-
-            uint32_t alpha = term->colors.alpha;
-            r *= alpha; r /= 0xffff;
-            g *= alpha; g /= 0xffff;
-            b *= alpha; b /= 0xffff;
-
-            bg = (alpha >> 8) << 24 | (r & 0xff) << 16 | (g & 0xff) << 8 | (b & 0xff);
-        }
-        break;
-    }
-
-    term->sixel.default_bg = term->sixel.transparent_bg
-        ? 0x00000000u
-        : bg;
 
     count = 0;
     return pan == 1 && pad == 1 ? &sixel_put_ar_11 : &sixel_put_generic;
@@ -379,6 +391,8 @@ sixel_scroll_up(struct terminal *term, int rows)
         }
     }
 
+    term->bits_affecting_ascii_printer.sixels =
+        tll_length(term->grid->sixel_images) > 0;
     term_update_ascii_printer(term);
     verify_sixels(term);
 }
@@ -403,6 +417,8 @@ sixel_scroll_down(struct terminal *term, int rows)
             break;
     }
 
+    term->bits_affecting_ascii_printer.sixels =
+        tll_length(term->grid->sixel_images) > 0;
     term_update_ascii_printer(term);
     verify_sixels(term);
 }
@@ -613,7 +629,8 @@ sixel_overwrite(struct terminal *term, struct sixel *six,
     pixman_region32_t cell_intersection;
     pixman_region32_init(&cell_intersection);
     pixman_region32_intersect(&cell_intersection, &six_rect, &overwrite_rect);
-    xassert(pixman_region32_not_empty(&cell_intersection));
+    xassert(!pixman_region32_not_empty(&six_rect) ||
+            pixman_region32_not_empty(&cell_intersection));
     pixman_region32_fini(&cell_intersection);
 #endif
 
@@ -810,6 +827,8 @@ sixel_overwrite_by_rectangle(
     } else
         _sixel_overwrite_by_rectangle(term, start, col, height, width, NULL, NULL);
 
+    term->bits_affecting_ascii_printer.sixels =
+        tll_length(term->grid->sixel_images) > 0;
     term_update_ascii_printer(term);
 }
 
@@ -866,6 +885,8 @@ sixel_overwrite_by_row(struct terminal *term, int _row, int col, int width)
         }
     }
 
+    term->bits_affecting_ascii_printer.sixels =
+        tll_length(term->grid->sixel_images) > 0;
     term_update_ascii_printer(term);
 }
 
@@ -1062,6 +1083,81 @@ sixel_reflow(struct terminal *term)
 void
 sixel_unhook(struct terminal *term)
 {
+    if (term->sixel.pos.row < term->sixel.image.height &&
+        term->sixel.pos.row + 6 * term->sixel.pan >= term->sixel.image.height)
+    {
+        /*
+         * Handle case where image has had its size set by raster
+         * attributes, and then one or more sixels were printed on the
+         * last row of the RA area.
+         *
+         * In this case, the image height may not be a multiple of
+         * 6*pan. But the printed sixels may still be outside the RA
+         * area. In this case, using the size from the RA would
+         * truncate the image.
+         *
+         * So, extend the image to a multiple of 6*pan.
+         *
+         * If this is a transparent image, the image may get trimmed
+         * below (most likely back the size set by RA).
+         */
+        term->sixel.image.height = term->sixel.image.alloc_height;
+    }
+
+    /* Strip trailing fully transparent rows, *unless* we *ended* with
+     * a trailing GNL, in which case we do *not* want to strip all 6
+     * pixel rows */
+    if (term->sixel.pos.col > 0) {
+        const int bits = sizeof(term->sixel.image.bottom_pixel) * 8;
+        const int leading_zeroes = term->sixel.image.bottom_pixel == 0
+            ? bits
+            : __builtin_clz(term->sixel.image.bottom_pixel);
+        const int rows_to_trim = leading_zeroes + 6 - bits;
+
+        LOG_DBG("bottom-pixel: 0x%02x, bits=%d, leading-zeroes=%d, "
+                "rows-to-trim=%d*%d", term->sixel.image.bottom_pixel,
+                bits, leading_zeroes, rows_to_trim, term->sixel.pan);
+
+        /*
+         * If the current graphical cursor position is at the last row
+         * of the image, *and* the image is transparent (P2=1), trim
+         * the entire image.
+         *
+         * If the image is not transparent, then we can't trim the RA
+         * region (it is supposed to "erase", with the current
+         * background color.)
+         *
+         * We *do* "trim" transparent rows from the graphical cursor
+         * position, as this affects the positioning of the text
+         * cursor.
+         *
+         * See https://raw.githubusercontent.com/hackerb9/vt340test/main/sixeltests/p2effect.sh
+         */
+        if (term->sixel.pos.row + 6 * term->sixel.pan >= term->sixel.image.alloc_height) {
+            LOG_DBG("trimming image");
+            const int trimmed_height =
+                term->sixel.image.alloc_height - rows_to_trim * term->sixel.pan;
+
+            if (term->sixel.transparent_bg) {
+                /* Image is transparent - trim as much as possible */
+                term->sixel.image.height = trimmed_height;
+            } else  {
+                /* Image is opaque. We can't trim anything "inside"
+                   the RA region */
+                if (trimmed_height > term->sixel.image.height) {
+                    /* There are non-empty pixels *outside* the RA
+                       region - trim up to that point */
+                    term->sixel.image.height = trimmed_height;
+                }
+            }
+        } else {
+            LOG_DBG("only adjusting cursor position");
+        }
+
+        term->sixel.pos.row += 6 * term->sixel.pan;
+        term->sixel.pos.row -= rows_to_trim * term->sixel.pan;
+    }
+
     int pixel_row_idx = 0;
     int pixel_rows_left = term->sixel.image.height;
     const int stride = term->sixel.image.width * sizeof(uint32_t);
@@ -1096,10 +1192,9 @@ sixel_unhook(struct terminal *term)
     int start_row = do_scroll ? term->grid->cursor.point.row : 0;
     const int start_col = do_scroll ? term->grid->cursor.point.col : 0;
 
-    /* Total number of rows needed by image (+ optional newline at the end) */
+    /* Total number of rows needed by image */
     const int rows_needed =
-        (term->sixel.image.height + term->cell_height - 1) / term->cell_height +
-        (term->sixel.cursor_right_of_graphics ? 0 : 1);
+        (term->sixel.image.height + term->cell_height - 1) / term->cell_height;
 
     bool free_image_data = true;
 
@@ -1162,7 +1257,7 @@ sixel_unhook(struct terminal *term)
 
         LOG_DBG("generating %s %dx%d pixman image at %d-%d",
                 image.opaque ? "opaque" : "transparent",
-                image.width, image.height,
+                image.original.width, image.original.height,
                 image.pos.row, image.pos.row + image.rows);
 
         image.original.pix = pixman_image_create_bits_no_clear(
@@ -1197,19 +1292,14 @@ sixel_unhook(struct terminal *term)
                 int row = term->grid->cursor.point.row;
 
                 /*
-                 * Position the text cursor based on the **upper**
-                 * pixel, of the last sixel.
-                 *
-                 * In most cases, that'll end up being the very last
-                 * row of the sixel (which we're already at, thanks to
-                 * the linefeeds). But for some combinations of font
-                 * and image sizes, the final cursor position is
-                 * higher up.
+                 * Position the text cursor based on the text row
+                 * touched by the last sixel
                  */
-                const int sixel_row_height = 6 * term->sixel.pan;
-                const int sixel_rows = (image.original.height + sixel_row_height - 1) / sixel_row_height;
-                const int upper_pixel_last_sixel = (sixel_rows - 1) * sixel_row_height;
-                const int term_rows = (upper_pixel_last_sixel + term->cell_height - 1) / term->cell_height;
+                const int pixel_rows = pixel_rows_left > 0
+                    ? image.original.height
+                    : term->sixel.pos.row;
+                const int term_rows =
+                    (pixel_rows + term->cell_height - 1) / term->cell_height;
 
                 xassert(term_rows <= image.rows);
 
@@ -1222,6 +1312,8 @@ sixel_unhook(struct terminal *term)
                      ? min(image.pos.col + image.cols, term->cols - 1)
                      : image.pos.col));
             }
+
+            term->sixel.pos.row -= image.original.height;
         }
 
         /* Dirty touched cells, and scroll terminal content if necessary */
@@ -1263,6 +1355,7 @@ sixel_unhook(struct terminal *term)
         free(term->sixel.image.data);
 
     term->sixel.image.data = NULL;
+    term->sixel.image.p = NULL;
     term->sixel.image.width = 0;
     term->sixel.image.height = 0;
     term->sixel.pos = (struct coord){0, 0};
@@ -1273,31 +1366,43 @@ sixel_unhook(struct terminal *term)
     LOG_DBG("you now have %zu sixels in current grid",
             tll_length(term->grid->sixel_images));
 
+
+    term->bits_affecting_ascii_printer.sixels =
+        tll_length(term->grid->sixel_images) > 0;
     term_update_ascii_printer(term);
     render_refresh(term);
 }
 
-static void
-resize_horizontally(struct terminal *term, int new_width)
+static void ALWAYS_INLINE inline
+memset_u32(uint32_t *data, uint32_t value, size_t count)
 {
-    if (unlikely(new_width > term->sixel.max_width)) {
+    static_assert(sizeof(wchar_t) == 4, "wchar_t is not 4 bytes");
+    wmemset((wchar_t *)data, (wchar_t)value, count);
+}
+
+static void
+resize_horizontally(struct terminal *term, int new_width_mutable)
+{
+    if (unlikely(new_width_mutable > term->sixel.max_width)) {
         LOG_WARN("maximum image dimensions exceeded, truncating");
-        new_width = term->sixel.max_width;
+        new_width_mutable = term->sixel.max_width;
     }
 
-    if (unlikely(term->sixel.image.width == new_width))
+    if (unlikely(term->sixel.image.width >= new_width_mutable))
         return;
 
     const int sixel_row_height = 6 * term->sixel.pan;
 
     uint32_t *old_data = term->sixel.image.data;
     const int old_width = term->sixel.image.width;
+    const int new_width = new_width_mutable;
 
     int height;
     if (unlikely(term->sixel.image.height == 0)) {
         /* Lazy initialize height on first printed sixel */
         xassert(old_width == 0);
         term->sixel.image.height = height = sixel_row_height;
+        term->sixel.image.alloc_height = sixel_row_height;
     } else
         height = term->sixel.image.height;
 
@@ -1307,6 +1412,7 @@ resize_horizontally(struct terminal *term, int new_width)
 
     int alloc_height = (height + sixel_row_height - 1) / sixel_row_height * sixel_row_height;
 
+    xassert(new_width >= old_width);
     xassert(new_width > 0);
     xassert(alloc_height > 0);
 
@@ -1316,24 +1422,26 @@ resize_horizontally(struct terminal *term, int new_width)
     uint32_t bg = term->sixel.default_bg;
 
     /* Copy old rows, and initialize new columns to background color */
-    for (int r = 0; r < height; r++) {
-        memcpy(&new_data[r * new_width],
-               &old_data[r * old_width],
-               old_width * sizeof(uint32_t));
-
-        for (int c = old_width; c < new_width; c++)
-            new_data[r * new_width + c] = bg;
+    const uint32_t *end = &new_data[alloc_height * new_width];
+    for (uint32_t *n = new_data, *o = old_data;
+         n < end;
+         n += new_width, o += old_width)
+    {
+        memcpy(n, o, old_width * sizeof(uint32_t));
+        memset_u32(&n[old_width], bg, new_width - old_width);
     }
 
     free(old_data);
 
     term->sixel.image.data = new_data;
     term->sixel.image.width = new_width;
-    term->sixel.row_byte_ofs = term->sixel.pos.row * new_width;
+
+    const int ofs = term->sixel.pos.row * new_width + term->sixel.pos.col;
+    term->sixel.image.p = &term->sixel.image.data[ofs];
 }
 
 static bool
-resize_vertically(struct terminal *term, int new_height)
+resize_vertically(struct terminal *term, const int new_height)
 {
     LOG_DBG("resizing image vertically: (%d)x%d -> (%d)x%d",
             term->sixel.image.width, term->sixel.image.height,
@@ -1347,14 +1455,16 @@ resize_vertically(struct terminal *term, int new_height)
     uint32_t *old_data = term->sixel.image.data;
     const int width = term->sixel.image.width;
     const int old_height = term->sixel.image.height;
+    const int sixel_row_height = 6 * term->sixel.pan;
 
-    int alloc_height = (new_height + 6 - 1) / 6 * 6;
+    int alloc_height = (new_height + sixel_row_height - 1) / sixel_row_height * sixel_row_height;
 
     xassert(new_height > 0);
 
     if (unlikely(width == 0)) {
         xassert(term->sixel.image.data == NULL);
         term->sixel.image.height = new_height;
+        term->sixel.image.alloc_height = alloc_height;
         return true;
     }
 
@@ -1366,57 +1476,88 @@ resize_vertically(struct terminal *term, int new_height)
         return false;
     }
 
-    uint32_t bg = term->sixel.default_bg;
+    const uint32_t bg = term->sixel.default_bg;
 
-    /* Initialize new rows to background color */
-    for (int r = old_height; r < new_height; r++) {
-        for (int c = 0; c < width; c++)
-            new_data[r * width + c] = bg;
-    }
+    memset_u32(&new_data[old_height * width],
+               bg,
+               (alloc_height - old_height) * width);
+
+    term->sixel.image.height = new_height;
+    term->sixel.image.alloc_height = alloc_height;
+
+    const int ofs =
+        term->sixel.pos.row * term->sixel.image.width + term->sixel.pos.col;
 
     term->sixel.image.data = new_data;
-    term->sixel.image.height = new_height;
+    term->sixel.image.p = &term->sixel.image.data[ofs];
+
     return true;
 }
 
 static bool
-resize(struct terminal *term, int new_width, int new_height)
+resize(struct terminal *term, int new_width_mutable, int new_height_mutable)
 {
     LOG_DBG("resizing image: %dx%d -> %dx%d",
             term->sixel.image.width, term->sixel.image.height,
-            new_width, new_height);
+            new_width_mutable, new_height_mutable);
 
-    if (unlikely(new_width > term->sixel.max_width)) {
+    if (unlikely(new_width_mutable > term->sixel.max_width)) {
         LOG_WARN("maximum image width exceeded, truncating");
-        new_width = term->sixel.max_width;
+        new_width_mutable = term->sixel.max_width;
     }
 
-    if (unlikely(new_height > term->sixel.max_height)) {
+    if (unlikely(new_height_mutable > term->sixel.max_height)) {
         LOG_WARN("maximum image height exceeded, truncating");
-        new_height = term->sixel.max_height;
+        new_height_mutable = term->sixel.max_height;
     }
+
 
     uint32_t *old_data = term->sixel.image.data;
     const int old_width = term->sixel.image.width;
     const int old_height = term->sixel.image.height;
+    const int new_width = new_width_mutable;
+    const int new_height = new_height_mutable;
 
     if (unlikely(old_width == new_width && old_height == new_height))
         return true;
 
     const int sixel_row_height = 6 * term->sixel.pan;
-    int alloc_new_width = new_width;
-    int alloc_new_height = (new_height + sixel_row_height - 1) / sixel_row_height * sixel_row_height;
+    const int alloc_new_height =
+        (new_height + sixel_row_height - 1) / sixel_row_height * sixel_row_height;
+
     xassert(alloc_new_height >= new_height);
     xassert(alloc_new_height - new_height < sixel_row_height);
 
     uint32_t *new_data = NULL;
-    uint32_t bg = term->sixel.default_bg;
+    const uint32_t bg = term->sixel.default_bg;
+
+    /*
+     * If the image is resized horizontally, or if it's opaque, we
+     * need to explicitly initialize the "new" pixels.
+     *
+     * When the image is *not* resized horizontally, we simply do a
+     * realloc(). In this case, there's no need to manually copy the
+     * old pixels. We do however need to initialize the new pixels
+     * since realloc() returns uninitialized memory.
+     *
+     * When the image *is* resized horizontally, we need to allocate
+     * new memory (when the width changes, the stride changes, and
+     * thus we cannot simply realloc())
+     *
+     * If the default background is transparent, the new pixels need
+     * to be initialized to 0x0. We do this by using calloc().
+     *
+     * If the default background is opaque, then we need to manually
+     * initialize the new pixels.
+     */
+    const bool initialize_bg =
+        !term->sixel.transparent_bg || new_width == old_width;
 
     if (new_width == old_width) {
         /* Width (and thus stride) is the same, so we can simply
          * re-alloc the existing buffer */
 
-        new_data = realloc(old_data, alloc_new_width * alloc_new_height * sizeof(uint32_t));
+        new_data = realloc(old_data, new_width * alloc_new_height * sizeof(uint32_t));
         if (new_data == NULL) {
             LOG_ERRNO("failed to reallocate sixel image buffer");
             return false;
@@ -1427,81 +1568,80 @@ resize(struct terminal *term, int new_width, int new_height)
     } else {
         /* Width (and thus stride) change - need to allocate a new buffer */
         xassert(new_width > old_width);
-        new_data = xmalloc(alloc_new_width * alloc_new_height * sizeof(uint32_t));
+        const size_t pixels = new_width * alloc_new_height;
+
+        new_data = !initialize_bg
+            ? xcalloc(pixels, sizeof(uint32_t))
+            : xmalloc(pixels * sizeof(uint32_t));
 
         /* Copy old rows, and initialize new columns to background color */
-        for (int r = 0; r < min(old_height, new_height); r++) {
-            memcpy(&new_data[r * new_width], &old_data[r * old_width], old_width * sizeof(uint32_t));
+        const int row_copy_count = min(old_height, alloc_new_height);
+        const uint32_t *end = &new_data[row_copy_count * new_width];
 
-            for (int c = old_width; c < new_width; c++)
-                new_data[r * new_width + c] = bg;
+        for (uint32_t *n = new_data, *o = old_data;
+             n < end;
+             n += new_width, o += old_width)
+        {
+            memcpy(n, o, old_width * sizeof(uint32_t));
+            memset_u32(&n[old_width], bg, new_width - old_width);
         }
         free(old_data);
     }
 
-    /* Initialize new rows to background color */
-    for (int r = old_height; r < new_height; r++) {
-        for (int c = 0; c < new_width; c++)
-            new_data[r * new_width + c] = bg;
+    if (initialize_bg) {
+        memset_u32(&new_data[old_height * new_width],
+                   bg,
+                   (alloc_new_height - old_height) * new_width);
     }
 
     xassert(new_data != NULL);
     term->sixel.image.data = new_data;
     term->sixel.image.width = new_width;
     term->sixel.image.height = new_height;
-    term->sixel.row_byte_ofs = term->sixel.pos.row * new_width;
+    term->sixel.image.alloc_height = alloc_new_height;
+    term->sixel.image.p = &term->sixel.image.data[term->sixel.pos.row * new_width + term->sixel.pos.col];
 
     return true;
 }
 
 static void
-sixel_add_generic(struct terminal *term, int col, int width, uint32_t color,
+sixel_add_generic(struct terminal *term, uint32_t *data, int stride, uint32_t color,
                   uint8_t sixel)
 {
-    xassert(term->sixel.pos.col < term->sixel.image.width);
-    xassert(term->sixel.pos.row < term->sixel.image.height);
-
     const int pan = term->sixel.pan;
-    size_t ofs = term->sixel.row_byte_ofs + col;
-    uint32_t *data = &term->sixel.image.data[ofs];
 
     for (int i = 0; i < 6; i++, sixel >>= 1) {
         if (sixel & 1) {
-            for (int r = 0; r < pan; r++, data += width)
+            for (int r = 0; r < pan; r++, data += stride)
                 *data = color;
         } else
-            data += width * pan;
+            data += stride * pan;
     }
 
     xassert(sixel == 0);
 }
 
-static void
-sixel_add_ar_11(struct terminal *term, int col, int width, uint32_t color,
+static void ALWAYS_INLINE inline
+sixel_add_ar_11(struct terminal *term, uint32_t *data, int stride, uint32_t color,
                 uint8_t sixel)
 {
-    xassert(term->sixel.pos.col < term->sixel.image.width);
-    xassert(term->sixel.pos.row < term->sixel.image.height);
     xassert(term->sixel.pan == 1);
-
-    const size_t ofs = term->sixel.row_byte_ofs + col;
-    uint32_t *data = &term->sixel.image.data[ofs];
 
     if (sixel & 0x01)
         *data = color;
-    data += width;
+    data += stride;
     if (sixel & 0x02)
         *data = color;
-    data += width;
+    data += stride;
     if (sixel & 0x04)
         *data = color;
-    data += width;
+    data += stride;
     if (sixel & 0x08)
         *data = color;
-    data += width;
+    data += stride;
     if (sixel & 0x10)
         *data = color;
-    data += width;
+    data += stride;
     if (sixel & 0x20)
         *data = color;
 }
@@ -1518,15 +1658,49 @@ sixel_add_many_generic(struct terminal *term, uint8_t c, unsigned count)
         resize_horizontally(term, col + count);
         width = term->sixel.image.width;
         count = min(count, max(width - col, 0));
+
+        if (unlikely(count == 0))
+            return;
     }
 
     uint32_t color = term->sixel.color;
-    for (unsigned i = 0; i < count; i++, col++) {
-        /* TODO: is it worth dynamically dispatching to either generic or AR-11? */
-        sixel_add_generic(term, col, width, color, c);
+    uint32_t *data = term->sixel.image.p;
+    uint32_t *end = data + count;
+
+    term->sixel.pos.col = col + count;
+    term->sixel.image.p = end;
+    term->sixel.image.bottom_pixel |= c;
+
+    for (; data < end; data++)
+        sixel_add_generic(term, data, width, color, c);
+
+}
+
+static void ALWAYS_INLINE inline
+sixel_add_one_ar_11(struct terminal *term, uint8_t c)
+{
+    xassert(term->sixel.pan == 1);
+    xassert(term->sixel.pad == 1);
+
+    int col = term->sixel.pos.col;
+    int width = term->sixel.image.width;
+
+    if (unlikely(col >= width)) {
+        resize_horizontally(term, col + count);
+        width = term->sixel.image.width;
+        count = min(count, max(width - col, 0));
+
+        if (unlikely(count == 0))
+            return;
     }
 
-    term->sixel.pos.col = col;
+    uint32_t *data = term->sixel.image.p;
+
+    term->sixel.pos.col += 1;
+    term->sixel.image.p += 1;
+    term->sixel.image.bottom_pixel |= c;
+
+    sixel_add_ar_11(term, data, width, term->sixel.color, c);
 }
 
 static void
@@ -1542,13 +1716,22 @@ sixel_add_many_ar_11(struct terminal *term, uint8_t c, unsigned count)
         resize_horizontally(term, col + count);
         width = term->sixel.image.width;
         count = min(count, max(width - col, 0));
+
+        if (unlikely(count == 0))
+            return;
     }
 
     uint32_t color = term->sixel.color;
-    for (unsigned i = 0; i < count; i++, col++)
-        sixel_add_ar_11(term, col, width, color, c);
+    uint32_t *data = term->sixel.image.p;
+    uint32_t *end = data + count;
 
-    term->sixel.pos.col = col;
+    term->sixel.pos.col += count;
+    term->sixel.image.p = end;
+    term->sixel.image.bottom_pixel |= c;
+
+    for (; data < end; data++)
+        sixel_add_ar_11(term, data, width, color, c);
+
 }
 
 IGNORE_WARNING("-Wpedantic")
@@ -1586,15 +1769,17 @@ decsixel_generic(struct terminal *term, uint8_t c)
              * path in sixel_add().
              */
             term->sixel.pos.col = 0;
+            term->sixel.image.p = &term->sixel.image.data[term->sixel.pos.row * term->sixel.image.width];
         }
         break;
 
-    case '-':
+    case '-':  /* GNL - Graphical New Line */
         term->sixel.pos.row += 6 * term->sixel.pan;
         term->sixel.pos.col = 0;
-        term->sixel.row_byte_ofs += term->sixel.image.width * 6 * term->sixel.pan;
+        term->sixel.image.bottom_pixel = 0;
+        term->sixel.image.p = &term->sixel.image.data[term->sixel.pos.row * term->sixel.image.width];
 
-        if (term->sixel.pos.row >= term->sixel.image.height) {
+        if (term->sixel.pos.row >= term->sixel.image.alloc_height) {
             if (!resize_vertically(term, term->sixel.pos.row + 6 * term->sixel.pan))
                 term->sixel.pos.col = term->sixel.max_width + 1 * term->sixel.pad;
         }
@@ -1621,7 +1806,7 @@ static void
 decsixel_ar_11(struct terminal *term, uint8_t c)
 {
     if (likely(c >= '?' && c <= '~'))
-        sixel_add_many_ar_11(term, c - 63, 1);
+        sixel_add_one_ar_11(term, c - 63);
     else
         decsixel_generic(term, c);
 }
@@ -1655,18 +1840,71 @@ decgra(struct terminal *term, uint8_t c)
         pan = pan > 0 ? pan : 1;
         pad = pad > 0 ? pad : 1;
 
+        if (likely(term->sixel.image.width == 0 &&
+                   term->sixel.image.height == 0))
+        {
+            term->sixel.pan = pan;
+            term->sixel.pad = pad;
+        } else {
+            /*
+             * Unsure what the VT340 does...
+             *
+             * We currently do *not* handle changing pan/pad in the
+             * middle of a sixel, since that means resizing/stretching
+             * the existing image.
+             *
+             * I'm *guessing* the VT340 simply changes the aspect
+             * ratio of all subsequent sixels. But, given the design
+             * of our implementation (the entire sixel is written to a
+             * single pixman image), we can't easily do that.
+             */
+            LOG_WARN("sixel: unsupported: pan/pad changed after printing sixels");
+            pan = term->sixel.pan;
+            pad = term->sixel.pad;
+        }
+
         pv *= pan;
         ph *= pad;
-
-        term->sixel.pan = pan;
-        term->sixel.pad = pad;
 
         LOG_DBG("pan=%u, pad=%u (aspect ratio = %d:%d), size=%ux%u",
                 pan, pad, pan, pad, ph, pv);
 
+        /*
+         * RA really only acts as a rectangular erase - it fills the
+         * specified area with the sixel background color[^1]. Nothing
+         * else. It does *not* affect cursor positioning.
+         *
+         * This means that if the emitted sixel is *smaller* than the
+         * RA, the text cursor will be placed "inside" the RA area.
+         *
+         * This means it would be more correct to view the RA area as
+         * a *separate* sixel image, that is then overlaid with the
+         * actual sixel.
+         *
+         * Still, RA _is_ a hint - the final image is _likely_ going
+         * to be this large. And, treating RA as a separate image
+         * prevents us from pre-allocating the final sixel image.
+         *
+         * So we don't. We use the RA as a hint, and pre-allocates the
+         * backing image buffer.
+         *
+         * [^1]: i.e. it's a NOP if the sixel is transparent
+         */
         if (ph >= term->sixel.image.height && pv >= term->sixel.image.width &&
             ph <= term->sixel.max_height && pv <= term->sixel.max_width)
         {
+            /*
+             * TODO: always resize to a multiple of 6*pan?
+             *
+             * We're effectively doing that already, except
+             * sixel.image.height is set to ph, instead of the
+             * allocated height (which is always a multiple of 6*pan).
+             *
+             * If the user wants to emit a sixel that isn't a multiple
+             * of 6 pixels, the bottom sixel rows should all be empty,
+             * and (assuming a transparent sixel), trimmed when the
+             * final image is generated.
+             */
             resize(term, ph, pv);
         }
 

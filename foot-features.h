@@ -37,3 +37,12 @@ static inline bool feature_graphemes(void)
     return false;
 #endif
 }
+
+static inline bool feature_xdg_toplevel_icon(void)
+{
+#if defined(HAVE_XDG_TOPLEVEL_ICON)
+    return true;
+#else
+    return false;
+#endif
+}

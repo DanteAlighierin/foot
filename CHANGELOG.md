@@ -1,6 +1,11 @@
 # Changelog
 
 * [Unreleased](#unreleased)
+* [1.18.1](#1-18-1)
+* [1.18.0](#1-18-0)
+* [1.17.2](#1-17-2)
+* [1.17.1](#1-17-1)
+* [1.17.0](#1-17-0)
 * [1.16.2](#1-16-2)
 * [1.16.1](#1-16-1)
 * [1.16.0](#1-16-0)
@@ -52,6 +57,287 @@
 ## Unreleased
 ### Added
 
+* `resize-keep-grid` option, controlling whether the window is resized
+  (and the grid reflowed) or not when e.g. zooming in/out
+  ([#1807][1807]).
+* `strikeout-thickness` option.
+* Implemented the new `xdg-toplevel-icon-v1` protocol.
+* Implemented `CSI 21 t`: report window title.
+
+[1807]: https://codeberg.org/dnkl/foot/issues/1807
+
+
+### Changed
+
+* `cursor.unfocused-style` is now effective even when `cursor.style`
+  is not `block`.
+* Activating a notification triggered with OSC-777, or BEL, now
+  focuses the foot window, if XDG activation tokens are supported by
+  the compositor, the notification daemon, and the notification helper
+  used by foot (i.e. `desktop-notifications.command`). This has been
+  supported for OSC-99 since 1.18.0, and now we also support it for
+  BEL and OSC-777 ([#1822][1822]).
+* Sixel background color (when `P2=0|2`) is now set to the **sixel**
+  color palette entry #0, instead of using the current ANSI background
+  color. This is what a real VT340 does.
+* The `.desktop` files no longer use the reverse DNS naming scheme,
+  and their names now match the default app-ids used by foot (`foot`
+  and `footclient`) ([#1607][1607]).
+
+[1822]: https://codeberg.org/dnkl/foot/issues/1822
+[1607]: https://codeberg.org/dnkl/foot/issues/1607
+
+
+### Deprecated
+### Removed
+### Fixed
+
+* Some invalid UTF-8 strings passing the validity check when setting
+  the window title, triggering a Wayland protocol error which then
+  caused foot to shutdown.
+* "Too large" values for `scrollback.lines` causing an integer
+  overflow, resulting in either visual glitches, crashes, or both
+  ([#1828][1828]).
+* Crash when trying to set an invalid cursor shape with OSC-22, when
+  foot uses server-side cursor shapes.
+* Occasional visual glitches when selecting text, when foot is running
+  under a compositor that forces foot to double buffer
+  (e.g. KDE/KWin) ([#1715][1715]).
+* Sixels flickering when foot is running under a compositor that
+  forces foot to double buffer (e.g. KDE, or Smithay based
+  compositors) ([#1851][1851]).
+
+[1828]: https://codeberg.org/dnkl/foot/issues/1828
+[1715]: https://codeberg.org/dnkl/foot/issues/1715
+[1851]: https://codeberg.org/dnkl/foot/issues/1851
+
+
+### Security
+### Contributors
+
+
+## 1.18.1
+
+### Added
+
+* OSC-99: support for the `s` parameter. Supported keywords are
+  `silent`, `system` and names from the freedesktop sound naming
+  specification.
+* `${muted}` and `${sound-name}` added to the
+  `desktop-notifications.command` template.
+
+
+### Changed
+
+* CSD buttons now activate on mouse button **release**, rather than
+  press ([#1787][1787]).
+
+[1787]: https://codeberg.org/dnkl/foot/issues/1787
+
+
+### Fixed
+
+* Regression: OSC-111 not handling alpha changes correctly, causing
+  visual glitches ([#1801][1801]).
+
+[1801]: https://codeberg.org/dnkl/foot/issues/1801
+
+
+### Contributors
+
+* Craig Barnes
+* Shogo Yamazaki
+
+
+## 1.18.0
+
+### Added
+
+* `cursor.blink-rate` option, allowing you to configure the rate the
+  cursor blinks with (when `cursor.blink=yes`) ([#1707][1707]);
+* Support for `wp_single_pixel_buffer_v1`; certain overlay surfaces
+  will now utilize the new single-pixel buffer protocol. This mainly
+  reduces the memory usage, but should also be slightly faster.
+* Support for high-res mouse wheel scroll events ([#1738][1738]).
+* Styled and colored underlines ([#828][828]).
+* Support for SGR 21 (double underline).
+* Support for `XTPUSHCOLORS`, `XTPOPCOLORS` and `XTREPORTCOLORS`,
+  i.e. color palette stack ([#856][856]).
+* Log output now respects the [`NO_COLOR`](http://no-color.org/)
+  environment variable ([#1771][1771]).
+* Support for [in-band window resize
+  notifications](https://gist.github.com/rockorager/e695fb2924d36b2bcf1fff4a3704bd83),
+  private mode `2048`.
+* Support for OSC-99 [_"Kitty desktop
+  notifications"_](https://sw.kovidgoyal.net/kitty/desktop-notifications/).
+* `desktop-notifications.command` option, replaces `notify`.
+* `desktop-notifications.inhibit-when-focused` option, replaces
+  `notify-focus-inhibit`.
+* `${category}`, `${urgency}`, `${expire-time}`, `${replace-id}`,
+  `${icon}` and `${action-argument}` added to the
+  `desktop-notifications.command` template.
+* `desktop-notifications.command-action-argument` option, defining how
+  `${action-argument}` (in `desktop-notifications.command`) should be
+  expanded.
+* `desktop-notifications.close` option, defining what to execute when
+  an application wants to close an existing notification (via an
+  OSC-99 escape sequence).
+
+[1707]: https://codeberg.org/dnkl/foot/issues/1707
+[1738]: https://codeberg.org/dnkl/foot/issues/1738
+[828]: https://codeberg.org/dnkl/foot/issues/828
+[856]: https://codeberg.org/dnkl/foot/issues/856
+[1771]: https://codeberg.org/dnkl/foot/issues/1771
+
+
+### Changed
+
+* All `XTGETTCAP` capabilities are now in the `tigetstr()` format:
+
+  - parameterized string capabilities were previously "source
+    encoded", meaning e.g. `\E` where not "decoded" into `\x1b`.
+  - Control characters were also "source encoded", meaning they were
+    returned as e.g. "^G" instead of `\x07` ([#1701][1701]).
+
+  In other words, if, after this change, `XTGETTCAP` returns a string
+  that is different compared to `tigetstr()`, then it is likely a bug
+  in foot's implementation of `XTGETTCAP`.
+* If the cursor foreground and background colors are identical (for
+  example, when cursor uses inverted colors and the cell's foreground
+  and background are the same), the cursor will instead be rendered
+  using the default foreground and background colors, inverted
+  ([#1761][1761]).
+* Mouse wheel events now generate `BTN_WHEEL_BACK` and
+  `BTN_WHEEL_FORWARD` "button presses", instead of `BTN_BACK` and
+  `BTN_FORWARD`. The default bindings have been updated, and
+  `scrollback-up-mouse`, `scrollback-down-mouse`, `font-increase` and
+  `font-decrease` now use the new button names.
+
+  This change allow users to separate physical mouse buttons that
+  _also_ generates `BTN_BACK` and `BTN_FORWARD`, from wheel scrolling
+  ([#1763][1763]).
+* Replaced the old catppuccin theme with updated flavored themes
+  pulled from [catppuccin/foot](https://github.com/catppuccin/foot)
+* Mouse selections can now be started inside the margins
+  ([#1702][1702]).
+
+[1701]: https://codeberg.org/dnkl/foot/issues/1701
+[1761]: https://codeberg.org/dnkl/foot/issues/1761
+[1763]: https://codeberg.org/dnkl/foot/issues/1763
+[1702]: https://codeberg.org/dnkl/foot/issues/1702
+
+
+### Deprecated
+
+* `notify` option; replaced by `desktop-notifications.command`.
+* `notify-focus-inhibit` option; replaced by
+  `desktop-notifications.inhibit-when-focused`.
+
+
+### Fixed
+
+* Crash when zooming in or out, with `dpi-aware=yes`, and the
+  monitor's DPI is 0 (this is true for, for example, nested Wayland
+  sessions, or in virtualized environments).
+* No error response for empty `XTGETTCAP` request ([#1694][1694]).
+* Unicode-mode in one foot client affecting other clients, in foot
+  server mode ([#1717][1717]).
+* IME interfering in URL-mode ([#1718][1718]).
+* OSC-52 reply interleaved with other data sent to the client
+  ([#1734][1734]).
+* XKB compose state being reset when foot receives a new keymap
+  ([#1744][1744]).
+* Regression: alpha changes through OSC-11 sequences not taking effect
+  until window is resized.
+* VS15 being ignored ([#1742][1742]).
+* VS16 being ignored for a subset of the valid VS16 sequences
+  ([#1742][1742]).
+* Crash in debug builds, when using OSC-12 to set the cursor color and
+  foot config has not set any custom cursor colors (i.e. without
+  OSC-12, inverted fg/bg would be used).
+* Wrong color used when drawing the unfocused, hollow cursor.
+* Encoding of `BTN_BACK` and `BTN_FORWARD`, when sending a mouse input
+  escape sequence to the terminal application.
+
+[1694]: https://codeberg.org/dnkl/foot/issues/1694
+[1717]: https://codeberg.org/dnkl/foot/issues/1717
+[1718]: https://codeberg.org/dnkl/foot/issues/1718
+[1734]: https://codeberg.org/dnkl/foot/issues/1734
+[1744]: https://codeberg.org/dnkl/foot/issues/1744
+[1742]: https://codeberg.org/dnkl/foot/issues/1742
+
+
+### Contributors
+
+* abs3nt
+* Artturin
+* Craig Barnes
+* Jan Beich
+* Mariusz Bialonczyk
+* Nicolas Kolling Ribas
+
+
+## 1.17.2
+
+### Changed
+
+* Notifications with invalid UTF-8 strings are now ignored.
+
+
+### Fixed
+
+* Crash when changing aspect ratio of a sixel, in the middle of the
+  sixel data (this is unsupported in foot, but should of course not
+  result in a crash).
+* Crash when printing double-width (or longer) characters to, or near,
+  the last column, when auto-wrap (private mode 7) has been disabled.
+* Dynamically sized sixel being trimmed to nothing.
+* Flickering with `dpi-aware=yes` and window is unmapped/remapped
+  (some compositors do this when window is minimized), in a
+  multi-monitor setup with different monitor DPIs.
+
+
+## 1.17.1
+
+### Added
+
+* `cursor.unfocused-style=unchanged|hollow|none` to `foot.ini`. The
+  default is `hollow` ([#1582][1582]).
+* New key binding: `quit` ([#1475][1475]).
+
+[1582]: https://codeberg.org/dnkl/foot/issues/1582
+[1475]: https://codeberg.org/dnkl/foot/issues/1475
+
+
+### Fixed
+
+* Log-level not respected by syslog.
+* Regression: terminal shutting down when the PTY is closed by the
+  client application, which may be earlier than when the client
+  application exits ([#1666][1666]).
+* When closing the window, send `SIGHUP` to the client application,
+  before sending `SIGTERM`. The signal sequence is now `SIGHUP`, wait,
+  `SIGTERM`, wait `SIGKILL`.
+* Crash when receiving a `DECRQSS` request with more than 2 bytes in
+  the `q` parameter.
+
+[1666]: https://codeberg.org/dnkl/foot/issues/1666
+
+
+### Contributors
+
+* Holger Weiß
+* izmyname
+* Marcin Puc
+* tunjan
+
+
+## 1.17.0
+
+### Added
+
+- Support for opening an existing PTY, e.g. a VM console.
+  ([#1564][1564])
 * Unicode input mode now accepts input from the numpad as well,
   numlock is ignored.
 * A new `resize-by-cells` option, enabled by default, allows the size
@@ -61,8 +347,18 @@
 * `pipe-command-output` key binding.
 * Support for OSC-176, _"Set App-ID"_
   (https://gist.github.com/delthas/d451e2cc1573bb2364839849c7117239).
+* Support for `DECRQM` queries with ANSI/ECMA-48 modes (`CSI Ps $ p`).
+* Rectangular edit functions: `DECCARA`, `DECRARA`, `DECCRA`, `DECFRA`
+  and `DECERA` ([#1633][1633]).
+* `Rect` capability to terminfo.
+* `fe` and `fd` (focus in/out enable/disable) capabilities to
+  terminfo.
+* `nel` capability to terminfo.
 
 [1348]: https://codeberg.org/dnkl/foot/issues/1348
+[1633]: https://codeberg.org/dnkl/foot/issues/1633
+[1564]: https://codeberg.org/dnkl/foot/pulls/1564
+[`DECBKM`]: https://vt100.net/docs/vt510-rm/DECBKM.html
 
 
 ### Changed
@@ -82,16 +378,45 @@
 * `smm` now disables private mode 1036 (_"send ESC when Meta modifies
   a key"_), and enables private mode 1034 (_"8-bit Meta mode"_). `rmm`
   does the opposite ([#1584][1584]).
+* Grid is now always centered in the window, when either fullscreened
+  or maximized.
+* Ctrl+wheel up/down bound to `font-increase` and `font-decrease`
+  respectively (in addition to the already existing default key
+  bindings `ctrl-+` and `ctrl+-`).
+* Use XRGB pixel format (instead of ARGB) when there is no
+  transparency.
+* Prefer CSS xcursor names, and fallback to legacy X11 names.
+* Kitty keyboard protocol: use the `XKB` mode when retrieving locked
+  modifiers, instead of the `GTK` mode. This fixes an issue where some
+  key combinations (e.g. Shift+space) produces different results
+  depending on the state of e.g. the NumLock key.
+* Kitty keyboard protocol: filter out **all** locked modifiers (as
+  reported by XKB), rather than hardcoding it to CapsLock only, when
+  determining whether a key combination produces text or not.
+* CSI-t queries now report pixel values **unscaled**, instead of
+  **scaled** ([#1643][1643]).
+* Sixel: text cursor is now placed on the last text row touched by the
+  sixel, instead of the text row touched by the _upper_ pixel of the
+  last sixel ([#chafa-192][chafa-192]).
+* Sixel: trailing, fully transparent rows are now trimmed
+  ([#chafa-192][chafa-192]).
+* `1004` (enable focus in/out events) removed from the `XM` terminfo
+  capability. To enable focus in/out, use the `fe` and `fd`
+  capabilities instead.
+* Tightened the regular expression in the `rv` terminfo capability.
+* Tightened the regular expression in the `xr` terminfo capability.
+* `DECRQM` queries for private mode 67 ([`DECBKM`]) now reply with mode
+  value 4 ("permanently reset") instead of 0 ("not recognized").
 
 [1526]: https://codeberg.org/dnkl/foot/issues/1526
 [1528]: https://codeberg.org/dnkl/foot/issues/1528
 [1561]: https://codeberg.org/dnkl/foot/issues/1561
 [kitty-6913]: https://github.com/kovidgoyal/kitty/issues/6913
 [1584]: https://codeberg.org/dnkl/foot/issues/1584
+[1643]: https://codeberg.org/dnkl/foot/issues/1643
+[chafa-192]: https://github.com/hpjansson/chafa/issues/192
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * config: improved validation of color values.
@@ -106,15 +431,47 @@
   -E,--client-environment` ([#1568][1568]).
 * XDG toplevel protocol violation, by trying to set a title that
   contains an invalid UTF-8 sequence ([#1552][1552]).
+* Crash when erasing the scrollback, when scrollback history is
+  exactly 0 rows. This happens when `[scrollback].line = 0`, and the
+  window size (number of rows) is a power of two (i.e. 2, 4, 8, 16
+  etc) ([#1610][1610]).
+* VS16 (variation selector 16 - emoji representation) should only
+  affect emojis.
+* Pressing a modifier key while the kitty keyboard protocol is enabled
+  no longer resets the viewport, or clears the selection.
+* Crash when failing to load an xcursor image ([#1624][1624]).
+* Crash when resizing a dynamically sized sixel (no raster
+  attributes), with a non-1:1 aspect ratio.
+* The default sixel color table is now initialized to the colors used
+  by the VT340, instead of not being initialized at all (thus
+  requiring the sixel escape sequence to explicitly set all colors it
+  used).
 
 [1531]: https://codeberg.org/dnkl/foot/issues/1531
 [1573]: https://codeberg.org/dnkl/foot/issues/1573
 [1568]: https://codeberg.org/dnkl/foot/issues/1568
 [1552]: https://codeberg.org/dnkl/foot/issues/1552
+[1610]: https://codeberg.org/dnkl/foot/issues/1610
+[1624]: https://codeberg.org/dnkl/foot/issues/1624
 
 
-### Security
 ### Contributors
+
+* Alyssa Ross
+* Andrew J. Hesford
+* Artturin
+* Craig Barnes
+* delthas
+* eugenrh
+* Fazzi
+* Gregory Anders
+* Jan Palus
+* Leonardo Hernández Hernández
+* LmbMaxim
+* Matheus Afonso Martins Moreira
+* Sivecano
+* Tim Culverhouse
+* xnuk
 
 
 ## 1.16.2

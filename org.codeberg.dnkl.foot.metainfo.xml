@@ -22,6 +22,7 @@
       <li>IME (via text-input-v3)</li>
       <li>Multi-seat</li>
       <li>True Color (24bpp)</li>
+      <li>Styled and colored underlines</li>
       <li>Synchronized Updates support</li>
       <li>Sixel image support</li>
     </ul>
@@ -33,6 +34,11 @@
     </screenshot>
   </screenshots>
   <releases>
+    <release version="1.18.1" date="2024-08-14"/>
+    <release version="1.18.0" date="2024-08-02"/>
+    <release version="1.17.2" date="2024-04-17"/>
+    <release version="1.17.1" date="2024-04-11"/>
+    <release version="1.17.0" date="2024-04-02"/>
     <release version="1.16.2" date="2023-10-17"/>
     <release version="1.16.1" date="2023-10-12"/>
     <release version="1.16.0" date="2023-10-11"/>

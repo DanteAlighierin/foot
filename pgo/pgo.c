@@ -60,7 +60,8 @@ fdm_event_del(struct fdm *fdm, int fd, int events)
 }
 
 bool
-render_resize_force(struct terminal *term, int width, int height)
+render_resize(
+    struct terminal *term, int width, int height, uint8_t resize_options)
 {
     return true;
 }
@@ -69,6 +70,7 @@ void render_refresh(struct terminal *term) {}
 void render_refresh_csd(struct terminal *term) {}
 void render_refresh_title(struct terminal *term) {}
 void render_refresh_app_id(struct terminal *term) {}
+void render_refresh_icon(struct terminal *term) {}
 
 bool
 render_xcursor_is_valid(const struct seat *seat, const char *cursor)
@@ -99,12 +101,12 @@ void wayl_win_alpha_changed(struct wl_window *win) {}
 bool wayl_win_set_urgent(struct wl_window *win) { return true; }
 bool wayl_fractional_scaling(const struct wayland *wayl) { return true; }
 
-bool
+pid_t
 spawn(struct reaper *reaper, const char *cwd, char *const argv[],
       int stdin_fd, int stdout_fd, int stderr_fd,
-      const char *xdg_activation_token)
+      reaper_cb cb, void *cb_data, const char *xdg_activation_token)
 {
-    return true;
+    return 2;
 }
 
 pid_t
@@ -150,8 +152,36 @@ void ime_enable(struct seat *seat) {}
 void ime_disable(struct seat *seat) {}
 void ime_reset_preedit(struct seat *seat) {}
 
+bool
+notify_notify(struct terminal *term, struct notification *notif)
+{
+    return true;
+}
+
 void
-notify_notify(const struct terminal *term, const char *title, const char *body)
+notify_close(struct terminal *term, const char *id)
+{
+}
+
+void
+notify_free(struct terminal *term, struct notification *notif)
+{
+}
+
+void
+notify_icon_add(struct terminal *term, const char *id,
+                const char *symbolic_name, const uint8_t *data,
+                size_t data_sz)
+{
+}
+
+void
+notify_icon_del(struct terminal *term, const char *id)
+{
+}
+
+void
+notify_icon_free(struct notification_icon *icon)
 {
 }
 

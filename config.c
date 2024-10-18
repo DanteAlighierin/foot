@@ -119,6 +119,7 @@ static const char *const binding_action_map[] = {
     [BIND_ACTION_PROMPT_PREV] = "prompt-prev",
     [BIND_ACTION_PROMPT_NEXT] = "prompt-next",
     [BIND_ACTION_UNICODE_INPUT] = "unicode-input",
+    [BIND_ACTION_QUIT] = "quit",
 
     /* Mouse-specific actions */
     [BIND_ACTION_SCROLLBACK_UP_MOUSE] = "scrollback-up-mouse",
@@ -355,9 +356,9 @@ open_config(void)
 
     /* First, check XDG_CONFIG_HOME (or .config, if unset) */
     if (xdg_config_home != NULL && xdg_config_home[0] != '\0')
-        path = xasprintf("%s/foot/foot.ini", xdg_config_home);
+        path = xstrjoin(xdg_config_home, "/foot/foot.ini");
     else if (home_dir != NULL)
-        path = xasprintf("%s/.config/foot/foot.ini", home_dir);
+        path = xstrjoin(home_dir, "/.config/foot/foot.ini");
 
     if (path != NULL) {
         LOG_DBG("checking for %s", path);
@@ -382,7 +383,7 @@ open_config(void)
          conf_dir = strtok(NULL, ":"))
     {
         free(path);
-        path = xasprintf("%s/foot/foot.ini", conf_dir);
+        path = xstrjoin(conf_dir, "/foot/foot.ini");
 
         LOG_DBG("checking for %s", path);
         int fd = open(path, O_RDONLY | O_CLOEXEC);
@@ -805,6 +806,11 @@ value_to_spawn_template(struct context *ctx,
 
     char **argv = NULL;
 
+    if (ctx->value[0] == '"' && ctx->value[1] == '"' && ctx->value[2] == '\0') {
+        template->argv.args = NULL;
+        return true;
+    }
+
     if (!tokenize_cmdline(ctx->value, &argv)) {
         LOG_CONTEXTUAL_ERR("syntax error in command line");
         return false;
@@ -837,7 +843,7 @@ parse_section_main(struct context *ctx)
                 return false;
             }
 
-            _include_path = xasprintf("%s/%s", home_dir, value + 2);
+            _include_path = xstrjoin3(home_dir, "/", value + 2);
             include_path = _include_path;
         } else
             include_path = value;
@@ -924,6 +930,9 @@ parse_section_main(struct context *ctx)
 
     else if (streq(key, "resize-by-cells"))
         return value_to_bool(ctx, &conf->resize_by_cells);
+
+    else if (streq(key, "resize-keep-grid"))
+        return value_to_bool(ctx, &conf->resize_keep_grid);
 
     else if (streq(key, "bold-text-in-bright")) {
         if (streq(value, "palette-based")) {
@@ -1014,6 +1023,9 @@ parse_section_main(struct context *ctx)
     else if (streq(key, "underline-thickness"))
         return value_to_pt_or_px(ctx, &conf->underline_thickness);
 
+    else if (streq(key, "strikeout-thickness"))
+        return value_to_pt_or_px(ctx, &conf->strikeout_thickness);
+
     else if (streq(key, "dpi-aware"))
         return value_to_bool(ctx, &conf->dpi_aware);
 
@@ -1023,11 +1035,29 @@ parse_section_main(struct context *ctx)
     else if (streq(key, "word-delimiters"))
         return value_to_wchars(ctx, &conf->word_delimiters);
 
-    else if (streq(key, "notify"))
-        return value_to_spawn_template(ctx, &conf->notify);
+    else if (streq(key, "notify")) {
+        user_notification_add(
+            &conf->notifications, USER_NOTIFICATION_DEPRECATED,
+            xstrdup("notify: use desktop-notifications.command instead"));
+        log_msg(
+            LOG_CLASS_WARNING, LOG_MODULE, __FILE__, __LINE__,
+            "deprecated: notify: use desktop-notifications.command instead");
+        return value_to_spawn_template(
+            ctx, &conf->desktop_notifications.command);
+    }
 
-    else if (streq(key, "notify-focus-inhibit"))
-        return value_to_bool(ctx, &conf->notify_focus_inhibit);
+    else if (streq(key, "notify-focus-inhibit")) {
+        user_notification_add(
+            &conf->notifications, USER_NOTIFICATION_DEPRECATED,
+            xstrdup("notify-focus-inhibit: "
+                    "use desktop-notifications.inhibit-when-focused instead"));
+        log_msg(
+            LOG_CLASS_WARNING, LOG_MODULE, __FILE__, __LINE__,
+            "deprecrated: notify-focus-inhibit: "
+            "use desktop-notifications.inhibit-when-focused instead");
+        return value_to_bool(
+            ctx, &conf->desktop_notifications.inhibit_when_focused);
+    }
 
     else if (streq(key, "selection-target")) {
         _Static_assert(sizeof(conf->selection_target) == sizeof(int),
@@ -1076,6 +1106,30 @@ parse_section_bell(struct context *ctx)
         return value_to_spawn_template(ctx, &conf->bell.command);
     else if (streq(key, "command-focused"))
         return value_to_bool(ctx, &conf->bell.command_focused);
+    else {
+        LOG_CONTEXTUAL_ERR("not a valid option: %s", key);
+        return false;
+    }
+}
+
+static bool
+parse_section_desktop_notifications(struct context *ctx)
+{
+    struct config *conf = ctx->conf;
+    const char *key = ctx->key;
+
+    if (streq(key, "command"))
+        return value_to_spawn_template(
+            ctx, &conf->desktop_notifications.command);
+    else if (streq(key, "command-action-argument"))
+        return value_to_spawn_template(
+            ctx, &conf->desktop_notifications.command_action_arg);
+    else if (streq(key, "close"))
+        return value_to_spawn_template(
+            ctx, &conf->desktop_notifications.close);
+    else if (streq(key, "inhibit-when-focused"))
+        return value_to_bool(
+            ctx, &conf->desktop_notifications.inhibit_when_focused);
     else {
         LOG_CONTEXTUAL_ERR("not a valid option: %s", key);
         return false;
@@ -1383,8 +1437,21 @@ parse_section_cursor(struct context *ctx)
             (int *)&conf->cursor.style);
     }
 
+    else if (streq(key, "unfocused-style")) {
+        _Static_assert(sizeof(conf->cursor.unfocused_style) == sizeof(int),
+                       "enum is not 32-bit");
+
+        return value_to_enum(
+            ctx,
+            (const char *[]){"unchanged", "hollow", "none", NULL},
+            (int *)&conf->cursor.unfocused_style);
+    }
+
     else if (streq(key, "blink"))
-        return value_to_bool(ctx, &conf->cursor.blink);
+        return value_to_bool(ctx, &conf->cursor.blink.enabled);
+
+    else if (streq(key, "blink-rate"))
+        return value_to_uint32(ctx, 10, &conf->cursor.blink.rate_ms);
 
     else if (streq(key, "color")) {
         if (!value_to_two_colors(
@@ -1672,6 +1739,7 @@ static const struct {
     const char *name;
     int code;
 } button_map[] = {
+    /* System defined */
     {"BTN_LEFT", BTN_LEFT},
     {"BTN_RIGHT", BTN_RIGHT},
     {"BTN_MIDDLE", BTN_MIDDLE},
@@ -1680,6 +1748,12 @@ static const struct {
     {"BTN_FORWARD", BTN_FORWARD},
     {"BTN_BACK", BTN_BACK},
     {"BTN_TASK", BTN_TASK},
+
+    /* Foot custom, to be able to map scroll events to mouse bindings */
+    {"BTN_WHEEL_BACK", BTN_WHEEL_BACK},
+    {"BTN_WHEEL_FORWARD", BTN_WHEEL_FORWARD},
+    {"BTN_WHEEL_LEFT", BTN_WHEEL_LEFT},
+    {"BTN_WHEEL_RIGHT", BTN_WHEEL_RIGHT},
 };
 
 static int
@@ -1716,7 +1790,7 @@ value_to_key_combos(struct context *ctx, int action,
 
     /* Count number of combinations */
     size_t combo_count = 1;
-    size_t used_combos = 0;  /* For error handling */
+    size_t used_combos = 1;  /* For error handling */
     for (const char *p = strchr(ctx->value, ' ');
          p != NULL;
          p = strchr(p + 1, ' '))
@@ -1764,7 +1838,6 @@ value_to_key_combos(struct context *ctx, int action,
             new_combo->k.sym = xkb_keysym_from_name(key, 0);
             if (new_combo->k.sym == XKB_KEY_NoSymbol) {
                 LOG_CONTEXTUAL_ERR("not a valid XKB key name: %s", key);
-                free_key_binding(new_combo);
                 goto err;
             }
             break;
@@ -1785,7 +1858,6 @@ value_to_key_combos(struct context *ctx, int action,
                         LOG_CONTEXTUAL_ERRNO("invalid click count: %s", _count);
                     else
                         LOG_CONTEXTUAL_ERR("invalid click count: %s", _count);
-                    free_key_binding(new_combo);
                     goto err;
                 }
 
@@ -1795,7 +1867,6 @@ value_to_key_combos(struct context *ctx, int action,
             new_combo->m.button = mouse_button_name_to_code(key);
             if (new_combo->m.button < 0) {
                 LOG_CONTEXTUAL_ERR("invalid mouse button name: %s", key);
-                free_key_binding(new_combo);
                 goto err;
             }
 
@@ -1826,8 +1897,10 @@ value_to_key_combos(struct context *ctx, int action,
     return true;
 
 err:
-    for (size_t i = 0; i < used_combos; i++)
-        free_key_binding(&new_combos[i]);
+    if (idx > 0) {
+        for (size_t i = 0; i < used_combos; i++)
+            free_key_binding(&new_combos[i]);
+    }
     free(copy);
     return false;
 }
@@ -2390,7 +2463,7 @@ parse_section_text_bindings(struct context *ctx)
     struct binding_aux aux = {
         .type = BINDING_AUX_TEXT,
         .text = {
-            .data = data,
+            .data = data,  /* data is now owned by value_to_key_combos() */
             .len = data_len,
         },
     };
@@ -2398,7 +2471,8 @@ parse_section_text_bindings(struct context *ctx)
     if (!value_to_key_combos(ctx, BIND_ACTION_TEXT_BINDING, &aux,
                              &conf->bindings.key, KEY_BINDING))
     {
-        goto err;
+        /* Do *not* free(data) - it is handled by value_to_key_combos() */
+        return false;
     }
 
     return true;
@@ -2641,6 +2715,7 @@ parse_key_value(char *kv, const char **section, const char **key, const char **v
 enum section {
     SECTION_MAIN,
     SECTION_BELL,
+    SECTION_DESKTOP_NOTIFICATIONS,
     SECTION_SCROLLBACK,
     SECTION_URL,
     SECTION_COLORS,
@@ -2667,6 +2742,7 @@ static const struct {
 } section_info[] = {
     [SECTION_MAIN] =            {&parse_section_main, "main"},
     [SECTION_BELL] =            {&parse_section_bell, "bell"},
+    [SECTION_DESKTOP_NOTIFICATIONS] = {&parse_section_desktop_notifications, "desktop-notifications"},
     [SECTION_SCROLLBACK] =      {&parse_section_scrollback, "scrollback"},
     [SECTION_URL] =             {&parse_section_url, "url"},
     [SECTION_COLORS] =          {&parse_section_colors, "colors"},
@@ -2861,7 +2937,7 @@ get_server_socket_path(void)
 
     const char *wayland_display = getenv("WAYLAND_DISPLAY");
     if (wayland_display == NULL) {
-        return xasprintf("%s/foot.sock", xdg_runtime);
+        return xstrjoin(xdg_runtime, "/foot.sock");
     }
 
     return xasprintf("%s/foot-%s.sock", xdg_runtime, wayland_display);
@@ -2902,8 +2978,7 @@ add_default_key_bindings(struct config *conf)
     };
 
     conf->bindings.key.count = ALEN(bindings);
-    conf->bindings.key.arr = xmalloc(sizeof(bindings));
-    memcpy(conf->bindings.key.arr, bindings, sizeof(bindings));
+    conf->bindings.key.arr = xmemdup(bindings, sizeof(bindings));
 }
 
 
@@ -2954,8 +3029,7 @@ add_default_search_bindings(struct config *conf)
     };
 
     conf->bindings.search.count = ALEN(bindings);
-    conf->bindings.search.arr = xmalloc(sizeof(bindings));
-    memcpy(conf->bindings.search.arr, bindings, sizeof(bindings));
+    conf->bindings.search.arr = xmemdup(bindings, sizeof(bindings));
 }
 
 static void
@@ -2970,16 +3044,15 @@ add_default_url_bindings(struct config *conf)
     };
 
     conf->bindings.url.count = ALEN(bindings);
-    conf->bindings.url.arr = xmalloc(sizeof(bindings));
-    memcpy(conf->bindings.url.arr, bindings, sizeof(bindings));
+    conf->bindings.url.arr = xmemdup(bindings, sizeof(bindings));
 }
 
 static void
 add_default_mouse_bindings(struct config *conf)
 {
     const struct config_key_binding bindings[] = {
-        {BIND_ACTION_SCROLLBACK_UP_MOUSE, m("none"), {.m = {BTN_BACK, 1}}},
-        {BIND_ACTION_SCROLLBACK_DOWN_MOUSE, m("none"), {.m = {BTN_FORWARD, 1}}},
+        {BIND_ACTION_SCROLLBACK_UP_MOUSE, m("none"), {.m = {BTN_WHEEL_BACK, 1}}},
+        {BIND_ACTION_SCROLLBACK_DOWN_MOUSE, m("none"), {.m = {BTN_WHEEL_FORWARD, 1}}},
         {BIND_ACTION_PRIMARY_PASTE, m("none"), {.m = {BTN_MIDDLE, 1}}},
         {BIND_ACTION_SELECT_BEGIN, m("none"), {.m = {BTN_LEFT, 1}}},
         {BIND_ACTION_SELECT_BEGIN_BLOCK, m(XKB_MOD_NAME_CTRL), {.m = {BTN_LEFT, 1}}},
@@ -2989,11 +3062,12 @@ add_default_mouse_bindings(struct config *conf)
         {BIND_ACTION_SELECT_WORD_WS, m(XKB_MOD_NAME_CTRL), {.m = {BTN_LEFT, 2}}},
         {BIND_ACTION_SELECT_QUOTE, m("none"), {.m = {BTN_LEFT, 3}}},
         {BIND_ACTION_SELECT_ROW, m("none"), {.m = {BTN_LEFT, 4}}},
+        {BIND_ACTION_FONT_SIZE_UP, m("Control"), {.m = {BTN_WHEEL_BACK, 1}}},
+        {BIND_ACTION_FONT_SIZE_DOWN, m("Control"), {.m = {BTN_WHEEL_FORWARD, 1}}},
     };
 
     conf->bindings.mouse.count = ALEN(bindings);
-    conf->bindings.mouse.arr = xmalloc(sizeof(bindings));
-    memcpy(conf->bindings.mouse.arr, bindings, sizeof(bindings));
+    conf->bindings.mouse.arr = xmemdup(bindings, sizeof(bindings));
 }
 
 static void NOINLINE
@@ -3033,6 +3107,7 @@ config_load(struct config *conf, const char *conf_path,
         .pad_x = 0,
         .pad_y = 0,
         .resize_by_cells = true,
+        .resize_keep_grid = true,
         .resize_delay_ms = 100,
         .bold_in_bright = {
             .enabled = false,
@@ -3049,6 +3124,7 @@ config_load(struct config *conf, const char *conf_path,
         .use_custom_underline_offset = false,
         .box_drawings_uses_font_glyphs = false,
         .underline_thickness = {.pt = 0., .px = -1},
+        .strikeout_thickness = {.pt = 0., .px = -1},
         .dpi_aware = false,
         .bell = {
             .urgent = false,
@@ -3092,7 +3168,11 @@ config_load(struct config *conf, const char *conf_path,
 
         .cursor = {
             .style = CURSOR_BLOCK,
-            .blink = false,
+            .unfocused_style = CURSOR_UNFOCUSED_HOLLOW,
+            .blink = {
+                .enabled = false,
+                .rate_ms = 500,
+            },
             .color = {
                 .text = 0,
                 .cursor = 0,
@@ -3121,10 +3201,18 @@ config_load(struct config *conf, const char *conf_path,
         .presentation_timings = false,
         .selection_target = SELECTION_TARGET_PRIMARY,
         .hold_at_exit = false,
-        .notify = {
-            .argv = {.args = NULL},
+        .desktop_notifications = {
+            .command = {
+                .argv = {.args = NULL},
+            },
+            .command_action_arg = {
+                .argv = {.args = NULL},
+            },
+            .close = {
+                .argv = {.args = NULL},
+            },
+            .inhibit_when_focused = true,
         },
-        .notify_focus_inhibit = true,
 
         .tweak = {
             .fcft_filter = FCFT_SCALING_FILTER_LANCZOS3,
@@ -3161,8 +3249,10 @@ config_load(struct config *conf, const char *conf_path,
     memcpy(conf->colors.table, default_color_table, sizeof(default_color_table));
     parse_modifiers(XKB_MOD_NAME_SHIFT, 5, &conf->mouse.selection_override_modifiers);
 
-    tokenize_cmdline("notify-send -a ${app-id} -i ${app-id} ${title} ${body}",
-                     &conf->notify.argv.args);
+    tokenize_cmdline(
+        "notify-send --wait --app-name ${app-id} --icon ${app-id} --category ${category} --urgency ${urgency} --expire-time ${expire-time} --hint STRING:image-path:${icon} --hint BOOLEAN:suppress-sound:${muted} --hint STRING:sound-name:${sound-name} --replace-id ${replace-id} ${action-argument} --print-id -- ${title} ${body}",
+        &conf->desktop_notifications.command.argv.args);
+    tokenize_cmdline("--action ${action-name}=${action-label}", &conf->desktop_notifications.command_action_arg.argv.args);
     tokenize_cmdline("xdg-open ${url}", &conf->url.launch.argv.args);
 
     static const char32_t *url_protocols[] = {
@@ -3386,8 +3476,7 @@ key_binding_list_clone(struct config_key_binding_list *dst,
             if (old->aux.master_copy) {
                 const size_t len = old->aux.text.len;
                 new->aux.text.len = len;
-                new->aux.text.data = xmalloc(len);
-                memcpy(new->aux.text.data, old->aux.text.data, len);
+                new->aux.text.data = xmemdup(old->aux.text.data, len);
 
                 last_master_text_len = len;
                 last_master_text_data = new->aux.text.data;
@@ -3416,7 +3505,12 @@ config_clone(const struct config *old)
     conf->scrollback.indicator.text = xc32dup(old->scrollback.indicator.text);
     conf->server_socket_path = xstrdup(old->server_socket_path);
     spawn_template_clone(&conf->bell.command, &old->bell.command);
-    spawn_template_clone(&conf->notify, &old->notify);
+    spawn_template_clone(&conf->desktop_notifications.command,
+                         &old->desktop_notifications.command);
+    spawn_template_clone(&conf->desktop_notifications.command_action_arg,
+                         &old->desktop_notifications.command_action_arg);
+    spawn_template_clone(&conf->desktop_notifications.close,
+                         &old->desktop_notifications.close);
 
     for (size_t i = 0; i < ALEN(conf->fonts); i++)
         config_font_list_clone(&conf->fonts[i], &old->fonts[i]);
@@ -3498,7 +3592,9 @@ config_free(struct config *conf)
     free(conf->word_delimiters);
     spawn_template_free(&conf->bell.command);
     free(conf->scrollback.indicator.text);
-    spawn_template_free(&conf->notify);
+    spawn_template_free(&conf->desktop_notifications.command);
+    spawn_template_free(&conf->desktop_notifications.command_action_arg);
+    spawn_template_free(&conf->desktop_notifications.close);
     for (size_t i = 0; i < ALEN(conf->fonts); i++)
         config_font_list_destroy(&conf->fonts[i]);
     free(conf->server_socket_path);

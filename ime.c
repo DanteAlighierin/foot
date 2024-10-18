@@ -175,7 +175,7 @@ done(void *data, struct zwp_text_input_v3 *zwp_text_input_v3,
     }
 
     /*
-     * 2. Delete requested surroundin text
+     * 2. Delete requested surrounding text
      *
      * We don't support deleting surrounding text. But, we also never
      * call set_surrounding_text() so hopefully we should never

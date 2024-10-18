@@ -1,5 +1,5 @@
 project('foot', 'c',
-        version: '1.16.2',
+        version: '1.18.1',
         license: 'MIT',
         meson_version: '>=0.59.0',
         default_options: [
@@ -12,8 +12,17 @@ is_debug_build = get_option('buildtype').startswith('debug')
 
 cc = meson.get_compiler('c')
 
-if cc.has_function('memfd_create')
+if cc.has_function('memfd_create',
+                   args: ['-D_GNU_SOURCE'],
+                   prefix: '#include <sys/mman.h>')
   add_project_arguments('-DMEMFD_CREATE', language: 'c')
+endif
+
+# Missing on DragonFly, FreeBSD < 14.1
+if cc.has_function('execvpe',
+                   args: ['-D_GNU_SOURCE'],
+                   prefix: '#include <unistd.h>')
+  add_project_arguments('-DEXECVPE', language: 'c')
 endif
 
 utmp_backend = get_option('utmp-backend')
@@ -159,7 +168,16 @@ wl_proto_xml = [
   wayland_protocols_datadir / 'staging/fractional-scale/fractional-scale-v1.xml',
   wayland_protocols_datadir / 'unstable/tablet/tablet-unstable-v2.xml',  # required by cursor-shape-v1
   wayland_protocols_datadir / 'staging/cursor-shape/cursor-shape-v1.xml',
+  wayland_protocols_datadir / 'staging/single-pixel-buffer/single-pixel-buffer-v1.xml',
   ]
+
+if wayland_protocols.version().version_compare('>=1.37')
+  add_project_arguments('-DHAVE_XDG_TOPLEVEL_ICON', language: 'c')
+  wl_proto_xml += [wayland_protocols_datadir / 'staging/xdg-toplevel-icon/xdg-toplevel-icon-v1.xml']
+  xdg_toplevel_icon = true
+else
+  xdg_toplevel_icon = false
+endif
 
 foreach prot : wl_proto_xml
   wl_proto_headers += custom_target(
@@ -193,11 +211,20 @@ builtin_terminfo = custom_target(
             '@default_terminfo@', foot_terminfo, 'foot', '@OUTPUT@']
 )
 
+generate_emoji_variation_sequences = files('scripts/generate-emoji-variation-sequences.py')
+emoji_variation_sequences = custom_target(
+  'generate_emoji_variation_sequences',
+  input: 'unicode/emoji-variation-sequences.txt',
+  output: 'emoji-variation-sequences.h',
+  command: [python, generate_emoji_variation_sequences, '@INPUT@', '@OUTPUT@']
+)
+
 common = static_library(
   'common',
   'log.c', 'log.h',
   'char32.c', 'char32.h',
   'debug.c', 'debug.h',
+  'macros.h',
   'xmalloc.c', 'xmalloc.h',
   'xsnprintf.c', 'xsnprintf.h'
 )
@@ -221,7 +248,8 @@ vtlib = static_library(
   'osc.c', 'osc.h',
   'sixel.c', 'sixel.h',
   'vt.c', 'vt.h',
-  builtin_terminfo, wl_proto_src + wl_proto_headers,
+  builtin_terminfo, emoji_variation_sequences,
+  wl_proto_src + wl_proto_headers,
   version,
   dependencies: [libepoll, pixman, fcft, tllist, wayland_client, xkb, utf8proc],
   link_with: [common, misc],
@@ -235,6 +263,12 @@ pgolib = static_library(
   wl_proto_src + wl_proto_headers,
   dependencies: [libepoll, pixman, fcft, tllist, wayland_client, xkb, utf8proc],
   link_with: vtlib,
+)
+
+tokenize = static_library(
+  'tokenizelib',
+  'tokenize.c',
+  link_with: [common],
 )
 
 if get_option('b_pgo') == 'generate'
@@ -292,7 +326,7 @@ executable(
   install: true)
 
 install_data(
-  'org.codeberg.dnkl.foot.desktop', 'org.codeberg.dnkl.foot-server.desktop', 'org.codeberg.dnkl.footclient.desktop',
+  'foot.desktop', 'foot-server.desktop', 'footclient.desktop',
   install_dir: join_paths(get_option('datadir'), 'applications'))
 
 systemd = dependency('systemd', required: false)
@@ -375,6 +409,7 @@ summary(
     'Themes': get_option('themes'),
     'IME': get_option('ime'),
     'Grapheme clustering': utf8proc.found(),
+    'Wayland: xdg-toplevel-icon-v1': xdg_toplevel_icon,
     'utmp backend': utmp_backend,
     'utmp helper default path': utmp_default_helper_path,
     'Build terminfo': tic.found(),

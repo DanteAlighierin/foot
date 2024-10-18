@@ -1,0 +1,25 @@
+# -*- conf -*-
+# Dracula iTerm2 variant
+
+[cursor]
+color=ffffff bbbbbb
+
+[colors]
+foreground=f8f8f2
+background=1e1f29
+regular0=000000  # black
+regular1=ff5555  # red
+regular2=50fa7b  # green
+regular3=f1fa8c  # yellow
+regular4=bd93f9  # blue
+regular5=ff79c6  # magenta
+regular6=8be9fd  # cyan
+regular7=bbbbbb  # white
+bright0=555555   # bright black
+bright1=ff5555   # bright red
+bright2=50fa7b   # bright green
+bright3=f1fa8c   # bright yellow
+bright4=bd93f9   # bright blue
+bright5=ff79c6   # bright magenta
+bright6=8be9fd   # bright cyan
+bright7=ffffff   # bright white

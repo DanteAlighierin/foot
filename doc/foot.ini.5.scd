@@ -50,15 +50,16 @@ empty string to be set, but it must be quoted: *KEY=""*)
 *font*, *font-bold*, *font-italic*, *font-bold-italic*
 	Comma separated list of fonts to use, in fontconfig format. That
 	is, a font name followed by a list of colon-separated
-	options. Most noteworthy is *:size=n*, which is used to set the
-	font size. Note that the font size is also affected by the
-	*dpi-aware* option.
+	options. Most noteworthy is *:size=n* (or *:pixelsize=n*), which
+	is used to set the font size. Note that the font size is also
+	affected by the *dpi-aware* option.
 	
 	Examples:
 		- Dina:weight=bold:slant=italic
 		- Courier New:size=12
 		- Fantasque Sans Mono:fontfeatures=ss01
 		- Meslo LG S:size=12, Noto Color Emoji:size=12
+		- Courier New:pixelsize=8
 	
 	For each option, the first font is the primary font. The remaining
 	fonts are fallback fonts that will be used whenever a glyph cannot
@@ -77,6 +78,11 @@ empty string to be set, but it must be quoted: *KEY=""*)
 	
 	To disable bold and/or italic fonts, set e.g. *font-bold* to
 	_exactly_ the same value as *font*.
+	
+	**size** is in _points_ (as defined by the FontConfig format). To
+	set a _pixel_ size, use **pixelsize** instead. Note that pixel
+	sizes are unaffected by DPI aware rendering (see *dpi-aware*), but
+	are affected by desktop scaling.
 	
 	Default: _monospace:size=8_ (*font*), _not set_ (*font-bold*,
 	*font-italic*, *font-bold-italic*).
@@ -114,6 +120,12 @@ empty string to be set, but it must be quoted: *KEY=""*)
 	
 	You can specify a height in _pixels_ by using the *px* suffix:
 	e.g. *line-height=12px*.
+	
+	*Warning*: when changing the font size at runtime (i.e. zooming in
+	our out), foot will change the line height by the same
+	percentage. However, due to rounding, it is possible the line
+	height will be "too small" for some font sizes, causing
+	e.g. underscores to "disappear".
 	
 	See also: *vertical-letter-offset*.
 	
@@ -167,9 +179,22 @@ empty string to be set, but it must be quoted: *KEY=""*)
 
 	Default: _unset_
 
-*box-drawings-uses-font-glyphs* Boolean. When disabled, foot generates
-	box/line drawing characters itself. The are several advantages to
-	doing this instead of using font glyphs:
+*strikeout-thickness*
+	Use a custom thickness (height) for strikeouts. The thickness is, by
+	default, in _points_.
+
+	To specify a thickness in _pixels_, append *px*:
+	*strikeout-thickness=1px*.
+
+	If left unset (the default), the thickness specified in the font is
+	used.
+
+	Default: _unset_
+
+*box-drawings-uses-font-glyphs*
+	Boolean. When disabled, foot generates box/line drawing characters
+	itself. The are several advantages to doing this instead of using
+	font glyphs:
 	
 		- No antialiasing effects where e.g. line endpoints appear
 		  dimmed down, or blurred.
@@ -182,6 +207,13 @@ empty string to be set, but it must be quoted: *KEY=""*)
 	
 	When enabled, box/line drawing characters are rendered using font
 	glyphs. This may result in a more uniform look, in some use cases.
+	
+	When disabled, foot will render the following Unicode codepoints
+	by itself:
+	
+		- U+02500 - U+0259F
+		- U+02800 - U+028FF
+		- U+1Fb00 - U+1FB9B
 	
 	Default: _no_.
 
@@ -267,11 +299,30 @@ empty string to be set, but it must be quoted: *KEY=""*)
 
 	Default: _yes_
 
+*resize-keep-grid*
+	Boolean.
+
+	When set to *yes*, the window size will be adjusted with changes in font
+	size to preserve the dimensions of the text grid. When set to *no*, the
+	window size will remain constant and the text grid will be adjusted as
+	necessary to fit the window.
+
+	This option only applies to floating windows.
+
+	Default: _yes_
+
 *initial-window-size-pixels*
 	Initial window width and height in _pixels_ (subject to output
 	scaling), in the form _WIDTHxHEIGHT_. The height _includes_ the
 	titlebar when using CSDs. Mutually exclusive to
-	*initial-window-size-chars*. Default: _700x500_.
+	*initial-window-size-chars*.
+	
+	Note that this option may not work as expected if fractional
+	scaling is being used, due to the fact that many compositors do
+	not report the correct scaling factor until after a window has
+	been mapped.
+	
+	Default: _700x500_.
 
 *initial-window-size-chars*
 	Initial window width and height in _characters_, in the form
@@ -282,6 +333,10 @@ empty string to be set, but it must be quoted: *KEY=""*)
 	scaling factors, there is a possibility the window size will not
 	be set correctly. If that is the case, use
 	*initial-window-size-pixels* instead.
+	
+	And, just like *initial-window-size-pixels*, this option may not
+	work as expected if fractional scaling is being used (see
+	*initial-window-size-pixels* for details).
 	
 	Default: _not set_.
 
@@ -318,32 +373,6 @@ empty string to be set, but it must be quoted: *KEY=""*)
 	String of characters that act as word delimiters when selecting
 	text. Note that whitespace characters are _always_ word
 	delimiters, regardless of this setting. Default: _,│`|:"'()[]{}<>_
-
-*notify*
-	Command to execute to display a notification. _${title}_ and
-	_${body}_ will be replaced with the notification's actual _title_
-	and _body_ (message content).
-	
-	_${app-id}_ is replaced with the value of the command line option
-	_--app-id_, and defaults to *foot* (normal mode), or
-	*footclient* (server mode).
-	
-	_${window-title}_ is replaced with the current window title.
-	
-	Applications can trigger notifications in the following ways:
-	
-		- OSC 777: *\\e]777;notify;<title>;<body>\\e\\\\*
-	
-	By default, notifications are *inhibited* if the foot window
-	has keyboard focus. See _notify-focus-inhibit_.
-	
-	Default: _notify-send -a ${app-id} -i ${app-id} ${title} ${body}_.
-
-*notify-focus-inhibit*
-	Boolean. If enabled, foot will not display notifications if the
-	terminal window has keyboard focus.
-
-	Default: _yes_
 
 *selection-target*
 	Clipboard target to automatically copy selected text to. One of
@@ -403,10 +432,11 @@ Note: do not set *TERM* here; use the *term* option in the main
 	Default: _no_
 
 *notify*
-	When set to _yes_, foot will emit a desktop notification using
-	the command specified in the *notify* option whenever *BEL* is
+	When set to _yes_, foot will emit a desktop notification using the
+	command specified in the *notify* option whenever *BEL* is
 	received. By default, bell notifications are shown only when the
-	window does *not* have keyboard focus. See _notify-focus-inhibit_.
+	window does *not* have keyboard focus. See
+	_desktop-notifications.inhibit-when-focused_.
 
 	Default: _no_
 
@@ -421,6 +451,248 @@ Note: do not set *TERM* here; use the *term* option in the main
 *command-focused*
 	Whether to run the command on *BEL* even while focused. Default:
 	_no_
+
+# SECTION: desktop-notifications
+
+*command*
+	Command to execute to display a notification.
+	
+	Template arguments
+		_${title}_ and _${body}_ will be replaced with the
+		notification's actual _title_ and _body_ (message content).
+		
+		_${app-id}_ is replaced with the value of the command line
+		option _--app-id_, and defaults to *foot* (normal mode), or
+		*footclient* (server mode).
+		
+		_${window-title}_ is replaced with the current window title.
+		
+		_${icon}_ is replaced by the icon specified in the
+		notification request, or the empty string if no icon was
+		specified. Can be used with e.g. notify-send's *--icon*
+		option, or preferably, by setting the *image-path* hint (with
+		e.g. notify-send's *--hint* option).
+		
+		_${category}_ is replaced by the notification's catogory. Can
+		be used together with e.g. notify-send's *--category* option.
+		
+		_${urgency}_ is replaced with the notifications urgency;
+		*low*, *normal* or *critical*. Can be used together with
+		e.g. notify-send's *--urgency* option.
+		
+		_${expire-time}_ is replaced with the notification specified
+		notification timeout. Can be used together with
+		e.g. notify-send's *--expire-time* option.
+		
+		_${replace-id}_ is replaced by the notification daemon
+		assigned ID that the notification replaces/updates. For this
+		to work, foot needs to know the externally assigned IDs of
+		previously emitted notifications, see the 'stdout' section
+		below. Can be used together with e.g. notify-send's
+		*--replace-id* option.
+		
+		_${muted}_ is replaced by either *true* or *false*, depending
+		on whether the notification has requested all notification
+		sounds be muted. It is intended to set the *suppress-sound*
+		hint (with e.g. notify-send's *--hint* option).
+		
+		_${sound-name}_ is replaced by sound-name requested by the
+		notification. This should be a name from the freedesktop sound
+		naming specification, but this is not something that foot
+		enforces. It is intended to set the *sound-name* hint (with
+		e.g. notify-send's *--hint* option).
+		
+		_${action-argument}_ will be expanded to the
+		*command-action-argument* option, for each notification
+		action. There will always be at least one action, the
+		"default" action. Foot uses this to enable window focusing,
+		and reporting notification activation to applications that
+		requested such events.
+		
+		Applications can also define their own custom notification
+		actions. See the *command-action-argument* option for details.
+	
+	Ways to trigger notifications
+		Applications can trigger notifications in the following ways:
+	
+		- OSC 777: *\\e]777;notify;<title>;<body>\\e\\\\*
+		- OSC 99: *\\e]99;;<title>\\e\\\\* (this is just a bare bones
+		  example; this protocol has lots of features, see
+		  https://sw.kovidgoyal.net/kitty/desktop-notifications)
+		
+		By default, notifications are *inhibited* if the foot window
+		has keyboard focus. See
+		_desktop-notifications.inhibit-when-focused_.
+	
+	Window activation (focusing)
+		Foot can focus the window when the notification is
+		'activated'. It can also send an event back to the client
+		application, notifying it that the notification has been
+		'activated', This typically happens when the default action is
+		invoked, and/or when the notification is clicked, but exact
+		behavior depends on the notification daemon in use, and how it
+		has been configured.
+		
+		For this to work, foot needs to know when the notification was
+		activated (as opposed to just dismissed), and it needs an XDG
+		activation token.
+		
+		There are two parts to handle this. First, the notification
+		must define an action. For this purpose, foot will add a
+		"default" action to the notification (see the
+		*command-action-argument* option).
+		
+		Second, foot needs to know when the notification is activated,
+		and it needs to get hold of the XDG activation token.
+		
+		Both are expected to be printed on stdout.
+		
+		Foot expects the action name (not label) to be printed on a
+		single line. No prefix, no postfix.
+		
+		Foot expects the activation token to be printed on a single
+		line, prefixed with *xdgtoken=*.
+		
+		Example:
+			default++
+xdgtoken=18179adf579a7a904ce73754964b1ec3
+		
+		The expected format of stdout may change at any time. Please
+		read the changelog when upgrading foot.
+		
+		*Note*: notify-send does not, out of the box, support
+		reporting the XDG activation token in any way. This means
+		window activation will not work by default.
+	
+	Stdout
+		Foot recognizes the following things from the notification
+		helper's stdout:
+		
+		- _id_: integer in base 10, daemon assigned notification ID
+		- *id=*_id_: same as plain _nnn_.
+		- *default*: the 'default' action was triggered
+		- *action=*_default_: same as _default_
+		- *action=*_n_: application custom action _n_ triggered
+		- _n_: integer in base 10, appearing after the ID; application
+		  custom action _n_ triggered
+		- *xdgtoken=*_xyz_: XDG activation token.
+		
+		Example #1:
+			17++
+action=default++
+xdgtoken=95ebdfe56e4f47ddb5bba9d7dc3a2c35
+		
+			Foot recognizes this as:
+			- notification has the daemon assigned ID 17
+			- the user triggered the default action
+			- the notification send an XDG activation token
+		
+		Example #2:
+			17++
+1
+		
+			Foot recognizes this as:
+			- notification has the daemon assigned ID 17
+			- the user triggered the first custom action, "1"
+		
+		Example #3:
+			id=17++
+1
+		
+			Foot recognizes this as:
+			- notification has the daemon assigned ID 17
+			- the user triggered the first custom action, "1
+	
+	Default: _notify-send++
+			--wait++
+			--app-name    ${app-id}++
+			--icon        ${app-id}++
+			--category    ${category}++
+			--urgency     ${urgency}++
+			--expire-time ${expire-time}++
+			--hint        STRING:image-path:${icon}++
+			--hint        BOOLEAN:suppress-sound:${muted}++
+			--hint        STRING:sound-name:${sound-name}++
+			--replace-id  ${replace-id}++
+			${action-argument}++
+			--print-id++
+			-- ${title} ${body}_.
+
+*command-action-argument*
+	String to use with *command* to enable passing action/button names
+	to the notification helper.
+
+	Foot will always configure a "default" action that can be used to
+	"activate" the notification, which in turn can cause the foot
+	window to be focused, or an escape to be sent to the terminal
+	application (depending on how the application generated the
+	notification).
+	
+	Furthermore, the OSC-99 notifications protocol allows applications
+	to define their own actions. Foot uses a combination of the
+	*command* option, and the *command-action-argument* option to pass
+	the names of the actions to the notification helper.
+	
+	This option has the following template arguments:
+	
+	- _${action-name}_: the name of the action; *default* for the
+	  default action configured by foot, and _n_, where _n_ is an
+	  integer >= 1, for application defined actions.
+	- _${action-label}_: *Activate* for the default action, and a
+	  free-form string for application defined actions.
+	
+	For each notification action (remember, there will always be at
+	least one), *command-action-argument* will be expanded with the
+	action's name and label.
+
+	Then, _${action-argument}_ is expanded *command* to the full list
+	of actions.
+	
+	If *command-action-argument* is set to the empty string, no
+	actions will be passed to *command*. That is, _${action-argument}_
+	will be replaced with the empty string.
+	
+	Example:
+	
+	*command-action-argument=--action ${action-name}=${action-label}*++
+*command=notify-send ${action-argument} ...*
+	
+	Assume the application defined two custom actions: *OK* and
+	*Cancel*.
+	
+	Given the above, foot will execute:
+	
+		notify-send++
+			--action default='Click to activate'++
+			--action 1=OK++
+			--action 2=Cancel++
+			...
+	
+	Default: _--action ${action-name}=${action-label}_
+
+*close*
+	Command to execute to close an existing notification.
+	
+	_${id}_ is expanded to the ID of the notification that should be
+	closed. For example:
+	
+		fyi --close ${id}
+	
+	Closing a notification is only supported by the Kitty Desktop
+	Notification protocol, OSC-99.
+	
+	If set to the empty string (the default), foot will instead try to
+	close the notification by sending SIGINT to the notification
+	helper process. For example, *notify-send --wait* (libnotify >=
+	0.8.0) responds to SIGINT by closing the notification.
+	
+	Default: _not set_
+
+*inhibit-when-focused*
+	Boolean. If enabled, foot will not display notifications if the
+	terminal window has keyboard focus.
+	
+	Default: _yes_
 
 # SECTION: scrollback
 
@@ -500,9 +772,23 @@ applications can change these at runtime.
 	*beam* or *underline*. Note that this can be overridden by
 	applications. Default: _block_.
 
+*unfocused-style*
+	Configures how the cursor is rendered when the terminal window is
+	unfocused. Possible values are:
+	
+	- unchanged: render cursor in exactly the same way as when the
+	  window has focus.
+	- hollow: render a block cursor, but hollowed out.
+	- none: do not display any cursor at all.
+
 *blink*
 	Boolean. Enables blinking cursor. Note that this can be overridden
-	by applications. Default: _no_.
+	by applications. Related option: *blink-rate*. Default: _no_.
+
+*blink-rate*
+	The rate at which the cursor blink, when cursor blinking has been
+	enabled. Expressed in milliseconds between each blink. Default:
+	_500_.
 
 *color*
 	Two space separated RRGGBB values (i.e. plain old 6-digit hex
@@ -821,11 +1107,11 @@ e.g. *search-start=none*.
 
 *font-increase*
 	Increases the font size by 0.5pt. Default: _Control+plus
-	Control+equal Control+KP\_Add_.
+	Control+equal Control+KP\_Add_ (also defined in *mouse-bindings*).
 
 *font-decrease*
 	Decreases the font size by 0.5pt. Default: _Control+minus
-	Control+KP\_Subtract_.
+	Control+KP\_Subtract_ (also defined in *mouse-bindings*).
 
 *font-reset*
 	Resets the font size to the default. Default: _Control+0 Control+KP\_0_.
@@ -858,16 +1144,14 @@ e.g. *search-start=none*.
 	use *sh -c "command line"* if you need that.
 	
 	Example #1:
-	
 		# Extract currently visible URLs, let user choose one (via
 		fuzzel), then launch firefox with the selected URL++
-*pipe-visible=[sh -c "xurls | uniq | tac | fuzzel | xargs -r
-		firefox"] Control+Print*
+*pipe-visible=[sh -c "xurls | uniq | tac | fuzzel | xargs -r firefox"] Control+Print*
 	
 	Example #2:
-		# Write scrollback content to /tmp/foot-scrollback.txt++
-*pipe-scrollback=[sh -c "cat - > /tmp/foot-scrollback.txt"]
-		Control+Shift+Print*
+		# Open scrollback contents in Emacs running in a new foot instance++
+*pipe-scrollback=[sh -c "f=$(mktemp) && cat - > $f && foot emacsclient -t $f; rm $f"] Control+Shift+Print*
+	
 	Default: _none_
 
 *show-urls-launch*
@@ -917,6 +1201,9 @@ e.g. *search-start=none*.
 	etc is by using an IME.
 	
 	Default: _Control+Shift+u_.
+
+*quit*
+	Quit foot. Default: _none_.
 
 # SECTION: search-bindings
 
@@ -1118,10 +1405,13 @@ The trailing *COUNT* (number of times the button has to be clicked) is
 optional and specifies the click count required to trigger the
 binding. The default if *COUNT* is omitted is _1_.
 
-To map wheel events (i.e. scrolling), use the button names *BTN_BACK*
-(up) and *BTN_FORWARD* (down). Note that these events never generate a
-*COUNT* larger than 1. That is, *BTN_BACK+2*, for example, will never
-trigger.
+To map wheel events (i.e. scrolling), use the button names
+*BTN_WHEEL_BACK* (up) and *BTN_WHEEL_FORWARD* (down). Note that these
+events never generate a *COUNT* larger than 1. That is,
+*BTN_WHEEL_BACK+2*, for example, will never trigger.
+
+Foot also recognizes tiltable wheels; to map these, use
+*BTN_WHEEL_LEFT* and *BTN_WHEEL_RIGHT*.
 
 A modifier+button combination can only be mapped to *one* action. Lets
 say you want to bind *BTN\_MIDDLE* to *fullscreen*. Since
@@ -1149,7 +1439,7 @@ actions listed under *key-bindings* can be used here as well.
 	Alt screen: send fake _KeyUP_ events to the client application, if
 	alternate scroll mode is enabled.
 	
-	Default: _BTN_BACK_
+	Default: _BTN\_WHEEL\_BACK_
 
 *scrollback-down-mouse*
 	Normal screen: scrolls down the contents.
@@ -1157,7 +1447,7 @@ actions listed under *key-bindings* can be used here as well.
 	Alt screen: send fake _KeyDOWN_ events to the client application, if
 	alternate scroll mode is enabled.
 
-	Default: _BTN_FORWARD_
+	Default: _BTN\_WHEEL\_FORWARD_
 
 *select-begin*
 	Begin an interactive selection. The selection is finalized, and
@@ -1229,6 +1519,15 @@ actions listed under *key-bindings* can be used here as well.
 
 *primary-paste*
 	Pastes from the _primary selection_. Default: _BTN\_MIDDLE_.
+
+*font-increase*
+	Increases the font size by 0.5pt. Default:
+	_Control+BTN\_WHEEL\_BACK_ (also defined in *key-bindings*).
+
+*font-decrease*
+	Decreases the font size by 0.5pt. Default:
+	_Control+BTN\_WHEEL\_FORWARD_ (also defined in *key-bindings*).
+
 
 # TWEAK
 

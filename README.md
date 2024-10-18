@@ -3,10 +3,8 @@
 The fast, lightweight and minimalistic Wayland terminal emulator.
 
 [![CI status](https://ci.codeberg.org/api/badges/dnkl/foot/status.svg)](https://ci.codeberg.org/dnkl/foot)
-[![Pipeline status](https://gitlab.com/dnkl/foot/badges/master/pipeline.svg)](https://gitlab.com/dnkl/foot/commits/master)
-[![builds.sr.ht status](https://builds.sr.ht/~dnkl/foot.svg)](https://builds.sr.ht/~dnkl/foot?)
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/foot.svg)](https://repology.org/project/foot/versions)
+[![Packaging status](https://repology.org/badge/vertical-allrepos/foot.svg?columns=4)](https://repology.org/project/foot/versions)
 
 
 ## Index
@@ -37,6 +35,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 1. [Programmatically checking if running in foot](#programmatically-checking-if-running-in-foot)
 1. [XTGETTCAP](#xtgettcap)
 1. [Credits](#Credits)
+1. [Code of Conduct](#code-of-conduct)
 1. [Bugs](#bugs)
 1. [Contact](#contact)
    1. [IRC](#irc)
@@ -62,6 +61,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 * IME (via `text-input-v3`)
 * Multi-seat
 * True Color (24bpp)
+* [Styled and colored underlines](https://sw.kovidgoyal.net/kitty/underlines/)
 * [Synchronized Updates](https://gitlab.freedesktop.org/terminal-wg/specifications/-/merge_requests/2) support
 * [Sixel image support](https://en.wikipedia.org/wiki/Sixel)
 
@@ -151,10 +151,10 @@ These are the default shortcuts. See `man foot.ini` and the example
 : Start a scrollback search
 
 <kbd>ctrl</kbd>+<kbd>+</kbd>, <kbd>ctrl</kbd>+<kbd>=</kbd>
-: Increase font size by 0,5pt
+: Increase font size
 
 <kbd>ctrl</kbd>+<kbd>-</kbd>
-: Decrease font size by 0,5pt
+: Decrease font size
 
 <kbd>ctrl</kbd>+<kbd>0</kbd>
 : Reset font size
@@ -237,7 +237,11 @@ These are the default shortcuts. See `man foot.ini` and the example
   under the pointer up to, and until, the next space characters.
 
 <kbd>left</kbd> - **triple-click**
-: Selects the entire row
+: Selects the everything between enclosing quotes, or the entire row
+  if not inside a quote.
+
+<kbd>left</kbd> - **quad-click**
+: Selects the entire row.
 
 <kbd>middle</kbd>
 : Paste from _primary_ selection
@@ -247,8 +251,15 @@ These are the default shortcuts. See `man foot.ini` and the example
   selection, while hold-and-drag allows you to interactively resize
   the selection.
 
+<kbd>ctrl</kbd>+<kbd>right</kbd>
+: Extend the current selection, but force it to be character wise,
+  rather than depending on the original selection mode.
+
 <kbd>wheel</kbd>
 : Scroll up/down in history
+
+<kbd>ctrl</kbd>+<kbd>wheel</kbd>
+: Increase/decrease font size
 
 
 ### Touchscreen
@@ -293,7 +304,7 @@ when starting your Wayland compositor (i.e. logging in to your
 desktop), and then run `footclient` instead of `foot` whenever you
 want to launch a new terminal.
 
-Foot support socket activation, which means `foot --server` will only be
+Foot supports socket activation, which means `foot --server` will only be
 started the first time you'll run `footclient`. (systemd user units are
 included, but it can work with other supervision suites).
 
@@ -417,13 +428,13 @@ mode_, `\E[?1034l`), and enabled again with `smm` (_set meta mode_,
 ## Backspace
 
 Foot transmits DEL (`^?`) on <kbd>backspace</kbd>. This corresponds to
-XTerm's `backarrowKey` option set to `false`, and to DECBKM being
-_reset_.
+XTerm's `backarrowKey` option set to `false`, and to
+[`DECBKM`](https://vt100.net/docs/vt510-rm/DECBKM.html) being _reset_.
 
 To instead transmit BS (`^H`), press
 <kbd>ctrl</kbd>+<kbd>backspace</kbd>.
 
-Note that foot does **not** implement DECBKM, and that the behavior
+Note that foot does **not** implement `DECBKM`, and that the behavior
 described above **cannot** be changed.
 
 Finally, pressing <kbd>alt</kbd> will prefix the transmitted byte with
@@ -541,7 +552,7 @@ with the terminal emulator itself. Foot implements the following OSCs:
 * `OSC 777` - desktop notification (only the `;notify` sub-command of
   OSC 777 is supported.)
 
-See the **foot-ctlseq**(7) man page for a complete list of supported
+See the **foot-ctlseqs**(7) man page for a complete list of supported
 control sequences.
 
 
@@ -626,11 +637,20 @@ capability in the multi query. This allows us to send a proper
 success/fail flag for each queried capability. Responses for **all**
 queried capabilities are **always** sent. No queries are ever dropped.
 
+All replies are in `tigetstr()` format. That is, given the same
+capability name, foot's reply is identical to what `tigetstr()` would
+have returned.
+
 
 # Credits
 
 * [Ordoviz](https://codeberg.org/Ordoviz), for designing and
 contributing foot's [logo](icons/hicolor/48x48/apps/foot.png).
+
+
+# Code of Conduct
+
+See [Code of Conduct](CODE_OF_CONDUCT.md)
 
 
 # Bugs
@@ -656,14 +676,15 @@ The report should contain the following:
 ## IRC
 
 Ask questions, hang out, sing praise or just say hi in the `#foot`
-channel on [irc.libera.chat](https://libera.chat). Logs are available
-at https://libera.irclog.whitequark.org/foot.
+channel on
+[irc.libera.chat](https://web.libera.chat/?channels=#foot). Logs are
+available at https://libera.irclog.whitequark.org/foot.
 
 
 ## Mastodon
 
 Every now and then I post foot related updates on
-[@dnkl@linuxrocks.online](https://linuxrocks.online/@dnkl)
+[@dnkl@social.treehouse.systems](https://social.treehouse.systems/@dnkl)
 
 
 # Sponsoring/donations

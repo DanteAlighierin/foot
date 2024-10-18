@@ -965,6 +965,7 @@ mark_selected_region(struct terminal *term, pixman_box32_t *boxes,
                      */
                     cell->attrs.clean = false;
                     cell->attrs.selected = false;
+                    row->dirty = true;
                     continue;
                 }
 
@@ -972,8 +973,10 @@ mark_selected_region(struct terminal *term, pixman_box32_t *boxes,
                     xassert(c - j >= 0);
                     struct cell *cell = &row->cells[c - j];
 
-                    if (dirty_cells)
+                    if (dirty_cells) {
                         cell->attrs.clean = false;
+                        row->dirty = true;
+                    }
                     cell->attrs.selected = selected;
                 }
 

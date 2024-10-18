@@ -22,6 +22,7 @@ bool render_resize(
 
 void render_refresh(struct terminal *term);
 void render_refresh_app_id(struct terminal *term);
+void render_refresh_icon(struct terminal *term);
 void render_refresh_csd(struct terminal *term);
 void render_refresh_search(struct terminal *term);
 void render_refresh_title(struct terminal *term);

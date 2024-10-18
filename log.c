@@ -40,7 +40,13 @@ log_init(enum log_colorize _colorize, bool _do_syslog,
         [LOG_FACILITY_DAEMON] = LOG_DAEMON,
     };
 
-    colorize = _colorize == LOG_COLORIZE_ALWAYS || (_colorize == LOG_COLORIZE_AUTO && isatty(STDERR_FILENO));
+    /* Don't use colors if NO_COLOR is defined and not empty */
+    const char *no_color_str = getenv("NO_COLOR");
+    const bool no_color = no_color_str != NULL && no_color_str[0] != '\0';
+
+    colorize = _colorize == LOG_COLORIZE_ALWAYS
+               || (_colorize == LOG_COLORIZE_AUTO
+                   && !no_color && isatty(STDERR_FILENO));
     do_syslog = _do_syslog;
     log_level = _log_level;
 
@@ -103,6 +109,9 @@ _sys_log(enum log_class log_class, const char *module,
     xassert(log_class < ALEN(log_level_map));
 
     if (!do_syslog)
+        return;
+
+    if (log_class > log_level)
         return;
 
     /* Map our log level to syslog's level */

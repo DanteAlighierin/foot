@@ -15,9 +15,9 @@
 #include "debug.h"
 #include "xmalloc.h"
 
-bool
+pid_t
 spawn(struct reaper *reaper, const char *cwd, char *const argv[],
-      int stdin_fd, int stdout_fd, int stderr_fd,
+      int stdin_fd, int stdout_fd, int stderr_fd, reaper_cb cb, void *cb_data,
       const char *xdg_activation_token)
 {
     int pipe_fds[2] = {-1, -1};
@@ -104,16 +104,16 @@ spawn(struct reaper *reaper, const char *cwd, char *const argv[],
     close(pipe_fds[0]);
 
     if (ret == 0) {
-        reaper_add(reaper, pid, NULL, NULL);
-        return true;
+        reaper_add(reaper, pid, cb, cb_data);
+        return pid;
     } else if (ret < 0) {
         LOG_ERRNO("failed to read from pipe");
-        return false;
+        return -1;
     } else {
         LOG_ERRNO_P(errno_copy, "%s: failed to spawn", argv[0]);
         errno = errno_copy;
         waitpid(pid, NULL, 0);
-        return false;
+        return -1;
     }
 
 err:
@@ -121,7 +121,7 @@ err:
         close(pipe_fds[0]);
     if (pipe_fds[1] != -1)
         close(pipe_fds[1]);
-    return false;
+    return -1;
 }
 
 bool

@@ -36,16 +36,13 @@ static const uint8_t reverse_lookup[256] = {
 };
 
 static const char lookup[64] = {
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O',
-    'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o',
-    'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-    '+', '/',
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "abcdefghijklmnopqrstuvwxyz"
+    "0123456789+/"
 };
 
 char *
-base64_decode(const char *s)
+base64_decode(const char *s, size_t *size)
 {
     const size_t len = strlen(s);
     if (unlikely(len % 4 != 0)) {
@@ -56,6 +53,9 @@ base64_decode(const char *s)
     char *ret = malloc(len / 4 * 3 + 1);
     if (unlikely(ret == NULL))
         return NULL;
+
+    if (unlikely(size != NULL))
+        *size = len / 4 * 3;
 
     for (size_t i = 0, o = 0; i < len; i += 4, o += 3) {
         unsigned a = reverse_lookup[(unsigned char)s[i + 0]];
@@ -70,6 +70,13 @@ base64_decode(const char *s)
         if (unlikely(u & P)) {
             if (unlikely(i + 4 != len || (a | b) & P || (c & P && !(d & P))))
                 goto invalid;
+
+            if (unlikely(size != NULL)) {
+                if (c & P)
+                    *size = len / 4 * 3 - 2;
+                else
+                    *size = len / 4 * 3 - 1;
+            }
 
             c &= 63;
             d &= 63;

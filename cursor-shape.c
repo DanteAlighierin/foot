@@ -9,28 +9,26 @@
 #include "debug.h"
 #include "util.h"
 
-const char *
+const char *const *
 cursor_shape_to_string(enum cursor_shape shape)
 {
-    static const char *const table[CURSOR_SHAPE_COUNT] = {
-        [CURSOR_SHAPE_NONE] = NULL,
-        [CURSOR_SHAPE_HIDDEN] = "hidden",
-        [CURSOR_SHAPE_LEFT_PTR] = "left_ptr",
-        [CURSOR_SHAPE_TEXT] = "text",
-        [CURSOR_SHAPE_TEXT_FALLBACK] = "xterm",
-        [CURSOR_SHAPE_TOP_LEFT_CORNER] = "top_left_corner",
-        [CURSOR_SHAPE_TOP_RIGHT_CORNER] = "top_right_corner",
-        [CURSOR_SHAPE_BOTTOM_LEFT_CORNER] = "bottom_left_corner",
-        [CURSOR_SHAPE_BOTTOM_RIGHT_CORNER] = "bottom_right_corner",
-        [CURSOR_SHAPE_LEFT_SIDE] = "left_side",
-        [CURSOR_SHAPE_RIGHT_SIDE] = "right_side",
-        [CURSOR_SHAPE_TOP_SIDE] = "top_side",
-        [CURSOR_SHAPE_BOTTOM_SIDE] = "bottom_side",
+    static const char *const table[][CURSOR_SHAPE_COUNT]= {
+        [CURSOR_SHAPE_NONE] = {NULL},
+        [CURSOR_SHAPE_HIDDEN] = {"hidden", NULL},
+        [CURSOR_SHAPE_LEFT_PTR] = {"default", "left_ptr", NULL},
+        [CURSOR_SHAPE_TEXT] = {"text", "xterm", NULL},
+        [CURSOR_SHAPE_TOP_LEFT_CORNER] = {"nw-resize", "top_left_corner", NULL},
+        [CURSOR_SHAPE_TOP_RIGHT_CORNER] = {"ne-resize", "top_right_corner", NULL},
+        [CURSOR_SHAPE_BOTTOM_LEFT_CORNER] = {"sw-resize", "bottom_left_corner", NULL},
+        [CURSOR_SHAPE_BOTTOM_RIGHT_CORNER] = {"se-resize", "bottom_right_corner", NULL},
+        [CURSOR_SHAPE_LEFT_SIDE] = {"w-resize", "left_side", NULL},
+        [CURSOR_SHAPE_RIGHT_SIDE] = {"e-resize", "right_side", NULL},
+        [CURSOR_SHAPE_TOP_SIDE] = {"n-resize", "top_side", NULL},
+        [CURSOR_SHAPE_BOTTOM_SIDE] = {"s-resize", "bottom_side", NULL},
 
     };
 
     xassert(shape <= ALEN(table));
-    xassert(table[shape] != NULL);
     return table[shape];
 }
 
@@ -40,7 +38,6 @@ cursor_shape_to_server_shape(enum cursor_shape shape)
     static const enum wp_cursor_shape_device_v1_shape table[CURSOR_SHAPE_COUNT] = {
         [CURSOR_SHAPE_LEFT_PTR] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_DEFAULT,
         [CURSOR_SHAPE_TEXT] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_TEXT,
-        [CURSOR_SHAPE_TEXT_FALLBACK] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_TEXT,
         [CURSOR_SHAPE_TOP_LEFT_CORNER] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NW_RESIZE,
         [CURSOR_SHAPE_TOP_RIGHT_CORNER] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_NE_RESIZE,
         [CURSOR_SHAPE_BOTTOM_LEFT_CORNER] = WP_CURSOR_SHAPE_DEVICE_V1_SHAPE_SW_RESIZE,

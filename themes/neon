@@ -1,0 +1,27 @@
+#
+# vim: ft=dosini
+#
+# Neon
+#
+# https://xcolors.net/neon
+#
+
+[colors]
+foreground=f8f8f8
+background=171717
+regular0=171717
+regular1=d81765
+regular2=97d01a
+regular3=ffa800
+regular4=16b1fb
+regular5=ff2491
+regular6=0fdcb6
+regular7=ebebeb
+bright0=38252c
+bright1=ff0000
+bright2=76b639
+bright3=e1a126
+bright4=289cd5
+bright5=ff2491
+bright6=0a9b81
+bright7=f8f8f8

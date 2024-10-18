@@ -1,0 +1,91 @@
+name: Bug Report
+description: File a bug report
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please provide as many details as possible, we must be able to
+        understand the bug in order to fix it.
+
+        Don't forget to search the issue tracker in case there is
+        already an open issue for the bug you found.
+  - type: input
+    id: version
+    attributes:
+      label: Foot Version
+      description: "The output of `foot --version`"
+      placeholder: "foot version: 1.17.2-11-gc4f13809 (May 20 2024, branch 'master') +pgo +ime +graphemes -assertions"
+    validations:
+      required: true
+  - type: input
+    id: term
+    attributes:
+      label: TERM environment variable
+      description: "The output of `echo $TERM`"
+      placeholder: "foot"
+    validations:
+      required: true
+  - type: input
+    id: compositor
+    attributes:
+      label: Compositor Version
+      description: "The name and version of your compositor"
+      placeholder: "sway version 1.9"
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Description of Bug and Steps to Reproduce
+      description: |
+        Exactly what steps can someone else take to see the bug
+        themselves? What happens?
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        Please provide as many details as possible, we must be able to
+        understand the bug in order to fix it.
+
+        Other software
+        --------------
+
+        **Compositors**: have you tested other compositors? Does the
+        issue happen on all of them, or only your main compositor?
+
+        **Terminal multiplexers**: are you using tmux, zellij, or any
+        other terminal multiplexer?  Does the bug happen in a plain
+        foot instance?
+
+        **IME** do you use an IME? Which one? Does the bug happen if
+        you disable the IME?
+
+        Obtaining logs and stacktraces
+        ------------------------------
+
+        Use a [debug
+        build](https://codeberg.org/dnkl/foot/src/branch/master/INSTALL.md#debug-build)
+        of foot if possible, to get a better quality stacktrace in
+        case of a crash.
+
+        Run foot with logging enabled:
+        ```sh
+        foot -d info 2> foot.log
+        ```
+
+        In many cases, tracing the Wayland communication is extremely helpful:
+        ```sh
+        WAYLAND_DEBUG=1 foot -d info 2> foot.wayland.log
+        ```
+
+        Reproduce your problem as quickly as possible, and then exit foot.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs, stacktraces, etc.
+  - type: markdown
+    attributes:
+      value: |
+        Please attach files instead of pasting the logs, if the logs are large

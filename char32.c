@@ -176,7 +176,7 @@ done:
     return chars;
 
 err:
-    return (char32_t)-1;
+    return (size_t)-1;
 }
 
 UNITTEST

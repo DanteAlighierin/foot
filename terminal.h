@@ -20,6 +20,7 @@
 #include "fdm.h"
 #include "key-binding.h"
 #include "macros.h"
+#include "notify.h"
 #include "reaper.h"
 #include "shm.h"
 #include "wayland.h"
@@ -99,19 +100,58 @@ struct damage {
     uint16_t lines;
 };
 
-struct row_uri_range {
-    int start;
-    int end;
+struct uri_range_data {
     uint64_t id;
     char *uri;
 };
 
+enum underline_style {
+    UNDERLINE_NONE,
+    UNDERLINE_SINGLE,  /* Legacy underline */
+    UNDERLINE_DOUBLE,
+    UNDERLINE_CURLY,
+    UNDERLINE_DOTTED,
+    UNDERLINE_DASHED,
+};
+
+struct underline_range_data {
+    enum underline_style style;
+    enum color_source color_src;
+    uint32_t color;
+};
+
+union row_range_data {
+    struct uri_range_data uri;
+    struct underline_range_data underline;
+};
+
+struct row_range {
+    int start;
+    int end;
+
+    union {
+        /* This is just an expanded union row_range_data, but
+         * anonymous, so that we don't have to write range->u.uri.id,
+         * but can instead do range->uri.id */
+        union {
+            struct uri_range_data uri;
+            struct underline_range_data underline;
+        };
+        union row_range_data data;
+    };
+};
+
+struct row_ranges {
+    struct row_range *v;
+    int size;
+    int count;
+};
+
+enum row_range_type {ROW_RANGE_URI, ROW_RANGE_UNDERLINE};
+
 struct row_data {
-    struct {
-        struct row_uri_range *v;
-        uint32_t size;
-        uint32_t count;
-    } uri_ranges;
+    struct row_ranges uri_ranges;
+    struct row_ranges underline_ranges;
 };
 
 struct row {
@@ -260,6 +300,8 @@ struct vt {
         char *uri;
     } osc8;
 
+    struct underline_range_data underline;
+
     struct {
         uint8_t *data;
         size_t size;
@@ -352,12 +394,36 @@ struct url {
 };
 typedef tll(struct url) url_list_t;
 
+
+struct colors {
+    uint32_t fg;
+    uint32_t bg;
+    uint32_t table[256];
+    uint16_t alpha;
+    uint32_t cursor_fg;  /* Text color */
+    uint32_t cursor_bg;  /* cursor color */
+    uint32_t selection_fg;
+    uint32_t selection_bg;
+    bool use_custom_selection;
+};
+
 struct terminal {
     struct fdm *fdm;
     struct reaper *reaper;
     const struct config *conf;
 
     void (*ascii_printer)(struct terminal *term, char32_t c);
+    union {
+        struct {
+            bool sixels:1;
+            bool osc8:1;
+            bool underline_style:1;
+            bool underline_color:1;
+            bool insert_mode:1;
+            bool charset:1;
+        };
+        uint8_t value;
+    } bits_affecting_ascii_printer;
 
     pid_t slave;
     int ptmx;
@@ -406,6 +472,7 @@ struct terminal {
     struct config_font *font_sizes[4];
     struct pt_or_px font_line_height;
     float font_dpi;
+    float font_dpi_before_unmap;
     bool font_is_sized_by_dpi;
     int16_t font_x_ofs;
     int16_t font_y_ofs;
@@ -475,6 +542,8 @@ struct terminal {
         bool app_sync_updates:1;
         bool grapheme_shaping:1;
 
+        bool size_notifications:1;
+
         bool sixel_display_mode:1;
         bool sixel_private_palette:1;
         bool sixel_cursor_right_of_graphics:1;
@@ -483,6 +552,8 @@ struct terminal {
     bool window_title_has_been_set;
     char *window_title;
     tll(char *) window_title_stack;
+    //char *window_icon;  /* No escape sequence available to set the icon */
+    //tll(char *)window_icon_stack;
     char *app_id;
 
     struct {
@@ -510,15 +581,13 @@ struct terminal {
     int cell_width;  /* pixels per cell, x-wise */
     int cell_height; /* pixels per cell, y-wise */
 
+    struct colors colors;
+
     struct {
-        uint32_t fg;
-        uint32_t bg;
-        uint32_t table[256];
-        uint16_t alpha;
-        uint32_t selection_fg;
-        uint32_t selection_bg;
-        bool use_custom_selection;
-    } colors;
+        struct colors *stack;
+        size_t idx;
+        size_t size;
+    } color_stack;
 
     enum cursor_style cursor_style;
     struct {
@@ -527,10 +596,6 @@ struct terminal {
         int fd;
         enum { CURSOR_BLINK_ON, CURSOR_BLINK_OFF } state;
     } cursor_blink;
-    struct {
-        uint32_t text;
-        uint32_t cursor;
-    } cursor_color;
 
     struct {
         enum selection_kind kind;
@@ -610,6 +675,11 @@ struct terminal {
         struct {
             struct timespec last_update;
             int timer_fd;
+        } icon;
+
+        struct {
+            struct timespec last_update;
+            int timer_fd;
         } app_id;
 
         uint32_t scrollback_lines; /* Number of scrollback lines, from conf (TODO: move out from render struct?) */
@@ -666,7 +736,6 @@ struct terminal {
         } state;
 
         struct coord pos;    /* Current sixel coordinate */
-        size_t row_byte_ofs; /* Byte position into image, for current row */
         int color_idx;       /* Current palette index */
         uint32_t *private_palette;   /* Private palette, used when private mode 1070 is enabled */
         uint32_t *shared_palette;    /* Shared palette, used when private mode 1070 is disabled */
@@ -675,8 +744,11 @@ struct terminal {
 
         struct {
             uint32_t *data;  /* Raw image data, in ARGB */
+            uint32_t *p;     /* Pointer into data, for current position */
             int width;       /* Image width, in pixels */
             int height;      /* Image height, in pixels */
+            int alloc_height;
+            unsigned int bottom_pixel;
         } image;
 
         /*
@@ -711,32 +783,50 @@ struct terminal {
     char32_t url_keys[5];
     bool urls_show_uri_on_jump_label;
     struct grid *url_grid_snapshot;
+    bool ime_reenable_after_url_mode;
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     bool ime_enabled;
 #endif
 
     struct {
+        bool active;
+        int count;
+        char32_t character;
+    } unicode_mode;
+
+    struct {
         bool in_progress;
         bool client_has_terminated;
         int terminate_timeout_fd;
         int exit_status;
+        int next_signal;
 
         void (*cb)(void *data, int exit_code);
         void *cb_data;
     } shutdown;
 
+    /* State, to handle chunked notifications */
+    struct notification kitty_notification;
+
+    /* Currently active notifications, from foot's perspective (their
+       notification helper processes are still running) */
+    tll(struct notification) active_notifications;
+    struct notification_icon notification_icons[32];
+
     char *foot_exe;
     char *cwd;
 
     bool grapheme_shaping;
+    bool size_notifications;
 };
 
 struct config;
 struct terminal *term_init(
     const struct config *conf, struct fdm *fdm, struct reaper *reaper,
     struct wayland *wayl, const char *foot_exe, const char *cwd,
-    const char *token, int argc, char *const *argv, const char *const *envp,
+    const char *token, const char *pty_path,
+    int argc, char *const *argv, const char *const *envp,
     void (*shutdown_cb)(void *data, int exit_code), void *shutdown_data);
 
 bool term_shutdown(struct terminal *term);
@@ -774,6 +864,7 @@ void term_damage_view(struct terminal *term);
 
 void term_damage_cursor(struct terminal *term);
 void term_damage_margins(struct terminal *term);
+void term_damage_color(struct terminal *term, enum color_source src, int idx);
 
 void term_reset_view(struct terminal *term);
 
@@ -798,6 +889,8 @@ void term_cursor_down(struct terminal *term, int count);
 void term_cursor_blink_update(struct terminal *term);
 
 void term_print(struct terminal *term, char32_t wc, int width);
+void term_fill(struct terminal *term, int row, int col, uint8_t c, size_t count,
+               bool use_sgr_attrs);
 
 void term_scroll(struct terminal *term, int rows);
 void term_scroll_reverse(struct terminal *term, int rows);
@@ -839,6 +932,7 @@ void term_set_user_mouse_cursor(struct terminal *term, const char *cursor);
 
 void term_set_window_title(struct terminal *term, const char *title);
 void term_set_app_id(struct terminal *term, const char *app_id);
+const char *term_icon(const struct terminal *term);
 void term_flash(struct terminal *term, unsigned duration_ms);
 void term_bell(struct terminal *term);
 bool term_spawn_new(const struct terminal *term);
@@ -871,6 +965,10 @@ void term_osc8_close(struct terminal *term);
 
 bool term_ptmx_pause(struct terminal *term);
 bool term_ptmx_resume(struct terminal *term);
+
+void term_enable_size_notifications(struct terminal *term);
+void term_disable_size_notifications(struct terminal *term);
+void term_send_size_notification(struct terminal *term);
 
 static inline void term_reset_grapheme_state(struct terminal *term)
 {

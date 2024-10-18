@@ -28,6 +28,11 @@ struct font_size_adjustment {
 };
 
 enum cursor_style { CURSOR_BLOCK, CURSOR_UNDERLINE, CURSOR_BEAM };
+enum cursor_unfocused_style {
+    CURSOR_UNFOCUSED_UNCHANGED,
+    CURSOR_UNFOCUSED_HOLLOW,
+    CURSOR_UNFOCUSED_NONE
+};
 
 enum conf_size_type {CONF_SIZE_PX, CONF_SIZE_CELLS};
 
@@ -79,7 +84,7 @@ enum key_binding_type {
 typedef tll(char *) config_modifier_list_t;
 
 struct config_key_binding {
-    int action;  /* One of the varios bind_action_* enums from wayland.h */
+    int action;  /* One of the various bind_action_* enums from wayland.h */
     //struct config_key_modifiers modifiers;
     config_modifier_list_t modifiers;
     union {
@@ -135,6 +140,7 @@ struct config {
     bool center;
 
     bool resize_by_cells;
+    bool resize_keep_grid;
 
     uint16_t resize_delay_ms;
 
@@ -161,6 +167,8 @@ struct config {
     bool use_custom_underline_offset;
     struct pt_or_px underline_offset;
     struct pt_or_px underline_thickness;
+
+    struct pt_or_px strikeout_thickness;
 
     bool box_drawings_uses_font_glyphs;
     bool can_shape_grapheme;
@@ -256,7 +264,11 @@ struct config {
 
     struct {
         enum cursor_style style;
-        bool blink;
+        enum cursor_unfocused_style unfocused_style;
+        struct {
+            bool enabled;
+            uint32_t rate_ms;
+        } blink;
         struct {
             uint32_t text;
             uint32_t cursor;
@@ -329,8 +341,12 @@ struct config {
         SELECTION_TARGET_BOTH
     } selection_target;
 
-    struct config_spawn_template notify;
-    bool notify_focus_inhibit;
+    struct {
+        struct config_spawn_template command;
+        struct config_spawn_template command_action_arg;
+        struct config_spawn_template close;
+        bool inhibit_when_focused;
+    } desktop_notifications;
 
     env_var_list_t env_vars;
 

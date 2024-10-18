@@ -103,7 +103,7 @@ main(int argc, const char *const *argv)
             if (isprint(buf[i]))
                 printf("%c", buf[i]);
             else if (buf[i] == '\033')
-                printf("\033[1;31m\\E\033[m");
+                printf("\033[1;31m<ESC>\033[m");
             else
                 printf("%02x", (uint8_t)buf[i]);
         }
@@ -141,6 +141,9 @@ main(int argc, const char *const *argv)
                 const char *key = strtok(key_value, "=");
                 const char *value = strtok(NULL, "=");
 
+                if (key == NULL)
+                    continue;
+
 #if 0
                 assert((success && value != NULL) ||
                        (!success && value == NULL));
@@ -158,12 +161,30 @@ main(int argc, const char *const *argv)
 
                 printf("  \033[%dm", color);
                 for (size_t i = 0 ; i < len; i++) {
-                    if (isprint(decoded[i]))
+                    if (isprint(decoded[i])) {
+                        /* All printable characters */
                         printf("%c", decoded[i]);
-                    else if (decoded[i] == '\033')
-                        printf("\033[1;31m\\E\033[22;%dm", color);
-                    else
+                    }
+
+                    else if (decoded[i] == '\033') {
+                        /* ESC */
+                        printf("\033[1;31m<ESC>\033[22;%dm", color);
+                    }
+
+                    else if (decoded[i] >= '\x00' && decoded[i] <= '\x5f') {
+                        /* Control characters, e.g. ^G etc */
+                        printf("\033[1m^%c\033[22m", decoded[i] + '@');
+                    }
+
+                    else if (decoded[i] == '\x7f') {
+                        /* Control character ^? */
+                        printf("\033[1m^?\033[22m");
+                    }
+
+                    else {
+                        /* Unknown: print hex representation */
                         printf("\033[1m%02x\033[22m", (uint8_t)decoded[i]);
+                    }
                 }
                 printf("\033[m\r\n");
                 replies++;

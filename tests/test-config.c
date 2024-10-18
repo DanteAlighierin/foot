@@ -511,7 +511,7 @@ test_section_main(void)
     test_boolean(&ctx, &parse_section_main, "login-shell", &conf.login_shell);
     test_boolean(&ctx, &parse_section_main, "box-drawings-uses-font-glyphs", &conf.box_drawings_uses_font_glyphs);
     test_boolean(&ctx, &parse_section_main, "locked-title", &conf.locked_title);
-    test_boolean(&ctx, &parse_section_main, "notify-focus-inhibit", &conf.notify_focus_inhibit);
+    test_boolean(&ctx, &parse_section_main, "notify-focus-inhibit", &conf.desktop_notifications.inhibit_when_focused);  /* Deprecated */
     test_boolean(&ctx, &parse_section_main, "dpi-aware", &conf.dpi_aware);
 
     test_pt_or_px(&ctx, &parse_section_main, "font-size-adjustment", &conf.font_size_adjustment.pt_or_px);  /* TODO: test ‘N%’ values too */
@@ -520,11 +520,12 @@ test_section_main(void)
     test_pt_or_px(&ctx, &parse_section_main, "horizontal-letter-offset", &conf.horizontal_letter_offset);
     test_pt_or_px(&ctx, &parse_section_main, "vertical-letter-offset", &conf.vertical_letter_offset);
     test_pt_or_px(&ctx, &parse_section_main, "underline-thickness", &conf.underline_thickness);
+    test_pt_or_px(&ctx, &parse_section_main, "strikeout-thickness", &conf.strikeout_thickness);
 
     test_uint16(&ctx, &parse_section_main, "resize-delay-ms", &conf.resize_delay_ms);
     test_uint16(&ctx, &parse_section_main, "workers", &conf.render_worker_count);
 
-    test_spawn_template(&ctx, &parse_section_main, "notify", &conf.notify);
+    test_spawn_template(&ctx, &parse_section_main, "notify", &conf.desktop_notifications.command);  /* Deprecated */
 
     test_enum(&ctx, &parse_section_main, "selection-target",
               4,
@@ -566,6 +567,22 @@ test_section_bell(void)
                  &conf.bell.command_focused);
     test_spawn_template(&ctx, &parse_section_bell, "command",
                         &conf.bell.command);
+
+    config_free(&conf);
+}
+
+static void
+test_section_desktop_notifications(void)
+{
+    struct config conf = {0};
+    struct context ctx = {.conf = &conf, .section = "desktop-notifications", .path = "unittest"};
+
+    test_invalid_key(&ctx, &parse_section_desktop_notifications, "invalid-key");
+
+    test_boolean(&ctx, &parse_section_desktop_notifications, "inhibit-when-focused", &conf.desktop_notifications.inhibit_when_focused);
+    test_spawn_template(&ctx, &parse_section_desktop_notifications, "command", &conf.desktop_notifications.command);
+    test_spawn_template(&ctx, &parse_section_desktop_notifications, "command-action-argument", &conf.desktop_notifications.command_action_arg);
+    test_spawn_template(&ctx, &parse_section_desktop_notifications, "close", &conf.desktop_notifications.close);
 
     config_free(&conf);
 }
@@ -635,7 +652,14 @@ test_section_cursor(void)
         (const char *[]){"block", "beam", "underline"},
         (int []){CURSOR_BLOCK, CURSOR_BEAM, CURSOR_UNDERLINE},
         (int *)&conf.cursor.style);
-    test_boolean(&ctx, &parse_section_cursor, "blink", &conf.cursor.blink);
+    test_enum(
+        &ctx, &parse_section_cursor, "unfocused-style",
+        3,
+        (const char *[]){"unchanged", "hollow", "none"},
+        (int []){CURSOR_UNFOCUSED_UNCHANGED, CURSOR_UNFOCUSED_HOLLOW, CURSOR_UNFOCUSED_NONE},
+        (int *)&conf.cursor.unfocused_style);
+    test_boolean(&ctx, &parse_section_cursor, "blink", &conf.cursor.blink.enabled);
+    test_uint32(&ctx, &parse_section_cursor, "blink-rate", &conf.cursor.blink.rate_ms);
     test_pt_or_px(&ctx, &parse_section_cursor, "beam-thickness",
                   &conf.cursor.beam_thickness);
     test_pt_or_px(&ctx, &parse_section_cursor, "underline-thickness",
@@ -1384,6 +1408,7 @@ main(int argc, const char *const *argv)
     log_init(LOG_COLORIZE_AUTO, false, 0, LOG_CLASS_ERROR);
     test_section_main();
     test_section_bell();
+    test_section_desktop_notifications();
     test_section_scrollback();
     test_section_url();
     test_section_cursor();

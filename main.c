@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
 #include <stdbool.h>
+#include <limits.h>
 #include <locale.h>
 #include <getopt.h>
 #include <signal.h>
@@ -35,8 +35,6 @@
 #include "xmalloc.h"
 #include "xsnprintf.h"
 
-#include "char32.h"
-
 #if !defined(__STDC_UTF_32__) || !__STDC_UTF_32__
  #error "char32_t does not use UTF-32"
 #endif
@@ -53,11 +51,12 @@ version_and_features(void)
 {
     static char buf[256];
     snprintf(buf, sizeof(buf),
-             "version: %s %cpgo %cime %cgraphemes %cassertions",
+             "version: %s %cpgo %cime %cgraphemes %ctoplevel-icon %cassertions",
              FOOT_VERSION,
              feature_pgo() ? '+' : '-',
              feature_ime() ? '+' : '-',
              feature_graphemes() ? '+' : '-',
+             feature_xdg_toplevel_icon() ? '+' : '-',
              feature_assertions() ? '+' : '-');
     return buf;
 }
@@ -77,6 +76,7 @@ print_usage(const char *prog_name)
         "  -m,--maximized                           start in maximized mode\n"
         "  -F,--fullscreen                          start in fullscreen mode\n"
         "  -L,--login-shell                         start shell as a login shell\n"
+        "  --pty=PATH                               display an existing PTY instead of creating one\n"
         "  -D,--working-directory=DIR               directory to start in (CWD)\n"
         "  -w,--window-size-pixels=WIDTHxHEIGHT     initial width and height, in pixels\n"
         "  -W,--window-size-chars=WIDTHxHEIGHT      initial width and height, in characters\n"
@@ -172,6 +172,10 @@ sanitize_signals(void)
         sigaction(i, &dfl, NULL);
 }
 
+enum {
+    PTY_OPTION = CHAR_MAX + 1,
+};
+
 int
 main(int argc, char *const *argv)
 {
@@ -209,6 +213,7 @@ main(int argc, char *const *argv)
         {"maximized",              no_argument,       NULL, 'm'},
         {"fullscreen",             no_argument,       NULL, 'F'},
         {"presentation-timings",   no_argument,       NULL, 'P'}, /* Undocumented */
+        {"pty",                    required_argument, NULL, PTY_OPTION},
         {"print-pid",              required_argument, NULL, 'p'},
         {"log-level",              required_argument, NULL, 'd'},
         {"log-colorize",           optional_argument, NULL, 'l'},
@@ -221,6 +226,7 @@ main(int argc, char *const *argv)
     bool check_config = false;
     const char *conf_path = NULL;
     const char *custom_cwd = NULL;
+    const char *pty_path = NULL;
     bool as_server = false;
     const char *conf_server_socket_path = NULL;
     bool presentation_timings = false;
@@ -253,7 +259,7 @@ main(int argc, char *const *argv)
             break;
 
         case 't':
-            tll_push_back(overrides, xasprintf("term=%s", optarg));
+            tll_push_back(overrides, xstrjoin("term=", optarg));
             break;
 
         case 'L':
@@ -261,11 +267,11 @@ main(int argc, char *const *argv)
             break;
 
         case 'T':
-            tll_push_back(overrides, xasprintf("title=%s", optarg));
+            tll_push_back(overrides, xstrjoin("title=", optarg));
             break;
 
         case 'a':
-            tll_push_back(overrides, xasprintf("app-id=%s", optarg));
+            tll_push_back(overrides, xstrjoin("app-id=", optarg));
             break;
 
         case 'D': {
@@ -279,7 +285,7 @@ main(int argc, char *const *argv)
         }
 
         case 'f': {
-            char *font_override = xasprintf("font=%s", optarg);
+            char *font_override = xstrjoin("font=", optarg);
             tll_push_back(overrides, font_override);
             break;
         }
@@ -314,6 +320,10 @@ main(int argc, char *const *argv)
             as_server = true;
             if (optarg != NULL)
                 conf_server_socket_path = optarg;
+            break;
+
+        case PTY_OPTION:
+            pty_path = optarg;
             break;
 
         case 'P':
@@ -383,6 +393,11 @@ main(int argc, char *const *argv)
         }
     }
 
+    if (as_server && pty_path) {
+        fputs("error: --pty is incompatible with server mode\n", stderr);
+        return ret;
+    }
+
     log_init(log_colorize, as_server && log_syslog,
              as_server ? LOG_FACILITY_DAEMON : LOG_FACILITY_USER, log_level);
 
@@ -411,19 +426,19 @@ main(int argc, char *const *argv)
          * that does not exist on this system, then the above call may return
          * NULL. We should just continue with the fallback method below.
          */
-        LOG_WARN("setlocale() failed");
-        locale = "C";
+        LOG_ERR("setlocale() failed. The most common cause is that the "
+                "configured locale is not available, or has been misspelled");
     }
 
-    LOG_INFO("locale: %s", locale);
+    LOG_INFO("locale: %s", locale != NULL ? locale : "<invalid>");
 
-    bool bad_locale = !locale_is_utf8();
+    bool bad_locale = locale == NULL || !locale_is_utf8();
     if (bad_locale) {
         static const char fallback_locales[][12] = {
             "C.UTF-8",
             "en_US.UTF-8",
         };
-        char *saved_locale = xstrdup(locale);
+        char *saved_locale = locale != NULL ? xstrdup(locale) : NULL;
 
         /*
          * Try to force an UTF-8 locale. If we succeed, launch the
@@ -434,13 +449,23 @@ main(int argc, char *const *argv)
             const char *const fallback_locale = fallback_locales[i];
 
             if (setlocale(LC_CTYPE, fallback_locale) != NULL) {
-                LOG_WARN("'%s' is not a UTF-8 locale, using '%s' instead",
-                         saved_locale, fallback_locale);
+                if (saved_locale != NULL) {
+                    LOG_WARN(
+                        "'%s' is not a UTF-8 locale, falling back to '%s'",
+                        saved_locale, fallback_locale);
 
-                user_notification_add_fmt(
-                    &user_notifications, USER_NOTIFICATION_WARNING,
-                    "'%s' is not a UTF-8 locale, using '%s' instead",
-                    saved_locale, fallback_locale);
+                    user_notification_add_fmt(
+                        &user_notifications, USER_NOTIFICATION_WARNING,
+                        "'%s' is not a UTF-8 locale, falling back to '%s'",
+                        saved_locale, fallback_locale);
+
+                } else {
+                    LOG_WARN(
+                        "invalid locale, falling back to '%s'", fallback_locale);
+                    user_notification_add_fmt(
+                        &user_notifications, USER_NOTIFICATION_WARNING,
+                        "invalid locale, falling back to '%s'", fallback_locale);
+                }
 
                 bad_locale = false;
                 break;
@@ -448,14 +473,22 @@ main(int argc, char *const *argv)
         }
 
         if (bad_locale) {
-            LOG_ERR(
-                "'%s' is not a UTF-8 locale, and failed to find a fallback",
-                saved_locale);
+            if (saved_locale != NULL) {
+                LOG_ERR(
+                    "'%s' is not a UTF-8 locale, and failed to find a fallback",
+                    saved_locale);
 
-            user_notification_add_fmt(
-                &user_notifications, USER_NOTIFICATION_ERROR,
-                "'%s' is not a UTF-8 locale, and failed to find a fallback",
-                saved_locale);
+                user_notification_add_fmt(
+                    &user_notifications, USER_NOTIFICATION_ERROR,
+                    "'%s' is not a UTF-8 locale, and failed to find a fallback",
+                    saved_locale);
+            } else {
+                LOG_ERR("invalid locale, and failed to find a fallback");
+
+                user_notification_add_fmt(
+                    &user_notifications, USER_NOTIFICATION_ERROR,
+                    "invalid locale, and failed to find a fallback");
+            }
         }
         free(saved_locale);
     }
@@ -574,7 +607,7 @@ main(int argc, char *const *argv)
         goto out;
 
     if (!as_server && (term = term_init(
-                           &conf, fdm, reaper, wayl, "foot", cwd, token,
+                           &conf, fdm, reaper, wayl, "foot", cwd, token, pty_path,
                            argc, argv, NULL,
                            &term_shutdown_cb, &shutdown_ctx)) == NULL) {
         goto out;
@@ -640,4 +673,23 @@ out:
     fcft_fini();
     log_deinit();
     return ret == EXIT_SUCCESS && !as_server ? shutdown_ctx.exit_code : ret;
+}
+
+UNITTEST
+{
+    char *s = xstrjoin("foo", "bar");
+    xassert(streq(s, "foobar"));
+    free(s);
+
+    s = xstrjoin3("foo", " ", "bar");
+    xassert(streq(s, "foo bar"));
+    free(s);
+
+    s = xstrjoin3("foo", ",", "bar");
+    xassert(streq(s, "foo,bar"));
+    free(s);
+
+    s = xstrjoin3("foo", "bar", "baz");
+    xassert(streq(s, "foobarbaz"));
+    free(s);
 }

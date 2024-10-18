@@ -1,0 +1,134 @@
+# -*- yaml -*-
+
+steps:
+  - name: codespell
+    when:
+      - event: [manual, pull_request]
+      - event: [push, tag]
+        branch: [master, releases/*]
+    image: alpine:edge
+    commands:
+      - apk add openssl
+      - apk add python3
+      - apk add py3-pip
+      - python3 -m venv codespell-venv
+      - source codespell-venv/bin/activate
+      - pip install codespell
+      - codespell -Lser,doas,zar README.md INSTALL.md CHANGELOG.md *.c *.h doc/*.scd
+      - deactivate
+
+  - name: subprojects
+    when:
+      - event: [manual, pull_request]
+      - event: [push, tag]
+        branch: [master, releases/*]
+    image: alpine:edge
+    commands:
+      - apk add git
+      - mkdir -p subprojects && cd subprojects
+      - git clone https://codeberg.org/dnkl/tllist.git
+      - git clone https://codeberg.org/dnkl/fcft.git
+      - cd ..
+
+  - name: x64
+    when:
+      - event: [manual, pull_request]
+      - event: [push, tag]
+        branch: [master, releases/*]
+    depends_on: [subprojects]
+    image: alpine:edge
+    commands:
+      - apk update
+      - apk add musl-dev linux-headers meson ninja gcc clang scdoc ncurses
+      - apk add libxkbcommon-dev pixman-dev freetype-dev fontconfig-dev harfbuzz-dev utf8proc-dev
+      - apk add wayland-dev wayland-protocols
+      - apk add git
+      - apk add check-dev
+      - apk add ttf-hack font-noto-emoji
+
+      # Debug
+      - mkdir -p bld/debug-x64
+      - cd bld/debug-x64
+      - meson --buildtype=debug -Dgrapheme-clustering=enabled -Dfcft:grapheme-shaping=enabled -Dfcft:run-shaping=enabled -Dfcft:test-text-shaping=true ../..
+      - ninja -v -k0
+      - ninja -v test
+      - ./foot --version
+      - ./footclient --version
+      - cd ../..
+
+      # Release (gcc)
+      - mkdir -p bld/release-x64
+      - cd bld/release-x64
+      - meson --buildtype=release -Db_pgo=generate -Dgrapheme-clustering=enabled -Dfcft:grapheme-shaping=enabled -Dfcft:run-shaping=enabled  -Dfcft:test-text-shaping=true ../..
+      - ninja -v -k0
+      - ninja -v test
+      - ./foot --version
+      - ./footclient --version
+      - cd ../..
+
+      # Release (clang)
+      - mkdir -p bld/release-x64-clang
+      - cd bld/release-x64-clang
+      - CC=clang meson --buildtype=release -Dgrapheme-clustering=enabled -Dfcft:grapheme-shaping=enabled -Dfcft:run-shaping=enabled  -Dfcft:test-text-shaping=true ../..
+      - ninja -v -k0
+      - ninja -v test
+      - ./foot --version
+      - ./footclient --version
+      - cd ../..
+
+      # no grapheme clustering
+      - apk del harfbuzz harfbuzz-dev utf8proc utf8proc-dev
+      - mkdir -p bld/debug
+      - cd bld/debug
+      - meson --buildtype=debug -Dgrapheme-clustering=disabled -Dfcft:grapheme-shaping=disabled -Dfcft:run-shaping=disabled -Dfcft:test-text-shaping=false ../..
+      - ninja -v -k0
+      - ninja -v test
+      - ./foot --version
+      - ./footclient --version
+      - cd ../..
+
+  - name: x86
+    when:
+      - event: [manual, pull_request]
+      - event: [push, tag]
+        branch: [master, releases/*]
+    depends_on: [subprojects]
+    image: i386/alpine:edge
+    commands:
+      - apk update
+      - apk add musl-dev linux-headers meson ninja gcc clang scdoc ncurses
+      - apk add libxkbcommon-dev pixman-dev freetype-dev fontconfig-dev harfbuzz-dev utf8proc-dev
+      - apk add wayland-dev wayland-protocols
+      - apk add git
+      - apk add check-dev
+      - apk add ttf-hack font-noto-emoji
+
+      # Debug
+      - mkdir -p bld/debug-x86
+      - cd bld/debug-x86
+      - meson --buildtype=debug -Dgrapheme-clustering=enabled -Dfcft:grapheme-shaping=enabled -Dfcft:run-shaping=enabled -Dfcft:test-text-shaping=true ../..
+      - ninja -v -k0
+      - ninja -v test
+      - ./foot --version
+      - ./footclient --version
+      - cd ../..
+
+      # Release (gcc)
+      - mkdir -p bld/release-x86
+      - cd bld/release-x86
+      - meson --buildtype=release -Db_pgo=generate -Dgrapheme-clustering=enabled -Dfcft:grapheme-shaping=enabled -Dfcft:run-shaping=enabled -Dfcft:test-text-shaping=true ../..
+      - ninja -v -k0
+      - ninja -v test
+      - ./foot --version
+      - ./footclient --version
+      - cd ../..
+
+      # Release (clang)
+      - mkdir -p bld/release-x86-clang
+      - cd bld/release-x86-clang
+      - CC=clang meson --buildtype=release -Dgrapheme-clustering=enabled -Dfcft:grapheme-shaping=enabled -Dfcft:run-shaping=enabled -Dfcft:test-text-shaping=true ../..
+      - ninja -v -k0
+      - ninja -v test
+      - ./foot --version
+      - ./footclient --version
+      - cd ../..

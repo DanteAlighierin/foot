@@ -50,27 +50,33 @@ class IntCapability(Capability):
 
 class StringCapability(Capability):
     def __init__(self, name: str, value: str):
-       # Expand \E to literal ESC in non-parameterized capabilities
-        if '%' not in value:
-            # Ensure e.g. \E7 doesn’t get translated to “\0337”, which
-            # would be interpreted as octal 337 by the C compiler
-            value = re.sub(r'\\E([0-7])', r'\\033" "\1', value)
+        # see terminfo(5) for valid escape sequences
 
-            # Replace \E with an actual escape
-            value = re.sub(r'\\E', r'\\033', value)
+        # Control characters
+        def translate_ctrl_chr(m):
+            ctrl = m.group(1)
+            if ctrl == '?':
+                return '\\x7f'
+            return f'\\x{ord(ctrl) - ord("@"):02x}'
+        value = re.sub(r'\^([@A-Z[\\\\\]^_?])', translate_ctrl_chr, value)
 
-            # Don’t escape ‘:’
-            value = value.replace('\\:', ':')
+        # Ensure e.g. \E7 (or \e7) doesn’t get translated to “\0337”,
+        # which would be interpreted as octal 337 by the C compiler
+        value = re.sub(r'(\\E|\\e)([0-7])', r'\\033" "\2', value)
 
-        else:
-            value = value.replace("\\", "\\\\")
-            # # Need to double-escape backslashes. These only occur in
-            # # ‘\E\’ combos. Note that \E itself is updated below
-            # value = value.replace('\\E\\\\', '\\E\\\\\\\\')
+        # Replace \E and \e with ESC
+        value = re.sub(r'\\E|\\e', r'\\033', value)
 
-            # # Need to double-escape \E in C string literals
-            # value = value.replace('\\E', '\\\\E')
+        # Unescape ,:^
+        value = re.sub(r'\\(,|:|\^)', r'\1', value)
 
+        # Replace \s with space
+        value = value.replace('\\s', ' ')
+
+        # Let \\, \n, \r, \t, \b and \f "fall through", to the C string literal
+
+        if re.search(r'\\l', value):
+            raise NotImplementedError('\\l escape sequence')
 
         super().__init__(name, value)
 

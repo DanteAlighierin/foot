@@ -82,6 +82,7 @@ struct buffer_private {
     struct buffer_pool *pool;
     off_t offset;             /* Offset into memfd where data begins */
     size_t size;
+    bool with_alpha;
 
     bool scrollable;
 };
@@ -254,14 +255,14 @@ instantiate_offset(struct buffer_private *buf, off_t new_offset)
 
     void *mmapped = MAP_FAILED;
     struct wl_buffer *wl_buf = NULL;
-    pixman_image_t **pix = xcalloc(buf->public.pix_instances, sizeof(*pix));
+    pixman_image_t **pix = xcalloc(buf->public.pix_instances, sizeof(pix[0]));
 
     mmapped = (uint8_t *)pool->real_mmapped + new_offset;
 
     wl_buf = wl_shm_pool_create_buffer(
         pool->wl_pool, new_offset,
         buf->public.width, buf->public.height, buf->public.stride,
-        WL_SHM_FORMAT_ARGB8888);
+        buf->with_alpha ? WL_SHM_FORMAT_ARGB8888 : WL_SHM_FORMAT_XRGB8888);
 
     if (wl_buf == NULL) {
         LOG_ERR("failed to create SHM buffer");
@@ -271,7 +272,8 @@ instantiate_offset(struct buffer_private *buf, off_t new_offset)
     /* One pixman image for each worker thread (do we really need multiple?) */
     for (size_t i = 0; i < buf->public.pix_instances; i++) {
         pix[i] = pixman_image_create_bits_no_clear(
-            PIXMAN_a8r8g8b8, buf->public.width, buf->public.height,
+            buf->with_alpha ? PIXMAN_a8r8g8b8 : PIXMAN_x8r8g8b8,
+            buf->public.width, buf->public.height,
             (uint32_t *)mmapped, buf->public.stride);
         if (pix[i] == NULL) {
             LOG_ERR("failed to create pixman image");
@@ -304,7 +306,8 @@ err:
 static void NOINLINE
 get_new_buffers(struct buffer_chain *chain, size_t count,
                 int widths[static count], int heights[static count],
-                struct buffer *bufs[static count], bool immediate_purge)
+                struct buffer *bufs[static count], bool with_alpha,
+                bool immediate_purge)
 {
     xassert(count == 1 || !chain->scrollable);
     /*
@@ -322,7 +325,8 @@ get_new_buffers(struct buffer_chain *chain, size_t count,
 
     size_t total_size = 0;
     for (size_t i = 0; i < count; i++) {
-        stride[i] = stride_for_format_and_width(PIXMAN_a8r8g8b8, widths[i]);
+        stride[i] = stride_for_format_and_width(
+            with_alpha ? PIXMAN_a8r8g8b8 : PIXMAN_x8r8g8b8, widths[i]);
         sizes[i] = stride[i] * heights[i];
         total_size += sizes[i];
     }
@@ -346,7 +350,7 @@ get_new_buffers(struct buffer_chain *chain, size_t count,
         "foot-wayland-shm-buffer-pool",
         MFD_CLOEXEC | MFD_ALLOW_SEALING | MFD_NOEXEC_SEAL);
 
-    if (pool_fd < 0 && errno == EINVAL) {
+    if (pool_fd < 0 && errno == EINVAL && MFD_NOEXEC_SEAL != 0) {
         pool_fd = memfd_create(
             "foot-wayland-shm-buffer-pool", MFD_CLOEXEC | MFD_ALLOW_SEALING);
     }
@@ -473,6 +477,7 @@ get_new_buffers(struct buffer_chain *chain, size_t count,
             .chain = chain,
             .ref_count = immediate_purge ? 0 : 1,
             .busy = true,
+            .with_alpha = with_alpha,
             .pool = pool,
             .offset = 0,
             .size = sizes[i],
@@ -542,13 +547,13 @@ shm_did_not_use_buf(struct buffer *_buf)
 void
 shm_get_many(struct buffer_chain *chain, size_t count,
              int widths[static count], int heights[static count],
-             struct buffer *bufs[static count])
+             struct buffer *bufs[static count], bool with_alpha)
 {
-    get_new_buffers(chain, count, widths, heights, bufs, true);
+    get_new_buffers(chain, count, widths, heights, bufs, with_alpha, true);
 }
 
 struct buffer *
-shm_get_buffer(struct buffer_chain *chain, int width, int height)
+shm_get_buffer(struct buffer_chain *chain, int width, int height, bool with_alpha)
 {
     LOG_DBG(
         "chain=%p: looking for a reusable %dx%d buffer "
@@ -559,7 +564,9 @@ shm_get_buffer(struct buffer_chain *chain, int width, int height)
     tll_foreach(chain->bufs, it) {
         struct buffer_private *buf = it->item;
 
-        if (buf->public.width != width || buf->public.height != height) {
+        if (buf->public.width != width || buf->public.height != height ||
+            with_alpha != buf->with_alpha)
+        {
             LOG_DBG("purging mismatching buffer %p", (void *)buf);
             if (buffer_unref_no_remove_from_chain(buf))
                 tll_remove(chain->bufs, it);
@@ -570,8 +577,8 @@ shm_get_buffer(struct buffer_chain *chain, int width, int height)
             buf->public.age++;
         else
 #if FORCED_DOUBLE_BUFFERING
-            if (buf->age == 0)
-                buf->age++;
+            if (buf->public.age == 0)
+                buf->public.age++;
             else
 #endif
             {
@@ -610,7 +617,7 @@ shm_get_buffer(struct buffer_chain *chain, int width, int height)
     }
 
     struct buffer *ret;
-    get_new_buffers(chain, 1, &width, &height, &ret, false);
+    get_new_buffers(chain, 1, &width, &height, &ret, with_alpha, false);
     return ret;
 }
 

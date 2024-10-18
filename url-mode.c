@@ -74,8 +74,9 @@ spawn_url_launcher_with_token(struct terminal *term,
             (const char *[]){url},
             &argc, &argv))
     {
-        ret = spawn(term->reaper, term->cwd, argv,
-              dev_null, dev_null, dev_null, xdg_activation_token);
+        ret = spawn(
+            term->reaper, term->cwd, argv,
+            dev_null, dev_null, dev_null, NULL, NULL, xdg_activation_token) >= 0;
 
         for (size_t i = 0; i < argc; i++)
             free(argv[i]);
@@ -509,7 +510,7 @@ osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
             continue;
 
        for (size_t i = 0; i < extra->uri_ranges.count; i++) {
-           const struct row_uri_range *range = &extra->uri_ranges.v[i];
+           const struct row_range *range = &extra->uri_ranges.v[i];
 
            struct coord start = {
                .col = range->start,
@@ -522,8 +523,8 @@ osc8_uris(const struct terminal *term, enum url_action action, url_list_t *urls)
            tll_push_back(
                *urls,
                ((struct url){
-                   .id = range->id,
-                   .url = xstrdup(range->uri),
+                   .id = range->uri.id,
+                   .url = xstrdup(range->uri.uri),
                    .range = {
                        .start = start,
                        .end = end,
@@ -778,6 +779,12 @@ urls_render(struct terminal *term)
     if (tll_length(win->term->urls) == 0)
         return;
 
+    /* Disable IME while in URL-mode */
+    if (term_ime_is_enabled(term)) {
+        term->ime_reenable_after_url_mode = true;
+        term_ime_disable(term);
+    }
+
     /* Dirty the last cursor, to ensure it is erased */
     {
         struct row *cursor_row = term->render.last_cursor.row;
@@ -860,6 +867,12 @@ urls_reset(struct terminal *term)
 
     term->urls_show_uri_on_jump_label = false;
     memset(term->url_keys, 0, sizeof(term->url_keys));
+
+    /* Re-enable IME, if it was enabled before we entered URL-mode */
+    if (term->ime_reenable_after_url_mode) {
+        term->ime_reenable_after_url_mode = false;
+        term_ime_enable(term);
+    }
 
     render_refresh(term);
 }

@@ -1,0 +1,31 @@
+# -*- conf -*-
+# noirblaze-kitty
+# https://github.com/n1ghtmare/noirblaze-kitty
+
+
+[cursor]
+color=121212 ff0088
+
+[colors]
+foreground=d5d5d5
+background=121212
+
+# selection-foreground=121212
+# selection-background=b0b0b0
+
+regular0=121212  # black
+regular1=ff0088  # red
+regular2=00ff77  # green
+regular3=ffffff  # yellow
+regular4=b0b0b0  # blue
+regular5=7a7a7a  # magenta
+regular6=787878  # cyan
+regular7=d5d5d5  # white
+bright0=737373   # bright black
+bright1=FD319E   # bright red
+bright2=FD319E   # bright green
+bright3=FDFDFD   # bright yellow
+bright4=BEBEBE   # bright blue
+bright5=939393   # bright magenta
+bright6=919191   # bright cyan
+bright7=f5f5f5   # bright white
