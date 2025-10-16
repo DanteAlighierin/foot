@@ -192,6 +192,8 @@ struct color_theme {
         bool search_box_match:1;
         uint8_t dim;
     } use_custom;
+
+    bool blur;
 };
 
 enum which_color_theme {

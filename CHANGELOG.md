@@ -82,6 +82,12 @@
   `LEFTxTOPxRIGHTxBOTTOM` (e.g., `20x10x20x10`).
 * `--config=PATH` option is now automatically passed to new
   terminals spawned via `spawn-terminal` action ([#2259][2259]).
+* Preliminary (untested) support for background blur via the new
+  `ext-background-effect-v1` protocol. Enable by setting
+  `colors-{dark,light}.blur=yes`. Foot needs to have been **built**
+  against `wayland-protocols >= 1.45`, and the compositor **must**
+  implement the `ext-background-effect-v1` protocol, **and** the
+  `blur` effect.
 
 [2212]: https://codeberg.org/dnkl/foot/issues/2212
 [2209]: https://codeberg.org/dnkl/foot/issues/2209

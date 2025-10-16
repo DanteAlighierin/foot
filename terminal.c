@@ -4819,3 +4819,11 @@ term_theme_toggle(struct terminal *term)
     term_damage_margins(term);
     render_refresh(term);
 }
+
+const struct color_theme *
+term_theme_get(const struct terminal *term)
+{
+    return term->colors.active_theme == COLOR_THEME_DARK
+        ? &term->conf->colors_dark
+        : &term->conf->colors_light;
+}

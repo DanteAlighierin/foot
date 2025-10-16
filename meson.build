@@ -188,6 +188,10 @@ if (wayland_protocols.version().version_compare('>=1.43'))
   wl_proto_xml += [wayland_protocols_datadir / 'staging/xdg-toplevel-tag/xdg-toplevel-tag-v1.xml']
   add_project_arguments('-DHAVE_XDG_TOPLEVEL_TAG=1', language: 'c')
 endif
+if (wayland_protocols.version().version_compare('>=1.45'))
+  wl_proto_xml += [wayland_protocols_datadir / 'staging/ext-background-effect/ext-background-effect-v1.xml']
+  add_project_arguments('-DHAVE_EXT_BACKGROUND_EFFECT=1', language: 'c')
+endif
 
 foreach prot : wl_proto_xml
   wl_proto_headers += custom_target(

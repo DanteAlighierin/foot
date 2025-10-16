@@ -1593,6 +1593,9 @@ parse_color_theme(struct context *ctx, struct color_theme *theme)
             (int *)&theme->dim_blend_towards);
     }
 
+    else if (streq(key, "blur"))
+        return value_to_bool(ctx, &theme->blur);
+
     else {
         LOG_CONTEXTUAL_ERR("not valid option");
         return false;
@@ -3546,6 +3549,7 @@ config_load(struct config *conf, const char *conf_path,
                 .scrollback_indicator = false,
                 .url = false,
             },
+            .blur = false,
         },
         .initial_color_theme = COLOR_THEME_DARK,
         .cursor = {

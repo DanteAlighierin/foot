@@ -1193,6 +1193,27 @@ static const struct zxdg_toplevel_decoration_v1_listener xdg_toplevel_decoration
     .configure = &xdg_toplevel_decoration_configure,
 };
 
+#if defined(HAVE_EXT_BACKGROUND_EFFECT)
+static void
+ext_background_capabilities(
+    void *data,
+    struct ext_background_effect_manager_v1 *ext_background_effect_manager_v1,
+    uint32_t flags)
+{
+    struct wayland *wayl = data;
+
+    wayl->have_background_blur =
+        !!(flags & EXT_BACKGROUND_EFFECT_MANAGER_V1_CAPABILITY_BLUR);
+
+    LOG_DBG("compositor supports background blur: %s",
+            wayl->have_background_blur ? "yes" : "no");
+}
+
+static const struct ext_background_effect_manager_v1_listener background_manager_listener = {
+    .capabilities = &ext_background_capabilities,
+};
+#endif  /* HAVE_EXT_BACKGROUND_EFFECT */
+
 static bool
 fdm_repeat(struct fdm *fdm, int fd, int events, void *data)
 {
@@ -1555,6 +1576,20 @@ handle_global(void *data, struct wl_registry *registry,
             wayl->registry, name, &xdg_toplevel_tag_manager_v1_interface, required);
     }
 #endif
+#if defined(HAVE_EXT_BACKGROUND_EFFECT)
+    else if (streq(interface, ext_background_effect_manager_v1_interface.name)) {
+        const uint32_t required = 1;
+        if (!verify_iface_version(interface, version, required))
+            return;
+
+        wayl->background_effect_manager = wl_registry_bind(
+            wayl->registry, name,
+            &ext_background_effect_manager_v1_interface, required);
+
+        ext_background_effect_manager_v1_add_listener(
+            wayl->background_effect_manager, &background_manager_listener, wayl);
+    }
+#endif
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     else if (streq(interface, zwp_text_input_manager_v3_interface.name)) {
@@ -1569,6 +1604,7 @@ handle_global(void *data, struct wl_registry *registry,
             seat_add_text_input(&it->item);
     }
 #endif
+
 }
 
 static void
@@ -1882,6 +1918,10 @@ wayl_destroy(struct wayland *wayl)
     if (wayl->toplevel_tag_manager != NULL)
         xdg_toplevel_tag_manager_v1_destroy(wayl->toplevel_tag_manager);
 #endif
+#if defined(HAVE_EXT_BACKGROUND_EFFECT)
+    if (wayl->background_effect_manager != NULL)
+        ext_background_effect_manager_v1_destroy(wayl->background_effect_manager);
+#endif
 
     if (wayl->color_management.img_description != NULL)
         wp_image_description_v1_destroy(wayl->color_management.img_description);
@@ -1986,8 +2026,6 @@ wayl_win_init(struct terminal *term, const char *token)
         goto out;
     }
 
-    wayl_win_alpha_changed(win);
-
     wl_surface_add_listener(win->surface.surf, &surface_listener, win);
 
     if (wayl->fractional_scale_manager != NULL && wayl->viewporter != NULL) {
@@ -1999,6 +2037,16 @@ wayl_win_init(struct terminal *term, const char *token)
         wp_fractional_scale_v1_add_listener(
             win->fractional_scale, &fractional_scale_listener, win);
     }
+
+#if defined(HAVE_EXT_BACKGROUND_EFFECT)
+    if (wayl->background_effect_manager != NULL) {
+        win->surface.background_effect =
+            ext_background_effect_manager_v1_get_background_effect(
+                wayl->background_effect_manager, win->surface.surf);
+    }
+#endif
+
+    wayl_win_alpha_changed(win);
 
     win->xdg_surface = xdg_wm_base_get_xdg_surface(wayl->shell, win->surface.surf);
     xdg_surface_add_listener(win->xdg_surface, &xdg_surface_listener, win);
@@ -2206,7 +2254,12 @@ wayl_win_destroy(struct wl_window *win)
         free(it->item);
 
         tll_remove(win->xdg_tokens, it);
-}
+    }
+
+#if defined(HAVE_EXT_BACKGROUND_EFFECT)
+    if (win->surface.background_effect != NULL)
+        ext_background_effect_surface_v1_destroy(win->surface.background_effect);
+#endif
 
     if (win->surface.color_management != NULL)
         wp_color_management_surface_v1_destroy(win->surface.color_management);
@@ -2446,16 +2499,16 @@ void
 wayl_win_alpha_changed(struct wl_window *win)
 {
     struct terminal *term = win->term;
+    struct wayland *wayl = term->wl;
 
     /*
      * When fullscreened, transparency is disabled (see render.c).
      * Update the opaque region to match.
      */
-    bool is_opaque = term->colors.alpha == 0xffff || win->is_fullscreen;
+    const bool is_opaque = term->colors.alpha == 0xffff || win->is_fullscreen;
 
     if (is_opaque) {
-        struct wl_region *region = wl_compositor_create_region(
-            term->wl->compositor);
+        struct wl_region *region = wl_compositor_create_region(wayl->compositor);
 
         if (region != NULL) {
             wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
@@ -2464,6 +2517,38 @@ wayl_win_alpha_changed(struct wl_window *win)
         }
     } else
         wl_surface_set_opaque_region(win->surface.surf, NULL);
+
+#if defined(HAVE_EXT_BACKGROUND_EFFECT)
+    if (term_theme_get(term)->blur) {
+        if (wayl->have_background_blur) {
+            xassert(win->surface.background_effect != NULL);
+
+            if (is_opaque) {
+                /* No transparency, disable blur */
+                LOG_DBG("disabling background blur");
+                ext_background_effect_surface_v1_set_blur_region(
+                    win->surface.background_effect, NULL);
+            } else {
+                /* We have transparency, enable blur if user has enabled it */
+                struct wl_region *region = wl_compositor_create_region(wayl->compositor);
+                if (region != NULL) {
+                    LOG_DBG("enabling background blur");
+
+                    wl_region_add(region, 0, 0, INT32_MAX, INT32_MAX);
+                    ext_background_effect_surface_v1_set_blur_region(
+                        win->surface.background_effect, region);
+                    wl_region_destroy(region);
+                }
+            }
+        } else {
+            static bool have_warned = false;
+            if (!have_warned) {
+                LOG_WARN("background blur requested, but compositor does not support it");
+                have_warned = true;
+            }
+        }
+    }
+#endif /* HAVE_EXT_BACKGROUND_EFFECT */
 }
 
 static void

@@ -312,9 +312,7 @@ color_dim(const struct terminal *term, uint32_t color)
         }
     }
 
-    const struct color_theme *theme = term->colors.active_theme == COLOR_THEME_DARK
-        ? &conf->colors_dark
-        : &conf->colors_light;
+    const struct color_theme *theme = term_theme_get(term);
 
     return color_blend_towards(
         color,

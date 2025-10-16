@@ -28,6 +28,12 @@ const char version_and_features[] =
     " -toplevel-tag"
 #endif
 
+#if defined(HAVE_EXT_BACKGROUND_EFFECT)
+    " +blur"
+#else
+    " -blur"
+#endif
+
 #if !defined(NDEBUG)
     " +assertions"
 #else

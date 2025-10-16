@@ -1460,11 +1460,8 @@ osc_dispatch(struct terminal *term)
 
         case 11:
             term->colors.bg = color;
-            if (!have_alpha) {
-                alpha = term->colors.active_theme == COLOR_THEME_DARK
-                    ? term->conf->colors_dark.alpha
-                    : term->conf->colors_light.alpha;
-            }
+            if (!have_alpha)
+                alpha = term_theme_get(term)->alpha;
 
             const bool changed = term->colors.alpha != alpha;
             term->colors.alpha = alpha;
@@ -1517,10 +1514,7 @@ osc_dispatch(struct terminal *term)
     case 104: {
         /* Reset Color Number 'c' (whole table if no parameter) */
 
-        const struct color_theme *theme =
-            term->colors.active_theme == COLOR_THEME_DARK
-                ? &term->conf->colors_dark
-                : &term->conf->colors_light;
+        const struct color_theme *theme = term_theme_get(term);
 
         if (string[0] == '\0') {
             LOG_DBG("resetting all colors");
@@ -1560,11 +1554,7 @@ osc_dispatch(struct terminal *term)
     case 110: /* Reset default text foreground color */
         LOG_DBG("resetting foreground color");
 
-        const struct color_theme *theme =
-            term->colors.active_theme == COLOR_THEME_DARK
-                ? &term->conf->colors_dark
-                : &term->conf->colors_light;
-
+        const struct color_theme *theme = term_theme_get(term);
         term->colors.fg = theme->fg;
         term_damage_color(term, COLOR_DEFAULT, 0);
         break;
@@ -1572,11 +1562,7 @@ osc_dispatch(struct terminal *term)
     case 111: { /* Reset default text background color */
         LOG_DBG("resetting background color");
 
-        const struct color_theme *theme =
-            term->colors.active_theme == COLOR_THEME_DARK
-                ? &term->conf->colors_dark
-                : &term->conf->colors_light;
-
+        const struct color_theme *theme = term_theme_get(term);
         bool alpha_changed = term->colors.alpha != theme->alpha;
 
         term->colors.bg = theme->bg;
@@ -1595,11 +1581,7 @@ osc_dispatch(struct terminal *term)
     case 112: {
         LOG_DBG("resetting cursor color");
 
-        const struct color_theme *theme =
-            term->colors.active_theme == COLOR_THEME_DARK
-                ? &term->conf->colors_dark
-                : &term->conf->colors_light;
-
+        const struct color_theme *theme = term_theme_get(term);
         term->colors.cursor_fg = theme->cursor.text;
         term->colors.cursor_bg = theme->cursor.cursor;
 
@@ -1615,11 +1597,7 @@ osc_dispatch(struct terminal *term)
     case 117: {
         LOG_DBG("resetting selection background color");
 
-        const struct color_theme *theme =
-            term->colors.active_theme == COLOR_THEME_DARK
-                ? &term->conf->colors_dark
-                : &term->conf->colors_light;
-
+        const struct color_theme *theme = term_theme_get(term);
         term->colors.selection_bg = theme->selection_bg;
         break;
     }
@@ -1627,11 +1605,7 @@ osc_dispatch(struct terminal *term)
     case 119: {
         LOG_DBG("resetting selection foreground color");
 
-        const struct color_theme *theme =
-            term->colors.active_theme == COLOR_THEME_DARK
-                ? &term->conf->colors_dark
-                : &term->conf->colors_light;
-
+        const struct color_theme *theme = term_theme_get(term);
         term->colors.selection_fg = theme->selection_fg;
         break;
     }
