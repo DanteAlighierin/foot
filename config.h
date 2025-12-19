@@ -232,8 +232,10 @@ struct config {
         uint32_t height;
     } size;
 
-    unsigned pad_x;
-    unsigned pad_y;
+    unsigned pad_left;
+    unsigned pad_top;
+    unsigned pad_right;
+    unsigned pad_bottom;
     enum center_when center_when;
 
     bool resize_by_cells;

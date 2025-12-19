@@ -4504,8 +4504,8 @@ set_size_from_grid(struct terminal *term, int *width, int *height, int cols, int
     new_height = rows * term->cell_height;
 
     /* Include any configured padding */
-    new_width += 2 * term->conf->pad_x * term->scale;
-    new_height += 2 * term->conf->pad_y * term->scale;
+    new_width  += (term->conf->pad_left + term->conf->pad_right) * term->scale;
+    new_height += (term->conf->pad_top + term->conf->pad_bottom) * term->scale;
 
     /* Round to multiples of scale */
     new_width = round(term->scale * round(new_width / term->scale));
@@ -4613,18 +4613,22 @@ render_resize(struct terminal *term, int width, int height, uint8_t opts)
     /* Padding */
     const int max_pad_x = (width - min_width) / 2;
     const int max_pad_y = (height - min_height) / 2;
-    const int pad_x = min(max_pad_x, scale * term->conf->pad_x);
-    const int pad_y = min(max_pad_y, scale * term->conf->pad_y);
+    const int pad_left  = min(max_pad_x, scale * term->conf->pad_left);
+    const int pad_right = min(max_pad_x, scale * term->conf->pad_right);
+    const int pad_top   = min(max_pad_y, scale * term->conf->pad_top);
+    const int pad_bottom= min(max_pad_y, scale * term->conf->pad_bottom);
 
     if (is_floating &&
         (opts & RESIZE_BY_CELLS) &&
         term->conf->resize_by_cells)
     {
         /* If resizing in cell increments, restrict the width and height */
-        width = ((width - 2 * pad_x) / term->cell_width) * term->cell_width + 2 * pad_x;
+        width = ((width - (pad_left + pad_right)) / term->cell_width)
+                * term->cell_width + (pad_left + pad_right);
         width = max(min_width, roundf(scale * roundf(width / scale)));
 
-        height = ((height - 2 * pad_y) / term->cell_height) * term->cell_height + 2 * pad_y;
+        height = ((height - (pad_top + pad_bottom)) / term->cell_height)
+                 * term->cell_height + (pad_top + pad_bottom);
         height = max(min_height, roundf(scale * roundf(height / scale)));
     }
 
@@ -4651,8 +4655,10 @@ render_resize(struct terminal *term, int width, int height, uint8_t opts)
     int old_rows = term->rows;
 
     /* Screen rows/cols after resize */
-    const int new_cols = (term->width - 2 * pad_x) / term->cell_width;
-    const int new_rows = (term->height - 2 * pad_y) / term->cell_height;
+    const int new_cols =
+        (term->width - (pad_left + pad_right)) / term->cell_width;
+    const int new_rows =
+        (term->height - (pad_top + pad_bottom)) / term->cell_height;
 
     /*
      * Requirements for scrollback:
@@ -4705,16 +4711,16 @@ render_resize(struct terminal *term, int width, int height, uint8_t opts)
         term->margins.left = total_x_pad / 2;
         term->margins.top = total_y_pad / 2;
     } else {
-        term->margins.left = pad_x;
-        term->margins.top = pad_y;
+        term->margins.left = pad_left;
+        term->margins.top = pad_top;
     }
     term->margins.right = total_x_pad - term->margins.left;
     term->margins.bottom = total_y_pad - term->margins.top;
 
-    xassert(term->margins.left >= pad_x);
-    xassert(term->margins.right >= pad_x);
-    xassert(term->margins.top >= pad_y);
-    xassert(term->margins.bottom >= pad_y);
+    xassert(term->margins.left >= pad_left);
+    xassert(term->margins.right >= pad_right);
+    xassert(term->margins.top >= pad_top);
+    xassert(term->margins.bottom >= pad_bottom);
 
     if (new_cols == old_cols && new_rows == old_rows) {
         LOG_DBG("grid layout unaffected; skipping reflow");

@@ -301,9 +301,20 @@ empty string to be set, but it must be quoted: *KEY=""*
 	```
 	_XxY_ [center | center-when-fullscreen | center-when-maximized-and-fullscreen]
 	```
+	or
+	```
+	RIGHTxTOPxLEFTxBOTTOM [center | center-when-fullscreen | center-when-maximized-and-fullscreen]
+	```
 	
-	This will add _at least_ X pixels on both the left and right
-	sides, and Y pixels on the top and bottom sides.
+	- `_XxY_` adds _at least_:
+	  - X pixels on the left and right sides.
+	  - Y pixels on the top and bottom sides.
+	
+	- `LEFTxTOPxRIGHTxBOTTOM` adds **at least**:
+	  - LEFT pixels to the left
+	  - TOP pixels to the top
+	  - RIGHT pixels to the right
+	  - BOTTOM pixels to the bottom
 	
 	When no centering is specified, the grid content is anchored to
 	the top left corner. I.e. if the window manager forces an odd

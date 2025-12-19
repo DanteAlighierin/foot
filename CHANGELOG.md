@@ -78,6 +78,8 @@
 * `[colors-light]` section to `foot.ini`. Replaces `[colors2]`.
 * `XTGETTCAP`: added `query-os-name`, returning the OS foot is
   compiled for (e.g. _'Linux'_) ([#2209][2209]).
+* `pad` option now supports 4-directional padding format:
+  `LEFTxTOPxRIGHTxBOTTOM` (e.g., `20x10x20x10`).
 
 [2212]: https://codeberg.org/dnkl/foot/issues/2212
 [2209]: https://codeberg.org/dnkl/foot/issues/2209
