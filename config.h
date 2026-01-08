@@ -217,6 +217,7 @@ enum center_when {
 };
 
 struct config {
+    char *conf_path;
     char *term;
     char *shell;
     char *title;

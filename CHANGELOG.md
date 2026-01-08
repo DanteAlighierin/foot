@@ -80,9 +80,12 @@
   compiled for (e.g. _'Linux'_) ([#2209][2209]).
 * `pad` option now supports 4-directional padding format:
   `LEFTxTOPxRIGHTxBOTTOM` (e.g., `20x10x20x10`).
+* `--config=PATH` option is now automatically passed to new
+  terminals spawned via `spawn-terminal` action ([#2259][2259]).
 
 [2212]: https://codeberg.org/dnkl/foot/issues/2212
 [2209]: https://codeberg.org/dnkl/foot/issues/2209
+[2259]: https://codeberg.org/dnkl/foot/pulls/2259
 
 
 ### Changed

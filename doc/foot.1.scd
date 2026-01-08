@@ -27,6 +27,9 @@ the foot command line
 *-c*,*--config*=_PATH_
 	Path to configuration file, see *foot.ini*(5) for details.
 
+	The configuration file is automatically passed to new terminals
+	spawned via *spawn-terminal* (see *foot.ini*(5)).
+
 *-C*,*--check-config*
 	Verify configuration and then exit with 0 if ok, otherwise exit
 	with 230 (see *EXIT STATUS*).

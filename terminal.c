@@ -3802,8 +3802,18 @@ term_bell(struct terminal *term)
 bool
 term_spawn_new(const struct terminal *term)
 {
+    char *argv[4];
+    int argc = 0;
+
+    argv[argc++] = term->foot_exe;
+    if (term->conf->conf_path != NULL) {
+        argv[argc++] = "--config";
+        argv[argc++] = term->conf->conf_path;
+    }
+    argv[argc] = NULL;
+
     return spawn(
-        term->reaper, term->cwd, (char *const []){term->foot_exe, NULL},
+        term->reaper, term->cwd, argv,
         -1, -1, -1, NULL, NULL, NULL) >= 0;
 }
 

@@ -3459,6 +3459,7 @@ config_load(struct config *conf, const char *conf_path,
     enum fcft_capabilities fcft_caps = fcft_capabilities();
 
     *conf = (struct config) {
+        .conf_path = (conf_path ? xstrdup(conf_path) : NULL),
         .term = xstrdup(FOOT_DEFAULT_TERM),
         .shell = get_shell(),
         .title = xstrdup("foot"),
@@ -3914,6 +3915,7 @@ config_clone(const struct config *old)
     struct config *conf = xmalloc(sizeof(*conf));
     *conf = *old;
 
+    conf->conf_path = (old->conf_path ? xstrdup(old->conf_path) : NULL);
     conf->term = xstrdup(old->term);
     conf->shell = xstrdup(old->shell);
     conf->title = xstrdup(old->title);
@@ -4014,6 +4016,7 @@ UNITTEST
 void
 config_free(struct config *conf)
 {
+    free(conf->conf_path);
     free(conf->term);
     free(conf->shell);
     free(conf->title);
