@@ -1209,8 +1209,8 @@ Examples:
 	minimize/maximize/close buttons. Default: _26_.
 
 *button-color*
-	Foreground color on the minimize/maximize/close buttons. Default:
-	use the default _background_ color.
+	Foreground color on the minimize/maximize/close buttons and the
+	titlebar text. Default: use the default _background_ color.
 
 *button-minimize-color*
 	Minimize button's background color. Default: use the default
