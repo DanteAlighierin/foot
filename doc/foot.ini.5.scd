@@ -29,7 +29,7 @@ Options are set using KEY=VALUE pairs:
 *foreground=ffffff*
 
 Empty values (*KEY=*) are not supported. String options do allow the
-empty string to be set, but it must be quoted: *KEY=""*)
+empty string to be set, but it must be quoted: *KEY=""*
 
 # SECTION: main
 
@@ -96,7 +96,7 @@ empty string to be set, but it must be quoted: *KEY=""*)
 
 *font-size-adjustment*
 	Amount, in _points_, _pixels_ or _percent_, to increment/decrement
-	the font size when zooming in our out.
+	the font size when zooming in or out.
 	
 	Examples:
 	```
@@ -129,7 +129,7 @@ empty string to be set, but it must be quoted: *KEY=""*)
 	e.g. *line-height=12px*.
 	
 	*Warning*: when changing the font size at runtime (i.e. zooming in
-	our out), foot will change the line height by the same
+	or out), foot will change the line height by the same
 	percentage. However, due to rounding, it is possible the line
 	height will be "too small" for some font sizes, causing
 	e.g. underscores to "disappear".
@@ -161,7 +161,7 @@ empty string to be set, but it must be quoted: *KEY=""*)
 
 *underline-offset*
 	Use a custom offset for underlines. The offset is, by default, in
-	_points_ and relative the font's baseline. A positive value
+	_points_ and relative to the font's baseline. A positive value
 	positions the underline under the baseline, while a negative value
 	positions it above the baseline.
 	
@@ -240,7 +240,7 @@ empty string to be set, but it must be quoted: *KEY=""*)
 
 *box-drawings-uses-font-glyphs*
 	Boolean. When disabled, foot generates box/line drawing characters
-	itself. The are several advantages to doing this instead of using
+	itself. There are several advantages to doing this instead of using
 	font glyphs:
 	
 		- No antialiasing effects where e.g. line endpoints appear
@@ -281,7 +281,7 @@ empty string to be set, but it must be quoted: *KEY=""*)
 	scaling factor *does* double the font size.
 	
 	Note that this option typically does not work with bitmap fonts,
-	which only contains a pre-defined set of sizes, and cannot be
+	which only contain a pre-defined set of sizes, and cannot be
 	dynamically scaled. Whichever size (of the available ones) that
 	best matches the DPI or scaling factor, will be used.
 	
@@ -337,7 +337,7 @@ empty string to be set, but it must be quoted: *KEY=""*)
 	
 	Emphasis is on _while_ here; as soon as the interactive resize
 	ends (i.e. when you let go of the window border), the final
-	dimensions is sent to the client, without any delays.
+	dimensions are sent to the client, without any delays.
 	
 	Setting it to 0 disables the delay completely.
 	
@@ -352,7 +352,7 @@ empty string to be set, but it must be quoted: *KEY=""*)
 	as necessary to accommodate window sizes that are not multiples of
 	the cell size.
 
-	This option only applies to floating windows. Sizes of maxmized, tiled
+	This option only applies to floating windows. Sizes of maximized, tiled
 	or fullscreen windows will not be constrained to multiples of the cell
 	size.
 
@@ -399,7 +399,7 @@ empty string to be set, but it must be quoted: *KEY=""*)
 *initial-window-size-chars*
 	Initial window width and height in _characters_, in the form
 	_WIDTHxHEIGHT_. Mutually exclusive to
-	*initial-window-size-pixels*.'
+	*initial-window-size-pixels*.
 	
 	Note that if you have a multi-monitor setup, with different
 	scaling factors, there is a possibility the window size will not
@@ -588,7 +588,7 @@ Note: do not set *TERM* here; use the *term* option in the main
 		option, or preferably, by setting the *image-path* hint (with
 		e.g. notify-send's *--hint* option).
 		
-		_${category}_ is replaced by the notification's catogory. Can
+		_${category}_ is replaced by the notification's category. Can
 		be used together with e.g. notify-send's *--category* option.
 		
 		_${urgency}_ is replaced with the notifications urgency;
@@ -700,7 +700,7 @@ xdgtoken=95ebdfe56e4f47ddb5bba9d7dc3a2c35
 			Foot recognizes this as:
 			- notification has the daemon assigned ID 17
 			- the user triggered the default action
-			- the notification send an XDG activation token
+			- the notification sent an XDG activation token
 		
 		Example #2:
 			17++
@@ -716,7 +716,7 @@ xdgtoken=95ebdfe56e4f47ddb5bba9d7dc3a2c35
 		
 			Foot recognizes this as:
 			- notification has the daemon assigned ID 17
-			- the user triggered the first custom action, "1
+			- the user triggered the first custom action, "1"
 	
 	Default: _notify-send++
 			--wait++
@@ -760,7 +760,7 @@ xdgtoken=95ebdfe56e4f47ddb5bba9d7dc3a2c35
 	least one), *command-action-argument* will be expanded with the
 	action's name and label.
 
-	Then, _${action-argument}_ is expanded *command* to the full list
+	Then, _${action-argument}_ is expanded in *command* to the full list
 	of actions.
 	
 	If *command-action-argument* is set to the empty string, no
@@ -933,7 +933,7 @@ applications can change these at runtime.
 	by applications. Related option: *blink-rate*. Default: _no_.
 
 *blink-rate*
-	The rate at which the cursor blink, when cursor blinking has been
+	The rate at which the cursor blinks, when cursor blinking has been
 	enabled. Expressed in milliseconds between each blink. Default:
 	_500_.
 
@@ -1187,7 +1187,7 @@ Examples:
 
 *hide-when-maximized*
 	Boolean. When enabled, the CSD titlebar is hidden when the window
-	is maximized. The completely disable the titlebar, set *size* to 0
+	is maximized. To completely disable the titlebar, set *size* to 0
 	instead. Default: _no_.
 
 *double-click-to-maximize*
@@ -1417,7 +1417,7 @@ e.g. *search-start=none*.
 	shell integration, see *foot*(1)). Default: _Control+Shift+z_.
 
 *prompt-next*
-	Jump the next prompt (requires shell integration, see
+	Jump to the next prompt (requires shell integration, see
 	*foot*(1)). Default: _Control+Shift+x_.
 
 *unicode-input*
@@ -1446,7 +1446,7 @@ e.g. *search-start=none*.
 	
 	Default: _Control+Shift+u_.
 
-*color-theme-switch-dark*, *color-theme-switch-dark*, *color-theme-toggle*
+*color-theme-switch-dark*, *color-theme-switch-light*, *color-theme-toggle*
 	Switch between the dark color theme (defined in the *colors-dark*
 	section), and the light color theme (defined in the *colors-light*
 	section).
@@ -1817,7 +1817,7 @@ any of these options.
 *scaling-filter*
 	Overrides the default scaling filter used when down-scaling bitmap
 	fonts (e.g. emoji fonts). Possible values are *none*, *nearest*,
-	*bilinear*, *impulse*, *box*, *linear*, *cubic* *gaussian*,
+	*bilinear*, *impulse*, *box*, *linear*, *cubic*, *gaussian*,
 	*lanczos2*, *lanczos3* or *lanczos3-stretched*.
 	
 	Default: _lanczos3_.
@@ -1886,8 +1886,8 @@ any of these options.
 	must be patched to use it.
 	
 	Until this has happened, foot offers an interim workaround; an
-	attempt to mitigate the screen flicker *without* affecting neither
-	performance nor latency.
+	attempt to mitigate the screen flicker *without* affecting either
+	performance or latency.
 	
 	It is based on the fact that the screen is updated at a fixed
 	interval (typically 60Hz). For us, this means it does not matter
@@ -2129,7 +2129,7 @@ any of these options.
 	
 	Thus, having this option enabled improves both performance
 	(copying the last two frames' changes is threaded), and improves
-	input latency (rending the next frame no longer has to first bring
+	input latency (rendering the next frame no longer has to first bring
 	over the changes between the last two frames).
 	
 	Default: _yes_
