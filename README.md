@@ -65,7 +65,7 @@ The fast, lightweight and minimalistic Wayland terminal emulator.
 * [Synchronized Updates](https://gitlab.freedesktop.org/terminal-wg/specifications/-/merge_requests/2) support
 * [Sixel image support](https://en.wikipedia.org/wiki/Sixel)
 
-  ![wow](doc/sixel-wow.png "Sixel screenshot")
+  ![tux-with-foot](doc/sixel-tux-foot.png "Sixel screenshot")
 
 
 # Installing
