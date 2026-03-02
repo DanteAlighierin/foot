@@ -774,7 +774,7 @@ test_section_colors_dark(void)
                    &conf.colors_dark.table[i]);
     }
 
-    test_boolean(&ctx, &parse_section_colors, "blur", &conf.colors_dark.blur);
+    test_boolean(&ctx, &parse_section_colors_dark, "blur", &conf.colors_dark.blur);
 
     test_invalid_key(&ctx, &parse_section_colors_dark, "256");
 
@@ -855,7 +855,7 @@ test_section_colors_light(void)
                    &conf.colors_light.table[i]);
     }
 
-    test_boolean(&ctx, &parse_section_colors, "blur", &conf.colors_light.blur);
+    test_boolean(&ctx, &parse_section_colors_light, "blur", &conf.colors_light.blur);
 
     test_invalid_key(&ctx, &parse_section_colors_light, "256");
 
