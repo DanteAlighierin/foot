@@ -1375,13 +1375,13 @@ execute_binding(struct seat *seat, struct terminal *term,
 
     case BIND_ACTION_SEARCH_CLIPBOARD_PASTE:
         text_from_clipboard(
-            seat, term, &from_clipboard_cb, &from_clipboard_done, term);
+            seat, term, false, &from_clipboard_cb, &from_clipboard_done, term);
         *update_search_result = *redraw = true;
         return true;
 
     case BIND_ACTION_SEARCH_PRIMARY_PASTE:
         text_from_primary(
-            seat, term, &from_clipboard_cb, &from_clipboard_done, term);
+            seat, term, false, &from_clipboard_cb, &from_clipboard_done, term);
         *update_search_result = *redraw = true;
         return true;
 

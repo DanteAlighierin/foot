@@ -261,12 +261,12 @@ osc_from_clipboard(struct terminal *term, const char *source)
 
     if (from_clipboard) {
         text_from_clipboard(
-            seat, term, &from_clipboard_cb, &from_clipboard_done, ctx);
+            seat, term, true, &from_clipboard_cb, &from_clipboard_done, ctx);
     }
 
     if (from_primary) {
         text_from_primary(
-            seat, term, &from_clipboard_cb, &from_clipboard_done, ctx);
+            seat, term, true, &from_clipboard_cb, &from_clipboard_done, ctx);
     }
 }
 
