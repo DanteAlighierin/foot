@@ -1,5 +1,5 @@
 project('foot', 'c',
-        version: '1.25.0',
+        version: '1.26.0',
         license: 'MIT',
         meson_version: '>=0.59.0',
         default_options: [
