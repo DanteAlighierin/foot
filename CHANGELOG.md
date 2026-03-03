@@ -1,6 +1,6 @@
 # Changelog
 
-* [Unreleased](#unreleased)
+* [1.26.0](#1-26-0)
 * [1.25.0](#1-25-0)
 * [1.24.0](#1-24-0)
 * [1.23.1](#1-23-1)
@@ -67,7 +67,8 @@
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
+## 1.26.0
+
 ### Added
 
 * `toplevel-tag` option (and `--toplevel-tag` command line options to
@@ -146,8 +147,19 @@
 [2263]: https://codeberg.org/dnkl/foot/issues/2263
 
 
-### Security
 ### Contributors
+
+* Andrei
+* Barinderpreet Singh
+* c4llv07e
+* Johannes Altmanninger
+* nariby
+* pi66
+* Ronan Pigott
+* Stéphane Klein
+* valoq
+* Whyme Lyu
+* Yaakov Selkowitz
 
 
 ## 1.25.0
