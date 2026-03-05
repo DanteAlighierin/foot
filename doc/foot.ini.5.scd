@@ -392,7 +392,7 @@ empty string to be set, but it must be quoted: *KEY=""*
 	at runtime, or send SIGUSR1/SIGUSR2 to the foot process (see
 	*foot*(1) for details).
 	
-	Default: _1_
+	Default: _dark_
 
 *initial-window-size-pixels*
 	Initial window width and height in _pixels_ (subject to output

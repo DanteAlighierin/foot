@@ -74,6 +74,13 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Wrong documented default value for `initial-color-theme` in
+  `foot.ini(5)` ([#2292][2292]).
+
+[2292]: https://codeberg.org/dnkl/foot/issues/2292
+
+
 ### Security
 ### Contributors
 
