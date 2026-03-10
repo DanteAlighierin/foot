@@ -77,8 +77,11 @@
 
 * Wrong documented default value for `initial-color-theme` in
   `foot.ini(5)` ([#2292][2292]).
+* Occasional crashes when closing a window and
+  `tweak.pre-apply-damage=yes` (the default) ([#2288][2288]).
 
 [2292]: https://codeberg.org/dnkl/foot/issues/2292
+[2288]: https://codeberg.org/dnkl/foot/issues/2288
 
 
 ### Security

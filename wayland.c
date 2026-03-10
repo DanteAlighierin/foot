@@ -2177,8 +2177,6 @@ wayl_win_destroy(struct wl_window *win)
 
     struct terminal *term = win->term;
 
-    render_wait_for_preapply_damage(term);
-
     if (win->csd.move_timeout_fd != -1)
         close(win->csd.move_timeout_fd);
 
@@ -2235,6 +2233,8 @@ wayl_win_destroy(struct wl_window *win)
         wayl_win_subsurface_destroy(&it->item.surf);
         tll_remove(win->urls, it);
     }
+
+    render_wait_for_preapply_damage(term);
 
     csd_destroy(win);
     wayl_win_subsurface_destroy(&win->search);
