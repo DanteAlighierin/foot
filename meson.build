@@ -12,6 +12,11 @@ is_debug_build = get_option('buildtype').startswith('debug')
 
 cc = meson.get_compiler('c')
 
+# Newer clang versions warns when using __COUNTER__ without -std=c2y
+if cc.has_argument('-Wc2y-extensions')
+  add_project_arguments('-Wno-c2y-extensions', language: 'c')
+endif
+
 if cc.has_function('memfd_create',
                    args: ['-D_GNU_SOURCE'],
                    prefix: '#include <sys/mman.h>')
