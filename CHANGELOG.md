@@ -1,6 +1,6 @@
 # Changelog
 
-* [Unreleased](#unreleased)
+* [1.26.1](#1-26-1)
 * [1.26.0](#1-26-0)
 * [1.25.0](#1-25-0)
 * [1.24.0](#1-24-0)
@@ -68,11 +68,8 @@
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
-### Added
-### Changed
-### Deprecated
-### Removed
+## 1.26.1
+
 ### Fixed
 
 * Wrong documented default value for `initial-color-theme` in
@@ -84,8 +81,10 @@
 [2288]: https://codeberg.org/dnkl/foot/issues/2288
 
 
-### Security
 ### Contributors
+
+* Roshless
+* vlkrs
 
 
 ## 1.26.0
