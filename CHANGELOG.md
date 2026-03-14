@@ -1,5 +1,6 @@
 # Changelog
 
+* [Unreleased](#unreleased)
 * [1.26.0](#1-26-0)
 * [1.25.0](#1-25-0)
 * [1.24.0](#1-24-0)
@@ -65,6 +66,26 @@
 * [1.2.2](#1-2-2)
 * [1.2.1](#1-2-1)
 * [1.2.0](#1-2-0)
+
+
+## Unreleased
+### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+
+* Wrong documented default value for `initial-color-theme` in
+  `foot.ini(5)` ([#2292][2292]).
+* Occasional crashes when closing a window and
+  `tweak.pre-apply-damage=yes` (the default) ([#2288][2288]).
+
+[2292]: https://codeberg.org/dnkl/foot/issues/2292
+[2288]: https://codeberg.org/dnkl/foot/issues/2288
+
+
+### Security
+### Contributors
 
 
 ## 1.26.0

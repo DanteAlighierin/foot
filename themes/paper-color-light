@@ -4,7 +4,7 @@
 
 [main]
 initial-color-theme=light
-xs
+
 [colors-light]
 cursor=eeeeee 444444
 background=eeeeee
