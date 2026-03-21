@@ -120,7 +120,10 @@ term_to_slave(struct terminal *term, const void *data, size_t len)
         return false;
     }
 
-    if (tll_length(term->ptmx_buffers) > 0 || term->is_sending_paste_data) {
+    if (unlikely(tll_length(term->ptmx_buffers) > 0 ||
+                 term->is_sending_paste_data ||
+                 tll_length(term->ptmx_paste_buffers) > 0))
+    {
         /*
          * Don't even try to send data *now* if there's queued up
          * data, since that would result in events arriving out of

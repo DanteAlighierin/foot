@@ -75,6 +75,13 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Other output (key presses, query replies etc) being mixed with paste
+  data, both interactive pastes and OSC-52 ([#2307][2307]).
+
+[2307]: https://codeberg.org/dnkl/foot/issues/2307
+
+
 ### Security
 ### Contributors
 
