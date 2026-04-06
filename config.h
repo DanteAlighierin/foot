@@ -218,6 +218,15 @@ enum center_when {
     CENTER_ALWAYS,
 };
 
+enum underline_style {
+    UNDERLINE_NONE,
+    UNDERLINE_SINGLE,  /* Legacy underline */
+    UNDERLINE_DOUBLE,
+    UNDERLINE_CURLY,
+    UNDERLINE_DOTTED,
+    UNDERLINE_DASHED,
+};
+
 struct config {
     char *conf_path;
     char *term;
@@ -327,6 +336,7 @@ struct config {
             OSC8_UNDERLINE_URL_MODE,
             OSC8_UNDERLINE_ALWAYS,
         } osc8_underline;
+        enum underline_style style;
 
         char *regex;
         regex_t preg;

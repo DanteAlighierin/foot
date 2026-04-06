@@ -71,7 +71,20 @@
 
 ## Unreleased
 ### Added
+
+* `url.style=none|single|double|curly|dotted|dashed` option added,
+  allowing you to configure how URL underlines are drawn. The default
+  is `dotted` ([#2302][2302]).
+
+[2302]: https://codeberg.org/dnkl/foot/issues/2302
+
+
 ### Changed
+
+* URL underlines are now dotted by default, instead of plain
+  underlines. This can be changed with the new `url.style` option.
+
+
 ### Deprecated
 ### Removed
 ### Fixed

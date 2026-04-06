@@ -1171,13 +1171,16 @@ render_cell(struct terminal *term, pixman_image_t *pix,
     if (cell->attrs.strikethrough)
         draw_strikeout(term, pix, font, &fg, x, y, cell_cols);
 
-    if (unlikely(cell->attrs.url)) {
+    if (unlikely(cell->attrs.url && term->conf->url.style != UNDERLINE_NONE)) {
         pixman_color_t url_color = color_hex_to_pixman(
             term->conf->colors_dark.use_custom.url
             ? term->conf->colors_dark.url
             : term->colors.table[3],
             gamma_correct);
-        draw_underline(term, pix, font, &url_color, x, y, cell_cols);
+
+        draw_styled_underline(
+            term, pix, font, &url_color, term->conf->url.style,
+            x, y, cell_cols);
     }
 
 draw_cursor:

@@ -867,6 +867,14 @@ section.
 	
 	Default: _url-mode_
 
+*style*
+	The underline style to use when rendering URL underlines. This
+	applies to both OSC-8 underlines when *osc8-underline=always*, and
+	all detected URLs in URL mode. One of *none*, *single*, *double*,
+	*curly*, *dotted* or *dashed*.
+	
+	Default: _dotted_
+
 *label-letters*
 	String of characters to use when generating key sequences for URL
 	jump labels.

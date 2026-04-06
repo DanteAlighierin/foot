@@ -632,6 +632,10 @@ test_section_url(void)
               (const char *[]){"url-mode", "always"},
               (int []){OSC8_UNDERLINE_URL_MODE, OSC8_UNDERLINE_ALWAYS},
               (int *)&conf.url.osc8_underline);
+    test_enum(&ctx, &parse_section_url, "style",
+              6, (const char *[]){"none", "single", "double", "curly", "dotted", "dashed"},
+              (int []){UNDERLINE_NONE, UNDERLINE_SINGLE, UNDERLINE_DOUBLE, UNDERLINE_CURLY, UNDERLINE_DOTTED, UNDERLINE_DASHED},
+              (int *)&conf.url.style);
     test_c32string(&ctx, &parse_section_url, "label-letters", &conf.url.label_letters);
 
     config_free(&conf);

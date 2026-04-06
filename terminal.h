@@ -105,15 +105,6 @@ struct uri_range_data {
     char *uri;
 };
 
-enum underline_style {
-    UNDERLINE_NONE,
-    UNDERLINE_SINGLE,  /* Legacy underline */
-    UNDERLINE_DOUBLE,
-    UNDERLINE_CURLY,
-    UNDERLINE_DOTTED,
-    UNDERLINE_DASHED,
-};
-
 struct underline_range_data {
     enum underline_style style;
     enum color_source color_src;

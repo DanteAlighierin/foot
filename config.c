@@ -1304,6 +1304,14 @@ parse_section_url(struct context *ctx)
     else if (streq(key, "label-letters"))
         return value_to_wchars(ctx, &conf->url.label_letters);
 
+    else if (streq(key, "style")) {
+        _Static_assert(sizeof(conf->url.style) == sizeof(int),
+                       "enum is not 32-bit");
+        return value_to_enum(
+            ctx, (const char *[]){"none", "single", "double", "curly", "dotted", "dashed", NULL},
+            (int *)&conf->url.style);
+    }
+
     else if (streq(key, "osc8-underline")) {
         _Static_assert(sizeof(conf->url.osc8_underline) == sizeof(int),
                        "enum is not 32-bit");
@@ -3518,6 +3526,7 @@ config_load(struct config *conf, const char *conf_path,
         .url = {
             .label_letters = xc32dup(U"sadfjklewcmpgh"),
             .osc8_underline = OSC8_UNDERLINE_URL_MODE,
+            .style = UNDERLINE_DOTTED,
         },
         .custom_regexes = tll_init(),
         .can_shape_grapheme = fcft_caps & FCFT_CAPABILITY_GRAPHEME_SHAPING,
