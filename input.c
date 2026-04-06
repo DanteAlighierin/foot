@@ -1643,31 +1643,34 @@ key_press_release(struct seat *seat, struct terminal *term, uint32_t serial,
         seat->wayl->key_binding_manager, term->conf, seat);
     xassert(bindings != NULL);
 
-    if (pressed) {
-        if (term->unicode_mode.active) {
+    if (term->unicode_mode.active) {
+        if (pressed)
             unicode_mode_input(seat, term, sym);
-            return;
-        }
+        return;
+    }
 
-        else if (term->is_searching) {
+    else if (term->is_searching) {
+        if (pressed) {
             if (should_repeat)
                 start_repeater(seat, key);
 
             search_input(
                 seat, term, bindings, key, sym, mods, consumed,
                 raw_syms, raw_count, serial);
-            return;
         }
+        return;
+    }
 
-        else  if (urls_mode_is_active(term)) {
+    else  if (urls_mode_is_active(term)) {
+        if (pressed) {
             if (should_repeat)
                 start_repeater(seat, key);
 
             urls_input(
                 seat, term, bindings, key, sym, mods, consumed,
                 raw_syms, raw_count, serial);
-            return;
         }
+        return;
     }
 
 #if defined(_DEBUG) && defined(LOG_ENABLE_DBG) && LOG_ENABLE_DBG

@@ -78,8 +78,12 @@
 
 * Other output (key presses, query replies etc) being mixed with paste
   data, both interactive pastes and OSC-52 ([#2307][2307]).
+* Scrollback search not working correctly when the terminal
+  application has enabled the kitty keyboard protocol with release
+  event reporting ([#2316][2316]).
 
 [2307]: https://codeberg.org/dnkl/foot/issues/2307
+[2316]: https://codeberg.org/dnkl/foot/issues/2316
 
 
 ### Security
