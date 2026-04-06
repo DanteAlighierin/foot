@@ -246,7 +246,7 @@ shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
     case WL_SHM_FORMAT_ABGR16161616: wayl->shm_have_abgr161616 = true; break;
     }
 
-#if defined(_DEBUG)
+#if defined(_DEBUG) && LOG_ENABLE_DBG == 1
     bool have_description = false;
     const char c4 = (format >> 24) & 0xff;
     const char c3 = (format >> 16) & 0xff;
