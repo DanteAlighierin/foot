@@ -1,5 +1,6 @@
 #include "wayland.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <locale.h>
@@ -247,17 +248,32 @@ shm_format(void *data, struct wl_shm *wl_shm, uint32_t format)
 
 #if defined(_DEBUG)
     bool have_description = false;
+    const char c4 = (format >> 24) & 0xff;
+    const char c3 = (format >> 16) & 0xff;
+    const char c2 = (format >> 8) & 0xff;
+    const char c1 = (format >> 0) & 0xff;
 
     for (size_t i = 0; i < ALEN(shm_formats); i++) {
         if (shm_formats[i].format == format) {
-            LOG_DBG("shm: 0x%08x: %s", format, shm_formats[i].description);
+            LOG_DBG("shm: 0x%08x: %c%c%c%c - %s",
+                    format,
+                    isprint(c1) ? c1 : ' ',
+                    isprint(c2) ? c2 : ' ',
+                    isprint(c3) ? c3 : ' ',
+                    isprint(c4) ? c4 : ' ',
+                    shm_formats[i].description);
             have_description = true;
             break;
         }
     }
 
     if (!have_description)
-        LOG_DBG("shm: 0x%08x: unknown", format);
+        LOG_DBG("shm: 0x%08x: %c%c%c%c - unknown",
+                format,
+                isprint(c1) ? c1 : ' ',
+                isprint(c2) ? c2 : ' ',
+                isprint(c3) ? c3 : ' ',
+                isprint(c4) ? c4 : ' ');
 #endif
 }
 
