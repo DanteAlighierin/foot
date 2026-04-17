@@ -310,28 +310,6 @@ static const struct key_data key_f33[] = {{MOD_NONE, CURSOR_KEYS_DONTCARE, KEYPA
 static const struct key_data key_f34[] = {{MOD_NONE, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[21;5~"}};
 static const struct key_data key_f35[] = {{MOD_NONE, CURSOR_KEYS_DONTCARE, KEYPAD_DONTCARE, "\033[23;5~"}};
 
-/* Keypad keys don't map shift */
-#undef DEFAULT_MODS_FOR_SINGLE
-#undef DEFAULT_MODS_FOR_TILDE
-
-#define DEFAULT_MODS_FOR_SINGLE(sym)                                    \
-    {MOD_ALT,                                   CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;3"#sym}, \
-    {MOD_CTRL,                                  CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;5"#sym}, \
-    {MOD_ALT | MOD_CTRL,                        CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;7"#sym}, \
-    {MOD_META,                                  CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;9"#sym}, \
-    {MOD_META | MOD_ALT,                        CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;11"#sym}, \
-    {MOD_META | MOD_CTRL,                       CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;13"#sym}, \
-    {MOD_META | MOD_ALT | MOD_CTRL,             CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033[1;15"#sym}
-
-#define DEFAULT_MODS_FOR_TILDE(sym) \
-    {MOD_ALT,                                   CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";3~"}, \
-    {MOD_CTRL,                                  CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";5~"}, \
-    {MOD_ALT | MOD_CTRL,                        CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";7~"}, \
-    {MOD_META,                                  CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";9~"}, \
-    {MOD_META  | MOD_ALT,                       CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";11~"}, \
-    {MOD_META  | MOD_CTRL,                      CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";13~"}, \
-    {MOD_META  | MOD_ALT | MOD_CTRL,            CURSOR_KEYS_DONTCARE,    KEYPAD_DONTCARE, "\033["#sym";15~"}
-
 static const struct key_data key_kp_up[] = {
     DEFAULT_MODS_FOR_SINGLE(A),
     {MOD_ANY,            CURSOR_KEYS_NORMAL,      KEYPAD_DONTCARE, "\033[A"},

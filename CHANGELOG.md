@@ -94,9 +94,12 @@
 * Scrollback search not working correctly when the terminal
   application has enabled the kitty keyboard protocol with release
   event reporting ([#2316][2316]).
+* Keypad escapes in the legacy keyboard protocol ignoring the shift
+  modifier ([#2324][2324]).
 
 [2307]: https://codeberg.org/dnkl/foot/issues/2307
 [2316]: https://codeberg.org/dnkl/foot/issues/2316
+[2324]: https://codeberg.org/dnkl/foot/issues/2324
 
 
 ### Security
