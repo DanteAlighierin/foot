@@ -528,6 +528,26 @@ cursor_refresh(struct terminal *term)
 
     term->grid->cur_row->cells[term->grid->cursor.point.col].attrs.clean = 0;
     term->grid->cur_row->dirty = true;
+
+    if (unlikely(term->multi_cursor.shapes != NULL)) {
+        int rect_count = 0;
+        const pixman_box32_t *boxes = pixman_region32_rectangles(&term->multi_cursor.active, &rect_count);
+
+        for (int i = 0; i < rect_count; i++) {
+            const pixman_box32_t *box = &boxes[i];
+
+            for (int r = box->y1; r < box->y2; r++) {
+                struct row *row = grid_row(term->grid, r);
+                xassert(row != NULL);
+
+                row->dirty = true;
+
+                for (int c = box->x1; c < box->x2; c++)
+                    row->cells[c].attrs.clean = false;
+            }
+        }
+    }
+
     render_refresh(term);
 }
 
@@ -1412,6 +1432,11 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
         .ime_enabled = true,
 #endif
         .active_notifications = tll_init(),
+        .multi_cursor = {
+            .shapes = NULL,
+            .cursor_color = MULTI_CURSOR_COLOR_PRIMARY,
+            .text_color = MULTI_CURSOR_COLOR_PRIMARY,
+        },
     };
 
     pixman_region32_init(&term->render.last_overlay_clip);
@@ -1431,6 +1456,8 @@ term_init(const struct config *conf, struct fdm *fdm, struct reaper *reaper,
     for (size_t i = 0; i < ALEN(term->notification_icons); i++) {
         term->notification_icons[i].tmp_file_fd = -1;
     }
+
+    pixman_region32_init(&term->multi_cursor.active);
 
     add_utmp_record(conf, reaper, ptmx);
 
@@ -1953,6 +1980,9 @@ term_destroy(struct terminal *term)
     free(term->mouse_user_cursor);
     free(term->color_stack.stack);
 
+    pixman_region32_fini(&term->multi_cursor.active);
+    free(term->multi_cursor.shapes);
+
     int ret = EXIT_SUCCESS;
 
     if (term->slave > 0) {
@@ -2097,6 +2127,22 @@ term_theme_apply(struct terminal *term, const struct color_theme *theme)
 }
 
 void
+term_remove_all_multi_cursors(struct terminal *term)
+{
+    if (term->multi_cursor.shapes == NULL) {
+#if defined(_DEBUG)
+        xassert(pixman_region32_empty(&term->multi_cursor.active));
+#endif
+        return;
+    }
+
+    pixman_region32_fini(&term->multi_cursor.active);
+    pixman_region32_init(&term->multi_cursor.active);
+    free(term->multi_cursor.shapes);
+    term->multi_cursor.shapes = NULL;
+}
+
+void
 term_reset(struct terminal *term, bool hard)
 {
     LOG_INFO("%s resetting the terminal", hard ? "hard" : "soft");
@@ -2175,6 +2221,12 @@ term_reset(struct terminal *term, bool hard)
 
     term->bits_affecting_ascii_printer.value = 0;
     term_update_ascii_printer(term);
+
+    term_remove_all_multi_cursors(term);
+    term->multi_cursor.cursor_color_source = MULTI_CURSOR_COLOR_PRIMARY;
+    term->multi_cursor.text_color_source = MULTI_CURSOR_COLOR_PRIMARY;
+    term->multi_cursor.cursor_color = 0;
+    term->multi_cursor.text_color = 0;
 
     if (!hard)
         return;
@@ -2525,6 +2577,29 @@ term_damage_cursor(struct terminal *term)
 {
     term->grid->cur_row->cells[term->grid->cursor.point.col].attrs.clean = 0;
     term->grid->cur_row->dirty = true;
+}
+
+void
+term_damage_all_multi_cursors(struct terminal *term)
+{
+    if (likely(term->multi_cursor.shapes == NULL))
+        return;
+
+    int rect_count = 0;
+    const pixman_box32_t *boxes =
+        pixman_region32_rectangles(&term->multi_cursor.active, &rect_count);
+
+    for (const pixman_box32_t *box = boxes; box < &boxes[rect_count]; box++) {
+        for (int r = box->y1; r < box->y2; r++) {
+            struct row *row = grid_row(term->grid, r);
+            xassert(row != NULL);
+
+            row->dirty = true;
+
+            for (struct cell *c = &row->cells[box->x1]; c < &row->cells[box->x2]; c++)
+                c->attrs.clean = false;
+        }
+    }
 }
 
 void

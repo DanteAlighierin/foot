@@ -542,6 +542,7 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
         term->bits_affecting_ascii_printer.sixels =
             tll_length(term->grid->sixel_images) > 0;
         term_update_ascii_printer(term);
+        term_remove_all_multi_cursors(term);
         break;
 
     case 1070:
@@ -989,11 +990,13 @@ csi_dispatch(struct terminal *term, uint8_t final)
                 /* Erase entire screen */
                 term_erase(term, 0, 0, term->rows - 1, term->cols - 1);
                 term->grid->cursor.lcf = false;
+                term_remove_all_multi_cursors(term);
                 break;
 
             case 3: {
                 /* Erase scrollback */
                 term_erase_scrollback(term);
+                term_remove_all_multi_cursors(term);
                 break;
             }
 
@@ -2226,6 +2229,300 @@ csi_dispatch(struct terminal *term, uint8_t final)
         }
 
         break; /* private[0] == '?' && private[1] == '$' */
+
+    case 0x203e:  /* '> ' */
+        switch (final) {
+        case 'q': {
+            if (term->vt.params.idx == 0) {
+                term_to_slave(term, "\033[>1;2;3;29;30;40;100;101 q", 27);
+                break;
+            }
+
+            const unsigned shape = vt_param_get(term, 0, 0);
+            switch (shape) {
+            case MULTI_CURSOR_SHAPE_NONE:
+            case MULTI_CURSOR_SHAPE_BLOCK:
+            case MULTI_CURSOR_SHAPE_BEAM:
+            case MULTI_CURSOR_SHAPE_UNDERLINE:
+            case MULTI_CURSOR_SHAPE_PRIMARY:
+                LOG_DBG("multi-cursor: %s",
+                         shape == MULTI_CURSOR_SHAPE_NONE ? "no cursor" :
+                         shape == MULTI_CURSOR_SHAPE_BLOCK ? "block cursor" :
+                         shape == MULTI_CURSOR_SHAPE_BEAM ? "beam cursor" :
+                         shape == MULTI_CURSOR_SHAPE_UNDERLINE ? "underline cursor" : "main cursor");
+
+                pixman_region32_t modified;
+                pixman_region32_init(&modified);
+
+                for (size_t i = 1; i < term->vt.params.idx; i++) {
+                    const unsigned coord_type = vt_param_get(term, i, 0);
+                    const struct vt_param *param = &term->vt.params.v[i];
+
+                    switch (coord_type) {
+                    case 0:
+                        LOG_DBG("multi-cursor: unimplemented: "
+                                 "coordinate relative to main cursor");
+                        break;
+
+                    case 2:{
+                        const size_t pair_count = param->sub.idx / 2;
+
+                        for (size_t j = 0; j < pair_count; j++) {
+                            const unsigned row = min(param->sub.value[j * 2 + 0], term->rows) - 1;
+                            const unsigned col = min(param->sub.value[j * 2 + 1], term->cols) - 1;
+
+                            LOG_DBG("pair: row=%u, col=%u", row, col);
+                            pixman_region32_union_rect(&modified, &modified, col, row, 1, 1);
+                        }
+                        break;
+                    }
+
+                    case 4: {
+                        if (param->sub.idx == 0) {
+                            /* Special case, rectangle is the entire screen */
+                            LOG_DBG("rectangle: all screen");
+                            pixman_region32_union_rect(&modified, &modified, 0, 0, term->cols, term->rows);
+                        } else {
+                            const size_t rect_count = param->sub.idx / 4;
+                            for (size_t j = 0; j < rect_count; j++) {
+                                const unsigned top = min(param->sub.value[j * 4 + 0], term->rows) - 1;
+                                const unsigned left = min(param->sub.value[j * 4 + 1], term->cols) - 1;
+                                const unsigned bottom = max(min(param->sub.value[j * 4 + 2], term->rows) - 1, top);
+                                const unsigned right = max(min(param->sub.value[j * 4 + 3], term->cols) - 1, left);
+
+                                LOG_DBG(
+                                    "rectangle top=%u, left=%u, bottom=%u, right=%u (width=%u, height=%u",
+                                    top, left, bottom, right, right - left + 1, bottom - top + 1);
+
+                                pixman_region32_union_rect(&modified, &modified, left, top, right - left + 1, bottom - top + 1);
+                            }
+                        }
+                        break;
+                    }
+
+                    default:
+                        LOG_WARN("multi-cursor: invalid coordinate type: %u", coord_type);
+                        return;
+                    }
+                }
+
+                if (shape == MULTI_CURSOR_SHAPE_NONE) {
+                    /* Cursors disabled, remove from active set */
+                    pixman_region32_subtract(
+                        &term->multi_cursor.active,
+                        &term->multi_cursor.active,
+                        &modified);
+                } else {
+                    /* Add new/updated cursors to active set */
+                    pixman_region32_union(
+                        &term->multi_cursor.active,
+                        &term->multi_cursor.active,
+                        &modified);
+                }
+
+                if (pixman_region32_empty(&term->multi_cursor.active)) {
+                    free(term->multi_cursor.shapes);
+                    term->multi_cursor.shapes = NULL;
+                } else {
+                    if (term->multi_cursor.shapes == NULL) {
+                        term->multi_cursor.shapes = xcalloc(
+                            term->grid->num_cols * term->grid->num_rows,
+                            sizeof(enum multi_cursor_shape));
+                    }
+                }
+
+                int rect_count = 0;
+                const pixman_box32_t *boxes =
+                    pixman_region32_rectangles(&modified, &rect_count);
+
+                /* Set shape, and dirty affected cells */
+                for (const pixman_box32_t *box = boxes; box < &boxes[rect_count]; box++) {
+                    for (int r = box->y1; r < box->y2; r++) {
+                        struct row *row = grid_row(term->grid, r);
+                        xassert(row != NULL);
+
+                        row->dirty = true;
+
+                        for (int c = box->x1; c < box->x2; c++) {
+                            if (term->multi_cursor.shapes != NULL)
+                                term->multi_cursor.shapes[r * term->cols + c] = shape;
+                            row->cells[c].attrs.clean = false;
+                        }
+                    }
+                }
+
+                pixman_region32_fini(&modified);
+                break;
+
+            case MULTI_CURSOR_SHAPE_TEXT_COLOR:
+            case MULTI_CURSOR_SHAPE_CURSOR_COLOR: {
+                const unsigned color_space = vt_param_get(term, 1, 0);
+
+                enum multi_cursor_color_source color_source = MULTI_CURSOR_COLOR_PRIMARY;
+                uint32_t color = shape == MULTI_CURSOR_SHAPE_TEXT_COLOR
+                    ? term->multi_cursor.text_color
+                    : term->multi_cursor.cursor_color;
+
+                switch (color_space) {
+                case MULTI_CURSOR_COLOR_PRIMARY:
+                    color_source = MULTI_CURSOR_COLOR_PRIMARY;
+                    break;
+
+                case MULTI_CURSOR_COLOR_SPECIAL:
+                    color_source = MULTI_CURSOR_COLOR_SPECIAL;
+                    break;
+
+                case MULTI_CURSOR_COLOR_RGB: {
+                    const struct vt_param *param = &term->vt.params.v[1];
+                    if (param->sub.idx == 3) {
+                        const uint8_t red = param->sub.value[0];
+                        const uint8_t green = param->sub.value[1];
+                        const uint8_t blue = param->sub.value[2];
+                        color_source = MULTI_CURSOR_COLOR_RGB;
+                        color = 0xffu << 24 | red << 16 | green << 8 | blue;
+                    }
+                    break;
+                }
+
+                case MULTI_CURSOR_COLOR_256: {
+                    const struct vt_param *param = &term->vt.params.v[1];
+                    if (param->sub.idx == 1) {
+                        const unsigned color_index = min(
+                            param->sub.value[0], ALEN(term->colors.table) - 1);
+
+                        color_source = MULTI_CURSOR_COLOR_256;
+                        color = color_index;
+                    }
+                    break;
+                }
+
+                default:
+                    LOG_WARN("multi-cursor: invalid color space: %u", color_space);
+                    return;
+                }
+
+                if (shape == MULTI_CURSOR_SHAPE_TEXT_COLOR) {
+                    term->multi_cursor.text_color_source = color_source;
+                    term->multi_cursor.text_color = color;
+                } else {
+                    term->multi_cursor.cursor_color_source = color_source;
+                    term->multi_cursor.cursor_color = color;
+                }
+                break;
+            }
+
+            case MULTI_CURSOR_SHAPE_QUERY_CURSORS: {
+                term_to_slave(term, "\033[>100", 6);
+
+                int rect_count = 0;
+                const pixman_box32_t *boxes =
+                    pixman_region32_rectangles(
+                        &term->multi_cursor.active, &rect_count);
+
+                xassert(rect_count > 0 || term->multi_cursor.shapes == NULL);
+
+                for (int j = 0; j < rect_count; j++) {
+                    const pixman_box32_t *box = &boxes[j];
+                    for (int r = box->y1; r < box->y2; r++) {
+                        for (int c = box->x1; c < box->x2; c++) {
+                            const enum multi_cursor_shape shape =
+                                term->multi_cursor.shapes[r * term->cols + c];
+
+                            xassert(shape != MULTI_CURSOR_SHAPE_NONE);
+                            char reply[64];
+                            int len = snprintf(
+                                reply, sizeof(reply),
+                                ";%u:2:%d:%d", shape, r + 1, c + 1);
+
+                            term_to_slave(term, reply, len);
+                        }
+                    }
+                }
+                term_to_slave(term, " q", 2);
+                break;
+            }
+
+            case MULTI_CURSOR_SHAPE_QUERY_COLORS:
+                term_to_slave(term, "\033[>101", 7);
+
+                char reply[64];
+                int len = 0;
+
+                switch (term->multi_cursor.text_color_source) {
+                case MULTI_CURSOR_COLOR_PRIMARY:
+                    len = snprintf(reply, sizeof(reply), ";30:%u", MULTI_CURSOR_COLOR_PRIMARY);
+                    break;
+
+                case MULTI_CURSOR_COLOR_SPECIAL:
+                    len = snprintf(reply, sizeof(reply), ";30:%u", MULTI_CURSOR_COLOR_SPECIAL);
+                    break;
+
+                case MULTI_CURSOR_COLOR_RGB: {
+                    const uint32_t color = term->multi_cursor.text_color;
+                    const uint8_t red = (color >> 16) & 0xff;
+                    const uint8_t green = (color >> 8) & 0xff;
+                    const uint8_t blue = (color >> 0) & 0xff;
+
+                    len = snprintf(reply, sizeof(reply), ";30:%u:%hhu:%hhu:%hhu",
+                                   MULTI_CURSOR_COLOR_RGB, red, green, blue);
+                    break;
+                }
+
+                case MULTI_CURSOR_COLOR_256:
+                    len = snprintf(reply, sizeof(reply), ";30:%u:%u",
+                                   MULTI_CURSOR_COLOR_256,
+                                   term->multi_cursor.text_color);
+                    break;
+                }
+
+                term_to_slave(term, reply, len);
+
+                len = 0;
+                switch (term->multi_cursor.cursor_color_source) {
+                case MULTI_CURSOR_COLOR_PRIMARY:
+                    len = snprintf(reply, sizeof(reply), ";40:%u", MULTI_CURSOR_COLOR_PRIMARY);
+                    break;
+
+                case MULTI_CURSOR_COLOR_SPECIAL:
+                    len = snprintf(reply, sizeof(reply), ";40:%u", MULTI_CURSOR_COLOR_SPECIAL);
+                    break;
+
+                case MULTI_CURSOR_COLOR_RGB: {
+                    const uint32_t color = term->multi_cursor.cursor_color;
+                    const uint8_t red = (color >> 16) & 0xff;
+                    const uint8_t green = (color >> 8) & 0xff;
+                    const uint8_t blue = (color >> 0) & 0xff;
+
+                    len = snprintf(reply, sizeof(reply), ";40:%u:%hhu:%hhu:%hhu",
+                                   MULTI_CURSOR_COLOR_RGB, red, green, blue);
+                    break;
+                }
+
+                case MULTI_CURSOR_COLOR_256:
+                    len = snprintf(reply, sizeof(reply), ";40:%u:%u",
+                                   MULTI_CURSOR_COLOR_256,
+                                   term->multi_cursor.cursor_color);
+                    break;
+                }
+
+                term_to_slave(term, reply, len);
+
+                term_to_slave(term, " q", 2);
+                break;
+
+            default:
+                LOG_WARN("multi-cursor: invalid shape/color command: %u", shape);
+                return;
+            }
+
+            break;
+        }
+
+        default:
+            UNHANDLED();
+            break;
+        }
+        break; /* private[0] == '>' && private[1] == ' ' */
 
     default:
         UNHANDLED();

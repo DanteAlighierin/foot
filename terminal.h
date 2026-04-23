@@ -398,6 +398,29 @@ struct colors {
     enum which_color_theme active_theme;
 };
 
+/* Synchronized with the multi-cursor protocol specification */
+enum multi_cursor_shape {
+    MULTI_CURSOR_SHAPE_NONE = 0,
+    MULTI_CURSOR_SHAPE_BLOCK = 1,
+    MULTI_CURSOR_SHAPE_BEAM = 2,
+    MULTI_CURSOR_SHAPE_UNDERLINE = 3,
+    MULTI_CURSOR_SHAPE_PRIMARY = 29,
+
+    MULTI_CURSOR_SHAPE_TEXT_COLOR = 30,
+    MULTI_CURSOR_SHAPE_CURSOR_COLOR = 40,
+
+    MULTI_CURSOR_SHAPE_QUERY_CURSORS = 100,
+    MULTI_CURSOR_SHAPE_QUERY_COLORS = 101,
+};
+
+/* Synchronized with the multi-cursor protocol specification */
+enum multi_cursor_color_source {
+    MULTI_CURSOR_COLOR_PRIMARY = 0,
+    MULTI_CURSOR_COLOR_SPECIAL = 1,
+    MULTI_CURSOR_COLOR_RGB = 2,
+    MULTI_CURSOR_COLOR_256 = 5,
+};
+
 struct terminal {
     struct fdm *fdm;
     struct reaper *reaper;
@@ -832,6 +855,15 @@ struct terminal {
 
     bool grapheme_shaping;
     bool size_notifications;
+
+    struct {
+        pixman_region32_t active;
+        enum multi_cursor_shape *shapes;  /* Flattened 2-dimensional array */
+        enum multi_cursor_color_source cursor_color_source;
+        enum multi_cursor_color_source text_color_source;
+        uint32_t cursor_color;
+        uint32_t text_color;
+    } multi_cursor;
 };
 
 struct config;
@@ -989,6 +1021,9 @@ void term_theme_switch_to_dark(struct terminal *term);
 void term_theme_switch_to_light(struct terminal *term);
 void term_theme_toggle(struct terminal *term);
 const struct color_theme *term_theme_get(const struct terminal *term);
+
+void term_remove_all_multi_cursors(struct terminal *term);
+void term_damage_all_multi_cursors(struct terminal *term);
 
 static inline void term_reset_grapheme_state(struct terminal *term)
 {
