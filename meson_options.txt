@@ -27,3 +27,5 @@ option('utmp-backend', type: 'combo', value: 'auto', choices: ['none', 'libutemp
        description: 'Which utmp logging backend to use. This affects how (with what arguments) the utmp helper binary (see \'utmp-default-helper-path\')is called. Default: auto (linux=libutempter, freebsd=ulog, others=none)')
 option('utmp-default-helper-path', type: 'string', value: 'auto',
        description: 'Default path to the utmp helper binary. Default: auto-detect')
+
+option('fanalyzer', type: 'boolean', value: false, description: 'enable GCC static analyzer')
