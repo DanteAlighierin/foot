@@ -144,7 +144,7 @@ uri_parse(const char *uri, size_t len,
     const char *query_start = memchr(start, '?', left);
     const char *fragment_start = memchr(start, '#', left);
 
-    if (streq(*scheme, "file")) {
+    if (scheme != NULL && streq(*scheme, "file")) {
         /* Don't try to parse query/fragment in file URIs, just treat
            the remaining text as path */
         query_start = NULL;
