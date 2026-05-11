@@ -83,6 +83,12 @@
 
 * URL underlines are now dotted by default, instead of plain
   underlines. This can be changed with the new `url.style` option.
+* If the cursor foreground and background colors are identical, use
+  the current cell's foreground and background colors (inverted),
+  instead of the default foreground and background colors
+  ([#2323][2323]).
+
+[2323]: https://codeberg.org/dnkl/foot/issues/2323
 
 
 ### Deprecated
