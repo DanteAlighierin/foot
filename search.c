@@ -1433,6 +1433,7 @@ search_input(struct seat *seat, struct terminal *term,
                                     &update_search_result, &search_direction,
                                     &redraw))
                 {
+                    seat->kbd.last_shortcut_sym = sym;
                     goto update_search;
                 }
                 return;
@@ -1451,6 +1452,7 @@ search_input(struct seat *seat, struct terminal *term,
                                 &update_search_result, &search_direction,
                                 &redraw))
             {
+                seat->kbd.last_shortcut_sym = sym;
                 goto update_search;
             }
             return;
@@ -1470,6 +1472,7 @@ search_input(struct seat *seat, struct terminal *term,
                                     &update_search_result, &search_direction,
                                     &redraw))
                 {
+                    seat->kbd.last_shortcut_sym = sym;
                     goto update_search;
                 }
                 return;

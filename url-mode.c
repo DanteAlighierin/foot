@@ -204,6 +204,7 @@ urls_input(struct seat *seat, struct terminal *term,
         for (size_t i = 0; i < raw_count; i++) {
             if (bind->k.sym == raw_syms[i]) {
                 execute_binding(seat, term, bind, serial);
+                seat->kbd.last_shortcut_sym = sym;
                 return;
             }
         }
@@ -217,6 +218,7 @@ urls_input(struct seat *seat, struct terminal *term,
             bind->mods == (mods & ~consumed))
         {
             execute_binding(seat, term, bind, serial);
+            seat->kbd.last_shortcut_sym = sym;
             return;
         }
 
@@ -232,6 +234,7 @@ urls_input(struct seat *seat, struct terminal *term,
         tll_foreach(bind->k.key_codes, code) {
             if (code->item == key) {
                 execute_binding(seat, term, bind, serial);
+                seat->kbd.last_shortcut_sym = sym;
                 return;
             }
         }

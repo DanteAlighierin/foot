@@ -63,6 +63,7 @@ unicode_mode_input(struct seat *seat, struct terminal *term,
                 term_to_slave(term, utf8, chars);
         }
 
+        seat->kbd.last_shortcut_sym = sym;
         unicode_mode_deactivate(term);
     }
 
@@ -72,6 +73,7 @@ unicode_mode_input(struct seat *seat, struct terminal *term,
                                  sym == XKB_KEY_d ||
                                  sym == XKB_KEY_g)))
     {
+        seat->kbd.last_shortcut_sym = sym;
         unicode_mode_deactivate(term);
     }
 
