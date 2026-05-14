@@ -102,10 +102,13 @@
   event reporting ([#2316][2316]).
 * Keypad escapes in the legacy keyboard protocol ignoring the shift
   modifier ([#2324][2324]).
+* Crash when querying the kitty notification protocol (OSC-99, with
+  `p=?`) ([#2335][2335]).
 
 [2307]: https://codeberg.org/dnkl/foot/issues/2307
 [2316]: https://codeberg.org/dnkl/foot/issues/2316
 [2324]: https://codeberg.org/dnkl/foot/issues/2324
+[2335]: https://codeberg.org/dnkl/foot/issues/2335
 
 
 ### Security
