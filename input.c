@@ -29,18 +29,15 @@
 #include "keymap.h"
 #include "kitty-keymap.h"
 #include "macros.h"
-#include "quirks.h"
+#include "osc.h"
 #include "render.h"
 #include "search.h"
 #include "selection.h"
 #include "spawn.h"
 #include "terminal.h"
-#include "tokenize.h"
 #include "unicode-mode.h"
 #include "url-mode.h"
 #include "util.h"
-#include "vt.h"
-#include "xkbcommon-vmod.h"
 #include "xmalloc.h"
 #include "xsnprintf.h"
 
@@ -182,13 +179,21 @@ execute_binding(struct seat *seat, struct terminal *term,
         return true;
 
     case BIND_ACTION_CLIPBOARD_PASTE:
-        selection_from_clipboard(seat, term, serial);
-        term_reset_view(term);
+        if (likely(!term->kitty_clipboard.emit_events)) {
+            selection_from_clipboard(seat, term, serial);
+            term_reset_view(term);
+        } else {
+            kitty_clipboard_query(term, false);
+        }
         return true;
 
     case BIND_ACTION_PRIMARY_PASTE:
-        selection_from_primary(seat, term);
-        term_reset_view(term);
+        if (likely(!term->kitty_clipboard.emit_events)) {
+            selection_from_primary(seat, term);
+            term_reset_view(term);
+        } else {
+            kitty_clipboard_query(term, true);
+        }
         return true;
 
     case BIND_ACTION_SEARCH_START:

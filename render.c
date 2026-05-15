@@ -3734,13 +3734,7 @@ render_search_box(struct terminal *term)
 
 #if defined(FOOT_IME_ENABLED) && FOOT_IME_ENABLED
     /* TODO: do we want to/need to handle multi-seat? */
-    struct seat *ime_seat = NULL;
-    tll_foreach(term->wl->seats, it) {
-        if (it->item.kbd_focus == term) {
-            ime_seat = &it->item;
-            break;
-        }
-    }
+    struct seat *ime_seat = term_first_focused_seat(term);
 
     size_t text_len = term->search.len;
     if (ime_seat != NULL && ime_seat->ime.preedit.text != NULL)

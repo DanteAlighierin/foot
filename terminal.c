@@ -33,7 +33,7 @@
 #include "ime.h"
 #include "input.h"
 #include "notify.h"
-#include "quirks.h"
+#include "osc.h"
 #include "reaper.h"
 #include "render.h"
 #include "selection.h"
@@ -1939,6 +1939,8 @@ term_destroy(struct terminal *term)
     for (size_t i = 0; i < ALEN(term->notification_icons); i++)
         notify_icon_free(&term->notification_icons[i]);
 
+    kitty_clipboard_reset(term);
+
     sixel_fini(term);
 
     term_ime_reset(term);
@@ -2166,6 +2168,8 @@ term_reset(struct terminal *term, bool hard)
 
     for (size_t i = 0; i < ALEN(term->notification_icons); i++)
         notify_icon_free(&term->notification_icons[i]);
+
+    kitty_clipboard_reset(term);
 
     term->grapheme_shaping = term->conf->tweak.grapheme_shaping;
 
@@ -4829,4 +4833,29 @@ term_theme_get(const struct terminal *term)
     return term->colors.active_theme == COLOR_THEME_DARK
         ? &term->conf->colors_dark
         : &term->conf->colors_light;
+}
+
+bool
+term_osc_paste_allowed(const struct terminal *term)
+{
+    return term->conf->security.osc52 == OSC52_ENABLED
+        || term->conf->security.osc52 == OSC52_PASTE_ENABLED;
+}
+
+bool
+term_osc_copy_allowed(const struct terminal *term)
+{
+    return term->conf->security.osc52 == OSC52_ENABLED
+        || term->conf->security.osc52 == OSC52_COPY_ENABLED;
+}
+
+struct seat *
+term_first_focused_seat(struct terminal *term)
+{
+    tll_foreach(term->wl->seats, it) {
+        if (it->item.kbd_focus == term)
+            return &it->item;
+    }
+
+    return NULL;
 }

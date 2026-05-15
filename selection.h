@@ -44,9 +44,11 @@ void selection_from_primary(struct seat *seat, struct terminal *term);
 
 /* Copy text *to* primary/clipboard */
 bool text_to_clipboard(
-    struct seat *seat, struct terminal *term, char *text, uint32_t serial);
+    struct seat *seat, struct terminal *term, char *text,
+    struct kitty_clipboard_offer *kitty_data, uint32_t serial);
 bool text_to_primary(
-    struct seat *seat, struct terminal *term, char *text, uint32_t serial);
+    struct seat *seat, struct terminal *term, char *text,
+    struct kitty_clipboard_offer *kitty_data, uint32_t serial);
 
 /*
  * Copy text *from* primary/clipboard
@@ -65,12 +67,12 @@ bool text_to_primary(
 void text_from_clipboard(
     struct seat *seat, struct terminal *term, bool no_strip,
     void (*cb)(char *data, size_t size, void *user),
-    void (*done)(void *user), void *user);
+    void (*done)(void *user), void *user, const char *custom_mime_type);
 
 void text_from_primary(
     struct seat *seat, struct terminal *term, bool no_strip,
     void (*cb)(char *data, size_t size, void *user),
-    void (*dont)(void *user), void *user);
+    void (*dont)(void *user), void *user, const char *custom_mime_type);
 
 void selection_start_scroll_timer(
     struct terminal *term, int interval_ns,

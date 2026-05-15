@@ -1631,6 +1631,29 @@ selection_primary_has_data(const struct seat *seat)
     return seat->primary.data_offer != NULL;
 }
 
+static void
+clipboard_reset(struct wl_clipboard *clipboard)
+{
+
+    for (size_t i = 0; i < clipboard->kitty.data_count; i++)
+        free(clipboard->kitty.data[i]);
+    for (size_t i = 0; i < clipboard->kitty.mime_data_map_count; i++)
+        free(clipboard->kitty.mime_data_map[i].mime_type);
+
+    free(clipboard->text);
+    free(clipboard->kitty.data);
+    free(clipboard->kitty.data_len);
+    free(clipboard->kitty.mime_data_map);
+
+    clipboard->data_source = NULL;
+    clipboard->serial = 0;
+    clipboard->text = NULL;
+    clipboard->kitty.data = NULL;
+    clipboard->kitty.mime_data_map = NULL;
+    clipboard->kitty.data_count = 0;
+    clipboard->kitty.mime_data_map_count = 0;
+}
+
 void
 selection_clipboard_unset(struct seat *seat)
 {
@@ -1643,12 +1666,30 @@ selection_clipboard_unset(struct seat *seat)
     xassert(clipboard->serial != 0);
     wl_data_device_set_selection(seat->data_device, NULL, clipboard->serial);
     wl_data_source_destroy(clipboard->data_source);
+    clipboard_reset(clipboard);
+}
 
-    clipboard->data_source = NULL;
-    clipboard->serial = 0;
+static void
+primary_reset(struct wl_primary *primary)
+{
 
-    free(clipboard->text);
-    clipboard->text = NULL;
+    for (size_t i = 0; i < primary->kitty.data_count; i++)
+        free(primary->kitty.data[i]);
+    for (size_t i = 0; i < primary->kitty.mime_data_map_count; i++)
+        free(primary->kitty.mime_data_map[i].mime_type);
+
+    free(primary->text);
+    free(primary->kitty.data);
+    free(primary->kitty.data_len);
+    free(primary->kitty.mime_data_map);
+
+    primary->data_source = NULL;
+    primary->serial = 0;
+    primary->text = NULL;
+    primary->kitty.data = NULL;
+    primary->kitty.mime_data_map = NULL;
+    primary->kitty.data_count = 0;
+    primary->kitty.mime_data_map_count = 0;
 }
 
 void
@@ -1663,12 +1704,7 @@ selection_primary_unset(struct seat *seat)
     zwp_primary_selection_device_v1_set_selection(
         seat->primary_selection_device, NULL, primary->serial);
     zwp_primary_selection_source_v1_destroy(primary->data_source);
-
-    primary->data_source = NULL;
-    primary->serial = 0;
-
-    free(primary->text);
-    primary->text = NULL;
+    primary_reset(primary);
 }
 
 static bool
@@ -1816,8 +1852,8 @@ done:
 }
 
 static void
-send_clipboard_or_primary(struct seat *seat, int fd, const char *selection,
-                          const char *source_name)
+send_clipboard_or_primary(struct seat *seat, int fd, const uint8_t *selection,
+                          size_t len, const char *source_name)
 {
     /* Make it NONBLOCK:ing right away - we don't want to block if the
      * initial attempt to send the data synchronously fails */
@@ -1829,17 +1865,18 @@ send_clipboard_or_primary(struct seat *seat, int fd, const char *selection,
         return;
     }
 
-    size_t len = selection != NULL ? strlen(selection) : 0;
-    size_t async_idx = 0;
+     size_t async_idx = 0;
 
     switch (async_write(fd, selection, len, &async_idx)) {
     case ASYNC_WRITE_REMAIN: {
         struct clipboard_send *ctx = xmalloc(sizeof(*ctx));
         *ctx = (struct clipboard_send) {
-            .data = xstrdup(&selection[async_idx]),
+            //.data = xstrdup(&selection[async_idx]),
+            .data = xmalloc(len - async_idx),
             .len = len - async_idx,
             .idx = 0,
         };
+        memcpy(ctx->data, &selection[async_idx], ctx->len);
 
         if (fdm_add(seat->wayl->fdm, fd, EPOLLOUT, &fdm_send, ctx))
             return;
@@ -1868,7 +1905,21 @@ send(void *data, struct wl_data_source *wl_data_source, const char *mime_type,
     struct seat *seat = data;
     const struct wl_clipboard *clipboard = &seat->clipboard;
 
-    send_clipboard_or_primary(seat, fd, clipboard->text, "clipboard");
+    if (clipboard->text != NULL) {
+        send_clipboard_or_primary(
+            seat, fd, (const uint8_t *)clipboard->text, strlen(clipboard->text), "clipboard");
+    } else {
+        for (size_t i = 0; i < clipboard->kitty.mime_data_map_count; i++) {
+            const struct mime_data_map *map = &clipboard->kitty.mime_data_map[i];
+
+            if (streq(map->mime_type, mime_type)) {
+                send_clipboard_or_primary(
+                    seat, fd, clipboard->kitty.data[map->data_idx],
+                    clipboard->kitty.data_len[map->data_idx], "clipboard");
+                break;
+            }
+        }
+    }
 }
 
 static void
@@ -1879,11 +1930,7 @@ cancelled(void *data, struct wl_data_source *wl_data_source)
     xassert(clipboard->data_source == wl_data_source);
 
     wl_data_source_destroy(clipboard->data_source);
-    clipboard->data_source = NULL;
-    clipboard->serial = 0;
-
-    free(clipboard->text);
-    clipboard->text = NULL;
+    clipboard_reset(clipboard);
 }
 
 /* We don't support dragging *from* */
@@ -1922,7 +1969,21 @@ primary_send(void *data,
     struct seat *seat = data;
     const struct wl_primary *primary = &seat->primary;
 
-    send_clipboard_or_primary(seat, fd, primary->text, "primary");
+    if (primary->text != NULL) {
+        send_clipboard_or_primary(
+            seat, fd, (const uint8_t *)primary->text, strlen(primary->text), "primary");
+    } else {
+        for (size_t i = 0; i < primary->kitty.mime_data_map_count; i++) {
+            const struct mime_data_map *map = &primary->kitty.mime_data_map[i];
+
+            if (streq(map->mime_type, mime_type)) {
+                send_clipboard_or_primary(
+                    seat, fd, primary->kitty.data[map->data_idx],
+                    primary->kitty.data_len[map->data_idx], "primary");
+                break;
+            }
+        }
+    }
 }
 
 static void
@@ -1933,11 +1994,7 @@ primary_cancelled(void *data,
     struct wl_primary *primary = &seat->primary;
 
     zwp_primary_selection_source_v1_destroy(primary->data_source);
-    primary->data_source = NULL;
-    primary->serial = 0;
-
-    free(primary->text);
-    primary->text = NULL;
+    primary_reset(primary);
 }
 
 static const struct zwp_primary_selection_source_v1_listener primary_selection_source_listener = {
@@ -1946,12 +2003,15 @@ static const struct zwp_primary_selection_source_v1_listener primary_selection_s
 };
 
 bool
-text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t serial)
+text_to_clipboard(struct seat *seat, struct terminal *term, char *text,
+                  struct kitty_clipboard_offer *kitty_data, uint32_t serial)
 {
     if (text == NULL || text[0] == '\0')
         return false;
 
     xassert(serial != 0);
+    xassert((text != NULL && kitty_data == NULL) ||
+            (text == NULL && kitty_data != NULL));
 
     struct wl_clipboard *clipboard = &seat->clipboard;
 
@@ -1960,11 +2020,7 @@ text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t
         xassert(clipboard->serial != 0);
         wl_data_device_set_selection(seat->data_device, NULL, clipboard->serial);
         wl_data_source_destroy(clipboard->data_source);
-        free(clipboard->text);
-
-        clipboard->data_source = NULL;
-        clipboard->serial = 0;
-        clipboard->text = NULL;
+        clipboard_reset(clipboard);
     }
 
     clipboard->data_source
@@ -1978,11 +2034,23 @@ text_to_clipboard(struct seat *seat, struct terminal *term, char *text, uint32_t
     clipboard->text = text;
 
     /* Configure source */
-    wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8]);
-    wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_PLAIN]);
-    wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_TEXT]);;
-    wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_STRING]);
-    wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8_STRING]);
+    if (text != NULL) {
+        wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8]);
+        wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_PLAIN]);
+        wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_TEXT]);;
+        wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_STRING]);
+        wl_data_source_offer(clipboard->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8_STRING]);
+    } else {
+        xassert(clipboard->kitty.data_count == 0);
+        xassert(clipboard->kitty.mime_data_map_count == 0);
+
+        clipboard->kitty = *kitty_data;
+
+        for (size_t i = 0; i < clipboard->kitty.mime_data_map_count; i++) {
+            wl_data_source_offer(
+                clipboard->data_source, clipboard->kitty.mime_data_map[i].mime_type);
+        }
+    }
 
     wl_data_source_add_listener(clipboard->data_source, &data_source_listener, seat);
     wl_data_device_set_selection(seat->data_device, clipboard->data_source, serial);
@@ -2000,7 +2068,7 @@ selection_to_clipboard(struct seat *seat, struct terminal *term, uint32_t serial
 
     /* Get selection as a string */
     char *text = selection_to_text(term);
-    if (!text_to_clipboard(seat, term, text, serial))
+    if (!text_to_clipboard(seat, term, text, NULL, serial))
         free(text);
 }
 
@@ -2339,11 +2407,11 @@ void
 text_from_clipboard(struct seat *seat, struct terminal *term,
                     bool no_strip,
                     void (*cb)(char *data, size_t size, void *user),
-                    void (*done)(void *user), void *user)
+                    void (*done)(void *user), void *user, const char *custom_mime_type)
 {
     struct wl_clipboard *clipboard = &seat->clipboard;
     if (clipboard->data_offer == NULL ||
-        clipboard->mime_type == DATA_OFFER_MIME_UNSET)
+        (clipboard->mime_type == DATA_OFFER_MIME_UNSET && custom_mime_type == NULL))
     {
         done(user);
         return;
@@ -2357,21 +2425,25 @@ text_from_clipboard(struct seat *seat, struct terminal *term,
         return;
     }
 
-    LOG_DBG("receive from clipboard: mime-type=%s",
-            mime_type_map[clipboard->mime_type]);
+    const char *mime_type = custom_mime_type == NULL
+        ? mime_type_map[clipboard->mime_type]
+        : custom_mime_type;
+
+    LOG_DBG("receive from clipboard: mime-type=%s", mime_type);
 
     int read_fd = fds[0];
     int write_fd = fds[1];
 
     /* Give write-end of pipe to other client */
-    wl_data_offer_receive(
-        clipboard->data_offer, mime_type_map[clipboard->mime_type], write_fd);
+    wl_data_offer_receive(clipboard->data_offer, mime_type, write_fd);
 
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
 
     begin_receive_clipboard(
-        term, no_strip, read_fd, clipboard->mime_type, cb, done, user);
+        term, no_strip, read_fd,
+        custom_mime_type == NULL ? clipboard->mime_type : DATA_OFFER_MIME_TYPE_CUSTOM,
+        cb, done, user);
 }
 
 static void
@@ -2415,11 +2487,12 @@ selection_from_clipboard(struct seat *seat, struct terminal *term, uint32_t seri
         term_paste_data_to_slave(term, "\033[200~", 6);
 
     text_from_clipboard(
-        seat, term, false, &receive_offer, &receive_offer_done, term);
+        seat, term, false, &receive_offer, &receive_offer_done, term, NULL);
 }
 
 bool
-text_to_primary(struct seat *seat, struct terminal *term, char *text, uint32_t serial)
+text_to_primary(struct seat *seat, struct terminal *term, char *text,
+                struct kitty_clipboard_offer *kitty_data, uint32_t serial)
 {
     if (text == NULL || text[0] == '\0')
         return false;
@@ -2428,6 +2501,8 @@ text_to_primary(struct seat *seat, struct terminal *term, char *text, uint32_t s
         return false;
 
     xassert(serial != 0);
+    xassert((text != NULL && kitty_data == NULL) ||
+            (text == NULL && kitty_data != NULL));
 
     struct wl_primary *primary = &seat->primary;
 
@@ -2439,11 +2514,7 @@ text_to_primary(struct seat *seat, struct terminal *term, char *text, uint32_t s
         zwp_primary_selection_device_v1_set_selection(
             seat->primary_selection_device, NULL, primary->serial);
         zwp_primary_selection_source_v1_destroy(primary->data_source);
-        free(primary->text);
-
-        primary->data_source = NULL;
-        primary->serial = 0;
-        primary->text = NULL;
+        primary_reset(primary);
     }
 
     primary->data_source
@@ -2459,11 +2530,26 @@ text_to_primary(struct seat *seat, struct terminal *term, char *text, uint32_t s
     primary->text = text;
 
     /* Configure source */
-    zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8]);
-    zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_PLAIN]);
-    zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_TEXT]);
-    zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_STRING]);
-    zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8_STRING]);
+    if (text != NULL) {
+        xassert(primary->kitty.data_count == 0);
+        xassert(primary->kitty.mime_data_map_count == 0);
+
+        zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8]);
+        zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_PLAIN]);
+        zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_TEXT]);
+        zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_STRING]);
+        zwp_primary_selection_source_v1_offer(primary->data_source, mime_type_map[DATA_OFFER_MIME_TEXT_UTF8_STRING]);
+    } else {
+        xassert(primary->kitty.data_count == 0);
+        xassert(primary->kitty.mime_data_map_count == 0);
+
+        primary->kitty = *kitty_data;
+
+        for (size_t i = 0; i < primary->kitty.mime_data_map_count; i++) {
+            zwp_primary_selection_source_v1_offer(
+                primary->data_source, primary->kitty.mime_data_map[i].mime_type);
+        }
+    }
 
     zwp_primary_selection_source_v1_add_listener(primary->data_source, &primary_selection_source_listener, seat);
     zwp_primary_selection_device_v1_set_selection(seat->primary_selection_device, primary->data_source, serial);
@@ -2481,7 +2567,7 @@ selection_to_primary(struct seat *seat, struct terminal *term, uint32_t serial)
 
     /* Get selection as a string */
     char *text = selection_to_text(term);
-    if (!text_to_primary(seat, term, text, serial))
+    if (!text_to_primary(seat, term, text, NULL, serial))
         free(text);
 }
 
@@ -2489,7 +2575,7 @@ void
 text_from_primary(
     struct seat *seat, struct terminal *term, bool no_strip,
     void (*cb)(char *data, size_t size, void *user),
-    void (*done)(void *user), void *user)
+    void (*done)(void *user), void *user, const char *custom_mime_type)
 {
     if (term->wl->primary_selection_device_manager == NULL) {
         done(user);
@@ -2498,7 +2584,7 @@ text_from_primary(
 
     struct wl_primary *primary = &seat->primary;
     if (primary->data_offer == NULL ||
-        primary->mime_type == DATA_OFFER_MIME_UNSET)
+        (primary->mime_type == DATA_OFFER_MIME_UNSET && custom_mime_type == NULL))
     {
         done(user);
         return;
@@ -2512,21 +2598,25 @@ text_from_primary(
         return;
     }
 
-    LOG_DBG("receive from primary: mime-type=%s",
-            mime_type_map[primary->mime_type]);
+    const char *mime_type = custom_mime_type == NULL
+        ? mime_type_map[primary->mime_type]
+        : custom_mime_type;
+
+    LOG_DBG("receive from primary: mime-type=%s", mime_type);
 
     int read_fd = fds[0];
     int write_fd = fds[1];
 
     /* Give write-end of pipe to other client */
-    zwp_primary_selection_offer_v1_receive(
-        primary->data_offer, mime_type_map[primary->mime_type], write_fd);
+    zwp_primary_selection_offer_v1_receive(primary->data_offer, mime_type, write_fd);
 
     /* Don't keep our copy of the write-end open (or we'll never get EOF) */
     close(write_fd);
 
     begin_receive_clipboard(
-        term, no_strip, read_fd, primary->mime_type, cb, done, user);
+        term, no_strip, read_fd,
+        custom_mime_type == NULL ? primary->mime_type : DATA_OFFER_MIME_TYPE_CUSTOM,
+        cb, done, user);
 }
 
 void
@@ -2549,7 +2639,7 @@ selection_from_primary(struct seat *seat, struct terminal *term)
         term_paste_data_to_slave(term, "\033[200~", 6);
 
     text_from_primary(
-        seat, term, false, &receive_offer, &receive_offer_done, term);
+        seat, term, false, &receive_offer, &receive_offer_done, term, NULL);
 }
 
 static void
@@ -2614,6 +2704,9 @@ select_mime_type_for_offer(const char *_mime_type,
 
     case DATA_OFFER_MIME_UNSET:
         break;
+
+    case DATA_OFFER_MIME_TYPE_CUSTOM:
+        BUG("the custom mime-type should never have been selected");
     }
 }
 
@@ -2627,6 +2720,7 @@ data_offer_reset(struct wl_clipboard *clipboard)
 
     clipboard->window = NULL;
     clipboard->mime_type = DATA_OFFER_MIME_UNSET;
+    tll_free_and_free(clipboard->all_mime_types, free);
 }
 
 static void
@@ -2634,6 +2728,7 @@ offer(void *data, struct wl_data_offer *wl_data_offer, const char *mime_type)
 {
     struct seat *seat = data;
     select_mime_type_for_offer(mime_type, &seat->clipboard.mime_type);
+    tll_push_back(seat->clipboard.all_mime_types, xstrdup(mime_type));
 }
 
 static void
@@ -2844,6 +2939,7 @@ drop(void *data, struct wl_data_device *wl_data_device)
     /* data offer is now "owned" by the receive context */
     clipboard->data_offer = NULL;
     clipboard->mime_type = DATA_OFFER_MIME_UNSET;
+    tll_free_and_free(clipboard->all_mime_types, free);
 }
 
 static void
@@ -2875,6 +2971,7 @@ primary_offer(void *data,
     LOG_DBG("primary offer: %s", mime_type);
     struct seat *seat = data;
     select_mime_type_for_offer(mime_type, &seat->primary.mime_type);
+    tll_push_back(seat->primary.all_mime_types, xstrdup(mime_type));
 }
 
 static const struct zwp_primary_selection_offer_v1_listener primary_selection_offer_listener = {
@@ -2890,6 +2987,7 @@ primary_offer_reset(struct wl_primary *primary)
     }
 
     primary->mime_type = DATA_OFFER_MIME_UNSET;
+    tll_free_and_free(primary->all_mime_types, free);
 }
 
 static void
@@ -2922,4 +3020,3 @@ const struct zwp_primary_selection_device_v1_listener primary_selection_device_l
     .data_offer = &primary_data_offer,
     .selection = &primary_selection,
 };
-

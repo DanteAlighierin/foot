@@ -51,6 +51,8 @@ enum data_offer_mime_type {
     DATA_OFFER_MIME_TEXT_TEXT,
     DATA_OFFER_MIME_TEXT_STRING,
     DATA_OFFER_MIME_TEXT_UTF8_STRING,
+
+    DATA_OFFER_MIME_TYPE_CUSTOM,
 };
 
 enum touch_state {
@@ -76,22 +78,52 @@ struct wayl_sub_surface {
     struct wl_subsurface *sub;
 };
 
+typedef tll(char *) mime_list_t;
+struct mime_data_map {
+    char *mime_type;
+    size_t data_idx;
+};
+
+/* OSC-5522: kitty's extended OSC-52, with explicit mime-type support */
+struct kitty_clipboard_offer {
+    /*
+     * - data[]          is an array of contents
+     * - data_len[]      is an array of the same size as data[], each element
+     *                   denoting the size of the corresponding data[] element
+     * - mime_data_map[] is an array mapping mime-types to an entry in data[]
+     */
+    uint8_t **data;
+    size_t *data_len;
+    size_t data_count;
+
+    struct mime_data_map *mime_data_map;
+    size_t mime_data_map_count;
+};
+
+
 struct wl_window;
 struct wl_clipboard {
     struct wl_window *window;  /* For DnD */
     struct wl_data_source *data_source;
     struct wl_data_offer *data_offer;
-    enum data_offer_mime_type mime_type;
+    enum data_offer_mime_type mime_type;  /* Preferred mime-type */
+    mime_list_t all_mime_types;           /* List of all offered mime-types (for OSC-5522) */
     char *text;
     uint32_t serial;
+
+    struct kitty_clipboard_offer kitty;
 };
 
 struct wl_primary {
     struct zwp_primary_selection_source_v1 *data_source;
     struct zwp_primary_selection_offer_v1 *data_offer;
-    enum data_offer_mime_type mime_type;
+    enum data_offer_mime_type mime_type;  /* Preferred mime-type */
+    mime_list_t all_mime_types;           /* List of all offered mime-types (for OSC-5522) */
+
     char *text;
     uint32_t serial;
+
+    struct kitty_clipboard_offer kitty;
 };
 
 /* Maps a mouse button to its "owning" surface */

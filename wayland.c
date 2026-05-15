@@ -233,6 +233,24 @@ seat_destroy(struct seat *seat)
     free(seat->primary.text);
     free(seat->pointer.last_custom_xcursor);
     free(seat->name);
+
+    for (size_t i = 0; i < seat->clipboard.kitty.data_count; i++)
+        free(seat->clipboard.kitty.data[i]);
+    free(seat->clipboard.kitty.data);
+    free(seat->clipboard.kitty.data_len);
+    for (size_t i = 0; i < seat->clipboard.kitty.mime_data_map_count; i++)
+        free(seat->clipboard.kitty.mime_data_map[i].mime_type);
+    free(seat->clipboard.kitty.mime_data_map);
+    tll_free_and_free(seat->clipboard.all_mime_types, free);
+
+    for (size_t i = 0; i < seat->primary.kitty.data_count; i++)
+        free(seat->primary.kitty.data[i]);
+    free(seat->primary.kitty.data);
+    free(seat->primary.kitty.data_len);
+    for (size_t i = 0; i < seat->primary.kitty.mime_data_map_count; i++)
+        free(seat->primary.kitty.mime_data_map[i].mime_type);
+    free(seat->primary.kitty.mime_data_map);
+    tll_free_and_free(seat->primary.all_mime_types, free);
 }
 
 static void

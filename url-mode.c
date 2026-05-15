@@ -168,7 +168,7 @@ activate_url(struct seat *seat, struct terminal *term, const struct url *url,
             if (term->bracketed_paste)
                 term_to_slave(term, "\033[201~", 6);
         }
-        if (text_to_clipboard(seat, term, url_string, seat->kbd.serial)) {
+        if (text_to_clipboard(seat, term, url_string, NULL, seat->kbd.serial)) {
             /* Now owned by our clipboard “manager” */
             url_string = NULL;
         }

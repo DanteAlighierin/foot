@@ -576,6 +576,21 @@ decset_decrst(struct terminal *term, unsigned param, bool enable)
             term_disable_size_notifications(term);
         break;
 
+    case 5522:
+        if (enable) {
+            if (term_osc_paste_allowed(term))
+                term->kitty_clipboard.emit_events = true;
+            else {
+                static bool have_warned = false;
+                if (!have_warned) {
+                    have_warned = true;
+                    LOG_WARN("attempt to enable private mode 5522 ignored: disabled in configuration");
+                }
+            }
+        } else
+            term->kitty_clipboard.emit_events = false;
+        break;
+
     case 8452:
         term->sixel.cursor_right_of_graphics = enable;
         break;
@@ -665,6 +680,7 @@ decrqm(const struct terminal *term, unsigned param)
         : decrpm(term->grapheme_shaping);
     case 2031: return decrpm(term->report_theme_changes);
     case 2048: return decrpm(term->size_notifications);
+    case 5522: return decrpm(term->kitty_clipboard.emit_events);
     case 8452: return decrpm(term->sixel.cursor_right_of_graphics);
     case 737769: return decrpm(term_ime_is_enabled(term));
     }
@@ -711,6 +727,7 @@ xtsave(struct terminal *term, unsigned param)
     case 2027: term->xtsave.grapheme_shaping = term->grapheme_shaping; break;
     case 2031: term->xtsave.report_theme_changes = term->report_theme_changes; break;
     case 2048: term->xtsave.size_notifications = term->size_notifications; break;
+    case 5522: term->xtsave.kitty_clipboard = term->kitty_clipboard.emit_events; break;
     case 8452: term->xtsave.sixel_cursor_right_of_graphics = term->sixel.cursor_right_of_graphics; break;
     case 737769: term->xtsave.ime = term_ime_is_enabled(term); break;
     }
@@ -756,6 +773,7 @@ xtrestore(struct terminal *term, unsigned param)
     case 2027: enable = term->xtsave.grapheme_shaping; break;
     case 2031: enable = term->xtsave.report_theme_changes; break;
     case 2048: enable = term->xtsave.size_notifications; break;
+    case 5522: enable = term->xtsave.kitty_clipboard; break;
     case 8452: enable = term->xtsave.sixel_cursor_right_of_graphics; break;
     case 737769: enable = term->xtsave.ime; break;
 

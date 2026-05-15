@@ -398,6 +398,19 @@ struct colors {
     enum which_color_theme active_theme;
 };
 
+struct kitty_mime_data {
+    char *mime_type;
+    uint8_t *data;
+    size_t data_len;
+};
+typedef tll(struct kitty_mime_data) kitty_mime_data_list_t;
+
+struct kitty_mime_alias {
+    char *target;
+    char *alias;
+};
+typedef tll(struct kitty_mime_alias) kitty_mime_alias_list_t;
+
 struct terminal {
     struct fdm *fdm;
     struct reaper *reaper;
@@ -542,6 +555,7 @@ struct terminal {
         bool report_theme_changes:1;
 
         bool size_notifications:1;
+        bool kitty_clipboard:1;
 
         bool sixel_display_mode:1;
         bool sixel_private_palette:1;
@@ -822,6 +836,30 @@ struct terminal {
     /* State, to handle chunked notifications */
     struct notification kitty_notification;
 
+    /* OSC-5522 */
+    struct {
+        bool emit_events;  /* Enabled/disabled via private mode 5522 */
+
+        /*
+         * State for setting the clipboard (OSC-5522;type=write|wdata|walias)
+         */
+        bool for_primary;
+        bool has_error;    /* When set, all subsequent wdata|walias packets are ignored */
+        const char *error; /* EIO|EINVAL|ENOSYS|EPERM|EBUSY */
+
+        /* Current mime-type being collected (via multiple wdata packets) */
+        char *active_mime_type;
+        uint8_t *data;
+        size_t data_len;
+
+        /* mime-type aliases, collected via one or more walias packets */
+        kitty_mime_alias_list_t mime_aliases;
+
+        /* Finished mime-types (will be written to the clipboard when
+         * the final wdata packet is received) */
+        kitty_mime_data_list_t committed_mime_data;
+    } kitty_clipboard;
+
     /* Currently active notifications, from foot's perspective (their
        notification helper processes are still running) */
     tll(struct notification) active_notifications;
@@ -989,6 +1027,12 @@ void term_theme_switch_to_dark(struct terminal *term);
 void term_theme_switch_to_light(struct terminal *term);
 void term_theme_toggle(struct terminal *term);
 const struct color_theme *term_theme_get(const struct terminal *term);
+
+bool term_osc_paste_allowed(const struct terminal *term);
+bool term_osc_copy_allowed(const struct terminal *term);
+
+/* Get (first) seat that is focusing this terminal instance */
+struct seat *term_first_focused_seat(struct terminal *term);
 
 static inline void term_reset_grapheme_state(struct terminal *term)
 {

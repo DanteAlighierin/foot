@@ -51,24 +51,14 @@ osc_to_clipboard(struct terminal *term, const char *target,
     }
 
     /* Find a seat in which the terminal has focus */
-    struct seat *seat = NULL;
-    tll_foreach(term->wl->seats, it) {
-        if (it->item.kbd_focus == term) {
-            seat = &it->item;
-            break;
-        }
-    }
-
+    struct seat *seat = term_first_focused_seat(term);
     if (seat == NULL) {
-        LOG_WARN("OSC52: client tried to write to clipboard data while window was unfocused");
+        LOG_WARN("OSC-52: client tried to write to clipboard data while window was unfocused");
         return;
     }
 
-    const bool copy_allowed = term->conf->security.osc52 == OSC52_ENABLED
-                              || term->conf->security.osc52 == OSC52_COPY_ENABLED;
-
-    if (!copy_allowed) {
-        LOG_DBG("ignoring copy request: disabled in configuration");
+    if (!term_osc_copy_allowed(term)) {
+        LOG_DBG("OSC-52: ignoring copy request: disabled in configuration");
         return;
     }
 
@@ -93,13 +83,13 @@ osc_to_clipboard(struct terminal *term, const char *target,
 
     if (to_clipboard) {
         char *copy = xstrdup(decoded);
-        if (!text_to_clipboard(seat, term, copy, seat->kbd.serial))
+        if (!text_to_clipboard(seat, term, copy, NULL, seat->kbd.serial))
             free(copy);
     }
 
     if (to_primary) {
         char *copy = xstrdup(decoded);
-        if (!text_to_primary(seat, term, copy, seat->kbd.serial))
+        if (!text_to_primary(seat, term, copy, NULL, seat->kbd.serial))
             free(copy);
     }
 
@@ -111,6 +101,14 @@ struct clip_context {
     struct terminal *term;
     uint8_t buf[3];
     int idx;
+
+    struct {
+        bool is_kitty;
+        bool from_primary;
+        size_t chunk_bytes_written;  /* Bytes written so far, in current chunk */
+        char *encoded_mime_type;  /* Currently "active" mime-type, base64 encoded */
+        tll(char *) mime_types;   /* Remaining mime-types */
+    } kitty;
 };
 
 static void
@@ -137,6 +135,7 @@ from_clipboard_cb(char *text, size_t size, void *user)
             term_paste_data_to_slave(term, chunk, 4);
             free(chunk);
 
+            ctx->kitty.chunk_bytes_written += 3;
             ctx->idx = 0;
         }
     }
@@ -146,17 +145,32 @@ from_clipboard_cb(char *text, size_t size, void *user)
 
     xassert(ctx->idx == 0);
 
-    int remaining = left % 3;
+    const int remaining = left % 3;
     for (int i = remaining; i > 0; i--)
         ctx->buf[ctx->idx++] = text[size - i];
     xassert(ctx->idx == remaining);
 
-    char *chunk = base64_encode((const uint8_t *)t, left / 3 * 3);
+    const size_t count = left / 3 * 3;
+    char *chunk = base64_encode(t, count);
     xassert(chunk != NULL);
     xassert(strlen(chunk) % 4 == 0);
+
+    if (unlikely(ctx->kitty.is_kitty && ctx->kitty.chunk_bytes_written + count > 4096)) {
+        /* New chunk */
+        term_paste_data_to_slave(term, "\033\\", 2);
+        term_paste_data_to_slave(term, "\033]5522;type=read:status=DATA:mime=", 34);
+        term_paste_data_to_slave(term, ctx->kitty.encoded_mime_type,
+                                 strlen(ctx->kitty.encoded_mime_type));
+        term_paste_data_to_slave(term, ";", 1);
+        ctx->kitty.chunk_bytes_written = 0;
+    }
+
     term_paste_data_to_slave(term, chunk, strlen(chunk));
+    ctx->kitty.chunk_bytes_written += count;
     free(chunk);
 }
+
+static void kitty_clipboard_read_next_mime_type(struct clip_context *ctx);
 
 static void
 from_clipboard_done(void *user)
@@ -168,6 +182,7 @@ from_clipboard_done(void *user)
         char res[4];
         base64_encode_final(ctx->buf, ctx->idx, res);
         term_paste_data_to_slave(term, res, 4);
+        ctx->idx = 0;
     }
 
     if (term->vt.osc.bel)
@@ -175,11 +190,26 @@ from_clipboard_done(void *user)
     else
         term_paste_data_to_slave(term, "\033\\", 2);
 
+    if (ctx->kitty.is_kitty) {
+        free(ctx->kitty.encoded_mime_type);
+        ctx->kitty.encoded_mime_type = NULL;
+
+        /* Continue with the next mime-type, if there are any left */
+        if (tll_length(ctx->kitty.mime_types) > 0) {
+            kitty_clipboard_read_next_mime_type(ctx);
+            return;
+        }
+
+        /* If not, we're done! */
+        term_paste_data_to_slave(term, "\033]5522;type=read:status=DONE\033\\", 30);
+    }
+
     term->is_sending_paste_data = false;
 
     /* Make sure we send any queued up non-paste data */
     if (tll_length(term->ptmx_buffers) > 0)
         fdm_event_add(term->fdm, term->ptmx, EPOLLOUT);
+
 
     free(ctx);
 }
@@ -188,23 +218,14 @@ static void
 osc_from_clipboard(struct terminal *term, const char *source)
 {
     /* Find a seat in which the terminal has focus */
-    struct seat *seat = NULL;
-    tll_foreach(term->wl->seats, it) {
-        if (it->item.kbd_focus == term) {
-            seat = &it->item;
-            break;
-        }
-    }
-
+    struct seat *seat = term_first_focused_seat(term);
     if (seat == NULL) {
-        LOG_WARN("OSC52: client tried to read clipboard data while window was unfocused");
+        LOG_WARN("OSC-52: client tried to read clipboard data while window was unfocused");
         return;
     }
 
-    const bool paste_allowed = term->conf->security.osc52 == OSC52_ENABLED
-                               || term->conf->security.osc52 == OSC52_PASTE_ENABLED;
-    if (!paste_allowed) {
-        LOG_DBG("ignoring paste request: disabled in configuration");
+    if (!term_osc_paste_allowed(term)) {
+        LOG_DBG("OSC-52: ignoring paste request: disabled in configuration");
         return;
     }
 
@@ -261,12 +282,12 @@ osc_from_clipboard(struct terminal *term, const char *source)
 
     if (from_clipboard) {
         text_from_clipboard(
-            seat, term, true, &from_clipboard_cb, &from_clipboard_done, ctx);
+            seat, term, true, &from_clipboard_cb, &from_clipboard_done, ctx, NULL);
     }
 
     if (from_primary) {
         text_from_primary(
-            seat, term, true, &from_clipboard_cb, &from_clipboard_done, ctx);
+            seat, term, true, &from_clipboard_cb, &from_clipboard_done, ctx, NULL);
     }
 }
 
@@ -294,6 +315,453 @@ osc_selection(struct terminal *term, char *string)
         osc_from_clipboard(term, string);
     else
         osc_to_clipboard(term, string, p);
+}
+
+void
+kitty_clipboard_query(struct terminal *term, bool primary)
+{
+    /*
+     * Enumerate the available mime-types
+     */
+
+    LOG_DBG("OSC-5522: query mime-types: primary=%d", primary);
+
+    /* Find a seat in which the terminal has focus */
+    struct seat *seat = term_first_focused_seat(term);
+    if (seat == NULL) {
+        LOG_WARN("OSC-5522: client tried to read clipboard data "
+                 "while window was unfocused");
+        term_to_slave(term, "\033]5522;type=read:status=ENOSYS\033\\", 32);
+        return;
+    }
+
+    const mime_list_t *mime_list = !primary
+        ? &seat->clipboard.all_mime_types
+        : &seat->primary.all_mime_types;
+
+    term_to_slave(term, "\033]5522;type=read:", 17);
+    if (primary)
+        term_to_slave(term, "loc=primary:", 12);
+    term_to_slave(term, "status=OK\033\\", 11);
+    term_to_slave(term, "\033]5522;type=read:status=DATA:mime=Lg==;", 39);  /* base64(".") == "Lg==" */
+
+    char *mime_types = NULL;
+    size_t len = 0;
+    size_t pos = 0;
+
+    /* Calculate total length of the mime list */
+    tll_foreach(*mime_list, it)
+        len += strlen(it->item) + 1;
+
+    mime_types = xmalloc(len + 1);
+    mime_types[0] = '\0';
+
+    tll_foreach(*mime_list, it) {
+        strcpy(mime_types + pos, it->item);
+        pos += strlen(it->item);
+        mime_types[pos++] = ' ';
+    }
+
+    if (len > 0) {
+        /* Shave off the last ' ' */
+        len--;
+        mime_types[len] = '\0';
+    } else {
+        mime_types[0] = '\0';
+    }
+
+    char *encoded_mime_list = base64_encode_oneshot(mime_types, len);
+    term_to_slave(term, encoded_mime_list, strlen(encoded_mime_list));
+    free(encoded_mime_list);
+
+    free(mime_types);
+    term_to_slave(term, "\033\\", 2);
+    term_to_slave(term, "\033]5522;type=read:status=DONE\033\\", 30);
+}
+
+
+static void
+kitty_clipboard_read_next_mime_type(struct clip_context *ctx)
+{
+    struct terminal *term = ctx->term;
+    struct seat *seat = ctx->seat;
+
+    xassert(term->is_sending_paste_data);
+    xassert(ctx->kitty.encoded_mime_type == NULL);
+    xassert(tll_length(ctx->kitty.mime_types) > 0);
+
+    /* Pop next mime-type to read */
+    char *mime_type = tll_pop_front(ctx->kitty.mime_types);
+    const size_t mime_len = strlen(mime_type);
+
+    ctx->kitty.encoded_mime_type = base64_encode_oneshot(mime_type, mime_len);
+
+    term_paste_data_to_slave(term, "\033]5522;type=read:status=OK\033\\", 28);
+    term_paste_data_to_slave(term, "\033]5522;type=read:status=DATA:mime=", 34);
+    term_paste_data_to_slave(term, ctx->kitty.encoded_mime_type,
+                             strlen(ctx->kitty.encoded_mime_type));
+    term_paste_data_to_slave(term, ";", 1);
+
+    if (!ctx->kitty.from_primary) {
+        text_from_clipboard(
+            seat, term, true, &from_clipboard_cb, &from_clipboard_done,
+            ctx, mime_type);
+    } else {
+        text_from_primary(
+            seat, term, true, &from_clipboard_cb, &from_clipboard_done,
+            ctx, mime_type);
+    }
+
+    free(mime_type);
+}
+
+static void
+kitty_clipboard_read(struct terminal *term, bool primary, char *mime_types)
+{
+    LOG_DBG("OSC-5522: read: primary=%d, mime-type=%s", primary, mime_types);
+
+    if (!term_osc_paste_allowed(term)) {
+        LOG_DBG("OSC-5522: ignoring paste request: disabled in configuration");
+        term_to_slave(term, "\033]5522;type=read:status=EPERM\033\\", 31);
+        return;
+    }
+
+    if (term->is_sending_paste_data) {
+        term_to_slave(term, "\033]5522;type=read:status=EBUSY\033\\", 31);
+        return;
+    }
+
+    /* Find a seat in which the terminal has focus */
+    struct seat *seat = term_first_focused_seat(term);
+    if (seat == NULL) {
+        LOG_WARN("OSC-5522: client tried to read clipboard data "
+                 "while window was unfocused");
+        term_to_slave(term, "\033]5522;type=read:status=ENOSYS\033\\", 32);
+        return;
+    }
+
+    struct clip_context *ctx = xmalloc(sizeof(*ctx));
+    *ctx = (struct clip_context) {
+        .seat = seat,
+        .term = term,
+        .kitty = {
+            .is_kitty = true,
+            .from_primary = primary,
+            .mime_types = tll_init(),
+        },
+    };
+
+    /* Split upt the space-separated list of mime-types we're about to read */
+    for (char *save = NULL, *mime_type = strtok_r(mime_types, " ", &save);
+         mime_type != NULL;
+         mime_type = strtok_r(NULL, " ", &save))
+    {
+        tll_push_back(ctx->kitty.mime_types, xstrdup(mime_type));
+    }
+
+    /* Start reading the first mime-type */
+    term->is_sending_paste_data = true;
+    kitty_clipboard_read_next_mime_type(ctx);
+}
+
+void
+kitty_clipboard_reset(struct terminal *term)
+{
+    free(term->kitty_clipboard.active_mime_type);
+    free(term->kitty_clipboard.data);
+
+    tll_foreach(term->kitty_clipboard.committed_mime_data, it) {
+        struct kitty_mime_data *mime_data = &it->item;
+        free(mime_data->mime_type);
+        free(mime_data->data);
+        tll_remove(term->kitty_clipboard.committed_mime_data, it);
+    }
+
+    tll_foreach(term->kitty_clipboard.mime_aliases, it) {
+        struct kitty_mime_alias *alias = &it->item;
+        free(alias->target);
+        free(alias->alias);
+        tll_remove(term->kitty_clipboard.mime_aliases, it);
+    }
+
+    term->kitty_clipboard.for_primary = false;
+    term->kitty_clipboard.has_error = false;
+    term->kitty_clipboard.error = NULL;
+    term->kitty_clipboard.active_mime_type = NULL;
+    term->kitty_clipboard.data = NULL;
+    term->kitty_clipboard.data_len = 0;
+}
+
+static void
+kitty_clipboard_wdata_commit(struct terminal *term)
+{
+    if (term->kitty_clipboard.active_mime_type == NULL)
+        return;
+
+    LOG_DBG("committing %zu bytes of %s data",
+            term->kitty_clipboard.data_len,
+            term->kitty_clipboard.active_mime_type);
+
+    tll_push_back(term->kitty_clipboard.committed_mime_data,
+                  ((struct kitty_mime_data){
+                      .mime_type = term->kitty_clipboard.active_mime_type,
+                      .data = term->kitty_clipboard.data,
+                      .data_len = term->kitty_clipboard.data_len}));
+
+    term->kitty_clipboard.active_mime_type = NULL;
+    term->kitty_clipboard.data = NULL;
+    term->kitty_clipboard.data_len = 0;
+}
+
+static void
+kitty_clipboard_write_finish(struct terminal *term)
+{
+    if (term->kitty_clipboard.has_error) {
+        /* There were error(s) along the way - report the first error */
+        char reply[64];
+        int n = snprintf(reply, sizeof(reply),
+                         "\033]5522;type=write:status=%s\033\\",
+                         term->kitty_clipboard.error);
+        term_to_slave(term, reply, n);
+        return;
+    }
+
+    /*
+     * No errors, now it's time to actually write to the clipboard
+     */
+
+    struct seat *seat = term_first_focused_seat(term);
+    if (seat == NULL) {
+        LOG_WARN("OSC-5522: client tried to write6 clipboard data "
+                 "while window was unfocused");
+        term_to_slave(term, "\033]5522;type=write:status=ENOSYS\033\\", 33);
+        return;
+    }
+
+    const size_t data_count = tll_length(term->kitty_clipboard.committed_mime_data);
+    const size_t mime_count = data_count + tll_length(term->kitty_clipboard.mime_aliases);
+
+    /* Package clipboard contents for text_to_{clipboard,primary}() */
+    struct kitty_clipboard_offer clip;
+    clip.data = xmalloc(data_count * sizeof(seat->clipboard.kitty.data[0]));
+    clip.data_len = xmalloc(data_count * sizeof(seat->clipboard.kitty.data_len[0]));
+    clip.data_count = data_count;
+    clip.mime_data_map = xmalloc(mime_count * sizeof(seat->clipboard.kitty.mime_data_map[0]));
+    clip.mime_data_map_count = mime_count;
+
+    size_t i = 0;
+    tll_foreach(term->kitty_clipboard.committed_mime_data, it) {
+        clip.data[i] = it->item.data;
+        clip.data_len[i] = it->item.data_len;
+        clip.mime_data_map[i].mime_type = it->item.mime_type;
+        clip.mime_data_map[i].data_idx = i;
+
+        i++;
+
+        /* Remove without freeing, data is now owned by clip */
+        tll_remove(term->kitty_clipboard.committed_mime_data, it);
+    }
+
+    tll_foreach(term->kitty_clipboard.mime_aliases, it) {
+        const struct kitty_mime_alias *alias = &it->item;
+
+        /* Find target index */
+        ssize_t idx = -1;
+        for (size_t j = 0; j < data_count; j++) {
+            if (streq(clip.mime_data_map[j].mime_type, alias->target)) {
+                idx = j;
+                break;
+            }
+        }
+        xassert(idx >= 0);
+        xassert(idx < data_count);
+
+        clip.mime_data_map[i].mime_type = alias->alias;
+        clip.mime_data_map[i].data_idx = idx;
+
+        /* TODO: can we make target point to the original mime-type, so that we don't have to free it here? */
+        free(alias->target);
+        tll_remove(term->kitty_clipboard.mime_aliases, it);
+    }
+
+    if (!term->kitty_clipboard.for_primary)
+        text_to_clipboard(seat, term, NULL, &clip, seat->kbd.serial);
+    else
+        text_to_primary(seat, term, NULL, &clip, seat->kbd.serial);
+
+    term_to_slave(term, "\033]5522;type=write:status=DONE\033\\", 31);
+}
+
+static void
+kitty_clipboard(struct terminal *term, char *string)
+{
+    char *ctx = NULL;
+    char *params = strtok_r(string, ";", &ctx);
+    char *encoded_payload = strtok_r(NULL, ";", &ctx);
+
+    enum { UNSPECIFIED, READ, WRITE, WDATA, WALIAS } type = UNSPECIFIED;
+    enum { CLIPBOARD, PRIMARY } location = CLIPBOARD;
+    const char *encoded_mime_type = NULL;
+
+    /* Parse the parameter (key/value pairs) section */
+    ctx = NULL;
+    for (char *p = strtok_r(params, ":", &ctx);
+         p != NULL;
+         p = strtok_r(NULL, ":", &ctx))
+    {
+        char *value = strchr(p, '=');
+        if (value == NULL)
+            continue;
+
+        *value = '\0';
+        value++;
+
+        LOG_DBG("OSC-5522: param: %s=%s", p, value);
+
+        if (streq(p, "type")) {
+            if (streq(value, "read"))
+                type = READ;
+            else if (streq(value, "write"))
+                type = WRITE;
+            else if (streq(value, "wdata"))
+                type = WDATA;
+            else if (streq(value, "walias"))
+                type = WALIAS;
+            else
+                LOG_WARN("OSC-5522: invalid 'type': %s", value);
+        }
+
+        else if (streq(p, "loc")) {
+            if (streq(value, "primary"))
+                location = PRIMARY;
+            else
+                LOG_WARN("OSC-5522: invalid 'loc': %s", value);
+        }
+
+        else if (streq(p, "mime")) {
+            encoded_mime_type = value;
+        }
+
+        else if (streq(p, "pw"))
+            ;
+        else if (streq(p, "name"))
+            ;
+        else
+            LOG_WARN("OSC-5522: unrecognized key/value parameter: %s=%s",
+                     p, value);
+    }
+
+    if (type == UNSPECIFIED) {
+        LOG_WARN("OSC-5522: 'type' not specified");
+        /* Can't reply with status=EINVAL since we don't have a valid type */
+        return;
+    }
+
+    char *mime_type = encoded_mime_type != NULL
+        ? base64_decode(encoded_mime_type, NULL)
+        : NULL;
+
+    size_t payload_len = 0;
+    char *payload = encoded_payload != NULL
+        ? base64_decode(encoded_payload, &payload_len)
+        : NULL;
+
+    switch (type) {
+    case READ:
+        if (unlikely(payload == NULL))
+            term_to_slave(term, "\033]5522;type=read:status=EINVAL\033\\", 32);
+        else {
+            if (streq(payload, "."))
+                kitty_clipboard_query(term, location == PRIMARY);
+            else
+                kitty_clipboard_read(term, location == PRIMARY, payload);
+        }
+        break;
+
+    case WRITE: {
+        /* Reset */
+        kitty_clipboard_reset(term);
+
+        if (!term_osc_copy_allowed(term)) {
+            LOG_DBG("OSC-5522: ignoring copy request: disabled in configuration");
+            term->kitty_clipboard.has_error = true;
+            term->kitty_clipboard.error = "EPERM";
+        } else if (term->is_sending_paste_data) {
+            term->kitty_clipboard.has_error = true;
+            term->kitty_clipboard.error = "EBUSY";
+        } else
+            term->kitty_clipboard.for_primary = location == PRIMARY;
+
+        break;
+    }
+
+    case WDATA:
+        if (encoded_mime_type == NULL && encoded_payload == NULL) {
+            /* This was the last packet */
+            kitty_clipboard_wdata_commit(term);
+            kitty_clipboard_write_finish(term);
+            kitty_clipboard_reset(term);
+        } else if (!term->kitty_clipboard.has_error) {
+            if (unlikely(mime_type == NULL || payload == NULL)) {
+                term->kitty_clipboard.has_error = true;
+                term->kitty_clipboard.error = "EINVAL";
+            } else {
+                if (term->kitty_clipboard.active_mime_type == NULL ||
+                    !streq(term->kitty_clipboard.active_mime_type, mime_type))
+                {
+                    /*
+                     * This chunk has a different mime-type than the
+                     * last one. We need to commit the last one, start
+                     * a new buffer for the new mime-type.
+                     */
+
+                    if (term->kitty_clipboard.active_mime_type != NULL)
+                        kitty_clipboard_wdata_commit(term);
+
+                    term->kitty_clipboard.active_mime_type = mime_type;
+                    mime_type = NULL;
+                }
+
+                const size_t old_len = term->kitty_clipboard.data_len;
+                const size_t new_len = old_len + payload_len;
+                term->kitty_clipboard.data = xrealloc(term->kitty_clipboard.data, new_len);
+
+                memcpy(&term->kitty_clipboard.data[old_len], payload, payload_len);
+                term->kitty_clipboard.data_len = new_len;
+            }
+        }
+
+        break;
+
+    case WALIAS:
+        if (!term->kitty_clipboard.has_error) {
+            if (unlikely(mime_type == NULL || payload == NULL)) {
+                term->kitty_clipboard.has_error = true;
+                term->kitty_clipboard.error = "EINVAL";
+            } else {
+                /* Aliases is a space separated list of mime-types */
+                char *save = NULL;
+                for (const char *alias = strtok_r(payload, " ", &save);
+                     alias != NULL;
+                     alias = strtok_r(NULL, " ", &save))
+                {
+                    tll_push_back(
+                        term->kitty_clipboard.mime_aliases,
+                        ((struct kitty_mime_alias){
+                            .target = xstrdup(mime_type),
+                            .alias = xstrdup(alias)}));
+                }
+            }
+        }
+        break;
+
+    case UNSPECIFIED:
+        BUG("'type' is unspecified");
+        break;
+    }
+
+    free(mime_type);
+    free(payload);
 }
 
 static void
@@ -1500,6 +1968,9 @@ osc_dispatch(struct terminal *term)
 
     case 52:  /* Copy to/from clipboard/primary */
         osc_selection(term, string);
+        break;
+    case 5522:
+        kitty_clipboard(term, string);
         break;
 
     case 66:  /* text-size protocol (kitty) */
