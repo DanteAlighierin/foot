@@ -1,6 +1,6 @@
 # Changelog
 
-* [Unreleased](#unreleased)
+* [1.27.0](#1-27-0)
 * [1.26.1](#1-26-1)
 * [1.26.0](#1-26-0)
 * [1.25.0](#1-25-0)
@@ -69,7 +69,8 @@
 * [1.2.0](#1-2-0)
 
 
-## Unreleased
+## 1.27.0
+
 ### Added
 
 * `url.style=none|single|double|curly|dotted|dashed` option added,
@@ -91,8 +92,6 @@
 [2323]: https://codeberg.org/dnkl/foot/issues/2323
 
 
-### Deprecated
-### Removed
 ### Fixed
 
 * Other output (key presses, query replies etc) being mixed with paste
@@ -109,10 +108,6 @@
 [2316]: https://codeberg.org/dnkl/foot/issues/2316
 [2324]: https://codeberg.org/dnkl/foot/issues/2324
 [2335]: https://codeberg.org/dnkl/foot/issues/2335
-
-
-### Security
-### Contributors
 
 
 ## 1.26.1
