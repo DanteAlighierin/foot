@@ -10,6 +10,9 @@
 #define LOG_ENABLE_DBG 0
 #include "log.h"
 #include "debug.h"
+#include "macros.h"
+#include "util.h"
+#include "xmalloc.h"
 
 enum {
     P = 1 << 6, // Padding byte (=)
@@ -102,16 +105,16 @@ invalid:
     return NULL;
 }
 
-char *
-base64_encode(const uint8_t *data, size_t size)
+static inline size_t ALWAYS_INLINE
+base64_out_size_for(size_t in_size)
+{
+    return (in_size + 2) / 3 * 4 + 1;  /* +1 since we always NULL terminate */
+}
+
+static size_t
+base64_encode_to_buffer(const uint8_t *data, size_t size, char *out)
 {
     xassert(size % 3 == 0);
-    if (unlikely(size % 3 != 0))
-        return NULL;
-
-    char *ret = malloc(size / 3 * 4 + 1);
-    if (unlikely(ret == NULL))
-        return NULL;
 
     for (size_t i = 0, o = 0; i < size; i += 3, o += 4) {
         int x = data[i + 0];
@@ -130,23 +133,40 @@ base64_encode(const uint8_t *data, size_t size)
         char c2 = lookup[c];
         char c3 = lookup[d];
 
-        ret[o + 0] = c0;
-        ret[o + 1] = c1;
-        ret[o + 2] = c2;
-        ret[o + 3] = c3;
+        out[o + 0] = c0;
+        out[o + 1] = c1;
+        out[o + 2] = c2;
+        out[o + 3] = c3;
 
         LOG_DBG("base64: encode: %c%c%c%c", c0, c1, c2, c3);
     }
 
-    ret[size / 3 * 4] = '\0';
+    const size_t out_len = size / 3 * 4;
+    out[out_len] = '\0';
+    return out_len;
+}
+
+char *
+base64_encode(const void *data, size_t size)
+{
+    if (unlikely(size % 3 != 0))
+        return NULL;
+
+    char *ret = malloc(base64_out_size_for(size));
+    if (unlikely(ret == NULL))
+        return NULL;
+
+    base64_encode_to_buffer(data, size, ret);
     return ret;
 }
 
 void
-base64_encode_final(const uint8_t *data, size_t size, char result[4])
+base64_encode_final(const void *_data, size_t size, char result[4])
 {
     xassert(size > 0);
     xassert(size < 3);
+
+    const uint8_t *data = _data;
 
     uint32_t v = 0;
     if (size >= 1)
@@ -169,4 +189,80 @@ base64_encode_final(const uint8_t *data, size_t size, char result[4])
     result[3] = c3;
 
     LOG_DBG("base64: encode: %c%c%c%c", c0, c1, c2, c3);
+}
+
+char *
+base64_encode_oneshot(const void *data, size_t size)
+{
+    const size_t encoded_size = base64_out_size_for(size);
+
+    char *encoded = malloc(encoded_size);
+    if (unlikely(encoded == NULL))
+        return NULL;
+
+    size_t out_len = base64_encode_to_buffer(data, size / 3 * 3, encoded);
+
+    const size_t remaining = size % 3;
+    if (remaining == 0)
+        return encoded;
+
+    base64_encode_final(&((const uint8_t *)data)[size - remaining],
+                        remaining, &encoded[out_len]);
+    encoded[out_len + 4] = '\0';
+    return encoded;
+}
+
+UNITTEST
+{
+    char *encoded = NULL;
+
+    encoded = base64_encode("", 0);
+    xassert(streq(encoded, ""));
+    free(encoded);
+
+    encoded = base64_encode_oneshot("123", 3);
+    xassert(streq(encoded, "MTIz"));
+    free(encoded);
+
+    encoded = base64_encode_oneshot("123456", 6);
+    xassert(streq(encoded, "MTIzNDU2"));
+    free(encoded);
+}
+
+UNITTEST
+{
+    char *encoded = NULL;
+
+    encoded = base64_encode_oneshot("", 0);
+    xassert(streq(encoded, ""));
+    free(encoded);
+
+    encoded = base64_encode_oneshot("1", 1);
+    xassert(streq(encoded, "MQ=="));
+    free(encoded);
+
+    encoded = base64_encode_oneshot("12", 2);
+    xassert(streq(encoded, "MTI="));
+    free(encoded);
+
+    encoded = base64_encode_oneshot("123", 3);
+    xassert(streq(encoded, "MTIz"));
+    free(encoded);
+
+    encoded = base64_encode_oneshot("1234", 4);
+    xassert(streq(encoded, "MTIzNA=="));
+    free(encoded);
+
+    encoded = base64_encode_oneshot("12345", 5);
+    xassert(streq(encoded, "MTIzNDU="));
+    free(encoded);
+
+    encoded = base64_encode_oneshot("123456", 6);
+    xassert(streq(encoded, "MTIzNDU2"));
+    free(encoded);
+
+    encoded = base64_encode_oneshot("hello world", 11);
+    xassert(streq(encoded, "aGVsbG8gd29ybGQ="));
+    free(encoded);
+
 }
