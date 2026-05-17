@@ -72,6 +72,11 @@
 
 ## Unreleased
 ### Added
+
+* Support for OSC-5522, Kitty's extended variant of OSC-52; system
+  clipboard access, with full support for all mime-types.
+
+
 ### Changed
 ### Deprecated
 ### Removed
