@@ -739,6 +739,10 @@ All _OSC_ sequences begin with *\\E]*, sometimes abbreviated _OSC_.
 :  Copy _Pd_ (base64 encoded text) to the clipboard. _Pc_ denotes the
    target: *c* targets the clipboard and *s* and *p* the primary
    selection.
+|  \\E] 5522 ; _params_ ; _payload_ \\E\\
+:  kitty
+:  Copy/paste from/to the clipboard (and primary selection). Full
+   access to all offered mime-types.
 |  \\E] 66 ; _params_ ; text \\E\\ 
 :  kitty
 :  Text sizing protocol (only 'w', width, supported)
