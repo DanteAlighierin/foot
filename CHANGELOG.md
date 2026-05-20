@@ -81,9 +81,11 @@
   content ([#2353][2353]).
 * DECCRA not clamping or verifying the destination rectangle
   ([#2352][2352]).
+* Empty selection clearing the clipboard ([#2327][2327]).
 
 [2353]: https://codeberg.org/dnkl/foot/issues/2353
 [2352]: https://codeberg.org/dnkl/foot/issues/2352
+[2327]: https://codeberg.org/dnkl/foot/issues/2327
 
 
 ### Security
