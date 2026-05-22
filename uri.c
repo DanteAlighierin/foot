@@ -195,7 +195,9 @@ uri_parse(const char *uri, size_t len,
             encoded_len -= prefix_len;
             decoded_len += prefix_len;
 
-            if (hex2nibble(next[1]) <= 15 && hex2nibble(next[2]) <= 15) {
+            if (encoded_len >= 3 &&
+                hex2nibble(next[1]) <= 15 && hex2nibble(next[2]) <= 15)
+            {
                 *p++ = hex2nibble(next[1]) << 4 | hex2nibble(next[2]);
                 decoded_len++;
                 encoded_len -= 3;
@@ -415,4 +417,31 @@ UNITTEST
     xassert(streq(path, "/this/is/the path#fragment?query1=abc&query2=def")); free(path);
     xassert(query == NULL);
     xassert(fragment == NULL);
+}
+
+UNITTEST
+{
+    /* Malformed URI, trailing '%' */
+    const char uri[] = "file:///%ABNOT-PART-OF-INPUT";
+    char *path;
+    uri_parse(uri, 9, NULL, NULL, NULL, NULL, NULL, &path, NULL, NULL);
+    xassert(streq(path, "/%")); free(path);
+}
+
+UNITTEST
+{
+    /* Malformed URI, trailing '%2' */
+    const char uri[] = "file:///%2ANOT-PART-OF-INPUT";
+    char *path;
+    uri_parse(uri, 10, NULL, NULL, NULL, NULL, NULL, &path, NULL, NULL);
+    xassert(streq(path, "/%2")); free(path);
+}
+
+UNITTEST
+{
+    /* Malformed URI, trailing '%ag' */
+    const char uri[] = "file:///%ag";
+    char *path;
+    uri_parse(uri, sizeof(uri) - 1, NULL, NULL, NULL, NULL, NULL, &path, NULL, NULL);
+    xassert(streq(path, "/%ag")); free(path);
 }

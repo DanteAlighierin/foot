@@ -76,6 +76,13 @@
 ### Deprecated
 ### Removed
 ### Fixed
+
+* Out-of-bounds read when parsing URIs with malformed %-encoded
+  content ([#2353][2353]).
+
+[2353]: https://codeberg.org/dnkl/foot/issues/2353
+
+
 ### Security
 ### Contributors
 
