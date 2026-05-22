@@ -567,7 +567,9 @@ kitty_clipboard_write_finish(struct terminal *term)
         /* Remove without freeing, data is now owned by clip */
         tll_remove(term->kitty_clipboard.committed_mime_data, it);
     }
+    xassert(i == data_count);
 
+    /* i keeps counting... */
     tll_foreach(term->kitty_clipboard.mime_aliases, it) {
         const struct kitty_mime_alias *alias = &it->item;
 
@@ -579,16 +581,28 @@ kitty_clipboard_write_finish(struct terminal *term)
                 break;
             }
         }
-        xassert(idx >= 0);
-        xassert(idx < data_count);
 
-        clip.mime_data_map[i].mime_type = alias->alias;
-        clip.mime_data_map[i].data_idx = idx;
+        if (likely(idx >= 0)) {
+            xassert(idx < data_count);
 
-        /* TODO: can we make target point to the original mime-type, so that we don't have to free it here? */
-        free(alias->target);
+            clip.mime_data_map[i].mime_type = alias->alias;
+            clip.mime_data_map[i].data_idx = idx;
+            i++;
+
+            /* TODO: can we make target point to the original mime-type, so that we don't have to free it here? */
+            free(alias->target);
+        } else {
+            LOG_WARN(
+                "OSC-5522: invalid WALIAS: %s is not a valid target mime-type",
+                alias->target);
+            free(alias->target);
+            free(alias->alias);
+        }
+
         tll_remove(term->kitty_clipboard.mime_aliases, it);
     }
+    xassert(i <= mime_count);  /* We _may_ have fewer, if there were invalid walias */
+    clip.mime_data_map_count = i;
 
     if (!term->kitty_clipboard.for_primary)
         text_to_clipboard(seat, term, NULL, &clip, seat->kbd.serial);
