@@ -2207,9 +2207,11 @@ sixel_geometry_reset(struct terminal *term)
 void
 sixel_geometry_set(struct terminal *term, unsigned width, unsigned height)
 {
-    LOG_DBG("sixel geometry set to %ux%u", width, height);
-    term->sixel.max_width = width;
-    term->sixel.max_height = height;
+    const unsigned new_width = min(width, SIXEL_MAX_WIDTH);
+    const unsigned new_height = min(height, SIXEL_MAX_HEIGHT);
+    LOG_DBG("sixel geometry set to %ux%u", new_width, new_height);
+    term->sixel.max_width = new_width;
+    term->sixel.max_height = new_height;
     sixel_geometry_report_current(term);
 }
 

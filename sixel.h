@@ -2,9 +2,13 @@
 
 #include "terminal.h"
 
-#define SIXEL_MAX_COLORS 1024u
-#define SIXEL_MAX_WIDTH 10000u
+#define SIXEL_MAX_COLORS  1024u
+#define SIXEL_MAX_WIDTH  10000u
 #define SIXEL_MAX_HEIGHT 10000u
+
+static_assert(SIXEL_MAX_WIDTH * SIXEL_MAX_HEIGHT ==
+              (size_t)SIXEL_MAX_WIDTH * SIXEL_MAX_HEIGHT,
+              "sixel max size triggers integer overflow");
 
 typedef void (*sixel_put)(struct terminal *term, uint8_t c);
 
