@@ -79,8 +79,11 @@
 
 * Out-of-bounds read when parsing URIs with malformed %-encoded
   content ([#2353][2353]).
+* DECCRA not clamping or verifying the destination rectangle
+  ([#2352][2352]).
 
 [2353]: https://codeberg.org/dnkl/foot/issues/2353
+[2352]: https://codeberg.org/dnkl/foot/issues/2352
 
 
 ### Security

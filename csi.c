@@ -774,7 +774,7 @@ params_to_rectangular_area(const struct terminal *term, int first_idx,
     int rel_bottom = vt_param_get(term, first_idx + 2, term->rows) - 1;
     *right = min(vt_param_get(term, first_idx + 3, term->cols) - 1, term->cols - 1);
 
-    if (rel_top > rel_bottom || *left > *right)
+    if (unlikely(rel_top > rel_bottom || *left > *right))
         return false;
 
     *top = term_row_rel_to_abs(term, rel_top);
@@ -2005,9 +2005,8 @@ csi_dispatch(struct terminal *term, uint8_t final)
             }
 
             int src_page = vt_param_get(term, 4, 1);
-
             int dst_rel_top = vt_param_get(term, 5, 1) - 1;
-            int dst_left = vt_param_get(term, 6, 1) - 1;
+            int dst_left = min(vt_param_get(term, 6, 1) - 1, term->cols - 1);
             int dst_page = vt_param_get(term, 7, 1);
 
             if (unlikely(src_page != 1 || dst_page != 1)) {
@@ -2020,6 +2019,18 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
             int dst_top = term_row_rel_to_abs(term, dst_rel_top);
             int dst_bottom = term_row_rel_to_abs(term, dst_rel_bottom);
+
+            if (unlikely(dst_left > dst_right || dst_bottom > dst_top))
+                break;
+
+            /*
+             * src validated by params_to_rectangular_area()
+             * dst validated above
+             */
+            xassert(src_bottom - src_top >= 0);
+            xassert(dst_bottom - dst_top >= 0);
+            xassert(src_right - src_left >= 0);
+            xassert(dst_right - dst_left >= 0);
 
             /* Target area outside the screen is clipped */
             const size_t row_count = min(src_bottom - src_top,
