@@ -326,6 +326,12 @@ kitty_clipboard_query(struct terminal *term, bool primary)
 
     LOG_DBG("OSC-5522: query mime-types: primary=%d", primary);
 
+    if (!term_osc_paste_allowed(term)) {
+        LOG_DBG("OSC-5522: ignoring paste request: disabled in configuration");
+        term_to_slave(term, "\033]5522;type=read:status=EPERM\033\\", 31);
+        return;
+    }
+
     /* Find a seat in which the terminal has focus */
     struct seat *seat = term_first_focused_seat(term);
     if (seat == NULL) {
