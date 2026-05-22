@@ -269,3 +269,150 @@ hostname_is_localhost(const char *hostname)
                 streq(hostname, "localhost") ||
                 streq(hostname, this_host)));
 }
+
+UNITTEST
+{
+    /* Valid URI, all components */
+    const char uri[] = "http://john:wick@www.foobar.com:80/this/is/the%20path?query1=abc&query2=def#fragment";
+
+    char *scheme, *user, *password, *host, *path, *query, *fragment;
+    uint16_t port = 0;
+
+    uri_parse(
+        uri, sizeof(uri) - 1, &scheme, &user, &password, &host, &port, &path,
+        &query, &fragment);
+    xassert(streq(scheme, "http")); free(scheme);
+    xassert(streq(user, "john")); free(user);
+    xassert(streq(password, "wick")); free(password);
+    xassert(streq(host, "www.foobar.com")); free(host);
+    xassert(port == 80);
+    xassert(streq(path, "/this/is/the path")); free(path);
+    xassert(streq(query, "query1=abc&query2=def")); free(query);
+    xassert(streq(fragment, "fragment")); free(fragment);
+}
+
+UNITTEST
+{
+    /* Valid URI, all components. Using file scheme, so query+fragment is treated as part of the path */
+    const char uri[] = "file://john:wick@www.foobar.com:80/this/is/the%20path?query1=abc&query2=def#fragment";
+
+    char *scheme, *user, *password, *host, *path, *query, *fragment;
+    uint16_t port = 0;
+
+    uri_parse(
+        uri, sizeof(uri) - 1, &scheme, &user, &password, &host, &port, &path,
+        &query, &fragment);
+    xassert(streq(scheme, "file")); free(scheme);
+    xassert(streq(user, "john")); free(user);
+    xassert(streq(password, "wick")); free(password);
+    xassert(streq(host, "www.foobar.com")); free(host);
+    xassert(port == 80);
+    xassert(streq(path, "/this/is/the path?query1=abc&query2=def#fragment")); free(path);
+    xassert(query == NULL);
+    xassert(fragment == NULL);
+}
+
+UNITTEST
+{
+    /* Test a valid URI containing all components, except password */
+    const char uri[] = "http://john@www.foobar.com:80/this/is/the%20path?query1=abc&query2=def#fragment";
+
+    char *scheme, *user, *password, *host, *path, *query, *fragment;
+    uint16_t port = 0;
+
+    uri_parse(
+        uri, sizeof(uri) - 1, &scheme, &user, &password, &host, &port, &path,
+        &query, &fragment);
+    xassert(streq(scheme, "http")); free(scheme);
+    xassert(streq(user, "john")); free(user);
+    xassert(password == NULL);
+    xassert(streq(host, "www.foobar.com")); free(host);
+    xassert(port == 80);
+    xassert(streq(path, "/this/is/the path")); free(path);
+    xassert(streq(query, "query1=abc&query2=def")); free(query);
+    xassert(streq(fragment, "fragment")); free(fragment);
+}
+
+UNITTEST
+{
+    /* Valid URI, all components, except user+password */
+    const char uri[] = "http://www.foobar.com:80/this/is/the%20path?query1=abc&query2=def#fragment";
+
+    char *scheme, *user, *password, *host, *path, *query, *fragment;
+    uint16_t port = 0;
+
+    uri_parse(
+        uri, sizeof(uri) - 1, &scheme, &user, &password, &host, &port, &path,
+        &query, &fragment);
+    xassert(streq(scheme, "http")); free(scheme);
+    xassert(user == NULL);
+    xassert(password == NULL);
+    xassert(streq(host, "www.foobar.com")); free(host);
+    xassert(port == 80);
+    xassert(streq(path, "/this/is/the path")); free(path);
+    xassert(streq(query, "query1=abc&query2=def")); free(query);
+    xassert(streq(fragment, "fragment")); free(fragment);
+}
+
+UNITTEST
+{
+    /* Valid URI, fragment, no query */
+    const char uri[] = "http://www.foobar.com:80/this/is/the%20path#fragment";
+
+    char *scheme, *user, *password, *host, *path, *query, *fragment;
+    uint16_t port = 0;
+
+    uri_parse(
+        uri, sizeof(uri) - 1, &scheme, &user, &password, &host, &port, &path,
+        &query, &fragment);
+    xassert(streq(scheme, "http")); free(scheme);
+    xassert(user == NULL);
+    xassert(password == NULL);
+    xassert(streq(host, "www.foobar.com")); free(host);
+    xassert(port == 80);
+    xassert(streq(path, "/this/is/the path")); free(path);
+    xassert(query == NULL);
+    xassert(streq(fragment, "fragment")); free(fragment);
+}
+
+UNITTEST
+{
+    /* Valid URI, query, no fragment */
+    const char uri[] = "http://www.foobar.com:80/this/is/the%20path?query1=abc&query2=def";
+
+    char *scheme, *user, *password, *host, *path, *query, *fragment;
+    uint16_t port = 0;
+
+    uri_parse(
+        uri, sizeof(uri) - 1, &scheme, &user, &password, &host, &port, &path,
+        &query, &fragment);
+    xassert(streq(scheme, "http")); free(scheme);
+    xassert(user == NULL);
+    xassert(password == NULL);
+    xassert(streq(host, "www.foobar.com")); free(host);
+    xassert(port == 80);
+    xassert(streq(path, "/this/is/the path")); free(path);
+    xassert(streq(query, "query1=abc&query2=def")); free(query);
+    xassert(fragment == NULL);
+}
+
+UNITTEST
+{
+    /* Malformed URI, fragment before query (treated as part of path instead) */
+    const char uri[] = "http://www.foobar.com:80/this/is/the%20path#fragment?query1=abc&query2=def";
+
+    char *scheme, *user, *password, *host, *path, *query, *fragment;
+    uint16_t port = 0;
+
+    uri_parse(
+        uri, sizeof(uri) - 1, &scheme, &user, &password, &host, &port, &path,
+        &query, &fragment);
+    xassert(streq(scheme, "http")); free(scheme);
+    xassert(user == NULL);
+    xassert(password == NULL);
+    xassert(streq(host, "www.foobar.com")); free(host);
+    xassert(port == 80);
+    xassert(streq(path, "/this/is/the path#fragment?query1=abc&query2=def")); free(path);
+    xassert(query == NULL);
+    xassert(fragment == NULL);
+}
