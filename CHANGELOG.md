@@ -92,6 +92,8 @@
 * Require xkbcommon >= 1.6.0. This has been the case for a while, due
   to our use of `XKB_KEYSYM_MAX`. Now it is formalized in
   `meson.build` ([#2379][2379]).
+* Block selection area incorrectly updated when selecting back
+  across the starting column.
 
 [2353]: https://codeberg.org/dnkl/foot/issues/2353
 [2352]: https://codeberg.org/dnkl/foot/issues/2352

@@ -1145,7 +1145,7 @@ selection_update(struct terminal *term, int col, int row)
         struct coord *pivot_end = &term->selection.pivot.end;
 
         if (term->selection.kind == SELECTION_BLOCK) {
-            if (new_end.col > pivot_start->col)
+            if (new_end.col >= pivot_start->col)
                 new_direction = SELECTION_RIGHT;
             else
                 new_direction = SELECTION_LEFT;
