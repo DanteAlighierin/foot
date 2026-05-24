@@ -94,11 +94,14 @@
   `meson.build` ([#2379][2379]).
 * Block selection area incorrectly updated when selecting back
   across the starting column.
+* Passing a very large value as CHT/CBT argument hangs the terminal
+  ([#2360][2360]).
 
 [2353]: https://codeberg.org/dnkl/foot/issues/2353
 [2352]: https://codeberg.org/dnkl/foot/issues/2352
 [2327]: https://codeberg.org/dnkl/foot/issues/2327
 [2379]: https://codeberg.org/dnkl/foot/issues/2379
+[2360]: https://codeberg.org/dnkl/foot/issues/2360
 
 
 ### Security

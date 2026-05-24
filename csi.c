@@ -1171,37 +1171,40 @@ csi_dispatch(struct terminal *term, uint8_t final)
 
         case 'I': {
             /* CHT - Tab Forward (param is number of tab stops to move through) */
-            for (int i = 0; i < vt_param_get(term, 0, 1); i++) {
-                int new_col = term->cols - 1;
-                tll_foreach(term->tab_stops, it) {
-                    if (it->item > term->grid->cursor.point.col) {
-                        new_col = it->item;
+            int count = vt_param_get(term, 0, 1);
+            int new_col = term->grid->cursor.point.col;
+            tll_foreach(term->tab_stops, it) {
+                if (it->item > new_col) {
+                    if (--count < 0) {
                         break;
                     }
+                    new_col = it->item;
                 }
-                xassert(new_col >= term->grid->cursor.point.col);
-
-                bool lcf = term->grid->cursor.lcf;
-                term_cursor_right(term, new_col - term->grid->cursor.point.col);
-                term->grid->cursor.lcf = lcf;
             }
+            xassert(new_col >= term->grid->cursor.point.col);
+
+            bool lcf = term->grid->cursor.lcf;
+            term_cursor_right(term, new_col - term->grid->cursor.point.col);
+            term->grid->cursor.lcf = lcf;
             break;
         }
 
-        case 'Z':
+        case 'Z': {
             /* CBT - Back tab (param is number of tab stops to move back through) */
-            for (int i = 0; i < vt_param_get(term, 0, 1); i++) {
-                int new_col = 0;
-                tll_rforeach(term->tab_stops, it) {
-                    if (it->item < term->grid->cursor.point.col) {
-                        new_col = it->item;
+            int count = vt_param_get(term, 0, 1);
+            int new_col = term->grid->cursor.point.col;
+            tll_rforeach(term->tab_stops, it) {
+                if (it->item < new_col) {
+                    if (--count < 0) {
                         break;
                     }
+                    new_col = it->item;
                 }
-                xassert(term->grid->cursor.point.col >= new_col);
-                term_cursor_left(term, term->grid->cursor.point.col - new_col);
             }
+            xassert(term->grid->cursor.point.col >= new_col);
+            term_cursor_left(term, term->grid->cursor.point.col - new_col);
             break;
+        }
 
         case 'h':
         case 'l': {
