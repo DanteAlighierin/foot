@@ -76,6 +76,8 @@
 
 * Do not allow codepoints to be merged into grapheme clusters directly
   after a cursor move ([#2383][2383]).
+* Dracula theme updated to latest official, and light theme alucard
+  added.
 
 [2383]: https://codeberg.org/dnkl/foot/issues/2383
 

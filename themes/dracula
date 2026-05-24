@@ -1,23 +1,43 @@
 # -*- conf -*-
-# Dracula
+# Dracula / Alucard
+# Source: https://github.com/dracula/foot
 
 [colors-dark]
-cursor=282a36 f8f8f2
 foreground=f8f8f2
 background=282a36
-regular0=000000  # black
-regular1=ff5555  # red
-regular2=50fa7b  # green
-regular3=f1fa8c  # yellow
-regular4=bd93f9  # blue
-regular5=ff79c6  # magenta
-regular6=8be9fd  # cyan
-regular7=bfbfbf  # white
-bright0=4d4d4d   # bright black
-bright1=ff6e67   # bright red
-bright2=5af78e   # bright green
-bright3=f4f99d   # bright yellow
-bright4=caa9fa   # bright blue
-bright5=ff92d0   # bright magenta
-bright6=9aedfe   # bright cyan
-bright7=e6e6e6   # bright white
+regular0=21222c # black
+regular1=ff5555 # red
+regular2=50fa7b # green
+regular3=f1fa8c # yellow
+regular4=bd93f9 # blue
+regular5=ff79c6 # magenta
+regular6=8be9fd # cyan
+regular7=f8f8f2 # white
+bright0=6272a4 # bright black
+bright1=ff6e6e # bright red
+bright2=69ff94 # bright green
+bright3=ffffa5 # bright yellow
+bright4=d6acff # bright blue
+bright5=ff92df # bright magenta
+bright6=a4ffff # bright cyan
+bright7=ffffff # bright white
+
+[colors-light]
+foreground=1f1f1f
+background=fffbeb
+regular0=fffbeb # white
+regular1=cb3a2a # red
+regular2=14710a # green
+regular3=846e15 # yellow
+regular4=644ac9 # blue
+regular5=a3144d # magenta
+regular6=036a96 # cyan
+regular7=1f1f1f # white
+bright0=6c664b # bright black
+bright1=d74c3d # bright red
+bright2=198d0c # bright green
+bright3=9e841a # bright yellow
+bright4=7862d0 # bright blue
+bright5=bf185a # bright magenta
+bright6=047fb4 # bright cyan
+bright7=2c2b31 # bright white
