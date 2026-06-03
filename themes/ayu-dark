@@ -1,0 +1,26 @@
+# -*- conf -*-
+# theme: Ayu Dark
+# upstream: https://github.com/ayu-theme/ayu-colors/blob/master/themes/dark.yaml
+
+[colors-dark]
+background=0d1017
+foreground=bfbdb6
+cursor=0d1017 ffb454
+
+regular0=0a0000     # black
+regular1=d75b63     # red
+regular2=94c230     # green
+regular3=e79e3a     # yellow
+regular4=40abe7     # blue
+regular5=bc90e7     # magenta
+regular6=7ecfb5     # cyan
+regular7=ffffff     # white
+
+bright0=0a0000      # bright black
+bright1=f07178      # bright red
+bright2=aad94c      # bright green
+bright3=ffb454      # bright yellow
+bright4=59c2ff      # bright blue
+bright5=d2a6ff      # bright magenta
+bright6=95e6cb      # bright cyan
+bright7=ffffff      # bright white
