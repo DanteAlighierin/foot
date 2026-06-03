@@ -2020,7 +2020,7 @@ csi_dispatch(struct terminal *term, uint8_t final)
             int dst_top = term_row_rel_to_abs(term, dst_rel_top);
             int dst_bottom = term_row_rel_to_abs(term, dst_rel_bottom);
 
-            if (unlikely(dst_left > dst_right || dst_bottom > dst_top))
+            if (unlikely(dst_left > dst_right || dst_top > dst_bottom))
                 break;
 
             /*
