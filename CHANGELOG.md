@@ -102,6 +102,8 @@
   ([#2360][2360]).
 * Sixel: crash when using a shared palette and gamma-correct blending
   has been enabled, or foot is using 10-bit surface ([#2370][2370]).
+* Kitty text-size protocol: fix crash when text is zero-length
+  ([#2364][2364]).
 
 [2353]: https://codeberg.org/dnkl/foot/issues/2353
 [2352]: https://codeberg.org/dnkl/foot/issues/2352
@@ -109,6 +111,7 @@
 [2379]: https://codeberg.org/dnkl/foot/issues/2379
 [2360]: https://codeberg.org/dnkl/foot/issues/2360
 [2370]: https://codeberg.org/dnkl/foot/issues/2370
+[2364]: https://codeberg.org/dnkl/foot/issues/2364
 
 
 ### Security

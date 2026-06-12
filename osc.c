@@ -1149,6 +1149,9 @@ kitty_text_size(struct terminal *term, char *string)
     *text = '\0';
     text++;
 
+    if (text[0] == '\0')
+        return;
+
     char32_t *wchars = ambstoc32(text);
     if (wchars == NULL)
         return;
