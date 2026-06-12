@@ -104,6 +104,8 @@
   has been enabled, or foot is using 10-bit surface ([#2370][2370]).
 * Kitty text-size protocol: fix crash when text is zero-length
   ([#2364][2364]).
+* Escape quotes in file names being DnD:ed on the command line
+  ([#2363][2363]).
 
 [2353]: https://codeberg.org/dnkl/foot/issues/2353
 [2352]: https://codeberg.org/dnkl/foot/issues/2352

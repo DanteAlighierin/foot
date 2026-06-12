@@ -2098,7 +2098,16 @@ decode_one_uri(struct clipboard_receive *ctx, char *uri, size_t len)
         if (ctx->quote_paths)
             ctx->cb("'", 1, ctx->user);
 
-        ctx->cb(path, strlen(path), ctx->user);
+        char *path_remaining = path;
+        for (char *next_quote = strchr(path_remaining, '\'');
+             next_quote != NULL;
+             path_remaining = next_quote + 1,
+                 next_quote = strchr(path_remaining, '\''))
+        {
+            ctx->cb(path_remaining, next_quote - path_remaining, ctx->user);
+            ctx->cb("\\'", 2, ctx->user);
+        }
+        ctx->cb(path_remaining, strlen(path_remaining), ctx->user);
 
         if (ctx->quote_paths)
             ctx->cb("'", 1, ctx->user);
