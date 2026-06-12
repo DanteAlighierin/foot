@@ -1888,8 +1888,8 @@ decgra(struct terminal *term, uint8_t c)
         unsigned ph = nparams > 2 ? term->sixel.params[2] : 0;
         unsigned pv = nparams > 3 ? term->sixel.params[3] : 0;
 
-        pan = pan > 0 ? pan : 1;
-        pad = pad > 0 ? pad : 1;
+        pan = pan > 0 ? min(pan, 5) : 1;
+        pad = pad > 0 ? min(pad, 5) : 1;
 
         if (likely(term->sixel.image.width == 0 &&
                    term->sixel.image.height == 0))

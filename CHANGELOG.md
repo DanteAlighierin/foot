@@ -78,8 +78,10 @@
   after a cursor move ([#2383][2383]).
 * Dracula theme updated to latest official, and light theme alucard
   added.
+* Sixels: pan/pad clamped to 5 ([#2371][2371]).
 
 [2383]: https://codeberg.org/dnkl/foot/issues/2383
+[2371]: https://codeberg.org/dnkl/foot/issues/2371
 
 
 ### Deprecated
