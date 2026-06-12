@@ -73,6 +73,13 @@
 ## Unreleased
 ### Added
 ### Changed
+
+* Do not allow codepoints to be merged into grapheme clusters directly
+  after a cursor move ([#2383][2383]).
+
+[2383]: https://codeberg.org/dnkl/foot/issues/2383
+
+
 ### Deprecated
 ### Removed
 ### Fixed

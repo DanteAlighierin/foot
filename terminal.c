@@ -4086,6 +4086,10 @@ term_print(struct terminal *term, char32_t wc, int width, bool insert_mode_disab
         xassert(!grid->cursor.lcf);
 
     grid->cursor.point.col = col;
+
+#if defined(FOOT_GRAPHEME_CLUSTERING)
+    term->vt.codepoint_merging_ok = true;
+#endif
 }
 
 static void
@@ -4126,6 +4130,9 @@ ascii_printer_fast(struct terminal *term, char32_t wc)
         xassert(!grid->cursor.lcf);
 
     grid->cursor.point.col = col;
+#if defined(FOOT_GRAPHEME_CLUSTERING)
+    term->vt.codepoint_merging_ok = true;
+#endif
 
     if (unlikely(row->extra != NULL)) {
         grid_row_uri_range_erase(row, uri_start, uri_start);
@@ -4210,7 +4217,11 @@ term_process_and_print_non_ascii(struct terminal *term, char32_t wc)
 {
     int width = c32width(wc);
     bool insert_mode_disable = false;
-    const bool grapheme_clustering = term->grapheme_shaping;
+    const bool grapheme_clustering = term->grapheme_shaping
+#if defined(FOOT_GRAPHEME_CLUSTERING)
+        && term->vt.codepoint_merging_ok
+#endif
+        ;
 
 #if !defined(FOOT_GRAPHEME_CLUSTERING)
     xassert(!grapheme_clustering);

@@ -264,6 +264,7 @@ struct vt {
     char32_t last_printed;
 #if defined(FOOT_GRAPHEME_CLUSTERING)
     utf8proc_int32_t grapheme_state;
+    bool codepoint_merging_ok;
 #endif
     char32_t utf8;
     struct {
@@ -994,5 +995,6 @@ static inline void term_reset_grapheme_state(struct terminal *term)
 {
 #if defined(FOOT_GRAPHEME_CLUSTERING)
     term->vt.grapheme_state = 0;
+    term->vt.codepoint_merging_ok = false;
 #endif
 }
