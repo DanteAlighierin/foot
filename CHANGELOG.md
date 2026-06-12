@@ -82,10 +82,14 @@
 * DECCRA not clamping or verifying the destination rectangle
   ([#2352][2352]).
 * Empty selection clearing the clipboard ([#2327][2327]).
+* Require xkbcommon >= 1.6.0. This has been the case for a while, due
+  to our use of `XKB_KEYSYM_MAX`. Now it is formalized in
+  `meson.build` ([#2379][2379]).
 
 [2353]: https://codeberg.org/dnkl/foot/issues/2353
 [2352]: https://codeberg.org/dnkl/foot/issues/2352
 [2327]: https://codeberg.org/dnkl/foot/issues/2327
+[2379]: https://codeberg.org/dnkl/foot/issues/2379
 
 
 ### Security
