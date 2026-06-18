@@ -2215,6 +2215,11 @@ wayl_win_destroy(struct wl_window *win)
         wl_surface_commit(win->scrollback_indicator.surface.surf);
     }
 
+    if (win->overlay.surface.surf != NULL) {
+        wl_surface_attach(win->overlay.surface.surf, NULL, 0, 0);
+        wl_surface_commit(win->overlay.surface.surf);
+    }
+
     /* Scrollback search */
     if (win->search.surface.surf != NULL) {
         wl_surface_attach(win->search.surface.surf, NULL, 0, 0);
