@@ -216,6 +216,7 @@ main(int argc, char *const *argv)
         {"term",                   required_argument, NULL, 't'},
         {"title",                  required_argument, NULL, 'T'},
         {"app-id",                 required_argument, NULL, 'a'},
+        {"class",                  required_argument, NULL, 'a'},
         {"toplevel-tag",           required_argument, NULL, TOPLEVEL_TAG_OPTION},
         {"login-shell",            no_argument,       NULL, 'L'},
         {"working-directory",      required_argument, NULL, 'D'},

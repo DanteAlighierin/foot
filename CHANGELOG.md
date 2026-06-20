@@ -72,6 +72,14 @@
 
 ## Unreleased
 ### Added
+
+* Command line option `--class`, an alias for `--app-id`. Intended to
+  be used by scripts and similar that wants to launch terminal
+  instances in a terminal agnostic way ([#2368][2368]).
+
+[2368]: https://codeberg.org/dnkl/foot/issues/2368
+
+
 ### Changed
 
 * Do not allow codepoints to be merged into grapheme clusters directly
