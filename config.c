@@ -4123,7 +4123,25 @@ config_font_parse(const char *pattern, struct config_font *font)
     FcPatternRemove(pat, FC_SIZE, 0);
     FcPatternRemove(pat, FC_PIXEL_SIZE, 0);
 
-    char *stripped_pattern = (char *)FcNameUnparse(pat);
+    /* Only the family part, with '\', '-', ':' and ',' \-escaped */
+    FcChar8 *escaped_family = FcPatternFormat(
+        pat, (const FcChar8 *)"%{+family{%{family|escape(\\\\-:,)}}}");
+
+    /* Everything but the family, size and pixelsize */
+    FcChar8 *rest = FcPatternFormat(
+        pat, (const FcChar8 *)"%{-family,size,pixelsize{%{=unparse}}}");
+
+    char *stripped_pattern = NULL;
+    if (escaped_family == NULL || rest == NULL) {
+        free(escaped_family);
+        free(rest);
+        stripped_pattern = (char *)FcNameUnparse(pat);
+    } else {
+        stripped_pattern = xasprintf("%s%s", escaped_family, rest);
+        free(escaped_family);
+        free(rest);
+    }
+
     FcPatternDestroy(pat);
 
     LOG_DBG("%s: pt-size=%.2f, px-size=%d", stripped_pattern, pt_size, px_size);
