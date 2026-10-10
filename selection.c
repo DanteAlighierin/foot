@@ -1140,17 +1140,22 @@ selection_update(struct terminal *term, int col, int row)
     struct coord new_start = term->selection.coords.start;
     struct coord new_end = {col, term->grid->view + row};
 
+    int rel_new_start_row = grid_row_abs_to_sb(term->grid, term->rows, new_start.row);
+    int rel_new_end_row = grid_row_abs_to_sb(term->grid, term->rows, new_end.row);
+
     LOG_DBG("selection updated: start = %d,%d, end = %d,%d -> %d, %d",
             term->selection.coords.start.row, term->selection.coords.start.col,
             term->selection.coords.end.row, term->selection.coords.end.col,
             new_end.row, new_end.col);
 
     /* Adjust start point if the selection has changed 'direction' */
-    if (!(new_end.row == new_start.row && new_end.col == new_start.col)) {
+    if (!(rel_new_end_row == rel_new_start_row && new_end.col == new_start.col)) {
         enum selection_direction new_direction = term->selection.direction;
 
         struct coord *pivot_start = &term->selection.pivot.start;
         struct coord *pivot_end = &term->selection.pivot.end;
+
+        int rel_pivot_start_row = grid_row_abs_to_sb(term->grid, term->rows, pivot_start->row);
 
         if (term->selection.kind == SELECTION_BLOCK) {
             if (new_end.col >= pivot_start->col)
@@ -1167,8 +1172,8 @@ selection_update(struct terminal *term, int col, int row)
                 new_start = *pivot_start;
             term->selection.direction = new_direction;
         } else {
-            if (new_end.row < pivot_start->row ||
-                (new_end.row == pivot_start->row &&
+            if (rel_new_end_row < rel_pivot_start_row ||
+                (rel_new_end_row == rel_pivot_start_row &&
                  new_end.col < pivot_start->col))
             {
                 /* New end point is before the start point */

@@ -91,10 +91,13 @@
 * Crash when a buggy compositor sends an `ime_enter()` event with a
   `NULL` surface ([#2467][2467]).
 * Possible memory leak when processing keymap data ([#2482][2482]).
+* Word-wise selection sometimes not working properly due to incorrect
+  selection direction ([#2483][2483]).
 
 [2432]: https://codeberg.org/dnkl/foot/pulls/2432
 [2467]: https://codeberg.org/dnkl/foot/issues/2467
 [2482]: https://codeberg.org/dnkl/foot/pulls/2482
+[2483]: https://codeberg.org/dnkl/foot/issues/2483
 
 
 ### Security
