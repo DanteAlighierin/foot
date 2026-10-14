@@ -600,9 +600,6 @@ keyboard_keymap(void *data, struct wl_keyboard *wl_keyboard,
         goto err;
     }
 
-    while (map_str[size - 1] == '\0')
-        size--;
-
     if (seat->kbd.xkb != NULL) {
         seat->kbd.xkb_keymap = xkb_keymap_new_from_buffer(
             seat->kbd.xkb, map_str, size, XKB_KEYMAP_FORMAT_TEXT_V1,

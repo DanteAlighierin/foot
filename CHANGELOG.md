@@ -90,9 +90,11 @@
   application exit simultaneously in a short window ([#2432][2432]).
 * Crash when a buggy compositor sends an `ime_enter()` event with a
   `NULL` surface ([#2467][2467]).
+* Possible memory leak when processing keymap data ([#2482][2482]).
 
 [2342]: https://codeberg.org/dnkl/foot/pulls/2432
 [2342]: https://codeberg.org/dnkl/foot/issues/2467
+[2482]: https://codeberg.org/dnkl/foot/pulls/2482
 
 
 ### Security
