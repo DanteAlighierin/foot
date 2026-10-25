@@ -93,11 +93,14 @@
 * Possible memory leak when processing keymap data ([#2482][2482]).
 * Word-wise selection sometimes not working properly due to incorrect
   selection direction ([#2483][2483]).
+* Crash in `xdg_output_handle_done()` if called when a terminal is in
+  the process of shutting down ([#2487][2487]).
 
 [2432]: https://codeberg.org/dnkl/foot/pulls/2432
 [2467]: https://codeberg.org/dnkl/foot/issues/2467
 [2482]: https://codeberg.org/dnkl/foot/pulls/2482
 [2483]: https://codeberg.org/dnkl/foot/issues/2483
+[2487]: https://codeberg.org/dnkl/foot/issues/2487
 
 
 ### Security

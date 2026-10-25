@@ -439,14 +439,15 @@ update_term_for_output_change(struct terminal *term)
         return;
     } else if (term->conf->dpi_aware) {
         /*
-	 * If fonts are sized according to DPI, it is possible for the cell
-	 * size to remain the same when display scale changes. This will not
-	 * change the surface buffer dimensions, but will change the logical
-	 * size of the window. To ensure that the compositor is made aware of
-	 * the proper logical size, force a resize rather than allowing
-	 * render_resize() to shortcut the notification if the buffer
-	 * dimensions remain the same.
-	 */
+         * If fonts are sized according to DPI, it is possible for the
+         * cell size to remain the same when display scale
+         * changes. This will not change the surface buffer
+         * dimensions, but will change the logical size of the
+         * window. To ensure that the compositor is made aware o the
+         * proper logical size, force a resize rather than allowing
+         * render_resize() to shortcut the notification if the buffer
+         * dimensions remain the same.
+         */
         resize_opts |= RESIZE_FORCE;
     }
 
@@ -464,6 +465,8 @@ update_terms_on_monitor(struct monitor *mon)
 
     tll_foreach(wayl->terms, it) {
         struct terminal *term = it->item;
+        if (unlikely(term->shutdown.in_progress))
+            continue;
 
         tll_foreach(term->window->on_outputs, it2) {
             if (it2->item == mon) {
